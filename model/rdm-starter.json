@@ -1,0 +1,497 @@
+{
+  "schemaVersion": "0.3",
+  "release": {
+    "key": "rdm-starter",
+    "name": "RDM Starter Model",
+    "version": "0.3.0"
+  },
+  "product": {
+    "name": "RDM Engine",
+    "description": "A model-driven reference data management engine"
+  },
+  "attributeTypes": [
+    {
+      "key": "description",
+      "name": "Description",
+      "valueType": "longText",
+      "features": { "searchable": true },
+      "ui": { "component": "textarea" }
+    },
+    {
+      "key": "active",
+      "name": "Active",
+      "valueType": "boolean",
+      "default": true,
+      "features": { "filterable": true }
+    },
+    {
+      "key": "domain-code",
+      "name": "Domain code",
+      "features": { "searchable": true, "unique": true }
+    },
+    {
+      "key": "codelist-code",
+      "name": "Codelist code",
+      "features": { "searchable": true, "unique": true }
+    },
+    {
+      "key": "translations-enabled",
+      "name": "Translations enabled",
+      "valueType": "boolean",
+      "default": false
+    },
+    {
+      "key": "hierarchical",
+      "name": "Hierarchical",
+      "valueType": "boolean",
+      "default": false
+    },
+    {
+      "key": "maximum-hierarchy-depth",
+      "name": "Maximum hierarchy depth",
+      "valueType": "integer",
+      "validation": { "minimum": 1 }
+    },
+    {
+      "key": "master-id",
+      "name": "Master ID",
+      "features": { "searchable": true, "unique": true }
+    },
+    {
+      "key": "value-code",
+      "name": "Value code",
+      "features": { "searchable": true }
+    },
+    {
+      "key": "value-name",
+      "name": "Value name",
+      "features": { "searchable": true }
+    },
+    {
+      "key": "sort-order",
+      "name": "Sort order",
+      "valueType": "integer",
+      "features": { "sortable": true }
+    },
+    { "key": "valid-from", "name": "Valid from", "valueType": "date" },
+    { "key": "valid-to", "name": "Valid to", "valueType": "date" },
+    {
+      "key": "system-code",
+      "name": "System code",
+      "features": { "searchable": true, "unique": true }
+    },
+    {
+      "key": "system-type",
+      "name": "System type",
+      "features": { "searchable": true, "filterable": true }
+    },
+    {
+      "key": "external-id",
+      "name": "External ID",
+      "features": { "searchable": true }
+    },
+    {
+      "key": "language-code",
+      "name": "Language code",
+      "features": { "searchable": true, "unique": true }
+    },
+    {
+      "key": "locale-code",
+      "name": "Locale code",
+      "features": { "searchable": true }
+    },
+    {
+      "key": "group-code",
+      "name": "Group code",
+      "features": { "searchable": true }
+    },
+    {
+      "key": "translated-name",
+      "name": "Translated name",
+      "features": { "searchable": true }
+    },
+    {
+      "key": "translated-description",
+      "name": "Translated description",
+      "valueType": "longText",
+      "features": { "searchable": true },
+      "ui": { "component": "textarea" }
+    }
+  ],
+  "objectTypes": [
+    {
+      "key": "domain",
+      "name": "Domain",
+      "pluralName": "Domains",
+      "description": "Top-level grouping of related reference data",
+      "icon": "layers",
+      "displayAttributeTypeKey": "domain-code",
+      "attributes": [
+        { "attributeTypeKey": "domain-code", "required": true, "order": 10 },
+        { "attributeTypeKey": "description", "order": 20 },
+        { "attributeTypeKey": "active", "order": 30 }
+      ],
+      "features": { "rootCreatable": true }
+    },
+    {
+      "key": "codelist",
+      "name": "Codelist",
+      "pluralName": "Codelists",
+      "description": "A governed list of canonical values",
+      "icon": "list",
+      "displayAttributeTypeKey": "codelist-code",
+      "attributes": [
+        { "attributeTypeKey": "codelist-code", "required": true, "order": 10 },
+        { "attributeTypeKey": "description", "order": 20 },
+        { "attributeTypeKey": "hierarchical", "order": 30 },
+        { "attributeTypeKey": "maximum-hierarchy-depth", "order": 40 },
+        { "attributeTypeKey": "translations-enabled", "order": 50 },
+        { "attributeTypeKey": "active", "order": 60 }
+      ],
+      "features": { "rootCreatable": false },
+      "behavior": { "parentRelationTypeKeys": ["domain-contains-codelist"] }
+    },
+    {
+      "key": "master-value",
+      "name": "Master value",
+      "pluralName": "Master values",
+      "description": "Canonical reference value independent of source systems",
+      "icon": "circle-dot",
+      "displayAttributeTypeKey": "value-name",
+      "attributes": [
+        { "attributeTypeKey": "master-id", "required": true, "order": 10 },
+        { "attributeTypeKey": "value-code", "required": true, "order": 20 },
+        { "attributeTypeKey": "value-name", "required": true, "order": 30 },
+        { "attributeTypeKey": "description", "order": 40 },
+        { "attributeTypeKey": "sort-order", "order": 50 },
+        { "attributeTypeKey": "active", "order": 60 },
+        { "attributeTypeKey": "valid-from", "order": 70 },
+        { "attributeTypeKey": "valid-to", "order": 80 }
+      ],
+      "features": { "rootCreatable": false },
+      "behavior": {
+        "parentRelationTypeKeys": ["codelist-contains-value", "master-value-has-child"]
+      }
+    },
+    {
+      "key": "system",
+      "name": "System",
+      "pluralName": "Systems",
+      "description": "An application providing or consuming reference values",
+      "icon": "server",
+      "displayAttributeTypeKey": "system-code",
+      "attributes": [
+        { "attributeTypeKey": "system-code", "required": true, "order": 10 },
+        { "attributeTypeKey": "system-type", "order": 20 },
+        { "attributeTypeKey": "description", "order": 30 },
+        { "attributeTypeKey": "active", "order": 40 }
+      ],
+      "features": { "rootCreatable": true }
+    },
+    {
+      "key": "system-group",
+      "name": "System group",
+      "pluralName": "System groups",
+      "description": "Optional grouping of values within a system",
+      "icon": "folder",
+      "displayAttributeTypeKey": "group-code",
+      "attributes": [
+        { "attributeTypeKey": "group-code", "required": true, "order": 10 },
+        { "attributeTypeKey": "description", "order": 20 },
+        { "attributeTypeKey": "active", "order": 30 }
+      ],
+      "features": { "rootCreatable": false },
+      "behavior": {
+        "parentRelationTypeKeys": ["system-contains-group", "system-group-has-child"]
+      }
+    },
+    {
+      "key": "system-value",
+      "name": "System value",
+      "pluralName": "System values",
+      "description": "A reference value represented by a source or target system",
+      "icon": "plug",
+      "displayAttributeTypeKey": "value-name",
+      "attributes": [
+        { "attributeTypeKey": "value-code", "required": true, "order": 10 },
+        { "attributeTypeKey": "value-name", "required": true, "order": 20 },
+        { "attributeTypeKey": "external-id", "order": 30 },
+        { "attributeTypeKey": "active", "order": 40 }
+      ],
+      "features": { "rootCreatable": false },
+      "behavior": {
+        "parentRelationTypeKeys": ["system-contains-value", "system-group-contains-value"]
+      }
+    },
+    {
+      "key": "language",
+      "name": "Language",
+      "pluralName": "Languages",
+      "description": "A language available for translated reference values",
+      "icon": "languages",
+      "displayAttributeTypeKey": "language-code",
+      "attributes": [
+        { "attributeTypeKey": "language-code", "required": true, "order": 10 },
+        { "attributeTypeKey": "locale-code", "order": 20 },
+        { "attributeTypeKey": "description", "order": 30 },
+        { "attributeTypeKey": "active", "order": 40 }
+      ],
+      "features": { "rootCreatable": true }
+    },
+    {
+      "key": "translation-group",
+      "name": "Translation group",
+      "pluralName": "Translation groups",
+      "description": "Groups translations within a language by reference-data subject",
+      "icon": "folder",
+      "displayAttributeTypeKey": "group-code",
+      "attributes": [
+        { "attributeTypeKey": "group-code", "required": true, "order": 10 },
+        { "attributeTypeKey": "description", "order": 20 },
+        { "attributeTypeKey": "active", "order": 30 }
+      ],
+      "features": { "rootCreatable": false },
+      "behavior": {
+        "parentRelationTypeKeys": ["language-contains-group", "translation-group-has-child"]
+      }
+    },
+    {
+      "key": "translation",
+      "name": "Translation",
+      "pluralName": "Translations",
+      "description": "Language-specific text attached to a governed object",
+      "icon": "text",
+      "displayAttributeTypeKey": "translated-name",
+      "attributes": [
+        { "attributeTypeKey": "translated-name", "required": true, "order": 10 },
+        { "attributeTypeKey": "translated-description", "order": 20 },
+        { "attributeTypeKey": "active", "order": 30 }
+      ],
+      "features": { "rootCreatable": false },
+      "behavior": { "parentRelationTypeKeys": ["translation-group-contains-translation"] }
+    }
+  ],
+  "relationTypes": [
+    {
+      "key": "domain-contains-codelist",
+      "reverseKey": "codelist-belongs-to-domain",
+      "name": "Contains codelist",
+      "reverseName": "Belongs to domain",
+      "features": { "parentOf": true, "creatableOnChildAdd": true }
+    },
+    {
+      "key": "codelist-contains-value",
+      "reverseKey": "value-belongs-to-codelist",
+      "name": "Contains value",
+      "reverseName": "Belongs to codelist",
+      "features": { "parentOf": true, "creatableOnChildAdd": true }
+    },
+    {
+      "key": "master-value-has-child",
+      "reverseKey": "master-value-has-parent",
+      "name": "Has child value",
+      "reverseName": "Has parent value",
+      "features": { "parentOf": true, "hierarchical": true }
+    },
+    {
+      "key": "system-contains-group",
+      "reverseKey": "system-group-belongs-to-system",
+      "name": "Contains system group",
+      "reverseName": "Belongs to system",
+      "features": { "parentOf": true, "creatableOnChildAdd": true }
+    },
+    {
+      "key": "system-group-has-child",
+      "reverseKey": "system-group-has-parent",
+      "name": "Has child system group",
+      "reverseName": "Has parent system group",
+      "features": { "parentOf": true, "hierarchical": true }
+    },
+    {
+      "key": "system-contains-value",
+      "reverseKey": "system-value-belongs-to-system",
+      "name": "Contains system value",
+      "reverseName": "Belongs to system",
+      "features": { "parentOf": true, "creatableOnChildAdd": true }
+    },
+    {
+      "key": "system-group-contains-value",
+      "reverseKey": "system-value-belongs-to-group",
+      "name": "Contains system value",
+      "reverseName": "Belongs to system group",
+      "features": { "parentOf": true, "creatableOnChildAdd": true }
+    },
+    {
+      "key": "system-value-maps-to-master",
+      "reverseKey": "master-value-represented-by-system-value",
+      "name": "Maps to master value",
+      "reverseName": "Is represented by system value",
+      "features": { "searchable": true }
+    },
+    {
+      "key": "language-contains-group",
+      "reverseKey": "translation-group-belongs-to-language",
+      "name": "Contains translation group",
+      "reverseName": "Belongs to language",
+      "features": { "parentOf": true, "creatableOnChildAdd": true }
+    },
+    {
+      "key": "translation-group-has-child",
+      "reverseKey": "translation-group-has-parent",
+      "name": "Has child translation group",
+      "reverseName": "Has parent translation group",
+      "features": { "parentOf": true, "hierarchical": true }
+    },
+    {
+      "key": "translation-group-contains-translation",
+      "reverseKey": "translation-belongs-to-group",
+      "name": "Contains translation",
+      "reverseName": "Belongs to translation group",
+      "features": { "parentOf": true, "creatableOnChildAdd": true }
+    },
+    {
+      "key": "translation-translates-master",
+      "reverseKey": "master-value-translated-by",
+      "name": "Translates master value",
+      "reverseName": "Is translated by",
+      "features": { "searchable": true }
+    }
+  ],
+  "objectTypeRelations": [
+    { "relationTypeKey": "domain-contains-codelist", "fromObjectTypeKey": "domain", "toObjectTypeKey": "codelist", "cardinality": "one-to-many" },
+    { "relationTypeKey": "codelist-contains-value", "fromObjectTypeKey": "codelist", "toObjectTypeKey": "master-value", "cardinality": "one-to-many" },
+    { "relationTypeKey": "master-value-has-child", "fromObjectTypeKey": "master-value", "toObjectTypeKey": "master-value", "cardinality": "one-to-many" },
+    { "relationTypeKey": "system-contains-group", "fromObjectTypeKey": "system", "toObjectTypeKey": "system-group", "cardinality": "one-to-many" },
+    { "relationTypeKey": "system-group-has-child", "fromObjectTypeKey": "system-group", "toObjectTypeKey": "system-group", "cardinality": "one-to-many" },
+    { "relationTypeKey": "system-contains-value", "fromObjectTypeKey": "system", "toObjectTypeKey": "system-value", "cardinality": "one-to-many" },
+    { "relationTypeKey": "system-group-contains-value", "fromObjectTypeKey": "system-group", "toObjectTypeKey": "system-value", "cardinality": "one-to-many" },
+    { "relationTypeKey": "system-value-maps-to-master", "fromObjectTypeKey": "system-value", "toObjectTypeKey": "master-value", "cardinality": "many-to-many" },
+    { "relationTypeKey": "language-contains-group", "fromObjectTypeKey": "language", "toObjectTypeKey": "translation-group", "cardinality": "one-to-many" },
+    { "relationTypeKey": "translation-group-has-child", "fromObjectTypeKey": "translation-group", "toObjectTypeKey": "translation-group", "cardinality": "one-to-many" },
+    { "relationTypeKey": "translation-group-contains-translation", "fromObjectTypeKey": "translation-group", "toObjectTypeKey": "translation", "cardinality": "one-to-many" },
+    { "relationTypeKey": "translation-translates-master", "fromObjectTypeKey": "translation", "toObjectTypeKey": "master-value", "cardinality": "many-to-many" }
+  ],
+  "applications": [
+    {
+      "key": "rdm-master",
+      "name": "RDM Master",
+      "description": "Canonical reference data organized into domains and codelists",
+      "icon": "database",
+      "color": "#6657d9",
+      "objectTypeKeys": ["domain", "codelist", "master-value"],
+      "defaultView": "domains",
+      "settings": { "importEnabled": true, "exportEnabled": true },
+      "views": [
+        { "key": "domains", "name": "Domains", "type": "table", "objectTypeKey": "domain", "config": { "columns": ["name", "domain-code", "description", "active"], "defaultSort": "domain-code" } },
+        { "key": "codelists", "name": "Codelists", "type": "table", "objectTypeKey": "codelist", "config": { "columns": ["name", "codelist-code", "hierarchical", "translations-enabled", "active"] } },
+        { "key": "master-values", "name": "Master values", "type": "tree", "objectTypeKey": "master-value", "config": { "columns": ["name", "master-id", "value-code", "value-name", "active"], "parentRelationTypes": ["codelist-contains-value", "master-value-has-child"] } }
+      ],
+      "details": [
+        {
+          "objectTypeKey": "domain",
+          "breadcrumbs": { "showApplication": true, "showObjectType": true, "showAncestors": true },
+          "header": { "titleField": "name", "subtitleField": "description", "showObjectType": true },
+          "panels": [
+            { "key": "codelists", "title": "Codelists", "type": "children", "region": "main", "order": 10, "config": { "objectTypeKeys": ["codelist"], "columns": ["name", "codelist-code", "hierarchical", "active"], "pageSize": 10 } },
+            { "key": "attributes", "title": "Domain details", "type": "attributes", "region": "side", "order": 10, "config": { "fields": ["domain-code", "description", "active"] } },
+            { "key": "hierarchy", "title": "Hierarchy", "type": "hierarchy", "region": "side", "order": 20, "config": { "showParent": false, "showAncestors": true } }
+          ]
+        },
+        {
+          "objectTypeKey": "codelist",
+          "breadcrumbs": { "showApplication": true, "showObjectType": true, "showAncestors": true },
+          "header": { "titleField": "name", "subtitleField": "description", "showObjectType": true },
+          "panels": [
+            { "key": "values", "title": "Master values", "type": "children", "region": "main", "order": 10, "config": { "objectTypeKeys": ["master-value"], "columns": ["name", "master-id", "value-code", "sort-order", "active"], "pageSize": 10 } },
+            { "key": "attributes", "title": "Codelist details", "type": "attributes", "region": "side", "order": 10, "config": { "fields": ["codelist-code", "description", "hierarchical", "maximum-hierarchy-depth", "translations-enabled", "active"] } },
+            { "key": "hierarchy", "title": "Hierarchy", "type": "hierarchy", "region": "side", "order": 20, "config": { "showParent": true, "showAncestors": true } }
+          ]
+        },
+        {
+          "objectTypeKey": "master-value",
+          "breadcrumbs": { "showApplication": true, "showObjectType": true, "showAncestors": true },
+          "header": { "titleField": "name", "subtitleField": "value-code", "showObjectType": true },
+          "panels": [
+            { "key": "children", "title": "Child values", "type": "children", "region": "main", "order": 10, "config": { "objectTypeKeys": ["master-value"], "columns": ["name", "master-id", "value-code", "sort-order", "active"], "pageSize": 10 } },
+            { "key": "mappings", "title": "Related system values", "type": "relations", "region": "main", "order": 20, "config": { "relationTypeKeys": ["system-value-maps-to-master"], "direction": "incoming", "columns": ["name", "objectType", "value-code", "value-name", "external-id", "active"] } },
+            { "key": "translations", "title": "Translations", "type": "relations", "region": "main", "order": 30, "config": { "relationTypeKeys": ["translation-translates-master"], "direction": "incoming", "columns": ["name", "objectType", "translated-name", "translated-description", "active"] } },
+            { "key": "attributes", "title": "Value details", "type": "attributes", "region": "side", "order": 10, "config": { "fields": ["master-id", "value-code", "value-name", "description", "sort-order", "active", "valid-from", "valid-to"] } },
+            { "key": "hierarchy", "title": "Hierarchy", "type": "hierarchy", "region": "side", "order": 20, "config": { "showParent": true, "showAncestors": true } }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "rdm-systems",
+      "name": "RDM Systems",
+      "description": "System-specific reference values and their mappings",
+      "icon": "network",
+      "color": "#167d78",
+      "objectTypeKeys": ["system", "system-group", "system-value", "master-value"],
+      "defaultView": "systems",
+      "settings": { "importEnabled": true, "exportEnabled": true },
+      "views": [
+        { "key": "systems", "name": "Systems", "type": "table", "objectTypeKey": "system", "config": { "columns": ["name", "system-code", "system-type", "description", "active"] } },
+        { "key": "system-values", "name": "System values", "type": "table", "objectTypeKey": "system-value", "config": { "columns": ["name", "value-code", "value-name", "external-id", "active"] } },
+        { "key": "mappings", "name": "Mappings", "type": "mappingGrid", "objectTypeKey": "system-value", "config": { "columns": ["name", "value-code", "value-name", "external-id", "active"], "sourceObjectTypeKey": "system-value", "targetObjectTypeKey": "master-value", "relationTypeKey": "system-value-maps-to-master" } }
+      ],
+      "details": [
+        {
+          "objectTypeKey": "system",
+          "breadcrumbs": { "showApplication": true, "showObjectType": true, "showAncestors": true },
+          "header": { "titleField": "name", "subtitleField": "description", "showObjectType": true },
+          "panels": [
+            { "key": "groups", "title": "System groups", "type": "children", "region": "main", "order": 10, "config": { "objectTypeKeys": ["system-group"], "columns": ["name", "group-code", "description", "active"], "pageSize": 10 } },
+            { "key": "values", "title": "Direct system values", "type": "table", "region": "main", "order": 20, "config": { "objectTypeKey": "system-value", "columns": ["name", "value-code", "value-name", "external-id", "active"], "filterByParent": true, "pageSize": 10 } },
+            { "key": "attributes", "title": "System details", "type": "attributes", "region": "side", "order": 10, "config": { "fields": ["system-code", "system-type", "description", "active"] } }
+          ]
+        },
+        {
+          "objectTypeKey": "system-value",
+          "breadcrumbs": { "showApplication": true, "showObjectType": true, "showAncestors": true },
+          "header": { "titleField": "name", "subtitleField": "value-code", "showObjectType": true },
+          "panels": [
+            { "key": "mappings", "title": "Master mappings", "type": "relations", "region": "main", "order": 10, "config": { "relationTypeKeys": ["system-value-maps-to-master"], "direction": "outgoing", "columns": ["name", "objectType", "master-id", "value-code", "value-name", "active"] } },
+            { "key": "attributes", "title": "System value details", "type": "attributes", "region": "side", "order": 10, "config": { "fields": ["value-code", "value-name", "external-id", "active"] } },
+            { "key": "hierarchy", "title": "Hierarchy", "type": "hierarchy", "region": "side", "order": 20, "config": { "showParent": true, "showAncestors": true } }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "rdm-translations",
+      "name": "RDM Translations",
+      "description": "Languages and translated representations of reference values",
+      "icon": "languages",
+      "color": "#c66b2c",
+      "objectTypeKeys": ["language", "translation-group", "translation", "master-value"],
+      "defaultView": "languages",
+      "settings": { "importEnabled": true, "exportEnabled": true },
+      "views": [
+        { "key": "languages", "name": "Languages", "type": "table", "objectTypeKey": "language", "config": { "columns": ["name", "language-code", "locale-code", "active"] } },
+        { "key": "translations", "name": "Translations", "type": "table", "objectTypeKey": "translation", "config": { "columns": ["name", "translated-name", "translated-description", "active"] } }
+      ],
+      "details": [
+        {
+          "objectTypeKey": "language",
+          "breadcrumbs": { "showApplication": true, "showObjectType": true, "showAncestors": true },
+          "header": { "titleField": "name", "subtitleField": "locale-code", "showObjectType": true },
+          "panels": [
+            { "key": "groups", "title": "Translation groups", "type": "children", "region": "main", "order": 10, "config": { "objectTypeKeys": ["translation-group"], "columns": ["name", "group-code", "description", "active"], "pageSize": 10 } },
+            { "key": "attributes", "title": "Language details", "type": "attributes", "region": "side", "order": 10, "config": { "fields": ["language-code", "locale-code", "description", "active"] } }
+          ]
+        },
+        {
+          "objectTypeKey": "translation",
+          "breadcrumbs": { "showApplication": true, "showObjectType": true, "showAncestors": true },
+          "header": { "titleField": "name", "subtitleField": "translated-name", "showObjectType": true },
+          "panels": [
+            { "key": "targets", "title": "Translated objects", "type": "relations", "region": "main", "order": 10, "config": { "relationTypeKeys": ["translation-translates-master"], "direction": "outgoing", "columns": ["name", "objectType", "value-code", "value-name", "active"] } },
+            { "key": "attributes", "title": "Translation details", "type": "attributes", "region": "side", "order": 10, "config": { "fields": ["translated-name", "translated-description", "active"] } },
+            { "key": "hierarchy", "title": "Hierarchy", "type": "hierarchy", "region": "side", "order": 20, "config": { "showParent": true, "showAncestors": true } }
+          ]
+        }
+      ]
+    }
+  ]
+}
