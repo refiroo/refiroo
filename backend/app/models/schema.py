@@ -237,6 +237,10 @@ class EngineModel(BaseModel):
     objectTypeRelations: list[ObjectTypeRelationDefinition]
     applications: list[ApplicationDefinition]
 
+    _attribute_types_by_key: dict[str, AttributeTypeDefinition] = {}
+    _object_types_by_key: dict[str, ObjectTypeDefinition] = {}
+    _relation_types_by_key: dict[str, RelationTypeDefinition] = {}
+
     @model_validator(mode="after")
     def validate_references(self) -> EngineModel:
         attribute_map = _unique_map(self.attributeTypes, "attribute type")
@@ -435,16 +439,20 @@ class EngineModel(BaseModel):
                             panel_path,
                         )
 
+        self._attribute_types_by_key = attribute_map
+        self._object_types_by_key = object_map
+        self._relation_types_by_key = relation_map
+
         return self
 
     def attribute_type(self, key: str) -> AttributeTypeDefinition | None:
-        return next((item for item in self.attributeTypes if item.key == key), None)
+        return self._attribute_types_by_key.get(key)
 
     def object_type(self, key: str) -> ObjectTypeDefinition | None:
-        return next((item for item in self.objectTypes if item.key == key), None)
+        return self._object_types_by_key.get(key)
 
     def relation_type(self, key: str) -> RelationTypeDefinition | None:
-        return next((item for item in self.relationTypes if item.key == key), None)
+        return self._relation_types_by_key.get(key)
 
 
 def _unique_map(items: list[Any], label: str) -> dict[str, Any]:

@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { api } from "./api";
-import { objectTypeFor } from "./model";
+import { api } from "../api/client";
+import { objectTypeFor } from "../utils/model";
 import { ObjectFormDialog } from "./ObjectFormDialog";
 import { ObjectTable, Pagination } from "./ObjectTable";
-import type { ApplicationDefinition, EngineModel, ObjectItem, ObjectPage, ViewDefinition } from "./types";
+import type { ApplicationDefinition, EngineModel, ObjectItem, ObjectPage, ViewDefinition } from "../types";
 
 export interface ViewComponentProps {
   model: EngineModel;

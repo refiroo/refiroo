@@ -1,12 +1,12 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { api } from "./api";
+import { api } from "../api/client";
 import type {
   AttributeTypeDefinition,
   EngineModel,
   ObjectItem,
   ObjectTypeAttributeDefinition,
   ObjectTypeDefinition,
-} from "./types";
+} from "../types";
 
 export function ObjectFormDialog({
   model,

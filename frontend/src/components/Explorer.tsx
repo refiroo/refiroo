@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "./api";
-import { objectTypeFor } from "./model";
-import type { ApplicationDefinition, EngineModel, ObjectItem, ObjectPage } from "./types";
+import { api } from "../api/client";
+import { objectTypeFor } from "../utils/model";
+import type { ApplicationDefinition, EngineModel, ObjectItem, ObjectPage } from "../types";
 
 interface LoadedPage extends ObjectPage {
   loaded: ObjectItem[];

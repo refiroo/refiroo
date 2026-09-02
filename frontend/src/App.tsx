@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { api } from "./api";
-import { CollectionView } from "./CollectionView";
-import { Explorer } from "./Explorer";
-import { applicationFor, defaultRoute, parseRoute, routePath, viewRoute } from "./model";
-import { ObjectDetail } from "./ObjectDetail";
+import { api } from "./api/client";
+import { CollectionView } from "./components/CollectionView";
+import { Explorer } from "./components/Explorer";
+import { applicationFor, defaultRoute, parseRoute, routePath, viewRoute } from "./utils/model";
+import { ObjectDetail } from "./components/ObjectDetail";
 import type { ApplicationDefinition, EngineModel, ObjectItem, RouteState } from "./types";
 
 export default function App() {

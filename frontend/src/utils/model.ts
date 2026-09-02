@@ -5,7 +5,7 @@ import type {
   ObjectItem,
   ObjectTypeDefinition,
   RouteState,
-} from "./types";
+} from "../types";
 
 export function objectTypeFor(model: EngineModel, key: string) {
   return model.objectTypes.find((item) => item.key === key);

@@ -6,8 +6,8 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .database import AttributeValue
-from .model_schema import AttributeTypeDefinition, EngineModel, ObjectTypeDefinition
+from ..models.database import AttributeValue
+from ..models.schema import AttributeTypeDefinition, EngineModel, ObjectTypeDefinition
 
 VALUE_COLUMNS = {
     "text": "text_value",

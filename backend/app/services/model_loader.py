@@ -2,8 +2,8 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-from .config import model_path
-from .model_schema import EngineModel
+from ..config import model_path
+from ..models.schema import EngineModel
 
 
 def load_model(path: Path) -> EngineModel:

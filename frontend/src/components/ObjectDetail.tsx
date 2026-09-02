@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "./api";
-import { attributeName, fallbackDetail, fieldValue, objectTypeFor } from "./model";
+import { api } from "../api/client";
+import { attributeName, fallbackDetail, fieldValue, objectTypeFor } from "../utils/model";
 import { ObjectFormDialog } from "./ObjectFormDialog";
 import { formatValue, ObjectTable, Pagination } from "./ObjectTable";
 import type {
@@ -15,7 +15,7 @@ import type {
   RelationItem,
   RelationsPanelDefinition,
   TablePanelDefinition,
-} from "./types";
+} from "../types";
 
 interface PanelProps {
   model: EngineModel;

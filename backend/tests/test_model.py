@@ -3,8 +3,8 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from app.model_loader import load_model
-from app.model_schema import EngineModel
+from app.models.schema import EngineModel
+from app.services.model_loader import load_model
 
 MODEL_PATH = Path(__file__).resolve().parents[2] / "model" / "rdm-starter.json"
 

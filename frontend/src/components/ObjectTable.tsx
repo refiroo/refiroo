@@ -1,5 +1,5 @@
-import type { EngineModel, ObjectItem } from "./types";
-import { attributeName, fieldValue } from "./model";
+import type { EngineModel, ObjectItem } from "../types";
+import { attributeName, fieldValue } from "../utils/model";
 
 export function ObjectTable({
   model,
