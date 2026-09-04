@@ -18,6 +18,8 @@ different applications.
 - Global reusable attribute types and object-type attribute bindings
 - Forward/reverse typed relations, features and allowed object-type relation triples
 - Immutable model releases installed into relational metadata tables
+- Side-effect-free model validation with stable diagnostics, key-based release diff and bounded
+  runtime-data compatibility analysis
 - Generic objects with application, workspace, object type, state, parent and path
 - Separately stored typed attribute values—text, integer, decimal, boolean, date, datetime and JSON
 - Typed object relations, automatic parent relations and hierarchy cycle protection

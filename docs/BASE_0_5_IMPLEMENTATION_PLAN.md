@@ -13,8 +13,8 @@ workbench
 |---|---|---|
 | WP0 — Checkpoint and lock contracts | Complete | Model 0.4 checkpoint `98f7cdd`; ADR-015 through ADR-018; lifecycle API shapes; OpenAPI contract test |
 | WP1 — Make the active release authoritative | Complete | Runtime-state migration; bootstrap installer; request snapshots; release read APIs |
-| WP2 — Add the compiler, semantic diff and compatibility analyzer | Next | Not started |
-| WP3 — Persist drafts and install immutable releases | Pending | Depends on WP2 |
+| WP2 — Add the compiler, semantic diff and compatibility analyzer | Complete | Stable diagnostics; canonical compiler; key-based diff; bounded runtime checks |
+| WP3 — Persist drafts and install immutable releases | Next | Ready after WP2 |
 | WP4 — Implement guarded activation | Pending | Depends on WP3 |
 | WP5 — Upgrade object and relation query foundations | Pending | Depends on WP4 |
 | WP6 — Improve generic object management UI | Pending | Depends on WP5 |
@@ -268,6 +268,8 @@ Completion record:
 
 ### WP2 — Add the compiler, semantic diff and compatibility analyzer
 
+**Status:** Complete (2026-09-04)
+
 Files:
 
 - new `backend/app/services/model_compiler.py`
@@ -296,6 +298,18 @@ Tests use at least one safe presentation change, one safe unused addition and ea
 Verify validation/compile leave all database row counts unchanged.
 
 Exit: a candidate can be explained before anything is saved, installed or activated.
+
+Completion record:
+
+- added side-effect-free model compilation with stable machine-readable diagnostics, JSON Pointer
+  paths and the canonical SHA-256 implementation shared by bootstrap release installation;
+- added semantic diff keyed by stable definition/binding identities so definition-array reordering is
+  not reported as a model change;
+- added bounded aggregate, existence and recursive-hierarchy compatibility checks for every Base 0.5
+  blocking class, including required bindings, cardinality and scoped uniqueness;
+- exposed inline validation and installed-release diff APIs, keeping invalid installed content,
+  migration requirements and internal failures distinct; and
+- added focused compiler, diff, compatibility, side-effect and OpenAPI contract tests.
 
 ### WP3 — Persist drafts and install immutable releases
 

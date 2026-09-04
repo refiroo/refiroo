@@ -209,6 +209,45 @@ class ModelReleasePage(BaseModel):
     nextCursor: str | None
 
 
+class ModelDocumentRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    model: dict[str, Any]
+
+
+class ModelDiagnosticResponse(BaseModel):
+    severity: Literal["error", "warning"]
+    code: str
+    path: str
+    message: str
+    count: int | None = None
+
+
+class ModelValidationResponse(BaseModel):
+    valid: bool
+    diagnostics: list[ModelDiagnosticResponse]
+
+
+class ModelChangeResponse(BaseModel):
+    kind: Literal["added", "changed", "removed"]
+    path: str
+    before: Any | None = None
+    after: Any | None = None
+
+
+class ModelCompatibilityResponse(BaseModel):
+    classification: Literal["compatible", "migration_required", "invalid"]
+    activeReleaseId: str
+    diagnostics: list[ModelDiagnosticResponse]
+
+
+class ModelReleaseDiffResponse(BaseModel):
+    againstReleaseId: str
+    releaseId: str
+    changes: list[ModelChangeResponse]
+    compatibility: ModelCompatibilityResponse
+
+
 class RelationExpansion(BaseModel):
     direction: Literal["outgoing", "incoming"]
     relation: RelationResponse

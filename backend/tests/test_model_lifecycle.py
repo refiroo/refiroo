@@ -201,3 +201,75 @@ def test_unknown_model_release_is_explicit():
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "model_release_not_found"
+
+
+def test_inline_validation_is_side_effect_free_and_returns_stable_diagnostics():
+    with TestClient(app) as client:
+        with SessionLocal() as session:
+            before_counts = {
+                table.name: session.scalar(select(func.count()).select_from(table))
+                for table in Base.metadata.sorted_tables
+            }
+
+        valid_model = client.get("/api/v1/model").json()
+        valid = client.post("/api/v1/model-validations", json={"model": valid_model})
+        assert valid.status_code == 200
+        assert valid.json() == {"valid": True, "diagnostics": []}
+
+        valid_model["applications"][0]["objectTypeKeys"].append("missing")
+        invalid = client.post("/api/v1/model-validations", json={"model": valid_model})
+        assert invalid.status_code == 200
+        assert invalid.json()["valid"] is False
+        assert invalid.json()["diagnostics"][0]["code"] == "unknown_object_type"
+        assert invalid.json()["diagnostics"][0]["path"].startswith("/applications/")
+
+        with SessionLocal() as session:
+            after_counts = {
+                table.name: session.scalar(select(func.count()).select_from(table))
+                for table in Base.metadata.sorted_tables
+            }
+        assert after_counts == before_counts
+
+
+def test_installed_release_diff_is_key_based_and_assesses_active_runtime_data():
+    candidate_source = load_bootstrap_model().model_dump(mode="json")
+    candidate_source["release"]["version"] = "0.4.0-wp2-diff"
+    candidate_source["applications"][0]["views"][0]["name"] = "Renamed domains"
+    candidate_source["attributeTypes"].reverse()
+    candidate = EngineModel.model_validate(candidate_source)
+    with SessionLocal() as session:
+        candidate_release = ensure_bootstrap_release(session, candidate)
+        session.commit()
+
+    with TestClient(app) as client:
+        active_release_id = client.get("/api/v1/model").headers["X-Model-Release-Id"]
+        response = client.get(
+            f"/api/v1/model-releases/{candidate_release.public_id}/diff",
+            params={"againstReleaseId": active_release_id},
+        )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["releaseId"] == candidate_release.public_id
+    assert body["againstReleaseId"] == active_release_id
+    assert body["compatibility"] == {
+        "classification": "compatible",
+        "activeReleaseId": active_release_id,
+        "diagnostics": [],
+    }
+    paths = {item["path"] for item in body["changes"]}
+    assert "/applications/rdm-master/views/domains/name" in paths
+    assert "/release/version" in paths
+    assert not any(path.startswith("/attributeTypes/") for path in paths)
+
+
+def test_release_diff_reports_unknown_baseline_release():
+    with TestClient(app) as client:
+        release_id = client.get("/api/v1/model").headers["X-Model-Release-Id"]
+        response = client.get(
+            f"/api/v1/model-releases/{release_id}/diff",
+            params={"againstReleaseId": "00000000-0000-4000-8000-000000000000"},
+        )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "model_release_not_found"

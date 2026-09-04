@@ -1,0 +1,329 @@
+from copy import deepcopy
+
+import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+
+from app.models.database import AttributeValue, Base, ObjectRelation, RdmObject
+from app.models.schema import EngineModel
+from app.services.model_compatibility import analyze_compatibility
+
+
+def _source() -> dict:
+    return {
+        "schemaVersion": "0.4",
+        "release": {"key": "compat", "name": "Compatibility", "version": "1"},
+        "product": {"name": "Compatibility test"},
+        "attributeTypes": [
+            {"key": "value", "name": "Value"},
+            {"key": "relation-note", "name": "Relation note"},
+        ],
+        "objectTypes": [
+            {
+                "key": "source",
+                "name": "Source",
+                "pluralName": "Sources",
+                "attributes": [{"attributeTypeKey": "value"}],
+                "features": {"rootCreatable": True},
+            },
+            {
+                "key": "target",
+                "name": "Target",
+                "pluralName": "Targets",
+                "attributes": [{"attributeTypeKey": "value"}],
+                "features": {"rootCreatable": True},
+                "behavior": {"parentRelationTypeKeys": ["contains"]},
+            },
+        ],
+        "relationTypes": [
+            {
+                "key": "links",
+                "reverseKey": "linked-by",
+                "name": "Links",
+                "reverseName": "Linked by",
+            },
+            {
+                "key": "contains",
+                "reverseKey": "belongs-to",
+                "name": "Contains",
+                "reverseName": "Belongs to",
+                "features": {"parentOf": True},
+            },
+        ],
+        "objectTypeRelations": [
+            {
+                "relationTypeKey": "links",
+                "fromObjectTypeKey": "source",
+                "toObjectTypeKey": "target",
+                "cardinality": "many-to-many",
+                "attributeTypeKeys": ["relation-note"],
+            },
+            {
+                "relationTypeKey": "contains",
+                "fromObjectTypeKey": "source",
+                "toObjectTypeKey": "target",
+                "cardinality": "one-to-many",
+            },
+        ],
+        "applications": [
+            {
+                "key": "app",
+                "name": "Application",
+                "objectTypeKeys": ["source", "target"],
+                "defaultView": "sources",
+                "views": [
+                    {
+                        "key": "sources",
+                        "name": "Sources",
+                        "type": "table",
+                        "objectTypeKey": "source",
+                    }
+                ],
+            }
+        ],
+    }
+
+
+def _model(source: dict | None = None) -> EngineModel:
+    return EngineModel.model_validate(source or _source())
+
+
+@pytest.fixture
+def session():
+    engine = create_engine("sqlite://")
+    Base.metadata.create_all(engine)
+    with Session(engine) as value:
+        yield value
+    engine.dispose()
+
+
+def _object(session: Session, object_type: str, *, parent: RdmObject | None = None) -> RdmObject:
+    item = RdmObject(
+        application_key="app",
+        object_type_key=object_type,
+        workspace_key="default",
+        name=object_type,
+        parent_object_id=parent.id if parent else None,
+    )
+    session.add(item)
+    session.flush()
+    return item
+
+
+def _compatibility(session: Session, candidate_source: dict):
+    return analyze_compatibility(session, _model(), _model(candidate_source), "active-release")
+
+
+def test_presentation_change_and_unused_addition_are_compatible(session: Session):
+    _object(session, "source")
+    candidate = deepcopy(_source())
+    candidate["applications"][0]["views"][0]["name"] = "Renamed sources"
+    candidate["attributeTypes"].append({"key": "unused", "name": "Unused"})
+
+    result = _compatibility(session, candidate)
+
+    assert result.classification == "compatible"
+    assert result.diagnostics == ()
+
+
+@pytest.mark.parametrize(
+    ("mutate", "seed", "code"),
+    [
+        (
+            lambda source: source.update({"applications": []}),
+            lambda session: _object(session, "source"),
+            "application_in_use",
+        ),
+        (
+            lambda source: (
+                source["objectTypes"].pop(1),
+                source["applications"][0].update({"objectTypeKeys": ["source"]}),
+                source.update({"objectTypeRelations": []}),
+            ),
+            lambda session: _object(session, "target"),
+            "object_type_in_use",
+        ),
+        (
+            lambda source: (
+                source["attributeTypes"].pop(0),
+                source["objectTypes"][0].update({"attributes": []}),
+                source["objectTypes"][1].update({"attributes": []}),
+            ),
+            lambda session: _seed_attribute(session),
+            "attribute_type_in_use",
+        ),
+        (
+            lambda source: source["attributeTypes"][0].update({"valueType": "integer"}),
+            lambda session: _seed_attribute(session),
+            "attribute_value_type_changed",
+        ),
+        (
+            lambda source: source["objectTypes"][0].update({"attributes": []}),
+            lambda session: _seed_attribute(session),
+            "attribute_binding_in_use",
+        ),
+        (
+            lambda source: source["objectTypeRelations"].pop(0),
+            lambda session: _seed_link(session),
+            "relation_pair_in_use",
+        ),
+        (
+            lambda source: source["objectTypeRelations"][0].update(
+                {"attributeTypeKeys": []}
+            ),
+            lambda session: _seed_link(session, attributes={"relation-note": "used"}),
+            "relation_attribute_in_use",
+        ),
+        (
+            lambda source: source["attributeTypes"][1].update({"valueType": "integer"}),
+            lambda session: _seed_link(session, attributes={"relation-note": "used"}),
+            "relation_attribute_value_type_changed",
+        ),
+        (
+            lambda source: source["objectTypes"][1].update({"behavior": {}}),
+            lambda session: _seed_parent(session),
+            "parent_relation_semantics_changed",
+        ),
+        (
+            lambda source: source["objectTypes"][0]["attributes"][0].update(
+                {"required": True}
+            ),
+            lambda session: _object(session, "source"),
+            "required_attribute_missing",
+        ),
+        (
+            lambda source: source["objectTypeRelations"][0].update({"required": True}),
+            lambda session: _object(session, "target"),
+            "required_relation_missing",
+        ),
+        (
+            lambda source: source["attributeTypes"][0].update(
+                {"features": {"unique": True}}
+            ),
+            lambda session: _seed_duplicate_attributes(session),
+            "attribute_uniqueness_violated",
+        ),
+        (
+            lambda source: source["objectTypeRelations"][0].update(
+                {"cardinality": "one-to-many"}
+            ),
+            lambda session: _seed_duplicate_target_relations(session),
+            "relation_cardinality_violated",
+        ),
+    ],
+)
+def test_runtime_data_blocking_classes_are_reported(session, mutate, seed, code):
+    seed(session)
+    candidate = deepcopy(_source())
+    mutate(candidate)
+
+    result = _compatibility(session, candidate)
+
+    assert result.classification == "migration_required"
+    diagnostic = next(item for item in result.diagnostics if item.code == code)
+    assert diagnostic.count is not None and diagnostic.count > 0
+    assert diagnostic.path.startswith("/")
+
+
+def test_scoped_relation_uniqueness_is_checked_against_containment_ancestors(session):
+    parent = _object(session, "source")
+    for _ in range(2):
+        target = _object(session, "target", parent=parent)
+        session.add_all(
+            [
+                ObjectRelation(
+                    relation_type_key="contains",
+                    from_object_id=parent.id,
+                    to_object_id=target.id,
+                    attributes={},
+                ),
+                ObjectRelation(
+                    relation_type_key="links",
+                    from_object_id=parent.id,
+                    to_object_id=target.id,
+                    attributes={},
+                ),
+            ]
+        )
+    session.flush()
+    candidate = deepcopy(_source())
+    candidate["objectTypeRelations"][0]["features"] = {
+        "uniqueToAncestorTypeKey": "source"
+    }
+
+    result = _compatibility(session, candidate)
+
+    diagnostic = next(
+        item for item in result.diagnostics if item.code == "relation_uniqueness_violated"
+    )
+    assert diagnostic.count == 1
+
+
+def _seed_attribute(session: Session) -> None:
+    item = _object(session, "source")
+    session.add(
+        AttributeValue(
+            object_id=item.id,
+            attribute_type_key="value",
+            value_type="text",
+            text_value="stored",
+        )
+    )
+    session.flush()
+
+
+def _seed_link(session: Session, *, attributes: dict | None = None) -> None:
+    source = _object(session, "source")
+    target = _object(session, "target")
+    session.add(
+        ObjectRelation(
+            relation_type_key="links",
+            from_object_id=source.id,
+            to_object_id=target.id,
+            attributes=attributes or {},
+        )
+    )
+    session.flush()
+
+
+def _seed_parent(session: Session) -> None:
+    parent = _object(session, "source")
+    child = _object(session, "target", parent=parent)
+    session.add(
+        ObjectRelation(
+            relation_type_key="contains",
+            from_object_id=parent.id,
+            to_object_id=child.id,
+            attributes={},
+        )
+    )
+    session.flush()
+
+
+def _seed_duplicate_attributes(session: Session) -> None:
+    for _ in range(2):
+        item = _object(session, "source")
+        session.add(
+            AttributeValue(
+                object_id=item.id,
+                attribute_type_key="value",
+                value_type="text",
+                text_value="duplicate",
+            )
+        )
+    session.flush()
+
+
+def _seed_duplicate_target_relations(session: Session) -> None:
+    target = _object(session, "target")
+    for _ in range(2):
+        source = _object(session, "source")
+        session.add(
+            ObjectRelation(
+                relation_type_key="links",
+                from_object_id=source.id,
+                to_object_id=target.id,
+                attributes={},
+            )
+        )
+    session.flush()

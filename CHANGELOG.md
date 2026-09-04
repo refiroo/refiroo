@@ -8,6 +8,11 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.5 model compilation and comparison: inline validation returns stable diagnostic codes and
+  JSON Pointer paths; installed releases can be compared by semantic, key-based paths; and bounded
+  runtime-data checks classify candidates as compatible or migration-required without persisting or
+  activating content.
+
 - Base 0.5 model runtime authority: a singleton, versioned database row selects the active immutable
   release; source JSON is bootstrap input only. Requests resolve one cached model/release snapshot,
   `GET /api/v1/model` exposes its hash and release UUID in response headers, and cursor-paged release

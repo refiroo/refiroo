@@ -1,9 +1,12 @@
+from copy import deepcopy
 from pathlib import Path
 
 import pytest
 from pydantic import ValidationError
 
 from app.models.schema import EngineModel
+from app.services.model_compiler import compile_model
+from app.services.model_diff import semantic_diff
 from app.services.model_loader import load_model
 
 MODEL_PATH = Path(__file__).resolve().parents[2] / "model" / "rdm-starter.json"
@@ -28,6 +31,44 @@ def test_starter_model_is_valid():
     ]
     assert model.applications[0].details[0].panels[0].type == "children"
     assert model.applications[0].details[1].panels[0].type == "children"
+
+
+def test_compiler_returns_stable_cross_reference_diagnostic_path():
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    source["applications"][0]["objectTypeKeys"].append("missing")
+
+    result = compile_model(source)
+
+    assert result.valid is False
+    assert result.model is None
+    assert result.model_hash is None
+    assert result.diagnostics[0].code == "unknown_object_type"
+    assert result.diagnostics[0].path == "/applications/rdm-master/objectTypeKeys/3"
+
+
+def test_compiler_hash_is_canonical_and_semantic_diff_is_key_based():
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    reordered = deepcopy(source)
+    reordered["attributeTypes"].reverse()
+
+    first = compile_model(source)
+    second = compile_model(reordered)
+
+    assert first.valid and second.valid
+    assert first.model_hash != second.model_hash
+    assert semantic_diff(first.canonical_model, second.canonical_model) == ()
+
+
+def test_semantic_diff_uses_stable_nested_keys():
+    before = load_model(MODEL_PATH).model_dump(mode="json")
+    after = deepcopy(before)
+    after["applications"][0]["views"][0]["name"] = "Renamed view"
+
+    changes = semantic_diff(before, after)
+
+    assert [(item.kind, item.path) for item in changes] == [
+        ("changed", "/applications/rdm-master/views/domains/name")
+    ]
 
 
 def test_domain_and_codelist_system_representations_are_modelled_as_optional_associations():

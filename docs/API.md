@@ -94,8 +94,9 @@ filtered with `fromObjectType` and `toObjectType` query parameters.
 ### Base 0.5 model-lifecycle contract
 
 The following contract is locked for Base 0.5 implementation. WP1 implements the active-model headers
-and installed-release catalogue/detail endpoints. Semantic diff follows in WP2; capabilities, drafts
-and installation in WP3; and activation in WP4. All IDs are UUID v4 strings, timestamps are UTC ISO
+and installed-release catalogue/detail endpoints. WP2 implements inline validation and installed
+release diff with runtime compatibility; capabilities, drafts and installation follow in WP3, and
+activation in WP4. All IDs are UUID v4 strings, timestamps are UTC ISO
 8601 values and model hashes are lowercase SHA-256 hex strings. JSON field names use the camelCase
 forms shown here.
 
@@ -247,8 +248,12 @@ Delete succeeds with HTTP `204` and no body. Inline validation accepts `{ "model
 }
 ```
 
-Diagnostic severity is `error` or `warning`; `path` is a JSON Pointer. Compile and installation both
-accept `{ "expectedVersion": 2 }`. Compile is side-effect-free and returns:
+Diagnostic severity is `error` or `warning`; `path` is a JSON Pointer. Compatibility diagnostics
+additionally include a positive `count` of the violating stored rows or groups. Validation diagnostics
+omit `count`.
+
+Compile and installation both accept `{ "expectedVersion": 2 }`. Compile is side-effect-free and
+returns:
 
 ```json
 {
@@ -283,7 +288,7 @@ As elsewhere, errors use the shared `{ "error": { "code", "message", "details" }
 
 ### Base 0.5 OpenAPI lock
 
-The complete canonical OpenAPI document digest after WP1, plus readable path/method and
+The complete canonical OpenAPI document digest after WP2, plus readable path/method and
 component-schema inventories, are asserted by `backend/tests/test_openapi_contract.py`. Any public
 shape change therefore requires an intentional contract-test update. Later Base 0.5 packages update
 the lock in the same change that implements each planned contract.

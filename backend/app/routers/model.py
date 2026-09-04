@@ -18,8 +18,14 @@ from ..models.api import (
     AttributeBindingResponse,
     AttributeTypeResponse,
     MetadataPage,
+    ModelChangeResponse,
+    ModelCompatibilityResponse,
+    ModelDiagnosticResponse,
+    ModelDocumentRequest,
+    ModelReleaseDiffResponse,
     ModelReleasePage,
     ModelReleaseResponse,
+    ModelValidationResponse,
     ObjectTypeRelationResponse,
     ObjectTypeResponse,
     RelationTypeResponse,
@@ -33,6 +39,9 @@ from ..models.database import (
     ObjectTypeRelationMeta,
     RelationTypeMeta,
 )
+from ..services.model_compatibility import analyze_compatibility
+from ..services.model_compiler import ModelDiagnostic, compile_model
+from ..services.model_diff import semantic_diff
 from ..services.model_registry import ActiveModelSnapshot, ModelSnapshot
 from ..services.objects import get_application, get_object_type
 
@@ -60,6 +69,19 @@ def get_model(response: Response, snapshot: ActiveModelSnapshot) -> dict[str, An
     response.headers["ETag"] = f'"{snapshot.model_hash}"'
     response.headers["X-Model-Release-Id"] = snapshot.release_id
     return snapshot.model.model_dump(mode="json")
+
+
+@router.post(
+    "/model-validations",
+    response_model=ModelValidationResponse,
+    response_model_exclude_none=True,
+)
+def validate_model(payload: ModelDocumentRequest) -> ModelValidationResponse:
+    compiled = compile_model(payload.model)
+    return ModelValidationResponse(
+        valid=compiled.valid,
+        diagnostics=[_diagnostic_response(item) for item in compiled.diagnostics],
+    )
 
 
 @router.get("/applications", response_model=MetadataPage[ApplicationResponse])
@@ -308,6 +330,90 @@ def get_model_release(
         )
 
 
+@router.get(
+    "/model-releases/{release_id}/diff",
+    response_model=ModelReleaseDiffResponse,
+    response_model_exclude_none=True,
+)
+def diff_model_release(
+    release_id: str,
+    snapshot: ActiveModelSnapshot,
+    against_release_id: str = Query(alias="againstReleaseId"),
+) -> ModelReleaseDiffResponse:
+    with SessionLocal() as session:
+        releases = {
+            release.public_id: release
+            for release in session.scalars(
+                select(ModelRelease).where(
+                    ModelRelease.public_id.in_([release_id, against_release_id])
+                )
+            )
+        }
+        candidate_release = releases.get(release_id)
+        if candidate_release is None:
+            raise api_error(
+                404,
+                "model_release_not_found",
+                f"Model release '{release_id}' not found",
+            )
+        baseline_release = releases.get(against_release_id)
+        if baseline_release is None:
+            raise api_error(
+                404,
+                "model_release_not_found",
+                f"Model release '{against_release_id}' not found",
+            )
+
+        candidate = compile_model(candidate_release.model_json)
+        baseline = compile_model(baseline_release.model_json)
+        invalid = candidate if not candidate.valid else baseline
+        if not invalid.valid:
+            raise api_error(
+                500,
+                "invalid_installed_model",
+                "An installed model release failed validation",
+                [
+                    _diagnostic_response(item).model_dump(exclude_none=True)
+                    for item in invalid.diagnostics
+                ],
+            )
+        if (
+            candidate.model is None
+            or candidate.canonical_model is None
+            or baseline.canonical_model is None
+        ):
+            raise api_error(500, "internal_error", "Compiled model result is incomplete")
+
+        compatibility = analyze_compatibility(
+            session,
+            snapshot.model,
+            candidate.model,
+            snapshot.release_id,
+        )
+        changes = semantic_diff(baseline.canonical_model, candidate.canonical_model)
+
+    return ModelReleaseDiffResponse(
+        againstReleaseId=against_release_id,
+        releaseId=release_id,
+        changes=[
+            ModelChangeResponse(
+                kind=item.kind,
+                path=item.path,
+                before=item.before,
+                after=item.after,
+            )
+            for item in changes
+        ],
+        compatibility=ModelCompatibilityResponse(
+            classification=compatibility.classification,
+            activeReleaseId=compatibility.active_release_id,
+            diagnostics=[
+                _diagnostic_response(item) for item in compatibility.diagnostics
+            ],
+        ),
+    )
+
+
 def _build_model_release_response(
     release: ModelRelease,
     active_release_id: str,
@@ -324,6 +430,16 @@ def _build_model_release_response(
         installedAt=_as_utc(release.installed_at),
         active=release.public_id == active_release_id,
         model=release.model_json if include_model else None,
+    )
+
+
+def _diagnostic_response(item: ModelDiagnostic) -> ModelDiagnosticResponse:
+    return ModelDiagnosticResponse(
+        severity=item.severity,
+        code=item.code,
+        path=item.path,
+        message=item.message,
+        count=item.count,
     )
 
 

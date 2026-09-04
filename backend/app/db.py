@@ -20,7 +20,7 @@ from .models.database import (
     ViewDefinitionMeta,
 )
 from .models.schema import EngineModel
-from .services.model_loader import canonical_model
+from .services.model_compiler import canonical_model
 
 engine = create_engine(database_url())
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
