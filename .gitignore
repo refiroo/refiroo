@@ -8,7 +8,10 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 .venv/
+.claude/
 node_modules/
 dist/
+build/
 coverage/
-
+*.egg-info/
+*.tsbuildinfo

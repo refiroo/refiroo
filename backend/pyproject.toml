@@ -4,6 +4,7 @@ version = "0.3.0"
 description = "Model-driven reference data management engine"
 requires-python = ">=3.12"
 dependencies = [
+  "alembic>=1.14,<2",
   "fastapi>=0.115,<1",
   "pydantic>=2.10,<3",
   "sqlalchemy>=2.0,<3",
@@ -21,6 +22,12 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.setuptools.package-data]
+"app.migrations" = ["script.py.mako"]
 
 [tool.ruff]
 line-length = 100

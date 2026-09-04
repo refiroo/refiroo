@@ -1,19 +1,20 @@
-import { useEffect, useMemo, useState } from "react";
-import { api } from "../api/client";
-import { attributeName, fallbackDetail, fieldValue, objectTypeFor } from "../utils/model";
+import { useEffect, useState } from "react";
+import { api, ApiError } from "../api/client";
+import { fallbackDetail, fieldValue, objectTypeFor } from "../utils/model";
+import { AttributesPanel as EditableAttributesPanel } from "./AttributesPanel";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { ObjectFormDialog } from "./ObjectFormDialog";
-import { formatValue, ObjectTable, Pagination } from "./ObjectTable";
+import { ObjectTable, Pagination } from "./ObjectTable";
+import { RelationsPanel as EditableRelationsPanel } from "./RelationsPanel";
 import type {
   ApplicationDefinition,
-  AttributesPanelDefinition,
   ChildrenPanelDefinition,
+  DeleteImpact,
   EngineModel,
   HierarchyPanelDefinition,
   ObjectItem,
   ObjectPage,
   PanelDefinition,
-  RelationItem,
-  RelationsPanelDefinition,
   TablePanelDefinition,
 } from "../types";
 
@@ -24,14 +25,16 @@ interface PanelProps {
   panel: PanelDefinition;
   onOpen: (objectTypeKey: string, objectId: string, applicationKey?: string) => void;
   onChanged: () => void;
+  onObjectChanged: (object: ObjectItem) => void;
+  onReload: () => Promise<void>;
 }
 
 type PanelComponent = (props: PanelProps) => React.ReactNode;
 
 export const panelComponentRegistry: Record<PanelDefinition["type"], PanelComponent> = {
-  attributes: AttributesPanel,
+  attributes: (props) => <EditableAttributesPanel model={props.model} object={props.object} panel={props.panel as import("../types").AttributesPanelDefinition} onObjectChanged={props.onObjectChanged} onReload={props.onReload} />,
   children: ChildrenPanel,
-  relations: RelationsPanel,
+  relations: (props) => <EditableRelationsPanel model={props.model} object={props.object} panel={props.panel as import("../types").RelationsPanelDefinition} onOpen={props.onOpen} />,
   table: TablePanel,
   hierarchy: HierarchyPanel,
 };
@@ -43,6 +46,7 @@ export function ObjectDetail({
   objectId,
   onOpen,
   onBack,
+  onDeleted,
   onChanged,
 }: {
   model: EngineModel;
@@ -51,14 +55,25 @@ export function ObjectDetail({
   objectId: string;
   onOpen: (objectTypeKey: string, objectId: string, applicationKey?: string) => void;
   onBack: () => void;
+  onDeleted: () => void;
   onChanged: () => void;
 }) {
   const [object, setObject] = useState<ObjectItem>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [deleteImpact, setDeleteImpact] = useState<DeleteImpact>();
   const objectType = objectTypeFor(model, objectTypeKey);
   const detail = application.details.find((item) => item.objectTypeKey === objectTypeKey) ?? (objectType ? fallbackDetail(objectType) : undefined);
+
+  async function loadObject() {
+    const loaded = await api.object(objectTypeKey, objectId);
+    if (loaded.applicationKey !== application.key) throw new Error("This object belongs to another application.");
+    setObject(loaded); setError("");
+  }
 
   useEffect(() => {
     let active = true;
@@ -75,6 +90,7 @@ export function ObjectDetail({
   if (loading) return <div className="page-loading">Loading object…</div>;
   if (error || !object || !objectType || !detail) return <div className="empty-state error-state"><h1>Object unavailable</h1><p>{error}</p><button className="secondary" onClick={onBack}>Back to list</button></div>;
   const currentObject = object;
+  const currentObjectType = objectType;
 
   const panels = detail.panels.filter((panel) => panel.visible);
   const mainPanels = panels.filter((panel) => panel.region === "main").sort((a, b) => a.order - b.order);
@@ -82,9 +98,27 @@ export function ObjectDetail({
   const title = fieldValue(object, detail.header.titleField, model);
   const subtitle = detail.header.subtitleField ? fieldValue(object, detail.header.subtitleField, model) : undefined;
 
+  async function deleteObject() {
+    setDeletePending(true); setDeleteError("");
+    try { await api.deleteObject(currentObjectType.key, currentObject.id, currentObject.version, Boolean(deleteImpact)); onChanged(); onDeleted(); }
+    catch (cause) {
+      if (cause instanceof ApiError && cause.code === "object_has_dependents" && cause.details) {
+        setDeleteImpact(cause.details as DeleteImpact);
+        setDeleteError("");
+      } else {
+        setDeleteError(cause instanceof Error ? cause.message : String(cause));
+      }
+      if ((cause as { code?: string }).code === "version_conflict") {
+        try { await loadObject(); } catch (reloadCause) { setDeleteError(reloadCause instanceof Error ? reloadCause.message : String(reloadCause)); }
+        setDeleteImpact(undefined);
+      }
+      setDeletePending(false);
+    }
+  }
+
   function renderPanel(panel: PanelDefinition) {
     const Component = panelComponentRegistry[panel.type];
-    return <section className="panel surface" key={panel.key}><h2>{panel.title}</h2>{Component({ model, application, object: currentObject, panel, onOpen, onChanged })}</section>;
+    return <section className="panel surface" key={panel.key}><h2>{panel.title}</h2>{Component({ model, application, object: currentObject, panel, onOpen, onChanged, onObjectChanged: (saved) => { setObject(saved); onChanged(); }, onReload: loadObject })}</section>;
   }
 
   return (
@@ -106,6 +140,7 @@ export function ObjectDetail({
         <div className="detail-actions">
           <span className="version">v{object.version}</span>
           <button className="primary" onClick={() => setEditing(true)}>Edit</button>
+          <button className="danger-outline" onClick={() => setDeleting(true)}>Delete object</button>
         </div>
       </header>
       <div className={`detail-grid ${sidePanels.length ? "with-side" : ""}`}>
@@ -122,19 +157,20 @@ export function ObjectDetail({
           onSaved={(saved) => { setObject(saved); setEditing(false); onChanged(); }}
         />
       )}
+      {deleting && <ConfirmDialog title={deleteImpact ? `Cascade delete ${deleteImpact.objectCount} objects?` : `Delete “${object.name}”?`} confirmLabel={deleteImpact ? "Cascade delete" : "Delete object"} pending={deletePending} error={deleteError} onCancel={() => { setDeleting(false); setDeleteError(""); setDeleteImpact(undefined); }} onConfirm={deleteObject}>{deleteImpact ? <DeleteImpactSummary model={model} impact={deleteImpact} /> : <p>The engine will first check for children and relationships. If dependencies exist, nothing will be deleted until you review and confirm the cascade.</p>}</ConfirmDialog>}
     </>
   );
 }
 
-function AttributesPanel({ model, object, panel }: PanelProps) {
-  const definition = panel as AttributesPanelDefinition;
-  return (
-    <dl className="attribute-grid">
-      {definition.config.fields.map((field) => (
-        <div key={field}><dt>{attributeName(model, field)}</dt><dd>{formatValue(fieldValue(object, field, model))}</dd></div>
-      ))}
-    </dl>
-  );
+function DeleteImpactSummary({ model, impact }: { model: EngineModel; impact: DeleteImpact }) {
+  const objectName = (key: string) => objectTypeFor(model, key)?.name ?? key;
+  const relationName = (key: string) => model.relationTypes.find((item) => item.key === key)?.name ?? key;
+  return <div className="delete-impact">
+    <p><strong>Nothing has been deleted yet.</strong> Confirming will permanently delete the selected object and the following dependencies.</p>
+    {impact.objectsToDelete.length > 0 && <section><h3>Objects to delete</h3><ul>{impact.objectsToDelete.map((item) => <li key={item.id}><strong>{item.name}</strong> <span>({objectName(item.objectTypeKey)})</span><small>{item.reason === "child" ? "Child object" : `FK dependent through ${relationName(item.relationTypeKey ?? "")}`}</small></li>)}</ul></section>}
+    {impact.relationshipsToRemove.length > 0 && <section><h3>Relationships to remove</h3><ul>{impact.relationshipsToRemove.map((item) => <li key={item.id}><strong>{item.fromObject.name}</strong> <span>— {relationName(item.relationTypeKey)} → {item.toObject.name}</span><small>{item.fkPk ? (item.relatedObjectWillBeDeleted ? "PK/FK relationship; dependent object will be deleted" : "PK/FK relationship") : item.relatedObjectWillBeDeleted ? "Both endpoints are already in the deletion set" : "The object at the other endpoint is preserved"}</small></li>)}</ul></section>}
+    <p className="cascade-total">Total: {impact.objectCount} objects and {impact.relationshipCount} relationships will be deleted.</p>
+  </div>;
 }
 
 function ChildrenPanel(props: PanelProps) {
@@ -161,6 +197,7 @@ function TablePanel(props: PanelProps) {
 function CollectionPanelTable({
   model,
   application,
+  object,
   objectTypeKey,
   columns,
   pageSize,
@@ -215,25 +252,9 @@ function CollectionPanelTable({
       </div>
       <ObjectTable model={model} columns={columns} objects={page.items} loading={loading} onOpen={(item) => onOpen(item.objectTypeKey, item.id, item.applicationKey)} />
       <Pagination page={pageIndex + 1} hasNext={Boolean(page.nextCursor)} onPrevious={() => setPageIndex((value) => Math.max(0, value - 1))} onNext={nextPage} />
-      {creating && <ObjectFormDialog model={model} applicationKey={application.key} objectType={objectType} parentObjectId={parentObjectId} onClose={() => setCreating(false)} onSaved={() => { setCreating(false); refresh(); }} />}
+      {creating && <ObjectFormDialog model={model} applicationKey={application.key} objectType={objectType} parentObjectId={parentObjectId} parentObjectTypeKey={parentObjectId ? object.objectTypeKey : undefined} onClose={() => setCreating(false)} onSaved={() => { setCreating(false); refresh(); }} />}
     </div>
   );
-}
-
-function RelationsPanel({ model, object, panel, onOpen }: PanelProps) {
-  const definition = panel as RelationsPanelDefinition;
-  const [relations, setRelations] = useState<RelationItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  useEffect(() => {
-    let active = true;
-    api.relations(object.id).then((items) => active && setRelations(items)).finally(() => active && setLoading(false));
-    return () => { active = false; };
-  }, [object.id]);
-  const visible = useMemo(() => relations.filter((item) =>
-    definition.config.relationTypeKeys.includes(item.relation.relationTypeKey)
-    && (definition.config.direction === "both" || definition.config.direction === item.direction)
-  ), [definition.config.direction, definition.config.relationTypeKeys, relations]);
-  return <ObjectTable model={model} columns={definition.config.columns} objects={visible.map((item) => item.object)} loading={loading} onOpen={(item) => onOpen(item.objectTypeKey, item.id, item.applicationKey)} />;
 }
 
 function HierarchyPanel({ model, object, panel, onOpen }: PanelProps) {

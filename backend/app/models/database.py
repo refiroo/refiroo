@@ -26,6 +26,9 @@ class ModelRelease(Base):
     __tablename__ = "model_releases"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, index=True, default=lambda: str(uuid4())
+    )
     release_key: Mapped[str] = mapped_column(String(160), index=True)
     release_name: Mapped[str] = mapped_column(String(300))
     release_version: Mapped[str] = mapped_column(String(80))
@@ -43,6 +46,9 @@ class ApplicationMeta(Base):
     __table_args__ = (UniqueConstraint("model_release_id", "key", name="uq_model_application_key"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, index=True, default=lambda: str(uuid4())
+    )
     model_release_id: Mapped[int] = mapped_column(
         ForeignKey("model_releases.id", ondelete="CASCADE"), index=True
     )
@@ -58,6 +64,9 @@ class AttributeTypeMeta(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, index=True, default=lambda: str(uuid4())
+    )
     model_release_id: Mapped[int] = mapped_column(
         ForeignKey("model_releases.id", ondelete="CASCADE"), index=True
     )
@@ -72,6 +81,9 @@ class ObjectTypeMeta(Base):
     __table_args__ = (UniqueConstraint("model_release_id", "key", name="uq_model_object_type_key"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, index=True, default=lambda: str(uuid4())
+    )
     model_release_id: Mapped[int] = mapped_column(
         ForeignKey("model_releases.id", ondelete="CASCADE"), index=True
     )
@@ -92,6 +104,9 @@ class ObjectTypeAttributeMeta(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, index=True, default=lambda: str(uuid4())
+    )
     model_release_id: Mapped[int] = mapped_column(
         ForeignKey("model_releases.id", ondelete="CASCADE"), index=True
     )
@@ -110,6 +125,9 @@ class RelationTypeMeta(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, index=True, default=lambda: str(uuid4())
+    )
     model_release_id: Mapped[int] = mapped_column(
         ForeignKey("model_releases.id", ondelete="CASCADE"), index=True
     )
@@ -134,6 +152,9 @@ class ObjectTypeRelationMeta(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, index=True, default=lambda: str(uuid4())
+    )
     model_release_id: Mapped[int] = mapped_column(
         ForeignKey("model_releases.id", ondelete="CASCADE"), index=True
     )
@@ -156,6 +177,9 @@ class ApplicationObjectTypeMeta(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, index=True, default=lambda: str(uuid4())
+    )
     model_release_id: Mapped[int] = mapped_column(
         ForeignKey("model_releases.id", ondelete="CASCADE"), index=True
     )
@@ -170,6 +194,9 @@ class ViewDefinitionMeta(Base):
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, index=True, default=lambda: str(uuid4())
+    )
     model_release_id: Mapped[int] = mapped_column(
         ForeignKey("model_releases.id", ondelete="CASCADE"), index=True
     )

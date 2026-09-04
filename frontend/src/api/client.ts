@@ -1,28 +1,57 @@
-import type { EngineModel, ObjectItem, ObjectPage, RelationItem } from "../types";
+import type {
+  EngineModel,
+  InitialRelationInput,
+  ObjectAttributeInput,
+  ObjectItem,
+  ObjectPage,
+  AttributeValueResponse,
+  RelationCreateInput,
+  RelationItem,
+  RelationRecord,
+  RelationUpdateInput,
+} from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export class ApiError extends Error {
+  constructor(
+    public readonly status: number,
+    public readonly code: string,
+    message: string,
+    public readonly details?: unknown,
+  ) {
+    super(message);
+    this.name = "ApiError";
+  }
+}
+
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
     ...init,
     headers: { "Content-Type": "application/json", ...init?.headers },
   });
   if (!response.ok) {
     const body = await response.text();
-    let message = body;
+    let message = body || `Request failed with ${response.status}`;
+    let code = "http_error";
+    let details: unknown;
     try {
-      message = JSON.parse(body).detail ?? body;
+      const parsed = JSON.parse(body);
+      message = parsed.error?.message ?? parsed.detail ?? body;
+      code = parsed.error?.code ?? code;
+      details = parsed.error?.details;
     } catch {
       // Keep a non-JSON error body intact.
     }
-    throw new Error(message || `Request failed with ${response.status}`);
+    throw new ApiError(response.status, code, message, details);
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
 export interface ObjectQuery {
-  applicationKey: string;
+  applicationKey?: string;
+  workspaceKey?: string;
   search?: string;
   cursor?: string;
   pageSize?: number;
@@ -30,10 +59,9 @@ export interface ObjectQuery {
 }
 
 function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
-  const params = new URLSearchParams({
-    applicationKey: query.applicationKey,
-    pageSize: String(query.pageSize ?? 20),
-  });
+  const params = new URLSearchParams({ pageSize: String(query.pageSize ?? 20) });
+  if (query.applicationKey) params.set("applicationKey", query.applicationKey);
+  if (query.workspaceKey) params.set("workspaceKey", query.workspaceKey);
   if (query.search) params.set("search", query.search);
   if (query.cursor) params.set("cursor", query.cursor);
   if (query.parentObjectId) params.set("parentObjectId", query.parentObjectId);
@@ -54,27 +82,48 @@ export const api = {
       applicationKey: string;
       name: string;
       parentObjectId?: string;
-      attributes: Record<string, unknown>;
+      attributes: ObjectAttributeInput[];
+      initialRelations?: InitialRelationInput[];
     },
   ) =>
-    request<ObjectItem>(`/api/v1/objects/${encodeURIComponent(objectTypeKey)}`, {
+    request<ObjectItem>("/api/v1/objects", {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, objectTypeKey }),
     }),
   updateObject: (
     objectTypeKey: string,
     objectId: string,
-    payload: {
-      name: string;
-      parentObjectId: string | null;
-      attributes: Record<string, unknown>;
-      expectedVersion: number;
-    },
+    payload: { expectedVersion: number; name?: string; state?: string; parentObjectId?: string | null; attributes?: ObjectAttributeInput[] },
   ) =>
     request<ObjectItem>(
       `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}`,
       { method: "PATCH", body: JSON.stringify(payload) },
     ),
-  relations: (objectId: string) =>
-    request<RelationItem[]>(`/api/v1/relations?objectId=${encodeURIComponent(objectId)}`),
+  deleteObject: (objectTypeKey: string, objectId: string, expectedVersion: number, cascade = false) => {
+    const params = new URLSearchParams({ expectedVersion: String(expectedVersion) });
+    if (cascade) params.set("cascade", "true");
+    return request<void>(`/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}?${params}`, { method: "DELETE" });
+  },
+  attribute: (objectTypeKey: string, objectId: string, attributeTypeKey: string) =>
+    request<AttributeValueResponse>(attributePath(objectTypeKey, objectId, attributeTypeKey)),
+  createAttribute: (objectTypeKey: string, objectId: string, attributeTypeKey: string, value: unknown, expectedVersion: number) =>
+    request<ObjectItem>(attributePath(objectTypeKey, objectId, attributeTypeKey), { method: "POST", body: JSON.stringify({ value, expectedVersion }) }),
+  updateAttribute: (objectTypeKey: string, objectId: string, attributeTypeKey: string, value: unknown, expectedVersion: number) =>
+    request<ObjectItem>(attributePath(objectTypeKey, objectId, attributeTypeKey), { method: "PATCH", body: JSON.stringify({ value, expectedVersion }) }),
+  deleteAttribute: (objectTypeKey: string, objectId: string, attributeTypeKey: string, expectedVersion: number) =>
+    request<void>(`${attributePath(objectTypeKey, objectId, attributeTypeKey)}?expectedVersion=${expectedVersion}`, { method: "DELETE" }),
+  relations: (objectId: string, options: { direction?: "incoming" | "outgoing" | "both"; relationTypeKey?: string } = {}) => {
+    const params = new URLSearchParams({ objectId });
+    if (options.direction) params.set("direction", options.direction);
+    if (options.relationTypeKey) params.set("relationTypeKey", options.relationTypeKey);
+    return request<RelationItem[]>(`/api/v1/relations?${params}`);
+  },
+  createRelation: (payload: RelationCreateInput) => request<RelationRecord>("/api/v1/relations", { method: "POST", body: JSON.stringify(payload) }),
+  relation: (relationId: string) => request<RelationRecord>(`/api/v1/relations/${encodeURIComponent(relationId)}`),
+  updateRelation: (relationId: string, payload: RelationUpdateInput) => request<RelationRecord>(`/api/v1/relations/${encodeURIComponent(relationId)}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteRelation: (relationId: string, expectedVersion: number) => request<void>(`/api/v1/relations/${encodeURIComponent(relationId)}?expectedVersion=${expectedVersion}`, { method: "DELETE" }),
 };
+
+function attributePath(objectTypeKey: string, objectId: string, attributeTypeKey: string) {
+  return `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}/attributes/${encodeURIComponent(attributeTypeKey)}`;
+}

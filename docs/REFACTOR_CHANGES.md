@@ -1,5 +1,9 @@
 # Refactor changes — v0.3.0 structural reorganization
 
+This document describes commit `d35450d` only. Subsequent API and schema work in the working tree is
+documented in `docs/API.md` and `docs/PROJECT_STATUS.md` and is not covered by the “did not change”
+statements below.
+
 ## Summary
 
 Reorganized the backend and frontend into a standard layered folder structure aligned with

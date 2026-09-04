@@ -37,6 +37,7 @@ export interface ObjectTypeDefinition {
   attributes: ObjectTypeAttributeDefinition[];
   features: Record<string, unknown>;
   behavior: { parentRelationTypeKeys?: string[]; [key: string]: unknown };
+  validation: { atLeastOneOf?: string[]; [key: string]: unknown };
 }
 
 export interface RelationTypeDefinition {
@@ -53,6 +54,9 @@ export interface ObjectTypeRelationDefinition {
   fromObjectTypeKey: string;
   toObjectTypeKey: string;
   cardinality: "one-to-one" | "one-to-many" | "many-to-many";
+  required?: boolean;
+  attributeTypeKeys?: string[];
+  features?: Record<string, unknown>;
 }
 
 export interface ViewDefinition {
@@ -99,6 +103,7 @@ export interface RelationsPanelDefinition extends PanelDefinitionBase {
     relationTypeKeys: string[];
     direction: "outgoing" | "incoming" | "both";
     columns: string[];
+    showRelationshipColumn?: boolean;
   };
 }
 
@@ -165,23 +170,61 @@ export interface ObjectItem {
   state: string;
   name: string;
   path: Array<{ id: string; name: string; objectTypeKey: string }>;
-  attributes: Record<string, unknown>;
+  attributes: ObjectAttributeValue[];
   version: number;
   createdAt: string;
   updatedAt: string;
 }
 
+export interface ObjectAttributeInput {
+  attributeTypeKey: string;
+  value: unknown;
+}
+
+export interface InitialRelationInput {
+  relationTypeKey: string;
+  direction: "outgoing" | "incoming";
+  otherObjectId: string;
+  attributes: Record<string, unknown>;
+}
+
+export interface ObjectAttributeValue extends ObjectAttributeInput {
+  id: string;
+  name: string;
+  valueType: ValueType;
+}
+
+export interface RelationRecord {
+  id: string;
+  relationTypeKey: string;
+  fromObjectId: string;
+  toObjectId: string;
+  attributes: Record<string, unknown>;
+  version: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 export interface RelationItem {
   direction: "outgoing" | "incoming";
-  relation: {
-    id: string;
-    relationTypeKey: string;
-    fromObjectId: string;
-    toObjectId: string;
-    attributes: Record<string, unknown>;
-    version: number;
-  };
+  relation: RelationRecord;
   object: ObjectItem;
+}
+
+export interface AttributeValueResponse extends ObjectAttributeValue {
+  objectVersion: number;
+}
+
+export interface RelationCreateInput {
+  relationTypeKey: string;
+  fromObjectId: string;
+  toObjectId: string;
+  attributes: Record<string, unknown>;
+}
+
+export interface RelationUpdateInput {
+  attributes: Record<string, unknown>;
+  expectedVersion: number;
 }
 
 export type RouteState =
@@ -191,4 +234,35 @@ export type RouteState =
 export interface ObjectPage {
   items: ObjectItem[];
   nextCursor: string | null;
+}
+
+export interface DeleteObjectSummary {
+  id: string;
+  name: string;
+  objectTypeKey: string;
+  applicationKey: string;
+  parentObjectId: string | null;
+}
+
+export interface DeleteObjectDependency extends DeleteObjectSummary {
+  reason: "child" | "fkDependent";
+  viaObjectId: string;
+  relationTypeKey?: string;
+}
+
+export interface DeleteRelationshipDependency {
+  id: string;
+  relationTypeKey: string;
+  fromObject: DeleteObjectSummary;
+  toObject: DeleteObjectSummary;
+  fkPk: boolean;
+  relatedObjectWillBeDeleted: boolean;
+}
+
+export interface DeleteImpact {
+  rootObject: DeleteObjectSummary;
+  objectsToDelete: DeleteObjectDependency[];
+  relationshipsToRemove: DeleteRelationshipDependency[];
+  objectCount: number;
+  relationshipCount: number;
 }

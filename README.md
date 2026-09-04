@@ -7,13 +7,13 @@ by a versioned JSON model rather than hardcoded into the product.
 The starter model contains three configured applications:
 
 - RDM Master — domains, codelists and canonical values
-- RDM Systems — external-system values, groups and mappings
+- RDM Systems — external-system values, groups, master mappings and Domain/Codelist representations
 - RDM Translations — languages, groups and translated values
 
 They are starter definitions, not reserved engine modules. A model can replace them or add entirely
 different applications.
 
-## Current state — model 0.3
+## Current state — model 0.4
 
 - Global reusable attribute types and object-type attribute bindings
 - Forward/reverse typed relations, features and allowed object-type relation triples
@@ -26,11 +26,18 @@ different applications.
 - React application/view navigation, searchable hierarchy explorer and stable object routes
 - Registry-driven collection views and composable object details with main/side panels
 - Reusable attribute, child, relation, table and hierarchy panels
-- Typed create/edit forms, server-side search and cursor pagination
+- Model-driven runtime CRUD for objects, individual typed attribute values and mutable relationships
+- Accessible confirmations, structured mutation errors and optimistic-concurrency recovery
+- Dependency-previewed object deletion with explicit transactional graph cascade
+- Cross-application relationship lookup with server-side search and cursor pagination
+- Optional Domain/Codelist-to-System Value representations that preserve the separate system hierarchy
+- Translation CRUD with generic Domain, Codelist and Master Value targets, atomic required bindings,
+  and active Language-scoped uniqueness
 - Docker development environment and continuous-integration workflow
 
 Mapping-grid and hierarchy-tree views are defined by the model but currently resolve to the generic
-collection presentation. Dedicated interaction components are the next product slice.
+collection presentation. Base 0.5 first strengthens object management and introduces safe model
+lifecycle foundations; dedicated interaction components follow.
 
 ## Run with Docker
 
@@ -48,6 +55,9 @@ Open:
 
 Backend:
 
+Python 3.12 is the supported version (see `.python-version` and `backend/Dockerfile`); the package
+declares `requires-python >= 3.12`.
+
 ```bash
 cd backend
 python -m venv .venv
@@ -64,6 +74,8 @@ npm install
 npm run dev
 ```
 
+Run the frontend test suite with `npm test`.
+
 The backend uses SQLite locally unless `DATABASE_URL` is set. The model defaults to
 `model/rdm-starter.json`.
 
@@ -72,11 +84,15 @@ The backend uses SQLite locally unless `DATABASE_URL` is set. The model defaults
 | Path | Purpose |
 | --- | --- |
 | `model/rdm-starter.json` | Independent starter application model |
-| `backend/app/model_schema.py` | Executable model contract and cross-reference validation |
-| `backend/app/database.py` | Metadata, object, attribute, relation and audit persistence |
-| `backend/app/main.py` | Model and runtime APIs |
+| `backend/app/models/schema.py` | Executable model contract and cross-reference validation |
+| `backend/app/models/database.py` | Metadata, object, attribute, relation and audit persistence |
+| `backend/app/routers` | Model and runtime API routes |
+| `backend/app/services` | Generic object, attribute and relation behavior |
+| `backend/app/migrations` | Versioned Alembic database migrations |
 | `frontend/src/App.tsx` | Model-driven application and form renderer |
 | `docs/PROJECT_STATUS.md` | Current implementation and next work |
+| `docs/ROADMAP.md` | Sequenced product milestones and release gates |
+| `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` | Ordered Base 0.5 coding handoff and acceptance criteria |
 | `AGENTS.md` | Authoritative instructions for coding agents |
 
 Before changing the architecture, read `AGENTS.md` and the documents it links.

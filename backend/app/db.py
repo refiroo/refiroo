@@ -1,15 +1,18 @@
 import hashlib
 import json
+from pathlib import Path
 
+from alembic.config import Config
 from sqlalchemy import create_engine, select, update
 from sqlalchemy.orm import sessionmaker
+
+from alembic import command
 
 from .config import database_url
 from .models.database import (
     ApplicationMeta,
     ApplicationObjectTypeMeta,
     AttributeTypeMeta,
-    Base,
     ModelRelease,
     ObjectTypeAttributeMeta,
     ObjectTypeMeta,
@@ -24,7 +27,10 @@ SessionLocal = sessionmaker(bind=engine, expire_on_commit=False)
 
 
 def create_database() -> None:
-    Base.metadata.create_all(bind=engine)
+    config = Config()
+    config.set_main_option("script_location", str(Path(__file__).resolve().parent / "migrations"))
+    config.set_main_option("sqlalchemy.url", database_url().replace("%", "%%"))
+    command.upgrade(config, "head")
 
 
 def install_model(model: EngineModel) -> ModelRelease:
@@ -34,13 +40,12 @@ def install_model(model: EngineModel) -> ModelRelease:
 
     with SessionLocal() as session:
         existing = session.scalar(select(ModelRelease).where(ModelRelease.model_hash == model_hash))
+        session.execute(update(ModelRelease).values(is_active=False))
         if existing:
-            session.execute(update(ModelRelease).values(is_active=False))
             existing.is_active = True
             session.commit()
             return existing
 
-        session.execute(update(ModelRelease).values(is_active=False))
         release = ModelRelease(
             release_key=model.release.key,
             release_name=model.release.name,

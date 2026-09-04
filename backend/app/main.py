@@ -1,11 +1,20 @@
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import cors_origins
 from .db import create_database, install_model
-from .routers import model, objects, relations
+from .errors import (
+    ApiError,
+    api_error_handler,
+    http_error_handler,
+    unexpected_error_handler,
+    validation_error_handler,
+)
+from .routers import attributes, model, objects, relations
 from .services.model_loader import current_model
 
 
@@ -23,6 +32,10 @@ app = FastAPI(
     description="API-first, model-driven reference data management engine.",
     lifespan=lifespan,
 )
+app.add_exception_handler(ApiError, api_error_handler)
+app.add_exception_handler(RequestValidationError, validation_error_handler)
+app.add_exception_handler(StarletteHTTPException, http_error_handler)
+app.add_exception_handler(Exception, unexpected_error_handler)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_origins(),
@@ -40,3 +53,4 @@ def health() -> dict[str, str]:
 app.include_router(model.router)
 app.include_router(objects.router)
 app.include_router(relations.router)
+app.include_router(attributes.router)

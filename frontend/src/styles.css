@@ -72,12 +72,16 @@ button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-
 .view-kind span { margin-right: 7px; padding: 4px 7px; border-radius: 5px; background: var(--accent-soft); color: var(--accent); text-transform: uppercase; font-size: 8px; font-weight: 800; }
 .view-kind strong { color: #53615c; }
 
-.primary, .secondary, .icon-button { border-radius: 8px; padding: 9px 13px; border: 1px solid #d7dfdb; background: #fff; color: #35453f; font-weight: 700; font-size: 11px; }
+.primary, .secondary, .icon-button, .danger, .danger-outline { border-radius: 8px; padding: 9px 13px; border: 1px solid #d7dfdb; background: #fff; color: #35453f; font-weight: 700; font-size: 11px; }
 .primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 .primary:hover { background: #1e6656; }
 .secondary:hover, .icon-button:hover:not(:disabled) { background: #f2f5f3; }
 .icon-button { min-width: 32px; padding: 7px; }
 .icon-button:disabled { opacity: .38; cursor: default; }
+.danger { color: #fff; border-color: #a63636; background: #a63636; }
+.danger:hover { background: #8f2929; }
+.danger-outline { color: #963434; border-color: #ddbcbc; background: #fff; }
+.danger-outline:hover { background: #fff4f4; }
 
 .table-wrap { overflow-x: auto; }
 table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -118,6 +122,12 @@ tbody tr:last-child td { border-bottom: 0; }
 .attribute-grid > div { min-width: 0; padding: 13px 8px 11px 0; border-bottom: 1px solid #edf1ef; }
 .attribute-grid dt { color: #7a8781; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; }
 .attribute-grid dd { margin: 6px 0 0; color: #293630; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
+.row-actions { display: flex; align-items: center; gap: 8px; margin-top: 7px; }
+.row-actions button { border: 0; padding: 0; background: transparent; color: var(--accent); font-size: 10px; font-weight: 750; }
+.row-actions button:hover { text-decoration: underline; }
+.row-actions .text-danger { color: #9a3535; }
+.managed-label { color: #7d8984; font-size: 9px; white-space: normal; }
+.relation-toolbar { justify-content: flex-end; border-bottom: 0; }
 .side-panels .attribute-grid { grid-template-columns: 1fr; }
 .hierarchy-panel { padding: 15px 16px; }
 .hierarchy-panel > div { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--soft-line); }
@@ -141,8 +151,24 @@ tbody tr:last-child td { border-bottom: 0; }
 .checkbox { display: flex !important; align-items: flex-start; gap: 8px; }
 .checkbox input { margin-top: 1px; }
 .dialog-actions { display: flex; justify-content: flex-end; gap: 8px; padding-top: 12px; }
+.confirm-dialog { width: min(500px, 100%); }
+.compact-dialog { width: min(520px, 100%); }
+.dialog-body { padding: 18px 24px 0; color: #52605b; font-size: 12px; line-height: 1.5; }
+.confirm-dialog > .dialog-actions { padding: 18px 24px 24px; }
+.object-lookup { display: grid; gap: 7px; margin-top: 6px; }
+.object-lookup input, .object-lookup select { margin-top: 0 !important; }
+.load-more.inline { width: auto; justify-self: start; margin: 0; }
+.delete-impact section { margin-top: 16px; }
+.delete-impact h3 { margin: 0 0 7px; color: var(--ink); font-size: 12px; }
+.delete-impact ul { max-height: 180px; overflow-y: auto; margin: 0; padding: 0; list-style: none; border: 1px solid var(--soft-line); border-radius: 8px; }
+.delete-impact li { padding: 9px 11px; border-bottom: 1px solid var(--soft-line); overflow-wrap: anywhere; }
+.delete-impact li:last-child { border-bottom: 0; }
+.delete-impact li span { color: var(--muted); }
+.delete-impact li small { display: block; margin-top: 2px; color: #7b8782; }
+.cascade-total { padding: 10px 12px; border-radius: 8px; background: #fff3d8; color: #795d1b; font-weight: 700; }
 
 .notice { margin: 13px 16px; border-radius: 8px; padding: 10px 12px; background: #fff3d8; color: #795d1b; font-size: 11px; }
+.error-notice { background: #fff0f0; color: #8a2f2f; }
 .center-message, .page-loading, .empty-state { min-height: 65vh; display: grid; place-items: center; color: #74807b; text-align: center; padding: 50px; }
 .empty-state { display: block; min-height: auto; max-width: 650px; margin: 80px auto; background: #fff; border: 1px solid var(--line); border-radius: 14px; }
 .error-state h1 { margin: 0 0 8px; color: var(--ink); }

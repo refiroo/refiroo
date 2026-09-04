@@ -2,11 +2,12 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..models.database import AttributeValue
+from ..errors import api_error
+from ..models.api import AttributeValueResponse
+from ..models.database import AttributeValue, RdmObject
 from ..models.schema import AttributeTypeDefinition, EngineModel, ObjectTypeDefinition
 
 VALUE_COLUMNS = {
@@ -31,11 +32,11 @@ def validate_attributes(
     bindings = {item.attributeTypeKey: item for item in object_type.attributes}
     unknown = set(attributes) - set(bindings)
     if unknown:
-        raise HTTPException(status_code=422, detail=f"Unknown attributes: {sorted(unknown)}")
+        raise api_error(422, "unknown_attributes", f"Unknown attributes: {sorted(unknown)}")
 
     read_only = [key for key in attributes if bindings[key].readOnly]
     if read_only:
-        raise HTTPException(status_code=422, detail=f"Read-only attributes: {read_only}")
+        raise api_error(422, "read_only_attributes", f"Read-only attributes: {read_only}")
 
     result = dict(attributes)
     if not partial:
@@ -43,22 +44,49 @@ def validate_attributes(
             definition = _attribute_definition(model, binding.attributeTypeKey)
             if binding.attributeTypeKey not in result and definition.default is not None:
                 result[binding.attributeTypeKey] = definition.default
-        missing = [
-            binding.attributeTypeKey
-            for binding in object_type.attributes
-            if binding.required
-            and (
-                binding.attributeTypeKey not in result
-                or result[binding.attributeTypeKey] is None
-                or result[binding.attributeTypeKey] == ""
-            )
-        ]
-        if missing:
-            raise HTTPException(status_code=422, detail=f"Required attributes missing: {missing}")
+
+    missing = [
+        binding.attributeTypeKey
+        for binding in object_type.attributes
+        if binding.required
+        and (not partial or binding.attributeTypeKey in attributes)
+        and (
+            binding.attributeTypeKey not in result
+            or result[binding.attributeTypeKey] is None
+            or result[binding.attributeTypeKey] == ""
+        )
+    ]
+    if missing:
+        raise api_error(
+            422, "missing_required_attributes", f"Required attributes missing: {missing}"
+        )
 
     return {
         key: normalize_value(_attribute_definition(model, key), value)
         for key, value in result.items()
+    }
+
+
+def validate_object_attribute_rules(
+    object_type: ObjectTypeDefinition, attributes: dict[str, Any]
+) -> None:
+    at_least_one = object_type.validation.get("atLeastOneOf", [])
+    if at_least_one and not any(
+        key in attributes and attributes[key] is not None and attributes[key] != ""
+        for key in at_least_one
+    ):
+        raise api_error(
+            422,
+            "object_attribute_rule_violation",
+            f"At least one of these attributes is required: {at_least_one}",
+            {"rule": "atLeastOneOf", "attributeTypeKeys": at_least_one},
+        )
+
+
+def current_attribute_values(session: Session, object_id: str) -> dict[str, Any]:
+    return {
+        key: value
+        for key, (_value_id, value) in load_attribute_values(session, [object_id])[object_id].items()
     }
 
 
@@ -89,23 +117,30 @@ def normalize_value(definition: AttributeTypeDefinition, value: Any) -> Any:
         else:
             normalized = value
     except (TypeError, ValueError, InvalidOperation):
-        raise HTTPException(
-            status_code=422,
-            detail=f"Attribute '{definition.key}' must be {definition.valueType}",
+        raise api_error(
+            422,
+            "invalid_attribute_value",
+            f"Attribute '{definition.key}' must be {definition.valueType}",
         ) from None
 
     minimum = definition.validation.get("minimum")
     maximum = definition.validation.get("maximum")
-    if minimum is not None and normalized < minimum:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Attribute '{definition.key}' must be at least {minimum}",
-        )
-    if maximum is not None and normalized > maximum:
-        raise HTTPException(
-            status_code=422,
-            detail=f"Attribute '{definition.key}' must be at most {maximum}",
-        )
+    if definition.valueType in {"integer", "decimal"}:
+        if definition.valueType == "decimal":
+            minimum = Decimal(str(minimum)) if minimum is not None else None
+            maximum = Decimal(str(maximum)) if maximum is not None else None
+        if minimum is not None and normalized < minimum:
+            raise api_error(
+                422,
+                "attribute_below_minimum",
+                f"Attribute '{definition.key}' must be at least {minimum}",
+            )
+        if maximum is not None and normalized > maximum:
+            raise api_error(
+                422,
+                "attribute_above_maximum",
+                f"Attribute '{definition.key}' must be at most {maximum}",
+            )
     return normalized
 
 
@@ -139,15 +174,129 @@ def save_attribute_values(
         _set_row_value(row, definition.valueType, value)
 
 
-def load_attribute_values(session: Session, object_ids: list[str]) -> dict[str, dict[str, Any]]:
-    result: dict[str, dict[str, Any]] = {object_id: {} for object_id in object_ids}
+def load_attribute_values(
+    session: Session, object_ids: list[str]
+) -> dict[str, dict[str, tuple[str, Any]]]:
+    result: dict[str, dict[str, tuple[str, Any]]] = {object_id: {} for object_id in object_ids}
     if not object_ids:
         return result
     for row in session.scalars(
         select(AttributeValue).where(AttributeValue.object_id.in_(object_ids))
     ):
-        result[row.object_id][row.attribute_type_key] = _get_row_value(row)
+        result[row.object_id][row.attribute_type_key] = (row.id, _get_row_value(row))
     return result
+
+
+def check_attribute_uniqueness(
+    session: Session,
+    model: EngineModel,
+    attributes: dict[str, Any],
+    *,
+    workspace_key: str,
+    exclude_object_id: str | None = None,
+) -> None:
+    for key, value in attributes.items():
+        if value is None or value == "":
+            continue
+        definition = _attribute_definition(model, key)
+        if not definition.features.get("unique"):
+            continue
+        column = getattr(AttributeValue, VALUE_COLUMNS[definition.valueType])
+        statement = (
+            select(AttributeValue.id)
+            .join(RdmObject, AttributeValue.object_id == RdmObject.id)
+            .where(
+                AttributeValue.attribute_type_key == key,
+                column == value,
+                RdmObject.workspace_key == workspace_key,
+            )
+        )
+        if exclude_object_id is not None:
+            statement = statement.where(RdmObject.id != exclude_object_id)
+        if session.scalar(statement.limit(1)):
+            raise api_error(
+                409,
+                "duplicate_attribute_value",
+                f"Attribute '{definition.name or key}' must be unique",
+            )
+
+
+def load_attribute_value(
+    session: Session, object_id: str, attribute_type_key: str
+) -> AttributeValue:
+    row = session.scalar(
+        select(AttributeValue).where(
+            AttributeValue.object_id == object_id,
+            AttributeValue.attribute_type_key == attribute_type_key,
+        )
+    )
+    if not row:
+        raise api_error(
+            404,
+            "attribute_not_found",
+            f"Attribute '{attribute_type_key}' has no value on object '{object_id}'",
+        )
+    return row
+
+
+def ensure_attribute_value_absent(
+    session: Session, object_id: str, attribute_type_key: str
+) -> None:
+    row = session.scalar(
+        select(AttributeValue.id).where(
+            AttributeValue.object_id == object_id,
+            AttributeValue.attribute_type_key == attribute_type_key,
+        )
+    )
+    if row:
+        raise api_error(
+            409,
+            "attribute_already_exists",
+            f"Attribute '{attribute_type_key}' already has a value on object '{object_id}'",
+        )
+
+
+def validate_deletable_attribute(
+    object_type: ObjectTypeDefinition, attribute_type_key: str
+) -> None:
+    binding = next(
+        (item for item in object_type.attributes if item.attributeTypeKey == attribute_type_key),
+        None,
+    )
+    if binding is None:
+        raise api_error(
+            422,
+            "unknown_attributes",
+            f"Attribute type '{attribute_type_key}' is not defined on object type "
+            f"'{object_type.key}'",
+        )
+    if binding.readOnly:
+        raise api_error(
+            422,
+            "read_only_attributes",
+            f"Read-only attributes: [{attribute_type_key}]",
+        )
+    if binding.required:
+        raise api_error(
+            422,
+            "cannot_delete_required_attribute",
+            f"Attribute '{attribute_type_key}' is required and cannot be deleted",
+        )
+
+
+def build_attribute_value_response(
+    model: EngineModel, row: AttributeValue, object_version: int
+) -> AttributeValueResponse:
+    key = row.attribute_type_key
+    definition = model.attribute_type(key)
+    return AttributeValueResponse(
+        id=row.id,
+        attributeTypeKey=key,
+        name=definition.name if definition else key,
+        valueType=definition.valueType if definition else "text",
+        value=_get_row_value(row),
+        objectVersion=object_version,
+    )
 
 
 def _set_row_value(row: AttributeValue, value_type: str, value: Any) -> None:
@@ -168,5 +317,5 @@ def _get_row_value(row: AttributeValue) -> Any:
 def _attribute_definition(model: EngineModel, key: str) -> AttributeTypeDefinition:
     definition = model.attribute_type(key)
     if not definition:
-        raise HTTPException(status_code=500, detail=f"Unknown model attribute '{key}'")
+        raise api_error(500, "internal_error", f"Unknown model attribute '{key}'")
     return definition

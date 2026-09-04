@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -55,6 +56,7 @@ class ObjectTypeDefinition(BaseModel):
     attributes: list[ObjectTypeAttributeDefinition] = Field(default_factory=list)
     features: dict[str, Any] = Field(default_factory=dict)
     behavior: dict[str, Any] = Field(default_factory=dict)
+    validation: dict[str, Any] = Field(default_factory=dict)
 
 
 class RelationTypeDefinition(BaseModel):
@@ -126,6 +128,7 @@ class RelationsPanelConfig(BaseModel):
     relationTypeKeys: list[str]
     direction: Literal["outgoing", "incoming", "both"] = "both"
     columns: list[str] = Field(default_factory=lambda: ["name", "objectType"])
+    showRelationshipColumn: bool = True
 
 
 class TablePanelConfig(BaseModel):
@@ -248,6 +251,47 @@ class EngineModel(BaseModel):
         relation_map = _unique_map(self.relationTypes, "relation type")
         _unique_map(self.applications, "application")
 
+        for attribute in self.attributeTypes:
+            if attribute.features.get("unique") and attribute.valueType == "json":
+                raise ValueError(
+                    f"Attribute type '{attribute.key}' declares 'unique' but valueType "
+                    f"'{attribute.valueType}' does not support uniqueness"
+                )
+            for bound in ("minimum", "maximum"):
+                if bound not in attribute.validation:
+                    continue
+                if attribute.valueType not in {"integer", "decimal"}:
+                    raise ValueError(
+                        f"Attribute type '{attribute.key}' declares 'validation.{bound}' "
+                        f"but valueType '{attribute.valueType}' does not support numeric bounds"
+                    )
+                value = attribute.validation[bound]
+                if isinstance(value, bool) or not isinstance(value, (int, float, Decimal)):
+                    raise ValueError(  # noqa: TRY004 - Pydantic validators must raise ValueError.
+                        f"Attribute type '{attribute.key}' validation.{bound} must be a "
+                        "finite number"
+                    )
+                try:
+                    numeric_value = Decimal(str(value))
+                except (InvalidOperation, ValueError):
+                    numeric_value = Decimal("NaN")
+                if not numeric_value.is_finite():
+                    raise ValueError(
+                        f"Attribute type '{attribute.key}' validation.{bound} must be a "
+                        "finite number"
+                    )
+            minimum = attribute.validation.get("minimum")
+            maximum = attribute.validation.get("maximum")
+            if (
+                minimum is not None
+                and maximum is not None
+                and Decimal(str(minimum)) > Decimal(str(maximum))
+            ):
+                raise ValueError(
+                    f"Attribute type '{attribute.key}' validation.minimum must not exceed "
+                    "validation.maximum"
+                )
+
         relation_keys: set[str] = set()
         for relation in self.relationTypes:
             for key in (relation.key, relation.reverseKey):
@@ -270,6 +314,25 @@ class EngineModel(BaseModel):
                     f"Object type '{object_type.key}' display attribute '{display_key}' "
                     "is not attached"
                 )
+            at_least_one = object_type.validation.get("atLeastOneOf", [])
+            if at_least_one:
+                if not isinstance(at_least_one, list) or not all(
+                    isinstance(key, str) for key in at_least_one
+                ):
+                    raise ValueError(
+                        f"Object type '{object_type.key}' validation.atLeastOneOf must be a "
+                        "list of attribute keys"
+                    )
+                if len(at_least_one) != len(set(at_least_one)):
+                    raise ValueError(
+                        f"Object type '{object_type.key}' validation.atLeastOneOf has duplicate keys"
+                    )
+                unknown = set(at_least_one) - set(bindings)
+                if unknown:
+                    raise ValueError(
+                        f"Object type '{object_type.key}' validation.atLeastOneOf references "
+                        f"unbound attributes: {sorted(unknown)}"
+                    )
 
         for allowed in self.objectTypeRelations:
             if allowed.relationTypeKey not in relation_map:
@@ -291,6 +354,29 @@ class EngineModel(BaseModel):
                     f"Object-type relation '{allowed.relationTypeKey}' has unknown attributes: "
                     f"{sorted(unknown_attributes)}"
                 )
+            unique_ancestor = allowed.features.get("uniqueToAncestorTypeKey")
+            if unique_ancestor is not None and (
+                not isinstance(unique_ancestor, str) or unique_ancestor not in object_map
+            ):
+                raise ValueError(
+                    f"Object-type relation '{allowed.relationTypeKey}' references unknown unique "
+                    f"ancestor object type '{unique_ancestor}'"
+                )
+            unique_condition = allowed.features.get("uniqueWhenToAttributeEquals")
+            if unique_condition is not None:
+                target_bindings = {
+                    binding.attributeTypeKey
+                    for binding in object_map[allowed.toObjectTypeKey].attributes
+                }
+                if (
+                    not isinstance(unique_condition, dict)
+                    or set(unique_condition) != {"attributeTypeKey", "value"}
+                    or unique_condition.get("attributeTypeKey") not in target_bindings
+                ):
+                    raise ValueError(
+                        f"Object-type relation '{allowed.relationTypeKey}' has an invalid "
+                        "uniqueWhenToAttributeEquals condition"
+                    )
             identity = (
                 allowed.relationTypeKey,
                 allowed.fromObjectTypeKey,
@@ -333,17 +419,12 @@ class EngineModel(BaseModel):
                         f"'{view.objectTypeKey}'"
                     )
                 if view.objectTypeKey:
-                    attached = {
-                        binding.attributeTypeKey
-                        for binding in object_map[view.objectTypeKey].attributes
-                    }
-                    columns = set(view.config.get("columns", [])) - BUILT_IN_COLUMNS
-                    unknown_columns = columns - attached
-                    if unknown_columns:
-                        raise ValueError(
-                            f"View '{application.key}.{view.key}' has columns not attached to "
-                            f"'{view.objectTypeKey}': {sorted(unknown_columns)}"
-                        )
+                    _validate_detail_fields(
+                        view.config.get("columns", []),
+                        [object_map[view.objectTypeKey]],
+                        f"View '{application.key}.{view.key}'",
+                        object_map,
+                    )
 
             detail_type_keys: set[str] = set()
             for detail in application.details:
@@ -361,6 +442,7 @@ class EngineModel(BaseModel):
                     [detail.header.titleField, detail.header.subtitleField],
                     [detail_type],
                     f"{detail_path} header",
+                    object_map,
                 )
                 panel_keys: set[str] = set()
                 for panel in detail.panels:
@@ -369,7 +451,9 @@ class EngineModel(BaseModel):
                         raise ValueError(f"{panel_path} is duplicated")
                     panel_keys.add(panel.key)
                     if isinstance(panel, AttributesPanelDefinition):
-                        _validate_detail_fields(panel.config.fields, [detail_type], panel_path)
+                        _validate_detail_fields(
+                            panel.config.fields, [detail_type], panel_path, object_map
+                        )
                     elif isinstance(panel, ChildrenPanelDefinition):
                         _validate_panel_object_types(
                             panel.config.objectTypeKeys,
@@ -378,11 +462,11 @@ class EngineModel(BaseModel):
                             panel_path,
                         )
                         child_types = [object_map[key] for key in panel.config.objectTypeKeys]
-                        _validate_detail_fields(panel.config.columns, child_types, panel_path)
+                        _validate_detail_fields(
+                            panel.config.columns, child_types, panel_path, object_map
+                        )
                         for child_type in child_types:
-                            parent_keys = set(
-                                child_type.behavior.get("parentRelationTypeKeys", [])
-                            )
+                            parent_keys = set(child_type.behavior.get("parentRelationTypeKeys", []))
                             if not any(
                                 allowed.fromObjectTypeKey == detail.objectTypeKey
                                 and allowed.toObjectTypeKey == child_type.key
@@ -425,7 +509,9 @@ class EngineModel(BaseModel):
                                     else allowed.fromObjectTypeKey
                                 )
                                 related_types.append(object_map[related_key])
-                        _validate_detail_fields(panel.config.columns, related_types, panel_path)
+                        _validate_detail_fields(
+                            panel.config.columns, related_types, panel_path, object_map
+                        )
                     elif isinstance(panel, TablePanelDefinition):
                         _validate_panel_object_types(
                             [panel.config.objectTypeKey],
@@ -437,6 +523,7 @@ class EngineModel(BaseModel):
                             panel.config.columns,
                             [object_map[panel.config.objectTypeKey]],
                             panel_path,
+                            object_map,
                         )
 
         self._attribute_types_by_key = attribute_map
@@ -499,6 +586,7 @@ def _validate_detail_fields(
     fields: list[str | None],
     object_types: list[ObjectTypeDefinition],
     path: str,
+    object_map: dict[str, ObjectTypeDefinition],
 ) -> None:
     present = [field for field in fields if field is not None]
     if len(present) != len(set(present)):
@@ -508,6 +596,11 @@ def _validate_detail_fields(
         for object_type in object_types
         for binding in object_type.attributes
     }
-    unknown = set(present) - attached - DETAIL_FIELD_KEYS
+    ancestor_fields = {field for field in present if field.startswith("ancestor:")}
+    for field in ancestor_fields:
+        ancestor_type_key = field.removeprefix("ancestor:")
+        if not ancestor_type_key or ancestor_type_key not in object_map:
+            raise ValueError(f"{path} references unknown ancestor object type '{ancestor_type_key}'")
+    unknown = set(present) - ancestor_fields - attached - DETAIL_FIELD_KEYS
     if unknown:
         raise ValueError(f"{path} references unavailable fields: {sorted(unknown)}")

@@ -30,6 +30,10 @@ The model declares:
 At startup, a canonical hash identifies the model. A new hash creates a new immutable release and its
 relational metadata rows. Previous releases remain available for migration planning and audit.
 
+Database creation and upgrades run through Alembic. Each revision contains a frozen schema delta or
+snapshot and does not import live ORM metadata, so adding a later ORM field cannot change the behavior
+of an earlier revision on a fresh database.
+
 ## Runtime object graph
 
 `objects` contains stable UUID, workspace, application, object type, parent, state, name, version and
@@ -52,6 +56,11 @@ Containment and semantic relationships overlap but serve different access patter
 tree navigation and path building efficient. Typed relations preserve meaning, reverse labels and
 model constraints. The service layer owns their consistency; clients must not update them separately.
 
+Object deletion follows the same boundary. A normal delete never removes dependencies implicitly: it
+returns a structured cascade impact report. An explicitly confirmed cascade walks containment and
+model-defined PK→FK ownership edges, removes incident associations, writes audit events and deletes the
+resulting object set in one transaction.
+
 ## API projection
 
 The API returns attributes by stable keys and typed JSON values. Clients may request relations using
@@ -69,12 +78,12 @@ change feed rather than an undocumented unbounded page.
 - Asynchronous import/export with streamed storage
 - Ordered change feed based on audit sequence
 
-The current path builder is intentionally simple and should be replaced before deep, high-volume
-hierarchies are used in production.
+The path builder resolves ancestor chains in level order (one query per depth level rather than one per
+object), removing the N+1 traversal for typical hierarchies. Recursive CTEs or a maintained path
+representation remain the direction for very deep, high-volume hierarchies.
 
 ## Security direction
 
 Authentication and authorization remain outside model 0.2. The expected design is OIDC authentication
 plus model-configurable application, object-type and operation permissions. Record-level rules should
 be introduced only for demonstrated RDM needs.
-

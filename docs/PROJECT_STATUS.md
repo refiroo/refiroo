@@ -2,7 +2,7 @@
 
 ## Current baseline
 
-Version `0.3.0` is an executable vertical slice of a generic reference-data engine. The versioned JSON
+Model release `0.4.0` is an executable vertical slice of a generic reference-data engine. The versioned JSON
 model is the source of truth for applications, global attribute types, object types and bindings,
 relation types, allowed source/relation/target triples and UI views.
 
@@ -26,21 +26,49 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
 
 ## Implemented
 
-- `model/rdm-starter.json`: schema-language 0.3 model with 21 attributes, 9 object types, 12 relation
-  types, 12 allowed triples, three applications, collection views and typed detail compositions.
-- `backend/app/model_schema.py`: executable model contract with uniqueness, cross-reference and parent
+- `model/rdm-starter.json`: schema-language 0.4 model with 22 attributes, 9 object types, 13 relation
+  types, 16 allowed triples, three applications, collection views and typed detail compositions. Domain
+  and Codelist objects can have optional System Value representations without joining the independent
+  system containment hierarchy.
+- Translation objects support translated name, description and value content, are contained by a
+  Translation Group, and have exactly one required target chosen from every explicitly configured
+  translatable Master object type. Active Target and Language combinations are unique.
+- `backend/app/models/schema.py`: executable model contract with uniqueness, cross-reference and parent
   relation validation.
-- `backend/app/database.py`: immutable model-release metadata plus runtime objects, typed attribute
+- `backend/app/models/database.py` and `backend/app/db.py`: immutable model-release metadata plus runtime objects, typed attribute
   values, typed relations and audit events.
-- `backend/app/attribute_values.py`: attribute validation, defaults and typed persistence conversion.
-- `backend/app/main.py`: metadata discovery, generic object CRUD, search/cursors, concurrency checks,
-  hierarchy maintenance, relation creation/traversal and cardinality checks.
+- `backend/app/services/attributes.py`: attribute validation, defaults and typed persistence conversion.
+- `backend/app/routers` and `backend/app/services`: metadata discovery, generic object CRUD,
+  search/cursors, concurrency checks, hierarchy maintenance, relation instance CRUD
+  (create/read-one/update/delete) with optimistic concurrency, cardinality checks and model-declared,
+  typed relation attributes — engine-maintained
+  parent-containment relations are read-only through the relations API; object-scoped attribute-value
+  endpoints
+  (`GET`/`POST`/`PATCH`/`DELETE` on `/objects/{type}/{id}/attributes/{attributeTypeKey}`) set, read,
+  update and delete single stored values with the same validation, uniqueness and object-version
+  concurrency as object writes. Standalone reads expose the current object version, and mutations
+  atomically claim that version before writing; `backend/app/main.py` contains application assembly
+  only.
+- Workspace-scoped attribute uniqueness for `features.unique` (`409 duplicate_attribute_value`) and
+  transactional object deletion with a structured dependency preview and explicit cascade option.
+  Cascade recursively deletes containment descendants, unlinks independent associations, and follows
+  directed required single-valued PK→FK bindings to dependent objects.
+- `backend/app/migrations`: versioned Alembic database migrations are the single source of schema truth;
+  the initial migration provisions new databases and upgrades existing ones, and startup runs only
+  `alembic upgrade head`.
 - `frontend/src`: model-generated application/view navigation, searchable runtime explorer, stable
   routes, view and panel component registries, cursor-paged collections, composable object details and
-  shared typed create/edit forms.
+  full runtime CRUD for objects, individual typed attribute values and mutable relationships. Relation
+  creation derives valid endpoint types and direction from the loaded model, uses cross-application
+  server-side lookup, and keeps engine-managed containment edges read-only.
+  Required non-parent bindings are selected in the generated object form and created atomically with
+  the new object and its containment relation.
 - Tests cover model validation and a Domain → Codelist containment flow including the generated typed
   relation, search/cursor behavior, update concurrency and deletion behavior. Composition tests mutate
-  panel order, visibility, fields and relation-table configuration without renderer changes.
+  panel order, visibility, fields and relation-table configuration without renderer changes. Frontend
+  unit tests (Vitest + Testing Library) exercise the model helpers and generic renderers with two
+  object types. Frontend adapter and helper tests also cover typed field conversion, structured API
+  errors, cross-application lookup queries and incoming/outgoing relationship derivation.
 
 ## Important design decisions
 
@@ -59,29 +87,40 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
   collection renderer; dedicated interactions are not implemented yet.
 - Relation expansion is currently an unpaged object-detail query; high-volume relation tables need a
   cursor-paged expansion endpoint before production scale.
-- Relations can be created and traversed but do not yet have update/delete or bulk endpoints.
+- Relations support full instance CRUD (create/read-one/update/delete with optimistic concurrency);
+  bulk relation endpoints and a cursor-paged expansion remain.
+- Attribute uniqueness is enforced at the service layer; a database-level unique constraint/index
+  remains before multi-writer PostgreSQL deployment.
+- Ancestor-scoped relationship uniqueness is enforced transactionally by the service layer; database
+  hardening remains for multi-writer PostgreSQL deployment.
 - Integration-grade filtering, sorting, bulk upsert, imports/exports, change feeds and webhooks remain.
-- Alembic migrations, OIDC, permissions and PostgreSQL performance/index work remain.
+- OIDC, permissions and PostgreSQL performance/index work remain.
 - The starter model is representative, not a one-to-one migration of every supplied source type.
 
 ## Next vertical slice
 
-Build a dedicated relation-driven mapping workspace without hardcoding the starter relation or object
-type keys in the renderer:
+Complete the bounded Base 0.5 operational foundation before building the dedicated mapping workspace:
 
-1. Add a batched relation-expansion query suitable for a mapping grid.
-2. Render source objects, candidate/selected target objects and mapping state from `view.config`.
-3. Support unmapped/mapped filtering, create mapping, replace mapping and remove mapping.
-4. Add optimistic concurrency and audit coverage for remapping.
-5. Exercise the component with a second synthetic relation in tests to preserve generic behavior.
+1. Make the database-selected installed release the single authoritative runtime model snapshot.
+2. Add validation, canonical compilation, semantic diff, compatibility analysis, versioned drafts,
+   immutable install and guarded activation.
+3. Make workspace and URL-backed collection state explicit in the generic object UI.
+4. Add stable built-in sorting, cursor-paged relation expansion and cursor-paged object audit history.
+5. Add the lightweight JSON model workbench, with model mutations disabled by default.
+
+See `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` for the implementation-ready work packages and
+`docs/ROADMAP.md` for the exit gate and sequenced milestones that follow.
 
 ## Coding-agent handoff
 
 Open the repository root, then start a new coding chat with:
 
 > Read `AGENTS.md` and `docs/PROJECT_STATUS.md`, then summarize the current model and implement the next
-> mapping-workspace vertical slice. Preserve all product invariants. Before editing, identify the API,
-> model, backend tests and generic UI component that will change.
+> incomplete work package in `docs/BASE_0_5_IMPLEMENTATION_PLAN.md`. Preserve all product invariants,
+> its scope boundaries and the work-package order. Before editing, report the current worktree status
+> and identify the API, persistence, backend tests and generic UI components that will change.
 
-Make a Git checkpoint before the first new slice. Run `python -m ruff check backend`,
-`python -m pytest backend/tests` and `npm --prefix frontend run build` before considering it complete.
+Make a Git checkpoint before the first new slice. Run
+`backend/.venv/bin/python -m ruff check backend`,
+`backend/.venv/bin/python -m pytest backend/tests -q`, `npm --prefix frontend test`,
+`npm --prefix frontend run build` and `git diff --check` before considering it complete.

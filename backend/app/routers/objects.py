@@ -1,24 +1,48 @@
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query, Response, status
+from fastapi import APIRouter, Query, Response, status
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import delete, or_, select
+from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 
 from ..db import SessionLocal
-from ..models.api import ObjectCreate, ObjectPage, ObjectResponse, ObjectUpdate
+from ..errors import api_error
+from ..models.api import ObjectCreate, ObjectPage, ObjectResponse, ObjectUpdate, RelationCreate
 from ..models.database import AttributeValue, AuditEvent, ObjectRelation, RdmObject
-from ..services.attributes import save_attribute_values, validate_attributes
+from ..services.attributes import (
+    check_attribute_uniqueness,
+    current_attribute_values,
+    save_attribute_values,
+    validate_attributes,
+    validate_object_attribute_rules,
+)
+from ..services.deletion import build_delete_plan, delete_plan_details, execute_delete_plan
 from ..services.model_loader import current_model
 from ..services.objects import (
     build_object_responses,
+    claim_object_version,
     get_object_type,
     load_object,
     replace_parent_relation,
     validate_application_object_type,
     validate_parent,
 )
+from ..services.relations import create_relation_instance, validate_scoped_relations_for_subtree
 
 router = APIRouter(prefix="/api/v1", tags=["objects"])
+
+
+def _attributes_to_dict(attributes: list) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for item in attributes:
+        if item.attributeTypeKey in result:
+            raise api_error(
+                422,
+                "duplicate_attribute",
+                f"Attribute '{item.attributeTypeKey}' occurs more than once",
+            )
+        result[item.attributeTypeKey] = item.value
+    return result
 
 
 @router.get("/objects/{object_type_key}", response_model=ObjectPage)
@@ -79,22 +103,58 @@ def list_objects(
 
 
 @router.post(
-    "/objects/{object_type_key}",
+    "/objects",
     response_model=ObjectResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_object(object_type_key: str, payload: ObjectCreate) -> ObjectResponse:
+def create_object(payload: ObjectCreate) -> ObjectResponse:
+    object_type_key = payload.objectTypeKey
     object_type = get_object_type(object_type_key)
     validate_application_object_type(payload.applicationKey, object_type_key)
-    attributes = validate_attributes(current_model(), object_type, payload.attributes)
+    attributes = validate_attributes(
+        current_model(), object_type, _attributes_to_dict(payload.attributes)
+    )
+    validate_object_attribute_rules(object_type, attributes)
+    required_relation_keys = {
+        allowed.relationTypeKey
+        for allowed in current_model().objectTypeRelations
+        if allowed.toObjectTypeKey == object_type_key
+        and allowed.required
+        and allowed.relationTypeKey
+        not in set(object_type.behavior.get("parentRelationTypeKeys", []))
+    }
+    provided_required_keys = {
+        relation.relationTypeKey
+        for relation in payload.initialRelations
+        if relation.direction == "incoming"
+    }
+    missing_relation_keys = required_relation_keys - provided_required_keys
+    if missing_relation_keys:
+        raise api_error(
+            422,
+            "missing_required_relations",
+            f"Required relationships missing: {sorted(missing_relation_keys)}",
+            {"relationTypeKeys": sorted(missing_relation_keys)},
+        )
 
     with SessionLocal() as session:
+        public_id = str(payload.id) if payload.id is not None else None
+        if public_id is not None:
+            existing = session.scalar(select(RdmObject.id).where(RdmObject.id == public_id))
+            if existing:
+                raise api_error(
+                    409, "object_already_exists", f"An object with ID '{public_id}' already exists"
+                )
+
         parent, parent_relation = validate_parent(
             session,
             object_type_key,
             payload.applicationKey,
             payload.workspaceKey,
-            payload.parentObjectId,
+            str(payload.parentObjectId) if payload.parentObjectId is not None else None,
+        )
+        check_attribute_uniqueness(
+            session, current_model(), attributes, workspace_key=payload.workspaceKey
         )
         item = RdmObject(
             workspace_key=payload.workspaceKey,
@@ -104,6 +164,8 @@ def create_object(object_type_key: str, payload: ObjectCreate) -> ObjectResponse
             state=payload.state,
             name=payload.name,
         )
+        if public_id is not None:
+            item.id = public_id
         session.add(item)
         session.flush()
         save_attribute_values(session, current_model(), item.id, attributes)
@@ -115,6 +177,28 @@ def create_object(object_type_key: str, payload: ObjectCreate) -> ObjectResponse
                     to_object_id=item.id,
                 )
             )
+        for initial in payload.initialRelations:
+            if initial.direction == "outgoing":
+                from_id, to_id = item.id, str(initial.otherObjectId)
+                from_object, to_object = item, None
+            else:
+                from_id, to_id = str(initial.otherObjectId), item.id
+                from_object, to_object = None, item
+            try:
+                create_relation_instance(
+                    session,
+                    RelationCreate(
+                        relationTypeKey=initial.relationTypeKey,
+                        fromObjectId=from_id,
+                        toObjectId=to_id,
+                        attributes=initial.attributes,
+                    ),
+                    from_object=from_object,
+                    to_object=to_object,
+                )
+            except IntegrityError:
+                session.rollback()
+                raise api_error(409, "duplicate_relation", "Relation already exists") from None
         session.add(
             AuditEvent(
                 aggregate_type="object",
@@ -122,11 +206,22 @@ def create_object(object_type_key: str, payload: ObjectCreate) -> ObjectResponse
                 action="created",
                 version=1,
                 changes=jsonable_encoder(
-                    {"objectTypeKey": object_type_key, "attributes": attributes}
+                    {
+                        "objectTypeKey": object_type_key,
+                        "attributes": attributes,
+                        "initialRelations": [
+                            relation.model_dump(mode="json")
+                            for relation in payload.initialRelations
+                        ],
+                    }
                 ),
             )
         )
-        session.commit()
+        try:
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            raise api_error(409, "duplicate_relation", "Relation already exists") from None
         session.refresh(item)
         return build_object_responses(session, [item])[0]
 
@@ -143,15 +238,28 @@ def get_object(object_type_key: str, object_id: str) -> ObjectResponse:
 def update_object(object_type_key: str, object_id: str, payload: ObjectUpdate) -> ObjectResponse:
     object_type = get_object_type(object_type_key)
     attributes = (
-        validate_attributes(current_model(), object_type, payload.attributes, partial=True)
+        validate_attributes(
+            current_model(), object_type, _attributes_to_dict(payload.attributes), partial=True
+        )
         if payload.attributes is not None
         else None
     )
 
     with SessionLocal() as session:
         item = load_object(session, object_id, object_type_key)
-        if item.version != payload.expectedVersion:
-            raise HTTPException(status_code=409, detail="Object version has changed")
+        claim_object_version(session, item, payload.expectedVersion)
+
+        if attributes is not None:
+            merged_attributes = current_attribute_values(session, item.id)
+            merged_attributes.update(attributes)
+            validate_object_attribute_rules(object_type, merged_attributes)
+            check_attribute_uniqueness(
+                session,
+                current_model(),
+                attributes,
+                workspace_key=item.workspace_key,
+                exclude_object_id=item.id,
+            )
 
         changes: dict[str, Any] = {}
         if payload.name is not None:
@@ -167,7 +275,7 @@ def update_object(object_type_key: str, object_id: str, payload: ObjectUpdate) -
                 object_type_key,
                 item.application_key,
                 item.workspace_key,
-                payload.parentObjectId,
+                str(payload.parentObjectId) if payload.parentObjectId is not None else None,
                 moving_object_id=item.id,
             )
             replace_parent_relation(session, item, parent, parent_relation)
@@ -179,7 +287,8 @@ def update_object(object_type_key: str, object_id: str, payload: ObjectUpdate) -
             save_attribute_values(session, current_model(), item.id, attributes)
             changes["attributes"] = attributes
 
-        item.version += 1
+        validate_scoped_relations_for_subtree(session, item)
+
         session.add(
             AuditEvent(
                 aggregate_type="object",
@@ -198,41 +307,21 @@ def update_object(object_type_key: str, object_id: str, payload: ObjectUpdate) -
 def delete_object(
     object_type_key: str,
     object_id: str,
-    expected_version: int = Query(alias="expectedVersion"),
-):
+    expected_version: int = Query(ge=1, alias="expectedVersion"),
+    cascade: bool = False,
+) -> Response:
     get_object_type(object_type_key)
     with SessionLocal() as session:
         item = load_object(session, object_id, object_type_key)
-        if item.version != expected_version:
-            raise HTTPException(status_code=409, detail="Object version has changed")
-        has_child = session.scalar(
-            select(RdmObject.id).where(RdmObject.parent_object_id == item.id).limit(1)
-        )
-        has_relation = session.scalar(
-            select(ObjectRelation.id)
-            .where(
-                or_(
-                    ObjectRelation.from_object_id == item.id,
-                    ObjectRelation.to_object_id == item.id,
-                )
+        claim_object_version(session, item, expected_version)
+        plan = build_delete_plan(session, current_model(), item, cascade=True)
+        if plan.has_dependents and not cascade:
+            raise api_error(
+                409,
+                "object_has_dependents",
+                "Deleting this object requires cascade confirmation",
+                delete_plan_details(session, current_model(), plan),
             )
-            .limit(1)
-        )
-        if has_child or has_relation:
-            raise HTTPException(
-                status_code=409,
-                detail="Remove child objects and relations before deleting this object",
-            )
-        session.add(
-            AuditEvent(
-                aggregate_type="object",
-                aggregate_id=item.id,
-                action="deleted",
-                version=item.version,
-                changes=jsonable_encoder({"objectTypeKey": object_type_key}),
-            )
-        )
-        session.execute(delete(AttributeValue).where(AttributeValue.object_id == item.id))
-        session.delete(item)
+        execute_delete_plan(session, plan)
         session.commit()
         return Response(status_code=204)

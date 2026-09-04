@@ -114,6 +114,7 @@ export default function App() {
             objectId={activeRoute.objectId}
             onOpen={openObjectById}
             onBack={backToCollection}
+            onDeleted={backToCollection}
             onChanged={() => setRefreshToken((value) => value + 1)}
           />
         )}

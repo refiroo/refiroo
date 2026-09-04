@@ -1,18 +1,24 @@
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Query, status
+from fastapi import APIRouter, Query, Response, status
 from fastapi.encoders import jsonable_encoder
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 
 from ..db import SessionLocal
-from ..models.api import RelationCreate, RelationExpansion, RelationResponse
+from ..errors import api_error
+from ..models.api import RelationCreate, RelationExpansion, RelationResponse, RelationUpdate
 from ..models.database import AuditEvent, ObjectRelation, RdmObject
 from ..services.objects import build_object_responses, load_object
 from ..services.relations import (
     build_relation_response,
+    claim_relation_version,
+    create_relation_instance,
+    ensure_relation_deletable,
+    ensure_relation_mutable,
     find_allowed_relation,
-    validate_cardinality,
+    load_relation,
+    validate_relation_attributes,
 )
 
 router = APIRouter(prefix="/api/v1", tags=["relations"])
@@ -25,36 +31,12 @@ router = APIRouter(prefix="/api/v1", tags=["relations"])
 )
 def create_relation(payload: RelationCreate) -> RelationResponse:
     with SessionLocal() as session:
-        from_object = load_object(session, payload.fromObjectId)
-        to_object = load_object(session, payload.toObjectId)
-        allowed = find_allowed_relation(
-            payload.relationTypeKey,
-            from_object.object_type_key,
-            to_object.object_type_key,
-        )
-        validate_cardinality(session, allowed, payload)
-        relation = ObjectRelation(
-            relation_type_key=payload.relationTypeKey,
-            from_object_id=payload.fromObjectId,
-            to_object_id=payload.toObjectId,
-            attributes=payload.attributes,
-        )
-        session.add(relation)
-        session.flush()
-        session.add(
-            AuditEvent(
-                aggregate_type="relation",
-                aggregate_id=relation.id,
-                action="created",
-                version=1,
-                changes=jsonable_encoder(payload.model_dump()),
-            )
-        )
         try:
+            relation = create_relation_instance(session, payload)
             session.commit()
         except IntegrityError:
             session.rollback()
-            raise HTTPException(status_code=409, detail="Relation already exists") from None
+            raise api_error(409, "duplicate_relation", "Relation already exists") from None
         session.refresh(relation)
         return build_relation_response(relation)
 
@@ -106,3 +88,78 @@ def get_relations(
             )
             for relation in relations
         ]
+
+
+@router.get("/relations/{relation_id}", response_model=RelationResponse)
+def get_relation(relation_id: str) -> RelationResponse:
+    with SessionLocal() as session:
+        return build_relation_response(load_relation(session, relation_id))
+
+
+@router.patch("/relations/{relation_id}", response_model=RelationResponse)
+def update_relation(relation_id: str, payload: RelationUpdate) -> RelationResponse:
+    with SessionLocal() as session:
+        relation = load_relation(session, relation_id)
+        from_object = load_object(session, relation.from_object_id)
+        to_object = load_object(session, relation.to_object_id)
+        ensure_relation_mutable(relation.relation_type_key, to_object.object_type_key)
+        allowed = find_allowed_relation(
+            relation.relation_type_key,
+            from_object.object_type_key,
+            to_object.object_type_key,
+        )
+        claim_relation_version(session, relation, payload.expectedVersion)
+        attributes = validate_relation_attributes(allowed, payload.attributes)
+        old_attributes = relation.attributes
+        relation.attributes = attributes
+        session.add(
+            AuditEvent(
+                aggregate_type="relation",
+                aggregate_id=relation.id,
+                action="updated",
+                version=relation.version,
+                changes=jsonable_encoder(
+                    {"attributes": {"from": old_attributes, "to": attributes}}
+                ),
+            )
+        )
+        session.commit()
+        session.refresh(relation)
+        return build_relation_response(relation)
+
+
+@router.delete("/relations/{relation_id}", status_code=204)
+def delete_relation(
+    relation_id: str,
+    expected_version: int = Query(ge=1, alias="expectedVersion"),
+) -> Response:
+    with SessionLocal() as session:
+        relation = load_relation(session, relation_id)
+        from_object = load_object(session, relation.from_object_id)
+        to_object = load_object(session, relation.to_object_id)
+        ensure_relation_mutable(relation.relation_type_key, to_object.object_type_key)
+        allowed = find_allowed_relation(
+            relation.relation_type_key,
+            from_object.object_type_key,
+            to_object.object_type_key,
+        )
+        ensure_relation_deletable(allowed)
+        claim_relation_version(session, relation, expected_version)
+        session.add(
+            AuditEvent(
+                aggregate_type="relation",
+                aggregate_id=relation.id,
+                action="deleted",
+                version=relation.version,
+                changes=jsonable_encoder(
+                    {
+                        "relationTypeKey": relation.relation_type_key,
+                        "fromObjectId": relation.from_object_id,
+                        "toObjectId": relation.to_object_id,
+                    }
+                ),
+            )
+        )
+        session.delete(relation)
+        session.commit()
+        return Response(status_code=204)

@@ -4,6 +4,8 @@ import type {
   EngineModel,
   ObjectItem,
   ObjectTypeDefinition,
+  ObjectTypeRelationDefinition,
+  RelationsPanelDefinition,
   RouteState,
 } from "../types";
 
@@ -11,7 +13,44 @@ export function objectTypeFor(model: EngineModel, key: string) {
   return model.objectTypes.find((item) => item.key === key);
 }
 
+export interface RelationChoice {
+  direction: "outgoing" | "incoming";
+  relation: ObjectTypeRelationDefinition;
+  otherObjectTypeKey: string;
+  label: string;
+}
+
+export function isManagedRelation(model: EngineModel, relation: ObjectTypeRelationDefinition) {
+  const target = objectTypeFor(model, relation.toObjectTypeKey);
+  return (target?.behavior.parentRelationTypeKeys ?? []).includes(relation.relationTypeKey);
+}
+
+export function relationChoices(
+  model: EngineModel,
+  objectTypeKey: string,
+  panel: RelationsPanelDefinition,
+): RelationChoice[] {
+  const allowedKeys = new Set(panel.config.relationTypeKeys);
+  const choices: RelationChoice[] = [];
+  for (const relation of model.objectTypeRelations) {
+    if (!allowedKeys.has(relation.relationTypeKey) || relation.required || isManagedRelation(model, relation)) continue;
+    const definition = model.relationTypes.find((item) => item.key === relation.relationTypeKey);
+    if (!definition) continue;
+    if ((panel.config.direction === "outgoing" || panel.config.direction === "both") && relation.fromObjectTypeKey === objectTypeKey) {
+      choices.push({ direction: "outgoing", relation, otherObjectTypeKey: relation.toObjectTypeKey, label: definition.name });
+    }
+    if ((panel.config.direction === "incoming" || panel.config.direction === "both") && relation.toObjectTypeKey === objectTypeKey) {
+      choices.push({ direction: "incoming", relation, otherObjectTypeKey: relation.fromObjectTypeKey, label: definition.reverseName });
+    }
+  }
+  return choices;
+}
+
 export function attributeName(model: EngineModel, key: string) {
+  if (key.startsWith("ancestor:")) {
+    const objectTypeKey = key.slice("ancestor:".length);
+    return objectTypeFor(model, objectTypeKey)?.name ?? objectTypeKey;
+  }
   if (key === "name") return "Name";
   if (key === "state") return "State";
   if (key === "path") return "Path";
@@ -23,6 +62,10 @@ export function attributeName(model: EngineModel, key: string) {
 }
 
 export function fieldValue(item: ObjectItem, key: string, model?: EngineModel): unknown {
+  if (key.startsWith("ancestor:")) {
+    const objectTypeKey = key.slice("ancestor:".length);
+    return item.path.find((part) => part.objectTypeKey === objectTypeKey)?.name;
+  }
   if (key === "name") return item.name;
   if (key === "state") return item.state;
   if (key === "path") return item.path.map((part) => part.name).join(" / ");
@@ -30,7 +73,7 @@ export function fieldValue(item: ObjectItem, key: string, model?: EngineModel): 
   if (key === "id") return item.id;
   if (key === "createdAt") return item.createdAt;
   if (key === "updatedAt") return item.updatedAt;
-  return item.attributes[key];
+  return item.attributes.find((attribute) => attribute.attributeTypeKey === key)?.value;
 }
 
 export function applicationFor(model: EngineModel, key: string) {

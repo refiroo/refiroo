@@ -94,7 +94,7 @@ function ObjectCollectionView({ model, application, view, onOpen, onChanged }: V
           <h1>{view.name}</h1>
           <p>{objectType.description ?? application.description}</p>
         </div>
-        <button className="primary" onClick={() => setShowCreate(true)}>+ New {objectType.name}</button>
+        {objectType.features.rootCreatable === true && <button className="primary" onClick={() => setShowCreate(true)}>+ New {objectType.name}</button>}
       </header>
       <section className="surface collection-surface">
         <div className="collection-toolbar">

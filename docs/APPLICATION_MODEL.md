@@ -10,7 +10,7 @@ control presentation.
 
 ```json
 {
-  "schemaVersion": "0.3",
+  "schemaVersion": "0.4",
   "release": {},
   "product": {},
   "attributeTypes": [],
@@ -42,6 +42,14 @@ Features are typed JSON values. For example:
 }
 ```
 
+Attribute-type features control engine behavior. `unique: true` enforces workspace-scoped uniqueness
+for the value at create and update (HTTP `409 duplicate_attribute_value`); it is not supported for
+`json` values and is rejected at model load. `searchable` includes the attribute in object search.
+`filterable` and `sortable` are reserved presentation hints not yet implemented in the API.
+`validation.minimum` and `validation.maximum` are numeric bounds and apply only to `integer` and
+`decimal` value types. Bounds must be finite numbers, and `minimum` cannot exceed `maximum`; invalid
+bounds or bounds declared on another value type are rejected at model load.
+
 ## Object types and attribute bindings
 
 An object type defines its stable key, labels, display attribute, features and behavior. Its
@@ -50,6 +58,11 @@ and UI properties.
 
 This separation permits one `description` definition to be reused while allowing it to be mandatory in
 one object type and optional in another.
+
+Schema 0.4 adds object-level `validation.atLeastOneOf`. It contains attached attribute keys and requires
+at least one of them to hold a non-empty value across object creation, partial updates and individual
+attribute deletion. The starter Translation uses it for `translated-name`, `translated-description`
+and `translated-value`.
 
 ## Relation types
 
@@ -70,11 +83,106 @@ itself decide which object types may participate.
 This is deliberately separate because one reusable relation type can be permitted between several
 object-type pairs.
 
+An allowed triple's `attributeTypeKeys` enumerates the global attribute types that relation instances
+may store. Relation create and update reject undeclared keys and validate each supplied value using its
+declared type and numeric bounds before persistence. An empty list therefore means the relation carries
+no instance attributes rather than accepting arbitrary JSON.
+
+For deletion semantics, a directed non-parent binding with `required: true` and `one-to-one` or
+`one-to-many` cardinality represents PK→FK ownership: the `from` object is the owner and the `to`
+object is its dependent. An explicitly confirmed cascade from the owner deletes the dependent. An
+optional binding or a `many-to-many` binding is an association; cascade removes the relation instance
+but preserves the object at the other endpoint. Parent containment remains governed by
+`parentObjectId` and always cascades from parent to descendants when cascade deletion is confirmed.
+
+## Relation patterns
+
+Relation types follow three patterns, distinguished by their features:
+
+### Containment (`parentOf: true`, `creatableOnChildAdd: true`)
+
+Parent-child ownership. The parent "contains" the child; the reverse direction means "belongs to".
+Always one-to-many. When the child object type names the relation in
+`behavior.parentRelationTypeKeys`, creating an object with a `parentObjectId` writes the containment
+relation atomically alongside the parent foreign key. `creatableOnChildAdd` records the intended
+interaction semantics; creation controls are currently configured by child/table panels.
+
+Examples from the starter model:
+
+| Relation key | From | To |
+|---|---|---|
+| `domain-contains-codelist` | domain | codelist |
+| `codelist-contains-value` | codelist | master-value |
+| `system-contains-group` | system | system-group |
+| `system-contains-value` | system | system-value |
+| `system-group-contains-value` | system-group | system-value |
+| `language-contains-group` | language | translation-group |
+| `translation-group-contains-translation` | translation-group | translation |
+
+### Hierarchy / self-reference (`parentOf: true`, `hierarchical: true`)
+
+The same object type appears on both sides, enabling arbitrary-depth nesting within a single type.
+Also one-to-many. The child object's `behavior.parentRelationTypeKeys` binding makes the engine create
+the relation atomically on child creation. `hierarchical` records the relation semantics; tree and
+hierarchy presentation are configured separately through views and panels.
+
+| Relation key | Object type |
+|---|---|
+| `master-value-has-child` | master-value |
+| `system-group-has-child` | system-group |
+| `translation-group-has-child` | translation-group |
+
+### Cross-reference / mapping (no `parentOf`)
+
+Links between independent object types. These are business-level associations, not
+parent-child ownership, and are created explicitly through the relations API. `searchable` records
+intended discovery semantics; current object search covers names and searchable attributes, not
+relation expansion. Optional cross-reference relations are fully mutable through relation CRUD.
+Required relations can be created atomically with their dependent object and cannot be independently
+deleted because that would leave the object invalid.
+
+| Relation key | From | To |
+|---|---|---|
+| `reference-has-system-representation` | domain or codelist | system-value |
+| `system-value-maps-to-master` | system-value | master-value |
+| `object-has-translation` | domain, codelist or master-value | translation |
+
+`reference-has-system-representation` is an optional one-to-many association. A Domain or Codelist
+may have multiple System Value representations, while each represented System Value belongs to at
+most one Domain or Codelist through this relation type. It does not change the System Value's parent:
+System and System Group containment remains the separate system hierarchy. Because the association is
+optional rather than an ownership binding, cascade deletion of the Domain or Codelist removes the edge
+but preserves the System Value.
+
+`object-has-translation` is a required one-to-many ownership binding. Its shared relation type ensures
+that a Translation has exactly one target across all permitted target types. Each binding declares
+`uniqueToAncestorTypeKey: language` together with an `active == true` target-attribute condition,
+preventing multiple active Translations for the same object and Language while allowing inactive
+historical records. Future translatable object types are enabled by adding another explicit allowed
+triple to the JSON model.
+
+### Feature flags summary
+
+| Feature | Effect |
+|---|---|
+| `parentOf` | Declares parent/containment semantics; atomic maintenance is bound by `behavior.parentRelationTypeKeys` |
+| `creatableOnChildAdd` | Declares that adding a child is meaningful; current controls come from panel configuration |
+| `hierarchical` | Declares recursive hierarchy semantics; tree presentation remains view-configured |
+| `searchable` | Reserved relation-discovery hint; relation-expanded search is not implemented yet |
+| `uniqueToAncestorTypeKey` | Makes a relation unique per source object and the target object's named containment ancestor |
+| `uniqueWhenToAttributeEquals` | Applies scoped relation uniqueness only when the target attribute equals the configured value |
+
 ## Hierarchy
 
 An object type may declare `behavior.parentRelationTypeKeys`. When an object is created with a parent,
 the engine uses the parent and child object types to select exactly one allowed relation. It writes both
 the parent ID and typed relation atomically. Self-relations support arbitrary-depth groups and values.
+
+Relations named in an object type's `behavior.parentRelationTypeKeys` — the containment and hierarchy
+relations above — are engine-maintained. The relations API returns them on reads but rejects direct
+creation, update or deletion with `422 immutable_relation`, so `parent_object_id` and the typed
+relation cannot diverge. Reparenting an object goes through object parent operations, which rewrite
+the foreign key and the typed relation atomically.
 
 ## Applications and views
 
@@ -133,6 +241,13 @@ The supported panel types are:
 - `table`: an application object type, optionally filtered to direct children; and
 - `hierarchy`: parent and ancestor context from the runtime object path.
 
+Relation panels may set `showRelationshipColumn: false` when their configured relation and direction
+make the relationship label constant and therefore redundant. Columns use built-in fields, attached
+attribute keys, or `ancestor:<objectTypeKey>`. An ancestor column displays the named object's entry
+from the related object's runtime path and derives its heading from that object type—for example,
+`ancestor:system` renders a `System` column for System Values contained directly by a System or nested
+under System Groups.
+
 Every panel has a type-specific configuration. Unknown properties are rejected. Startup validation
 also checks header and column fields, application membership, containment compatibility, relation
 existence and direction, unique detail/panel keys and page-size bounds. Configuration contains only
@@ -140,6 +255,7 @@ stable model keys and presentation semantics; the React API adapter owns all bac
 
 ## Versioning
 
-`schemaVersion` versions the model language. Schema 0.3 adds typed application detail composition to
-the 0.2 object–attribute–relation contract. `release.version` versions one model package. Each distinct
+`schemaVersion` versions the model language. Schema 0.4 adds object-level cross-field validation,
+required initial relationships and scoped relationship uniqueness to the 0.3 detail-composition
+contract. `release.version` versions one model package. Each distinct
 validated model is installed as an immutable database release identified by its content hash.
