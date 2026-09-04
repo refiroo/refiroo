@@ -348,7 +348,7 @@ def get_model_release(
 @router.get(
     "/model-releases/{release_id}/diff",
     response_model=ModelReleaseDiffResponse,
-    response_model_exclude_none=True,
+    response_model_exclude_unset=True,
 )
 def diff_model_release(
     release_id: str,
@@ -410,15 +410,7 @@ def diff_model_release(
     return ModelReleaseDiffResponse(
         againstReleaseId=against_release_id,
         releaseId=release_id,
-        changes=[
-            ModelChangeResponse(
-                kind=item.kind,
-                path=item.path,
-                before=item.before,
-                after=item.after,
-            )
-            for item in changes
-        ],
+        changes=[_change_response(item) for item in changes],
         compatibility=ModelCompatibilityResponse(
             classification=compatibility.classification,
             activeReleaseId=compatibility.active_release_id,
@@ -449,12 +441,28 @@ def _build_model_release_response(
 
 
 def _diagnostic_response(item: ModelDiagnostic) -> ModelDiagnosticResponse:
-    return ModelDiagnosticResponse(
-        severity=item.severity,
-        code=item.code,
-        path=item.path,
-        message=item.message,
-        count=item.count,
+    values = {
+        "severity": item.severity,
+        "code": item.code,
+        "path": item.path,
+        "message": item.message,
+    }
+    if item.count is not None:
+        values["count"] = item.count
+    return ModelDiagnosticResponse(**values)
+
+
+def _change_response(item) -> ModelChangeResponse:
+    values = {
+        "kind": item.kind,
+        "path": item.path,
+    }
+    if item.kind != "added":
+        values["before"] = item.before
+    if item.kind != "removed":
+        values["after"] = item.after
+    return ModelChangeResponse(
+        **values,
     )
 
 

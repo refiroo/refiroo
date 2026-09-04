@@ -183,8 +183,11 @@ diagnostics:
 ```
 
 `kind` is `added`, `changed` or `removed`. `before` is absent for additions and `after` is absent for
-removals. Compatibility always assesses activation against current runtime data and identifies the
-active release used for that assessment; it is independent of a non-active structural diff baseline.
+removals. A present `before` or `after` may contain JSON `null`; omission and a real null value are
+distinct. Set-like key memberships such as application object types and allowed relation attributes
+are compared by stable key rather than array position. Compatibility always assesses activation
+against current runtime data and identifies the active release used for that assessment; it is
+independent of a non-active structural diff baseline.
 
 Activation accepts both concurrency tokens:
 
@@ -274,7 +277,9 @@ returns:
 `modelHash`, and uses `invalid`. Installation repeats compilation and compatibility analysis and
 returns the installed release detail with `model` absent. A newly installed release returns HTTP
 `201`; an idempotent retry for identical content returns HTTP `200`. Installation never activates the
-release.
+release. Installations are serialized inside the supported single API process so concurrent drafts
+with identical content resolve to the same immutable release rather than racing the uniqueness
+constraints.
 
 Every draft endpoint and the installation and activation endpoints return HTTP `404` when model
 administration mutations are disabled. Validation, capabilities, installed-release reads and diff

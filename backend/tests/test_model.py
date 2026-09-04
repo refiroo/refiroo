@@ -71,6 +71,36 @@ def test_semantic_diff_uses_stable_nested_keys():
     ]
 
 
+def test_semantic_diff_treats_key_membership_arrays_as_unordered():
+    before = {
+        "objectTypeRelations": [
+            {
+                "relationTypeKey": "links",
+                "fromObjectTypeKey": "source",
+                "toObjectTypeKey": "target",
+                "attributeTypeKeys": ["first", "second"],
+            }
+        ]
+    }
+    after = deepcopy(before)
+    after["objectTypeRelations"][0]["attributeTypeKeys"].reverse()
+
+    assert semantic_diff(before, after) == ()
+
+
+def test_compiler_infers_paths_for_top_level_validation_failures():
+    duplicate = load_model(MODEL_PATH).model_dump(mode="json")
+    duplicate["attributeTypes"].append(deepcopy(duplicate["attributeTypes"][0]))
+    duplicate_result = compile_model(duplicate)
+
+    detail = load_model(MODEL_PATH).model_dump(mode="json")
+    detail["applications"][0]["details"][0]["header"]["titleField"] = "missing"
+    detail_result = compile_model(detail)
+
+    assert duplicate_result.diagnostics[0].path == "/attributeTypes/description"
+    assert detail_result.diagnostics[0].path == "/applications/rdm-master/details/domain/header"
+
+
 def test_domain_and_codelist_system_representations_are_modelled_as_optional_associations():
     model = load_model(MODEL_PATH)
     relation = model.relation_type("reference-has-system-representation")

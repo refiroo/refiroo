@@ -1,7 +1,7 @@
 from collections import defaultdict
 from typing import Any
 
-from sqlalchemy import and_, exists, func, literal, or_, select
+from sqlalchemy import Numeric, and_, cast, exists, func, literal, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from ..models.database import AttributeValue, ObjectRelation, RdmObject
@@ -195,7 +195,7 @@ def _check_numeric_bounds(
         active_value = active_attribute.validation.get(bound) if active_attribute else None
         if candidate_value is None or candidate_value == active_value:
             continue
-        count = int(
+        object_count = int(
             session.scalar(
                 select(func.count())
                 .select_from(AttributeValue)
@@ -206,9 +206,12 @@ def _check_numeric_bounds(
             )
             or 0
         )
+        relation_count = _count_relation_attribute_bound_violations(
+            session, key, bound, candidate_value
+        )
         _append_counted(
             diagnostics,
-            count,
+            object_count + relation_count,
             "attribute_validation_violated",
             f"/attributeTypes/{_pointer(key)}/validation/{bound}",
             f"Stored values violate {bound} for attribute '{key}'",
@@ -380,25 +383,34 @@ def _check_cardinality(
 ) -> None:
     if pair.cardinality == "many-to-many":
         return
-    from_object = aliased(RdmObject)
-    to_object = aliased(RdmObject)
-    base = (
-        select(ObjectRelation)
-        .join(from_object, from_object.id == ObjectRelation.from_object_id)
-        .join(to_object, to_object.id == ObjectRelation.to_object_id)
+    count = 0
+    target = aliased(RdmObject)
+    target_conflicts = (
+        select(ObjectRelation.to_object_id)
+        .join(target, target.id == ObjectRelation.to_object_id)
         .where(
             ObjectRelation.relation_type_key == pair.relationTypeKey,
-            from_object.object_type_key == pair.fromObjectTypeKey,
-            to_object.object_type_key == pair.toObjectTypeKey,
+            target.object_type_key == pair.toObjectTypeKey,
         )
+        .group_by(ObjectRelation.to_object_id)
+        .having(func.count() > 1)
+        .subquery()
     )
-    groups = [ObjectRelation.to_object_id]
+    count += int(session.scalar(select(func.count()).select_from(target_conflicts)) or 0)
     if pair.cardinality == "one-to-one":
-        groups.append(ObjectRelation.from_object_id)
-    count = 0
-    for group in groups:
-        conflicts = base.with_only_columns(group).group_by(group).having(func.count() > 1).subquery()
-        count += int(session.scalar(select(func.count()).select_from(conflicts)) or 0)
+        source = aliased(RdmObject)
+        source_conflicts = (
+            select(ObjectRelation.from_object_id)
+            .join(source, source.id == ObjectRelation.from_object_id)
+            .where(
+                ObjectRelation.relation_type_key == pair.relationTypeKey,
+                source.object_type_key == pair.fromObjectTypeKey,
+            )
+            .group_by(ObjectRelation.from_object_id)
+            .having(func.count() > 1)
+            .subquery()
+        )
+        count += int(session.scalar(select(func.count()).select_from(source_conflicts)) or 0)
     _append_counted(
         diagnostics,
         count,
@@ -590,6 +602,28 @@ def _count_relation_pair(session: Session, pair: ObjectTypeRelationDefinition) -
                 from_object.object_type_key == pair.fromObjectTypeKey,
                 to_object.object_type_key == pair.toObjectTypeKey,
             )
+        )
+        or 0
+    )
+
+
+def _count_relation_attribute_bound_violations(
+    session: Session,
+    key: str,
+    bound_name: str,
+    bound_value: Any,
+) -> int:
+    numeric_value = cast(ObjectRelation.attributes[key].as_string(), Numeric)
+    violation = (
+        numeric_value < bound_value
+        if bound_name == "minimum"
+        else numeric_value > bound_value
+    )
+    return int(
+        session.scalar(
+            select(func.count())
+            .select_from(ObjectRelation)
+            .where(violation)
         )
         or 0
     )

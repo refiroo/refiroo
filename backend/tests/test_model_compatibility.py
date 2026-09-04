@@ -17,6 +17,7 @@ def _source() -> dict:
         "attributeTypes": [
             {"key": "value", "name": "Value"},
             {"key": "relation-note", "name": "Relation note"},
+            {"key": "relation-score", "name": "Relation score", "valueType": "integer"},
         ],
         "objectTypes": [
             {
@@ -56,7 +57,7 @@ def _source() -> dict:
                 "fromObjectTypeKey": "source",
                 "toObjectTypeKey": "target",
                 "cardinality": "many-to-many",
-                "attributeTypeKeys": ["relation-note"],
+                "attributeTypeKeys": ["relation-note", "relation-score"],
             },
             {
                 "relationTypeKey": "contains",
@@ -255,6 +256,131 @@ def test_scoped_relation_uniqueness_is_checked_against_containment_ancestors(ses
 
     diagnostic = next(
         item for item in result.diagnostics if item.code == "relation_uniqueness_violated"
+    )
+    assert diagnostic.count == 1
+
+
+def test_numeric_bounds_are_checked_for_stored_relation_attributes(session):
+    _seed_link(session, attributes={"relation-score": 5})
+    candidate = deepcopy(_source())
+    candidate["attributeTypes"][2]["validation"] = {"minimum": 10}
+
+    result = _compatibility(session, candidate)
+
+    diagnostic = next(
+        item for item in result.diagnostics if item.code == "attribute_validation_violated"
+    )
+    assert diagnostic.count == 1
+    assert diagnostic.path == "/attributeTypes/relation-score/validation/minimum"
+
+
+def test_cardinality_is_checked_across_all_pairs_sharing_a_relation_type(session):
+    active_source = deepcopy(_source())
+    active_source["objectTypes"].append(
+        {
+            "key": "second-source",
+            "name": "Second source",
+            "pluralName": "Second sources",
+            "features": {"rootCreatable": True},
+        }
+    )
+    active_source["applications"][0]["objectTypeKeys"].append("second-source")
+    active_source["objectTypeRelations"].append(
+        {
+            "relationTypeKey": "links",
+            "fromObjectTypeKey": "second-source",
+            "toObjectTypeKey": "target",
+            "cardinality": "many-to-many",
+        }
+    )
+    first_source = _object(session, "source")
+    second_source = _object(session, "second-source")
+    target = _object(session, "target")
+    session.add_all(
+        [
+            ObjectRelation(
+                relation_type_key="links",
+                from_object_id=first_source.id,
+                to_object_id=target.id,
+                attributes={},
+            ),
+            ObjectRelation(
+                relation_type_key="links",
+                from_object_id=second_source.id,
+                to_object_id=target.id,
+                attributes={},
+            ),
+        ]
+    )
+    session.flush()
+    candidate_source = deepcopy(active_source)
+    for pair in candidate_source["objectTypeRelations"]:
+        if pair["relationTypeKey"] == "links":
+            pair["cardinality"] = "one-to-many"
+
+    result = analyze_compatibility(
+        session,
+        _model(active_source),
+        _model(candidate_source),
+        "active-release",
+    )
+
+    assert result.classification == "migration_required"
+    diagnostic = next(
+        item for item in result.diagnostics if item.code == "relation_cardinality_violated"
+    )
+    assert diagnostic.count == 1
+
+
+def test_one_to_one_cardinality_checks_shared_sources_across_target_pairs(session):
+    active_source = deepcopy(_source())
+    active_source["objectTypes"].append(
+        {
+            "key": "second-target",
+            "name": "Second target",
+            "pluralName": "Second targets",
+            "features": {"rootCreatable": True},
+        }
+    )
+    active_source["applications"][0]["objectTypeKeys"].append("second-target")
+    active_source["objectTypeRelations"].append(
+        {
+            "relationTypeKey": "links",
+            "fromObjectTypeKey": "source",
+            "toObjectTypeKey": "second-target",
+            "cardinality": "many-to-many",
+        }
+    )
+    source = _object(session, "source")
+    first_target = _object(session, "target")
+    second_target = _object(session, "second-target")
+    session.add_all(
+        [
+            ObjectRelation(
+                relation_type_key="links",
+                from_object_id=source.id,
+                to_object_id=target.id,
+                attributes={},
+            )
+            for target in (first_target, second_target)
+        ]
+    )
+    session.flush()
+    candidate_source = deepcopy(active_source)
+    for pair in candidate_source["objectTypeRelations"]:
+        if pair["relationTypeKey"] == "links":
+            pair["cardinality"] = "one-to-one"
+
+    result = analyze_compatibility(
+        session,
+        _model(active_source),
+        _model(candidate_source),
+        "active-release",
+    )
+
+    assert result.classification == "migration_required"
+    diagnostic = next(
+        item for item in result.diagnostics if item.code == "relation_cardinality_violated"
     )
     assert diagnostic.count == 1
 

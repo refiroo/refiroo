@@ -56,6 +56,10 @@ starts one Uvicorn process and does not set a worker count. `MODEL_ADMIN_MUTATIO
 by default and is a deployment guard rather than an authorization system. When enabled, startup must
 reject a configured multi-worker topology until cross-process release propagation exists.
 
+Within that supported process, immutable release installations are serialized across drafts. The
+database uniqueness constraints remain the final identity/hash guard, while process serialization
+ensures concurrent identical installation requests retain the documented idempotent response.
+
 Activation commits the database runtime-state change before publishing the new snapshot to the local
 registry. If the process cannot refresh that committed selection, readiness is unhealthy and requests
 must not fall back to bootstrap content or a guessed cached model. Read-only release discovery remains

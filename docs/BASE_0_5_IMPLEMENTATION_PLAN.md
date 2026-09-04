@@ -307,9 +307,12 @@ Completion record:
   not reported as a model change;
 - added bounded aggregate, existence and recursive-hierarchy compatibility checks for every Base 0.5
   blocking class, including required bindings, cardinality and scoped uniqueness;
+- hardened cardinality checks across all allowed pairs sharing one relation type and applied tightened
+  numeric bounds to both object and relation attribute storage;
 - exposed inline validation and installed-release diff APIs, keeping invalid installed content,
   migration requirements and internal failures distinct; and
-- added focused compiler, diff, compatibility, side-effect and OpenAPI contract tests.
+- preserved JSON nulls and set-like key semantics in diffs, expanded precise diagnostic paths, and
+  added focused compiler, diff, compatibility, side-effect and OpenAPI contract tests.
 
 ### WP3 — Persist drafts and install immutable releases
 
@@ -355,6 +358,8 @@ Completion record:
   bootstrap and draft installation;
 - recompiled and reassessed persisted content during installation, preserving the active runtime
   selection and providing hash idempotence plus release-identity conflicts;
+- serialized installation across drafts in the supported single-process mutation topology so
+  concurrent identical requests remain idempotent;
 - recorded concise draft/install lifecycle audit events without storing complete model documents; and
 - exposed capabilities that distinguish always-readable releases from enabled draft/install writes,
   while leaving activation disabled until WP4.

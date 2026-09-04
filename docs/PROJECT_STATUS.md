@@ -45,10 +45,13 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
 - `backend/app/services/model_compiler.py`, `model_diff.py` and `model_compatibility.py`:
   side-effect-free canonical compilation, stable JSON-path diagnostics, key-based structural diff and
   bounded runtime-data compatibility checks exposed through validation and release-diff APIs.
+  Compatibility covers object and relation attribute constraints and relation-type-wide cardinality;
+  diffs distinguish JSON null from omission and ignore ordering for set-like stable-key memberships.
 - `backend/app/services/model_drafts.py`, `model_releases.py` and the model-management router:
   persisted draft CRUD with optimistic concurrency, side-effect-free draft compilation and atomic,
-  idempotent immutable installation. Complete model JSON is excluded from lifecycle audit payloads,
-  and all write routes are absent unless model administration mutations are enabled.
+  idempotent immutable installation serialized across drafts in the supported single-process
+  topology. Complete model JSON is excluded from lifecycle audit payloads, and all write routes are
+  absent unless model administration mutations are enabled.
 - `backend/app/models/database.py` and `backend/app/db.py`: immutable model-release metadata plus runtime objects, typed attribute
   values, typed relations and audit events.
 - `backend/app/services/attributes.py`: attribute validation, defaults and typed persistence conversion.

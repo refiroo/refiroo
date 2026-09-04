@@ -97,6 +97,110 @@ def _inferred_reference_path(source: Any, message: str) -> str | None:
     if not isinstance(source, dict):
         return None
 
+    match = re.search(
+        r"Duplicate (attribute type|object type|relation type|application) key '([^']+)'",
+        message,
+    )
+    if match:
+        collection = {
+            "attribute type": "attributeTypes",
+            "object type": "objectTypes",
+            "relation type": "relationTypes",
+            "application": "applications",
+        }[match.group(1)]
+        return f"/{collection}/{_pointer_segment(match.group(2))}"
+
+    match = re.search(r"Duplicate view in ([^ ]+) key '([^']+)'", message)
+    if match:
+        return (
+            f"/applications/{_pointer_segment(match.group(1))}/views/"
+            f"{_pointer_segment(match.group(2))}"
+        )
+
+    match = re.search(r"Duplicate attribute binding '([^']+)' in '([^']+)'", message)
+    if match:
+        return (
+            f"/objectTypes/{_pointer_segment(match.group(2))}/attributes/"
+            f"{_pointer_segment(match.group(1))}"
+        )
+
+    match = re.search(r"Attribute type '([^']+)' declares 'unique'", message)
+    if match:
+        return f"/attributeTypes/{_pointer_segment(match.group(1))}/features/unique"
+
+    match = re.search(r"Attribute type '([^']+)' validation\.(minimum|maximum)", message)
+    if match:
+        return (
+            f"/attributeTypes/{_pointer_segment(match.group(1))}/validation/"
+            f"{match.group(2)}"
+        )
+
+    match = re.search(
+        r"Attribute type '([^']+)' declares 'validation\.(minimum|maximum)'", message
+    )
+    if match:
+        return (
+            f"/attributeTypes/{_pointer_segment(match.group(1))}/validation/"
+            f"{match.group(2)}"
+        )
+
+    match = re.search(r"Duplicate relation or reverse key '([^']+)'", message)
+    if match:
+        duplicate_key = match.group(1)
+        relations = source.get("relationTypes", [])
+        matches = [
+            item
+            for item in relations
+            if isinstance(item, dict)
+            and duplicate_key in {item.get("key"), item.get("reverseKey")}
+        ]
+        if matches:
+            item = matches[-1]
+            field = "key" if item.get("key") == duplicate_key else "reverseKey"
+            return (
+                f"/relationTypes/{_pointer_segment(item.get('key', duplicate_key))}/"
+                f"{field}"
+            )
+
+    if message.startswith("Duplicate object-type relation "):
+        seen_relations: set[tuple[Any, Any, Any]] = set()
+        for item in source.get("objectTypeRelations", []):
+            if not isinstance(item, dict):
+                continue
+            identity = tuple(
+                item.get(field)
+                for field in ("relationTypeKey", "fromObjectTypeKey", "toObjectTypeKey")
+            )
+            if identity in seen_relations:
+                return _relation_path(item)
+            seen_relations.add(identity)
+
+    match = re.search(r"Object type '([^']+)' validation\.atLeastOneOf", message)
+    if match:
+        return f"/objectTypes/{_pointer_segment(match.group(1))}/validation/atLeastOneOf"
+
+    match = re.search(
+        r"Application '([^']+)' detail '([^']+)'(?: (header)| panel '([^']+)')?",
+        message,
+    )
+    if match:
+        path = (
+            f"/applications/{_pointer_segment(match.group(1))}/details/"
+            f"{_pointer_segment(match.group(2))}"
+        )
+        if match.group(3):
+            return f"{path}/header"
+        if match.group(4):
+            return f"{path}/panels/{_pointer_segment(match.group(4))}"
+        return path
+
+    match = re.search(r"View '([^']+)\.([^']+)'", message)
+    if match and "references unavailable fields" in message:
+        return (
+            f"/applications/{_pointer_segment(match.group(1))}/views/"
+            f"{_pointer_segment(match.group(2))}/config/columns"
+        )
+
     match = re.search(r"Application '([^']+)' references unknown object types: \[(.+)\]", message)
     if match:
         missing = _first_quoted_value(match.group(2))

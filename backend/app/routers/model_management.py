@@ -29,7 +29,11 @@ from ..services.model_drafts import (
     update_draft,
 )
 from ..services.model_registry import ActiveModelSnapshot
-from ..services.model_releases import ReleaseIdentityConflict, install_model_release
+from ..services.model_releases import (
+    ReleaseIdentityConflict,
+    install_model_release,
+    model_installation_lock,
+)
 from .model import _as_utc, _decode_cursor, _encode_cursor
 
 router = APIRouter(prefix="/api/v1", tags=["model administration"])
@@ -188,7 +192,7 @@ def install_model_draft(
     snapshot: ActiveModelSnapshot,
     response: Response,
 ) -> ModelReleaseResponse:
-    with SessionLocal() as session:
+    with model_installation_lock, SessionLocal() as session:
         draft = load_draft_for_update(session, draft_id)
         require_draft_version(draft, payload.expectedVersion)
         compiled = compile_model(draft.model_json)
@@ -251,10 +255,12 @@ def _draft_response(session, draft: ModelDraft) -> ModelDraftResponse:
 
 
 def _diagnostic_response(item: ModelDiagnostic) -> ModelDiagnosticResponse:
-    return ModelDiagnosticResponse(
-        severity=item.severity,
-        code=item.code,
-        path=item.path,
-        message=item.message,
-        count=item.count,
-    )
+    values = {
+        "severity": item.severity,
+        "code": item.code,
+        "path": item.path,
+        "message": item.message,
+    }
+    if item.count is not None:
+        values["count"] = item.count
+    return ModelDiagnosticResponse(**values)

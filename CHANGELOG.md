@@ -74,6 +74,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Hardened the Base 0.5 WP2/WP3 lifecycle foundation after review: compatibility checks now include
+  numeric relation attributes and enforce cardinality across every allowed pair sharing a relation
+  type; compiler diagnostics retain stable paths for top-level validation failures; semantic diffs
+  preserve real JSON `null` values and ignore ordering in set-like key collections; and concurrent
+  installations are serialized in the supported single-process administration topology.
+
 - Metadata collection endpoints now use opaque cursor pagination with a documented page-size limit.
 - Attribute-value response items now include their stable public UUID `id`.
 - Relation `fromObjectId`/`toObjectId` and object `parentObjectId` are now validated as UUID v4,

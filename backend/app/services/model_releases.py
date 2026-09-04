@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from threading import Lock
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -16,6 +17,8 @@ from ..models.database import (
 )
 from ..models.schema import EngineModel
 from .model_compiler import canonical_model
+
+model_installation_lock = Lock()
 
 
 @dataclass(frozen=True)

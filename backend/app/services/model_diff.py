@@ -55,6 +55,15 @@ def _compare(
 def _list_identity(field_name: str | None, before: Any, after: Any):
     if not isinstance(before, list) or not isinstance(after, list):
         return None
+    if field_name in {
+        "atLeastOneOf",
+        "attributeTypeKeys",
+        "objectTypeKeys",
+        "parentRelationTypeKeys",
+        "relationTypeKeys",
+    } and all(isinstance(item, str) for item in before + after):
+        return lambda item: (item,)
+
     fields: tuple[str, ...] | None = None
     if field_name in {"attributeTypes", "objectTypes", "relationTypes", "applications", "views", "panels"}:
         fields = ("key",)

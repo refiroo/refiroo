@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
 
 import pytest
@@ -270,6 +271,33 @@ def test_installed_release_diff_is_key_based_and_assesses_active_runtime_data():
     assert not any(path.startswith("/attributeTypes/") for path in paths)
 
 
+def test_release_diff_preserves_json_null_before_and_after_values():
+    candidate_source = load_bootstrap_model().model_dump(mode="json")
+    candidate_source["release"]["version"] = "0.4.0-wp2-null-diff"
+    candidate_source["product"]["description"] = None
+    candidate = EngineModel.model_validate(candidate_source)
+    with SessionLocal() as session:
+        candidate_release = ensure_bootstrap_release(session, candidate)
+        session.commit()
+
+    with TestClient(app) as client:
+        active_release_id = client.get("/api/v1/model").headers["X-Model-Release-Id"]
+        response = client.get(
+            f"/api/v1/model-releases/{candidate_release.public_id}/diff",
+            params={"againstReleaseId": active_release_id},
+        )
+
+    assert response.status_code == 200
+    description_change = next(
+        item
+        for item in response.json()["changes"]
+        if item["path"] == "/product/description"
+    )
+    assert description_change["kind"] == "changed"
+    assert description_change["after"] is None
+    assert "before" in description_change
+
+
 def test_release_diff_reports_unknown_baseline_release():
     with TestClient(app) as client:
         release_id = client.get("/api/v1/model").headers["X-Model-Release-Id"]
@@ -463,3 +491,30 @@ def test_draft_installation_recompiles_and_rejects_invalid_or_conflicting_conten
         )
         assert conflict.status_code == 409
         assert conflict.json()["error"]["code"] == "release_identity_conflict"
+
+
+def test_concurrent_identical_draft_installations_are_idempotent(monkeypatch):
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    enabled_app = create_app()
+    with TestClient(enabled_app) as client:
+        candidate = client.get("/api/v1/model").json()
+        candidate["release"]["version"] = "0.4.0-wp3-concurrent-install"
+        draft_ids = [
+            client.post(
+                "/api/v1/model-drafts",
+                json={"name": f"Concurrent {index}", "model": candidate},
+            ).json()["id"]
+            for index in range(2)
+        ]
+
+        def install(draft_id: str):
+            return client.post(
+                f"/api/v1/model-drafts/{draft_id}/installation",
+                json={"expectedVersion": 1},
+            )
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            responses = list(executor.map(install, draft_ids))
+
+    assert sorted(response.status_code for response in responses) == [200, 201]
+    assert len({response.json()["id"] for response in responses}) == 1
