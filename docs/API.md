@@ -96,7 +96,7 @@ filtered with `fromObjectType` and `toObjectType` query parameters.
 The following contract is locked for Base 0.5 implementation. WP1 implements the active-model headers
 and installed-release catalogue/detail endpoints. WP2 implements inline validation and installed
 release diff with runtime compatibility; WP3 implements capabilities, drafts and installation, and
-activation follows in WP4. All IDs are UUID v4 strings, timestamps are UTC ISO
+WP4 implements guarded activation. All IDs are UUID v4 strings, timestamps are UTC ISO
 8601 values and model hashes are lowercase SHA-256 hex strings. JSON field names use the camelCase
 forms shown here.
 
@@ -119,8 +119,9 @@ Capabilities return deployment-supported operations explicitly:
 ```
 
 `readReleases` remains true when mutations are disabled. `manageDrafts` and `install` are true only
-when `MODEL_ADMIN_MUTATIONS_ENABLED=true`; `activate` remains false until WP4 implements guarded
-activation. The flag is a deployment guard, not an authorization mechanism.
+when `MODEL_ADMIN_MUTATIONS_ENABLED=true`; `activate` follows the same gate. The flag is a deployment
+guard, not an authorization mechanism. Mutation enablement requires a single process; startup rejects
+`WEB_CONCURRENCY` values greater than one until cross-process release propagation exists.
 
 `GET /api/v1/model` continues to return the active `EngineModel` body and adds:
 
@@ -208,6 +209,14 @@ It returns the complete new runtime state:
   "updatedAt": "2026-09-04T12:05:00Z"
 }
 ```
+
+Activation reparses the installed active and candidate models and checks current stored data in the
+same transaction as its conditional runtime-state update. It commits that selection before refreshing
+the process registry. A post-commit registry refresh failure returns `503
+model_registry_refresh_failed`; `/health` then reports `503` and model-dependent requests are refused
+rather than using a guessed snapshot (`503 model_registry_unavailable`). Restarting successfully
+reloads the database-selected release. If an installed release fails reparsing, activation returns
+`500 invalid_installed_model` and leaves runtime state unchanged.
 
 #### Drafts, validation, compilation and installation
 

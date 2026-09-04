@@ -19,6 +19,7 @@ different applications.
 - Forward/reverse typed relations, features and allowed object-type relation triples
 - Immutable model releases installed into relational metadata tables
 - Persisted, optimistic-concurrency model drafts and atomic immutable release installation
+- Compatibility-gated release activation with runtime-state concurrency and lifecycle audit
 - Side-effect-free model validation with stable diagnostics, key-based release diff and bounded
   runtime-data compatibility analysis
 - Generic objects with application, workspace, object type, state, parent and path
@@ -86,8 +87,10 @@ key and cursors issued before a restart become invalid.
 
 Model-administration mutations are not registered by default. Set
 `MODEL_ADMIN_MUTATIONS_ENABLED=true` only in the supported single-process administration deployment
-to enable draft CRUD, draft compilation and release installation. Installed-release reads, diff and
-inline validation remain available without the flag; activation is added in Base 0.5 WP4.
+to enable draft CRUD, draft compilation, release installation and guarded activation. Set
+`WEB_CONCURRENCY=1` explicitly when configuring a worker count; startup rejects mutation enablement
+with multiple workers until cross-process release propagation exists. Installed-release reads, diff
+and inline validation remain available without the flag.
 
 ## Repository guide
 

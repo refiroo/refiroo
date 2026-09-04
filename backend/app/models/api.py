@@ -287,6 +287,20 @@ class ModelDraftVersionRequest(BaseModel):
     expectedVersion: int = Field(ge=1)
 
 
+class ModelActivationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expectedRuntimeVersion: int = Field(ge=1)
+    expectedActiveReleaseId: UUID4
+
+
+class ModelRuntimeStateResponse(BaseModel):
+    activeReleaseId: str
+    activeModelHash: str
+    version: int
+    updatedAt: datetime
+
+
 class ModelDraftResponse(BaseModel):
     id: str
     name: str

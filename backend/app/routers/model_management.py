@@ -6,6 +6,7 @@ from sqlalchemy import and_, or_, select
 from ..db import SessionLocal
 from ..errors import api_error
 from ..models.api import (
+    ModelActivationRequest,
     ModelCompatibilityResponse,
     ModelCompilationResponse,
     ModelDiagnosticResponse,
@@ -15,6 +16,7 @@ from ..models.api import (
     ModelDraftUpdate,
     ModelDraftVersionRequest,
     ModelReleaseResponse,
+    ModelRuntimeStateResponse,
 )
 from ..models.database import AuditEvent, ModelDraft
 from ..services.model_compatibility import analyze_compatibility
@@ -28,15 +30,98 @@ from ..services.model_drafts import (
     require_draft_version,
     update_draft,
 )
-from ..services.model_registry import ActiveModelSnapshot
+from ..services.model_registry import ActiveModelSnapshot, model_registry
 from ..services.model_releases import (
+    ActivationConflict,
+    InvalidInstalledModel,
+    ModelMigrationRequired,
+    ModelReleaseNotFound,
     ReleaseIdentityConflict,
+    activate_model_release,
     install_model_release,
+    model_activation_lock,
     model_installation_lock,
 )
 from .model import _as_utc, _decode_cursor, _encode_cursor
 
 router = APIRouter(prefix="/api/v1", tags=["model administration"])
+
+
+@router.post(
+    "/model-releases/{release_id}/activation",
+    response_model=ModelRuntimeStateResponse,
+)
+def activate_release(
+    release_id: str, payload: ModelActivationRequest
+) -> ModelRuntimeStateResponse:
+    with model_activation_lock, SessionLocal() as session:
+        try:
+            activated = activate_model_release(
+                session,
+                release_id,
+                expected_runtime_version=payload.expectedRuntimeVersion,
+                expected_active_release_id=str(payload.expectedActiveReleaseId),
+            )
+        except ModelReleaseNotFound as exc:
+            raise api_error(
+                404,
+                "model_release_not_found",
+                f"Model release '{release_id}' not found",
+            ) from exc
+        except ActivationConflict as exc:
+            raise api_error(
+                409,
+                "activation_conflict",
+                "The active model selection changed before activation",
+                {
+                    "activeReleaseId": exc.active_release_id,
+                    "runtimeVersion": exc.runtime_version,
+                },
+            ) from exc
+        except ModelMigrationRequired as exc:
+            raise api_error(
+                409,
+                "model_migration_required",
+                "Stored runtime data is incompatible with the candidate model",
+                [
+                    _diagnostic_response(item).model_dump(exclude_none=True)
+                    for item in exc.compatibility.diagnostics
+                ],
+            ) from exc
+        except InvalidInstalledModel as exc:
+            raise api_error(
+                500,
+                "invalid_installed_model",
+                "An installed model release failed validation",
+                [
+                    _diagnostic_response(item).model_dump(exclude_none=True)
+                    for item in exc.diagnostics
+                ],
+            ) from exc
+
+        with model_registry.publication_guard():
+            session.commit()
+
+            try:
+                model_registry.refresh_active()
+            except Exception as exc:
+                model_registry.mark_unhealthy()
+                raise api_error(
+                    503,
+                    "model_registry_refresh_failed",
+                    "The model was activated, but this process could not publish the committed selection",
+                    {
+                        "activeReleaseId": activated.active_release_id,
+                        "runtimeVersion": activated.version,
+                    },
+                ) from exc
+
+    return ModelRuntimeStateResponse(
+        activeReleaseId=activated.active_release_id,
+        activeModelHash=activated.active_model_hash,
+        version=activated.version,
+        updatedAt=activated.updated_at,
+    )
 
 
 @router.get("/model-drafts", response_model=ModelDraftPage)

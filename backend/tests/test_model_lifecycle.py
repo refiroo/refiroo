@@ -1,5 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor
 from datetime import UTC, datetime
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -16,10 +17,11 @@ from app.models.database import (
     ModelDraft,
     ModelRelease,
     ModelRuntimeState,
+    RdmObject,
 )
 from app.models.schema import EngineModel
 from app.services.model_loader import load_bootstrap_model
-from app.services.model_registry import ModelRegistry
+from app.services.model_registry import ModelRegistry, model_registry
 
 
 def _model(version: str, *, product_name: str | None = None) -> EngineModel:
@@ -337,7 +339,7 @@ def test_draft_crud_compile_and_installation_lifecycle(monkeypatch):
             "readReleases": True,
             "manageDrafts": True,
             "install": True,
-            "activate": False,
+            "activate": True,
         }
         active = client.get("/api/v1/model")
         active_release_id = active.headers["X-Model-Release-Id"]
@@ -518,3 +520,287 @@ def test_concurrent_identical_draft_installations_are_idempotent(monkeypatch):
 
     assert sorted(response.status_code for response in responses) == [200, 201]
     assert len({response.json()["id"] for response in responses}) == 1
+
+
+def test_guarded_activation_updates_runtime_state_registry_and_audit(monkeypatch):
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    enabled_app = create_app()
+    with TestClient(enabled_app) as client:
+        active = client.get("/api/v1/model")
+        old_release_id = active.headers["X-Model-Release-Id"]
+        candidate_model = active.json()
+        candidate_model["release"]["version"] = "0.4.0-wp4-activation"
+        candidate_model["product"]["name"] = "Activated model"
+        with SessionLocal() as session:
+            candidate = ensure_bootstrap_release(
+                session, EngineModel.model_validate(candidate_model)
+            )
+            session.commit()
+            state = session.get(ModelRuntimeState, 1)
+            assert state is not None
+            expected_version = state.version
+
+        response = client.post(
+            f"/api/v1/model-releases/{candidate.public_id}/activation",
+            json={
+                "expectedRuntimeVersion": expected_version,
+                "expectedActiveReleaseId": old_release_id,
+            },
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["activeReleaseId"] == candidate.public_id
+        assert body["activeModelHash"] == candidate.model_hash
+        assert body["version"] == expected_version + 1
+        assert datetime.fromisoformat(body["updatedAt"]).utcoffset() == UTC.utcoffset(
+            datetime.fromisoformat(body["updatedAt"])
+        )
+        published = client.get("/api/v1/model")
+        assert published.status_code == 200
+        assert published.headers["X-Model-Release-Id"] == candidate.public_id
+        assert published.json()["product"]["name"] == "Activated model"
+
+    with SessionLocal() as session:
+        event = session.scalar(
+            select(AuditEvent)
+            .where(
+                AuditEvent.aggregate_type == "model_runtime_state",
+                AuditEvent.action == "activated",
+                AuditEvent.version == expected_version + 1,
+            )
+            .order_by(AuditEvent.sequence_id.desc())
+        )
+        assert event is not None
+        assert event.changes == {
+            "oldReleaseId": old_release_id,
+            "oldModelHash": active.headers["ETag"].strip('"'),
+            "newReleaseId": candidate.public_id,
+            "newModelHash": candidate.model_hash,
+        }
+
+
+def test_activation_blocks_incompatible_runtime_data_without_changing_selection(monkeypatch):
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    enabled_app = create_app()
+    with TestClient(enabled_app) as client:
+        active = client.get("/api/v1/model")
+        active_release_id = active.headers["X-Model-Release-Id"]
+        used_application = active.json()["applications"][0]["key"]
+        used_object_type = active.json()["applications"][0]["objectTypeKeys"][0]
+        candidate_model = active.json()
+        candidate_model["release"]["version"] = "0.4.0-wp4-incompatible"
+        candidate_model["applications"] = [
+            item for item in candidate_model["applications"] if item["key"] != used_application
+        ]
+        with SessionLocal() as session:
+            session.add(
+                RdmObject(
+                    id=str(uuid4()),
+                    application_key=used_application,
+                    object_type_key=used_object_type,
+                    name="Compatibility guard evidence",
+                )
+            )
+            candidate = ensure_bootstrap_release(
+                session, EngineModel.model_validate(candidate_model)
+            )
+            session.commit()
+            state = session.get(ModelRuntimeState, 1)
+            assert state is not None
+            expected_version = state.version
+
+        response = client.post(
+            f"/api/v1/model-releases/{candidate.public_id}/activation",
+            json={
+                "expectedRuntimeVersion": expected_version,
+                "expectedActiveReleaseId": active_release_id,
+            },
+        )
+
+        assert response.status_code == 409
+        assert response.json()["error"]["code"] == "model_migration_required"
+        diagnostic = next(
+            item
+            for item in response.json()["error"]["details"]
+            if item["code"] == "application_in_use"
+        )
+        assert diagnostic["path"].startswith("/applications/")
+        assert diagnostic["count"] >= 1
+        assert client.get("/api/v1/model").headers["X-Model-Release-Id"] == active_release_id
+        with SessionLocal() as session:
+            state = session.get(ModelRuntimeState, 1)
+            assert state is not None
+            assert state.version == expected_version
+
+
+def test_activation_rejects_stale_runtime_tokens(monkeypatch):
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    enabled_app = create_app()
+    with TestClient(enabled_app) as client:
+        active = client.get("/api/v1/model")
+        active_release_id = active.headers["X-Model-Release-Id"]
+        with SessionLocal() as session:
+            state = session.get(ModelRuntimeState, 1)
+            assert state is not None
+            current_version = state.version
+
+        response = client.post(
+            f"/api/v1/model-releases/{active_release_id}/activation",
+            json={
+                "expectedRuntimeVersion": current_version + 1,
+                "expectedActiveReleaseId": active_release_id,
+            },
+        )
+        wrong_release_response = client.post(
+            f"/api/v1/model-releases/{active_release_id}/activation",
+            json={
+                "expectedRuntimeVersion": current_version,
+                "expectedActiveReleaseId": str(uuid4()),
+            },
+        )
+
+    assert response.status_code == 409
+    assert response.json()["error"] == {
+        "code": "activation_conflict",
+        "message": "The active model selection changed before activation",
+        "details": {
+            "activeReleaseId": active_release_id,
+            "runtimeVersion": current_version,
+        },
+    }
+    assert wrong_release_response.status_code == 409
+    assert wrong_release_response.json()["error"]["code"] == "activation_conflict"
+
+
+def test_concurrent_activation_allows_only_one_runtime_state_claim(monkeypatch):
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    enabled_app = create_app()
+    with TestClient(enabled_app) as client:
+        active = client.get("/api/v1/model")
+        active_release_id = active.headers["X-Model-Release-Id"]
+        candidates = []
+        with SessionLocal() as session:
+            for suffix in ("a", "b"):
+                candidate_model = active.json()
+                candidate_model["release"]["version"] = f"0.4.0-wp4-concurrent-{suffix}"
+                candidates.append(
+                    ensure_bootstrap_release(
+                        session, EngineModel.model_validate(candidate_model)
+                    )
+                )
+            session.commit()
+            state = session.get(ModelRuntimeState, 1)
+            assert state is not None
+            expected_version = state.version
+
+        def activate(candidate: ModelRelease):
+            return client.post(
+                f"/api/v1/model-releases/{candidate.public_id}/activation",
+                json={
+                    "expectedRuntimeVersion": expected_version,
+                    "expectedActiveReleaseId": active_release_id,
+                },
+            )
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            responses = list(executor.map(activate, candidates))
+
+        assert sorted(response.status_code for response in responses) == [200, 409]
+        conflict = next(response for response in responses if response.status_code == 409)
+        assert conflict.json()["error"]["code"] == "activation_conflict"
+        winner = next(response for response in responses if response.status_code == 200).json()
+        assert client.get("/api/v1/model").headers["X-Model-Release-Id"] == winner[
+            "activeReleaseId"
+        ]
+
+
+def test_registry_refresh_failure_leaves_committed_activation_unready(monkeypatch):
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    enabled_app = create_app()
+    with TestClient(enabled_app, raise_server_exceptions=False) as client:
+        active = client.get("/api/v1/model")
+        active_release_id = active.headers["X-Model-Release-Id"]
+        candidate_model = active.json()
+        candidate_model["release"]["version"] = "0.4.0-wp4-refresh-failure"
+        with SessionLocal() as session:
+            candidate = ensure_bootstrap_release(
+                session, EngineModel.model_validate(candidate_model)
+            )
+            session.commit()
+            state = session.get(ModelRuntimeState, 1)
+            assert state is not None
+            expected_version = state.version
+
+        def fail_refresh():
+            raise RuntimeError("publish failed")
+
+        monkeypatch.setattr(
+            "app.routers.model_management.model_registry.refresh_active", fail_refresh
+        )
+        response = client.post(
+            f"/api/v1/model-releases/{candidate.public_id}/activation",
+            json={
+                "expectedRuntimeVersion": expected_version,
+                "expectedActiveReleaseId": active_release_id,
+            },
+        )
+
+        assert response.status_code == 503
+        assert response.json()["error"]["code"] == "model_registry_refresh_failed"
+        assert client.get("/health").status_code == 503
+        unavailable = client.get("/api/v1/model")
+        assert unavailable.status_code == 503
+        assert unavailable.json()["error"]["code"] == "model_registry_unavailable"
+        with SessionLocal() as session:
+            state = session.get(ModelRuntimeState, 1)
+            assert state is not None
+            assert state.active_model_release_id == candidate.id
+            assert state.version == expected_version + 1
+
+    model_registry.clear()
+
+
+def test_activation_rejects_corrupted_installed_model_without_mutation(monkeypatch):
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    enabled_app = create_app()
+    with TestClient(enabled_app) as client:
+        active = client.get("/api/v1/model")
+        active_release_id = active.headers["X-Model-Release-Id"]
+        candidate_model = active.json()
+        candidate_model["release"]["version"] = "0.4.0-wp4-corrupted"
+        with SessionLocal() as session:
+            candidate = ensure_bootstrap_release(
+                session, EngineModel.model_validate(candidate_model)
+            )
+            session.commit()
+            state = session.get(ModelRuntimeState, 1)
+            assert state is not None
+            expected_version = state.version
+            candidate.model_json = {}
+            session.commit()
+
+        response = client.post(
+            f"/api/v1/model-releases/{candidate.public_id}/activation",
+            json={
+                "expectedRuntimeVersion": expected_version,
+                "expectedActiveReleaseId": active_release_id,
+            },
+        )
+
+        assert response.status_code == 500
+        assert response.json()["error"]["code"] == "invalid_installed_model"
+        assert response.json()["error"]["details"]
+        assert client.get("/api/v1/model").headers["X-Model-Release-Id"] == active_release_id
+        with SessionLocal() as session:
+            state = session.get(ModelRuntimeState, 1)
+            assert state is not None
+            assert state.version == expected_version
+
+
+def test_model_admin_mutations_reject_multi_worker_configuration(monkeypatch):
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    monkeypatch.setenv("WEB_CONCURRENCY", "2")
+
+    with pytest.raises(RuntimeError, match="requires WEB_CONCURRENCY=1"):
+        create_app()

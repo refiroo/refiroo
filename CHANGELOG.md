@@ -8,6 +8,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.5 guarded model activation. Compatible installed releases can be selected with both expected
+  runtime version and active-release tokens; incompatible runtime data and stale selections return
+  structured conflicts. Activation commits before refreshing the process registry, records old/new
+  release IDs and hashes, marks health unhealthy on refresh failure, and rejects mutation enablement
+  when `WEB_CONCURRENCY` configures multiple workers.
+
 - Base 0.5 persisted model drafts and immutable installation. Mutation-gated draft APIs support
   optimistic version claims, side-effect-free compilation and atomic content-addressed installation;
   lifecycle audit events retain hashes and identities without copying complete model JSON. The

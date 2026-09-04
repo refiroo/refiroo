@@ -29,6 +29,24 @@ def model_admin_mutations_enabled() -> bool:
     }
 
 
+def validate_model_admin_topology(mutations_enabled: bool) -> None:
+    """Reject model mutations when Uvicorn is configured with multiple workers."""
+    if not mutations_enabled:
+        return
+    raw_worker_count = os.getenv("WEB_CONCURRENCY", "1").strip()
+    try:
+        worker_count = int(raw_worker_count)
+    except ValueError as exc:
+        raise RuntimeError("WEB_CONCURRENCY must be a positive integer") from exc
+    if worker_count < 1:
+        raise RuntimeError("WEB_CONCURRENCY must be a positive integer")
+    if worker_count != 1:
+        raise RuntimeError(
+            "MODEL_ADMIN_MUTATIONS_ENABLED requires WEB_CONCURRENCY=1 until "
+            "cross-process model release propagation is implemented"
+        )
+
+
 def cors_origins() -> list[str]:
     raw = os.environ.get("CORS_ORIGINS", "http://localhost:5173")
     return [origin.strip() for origin in raw.split(",")]

@@ -54,7 +54,9 @@ of an earlier revision on a fresh database.
 Base 0.5 supports mutable model administration only in a single API process. The checked-in container
 starts one Uvicorn process and does not set a worker count. `MODEL_ADMIN_MUTATIONS_ENABLED` is disabled
 by default and is a deployment guard rather than an authorization system. When enabled, startup must
-reject a configured multi-worker topology until cross-process release propagation exists.
+reject a configured multi-worker topology until cross-process release propagation exists. The runtime
+uses Uvicorn's `WEB_CONCURRENCY` setting for this startup guard; the supported administration value is
+one.
 
 Within that supported process, immutable release installations are serialized across drafts. The
 database uniqueness constraints remain the final identity/hash guard, while process serialization
@@ -62,8 +64,9 @@ ensures concurrent identical installation requests retain the documented idempot
 
 Activation commits the database runtime-state change before publishing the new snapshot to the local
 registry. If the process cannot refresh that committed selection, readiness is unhealthy and requests
-must not fall back to bootstrap content or a guessed cached model. Read-only release discovery remains
-available independently of the mutation flag.
+must not fall back to bootstrap content or a guessed cached model. `/health` returns HTTP 503 in that
+state until a successful process restart reloads the database-selected release. Read-only release
+discovery remains available independently of the mutation flag.
 
 The WP1 migration adopts a legacy database only when it has zero or one active release and every
 release key/version identity is unique. Multiple active rows or conflicting historical identities stop

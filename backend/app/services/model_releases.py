@@ -1,14 +1,17 @@
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from threading import Lock
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from ..models.database import (
     ApplicationMeta,
     ApplicationObjectTypeMeta,
     AttributeTypeMeta,
+    AuditEvent,
     ModelRelease,
+    ModelRuntimeState,
     ObjectTypeAttributeMeta,
     ObjectTypeMeta,
     ObjectTypeRelationMeta,
@@ -16,15 +19,152 @@ from ..models.database import (
     ViewDefinitionMeta,
 )
 from ..models.schema import EngineModel
-from .model_compiler import canonical_model
+from .model_compatibility import CompatibilityResult, analyze_compatibility
+from .model_compiler import ModelDiagnostic, canonical_model, compile_model
 
 model_installation_lock = Lock()
+model_activation_lock = Lock()
 
 
 @dataclass(frozen=True)
 class ReleaseIdentityConflict(Exception):
     release_key: str
     release_version: str
+
+
+@dataclass(frozen=True)
+class ActivationConflict(Exception):
+    active_release_id: str
+    runtime_version: int
+
+
+@dataclass(frozen=True)
+class ModelReleaseNotFound(Exception):
+    release_id: str
+
+
+@dataclass(frozen=True)
+class InvalidInstalledModel(Exception):
+    diagnostics: tuple[ModelDiagnostic, ...]
+
+
+@dataclass(frozen=True)
+class ModelMigrationRequired(Exception):
+    compatibility: CompatibilityResult
+
+
+@dataclass(frozen=True)
+class ActivatedRuntimeState:
+    active_release_id: str
+    active_model_hash: str
+    version: int
+    updated_at: datetime
+
+
+def activate_model_release(
+    session: Session,
+    release_id: str,
+    *,
+    expected_runtime_version: int,
+    expected_active_release_id: str,
+) -> ActivatedRuntimeState:
+    """Validate and select an installed release in the current transaction."""
+    row = session.execute(
+        select(ModelRuntimeState, ModelRelease).join(
+            ModelRelease,
+            ModelRelease.id == ModelRuntimeState.active_model_release_id,
+        )
+    ).one_or_none()
+    if row is None:
+        raise RuntimeError("Model runtime state has no active installed release")
+    runtime_state, active_release = row
+
+    candidate_release = session.scalar(
+        select(ModelRelease).where(ModelRelease.public_id == release_id)
+    )
+    if candidate_release is None:
+        raise ModelReleaseNotFound(release_id)
+
+    if (
+        runtime_state.version != expected_runtime_version
+        or active_release.public_id != expected_active_release_id
+    ):
+        raise ActivationConflict(active_release.public_id, runtime_state.version)
+
+    active_compilation = compile_model(active_release.model_json)
+    candidate_compilation = compile_model(candidate_release.model_json)
+    if (
+        not active_compilation.valid
+        or active_compilation.model is None
+        or not candidate_compilation.valid
+        or candidate_compilation.model is None
+    ):
+        invalid_compilation = (
+            active_compilation if not active_compilation.valid else candidate_compilation
+        )
+        raise InvalidInstalledModel(tuple(invalid_compilation.diagnostics))
+
+    compatibility = analyze_compatibility(
+        session,
+        active_compilation.model,
+        candidate_compilation.model,
+        active_release.public_id,
+    )
+    if compatibility.classification == "migration_required":
+        raise ModelMigrationRequired(compatibility)
+
+    updated_at = datetime.now(UTC)
+    result = session.execute(
+        update(ModelRuntimeState)
+        .where(
+            ModelRuntimeState.id == runtime_state.id,
+            ModelRuntimeState.version == expected_runtime_version,
+            ModelRuntimeState.active_model_release_id == active_release.id,
+        )
+        .values(
+            active_model_release_id=candidate_release.id,
+            version=expected_runtime_version + 1,
+            updated_at=updated_at,
+        )
+        .execution_options(synchronize_session=False)
+    )
+    if result.rowcount != 1:
+        current_row = session.execute(
+            select(ModelRuntimeState, ModelRelease).join(
+                ModelRelease,
+                ModelRelease.id == ModelRuntimeState.active_model_release_id,
+            )
+        ).one()
+        current_state, current_release = current_row
+        raise ActivationConflict(current_release.public_id, current_state.version)
+
+    session.execute(update(ModelRelease).values(is_active=False))
+    session.execute(
+        update(ModelRelease)
+        .where(ModelRelease.id == candidate_release.id)
+        .values(is_active=True)
+    )
+    new_version = expected_runtime_version + 1
+    session.add(
+        AuditEvent(
+            aggregate_type="model_runtime_state",
+            aggregate_id=candidate_release.public_id,
+            action="activated",
+            version=new_version,
+            changes={
+                "oldReleaseId": active_release.public_id,
+                "oldModelHash": active_release.model_hash,
+                "newReleaseId": candidate_release.public_id,
+                "newModelHash": candidate_release.model_hash,
+            },
+        )
+    )
+    return ActivatedRuntimeState(
+        active_release_id=candidate_release.public_id,
+        active_model_hash=candidate_release.model_hash,
+        version=new_version,
+        updated_at=updated_at,
+    )
 
 
 def install_model_release(session: Session, model: EngineModel) -> tuple[ModelRelease, bool]:

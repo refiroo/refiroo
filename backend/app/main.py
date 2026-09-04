@@ -1,11 +1,15 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .config import cors_origins, model_admin_mutations_enabled
+from .config import (
+    cors_origins,
+    model_admin_mutations_enabled,
+    validate_model_admin_topology,
+)
 from .db import SessionLocal, bootstrap_model, create_database
 from .errors import (
     ApiError,
@@ -31,6 +35,7 @@ async def lifespan(_: FastAPI):
 
 def create_app() -> FastAPI:
     mutations_enabled = model_admin_mutations_enabled()
+    validate_model_admin_topology(mutations_enabled)
     application = FastAPI(
         title="RDM Engine API",
         version="0.3.0",
@@ -51,7 +56,10 @@ def create_app() -> FastAPI:
     )
 
     @application.get("/health")
-    def health() -> dict[str, str]:
+    def health(response: Response) -> dict[str, str]:
+        if not model_registry.ready:
+            response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+            return {"status": "unhealthy"}
         return {"status": "ok"}
 
     application.include_router(model.router)

@@ -15,8 +15,8 @@ workbench
 | WP1 — Make the active release authoritative | Complete | Runtime-state migration; bootstrap installer; request snapshots; release read APIs |
 | WP2 — Add the compiler, semantic diff and compatibility analyzer | Complete | Stable diagnostics; canonical compiler; key-based diff; bounded runtime checks |
 | WP3 — Persist drafts and install immutable releases | Complete | Versioned drafts, atomic install, capability gate and audit |
-| WP4 — Implement guarded activation | Next | Ready after WP3 |
-| WP5 — Upgrade object and relation query foundations | Pending | Depends on WP4 |
+| WP4 — Implement guarded activation | Complete | Dual-token activation, compatibility gate, audit and readiness failure handling |
+| WP5 — Upgrade object and relation query foundations | Next | Ready after WP4 |
 | WP6 — Improve generic object management UI | Pending | Depends on WP5 |
 | WP7 — Add the lightweight model workbench | Pending | Depends on WP6 |
 | WP8 — Release integration and documentation | Pending | Depends on WP7 |
@@ -388,6 +388,18 @@ Tasks:
    implemented.
 
 Exit: activation is all-or-nothing, concurrency-safe for the supported deployment and observable.
+
+Completion record:
+
+- added the mutation-gated activation route and complete runtime-state response;
+- reparsed active and candidate installed JSON and ran bounded compatibility checks inside the
+  activation transaction;
+- conditionally claimed runtime state using both expected version and expected active release ID,
+  returning structured migration-required and activation-conflict errors without mutation;
+- committed the authoritative selection before refreshing the process registry, marking health
+  unhealthy and refusing model-dependent requests if publication fails;
+- recorded old/new release UUIDs and hashes in activation audit events; and
+- rejected mutation enablement when `WEB_CONCURRENCY` configures more than one worker.
 
 ### WP5 — Upgrade object and relation query foundations
 

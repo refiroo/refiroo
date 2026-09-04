@@ -58,7 +58,7 @@ def get_capabilities(request: Request) -> CapabilitiesResponse:
             readReleases=True,
             manageDrafts=mutations_enabled,
             install=mutations_enabled,
-            activate=False,
+            activate=mutations_enabled,
         )
     )
 

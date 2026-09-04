@@ -4,7 +4,7 @@ import json
 from app.main import app, create_app
 
 
-def test_base_0_5_wp3_default_openapi_document_is_locked():
+def test_base_0_5_wp4_default_openapi_document_is_locked():
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
 
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
@@ -12,7 +12,7 @@ def test_base_0_5_wp3_default_openapi_document_is_locked():
     )
 
 
-def test_base_0_5_wp3_default_openapi_path_and_method_inventory_is_locked():
+def test_base_0_5_wp4_default_openapi_path_and_method_inventory_is_locked():
     schema = app.openapi()
 
     actual = {
@@ -50,7 +50,7 @@ def test_base_0_5_wp3_default_openapi_path_and_method_inventory_is_locked():
     }
 
 
-def test_base_0_5_wp3_default_openapi_component_schema_inventory_is_locked():
+def test_base_0_5_wp4_default_openapi_component_schema_inventory_is_locked():
     schema_names = set(app.openapi()["components"]["schemas"])
 
     assert schema_names == {
@@ -95,7 +95,7 @@ def test_base_0_5_wp3_default_openapi_component_schema_inventory_is_locked():
     }
 
 
-def test_base_0_5_wp3_enabled_openapi_exposes_only_implemented_mutations(monkeypatch):
+def test_base_0_5_wp4_enabled_openapi_exposes_guarded_activation(monkeypatch):
     monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
     schema = create_app().openapi()
 
@@ -109,12 +109,18 @@ def test_base_0_5_wp3_enabled_openapi_exposes_only_implemented_mutations(monkeyp
         "/api/v1/model-drafts/{draft_id}/compile": frozenset({"post"}),
         "/api/v1/model-drafts/{draft_id}/installation": frozenset({"post"}),
     }
-    assert "/api/v1/model-releases/{release_id}/activation" not in schema["paths"]
+    assert frozenset(
+        method
+        for method in schema["paths"]["/api/v1/model-releases/{release_id}/activation"]
+        if method != "parameters"
+    ) == {"post"}
     assert {
         "ModelCompilationResponse",
+        "ModelActivationRequest",
         "ModelDraftCreate",
         "ModelDraftPage",
         "ModelDraftResponse",
         "ModelDraftUpdate",
         "ModelDraftVersionRequest",
+        "ModelRuntimeStateResponse",
     }.issubset(schema["components"]["schemas"])
