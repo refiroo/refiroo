@@ -12,7 +12,7 @@ from app.services.attributes import (
     build_attribute_value_response,
     validate_deletable_attribute,
 )
-from app.services.model_loader import current_model
+from app.services.model_loader import load_bootstrap_model
 from app.services.objects import claim_object_version, load_object
 
 
@@ -308,7 +308,7 @@ def test_delete_attribute_value_returns_404_when_unset():
 
 
 def test_validate_deletable_attribute_rejects_read_only_binding():
-    model = current_model()
+    model = load_bootstrap_model()
     domain = model.object_type("domain")
     read_only = domain.model_copy(
         update={
@@ -325,7 +325,7 @@ def test_validate_deletable_attribute_rejects_read_only_binding():
 
 
 def test_build_attribute_value_response_uses_row_value():
-    model = current_model()
+    model = load_bootstrap_model()
     row = AttributeValue(
         id=str(uuid4()),
         attribute_type_key="description",

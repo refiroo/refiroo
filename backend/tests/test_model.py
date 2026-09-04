@@ -58,8 +58,8 @@ def test_domain_and_codelist_system_representations_are_modelled_as_optional_ass
             if item.key == "system-representations"
         )
         assert panel.config.direction == "outgoing"
-        assert panel.config.relationTypeKeys == [relation.key]
-        assert panel.config.columns[:2] == ["ancestor:system", "name"]
+        assert panel.config.relationTypeKeys == (relation.key,)
+        assert panel.config.columns[:2] == ("ancestor:system", "name")
         assert panel.config.showRelationshipColumn is False
 
     system_value_details = next(
@@ -69,12 +69,12 @@ def test_domain_and_codelist_system_representations_are_modelled_as_optional_ass
     )
     panel = next(item for item in system_value_details.panels if item.key == "represented-structures")
     assert panel.config.direction == "incoming"
-    assert panel.config.relationTypeKeys == [relation.key]
+    assert panel.config.relationTypeKeys == (relation.key,)
     assert panel.config.showRelationshipColumn is False
 
     master_value_details = master_details["master-value"]
     mappings = next(item for item in master_value_details.panels if item.key == "mappings")
-    assert mappings.config.columns[:2] == ["ancestor:system", "name"]
+    assert mappings.config.columns[:2] == ("ancestor:system", "name")
     assert mappings.config.showRelationshipColumn is False
 
 
@@ -82,11 +82,11 @@ def test_translations_target_every_configured_master_object_type():
     model = load_model(MODEL_PATH)
     translation = model.object_type("translation")
     assert translation is not None
-    assert translation.validation["atLeastOneOf"] == [
+    assert translation.validation["atLeastOneOf"] == (
         "translated-name",
         "translated-description",
         "translated-value",
-    ]
+    )
     assert any(item.attributeTypeKey == "translated-value" for item in translation.attributes)
 
     allowed = [
@@ -118,7 +118,7 @@ def test_translations_target_every_configured_master_object_type():
 
 
 def test_translation_target_relation_accepts_a_future_model_object_type():
-    source = load_model(MODEL_PATH).model_dump()
+    source = load_model(MODEL_PATH).model_dump(mode="json")
     source["objectTypes"].append(
         {
             "key": "future-reference",
@@ -152,7 +152,7 @@ def test_translation_target_relation_accepts_a_future_model_object_type():
 
 
 def test_object_cross_field_validation_rejects_unbound_attributes():
-    source = load_model(MODEL_PATH).model_dump()
+    source = load_model(MODEL_PATH).model_dump(mode="json")
     translation = next(item for item in source["objectTypes"] if item["key"] == "translation")
     translation["validation"]["atLeastOneOf"] = ["missing"]
 
@@ -161,7 +161,7 @@ def test_object_cross_field_validation_rejects_unbound_attributes():
 
 
 def test_relation_scoped_uniqueness_rejects_unknown_ancestor_type():
-    source = load_model(MODEL_PATH).model_dump()
+    source = load_model(MODEL_PATH).model_dump(mode="json")
     relation = next(
         item
         for item in source["objectTypeRelations"]
@@ -174,7 +174,7 @@ def test_relation_scoped_uniqueness_rejects_unknown_ancestor_type():
 
 
 def test_relation_scoped_uniqueness_rejects_unbound_condition_attribute():
-    source = load_model(MODEL_PATH).model_dump()
+    source = load_model(MODEL_PATH).model_dump(mode="json")
     relation = next(
         item
         for item in source["objectTypeRelations"]
@@ -187,7 +187,7 @@ def test_relation_scoped_uniqueness_rejects_unbound_condition_attribute():
 
 
 def test_unknown_application_object_type_is_rejected():
-    source = load_model(MODEL_PATH).model_dump()
+    source = load_model(MODEL_PATH).model_dump(mode="json")
     source["applications"][0]["objectTypeKeys"].append("missing")
 
     with pytest.raises(ValidationError, match="unknown object types"):
@@ -195,7 +195,7 @@ def test_unknown_application_object_type_is_rejected():
 
 
 def test_unknown_attribute_binding_is_rejected():
-    source = load_model(MODEL_PATH).model_dump()
+    source = load_model(MODEL_PATH).model_dump(mode="json")
     source["objectTypes"][0]["attributes"].append({"attributeTypeKey": "missing"})
 
     with pytest.raises(ValidationError, match="unknown attribute type"):
@@ -203,7 +203,7 @@ def test_unknown_attribute_binding_is_rejected():
 
 
 def test_detail_composition_changes_are_preserved_without_renderer_changes():
-    source = load_model(MODEL_PATH).model_dump()
+    source = load_model(MODEL_PATH).model_dump(mode="json")
     panels = source["applications"][0]["details"][2]["panels"]
     panels[0]["order"] = 90
     panels[0]["visible"] = False
@@ -215,8 +215,8 @@ def test_detail_composition_changes_are_preserved_without_renderer_changes():
     configured = model.applications[0].details[2].panels
     assert configured[0].order == 90
     assert configured[0].visible is False
-    assert configured[3].config.fields == ["value-name", "active"]
-    assert configured[1].config.columns == ["name", "external-id"]
+    assert configured[3].config.fields == ("value-name", "active")
+    assert configured[1].config.columns == ("name", "external-id")
 
 
 @pytest.mark.parametrize(
@@ -263,7 +263,7 @@ def test_detail_composition_changes_are_preserved_without_renderer_changes():
     ],
 )
 def test_invalid_detail_composition_is_rejected(mutate, message):
-    source = load_model(MODEL_PATH).model_dump()
+    source = load_model(MODEL_PATH).model_dump(mode="json")
     mutate(source)
 
     with pytest.raises(ValidationError, match=message):
@@ -271,7 +271,7 @@ def test_invalid_detail_composition_is_rejected(mutate, message):
 
 
 def test_unique_json_attribute_is_rejected():
-    source = load_model(MODEL_PATH).model_dump()
+    source = load_model(MODEL_PATH).model_dump(mode="json")
     source["attributeTypes"].append(
         {
             "key": "unique-json",
@@ -286,7 +286,7 @@ def test_unique_json_attribute_is_rejected():
 
 
 def test_minimum_maximum_on_non_numeric_attribute_is_rejected():
-    source = load_model(MODEL_PATH).model_dump()
+    source = load_model(MODEL_PATH).model_dump(mode="json")
     source["attributeTypes"][0]["validation"] = {"minimum": 1}
 
     with pytest.raises(ValidationError, match="does not support numeric bounds"):
@@ -295,7 +295,7 @@ def test_minimum_maximum_on_non_numeric_attribute_is_rejected():
 
 @pytest.mark.parametrize("bound", ["1", "not-a-number", True, float("inf")])
 def test_non_numeric_or_non_finite_numeric_bound_is_rejected(bound):
-    source = load_model(MODEL_PATH).model_dump()
+    source = load_model(MODEL_PATH).model_dump(mode="json")
     numeric_attribute = next(
         item for item in source["attributeTypes"] if item["key"] == "maximum-hierarchy-depth"
     )
@@ -306,7 +306,7 @@ def test_non_numeric_or_non_finite_numeric_bound_is_rejected(bound):
 
 
 def test_minimum_must_not_exceed_maximum():
-    source = load_model(MODEL_PATH).model_dump()
+    source = load_model(MODEL_PATH).model_dump(mode="json")
     numeric_attribute = next(
         item for item in source["attributeTypes"] if item["key"] == "maximum-hierarchy-depth"
     )

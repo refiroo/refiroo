@@ -3,7 +3,8 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 
 from app.main import app
-from app.services.model_loader import current_model
+from app.services.model_loader import load_bootstrap_model
+from app.services.model_registry import ModelSnapshot, resolve_model_snapshot
 
 
 def _attr(key: str, value):
@@ -162,18 +163,25 @@ def test_cascade_deleting_reference_structure_preserves_system_representation():
 
 
 def test_cascade_deletes_required_single_valued_fk_dependent():
-    model = current_model()
-    allowed = next(
-        item
-        for item in model.objectTypeRelations
+    model = load_bootstrap_model()
+    dependent_relations = tuple(
+        item.model_copy(update={"required": True, "cardinality": "one-to-many"})
         if item.relationTypeKey == "system-value-maps-to-master"
+        else item
+        for item in model.objectTypeRelations
     )
-    previous = (allowed.required, allowed.cardinality)
+    dependent_model = model.model_copy(update={"objectTypeRelations": dependent_relations})
+    active_model = model
     try:
+        app.dependency_overrides[resolve_model_snapshot] = lambda: ModelSnapshot(
+            release_db_id=-1,
+            release_id="test-release",
+            model_hash="test-hash",
+            model=active_model,
+        )
         with TestClient(app) as client:
             _domain, codelist, master, system, system_value, _relation = _create_graph(client)
-            allowed.required = True
-            allowed.cardinality = "one-to-many"
+            active_model = dependent_model
             preview = client.delete(
                 f"/api/v1/objects/system-value/{system_value['id']}",
                 params={"expectedVersion": 1},
@@ -194,4 +202,4 @@ def test_cascade_deletes_required_single_valued_fk_dependent():
             assert client.get(f"/api/v1/objects/codelist/{codelist['id']}").status_code == 200
             assert client.get(f"/api/v1/objects/system/{system['id']}").status_code == 200
     finally:
-        allowed.required, allowed.cardinality = previous
+        app.dependency_overrides.pop(resolve_model_snapshot, None)

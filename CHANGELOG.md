@@ -8,6 +8,11 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.5 model runtime authority: a singleton, versioned database row selects the active immutable
+  release; source JSON is bootstrap input only. Requests resolve one cached model/release snapshot,
+  `GET /api/v1/model` exposes its hash and release UUID in response headers, and cursor-paged release
+  catalogue/detail APIs expose installed snapshots without enabling mutations.
+
 - Complete model-driven Translation CRUD. Translations contain optional translated name, description
   and value fields (with at least one required), belong to a Translation Group, and atomically bind to
   exactly one configured target object. Domain, Codelist and Master Value targets are enabled in the
@@ -72,6 +77,9 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+- Model release snapshots are recursively immutable, metadata and release cursors are signed and
+  filter-bound, model ETags use valid quoted entity-tag syntax, and release timestamps are normalized
+  to UTC even when SQLite returns naive datetimes.
 - Relation create and update now reject attributes not declared by the matched allowed pair and
   validate declared values through their global attribute types before persistence.
 - Duplicate many-to-many edges supplied through atomic object `initialRelations` now return

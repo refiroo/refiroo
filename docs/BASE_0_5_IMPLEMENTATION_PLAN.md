@@ -7,6 +7,20 @@ workbench
 **Depends on:** The completed model 0.4 runtime CRUD slice  
 **Unlocks:** Milestone 1 relation-driven mapping workspace
 
+## Execution status
+
+| Work package | Status | Evidence |
+|---|---|---|
+| WP0 — Checkpoint and lock contracts | Complete | Model 0.4 checkpoint `98f7cdd`; ADR-015 through ADR-018; lifecycle API shapes; OpenAPI contract test |
+| WP1 — Make the active release authoritative | Complete | Runtime-state migration; bootstrap installer; request snapshots; release read APIs |
+| WP2 — Add the compiler, semantic diff and compatibility analyzer | Next | Not started |
+| WP3 — Persist drafts and install immutable releases | Pending | Depends on WP2 |
+| WP4 — Implement guarded activation | Pending | Depends on WP3 |
+| WP5 — Upgrade object and relation query foundations | Pending | Depends on WP4 |
+| WP6 — Improve generic object management UI | Pending | Depends on WP5 |
+| WP7 — Add the lightweight model workbench | Pending | Depends on WP6 |
+| WP8 — Release integration and documentation | Pending | Depends on WP7 |
+
 ## Handoff instructions
 
 Before implementation, read `AGENTS.md` and the project documents it lists. The current worktree
@@ -91,7 +105,7 @@ All collections return `{items, nextCursor}` and accept bounded `pageSize` plus 
   `modelAdmin.readReleases`, `modelAdmin.manageDrafts`, `modelAdmin.install` and
   `modelAdmin.activate`; the UI does not infer permissions from failed requests.
 - `GET /api/v1/model` returns the active model and adds response headers
-  `ETag: <modelHash>` and `X-Model-Release-Id: <publicId>`.
+  `ETag: "<modelHash>"` and `X-Model-Release-Id: <publicId>`.
 - `GET /api/v1/model-releases` lists immutable releases, filterable by release key and activation
   status.
 - `GET /api/v1/model-releases/{releaseId}` returns identity, version, schema version, hash, install
@@ -168,6 +182,8 @@ Milestone 4.
 
 ### WP0 — Checkpoint and lock contracts
 
+**Status:** Complete (2026-09-04)
+
 Files:
 
 - `docs/DECISIONS.md`
@@ -185,7 +201,18 @@ Tasks:
 Exit: decisions are accepted, API shapes are testable and implementation does not need to invent
 lifecycle semantics mid-slice.
 
+Completion record:
+
+- checkpointed the validated model 0.4 worktree in Git commit `98f7cdd`;
+- accepted ADR-015 through ADR-018 and documented the supported single-process mutation topology;
+- locked lifecycle endpoint names, payload fields, omission rules, diagnostics and conflicts in
+  `docs/API.md`; and
+- added `backend/tests/test_openapi_contract.py` to pin the current model 0.4 path/method and schema
+  inventory before Base 0.5 introduces deliberate contract changes.
+
 ### WP1 — Make the active release authoritative
+
+**Status:** Complete (2026-09-04)
 
 Files:
 
@@ -224,6 +251,20 @@ Tests:
 - two simulated requests cannot observe mixed metadata/model snapshots.
 
 Exit: there is one runtime authority and all current behavior still passes against it.
+
+Completion record:
+
+- added the singleton, versioned `model_runtime_state` authority and unique release identity through
+  Alembic, including deterministic adoption of exactly one legacy active release;
+- separated source-file bootstrap loading from database runtime selection, preserving an existing
+  selection when a different bootstrap release is installed;
+- added an immutable request snapshot registry keyed by release UUID and hash, and passed one resolved
+  model through all model-dependent router and service operations;
+- removed application-layer selection through `ModelRelease.is_active`; the legacy flag is synchronized
+  only inside bootstrap persistence during the transition;
+- added coherent, standards-compliant `ETag` and `X-Model-Release-Id` headers plus signed,
+  filter-bound cursor paging for the release catalogue and release detail endpoints; and
+- expanded migration, bootstrap, snapshot-coherence, release API and OpenAPI contract tests.
 
 ### WP2 — Add the compiler, semantic diff and compatibility analyzer
 

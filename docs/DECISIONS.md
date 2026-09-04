@@ -143,3 +143,63 @@ its target edge, attributes and audit events commit atomically. Required relatio
 independently. `uniqueToAncestorTypeKey: language` with an `active == true` target condition prevents
 duplicate active translations for one target and Language while allowing the same target in other
 Languages and inactive historical records. Activation and hierarchy moves recheck the constraint.
+
+## ADR-015 — Resolve one database-selected model snapshot per request
+
+**Status:** Accepted
+
+The singleton database runtime-state row is the authority for the active installed model release.
+`MODEL_PATH` is bootstrap input only: startup validates and installs that content when needed, but a
+different bootstrap file does not implicitly replace an already selected release.
+
+Each request resolves runtime state once and uses the corresponding immutable parsed `EngineModel`
+and metadata release for every model-dependent operation. The process registry may cache snapshots by
+release public ID and content hash, but it must not independently choose the active release. This
+prevents one request from combining JSON from one release with metadata rows from another.
+
+## ADR-016 — Separate mutable drafts, immutable installation and activation
+
+**Status:** Accepted
+
+A model draft is mutable database content with a public UUID and an optimistic integer version.
+Validation and compilation are side-effect-free. Installing a successfully compiled draft creates or
+returns one content-addressed immutable release and its metadata projection; it does not activate that
+release. The same content hash is idempotent, while reuse of a release key and version with different
+content is a conflict.
+
+Activation is a separate operation. Installed model JSON is never edited in place and model
+administration never writes back to the server-side bootstrap file. This separation keeps authoring,
+reproducible installation and runtime selection independently auditable.
+
+## ADR-017 — Guard activation with runtime compatibility and deployment topology
+
+**Status:** Accepted
+
+Activation conditionally updates the singleton runtime-state row using both its expected version and
+the expected active release public ID. Before that update, the candidate is parsed again and checked
+against stored runtime data. A candidate requiring data migration is not activated by Base 0.5; the
+operation returns structured compatibility diagnostics and changes nothing.
+
+Model-administration mutations are absent unless `MODEL_ADMIN_MUTATIONS_ENABLED=true`. The flag is a
+deployment safety guard, not authorization. While mutations are enabled, Base 0.5 supports only one
+API process because it has no cross-process snapshot invalidation mechanism. The repository's
+container command runs one Uvicorn process and is the supported topology. Multi-worker or multi-node
+mutation enablement must be rejected until release propagation and identity-based authorization are
+implemented.
+
+The database commit is authoritative. A process publishes the newly selected immutable snapshot only
+after commit; if refresh fails, readiness becomes unhealthy instead of serving a guessed or mixed
+model.
+
+## ADR-018 — Bind opaque cursors to query semantics
+
+**Status:** Accepted
+
+Collection cursors are opaque client tokens. A cursor encodes or integrity-protects the selected sort,
+its unique sequence-ID tie-breaker and a fingerprint of all effective filters. Reusing it with a
+different filter, direction or sort returns `invalid_cursor`; clients pass `nextCursor` back unchanged
+and never parse it.
+
+This permits built-in sorting and pagination to evolve without exposing database sequence IDs or
+allowing a cursor to silently traverse a different result set. Every ordering is deterministic and
+uses the internal sequence only as the final, non-public tie-breaker.

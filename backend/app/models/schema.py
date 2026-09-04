@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any, Literal
 
@@ -21,7 +22,28 @@ BUILT_IN_COLUMNS = {"id", "name", "state", "path", "createdAt", "updatedAt"}
 DETAIL_FIELD_KEYS = BUILT_IN_COLUMNS | {"objectType"}
 
 
-class AttributeTypeDefinition(BaseModel):
+class FrozenDict(dict[str, Any]):
+    """A JSON-compatible mapping that rejects mutation after model validation."""
+
+    @staticmethod
+    def _immutable(*args: Any, **kwargs: Any) -> None:
+        raise TypeError("Model definitions are immutable")
+
+    __setitem__ = _immutable
+    __delitem__ = _immutable
+    clear = _immutable
+    pop = _immutable
+    popitem = _immutable
+    setdefault = _immutable
+    update = _immutable
+    __ior__ = _immutable
+
+
+class ModelDefinition(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+
+class AttributeTypeDefinition(ModelDefinition):
     model_config = ConfigDict(extra="allow")
 
     key: str
@@ -29,22 +51,22 @@ class AttributeTypeDefinition(BaseModel):
     description: str | None = None
     valueType: ValueType = "text"
     default: Any | None = None
-    features: dict[str, Any] = Field(default_factory=dict)
-    validation: dict[str, Any] = Field(default_factory=dict)
-    ui: dict[str, Any] = Field(default_factory=dict)
+    features: Mapping[str, Any] = Field(default_factory=dict)
+    validation: Mapping[str, Any] = Field(default_factory=dict)
+    ui: Mapping[str, Any] = Field(default_factory=dict)
 
 
-class ObjectTypeAttributeDefinition(BaseModel):
+class ObjectTypeAttributeDefinition(ModelDefinition):
     model_config = ConfigDict(extra="allow")
 
     attributeTypeKey: str
     required: bool = False
     readOnly: bool = False
     order: int = 0
-    ui: dict[str, Any] = Field(default_factory=dict)
+    ui: Mapping[str, Any] = Field(default_factory=dict)
 
 
-class ObjectTypeDefinition(BaseModel):
+class ObjectTypeDefinition(ModelDefinition):
     model_config = ConfigDict(extra="allow")
 
     key: str
@@ -53,13 +75,13 @@ class ObjectTypeDefinition(BaseModel):
     description: str | None = None
     icon: str | None = None
     displayAttributeTypeKey: str | None = None
-    attributes: list[ObjectTypeAttributeDefinition] = Field(default_factory=list)
-    features: dict[str, Any] = Field(default_factory=dict)
-    behavior: dict[str, Any] = Field(default_factory=dict)
-    validation: dict[str, Any] = Field(default_factory=dict)
+    attributes: tuple[ObjectTypeAttributeDefinition, ...] = ()
+    features: Mapping[str, Any] = Field(default_factory=dict)
+    behavior: Mapping[str, Any] = Field(default_factory=dict)
+    validation: Mapping[str, Any] = Field(default_factory=dict)
 
 
-class RelationTypeDefinition(BaseModel):
+class RelationTypeDefinition(ModelDefinition):
     model_config = ConfigDict(extra="allow")
 
     key: str
@@ -67,10 +89,10 @@ class RelationTypeDefinition(BaseModel):
     name: str
     reverseName: str
     isOriented: bool = True
-    features: dict[str, Any] = Field(default_factory=dict)
+    features: Mapping[str, Any] = Field(default_factory=dict)
 
 
-class ObjectTypeRelationDefinition(BaseModel):
+class ObjectTypeRelationDefinition(ModelDefinition):
     model_config = ConfigDict(extra="allow")
 
     relationTypeKey: str
@@ -78,21 +100,21 @@ class ObjectTypeRelationDefinition(BaseModel):
     toObjectTypeKey: str
     cardinality: Cardinality = "many-to-many"
     required: bool = False
-    attributeTypeKeys: list[str] = Field(default_factory=list)
-    features: dict[str, Any] = Field(default_factory=dict)
+    attributeTypeKeys: tuple[str, ...] = ()
+    features: Mapping[str, Any] = Field(default_factory=dict)
 
 
-class ViewDefinition(BaseModel):
+class ViewDefinition(ModelDefinition):
     model_config = ConfigDict(extra="allow")
 
     key: str
     name: str
     type: Literal["table", "form", "dashboard", "mappingGrid", "tree"]
     objectTypeKey: str | None = None
-    config: dict[str, Any] = Field(default_factory=dict)
+    config: Mapping[str, Any] = Field(default_factory=dict)
 
 
-class BreadcrumbDefinition(BaseModel):
+class BreadcrumbDefinition(ModelDefinition):
     model_config = ConfigDict(extra="forbid")
 
     showApplication: bool = True
@@ -100,7 +122,7 @@ class BreadcrumbDefinition(BaseModel):
     showAncestors: bool = True
 
 
-class DetailHeaderDefinition(BaseModel):
+class DetailHeaderDefinition(ModelDefinition):
     model_config = ConfigDict(extra="forbid")
 
     titleField: str = "name"
@@ -108,46 +130,46 @@ class DetailHeaderDefinition(BaseModel):
     showObjectType: bool = True
 
 
-class AttributesPanelConfig(BaseModel):
+class AttributesPanelConfig(ModelDefinition):
     model_config = ConfigDict(extra="forbid")
 
-    fields: list[str] = Field(default_factory=list)
+    fields: tuple[str, ...] = ()
 
 
-class ChildrenPanelConfig(BaseModel):
+class ChildrenPanelConfig(ModelDefinition):
     model_config = ConfigDict(extra="forbid")
 
-    objectTypeKeys: list[str]
-    columns: list[str] = Field(default_factory=lambda: ["name"])
+    objectTypeKeys: tuple[str, ...]
+    columns: tuple[str, ...] = ("name",)
     pageSize: int = Field(default=20, ge=1, le=100)
 
 
-class RelationsPanelConfig(BaseModel):
+class RelationsPanelConfig(ModelDefinition):
     model_config = ConfigDict(extra="forbid")
 
-    relationTypeKeys: list[str]
+    relationTypeKeys: tuple[str, ...]
     direction: Literal["outgoing", "incoming", "both"] = "both"
-    columns: list[str] = Field(default_factory=lambda: ["name", "objectType"])
+    columns: tuple[str, ...] = ("name", "objectType")
     showRelationshipColumn: bool = True
 
 
-class TablePanelConfig(BaseModel):
+class TablePanelConfig(ModelDefinition):
     model_config = ConfigDict(extra="forbid")
 
     objectTypeKey: str
-    columns: list[str] = Field(default_factory=lambda: ["name"])
+    columns: tuple[str, ...] = ("name",)
     filterByParent: bool = False
     pageSize: int = Field(default=20, ge=1, le=100)
 
 
-class HierarchyPanelConfig(BaseModel):
+class HierarchyPanelConfig(ModelDefinition):
     model_config = ConfigDict(extra="forbid")
 
     showParent: bool = True
     showAncestors: bool = True
 
 
-class PanelDefinitionBase(BaseModel):
+class PanelDefinitionBase(ModelDefinition):
     model_config = ConfigDict(extra="forbid")
 
     key: str
@@ -192,16 +214,16 @@ PanelDefinition = Annotated[
 ]
 
 
-class DetailViewDefinition(BaseModel):
+class DetailViewDefinition(ModelDefinition):
     model_config = ConfigDict(extra="forbid")
 
     objectTypeKey: str
     breadcrumbs: BreadcrumbDefinition = Field(default_factory=BreadcrumbDefinition)
     header: DetailHeaderDefinition = Field(default_factory=DetailHeaderDefinition)
-    panels: list[PanelDefinition]
+    panels: tuple[PanelDefinition, ...]
 
 
-class ApplicationDefinition(BaseModel):
+class ApplicationDefinition(ModelDefinition):
     model_config = ConfigDict(extra="allow")
 
     key: str
@@ -210,35 +232,35 @@ class ApplicationDefinition(BaseModel):
     icon: str | None = None
     color: str | None = None
     state: Literal["draft", "active", "retired"] = "active"
-    objectTypeKeys: list[str]
+    objectTypeKeys: tuple[str, ...]
     defaultView: str
-    views: list[ViewDefinition]
-    details: list[DetailViewDefinition] = Field(default_factory=list)
-    settings: dict[str, Any] = Field(default_factory=dict)
+    views: tuple[ViewDefinition, ...]
+    details: tuple[DetailViewDefinition, ...] = ()
+    settings: Mapping[str, Any] = Field(default_factory=dict)
 
 
-class ProductDefinition(BaseModel):
+class ProductDefinition(ModelDefinition):
     name: str
     description: str | None = None
 
 
-class ModelReleaseDefinition(BaseModel):
+class ModelReleaseDefinition(ModelDefinition):
     key: str
     name: str
     version: str
 
 
-class EngineModel(BaseModel):
+class EngineModel(ModelDefinition):
     model_config = ConfigDict(extra="forbid")
 
     schemaVersion: str
     release: ModelReleaseDefinition
     product: ProductDefinition
-    attributeTypes: list[AttributeTypeDefinition]
-    objectTypes: list[ObjectTypeDefinition]
-    relationTypes: list[RelationTypeDefinition]
-    objectTypeRelations: list[ObjectTypeRelationDefinition]
-    applications: list[ApplicationDefinition]
+    attributeTypes: tuple[AttributeTypeDefinition, ...]
+    objectTypes: tuple[ObjectTypeDefinition, ...]
+    relationTypes: tuple[RelationTypeDefinition, ...]
+    objectTypeRelations: tuple[ObjectTypeRelationDefinition, ...]
+    applications: tuple[ApplicationDefinition, ...]
 
     _attribute_types_by_key: dict[str, AttributeTypeDefinition] = {}
     _object_types_by_key: dict[str, ObjectTypeDefinition] = {}
@@ -526,9 +548,11 @@ class EngineModel(BaseModel):
                             object_map,
                         )
 
-        self._attribute_types_by_key = attribute_map
-        self._object_types_by_key = object_map
-        self._relation_types_by_key = relation_map
+        self._attribute_types_by_key = FrozenDict(attribute_map)
+        self._object_types_by_key = FrozenDict(object_map)
+        self._relation_types_by_key = FrozenDict(relation_map)
+
+        _freeze_model_graph(self)
 
         return self
 
@@ -542,7 +566,27 @@ class EngineModel(BaseModel):
         return self._relation_types_by_key.get(key)
 
 
-def _unique_map(items: list[Any], label: str) -> dict[str, Any]:
+def _freeze_model_graph(value: Any) -> Any:
+    if isinstance(value, BaseModel):
+        for field_name in type(value).model_fields:
+            object.__setattr__(value, field_name, _freeze_model_graph(getattr(value, field_name)))
+        if value.__pydantic_extra__:
+            object.__setattr__(
+                value,
+                "__pydantic_extra__",
+                _freeze_model_graph(value.__pydantic_extra__),
+            )
+        return value
+    if isinstance(value, Mapping):
+        return FrozenDict({key: _freeze_model_graph(item) for key, item in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(_freeze_model_graph(item) for item in value)
+    if isinstance(value, (set, frozenset)):
+        return frozenset(_freeze_model_graph(item) for item in value)
+    return value
+
+
+def _unique_map(items: Sequence[Any], label: str) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for item in items:
         if item.key in result:
@@ -552,7 +596,7 @@ def _unique_map(items: list[Any], label: str) -> dict[str, Any]:
 
 
 def _unique_binding_map(
-    items: list[ObjectTypeAttributeDefinition], object_type_key: str
+    items: Sequence[ObjectTypeAttributeDefinition], object_type_key: str
 ) -> dict[str, ObjectTypeAttributeDefinition]:
     result: dict[str, ObjectTypeAttributeDefinition] = {}
     for item in items:

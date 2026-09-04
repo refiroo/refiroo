@@ -6,7 +6,8 @@ from fastapi.testclient import TestClient
 from app.db import SessionLocal
 from app.errors import ApiError
 from app.main import app
-from app.services.model_loader import current_model
+from app.services.model_loader import load_bootstrap_model
+from app.services.model_registry import ModelSnapshot, resolve_model_snapshot
 from app.services.relations import claim_relation_version, load_relation
 
 
@@ -24,17 +25,24 @@ def _relation_path(relation_id: str) -> str:
 
 @pytest.fixture
 def mapping_relation_attributes():
-    allowed = next(
-        item
-        for item in current_model().objectTypeRelations
+    model = load_bootstrap_model()
+    object_type_relations = tuple(
+        item.model_copy(update={"attributeTypeKeys": ("sort-order",)})
         if item.relationTypeKey == "system-value-maps-to-master"
+        else item
+        for item in model.objectTypeRelations
     )
-    previous = allowed.attributeTypeKeys
-    allowed.attributeTypeKeys = ["sort-order"]
+    model = model.model_copy(update={"objectTypeRelations": object_type_relations})
+    app.dependency_overrides[resolve_model_snapshot] = lambda: ModelSnapshot(
+        release_db_id=-1,
+        release_id="test-release",
+        model_hash="test-hash",
+        model=model,
+    )
     try:
         yield
     finally:
-        allowed.attributeTypeKeys = previous
+        app.dependency_overrides.pop(resolve_model_snapshot, None)
 
 
 def _create_domain(client, suffix):

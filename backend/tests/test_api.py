@@ -188,6 +188,29 @@ def test_metadata_collection_rejects_invalid_cursor():
         assert response.json()["error"]["code"] == "invalid_cursor"
 
 
+def test_metadata_cursor_rejects_filter_reuse_and_tampering():
+    with TestClient(app) as client:
+        first_page = client.get("/api/v1/object-type-relations", params={"pageSize": 1})
+        assert first_page.status_code == 200
+        cursor = first_page.json()["nextCursor"]
+        assert cursor is not None
+
+        reused = client.get(
+            "/api/v1/object-type-relations",
+            params={"fromObjectType": "domain", "cursor": cursor, "pageSize": 1},
+        )
+        assert reused.status_code == 422
+        assert reused.json()["error"]["code"] == "invalid_cursor"
+
+        replacement = "A" if cursor[-1] != "A" else "B"
+        tampered = client.get(
+            "/api/v1/object-type-relations",
+            params={"cursor": cursor[:-1] + replacement, "pageSize": 1},
+        )
+        assert tampered.status_code == 422
+        assert tampered.json()["error"]["code"] == "invalid_cursor"
+
+
 def test_version_conflict_error_format():
     with TestClient(app) as client:
         create = client.post(

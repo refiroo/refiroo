@@ -1,7 +1,9 @@
 import os
+import secrets
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
+_EPHEMERAL_CURSOR_SIGNING_KEY = secrets.token_bytes(32)
 
 
 def model_path() -> Path:
@@ -11,6 +13,11 @@ def model_path() -> Path:
 
 def database_url() -> str:
     return os.getenv("DATABASE_URL", "sqlite:///./rdm-engine.db")
+
+
+def cursor_signing_key() -> bytes:
+    configured = os.getenv("RDM_CURSOR_SIGNING_KEY")
+    return configured.encode() if configured else _EPHEMERAL_CURSOR_SIGNING_KEY
 
 
 def cors_origins() -> list[str]:

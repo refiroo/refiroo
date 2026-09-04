@@ -9,6 +9,7 @@ from ..db import SessionLocal
 from ..errors import api_error
 from ..models.api import RelationCreate, RelationExpansion, RelationResponse, RelationUpdate
 from ..models.database import AuditEvent, ObjectRelation, RdmObject
+from ..services.model_registry import ActiveModelSnapshot
 from ..services.objects import build_object_responses, load_object
 from ..services.relations import (
     build_relation_response,
@@ -29,10 +30,10 @@ router = APIRouter(prefix="/api/v1", tags=["relations"])
     response_model=RelationResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def create_relation(payload: RelationCreate) -> RelationResponse:
+def create_relation(payload: RelationCreate, snapshot: ActiveModelSnapshot) -> RelationResponse:
     with SessionLocal() as session:
         try:
-            relation = create_relation_instance(session, payload)
+            relation = create_relation_instance(session, snapshot.model, payload)
             session.commit()
         except IntegrityError:
             session.rollback()
@@ -43,6 +44,7 @@ def create_relation(payload: RelationCreate) -> RelationResponse:
 
 @router.get("/relations", response_model=list[RelationExpansion])
 def get_relations(
+    snapshot: ActiveModelSnapshot,
     object_id: str = Query(alias="objectId"),
     direction: Literal["outgoing", "incoming", "both"] = "both",
     relation_type_key: str | None = Query(default=None, alias="relationTypeKey"),
@@ -72,7 +74,7 @@ def get_relations(
             item.id: response
             for item, response in zip(
                 related_objects.values(),
-                build_object_responses(session, list(related_objects.values())),
+                build_object_responses(session, snapshot.model, list(related_objects.values())),
                 strict=True,
             )
         }
@@ -91,25 +93,29 @@ def get_relations(
 
 
 @router.get("/relations/{relation_id}", response_model=RelationResponse)
-def get_relation(relation_id: str) -> RelationResponse:
+def get_relation(relation_id: str, _snapshot: ActiveModelSnapshot) -> RelationResponse:
     with SessionLocal() as session:
         return build_relation_response(load_relation(session, relation_id))
 
 
 @router.patch("/relations/{relation_id}", response_model=RelationResponse)
-def update_relation(relation_id: str, payload: RelationUpdate) -> RelationResponse:
+def update_relation(
+    relation_id: str, payload: RelationUpdate, snapshot: ActiveModelSnapshot
+) -> RelationResponse:
+    model = snapshot.model
     with SessionLocal() as session:
         relation = load_relation(session, relation_id)
         from_object = load_object(session, relation.from_object_id)
         to_object = load_object(session, relation.to_object_id)
-        ensure_relation_mutable(relation.relation_type_key, to_object.object_type_key)
+        ensure_relation_mutable(model, relation.relation_type_key, to_object.object_type_key)
         allowed = find_allowed_relation(
+            model,
             relation.relation_type_key,
             from_object.object_type_key,
             to_object.object_type_key,
         )
         claim_relation_version(session, relation, payload.expectedVersion)
-        attributes = validate_relation_attributes(allowed, payload.attributes)
+        attributes = validate_relation_attributes(model, allowed, payload.attributes)
         old_attributes = relation.attributes
         relation.attributes = attributes
         session.add(
@@ -131,14 +137,17 @@ def update_relation(relation_id: str, payload: RelationUpdate) -> RelationRespon
 @router.delete("/relations/{relation_id}", status_code=204)
 def delete_relation(
     relation_id: str,
+    snapshot: ActiveModelSnapshot,
     expected_version: int = Query(ge=1, alias="expectedVersion"),
 ) -> Response:
+    model = snapshot.model
     with SessionLocal() as session:
         relation = load_relation(session, relation_id)
         from_object = load_object(session, relation.from_object_id)
         to_object = load_object(session, relation.to_object_id)
-        ensure_relation_mutable(relation.relation_type_key, to_object.object_type_key)
+        ensure_relation_mutable(model, relation.relation_type_key, to_object.object_type_key)
         allowed = find_allowed_relation(
+            model,
             relation.relation_type_key,
             from_object.object_type_key,
             to_object.object_type_key,

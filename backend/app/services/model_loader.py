@@ -1,5 +1,5 @@
+import hashlib
 import json
-from functools import lru_cache
 from pathlib import Path
 
 from ..config import model_path
@@ -11,6 +11,11 @@ def load_model(path: Path) -> EngineModel:
         return EngineModel.model_validate(json.load(model_file))
 
 
-@lru_cache(maxsize=1)
-def current_model() -> EngineModel:
+def load_bootstrap_model() -> EngineModel:
     return load_model(model_path())
+
+
+def canonical_model(model: EngineModel) -> tuple[dict, str]:
+    model_json = model.model_dump(mode="json")
+    canonical = json.dumps(model_json, sort_keys=True, separators=(",", ":"))
+    return model_json, hashlib.sha256(canonical.encode()).hexdigest()

@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import cors_origins
-from .db import create_database, install_model
+from .db import SessionLocal, bootstrap_model, create_database
 from .errors import (
     ApiError,
     api_error_handler,
@@ -15,14 +15,17 @@ from .errors import (
     validation_error_handler,
 )
 from .routers import attributes, model, objects, relations
-from .services.model_loader import current_model
+from .services.model_loader import load_bootstrap_model
+from .services.model_registry import model_registry
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    loaded_model = current_model()
+    loaded_model = load_bootstrap_model()
     create_database()
-    install_model(loaded_model)
+    bootstrap_model(loaded_model)
+    with SessionLocal() as session:
+        model_registry.resolve_active(session)
     yield
 
 

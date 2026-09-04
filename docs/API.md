@@ -91,6 +91,203 @@ binding features. Relation-type responses include these bindings under `allowedP
 `object-type-relations` endpoint remains available for discovery and compatibility and can be
 filtered with `fromObjectType` and `toObjectType` query parameters.
 
+### Base 0.5 model-lifecycle contract
+
+The following contract is locked for Base 0.5 implementation. WP1 implements the active-model headers
+and installed-release catalogue/detail endpoints. Semantic diff follows in WP2; capabilities, drafts
+and installation in WP3; and activation in WP4. All IDs are UUID v4 strings, timestamps are UTC ISO
+8601 values and model hashes are lowercase SHA-256 hex strings. JSON field names use the camelCase
+forms shown here.
+
+#### Capabilities and active model
+
+- `GET /api/v1/capabilities`
+- `GET /api/v1/model`
+
+Capabilities return deployment-supported operations explicitly:
+
+```json
+{
+  "modelAdmin": {
+    "readReleases": true,
+    "manageDrafts": false,
+    "install": false,
+    "activate": false
+  }
+}
+```
+
+`readReleases` remains true when mutations are disabled. The other three values are true only when
+`MODEL_ADMIN_MUTATIONS_ENABLED=true` and the deployment is a supported single-process topology. The
+flag is not an authorization mechanism.
+
+`GET /api/v1/model` continues to return the active `EngineModel` body and adds:
+
+- `ETag: "<modelHash>"`; and
+- `X-Model-Release-Id: <releaseId>`.
+
+Both headers and the body come from the same request-scoped installed release snapshot.
+
+#### Installed releases
+
+- `GET /api/v1/model-releases?releaseKey=...&active=...&pageSize=...&cursor=...`
+- `GET /api/v1/model-releases/{releaseId}?includeModel=false`
+- `GET /api/v1/model-releases/{releaseId}/diff?againstReleaseId=...`
+- `POST /api/v1/model-releases/{releaseId}/activation`
+
+The collection returns the standard `{items, nextCursor}` page. A release summary and detail share
+this identity shape; `model` is included only on detail when `includeModel=true`:
+
+```json
+{
+  "id": "6f57924d-...",
+  "key": "rdm-starter",
+  "name": "RDM starter model",
+  "version": "0.5.0",
+  "schemaVersion": "0.4",
+  "modelHash": "7c9d...",
+  "installedAt": "2026-09-04T12:00:00Z",
+  "active": false,
+  "model": {}
+}
+```
+
+`model` is absent, rather than `null`, unless requested. Release list and detail are always readable;
+release installation and activation are mutation-gated.
+
+Metadata and release cursors are signed opaque tokens bound to their endpoint, ordering and effective
+filters. Changing a cursor or reusing it with different filters returns `422 invalid_cursor`.
+
+Diff uses the requested installed release as its structural baseline and the path notation used by
+diagnostics:
+
+```json
+{
+  "againstReleaseId": "412c4041-...",
+  "releaseId": "6f57924d-...",
+  "changes": [
+    {
+      "kind": "changed",
+      "path": "/objectTypes/master-value/name",
+      "before": "Master value",
+      "after": "Canonical value"
+    }
+  ],
+  "compatibility": {
+    "classification": "compatible",
+    "activeReleaseId": "412c4041-...",
+    "diagnostics": []
+  }
+}
+```
+
+`kind` is `added`, `changed` or `removed`. `before` is absent for additions and `after` is absent for
+removals. Compatibility always assesses activation against current runtime data and identifies the
+active release used for that assessment; it is independent of a non-active structural diff baseline.
+
+Activation accepts both concurrency tokens:
+
+```json
+{
+  "expectedRuntimeVersion": 3,
+  "expectedActiveReleaseId": "412c4041-..."
+}
+```
+
+It returns the complete new runtime state:
+
+```json
+{
+  "activeReleaseId": "6f57924d-...",
+  "activeModelHash": "7c9d...",
+  "version": 4,
+  "updatedAt": "2026-09-04T12:05:00Z"
+}
+```
+
+#### Drafts, validation, compilation and installation
+
+- `GET /api/v1/model-drafts?pageSize=...&cursor=...`
+- `GET /api/v1/model-drafts/{draftId}`
+- `POST /api/v1/model-drafts`
+- `PATCH /api/v1/model-drafts/{draftId}`
+- `DELETE /api/v1/model-drafts/{draftId}?expectedVersion=...`
+- `POST /api/v1/model-validations`
+- `POST /api/v1/model-drafts/{draftId}/compile`
+- `POST /api/v1/model-drafts/{draftId}/installation`
+
+Create accepts `name`, optional `baseReleaseId` and an inline `model`. Patch accepts
+`expectedVersion` plus at least one of `name` or `model`. Draft responses use:
+
+```json
+{
+  "id": "899e8f66-...",
+  "name": "Add canonical value label",
+  "baseReleaseId": "412c4041-...",
+  "model": {},
+  "version": 2,
+  "createdAt": "2026-09-04T11:00:00Z",
+  "updatedAt": "2026-09-04T11:15:00Z"
+}
+```
+
+Delete succeeds with HTTP `204` and no body. Inline validation accepts `{ "model": {} }` and returns:
+
+```json
+{
+  "valid": false,
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "unknown_object_type",
+      "path": "/applications/rdm-master/objectTypeKeys/3",
+      "message": "Object type 'missing' does not exist"
+    }
+  ]
+}
+```
+
+Diagnostic severity is `error` or `warning`; `path` is a JSON Pointer. Compile and installation both
+accept `{ "expectedVersion": 2 }`. Compile is side-effect-free and returns:
+
+```json
+{
+  "valid": true,
+  "model": {},
+  "modelHash": "7c9d...",
+  "diagnostics": [],
+  "compatibility": {
+    "classification": "compatible",
+    "activeReleaseId": "412c4041-...",
+    "diagnostics": []
+  }
+}
+```
+
+`model` is the parsed canonical model. Compatibility classification is `compatible`,
+`migration_required` or `invalid`; invalid compilation returns `valid: false`, omits `model` and
+`modelHash`, and uses `invalid`. Installation repeats compilation and compatibility analysis and
+returns the installed release detail with `model` absent. It is idempotent for identical content and
+never activates the release.
+
+Every draft endpoint and the installation and activation endpoints return HTTP `404` when model
+administration mutations are disabled. Validation, capabilities, installed-release reads and diff
+are not mutation-gated. Lifecycle conflicts use:
+
+- `409 version_conflict` for a stale draft version;
+- `409 release_identity_conflict` for the same release key/version with different content;
+- `409 activation_conflict` for stale runtime-state tokens; and
+- `409 model_migration_required` when stored data prevents activation.
+
+As elsewhere, errors use the shared `{ "error": { "code", "message", "details" } }` envelope.
+
+### Base 0.5 OpenAPI lock
+
+The complete canonical OpenAPI document digest after WP1, plus readable path/method and
+component-schema inventories, are asserted by `backend/tests/test_openapi_contract.py`. Any public
+shape change therefore requires an intentional contract-test update. Later Base 0.5 packages update
+the lock in the same change that implements each planned contract.
+
 All metadata collection endpoints accept an opaque `cursor` and a `pageSize` from 1 to 500 (default
 100). They return:
 

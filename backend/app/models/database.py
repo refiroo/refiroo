@@ -6,6 +6,7 @@ from uuid import uuid4
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     Date,
     DateTime,
     ForeignKey,
@@ -24,6 +25,9 @@ class Base(DeclarativeBase):
 
 class ModelRelease(Base):
     __tablename__ = "model_releases"
+    __table_args__ = (
+        UniqueConstraint("release_key", "release_version", name="uq_model_release_identity"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     public_id: Mapped[str] = mapped_column(
@@ -38,6 +42,20 @@ class ModelRelease(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     installed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC)
+    )
+
+
+class ModelRuntimeState(Base):
+    __tablename__ = "model_runtime_state"
+    __table_args__ = (CheckConstraint("id = 1", name="ck_model_runtime_state_singleton"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    active_model_release_id: Mapped[int] = mapped_column(
+        ForeignKey("model_releases.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
 
 

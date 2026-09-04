@@ -189,6 +189,26 @@ class MetadataPage[ResponseItem](BaseModel):
     nextCursor: str | None
 
 
+class ModelReleaseSummary(BaseModel):
+    id: str
+    key: str
+    name: str
+    version: str
+    schemaVersion: str
+    modelHash: str
+    installedAt: datetime
+    active: bool
+
+
+class ModelReleaseResponse(ModelReleaseSummary):
+    model: dict[str, Any] | None = None
+
+
+class ModelReleasePage(BaseModel):
+    items: list[ModelReleaseSummary]
+    nextCursor: str | None
+
+
 class RelationExpansion(BaseModel):
     direction: Literal["outgoing", "incoming"]
     relation: RelationResponse

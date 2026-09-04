@@ -77,7 +77,9 @@ npm run dev
 Run the frontend test suite with `npm test`.
 
 The backend uses SQLite locally unless `DATABASE_URL` is set. The model defaults to
-`model/rdm-starter.json`.
+`model/rdm-starter.json`. Set `RDM_CURSOR_SIGNING_KEY` to a deployment-specific secret so opaque
+pagination cursors remain verifiable across restarts. Without it, the process generates an ephemeral
+key and cursors issued before a restart become invalid.
 
 ## Repository guide
 

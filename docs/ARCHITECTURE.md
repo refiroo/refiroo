@@ -27,12 +27,44 @@ The model declares:
 - Allowed source/relation/target combinations
 - Views and component configuration
 
-At startup, a canonical hash identifies the model. A new hash creates a new immutable release and its
-relational metadata rows. Previous releases remain available for migration planning and audit.
+At startup, a canonical hash identifies the model. New content with a new release key/version identity
+creates an immutable release and its relational metadata rows; reusing an identity with different
+content is rejected. Previous releases remain available for migration planning and audit.
+
+The active release is selected by a singleton database runtime-state row. The configured model file is
+bootstrap input: it can install missing content and initialize an empty runtime state, but it is not a
+parallel runtime authority. A request reads runtime state once, resolves the selected release to one
+immutable parsed model snapshot and uses that release's metadata throughout the request. An in-process
+registry may cache snapshots by public release ID and hash; it never decides which release is active.
+Definition models are frozen recursively, including nested collections, so cached snapshots cannot be
+changed without installing and selecting a different release.
+
+Model authoring has three explicit stages. Drafts are mutable, versioned database records. Validation,
+canonical compilation, semantic diff and compatibility analysis do not persist changes. Installation
+creates immutable content-addressed release metadata but leaves runtime selection unchanged.
+Activation uses optimistic concurrency on runtime state and is permitted only when stored data is
+compatible with the candidate.
 
 Database creation and upgrades run through Alembic. Each revision contains a frozen schema delta or
 snapshot and does not import live ORM metadata, so adding a later ORM field cannot change the behavior
 of an earlier revision on a fresh database.
+
+## Deployment topology for model administration
+
+Base 0.5 supports mutable model administration only in a single API process. The checked-in container
+starts one Uvicorn process and does not set a worker count. `MODEL_ADMIN_MUTATIONS_ENABLED` is disabled
+by default and is a deployment guard rather than an authorization system. When enabled, startup must
+reject a configured multi-worker topology until cross-process release propagation exists.
+
+Activation commits the database runtime-state change before publishing the new snapshot to the local
+registry. If the process cannot refresh that committed selection, readiness is unhealthy and requests
+must not fall back to bootstrap content or a guessed cached model. Read-only release discovery remains
+available independently of the mutation flag.
+
+The WP1 migration adopts a legacy database only when it has zero or one active release and every
+release key/version identity is unique. Multiple active rows or conflicting historical identities stop
+the upgrade before the new schema is applied. The migration does not delete releases, rewrite their
+identity or guess which immutable snapshot to preserve.
 
 ## Runtime object graph
 
@@ -66,8 +98,9 @@ resulting object set in one transaction.
 The API returns attributes by stable keys and typed JSON values. Clients may request relations using
 stable relation keys. It never requires arrays of internal attribute or relation IDs.
 
-Cursor pagination is used throughout. Full extraction belongs to asynchronous export or a resumable
-change feed rather than an undocumented unbounded page.
+Cursor pagination is used throughout. Cursor tokens are signed and bound to their endpoint, ordering
+and effective filters. Full extraction belongs to asynchronous export or a resumable change feed
+rather than an undocumented unbounded page.
 
 ## Scale direction
 

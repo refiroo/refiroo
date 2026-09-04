@@ -8,13 +8,14 @@ from sqlalchemy.orm import Session
 from ..errors import api_error
 from ..models.api import RelationCreate, RelationResponse
 from ..models.database import AuditEvent, ObjectRelation, RdmObject
-from ..models.schema import ObjectTypeRelationDefinition
+from ..models.schema import EngineModel, ObjectTypeRelationDefinition
 from .attributes import current_attribute_values, normalize_value
-from .model_loader import current_model
 
 
-def find_allowed_relation(relation_type_key: str, from_type: str, to_type: str):
-    relation_type = current_model().relation_type(relation_type_key)
+def find_allowed_relation(
+    model: EngineModel, relation_type_key: str, from_type: str, to_type: str
+):
+    relation_type = model.relation_type(relation_type_key)
     if not relation_type:
         raise api_error(
             404, "unknown_relation_type", f"Relation type '{relation_type_key}' not found"
@@ -22,7 +23,7 @@ def find_allowed_relation(relation_type_key: str, from_type: str, to_type: str):
     allowed = next(
         (
             item
-            for item in current_model().objectTypeRelations
+            for item in model.objectTypeRelations
             if item.relationTypeKey == relation_type_key
             and item.fromObjectTypeKey == from_type
             and item.toObjectTypeKey == to_type
@@ -60,7 +61,9 @@ def validate_cardinality(session: Session, allowed, payload: RelationCreate) -> 
 
 
 def validate_relation_attributes(
-    allowed: ObjectTypeRelationDefinition, attributes: dict[str, Any]
+    model: EngineModel,
+    allowed: ObjectTypeRelationDefinition,
+    attributes: dict[str, Any],
 ) -> dict[str, Any]:
     permitted = set(allowed.attributeTypeKeys)
     unknown = set(attributes) - permitted
@@ -71,7 +74,6 @@ def validate_relation_attributes(
             f"Unknown relation attributes: {sorted(unknown)}",
         )
 
-    model = current_model()
     result: dict[str, Any] = {}
     for key, value in attributes.items():
         definition = model.attribute_type(key)
@@ -83,6 +85,7 @@ def validate_relation_attributes(
 
 def create_relation_instance(
     session: Session,
+    model: EngineModel,
     payload: RelationCreate,
     *,
     from_object: RdmObject | None = None,
@@ -95,14 +98,15 @@ def create_relation_instance(
     if from_object.workspace_key != to_object.workspace_key:
         raise api_error(422, "relation_wrong_scope", "Related objects must share a workspace")
     allowed = find_allowed_relation(
+        model,
         payload.relationTypeKey,
         from_object.object_type_key,
         to_object.object_type_key,
     )
-    ensure_relation_mutable(payload.relationTypeKey, to_object.object_type_key)
+    ensure_relation_mutable(model, payload.relationTypeKey, to_object.object_type_key)
     validate_cardinality(session, allowed, payload)
     _validate_unique_to_ancestor(session, allowed, payload, to_object)
-    attributes = validate_relation_attributes(allowed, payload.attributes)
+    attributes = validate_relation_attributes(model, allowed, payload.attributes)
     relation = ObjectRelation(
         relation_type_key=payload.relationTypeKey,
         from_object_id=from_object.id,
@@ -176,7 +180,9 @@ def _matches_unique_condition(session: Session, allowed, item: RdmObject) -> boo
     return values.get(condition["attributeTypeKey"]) == condition["value"]
 
 
-def validate_scoped_relations_for_subtree(session: Session, root: RdmObject) -> None:
+def validate_scoped_relations_for_subtree(
+    session: Session, model: EngineModel, root: RdmObject
+) -> None:
     object_ids = _subtree_ids(session, root.id)
     relations = list(
         session.scalars(select(ObjectRelation).where(ObjectRelation.to_object_id.in_(object_ids)))
@@ -201,6 +207,7 @@ def validate_scoped_relations_for_subtree(session: Session, root: RdmObject) -> 
         from_object = objects[relation.from_object_id]
         to_object = objects[relation.to_object_id]
         allowed = find_allowed_relation(
+            model,
             relation.relation_type_key,
             from_object.object_type_key,
             to_object.object_type_key,
@@ -263,14 +270,16 @@ def load_relation(session: Session, relation_id: str) -> ObjectRelation:
     return relation
 
 
-def ensure_relation_mutable(relation_type_key: str, to_object_type_key: str) -> None:
+def ensure_relation_mutable(
+    model: EngineModel, relation_type_key: str, to_object_type_key: str
+) -> None:
     """Reject relations the engine maintains itself (parent containment/hierarchy).
 
     A relation is engine-maintained when its relation type is wired as the parent-containment
     relation of the target (child) object type via ``behavior.parentRelationTypeKeys``; such edges
     are written atomically on parent changes and must not be mutated through the relations API.
     """
-    definition = current_model().object_type(to_object_type_key)
+    definition = model.object_type(to_object_type_key)
     if definition and relation_type_key in definition.behavior.get("parentRelationTypeKeys", []):
         raise api_error(
             422,

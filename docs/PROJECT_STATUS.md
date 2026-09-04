@@ -9,6 +9,10 @@ relation types, allowed source/relation/target triples and UI views.
 The starter model contains three configurable applications—RDM Master, RDM Systems and RDM
 Translations—but the runtime contains no branches for those names or their object-type keys.
 
+Base 0.5 WP1 is complete. The singleton database runtime-state row now selects the authoritative
+installed release. Source JSON is bootstrap input only, each request uses one immutable model and
+metadata snapshot, and read-only release catalogue/detail APIs expose installed releases coherently.
+
 ## Source evidence incorporated
 
 The supplied RDM application package declares 3 applications, 23 object types, 27 attribute types, 72
@@ -101,7 +105,8 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 
 Complete the bounded Base 0.5 operational foundation before building the dedicated mapping workspace:
 
-1. Make the database-selected installed release the single authoritative runtime model snapshot.
+1. **Done (WP1):** Make the database-selected installed release the single authoritative runtime
+   model snapshot.
 2. Add validation, canonical compilation, semantic diff, compatibility analysis, versioned drafts,
    immutable install and guarded activation.
 3. Make workspace and URL-backed collection state explicit in the generic object UI.
@@ -110,6 +115,8 @@ Complete the bounded Base 0.5 operational foundation before building the dedicat
 
 See `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` for the implementation-ready work packages and
 `docs/ROADMAP.md` for the exit gate and sequenced milestones that follow.
+
+The first item is complete in WP1; WP2 (compiler, semantic diff and compatibility analysis) is next.
 
 ## Coding-agent handoff
 

@@ -6,29 +6,28 @@ from sqlalchemy.orm import Session
 from ..errors import api_error
 from ..models.api import AttributeOutput, ObjectResponse
 from ..models.database import ObjectRelation, RdmObject
-from ..models.schema import ObjectTypeDefinition
+from ..models.schema import EngineModel, ObjectTypeDefinition
 from .attributes import load_attribute_values
-from .model_loader import current_model
 
 
-def get_object_type(object_type_key: str) -> ObjectTypeDefinition:
-    definition = current_model().object_type(object_type_key)
+def get_object_type(model: EngineModel, object_type_key: str) -> ObjectTypeDefinition:
+    definition = model.object_type(object_type_key)
     if not definition:
         raise api_error(404, "unknown_object_type", f"Object type '{object_type_key}' not found")
     return definition
 
 
-def get_application(application_key: str):
-    application = next(
-        (item for item in current_model().applications if item.key == application_key), None
-    )
+def get_application(model: EngineModel, application_key: str):
+    application = next((item for item in model.applications if item.key == application_key), None)
     if not application:
         raise api_error(404, "unknown_application", f"Application '{application_key}' not found")
     return application
 
 
-def validate_application_object_type(application_key: str, object_type_key: str) -> None:
-    application = get_application(application_key)
+def validate_application_object_type(
+    model: EngineModel, application_key: str, object_type_key: str
+) -> None:
+    application = get_application(model, application_key)
     if object_type_key not in application.objectTypeKeys:
         raise api_error(
             422,
@@ -61,13 +60,14 @@ def claim_object_version(session: Session, item: RdmObject, expected_version: in
 
 def validate_parent(
     session: Session,
+    model: EngineModel,
     object_type_key: str,
     application_key: str,
     workspace_key: str,
     parent_object_id: str | None,
     moving_object_id: str | None = None,
 ) -> tuple[RdmObject | None, str | None]:
-    object_type = get_object_type(object_type_key)
+    object_type = get_object_type(model, object_type_key)
     root_creatable = object_type.features.get("rootCreatable", False)
     if parent_object_id is None:
         if not root_creatable:
@@ -82,7 +82,6 @@ def validate_parent(
     if moving_object_id and _would_create_parent_cycle(session, moving_object_id, parent.id):
         raise api_error(422, "parent_cycle", "Parent selection would create a cycle")
 
-    model = current_model()
     permitted = set(object_type.behavior.get("parentRelationTypeKeys", []))
     matches = [
         relation
@@ -100,12 +99,13 @@ def validate_parent(
 
 def replace_parent_relation(
     session: Session,
+    model: EngineModel,
     item: RdmObject,
     parent: RdmObject | None,
     parent_relation: str | None,
 ) -> None:
     parent_relation_types = set(
-        get_object_type(item.object_type_key).behavior.get("parentRelationTypeKeys", [])
+        get_object_type(model, item.object_type_key).behavior.get("parentRelationTypeKeys", [])
     )
     session.execute(
         delete(ObjectRelation).where(
@@ -124,10 +124,11 @@ def replace_parent_relation(
         )
 
 
-def build_object_responses(session: Session, objects: list[RdmObject]) -> list[ObjectResponse]:
+def build_object_responses(
+    session: Session, model: EngineModel, objects: list[RdmObject]
+) -> list[ObjectResponse]:
     values = load_attribute_values(session, [item.id for item in objects])
     paths = _object_paths(session, objects)
-    model = current_model()
     return [
         ObjectResponse(
             id=item.id,
