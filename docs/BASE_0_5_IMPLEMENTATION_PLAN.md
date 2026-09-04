@@ -14,8 +14,8 @@ workbench
 | WP0 — Checkpoint and lock contracts | Complete | Model 0.4 checkpoint `98f7cdd`; ADR-015 through ADR-018; lifecycle API shapes; OpenAPI contract test |
 | WP1 — Make the active release authoritative | Complete | Runtime-state migration; bootstrap installer; request snapshots; release read APIs |
 | WP2 — Add the compiler, semantic diff and compatibility analyzer | Complete | Stable diagnostics; canonical compiler; key-based diff; bounded runtime checks |
-| WP3 — Persist drafts and install immutable releases | Next | Ready after WP2 |
-| WP4 — Implement guarded activation | Pending | Depends on WP3 |
+| WP3 — Persist drafts and install immutable releases | Complete | Versioned drafts, atomic install, capability gate and audit |
+| WP4 — Implement guarded activation | Next | Ready after WP3 |
 | WP5 — Upgrade object and relation query foundations | Pending | Depends on WP4 |
 | WP6 — Improve generic object management UI | Pending | Depends on WP5 |
 | WP7 — Add the lightweight model workbench | Pending | Depends on WP6 |
@@ -313,6 +313,8 @@ Completion record:
 
 ### WP3 — Persist drafts and install immutable releases
 
+**Status:** Complete (2026-09-04)
+
 Files:
 
 - `backend/app/models/database.py`
@@ -342,6 +344,20 @@ Tasks:
    probing protected endpoints.
 
 Exit: drafts are recoverably editable and release installation is atomic, immutable and reproducible.
+
+Completion record:
+
+- added a versioned `model_drafts` table with optional installed-release provenance and no metadata
+  child projection;
+- added cursor-paged draft CRUD with atomic optimistic version claims and mutation-gated route
+  registration;
+- refactored immutable metadata installation into a focused transactional release service shared by
+  bootstrap and draft installation;
+- recompiled and reassessed persisted content during installation, preserving the active runtime
+  selection and providing hash idempotence plus release-identity conflicts;
+- recorded concise draft/install lifecycle audit events without storing complete model documents; and
+- exposed capabilities that distinguish always-readable releases from enabled draft/install writes,
+  while leaving activation disabled until WP4.
 
 ### WP4 — Implement guarded activation
 

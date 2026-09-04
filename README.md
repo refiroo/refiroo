@@ -18,6 +18,7 @@ different applications.
 - Global reusable attribute types and object-type attribute bindings
 - Forward/reverse typed relations, features and allowed object-type relation triples
 - Immutable model releases installed into relational metadata tables
+- Persisted, optimistic-concurrency model drafts and atomic immutable release installation
 - Side-effect-free model validation with stable diagnostics, key-based release diff and bounded
   runtime-data compatibility analysis
 - Generic objects with application, workspace, object type, state, parent and path
@@ -82,6 +83,11 @@ The backend uses SQLite locally unless `DATABASE_URL` is set. The model defaults
 `model/rdm-starter.json`. Set `RDM_CURSOR_SIGNING_KEY` to a deployment-specific secret so opaque
 pagination cursors remain verifiable across restarts. Without it, the process generates an ephemeral
 key and cursors issued before a restart become invalid.
+
+Model-administration mutations are not registered by default. Set
+`MODEL_ADMIN_MUTATIONS_ENABLED=true` only in the supported single-process administration deployment
+to enable draft CRUD, draft compilation and release installation. Installed-release reads, diff and
+inline validation remain available without the flag; activation is added in Base 0.5 WP4.
 
 ## Repository guide
 

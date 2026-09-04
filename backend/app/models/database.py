@@ -59,6 +59,27 @@ class ModelRuntimeState(Base):
     )
 
 
+class ModelDraft(Base):
+    __tablename__ = "model_drafts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    public_id: Mapped[str] = mapped_column(
+        String(36), unique=True, index=True, default=lambda: str(uuid4())
+    )
+    name: Mapped[str] = mapped_column(String(300))
+    base_model_release_id: Mapped[int | None] = mapped_column(
+        ForeignKey("model_releases.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    model_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+
 class ApplicationMeta(Base):
     __tablename__ = "model_applications"
     __table_args__ = (UniqueConstraint("model_release_id", "key", name="uq_model_application_key"),)

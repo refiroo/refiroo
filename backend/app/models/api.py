@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import UUID4, BaseModel, ConfigDict, Field
+from pydantic import UUID4, BaseModel, ConfigDict, Field, model_validator
 
 
 class AttributeInput(BaseModel):
@@ -245,6 +245,68 @@ class ModelReleaseDiffResponse(BaseModel):
     againstReleaseId: str
     releaseId: str
     changes: list[ModelChangeResponse]
+    compatibility: ModelCompatibilityResponse
+
+
+class ModelAdminCapabilities(BaseModel):
+    readReleases: bool
+    manageDrafts: bool
+    install: bool
+    activate: bool
+
+
+class CapabilitiesResponse(BaseModel):
+    modelAdmin: ModelAdminCapabilities
+
+
+class ModelDraftCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1, max_length=300)
+    baseReleaseId: UUID4 | None = None
+    model: dict[str, Any]
+
+
+class ModelDraftUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    name: str | None = Field(default=None, min_length=1, max_length=300)
+    model: dict[str, Any] | None = None
+
+    @model_validator(mode="after")
+    def require_change(self) -> "ModelDraftUpdate":
+        if self.name is None and self.model is None:
+            raise ValueError("At least one of 'name' or 'model' is required")
+        return self
+
+
+class ModelDraftVersionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+
+
+class ModelDraftResponse(BaseModel):
+    id: str
+    name: str
+    baseReleaseId: str | None
+    model: dict[str, Any]
+    version: int
+    createdAt: datetime
+    updatedAt: datetime
+
+
+class ModelDraftPage(BaseModel):
+    items: list[ModelDraftResponse]
+    nextCursor: str | None
+
+
+class ModelCompilationResponse(BaseModel):
+    valid: bool
+    model: dict[str, Any] | None = None
+    modelHash: str | None = None
+    diagnostics: list[ModelDiagnosticResponse]
     compatibility: ModelCompatibilityResponse
 
 

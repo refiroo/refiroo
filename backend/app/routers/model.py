@@ -6,7 +6,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Query, Response
+from fastapi import APIRouter, Query, Request, Response
 from sqlalchemy import and_, or_, select
 
 from ..config import cursor_signing_key
@@ -17,7 +17,9 @@ from ..models.api import (
     ApplicationResponse,
     AttributeBindingResponse,
     AttributeTypeResponse,
+    CapabilitiesResponse,
     MetadataPage,
+    ModelAdminCapabilities,
     ModelChangeResponse,
     ModelCompatibilityResponse,
     ModelDiagnosticResponse,
@@ -46,6 +48,19 @@ from ..services.model_registry import ActiveModelSnapshot, ModelSnapshot
 from ..services.objects import get_application, get_object_type
 
 router = APIRouter(prefix="/api/v1", tags=["model"])
+
+
+@router.get("/capabilities", response_model=CapabilitiesResponse)
+def get_capabilities(request: Request) -> CapabilitiesResponse:
+    mutations_enabled = bool(request.app.state.model_admin_mutations_enabled)
+    return CapabilitiesResponse(
+        modelAdmin=ModelAdminCapabilities(
+            readReleases=True,
+            manageDrafts=mutations_enabled,
+            install=mutations_enabled,
+            activate=False,
+        )
+    )
 
 
 @router.get(
@@ -545,7 +560,10 @@ def _base64_encode(value: bytes) -> str:
 
 def _base64_decode(value: str) -> bytes:
     padding = "=" * (-len(value) % 4)
-    return base64.urlsafe_b64decode(value + padding)
+    decoded = base64.urlsafe_b64decode(value + padding)
+    if _base64_encode(decoded) != value:
+        raise ValueError
+    return decoded
 
 
 def _as_utc(value: datetime) -> datetime:

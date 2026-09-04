@@ -95,8 +95,8 @@ filtered with `fromObjectType` and `toObjectType` query parameters.
 
 The following contract is locked for Base 0.5 implementation. WP1 implements the active-model headers
 and installed-release catalogue/detail endpoints. WP2 implements inline validation and installed
-release diff with runtime compatibility; capabilities, drafts and installation follow in WP3, and
-activation in WP4. All IDs are UUID v4 strings, timestamps are UTC ISO
+release diff with runtime compatibility; WP3 implements capabilities, drafts and installation, and
+activation follows in WP4. All IDs are UUID v4 strings, timestamps are UTC ISO
 8601 values and model hashes are lowercase SHA-256 hex strings. JSON field names use the camelCase
 forms shown here.
 
@@ -118,9 +118,9 @@ Capabilities return deployment-supported operations explicitly:
 }
 ```
 
-`readReleases` remains true when mutations are disabled. The other three values are true only when
-`MODEL_ADMIN_MUTATIONS_ENABLED=true` and the deployment is a supported single-process topology. The
-flag is not an authorization mechanism.
+`readReleases` remains true when mutations are disabled. `manageDrafts` and `install` are true only
+when `MODEL_ADMIN_MUTATIONS_ENABLED=true`; `activate` remains false until WP4 implements guarded
+activation. The flag is a deployment guard, not an authorization mechanism.
 
 `GET /api/v1/model` continues to return the active `EngineModel` body and adds:
 
@@ -272,8 +272,9 @@ returns:
 `model` is the parsed canonical model. Compatibility classification is `compatible`,
 `migration_required` or `invalid`; invalid compilation returns `valid: false`, omits `model` and
 `modelHash`, and uses `invalid`. Installation repeats compilation and compatibility analysis and
-returns the installed release detail with `model` absent. It is idempotent for identical content and
-never activates the release.
+returns the installed release detail with `model` absent. A newly installed release returns HTTP
+`201`; an idempotent retry for identical content returns HTTP `200`. Installation never activates the
+release.
 
 Every draft endpoint and the installation and activation endpoints return HTTP `404` when model
 administration mutations are disabled. Validation, capabilities, installed-release reads and diff
@@ -281,6 +282,7 @@ are not mutation-gated. Lifecycle conflicts use:
 
 - `409 version_conflict` for a stale draft version;
 - `409 release_identity_conflict` for the same release key/version with different content;
+- `422 invalid_model` when installation recompilation fails;
 - `409 activation_conflict` for stale runtime-state tokens; and
 - `409 model_migration_required` when stored data prevents activation.
 
@@ -288,10 +290,11 @@ As elsewhere, errors use the shared `{ "error": { "code", "message", "details" }
 
 ### Base 0.5 OpenAPI lock
 
-The complete canonical OpenAPI document digest after WP2, plus readable path/method and
-component-schema inventories, are asserted by `backend/tests/test_openapi_contract.py`. Any public
-shape change therefore requires an intentional contract-test update. Later Base 0.5 packages update
-the lock in the same change that implements each planned contract.
+The complete canonical default OpenAPI document digest after WP3, plus readable path/method and
+component-schema inventories, are asserted by `backend/tests/test_openapi_contract.py`. A separate
+enabled-mode inventory asserts the mutation-gated draft surface. Any public shape change therefore
+requires an intentional contract-test update. Later Base 0.5 packages update the lock in the same
+change that implements each planned contract.
 
 All metadata collection endpoints accept an opaque `cursor` and a `pageSize` from 1 to 500 (default
 100). They return:

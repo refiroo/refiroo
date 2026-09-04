@@ -9,11 +9,12 @@ relation types, allowed source/relation/target triples and UI views.
 The starter model contains three configurable applications—RDM Master, RDM Systems and RDM
 Translations—but the runtime contains no branches for those names or their object-type keys.
 
-Base 0.5 WP2 is complete. The singleton database runtime-state row selects the authoritative installed
+Base 0.5 WP3 is complete. The singleton database runtime-state row selects the authoritative installed
 release, and source JSON remains bootstrap input only. Each request uses one immutable model and
 metadata snapshot. Read-only release APIs now include key-based semantic diff and bounded runtime-data
 compatibility analysis, while inline model validation returns stable JSON-path diagnostics without
-persistence side effects.
+persistence side effects. Mutation-gated, versioned drafts can be edited and compiled, then installed
+atomically as inactive immutable releases without changing the active runtime selection.
 
 ## Source evidence incorporated
 
@@ -44,6 +45,10 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
 - `backend/app/services/model_compiler.py`, `model_diff.py` and `model_compatibility.py`:
   side-effect-free canonical compilation, stable JSON-path diagnostics, key-based structural diff and
   bounded runtime-data compatibility checks exposed through validation and release-diff APIs.
+- `backend/app/services/model_drafts.py`, `model_releases.py` and the model-management router:
+  persisted draft CRUD with optimistic concurrency, side-effect-free draft compilation and atomic,
+  idempotent immutable installation. Complete model JSON is excluded from lifecycle audit payloads,
+  and all write routes are absent unless model administration mutations are enabled.
 - `backend/app/models/database.py` and `backend/app/db.py`: immutable model-release metadata plus runtime objects, typed attribute
   values, typed relations and audit events.
 - `backend/app/services/attributes.py`: attribute validation, defaults and typed persistence conversion.
@@ -114,15 +119,16 @@ Complete the bounded Base 0.5 operational foundation before building the dedicat
    model snapshot.
 2. **Done (WP2):** Add validation, canonical compilation, semantic diff and runtime-data compatibility
    analysis.
-3. Add versioned drafts, immutable install and guarded activation.
-4. Make workspace and URL-backed collection state explicit in the generic object UI.
-5. Add stable built-in sorting, cursor-paged relation expansion and cursor-paged object audit history.
-6. Add the lightweight JSON model workbench, with model mutations disabled by default.
+3. **Done (WP3):** Add versioned drafts and immutable installation.
+4. Add guarded, compatibility-checked activation.
+5. Make workspace and URL-backed collection state explicit in the generic object UI.
+6. Add stable built-in sorting, cursor-paged relation expansion and cursor-paged object audit history.
+7. Add the lightweight JSON model workbench, with model mutations disabled by default.
 
 See `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` for the implementation-ready work packages and
 `docs/ROADMAP.md` for the exit gate and sequenced milestones that follow.
 
-The first two items are complete through WP2; WP3 (persisted drafts and immutable installation) is next.
+The first three work packages are complete; WP4 (guarded activation) is next.
 
 ## Coding-agent handoff
 

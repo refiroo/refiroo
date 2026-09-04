@@ -8,6 +8,11 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.5 persisted model drafts and immutable installation. Mutation-gated draft APIs support
+  optimistic version claims, side-effect-free compilation and atomic content-addressed installation;
+  lifecycle audit events retain hashes and identities without copying complete model JSON. The
+  capabilities endpoint reports the effective read, draft, installation and activation surface.
+
 - Base 0.5 model compilation and comparison: inline validation returns stable diagnostic codes and
   JSON Pointer paths; installed releases can be compared by semantic, key-based paths; and bounded
   runtime-data checks classify candidates as compatible or migration-required without persisting or

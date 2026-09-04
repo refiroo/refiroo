@@ -7,8 +7,15 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal, ensure_bootstrap_release
-from app.main import app
-from app.models.database import ApplicationMeta, Base, ModelRelease, ModelRuntimeState
+from app.main import app, create_app
+from app.models.database import (
+    ApplicationMeta,
+    AuditEvent,
+    Base,
+    ModelDraft,
+    ModelRelease,
+    ModelRuntimeState,
+)
 from app.models.schema import EngineModel
 from app.services.model_loader import load_bootstrap_model
 from app.services.model_registry import ModelRegistry
@@ -273,3 +280,186 @@ def test_release_diff_reports_unknown_baseline_release():
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "model_release_not_found"
+
+
+def test_model_admin_capabilities_and_routes_are_disabled_by_default():
+    with TestClient(app) as client:
+        capabilities = client.get("/api/v1/capabilities")
+        drafts = client.get("/api/v1/model-drafts")
+
+    assert capabilities.json() == {
+        "modelAdmin": {
+            "readReleases": True,
+            "manageDrafts": False,
+            "install": False,
+            "activate": False,
+        }
+    }
+    assert drafts.status_code == 404
+    assert "/api/v1/model-drafts" not in app.openapi()["paths"]
+
+
+def test_draft_crud_compile_and_installation_lifecycle(monkeypatch):
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    enabled_app = create_app()
+
+    with TestClient(enabled_app) as client:
+        capabilities = client.get("/api/v1/capabilities").json()["modelAdmin"]
+        assert capabilities == {
+            "readReleases": True,
+            "manageDrafts": True,
+            "install": True,
+            "activate": False,
+        }
+        active = client.get("/api/v1/model")
+        active_release_id = active.headers["X-Model-Release-Id"]
+        candidate = active.json()
+        candidate["release"]["version"] = "0.4.0-wp3-install"
+        candidate["product"]["name"] = "Installed from a persisted draft"
+
+        created = client.post(
+            "/api/v1/model-drafts",
+            json={
+                "name": "WP3 candidate",
+                "baseReleaseId": active_release_id,
+                "model": candidate,
+            },
+        )
+        assert created.status_code == 201
+        draft = created.json()
+        assert draft["version"] == 1
+        assert draft["baseReleaseId"] == active_release_id
+        assert draft["model"] == candidate
+
+        listed = client.get("/api/v1/model-drafts", params={"pageSize": 1})
+        assert listed.status_code == 200
+        assert listed.json()["items"][0]["id"] == draft["id"]
+        detail = client.get(f"/api/v1/model-drafts/{draft['id']}")
+        assert detail.json() == draft
+
+        updated = client.patch(
+            f"/api/v1/model-drafts/{draft['id']}",
+            json={"expectedVersion": 1, "name": "Ready to install"},
+        )
+        assert updated.status_code == 200
+        assert updated.json()["version"] == 2
+        stale = client.patch(
+            f"/api/v1/model-drafts/{draft['id']}",
+            json={"expectedVersion": 1, "name": "Stale overwrite"},
+        )
+        assert stale.status_code == 409
+        assert stale.json()["error"]["code"] == "version_conflict"
+
+        with SessionLocal() as session:
+            counts_before_compile = {
+                table.name: session.scalar(select(func.count()).select_from(table))
+                for table in Base.metadata.sorted_tables
+            }
+        compiled = client.post(
+            f"/api/v1/model-drafts/{draft['id']}/compile",
+            json={"expectedVersion": 2},
+        )
+        assert compiled.status_code == 200
+        assert compiled.json()["valid"] is True
+        assert compiled.json()["model"] == candidate
+        assert compiled.json()["compatibility"]["classification"] == "compatible"
+        with SessionLocal() as session:
+            counts_after_compile = {
+                table.name: session.scalar(select(func.count()).select_from(table))
+                for table in Base.metadata.sorted_tables
+            }
+        assert counts_after_compile == counts_before_compile
+
+        installed = client.post(
+            f"/api/v1/model-drafts/{draft['id']}/installation",
+            json={"expectedVersion": 2},
+        )
+        assert installed.status_code == 201
+        release = installed.json()
+        assert release["active"] is False
+        assert "model" not in release
+        assert client.get("/api/v1/model").headers["X-Model-Release-Id"] == active_release_id
+
+        installed_again = client.post(
+            f"/api/v1/model-drafts/{draft['id']}/installation",
+            json={"expectedVersion": 2},
+        )
+        assert installed_again.status_code == 200
+        assert installed_again.json()["id"] == release["id"]
+
+        stale_delete = client.delete(
+            f"/api/v1/model-drafts/{draft['id']}",
+            params={"expectedVersion": 1},
+        )
+        assert stale_delete.status_code == 409
+        assert stale_delete.json()["error"]["code"] == "version_conflict"
+        deleted = client.delete(
+            f"/api/v1/model-drafts/{draft['id']}",
+            params={"expectedVersion": 2},
+        )
+        assert deleted.status_code == 204
+        assert client.get(f"/api/v1/model-drafts/{draft['id']}").status_code == 404
+
+    with SessionLocal() as session:
+        assert session.scalar(
+            select(func.count()).select_from(ModelRelease).where(
+                ModelRelease.public_id == release["id"]
+            )
+        ) == 1
+        assert session.scalar(select(func.count()).select_from(ModelDraft)) == 0
+        audit_events = list(
+            session.scalars(
+                select(AuditEvent).where(
+                    AuditEvent.aggregate_id.in_([draft["id"], release["id"]])
+                ).order_by(AuditEvent.sequence_id)
+            )
+        )
+        assert [event.action for event in audit_events] == [
+            "created",
+            "updated",
+            "installed",
+            "deleted",
+        ]
+        assert all("model" not in event.changes for event in audit_events)
+
+
+def test_draft_installation_recompiles_and_rejects_invalid_or_conflicting_content(
+    monkeypatch,
+):
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    enabled_app = create_app()
+    with TestClient(enabled_app) as client:
+        active_model = client.get("/api/v1/model").json()
+        invalid = dict(active_model)
+        invalid.pop("applications")
+        invalid_draft = client.post(
+            "/api/v1/model-drafts", json={"name": "Invalid", "model": invalid}
+        ).json()
+        invalid_compile = client.post(
+            f"/api/v1/model-drafts/{invalid_draft['id']}/compile",
+            json={"expectedVersion": 1},
+        )
+        assert invalid_compile.status_code == 200
+        assert invalid_compile.json()["valid"] is False
+        assert invalid_compile.json()["compatibility"]["classification"] == "invalid"
+        assert "model" not in invalid_compile.json()
+        assert "modelHash" not in invalid_compile.json()
+        invalid_install = client.post(
+            f"/api/v1/model-drafts/{invalid_draft['id']}/installation",
+            json={"expectedVersion": 1},
+        )
+        assert invalid_install.status_code == 422
+        assert invalid_install.json()["error"]["code"] == "invalid_model"
+
+        conflicting = client.get("/api/v1/model").json()
+        conflicting["product"]["name"] = "Same identity, different content"
+        conflict_draft = client.post(
+            "/api/v1/model-drafts",
+            json={"name": "Conflict", "model": conflicting},
+        ).json()
+        conflict = client.post(
+            f"/api/v1/model-drafts/{conflict_draft['id']}/installation",
+            json={"expectedVersion": 1},
+        )
+        assert conflict.status_code == 409
+        assert conflict.json()["error"]["code"] == "release_identity_conflict"

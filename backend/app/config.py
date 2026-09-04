@@ -20,6 +20,15 @@ def cursor_signing_key() -> bytes:
     return configured.encode() if configured else _EPHEMERAL_CURSOR_SIGNING_KEY
 
 
+def model_admin_mutations_enabled() -> bool:
+    return os.getenv("MODEL_ADMIN_MUTATIONS_ENABLED", "false").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+
+
 def cors_origins() -> list[str]:
     raw = os.environ.get("CORS_ORIGINS", "http://localhost:5173")
     return [origin.strip() for origin in raw.split(",")]
