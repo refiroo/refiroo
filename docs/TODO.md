@@ -6,7 +6,8 @@ release plan and changelog rather than accumulating it here.
 
 ## Now — Base 0.6
 
-- [ ] WP0: walk the seven Base 0.6 acceptance journeys and approve the interaction specification.
+- [x] WP0: independently review and accept the produced seven-journey interaction specification and
+  frontend acceptance fixtures.
 - [x] D1: ADR-019 defines database workspace authority, administrator provisioning, atomic default
   selection, explicit unknown-key failure and read-only retirement. Mutation routes are
   capability-gated but enabled by default until authentication exists; this is not an authorization

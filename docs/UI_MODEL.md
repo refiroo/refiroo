@@ -148,6 +148,12 @@ retired revision can seed a later draft. The mapping grid is the first specialis
 foundation, in product 0.7/schema 0.6. Broader model-workbench redesign also remains deferred so Base
 0.6 stays focused on daily runtime-object operations.
 
+The reviewed and accepted WP0 interaction baseline is
+`BASE_0_6_INTERACTION_SPEC.md`. It fixes the information hierarchy, low-fidelity task states,
+responsive and keyboard behavior, action hierarchy, conflict recovery and observable criteria for all
+seven Base 0.6 journeys. Its deterministic frontend fixtures cover Codelist containment and
+Translation containment plus required ownership without making either starter key a runtime branch.
+
 The structured designer should eventually use reference-aware catalogues, forms, relationship
 matrices and live preview. A dependency graph may help users understand a model, but a node-and-edge
 canvas is not the default authoring surface.

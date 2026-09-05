@@ -1,6 +1,6 @@
 # Base 0.6 implementation plan
 
-**Status:** Planned; D1-D5 accepted, WP0 interaction specification remains the implementation gate
+**Status:** Planned; D1-D5 accepted, WP0 reviewed and complete, WP1 is next
 
 **Target:** Product release 0.6.0
 
@@ -158,6 +158,10 @@ Use representative data from at least two object types and two ownership/contain
 ## Work packages
 
 ### WP0 — Freeze interaction behavior
+
+Completed and independently reviewed in `BASE_0_6_INTERACTION_SPEC.md`, with canonical downstream
+test data and invariant coverage in `frontend/src/test/base06AcceptanceFixtures.ts` and its focused
+test. The accepted baseline is the interaction contract for WP1-WP6.
 
 Primary areas: `docs/UI_MODEL.md`, focused interaction notes/fixtures under `docs/`, and frontend test
 fixtures.

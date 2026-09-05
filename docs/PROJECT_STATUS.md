@@ -175,9 +175,12 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 
 ## Next vertical slice
 
-Begin product release 0.6 with the bounded versioned-daily-operations plan. Complete the interaction
-specification before broad UI or persistence changes. Mapping remains the next specialist release,
-after workspace selection, typed tables and authoritative runtime-object revisions are proven.
+Product release 0.6 now has its bounded versioned-daily-operations interaction baseline in
+`docs/BASE_0_6_INTERACTION_SPEC.md` and reusable J1-J7 data in
+`frontend/src/test/base06AcceptanceFixtures.ts`. That baseline has been independently reviewed and is
+the accepted interaction contract for the following work packages. Mapping remains the next
+specialist release, after workspace selection, typed tables and authoritative runtime-object
+revisions are proven.
 
 Base 0.5 delivered:
 
@@ -199,20 +202,19 @@ See `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` for the completed historical work pac
 `docs/BASE_0_6_IMPLEMENTATION_PLAN.md` for the next implementation-ready handoff, `docs/TODO.md` for
 the active delivery queue and `docs/ROADMAP.md` for the release exit gate and later milestones.
 
-All Base 0.5 work packages and exit gates are complete. D1 through D5 are accepted. Product release
-0.6 starts with the remaining WP0 interaction specification, followed by the UI foundation, workspace
-authority, schema 0.5 typed tables, authoritative object revisions, lifecycle UI and release gates.
-Core mapping is product 0.7 and bulk mapping remains in the later integration milestone.
+All Base 0.5 work packages and exit gates are complete. D1 through D5 are accepted. The Base 0.6 WP0
+interaction baseline is reviewed and complete. WP1, the UI foundation and shell, is next, followed by
+workspace authority, schema 0.5 typed tables, authoritative object revisions, lifecycle UI and release
+gates. Core mapping is product 0.7 and bulk mapping remains in the later integration milestone.
 
 ## Coding-agent handoff
 
 Open the repository root, then start a new coding chat with:
 
-> Read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP.md`, `docs/UI_MODEL.md` and
-> `docs/BASE_0_6_IMPLEMENTATION_PLAN.md`. Then execute Base 0.6 WP0 only: assess the specified user
-> journeys and prepare the interaction specification using accepted ADR-019 through ADR-023. Do not
-> begin the stylesheet rewrite or persistence changes until that specification is accepted, and do not
-> pull the deferred mapping or model-workbench redesign into Base 0.6.
+> Read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP.md`, `docs/UI_MODEL.md`,
+> `docs/BASE_0_6_IMPLEMENTATION_PLAN.md` and `docs/BASE_0_6_INTERACTION_SPEC.md`. Review the WP0
+> accepted WP0 interaction baseline and its frontend acceptance fixtures, then execute Base 0.6 WP1
+> only. Do not pull deferred mapping or model-workbench redesign into Base 0.6.
 > Preserve all product invariants and report the current worktree status before editing.
 
 Make a Git checkpoint before the first new slice. Run
