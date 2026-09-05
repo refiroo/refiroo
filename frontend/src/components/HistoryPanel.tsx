@@ -1,6 +1,5 @@
-import { useEffect, useState } from "react";
 import { api } from "../api/client";
-import { errorMessage } from "../api/errors";
+import { useCursorFeed } from "../lib/hooks/useCursorFeed";
 import type { AuditEventItem } from "../types";
 import { InlineError } from "./AsyncState";
 
@@ -13,38 +12,15 @@ export function HistoryPanel({
   objectId: string;
   refreshToken?: number;
 }) {
-  const [items, setItems] = useState<AuditEventItem[]>([]);
-  const [cursor, setCursor] = useState<string>();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [retryReset, setRetryReset] = useState(true);
-
-  async function load(reset = true) {
-    setLoading(true);
-    setError("");
-    try {
-      const page = await api.objectHistory(objectTypeKey, objectId, {
-        cursor: reset ? undefined : cursor,
-        pageSize: 20,
-      });
-      setItems((current) => (reset ? page.items : [...current, ...page.items]));
-      setCursor(page.nextCursor ?? undefined);
-    } catch (cause) {
-      setRetryReset(reset);
-      setError(errorMessage(cause));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    void load();
-  }, [objectId, objectTypeKey, refreshToken]);
+  const { items, loading, error, hasMore, loadMore, retry } = useCursorFeed<AuditEventItem>(
+    (cursor) => api.objectHistory(objectTypeKey, objectId, { cursor, pageSize: 20 }),
+    [objectId, objectTypeKey, refreshToken],
+  );
 
   return (
     <section className="panel surface history-panel">
       <h2>History</h2>
-      {error && <InlineError message={error} onRetry={() => void load(retryReset)} />}
+      {error && <InlineError message={error} onRetry={retry} />}
       {loading && items.length === 0 ? (
         <div className="panel-state">Loading history…</div>
       ) : !error && items.length === 0 ? (
@@ -66,13 +42,8 @@ export function HistoryPanel({
           ))}
         </ol>
       )}
-      {cursor && !error && (
-        <button
-          type="button"
-          className="load-more inline history-more"
-          disabled={loading}
-          onClick={() => void load(false)}
-        >
+      {hasMore && !error && (
+        <button type="button" className="load-more inline history-more" disabled={loading} onClick={loadMore}>
           {loading ? "Loading…" : "Load older history"}
         </button>
       )}

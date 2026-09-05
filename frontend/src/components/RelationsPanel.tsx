@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "../api/client";
 import { errorMessage, isApiError } from "../api/errors";
+import { useCursorFeed } from "../lib/hooks/useCursorFeed";
 import type {
   AttributeTypeDefinition,
   EngineModel,
@@ -31,11 +32,7 @@ export function RelationsPanel({
   onOpen: (objectTypeKey: string, objectId: string, applicationKey?: string) => void;
   onChanged?: () => void;
 }) {
-  const [relations, setRelations] = useState<RelationItem[]>([]);
-  const [cursor, setCursor] = useState<string>();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [errorMode, setErrorMode] = useState<"load" | "more">("load");
+  const [removeError, setRemoveError] = useState("");
   const [creating, setCreating] = useState(false);
   const [creatingDependent, setCreatingDependent] = useState<{
     applicationKey: string;
@@ -76,45 +73,26 @@ export function RelationsPanel({
     [model, object.objectTypeKey, panel.config.direction, panel.config.relationTypeKeys],
   );
 
-  async function load() {
-    setLoading(true);
-    try {
-      const page = await api.relations(object.id, {
+  const {
+    items: relations,
+    loading,
+    error: feedError,
+    hasMore,
+    loadMore,
+    retry,
+    reload,
+  } = useCursorFeed<RelationItem>(
+    (cursor) =>
+      api.relations(object.id, {
         direction: panel.config.direction,
         ...(relationTypeKey ? { relationTypeKey } : {}),
-      });
-      setRelations(page.items);
-      setCursor(page.nextCursor ?? undefined);
-      setError("");
-    } catch (cause) {
-      setErrorMode("load");
-      setError(errorMessage(cause));
-    } finally {
-      setLoading(false);
-    }
-  }
-  useEffect(() => {
-    void load();
-  }, [object.id, panel.config.direction, relationTypeKey]);
-  async function loadMore() {
-    if (!cursor) return;
-    setLoading(true);
-    setError("");
-    try {
-      const page = await api.relations(object.id, {
-        direction: panel.config.direction,
-        ...(relationTypeKey ? { relationTypeKey } : {}),
-        cursor,
-      });
-      setRelations((current) => [...current, ...page.items]);
-      setCursor(page.nextCursor ?? undefined);
-    } catch (cause) {
-      setErrorMode("more");
-      setError(errorMessage(cause));
-    } finally {
-      setLoading(false);
-    }
-  }
+        ...(cursor ? { cursor } : {}),
+      }),
+    [object.id, panel.config.direction, relationTypeKey],
+  );
+  // The feed owns loading failures; `removeError` carries failures from the delete flow. Both are
+  // surfaced in the inline banner, and only the delete failure reaches the confirmation dialog.
+  const error = feedError || removeError;
   const visible = relations.filter((item) => panel.config.relationTypeKeys.includes(item.relation.relationTypeKey));
   const showRelationshipColumn = panel.config.showRelationshipColumn !== false;
   const tableColumnCount = panel.config.columns.length + 1 + (showRelationshipColumn ? 1 : 0);
@@ -138,20 +116,20 @@ export function RelationsPanel({
   async function remove() {
     if (!removing) return;
     setPending(true);
-    setError("");
+    setRemoveError("");
     try {
       await api.deleteRelation(removing.relation.id, removing.relation.version);
       setRemoving(undefined);
       onChanged();
-      await load();
+      reload();
     } catch (cause) {
-      setError(errorMessage(cause));
+      setRemoveError(errorMessage(cause));
       if (isApiError(cause, "version_conflict")) {
         try {
           const fresh = await api.relation(removing.relation.id);
           setRemoving({ ...removing, relation: fresh });
         } catch (reloadCause) {
-          setError(errorMessage(reloadCause));
+          setRemoveError(errorMessage(reloadCause));
         }
       }
     } finally {
@@ -178,7 +156,7 @@ export function RelationsPanel({
           </button>
         )}
       </div>
-      {error && <InlineError message={error} onRetry={() => void (errorMode === "more" ? loadMore() : load())} />}
+      {error && <InlineError message={error} onRetry={retry} />}
       {(!error || relations.length > 0) && (
         <div className="table-wrap">
           <table>
@@ -260,7 +238,7 @@ export function RelationsPanel({
           </table>
         </div>
       )}
-      {cursor && !error && (
+      {hasMore && !error && (
         <button type="button" className="load-more inline" disabled={loading} onClick={loadMore}>
           {loading ? "Loading…" : "Load more relationships"}
         </button>
@@ -271,10 +249,10 @@ export function RelationsPanel({
           object={object}
           choices={choices}
           onClose={() => setCreating(false)}
-          onSaved={async () => {
+          onSaved={() => {
             setCreating(false);
             onChanged();
-            await load();
+            reload();
           }}
         />
       )}
@@ -287,10 +265,10 @@ export function RelationsPanel({
           initialRelationObjects={{ [creatingDependent.relationTypeKey]: object }}
           lockedInitialRelationKeys={[creatingDependent.relationTypeKey]}
           onClose={() => setCreatingDependent(undefined)}
-          onSaved={async () => {
+          onSaved={() => {
             setCreatingDependent(undefined);
             onChanged();
-            await load();
+            reload();
           }}
         />
       )}
@@ -301,10 +279,10 @@ export function RelationsPanel({
           choices={choices}
           existing={editing}
           onClose={() => setEditing(undefined)}
-          onSaved={async () => {
+          onSaved={() => {
             setEditing(undefined);
             onChanged();
-            await load();
+            reload();
           }}
         />
       )}
@@ -313,7 +291,7 @@ export function RelationsPanel({
           title="Delete relationship?"
           confirmLabel="Delete relationship"
           pending={pending}
-          error={error}
+          error={removeError}
           onCancel={() => setRemoving(undefined)}
           onConfirm={remove}
         >

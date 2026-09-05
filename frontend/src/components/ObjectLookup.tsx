@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
-import { errorMessage } from "../api/errors";
+import { useCursorFeed } from "../lib/hooks/useCursorFeed";
+import { useDebouncedValue } from "../lib/hooks/useDebouncedValue";
 import type { ObjectItem } from "../types";
 import { InlineError } from "./AsyncState";
 
@@ -26,69 +27,22 @@ export function ObjectLookup({
   onChange: (item: ObjectItem | undefined) => void;
 }) {
   const [input, setInput] = useState("");
-  const [search, setSearch] = useState("");
-  const [items, setItems] = useState<ObjectItem[]>(value ? [value] : []);
-  const [cursor, setCursor] = useState<string>();
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [errorMode, setErrorMode] = useState<"load" | "more">("load");
-  const [retryToken, setRetryToken] = useState(0);
+  const search = useDebouncedValue(input.trim());
+  const { items, loading, error, hasMore, loadMore, retry } = useCursorFeed<ObjectItem>(
+    (cursor) => api.objects(objectTypeKey, { applicationKey, workspaceKey, search, cursor, pageSize: 20 }),
+    [applicationKey, excludeId, objectTypeKey, search, workspaceKey],
+    (previous, incoming) => [
+      ...previous,
+      ...incoming.filter((item) => item.id !== excludeId && !previous.some((existing) => existing.id === item.id)),
+    ],
+  );
   const priorWorkspace = useRef(workspaceKey);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => setSearch(input.trim()), 250);
-    return () => clearTimeout(timer);
-  }, [input]);
-  useEffect(() => {
     if (priorWorkspace.current === workspaceKey) return;
     priorWorkspace.current = workspaceKey;
-    setItems([]);
-    setCursor(undefined);
     onChange(undefined);
   }, [workspaceKey, onChange]);
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    setError("");
-    api
-      .objects(objectTypeKey, { applicationKey, workspaceKey, search, pageSize: 20 })
-      .then((page) => {
-        if (!active) return;
-        setItems(page.items.filter((item) => item.id !== excludeId));
-        setCursor(page.nextCursor ?? undefined);
-        setError("");
-      })
-      .catch((cause) => {
-        if (active) {
-          setErrorMode("load");
-          setError(errorMessage(cause));
-        }
-      })
-      .finally(() => active && setLoading(false));
-    return () => {
-      active = false;
-    };
-  }, [applicationKey, excludeId, objectTypeKey, retryToken, search, workspaceKey]);
-
-  async function loadMore() {
-    if (!cursor) return;
-    setLoading(true);
-    setError("");
-    try {
-      const page = await api.objects(objectTypeKey, { applicationKey, workspaceKey, search, cursor, pageSize: 20 });
-      setItems((current) => [
-        ...current,
-        ...page.items.filter((item) => item.id !== excludeId && !current.some((existing) => existing.id === item.id)),
-      ]);
-      setCursor(page.nextCursor ?? undefined);
-      setError("");
-    } catch (cause) {
-      setErrorMode("more");
-      setError(errorMessage(cause));
-    } finally {
-      setLoading(false);
-    }
-  }
 
   return (
     <div className="object-lookup">
@@ -117,13 +71,8 @@ export function ObjectLookup({
           </option>
         ))}
       </select>
-      {error && (
-        <InlineError
-          message={error}
-          onRetry={() => (errorMode === "more" ? void loadMore() : setRetryToken((current) => current + 1))}
-        />
-      )}
-      {cursor && !error && (
+      {error && <InlineError message={error} onRetry={retry} />}
+      {hasMore && !error && (
         <button type="button" className="load-more inline" disabled={loading} onClick={loadMore}>
           Load more results
         </button>

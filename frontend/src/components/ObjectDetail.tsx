@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { useCursorPages } from "../lib/hooks/useCursorPages";
+import { useDebouncedValue } from "../lib/hooks/useDebouncedValue";
 import { errorMessage, isApiError } from "../api/errors";
 import { fallbackDetail, fieldValue, objectTypeFor } from "../utils/model";
 import { AttributesPanel as EditableAttributesPanel } from "./AttributesPanel";
@@ -17,7 +19,6 @@ import type {
   EngineModel,
   HierarchyPanelDefinition,
   ObjectItem,
-  ObjectPage,
   PanelDefinition,
   RelationsPanelDefinition,
   TablePanelDefinition,
@@ -111,6 +112,11 @@ export function ObjectDetail({
     application.details.find((item) => item.objectTypeKey === objectTypeKey) ??
     (objectType ? fallbackDetail(objectType) : undefined);
 
+  /**
+   * Loads the object and rejects when it does not belong to the application and workspace the
+   * route names. Panels call this through `onReload` and rely on it rejecting, so the rejection is
+   * deliberately not converted into component state here.
+   */
   async function loadObject() {
     const loaded = await api.object(objectTypeKey, objectId);
     if (loaded.applicationKey !== application.key) throw new Error("This object belongs to another application.");
@@ -138,6 +144,8 @@ export function ObjectDetail({
     return () => {
       active = false;
     };
+    // The effect repeats loadObject rather than calling it, because it must ignore a response that
+    // arrives after the route moved on and loadObject has no cancellation of its own.
   }, [application.key, objectId, objectTypeKey, workspaceKey]);
 
   if (loading) return <div className="page-loading">Loading object…</div>;
@@ -421,69 +429,37 @@ function CollectionPanelTable({
   parentObjectId?: string;
   allowCreate: boolean;
 }) {
-  const objectType = objectTypeFor(model, objectTypeKey)!;
+  const objectType = objectTypeFor(model, objectTypeKey);
   const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
-  const [cursors, setCursors] = useState<Array<string | undefined>>([undefined]);
-  const [pageIndex, setPageIndex] = useState(0);
-  const [page, setPage] = useState<ObjectPage>({ items: [], nextCursor: null });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [retryToken, setRetryToken] = useState(0);
+  const search = useDebouncedValue(searchInput.trim());
   const [creating, setCreating] = useState(false);
+  const pages = useCursorPages<ObjectItem>(
+    objectType
+      ? (cursor) =>
+          api.objects(objectTypeKey, {
+            applicationKey: application.key,
+            workspaceKey: object.workspaceKey,
+            search,
+            cursor,
+            pageSize,
+            parentObjectId,
+          })
+      : null,
+    [application.key, object.workspaceKey, objectTypeKey, pageSize, parentObjectId, search],
+  );
+  const { loading, error } = pages;
 
-  useEffect(() => {
-    const timer = window.setTimeout(() => setSearch(searchInput.trim()), 250);
-    return () => window.clearTimeout(timer);
-  }, [searchInput]);
-  useEffect(() => {
-    setCursors([undefined]);
-    setPageIndex(0);
-  }, [search, objectTypeKey, parentObjectId]);
-  useEffect(() => {
-    let active = true;
-    setLoading(true);
-    api
-      .objects(objectTypeKey, {
-        applicationKey: application.key,
-        workspaceKey: object.workspaceKey,
-        search,
-        cursor: cursors[pageIndex],
-        pageSize,
-        parentObjectId,
-      })
-      .then((loaded) => {
-        if (active) {
-          setPage(loaded);
-          setError("");
-        }
-      })
-      .catch((cause) => active && setError(errorMessage(cause)))
-      .finally(() => active && setLoading(false));
-    return () => {
-      active = false;
-    };
-  }, [
-    application.key,
-    cursors,
-    object.workspaceKey,
-    objectTypeKey,
-    pageIndex,
-    pageSize,
-    parentObjectId,
-    retryToken,
-    search,
-  ]);
-
-  function nextPage() {
-    if (!page.nextCursor) return;
-    setCursors((current) => [...current.slice(0, pageIndex + 1), page.nextCursor!]);
-    setPageIndex((current) => current + 1);
-  }
   function refresh() {
-    setRetryToken((value) => value + 1);
+    pages.retry();
     onChanged();
   }
+
+  // A release can retire an object type that a configured panel still names. Reporting that is
+  // better than the non-null assertion this used to carry, which crashed the whole detail screen.
+  if (!objectType)
+    return (
+      <div className="panel-state">This panel refers to object type “{objectTypeKey}”, which is not in the model.</div>
+    );
 
   return (
     <div className="embedded-table">
@@ -502,21 +478,16 @@ function CollectionPanelTable({
           </button>
         )}
       </div>
-      {error && <InlineError message={error} onRetry={() => setRetryToken((value) => value + 1)} />}
+      {error && <InlineError message={error} onRetry={pages.retry} />}
       <ObjectTable
         model={model}
         columns={columns}
-        objects={error ? [] : page.items}
+        objects={error ? [] : pages.items}
         loading={loading && !error}
         onOpen={(item) => onOpen(item.objectTypeKey, item.id, item.applicationKey)}
       />
       {!error && (
-        <Pagination
-          page={pageIndex + 1}
-          hasNext={Boolean(page.nextCursor)}
-          onPrevious={() => setPageIndex((value) => Math.max(0, value - 1))}
-          onNext={nextPage}
-        />
+        <Pagination page={pages.pageNumber} hasNext={pages.hasNext} onPrevious={pages.previous} onNext={pages.next} />
       )}
       {creating && (
         <ObjectFormDialog

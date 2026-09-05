@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
+import { useDebouncedValue } from "../lib/hooks/useDebouncedValue";
 import { errorMessage } from "../api/errors";
 import { objectTypeFor } from "../utils/model";
 import type { ApplicationDefinition, EngineModel, ObjectItem, ObjectPage } from "../types";
@@ -25,16 +26,11 @@ export function Explorer({
   onOpen: (item: ObjectItem) => void;
 }) {
   const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
+  const search = useDebouncedValue(searchInput.trim());
   const [pages, setPages] = useState<Record<string, LoadedPage>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retryToken, setRetryToken] = useState(0);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setSearch(searchInput.trim()), 250);
-    return () => window.clearTimeout(timer);
-  }, [searchInput]);
 
   useEffect(() => {
     let active = true;

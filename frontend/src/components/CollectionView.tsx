@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api } from "../api/client";
 import { errorMessage, isApiError } from "../api/errors";
 import { objectTypeFor } from "../utils/model";
@@ -8,13 +8,13 @@ import { DeleteImpactSummary } from "./ObjectDetail";
 import { ObjectFormDialog } from "./ObjectFormDialog";
 import { ObjectTable, Pagination } from "./ObjectTable";
 import { ObjectToolbar } from "./ObjectToolbar";
+import { useCursorPages } from "../lib/hooks/useCursorPages";
 import type {
   ApplicationDefinition,
   CollectionQueryState,
   DeleteImpact,
   EngineModel,
   ObjectItem,
-  ObjectPage,
   ViewDefinition,
 } from "../types";
 
@@ -61,62 +61,28 @@ function ObjectCollectionView({
   onChanged,
 }: ViewComponentProps) {
   const objectType = view.objectTypeKey ? objectTypeFor(model, view.objectTypeKey) : undefined;
-  const queryKey = JSON.stringify([
-    application.key,
-    view.key,
-    workspaceKey,
-    query.search,
-    query.states,
-    query.sort,
-    query.pageSize,
-  ]);
-  const [paging, setPaging] = useState<{ key: string; cursors: Array<string | undefined>; index: number }>({
-    key: queryKey,
-    cursors: [undefined],
-    index: 0,
-  });
-  const activePaging = paging.key === queryKey ? paging : { key: queryKey, cursors: [undefined], index: 0 };
-  const activeCursor = activePaging.cursors[activePaging.index];
-  const [page, setPage] = useState<ObjectPage>({ items: [], nextCursor: null });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [retryToken, setRetryToken] = useState(0);
+  const pages = useCursorPages<ObjectItem>(
+    objectType
+      ? (cursor) =>
+          api.objects(objectType.key, {
+            applicationKey: application.key,
+            workspaceKey,
+            search: query.search,
+            state: query.states,
+            sort: query.sort,
+            cursor,
+            pageSize: query.pageSize,
+          })
+      : null,
+    [application.key, view.key, workspaceKey, query.search, query.states, query.sort, query.pageSize],
+  );
+  const { loading, error } = pages;
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<ObjectItem>();
   const [deleting, setDeleting] = useState<ObjectItem>();
   const [deleteImpact, setDeleteImpact] = useState<DeleteImpact>();
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState("");
-
-  useEffect(() => setPaging({ key: queryKey, cursors: [undefined], index: 0 }), [queryKey]);
-
-  useEffect(() => {
-    if (!objectType) return;
-    let active = true;
-    setLoading(true);
-    setError("");
-    api
-      .objects(objectType.key, {
-        applicationKey: application.key,
-        workspaceKey,
-        search: query.search,
-        state: query.states,
-        sort: query.sort,
-        cursor: activeCursor,
-        pageSize: query.pageSize,
-      })
-      .then((loaded) => {
-        if (active) {
-          setPage(loaded);
-          setError("");
-        }
-      })
-      .catch((cause) => active && setError(errorMessage(cause)))
-      .finally(() => active && setLoading(false));
-    return () => {
-      active = false;
-    };
-  }, [application.key, objectType?.key, queryKey, activePaging.index, activeCursor, retryToken]);
 
   if (!objectType) return <div className="empty-state">This configured view does not select an object type.</div>;
   const activeObjectType = objectType;
@@ -125,17 +91,8 @@ function ObjectCollectionView({
     ...objectType.attributes.slice(0, 4).map((item) => item.attributeTypeKey),
   ];
 
-  function nextPage() {
-    if (!page.nextCursor) return;
-    setPaging({
-      key: queryKey,
-      cursors: [...activePaging.cursors.slice(0, activePaging.index + 1), page.nextCursor],
-      index: activePaging.index + 1,
-    });
-  }
-
   function refresh() {
-    setRetryToken((value) => value + 1);
+    pages.retry();
     onChanged();
   }
 
@@ -196,28 +153,23 @@ function ObjectCollectionView({
             <span>{view.type}</span>
             {!error && (
               <>
-                <strong>{page.items.length}</strong> on this page
+                <strong>{pages.items.length}</strong> on this page
               </>
             )}
           </span>
         </div>
-        {error && <InlineError message={error} onRetry={() => setRetryToken((value) => value + 1)} />}
+        {error && <InlineError message={error} onRetry={pages.retry} />}
         <ObjectTable
           model={model}
           columns={columns}
-          objects={error ? [] : page.items}
+          objects={error ? [] : pages.items}
           loading={loading && !error}
           onOpen={onOpen}
           onEdit={setEditing}
           onDelete={setDeleting}
         />
         {!error && (
-          <Pagination
-            page={activePaging.index + 1}
-            hasNext={Boolean(page.nextCursor)}
-            onPrevious={() => setPaging({ ...activePaging, index: Math.max(0, activePaging.index - 1) })}
-            onNext={nextPage}
-          />
+          <Pagination page={pages.pageNumber} hasNext={pages.hasNext} onPrevious={pages.previous} onNext={pages.next} />
         )}
       </section>
       {showCreate && (
