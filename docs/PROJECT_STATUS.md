@@ -33,7 +33,8 @@ model contract or architecture: `frontend/src` is organized into `app/`, `featur
 handling each have one implementation; and the frontend has lint and format tooling for the first
 time, which the definition of done had always required. Phase 5 followed: every dialog now shares
 one modal shell in `frontend/src/ui/Modal.tsx`, with Escape, focus restore, a focus trap and a
-scroll lock applied consistently. Phase 6 remains, and depends on Base 0.6 decision D3.
+scroll lock applied consistently. Phase 6 remains as implementation work governed by accepted
+ADR-021.
 
 The global Models workbench keeps installed releases readable when administration mutations are
 disabled. When enabled, it supports JSON draft creation/import/editing, authoritative validation,
@@ -135,15 +136,19 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 
 - The Base 0.5 workspace selector accepts a raw workspace key because no authoritative workspace
   catalogue exists yet. Base 0.6 plans bounded workspace discovery and a catalogue-backed selector;
-  its authority, provisioning and unknown/retired-workspace behavior must be defined first.
+  ADR-019 now fixes its authority, administration, default selection and unknown/retired behavior.
 - Object management is functionally complete but fragmented: the main edit dialog changes core fields
   and parent while stored attributes are managed through separate detail-panel actions. Runtime object
-  state and state filtering also use unconstrained text rather than an intentionally defined lifecycle
-  contract.
+  state and state filtering still use unconstrained text in Base 0.5. ADR-020 now defines the Base 0.6
+  replacement: stable logical objects, immutable active/retired revisions, editable derived drafts,
+  atomic activation, direct retirement without replacement, retired discovery and visible
+  derivation/supersession lineage.
 - Configured `mappingGrid`, `tree`, `form` and `dashboard` views still resolve through the registry to
   the generic collection renderer. Their `config` remains an open property bag, so declared semantic
-  views are not yet guaranteed to have distinct validated behavior. The registry now lives in
-  `frontend/src/features/objects/views/registry.ts`, so decision D3 is expressed there rather than
+  views are not yet guaranteed to have distinct validated behavior. ADR-021 defines the Base 0.6
+  replacement: a strict schema 0.5 table contract, rejection of unimplemented view types and no
+  schema 0.4 runtime adapter. `mappingGrid` moves to schema 0.6/product 0.7. The registry now lives in
+  `frontend/src/features/objects/views/registry.ts`, where that decision is implemented rather than
   inside the collection screen.
 - Model-declared `filterable` and `sortable` attribute features are not implemented in object queries;
   collection controls cover search, free-text state and built-in sorts only.
@@ -151,12 +156,13 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
   accessibility or visual-regression release gate. Its visual language is an ad hoc compact dashboard
   rather than a documented, task-tested RDM design system. The stylesheet is now layered under
   `frontend/src/styles/`, but its tokens are still six custom properties over several hundred
-  hardcoded colours, which the D5 UI-foundation decision has to address.
+  hardcoded colours. ADR-023 now defines the Base 0.6 foundation: React Aria behavior behind RDM-owned
+  wrappers, repository-owned plain CSS and Lucide behind one accessible icon boundary.
 - Dialog keyboard behavior is now consistent through the shared `ui/Modal` shell, but it has only
   been exercised in jsdom. Nothing has driven a real browser or a screen reader; Base 0.6 WP6 owns
   that gate.
-- The model lifecycle is complete, but its workbench remains a plain JSON-centred interface without
-  structured section navigation, draft provenance/duplication or navigation-away protection.
+- The model lifecycle is complete, but its workbench remains a plain JSON-centred interface. Its
+  broader usability redesign is deferred beyond Base 0.6 so runtime-object revisions stay bounded.
 - Relations support full instance CRUD (create/read-one/update/delete with optimistic concurrency);
   bulk relation endpoints remain.
 - Attribute uniqueness is enforced at the service layer; a database-level unique constraint/index
@@ -169,10 +175,9 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 
 ## Next vertical slice
 
-Begin product release 0.6 with a bounded usability foundation and use the relation-driven mapping
-workspace as its first specialist proof. Do not begin either a broad visual restyle or an isolated
-mapping backend until the primary task flows and the required workspace, object-state, typed-view,
-mapping-concurrency and UI-foundation decisions are explicit.
+Begin product release 0.6 with the bounded versioned-daily-operations plan. Complete the interaction
+specification before broad UI or persistence changes. Mapping remains the next specialist release,
+after workspace selection, typed tables and authoritative runtime-object revisions are proven.
 
 Base 0.5 delivered:
 
@@ -194,10 +199,10 @@ See `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` for the completed historical work pac
 `docs/BASE_0_6_IMPLEMENTATION_PLAN.md` for the next implementation-ready handoff, `docs/TODO.md` for
 the active delivery queue and `docs/ROADMAP.md` for the release exit gate and later milestones.
 
-All Base 0.5 work packages and exit gates are complete. Product release 0.6 starts with WP0 usability
-baseline and decision gates, followed by the UI foundation, workspace/collection contracts, coherent
-object management, model-workbench improvements and the core mapping workspace. Bulk mapping moves to
-the later integration/bulk milestone unless WP0 demonstrates that it is required for the core task.
+All Base 0.5 work packages and exit gates are complete. D1 through D5 are accepted. Product release
+0.6 starts with the remaining WP0 interaction specification, followed by the UI foundation, workspace
+authority, schema 0.5 typed tables, authoritative object revisions, lifecycle UI and release gates.
+Core mapping is product 0.7 and bulk mapping remains in the later integration milestone.
 
 ## Coding-agent handoff
 
@@ -205,8 +210,9 @@ Open the repository root, then start a new coding chat with:
 
 > Read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP.md`, `docs/UI_MODEL.md` and
 > `docs/BASE_0_6_IMPLEMENTATION_PLAN.md`. Then execute Base 0.6 WP0 only: assess the specified user
-> journeys, prepare the interaction specification and resolve D1 through D5 for review. Do not begin
-> the stylesheet rewrite, persistence changes or mapping backend until those decisions are accepted.
+> journeys and prepare the interaction specification using accepted ADR-019 through ADR-023. Do not
+> begin the stylesheet rewrite or persistence changes until that specification is accepted, and do not
+> pull the deferred mapping or model-workbench redesign into Base 0.6.
 > Preserve all product invariants and report the current worktree status before editing.
 
 Make a Git checkpoint before the first new slice. Run

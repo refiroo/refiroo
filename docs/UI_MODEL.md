@@ -14,9 +14,11 @@ theme without improved task flow is not a usability release.
 ## Interaction and visual foundation
 
 The frontend owns a small coherent system of semantic primitives for navigation, typography, fields,
-buttons, menus, tables, dialogs, drawers, notices and asynchronous states. Whether those primitives are
-implemented internally or adopted from a focused accessible library is a Base 0.6 decision. The model
-continues to choose semantic components, not their DOM, CSS or icon implementation.
+buttons, menus, tables, dialogs, notices and asynchronous states. ADR-023 implements difficult
+composite-widget behavior with React Aria Components behind RDM-owned wrappers; native semantic HTML
+remains preferred for simple controls. RDM owns the wrapper APIs, product behavior, tokens and plain
+CSS. Lucide is available only through one RDM icon wrapper. The model continues to choose semantic
+components, not their library, DOM, CSS or icon implementation.
 
 The foundation must:
 
@@ -31,7 +33,8 @@ The foundation must:
 
 ## Component registry
 
-Each implemented stable view type maps to a tested generic component:
+Each supported stable view type must map to a tested generic component. The planned semantic registry
+is:
 
 - `table`: searchable, filterable, sortable and pageable objects; selection appears only with a
   supported bounded bulk action
@@ -41,10 +44,11 @@ Each implemented stable view type maps to a tested generic component:
 - `tree`: hierarchy browsing, parent selection and safe reordering
 - `dashboard`: panels composed from queries and entry-point actions
 
-The declarative contract and TypeScript types are discriminated by view type as each renderer becomes
-supported. A semantic view must not silently resolve to an unrelated component. During the pre-1.0
-transition, an older release containing a declared but unimplemented view follows an explicit
-compatibility behavior and is never presented as though the specialist interaction exists.
+In Base 0.6, only `table` is an implemented schema 0.5 top-level view. A semantic view never resolves
+to an unrelated component; `mappingGrid`, `form`, `dashboard` and `tree` declarations are rejected
+until their contracts and renderers exist. Product 0.7 adds `mappingGrid` through schema 0.6. Schema
+0.4 releases remain inspectable historical JSON but are not runnable in Base 0.6; the project has no
+production compatibility commitment requiring a legacy view adapter.
 
 Object detail uses a second registry. Its stable panel types are `attributes`, `children`, `relations`,
 `table` and `hierarchy`. A panel definition selects its region, order, visibility and type-specific
@@ -119,7 +123,8 @@ type definitions is model administration and is not part of runtime CRUD.
 Base 0.5 proves the contracts but not yet the intended experience:
 
 - complete object editing is split between a core-fields dialog and individual attribute actions;
-- workspace and runtime object state are entered as free text;
+- workspace and runtime object state are entered as free text, and the mutable object row cannot
+  represent the immutable revision lineage accepted in ADR-020;
 - model-declared attribute filtering and sorting are not consumed by collection queries;
 - all top-level view types currently resolve to the collection renderer;
 - application/view navigation and the always-visible object explorer compete for attention;
@@ -134,9 +139,14 @@ architecture.
 ## Base 0.6 direction
 
 Base 0.6 first establishes the task flows and UI primitives, then delivers workspace discovery,
-typed collection semantics and coherent object editing. The mapping grid is the first specialist view
-implemented on that foundation. The existing JSON model workbench receives navigation, diagnostics,
-provenance and dirty-input improvements, while a full model designer remains deferred.
+typed collection semantics and coherent runtime-object revision handling. New objects begin as
+validated root drafts. Existing objects are revised by cloning an active or retired immutable revision,
+editing the resulting draft and activating it explicitly. History presents “Created from” separately
+from “Superseded on activation”, so branching from an earlier retired revision remains understandable.
+An active revision may be retired without replacement; the logical object remains discoverable and a
+retired revision can seed a later draft. The mapping grid is the first specialist view after this
+foundation, in product 0.7/schema 0.6. Broader model-workbench redesign also remains deferred so Base
+0.6 stays focused on daily runtime-object operations.
 
 The structured designer should eventually use reference-aware catalogues, forms, relationship
 matrices and live preview. A dependency graph may help users understand a model, but a node-and-edge

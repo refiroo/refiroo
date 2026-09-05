@@ -39,6 +39,13 @@ registry may cache snapshots by public release ID and hash; it never decides whi
 Definition models are frozen recursively, including nested collections, so cached snapshots cannot be
 changed without installing and selecting a different release.
 
+This global selection remains the runtime authority through the pre-production daily-operation and
+specialist-workspace releases. Product 0.10 may evolve it into workspace-scoped assignments: a request
+must resolve its workspace first, then exactly one immutable release assigned to that workspace.
+Staged assignment requires executable data migration, atomic switching, cursor binding to release
+identity, protected administration, multi-node propagation and concurrent parser/runtime support for
+every permitted schema version. It cannot be implemented as workspace pinning alone.
+
 Model authoring has three explicit stages. Drafts are mutable, versioned database records. Validation,
 canonical compilation, semantic diff and compatibility analysis do not persist changes. Installation
 creates immutable content-addressed release metadata but leaves runtime selection unchanged.
@@ -114,11 +121,19 @@ If activation commits but local publication fails, the process becomes unready a
 model-dependent requests. Restart the process to load the committed database selection before taking
 further action; do not guess the prior selection from the bootstrap file.
 
-## Runtime object graph
+## Runtime workspace and object graph
 
-`objects` contains stable UUID, workspace, application, object type, parent, state, name, version and
-timestamps. `parent_object_id` is the primary containment hierarchy used for efficient navigation and
-path construction.
+Base 0.6 introduces a global workspace catalogue independently of immutable application models. A
+singleton workspace-runtime-state row owns the default key and version. Request scope resolution uses
+an explicit known key or that default; it never derives authority by scanning object rows. Retired
+workspaces remain addressable for reads but block mutations. Until authentication exists, workspace
+administration is controlled by a default-enabled deployment capability and must not be treated as an
+authorization boundary.
+
+In the Base 0.5 projection, `objects` contains stable UUID, workspace, application, object type, parent,
+state, name, version and timestamps. `parent_object_id` is the primary containment hierarchy used for
+efficient navigation and path construction. ADR-020 replaces that row as the content authority in Base
+0.6 while retaining stable identity and query projections as described below.
 
 `attribute_values` stores one value per object and attribute type. The declared type selects a physical
 column: text, integer, decimal, boolean, date, datetime or JSON. This retains dynamic modelling without
@@ -128,7 +143,35 @@ reducing every value to text.
 validated before insertion. Creating or moving a contained object maintains `parent_object_id` and the
 corresponding typed parent relation together.
 
+Product 0.7 will implement ADR-022 exact-binding relation-set versions for mapping concurrency. Each
+relation write advances the outgoing and incoming sets for its exact workspace, relation type and
+endpoint-type binding. A mapping replacement claims one anchor/direction/binding set and changes its
+complete zero/one/many edge state atomically, protecting unmapped and ambiguous rows without allowing
+another binding of the same relation type to be replaced accidentally.
+
 `audit_events` is an ordered append-only foundation for history and a future change feed.
+
+### Base 0.6 runtime-object revision direction
+
+ADR-020 evolves the single mutable object projection into a stable logical object with immutable active
+and retired revisions plus mutable drafts. A revision snapshots object-owned core fields, parent, typed
+attributes and required ownership relationships. Independent associations continue to address the
+stable logical object and keep their own relation concurrency and audit history.
+
+The stable object row owns identity, workspace, application and object type. Draft/revision tables are
+authoritative for object-owned content and pin the immutable model release used for validation. Query-optimized active
+columns and child rows are projections written only by activation in the same transaction as the
+active-revision pointer. Draft edits never mutate those projections. Activation against a different
+currently resolved model release fails explicitly rather than silently rebasing content. Cloning an
+older revision validates the copied snapshot against and pins the currently resolved release; the
+immutable source revision keeps its original release identity.
+
+Draft lineage has two edges: the immutable revision copied into the draft and the active revision
+superseded when that draft is activated. Activation validates the complete snapshot and atomically
+retires the current active revision under an expected-active-revision claim. Direct retirement uses
+the same expected identity, clears the active pointer and retains the logical object and history so a
+retired revision can seed a later draft. This runtime-data lifecycle remains separate from immutable
+application-model releases and their draft/install/activate process.
 
 ## Why both hierarchy and relations exist
 
@@ -136,10 +179,14 @@ Containment and semantic relationships overlap but serve different access patter
 tree navigation and path building efficient. Typed relations preserve meaning, reverse labels and
 model constraints. The service layer owns their consistency; clients must not update them separately.
 
-Object deletion follows the same boundary. A normal delete never removes dependencies implicitly: it
-returns a structured cascade impact report. An explicitly confirmed cascade walks containment and
-model-defined PK→FK ownership edges, removes incident associations, writes audit events and deletes the
-resulting object set in one transaction.
+For a published logical object, retirement replaces physical deletion. A normal retirement never
+retires owned dependants implicitly: it returns a structured impact report. An explicitly confirmed
+cascade walks containment and model-defined PK→FK ownership edges, retires active dependants, unlinks
+their active projections and writes audit events in one transaction. Independent associations remain
+attached to stable logical identities but disappear from current-active traversal while an endpoint is
+retired. Any mutable draft may be discarded; removing the last never-activated root draft also removes
+its empty identity shell. A published logical identity and its history require a separately authorized
+future purge operation.
 
 ## API projection
 
@@ -149,6 +196,15 @@ stable relation keys. It never requires arrays of internal attribute or relation
 Cursor pagination is used throughout. Cursor tokens are signed and bound to their endpoint, ordering
 and effective filters. Full extraction belongs to asynchronous export or a resumable change feed
 rather than an undocumented unbounded page.
+
+## Presentation foundation
+
+ADR-023 keeps the application-facing UI API in repository-owned semantic wrappers. React Aria
+Components supplies composite interaction behavior only; feature modules cannot depend on it directly.
+RDM owns plain-CSS tokens, layout, visual states and product-specific dismissal, dirty-input and error
+behavior. Native HTML remains the first choice for simple controls, and Lucide icons pass through one
+accessible wrapper. This boundary permits a future behavior-provider change without altering the
+application model or feature contracts.
 
 ## Scale direction
 
@@ -165,6 +221,7 @@ representation remain the direction for very deep, high-volume hierarchies.
 
 ## Security direction
 
-Authentication and authorization remain outside model 0.2. The expected design is OIDC authentication
-plus model-configurable application, object-type and operation permissions. Record-level rules should
-be introduced only for demonstrated RDM needs.
+Authentication and authorization remain deferred through the pre-production 0.9 feature releases.
+Product 0.10 introduces OIDC authentication plus model-configurable application, object-type and
+operation permissions before replacing the default-enabled workspace-administration posture.
+Record-level rules should be introduced only for demonstrated RDM needs.

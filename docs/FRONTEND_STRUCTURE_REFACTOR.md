@@ -4,8 +4,8 @@ Structural reorganization of `frontend/src` following the review recorded as eig
 (FE-01 … FE-18). Counterpart to `docs/BACKEND_STRUCTURE_REFACTOR.md`, which describes the
 equivalent pass over `backend/app`.
 
-**Status:** Phases 0–5 complete on `refactor/frontend-structure`. Phase 6 deferred to Base 0.6
-decision D3.
+**Status:** Phases 0–5 complete on `refactor/frontend-structure`. Phase 6 is pending Base 0.6
+implementation under accepted ADR-021.
 
 ## Scope
 
@@ -112,7 +112,7 @@ Each phase is a separate commit so that mechanical diffs never hide behavioral o
 | 3 — Shared hooks | FE-09 … FE-11 | none |
 | 4 — Structure | FE-02 (relocation), FE-03, FE-04, FE-07, FE-08, FE-16, FE-17 | none |
 | 5 — Modal primitive | FE-18 | **yes** — Escape, focus restore, focus trap, scroll lock |
-| 6 — View-type honesty | (deferred) | **yes** — requires Base 0.6 decision D3 |
+| 6 — View-type honesty | (pending) | **yes** — implements Base 0.6 ADR-021 |
 
 ## Phase 0 — Tooling
 
@@ -202,8 +202,8 @@ Both registries are exported from the component file that first needed them, and
 a registry typed per key gives each panel exact props with no cast.
 
 Move `viewComponentRegistry` to `features/objects/views/registry.ts` and `panelComponentRegistry`
-to `features/objects/panels/registry.ts`. This is the seam where Base 0.6 decision D3 will be
-expressed (see Phase 6), and it should be a module boundary before that work starts.
+to `features/objects/panels/registry.ts`. This is the seam where accepted Base 0.6 ADR-021 is
+implemented (see Phase 6), and it should be a module boundary before that work starts.
 
 ## Phase 2 — Error handling
 
@@ -377,7 +377,7 @@ on `offsetParent`, which is always null under jsdom and would have emptied the f
 a second modal opening over a first captured the already-locked `overflow` and restored that value
 on close, leaving the page permanently unscrollable.
 
-## Phase 6 — View-type honesty (deferred to Base 0.6 decision D3)
+## Phase 6 — View-type honesty (pending Base 0.6 ADR-021 implementation)
 
 `viewComponentRegistry` maps all five declared view types to the same component:
 
@@ -390,8 +390,10 @@ A model declaring `type: "tree"` renders a flat table, labelled "tree" in the UI
 contradicts Base 0.6 release principle 4: the UI must not silently present a different semantic
 view under the requested view-type label.
 
-This is a functionality change requiring decision D3, not a refactor, so it stays out of this pass.
-FE-02 exists to make it a registry edit rather than surgery inside `CollectionView`.
+This is a functionality change governed by accepted ADR-021, not a refactor, so it stays out of this
+completed structural pass. Base 0.6/schema 0.5 keeps only the honest typed `table` entry and rejects
+the other declarations. Product 0.7/schema 0.6 then adds the typed `mappingGrid` entry. FE-02 makes
+both changes registry edits rather than surgery inside `CollectionView`.
 
 ## Verification
 

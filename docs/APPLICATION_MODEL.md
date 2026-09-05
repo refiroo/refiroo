@@ -88,12 +88,15 @@ may store. Relation create and update reject undeclared keys and validate each s
 declared type and numeric bounds before persistence. An empty list therefore means the relation carries
 no instance attributes rather than accepting arbitrary JSON.
 
-For deletion semantics, a directed non-parent binding with `required: true` and `one-to-one` or
+In the Base 0.5 physical-deletion contract, a directed non-parent binding with `required: true` and `one-to-one` or
 `one-to-many` cardinality represents PK→FK ownership: the `from` object is the owner and the `to`
 object is its dependent. An explicitly confirmed cascade from the owner deletes the dependent. An
 optional binding or a `many-to-many` binding is an association; cascade removes the relation instance
 but preserves the object at the other endpoint. Parent containment remains governed by
 `parentObjectId` and always cascades from parent to descendants when cascade deletion is confirmed.
+ADR-020 preserves the same ownership graph for impact preview but replaces published-object deletion
+with active-revision retirement; immutable revisions and associations between stable identities are
+retained.
 
 ## Relation patterns
 
@@ -152,14 +155,16 @@ may have multiple System Value representations, while each represented System Va
 most one Domain or Codelist through this relation type. It does not change the System Value's parent:
 System and System Group containment remains the separate system hierarchy. Because the association is
 optional rather than an ownership binding, cascade deletion of the Domain or Codelist removes the edge
-but preserves the System Value.
+but preserves the System Value under Base 0.5. Under ADR-020 retirement, the association remains on
+the stable identities but is omitted from current-active traversal while an endpoint is retired.
 
 `object-has-translation` is a required one-to-many ownership binding. Its shared relation type ensures
 that a Translation has exactly one target across all permitted target types. Each binding declares
 `uniqueToAncestorTypeKey: language` together with an `active == true` target-attribute condition,
-preventing multiple active Translations for the same object and Language while allowing inactive
-historical records. Future translatable object types are enabled by adding another explicit allowed
-triple to the JSON model.
+preventing multiple business-active Translations for the same object and Language while allowing
+business-inactive current content. Under ADR-020 the check considers current active revisions that
+meet that predicate; retired revisions remain history and do not reserve the scope. Future
+translatable object types are enabled by adding another explicit allowed triple to the JSON model.
 
 ### Feature flags summary
 
@@ -181,16 +186,19 @@ the parent ID and typed relation atomically. Self-relations support arbitrary-de
 Relations named in an object type's `behavior.parentRelationTypeKeys` — the containment and hierarchy
 relations above — are engine-maintained. The relations API returns them on reads but rejects direct
 creation, update or deletion with `422 immutable_relation`, so `parent_object_id` and the typed
-relation cannot diverge. Reparenting an object goes through object parent operations, which rewrite
-the foreign key and the typed relation atomically.
+relation cannot diverge. Under ADR-020, reparenting edits a draft snapshot; activation validates and
+publishes the parent projection and typed relation atomically.
 
 ## Applications and views
 
 An application selects object types and exposes model-defined views. Object types may be shared across
 applications. Applications use immutable keys; names are presentation labels and are not API filters.
 
-Current view types are `table`, `form`, `mappingGrid`, `tree` and `dashboard`. Configuration refers to
-stable object, attribute and relation keys—never backend URLs or database IDs.
+Schema 0.4 recognizes `table`, `form`, `mappingGrid`, `tree` and `dashboard`, although current runtime
+rendering does not implement their distinct semantics honestly. Schema 0.5 deliberately supports only
+the strict `table` contract. Later schemas add a type only together with its validated contract and
+renderer. Configuration refers to stable object, attribute and relation keys—never backend URLs or
+database IDs.
 
 ## Detail composition
 
@@ -261,3 +269,15 @@ declarative language. Schema 0.4 adds object-level cross-field validation,
 required initial relationships and scoped relationship uniqueness to the 0.3 detail-composition
 contract. `release.version` versions one model package. Each distinct
 validated model is installed as an immutable database release identified by its content hash.
+
+Runtime-object revision lifecycle is separate from this model-language and model-release versioning.
+ADR-020 defines engine-owned `draft`, `active` and `retired` revision states, so Base 0.6 does not add
+configurable object states to schema 0.4. The model continues to declare the fields and relationship
+rules validated in each object revision, while the runtime owns revision identity, lineage and atomic
+activation.
+
+ADR-021 reserves schema 0.5 for a strict `table` definition. Base 0.6 does not run schema 0.4 models or
+accept declarations for the still-unimplemented `mappingGrid`, `form`, `dashboard` and `tree` view
+types. Stored schema 0.4 releases remain historical immutable JSON. Product 0.7 adds `mappingGrid` in
+schema 0.6. A future workspace-scoped release assignment may stage model and data migrations, but
+mixed schema-language operation requires explicit support for every concurrently served version.
