@@ -57,12 +57,12 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
   translatable Master object type. Active Target and Language combinations are unique.
 - `backend/app/models/schema.py`: executable model contract with uniqueness, cross-reference and parent
   relation validation.
-- `backend/app/services/model_compiler.py`, `model_diff.py` and `model_compatibility.py`:
+- `backend/app/services/model/compiler.py`, `model/diff.py` and `model/compatibility.py`:
   side-effect-free canonical compilation, stable JSON-path diagnostics, key-based structural diff and
   bounded runtime-data compatibility checks exposed through validation and release-diff APIs.
   Compatibility covers object and relation attribute constraints and relation-type-wide cardinality;
   diffs distinguish JSON null from omission and ignore ordering for set-like stable-key memberships.
-- `backend/app/services/model_drafts.py`, `model_releases.py` and the model-management router:
+- `backend/app/services/model/drafts.py`, `model/releases.py` and the model-management router:
   persisted draft CRUD with optimistic concurrency, side-effect-free draft compilation and atomic,
   idempotent immutable installation serialized across drafts in the supported single-process
   topology. Complete model JSON is excluded from lifecycle audit payloads, and all write routes are

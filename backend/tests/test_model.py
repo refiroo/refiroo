@@ -2,12 +2,11 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
-from pydantic import ValidationError
 
 from app.models.schema import EngineModel
-from app.services.model_compiler import compile_model
-from app.services.model_diff import semantic_diff
-from app.services.model_loader import load_model
+from app.services.model.compiler import ModelValidationError, compile_model, parse_model
+from app.services.model.diff import semantic_diff
+from app.services.model.loader import load_model
 
 MODEL_PATH = Path(__file__).resolve().parents[2] / "model" / "rdm-starter.json"
 
@@ -227,8 +226,8 @@ def test_object_cross_field_validation_rejects_unbound_attributes():
     translation = next(item for item in source["objectTypes"] if item["key"] == "translation")
     translation["validation"]["atLeastOneOf"] = ["missing"]
 
-    with pytest.raises(ValidationError, match="references unbound attributes"):
-        EngineModel.model_validate(source)
+    with pytest.raises(ModelValidationError, match="references unbound attributes"):
+        parse_model(source)
 
 
 def test_relation_scoped_uniqueness_rejects_unknown_ancestor_type():
@@ -240,8 +239,8 @@ def test_relation_scoped_uniqueness_rejects_unknown_ancestor_type():
     )
     relation["features"]["uniqueToAncestorTypeKey"] = "missing"
 
-    with pytest.raises(ValidationError, match="unknown unique ancestor object type"):
-        EngineModel.model_validate(source)
+    with pytest.raises(ModelValidationError, match="unknown unique ancestor object type"):
+        parse_model(source)
 
 
 def test_relation_scoped_uniqueness_rejects_unbound_condition_attribute():
@@ -253,24 +252,24 @@ def test_relation_scoped_uniqueness_rejects_unbound_condition_attribute():
     )
     relation["features"]["uniqueWhenToAttributeEquals"]["attributeTypeKey"] = "missing"
 
-    with pytest.raises(ValidationError, match="invalid uniqueWhenToAttributeEquals"):
-        EngineModel.model_validate(source)
+    with pytest.raises(ModelValidationError, match="invalid uniqueWhenToAttributeEquals"):
+        parse_model(source)
 
 
 def test_unknown_application_object_type_is_rejected():
     source = load_model(MODEL_PATH).model_dump(mode="json")
     source["applications"][0]["objectTypeKeys"].append("missing")
 
-    with pytest.raises(ValidationError, match="unknown object types"):
-        EngineModel.model_validate(source)
+    with pytest.raises(ModelValidationError, match="unknown object types"):
+        parse_model(source)
 
 
 def test_unknown_attribute_binding_is_rejected():
     source = load_model(MODEL_PATH).model_dump(mode="json")
     source["objectTypes"][0]["attributes"].append({"attributeTypeKey": "missing"})
 
-    with pytest.raises(ValidationError, match="unknown attribute type"):
-        EngineModel.model_validate(source)
+    with pytest.raises(ModelValidationError, match="unknown attribute type"):
+        parse_model(source)
 
 
 def test_detail_composition_changes_are_preserved_without_renderer_changes():
@@ -337,8 +336,8 @@ def test_invalid_detail_composition_is_rejected(mutate, message):
     source = load_model(MODEL_PATH).model_dump(mode="json")
     mutate(source)
 
-    with pytest.raises(ValidationError, match=message):
-        EngineModel.model_validate(source)
+    with pytest.raises(ModelValidationError, match=message):
+        parse_model(source)
 
 
 def test_unique_json_attribute_is_rejected():
@@ -352,16 +351,16 @@ def test_unique_json_attribute_is_rejected():
         }
     )
 
-    with pytest.raises(ValidationError, match="does not support uniqueness"):
-        EngineModel.model_validate(source)
+    with pytest.raises(ModelValidationError, match="does not support uniqueness"):
+        parse_model(source)
 
 
 def test_minimum_maximum_on_non_numeric_attribute_is_rejected():
     source = load_model(MODEL_PATH).model_dump(mode="json")
     source["attributeTypes"][0]["validation"] = {"minimum": 1}
 
-    with pytest.raises(ValidationError, match="does not support numeric bounds"):
-        EngineModel.model_validate(source)
+    with pytest.raises(ModelValidationError, match="does not support numeric bounds"):
+        parse_model(source)
 
 
 @pytest.mark.parametrize("bound", ["1", "not-a-number", True, float("inf")])
@@ -372,8 +371,8 @@ def test_non_numeric_or_non_finite_numeric_bound_is_rejected(bound):
     )
     numeric_attribute["validation"]["minimum"] = bound
 
-    with pytest.raises(ValidationError, match="must be a finite number"):
-        EngineModel.model_validate(source)
+    with pytest.raises(ModelValidationError, match="must be a finite number"):
+        parse_model(source)
 
 
 def test_minimum_must_not_exceed_maximum():
@@ -383,5 +382,5 @@ def test_minimum_must_not_exceed_maximum():
     )
     numeric_attribute["validation"] = {"minimum": 10, "maximum": 5}
 
-    with pytest.raises(ValidationError, match="minimum must not exceed"):
-        EngineModel.model_validate(source)
+    with pytest.raises(ModelValidationError, match="minimum must not exceed"):
+        parse_model(source)

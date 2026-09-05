@@ -1,15 +1,18 @@
 from collections.abc import Iterable
-from datetime import UTC, datetime
 from typing import Any
 
 from fastapi.encoders import jsonable_encoder
-from sqlalchemy import and_, or_, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..errors import api_error
 from ..models.api import AuditEventPage, AuditEventResponse
 from ..models.database import AuditEvent, AuditEventSubject
-from .cursors import decode_cursor, encode_cursor
+from .pagination import datetime_key, integer_key, paginate_statement
+
+_HISTORY_KEYS = (
+    datetime_key("occurredAt", AuditEvent.occurred_at, "occurred_at", descending=True),
+    integer_key("sequenceId", AuditEvent.sequence_id, "sequence_id", descending=True),
+)
 
 
 def record_audit_event(
@@ -45,58 +48,27 @@ def list_object_history(
     cursor: str | None,
     page_size: int,
 ) -> AuditEventPage:
-    filters = {
-        "objectId": object_id,
-        "objectTypeKey": object_type_key,
-        "workspaceKey": workspace_key,
-    }
     statement = (
         select(AuditEvent)
         .join(AuditEventSubject, AuditEventSubject.audit_event_id == AuditEvent.sequence_id)
         .where(AuditEventSubject.object_id == object_id)
     )
-    if cursor is not None:
-        position = decode_cursor(
-            cursor,
-            scope="object-history",
-            sort=("-occurredAt", "-sequenceId"),
-            filters=filters,
-            position_size=2,
-            message="Audit history cursor is invalid",
-        )
-        try:
-            occurred_at = datetime.fromisoformat(position[0])
-            sequence_id = int(position[1])
-        except ValueError:
-            raise api_error(422, "invalid_cursor", "Audit history cursor is invalid") from None
-        statement = statement.where(
-            or_(
-                AuditEvent.occurred_at < occurred_at,
-                and_(
-                    AuditEvent.occurred_at == occurred_at,
-                    AuditEvent.sequence_id < sequence_id,
-                ),
-            )
-        )
-    events = list(
-        session.scalars(
-            statement.order_by(AuditEvent.occurred_at.desc(), AuditEvent.sequence_id.desc()).limit(
-                page_size + 1
-            )
-        )
+    events, next_cursor = paginate_statement(
+        session,
+        statement,
+        keys=_HISTORY_KEYS,
+        scope="object-history",
+        filters={
+            "objectId": object_id,
+            "objectTypeKey": object_type_key,
+            "workspaceKey": workspace_key,
+        },
+        cursor=cursor,
+        page_size=page_size,
+        message="Audit history cursor is invalid",
     )
-    visible = events[:page_size]
-    next_cursor = None
-    if len(events) > page_size:
-        last = visible[-1]
-        next_cursor = encode_cursor(
-            (_as_utc(last.occurred_at).isoformat(), str(last.sequence_id)),
-            scope="object-history",
-            sort=("-occurredAt", "-sequenceId"),
-            filters=filters,
-        )
     return AuditEventPage(
-        items=[_audit_response(event) for event in visible], nextCursor=next_cursor
+        items=[_audit_response(event) for event in events], nextCursor=next_cursor
     )
 
 
@@ -131,9 +103,3 @@ def _attribute_type_keys(event: AuditEvent, attributes: Any) -> list[str]:
             }
         )
     return sorted(str(key) for key in attributes)
-
-
-def _as_utc(value: datetime) -> datetime:
-    if value.tzinfo is None:
-        return value.replace(tzinfo=UTC)
-    return value.astimezone(UTC)

@@ -5,7 +5,7 @@ from threading import Lock
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from ..models.database import (
+from ...models.database import (
     ApplicationMeta,
     ApplicationObjectTypeMeta,
     AttributeTypeMeta,
@@ -18,9 +18,10 @@ from ..models.database import (
     RelationTypeMeta,
     ViewDefinitionMeta,
 )
-from ..models.schema import EngineModel
-from .model_compatibility import CompatibilityResult, analyze_compatibility
-from .model_compiler import ModelDiagnostic, canonical_model, compile_model
+from ...models.schema import EngineModel
+from .compatibility import CompatibilityResult, analyze_compatibility
+from .compiler import ModelDiagnostic, canonical_model, compile_model
+from .validation import require_valid_references
 
 model_installation_lock = Lock()
 model_activation_lock = Lock()
@@ -169,6 +170,7 @@ def activate_model_release(
 
 def install_model_release(session: Session, model: EngineModel) -> tuple[ModelRelease, bool]:
     """Install one immutable model and its metadata projection in the current transaction."""
+    require_valid_references(model)
     model_json, model_hash = canonical_model(model)
     identity_release = session.scalar(
         select(ModelRelease).where(

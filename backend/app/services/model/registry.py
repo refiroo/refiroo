@@ -5,13 +5,13 @@ from threading import Condition
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..db import SessionLocal
-from ..errors import api_error
-from ..models.database import ModelRelease, ModelRuntimeState
-from ..models.schema import EngineModel
+from ...db import DbSession, SessionLocal
+from ...errors import api_error
+from ...models.schema import EngineModel
+from .compiler import parse_model
+from .runtime import require_runtime_state
 
 
 @dataclass(frozen=True)
@@ -39,20 +39,12 @@ class ModelRegistry:
             return self._load_active(session)
 
     def _load_active(self, session: Session) -> ModelSnapshot:
-        row = session.execute(
-            select(ModelRuntimeState, ModelRelease).join(
-                ModelRelease,
-                ModelRelease.id == ModelRuntimeState.active_model_release_id,
-            )
-        ).one_or_none()
-        if row is None:
-            raise RuntimeError("Model runtime state has no active installed release")
-        _runtime_state, release = row
+        _runtime_state, release = require_runtime_state(session)
         cache_key = (release.public_id, release.model_hash)
         with self._condition:
             model = self._models.get(cache_key)
             if model is None:
-                model = EngineModel.model_validate(release.model_json)
+                model = parse_model(release.model_json)
                 self._models[cache_key] = model
         return ModelSnapshot(
             release_db_id=release.id,
@@ -107,18 +99,20 @@ class ModelRegistry:
             return self._ready
 
     def clear(self) -> None:
+        from .metadata import clear_metadata_cache
+
         with self._condition:
             self._models.clear()
             self._ready = True
+        clear_metadata_cache()
 
 
 model_registry = ModelRegistry()
 
 
-def resolve_model_snapshot() -> ModelSnapshot:
+def resolve_model_snapshot(session: DbSession) -> ModelSnapshot:
     try:
-        with SessionLocal() as session:
-            return model_registry.resolve_active(session)
+        return model_registry.resolve_active(session)
     except ModelRegistryUnavailable as exc:
         raise api_error(
             503,

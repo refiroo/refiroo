@@ -8,7 +8,7 @@ from pydantic import ValidationError
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 
-from app.db import SessionLocal, ensure_bootstrap_release
+from app.db import SessionLocal
 from app.main import app, create_app
 from app.models.database import (
     ApplicationMeta,
@@ -20,8 +20,11 @@ from app.models.database import (
     RdmObject,
 )
 from app.models.schema import EngineModel
-from app.services.model_loader import load_bootstrap_model
-from app.services.model_registry import ModelRegistry, model_registry
+from app.services.model.bootstrap import ensure_bootstrap_release
+from app.services.model.diagnostics import ModelValidationError
+from app.services.model.loader import load_bootstrap_model
+from app.services.model.registry import ModelRegistry, model_registry
+from app.services.model.releases import install_model_release
 
 
 def _model(version: str, *, product_name: str | None = None) -> EngineModel:
@@ -36,6 +39,15 @@ def _session() -> Session:
     engine = create_engine("sqlite://")
     Base.metadata.create_all(engine)
     return Session(engine)
+
+
+def test_release_installation_rejects_a_shape_only_model_with_invalid_references():
+    source = load_bootstrap_model().model_dump(mode="json")
+    source["objectTypes"][0]["attributes"][0]["attributeTypeKey"] = "missing-attribute"
+    shape_only_model = EngineModel.model_validate(source)
+
+    with _session() as session, pytest.raises(ModelValidationError):
+        install_model_release(session, shape_only_model)
 
 
 def test_first_bootstrap_initializes_runtime_state_and_restart_is_idempotent():

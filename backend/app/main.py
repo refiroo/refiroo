@@ -5,12 +5,8 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .config import (
-    cors_origins,
-    model_admin_mutations_enabled,
-    validate_model_admin_topology,
-)
-from .db import SessionLocal, bootstrap_model, create_database
+from .config import reload_settings
+from .db import SessionLocal, create_database
 from .errors import (
     ApiError,
     api_error_handler,
@@ -19,9 +15,10 @@ from .errors import (
     validation_error_handler,
 )
 from .models.api import ApiErrorResponse
-from .routers import attributes, model, model_management, objects, relations
-from .services.model_loader import load_bootstrap_model
-from .services.model_registry import model_registry
+from .routers import attributes, model, model_management, model_releases, objects, relations
+from .services.model.bootstrap import bootstrap_model
+from .services.model.loader import load_bootstrap_model
+from .services.model.registry import model_registry
 
 
 @asynccontextmanager
@@ -35,8 +32,9 @@ async def lifespan(_: FastAPI):
 
 
 def create_app() -> FastAPI:
-    mutations_enabled = model_admin_mutations_enabled()
-    validate_model_admin_topology(mutations_enabled)
+    settings = reload_settings()
+    settings.validate_model_admin_topology()
+    mutations_enabled = settings.model_admin_mutations_enabled
     application = FastAPI(
         title="RDM Engine API",
         version="0.3.0",
@@ -90,7 +88,7 @@ def create_app() -> FastAPI:
     application.add_exception_handler(Exception, unexpected_error_handler)
     application.add_middleware(
         CORSMiddleware,
-        allow_origins=cors_origins(),
+        allow_origins=list(settings.cors_origins),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -104,6 +102,7 @@ def create_app() -> FastAPI:
         return {"status": "ok"}
 
     application.include_router(model.router)
+    application.include_router(model_releases.router)
     if mutations_enabled:
         application.include_router(model_management.router)
     application.include_router(objects.router)

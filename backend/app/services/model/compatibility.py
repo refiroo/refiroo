@@ -4,10 +4,10 @@ from typing import Any
 from sqlalchemy import Numeric, and_, cast, exists, func, literal, or_, select
 from sqlalchemy.orm import Session, aliased
 
-from ..models.database import AttributeValue, ObjectRelation, RdmObject
-from ..models.schema import EngineModel, ObjectTypeRelationDefinition
-from .attributes import VALUE_COLUMNS, normalize_value
-from .model_compiler import ModelDiagnostic
+from ...models.database import AttributeValue, ObjectRelation, RdmObject
+from ...models.schema import EngineModel, ObjectTypeRelationDefinition
+from ..attributes import VALUE_COLUMNS, normalize_value
+from .compiler import ModelDiagnostic
 
 
 class CompatibilityResult:

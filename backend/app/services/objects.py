@@ -1,13 +1,50 @@
+from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
-from sqlalchemy import delete, select, update
+from sqlalchemy import Select, delete, or_, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..errors import api_error
-from ..models.api import AttributeOutput, ObjectResponse
-from ..models.database import ObjectRelation, RdmObject
-from ..models.schema import EngineModel, ObjectTypeDefinition
-from .attributes import load_attribute_values
+from ..models.api import (
+    AttributeOutput,
+    ObjectCreate,
+    ObjectResponse,
+    ObjectUpdate,
+    RelationCreate,
+)
+from ..models.database import AttributeValue, ObjectRelation, RdmObject
+from ..models.schema import ApplicationDefinition, EngineModel, ObjectTypeDefinition
+from .attributes import (
+    check_attribute_uniqueness,
+    load_attribute_values,
+    save_attribute_values,
+    validate_attribute_change,
+    validate_attributes,
+    validate_object_attribute_rules,
+)
+from .audit import record_audit_event
+from .pagination import SortKey, datetime_key, integer_key, text_key
+
+OBJECT_SORT_COLUMNS: dict[str, Any] = {
+    "name": RdmObject.name,
+    "state": RdmObject.state,
+    "createdAt": RdmObject.created_at,
+    "updatedAt": RdmObject.updated_at,
+    "sequenceId": RdmObject.sequence_id,
+}
+
+_SEQUENCE_FIELD = "sequenceId"
+
+
+@dataclass(frozen=True)
+class ObjectQuery:
+    """A filtered object collection query with the keyset it must be paged by."""
+
+    statement: Select[Any]
+    keys: tuple[SortKey, ...]
+    filters: dict[str, Any]
 
 
 def get_object_type(model: EngineModel, object_type_key: str) -> ObjectTypeDefinition:
@@ -17,7 +54,7 @@ def get_object_type(model: EngineModel, object_type_key: str) -> ObjectTypeDefin
     return definition
 
 
-def get_application(model: EngineModel, application_key: str):
+def get_application(model: EngineModel, application_key: str) -> ApplicationDefinition:
     application = next((item for item in model.applications if item.key == application_key), None)
     if not application:
         raise api_error(404, "unknown_application", f"Application '{application_key}' not found")
@@ -33,6 +70,296 @@ def validate_application_object_type(
             422,
             "invalid_object_type_for_application",
             f"Object type '{object_type_key}' is not available in application '{application_key}'",
+        )
+
+
+def build_object_query(
+    model: EngineModel,
+    *,
+    object_type_key: str,
+    application_key: str | None,
+    workspace_key: str,
+    parent_object_id: str | None,
+    states: list[str] | None,
+    search: str | None,
+    sort: str | None,
+) -> ObjectQuery:
+    """Build the filtered statement, keyset and cursor filters for an object collection."""
+    object_type = get_object_type(model, object_type_key)
+    if application_key:
+        validate_application_object_type(model, application_key, object_type_key)
+
+    statement = select(RdmObject).where(
+        RdmObject.object_type_key == object_type_key,
+        RdmObject.workspace_key == workspace_key,
+    )
+    if application_key:
+        statement = statement.where(RdmObject.application_key == application_key)
+    if parent_object_id:
+        statement = statement.where(RdmObject.parent_object_id == parent_object_id)
+
+    effective_states = sorted(set(states or []))
+    if effective_states:
+        statement = statement.where(RdmObject.state.in_(effective_states))
+    if search:
+        statement = statement.where(_search_predicate(model, object_type, search))
+
+    return ObjectQuery(
+        statement=statement,
+        keys=_object_sort_keys(sort),
+        filters={
+            "applicationKey": application_key,
+            "objectTypeKey": object_type_key,
+            "parentObjectId": parent_object_id,
+            "search": search,
+            "state": effective_states,
+            "workspaceKey": workspace_key,
+        },
+    )
+
+
+def _search_predicate(model: EngineModel, object_type: ObjectTypeDefinition, search: str) -> Any:
+    escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    searchable_attributes = [
+        binding.attributeTypeKey
+        for binding in object_type.attributes
+        if model.attribute_type(binding.attributeTypeKey).features.get("searchable")
+    ]
+    attribute_match = select(AttributeValue.object_id).where(
+        AttributeValue.attribute_type_key.in_(searchable_attributes),
+        AttributeValue.text_value.ilike(f"%{escaped}%", escape="\\"),
+    )
+    return or_(
+        RdmObject.name.ilike(f"%{escaped}%", escape="\\"),
+        RdmObject.id.in_(attribute_match),
+    )
+
+
+def _object_sort_keys(sort: str | None) -> tuple[SortKey, ...]:
+    """Sort keys for an object collection, always closed by the unique sequence id."""
+    sort_name = sort or _SEQUENCE_FIELD
+    descending = sort_name.startswith("-")
+    field_name = sort_name.removeprefix("-")
+    sequence = integer_key(
+        _SEQUENCE_FIELD, RdmObject.sequence_id, "sequence_id", descending=descending
+    )
+    if field_name == _SEQUENCE_FIELD:
+        return (sequence,)
+
+    column = OBJECT_SORT_COLUMNS[field_name]
+    if field_name in {"createdAt", "updatedAt"}:
+        attribute = "created_at" if field_name == "createdAt" else "updated_at"
+        primary = datetime_key(field_name, column, attribute, descending=descending)
+    else:
+        primary = text_key(field_name, column, field_name, descending=descending)
+    return (primary, sequence)
+
+
+def create_object_record(
+    session: Session, model: EngineModel, payload: ObjectCreate
+) -> RdmObject:
+    """Create one object with its attributes, containment edge and initial relations."""
+    from .relations import create_relation_instance
+
+    object_type_key = payload.objectTypeKey
+    object_type = get_object_type(model, object_type_key)
+    validate_application_object_type(model, payload.applicationKey, object_type_key)
+    attributes = validate_attributes(model, object_type, attributes_to_dict(payload.attributes))
+    validate_object_attribute_rules(object_type, attributes)
+    _require_initial_relations(model, object_type, object_type_key, payload)
+
+    public_id = str(payload.id) if payload.id is not None else None
+    if public_id is not None:
+        existing = session.scalar(select(RdmObject.id).where(RdmObject.id == public_id))
+        if existing:
+            raise api_error(
+                409, "object_already_exists", f"An object with ID '{public_id}' already exists"
+            )
+
+    parent, parent_relation = validate_parent(
+        session,
+        model,
+        object_type_key,
+        payload.applicationKey,
+        payload.workspaceKey,
+        str(payload.parentObjectId) if payload.parentObjectId is not None else None,
+    )
+    check_attribute_uniqueness(
+        session, model, attributes, workspace_key=payload.workspaceKey
+    )
+    item = RdmObject(
+        workspace_key=payload.workspaceKey,
+        application_key=payload.applicationKey,
+        object_type_key=object_type_key,
+        parent_object_id=parent.id if parent else None,
+        state=payload.state,
+        name=payload.name,
+    )
+    if public_id is not None:
+        item.id = public_id
+    session.add(item)
+    session.flush()
+    save_attribute_values(session, model, item.id, attributes)
+    if parent and parent_relation:
+        session.add(
+            ObjectRelation(
+                relation_type_key=parent_relation,
+                from_object_id=parent.id,
+                to_object_id=item.id,
+            )
+        )
+    for initial in payload.initialRelations:
+        if initial.direction == "outgoing":
+            from_id, to_id = item.id, str(initial.otherObjectId)
+            from_object, to_object = item, None
+        else:
+            from_id, to_id = str(initial.otherObjectId), item.id
+            from_object, to_object = None, item
+        try:
+            create_relation_instance(
+                session,
+                model,
+                RelationCreate(
+                    relationTypeKey=initial.relationTypeKey,
+                    fromObjectId=from_id,
+                    toObjectId=to_id,
+                    attributes=initial.attributes,
+                ),
+                from_object=from_object,
+                to_object=to_object,
+            )
+        except IntegrityError:
+            session.rollback()
+            raise api_error(409, "duplicate_relation", "Relation already exists") from None
+    record_audit_event(
+        session,
+        aggregate_type="object",
+        aggregate_id=item.id,
+        action="created",
+        version=1,
+        changes={
+            "objectTypeKey": object_type_key,
+            "attributes": attributes,
+            "initialRelations": [
+                relation.model_dump(mode="json") for relation in payload.initialRelations
+            ],
+        },
+        object_ids=[item.id],
+    )
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise api_error(409, "duplicate_relation", "Relation already exists") from None
+    return item
+
+
+def update_object_record(
+    session: Session,
+    model: EngineModel,
+    object_type_key: str,
+    object_id: str,
+    payload: ObjectUpdate,
+) -> RdmObject:
+    """Apply a partial object update under optimistic concurrency."""
+    from .relations import validate_scoped_relations_for_subtree
+
+    object_type = get_object_type(model, object_type_key)
+    attributes = (
+        validate_attributes(
+            model, object_type, attributes_to_dict(payload.attributes), partial=True
+        )
+        if payload.attributes is not None
+        else None
+    )
+
+    item = load_object(session, object_id, object_type_key)
+    claim_object_version(session, item, payload.expectedVersion)
+
+    if attributes is not None:
+        validate_attribute_change(session, model, object_type, item, attributes)
+
+    changes: dict[str, Any] = {}
+    if payload.name is not None:
+        changes["name"] = {"from": item.name, "to": payload.name}
+        item.name = payload.name
+    if payload.state is not None:
+        changes["state"] = {"from": item.state, "to": payload.state}
+        item.state = payload.state
+    if "parentObjectId" in payload.model_fields_set:
+        old_parent = item.parent_object_id
+        parent, parent_relation = validate_parent(
+            session,
+            model,
+            object_type_key,
+            item.application_key,
+            item.workspace_key,
+            str(payload.parentObjectId) if payload.parentObjectId is not None else None,
+            moving_object_id=item.id,
+        )
+        replace_parent_relation(session, model, item, parent, parent_relation)
+        changes["parentObjectId"] = {
+            "from": old_parent,
+            "to": parent.id if parent else None,
+        }
+    if attributes is not None:
+        save_attribute_values(session, model, item.id, attributes)
+        changes["attributes"] = attributes
+
+    validate_scoped_relations_for_subtree(session, model, item)
+
+    record_audit_event(
+        session,
+        aggregate_type="object",
+        aggregate_id=item.id,
+        action="updated",
+        version=item.version,
+        changes=changes,
+        object_ids=[item.id],
+    )
+    session.commit()
+    return item
+
+
+def attributes_to_dict(attributes: list) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for item in attributes:
+        if item.attributeTypeKey in result:
+            raise api_error(
+                422,
+                "duplicate_attribute",
+                f"Attribute '{item.attributeTypeKey}' occurs more than once",
+            )
+        result[item.attributeTypeKey] = item.value
+    return result
+
+
+def _require_initial_relations(
+    model: EngineModel,
+    object_type: ObjectTypeDefinition,
+    object_type_key: str,
+    payload: ObjectCreate,
+) -> None:
+    parent_relation_keys = set(object_type.behavior.get("parentRelationTypeKeys", []))
+    required_relation_keys = {
+        allowed.relationTypeKey
+        for allowed in model.objectTypeRelations
+        if allowed.toObjectTypeKey == object_type_key
+        and allowed.required
+        and allowed.relationTypeKey not in parent_relation_keys
+    }
+    provided_required_keys = {
+        relation.relationTypeKey
+        for relation in payload.initialRelations
+        if relation.direction == "incoming"
+    }
+    missing_relation_keys = required_relation_keys - provided_required_keys
+    if missing_relation_keys:
+        raise api_error(
+            422,
+            "missing_required_relations",
+            f"Required relationships missing: {sorted(missing_relation_keys)}",
+            {"relationTypeKeys": sorted(missing_relation_keys)},
         )
 
 
@@ -148,7 +475,7 @@ def build_object_responses(
     ]
 
 
-def _build_attribute_outputs(model, values: dict) -> list[AttributeOutput]:
+def _build_attribute_outputs(model: EngineModel, values: dict) -> list[AttributeOutput]:
     result = []
     for key, (value_id, value) in values.items():
         definition = model.attribute_type(key)

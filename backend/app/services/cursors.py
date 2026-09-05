@@ -65,6 +65,37 @@ def decode_cursor(
     return tuple(position)
 
 
+METADATA_CURSOR_MESSAGE = "Metadata cursor is invalid"
+
+
+def encode_metadata_cursor(
+    identity: tuple[str, ...],
+    *,
+    scope: str,
+    sort: tuple[str, ...],
+    filters: dict[str, Any],
+) -> str:
+    """Encode a cursor for a model-metadata collection."""
+    return encode_cursor(identity, scope=scope, sort=sort, filters=filters)
+
+
+def decode_metadata_cursor(
+    cursor: str,
+    *,
+    scope: str,
+    sort: tuple[str, ...],
+    filters: dict[str, Any],
+) -> tuple[str, ...]:
+    """Decode a cursor for a model-metadata collection."""
+    return decode_cursor(
+        cursor,
+        scope=scope,
+        sort=sort,
+        filters=filters,
+        message=METADATA_CURSOR_MESSAGE,
+    )
+
+
 def filter_fingerprint(filters: dict[str, Any]) -> str:
     canonical = json.dumps(filters, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(canonical).hexdigest()

@@ -12,7 +12,7 @@ from app.services.attributes import (
     build_attribute_value_response,
     validate_deletable_attribute,
 )
-from app.services.model_loader import load_bootstrap_model
+from app.services.model.loader import load_bootstrap_model
 from app.services.objects import claim_object_version, load_object
 
 

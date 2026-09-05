@@ -83,6 +83,49 @@ def validate_object_attribute_rules(
         )
 
 
+def validate_attribute_change(
+    session: Session,
+    model: EngineModel,
+    object_type: ObjectTypeDefinition,
+    item: RdmObject,
+    attributes: dict[str, Any],
+) -> None:
+    """Check a pending attribute write against the object's other stored values.
+
+    Object-level rules are evaluated over the merged result rather than the submitted subset, and
+    uniqueness excludes the object being written so a no-op write never collides with itself.
+    """
+    merged = current_attribute_values(session, item.id)
+    merged.update(attributes)
+    validate_object_attribute_rules(object_type, merged)
+    check_attribute_uniqueness(
+        session,
+        model,
+        attributes,
+        workspace_key=item.workspace_key,
+        exclude_object_id=item.id,
+    )
+
+
+def apply_attribute_values(
+    session: Session,
+    model: EngineModel,
+    object_type: ObjectTypeDefinition,
+    item: RdmObject,
+    attributes: dict[str, Any],
+) -> None:
+    """Validate, persist and re-check one attribute write as a single sequence.
+
+    Every path that writes attribute values must run these steps in this order; keeping them here
+    stops a caller from performing the write while skipping one of the checks.
+    """
+    from .relations import validate_scoped_relations_for_subtree
+
+    validate_attribute_change(session, model, object_type, item, attributes)
+    save_attribute_values(session, model, item.id, attributes)
+    validate_scoped_relations_for_subtree(session, model, item)
+
+
 def current_attribute_values(session: Session, object_id: str) -> dict[str, Any]:
     return {
         key: value

@@ -6,8 +6,8 @@ from fastapi.testclient import TestClient
 from app.db import SessionLocal
 from app.errors import ApiError
 from app.main import app
-from app.services.model_loader import load_bootstrap_model
-from app.services.model_registry import ModelSnapshot, resolve_model_snapshot
+from app.services.model.loader import load_bootstrap_model
+from app.services.model.registry import ModelSnapshot, resolve_model_snapshot
 from app.services.relations import claim_relation_version, load_relation
 
 

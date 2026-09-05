@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.models.database import AttributeValue, Base, ObjectRelation, RdmObject
 from app.models.schema import EngineModel
-from app.services.model_compatibility import analyze_compatibility
+from app.services.model.compatibility import analyze_compatibility
 
 
 def _source() -> dict:

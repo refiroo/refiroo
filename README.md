@@ -85,10 +85,10 @@ npm run dev
 
 Run the frontend test suite with `npm test`.
 
-The backend uses SQLite locally unless `DATABASE_URL` is set. The model defaults to
-`model/rdm-starter.json`. Set `RDM_CURSOR_SIGNING_KEY` to a deployment-specific secret so opaque
-pagination cursors remain verifiable across restarts. Without it, the process generates an ephemeral
-key and cursors issued before a restart become invalid.
+The backend uses `backend/rdm-engine.db` through SQLite locally unless `DATABASE_URL` is set. The
+model defaults to `model/rdm-starter.json`. Set `RDM_CURSOR_SIGNING_KEY` to a deployment-specific
+secret so opaque pagination cursors remain verifiable across restarts. Without it, the process
+generates an ephemeral key and cursors issued before a restart become invalid.
 
 Model-administration mutations are not registered by default. Set
 `MODEL_ADMIN_MUTATIONS_ENABLED=true` only in the supported single-process administration deployment

@@ -57,7 +57,20 @@ errors explicit and machine-readable.
 - Type public functions.
 - Keep Pydantic API models separate from SQLAlchemy persistence models.
 - Keep model parsing and validation independent of the database.
-- Attribute conversion belongs in `attribute_values.py`, not route handlers.
+- Attribute conversion belongs in `services/attributes.py`, not route handlers.
+- Every attribute write goes through `services/attributes.apply_attribute_values` or its
+  `validate_attribute_change` half, so no path can persist values while skipping a check.
+- Routers translate requests and responses. Orchestration lives in `services/`; a handler that
+  reads the model to decide what to write belongs in a service.
+- Handlers take the request-scoped `DbSession` dependency. Do not open `SessionLocal()` inside a
+  request path; one request reads from one session.
+- Collections page through `services/pagination.py`. Declare sort keys, do not hand-write a keyset
+  predicate, and make the last key unique within the filtered set.
+- Model shape lives in `models/schema.py`; cross-reference rules live in
+  `services/model/validation/`. A rule raises `ModelReferenceError` with the JSON pointer of the
+  failing node — never reconstruct a path from a message.
+- Obtain an `EngineModel` through `services/model/compiler.parse_model` or `compile_model`.
+  `EngineModel.model_validate` checks shape only and does not guarantee references resolve.
 - Database migrations will use Alembic before the first deployed schema change.
 - Prefer focused service modules over adding more logic to `main.py`.
 

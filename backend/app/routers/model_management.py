@@ -1,15 +1,14 @@
-from datetime import datetime
-
 from fastapi import APIRouter, Query, Response, status
-from sqlalchemy import and_, or_, select
+from sqlalchemy import select
+from sqlalchemy.orm import Session
 
-from ..db import SessionLocal
+from ..common.time import as_utc
+from ..db import DbSession
 from ..errors import api_error
 from ..models.api import (
     ModelActivationRequest,
     ModelCompatibilityResponse,
     ModelCompilationResponse,
-    ModelDiagnosticResponse,
     ModelDraftCreate,
     ModelDraftPage,
     ModelDraftResponse,
@@ -19,10 +18,11 @@ from ..models.api import (
     ModelRuntimeStateResponse,
 )
 from ..models.database import AuditEvent, ModelDraft, ModelRelease
-from ..services.model_compatibility import analyze_compatibility
-from ..services.model_compiler import ModelDiagnostic, compile_model
-from ..services.model_diff import semantic_diff
-from ..services.model_drafts import (
+from ..services.cursors import METADATA_CURSOR_MESSAGE
+from ..services.model.compatibility import analyze_compatibility
+from ..services.model.compiler import compile_model
+from ..services.model.diff import semantic_diff
+from ..services.model.drafts import (
     base_release_public_id,
     create_draft,
     delete_draft,
@@ -31,8 +31,8 @@ from ..services.model_drafts import (
     require_draft_version,
     update_draft,
 )
-from ..services.model_registry import ActiveModelSnapshot, model_registry
-from ..services.model_releases import (
+from ..services.model.registry import ActiveModelSnapshot, model_registry
+from ..services.model.releases import (
     ActivationConflict,
     InvalidInstalledModel,
     ModelMigrationRequired,
@@ -43,9 +43,18 @@ from ..services.model_releases import (
     model_activation_lock,
     model_installation_lock,
 )
-from .model import _as_utc, _decode_cursor, _encode_cursor
+from ..services.pagination import datetime_key, paginate_statement, text_key
+from .presenters import change_response, diagnostic_details, diagnostic_response
 
 router = APIRouter(prefix="/api/v1", tags=["model administration"])
+
+# Newest first, with an ascending public-id tie-breaker. The directions differ per key on
+# purpose; the paginator derives each key's comparison from its own direction, so the pair still
+# orders lexicographically.
+_DRAFT_KEYS = (
+    datetime_key("updatedAt", ModelDraft.updated_at, "updated_at", descending=True),
+    text_key("publicId", ModelDraft.public_id, "public_id"),
+)
 
 
 @router.post(
@@ -53,9 +62,9 @@ router = APIRouter(prefix="/api/v1", tags=["model administration"])
     response_model=ModelRuntimeStateResponse,
 )
 def activate_release(
-    release_id: str, payload: ModelActivationRequest
+    release_id: str, payload: ModelActivationRequest, session: DbSession
 ) -> ModelRuntimeStateResponse:
-    with model_activation_lock, SessionLocal() as session:
+    with model_activation_lock:
         try:
             activated = activate_model_release(
                 session,
@@ -84,20 +93,14 @@ def activate_release(
                 409,
                 "model_migration_required",
                 "Stored runtime data is incompatible with the candidate model",
-                [
-                    _diagnostic_response(item).model_dump(exclude_none=True)
-                    for item in exc.compatibility.diagnostics
-                ],
+                diagnostic_details(exc.compatibility.diagnostics),
             ) from exc
         except InvalidInstalledModel as exc:
             raise api_error(
                 500,
                 "invalid_installed_model",
                 "An installed model release failed validation",
-                [
-                    _diagnostic_response(item).model_dump(exclude_none=True)
-                    for item in exc.diagnostics
-                ],
+                diagnostic_details(exc.diagnostics),
             ) from exc
 
         with model_registry.publication_guard():
@@ -127,58 +130,29 @@ def activate_release(
 
 @router.get("/model-drafts", response_model=ModelDraftPage)
 def list_model_drafts(
+    session: DbSession,
     cursor: str | None = None,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> ModelDraftPage:
-    cursor_sort = ("updatedAt", "publicId")
-    with SessionLocal() as session:
-        statement = select(ModelDraft)
-        if cursor is not None:
-            identity = _decode_cursor(
-                cursor, scope="model-drafts", sort=cursor_sort, filters={}
-            )
-            if len(identity) != 2:
-                raise api_error(422, "invalid_cursor", "Metadata cursor is invalid")
-            try:
-                updated_at = datetime.fromisoformat(identity[0])
-            except ValueError:
-                raise api_error(422, "invalid_cursor", "Metadata cursor is invalid") from None
-            statement = statement.where(
-                or_(
-                    ModelDraft.updated_at < updated_at,
-                    and_(
-                        ModelDraft.updated_at == updated_at,
-                        ModelDraft.public_id > identity[1],
-                    ),
-                )
-            )
-        rows = list(
-            session.scalars(
-                statement.order_by(ModelDraft.updated_at.desc(), ModelDraft.public_id).limit(
-                    page_size + 1
-                )
-            )
-        )
-        visible = rows[:page_size]
-        items = [_draft_response(session, draft) for draft in visible]
-
-    next_cursor = (
-        _encode_cursor(
-            (_as_utc(visible[-1].updated_at).isoformat(), visible[-1].public_id),
-            scope="model-drafts",
-            sort=cursor_sort,
-            filters={},
-        )
-        if len(rows) > page_size
-        else None
+    drafts, next_cursor = paginate_statement(
+        session,
+        select(ModelDraft),
+        keys=_DRAFT_KEYS,
+        scope="model-drafts",
+        filters={},
+        cursor=cursor,
+        page_size=page_size,
+        cursor_sort_tokens=("updatedAt", "publicId"),
+        message=METADATA_CURSOR_MESSAGE,
     )
-    return ModelDraftPage(items=items, nextCursor=next_cursor)
+    return ModelDraftPage(
+        items=[draft_response(session, draft) for draft in drafts], nextCursor=next_cursor
+    )
 
 
 @router.get("/model-drafts/{draft_id}", response_model=ModelDraftResponse)
-def get_model_draft(draft_id: str) -> ModelDraftResponse:
-    with SessionLocal() as session:
-        return _draft_response(session, load_draft(session, draft_id))
+def get_model_draft(draft_id: str, session: DbSession) -> ModelDraftResponse:
+    return draft_response(session, load_draft(session, draft_id))
 
 
 @router.post(
@@ -186,40 +160,40 @@ def get_model_draft(draft_id: str) -> ModelDraftResponse:
     response_model=ModelDraftResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def save_model_draft(payload: ModelDraftCreate) -> ModelDraftResponse:
-    with SessionLocal() as session:
-        draft = create_draft(
-            session,
-            name=payload.name,
-            model=payload.model,
-            base_release_id=str(payload.baseReleaseId) if payload.baseReleaseId else None,
-        )
-        session.commit()
-        return _draft_response(session, draft)
+def save_model_draft(payload: ModelDraftCreate, session: DbSession) -> ModelDraftResponse:
+    draft = create_draft(
+        session,
+        name=payload.name,
+        model=payload.model,
+        base_release_id=str(payload.baseReleaseId) if payload.baseReleaseId else None,
+    )
+    session.commit()
+    return draft_response(session, draft)
 
 
 @router.patch("/model-drafts/{draft_id}", response_model=ModelDraftResponse)
-def patch_model_draft(draft_id: str, payload: ModelDraftUpdate) -> ModelDraftResponse:
-    with SessionLocal() as session:
-        draft = update_draft(
-            session,
-            draft_id,
-            payload.expectedVersion,
-            name=payload.name,
-            model=payload.model,
-        )
-        session.commit()
-        return _draft_response(session, draft)
+def patch_model_draft(
+    draft_id: str, payload: ModelDraftUpdate, session: DbSession
+) -> ModelDraftResponse:
+    draft = update_draft(
+        session,
+        draft_id,
+        payload.expectedVersion,
+        name=payload.name,
+        model=payload.model,
+    )
+    session.commit()
+    return draft_response(session, draft)
 
 
 @router.delete("/model-drafts/{draft_id}", status_code=status.HTTP_204_NO_CONTENT)
 def remove_model_draft(
     draft_id: str,
+    session: DbSession,
     expected_version: int = Query(ge=1, alias="expectedVersion"),
 ) -> Response:
-    with SessionLocal() as session:
-        delete_draft(session, draft_id, expected_version)
-        session.commit()
+    delete_draft(session, draft_id, expected_version)
+    session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -231,62 +205,56 @@ def remove_model_draft(
 def compile_model_draft(
     draft_id: str,
     payload: ModelDraftVersionRequest,
+    session: DbSession,
     snapshot: ActiveModelSnapshot,
 ) -> ModelCompilationResponse:
-    with SessionLocal() as session:
-        draft = load_draft(session, draft_id)
-        require_draft_version(draft, payload.expectedVersion)
-        compiled = compile_model(draft.model_json)
-        if not compiled.valid or compiled.model is None:
-            return ModelCompilationResponse(
-                valid=False,
-                diagnostics=[_diagnostic_response(item) for item in compiled.diagnostics],
-                compatibility=ModelCompatibilityResponse(
-                    classification="invalid",
-                    activeReleaseId=snapshot.release_id,
-                    diagnostics=[],
-                ),
-            )
-        compatibility = analyze_compatibility(
-            session, snapshot.model, compiled.model, snapshot.release_id
+    draft = load_draft(session, draft_id)
+    require_draft_version(draft, payload.expectedVersion)
+    compiled = compile_model(draft.model_json)
+    if not compiled.valid or compiled.model is None:
+        return ModelCompilationResponse(
+            valid=False,
+            diagnostics=[diagnostic_response(item) for item in compiled.diagnostics],
+            compatibility=ModelCompatibilityResponse(
+                classification="invalid",
+                activeReleaseId=snapshot.release_id,
+                diagnostics=[],
+            ),
         )
-        baseline_release = None
-        if draft.base_model_release_id is not None:
-            baseline_release = session.get(ModelRelease, draft.base_model_release_id)
-        if baseline_release is None:
-            baseline_release = session.scalar(
-                select(ModelRelease).where(ModelRelease.public_id == snapshot.release_id)
-            )
-        if baseline_release is None:
-            raise api_error(503, "model_runtime_state_unavailable", "Model runtime state is unavailable")
-        baseline = compile_model(baseline_release.model_json)
-        if not baseline.valid or baseline.canonical_model is None:
-            raise api_error(500, "invalid_installed_model", "An installed model release failed validation")
-        if compiled.canonical_model is None:
-            raise api_error(500, "internal_error", "Compiled model result is incomplete")
-        changes = semantic_diff(baseline.canonical_model, compiled.canonical_model)
+    compatibility = analyze_compatibility(
+        session, snapshot.model, compiled.model, snapshot.release_id
+    )
+    baseline_release = None
+    if draft.base_model_release_id is not None:
+        baseline_release = session.get(ModelRelease, draft.base_model_release_id)
+    if baseline_release is None:
+        baseline_release = session.scalar(
+            select(ModelRelease).where(ModelRelease.public_id == snapshot.release_id)
+        )
+    if baseline_release is None:
+        raise api_error(
+            503, "model_runtime_state_unavailable", "Model runtime state is unavailable"
+        )
+    baseline = compile_model(baseline_release.model_json)
+    if not baseline.valid or baseline.canonical_model is None:
+        raise api_error(
+            500, "invalid_installed_model", "An installed model release failed validation"
+        )
+    if compiled.canonical_model is None:
+        raise api_error(500, "internal_error", "Compiled model result is incomplete")
+    changes = semantic_diff(baseline.canonical_model, compiled.canonical_model)
 
     return ModelCompilationResponse(
         valid=True,
         model=compiled.canonical_model,
         modelHash=compiled.model_hash,
-        diagnostics=[_diagnostic_response(item) for item in compiled.diagnostics],
+        diagnostics=[diagnostic_response(item) for item in compiled.diagnostics],
         againstReleaseId=baseline_release.public_id,
-        changes=[
-            {
-                "kind": item.kind,
-                "path": item.path,
-                **({"before": item.before} if item.kind != "added" else {}),
-                **({"after": item.after} if item.kind != "removed" else {}),
-            }
-            for item in changes
-        ],
+        changes=[change_response(item) for item in changes],
         compatibility=ModelCompatibilityResponse(
             classification=compatibility.classification,
             activeReleaseId=compatibility.active_release_id,
-            diagnostics=[
-                _diagnostic_response(item) for item in compatibility.diagnostics
-            ],
+            diagnostics=[diagnostic_response(item) for item in compatibility.diagnostics],
         ),
     )
 
@@ -300,10 +268,11 @@ def compile_model_draft(
 def install_model_draft(
     draft_id: str,
     payload: ModelDraftVersionRequest,
+    session: DbSession,
     snapshot: ActiveModelSnapshot,
     response: Response,
 ) -> ModelReleaseResponse:
-    with model_installation_lock, SessionLocal() as session:
+    with model_installation_lock:
         draft = load_draft_for_update(session, draft_id)
         require_draft_version(draft, payload.expectedVersion)
         compiled = compile_model(draft.model_json)
@@ -312,7 +281,7 @@ def install_model_draft(
                 422,
                 "invalid_model",
                 "Model draft is invalid and cannot be installed",
-                [_diagnostic_response(item).model_dump(exclude_none=True) for item in compiled.diagnostics],
+                diagnostic_details(compiled.diagnostics),
             )
         analyze_compatibility(session, snapshot.model, compiled.model, snapshot.release_id)
         try:
@@ -348,30 +317,18 @@ def install_model_draft(
             version=release.release_version,
             schemaVersion=release.schema_version,
             modelHash=release.model_hash,
-            installedAt=_as_utc(release.installed_at),
+            installedAt=as_utc(release.installed_at),
             active=release.public_id == snapshot.release_id,
         )
 
 
-def _draft_response(session, draft: ModelDraft) -> ModelDraftResponse:
+def draft_response(session: Session, draft: ModelDraft) -> ModelDraftResponse:
     return ModelDraftResponse(
         id=draft.public_id,
         name=draft.name,
         baseReleaseId=base_release_public_id(session, draft),
         model=draft.model_json,
         version=draft.version,
-        createdAt=_as_utc(draft.created_at),
-        updatedAt=_as_utc(draft.updated_at),
+        createdAt=as_utc(draft.created_at),
+        updatedAt=as_utc(draft.updated_at),
     )
-
-
-def _diagnostic_response(item: ModelDiagnostic) -> ModelDiagnosticResponse:
-    values = {
-        "severity": item.severity,
-        "code": item.code,
-        "path": item.path,
-        "message": item.message,
-    }
-    if item.count is not None:
-        values["count"] = item.count
-    return ModelDiagnosticResponse(**values)

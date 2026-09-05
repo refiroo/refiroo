@@ -7,8 +7,8 @@ from fastapi.encoders import jsonable_encoder
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
-from ..errors import api_error
-from ..models.database import AuditEvent, ModelDraft, ModelRelease
+from ...errors import api_error
+from ...models.database import AuditEvent, ModelDraft, ModelRelease
 
 
 def create_draft(

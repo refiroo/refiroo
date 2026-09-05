@@ -2,7 +2,8 @@
 
 This document describes commit `d35450d` only. Subsequent API and schema work in the working tree is
 documented in `docs/API.md` and `docs/PROJECT_STATUS.md` and is not covered by the “did not change”
-statements below.
+statements below. A later structural pass over the backend is documented separately in
+`docs/BACKEND_STRUCTURE_REFACTOR.md`.
 
 ## Summary
 
