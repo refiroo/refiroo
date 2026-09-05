@@ -82,9 +82,9 @@ export function RelationsPanel({
       }),
     [object.id, panel.config.direction, relationTypeKey],
   );
-  // The feed owns loading failures; `removeError` carries failures from the delete flow. Both are
-  // surfaced in the inline banner, and only the delete failure reaches the confirmation dialog.
-  const error = feedError || removeError;
+  // Loading failures belong to the panel; delete failures stay in their confirmation dialog so
+  // cancelling that action cannot leave the collection in a persistent feed-error state.
+  const error = feedError;
   const visible = relations.filter((item) => panel.config.relationTypeKeys.includes(item.relation.relationTypeKey));
   const showRelationshipColumn = panel.config.showRelationshipColumn !== false;
   const tableColumnCount = panel.config.columns.length + 1 + (showRelationshipColumn ? 1 : 0);
@@ -284,7 +284,10 @@ export function RelationsPanel({
           confirmLabel="Delete relationship"
           pending={pending}
           error={removeError}
-          onCancel={() => setRemoving(undefined)}
+          onCancel={() => {
+            setRemoving(undefined);
+            setRemoveError("");
+          }}
           onConfirm={remove}
         >
           <p>The connected objects will remain. Only this relationship will be deleted.</p>

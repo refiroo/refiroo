@@ -55,6 +55,7 @@ export function useCursorFeed<T>(
   const fetchRef = useRef(fetchPage);
   const mergeRef = useRef(merge);
   const failedMode = useRef<"reload" | "more">("reload");
+  const requestGeneration = useRef(0);
 
   // Declared before the loading effect so React runs it first, leaving both refs on this render's
   // closures before anything reads them. Assigning during render would be a render-phase write.
@@ -65,47 +66,57 @@ export function useCursorFeed<T>(
 
   useEffect(() => {
     let active = true;
+    const generation = ++requestGeneration.current;
     setLoading(true);
     setError("");
     fetchRef
       .current(undefined)
       .then((page) => {
-        if (!active) return;
+        if (!active || requestGeneration.current !== generation) return;
         setItems(mergeRef.current([], page.items));
         setCursor(page.nextCursor ?? undefined);
       })
       .catch((cause) => {
-        if (!active) return;
+        if (!active || requestGeneration.current !== generation) return;
         failedMode.current = "reload";
         setError(errorMessage(cause));
       })
       .finally(() => {
-        if (active) setLoading(false);
+        if (active && requestGeneration.current === generation) setLoading(false);
       });
     return () => {
       active = false;
+      if (requestGeneration.current === generation) requestGeneration.current += 1;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the caller declares the reload keys
   }, [...deps, reloadToken]);
 
   const loadMore = useCallback(() => {
     if (!cursor) return;
+    const generation = requestGeneration.current;
     setLoading(true);
     setError("");
     fetchRef
       .current(cursor)
       .then((page) => {
+        if (requestGeneration.current !== generation) return;
         setItems((current) => mergeRef.current(current, page.items));
         setCursor(page.nextCursor ?? undefined);
       })
       .catch((cause) => {
+        if (requestGeneration.current !== generation) return;
         failedMode.current = "more";
         setError(errorMessage(cause));
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (requestGeneration.current === generation) setLoading(false);
+      });
   }, [cursor]);
 
-  const reload = useCallback(() => setReloadToken((token) => token + 1), []);
+  const reload = useCallback(() => {
+    requestGeneration.current += 1;
+    setReloadToken((token) => token + 1);
+  }, []);
   const retry = useCallback(() => {
     if (failedMode.current === "more") loadMore();
     else reload();

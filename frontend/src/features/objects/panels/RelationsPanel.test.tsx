@@ -5,7 +5,7 @@ import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import type { RelationsPanelDefinition } from "@/types";
 import { RelationsPanel } from "@/features/objects/panels/RelationsPanel";
 
-vi.mock("@/api/client", () => ({ api: { relations: vi.fn() } }));
+vi.mock("@/api/client", () => ({ api: { relations: vi.fn(), deleteRelation: vi.fn() } }));
 
 const panel: RelationsPanelDefinition = {
   key: "relations",
@@ -209,5 +209,23 @@ describe("RelationsPanel", () => {
       relationTypeKey: "domain-contains-codelist",
       cursor: "next",
     });
+  });
+
+  it("clears a relationship-delete failure when its confirmation is cancelled", async () => {
+    const model = {
+      ...testModel,
+      objectTypes: testModel.objectTypes.map((item) =>
+        item.key === "codelist" ? { ...item, behavior: { parentRelationTypeKeys: [] } } : item,
+      ),
+    };
+    vi.mocked(api.deleteRelation).mockRejectedValueOnce(new Error("Relationship delete unavailable"));
+
+    render(<RelationsPanel model={model} object={domainObject} panel={panel} onOpen={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    fireEvent.click(screen.getByRole("button", { name: "Delete relationship" }));
+    expect(await screen.findByText("Relationship delete unavailable")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByText("Relationship delete unavailable")).not.toBeInTheDocument();
   });
 });

@@ -71,6 +71,10 @@ export function Modal({
 }) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDivElement>(null);
+  // React applies a child's `autoFocus` before passive effects run. Capture the opener during the
+  // modal's first render, while focus still sits outside the newly mounted subtree, so cleanup can
+  // restore it even when a form field claims focus during commit.
+  const returnFocusRef = useRef(document.activeElement as HTMLElement | null);
   // Read by the key handler, which is registered once and must not close over a stale `busy`.
   const busyRef = useRef(busy);
   const closeRef = useRef(onClose);
@@ -84,7 +88,7 @@ export function Modal({
     const id = `${Math.random()}`;
     if (!stack.length) unlockedOverflow = document.body.style.overflow;
     stack.push(id);
-    const previous = document.activeElement as HTMLElement | null;
+    const previous = returnFocusRef.current;
     document.body.style.overflow = "hidden";
 
     const dialog = dialogRef.current;

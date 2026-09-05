@@ -78,6 +78,19 @@ describe("Modal", () => {
     expect(document.activeElement).toBe(screen.getByLabelText("Name"));
   });
 
+  it("restores the opener after an autoFocus child unmounts", () => {
+    const { trigger, unmount } = openFrom(
+      <Modal title="Named" onClose={vi.fn()}>
+        <input autoFocus aria-label="Name" />
+      </Modal>,
+    );
+
+    expect(document.activeElement).toBe(screen.getByLabelText("Name"));
+    unmount();
+    expect(document.activeElement).toBe(trigger);
+    trigger.remove();
+  });
+
   it("keeps Tab inside the dialog in both directions", () => {
     render(
       <Modal title="Trapped" onClose={vi.fn()} showClose={false}>

@@ -50,6 +50,9 @@ All notable changes to this project are documented in this file. The format foll
 
 - A detail panel naming an object type that a later release retired now reports it instead of
   crashing the detail screen through a non-null assertion.
+- Modals restore focus to their opener even when a form field uses `autoFocus`; cursor feeds ignore
+  late load-more responses after their query changes or reloads; and cancelling a failed relationship
+  deletion clears its action-specific error without blocking relation paging.
 
 ## [0.5.0] - 2026-09-05
 
