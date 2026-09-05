@@ -10,6 +10,7 @@ import { HistoryPanel } from "./HistoryPanel";
 import { InlineError } from "./AsyncState";
 import type {
   ApplicationDefinition,
+  AttributesPanelDefinition,
   ChildrenPanelDefinition,
   DeleteImpact,
   EngineModel,
@@ -17,43 +18,59 @@ import type {
   ObjectItem,
   ObjectPage,
   PanelDefinition,
+  RelationsPanelDefinition,
   TablePanelDefinition,
 } from "../types";
 
-interface PanelProps {
+interface PanelProps<P extends PanelDefinition = PanelDefinition> {
   model: EngineModel;
   application: ApplicationDefinition;
   object: ObjectItem;
-  panel: PanelDefinition;
+  panel: P;
   onOpen: (objectTypeKey: string, objectId: string, applicationKey?: string) => void;
   onChanged: () => void;
   onObjectChanged: (object: ObjectItem) => void;
   onReload: () => Promise<void>;
 }
 
-type PanelComponent = (props: PanelProps) => React.ReactNode;
+/**
+ * Panel type key to the component that renders it. `PanelDefinition` is a discriminated union on
+ * `type`, so keying the registry by that discriminant hands every entry its own narrowed panel
+ * definition and removes the per-entry cast this registry used to carry.
+ */
+type PanelComponentRegistry = {
+  [K in PanelDefinition["type"]]: React.ComponentType<PanelProps<Extract<PanelDefinition, { type: K }>>>;
+};
 
-export const panelComponentRegistry: Record<PanelDefinition["type"], PanelComponent> = {
-  attributes: (props) => (
+function AttributesPanelSection(props: PanelProps<AttributesPanelDefinition>) {
+  return (
     <EditableAttributesPanel
       model={props.model}
       object={props.object}
-      panel={props.panel as import("../types").AttributesPanelDefinition}
+      panel={props.panel}
       onObjectChanged={props.onObjectChanged}
       onReload={props.onReload}
       onChanged={props.onChanged}
     />
-  ),
-  children: ChildrenPanel,
-  relations: (props) => (
+  );
+}
+
+function RelationsPanelSection(props: PanelProps<RelationsPanelDefinition>) {
+  return (
     <EditableRelationsPanel
       model={props.model}
       object={props.object}
-      panel={props.panel as import("../types").RelationsPanelDefinition}
+      panel={props.panel}
       onOpen={props.onOpen}
       onChanged={props.onChanged}
     />
-  ),
+  );
+}
+
+export const panelComponentRegistry: PanelComponentRegistry = {
+  attributes: AttributesPanelSection,
+  children: ChildrenPanel,
+  relations: RelationsPanelSection,
   table: TablePanel,
   hierarchy: HierarchyPanel,
 };
@@ -187,23 +204,26 @@ export function ObjectDetail({
   }
 
   function renderPanel(panel: PanelDefinition) {
-    const Component = panelComponentRegistry[panel.type];
+    // The registry is keyed by the union discriminant, so each entry is narrower than the union
+    // being dispatched. TypeScript cannot correlate the two across an index access, which is why
+    // this one widening assertion stands in for the per-entry casts the registry used to carry.
+    const Component = panelComponentRegistry[panel.type] as React.ComponentType<PanelProps>;
     return (
       <section className="panel surface" key={panel.key}>
         <h2>{panel.title}</h2>
-        {Component({
-          model,
-          application,
-          object: currentObject,
-          panel,
-          onOpen,
-          onChanged: handleChanged,
-          onObjectChanged: (saved) => {
+        <Component
+          model={model}
+          application={application}
+          object={currentObject}
+          panel={panel}
+          onOpen={onOpen}
+          onChanged={handleChanged}
+          onObjectChanged={(saved) => {
             setObject(saved);
             handleChanged();
-          },
-          onReload: loadObject,
-        })}
+          }}
+          onReload={loadObject}
+        />
       </section>
     );
   }
