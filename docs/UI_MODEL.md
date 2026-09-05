@@ -31,6 +31,33 @@ The foundation must:
 - render structured field errors together with a task-level error summary; and
 - use an intentional icon system with accessible names instead of decorative text glyphs.
 
+### Implemented Base 0.6 foundation
+
+`frontend/src/ui/` is the application-facing component boundary. Feature and application modules are
+lint-prohibited from importing `react-aria-components`, `lucide-react` or their subpaths directly.
+React Aria currently supplies dialog/overlay focus and dismissal, combobox/listbox selection, menus
+and tabs behind RDM wrappers. Simple inputs, buttons, links, forms and tables remain native HTML.
+Lucide is exposed only through `ui/Icon.tsx`, which hides decorative icons and requires a label when
+the icon itself conveys information.
+
+The CSS token contract is defined in `frontend/src/styles/base.css` and grouped by semantic role:
+
+- `--color-*` describes canvas, surface, text, border, accent and feedback roles;
+- `--space-*` supplies the shared spacing scale;
+- `--text-*` supplies readable small, body and heading sizes;
+- `--radius-*`, `--focus-ring` and `--shadow-overlay` define shape, keyboard focus and elevation.
+
+Plain component CSS consumes those tokens; the application model never contains a CSS token or
+primitive-library name. The shell exposes product, workspace, application, view and object-type
+context separately, includes a skip link and collapses application navigation behind a labelled
+control at narrow widths. Tables retain native table semantics inside a labelled horizontal-scroll
+region. Contextual row actions use a keyboard-operated menu while `Open` remains directly visible.
+
+The WP1 workspace combobox intentionally preserves Base 0.5 custom-key entry and offers only the
+current and default keys as local suggestions. It proves the interaction boundary but is not a
+workspace catalogue; searchable catalogue data, labels, retirement state and unknown-key handling
+remain exclusively WP2.
+
 ## Component registry
 
 Each supported stable view type must map to a tested generic component. The planned semantic registry

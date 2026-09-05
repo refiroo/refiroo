@@ -19,6 +19,33 @@
   --accent: #174f43;
   --accent-soft: #e6f1ed;
   --sidebar: 328px;
+
+  /* RDM semantic foundation. Components consume these roles rather than vendor theme values. */
+  --color-canvas: #f3f5f2;
+  --color-surface: #fff;
+  --color-surface-subtle: #f8faf9;
+  --color-text: #17221f;
+  --color-text-muted: #66736e;
+  --color-border: #dfe5e1;
+  --color-accent: #174f43;
+  --color-accent-hover: #1e6656;
+  --color-danger: #a63636;
+  --color-danger-soft: #fff4f4;
+  --color-warning-soft: #fff7e2;
+  --color-success-soft: #e7f5eb;
+  --focus-ring: 0 0 0 3px rgba(41, 112, 94, 0.24);
+  --radius-control: 8px;
+  --radius-surface: 13px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --text-small: 0.75rem;
+  --text-body: 0.875rem;
+  --text-heading: clamp(1.625rem, 2.2vw, 2.125rem);
+  --shadow-overlay: 0 28px 90px rgba(9, 24, 18, 0.28);
 }
 
 * {
@@ -42,6 +69,24 @@ button:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 3px solid rgba(41, 112, 94, 0.22);
+  outline: 2px solid var(--color-accent);
   outline-offset: 1px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.icon {
+  display: inline-block;
+  flex: none;
+  stroke-width: 2;
 }

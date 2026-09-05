@@ -1,6 +1,7 @@
 import type { EngineModel, ObjectItem } from "@/types";
 import { formatValue } from "@/ui/formatValue";
 import { attributeName, fieldValue } from "@/model/fields";
+import { ActionMenu } from "@/ui/ActionMenu";
 
 export function ObjectTable({
   model,
@@ -10,6 +11,7 @@ export function ObjectTable({
   onOpen,
   onEdit,
   onDelete,
+  label = "Objects",
 }: {
   model: EngineModel;
   columns: string[];
@@ -18,11 +20,13 @@ export function ObjectTable({
   onOpen: (item: ObjectItem) => void;
   onEdit?: (item: ObjectItem) => void;
   onDelete?: (item: ObjectItem) => void;
+  label?: string;
 }) {
   const hasActions = Boolean(onEdit || onDelete);
   return (
-    <div className="table-wrap">
-      <table>
+    <div className="table-wrap" role="region" aria-label={label} tabIndex={0}>
+      <table aria-busy={loading || undefined}>
+        <caption className="visually-hidden">{label}</caption>
         <thead>
           <tr>
             {columns.map((column) => (
@@ -62,12 +66,22 @@ export function ObjectTable({
                   <td>
                     <div className="row-actions">
                       <button onClick={() => onOpen(item)}>Open</button>
-                      {onEdit && <button onClick={() => onEdit(item)}>Edit</button>}
-                      {onDelete && (
-                        <button className="text-danger" onClick={() => onDelete(item)}>
-                          Delete
-                        </button>
-                      )}
+                      <ActionMenu
+                        label={`More actions for ${item.name}`}
+                        items={[
+                          ...(onEdit ? [{ id: "edit", label: "Edit", onAction: () => onEdit(item) }] : []),
+                          ...(onDelete
+                            ? [
+                                {
+                                  id: "delete",
+                                  label: "Delete",
+                                  tone: "danger" as const,
+                                  onAction: () => onDelete(item),
+                                },
+                              ]
+                            : []),
+                        ]}
+                      />
                     </div>
                   </td>
                 )}

@@ -8,11 +8,13 @@
  * application and workspace.
  */
 
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { Explorer } from "@/features/objects/Explorer";
 import { WorkspaceSelector } from "@/features/workspaces/WorkspaceSelector";
 import { viewRoute } from "@/routing/routes";
 import type { ApplicationDefinition, EngineModel, ObjectItem, RouteState } from "@/types";
+import { Icon } from "@/ui/Icon";
 
 export function AppShell({
   model,
@@ -37,8 +39,19 @@ export function AppShell({
   onOpenObject: (item: Pick<ObjectItem, "applicationKey" | "objectTypeKey" | "id" | "workspaceKey">) => void;
   children: ReactNode;
 }) {
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  const activeView =
+    activeRoute.kind === "list" ? application.views.find((view) => view.key === activeRoute.viewKey) : undefined;
+  const activeObjectType =
+    activeRoute.kind === "detail"
+      ? model.objectTypes.find((item) => item.key === activeRoute.objectTypeKey)
+      : undefined;
+
   return (
     <div className={`app-shell${activeRoute.kind === "models" ? " models-mode" : ""}`}>
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
       <header className="global-header">
         <button className="product-mark" onClick={() => onHome()} aria-label={`${model.product.name} home`}>
           <span>R</span>
@@ -49,6 +62,7 @@ export function AppShell({
             <button
               key={item.key}
               className={activeRoute.kind !== "models" && item.key === application.key ? "active" : ""}
+              aria-current={activeRoute.kind !== "models" && item.key === application.key ? "page" : undefined}
               onClick={() => onSelectApplication(item)}
             >
               <span style={{ backgroundColor: item.color }} />
@@ -57,6 +71,7 @@ export function AppShell({
           ))}
           <button
             className={activeRoute.kind === "models" ? "active" : ""}
+            aria-current={activeRoute.kind === "models" ? "page" : undefined}
             onClick={() => onNavigate({ kind: "models" })}
           >
             Models
@@ -71,14 +86,31 @@ export function AppShell({
         </div>
       </header>
       {activeRoute.kind !== "models" && (
-        <aside className="workspace-sidebar">
+        <button
+          type="button"
+          className="navigation-toggle"
+          aria-expanded={navigationOpen}
+          aria-controls="workspace-navigation"
+          onClick={() => setNavigationOpen((open) => !open)}
+        >
+          <Icon name="menu" />
+          {navigationOpen ? "Hide application navigation" : "Browse application"}
+        </button>
+      )}
+      {activeRoute.kind !== "models" && (
+        <aside id="workspace-navigation" className={`workspace-sidebar${navigationOpen ? " navigation-open" : ""}`}>
           <nav className="view-nav" aria-label={`${application.name} views`}>
-            <p className="nav-label">Views</p>
+            <p className="nav-label">{application.name}</p>
+            <h2>Views</h2>
             {application.views.map((view) => (
               <button
                 key={view.key}
                 className={activeRoute.kind === "list" && activeRoute.viewKey === view.key ? "active" : ""}
-                onClick={() => onNavigate(viewRoute(application, view.key, activeRoute.workspaceKey))}
+                aria-current={activeRoute.kind === "list" && activeRoute.viewKey === view.key ? "page" : undefined}
+                onClick={() => {
+                  setNavigationOpen(false);
+                  onNavigate(viewRoute(application, view.key, activeRoute.workspaceKey));
+                }}
               >
                 <span>{view.name}</span>
                 <small>{view.type}</small>
@@ -95,7 +127,25 @@ export function AppShell({
           />
         </aside>
       )}
-      <main className="workspace-main">{children}</main>
+      <main id="main-content" className="workspace-main" tabIndex={-1}>
+        {activeRoute.kind !== "models" && (
+          <div className="shell-context" aria-label="Current context">
+            <span>
+              <small>Workspace</small>
+              {activeRoute.workspaceKey}
+            </span>
+            <span>
+              <small>Application</small>
+              {application.name}
+            </span>
+            <span>
+              <small>{activeRoute.kind === "list" ? "View" : "Object type"}</small>
+              {activeView?.name ?? activeObjectType?.name}
+            </span>
+          </div>
+        )}
+        {children}
+      </main>
     </div>
   );
 }

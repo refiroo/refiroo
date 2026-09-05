@@ -6,6 +6,7 @@ import type { EngineModel, ObjectItem, ObjectTypeDefinition } from "@/types";
 import { AttributeField } from "@/ui/AttributeField";
 import { attributeValueFromForm } from "@/ui/attributeForm";
 import { Modal } from "@/ui/Modal";
+import { Notice } from "@/ui/Notice";
 import { ObjectLookup } from "@/ui/ObjectLookup";
 
 export function ObjectFormDialog({
@@ -35,6 +36,7 @@ export function ObjectFormDialog({
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [dirty, setDirty] = useState(false);
   const [baselineObject, setBaselineObject] = useState(object);
   const [objectVersion, setObjectVersion] = useState(object?.version ?? 1);
   const activeWorkspaceKey = workspaceKey ?? object?.workspaceKey ?? "default";
@@ -156,9 +158,10 @@ export function ObjectFormDialog({
       title={object ? object.name : `New ${objectType.name}`}
       eyebrow={object ? "Edit object" : "Create in context"}
       busy={saving}
+      dirty={dirty}
       onClose={onClose}
     >
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onChange={() => setDirty(true)}>
         {parentTypeKeys.length > 0 && (
           <label>
             Parent
@@ -262,9 +265,18 @@ export function ObjectFormDialog({
             />
           ))
         )}
-        {error && <div className="notice error-notice">{error}</div>}
+        {error && (
+          <Notice tone="error" title="The object was not saved" focusable>
+            {error}
+          </Notice>
+        )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={saving} onClick={onClose}>
+          <button
+            type="button"
+            className="secondary"
+            disabled={saving}
+            onClick={() => (!dirty || window.confirm("Discard your unsaved changes?")) && onClose()}
+          >
             Cancel
           </button>
           <button

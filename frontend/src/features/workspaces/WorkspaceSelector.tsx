@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { ComboBoxField } from "@/ui/Selection";
 
 export function WorkspaceSelector({
   workspaceKey,
@@ -21,9 +22,19 @@ export function WorkspaceSelector({
 
   return (
     <form className="workspace-selector" onSubmit={submit}>
-      <label htmlFor="workspace-key">Workspace</label>
-      <input id="workspace-key" value={value} onChange={(event) => setValue(event.target.value)} />
-      <button type="submit">Apply</button>
+      <ComboBoxField
+        label="Workspace"
+        value={value}
+        onChange={setValue}
+        options={Array.from(new Set([workspaceKey, "default"])).map((key) => ({
+          id: key,
+          label: key,
+          description: key === workspaceKey ? "Current workspace" : undefined,
+        }))}
+      />
+      <button type="submit" className="workspace-apply">
+        Apply
+      </button>
     </form>
   );
 }

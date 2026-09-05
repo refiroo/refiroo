@@ -7,6 +7,7 @@
 
 import { useRef } from "react";
 import { Modal } from "./Modal";
+import { Notice } from "./Notice";
 
 export function ConfirmDialog({
   title,
@@ -39,7 +40,11 @@ export function ConfirmDialog({
     >
       <div className="dialog-body">
         {children}
-        {error && <div className="notice error-notice">{error}</div>}
+        {error && (
+          <Notice tone="error" title="The action could not be completed">
+            {error}
+          </Notice>
+        )}
       </div>
       <div className="dialog-actions">
         <button ref={cancelRef} className="secondary" disabled={pending} onClick={onCancel}>

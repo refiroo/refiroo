@@ -33,8 +33,13 @@ model contract or architecture: `frontend/src` is organized into `app/`, `featur
 handling each have one implementation; and the frontend has lint and format tooling for the first
 time, which the definition of done had always required. Phase 5 followed: every dialog now shares
 one modal shell in `frontend/src/ui/Modal.tsx`, with Escape, focus restore, a focus trap and a
-scroll lock applied consistently. Phase 6 remains as implementation work governed by accepted
-ADR-021.
+scroll lock applied consistently. Base 0.6 WP1 then moved those difficult overlay mechanics behind
+the RDM-owned React Aria boundary, added exact Lucide and React Aria dependency locks, enforced the
+feature-import boundary in ESLint, and established semantic selection, menu, notice, dialog, tab and
+icon wrappers with documented plain-CSS tokens. The shell now distinguishes product, workspace,
+application, view and object-type context, provides a skip link and labelled narrow-layout
+navigation, and keeps native table semantics in a labelled scroll region. Phase 6 remains as
+implementation work governed by accepted ADR-021.
 
 The global Models workbench keeps installed releases readable when administration mutations are
 disabled. When enabled, it supports JSON draft creation/import/editing, authoritative validation,
@@ -153,11 +158,9 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 - Model-declared `filterable` and `sortable` attribute features are not implemented in object queries;
   collection controls cover search, free-text state and built-in sorts only.
 - The UI has component-level regression coverage but no browser-level workflow, automated
-  accessibility or visual-regression release gate. Its visual language is an ad hoc compact dashboard
-  rather than a documented, task-tested RDM design system. The stylesheet is now layered under
-  `frontend/src/styles/`, but its tokens are still six custom properties over several hundred
-  hardcoded colours. ADR-023 now defines the Base 0.6 foundation: React Aria behavior behind RDM-owned
-  wrappers, repository-owned plain CSS and Lucide behind one accessible icon boundary.
+  accessibility or visual-regression release gate. WP1 now provides the documented RDM token and
+  semantic-wrapper foundation, but broader adoption and real-browser proof remain release work rather
+  than a claim that component primitives alone complete accessibility.
 - Dialog keyboard behavior is now consistent through the shared `ui/Modal` shell, but it has only
   been exercised in jsdom. Nothing has driven a real browser or a screen reader; Base 0.6 WP6 owns
   that gate.
@@ -203,9 +206,9 @@ See `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` for the completed historical work pac
 the active delivery queue and `docs/ROADMAP.md` for the release exit gate and later milestones.
 
 All Base 0.5 work packages and exit gates are complete. D1 through D5 are accepted. The Base 0.6 WP0
-interaction baseline is reviewed and complete. WP1, the UI foundation and shell, is next, followed by
-workspace authority, schema 0.5 typed tables, authoritative object revisions, lifecycle UI and release
-gates. Core mapping is product 0.7 and bulk mapping remains in the later integration milestone.
+interaction baseline and WP1 UI foundation are complete. WP2 workspace authority is next, followed by
+schema 0.5 typed tables, authoritative object revisions, lifecycle UI and release gates. Core mapping
+is product 0.7 and bulk mapping remains in the later integration milestone.
 
 ## Coding-agent handoff
 

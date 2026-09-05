@@ -15,6 +15,7 @@ import { InlineError } from "@/ui/InlineError";
 import { ObjectTable } from "@/ui/ObjectTable";
 import { Pagination } from "@/ui/Pagination";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
+import { Icon } from "@/ui/Icon";
 import type { PanelProps } from "./types";
 
 export function CollectionPanelTable({
@@ -71,7 +72,7 @@ export function CollectionPanelTable({
     <div className="embedded-table">
       <div className="embedded-toolbar">
         <label className="search-box compact">
-          <span>⌕</span>
+          <Icon name="search" />
           <input
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
@@ -80,7 +81,7 @@ export function CollectionPanelTable({
         </label>
         {allowCreate && (
           <button className="secondary" onClick={() => setCreating(true)}>
-            + Add {objectType.name}
+            <Icon name="plus" /> Add {objectType.name}
           </button>
         )}
       </div>

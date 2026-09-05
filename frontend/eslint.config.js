@@ -33,4 +33,30 @@ export default tseslint.config(
     files: ["**/*.test.{ts,tsx}", "src/test/**/*.ts"],
     languageOptions: { globals: { ...globals.node } },
   },
+  {
+    files: ["src/{app,features,lib,model,routing}/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "react-aria-components",
+              message: "Import the RDM-owned semantic wrapper from @/ui instead.",
+            },
+            {
+              name: "lucide-react",
+              message: "Use the accessible RDM Icon wrapper from @/ui/Icon instead.",
+            },
+          ],
+          patterns: [
+            {
+              group: ["react-aria-components/*", "lucide-react/*"],
+              message: "Feature modules may depend only on RDM-owned wrappers from @/ui.",
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

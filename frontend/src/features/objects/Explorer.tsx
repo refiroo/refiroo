@@ -5,6 +5,7 @@ import { errorMessage } from "@/api/errors";
 import { objectTypeFor } from "@/model/lookup";
 import type { ApplicationDefinition, EngineModel, ObjectItem, ObjectPage } from "@/types";
 import { InlineError } from "@/ui/InlineError";
+import { Icon } from "@/ui/Icon";
 
 interface LoadedPage extends ObjectPage {
   loaded: ObjectItem[];
@@ -102,7 +103,7 @@ export function Explorer({
           style={{ paddingLeft: `${12 + depth * 17}px` }}
           onClick={() => onOpen(item)}
         >
-          <span className="tree-branch">{children.has(item.id) ? "⌄" : "·"}</span>
+          <span className="tree-branch">{children.has(item.id) ? <Icon name="chevron-down" size={14} /> : null}</span>
           <span className="tree-name">{item.name}</span>
           <span className="type-tag">{objectTypeFor(model, item.objectTypeKey)?.name}</span>
         </button>
@@ -123,7 +124,7 @@ export function Explorer({
         <span className="app-badge" style={{ backgroundColor: application.color }} />
       </div>
       <label className="search-box compact">
-        <span>⌕</span>
+        <Icon name="search" />
         <input
           value={searchInput}
           onChange={(event) => setSearchInput(event.target.value)}

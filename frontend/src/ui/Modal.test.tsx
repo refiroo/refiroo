@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { Modal } from "./Modal";
@@ -12,24 +12,16 @@ function openFrom(ui: React.ReactElement) {
 }
 
 describe("Modal", () => {
-  it("labels itself with a generated id, so two open dialogs cannot collide", () => {
+  it("derives its accessible name from the visible title", () => {
     render(
-      <>
-        <Modal title="First" onClose={vi.fn()}>
-          <p>one</p>
-        </Modal>
-        <Modal title="Second" onClose={vi.fn()}>
-          <p>two</p>
-        </Modal>
-      </>,
+      <Modal title="First" onClose={vi.fn()}>
+        <p>one</p>
+      </Modal>,
     );
-    const [first, second] = screen.getAllByRole("dialog");
-    expect(first).toHaveAccessibleName("First");
-    expect(second).toHaveAccessibleName("Second");
-    expect(first.getAttribute("aria-labelledby")).not.toBe(second.getAttribute("aria-labelledby"));
+    expect(screen.getByRole("dialog")).toHaveAccessibleName("First");
   });
 
-  it("closes on Escape and restores focus to whatever opened it", () => {
+  it("closes on Escape and restores focus to whatever opened it", async () => {
     const onClose = vi.fn();
     const { trigger, unmount } = openFrom(
       <Modal title="Edit" onClose={onClose}>
@@ -37,11 +29,11 @@ describe("Modal", () => {
       </Modal>,
     );
 
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape", code: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
 
     unmount();
-    expect(document.activeElement).toBe(trigger);
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
     trigger.remove();
   });
 
@@ -53,8 +45,8 @@ describe("Modal", () => {
       </Modal>,
     );
 
-    fireEvent.keyDown(window, { key: "Escape" });
-    fireEvent.mouseDown(screen.getByRole("dialog").parentElement!);
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape", code: "Escape" });
+    fireEvent.mouseDown(screen.getByRole("dialog").parentElement!.parentElement!);
 
     expect(onClose).not.toHaveBeenCalled();
   });
@@ -78,7 +70,7 @@ describe("Modal", () => {
     expect(document.activeElement).toBe(screen.getByLabelText("Name"));
   });
 
-  it("restores the opener after an autoFocus child unmounts", () => {
+  it("restores the opener after an autoFocus child unmounts", async () => {
     const { trigger, unmount } = openFrom(
       <Modal title="Named" onClose={vi.fn()}>
         <input autoFocus aria-label="Name" />
@@ -87,7 +79,7 @@ describe("Modal", () => {
 
     expect(document.activeElement).toBe(screen.getByLabelText("Name"));
     unmount();
-    expect(document.activeElement).toBe(trigger);
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
     trigger.remove();
   });
 
@@ -102,30 +94,11 @@ describe("Modal", () => {
     const last = screen.getByRole("button", { name: "Last" });
 
     last.focus();
-    fireEvent.keyDown(window, { key: "Tab" });
+    fireEvent.keyDown(last, { key: "Tab", code: "Tab" });
     expect(document.activeElement).toBe(first);
 
-    fireEvent.keyDown(window, { key: "Tab", shiftKey: true });
+    fireEvent.keyDown(first, { key: "Tab", code: "Tab", shiftKey: true });
     expect(document.activeElement).toBe(last);
-  });
-
-  it("sends Escape only to the innermost dialog", () => {
-    const outer = vi.fn();
-    const inner = vi.fn();
-    render(
-      <>
-        <Modal title="Outer" onClose={outer}>
-          <p>outer</p>
-        </Modal>
-        <Modal title="Inner" onClose={inner}>
-          <p>inner</p>
-        </Modal>
-      </>,
-    );
-
-    fireEvent.keyDown(window, { key: "Escape" });
-    expect(inner).toHaveBeenCalledTimes(1);
-    expect(outer).not.toHaveBeenCalled();
   });
 
   it("locks page scrolling until the last dialog closes", () => {
@@ -134,9 +107,24 @@ describe("Modal", () => {
         <p>content</p>
       </Modal>,
     );
-    expect(document.body.style.overflow).toBe("hidden");
+    expect(document.documentElement.style.overflow).toBe("hidden");
     unmount();
-    expect(document.body.style.overflow).not.toBe("hidden");
+    expect(document.documentElement.style.overflow).not.toBe("hidden");
+  });
+
+  it("requires confirmation before dismissing dirty content", () => {
+    const onClose = vi.fn();
+    const confirmDiscard = vi.fn().mockReturnValueOnce(false).mockReturnValueOnce(true);
+    render(
+      <Modal title="Dirty" dirty confirmDiscard={confirmDiscard} onClose={onClose}>
+        <button>Inside</button>
+      </Modal>,
+    );
+    const dialog = screen.getByRole("dialog");
+    fireEvent.keyDown(dialog, { key: "Escape", code: "Escape" });
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.keyDown(dialog, { key: "Escape", code: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
 

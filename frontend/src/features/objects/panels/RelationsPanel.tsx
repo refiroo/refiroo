@@ -10,6 +10,7 @@ import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { formatValue } from "@/ui/formatValue";
 import { attributeName, fieldValue } from "@/model/fields";
 import { InlineError } from "@/ui/InlineError";
+import { Icon } from "@/ui/Icon";
 
 export function RelationsPanel({
   model,
@@ -138,13 +139,13 @@ export function RelationsPanel({
             className="secondary"
             onClick={() => setCreatingDependent(creation)}
           >
-            + Add{" "}
+            <Icon name="plus" /> Add{" "}
             {model.objectTypes.find((item) => item.key === creation.objectTypeKey)?.name ?? creation.objectTypeKey}
           </button>
         ))}
         {choices.length > 0 && (
           <button className="secondary" onClick={() => setCreating(true)}>
-            + Add relationship
+            <Icon name="plus" /> Add relationship
           </button>
         )}
       </div>

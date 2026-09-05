@@ -23,7 +23,8 @@ release plan and changelog rather than accumulating it here.
   retained, while implementation moves with `mappingGrid` to schema 0.6/product release 0.7.
 - [x] D5: ADR-023 adopts React Aria behavior behind RDM-owned semantic wrappers and plain CSS, with
   Lucide behind one accessible icon wrapper and direct feature imports prohibited.
-- [ ] WP1: implement the UI foundation and simplified application shell.
+- [x] WP1: implement the RDM-owned accessible UI foundation, exact dependency locks, import boundary,
+  semantic wrappers and clarified desktop/narrow application shell.
 - [ ] WP2: add the workspace catalogue, default runtime state, administration API and selector.
 - [ ] WP3: implement schema 0.5 typed tables and the fixed daily-use filter/sort grammar.
 - [ ] WP4: make runtime-object revisions authoritative; migrate data and add draft, activation,

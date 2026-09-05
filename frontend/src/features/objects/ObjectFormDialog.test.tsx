@@ -33,7 +33,7 @@ describe("ObjectFormDialog", () => {
     // The dialog autofocuses Name, so the shared modal must not pull focus to itself.
     expect(document.activeElement).toBe(screen.getByLabelText("Name"));
 
-    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape", code: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -161,6 +161,27 @@ describe("ObjectFormDialog", () => {
         expect.objectContaining({ expectedVersion: 2, name: "Kept edit" }),
       ),
     );
+  });
+
+  it("confirms before dismissing a dirty complete-object form", () => {
+    const onClose = vi.fn();
+    const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
+    render(
+      <ObjectFormDialog
+        model={testModel}
+        applicationKey="test-app"
+        objectType={testModel.objectTypes[0]}
+        object={domainObject}
+        onClose={onClose}
+        onSaved={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Unsaved" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(confirm).toHaveBeenCalledTimes(2);
   });
 
   it("creates a required target relationship atomically with a new object", async () => {

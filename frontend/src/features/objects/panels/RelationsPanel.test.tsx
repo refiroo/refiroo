@@ -121,8 +121,8 @@ describe("RelationsPanel", () => {
 
     render(<RelationsPanel model={model} object={domainObject} panel={translationPanel} onOpen={vi.fn()} />);
 
-    expect(await screen.findByRole("button", { name: "+ Add Translation" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "+ Add relationship" })).not.toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Add Translation" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add relationship" })).not.toBeInTheDocument();
   });
 
   it("loads another relation page without replacing the first", async () => {

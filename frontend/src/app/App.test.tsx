@@ -27,6 +27,17 @@ describe("App", () => {
     // The product name, application nav and view nav all come from the model, not from constants.
     expect(screen.getByRole("button", { name: /Test Engine home/i })).toBeInTheDocument();
     expect(screen.getByRole("navigation", { name: "Applications" })).toBeInTheDocument();
+    const navigationToggle = screen.getByRole("button", { name: "Browse application" });
+    expect(navigationToggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(navigationToggle);
+    expect(screen.getByRole("button", { name: "Hide application navigation" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    expect(document.getElementById("workspace-navigation")).toHaveClass("navigation-open");
+    expect(screen.getByLabelText("Current context")).toHaveTextContent(
+      "WorkspacedefaultApplicationTest AppViewDomains",
+    );
     expect(window.location.pathname).toBe("/apps/test-app/views/domains");
   });
 

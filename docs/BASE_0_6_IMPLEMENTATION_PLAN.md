@@ -1,6 +1,6 @@
 # Base 0.6 implementation plan
 
-**Status:** Planned; D1-D5 accepted, WP0 reviewed and complete, WP1 is next
+**Status:** In progress; D1-D5 accepted, WP0 and WP1 complete, WP2 is next
 
 **Target:** Product release 0.6.0
 
@@ -177,7 +177,7 @@ fixtures.
 Exit: the interaction specification is independently reviewable and every journey has observable
 acceptance criteria. D1-D5 are already resolved and are not a remaining gate.
 
-### WP1 — Build the UI foundation and shell
+### WP1 — Build the UI foundation and shell (complete)
 
 Primary areas: `frontend/package.json`, `frontend/eslint.config.js`, `frontend/src/ui/`,
 `frontend/src/styles/`, `frontend/src/app/AppShell.tsx` and their tests.
@@ -309,7 +309,7 @@ object states fail with actionable diagnostics; and verify the wheel contains ev
 
 ## Coding-agent handoff
 
-Implement work packages in order and keep each independently reviewable. WP0 is the remaining gate; do
-not begin broad UI or persistence work until its interaction specification is accepted. Inspect the
-worktree before each package, preserve unrelated changes, update OpenAPI locks with public contracts
-and create a checkpoint only after that package's definition of done passes.
+Implement work packages in order and keep each independently reviewable. WP0 and WP1 are complete;
+WP2 is the next package. Inspect the worktree before each package, preserve unrelated changes, update
+OpenAPI locks with public contracts and create a checkpoint only after that package's definition of
+done passes.

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import type { CollectionQueryState, ObjectSort } from "@/types";
+import { Icon } from "@/ui/Icon";
+import { SelectField } from "@/ui/Selection";
 
 const SORTS: Array<{ value: ObjectSort; label: string }> = [
   { value: "name", label: "Name (A–Z)" },
@@ -49,7 +51,7 @@ export function ObjectToolbar({
   return (
     <div className="collection-toolbar object-toolbar">
       <label className="search-box">
-        <span>⌕</span>
+        <Icon name="search" />
         <input
           aria-label="Search"
           value={searchInput}
@@ -73,36 +75,22 @@ export function ObjectToolbar({
           placeholder="active, draft"
         />
       </label>
-      <label className="toolbar-field">
-        Sort
-        <select
-          aria-label="Sort"
-          value={query.sort}
-          onChange={(event) => onChange({ ...query, sort: event.target.value as ObjectSort })}
-        >
-          {SORTS.map((sort) => (
-            <option key={sort.value} value={sort.value}>
-              {sort.label}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="toolbar-field">
-        Per page
-        <select
-          aria-label="Page size"
-          value={query.pageSize}
-          onChange={(event) => onChange({ ...query, pageSize: Number(event.target.value) })}
-        >
-          {Array.from(new Set([10, 20, 50, 100, query.pageSize]))
-            .sort((a, b) => a - b)
-            .map((size) => (
-              <option key={size} value={size}>
-                {size}
-              </option>
-            ))}
-        </select>
-      </label>
+      <SelectField
+        className="toolbar-field"
+        label="Sort"
+        value={query.sort}
+        options={SORTS.map((sort) => ({ id: sort.value, label: sort.label }))}
+        onChange={(sort) => onChange({ ...query, sort: sort as ObjectSort })}
+      />
+      <SelectField
+        className="toolbar-field"
+        label="Per page"
+        value={String(query.pageSize)}
+        options={Array.from(new Set([10, 20, 50, 100, query.pageSize]))
+          .sort((a, b) => a - b)
+          .map((size) => ({ id: String(size), label: String(size) }))}
+        onChange={(pageSize) => onChange({ ...query, pageSize: Number(pageSize) })}
+      />
     </div>
   );
 }

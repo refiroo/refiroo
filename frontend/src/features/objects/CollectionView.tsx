@@ -12,6 +12,7 @@ import { DeleteImpactSummary } from "@/features/objects/DeleteImpactSummary";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { ObjectTable } from "@/ui/ObjectTable";
 import { Pagination } from "@/ui/Pagination";
+import { Icon } from "@/ui/Icon";
 import { ObjectToolbar } from "@/features/objects/ObjectToolbar";
 import { useCursorPages } from "@/lib/hooks/useCursorPages";
 import type { DeleteImpact, ObjectItem } from "@/types";
@@ -93,19 +94,12 @@ export function ObjectCollectionView({
     <>
       <header className="page-header collection-header">
         <div>
-          <div className="context-line">
-            <span>{application.name}</span>
-            <span>/</span>
-            <span>{view.name}</span>
-            <span>/</span>
-            <span>{workspaceKey}</span>
-          </div>
           <h1>{view.name}</h1>
           <p>{objectType.description ?? application.description}</p>
         </div>
         {objectType.features.rootCreatable === true && (
           <button className="primary" onClick={() => setShowCreate(true)}>
-            + New {objectType.name}
+            <Icon name="plus" /> New {objectType.name}
           </button>
         )}
       </header>
@@ -134,6 +128,7 @@ export function ObjectCollectionView({
           onOpen={onOpen}
           onEdit={setEditing}
           onDelete={setDeleting}
+          label={`${view.name} table`}
         />
         {!error && (
           <Pagination page={pages.pageNumber} hasNext={pages.hasNext} onPrevious={pages.previous} onNext={pages.next} />

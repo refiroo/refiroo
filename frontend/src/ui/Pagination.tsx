@@ -19,11 +19,12 @@ export function Pagination({
     <div className="pagination" aria-label="Pagination">
       <span>Page {page}</span>
       <button className="icon-button" onClick={onPrevious} disabled={page === 1} aria-label="Previous page">
-        ←
+        <Icon name="arrow-left" />
       </button>
       <button className="icon-button" onClick={onNext} disabled={!hasNext} aria-label="Next page">
-        →
+        <Icon name="arrow-right" />
       </button>
     </div>
   );
 }
+import { Icon } from "@/ui/Icon";
