@@ -322,6 +322,8 @@ class ModelCompilationResponse(BaseModel):
     modelHash: str | None = None
     diagnostics: list[ModelDiagnosticResponse]
     compatibility: ModelCompatibilityResponse
+    againstReleaseId: str | None = None
+    changes: list[ModelChangeResponse] = Field(default_factory=list)
 
 
 class RelationExpansion(BaseModel):

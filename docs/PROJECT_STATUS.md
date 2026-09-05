@@ -9,7 +9,7 @@ relation types, allowed source/relation/target triples and UI views.
 The starter model contains three configurable applications—RDM Master, RDM Systems and RDM
 Translations—but the runtime contains no branches for those names or their object-type keys.
 
-Base 0.5 WP6 is complete. The singleton database runtime-state row selects the authoritative installed
+Base 0.5 WP7 is complete. The singleton database runtime-state row selects the authoritative installed
 release, and source JSON remains bootstrap input only. Each request uses one immutable model and
 metadata snapshot. Read-only release APIs now include key-based semantic diff and bounded runtime-data
 compatibility analysis, while inline model validation returns stable JSON-path diagnostics without
@@ -26,6 +26,10 @@ for identity.
 The generic UI carries explicit workspace context in its shell and routes, restores URL-backed
 collection search/state/sort/page-size controls, provides reusable row actions and retry states, and
 shows independently paged relation expansion and audit history on object details.
+The global Models workbench keeps installed releases readable when administration mutations are
+disabled. When enabled, it supports JSON draft creation/import/editing, authoritative validation,
+optimistic-conflict recovery, canonical compilation, semantic diff and compatibility review, browser
+export, immutable installation and guarded activation without starter-model key branches.
 
 ## Source evidence incorporated
 
@@ -97,6 +101,9 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
   retryable errors, and object details expose cursor-paged audit history. Required non-parent bindings
   are selected in the generated object form and created atomically with
   the new object and its containment relation.
+- The global model workbench provides release inspection and structured model summaries in read-only
+  deployments, and capability-gated JSON draft, validation, diff, installation and activation flows in
+  the supported model-administration topology.
 - Tests cover model validation and a Domain → Codelist containment flow including the generated typed
   relation, search/cursor behavior, update concurrency and deletion behavior. Composition tests mutate
   panel order, visibility, fields and relation-table configuration without renderer changes. Frontend
@@ -143,12 +150,13 @@ Complete the bounded Base 0.5 operational foundation before building the dedicat
    audit history.
 6. **Done (WP6):** Make workspace and URL-backed collection state explicit in the generic object UI,
    including sort, state and page-size controls and the history panel.
-7. Add the lightweight JSON model workbench, with model mutations disabled by default.
+7. **Done (WP7):** Add the lightweight JSON model workbench, with model mutations disabled by default.
+8. Complete Base 0.5 release integration and documentation.
 
 See `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` for the implementation-ready work packages and
 `docs/ROADMAP.md` for the exit gate and sequenced milestones that follow.
 
-The first six work packages are complete; WP7 (lightweight model workbench) is next.
+The first seven work packages are complete; WP8 (release integration and documentation) is next.
 
 ## Coding-agent handoff
 

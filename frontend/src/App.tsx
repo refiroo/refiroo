@@ -5,6 +5,7 @@ import { Explorer } from "./components/Explorer";
 import { applicationFor, defaultRoute, parseRoute, routePath, viewRoute } from "./utils/model";
 import { ObjectDetail } from "./components/ObjectDetail";
 import { WorkspaceSelector } from "./components/WorkspaceSelector";
+import { ModelWorkbench } from "./components/model/ModelWorkbench";
 import type { ApplicationDefinition, CollectionQueryState, EngineModel, ObjectItem, RouteState } from "./types";
 
 export default function App() {
@@ -31,8 +32,9 @@ export default function App() {
   }, [model]);
 
   if (!model || !route) return <div className="center-message">{error || "Loading the model…"}</div>;
-  const application = applicationFor(model, route.applicationKey) ?? model.applications[0];
-  const activeRoute = application ? route : defaultRoute(model);
+  const requestedApplication = route.kind === "models" ? undefined : applicationFor(model, route.applicationKey);
+  const application = requestedApplication ?? model.applications[0];
+  const activeRoute = route.kind === "models" || requestedApplication ? route : defaultRoute(model);
   if (activeRoute.kind === "list") collectionReturn.current = activeRoute;
 
   function navigate(next: RouteState, replace = false) {
@@ -41,7 +43,8 @@ export default function App() {
   }
 
   function selectApplication(selected: ApplicationDefinition) {
-    navigate(viewRoute(selected, selected.defaultView, activeRoute.workspaceKey));
+    const workspaceKey = activeRoute.kind === "models" ? collectionReturn.current?.workspaceKey ?? "default" : activeRoute.workspaceKey;
+    navigate(viewRoute(selected, selected.defaultView, workspaceKey));
   }
 
   function openObject(item: Pick<ObjectItem, "applicationKey" | "objectTypeKey" | "id" | "workspaceKey">) {
@@ -55,10 +58,12 @@ export default function App() {
   }
 
   function openObjectById(objectTypeKey: string, objectId: string, applicationKey = application.key) {
+    if (activeRoute.kind === "models") return;
     navigate({ kind: "detail", applicationKey, objectTypeKey, objectId, workspaceKey: activeRoute.workspaceKey });
   }
 
   function backToCollection() {
+    if (activeRoute.kind === "models") return;
     if (collectionReturn.current?.applicationKey === application.key) {
       navigate(collectionReturn.current);
       return;
@@ -68,28 +73,30 @@ export default function App() {
   }
 
   function changeWorkspace(workspaceKey: string) {
+    if (activeRoute.kind === "models") return;
     if (collectionReturn.current) collectionReturn.current = { ...collectionReturn.current, workspaceKey };
     navigate({ ...activeRoute, workspaceKey });
     setRefreshToken((value) => value + 1);
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${activeRoute.kind === "models" ? " models-mode" : ""}`}>
       <header className="global-header">
-        <button className="product-mark" onClick={() => navigate({ ...defaultRoute(model), workspaceKey: activeRoute.workspaceKey })} aria-label={`${model.product.name} home`}>
+        <button className="product-mark" onClick={() => navigate({ ...defaultRoute(model), workspaceKey: activeRoute.kind === "models" ? collectionReturn.current?.workspaceKey ?? "default" : activeRoute.workspaceKey })} aria-label={`${model.product.name} home`}>
           <span>R</span><strong>{model.product.name}</strong>
         </button>
         <nav className="application-nav" aria-label="Applications">
           {model.applications.map((item) => (
-            <button key={item.key} className={item.key === application.key ? "active" : ""} onClick={() => selectApplication(item)}>
+            <button key={item.key} className={activeRoute.kind !== "models" && item.key === application.key ? "active" : ""} onClick={() => selectApplication(item)}>
               <span style={{ backgroundColor: item.color }} />{item.name}
             </button>
           ))}
+          <button className={activeRoute.kind === "models" ? "active" : ""} onClick={() => navigate({ kind: "models" })}>Models</button>
         </nav>
-        <WorkspaceSelector workspaceKey={activeRoute.workspaceKey} onChange={changeWorkspace} />
+        {activeRoute.kind !== "models" && <WorkspaceSelector workspaceKey={activeRoute.workspaceKey} onChange={changeWorkspace} />}
         <div className="release-chip"><span />{model.release.version}</div>
       </header>
-      <aside className="workspace-sidebar">
+      {activeRoute.kind !== "models" && <aside className="workspace-sidebar">
         <nav className="view-nav" aria-label={`${application.name} views`}>
           <p className="nav-label">Views</p>
           {application.views.map((view) => (
@@ -110,9 +117,15 @@ export default function App() {
           refreshToken={refreshToken}
           onOpen={openObject}
         />
-      </aside>
+      </aside>}
       <main className="workspace-main">
-        {activeRoute.kind === "list" ? (
+        {activeRoute.kind === "models" ? (
+          <ModelWorkbench
+            route={activeRoute}
+            onRouteChange={(next) => navigate(next)}
+            onActiveModelChange={() => api.model().then(setModel)}
+          />
+        ) : activeRoute.kind === "list" ? (
           <CollectionView
             key={`${application.key}:${activeRoute.viewKey}:${activeRoute.workspaceKey}`}
             model={model}

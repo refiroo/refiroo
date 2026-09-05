@@ -243,7 +243,8 @@ export interface CollectionQueryState {
 
 export type RouteState =
   | ({ kind: "list"; applicationKey: string; viewKey: string; workspaceKey: string } & CollectionQueryState)
-  | { kind: "detail"; applicationKey: string; objectTypeKey: string; objectId: string; workspaceKey: string };
+  | { kind: "detail"; applicationKey: string; objectTypeKey: string; objectId: string; workspaceKey: string }
+  | { kind: "models"; releaseId?: string; draftId?: string };
 
 export interface ObjectPage {
   items: ObjectItem[];
@@ -295,4 +296,98 @@ export interface DeleteImpact {
   relationshipsToRemove: DeleteRelationshipDependency[];
   objectCount: number;
   relationshipCount: number;
+}
+
+export interface ModelAdminCapabilities {
+  readReleases: boolean;
+  manageDrafts: boolean;
+  install: boolean;
+  activate: boolean;
+}
+
+export interface CapabilitiesResponse {
+  modelAdmin: ModelAdminCapabilities;
+}
+
+export interface ModelDiagnostic {
+  severity: "error" | "warning";
+  code: string;
+  path: string;
+  message: string;
+  count?: number;
+}
+
+export interface ModelCompatibility {
+  classification: "compatible" | "migration_required" | "invalid";
+  activeReleaseId: string;
+  diagnostics: ModelDiagnostic[];
+}
+
+export interface ModelChange {
+  kind: "added" | "changed" | "removed";
+  path: string;
+  before?: unknown;
+  after?: unknown;
+}
+
+export interface ModelReleaseSummary {
+  id: string;
+  key: string;
+  name: string;
+  version: string;
+  schemaVersion: string;
+  modelHash: string;
+  installedAt: string;
+  active: boolean;
+}
+
+export interface ModelRelease extends ModelReleaseSummary {
+  model?: Record<string, unknown>;
+}
+
+export interface ModelReleasePage {
+  items: ModelReleaseSummary[];
+  nextCursor: string | null;
+}
+
+export interface ModelDraft {
+  id: string;
+  name: string;
+  baseReleaseId: string | null;
+  model: Record<string, unknown>;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ModelDraftPage {
+  items: ModelDraft[];
+  nextCursor: string | null;
+}
+
+export interface ModelValidation {
+  valid: boolean;
+  diagnostics: ModelDiagnostic[];
+}
+
+export interface ModelCompilation extends ModelValidation {
+  model?: Record<string, unknown>;
+  modelHash?: string;
+  compatibility: ModelCompatibility;
+  againstReleaseId?: string;
+  changes: ModelChange[];
+}
+
+export interface ModelReleaseDiff {
+  againstReleaseId: string;
+  releaseId: string;
+  changes: ModelChange[];
+  compatibility: ModelCompatibility;
+}
+
+export interface ModelRuntimeState {
+  activeReleaseId: string;
+  activeModelHash: string;
+  version: number;
+  updatedAt: string;
 }

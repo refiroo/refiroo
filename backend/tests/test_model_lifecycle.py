@@ -343,9 +343,14 @@ def test_draft_crud_compile_and_installation_lifecycle(monkeypatch):
         }
         active = client.get("/api/v1/model")
         active_release_id = active.headers["X-Model-Release-Id"]
+        runtime_state = client.get("/api/v1/model-runtime-state")
+        assert runtime_state.status_code == 200
+        assert runtime_state.json()["activeReleaseId"] == active_release_id
+        assert runtime_state.json()["version"] >= 1
         candidate = active.json()
         candidate["release"]["version"] = "0.4.0-wp3-install"
         candidate["product"]["name"] = "Installed from a persisted draft"
+        candidate["product"]["description"] = None
 
         created = client.post(
             "/api/v1/model-drafts",
@@ -392,6 +397,18 @@ def test_draft_crud_compile_and_installation_lifecycle(monkeypatch):
         assert compiled.status_code == 200
         assert compiled.json()["valid"] is True
         assert compiled.json()["model"] == candidate
+        assert compiled.json()["againstReleaseId"] == active_release_id
+        assert any(
+            change["path"] == "/product/name"
+            for change in compiled.json()["changes"]
+        )
+        null_change = next(
+            change
+            for change in compiled.json()["changes"]
+            if change["path"] == "/product/description"
+        )
+        assert "after" in null_change
+        assert null_change["after"] is None
         assert compiled.json()["compatibility"]["classification"] == "compatible"
         with SessionLocal() as session:
             counts_after_compile = {

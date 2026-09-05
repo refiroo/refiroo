@@ -86,6 +86,20 @@ describe("fallbackDetail", () => {
 });
 
 describe("routes", () => {
+  it("round-trips the global Models route outside application navigation", () => {
+    const models = { kind: "models", releaseId: "release/id" } as const;
+    window.history.pushState({}, "", routePath(models));
+    expect(routePath(models)).toBe("/models?releaseId=release%2Fid");
+    expect(parseRoute(testModel)).toEqual(models);
+    window.history.pushState({}, "", "/");
+  });
+
+  it("normalizes an ambiguous Models URL to the editable draft", () => {
+    window.history.pushState({}, "", "/models?releaseId=r1&draftId=d1");
+    expect(parseRoute(testModel)).toEqual({ kind: "models", draftId: "d1" });
+    window.history.pushState({}, "", "/");
+  });
+
   it("points the default route at the first application's default view", () => {
     expect(defaultRoute(testModel)).toEqual({
       kind: "list",

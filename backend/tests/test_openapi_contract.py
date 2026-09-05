@@ -8,7 +8,7 @@ def test_base_0_5_wp5_default_openapi_document_is_locked():
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
 
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "b6bd2f1b3d9c7af0d2b5982615dec987c7c464f5f128b2fc6dc1cc297e2909f6"
+        "59315430b1b2e76099ba877d8bd568290ff0bb29dde7965623474596f3d3a775"
     )
 
 
@@ -24,6 +24,7 @@ def test_base_0_5_wp5_default_openapi_path_and_method_inventory_is_locked():
         "/health": frozenset({"get"}),
         "/api/v1/capabilities": frozenset({"get"}),
         "/api/v1/model": frozenset({"get"}),
+        "/api/v1/model-runtime-state": frozenset({"get"}),
         "/api/v1/model-validations": frozenset({"post"}),
         "/api/v1/model-releases": frozenset({"get"}),
         "/api/v1/model-releases/{release_id}": frozenset({"get"}),
@@ -82,6 +83,7 @@ def test_base_0_5_wp5_default_openapi_component_schema_inventory_is_locked():
         "ModelReleasePage",
         "ModelReleaseResponse",
         "ModelReleaseSummary",
+        "ModelRuntimeStateResponse",
         "ModelValidationResponse",
         "ObjectCreate",
         "ObjectPage",

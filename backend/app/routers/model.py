@@ -22,6 +22,7 @@ from ..models.api import (
     ModelReleaseDiffResponse,
     ModelReleasePage,
     ModelReleaseResponse,
+    ModelRuntimeStateResponse,
     ModelValidationResponse,
     ObjectTypeRelationResponse,
     ObjectTypeResponse,
@@ -31,6 +32,7 @@ from ..models.database import (
     ApplicationMeta,
     AttributeTypeMeta,
     ModelRelease,
+    ModelRuntimeState,
     ObjectTypeAttributeMeta,
     ObjectTypeMeta,
     ObjectTypeRelationMeta,
@@ -80,6 +82,26 @@ def get_model(response: Response, snapshot: ActiveModelSnapshot) -> dict[str, An
     response.headers["ETag"] = f'"{snapshot.model_hash}"'
     response.headers["X-Model-Release-Id"] = snapshot.release_id
     return snapshot.model.model_dump(mode="json")
+
+
+@router.get("/model-runtime-state", response_model=ModelRuntimeStateResponse)
+def get_model_runtime_state() -> ModelRuntimeStateResponse:
+    with SessionLocal() as session:
+        row = session.execute(
+            select(ModelRuntimeState, ModelRelease).join(
+                ModelRelease,
+                ModelRelease.id == ModelRuntimeState.active_model_release_id,
+            )
+        ).one_or_none()
+        if row is None:
+            raise api_error(503, "model_runtime_state_unavailable", "Model runtime state is unavailable")
+        runtime_state, active_release = row
+        return ModelRuntimeStateResponse(
+            activeReleaseId=active_release.public_id,
+            activeModelHash=active_release.model_hash,
+            version=runtime_state.version,
+            updatedAt=_as_utc(runtime_state.updated_at),
+        )
 
 
 @router.post(

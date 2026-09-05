@@ -18,9 +18,10 @@ from ..models.api import (
     ModelReleaseResponse,
     ModelRuntimeStateResponse,
 )
-from ..models.database import AuditEvent, ModelDraft
+from ..models.database import AuditEvent, ModelDraft, ModelRelease
 from ..services.model_compatibility import analyze_compatibility
 from ..services.model_compiler import ModelDiagnostic, compile_model
+from ..services.model_diff import semantic_diff
 from ..services.model_drafts import (
     base_release_public_id,
     create_draft,
@@ -225,7 +226,7 @@ def remove_model_draft(
 @router.post(
     "/model-drafts/{draft_id}/compile",
     response_model=ModelCompilationResponse,
-    response_model_exclude_none=True,
+    response_model_exclude_unset=True,
 )
 def compile_model_draft(
     draft_id: str,
@@ -249,12 +250,37 @@ def compile_model_draft(
         compatibility = analyze_compatibility(
             session, snapshot.model, compiled.model, snapshot.release_id
         )
+        baseline_release = None
+        if draft.base_model_release_id is not None:
+            baseline_release = session.get(ModelRelease, draft.base_model_release_id)
+        if baseline_release is None:
+            baseline_release = session.scalar(
+                select(ModelRelease).where(ModelRelease.public_id == snapshot.release_id)
+            )
+        if baseline_release is None:
+            raise api_error(503, "model_runtime_state_unavailable", "Model runtime state is unavailable")
+        baseline = compile_model(baseline_release.model_json)
+        if not baseline.valid or baseline.canonical_model is None:
+            raise api_error(500, "invalid_installed_model", "An installed model release failed validation")
+        if compiled.canonical_model is None:
+            raise api_error(500, "internal_error", "Compiled model result is incomplete")
+        changes = semantic_diff(baseline.canonical_model, compiled.canonical_model)
 
     return ModelCompilationResponse(
         valid=True,
         model=compiled.canonical_model,
         modelHash=compiled.model_hash,
         diagnostics=[_diagnostic_response(item) for item in compiled.diagnostics],
+        againstReleaseId=baseline_release.public_id,
+        changes=[
+            {
+                "kind": item.kind,
+                "path": item.path,
+                **({"before": item.before} if item.kind != "added" else {}),
+                **({"after": item.after} if item.kind != "removed" else {}),
+            }
+            for item in changes
+        ],
         compatibility=ModelCompatibilityResponse(
             classification=compatibility.classification,
             activeReleaseId=compatibility.active_release_id,

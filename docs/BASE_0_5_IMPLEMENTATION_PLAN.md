@@ -18,8 +18,8 @@ workbench
 | WP4 — Implement guarded activation | Complete | Dual-token activation, compatibility gate, audit and readiness failure handling |
 | WP5 — Upgrade object and relation query foundations | Complete | Signed keyset cursors; bounded relation/history pages; indexed audit subjects |
 | WP6 — Improve generic object management UI | Complete | URL/workspace state; generic actions; retry states; paged relations/history |
-| WP7 — Add the lightweight model workbench | Next | Ready after WP6 |
-| WP8 — Release integration and documentation | Pending | Depends on WP7 |
+| WP7 — Add the lightweight model workbench | Complete | Global Models route; capability-gated drafts; validation/diff/install/activation workflow |
+| WP8 — Release integration and documentation | Next | Ready after WP7 |
 
 ## Handoff instructions
 
@@ -509,6 +509,8 @@ Completion record:
 
 ### WP7 — Add the lightweight model workbench
 
+**Status:** Complete (2026-09-05)
+
 Files:
 
 - `frontend/src/types.ts`
@@ -538,6 +540,20 @@ Tasks:
 
 Exit: an administrator can complete the safe candidate-to-installed lifecycle without pretending that
 Base 0.5 is a full graphical designer.
+
+Completion record:
+
+- added a global, URL-addressable Models workbench outside application navigation with always-readable
+  installed release catalogue, detail, structured summaries and browser JSON export;
+- added capability-gated draft creation from empty, imported or installed JSON, an accessible plain
+  text editor, debounced syntax and authoritative validation feedback, and JSON-path navigation;
+- preserved unsaved content across optimistic version conflicts with explicit reload and copy recovery;
+- extended side-effect-free draft compilation with a base-release semantic diff and exposed read-only
+  runtime-state concurrency tokens needed for safe activation;
+- required explicit installation and activation confirmation, displayed canonical hash and runtime
+  compatibility before installation, and blocked incompatible activation in the UI; and
+- added focused API, route and component tests covering read-only mode, lifecycle concurrency,
+  conflict recovery and pre-install review.
 
 ### WP8 — Release integration and documentation
 

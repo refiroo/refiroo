@@ -90,7 +90,7 @@ export function applicationFor(model: EngineModel, key: string) {
   return model.applications.find((item) => item.key === key);
 }
 
-export function defaultRoute(model: EngineModel): RouteState {
+export function defaultRoute(model: EngineModel): Extract<RouteState, { kind: "list" }> {
   const application = model.applications[0];
   return {
     kind: "list",
@@ -105,6 +105,11 @@ export function parseRoute(model: EngineModel): RouteState {
   const parts = window.location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
   const query = new URLSearchParams(window.location.search);
   const workspaceKey = query.get("workspaceKey")?.trim() || DEFAULT_WORKSPACE;
+  if (parts[0] === "models") {
+    const releaseId = query.get("releaseId")?.trim() || undefined;
+    const draftId = query.get("draftId")?.trim() || undefined;
+    return draftId ? { kind: "models", draftId } : { kind: "models", ...(releaseId ? { releaseId } : {}) };
+  }
   if (parts[0] === "apps" && parts[2] === "views" && parts[3]) {
     const application = applicationFor(model, parts[1]);
     if (application?.views.some((view) => view.key === parts[3])) {
@@ -138,6 +143,12 @@ export function parseRoute(model: EngineModel): RouteState {
 }
 
 export function routePath(route: RouteState) {
+  if (route.kind === "models") {
+    const query = new URLSearchParams();
+    if (route.releaseId) query.set("releaseId", route.releaseId);
+    if (route.draftId) query.set("draftId", route.draftId);
+    return `/models${query.size ? `?${query}` : ""}`;
+  }
   const app = encodeURIComponent(route.applicationKey);
   const query = new URLSearchParams({ workspaceKey: route.workspaceKey });
   if (route.kind === "list") {
@@ -187,6 +198,6 @@ export function fallbackDetail(objectType: ObjectTypeDefinition): DetailViewDefi
   };
 }
 
-export function viewRoute(application: ApplicationDefinition, viewKey: string, workspaceKey = DEFAULT_WORKSPACE): RouteState {
+export function viewRoute(application: ApplicationDefinition, viewKey: string, workspaceKey = DEFAULT_WORKSPACE): Extract<RouteState, { kind: "list" }> {
   return { kind: "list", applicationKey: application.key, viewKey, workspaceKey, ...DEFAULT_COLLECTION_QUERY };
 }

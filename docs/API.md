@@ -135,6 +135,7 @@ Both headers and the body come from the same request-scoped installed release sn
 - `GET /api/v1/model-releases?releaseKey=...&active=...&pageSize=...&cursor=...`
 - `GET /api/v1/model-releases/{releaseId}?includeModel=false`
 - `GET /api/v1/model-releases/{releaseId}/diff?againstReleaseId=...`
+- `GET /api/v1/model-runtime-state`
 - `POST /api/v1/model-releases/{releaseId}/activation`
 
 The collection returns the standard `{items, nextCursor}` page. A release summary and detail share
@@ -198,6 +199,9 @@ Activation accepts both concurrency tokens:
   "expectedActiveReleaseId": "412c4041-..."
 }
 ```
+
+Clients obtain those tokens from `GET /api/v1/model-runtime-state`, which returns the same runtime
+state shape without mutating it. The workbench refreshes this state immediately before activation.
 
 It returns the complete new runtime state:
 
@@ -273,6 +277,15 @@ returns:
   "model": {},
   "modelHash": "7c9d...",
   "diagnostics": [],
+  "againstReleaseId": "412c4041-...",
+  "changes": [
+    {
+      "kind": "changed",
+      "path": "/product/name",
+      "before": "RDM Engine",
+      "after": "Reference Data Engine"
+    }
+  ],
   "compatibility": {
     "classification": "compatible",
     "activeReleaseId": "412c4041-...",
@@ -281,7 +294,10 @@ returns:
 }
 ```
 
-`model` is the parsed canonical model. Compatibility classification is `compatible`,
+`model` is the parsed canonical model. `againstReleaseId` identifies the draft's installed base
+release, falling back to the active release when the draft has no available base; `changes` is the
+key-based semantic diff used for pre-install review and preserves the distinction between omission and
+an explicit JSON `null`. Compatibility classification is `compatible`,
 `migration_required` or `invalid`; invalid compilation returns `valid: false`, omits `model` and
 `modelHash`, and uses `invalid`. Installation repeats compilation and compatibility analysis and
 returns the installed release detail with `model` absent. A newly installed release returns HTTP
@@ -304,7 +320,7 @@ As elsewhere, errors use the shared `{ "error": { "code", "message", "details" }
 
 ### Base 0.5 OpenAPI lock
 
-The complete canonical default OpenAPI document digest after WP3, plus readable path/method and
+The complete canonical default OpenAPI document digest through WP7, plus readable path/method and
 component-schema inventories, are asserted by `backend/tests/test_openapi_contract.py`. A separate
 enabled-mode inventory asserts the mutation-gated draft surface. Any public shape change therefore
 requires an intentional contract-test update. Later Base 0.5 packages update the lock in the same

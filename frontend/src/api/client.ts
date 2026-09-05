@@ -11,6 +11,15 @@ import type {
   RelationUpdateInput,
   AuditEventPage,
   ObjectSort,
+  CapabilitiesResponse,
+  ModelCompilation,
+  ModelDraft,
+  ModelDraftPage,
+  ModelRelease,
+  ModelReleaseDiff,
+  ModelReleasePage,
+  ModelRuntimeState,
+  ModelValidation,
 } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
@@ -76,6 +85,30 @@ function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
 
 export const api = {
   model: () => request<EngineModel>("/api/v1/model"),
+  capabilities: () => request<CapabilitiesResponse>("/api/v1/capabilities"),
+  modelReleases: (options: { cursor?: string; pageSize?: number } = {}) => {
+    const params = new URLSearchParams({ pageSize: String(options.pageSize ?? 100) });
+    if (options.cursor) params.set("cursor", options.cursor);
+    return request<ModelReleasePage>(`/api/v1/model-releases?${params}`);
+  },
+  modelRelease: (releaseId: string, includeModel = false) =>
+    request<ModelRelease>(`/api/v1/model-releases/${encodeURIComponent(releaseId)}?includeModel=${includeModel}`),
+  modelReleaseDiff: (releaseId: string, againstReleaseId: string) =>
+    request<ModelReleaseDiff>(`/api/v1/model-releases/${encodeURIComponent(releaseId)}/diff?againstReleaseId=${encodeURIComponent(againstReleaseId)}`),
+  modelRuntimeState: () => request<ModelRuntimeState>("/api/v1/model-runtime-state"),
+  validateModel: (model: Record<string, unknown>) => request<ModelValidation>("/api/v1/model-validations", { method: "POST", body: JSON.stringify({ model }) }),
+  modelDrafts: (options: { cursor?: string; pageSize?: number } = {}) => {
+    const params = new URLSearchParams({ pageSize: String(options.pageSize ?? 100) });
+    if (options.cursor) params.set("cursor", options.cursor);
+    return request<ModelDraftPage>(`/api/v1/model-drafts?${params}`);
+  },
+  modelDraft: (draftId: string) => request<ModelDraft>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}`),
+  createModelDraft: (payload: { name: string; baseReleaseId?: string; model: Record<string, unknown> }) => request<ModelDraft>("/api/v1/model-drafts", { method: "POST", body: JSON.stringify(payload) }),
+  updateModelDraft: (draftId: string, payload: { expectedVersion: number; name?: string; model?: Record<string, unknown> }) => request<ModelDraft>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}`, { method: "PATCH", body: JSON.stringify(payload) }),
+  deleteModelDraft: (draftId: string, expectedVersion: number) => request<void>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}?expectedVersion=${expectedVersion}`, { method: "DELETE" }),
+  compileModelDraft: (draftId: string, expectedVersion: number) => request<ModelCompilation>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/compile`, { method: "POST", body: JSON.stringify({ expectedVersion }) }),
+  installModelDraft: (draftId: string, expectedVersion: number) => request<ModelRelease>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/installation`, { method: "POST", body: JSON.stringify({ expectedVersion }) }),
+  activateModelRelease: (releaseId: string, state: ModelRuntimeState) => request<ModelRuntimeState>(`/api/v1/model-releases/${encodeURIComponent(releaseId)}/activation`, { method: "POST", body: JSON.stringify({ expectedRuntimeVersion: state.version, expectedActiveReleaseId: state.activeReleaseId }) }),
   objects: (objectTypeKey: string, query: ObjectQuery) =>
     request<ObjectPage>(objectQueryPath(objectTypeKey, query)),
   object: (objectTypeKey: string, objectId: string) =>
