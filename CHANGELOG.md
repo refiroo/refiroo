@@ -8,6 +8,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.5 object and relation query foundations. Object collections now support repeatable state
+  filters and stable built-in sorting through signed, filter-bound keyset cursors. Relation expansion
+  is a bounded workspace-checked page, and object history uses an indexed audit-subject projection to
+  include object, attribute and connected-relation events without exposing internal sequences or full
+  before/after payloads.
+
 - Base 0.5 guarded model activation. Compatible installed releases can be selected with both expected
   runtime version and active-release tokens; incompatible runtime data and stale selections return
   structured conflicts. Activation commits before refreshing the process registry, records old/new

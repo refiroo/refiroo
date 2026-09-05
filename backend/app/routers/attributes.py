@@ -1,9 +1,7 @@
 from fastapi import APIRouter, Query, Response, status
-from fastapi.encoders import jsonable_encoder
 
 from ..db import SessionLocal
 from ..models.api import AttributeValueResponse, AttributeValueWrite, ObjectResponse
-from ..models.database import AuditEvent
 from ..services.attributes import (
     build_attribute_value_response,
     check_attribute_uniqueness,
@@ -15,6 +13,7 @@ from ..services.attributes import (
     validate_deletable_attribute,
     validate_object_attribute_rules,
 )
+from ..services.audit import record_audit_event
 from ..services.model_registry import ActiveModelSnapshot
 from ..services.objects import (
     build_object_responses,
@@ -28,14 +27,14 @@ router = APIRouter(prefix="/api/v1", tags=["attributes"])
 
 
 def _record_attribute_change(session, item, attribute_type_key: str, value) -> None:
-    session.add(
-        AuditEvent(
-            aggregate_type="object",
-            aggregate_id=item.id,
-            action="updated",
-            version=item.version,
-            changes=jsonable_encoder({"attributes": {attribute_type_key: value}}),
-        )
+    record_audit_event(
+        session,
+        aggregate_type="object",
+        aggregate_id=item.id,
+        action="updated",
+        version=item.version,
+        changes={"attributes": {attribute_type_key: value}},
+        object_ids=[item.id],
     )
 
 

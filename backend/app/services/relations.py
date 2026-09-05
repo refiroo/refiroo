@@ -7,9 +7,10 @@ from sqlalchemy.orm import Session
 
 from ..errors import api_error
 from ..models.api import RelationCreate, RelationResponse
-from ..models.database import AuditEvent, ObjectRelation, RdmObject
+from ..models.database import ObjectRelation, RdmObject
 from ..models.schema import EngineModel, ObjectTypeRelationDefinition
 from .attributes import current_attribute_values, normalize_value
+from .audit import record_audit_event
 
 
 def find_allowed_relation(
@@ -115,19 +116,17 @@ def create_relation_instance(
     )
     session.add(relation)
     session.flush()
-    session.add(
-        AuditEvent(
-            aggregate_type="relation",
-            aggregate_id=relation.id,
-            action="created",
-            version=1,
-            changes=jsonable_encoder(
-                {
-                    **payload.model_dump(),
-                    "attributes": attributes,
-                }
-            ),
-        )
+    record_audit_event(
+        session,
+        aggregate_type="relation",
+        aggregate_id=relation.id,
+        action="created",
+        version=1,
+        changes={
+            **payload.model_dump(),
+            "attributes": attributes,
+        },
+        object_ids=[from_object.id, to_object.id],
     )
     return relation
 

@@ -4,15 +4,15 @@ import json
 from app.main import app, create_app
 
 
-def test_base_0_5_wp4_default_openapi_document_is_locked():
+def test_base_0_5_wp5_default_openapi_document_is_locked():
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
 
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "cabbdc0e3ab6630691412cefc2a14d56d661b58fb3c8b19a81edd96d6001fcb1"
+        "b6bd2f1b3d9c7af0d2b5982615dec987c7c464f5f128b2fc6dc1cc297e2909f6"
     )
 
 
-def test_base_0_5_wp4_default_openapi_path_and_method_inventory_is_locked():
+def test_base_0_5_wp5_default_openapi_path_and_method_inventory_is_locked():
     schema = app.openapi()
 
     actual = {
@@ -42,6 +42,7 @@ def test_base_0_5_wp4_default_openapi_path_and_method_inventory_is_locked():
         "/api/v1/objects/{object_type_key}/{object_id}": frozenset(
             {"delete", "get", "patch"}
         ),
+        "/api/v1/objects/{object_type_key}/{object_id}/history": frozenset({"get"}),
         "/api/v1/relations": frozenset({"get", "post"}),
         "/api/v1/relations/{relation_id}": frozenset({"delete", "get", "patch"}),
         "/api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}": (
@@ -50,11 +51,13 @@ def test_base_0_5_wp4_default_openapi_path_and_method_inventory_is_locked():
     }
 
 
-def test_base_0_5_wp4_default_openapi_component_schema_inventory_is_locked():
+def test_base_0_5_wp5_default_openapi_component_schema_inventory_is_locked():
     schema_names = set(app.openapi()["components"]["schemas"])
 
     assert schema_names == {
         "AllowedObjectTypePair",
+        "AuditEventPage",
+        "AuditEventResponse",
         "ApplicationResponse",
         "AttributeBindingResponse",
         "AttributeInput",
@@ -88,6 +91,7 @@ def test_base_0_5_wp4_default_openapi_component_schema_inventory_is_locked():
         "ObjectUpdate",
         "RelationCreate",
         "RelationExpansion",
+        "RelationPage",
         "RelationResponse",
         "RelationTypeResponse",
         "RelationUpdate",
@@ -95,7 +99,7 @@ def test_base_0_5_wp4_default_openapi_component_schema_inventory_is_locked():
     }
 
 
-def test_base_0_5_wp4_enabled_openapi_exposes_guarded_activation(monkeypatch):
+def test_base_0_5_wp5_enabled_openapi_exposes_guarded_activation(monkeypatch):
     monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
     schema = create_app().openapi()
 

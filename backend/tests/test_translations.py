@@ -120,7 +120,7 @@ def test_translation_is_created_with_containment_and_target_atomically():
 
         relations = client.get(
             "/api/v1/relations", params={"objectId": translation["id"]}
-        ).json()
+        ).json()["items"]
         assert {
             (item["direction"], item["relation"]["relationTypeKey"])
             for item in relations
@@ -152,7 +152,7 @@ def test_domain_codelist_and_master_value_are_all_translation_targets():
                 item
                 for item in client.get(
                     "/api/v1/relations", params={"objectId": response.json()["id"]}
-                ).json()
+                ).json()["items"]
                 if item["relation"]["relationTypeKey"] == "object-has-translation"
             )
             assert relation["object"]["objectTypeKey"] == target["objectTypeKey"]
@@ -248,7 +248,7 @@ def test_required_translation_target_cannot_be_unlinked_and_cascades_with_owner(
         ).json()
         relations = client.get(
             "/api/v1/relations", params={"objectId": translation["id"]}
-        ).json()
+        ).json()["items"]
         target_relation = next(
             item["relation"]
             for item in relations

@@ -16,8 +16,8 @@ workbench
 | WP2 — Add the compiler, semantic diff and compatibility analyzer | Complete | Stable diagnostics; canonical compiler; key-based diff; bounded runtime checks |
 | WP3 — Persist drafts and install immutable releases | Complete | Versioned drafts, atomic install, capability gate and audit |
 | WP4 — Implement guarded activation | Complete | Dual-token activation, compatibility gate, audit and readiness failure handling |
-| WP5 — Upgrade object and relation query foundations | Next | Ready after WP4 |
-| WP6 — Improve generic object management UI | Pending | Depends on WP5 |
+| WP5 — Upgrade object and relation query foundations | Complete | Signed keyset cursors; bounded relation/history pages; indexed audit subjects |
+| WP6 — Improve generic object management UI | Next | Ready after WP5 |
 | WP7 — Add the lightweight model workbench | Pending | Depends on WP6 |
 | WP8 — Release integration and documentation | Pending | Depends on WP7 |
 
@@ -434,6 +434,18 @@ Tasks:
    mismatched-cursor request.
 
 Exit: Base 0.5 and Milestone 1 can share stable bounded query primitives.
+
+Completion record:
+
+- replaced raw object sequence cursors with signed keyset positions bound to built-in sorting and all
+  effective application, workspace, parent, state and search filters;
+- added repeatable state filtering and deterministic name, state, created and updated sorting;
+- changed relation expansion to a workspace-checked bounded page and updated backend and frontend
+  callers, including incremental relation-panel loading;
+- added and backfilled the indexed audit-subject projection, attaching new object, attribute and
+  relation events to every affected object without JSON identity queries; and
+- exposed cursor-paged, newest-first object history with safe change-key summaries and regression
+  coverage for duplicate positions, inserts, workspace boundaries and mismatched cursors.
 
 ### WP6 — Improve generic object management UI
 

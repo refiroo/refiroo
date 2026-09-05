@@ -328,3 +328,24 @@ class RelationExpansion(BaseModel):
     direction: Literal["outgoing", "incoming"]
     relation: RelationResponse
     object: ObjectResponse
+
+
+class RelationPage(BaseModel):
+    items: list[RelationExpansion]
+    nextCursor: str | None
+
+
+class AuditEventResponse(BaseModel):
+    id: str
+    aggregateType: str
+    aggregateId: str
+    action: str
+    version: int
+    changedFields: list[str]
+    attributeTypeKeys: list[str]
+    occurredAt: datetime
+
+
+class AuditEventPage(BaseModel):
+    items: list[AuditEventResponse]
+    nextCursor: str | None

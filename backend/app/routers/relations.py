@@ -1,14 +1,22 @@
 from typing import Literal
 
 from fastapi import APIRouter, Query, Response, status
-from fastapi.encoders import jsonable_encoder
 from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import aliased
 
 from ..db import SessionLocal
 from ..errors import api_error
-from ..models.api import RelationCreate, RelationExpansion, RelationResponse, RelationUpdate
-from ..models.database import AuditEvent, ObjectRelation, RdmObject
+from ..models.api import (
+    RelationCreate,
+    RelationExpansion,
+    RelationPage,
+    RelationResponse,
+    RelationUpdate,
+)
+from ..models.database import ObjectRelation, RdmObject
+from ..services.audit import record_audit_event
+from ..services.cursors import decode_cursor, encode_cursor
 from ..services.model_registry import ActiveModelSnapshot
 from ..services.objects import build_object_responses, load_object
 from ..services.relations import (
@@ -42,29 +50,71 @@ def create_relation(payload: RelationCreate, snapshot: ActiveModelSnapshot) -> R
         return build_relation_response(relation)
 
 
-@router.get("/relations", response_model=list[RelationExpansion])
+@router.get("/relations", response_model=RelationPage)
 def get_relations(
     snapshot: ActiveModelSnapshot,
     object_id: str = Query(alias="objectId"),
     direction: Literal["outgoing", "incoming", "both"] = "both",
     relation_type_key: str | None = Query(default=None, alias="relationTypeKey"),
-) -> list[RelationExpansion]:
+    cursor: str | None = None,
+    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+) -> RelationPage:
     with SessionLocal() as session:
-        load_object(session, object_id)
+        anchor = load_object(session, object_id)
+        effective_relation_type_key = relation_type_key or None
         clauses = []
         if direction in {"outgoing", "both"}:
             clauses.append(ObjectRelation.from_object_id == object_id)
         if direction in {"incoming", "both"}:
             clauses.append(ObjectRelation.to_object_id == object_id)
-        statement = select(ObjectRelation).where(or_(*clauses))
-        if relation_type_key:
-            statement = statement.where(ObjectRelation.relation_type_key == relation_type_key)
-        relations = list(session.scalars(statement.order_by(ObjectRelation.sequence_id)))
+        from_object = aliased(RdmObject)
+        to_object = aliased(RdmObject)
+        statement = (
+            select(ObjectRelation)
+            .join(from_object, from_object.id == ObjectRelation.from_object_id)
+            .join(to_object, to_object.id == ObjectRelation.to_object_id)
+            .where(
+                or_(*clauses),
+                from_object.workspace_key == anchor.workspace_key,
+                to_object.workspace_key == anchor.workspace_key,
+            )
+        )
+        if effective_relation_type_key:
+            statement = statement.where(
+                ObjectRelation.relation_type_key == effective_relation_type_key
+            )
+        cursor_filters = {
+            "direction": direction,
+            "objectId": object_id,
+            "relationTypeKey": effective_relation_type_key,
+            "workspaceKey": anchor.workspace_key,
+        }
+        if cursor is not None:
+            position = decode_cursor(
+                cursor,
+                scope="relations",
+                sort=("sequenceId",),
+                filters=cursor_filters,
+                position_size=1,
+                message="Relation cursor is invalid",
+            )
+            try:
+                sequence_position = int(position[0])
+            except ValueError:
+                raise api_error(422, "invalid_cursor", "Relation cursor is invalid") from None
+            statement = statement.where(ObjectRelation.sequence_id > sequence_position)
+        relations = list(
+            session.scalars(
+                statement.order_by(ObjectRelation.sequence_id).limit(page_size + 1)
+            )
+        )
+        has_more = len(relations) > page_size
+        visible = relations[:page_size]
         related_ids = [
             relation.to_object_id
             if relation.from_object_id == object_id
             else relation.from_object_id
-            for relation in relations
+            for relation in visible
         ]
         related_objects = {
             item.id: item
@@ -78,18 +128,30 @@ def get_relations(
                 strict=True,
             )
         }
-        return [
-            RelationExpansion(
-                direction="outgoing" if relation.from_object_id == object_id else "incoming",
-                relation=build_relation_response(relation),
-                object=responses[
-                    relation.to_object_id
-                    if relation.from_object_id == object_id
-                    else relation.from_object_id
-                ],
-            )
-            for relation in relations
-        ]
+        return RelationPage(
+            items=[
+                RelationExpansion(
+                    direction="outgoing" if relation.from_object_id == object_id else "incoming",
+                    relation=build_relation_response(relation),
+                    object=responses[
+                        relation.to_object_id
+                        if relation.from_object_id == object_id
+                        else relation.from_object_id
+                    ],
+                )
+                for relation in visible
+            ],
+            nextCursor=(
+                encode_cursor(
+                    (str(visible[-1].sequence_id),),
+                    scope="relations",
+                    sort=("sequenceId",),
+                    filters=cursor_filters,
+                )
+                if has_more
+                else None
+            ),
+        )
 
 
 @router.get("/relations/{relation_id}", response_model=RelationResponse)
@@ -118,16 +180,14 @@ def update_relation(
         attributes = validate_relation_attributes(model, allowed, payload.attributes)
         old_attributes = relation.attributes
         relation.attributes = attributes
-        session.add(
-            AuditEvent(
-                aggregate_type="relation",
-                aggregate_id=relation.id,
-                action="updated",
-                version=relation.version,
-                changes=jsonable_encoder(
-                    {"attributes": {"from": old_attributes, "to": attributes}}
-                ),
-            )
+        record_audit_event(
+            session,
+            aggregate_type="relation",
+            aggregate_id=relation.id,
+            action="updated",
+            version=relation.version,
+            changes={"attributes": {"from": old_attributes, "to": attributes}},
+            object_ids=[relation.from_object_id, relation.to_object_id],
         )
         session.commit()
         session.refresh(relation)
@@ -154,20 +214,18 @@ def delete_relation(
         )
         ensure_relation_deletable(allowed)
         claim_relation_version(session, relation, expected_version)
-        session.add(
-            AuditEvent(
-                aggregate_type="relation",
-                aggregate_id=relation.id,
-                action="deleted",
-                version=relation.version,
-                changes=jsonable_encoder(
-                    {
-                        "relationTypeKey": relation.relation_type_key,
-                        "fromObjectId": relation.from_object_id,
-                        "toObjectId": relation.to_object_id,
-                    }
-                ),
-            )
+        record_audit_event(
+            session,
+            aggregate_type="relation",
+            aggregate_id=relation.id,
+            action="deleted",
+            version=relation.version,
+            changes={
+                "relationTypeKey": relation.relation_type_key,
+                "fromObjectId": relation.from_object_id,
+                "toObjectId": relation.to_object_id,
+            },
+            object_ids=[relation.from_object_id, relation.to_object_id],
         )
         session.delete(relation)
         session.commit()

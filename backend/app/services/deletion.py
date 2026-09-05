@@ -2,12 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fastapi.encoders import jsonable_encoder
 from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
-from ..models.database import AttributeValue, AuditEvent, ObjectRelation, RdmObject
+from ..models.database import AttributeValue, ObjectRelation, RdmObject
 from ..models.schema import EngineModel, ObjectTypeRelationDefinition
+from .audit import record_audit_event
 
 
 @dataclass
@@ -138,36 +138,32 @@ def execute_delete_plan(session: Session, plan: DeletePlan) -> None:
     relation_ids = set(plan.relations)
 
     for relation in plan.relations.values():
-        session.add(
-            AuditEvent(
-                aggregate_type="relation",
-                aggregate_id=relation.id,
-                action="deleted",
-                version=relation.version,
-                changes=jsonable_encoder(
-                    {
-                        "relationTypeKey": relation.relation_type_key,
-                        "fromObjectId": relation.from_object_id,
-                        "toObjectId": relation.to_object_id,
-                        "cascadeRootObjectId": plan.root_id,
-                    }
-                ),
-            )
+        record_audit_event(
+            session,
+            aggregate_type="relation",
+            aggregate_id=relation.id,
+            action="deleted",
+            version=relation.version,
+            changes={
+                "relationTypeKey": relation.relation_type_key,
+                "fromObjectId": relation.from_object_id,
+                "toObjectId": relation.to_object_id,
+                "cascadeRootObjectId": plan.root_id,
+            },
+            object_ids=[relation.from_object_id, relation.to_object_id],
         )
     for item in plan.objects.values():
-        session.add(
-            AuditEvent(
-                aggregate_type="object",
-                aggregate_id=item.id,
-                action="deleted",
-                version=item.version,
-                changes=jsonable_encoder(
-                    {
-                        "objectTypeKey": item.object_type_key,
-                        "cascadeRootObjectId": plan.root_id,
-                    }
-                ),
-            )
+        record_audit_event(
+            session,
+            aggregate_type="object",
+            aggregate_id=item.id,
+            action="deleted",
+            version=item.version,
+            changes={
+                "objectTypeKey": item.object_type_key,
+                "cascadeRootObjectId": plan.root_id,
+            },
+            object_ids=[item.id],
         )
 
     if relation_ids:

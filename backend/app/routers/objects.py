@@ -1,14 +1,21 @@
-from typing import Any
+from datetime import UTC, datetime
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Query, Response, status
-from fastapi.encoders import jsonable_encoder
-from sqlalchemy import or_, select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.exc import IntegrityError
 
 from ..db import SessionLocal
 from ..errors import api_error
-from ..models.api import ObjectCreate, ObjectPage, ObjectResponse, ObjectUpdate, RelationCreate
-from ..models.database import AttributeValue, AuditEvent, ObjectRelation, RdmObject
+from ..models.api import (
+    AuditEventPage,
+    ObjectCreate,
+    ObjectPage,
+    ObjectResponse,
+    ObjectUpdate,
+    RelationCreate,
+)
+from ..models.database import AttributeValue, ObjectRelation, RdmObject
 from ..services.attributes import (
     check_attribute_uniqueness,
     current_attribute_values,
@@ -16,6 +23,8 @@ from ..services.attributes import (
     validate_attributes,
     validate_object_attribute_rules,
 )
+from ..services.audit import list_object_history, record_audit_event
+from ..services.cursors import decode_cursor, encode_cursor
 from ..services.deletion import build_delete_plan, delete_plan_details, execute_delete_plan
 from ..services.model_registry import ActiveModelSnapshot
 from ..services.objects import (
@@ -49,34 +58,49 @@ def _attributes_to_dict(attributes: list) -> dict[str, Any]:
 def list_objects(
     object_type_key: str,
     snapshot: ActiveModelSnapshot,
-    cursor: int | None = Query(default=None, ge=1),
+    cursor: str | None = None,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
     application_key: str | None = Query(default=None, alias="applicationKey"),
     workspace_key: str = Query(default="default", alias="workspaceKey"),
     parent_object_id: str | None = Query(default=None, alias="parentObjectId"),
-    state_filter: str | None = Query(default=None, alias="state"),
+    state_filter: Annotated[list[str] | None, Query(alias="state")] = None,
     search: str | None = None,
+    sort: Literal[
+        "name",
+        "-name",
+        "state",
+        "-state",
+        "createdAt",
+        "-createdAt",
+        "updatedAt",
+        "-updatedAt",
+    ]
+    | None = None,
 ) -> ObjectPage:
     model = snapshot.model
     object_type = get_object_type(model, object_type_key)
-    if application_key:
-        validate_application_object_type(model, application_key, object_type_key)
+    effective_application_key = application_key or None
+    effective_parent_object_id = parent_object_id or None
+    if effective_application_key:
+        validate_application_object_type(model, effective_application_key, object_type_key)
 
     with SessionLocal() as session:
         statement = select(RdmObject).where(
             RdmObject.object_type_key == object_type_key,
             RdmObject.workspace_key == workspace_key,
         )
-        if application_key:
-            statement = statement.where(RdmObject.application_key == application_key)
-        if parent_object_id:
-            statement = statement.where(RdmObject.parent_object_id == parent_object_id)
-        if state_filter:
-            statement = statement.where(RdmObject.state == state_filter)
-        if cursor is not None:
-            statement = statement.where(RdmObject.sequence_id > cursor)
-        if search:
-            escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        if effective_application_key:
+            statement = statement.where(RdmObject.application_key == effective_application_key)
+        if effective_parent_object_id:
+            statement = statement.where(
+                RdmObject.parent_object_id == effective_parent_object_id
+            )
+        states = sorted(set(state_filter or []))
+        effective_search = search or None
+        if states:
+            statement = statement.where(RdmObject.state.in_(states))
+        if effective_search:
+            escaped = effective_search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
             searchable_attributes = [
                 binding.attributeTypeKey
                 for binding in object_type.attributes
@@ -93,12 +117,86 @@ def list_objects(
                 )
             )
 
+        cursor_filters = {
+            "applicationKey": effective_application_key,
+            "objectTypeKey": object_type_key,
+            "parentObjectId": effective_parent_object_id,
+            "search": effective_search,
+            "state": states,
+            "workspaceKey": workspace_key,
+        }
+        sort_name = sort or "sequenceId"
+        descending = sort_name.startswith("-")
+        field_name = sort_name.removeprefix("-")
+        sort_column = {
+            "name": RdmObject.name,
+            "state": RdmObject.state,
+            "createdAt": RdmObject.created_at,
+            "updatedAt": RdmObject.updated_at,
+            "sequenceId": RdmObject.sequence_id,
+        }[field_name]
+        position_size = 1 if field_name == "sequenceId" else 2
+        cursor_sort = (
+            (sort_name,)
+            if field_name == "sequenceId"
+            else (sort_name, "-sequenceId" if descending else "sequenceId")
+        )
+        if cursor is not None:
+            position = decode_cursor(
+                cursor,
+                scope="objects",
+                sort=cursor_sort,
+                filters=cursor_filters,
+                position_size=position_size,
+                message="Object cursor is invalid",
+            )
+            try:
+                sequence_position = int(position[-1])
+                if field_name in {"createdAt", "updatedAt"}:
+                    value_position: Any = datetime.fromisoformat(position[0])
+                elif field_name == "sequenceId":
+                    value_position = sequence_position
+                else:
+                    value_position = position[0]
+            except ValueError:
+                raise api_error(422, "invalid_cursor", "Object cursor is invalid") from None
+            comparator = sort_column < value_position if descending else sort_column > value_position
+            if field_name == "sequenceId":
+                statement = statement.where(comparator)
+            else:
+                tie_breaker = (
+                    RdmObject.sequence_id < sequence_position
+                    if descending
+                    else RdmObject.sequence_id > sequence_position
+                )
+                statement = statement.where(
+                    or_(comparator, and_(sort_column == value_position, tie_breaker))
+                )
+
+        order = sort_column.desc() if descending else sort_column.asc()
+        sequence_order = RdmObject.sequence_id.desc() if descending else RdmObject.sequence_id.asc()
         objects = list(
-            session.scalars(statement.order_by(RdmObject.sequence_id).limit(page_size + 1))
+            session.scalars(
+                statement.order_by(order, sequence_order).limit(page_size + 1)
+            )
         )
         has_more = len(objects) > page_size
         visible = objects[:page_size]
-        next_cursor = str(visible[-1].sequence_id) if has_more else None
+        next_cursor = None
+        if has_more:
+            last = visible[-1]
+            position = (str(last.sequence_id),)
+            if field_name != "sequenceId":
+                value = getattr(last, {"createdAt": "created_at", "updatedAt": "updated_at"}.get(field_name, field_name))
+                if isinstance(value, datetime):
+                    value = _as_utc(value).isoformat()
+                position = (str(value), str(last.sequence_id))
+            next_cursor = encode_cursor(
+                position,
+                scope="objects",
+                sort=cursor_sort,
+                filters=cursor_filters,
+            )
         return ObjectPage(
             items=build_object_responses(session, model, visible), nextCursor=next_cursor
         )
@@ -200,23 +298,20 @@ def create_object(payload: ObjectCreate, snapshot: ActiveModelSnapshot) -> Objec
             except IntegrityError:
                 session.rollback()
                 raise api_error(409, "duplicate_relation", "Relation already exists") from None
-        session.add(
-            AuditEvent(
-                aggregate_type="object",
-                aggregate_id=item.id,
-                action="created",
-                version=1,
-                changes=jsonable_encoder(
-                    {
-                        "objectTypeKey": object_type_key,
-                        "attributes": attributes,
-                        "initialRelations": [
-                            relation.model_dump(mode="json")
-                            for relation in payload.initialRelations
-                        ],
-                    }
-                ),
-            )
+        record_audit_event(
+            session,
+            aggregate_type="object",
+            aggregate_id=item.id,
+            action="created",
+            version=1,
+            changes={
+                "objectTypeKey": object_type_key,
+                "attributes": attributes,
+                "initialRelations": [
+                    relation.model_dump(mode="json") for relation in payload.initialRelations
+                ],
+            },
+            object_ids=[item.id],
         )
         try:
             session.commit()
@@ -300,18 +395,41 @@ def update_object(
 
         validate_scoped_relations_for_subtree(session, model, item)
 
-        session.add(
-            AuditEvent(
-                aggregate_type="object",
-                aggregate_id=item.id,
-                action="updated",
-                version=item.version,
-                changes=jsonable_encoder(changes),
-            )
+        record_audit_event(
+            session,
+            aggregate_type="object",
+            aggregate_id=item.id,
+            action="updated",
+            version=item.version,
+            changes=changes,
+            object_ids=[item.id],
         )
         session.commit()
         session.refresh(item)
         return build_object_responses(session, model, [item])[0]
+
+
+@router.get(
+    "/objects/{object_type_key}/{object_id}/history", response_model=AuditEventPage
+)
+def get_object_history(
+    object_type_key: str,
+    object_id: str,
+    snapshot: ActiveModelSnapshot,
+    cursor: str | None = None,
+    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+) -> AuditEventPage:
+    get_object_type(snapshot.model, object_type_key)
+    with SessionLocal() as session:
+        item = load_object(session, object_id, object_type_key)
+        return list_object_history(
+            session,
+            object_id=item.id,
+            object_type_key=item.object_type_key,
+            workspace_key=item.workspace_key,
+            cursor=cursor,
+            page_size=page_size,
+        )
 
 
 @router.delete("/objects/{object_type_key}/{object_id}", status_code=204)
@@ -338,3 +456,9 @@ def delete_object(
         execute_delete_plan(session, plan)
         session.commit()
         return Response(status_code=204)
+
+
+def _as_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)

@@ -6,7 +6,7 @@ import type {
   ObjectPage,
   AttributeValueResponse,
   RelationCreateInput,
-  RelationItem,
+  RelationPage,
   RelationRecord,
   RelationUpdateInput,
 } from "../types";
@@ -112,11 +112,13 @@ export const api = {
     request<ObjectItem>(attributePath(objectTypeKey, objectId, attributeTypeKey), { method: "PATCH", body: JSON.stringify({ value, expectedVersion }) }),
   deleteAttribute: (objectTypeKey: string, objectId: string, attributeTypeKey: string, expectedVersion: number) =>
     request<void>(`${attributePath(objectTypeKey, objectId, attributeTypeKey)}?expectedVersion=${expectedVersion}`, { method: "DELETE" }),
-  relations: (objectId: string, options: { direction?: "incoming" | "outgoing" | "both"; relationTypeKey?: string } = {}) => {
+  relations: (objectId: string, options: { direction?: "incoming" | "outgoing" | "both"; relationTypeKey?: string; cursor?: string; pageSize?: number } = {}) => {
     const params = new URLSearchParams({ objectId });
     if (options.direction) params.set("direction", options.direction);
     if (options.relationTypeKey) params.set("relationTypeKey", options.relationTypeKey);
-    return request<RelationItem[]>(`/api/v1/relations?${params}`);
+    if (options.cursor) params.set("cursor", options.cursor);
+    params.set("pageSize", String(options.pageSize ?? 100));
+    return request<RelationPage>(`/api/v1/relations?${params}`);
   },
   createRelation: (payload: RelationCreateInput) => request<RelationRecord>("/api/v1/relations", { method: "POST", body: JSON.stringify(payload) }),
   relation: (relationId: string) => request<RelationRecord>(`/api/v1/relations/${encodeURIComponent(relationId)}`),

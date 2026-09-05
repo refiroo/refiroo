@@ -337,7 +337,7 @@ def test_model_object_hierarchy_and_relation_vertical_slice():
 
         relation_response = client.get("/api/v1/relations", params={"objectId": domain["id"]})
         assert relation_response.status_code == 200
-        assert relation_response.json()[0]["relation"]["relationTypeKey"] == (
+        assert relation_response.json()["items"][0]["relation"]["relationTypeKey"] == (
             "domain-contains-codelist"
         )
 

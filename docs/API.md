@@ -476,9 +476,17 @@ parent/child combinations. The relation type's own `id` identifies the type itse
 - `PATCH /api/v1/objects/{objectTypeKey}/{objectId}` — update an object
 - `DELETE /api/v1/objects/{objectTypeKey}/{objectId}` — delete an object
 
-Collections accept `cursor`, `pageSize`, `applicationKey`, `workspaceKey`, `parentObjectId`, `state` and
-`search`. Page size defaults to 100 and has a documented maximum of 500. `nextCursor` is null only when
-that traversal is complete.
+Collections accept `cursor`, `pageSize`, `applicationKey`, `workspaceKey`, `parentObjectId`, repeatable
+`state`, `search` and `sort`. Supported sorts are `name`, `state`, `createdAt` and `updatedAt`; prefix a
+sort with `-` for descending order. Omitting `sort` preserves creation sequence order. Every ordering
+uses the internal sequence as a non-public final tie-breaker. Page size defaults to 100 and has a
+documented maximum of 500. `nextCursor` is null only when that traversal is complete.
+
+Object cursors are signed opaque tokens bound to the object type, selected sort and every effective
+filter, including workspace and the normalized set of repeated states. A malformed token, a changed
+sort or filter, or reuse for another collection returns `422 invalid_cursor`. Predicates use keyset
+positions rather than offsets, so duplicate names and timestamps remain deterministic and inserts do
+not cause already traversed rows to repeat.
 
 `DELETE` requires `expectedVersion` and accepts optional `cascade` (default `false`). Without cascade,
 an object that has no children or non-parent relations is deleted normally. If dependencies exist, the
@@ -691,6 +699,16 @@ a `details` array.
 - `PATCH /api/v1/relations/{relationId}`
 - `DELETE /api/v1/relations/{relationId}?expectedVersion={n}`
 
+`GET /api/v1/relations` accepts its existing `objectId`, `direction` and `relationTypeKey` filters plus
+bounded `pageSize` (1–500, default 100) and opaque `cursor`. It returns
+`{"items": [...], "nextCursor": null}` rather than an unbounded array. The cursor is signed and bound
+to the anchor object, direction, relation type and anchor workspace; malformed or mismatched cursors
+return `422 invalid_cursor`. Both relation endpoint objects are joined in the anchor object's
+workspace before projection, preventing a corrupt or legacy cross-workspace edge from being exposed.
+
+This page shape is an intentional pre-1.0 breaking change. Callers must follow `nextCursor` unchanged
+and must not parse it.
+
 Relation creation validates the relation type, source and target object types, workspace, cardinality,
 configured ancestor-scoped uniqueness and relation attributes. Relation attribute keys must appear in
 the matched allowed pair's `attributeTypeKeys`; values are normalized and validated using the referenced
@@ -718,6 +736,21 @@ done through object parent operations.
 A required non-parent relation returns `422 required_relation` when independently deleted. It is part
 of the dependent object's validity and lifecycle; delete or replace the dependent object through the
 owning workflow instead.
+
+## Object audit history
+
+- `GET /api/v1/objects/{objectTypeKey}/{objectId}/history?cursor=...&pageSize=...`
+
+History is ordered newest first by occurrence time and an internal non-public sequence tie-breaker.
+It returns the standard bounded page and includes events recorded directly for the object plus events
+for relations connected to it. The indexed `audit_event_subjects` projection supplies identity; the
+read path never searches JSON audit payloads.
+
+Each history item contains `id`, `aggregateType`, public `aggregateId`, `action`, `version`,
+`changedFields`, `attributeTypeKeys` and `occurredAt`. `attributeTypeKeys` names affected object or
+relation attributes without returning their values. The response deliberately omits the internal
+sequence ID and complete before/after values. History cursors are signed and bound to the object
+identity, type and workspace; mismatches return `422 invalid_cursor`.
 
 ## Planned integration endpoints
 

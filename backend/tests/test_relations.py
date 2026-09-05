@@ -151,7 +151,7 @@ def _parent_relation_id(client, codelist_id: str) -> str:
     assert response.status_code == 200
     relations = [
         item["relation"]
-        for item in response.json()
+        for item in response.json()["items"]
         if item["relation"]["relationTypeKey"] == "domain-contains-codelist"
     ]
     assert len(relations) == 1
@@ -214,7 +214,7 @@ def test_domain_and_codelist_share_exclusive_system_representation_relation():
         assert any(
             item["relation"]["id"] == created.json()["id"]
             and item["direction"] == "incoming"
-            for item in incoming.json()
+            for item in incoming.json()["items"]
         )
 
         conflicting = client.post(

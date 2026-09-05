@@ -149,3 +149,52 @@ def test_runtime_state_migration_rejects_duplicate_legacy_release_identities(tmp
         )
     else:
         raise AssertionError("Duplicate legacy release identities must stop the migration")
+
+
+def test_audit_subject_migration_backfills_deterministic_object_and_relation_events(tmp_path):
+    database_path = tmp_path / "audit-subjects.db"
+    engine = create_engine(f"sqlite:///{database_path}")
+    config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
+    command.upgrade(config, "20260904_02")
+
+    object_id = "11111111-1111-4111-8111-111111111111"
+    other_id = "22222222-2222-4222-8222-222222222222"
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO audit_events "
+                "(event_id, aggregate_type, aggregate_id, action, version, changes, occurred_at) "
+                "VALUES "
+                "('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'object', :object_id, "
+                "'created', 1, '{}', '2026-09-05T12:00:00Z'), "
+                "('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'relation', "
+                "'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'created', 1, :relation_changes, "
+                "'2026-09-05T12:00:00Z'), "
+                "('dddddddd-dddd-4ddd-8ddd-dddddddddddd', 'relation', "
+                "'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'updated', 2, '{}', "
+                "'2026-09-05T12:00:00Z')"
+            ),
+            {
+                "object_id": object_id,
+                "relation_changes": (
+                    '{"fromObjectId":"' + object_id + '","toObjectId":"' + other_id + '"}'
+                ),
+            },
+        )
+
+    command.upgrade(config, "head")
+
+    with engine.connect() as connection:
+        subjects = connection.execute(
+            text(
+                "SELECT e.event_id, s.object_id FROM audit_event_subjects s "
+                "JOIN audit_events e ON e.sequence_id = s.audit_event_id "
+                "ORDER BY e.event_id, s.object_id"
+            )
+        ).all()
+    assert subjects == [
+        ("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", object_id),
+        ("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", object_id),
+        ("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", other_id),
+    ]

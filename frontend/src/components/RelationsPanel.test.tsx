@@ -10,7 +10,7 @@ vi.mock("../api/client", () => ({ api: { relations: vi.fn() } }));
 const panel: RelationsPanelDefinition = { key: "relations", title: "Relations", type: "relations", region: "main", order: 1, visible: true, config: { relationTypeKeys: ["domain-contains-codelist"], direction: "outgoing", columns: ["name"] } };
 
 describe("RelationsPanel", () => {
-  beforeEach(() => vi.mocked(api.relations).mockResolvedValue([{ direction: "outgoing", relation: { id: "relation", relationTypeKey: "domain-contains-codelist", fromObjectId: domainObject.id, toObjectId: codelistObject.id, attributes: {}, version: 1 }, object: codelistObject }]));
+  beforeEach(() => vi.mocked(api.relations).mockResolvedValue({ items: [{ direction: "outgoing", relation: { id: "relation", relationTypeKey: "domain-contains-codelist", fromObjectId: domainObject.id, toObjectId: codelistObject.id, attributes: {}, version: 1 }, object: codelistObject }], nextCursor: null }));
 
   it("shows direction-correct labels and protects managed containment rows", async () => {
     render(<RelationsPanel model={testModel} object={domainObject} panel={panel} onOpen={vi.fn()} />);
@@ -47,7 +47,7 @@ describe("RelationsPanel", () => {
   });
 
   it("offers dependent object creation for a required outgoing relation", async () => {
-    vi.mocked(api.relations).mockResolvedValue([]);
+    vi.mocked(api.relations).mockResolvedValue({ items: [], nextCursor: null });
     const translationType = {
       ...testModel.objectTypes[0],
       key: "translation",

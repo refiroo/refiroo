@@ -339,3 +339,16 @@ class AuditEvent(Base):
     occurred_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True
     )
+
+
+class AuditEventSubject(Base):
+    __tablename__ = "audit_event_subjects"
+    __table_args__ = (
+        UniqueConstraint("audit_event_id", "object_id", name="uq_audit_event_subject"),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    audit_event_id: Mapped[int] = mapped_column(
+        ForeignKey("audit_events.sequence_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    object_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)

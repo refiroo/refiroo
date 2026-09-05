@@ -1,7 +1,3 @@
-import base64
-import hashlib
-import hmac
-import json
 from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
@@ -9,7 +5,6 @@ from typing import Any
 from fastapi import APIRouter, Query, Request, Response
 from sqlalchemy import and_, or_, select
 
-from ..config import cursor_signing_key
 from ..db import SessionLocal
 from ..errors import api_error
 from ..models.api import (
@@ -41,6 +36,7 @@ from ..models.database import (
     ObjectTypeRelationMeta,
     RelationTypeMeta,
 )
+from ..services.cursors import decode_cursor, encode_cursor
 from ..services.model_compatibility import analyze_compatibility
 from ..services.model_compiler import ModelDiagnostic, compile_model
 from ..services.model_diff import semantic_diff
@@ -511,19 +507,7 @@ def _encode_cursor(
     sort: tuple[str, ...],
     filters: dict[str, Any],
 ) -> str:
-    payload = json.dumps(
-        {
-            "version": 1,
-            "scope": scope,
-            "sort": sort,
-            "filters": _filter_fingerprint(filters),
-            "position": identity,
-        },
-        sort_keys=True,
-        separators=(",", ":"),
-    ).encode()
-    signature = hmac.digest(cursor_signing_key(), payload, "sha256")
-    return f"{_base64_encode(payload)}.{_base64_encode(signature)}"
+    return encode_cursor(identity, scope=scope, sort=sort, filters=filters)
 
 
 def _decode_cursor(
@@ -533,45 +517,13 @@ def _decode_cursor(
     sort: tuple[str, ...],
     filters: dict[str, Any],
 ) -> tuple[str, ...]:
-    try:
-        encoded_payload, encoded_signature = cursor.split(".")
-        payload = _base64_decode(encoded_payload)
-        signature = _base64_decode(encoded_signature)
-        expected_signature = hmac.digest(cursor_signing_key(), payload, "sha256")
-        if not hmac.compare_digest(signature, expected_signature):
-            raise ValueError
-        decoded = json.loads(payload)
-    except (ValueError, json.JSONDecodeError):
-        raise api_error(422, "invalid_cursor", "Metadata cursor is invalid") from None
-    if (
-        not isinstance(decoded, dict)
-        or decoded.get("version") != 1
-        or decoded.get("scope") != scope
-        or decoded.get("sort") != list(sort)
-        or decoded.get("filters") != _filter_fingerprint(filters)
-        or not isinstance(decoded.get("position"), list)
-        or not decoded["position"]
-        or not all(isinstance(item, str) for item in decoded["position"])
-    ):
-        raise api_error(422, "invalid_cursor", "Metadata cursor is invalid")
-    return tuple(decoded["position"])
-
-
-def _filter_fingerprint(filters: dict[str, Any]) -> str:
-    canonical = json.dumps(filters, sort_keys=True, separators=(",", ":")).encode()
-    return hashlib.sha256(canonical).hexdigest()
-
-
-def _base64_encode(value: bytes) -> str:
-    return base64.urlsafe_b64encode(value).decode().rstrip("=")
-
-
-def _base64_decode(value: str) -> bytes:
-    padding = "=" * (-len(value) % 4)
-    decoded = base64.urlsafe_b64decode(value + padding)
-    if _base64_encode(decoded) != value:
-        raise ValueError
-    return decoded
+    return decode_cursor(
+        cursor,
+        scope=scope,
+        sort=sort,
+        filters=filters,
+        message="Metadata cursor is invalid",
+    )
 
 
 def _as_utc(value: datetime) -> datetime:

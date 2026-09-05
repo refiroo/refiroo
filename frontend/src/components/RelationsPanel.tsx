@@ -14,6 +14,7 @@ export function RelationsPanel({ model, object, panel, onOpen }: {
   onOpen: (objectTypeKey: string, objectId: string, applicationKey?: string) => void;
 }) {
   const [relations, setRelations] = useState<RelationItem[]>([]);
+  const [cursor, setCursor] = useState<string>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
@@ -43,11 +44,24 @@ export function RelationsPanel({ model, object, panel, onOpen }: {
 
   async function load() {
     setLoading(true);
-    try { setRelations(await api.relations(object.id, { direction: panel.config.direction })); setError(""); }
+    try {
+      const page = await api.relations(object.id, { direction: panel.config.direction });
+      setRelations(page.items); setCursor(page.nextCursor ?? undefined); setError("");
+    }
     catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
     finally { setLoading(false); }
   }
   useEffect(() => { void load(); }, [object.id, panel.config.direction]);
+  async function loadMore() {
+    if (!cursor) return;
+    setLoading(true);
+    try {
+      const page = await api.relations(object.id, { direction: panel.config.direction, cursor });
+      setRelations((current) => [...current, ...page.items]);
+      setCursor(page.nextCursor ?? undefined);
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setLoading(false); }
+  }
   const visible = relations.filter((item) => panel.config.relationTypeKeys.includes(item.relation.relationTypeKey));
   const showRelationshipColumn = panel.config.showRelationshipColumn !== false;
   const tableColumnCount = panel.config.columns.length + 1 + (showRelationshipColumn ? 1 : 0);
@@ -88,6 +102,7 @@ export function RelationsPanel({ model, object, panel, onOpen }: {
         return <tr key={item.relation.id}>{showRelationshipColumn && <td>{item.direction === "outgoing" ? definition?.name : definition?.reverseName}</td>}{panel.config.columns.map((column) => <td key={column}>{column === linkColumn ? <button className="cell-link" onClick={() => onOpen(item.object.objectTypeKey, item.object.id, item.object.applicationKey)}>{formatValue(fieldValue(item.object, column, model))}</button> : formatValue(fieldValue(item.object, column, model))}</td>)}<td><div className="row-actions">{immutable ? <span className="managed-label">Managed through Parent</span> : <>{hasAttributes && <button onClick={() => setEditing(item)}>Edit</button>}{required ? <span className="managed-label">Required relationship</span> : <button className="text-danger" onClick={() => setRemoving(item)}>Delete</button>}</>}</div></td></tr>;
       })}
     </tbody></table></div>
+    {cursor && <button type="button" className="load-more inline" disabled={loading} onClick={loadMore}>Load more relationships</button>}
     {creating && <RelationFormDialog model={model} object={object} choices={choices} onClose={() => setCreating(false)} onSaved={async () => { setCreating(false); await load(); }} />}
     {creatingDependent && <ObjectFormDialog model={model} applicationKey={creatingDependent.applicationKey} objectType={model.objectTypes.find((item) => item.key === creatingDependent.objectTypeKey)!} initialRelationObjects={{ [creatingDependent.relationTypeKey]: object }} lockedInitialRelationKeys={[creatingDependent.relationTypeKey]} onClose={() => setCreatingDependent(undefined)} onSaved={async () => { setCreatingDependent(undefined); await load(); }} />}
     {editing && <RelationFormDialog model={model} object={object} choices={choices} existing={editing} onClose={() => setEditing(undefined)} onSaved={async () => { setEditing(undefined); await load(); }} />}

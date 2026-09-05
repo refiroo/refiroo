@@ -9,7 +9,7 @@ relation types, allowed source/relation/target triples and UI views.
 The starter model contains three configurable applications—RDM Master, RDM Systems and RDM
 Translations—but the runtime contains no branches for those names or their object-type keys.
 
-Base 0.5 WP4 is complete. The singleton database runtime-state row selects the authoritative installed
+Base 0.5 WP5 is complete. The singleton database runtime-state row selects the authoritative installed
 release, and source JSON remains bootstrap input only. Each request uses one immutable model and
 metadata snapshot. Read-only release APIs now include key-based semantic diff and bounded runtime-data
 compatibility analysis, while inline model validation returns stable JSON-path diagnostics without
@@ -19,6 +19,10 @@ Guarded activation reparses and compatibility-checks installed candidates transa
 runtime state with both concurrency tokens, commits before refreshing the local registry and makes
 readiness unhealthy if publication fails. Activation is available only in the supported single-worker
 mutation topology.
+Object collections use signed, filter-bound keyset cursors with repeatable state filters and built-in
+sorting. Relation expansion and object audit history are cursor-paged and workspace-bound; an indexed
+audit-subject projection connects object, attribute and relation events without querying JSON payloads
+for identity.
 
 ## Source evidence incorporated
 
@@ -109,10 +113,8 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 
 - Configured `mappingGrid` and `tree` views still resolve through the registry to the generic
   collection renderer; dedicated interactions are not implemented yet.
-- Relation expansion is currently an unpaged object-detail query; high-volume relation tables need a
-  cursor-paged expansion endpoint before production scale.
 - Relations support full instance CRUD (create/read-one/update/delete with optimistic concurrency);
-  bulk relation endpoints and a cursor-paged expansion remain.
+  bulk relation endpoints remain.
 - Attribute uniqueness is enforced at the service layer; a database-level unique constraint/index
   remains before multi-writer PostgreSQL deployment.
 - Ancestor-scoped relationship uniqueness is enforced transactionally by the service layer; database
@@ -131,14 +133,16 @@ Complete the bounded Base 0.5 operational foundation before building the dedicat
    analysis.
 3. **Done (WP3):** Add versioned drafts and immutable installation.
 4. **Done (WP4):** Add guarded, compatibility-checked activation.
-5. Make workspace and URL-backed collection state explicit in the generic object UI.
-6. Add stable built-in sorting, cursor-paged relation expansion and cursor-paged object audit history.
+5. **Done (WP5):** Add signed built-in sorting, cursor-paged relation expansion and cursor-paged object
+   audit history.
+6. Make workspace and URL-backed collection state explicit in the generic object UI, including sort,
+   state and page-size controls and the history panel.
 7. Add the lightweight JSON model workbench, with model mutations disabled by default.
 
 See `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` for the implementation-ready work packages and
 `docs/ROADMAP.md` for the exit gate and sequenced milestones that follow.
 
-The first four work packages are complete; WP5 (object and relation query foundations) is next.
+The first five work packages are complete; WP6 (generic object management UI) is next.
 
 ## Coding-agent handoff
 

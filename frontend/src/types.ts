@@ -211,6 +211,11 @@ export interface RelationItem {
   object: ObjectItem;
 }
 
+export interface RelationPage {
+  items: RelationItem[];
+  nextCursor: string | null;
+}
+
 export interface AttributeValueResponse extends ObjectAttributeValue {
   objectVersion: number;
 }
