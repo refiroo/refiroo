@@ -8,6 +8,11 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.5 generic object-management UI. Workspace context is explicit in the app shell and URLs;
+  collection search, repeatable state filters, built-in sorting and page size survive browser
+  navigation; generic rows expose existing edit/delete semantics; failed collections, panels and
+  lookups are retryable; and object details show bounded, incrementally loaded audit history.
+
 - Base 0.5 object and relation query foundations. Object collections now support repeatable state
   filters and stable built-in sorting through signed, filter-bound keyset cursors. Relation expansion
   is a bounded workspace-checked page, and object history uses an indexed audit-subject projection to

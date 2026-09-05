@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
 import { objectTypeFor } from "../utils/model";
 import type { ApplicationDefinition, EngineModel, ObjectItem, ObjectPage } from "../types";
+import { InlineError } from "./AsyncState";
 
 interface LoadedPage extends ObjectPage {
   loaded: ObjectItem[];
@@ -10,12 +11,14 @@ interface LoadedPage extends ObjectPage {
 export function Explorer({
   model,
   application,
+  workspaceKey,
   activeObjectId,
   refreshToken,
   onOpen,
 }: {
   model: EngineModel;
   application: ApplicationDefinition;
+  workspaceKey: string;
   activeObjectId?: string;
   refreshToken: number;
   onOpen: (item: ObjectItem) => void;
@@ -24,6 +27,8 @@ export function Explorer({
   const [search, setSearch] = useState("");
   const [pages, setPages] = useState<Record<string, LoadedPage>>({});
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setSearch(searchInput.trim()), 250);
@@ -36,14 +41,15 @@ export function Explorer({
     Promise.all(
       application.objectTypeKeys.map(async (key) => [
         key,
-        await api.objects(key, { applicationKey: application.key, search, pageSize: 30 }),
+        await api.objects(key, { applicationKey: application.key, workspaceKey, search, pageSize: 30 }),
       ] as const),
     ).then((results) => {
       if (!active) return;
       setPages(Object.fromEntries(results.map(([key, page]) => [key, { ...page, loaded: page.items }])));
-    }).catch(() => active && setPages({})).finally(() => active && setLoading(false));
+      setError("");
+    }).catch((cause) => active && setError(cause instanceof Error ? cause.message : String(cause))).finally(() => active && setLoading(false));
     return () => { active = false; };
-  }, [application.key, application.objectTypeKeys.join("|"), refreshToken, search]);
+  }, [application.key, application.objectTypeKeys.join("|"), refreshToken, retryToken, search, workspaceKey]);
 
   const objects = useMemo(
     () => Object.values(pages).flatMap((page) => page.loaded),
@@ -62,20 +68,18 @@ export function Explorer({
   const canLoadMore = Object.values(pages).some((page) => page.nextCursor);
 
   async function loadMore() {
-    const entries = await Promise.all(
-      Object.entries(pages).map(async ([key, page]) => {
-        if (!page.nextCursor) return [key, page] as const;
-        const next = await api.objects(key, {
-          applicationKey: application.key,
-          search,
-          cursor: page.nextCursor,
-          pageSize: 30,
-        });
-        const loadedPage: LoadedPage = { ...next, loaded: [...page.loaded, ...next.items] };
-        return [key, loadedPage] as [string, LoadedPage];
-      }),
-    );
-    setPages(Object.fromEntries(entries));
+    setLoading(true); setError("");
+    try {
+      const entries = await Promise.all(
+        Object.entries(pages).map(async ([key, page]) => {
+          if (!page.nextCursor) return [key, page] as const;
+          const next = await api.objects(key, { applicationKey: application.key, workspaceKey, search, cursor: page.nextCursor, pageSize: 30 });
+          return [key, { ...next, loaded: [...page.loaded, ...next.items] }] as [string, LoadedPage];
+        }),
+      );
+      setPages(Object.fromEntries(entries));
+    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    finally { setLoading(false); }
   }
 
   function node(item: ObjectItem, depth: number): React.ReactNode {
@@ -108,7 +112,7 @@ export function Explorer({
       <div className="explorer-types">
         {application.objectTypeKeys.map((key) => <span key={key}>{objectTypeFor(model, key)?.pluralName ?? key}</span>)}
       </div>
-      {loading ? <div className="explorer-empty">Loading objects…</div> : roots.length ? (
+      {error ? <InlineError message={error} onRetry={() => setRetryToken((value) => value + 1)} /> : loading ? <div className="explorer-empty">Loading objects…</div> : roots.length ? (
         <ul className="tree">{roots.map((item) => node(item, search ? Math.max(0, item.path.length - 1) : 0))}</ul>
       ) : <div className="explorer-empty">{search ? "No matching objects." : "No objects in this application yet."}</div>}
       {canLoadMore && <button className="load-more" onClick={loadMore}>Load more objects</button>}

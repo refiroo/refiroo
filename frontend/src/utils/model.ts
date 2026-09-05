@@ -7,7 +7,17 @@ import type {
   ObjectTypeRelationDefinition,
   RelationsPanelDefinition,
   RouteState,
+  ObjectSort,
 } from "../types";
+
+export const DEFAULT_WORKSPACE = "default";
+export const DEFAULT_COLLECTION_QUERY = {
+  search: "",
+  states: [] as string[],
+  sort: "name" as ObjectSort,
+  pageSize: 20,
+};
+const OBJECT_SORTS = new Set<ObjectSort>(["name", "-name", "state", "-state", "createdAt", "-createdAt", "updatedAt", "-updatedAt"]);
 
 export function objectTypeFor(model: EngineModel, key: string) {
   return model.objectTypes.find((item) => item.key === key);
@@ -86,15 +96,30 @@ export function defaultRoute(model: EngineModel): RouteState {
     kind: "list",
     applicationKey: application?.key ?? "",
     viewKey: application?.defaultView ?? "",
+    workspaceKey: DEFAULT_WORKSPACE,
+    ...DEFAULT_COLLECTION_QUERY,
   };
 }
 
 export function parseRoute(model: EngineModel): RouteState {
   const parts = window.location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  const query = new URLSearchParams(window.location.search);
+  const workspaceKey = query.get("workspaceKey")?.trim() || DEFAULT_WORKSPACE;
   if (parts[0] === "apps" && parts[2] === "views" && parts[3]) {
     const application = applicationFor(model, parts[1]);
     if (application?.views.some((view) => view.key === parts[3])) {
-      return { kind: "list", applicationKey: parts[1], viewKey: parts[3] };
+      const candidateSort = query.get("sort") as ObjectSort | null;
+      const requestedPageSize = Number(query.get("pageSize"));
+      return {
+        kind: "list",
+        applicationKey: parts[1],
+        viewKey: parts[3],
+        workspaceKey,
+        search: query.get("search") ?? "",
+        states: query.getAll("state").map((value) => value.trim()).filter(Boolean),
+        sort: candidateSort && OBJECT_SORTS.has(candidateSort) ? candidateSort : DEFAULT_COLLECTION_QUERY.sort,
+        pageSize: Number.isInteger(requestedPageSize) && requestedPageSize >= 1 && requestedPageSize <= 500 ? requestedPageSize : DEFAULT_COLLECTION_QUERY.pageSize,
+      };
     }
   }
   if (parts[0] === "apps" && parts[2] === "objects" && parts[3] && parts[4]) {
@@ -105,18 +130,24 @@ export function parseRoute(model: EngineModel): RouteState {
         applicationKey: parts[1],
         objectTypeKey: parts[3],
         objectId: parts[4],
+        workspaceKey,
       };
     }
   }
-  return defaultRoute(model);
+  return { ...defaultRoute(model), workspaceKey };
 }
 
 export function routePath(route: RouteState) {
   const app = encodeURIComponent(route.applicationKey);
+  const query = new URLSearchParams({ workspaceKey: route.workspaceKey });
   if (route.kind === "list") {
-    return `/apps/${app}/views/${encodeURIComponent(route.viewKey)}`;
+    if (route.search) query.set("search", route.search);
+    route.states.forEach((state) => query.append("state", state));
+    query.set("sort", route.sort);
+    query.set("pageSize", String(route.pageSize));
+    return `/apps/${app}/views/${encodeURIComponent(route.viewKey)}?${query}`;
   }
-  return `/apps/${app}/objects/${encodeURIComponent(route.objectTypeKey)}/${encodeURIComponent(route.objectId)}`;
+  return `/apps/${app}/objects/${encodeURIComponent(route.objectTypeKey)}/${encodeURIComponent(route.objectId)}?${query}`;
 }
 
 export function fallbackDetail(objectType: ObjectTypeDefinition): DetailViewDefinition {
@@ -156,6 +187,6 @@ export function fallbackDetail(objectType: ObjectTypeDefinition): DetailViewDefi
   };
 }
 
-export function viewRoute(application: ApplicationDefinition, viewKey: string): RouteState {
-  return { kind: "list", applicationKey: application.key, viewKey };
+export function viewRoute(application: ApplicationDefinition, viewKey: string, workspaceKey = DEFAULT_WORKSPACE): RouteState {
+  return { kind: "list", applicationKey: application.key, viewKey, workspaceKey, ...DEFAULT_COLLECTION_QUERY };
 }

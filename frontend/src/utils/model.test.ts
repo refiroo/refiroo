@@ -91,6 +91,11 @@ describe("routes", () => {
       kind: "list",
       applicationKey: "test-app",
       viewKey: "domains",
+      workspaceKey: "default",
+      search: "",
+      states: [],
+      sort: "name",
+      pageSize: 20,
     });
   });
 
@@ -100,9 +105,27 @@ describe("routes", () => {
       applicationKey: "test-app",
       objectTypeKey: "domain",
       objectId: domainObject.id,
+      workspaceKey: "west",
     } as const;
     window.history.pushState({}, "", routePath(detail));
     expect(parseRoute(testModel)).toEqual(detail);
+    window.history.pushState({}, "", "/");
+  });
+
+  it("restores workspace and collection controls from repeatable URL state", () => {
+    window.history.pushState({}, "", "/apps/test-app/views/domains?workspaceKey=west&search=A%26B&state=active&state=draft&sort=-updatedAt&pageSize=50");
+    const route = parseRoute(testModel);
+    expect(route).toEqual({
+      kind: "list",
+      applicationKey: "test-app",
+      viewKey: "domains",
+      workspaceKey: "west",
+      search: "A&B",
+      states: ["active", "draft"],
+      sort: "-updatedAt",
+      pageSize: 50,
+    });
+    expect(routePath(route)).toBe("/apps/test-app/views/domains?workspaceKey=west&search=A%26B&state=active&state=draft&sort=-updatedAt&pageSize=50");
     window.history.pushState({}, "", "/");
   });
 });

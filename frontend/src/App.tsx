@@ -1,23 +1,25 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "./api/client";
 import { CollectionView } from "./components/CollectionView";
 import { Explorer } from "./components/Explorer";
 import { applicationFor, defaultRoute, parseRoute, routePath, viewRoute } from "./utils/model";
 import { ObjectDetail } from "./components/ObjectDetail";
-import type { ApplicationDefinition, EngineModel, ObjectItem, RouteState } from "./types";
+import { WorkspaceSelector } from "./components/WorkspaceSelector";
+import type { ApplicationDefinition, CollectionQueryState, EngineModel, ObjectItem, RouteState } from "./types";
 
 export default function App() {
   const [model, setModel] = useState<EngineModel>();
   const [route, setRoute] = useState<RouteState>();
   const [error, setError] = useState("");
   const [refreshToken, setRefreshToken] = useState(0);
+  const collectionReturn = useRef<Extract<RouteState, { kind: "list" }> | undefined>(undefined);
 
   useEffect(() => {
     api.model().then((loaded) => {
       const initial = parseRoute(loaded);
       setModel(loaded);
       setRoute(initial);
-      if (window.location.pathname !== routePath(initial)) window.history.replaceState({}, "", routePath(initial));
+      if (`${window.location.pathname}${window.location.search}` !== routePath(initial)) window.history.replaceState({}, "", routePath(initial));
     }).catch((cause) => setError(String(cause)));
   }, []);
 
@@ -31,6 +33,7 @@ export default function App() {
   if (!model || !route) return <div className="center-message">{error || "Loading the model…"}</div>;
   const application = applicationFor(model, route.applicationKey) ?? model.applications[0];
   const activeRoute = application ? route : defaultRoute(model);
+  if (activeRoute.kind === "list") collectionReturn.current = activeRoute;
 
   function navigate(next: RouteState, replace = false) {
     window.history[replace ? "replaceState" : "pushState"]({}, "", routePath(next));
@@ -38,31 +41,42 @@ export default function App() {
   }
 
   function selectApplication(selected: ApplicationDefinition) {
-    navigate(viewRoute(selected, selected.defaultView));
+    navigate(viewRoute(selected, selected.defaultView, activeRoute.workspaceKey));
   }
 
-  function openObject(item: Pick<ObjectItem, "applicationKey" | "objectTypeKey" | "id">) {
+  function openObject(item: Pick<ObjectItem, "applicationKey" | "objectTypeKey" | "id" | "workspaceKey">) {
     navigate({
       kind: "detail",
       applicationKey: item.applicationKey,
       objectTypeKey: item.objectTypeKey,
       objectId: item.id,
+      workspaceKey: item.workspaceKey,
     });
   }
 
   function openObjectById(objectTypeKey: string, objectId: string, applicationKey = application.key) {
-    navigate({ kind: "detail", applicationKey, objectTypeKey, objectId });
+    navigate({ kind: "detail", applicationKey, objectTypeKey, objectId, workspaceKey: activeRoute.workspaceKey });
   }
 
   function backToCollection() {
+    if (collectionReturn.current?.applicationKey === application.key) {
+      navigate(collectionReturn.current);
+      return;
+    }
     const matchingView = application.views.find((view) => activeRoute.kind === "detail" && view.objectTypeKey === activeRoute.objectTypeKey);
-    navigate(viewRoute(application, matchingView?.key ?? application.defaultView));
+    navigate(viewRoute(application, matchingView?.key ?? application.defaultView, activeRoute.workspaceKey));
+  }
+
+  function changeWorkspace(workspaceKey: string) {
+    if (collectionReturn.current) collectionReturn.current = { ...collectionReturn.current, workspaceKey };
+    navigate({ ...activeRoute, workspaceKey });
+    setRefreshToken((value) => value + 1);
   }
 
   return (
     <div className="app-shell">
       <header className="global-header">
-        <button className="product-mark" onClick={() => navigate(defaultRoute(model))} aria-label={`${model.product.name} home`}>
+        <button className="product-mark" onClick={() => navigate({ ...defaultRoute(model), workspaceKey: activeRoute.workspaceKey })} aria-label={`${model.product.name} home`}>
           <span>R</span><strong>{model.product.name}</strong>
         </button>
         <nav className="application-nav" aria-label="Applications">
@@ -72,6 +86,7 @@ export default function App() {
             </button>
           ))}
         </nav>
+        <WorkspaceSelector workspaceKey={activeRoute.workspaceKey} onChange={changeWorkspace} />
         <div className="release-chip"><span />{model.release.version}</div>
       </header>
       <aside className="workspace-sidebar">
@@ -81,7 +96,7 @@ export default function App() {
             <button
               key={view.key}
               className={activeRoute.kind === "list" && activeRoute.viewKey === view.key ? "active" : ""}
-              onClick={() => navigate(viewRoute(application, view.key))}
+              onClick={() => navigate(viewRoute(application, view.key, activeRoute.workspaceKey))}
             >
               <span>{view.name}</span><small>{view.type}</small>
             </button>
@@ -90,6 +105,7 @@ export default function App() {
         <Explorer
           model={model}
           application={application}
+          workspaceKey={activeRoute.workspaceKey}
           activeObjectId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
           refreshToken={refreshToken}
           onOpen={openObject}
@@ -98,20 +114,24 @@ export default function App() {
       <main className="workspace-main">
         {activeRoute.kind === "list" ? (
           <CollectionView
-            key={`${application.key}:${activeRoute.viewKey}`}
+            key={`${application.key}:${activeRoute.viewKey}:${activeRoute.workspaceKey}`}
             model={model}
             application={application}
             view={application.views.find((view) => view.key === activeRoute.viewKey) ?? application.views[0]}
+            workspaceKey={activeRoute.workspaceKey}
+            query={activeRoute}
+            onQueryChange={(query: CollectionQueryState) => navigate({ ...activeRoute, ...query })}
             onOpen={openObject}
             onChanged={() => setRefreshToken((value) => value + 1)}
           />
         ) : (
           <ObjectDetail
-            key={`${application.key}:${activeRoute.objectTypeKey}:${activeRoute.objectId}`}
+            key={`${application.key}:${activeRoute.objectTypeKey}:${activeRoute.objectId}:${activeRoute.workspaceKey}`}
             model={model}
             application={application}
             objectTypeKey={activeRoute.objectTypeKey}
             objectId={activeRoute.objectId}
+            workspaceKey={activeRoute.workspaceKey}
             onOpen={openObjectById}
             onBack={backToCollection}
             onDeleted={backToCollection}

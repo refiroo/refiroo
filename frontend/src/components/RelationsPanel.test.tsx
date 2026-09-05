@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
 import { codelistObject, domainObject, testModel } from "../test/fixtures";
@@ -84,5 +84,29 @@ describe("RelationsPanel", () => {
 
     expect(await screen.findByRole("button", { name: "+ Add Translation" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "+ Add relationship" })).not.toBeInTheDocument();
+  });
+
+  it("loads another relation page without replacing the first", async () => {
+    vi.mocked(api.relations)
+      .mockResolvedValueOnce({ items: [{ direction: "outgoing", relation: { id: "relation-1", relationTypeKey: "domain-contains-codelist", fromObjectId: domainObject.id, toObjectId: codelistObject.id, attributes: {}, version: 1 }, object: codelistObject }], nextCursor: "next" })
+      .mockResolvedValueOnce({ items: [{ direction: "outgoing", relation: { id: "relation-2", relationTypeKey: "domain-contains-codelist", fromObjectId: domainObject.id, toObjectId: "other", attributes: {}, version: 1 }, object: { ...codelistObject, id: "other", name: "Procedures" } }], nextCursor: null });
+    render(<RelationsPanel model={testModel} object={domainObject} panel={panel} onOpen={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Load more relationships" }));
+    expect(await screen.findByText("Procedures")).toBeInTheDocument();
+    expect(screen.getByText("Timetable types")).toBeInTheDocument();
+    await waitFor(() => expect(api.relations).toHaveBeenLastCalledWith(domainObject.id, { direction: "outgoing", relationTypeKey: "domain-contains-codelist", cursor: "next" }));
+  });
+
+  it("retries the same relation cursor after a load-more failure", async () => {
+    const first = { direction: "outgoing" as const, relation: { id: "relation-1", relationTypeKey: "domain-contains-codelist", fromObjectId: domainObject.id, toObjectId: codelistObject.id, attributes: {}, version: 1 }, object: codelistObject };
+    vi.mocked(api.relations)
+      .mockResolvedValueOnce({ items: [first], nextCursor: "next" })
+      .mockRejectedValueOnce(new Error("Relation page unavailable"))
+      .mockResolvedValueOnce({ items: [{ ...first, relation: { ...first.relation, id: "relation-2" }, object: { ...codelistObject, id: "other", name: "Procedures" } }], nextCursor: null });
+    render(<RelationsPanel model={testModel} object={domainObject} panel={panel} onOpen={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Load more relationships" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("Procedures")).toBeInTheDocument();
+    expect(api.relations).toHaveBeenLastCalledWith(domainObject.id, { direction: "outgoing", relationTypeKey: "domain-contains-codelist", cursor: "next" });
   });
 });

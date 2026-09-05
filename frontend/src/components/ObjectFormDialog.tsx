@@ -1,16 +1,20 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { EngineModel, ObjectItem, ObjectTypeDefinition } from "../types";
 import { AttributeField, attributeValueFromForm } from "./AttributeField";
 import { ObjectLookup } from "./ObjectLookup";
 
-export function ObjectFormDialog({ model, applicationKey, objectType, object, parentObjectId, parentObjectTypeKey, initialRelationObjects = {}, lockedInitialRelationKeys = [], onClose, onSaved }: {
-  model: EngineModel; applicationKey: string; objectType: ObjectTypeDefinition; object?: ObjectItem;
+export function ObjectFormDialog({ model, applicationKey, workspaceKey, objectType, object, parentObjectId, parentObjectTypeKey, initialRelationObjects = {}, lockedInitialRelationKeys = [], onClose, onSaved }: {
+  model: EngineModel; applicationKey: string; workspaceKey?: string; objectType: ObjectTypeDefinition; object?: ObjectItem;
   parentObjectId?: string; parentObjectTypeKey?: string; initialRelationObjects?: Record<string, ObjectItem>;
   lockedInitialRelationKeys?: string[]; onClose: () => void; onSaved: (item: ObjectItem) => void;
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [baselineObject, setBaselineObject] = useState(object);
+  const [objectVersion, setObjectVersion] = useState(object?.version ?? 1);
+  const activeWorkspaceKey = workspaceKey ?? object?.workspaceKey ?? "default";
+  const priorWorkspace = useRef(activeWorkspaceKey);
   const initialParentType = parentObjectTypeKey ?? object?.path.at(-2)?.objectTypeKey ?? undefined;
   const [parentTypeKey, setParentTypeKey] = useState(initialParentType);
   const [parentId, setParentId] = useState<string | null>(parentObjectId ?? object?.parentObjectId ?? null);
@@ -37,6 +41,13 @@ export function ObjectFormDialog({ model, applicationKey, objectType, object, pa
   );
   const [requiredRelationObjects, setRequiredRelationObjects] = useState<Record<string, ObjectItem | undefined>>(initialRelationObjects);
 
+  useEffect(() => {
+    if (priorWorkspace.current === activeWorkspaceKey) return;
+    priorWorkspace.current = activeWorkspaceKey;
+    setParentId(null);
+    setRequiredRelationObjects({});
+  }, [activeWorkspaceKey]);
+
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setSaving(true); setError("");
     try {
@@ -44,11 +55,11 @@ export function ObjectFormDialog({ model, applicationKey, objectType, object, pa
       const data = new FormData(form);
       const name = String(data.get("name"));
       if (object) {
-        const payload: { expectedVersion: number; name?: string; state?: string; parentObjectId?: string | null } = { expectedVersion: object.version };
+        const payload: { expectedVersion: number; name?: string; state?: string; parentObjectId?: string | null } = { expectedVersion: objectVersion };
         const state = String(data.get("state"));
-        if (name !== object.name) payload.name = name;
-        if (state !== object.state) payload.state = state;
-        if (parentId !== object.parentObjectId) payload.parentObjectId = parentId;
+        if (name !== baselineObject?.name) payload.name = name;
+        if (state !== baselineObject?.state) payload.state = state;
+        if (parentId !== baselineObject?.parentObjectId) payload.parentObjectId = parentId;
         onSaved(await api.updateObject(objectType.key, object.id, payload));
       } else {
         const attributes = bindings.filter((binding) => !binding.readOnly).flatMap((binding) => {
@@ -63,9 +74,19 @@ export function ObjectFormDialog({ model, applicationKey, objectType, object, pa
           otherObjectId: requiredRelationObjects[group.relationTypeKey]!.id,
           attributes: {},
         }));
-        onSaved(await api.createObject(objectType.key, { applicationKey, name, parentObjectId: parentId ?? undefined, attributes, initialRelations }));
+        onSaved(await api.createObject(objectType.key, { applicationKey, workspaceKey: activeWorkspaceKey, name, parentObjectId: parentId ?? undefined, attributes, initialRelations }));
       }
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); setSaving(false); }
+    } catch (cause) {
+      if (object && (cause as { code?: string }).code === "version_conflict") {
+        try {
+          const fresh = await api.object(objectType.key, object.id);
+          setBaselineObject(fresh);
+          setObjectVersion(fresh.version);
+          setError("The object changed. Its latest version has been loaded; your edits are preserved. Review and save again.");
+        } catch (reloadCause) { setError(reloadCause instanceof Error ? reloadCause.message : String(reloadCause)); }
+      } else setError(cause instanceof Error ? cause.message : String(cause));
+      setSaving(false);
+    }
   }
 
   return <div className="dialog-backdrop" onMouseDown={() => !saving && onClose()}>
@@ -74,7 +95,7 @@ export function ObjectFormDialog({ model, applicationKey, objectType, object, pa
       <form onSubmit={submit}>
         {parentTypeKeys.length > 0 && <label>Parent
           {parentTypeKeys.length > 1 && <select aria-label="Parent type" value={activeParentTypeKey} onChange={(event) => { setParentTypeKey(event.target.value); setParentId(null); }}>{parentTypeKeys.map((key) => <option key={key} value={key}>{model.objectTypes.find((item) => item.key === key)?.name ?? key}</option>)}</select>}
-          <ObjectLookup objectTypeKey={activeParentTypeKey} applicationKey={applicationKey} workspaceKey={object?.workspaceKey} excludeId={object?.id} selectedId={parentId} selectedLabel={object?.path.at(-2)?.name} required={parentRequired} onChange={(item) => setParentId(item?.id ?? null)} />
+          <ObjectLookup objectTypeKey={activeParentTypeKey} applicationKey={applicationKey} workspaceKey={activeWorkspaceKey} excludeId={object?.id} selectedId={parentId} selectedLabel={object?.path.at(-2)?.name} required={parentRequired} onChange={(item) => setParentId(item?.id ?? null)} />
         </label>}
         {!object && requiredRelationGroups.map((group) => {
           const definition = model.relationTypes.find((relation) => relation.key === group.relationTypeKey);
@@ -83,7 +104,7 @@ export function ObjectFormDialog({ model, applicationKey, objectType, object, pa
           return <fieldset key={group.relationTypeKey}><legend>{definition?.reverseName ?? group.relationTypeKey}</legend>
             {locked ? <p><strong>{requiredRelationObjects[group.relationTypeKey]?.name}</strong></p> : <>
               {group.relations.length > 1 && <label>Object type<select aria-label={`${definition?.reverseName ?? group.relationTypeKey} object type`} value={selectedType} onChange={(event) => { setRequiredRelationTypes((current) => ({ ...current, [group.relationTypeKey]: event.target.value })); setRequiredRelationObjects((current) => ({ ...current, [group.relationTypeKey]: undefined })); }}>{group.relations.map((relation) => <option key={relation.fromObjectTypeKey} value={relation.fromObjectTypeKey}>{model.objectTypes.find((item) => item.key === relation.fromObjectTypeKey)?.name ?? relation.fromObjectTypeKey}</option>)}</select></label>}
-              <ObjectLookup objectTypeKey={selectedType} required value={requiredRelationObjects[group.relationTypeKey]} onChange={(item) => setRequiredRelationObjects((current) => ({ ...current, [group.relationTypeKey]: item }))} />
+              <ObjectLookup objectTypeKey={selectedType} workspaceKey={activeWorkspaceKey} required value={requiredRelationObjects[group.relationTypeKey]} onChange={(item) => setRequiredRelationObjects((current) => ({ ...current, [group.relationTypeKey]: item }))} />
             </>}
           </fieldset>;
         })}

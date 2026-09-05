@@ -6,9 +6,9 @@ import { AttributeField, attributeValueFromForm } from "./AttributeField";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { formatValue } from "./ObjectTable";
 
-export function AttributesPanel({ model, object, panel, onObjectChanged, onReload }: {
+export function AttributesPanel({ model, object, panel, onObjectChanged, onReload, onChanged = () => undefined }: {
   model: EngineModel; object: ObjectItem; panel: AttributesPanelDefinition;
-  onObjectChanged: (object: ObjectItem) => void; onReload: () => Promise<void>;
+  onObjectChanged: (object: ObjectItem) => void; onReload: () => Promise<void>; onChanged?: () => void;
 }) {
   const objectType = objectTypeFor(model, object.objectTypeKey)!;
   const bindingMap = new Map(objectType.attributes.map((binding) => [binding.attributeTypeKey, binding]));
@@ -22,7 +22,7 @@ export function AttributesPanel({ model, object, panel, onObjectChanged, onReloa
     setPending(true); setRemoveError("");
     try {
       await api.deleteAttribute(object.objectTypeKey, object.id, removing.attribute.key, object.version);
-      await onReload(); setRemoving(undefined);
+      await onReload(); setRemoving(undefined); onChanged();
     } catch (cause) {
       setRemoveError(cause instanceof Error ? cause.message : String(cause));
       await onReload();

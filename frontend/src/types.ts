@@ -232,12 +232,37 @@ export interface RelationUpdateInput {
   expectedVersion: number;
 }
 
+export type ObjectSort = "name" | "-name" | "state" | "-state" | "createdAt" | "-createdAt" | "updatedAt" | "-updatedAt";
+
+export interface CollectionQueryState {
+  search: string;
+  states: string[];
+  sort: ObjectSort;
+  pageSize: number;
+}
+
 export type RouteState =
-  | { kind: "list"; applicationKey: string; viewKey: string }
-  | { kind: "detail"; applicationKey: string; objectTypeKey: string; objectId: string };
+  | ({ kind: "list"; applicationKey: string; viewKey: string; workspaceKey: string } & CollectionQueryState)
+  | { kind: "detail"; applicationKey: string; objectTypeKey: string; objectId: string; workspaceKey: string };
 
 export interface ObjectPage {
   items: ObjectItem[];
+  nextCursor: string | null;
+}
+
+export interface AuditEventItem {
+  id: string;
+  aggregateType: string;
+  aggregateId: string;
+  action: string;
+  version: number;
+  changedFields: string[];
+  attributeTypeKeys: string[];
+  occurredAt: string;
+}
+
+export interface AuditEventPage {
+  items: AuditEventItem[];
   nextCursor: string | null;
 }
 

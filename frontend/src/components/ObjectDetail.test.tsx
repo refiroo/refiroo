@@ -31,11 +31,12 @@ describe("ObjectDetail deletion", () => {
       relationshipCount: 2,
     };
     vi.spyOn(api, "object").mockResolvedValue(domainObject);
+    vi.spyOn(api, "objectHistory").mockResolvedValue({ items: [], nextCursor: null });
     vi.spyOn(api, "deleteObject")
       .mockRejectedValueOnce(new ApiError(409, "object_has_dependents", "Confirmation required", impact))
       .mockResolvedValueOnce(undefined);
     const onDeleted = vi.fn();
-    render(<ObjectDetail model={testModel} application={testModel.applications[0]} objectTypeKey="domain" objectId={domainObject.id} onOpen={vi.fn()} onBack={vi.fn()} onDeleted={onDeleted} onChanged={vi.fn()} />);
+    render(<ObjectDetail model={testModel} application={testModel.applications[0]} objectTypeKey="domain" objectId={domainObject.id} workspaceKey="default" onOpen={vi.fn()} onBack={vi.fn()} onDeleted={onDeleted} onChanged={vi.fn()} />);
 
     fireEvent.click(await screen.findByRole("button", { name: "Delete object" }));
     fireEvent.click(screen.getAllByRole("button", { name: "Delete object" }).at(-1)!);

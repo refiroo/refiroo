@@ -9,6 +9,8 @@ import type {
   RelationPage,
   RelationRecord,
   RelationUpdateInput,
+  AuditEventPage,
+  ObjectSort,
 } from "../types";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
@@ -56,6 +58,8 @@ export interface ObjectQuery {
   cursor?: string;
   pageSize?: number;
   parentObjectId?: string;
+  state?: string[];
+  sort?: ObjectSort;
 }
 
 function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
@@ -65,6 +69,8 @@ function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
   if (query.search) params.set("search", query.search);
   if (query.cursor) params.set("cursor", query.cursor);
   if (query.parentObjectId) params.set("parentObjectId", query.parentObjectId);
+  query.state?.forEach((state) => params.append("state", state));
+  if (query.sort) params.set("sort", query.sort);
   return `/api/v1/objects/${encodeURIComponent(objectTypeKey)}?${params}`;
 }
 
@@ -80,6 +86,7 @@ export const api = {
     objectTypeKey: string,
     payload: {
       applicationKey: string;
+      workspaceKey: string;
       name: string;
       parentObjectId?: string;
       attributes: ObjectAttributeInput[];
@@ -124,6 +131,11 @@ export const api = {
   relation: (relationId: string) => request<RelationRecord>(`/api/v1/relations/${encodeURIComponent(relationId)}`),
   updateRelation: (relationId: string, payload: RelationUpdateInput) => request<RelationRecord>(`/api/v1/relations/${encodeURIComponent(relationId)}`, { method: "PATCH", body: JSON.stringify(payload) }),
   deleteRelation: (relationId: string, expectedVersion: number) => request<void>(`/api/v1/relations/${encodeURIComponent(relationId)}?expectedVersion=${expectedVersion}`, { method: "DELETE" }),
+  objectHistory: (objectTypeKey: string, objectId: string, options: { cursor?: string; pageSize?: number } = {}) => {
+    const params = new URLSearchParams({ pageSize: String(options.pageSize ?? 20) });
+    if (options.cursor) params.set("cursor", options.cursor);
+    return request<AuditEventPage>(`/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}/history?${params}`);
+  },
 };
 
 function attributePath(objectTypeKey: string, objectId: string, attributeTypeKey: string) {

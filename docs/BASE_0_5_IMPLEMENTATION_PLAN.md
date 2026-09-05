@@ -17,8 +17,8 @@ workbench
 | WP3 — Persist drafts and install immutable releases | Complete | Versioned drafts, atomic install, capability gate and audit |
 | WP4 — Implement guarded activation | Complete | Dual-token activation, compatibility gate, audit and readiness failure handling |
 | WP5 — Upgrade object and relation query foundations | Complete | Signed keyset cursors; bounded relation/history pages; indexed audit subjects |
-| WP6 — Improve generic object management UI | Next | Ready after WP5 |
-| WP7 — Add the lightweight model workbench | Pending | Depends on WP6 |
+| WP6 — Improve generic object management UI | Complete | URL/workspace state; generic actions; retry states; paged relations/history |
+| WP7 — Add the lightweight model workbench | Next | Ready after WP6 |
 | WP8 — Release integration and documentation | Pending | Depends on WP7 |
 
 ## Handoff instructions
@@ -449,6 +449,8 @@ Completion record:
 
 ### WP6 — Improve generic object management UI
 
+**Status:** Complete (2026-09-05)
+
 Files:
 
 - `frontend/src/types.ts`
@@ -488,6 +490,22 @@ Tests:
 - version conflict refresh and paged relation/history behavior.
 
 Exit: common object work no longer requires fragile navigation or unbounded panel requests.
+
+Completion record:
+
+- made workspace context explicit in the app shell and every list/detail URL, preserving it through
+  application, view, object and browser navigation and applying it to collection, create, parent and
+  cross-application candidate requests;
+- added URL-backed search, repeatable state, built-in sort and page-size controls whose changes reset
+  local cursor history while browser navigation restores the prior query;
+- added model-generic collection row actions that reuse the existing edit, dependency-preview,
+  cascade-confirmation and optimistic-conflict flows;
+- added retryable loading, empty and error states for collections, explorer data, embedded panels and
+  object lookups without presenting failed requests as successful empty results;
+- retained independent bounded relation-panel paging and added a bounded object-history timeline with
+  concise field/attribute summaries and incremental loading; and
+- expanded frontend coverage for two generic object types, a non-default workspace, URL restoration,
+  retries, version-conflict refresh and paged relation/history behavior.
 
 ### WP7 — Add the lightweight model workbench
 

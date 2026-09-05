@@ -6,6 +6,8 @@ import { ConfirmDialog } from "./ConfirmDialog";
 import { ObjectFormDialog } from "./ObjectFormDialog";
 import { ObjectTable, Pagination } from "./ObjectTable";
 import { RelationsPanel as EditableRelationsPanel } from "./RelationsPanel";
+import { HistoryPanel } from "./HistoryPanel";
+import { InlineError } from "./AsyncState";
 import type {
   ApplicationDefinition,
   ChildrenPanelDefinition,
@@ -32,9 +34,9 @@ interface PanelProps {
 type PanelComponent = (props: PanelProps) => React.ReactNode;
 
 export const panelComponentRegistry: Record<PanelDefinition["type"], PanelComponent> = {
-  attributes: (props) => <EditableAttributesPanel model={props.model} object={props.object} panel={props.panel as import("../types").AttributesPanelDefinition} onObjectChanged={props.onObjectChanged} onReload={props.onReload} />,
+  attributes: (props) => <EditableAttributesPanel model={props.model} object={props.object} panel={props.panel as import("../types").AttributesPanelDefinition} onObjectChanged={props.onObjectChanged} onReload={props.onReload} onChanged={props.onChanged} />,
   children: ChildrenPanel,
-  relations: (props) => <EditableRelationsPanel model={props.model} object={props.object} panel={props.panel as import("../types").RelationsPanelDefinition} onOpen={props.onOpen} />,
+  relations: (props) => <EditableRelationsPanel model={props.model} object={props.object} panel={props.panel as import("../types").RelationsPanelDefinition} onOpen={props.onOpen} onChanged={props.onChanged} />,
   table: TablePanel,
   hierarchy: HierarchyPanel,
 };
@@ -44,6 +46,7 @@ export function ObjectDetail({
   application,
   objectTypeKey,
   objectId,
+  workspaceKey,
   onOpen,
   onBack,
   onDeleted,
@@ -53,6 +56,7 @@ export function ObjectDetail({
   application: ApplicationDefinition;
   objectTypeKey: string;
   objectId: string;
+  workspaceKey: string;
   onOpen: (objectTypeKey: string, objectId: string, applicationKey?: string) => void;
   onBack: () => void;
   onDeleted: () => void;
@@ -66,12 +70,14 @@ export function ObjectDetail({
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [deleteImpact, setDeleteImpact] = useState<DeleteImpact>();
+  const [historyRefresh, setHistoryRefresh] = useState(0);
   const objectType = objectTypeFor(model, objectTypeKey);
   const detail = application.details.find((item) => item.objectTypeKey === objectTypeKey) ?? (objectType ? fallbackDetail(objectType) : undefined);
 
   async function loadObject() {
     const loaded = await api.object(objectTypeKey, objectId);
     if (loaded.applicationKey !== application.key) throw new Error("This object belongs to another application.");
+    if (loaded.workspaceKey !== workspaceKey) throw new Error(`This object does not belong to workspace “${workspaceKey}”.`);
     setObject(loaded); setError("");
   }
 
@@ -81,16 +87,22 @@ export function ObjectDetail({
     api.object(objectTypeKey, objectId).then((loaded) => {
       if (!active) return;
       if (loaded.applicationKey !== application.key) throw new Error("This object belongs to another application.");
+      if (loaded.workspaceKey !== workspaceKey) throw new Error(`This object does not belong to workspace “${workspaceKey}”.`);
       setObject(loaded);
       setError("");
     }).catch((cause) => active && setError(String(cause))).finally(() => active && setLoading(false));
     return () => { active = false; };
-  }, [application.key, objectId, objectTypeKey]);
+  }, [application.key, objectId, objectTypeKey, workspaceKey]);
 
   if (loading) return <div className="page-loading">Loading object…</div>;
-  if (error || !object || !objectType || !detail) return <div className="empty-state error-state"><h1>Object unavailable</h1><p>{error}</p><button className="secondary" onClick={onBack}>Back to list</button></div>;
+  if (error || !object || !objectType || !detail) return <div className="empty-state error-state"><h1>Object unavailable</h1><p>{error}</p><div className="empty-actions"><button className="secondary" onClick={() => { setLoading(true); loadObject().catch((cause) => setError(cause instanceof Error ? cause.message : String(cause))).finally(() => setLoading(false)); }}>Retry</button><button className="secondary" onClick={onBack}>Back to list</button></div></div>;
   const currentObject = object;
   const currentObjectType = objectType;
+
+  function handleChanged() {
+    setHistoryRefresh((value) => value + 1);
+    onChanged();
+  }
 
   const panels = detail.panels.filter((panel) => panel.visible);
   const mainPanels = panels.filter((panel) => panel.region === "main").sort((a, b) => a.order - b.order);
@@ -118,7 +130,7 @@ export function ObjectDetail({
 
   function renderPanel(panel: PanelDefinition) {
     const Component = panelComponentRegistry[panel.type];
-    return <section className="panel surface" key={panel.key}><h2>{panel.title}</h2>{Component({ model, application, object: currentObject, panel, onOpen, onChanged, onObjectChanged: (saved) => { setObject(saved); onChanged(); }, onReload: loadObject })}</section>;
+    return <section className="panel surface" key={panel.key}><h2>{panel.title}</h2>{Component({ model, application, object: currentObject, panel, onOpen, onChanged: handleChanged, onObjectChanged: (saved) => { setObject(saved); handleChanged(); }, onReload: loadObject })}</section>;
   }
 
   return (
@@ -144,17 +156,18 @@ export function ObjectDetail({
         </div>
       </header>
       <div className={`detail-grid ${sidePanels.length ? "with-side" : ""}`}>
-        <div className="panel-column">{mainPanels.map(renderPanel)}</div>
+        <div className="panel-column">{mainPanels.map(renderPanel)}<HistoryPanel objectTypeKey={objectTypeKey} objectId={objectId} refreshToken={historyRefresh} /></div>
         {sidePanels.length > 0 && <aside className="panel-column side-panels">{sidePanels.map(renderPanel)}</aside>}
       </div>
       {editing && (
         <ObjectFormDialog
           model={model}
           applicationKey={application.key}
+          workspaceKey={workspaceKey}
           objectType={objectType}
           object={object}
           onClose={() => setEditing(false)}
-          onSaved={(saved) => { setObject(saved); setEditing(false); onChanged(); }}
+          onSaved={(saved) => { setObject(saved); setEditing(false); handleChanged(); }}
         />
       )}
       {deleting && <ConfirmDialog title={deleteImpact ? `Cascade delete ${deleteImpact.objectCount} objects?` : `Delete “${object.name}”?`} confirmLabel={deleteImpact ? "Cascade delete" : "Delete object"} pending={deletePending} error={deleteError} onCancel={() => { setDeleting(false); setDeleteError(""); setDeleteImpact(undefined); }} onConfirm={deleteObject}>{deleteImpact ? <DeleteImpactSummary model={model} impact={deleteImpact} /> : <p>The engine will first check for children and relationships. If dependencies exist, nothing will be deleted until you review and confirm the cascade.</p>}</ConfirmDialog>}
@@ -162,7 +175,7 @@ export function ObjectDetail({
   );
 }
 
-function DeleteImpactSummary({ model, impact }: { model: EngineModel; impact: DeleteImpact }) {
+export function DeleteImpactSummary({ model, impact }: { model: EngineModel; impact: DeleteImpact }) {
   const objectName = (key: string) => objectTypeFor(model, key)?.name ?? key;
   const relationName = (key: string) => model.relationTypes.find((item) => item.key === key)?.name ?? key;
   return <div className="delete-impact">
@@ -219,6 +232,8 @@ function CollectionPanelTable({
   const [pageIndex, setPageIndex] = useState(0);
   const [page, setPage] = useState<ObjectPage>({ items: [], nextCursor: null });
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [retryToken, setRetryToken] = useState(0);
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
@@ -229,10 +244,12 @@ function CollectionPanelTable({
   useEffect(() => {
     let active = true;
     setLoading(true);
-    api.objects(objectTypeKey, { applicationKey: application.key, search, cursor: cursors[pageIndex], pageSize, parentObjectId })
-      .then((loaded) => active && setPage(loaded)).finally(() => active && setLoading(false));
+    api.objects(objectTypeKey, { applicationKey: application.key, workspaceKey: object.workspaceKey, search, cursor: cursors[pageIndex], pageSize, parentObjectId })
+      .then((loaded) => { if (active) { setPage(loaded); setError(""); } })
+      .catch((cause) => active && setError(cause instanceof Error ? cause.message : String(cause)))
+      .finally(() => active && setLoading(false));
     return () => { active = false; };
-  }, [application.key, cursors, objectTypeKey, pageIndex, pageSize, parentObjectId, search]);
+  }, [application.key, cursors, object.workspaceKey, objectTypeKey, pageIndex, pageSize, parentObjectId, retryToken, search]);
 
   function nextPage() {
     if (!page.nextCursor) return;
@@ -240,7 +257,7 @@ function CollectionPanelTable({
     setPageIndex((current) => current + 1);
   }
   function refresh() {
-    api.objects(objectTypeKey, { applicationKey: application.key, search, cursor: cursors[pageIndex], pageSize, parentObjectId }).then(setPage);
+    setRetryToken((value) => value + 1);
     onChanged();
   }
 
@@ -250,9 +267,10 @@ function CollectionPanelTable({
         <label className="search-box compact"><span>⌕</span><input value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder={`Search ${objectType.pluralName.toLowerCase()}`} /></label>
         {allowCreate && <button className="secondary" onClick={() => setCreating(true)}>+ Add {objectType.name}</button>}
       </div>
-      <ObjectTable model={model} columns={columns} objects={page.items} loading={loading} onOpen={(item) => onOpen(item.objectTypeKey, item.id, item.applicationKey)} />
-      <Pagination page={pageIndex + 1} hasNext={Boolean(page.nextCursor)} onPrevious={() => setPageIndex((value) => Math.max(0, value - 1))} onNext={nextPage} />
-      {creating && <ObjectFormDialog model={model} applicationKey={application.key} objectType={objectType} parentObjectId={parentObjectId} parentObjectTypeKey={parentObjectId ? object.objectTypeKey : undefined} onClose={() => setCreating(false)} onSaved={() => { setCreating(false); refresh(); }} />}
+      {error && <InlineError message={error} onRetry={() => setRetryToken((value) => value + 1)} />}
+      <ObjectTable model={model} columns={columns} objects={error ? [] : page.items} loading={loading && !error} onOpen={(item) => onOpen(item.objectTypeKey, item.id, item.applicationKey)} />
+      {!error && <Pagination page={pageIndex + 1} hasNext={Boolean(page.nextCursor)} onPrevious={() => setPageIndex((value) => Math.max(0, value - 1))} onNext={nextPage} />}
+      {creating && <ObjectFormDialog model={model} applicationKey={application.key} workspaceKey={object.workspaceKey} objectType={objectType} parentObjectId={parentObjectId} parentObjectTypeKey={parentObjectId ? object.objectTypeKey : undefined} onClose={() => setCreating(false)} onSaved={() => { setCreating(false); refresh(); }} />}
     </div>
   );
 }

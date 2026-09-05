@@ -4,21 +4,22 @@ import { api } from "../api/client";
 import { domainObject, testModel } from "../test/fixtures";
 import { ObjectFormDialog } from "./ObjectFormDialog";
 
-vi.mock("../api/client", () => ({ api: { createObject: vi.fn(), updateObject: vi.fn(), objects: vi.fn() } }));
+vi.mock("../api/client", () => ({ api: { createObject: vi.fn(), updateObject: vi.fn(), objects: vi.fn(), object: vi.fn() } }));
 
 describe("ObjectFormDialog", () => {
   beforeEach(() => {
     vi.mocked(api.createObject).mockResolvedValue(domainObject);
     vi.mocked(api.updateObject).mockResolvedValue({ ...domainObject, name: "Updated", state: "draft", version: 2 });
     vi.mocked(api.objects).mockResolvedValue({ items: [domainObject], nextCursor: null });
+    vi.mocked(api.object).mockResolvedValue({ ...domainObject, version: 2 });
   });
 
   it("creates an object with typed model attributes", async () => {
-    render(<ObjectFormDialog model={testModel} applicationKey="test-app" objectType={testModel.objectTypes[0]} onClose={vi.fn()} onSaved={vi.fn()} />);
+    render(<ObjectFormDialog model={testModel} applicationKey="test-app" workspaceKey="west" objectType={testModel.objectTypes[0]} onClose={vi.fn()} onSaved={vi.fn()} />);
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Connections" } });
     fireEvent.change(screen.getByLabelText("Code"), { target: { value: "CONNECTIONS" } });
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
-    await waitFor(() => expect(api.createObject).toHaveBeenCalledWith("domain", expect.objectContaining({ applicationKey: "test-app", name: "Connections", attributes: [{ attributeTypeKey: "code", value: "CONNECTIONS" }, { attributeTypeKey: "active", value: true }] })));
+    await waitFor(() => expect(api.createObject).toHaveBeenCalledWith("domain", expect.objectContaining({ applicationKey: "test-app", workspaceKey: "west", name: "Connections", attributes: [{ attributeTypeKey: "code", value: "CONNECTIONS" }, { attributeTypeKey: "active", value: true }] })));
   });
 
   it("preserves false for an optional boolean without a default", async () => {
@@ -61,6 +62,18 @@ describe("ObjectFormDialog", () => {
     fireEvent.change(screen.getByLabelText("State"), { target: { value: "draft" } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await waitFor(() => expect(api.updateObject).toHaveBeenCalledWith("domain", domainObject.id, { expectedVersion: 1, name: "Updated", state: "draft" }));
+  });
+
+  it("refreshes a conflicting version without discarding entered values", async () => {
+    vi.mocked(api.updateObject).mockRejectedValueOnce(Object.assign(new Error("Stale version"), { code: "version_conflict" })).mockResolvedValueOnce({ ...domainObject, name: "Kept edit", version: 3 });
+    render(<ObjectFormDialog model={testModel} applicationKey="test-app" objectType={testModel.objectTypes[0]} object={domainObject} onClose={vi.fn()} onSaved={vi.fn()} />);
+    const name = screen.getByLabelText("Name");
+    fireEvent.change(name, { target: { value: "Kept edit" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByText(/your edits are preserved/i)).toBeInTheDocument();
+    expect(name).toHaveValue("Kept edit");
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(api.updateObject).toHaveBeenLastCalledWith("domain", domainObject.id, expect.objectContaining({ expectedVersion: 2, name: "Kept edit" })));
   });
 
   it("creates a required target relationship atomically with a new object", async () => {

@@ -20,6 +20,23 @@ describe("API client", () => {
     expect(url).not.toContain("applicationKey");
   });
 
+  it("encodes repeatable state filters and built-in sorting", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await api.objects("domain", { workspaceKey: "west", state: ["active", "draft"], sort: "-updatedAt", pageSize: 50 });
+    const url = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(url.searchParams.getAll("state")).toEqual(["active", "draft"]);
+    expect(url.searchParams.get("sort")).toBe("-updatedAt");
+  });
+
+  it("requests a bounded object history page", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await api.objectHistory("external value", "object/id", { cursor: "next token", pageSize: 10 });
+    expect(fetchMock.mock.calls[0][0]).toContain("/objects/external%20value/object%2Fid/history?");
+    expect(fetchMock.mock.calls[0][0]).toContain("cursor=next+token");
+  });
+
   it("sends versions and handles empty delete responses", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", fetchMock);
