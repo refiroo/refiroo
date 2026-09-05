@@ -16,12 +16,16 @@ export default function App() {
   const collectionReturn = useRef<Extract<RouteState, { kind: "list" }> | undefined>(undefined);
 
   useEffect(() => {
-    api.model().then((loaded) => {
-      const initial = parseRoute(loaded);
-      setModel(loaded);
-      setRoute(initial);
-      if (`${window.location.pathname}${window.location.search}` !== routePath(initial)) window.history.replaceState({}, "", routePath(initial));
-    }).catch((cause) => setError(String(cause)));
+    api
+      .model()
+      .then((loaded) => {
+        const initial = parseRoute(loaded);
+        setModel(loaded);
+        setRoute(initial);
+        if (`${window.location.pathname}${window.location.search}` !== routePath(initial))
+          window.history.replaceState({}, "", routePath(initial));
+      })
+      .catch((cause) => setError(String(cause)));
   }, []);
 
   useEffect(() => {
@@ -43,7 +47,8 @@ export default function App() {
   }
 
   function selectApplication(selected: ApplicationDefinition) {
-    const workspaceKey = activeRoute.kind === "models" ? collectionReturn.current?.workspaceKey ?? "default" : activeRoute.workspaceKey;
+    const workspaceKey =
+      activeRoute.kind === "models" ? (collectionReturn.current?.workspaceKey ?? "default") : activeRoute.workspaceKey;
     navigate(viewRoute(selected, selected.defaultView, workspaceKey));
   }
 
@@ -68,7 +73,9 @@ export default function App() {
       navigate(collectionReturn.current);
       return;
     }
-    const matchingView = application.views.find((view) => activeRoute.kind === "detail" && view.objectTypeKey === activeRoute.objectTypeKey);
+    const matchingView = application.views.find(
+      (view) => activeRoute.kind === "detail" && view.objectTypeKey === activeRoute.objectTypeKey,
+    );
     navigate(viewRoute(application, matchingView?.key ?? application.defaultView, activeRoute.workspaceKey));
   }
 
@@ -82,42 +89,73 @@ export default function App() {
   return (
     <div className={`app-shell${activeRoute.kind === "models" ? " models-mode" : ""}`}>
       <header className="global-header">
-        <button className="product-mark" onClick={() => navigate({ ...defaultRoute(model), workspaceKey: activeRoute.kind === "models" ? collectionReturn.current?.workspaceKey ?? "default" : activeRoute.workspaceKey })} aria-label={`${model.product.name} home`}>
-          <span>R</span><strong>{model.product.name}</strong>
+        <button
+          className="product-mark"
+          onClick={() =>
+            navigate({
+              ...defaultRoute(model),
+              workspaceKey:
+                activeRoute.kind === "models"
+                  ? (collectionReturn.current?.workspaceKey ?? "default")
+                  : activeRoute.workspaceKey,
+            })
+          }
+          aria-label={`${model.product.name} home`}
+        >
+          <span>R</span>
+          <strong>{model.product.name}</strong>
         </button>
         <nav className="application-nav" aria-label="Applications">
           {model.applications.map((item) => (
-            <button key={item.key} className={activeRoute.kind !== "models" && item.key === application.key ? "active" : ""} onClick={() => selectApplication(item)}>
-              <span style={{ backgroundColor: item.color }} />{item.name}
-            </button>
-          ))}
-          <button className={activeRoute.kind === "models" ? "active" : ""} onClick={() => navigate({ kind: "models" })}>Models</button>
-        </nav>
-        {activeRoute.kind !== "models" && <WorkspaceSelector workspaceKey={activeRoute.workspaceKey} onChange={changeWorkspace} />}
-        <div className="release-chip"><span />{model.release.version}</div>
-      </header>
-      {activeRoute.kind !== "models" && <aside className="workspace-sidebar">
-        <nav className="view-nav" aria-label={`${application.name} views`}>
-          <p className="nav-label">Views</p>
-          {application.views.map((view) => (
             <button
-              key={view.key}
-              className={activeRoute.kind === "list" && activeRoute.viewKey === view.key ? "active" : ""}
-              onClick={() => navigate(viewRoute(application, view.key, activeRoute.workspaceKey))}
+              key={item.key}
+              className={activeRoute.kind !== "models" && item.key === application.key ? "active" : ""}
+              onClick={() => selectApplication(item)}
             >
-              <span>{view.name}</span><small>{view.type}</small>
+              <span style={{ backgroundColor: item.color }} />
+              {item.name}
             </button>
           ))}
+          <button
+            className={activeRoute.kind === "models" ? "active" : ""}
+            onClick={() => navigate({ kind: "models" })}
+          >
+            Models
+          </button>
         </nav>
-        <Explorer
-          model={model}
-          application={application}
-          workspaceKey={activeRoute.workspaceKey}
-          activeObjectId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
-          refreshToken={refreshToken}
-          onOpen={openObject}
-        />
-      </aside>}
+        {activeRoute.kind !== "models" && (
+          <WorkspaceSelector workspaceKey={activeRoute.workspaceKey} onChange={changeWorkspace} />
+        )}
+        <div className="release-chip">
+          <span />
+          {model.release.version}
+        </div>
+      </header>
+      {activeRoute.kind !== "models" && (
+        <aside className="workspace-sidebar">
+          <nav className="view-nav" aria-label={`${application.name} views`}>
+            <p className="nav-label">Views</p>
+            {application.views.map((view) => (
+              <button
+                key={view.key}
+                className={activeRoute.kind === "list" && activeRoute.viewKey === view.key ? "active" : ""}
+                onClick={() => navigate(viewRoute(application, view.key, activeRoute.workspaceKey))}
+              >
+                <span>{view.name}</span>
+                <small>{view.type}</small>
+              </button>
+            ))}
+          </nav>
+          <Explorer
+            model={model}
+            application={application}
+            workspaceKey={activeRoute.workspaceKey}
+            activeObjectId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
+            refreshToken={refreshToken}
+            onOpen={openObject}
+          />
+        </aside>
+      )}
       <main className="workspace-main">
         {activeRoute.kind === "models" ? (
           <ModelWorkbench

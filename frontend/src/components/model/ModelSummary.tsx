@@ -17,7 +17,14 @@ export function ModelSummary({ model }: { model: Record<string, unknown> }) {
     ["Views", views],
   ] as const;
 
-  return <section className="model-summary" aria-label="Model structure summary">
-    {counts.map(([label, count]) => <div key={label}><strong>{count}</strong><span>{label}</span></div>)}
-  </section>;
+  return (
+    <section className="model-summary" aria-label="Model structure summary">
+      {counts.map(([label, count]) => (
+        <div key={label}>
+          <strong>{count}</strong>
+          <span>{label}</span>
+        </div>
+      ))}
+    </section>
+  );
 }

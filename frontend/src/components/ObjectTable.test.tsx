@@ -5,14 +5,7 @@ import { ObjectTable } from "./ObjectTable";
 
 describe("ObjectTable", () => {
   it("renders model-derived column headers and values for one object type", () => {
-    render(
-      <ObjectTable
-        model={testModel}
-        columns={["name", "code"]}
-        objects={[domainObject]}
-        onOpen={() => {}}
-      />,
-    );
+    render(<ObjectTable model={testModel} columns={["name", "code"]} objects={[domainObject]} onOpen={() => {}} />);
     expect(screen.getByText("Name")).toBeInTheDocument();
     expect(screen.getByText("Code")).toBeInTheDocument();
     expect(screen.getByText("Connections")).toBeInTheDocument();
@@ -21,12 +14,7 @@ describe("ObjectTable", () => {
 
   it("renders the same generic columns for a different object type", () => {
     render(
-      <ObjectTable
-        model={testModel}
-        columns={["name", "objectType"]}
-        objects={[codelistObject]}
-        onOpen={() => {}}
-      />,
+      <ObjectTable model={testModel} columns={["name", "objectType"]} objects={[codelistObject]} onOpen={() => {}} />,
     );
     expect(screen.getByText("Timetable types")).toBeInTheDocument();
     expect(screen.getByText("Codelist")).toBeInTheDocument();

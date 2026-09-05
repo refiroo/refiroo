@@ -17,7 +17,16 @@ export const DEFAULT_COLLECTION_QUERY = {
   sort: "name" as ObjectSort,
   pageSize: 20,
 };
-const OBJECT_SORTS = new Set<ObjectSort>(["name", "-name", "state", "-state", "createdAt", "-createdAt", "updatedAt", "-updatedAt"]);
+const OBJECT_SORTS = new Set<ObjectSort>([
+  "name",
+  "-name",
+  "state",
+  "-state",
+  "createdAt",
+  "-createdAt",
+  "updatedAt",
+  "-updatedAt",
+]);
 
 export function objectTypeFor(model: EngineModel, key: string) {
   return model.objectTypes.find((item) => item.key === key);
@@ -46,11 +55,27 @@ export function relationChoices(
     if (!allowedKeys.has(relation.relationTypeKey) || relation.required || isManagedRelation(model, relation)) continue;
     const definition = model.relationTypes.find((item) => item.key === relation.relationTypeKey);
     if (!definition) continue;
-    if ((panel.config.direction === "outgoing" || panel.config.direction === "both") && relation.fromObjectTypeKey === objectTypeKey) {
-      choices.push({ direction: "outgoing", relation, otherObjectTypeKey: relation.toObjectTypeKey, label: definition.name });
+    if (
+      (panel.config.direction === "outgoing" || panel.config.direction === "both") &&
+      relation.fromObjectTypeKey === objectTypeKey
+    ) {
+      choices.push({
+        direction: "outgoing",
+        relation,
+        otherObjectTypeKey: relation.toObjectTypeKey,
+        label: definition.name,
+      });
     }
-    if ((panel.config.direction === "incoming" || panel.config.direction === "both") && relation.toObjectTypeKey === objectTypeKey) {
-      choices.push({ direction: "incoming", relation, otherObjectTypeKey: relation.fromObjectTypeKey, label: definition.reverseName });
+    if (
+      (panel.config.direction === "incoming" || panel.config.direction === "both") &&
+      relation.toObjectTypeKey === objectTypeKey
+    ) {
+      choices.push({
+        direction: "incoming",
+        relation,
+        otherObjectTypeKey: relation.fromObjectTypeKey,
+        label: definition.reverseName,
+      });
     }
   }
   return choices;
@@ -121,9 +146,15 @@ export function parseRoute(model: EngineModel): RouteState {
         viewKey: parts[3],
         workspaceKey,
         search: query.get("search") ?? "",
-        states: query.getAll("state").map((value) => value.trim()).filter(Boolean),
+        states: query
+          .getAll("state")
+          .map((value) => value.trim())
+          .filter(Boolean),
         sort: candidateSort && OBJECT_SORTS.has(candidateSort) ? candidateSort : DEFAULT_COLLECTION_QUERY.sort,
-        pageSize: Number.isInteger(requestedPageSize) && requestedPageSize >= 1 && requestedPageSize <= 500 ? requestedPageSize : DEFAULT_COLLECTION_QUERY.pageSize,
+        pageSize:
+          Number.isInteger(requestedPageSize) && requestedPageSize >= 1 && requestedPageSize <= 500
+            ? requestedPageSize
+            : DEFAULT_COLLECTION_QUERY.pageSize,
       };
     }
   }
@@ -198,6 +229,10 @@ export function fallbackDetail(objectType: ObjectTypeDefinition): DetailViewDefi
   };
 }
 
-export function viewRoute(application: ApplicationDefinition, viewKey: string, workspaceKey = DEFAULT_WORKSPACE): Extract<RouteState, { kind: "list" }> {
+export function viewRoute(
+  application: ApplicationDefinition,
+  viewKey: string,
+  workspaceKey = DEFAULT_WORKSPACE,
+): Extract<RouteState, { kind: "list" }> {
   return { kind: "list", applicationKey: application.key, viewKey, workspaceKey, ...DEFAULT_COLLECTION_QUERY };
 }

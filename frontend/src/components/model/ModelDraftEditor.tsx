@@ -12,11 +12,19 @@ function pretty(model: Record<string, unknown>) {
 
 function parseDocument(text: string): Record<string, unknown> {
   const value: unknown = JSON.parse(text);
-  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("The model document must be a JSON object.");
+  if (!value || typeof value !== "object" || Array.isArray(value))
+    throw new Error("The model document must be a JSON object.");
   return value as Record<string, unknown>;
 }
 
-export function ModelDraftEditor({ draft, canInstall, onSaved, onReload, onInstalled, onDeleted }: {
+export function ModelDraftEditor({
+  draft,
+  canInstall,
+  onSaved,
+  onReload,
+  onInstalled,
+  onDeleted,
+}: {
   draft: ModelDraft;
   canInstall: boolean;
   onSaved: (draft: ModelDraft) => void;
@@ -49,17 +57,23 @@ export function ModelDraftEditor({ draft, canInstall, onSaved, onReload, onInsta
       try {
         const model = parseDocument(text);
         setSyntaxError("");
-        api.validateModel(model).then((result) => {
-          if (!cancelled) setValidation(result);
-        }).catch((cause) => {
-          if (!cancelled) setError(String(cause));
-        });
+        api
+          .validateModel(model)
+          .then((result) => {
+            if (!cancelled) setValidation(result);
+          })
+          .catch((cause) => {
+            if (!cancelled) setError(String(cause));
+          });
       } catch (cause) {
         setSyntaxError(cause instanceof Error ? cause.message : String(cause));
         setValidation(undefined);
       }
     }, 350);
-    return () => { cancelled = true; window.clearTimeout(timeout); };
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
   }, [text]);
 
   function changed() {
@@ -70,7 +84,12 @@ export function ModelDraftEditor({ draft, canInstall, onSaved, onReload, onInsta
     setError("");
     setConflict(false);
     let model: Record<string, unknown>;
-    try { model = parseDocument(text); } catch (cause) { setSyntaxError(String(cause)); return; }
+    try {
+      model = parseDocument(text);
+    } catch (cause) {
+      setSyntaxError(String(cause));
+      return;
+    }
     setPending("save");
     try {
       const saved = await api.updateModelDraft(draft.id, { expectedVersion: draft.version, name, model });
@@ -79,37 +98,59 @@ export function ModelDraftEditor({ draft, canInstall, onSaved, onReload, onInsta
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
       setConflict(cause instanceof ApiError && cause.code === "version_conflict");
-    } finally { setPending(""); }
+    } finally {
+      setPending("");
+    }
   }
 
   async function compile() {
-    setPending("compile"); setError("");
-    try { setCompilation(await api.compileModelDraft(draft.id, draft.version)); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
-    finally { setPending(""); }
+    setPending("compile");
+    setError("");
+    try {
+      setCompilation(await api.compileModelDraft(draft.id, draft.version));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setPending("");
+    }
   }
 
   async function install() {
-    setPending("install"); setError("");
+    setPending("install");
+    setError("");
     try {
       const release = await api.installModelDraft(draft.id, draft.version);
       setConfirm(undefined);
       onInstalled(release.id);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
-    finally { setPending(""); }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setPending("");
+    }
   }
 
   async function remove() {
-    setPending("delete"); setError("");
-    try { await api.deleteModelDraft(draft.id, draft.version); setConfirm(undefined); onDeleted(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
-    finally { setPending(""); }
+    setPending("delete");
+    setError("");
+    try {
+      await api.deleteModelDraft(draft.id, draft.version);
+      setConfirm(undefined);
+      onDeleted();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setPending("");
+    }
   }
 
   function goToPath(path: string) {
     const editor = editorRef.current;
     if (!editor) return;
-    const segments = path.split("/").filter(Boolean).reverse().map((segment) => segment.replaceAll("~1", "/").replaceAll("~0", "~"));
+    const segments = path
+      .split("/")
+      .filter(Boolean)
+      .reverse()
+      .map((segment) => segment.replaceAll("~1", "/").replaceAll("~0", "~"));
     const key = segments.find((segment) => !/^\d+$/.test(segment) && text.includes(`"${segment}"`));
     editor.focus();
     if (!key) return;
@@ -120,33 +161,165 @@ export function ModelDraftEditor({ draft, canInstall, onSaved, onReload, onInsta
   async function copyLocal() {
     setError("");
     try {
-      if (!navigator.clipboard) throw new Error("Clipboard access is unavailable. Select and copy the editor content manually.");
+      if (!navigator.clipboard)
+        throw new Error("Clipboard access is unavailable. Select and copy the editor content manually.");
       await navigator.clipboard.writeText(text);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    }
   }
 
   async function reload() {
-    setPending("reload"); setError("");
-    try { await onReload(); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : String(cause)); }
-    finally { setPending(""); }
+    setPending("reload");
+    setError("");
+    try {
+      await onReload();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : String(cause));
+    } finally {
+      setPending("");
+    }
   }
 
-  const parsed = !syntaxError ? (() => { try { return parseDocument(text); } catch { return undefined; } })() : undefined;
-  return <div className="model-editor-stack">
-    <header className="model-detail-header"><div><p className="eyebrow">Editable draft · version {draft.version}</p><h2>{draft.name}</h2></div><button className="danger-outline" onClick={() => setConfirm("delete")}>Delete draft</button></header>
-    <label className="model-name-field">Draft name<input maxLength={300} value={name} onChange={(event) => { setName(event.target.value); setCompilation(undefined); }} /></label>
-    <label className="model-json-field">JSON model<textarea ref={editorRef} spellCheck={false} value={text} onChange={(event) => { setText(event.target.value); setValidation(undefined); setCompilation(undefined); }} /></label>
-    {syntaxError && <div className="notice error-notice" role="alert">JSON syntax: {syntaxError}</div>}
-    {!syntaxError && validation && <section className="model-result"><h3>Authoritative validation</h3><ModelDiagnostics diagnostics={validation.diagnostics} onPath={goToPath} /></section>}
-    {parsed && <ModelSummary model={parsed} />}
-    {error && <div className="notice error-notice" role="alert">{error}</div>}
-    {conflict && <div className="conflict-actions"><strong>A newer draft version exists. Your local JSON is preserved.</strong><button className="secondary" disabled={pending !== ""} onClick={() => void reload()}>{pending === "reload" ? "Reloading…" : "Reload saved version"}</button><button className="secondary" disabled={pending !== ""} onClick={copyLocal}>Copy local JSON</button></div>}
-    <div className="model-actions"><button className="primary" disabled={pending !== "" || !!syntaxError || !changed() || !name.trim()} onClick={save}>{pending === "save" ? "Saving…" : "Save draft"}</button><button className="secondary" disabled={pending !== "" || changed()} onClick={compile}>{pending === "compile" ? "Compiling…" : "Compile and compare"}</button><button className="secondary" onClick={() => downloadJson(`${draft.name}.json`, text)}>Export JSON</button></div>
-    {compilation && <section className="model-result"><div className="model-result-heading"><div><p className="eyebrow">Canonical model</p><h3>{compilation.valid ? "Ready for review" : "Invalid"}</h3></div>{compilation.modelHash && <code className="model-hash">{compilation.modelHash}</code>}</div><ModelDiagnostics diagnostics={compilation.diagnostics} onPath={goToPath} />{compilation.valid && <ModelDiff changes={compilation.changes} compatibility={compilation.compatibility} />}{canInstall && compilation.valid && compilation.modelHash && <button className="primary install-action" onClick={() => setConfirm("install")}>Install immutable release…</button>}</section>}
-    {confirm === "install" && <ConfirmDialog title="Install this model release?" confirmLabel="Install release" pending={pending === "install"} error={error} onCancel={() => setConfirm(undefined)} onConfirm={install}><p>Installation creates an immutable inactive release. It does not activate the model or change runtime behavior.</p>{compilation?.compatibility.classification === "migration_required" && <p className="notice">The release may be installed, but activation is blocked until its compatibility diagnostics are resolved.</p>}</ConfirmDialog>}
-    {confirm === "delete" && <ConfirmDialog title="Delete this draft?" confirmLabel="Delete draft" pending={pending === "delete"} error={error} onCancel={() => setConfirm(undefined)} onConfirm={remove}><p>This removes only the editable draft. Installed releases are not changed.</p></ConfirmDialog>}
-  </div>;
+  const parsed = !syntaxError
+    ? (() => {
+        try {
+          return parseDocument(text);
+        } catch {
+          return undefined;
+        }
+      })()
+    : undefined;
+  return (
+    <div className="model-editor-stack">
+      <header className="model-detail-header">
+        <div>
+          <p className="eyebrow">Editable draft · version {draft.version}</p>
+          <h2>{draft.name}</h2>
+        </div>
+        <button className="danger-outline" onClick={() => setConfirm("delete")}>
+          Delete draft
+        </button>
+      </header>
+      <label className="model-name-field">
+        Draft name
+        <input
+          maxLength={300}
+          value={name}
+          onChange={(event) => {
+            setName(event.target.value);
+            setCompilation(undefined);
+          }}
+        />
+      </label>
+      <label className="model-json-field">
+        JSON model
+        <textarea
+          ref={editorRef}
+          spellCheck={false}
+          value={text}
+          onChange={(event) => {
+            setText(event.target.value);
+            setValidation(undefined);
+            setCompilation(undefined);
+          }}
+        />
+      </label>
+      {syntaxError && (
+        <div className="notice error-notice" role="alert">
+          JSON syntax: {syntaxError}
+        </div>
+      )}
+      {!syntaxError && validation && (
+        <section className="model-result">
+          <h3>Authoritative validation</h3>
+          <ModelDiagnostics diagnostics={validation.diagnostics} onPath={goToPath} />
+        </section>
+      )}
+      {parsed && <ModelSummary model={parsed} />}
+      {error && (
+        <div className="notice error-notice" role="alert">
+          {error}
+        </div>
+      )}
+      {conflict && (
+        <div className="conflict-actions">
+          <strong>A newer draft version exists. Your local JSON is preserved.</strong>
+          <button className="secondary" disabled={pending !== ""} onClick={() => void reload()}>
+            {pending === "reload" ? "Reloading…" : "Reload saved version"}
+          </button>
+          <button className="secondary" disabled={pending !== ""} onClick={copyLocal}>
+            Copy local JSON
+          </button>
+        </div>
+      )}
+      <div className="model-actions">
+        <button
+          className="primary"
+          disabled={pending !== "" || !!syntaxError || !changed() || !name.trim()}
+          onClick={save}
+        >
+          {pending === "save" ? "Saving…" : "Save draft"}
+        </button>
+        <button className="secondary" disabled={pending !== "" || changed()} onClick={compile}>
+          {pending === "compile" ? "Compiling…" : "Compile and compare"}
+        </button>
+        <button className="secondary" onClick={() => downloadJson(`${draft.name}.json`, text)}>
+          Export JSON
+        </button>
+      </div>
+      {compilation && (
+        <section className="model-result">
+          <div className="model-result-heading">
+            <div>
+              <p className="eyebrow">Canonical model</p>
+              <h3>{compilation.valid ? "Ready for review" : "Invalid"}</h3>
+            </div>
+            {compilation.modelHash && <code className="model-hash">{compilation.modelHash}</code>}
+          </div>
+          <ModelDiagnostics diagnostics={compilation.diagnostics} onPath={goToPath} />
+          {compilation.valid && <ModelDiff changes={compilation.changes} compatibility={compilation.compatibility} />}
+          {canInstall && compilation.valid && compilation.modelHash && (
+            <button className="primary install-action" onClick={() => setConfirm("install")}>
+              Install immutable release…
+            </button>
+          )}
+        </section>
+      )}
+      {confirm === "install" && (
+        <ConfirmDialog
+          title="Install this model release?"
+          confirmLabel="Install release"
+          pending={pending === "install"}
+          error={error}
+          onCancel={() => setConfirm(undefined)}
+          onConfirm={install}
+        >
+          <p>
+            Installation creates an immutable inactive release. It does not activate the model or change runtime
+            behavior.
+          </p>
+          {compilation?.compatibility.classification === "migration_required" && (
+            <p className="notice">
+              The release may be installed, but activation is blocked until its compatibility diagnostics are resolved.
+            </p>
+          )}
+        </ConfirmDialog>
+      )}
+      {confirm === "delete" && (
+        <ConfirmDialog
+          title="Delete this draft?"
+          confirmLabel="Delete draft"
+          pending={pending === "delete"}
+          error={error}
+          onCancel={() => setConfirm(undefined)}
+          onConfirm={remove}
+        >
+          <p>This removes only the editable draft. Installed releases are not changed.</p>
+        </ConfirmDialog>
+      )}
+    </div>
+  );
 }
 
 export function downloadJson(filename: string, content: string) {

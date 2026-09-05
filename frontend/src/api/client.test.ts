@@ -5,12 +5,31 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe("API client", () => {
   it("preserves structured errors", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ error: { code: "version_conflict", message: "Stale version", details: { current: 3 } } }), { status: 409 })));
-    await expect(api.deleteObject("thing", "id", 2)).rejects.toEqual(expect.objectContaining({ status: 409, code: "version_conflict", message: "Stale version", details: { current: 3 } }));
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(
+            JSON.stringify({ error: { code: "version_conflict", message: "Stale version", details: { current: 3 } } }),
+            { status: 409 },
+          ),
+        ),
+    );
+    await expect(api.deleteObject("thing", "id", 2)).rejects.toEqual(
+      expect.objectContaining({
+        status: 409,
+        code: "version_conflict",
+        message: "Stale version",
+        details: { current: 3 },
+      }),
+    );
   });
 
   it("omits application filtering for cross-application lookup and encodes the query", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
     await api.objects("external value", { workspaceKey: "west", search: "A&B", pageSize: 12 });
     const url = String(fetchMock.mock.calls[0][0]);
@@ -21,7 +40,9 @@ describe("API client", () => {
   });
 
   it("encodes repeatable state filters and built-in sorting", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
     await api.objects("domain", { workspaceKey: "west", state: ["active", "draft"], sort: "-updatedAt", pageSize: 50 });
     const url = new URL(String(fetchMock.mock.calls[0][0]));
@@ -30,7 +51,9 @@ describe("API client", () => {
   });
 
   it("requests a bounded object history page", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
     await api.objectHistory("external value", "object/id", { cursor: "next token", pageSize: 10 });
     expect(fetchMock.mock.calls[0][0]).toContain("/objects/external%20value/object%2Fid/history?");
@@ -56,21 +79,52 @@ describe("API client", () => {
 
   it("creates direction-ready relationship payloads without changing them", async () => {
     const payload = { relationTypeKey: "links", fromObjectId: "from", toObjectId: "to", attributes: { score: 0 } };
-    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ id: "r1", ...payload, version: 1 }), { status: 201 }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ id: "r1", ...payload, version: 1 }), { status: 201 }));
     vi.stubGlobal("fetch", fetchMock);
     await api.createRelation(payload);
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(payload);
   });
 
   it("uses model lifecycle concurrency tokens", async () => {
-    const fetchMock = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ valid: true, diagnostics: [], compatibility: { classification: "compatible", activeReleaseId: "active", diagnostics: [] }, changes: [] }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ activeReleaseId: "active", activeModelHash: "hash", version: 4, updatedAt: "2026-09-05T00:00:00Z" }), { status: 200 }));
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            valid: true,
+            diagnostics: [],
+            compatibility: { classification: "compatible", activeReleaseId: "active", diagnostics: [] },
+            changes: [],
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            activeReleaseId: "active",
+            activeModelHash: "hash",
+            version: 4,
+            updatedAt: "2026-09-05T00:00:00Z",
+          }),
+          { status: 200 },
+        ),
+      );
     vi.stubGlobal("fetch", fetchMock);
     await api.compileModelDraft("draft/id", 7);
-    await api.activateModelRelease("release/id", { activeReleaseId: "active", activeModelHash: "hash", version: 3, updatedAt: "2026-09-05T00:00:00Z" });
+    await api.activateModelRelease("release/id", {
+      activeReleaseId: "active",
+      activeModelHash: "hash",
+      version: 3,
+      updatedAt: "2026-09-05T00:00:00Z",
+    });
     expect(fetchMock.mock.calls[0][0]).toContain("/model-drafts/draft%2Fid/compile");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ expectedVersion: 7 });
-    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({ expectedRuntimeVersion: 3, expectedActiveReleaseId: "active" });
+    expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
+      expectedRuntimeVersion: 3,
+      expectedActiveReleaseId: "active",
+    });
   });
 });

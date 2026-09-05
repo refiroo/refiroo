@@ -23,27 +23,56 @@ export function ObjectTable({
     <div className="table-wrap">
       <table>
         <thead>
-          <tr>{columns.map((column) => <th key={column}>{attributeName(model, column)}</th>)}{hasActions && <th>Actions</th>}</tr>
+          <tr>
+            {columns.map((column) => (
+              <th key={column}>{attributeName(model, column)}</th>
+            ))}
+            {hasActions && <th>Actions</th>}
+          </tr>
         </thead>
         <tbody>
           {loading ? (
-            <tr><td colSpan={columns.length + (hasActions ? 1 : 0)} className="empty-row">Loading…</td></tr>
-          ) : objects.length === 0 ? (
-            <tr><td colSpan={columns.length + (hasActions ? 1 : 0)} className="empty-row">Nothing to show yet.</td></tr>
-          ) : objects.map((item) => (
-            <tr key={item.id}>
-              {columns.map((column, index) => (
-                <td key={column}>
-                  {index === 0 ? (
-                    <button className="cell-link" onClick={() => onOpen(item)}>
-                      {formatValue(fieldValue(item, column, model))}
-                    </button>
-                  ) : formatValue(fieldValue(item, column, model))}
-                </td>
-              ))}
-              {hasActions && <td><div className="row-actions"><button onClick={() => onOpen(item)}>Open</button>{onEdit && <button onClick={() => onEdit(item)}>Edit</button>}{onDelete && <button className="text-danger" onClick={() => onDelete(item)}>Delete</button>}</div></td>}
+            <tr>
+              <td colSpan={columns.length + (hasActions ? 1 : 0)} className="empty-row">
+                Loading…
+              </td>
             </tr>
-          ))}
+          ) : objects.length === 0 ? (
+            <tr>
+              <td colSpan={columns.length + (hasActions ? 1 : 0)} className="empty-row">
+                Nothing to show yet.
+              </td>
+            </tr>
+          ) : (
+            objects.map((item) => (
+              <tr key={item.id}>
+                {columns.map((column, index) => (
+                  <td key={column}>
+                    {index === 0 ? (
+                      <button className="cell-link" onClick={() => onOpen(item)}>
+                        {formatValue(fieldValue(item, column, model))}
+                      </button>
+                    ) : (
+                      formatValue(fieldValue(item, column, model))
+                    )}
+                  </td>
+                ))}
+                {hasActions && (
+                  <td>
+                    <div className="row-actions">
+                      <button onClick={() => onOpen(item)}>Open</button>
+                      {onEdit && <button onClick={() => onEdit(item)}>Edit</button>}
+                      {onDelete && (
+                        <button className="text-danger" onClick={() => onDelete(item)}>
+                          Delete
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                )}
+              </tr>
+            ))
+          )}
         </tbody>
       </table>
     </div>
@@ -73,8 +102,12 @@ export function Pagination({
   return (
     <div className="pagination" aria-label="Pagination">
       <span>Page {page}</span>
-      <button className="icon-button" onClick={onPrevious} disabled={page === 1} aria-label="Previous page">←</button>
-      <button className="icon-button" onClick={onNext} disabled={!hasNext} aria-label="Next page">→</button>
+      <button className="icon-button" onClick={onPrevious} disabled={page === 1} aria-label="Previous page">
+        ←
+      </button>
+      <button className="icon-button" onClick={onNext} disabled={!hasNext} aria-label="Next page">
+        →
+      </button>
     </div>
   );
 }

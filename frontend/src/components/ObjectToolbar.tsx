@@ -12,7 +12,11 @@ const SORTS: Array<{ value: ObjectSort; label: string }> = [
   { value: "-updatedAt", label: "Updated (newest)" },
 ];
 
-export function ObjectToolbar({ query, placeholder, onChange }: {
+export function ObjectToolbar({
+  query,
+  placeholder,
+  onChange,
+}: {
   query: CollectionQueryState;
   placeholder: string;
   onChange: (query: CollectionQueryState) => void;
@@ -31,14 +35,74 @@ export function ObjectToolbar({ query, placeholder, onChange }: {
   }, [searchInput, query, onChange]);
 
   function applyStates() {
-    const states = Array.from(new Set(stateInput.split(",").map((value) => value.trim()).filter(Boolean)));
+    const states = Array.from(
+      new Set(
+        stateInput
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean),
+      ),
+    );
     if (states.join("\0") !== query.states.join("\0")) onChange({ ...query, states });
   }
 
-  return <div className="collection-toolbar object-toolbar">
-    <label className="search-box"><span>⌕</span><input aria-label="Search" value={searchInput} onChange={(event) => setSearchInput(event.target.value)} placeholder={placeholder} /></label>
-    <label className="toolbar-field">States<input aria-label="States" value={stateInput} onChange={(event) => setStateInput(event.target.value)} onBlur={applyStates} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); applyStates(); } }} placeholder="active, draft" /></label>
-    <label className="toolbar-field">Sort<select aria-label="Sort" value={query.sort} onChange={(event) => onChange({ ...query, sort: event.target.value as ObjectSort })}>{SORTS.map((sort) => <option key={sort.value} value={sort.value}>{sort.label}</option>)}</select></label>
-    <label className="toolbar-field">Per page<select aria-label="Page size" value={query.pageSize} onChange={(event) => onChange({ ...query, pageSize: Number(event.target.value) })}>{Array.from(new Set([10, 20, 50, 100, query.pageSize])).sort((a, b) => a - b).map((size) => <option key={size} value={size}>{size}</option>)}</select></label>
-  </div>;
+  return (
+    <div className="collection-toolbar object-toolbar">
+      <label className="search-box">
+        <span>⌕</span>
+        <input
+          aria-label="Search"
+          value={searchInput}
+          onChange={(event) => setSearchInput(event.target.value)}
+          placeholder={placeholder}
+        />
+      </label>
+      <label className="toolbar-field">
+        States
+        <input
+          aria-label="States"
+          value={stateInput}
+          onChange={(event) => setStateInput(event.target.value)}
+          onBlur={applyStates}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              applyStates();
+            }
+          }}
+          placeholder="active, draft"
+        />
+      </label>
+      <label className="toolbar-field">
+        Sort
+        <select
+          aria-label="Sort"
+          value={query.sort}
+          onChange={(event) => onChange({ ...query, sort: event.target.value as ObjectSort })}
+        >
+          {SORTS.map((sort) => (
+            <option key={sort.value} value={sort.value}>
+              {sort.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="toolbar-field">
+        Per page
+        <select
+          aria-label="Page size"
+          value={query.pageSize}
+          onChange={(event) => onChange({ ...query, pageSize: Number(event.target.value) })}
+        >
+          {Array.from(new Set([10, 20, 50, 100, query.pageSize]))
+            .sort((a, b) => a - b)
+            .map((size) => (
+              <option key={size} value={size}>
+                {size}
+              </option>
+            ))}
+        </select>
+      </label>
+    </div>
+  );
 }

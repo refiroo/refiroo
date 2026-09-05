@@ -24,22 +24,60 @@ describe("relationship model helpers", () => {
     ...testModel,
     relationTypes: [
       ...testModel.relationTypes,
-      { key: "links", reverseKey: "linked-by", name: "Links", reverseName: "Linked by", isOriented: true, features: {} },
+      {
+        key: "links",
+        reverseKey: "linked-by",
+        name: "Links",
+        reverseName: "Linked by",
+        isOriented: true,
+        features: {},
+      },
     ],
     objectTypeRelations: [
       ...testModel.objectTypeRelations,
-      { relationTypeKey: "links", fromObjectTypeKey: "domain", toObjectTypeKey: "codelist", cardinality: "many-to-many" as const, attributeTypeKeys: ["active"] },
-      { relationTypeKey: "links", fromObjectTypeKey: "domain", toObjectTypeKey: "domain", cardinality: "many-to-many" as const },
+      {
+        relationTypeKey: "links",
+        fromObjectTypeKey: "domain",
+        toObjectTypeKey: "codelist",
+        cardinality: "many-to-many" as const,
+        attributeTypeKeys: ["active"],
+      },
+      {
+        relationTypeKey: "links",
+        fromObjectTypeKey: "domain",
+        toObjectTypeKey: "domain",
+        cardinality: "many-to-many" as const,
+      },
     ],
   };
 
   it("derives outgoing, incoming and explicit self-relation orientations", () => {
-    const outgoing = relationChoices(model, "domain", { key: "relations", title: "Relations", type: "relations", region: "main", order: 1, visible: true, config: { relationTypeKeys: ["links"], direction: "both", columns: ["name"] } });
+    const outgoing = relationChoices(model, "domain", {
+      key: "relations",
+      title: "Relations",
+      type: "relations",
+      region: "main",
+      order: 1,
+      visible: true,
+      config: { relationTypeKeys: ["links"], direction: "both", columns: ["name"] },
+    });
     expect(outgoing.map((item) => [item.direction, item.otherObjectTypeKey, item.label])).toEqual([
-      ["outgoing", "codelist", "Links"], ["outgoing", "domain", "Links"], ["incoming", "domain", "Linked by"],
+      ["outgoing", "codelist", "Links"],
+      ["outgoing", "domain", "Links"],
+      ["incoming", "domain", "Linked by"],
     ]);
-    const incoming = relationChoices(model, "codelist", { key: "relations", title: "Relations", type: "relations", region: "main", order: 1, visible: true, config: { relationTypeKeys: ["links"], direction: "incoming", columns: ["name"] } });
-    expect(incoming[0]).toEqual(expect.objectContaining({ direction: "incoming", otherObjectTypeKey: "domain", label: "Linked by" }));
+    const incoming = relationChoices(model, "codelist", {
+      key: "relations",
+      title: "Relations",
+      type: "relations",
+      region: "main",
+      order: 1,
+      visible: true,
+      config: { relationTypeKeys: ["links"], direction: "incoming", columns: ["name"] },
+    });
+    expect(incoming[0]).toEqual(
+      expect.objectContaining({ direction: "incoming", otherObjectTypeKey: "domain", label: "Linked by" }),
+    );
   });
 
   it("recognizes model-maintained containment", () => {
@@ -77,9 +115,7 @@ describe("fallbackDetail", () => {
   it("produces the same generic panel shape for two different object types", () => {
     const domain = fallbackDetail(testModel.objectTypes[0]);
     const codelist = fallbackDetail(testModel.objectTypes[1]);
-    expect(domain.panels.map((panel) => panel.type)).toEqual(
-      codelist.panels.map((panel) => panel.type),
-    );
+    expect(domain.panels.map((panel) => panel.type)).toEqual(codelist.panels.map((panel) => panel.type));
     expect(domain.header.titleField).toBe("name");
     expect(codelist.panels[0].type).toBe("attributes");
   });
@@ -127,7 +163,11 @@ describe("routes", () => {
   });
 
   it("restores workspace and collection controls from repeatable URL state", () => {
-    window.history.pushState({}, "", "/apps/test-app/views/domains?workspaceKey=west&search=A%26B&state=active&state=draft&sort=-updatedAt&pageSize=50");
+    window.history.pushState(
+      {},
+      "",
+      "/apps/test-app/views/domains?workspaceKey=west&search=A%26B&state=active&state=draft&sort=-updatedAt&pageSize=50",
+    );
     const route = parseRoute(testModel);
     expect(route).toEqual({
       kind: "list",
@@ -139,7 +179,9 @@ describe("routes", () => {
       sort: "-updatedAt",
       pageSize: 50,
     });
-    expect(routePath(route)).toBe("/apps/test-app/views/domains?workspaceKey=west&search=A%26B&state=active&state=draft&sort=-updatedAt&pageSize=50");
+    expect(routePath(route)).toBe(
+      "/apps/test-app/views/domains?workspaceKey=west&search=A%26B&state=active&state=draft&sort=-updatedAt&pageSize=50",
+    );
     window.history.pushState({}, "", "/");
   });
 });

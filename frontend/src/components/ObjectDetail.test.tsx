@@ -19,14 +19,16 @@ describe("ObjectDetail deletion", () => {
     const impact: DeleteImpact = {
       rootObject: { ...domainObject, parentObjectId: null },
       objectsToDelete: [{ ...codelistObject, reason: "child", viaObjectId: domainObject.id }],
-      relationshipsToRemove: [{
-        id: "relationship",
-        relationTypeKey: "links",
-        fromObject: { ...domainObject, parentObjectId: null },
-        toObject: externalObject,
-        fkPk: false,
-        relatedObjectWillBeDeleted: false,
-      }],
+      relationshipsToRemove: [
+        {
+          id: "relationship",
+          relationTypeKey: "links",
+          fromObject: { ...domainObject, parentObjectId: null },
+          toObject: externalObject,
+          fkPk: false,
+          relatedObjectWillBeDeleted: false,
+        },
+      ],
       objectCount: 2,
       relationshipCount: 2,
     };
@@ -36,7 +38,19 @@ describe("ObjectDetail deletion", () => {
       .mockRejectedValueOnce(new ApiError(409, "object_has_dependents", "Confirmation required", impact))
       .mockResolvedValueOnce(undefined);
     const onDeleted = vi.fn();
-    render(<ObjectDetail model={testModel} application={testModel.applications[0]} objectTypeKey="domain" objectId={domainObject.id} workspaceKey="default" onOpen={vi.fn()} onBack={vi.fn()} onDeleted={onDeleted} onChanged={vi.fn()} />);
+    render(
+      <ObjectDetail
+        model={testModel}
+        application={testModel.applications[0]}
+        objectTypeKey="domain"
+        objectId={domainObject.id}
+        workspaceKey="default"
+        onOpen={vi.fn()}
+        onBack={vi.fn()}
+        onDeleted={onDeleted}
+        onChanged={vi.fn()}
+      />,
+    );
 
     fireEvent.click(await screen.findByRole("button", { name: "Delete object" }));
     fireEvent.click(screen.getAllByRole("button", { name: "Delete object" }).at(-1)!);

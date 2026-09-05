@@ -94,27 +94,50 @@ export const api = {
   modelRelease: (releaseId: string, includeModel = false) =>
     request<ModelRelease>(`/api/v1/model-releases/${encodeURIComponent(releaseId)}?includeModel=${includeModel}`),
   modelReleaseDiff: (releaseId: string, againstReleaseId: string) =>
-    request<ModelReleaseDiff>(`/api/v1/model-releases/${encodeURIComponent(releaseId)}/diff?againstReleaseId=${encodeURIComponent(againstReleaseId)}`),
+    request<ModelReleaseDiff>(
+      `/api/v1/model-releases/${encodeURIComponent(releaseId)}/diff?againstReleaseId=${encodeURIComponent(againstReleaseId)}`,
+    ),
   modelRuntimeState: () => request<ModelRuntimeState>("/api/v1/model-runtime-state"),
-  validateModel: (model: Record<string, unknown>) => request<ModelValidation>("/api/v1/model-validations", { method: "POST", body: JSON.stringify({ model }) }),
+  validateModel: (model: Record<string, unknown>) =>
+    request<ModelValidation>("/api/v1/model-validations", { method: "POST", body: JSON.stringify({ model }) }),
   modelDrafts: (options: { cursor?: string; pageSize?: number } = {}) => {
     const params = new URLSearchParams({ pageSize: String(options.pageSize ?? 100) });
     if (options.cursor) params.set("cursor", options.cursor);
     return request<ModelDraftPage>(`/api/v1/model-drafts?${params}`);
   },
   modelDraft: (draftId: string) => request<ModelDraft>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}`),
-  createModelDraft: (payload: { name: string; baseReleaseId?: string; model: Record<string, unknown> }) => request<ModelDraft>("/api/v1/model-drafts", { method: "POST", body: JSON.stringify(payload) }),
-  updateModelDraft: (draftId: string, payload: { expectedVersion: number; name?: string; model?: Record<string, unknown> }) => request<ModelDraft>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}`, { method: "PATCH", body: JSON.stringify(payload) }),
-  deleteModelDraft: (draftId: string, expectedVersion: number) => request<void>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}?expectedVersion=${expectedVersion}`, { method: "DELETE" }),
-  compileModelDraft: (draftId: string, expectedVersion: number) => request<ModelCompilation>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/compile`, { method: "POST", body: JSON.stringify({ expectedVersion }) }),
-  installModelDraft: (draftId: string, expectedVersion: number) => request<ModelRelease>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/installation`, { method: "POST", body: JSON.stringify({ expectedVersion }) }),
-  activateModelRelease: (releaseId: string, state: ModelRuntimeState) => request<ModelRuntimeState>(`/api/v1/model-releases/${encodeURIComponent(releaseId)}/activation`, { method: "POST", body: JSON.stringify({ expectedRuntimeVersion: state.version, expectedActiveReleaseId: state.activeReleaseId }) }),
-  objects: (objectTypeKey: string, query: ObjectQuery) =>
-    request<ObjectPage>(objectQueryPath(objectTypeKey, query)),
+  createModelDraft: (payload: { name: string; baseReleaseId?: string; model: Record<string, unknown> }) =>
+    request<ModelDraft>("/api/v1/model-drafts", { method: "POST", body: JSON.stringify(payload) }),
+  updateModelDraft: (
+    draftId: string,
+    payload: { expectedVersion: number; name?: string; model?: Record<string, unknown> },
+  ) =>
+    request<ModelDraft>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  deleteModelDraft: (draftId: string, expectedVersion: number) =>
+    request<void>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}?expectedVersion=${expectedVersion}`, {
+      method: "DELETE",
+    }),
+  compileModelDraft: (draftId: string, expectedVersion: number) =>
+    request<ModelCompilation>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/compile`, {
+      method: "POST",
+      body: JSON.stringify({ expectedVersion }),
+    }),
+  installModelDraft: (draftId: string, expectedVersion: number) =>
+    request<ModelRelease>(`/api/v1/model-drafts/${encodeURIComponent(draftId)}/installation`, {
+      method: "POST",
+      body: JSON.stringify({ expectedVersion }),
+    }),
+  activateModelRelease: (releaseId: string, state: ModelRuntimeState) =>
+    request<ModelRuntimeState>(`/api/v1/model-releases/${encodeURIComponent(releaseId)}/activation`, {
+      method: "POST",
+      body: JSON.stringify({ expectedRuntimeVersion: state.version, expectedActiveReleaseId: state.activeReleaseId }),
+    }),
+  objects: (objectTypeKey: string, query: ObjectQuery) => request<ObjectPage>(objectQueryPath(objectTypeKey, query)),
   object: (objectTypeKey: string, objectId: string) =>
-    request<ObjectItem>(
-      `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}`,
-    ),
+    request<ObjectItem>(`/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}`),
   createObject: (
     objectTypeKey: string,
     payload: {
@@ -133,26 +156,63 @@ export const api = {
   updateObject: (
     objectTypeKey: string,
     objectId: string,
-    payload: { expectedVersion: number; name?: string; state?: string; parentObjectId?: string | null; attributes?: ObjectAttributeInput[] },
+    payload: {
+      expectedVersion: number;
+      name?: string;
+      state?: string;
+      parentObjectId?: string | null;
+      attributes?: ObjectAttributeInput[];
+    },
   ) =>
-    request<ObjectItem>(
-      `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}`,
-      { method: "PATCH", body: JSON.stringify(payload) },
-    ),
+    request<ObjectItem>(`/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
   deleteObject: (objectTypeKey: string, objectId: string, expectedVersion: number, cascade = false) => {
     const params = new URLSearchParams({ expectedVersion: String(expectedVersion) });
     if (cascade) params.set("cascade", "true");
-    return request<void>(`/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}?${params}`, { method: "DELETE" });
+    return request<void>(
+      `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}?${params}`,
+      { method: "DELETE" },
+    );
   },
   attribute: (objectTypeKey: string, objectId: string, attributeTypeKey: string) =>
     request<AttributeValueResponse>(attributePath(objectTypeKey, objectId, attributeTypeKey)),
-  createAttribute: (objectTypeKey: string, objectId: string, attributeTypeKey: string, value: unknown, expectedVersion: number) =>
-    request<ObjectItem>(attributePath(objectTypeKey, objectId, attributeTypeKey), { method: "POST", body: JSON.stringify({ value, expectedVersion }) }),
-  updateAttribute: (objectTypeKey: string, objectId: string, attributeTypeKey: string, value: unknown, expectedVersion: number) =>
-    request<ObjectItem>(attributePath(objectTypeKey, objectId, attributeTypeKey), { method: "PATCH", body: JSON.stringify({ value, expectedVersion }) }),
+  createAttribute: (
+    objectTypeKey: string,
+    objectId: string,
+    attributeTypeKey: string,
+    value: unknown,
+    expectedVersion: number,
+  ) =>
+    request<ObjectItem>(attributePath(objectTypeKey, objectId, attributeTypeKey), {
+      method: "POST",
+      body: JSON.stringify({ value, expectedVersion }),
+    }),
+  updateAttribute: (
+    objectTypeKey: string,
+    objectId: string,
+    attributeTypeKey: string,
+    value: unknown,
+    expectedVersion: number,
+  ) =>
+    request<ObjectItem>(attributePath(objectTypeKey, objectId, attributeTypeKey), {
+      method: "PATCH",
+      body: JSON.stringify({ value, expectedVersion }),
+    }),
   deleteAttribute: (objectTypeKey: string, objectId: string, attributeTypeKey: string, expectedVersion: number) =>
-    request<void>(`${attributePath(objectTypeKey, objectId, attributeTypeKey)}?expectedVersion=${expectedVersion}`, { method: "DELETE" }),
-  relations: (objectId: string, options: { direction?: "incoming" | "outgoing" | "both"; relationTypeKey?: string; cursor?: string; pageSize?: number } = {}) => {
+    request<void>(`${attributePath(objectTypeKey, objectId, attributeTypeKey)}?expectedVersion=${expectedVersion}`, {
+      method: "DELETE",
+    }),
+  relations: (
+    objectId: string,
+    options: {
+      direction?: "incoming" | "outgoing" | "both";
+      relationTypeKey?: string;
+      cursor?: string;
+      pageSize?: number;
+    } = {},
+  ) => {
     const params = new URLSearchParams({ objectId });
     if (options.direction) params.set("direction", options.direction);
     if (options.relationTypeKey) params.set("relationTypeKey", options.relationTypeKey);
@@ -160,14 +220,24 @@ export const api = {
     params.set("pageSize", String(options.pageSize ?? 100));
     return request<RelationPage>(`/api/v1/relations?${params}`);
   },
-  createRelation: (payload: RelationCreateInput) => request<RelationRecord>("/api/v1/relations", { method: "POST", body: JSON.stringify(payload) }),
+  createRelation: (payload: RelationCreateInput) =>
+    request<RelationRecord>("/api/v1/relations", { method: "POST", body: JSON.stringify(payload) }),
   relation: (relationId: string) => request<RelationRecord>(`/api/v1/relations/${encodeURIComponent(relationId)}`),
-  updateRelation: (relationId: string, payload: RelationUpdateInput) => request<RelationRecord>(`/api/v1/relations/${encodeURIComponent(relationId)}`, { method: "PATCH", body: JSON.stringify(payload) }),
-  deleteRelation: (relationId: string, expectedVersion: number) => request<void>(`/api/v1/relations/${encodeURIComponent(relationId)}?expectedVersion=${expectedVersion}`, { method: "DELETE" }),
+  updateRelation: (relationId: string, payload: RelationUpdateInput) =>
+    request<RelationRecord>(`/api/v1/relations/${encodeURIComponent(relationId)}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  deleteRelation: (relationId: string, expectedVersion: number) =>
+    request<void>(`/api/v1/relations/${encodeURIComponent(relationId)}?expectedVersion=${expectedVersion}`, {
+      method: "DELETE",
+    }),
   objectHistory: (objectTypeKey: string, objectId: string, options: { cursor?: string; pageSize?: number } = {}) => {
     const params = new URLSearchParams({ pageSize: String(options.pageSize ?? 20) });
     if (options.cursor) params.set("cursor", options.cursor);
-    return request<AuditEventPage>(`/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}/history?${params}`);
+    return request<AuditEventPage>(
+      `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}/history?${params}`,
+    );
   },
 };
 

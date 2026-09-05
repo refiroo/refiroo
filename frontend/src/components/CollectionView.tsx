@@ -7,7 +7,15 @@ import { DeleteImpactSummary } from "./ObjectDetail";
 import { ObjectFormDialog } from "./ObjectFormDialog";
 import { ObjectTable, Pagination } from "./ObjectTable";
 import { ObjectToolbar } from "./ObjectToolbar";
-import type { ApplicationDefinition, CollectionQueryState, DeleteImpact, EngineModel, ObjectItem, ObjectPage, ViewDefinition } from "../types";
+import type {
+  ApplicationDefinition,
+  CollectionQueryState,
+  DeleteImpact,
+  EngineModel,
+  ObjectItem,
+  ObjectPage,
+  ViewDefinition,
+} from "../types";
 
 export interface ViewComponentProps {
   model: EngineModel;
@@ -35,10 +43,31 @@ export function CollectionView(props: ViewComponentProps) {
   return <>{Component(props)}</>;
 }
 
-function ObjectCollectionView({ model, application, view, workspaceKey, query, onQueryChange, onOpen, onChanged }: ViewComponentProps) {
+function ObjectCollectionView({
+  model,
+  application,
+  view,
+  workspaceKey,
+  query,
+  onQueryChange,
+  onOpen,
+  onChanged,
+}: ViewComponentProps) {
   const objectType = view.objectTypeKey ? objectTypeFor(model, view.objectTypeKey) : undefined;
-  const queryKey = JSON.stringify([application.key, view.key, workspaceKey, query.search, query.states, query.sort, query.pageSize]);
-  const [paging, setPaging] = useState<{ key: string; cursors: Array<string | undefined>; index: number }>({ key: queryKey, cursors: [undefined], index: 0 });
+  const queryKey = JSON.stringify([
+    application.key,
+    view.key,
+    workspaceKey,
+    query.search,
+    query.states,
+    query.sort,
+    query.pageSize,
+  ]);
+  const [paging, setPaging] = useState<{ key: string; cursors: Array<string | undefined>; index: number }>({
+    key: queryKey,
+    cursors: [undefined],
+    index: 0,
+  });
   const activePaging = paging.key === queryKey ? paging : { key: queryKey, cursors: [undefined], index: 0 };
   const activeCursor = activePaging.cursors[activePaging.index];
   const [page, setPage] = useState<ObjectPage>({ items: [], nextCursor: null });
@@ -57,28 +86,45 @@ function ObjectCollectionView({ model, application, view, workspaceKey, query, o
   useEffect(() => {
     if (!objectType) return;
     let active = true;
-    setLoading(true); setError("");
-    api.objects(objectType.key, {
-      applicationKey: application.key,
-      workspaceKey,
-      search: query.search,
-      state: query.states,
-      sort: query.sort,
-      cursor: activeCursor,
-      pageSize: query.pageSize,
-    }).then((loaded) => {
-      if (active) { setPage(loaded); setError(""); }
-    }).catch((cause) => active && setError(cause instanceof Error ? cause.message : String(cause))).finally(() => active && setLoading(false));
-    return () => { active = false; };
+    setLoading(true);
+    setError("");
+    api
+      .objects(objectType.key, {
+        applicationKey: application.key,
+        workspaceKey,
+        search: query.search,
+        state: query.states,
+        sort: query.sort,
+        cursor: activeCursor,
+        pageSize: query.pageSize,
+      })
+      .then((loaded) => {
+        if (active) {
+          setPage(loaded);
+          setError("");
+        }
+      })
+      .catch((cause) => active && setError(cause instanceof Error ? cause.message : String(cause)))
+      .finally(() => active && setLoading(false));
+    return () => {
+      active = false;
+    };
   }, [application.key, objectType?.key, queryKey, activePaging.index, activeCursor, retryToken]);
 
   if (!objectType) return <div className="empty-state">This configured view does not select an object type.</div>;
   const activeObjectType = objectType;
-  const columns = view.config.columns ?? ["name", ...objectType.attributes.slice(0, 4).map((item) => item.attributeTypeKey)];
+  const columns = view.config.columns ?? [
+    "name",
+    ...objectType.attributes.slice(0, 4).map((item) => item.attributeTypeKey),
+  ];
 
   function nextPage() {
     if (!page.nextCursor) return;
-    setPaging({ key: queryKey, cursors: [...activePaging.cursors.slice(0, activePaging.index + 1), page.nextCursor], index: activePaging.index + 1 });
+    setPaging({
+      key: queryKey,
+      cursors: [...activePaging.cursors.slice(0, activePaging.index + 1), page.nextCursor],
+      index: activePaging.index + 1,
+    });
   }
 
   function refresh() {
@@ -88,10 +134,13 @@ function ObjectCollectionView({ model, application, view, workspaceKey, query, o
 
   async function deleteObject() {
     if (!deleting) return;
-    setDeletePending(true); setDeleteError("");
+    setDeletePending(true);
+    setDeleteError("");
     try {
       await api.deleteObject(activeObjectType.key, deleting.id, deleting.version, Boolean(deleteImpact));
-      setDeleting(undefined); setDeleteImpact(undefined); refresh();
+      setDeleting(undefined);
+      setDeleteImpact(undefined);
+      refresh();
     } catch (cause) {
       if (cause instanceof ApiError && cause.code === "object_has_dependents" && cause.details) {
         setDeleteImpact(cause.details as DeleteImpact);
@@ -100,25 +149,117 @@ function ObjectCollectionView({ model, application, view, workspaceKey, query, o
           setDeleting(await api.object(activeObjectType.key, deleting.id));
           setDeleteImpact(undefined);
           setDeleteError("The object changed. Its latest version has been loaded; review and try again.");
-        } catch (reloadCause) { setDeleteError(reloadCause instanceof Error ? reloadCause.message : String(reloadCause)); }
+        } catch (reloadCause) {
+          setDeleteError(reloadCause instanceof Error ? reloadCause.message : String(reloadCause));
+        }
       } else setDeleteError(cause instanceof Error ? cause.message : String(cause));
-    } finally { setDeletePending(false); }
+    } finally {
+      setDeletePending(false);
+    }
   }
 
-  return <>
-    <header className="page-header collection-header">
-      <div><div className="context-line"><span>{application.name}</span><span>/</span><span>{view.name}</span><span>/</span><span>{workspaceKey}</span></div><h1>{view.name}</h1><p>{objectType.description ?? application.description}</p></div>
-      {objectType.features.rootCreatable === true && <button className="primary" onClick={() => setShowCreate(true)}>+ New {objectType.name}</button>}
-    </header>
-    <section className="surface collection-surface">
-      <ObjectToolbar query={query} onChange={onQueryChange} placeholder={`Search ${objectType.pluralName.toLowerCase()}`} />
-      <div className="collection-meta"><span className="view-kind"><span>{view.type}</span>{!error && <><strong>{page.items.length}</strong> on this page</>}</span></div>
-      {error && <InlineError message={error} onRetry={() => setRetryToken((value) => value + 1)} />}
-      <ObjectTable model={model} columns={columns} objects={error ? [] : page.items} loading={loading && !error} onOpen={onOpen} onEdit={setEditing} onDelete={setDeleting} />
-      {!error && <Pagination page={activePaging.index + 1} hasNext={Boolean(page.nextCursor)} onPrevious={() => setPaging({ ...activePaging, index: Math.max(0, activePaging.index - 1) })} onNext={nextPage} />}
-    </section>
-    {showCreate && <ObjectFormDialog model={model} applicationKey={application.key} workspaceKey={workspaceKey} objectType={objectType} onClose={() => setShowCreate(false)} onSaved={() => { setShowCreate(false); refresh(); }} />}
-    {editing && <ObjectFormDialog model={model} applicationKey={application.key} workspaceKey={workspaceKey} objectType={objectType} object={editing} onClose={() => setEditing(undefined)} onSaved={() => { setEditing(undefined); refresh(); }} />}
-    {deleting && <ConfirmDialog title={deleteImpact ? `Cascade delete ${deleteImpact.objectCount} objects?` : `Delete “${deleting.name}”?`} confirmLabel={deleteImpact ? "Cascade delete" : "Delete object"} pending={deletePending} error={deleteError} onCancel={() => { setDeleting(undefined); setDeleteImpact(undefined); setDeleteError(""); }} onConfirm={deleteObject}>{deleteImpact ? <DeleteImpactSummary model={model} impact={deleteImpact} /> : <p>The engine will check dependencies before deleting. A cascade always requires separate confirmation.</p>}</ConfirmDialog>}
-  </>;
+  return (
+    <>
+      <header className="page-header collection-header">
+        <div>
+          <div className="context-line">
+            <span>{application.name}</span>
+            <span>/</span>
+            <span>{view.name}</span>
+            <span>/</span>
+            <span>{workspaceKey}</span>
+          </div>
+          <h1>{view.name}</h1>
+          <p>{objectType.description ?? application.description}</p>
+        </div>
+        {objectType.features.rootCreatable === true && (
+          <button className="primary" onClick={() => setShowCreate(true)}>
+            + New {objectType.name}
+          </button>
+        )}
+      </header>
+      <section className="surface collection-surface">
+        <ObjectToolbar
+          query={query}
+          onChange={onQueryChange}
+          placeholder={`Search ${objectType.pluralName.toLowerCase()}`}
+        />
+        <div className="collection-meta">
+          <span className="view-kind">
+            <span>{view.type}</span>
+            {!error && (
+              <>
+                <strong>{page.items.length}</strong> on this page
+              </>
+            )}
+          </span>
+        </div>
+        {error && <InlineError message={error} onRetry={() => setRetryToken((value) => value + 1)} />}
+        <ObjectTable
+          model={model}
+          columns={columns}
+          objects={error ? [] : page.items}
+          loading={loading && !error}
+          onOpen={onOpen}
+          onEdit={setEditing}
+          onDelete={setDeleting}
+        />
+        {!error && (
+          <Pagination
+            page={activePaging.index + 1}
+            hasNext={Boolean(page.nextCursor)}
+            onPrevious={() => setPaging({ ...activePaging, index: Math.max(0, activePaging.index - 1) })}
+            onNext={nextPage}
+          />
+        )}
+      </section>
+      {showCreate && (
+        <ObjectFormDialog
+          model={model}
+          applicationKey={application.key}
+          workspaceKey={workspaceKey}
+          objectType={objectType}
+          onClose={() => setShowCreate(false)}
+          onSaved={() => {
+            setShowCreate(false);
+            refresh();
+          }}
+        />
+      )}
+      {editing && (
+        <ObjectFormDialog
+          model={model}
+          applicationKey={application.key}
+          workspaceKey={workspaceKey}
+          objectType={objectType}
+          object={editing}
+          onClose={() => setEditing(undefined)}
+          onSaved={() => {
+            setEditing(undefined);
+            refresh();
+          }}
+        />
+      )}
+      {deleting && (
+        <ConfirmDialog
+          title={deleteImpact ? `Cascade delete ${deleteImpact.objectCount} objects?` : `Delete “${deleting.name}”?`}
+          confirmLabel={deleteImpact ? "Cascade delete" : "Delete object"}
+          pending={deletePending}
+          error={deleteError}
+          onCancel={() => {
+            setDeleting(undefined);
+            setDeleteImpact(undefined);
+            setDeleteError("");
+          }}
+          onConfirm={deleteObject}
+        >
+          {deleteImpact ? (
+            <DeleteImpactSummary model={model} impact={deleteImpact} />
+          ) : (
+            <p>The engine will check dependencies before deleting. A cascade always requires separate confirmation.</p>
+          )}
+        </ConfirmDialog>
+      )}
+    </>
+  );
 }

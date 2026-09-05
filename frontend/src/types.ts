@@ -1,12 +1,4 @@
-export type ValueType =
-  | "text"
-  | "longText"
-  | "integer"
-  | "decimal"
-  | "boolean"
-  | "date"
-  | "dateTime"
-  | "json";
+export type ValueType = "text" | "longText" | "integer" | "decimal" | "boolean" | "date" | "dateTime" | "json";
 
 export interface AttributeTypeDefinition {
   key: string;
@@ -232,7 +224,8 @@ export interface RelationUpdateInput {
   expectedVersion: number;
 }
 
-export type ObjectSort = "name" | "-name" | "state" | "-state" | "createdAt" | "-createdAt" | "updatedAt" | "-updatedAt";
+export type ObjectSort =
+  "name" | "-name" | "state" | "-state" | "createdAt" | "-createdAt" | "updatedAt" | "-updatedAt";
 
 export interface CollectionQueryState {
   search: string;

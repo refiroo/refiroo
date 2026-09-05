@@ -7,10 +7,38 @@ import { RelationsPanel } from "./RelationsPanel";
 
 vi.mock("../api/client", () => ({ api: { relations: vi.fn() } }));
 
-const panel: RelationsPanelDefinition = { key: "relations", title: "Relations", type: "relations", region: "main", order: 1, visible: true, config: { relationTypeKeys: ["domain-contains-codelist"], direction: "outgoing", columns: ["name"] } };
+const panel: RelationsPanelDefinition = {
+  key: "relations",
+  title: "Relations",
+  type: "relations",
+  region: "main",
+  order: 1,
+  visible: true,
+  config: { relationTypeKeys: ["domain-contains-codelist"], direction: "outgoing", columns: ["name"] },
+};
 
 describe("RelationsPanel", () => {
-  beforeEach(() => vi.mocked(api.relations).mockResolvedValue({ items: [{ direction: "outgoing", relation: { id: "relation", relationTypeKey: "domain-contains-codelist", fromObjectId: domainObject.id, toObjectId: codelistObject.id, attributes: {}, version: 1 }, object: codelistObject }], nextCursor: null }));
+  beforeEach(() =>
+    vi
+      .mocked(api.relations)
+      .mockResolvedValue({
+        items: [
+          {
+            direction: "outgoing",
+            relation: {
+              id: "relation",
+              relationTypeKey: "domain-contains-codelist",
+              fromObjectId: domainObject.id,
+              toObjectId: codelistObject.id,
+              attributes: {},
+              version: 1,
+            },
+            object: codelistObject,
+          },
+        ],
+        nextCursor: null,
+      }),
+  );
 
   it("shows direction-correct labels and protects managed containment rows", async () => {
     render(<RelationsPanel model={testModel} object={domainObject} panel={panel} onOpen={vi.fn()} />);
@@ -60,11 +88,24 @@ describe("RelationsPanel", () => {
       objectTypes: [...testModel.objectTypes, translationType],
       relationTypes: [
         ...testModel.relationTypes,
-        { key: "object-has-translation", reverseKey: "translation-translates-object", name: "Has translation", reverseName: "Translates object", isOriented: true, features: {} },
+        {
+          key: "object-has-translation",
+          reverseKey: "translation-translates-object",
+          name: "Has translation",
+          reverseName: "Translates object",
+          isOriented: true,
+          features: {},
+        },
       ],
       objectTypeRelations: [
         ...testModel.objectTypeRelations,
-        { relationTypeKey: "object-has-translation", fromObjectTypeKey: "domain", toObjectTypeKey: "translation", cardinality: "one-to-many" as const, required: true },
+        {
+          relationTypeKey: "object-has-translation",
+          fromObjectTypeKey: "domain",
+          toObjectTypeKey: "translation",
+          cardinality: "one-to-many" as const,
+          required: true,
+        },
       ],
       applications: [
         testModel.applications[0],
@@ -88,25 +129,87 @@ describe("RelationsPanel", () => {
 
   it("loads another relation page without replacing the first", async () => {
     vi.mocked(api.relations)
-      .mockResolvedValueOnce({ items: [{ direction: "outgoing", relation: { id: "relation-1", relationTypeKey: "domain-contains-codelist", fromObjectId: domainObject.id, toObjectId: codelistObject.id, attributes: {}, version: 1 }, object: codelistObject }], nextCursor: "next" })
-      .mockResolvedValueOnce({ items: [{ direction: "outgoing", relation: { id: "relation-2", relationTypeKey: "domain-contains-codelist", fromObjectId: domainObject.id, toObjectId: "other", attributes: {}, version: 1 }, object: { ...codelistObject, id: "other", name: "Procedures" } }], nextCursor: null });
+      .mockResolvedValueOnce({
+        items: [
+          {
+            direction: "outgoing",
+            relation: {
+              id: "relation-1",
+              relationTypeKey: "domain-contains-codelist",
+              fromObjectId: domainObject.id,
+              toObjectId: codelistObject.id,
+              attributes: {},
+              version: 1,
+            },
+            object: codelistObject,
+          },
+        ],
+        nextCursor: "next",
+      })
+      .mockResolvedValueOnce({
+        items: [
+          {
+            direction: "outgoing",
+            relation: {
+              id: "relation-2",
+              relationTypeKey: "domain-contains-codelist",
+              fromObjectId: domainObject.id,
+              toObjectId: "other",
+              attributes: {},
+              version: 1,
+            },
+            object: { ...codelistObject, id: "other", name: "Procedures" },
+          },
+        ],
+        nextCursor: null,
+      });
     render(<RelationsPanel model={testModel} object={domainObject} panel={panel} onOpen={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "Load more relationships" }));
     expect(await screen.findByText("Procedures")).toBeInTheDocument();
     expect(screen.getByText("Timetable types")).toBeInTheDocument();
-    await waitFor(() => expect(api.relations).toHaveBeenLastCalledWith(domainObject.id, { direction: "outgoing", relationTypeKey: "domain-contains-codelist", cursor: "next" }));
+    await waitFor(() =>
+      expect(api.relations).toHaveBeenLastCalledWith(domainObject.id, {
+        direction: "outgoing",
+        relationTypeKey: "domain-contains-codelist",
+        cursor: "next",
+      }),
+    );
   });
 
   it("retries the same relation cursor after a load-more failure", async () => {
-    const first = { direction: "outgoing" as const, relation: { id: "relation-1", relationTypeKey: "domain-contains-codelist", fromObjectId: domainObject.id, toObjectId: codelistObject.id, attributes: {}, version: 1 }, object: codelistObject };
+    const first = {
+      direction: "outgoing" as const,
+      relation: {
+        id: "relation-1",
+        relationTypeKey: "domain-contains-codelist",
+        fromObjectId: domainObject.id,
+        toObjectId: codelistObject.id,
+        attributes: {},
+        version: 1,
+      },
+      object: codelistObject,
+    };
     vi.mocked(api.relations)
       .mockResolvedValueOnce({ items: [first], nextCursor: "next" })
       .mockRejectedValueOnce(new Error("Relation page unavailable"))
-      .mockResolvedValueOnce({ items: [{ ...first, relation: { ...first.relation, id: "relation-2" }, object: { ...codelistObject, id: "other", name: "Procedures" } }], nextCursor: null });
+      .mockResolvedValueOnce({
+        items: [
+          {
+            ...first,
+            relation: { ...first.relation, id: "relation-2" },
+            object: { ...codelistObject, id: "other", name: "Procedures" },
+          },
+        ],
+        nextCursor: null,
+      });
     render(<RelationsPanel model={testModel} object={domainObject} panel={panel} onOpen={vi.fn()} />);
     fireEvent.click(await screen.findByRole("button", { name: "Load more relationships" }));
     fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
     expect(await screen.findByText("Procedures")).toBeInTheDocument();
-    expect(api.relations).toHaveBeenLastCalledWith(domainObject.id, { direction: "outgoing", relationTypeKey: "domain-contains-codelist", cursor: "next" });
+    expect(api.relations).toHaveBeenLastCalledWith(domainObject.id, {
+      direction: "outgoing",
+      relationTypeKey: "domain-contains-codelist",
+      cursor: "next",
+    });
   });
 });

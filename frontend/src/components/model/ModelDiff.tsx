@@ -8,14 +8,49 @@ function preview(value: unknown) {
 }
 
 export function ModelDiff({ changes, compatibility }: { changes: ModelChange[]; compatibility: ModelCompatibility }) {
-  return <section className="model-diff">
-    <div className="model-result-heading">
-      <h3>Semantic changes</h3>
-      <span className={`compatibility ${compatibility.classification}`}>{compatibility.classification.replace("_", " ")}</span>
-    </div>
-    {changes.length ? <div className="table-wrap"><table><thead><tr><th>Kind</th><th>Path</th><th>Before</th><th>After</th></tr></thead><tbody>
-      {changes.map((change, index) => <tr key={`${change.kind}:${change.path}:${index}`}><td><span className="pill">{change.kind}</span></td><td><code>{change.path}</code></td><td><code>{preview(change.before)}</code></td><td><code>{preview(change.after)}</code></td></tr>)}
-    </tbody></table></div> : <p className="panel-state">No semantic changes from the comparison release.</p>}
-    {compatibility.diagnostics.length > 0 && <ModelDiagnostics diagnostics={compatibility.diagnostics} />}
-  </section>;
+  return (
+    <section className="model-diff">
+      <div className="model-result-heading">
+        <h3>Semantic changes</h3>
+        <span className={`compatibility ${compatibility.classification}`}>
+          {compatibility.classification.replace("_", " ")}
+        </span>
+      </div>
+      {changes.length ? (
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Kind</th>
+                <th>Path</th>
+                <th>Before</th>
+                <th>After</th>
+              </tr>
+            </thead>
+            <tbody>
+              {changes.map((change, index) => (
+                <tr key={`${change.kind}:${change.path}:${index}`}>
+                  <td>
+                    <span className="pill">{change.kind}</span>
+                  </td>
+                  <td>
+                    <code>{change.path}</code>
+                  </td>
+                  <td>
+                    <code>{preview(change.before)}</code>
+                  </td>
+                  <td>
+                    <code>{preview(change.after)}</code>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="panel-state">No semantic changes from the comparison release.</p>
+      )}
+      {compatibility.diagnostics.length > 0 && <ModelDiagnostics diagnostics={compatibility.diagnostics} />}
+    </section>
+  );
 }
