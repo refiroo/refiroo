@@ -125,10 +125,22 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 ## Known gaps
 
 - The Base 0.5 workspace selector accepts a raw workspace key because no authoritative workspace
-  catalogue exists yet. Model 0.6 plans bounded workspace discovery and a catalogue-backed selector;
+  catalogue exists yet. Base 0.6 plans bounded workspace discovery and a catalogue-backed selector;
   its authority, provisioning and unknown/retired-workspace behavior must be defined first.
-- Configured `mappingGrid` and `tree` views still resolve through the registry to the generic
-  collection renderer; dedicated interactions are not implemented yet.
+- Object management is functionally complete but fragmented: the main edit dialog changes core fields
+  and parent while stored attributes are managed through separate detail-panel actions. Runtime object
+  state and state filtering also use unconstrained text rather than an intentionally defined lifecycle
+  contract.
+- Configured `mappingGrid`, `tree`, `form` and `dashboard` views still resolve through the registry to
+  the generic collection renderer. Their `config` remains an open property bag, so declared semantic
+  views are not yet guaranteed to have distinct validated behavior.
+- Model-declared `filterable` and `sortable` attribute features are not implemented in object queries;
+  collection controls cover search, free-text state and built-in sorts only.
+- The UI has component-level regression coverage but no browser-level workflow, automated
+  accessibility or visual-regression release gate. Its visual language is an ad hoc compact dashboard
+  rather than a documented, task-tested RDM design system.
+- The model lifecycle is complete, but its workbench remains a plain JSON-centred interface without
+  structured section navigation, draft provenance/duplication or navigation-away protection.
 - Relations support full instance CRUD (create/read-one/update/delete with optimistic concurrency);
   bulk relation endpoints remain.
 - Attribute uniqueness is enforced at the service layer; a database-level unique constraint/index
@@ -141,7 +153,12 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 
 ## Next vertical slice
 
-Begin Model 0.6 / Milestone 1 with the relation-driven mapping workspace. Base 0.5 delivered:
+Begin product release 0.6 with a bounded usability foundation and use the relation-driven mapping
+workspace as its first specialist proof. Do not begin either a broad visual restyle or an isolated
+mapping backend until the primary task flows and the required workspace, object-state, typed-view,
+mapping-concurrency and UI-foundation decisions are explicit.
+
+Base 0.5 delivered:
 
 1. **Done (WP1):** Make the database-selected installed release the single authoritative runtime
    model snapshot.
@@ -157,24 +174,29 @@ Begin Model 0.6 / Milestone 1 with the relation-driven mapping workspace. Base 0
 8. **Done (WP8):** Promote the starter content release to 0.5, complete release integration,
    operational documentation, migration/package verification and the locked OpenAPI error contract.
 
-See `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` for the implementation-ready work packages and
-`docs/ROADMAP.md` for the exit gate and sequenced milestones that follow.
+See `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` for the completed historical work packages,
+`docs/BASE_0_6_IMPLEMENTATION_PLAN.md` for the next implementation-ready handoff, `docs/TODO.md` for
+the active delivery queue and `docs/ROADMAP.md` for the release exit gate and later milestones.
 
-All Base 0.5 work packages and exit gates are complete. Model 0.6 / Milestone 1 starts with an
-authoritative workspace catalogue and then the relation-driven mapping workspace described in the
-roadmap.
+All Base 0.5 work packages and exit gates are complete. Product release 0.6 starts with WP0 usability
+baseline and decision gates, followed by the UI foundation, workspace/collection contracts, coherent
+object management, model-workbench improvements and the core mapping workspace. Bulk mapping moves to
+the later integration/bulk milestone unless WP0 demonstrates that it is required for the core task.
 
 ## Coding-agent handoff
 
 Open the repository root, then start a new coding chat with:
 
-> Read `AGENTS.md`, `docs/PROJECT_STATUS.md` and `docs/ROADMAP.md`, then summarize the current model and
-> implement the first incomplete Model 0.6 / Milestone 1 slice. Preserve all product invariants and
-> define the workspace-catalogue authority and lifecycle before implementation. Before editing,
-> report the current worktree status and identify the model, API, persistence, backend tests and
-> generic UI components that will change.
+> Read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP.md`, `docs/UI_MODEL.md` and
+> `docs/BASE_0_6_IMPLEMENTATION_PLAN.md`. Then execute Base 0.6 WP0 only: assess the specified user
+> journeys, prepare the interaction specification and resolve D1 through D5 for review. Do not begin
+> the stylesheet rewrite, persistence changes or mapping backend until those decisions are accepted.
+> Preserve all product invariants and report the current worktree status before editing.
 
 Make a Git checkpoint before the first new slice. Run
 `backend/.venv/bin/python -m ruff check backend`,
 `backend/.venv/bin/python -m pytest backend/tests -q`, `npm --prefix frontend test`,
-`npm --prefix frontend run build` and `git diff --check` before considering it complete.
+`npm --prefix frontend run build` and `git diff --check` before considering it complete. Base 0.6
+release validation must also include its browser, accessibility and visual-regression suites and must
+run on the supported Python 3.12 toolchain; the local review environment used on 2026-09-05 was Python
+3.14.7 and is not sufficient as the only release environment.

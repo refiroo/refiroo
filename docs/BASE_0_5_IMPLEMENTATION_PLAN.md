@@ -5,7 +5,7 @@
 **Scope:** Operational object management, model lifecycle foundations and a lightweight model
 workbench  
 **Depends on:** The completed model 0.4 runtime CRUD slice  
-**Unlocks:** Milestone 1 relation-driven mapping workspace
+**Unlocks:** Base 0.6 usable operations and core relation-driven mapping
 
 ## Execution status
 
@@ -433,7 +433,7 @@ Tasks:
 7. Add representative pagination tests with duplicate names/timestamps, inserts between pages and a
    mismatched-cursor request.
 
-Exit: Base 0.5 and Milestone 1 can share stable bounded query primitives.
+Exit: Base 0.5 and the Base 0.6 mapping slice can share stable bounded query primitives.
 
 Completion record:
 
@@ -576,7 +576,7 @@ Tasks:
    draft/install/activate semantics and rollback procedure.
 3. Document every new cursor, error code and response header and the relation-expansion breaking
    change.
-4. Mark completed work packages and move `PROJECT_STATUS.md` to Milestone 1 only after all Base 0.5
+4. Mark completed work packages and move `PROJECT_STATUS.md` to Base 0.6 only after all Base 0.5
    exit criteria pass.
 5. Add a changelog entry and migration/backup notes.
 
@@ -592,7 +592,8 @@ Completion record:
   examples while preserving the locked bounded collection schemas;
 - added migration coverage proving a model 0.4 active release and runtime object survive upgrade, and
   verified fresh boot, mutation-disabled/enabled surfaces and wheel migration packaging; and
-- completed the Base 0.5 documentation, changelog and roadmap transition to Model 0.6 / Milestone 1.
+- completed the Base 0.5 documentation and changelog and prepared the roadmap transition that was
+  later refined into the Base 0.6 usability and core-mapping release.
 
 ## Required validation
 
@@ -627,5 +628,6 @@ Base 0.5 is complete only when:
 - the workbench contains no starter-key branches and mutation is disabled by default;
 - migrations, tests, linting, production build and documentation all pass.
 
-Do not begin Milestone 1 by bypassing an unfinished Base 0.5 contract. The mapping grid should consume
-the paged relation/query foundation delivered here rather than adding a second relation-expansion API.
+Do not begin the Base 0.6 mapping slice by bypassing an unfinished Base 0.5 contract. The mapping grid
+should consume the paged relation/query foundation delivered here rather than adding a second
+relation-expansion API.

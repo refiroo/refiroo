@@ -4,6 +4,11 @@ This roadmap sequences product outcomes rather than isolated screens or endpoint
 remain model-driven, work with at least two object or relation configurations, preserve typed values and
 optimistic concurrency, and keep public collections cursor-paged.
 
+The intended release train is 0.6 for usable operations and core mapping, 0.7 for the specialist
+translation and hierarchy workspaces, 0.8 for integration and bulk operations, 0.9 for production
+hardening, and 1.0 for protected self-service model authoring. Milestone gates remain independently
+reviewable even when two milestones share one product release.
+
 ## Current baseline — Base 0.5
 
 The operational foundation is complete:
@@ -29,11 +34,16 @@ The `mappingGrid` and `tree` view types still use the generic collection rendere
 queries, bulk operations, authentication, authorization and distributed model activation remain
 intentionally outside this baseline.
 
-Base 0.5 closed the most visible object-management gaps, made the installed model lifecycle explicit
-and supplied the paged relation/query primitives the next mapping workspace needs. Model 0.6 now
-proves relation-centric querying and mutation; translation and hierarchy reuse those bounded-query
-and composition patterns. Production hardening still precedes unrestricted self-service publishing
-and graphical model design.
+Base 0.5 closed the API and lifecycle foundation, but it did not prove that the resulting UI is an
+effective daily workspace. Object editing remains split across core-field and individual-attribute
+interactions, workspace selection is not catalogue-backed, model-declared attribute filtering and
+sorting are not consumed, and semantically distinct views still share the collection renderer.
+
+Base 0.6 therefore combines a bounded usability foundation with the relation-driven mapping workspace.
+The mapping workflow is the first concrete test of the new interaction system, preventing both an
+open-ended visual redesign and a specialized screen built on known usability gaps. Translation and
+hierarchy then reuse the proven bounded-query and interaction patterns. Production hardening still
+precedes unrestricted self-service publishing and structured model design.
 
 ## Base 0.5 — Operational base and model lifecycle foundation (complete)
 
@@ -83,49 +93,70 @@ administrative boundary is enabled.
 The implementation-ready task order, contracts and file-level handoff are in
 [`BASE_0_5_IMPLEMENTATION_PLAN.md`](BASE_0_5_IMPLEMENTATION_PLAN.md).
 
-## Model 0.6 / Milestone 1 — Relation-driven mapping workspace
+## Product release 0.6 / Milestone 1 — Usable operations and core mapping
 
 ### Product outcome
 
-A data steward can select a known workspace, see mapping coverage, find target candidates, create or
-remove mappings and safely replace a mapping without navigating object-by-object. The renderer must
-not know starter keys such as `system-value-maps-to-master`.
+A data steward can select a known workspace, find and filter records, create or edit a complete object,
+understand validation and concurrency failures, and manage mappings without navigating object-by-
+object. A model administrator can understand and operate the existing safe lifecycle through a clearer
+workbench. No renderer may know starter keys such as `system-value-maps-to-master`.
 
 ### Delivery scope
 
-1. Add a first-class workspace catalogue and bounded discovery API, with stable keys and presentation
-   labels, then replace the Base 0.5 free-text workspace-key field with an accessible catalogue-backed
-   selector. Keep the selected stable key in the URL and preserve it across application, view and
-   object navigation. Define catalogue authority, provisioning and unknown/retired-workspace behavior
-   before implementation; do not infer the list by issuing unbounded object queries.
-2. Define and validate a typed `mappingGrid` view configuration: source type, target type, relation,
-   displayed fields, direction and permitted actions.
-3. Add a cursor-paged, batched relation-expansion query that returns source rows with selected targets
-   and avoids per-row relation requests.
-4. Support mapped and unmapped filtering plus server-side candidate search; ambiguous multi-mapping
-   state must be explicit rather than silently selecting one edge.
-5. Implement create, remove and safe replace operations with optimistic concurrency. Replacement must
-   have an atomic backend contract rather than exposing a delete-then-create failure window in the UI.
-6. Allow a target object to be created from the mapping workflow when the model permits creation, then
-   select it without embedding object-type-specific form logic.
-7. Add bounded bulk mapping after the single-row contract is proven, with per-row outcomes and no
-   client-side loop over individual mutation endpoints.
-8. Record relation audit events for every mapping transition and expose enough history to explain who
-   or what changed a mapping once identity is available.
-9. Exercise the backend contract and renderer with the starter mapping and a second synthetic relation
-   whose object types, labels and direction differ.
+1. Establish task-based usability scenarios and an interaction specification before broad visual or
+   workflow implementation. Test workspace selection, collection work, complete object editing,
+   mapping and the model lifecycle.
+2. Introduce a deliberate UI foundation: readable typography and density, consistent accessible
+   controls and feedback, an intentional icon system, simpler navigation and task-based responsive
+   behavior.
+3. Add a first-class workspace catalogue and bounded discovery API, with stable keys and presentation
+   labels, then replace the Base 0.5 free-text field with an accessible catalogue-backed selector.
+   Define authority, provisioning and unknown/retired-workspace behavior before implementation.
+4. Decide the authority for runtime object states and replace accidental free-text state entry with a
+   controlled, validated interaction.
+5. Define discriminated, validated `table` and `mappingGrid` view configurations. Implement the
+   model-declared attribute filtering and sorting required for daily collection and mapping work, while
+   preserving URL state and filter-bound cursors.
+6. Provide one coherent create/edit experience for core fields, parent, editable typed attributes and
+   required relationships. Preserve dirty input and explain recoverable conflicts.
+7. Improve the existing model workbench with structured navigation, diagnostic grouping, reliable
+   path navigation, base/active/candidate context, draft duplication and unsaved-change protection.
+   Continue using the Base 0.5 lifecycle APIs and safety gates.
+8. Add a cursor-paged, batched mapping query that returns source rows with selected targets without
+   per-row relation requests. Support mapped, unmapped and ambiguous states plus server-side candidate
+   search.
+9. Implement mapping create, remove and atomic safe replace with optimistic concurrency. Allow target
+   creation through the generic object workflow when the model permits it, and audit every transition.
+10. Exercise the mapping contract and renderer with the starter mapping and a second synthetic relation
+    whose object types, labels and direction differ.
+11. Add browser-level journey tests, automated accessibility checks, keyboard coverage and visual
+    regression for the shell, collection, object editor, mapping view and model workbench.
+
+Bulk mapping is deferred to the integration and bulk milestone unless the usability baseline shows
+that the single-row workspace cannot meet its core task without it.
 
 ### Exit gate
 
-- The mapping workspace remains responsive with cursor-sized pages and batched expansions.
 - Normal workspace selection is catalogue-backed rather than free text; the selected workspace remains
   explicit in the URL and scopes object creation, lookup and collection requests consistently.
+- Table and mapping-grid declarations are typed, validated and rendered according to their actual
+  semantics; unsupported semantic views are not silently presented as another view type.
+- A steward can create and edit a complete object without switching between core-field and individual-
+  attribute edit modes or losing typed values and local input.
+- Configured daily-use filters and sorts execute server-side with bounded, stable cursors.
+- The mapping workspace remains responsive with cursor-sized pages and batched expansions.
 - Concurrent remapping returns a recoverable conflict and never loses the previously valid mapping.
-- Bulk failures identify affected rows without obscuring successful or unchanged mappings.
 - Model validation rejects incomplete or incompatible mapping-grid configuration with a precise path.
-- Backend tests, frontend tests, Ruff, the frontend production build and documentation all pass.
+- Core journeys have browser-level, keyboard, accessibility and visual-regression coverage.
+- Backend tests, frontend tests, Ruff, the frontend production build, migrations and documentation pass
+  on the supported toolchain, including Python 3.12.
 
-## Milestone 2 — Translation workspace
+The implementation-ready work packages and decision gates are in
+[`BASE_0_6_IMPLEMENTATION_PLAN.md`](BASE_0_6_IMPLEMENTATION_PLAN.md). The active delivery queue is in
+[`TODO.md`](TODO.md).
+
+## Product release 0.7 / Milestone 2 — Translation workspace
 
 ### Product outcome
 
@@ -151,7 +182,7 @@ content without manually traversing Language and Translation Group containment.
 - All writes use current object versions and surface scoped uniqueness conflicts without losing input.
 - Matrix queries and UI rendering remain bounded as the number of targets and languages grows.
 
-## Milestone 3 — Hierarchy workspace
+## Product release 0.7 / Milestone 3 — Hierarchy workspace
 
 ### Product outcome
 
@@ -174,7 +205,7 @@ flat table or a full-tree download.
 - Reparenting either updates the parent ID and typed edge together or changes neither.
 - Keyboard navigation, focus behavior and loading/error states are covered by frontend tests.
 
-## Milestone 4 — Integration-grade APIs
+## Product release 0.8 / Milestone 4 — Integration-grade APIs
 
 ### Product outcome
 
@@ -183,15 +214,16 @@ do not depend on UI endpoints or undocumented limits.
 
 ### Delivery scope
 
-1. Model-aware filtering and sorting over built-in fields and declared filterable/sortable attributes.
+1. Advanced model-aware query expressions beyond the configured daily-use filters and sorts delivered
+   in Base 0.6.
 2. Model-driven effective-date validation and `asOf` filtering for object types that explicitly bind
    configured validity attributes.
 3. Bounded bulk create/update/upsert with per-item outcomes, idempotency and explicit concurrency
    semantics.
 4. Asynchronous CSV/Excel import and export with validation previews and resumable job status.
 5. Ordered change feed with durable cursors, followed by retryable webhook delivery.
-6. Bulk relation operations and cursor-paged general relation expansion shared by mapping and
-   integration consumers.
+6. Bulk relation operations, including bounded bulk mapping with per-item outcomes, and cursor-paged
+   general relation expansion shared by mapping and integration consumers.
 
 ### Exit gate
 
@@ -199,7 +231,7 @@ do not depend on UI endpoints or undocumented limits.
 - Partial failures are machine-readable and successful items are never reported ambiguously.
 - Bulk contracts are first-class service operations, not loops over UI endpoints.
 
-## Milestone 5 — Production hardening
+## Product release 0.9 / Milestone 5 — Production hardening
 
 ### Product outcome
 
@@ -223,16 +255,18 @@ real reference-data ownership.
 - Authorization is enforced at API boundaries and cannot be bypassed through bulk operations.
 - Upgrade and restore procedures are documented and exercised against production-like data volumes.
 
-## Milestone 6 — Model administration and extensions
+## Product release 1.0 / Milestone 6 — Self-service model authoring and extensions
 
 ### Product outcome
 
-An authorized administrator can visually evolve and publish applications beyond the JSON workbench
-and lifecycle foundations delivered in Base 0.5.
+An authorized administrator can evolve and publish applications through structured, reference-aware
+tools beyond the JSON workbench and lifecycle foundations delivered in Base 0.5.
 
 ### Delivery scope
 
-- Structured and graphical model designer with reference-aware editing and preview
+- Structured model designer with reference-aware catalogues, forms, relationship matrices and preview
+- Read-only dependency graph visualization where it materially improves comprehension; a graph canvas
+  is not the default authoring surface
 - Executable runtime-data migration plans for changes that Base 0.5 correctly blocks
 - Protected publish, activation and rollback workflows with multi-node release propagation
 - Extension packaging and reusable model modules after at least two concrete reuse cases
@@ -258,6 +292,10 @@ Every milestone follows the repository definition of done:
 - Update API, application-model, architecture and project-status documentation when their contracts
   change.
 - Run backend tests and Ruff, frontend tests and production build, plus `git diff --check`.
+
+Product release and model-language versions are independent. A release increments `schemaVersion` only
+when its declarative contract changes and must preserve an explicit compatibility path for installed
+older releases.
 
 Detailed current-state evidence and the immediate coding handoff live in
 [`PROJECT_STATUS.md`](PROJECT_STATUS.md). Durable tradeoffs belong in [`DECISIONS.md`](DECISIONS.md),

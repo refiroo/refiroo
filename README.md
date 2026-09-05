@@ -43,8 +43,10 @@ different applications.
 - Docker development environment and continuous-integration workflow
 
 Mapping-grid and hierarchy-tree views are defined by the model but currently resolve to the generic
-collection presentation. Base 0.5 supplies the bounded query and lifecycle foundations; dedicated
-interaction components follow in Model 0.6.
+collection presentation. Base 0.5 supplies the bounded query and lifecycle foundations. Product
+release 0.6 first establishes a task-tested UI foundation, catalogue-backed workspace selection,
+typed collection semantics and coherent object editing, then proves them through the core mapping
+workspace. Translation and hierarchy interactions follow in later milestones.
 
 ## Run with Docker
 
@@ -129,7 +131,10 @@ the detailed runbook.
 | `frontend/src/App.tsx` | Model-driven application and form renderer |
 | `docs/PROJECT_STATUS.md` | Current implementation and next work |
 | `docs/ROADMAP.md` | Sequenced product milestones and release gates |
+| `docs/TODO.md` | Prioritized active delivery queue |
 | `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` | Ordered Base 0.5 coding handoff and acceptance criteria |
+| `docs/BASE_0_6_IMPLEMENTATION_PLAN.md` | Ordered Base 0.6 decisions, work packages and exit gates |
+| `docs/UI_MODEL.md` | UI semantics, interaction priorities and usability direction |
 | `AGENTS.md` | Authoritative instructions for coding agents |
 
 Before changing the architecture, read `AGENTS.md` and the documents it links.
