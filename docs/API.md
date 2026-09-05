@@ -248,6 +248,10 @@ Create accepts `name`, optional `baseReleaseId` and an inline `model`. Patch acc
 }
 ```
 
+The draft collection uses the standard bounded page, ordered by `updatedAt` descending with public ID
+as its deterministic tie-breaker. Its signed cursor is bound to the draft endpoint and must be passed
+back unchanged; malformed or cross-endpoint reuse returns `422 invalid_cursor`.
+
 Delete succeeds with HTTP `204` and no body. Inline validation accepts `{ "model": {} }` and returns:
 
 ```json
@@ -308,23 +312,35 @@ constraints.
 
 Every draft endpoint and the installation and activation endpoints return HTTP `404` when model
 administration mutations are disabled. Validation, capabilities, installed-release reads and diff
-are not mutation-gated. Lifecycle conflicts use:
+are not mutation-gated. Lifecycle errors use:
 
+- `404 model_draft_not_found` for an unknown draft ID;
+- `404 model_release_not_found` for an unknown draft base, release, activation candidate or diff
+  participant;
 - `409 version_conflict` for a stale draft version;
 - `409 release_identity_conflict` for the same release key/version with different content;
 - `422 invalid_model` when installation recompilation fails;
 - `409 activation_conflict` for stale runtime-state tokens; and
-- `409 model_migration_required` when stored data prevents activation.
+- `409 model_migration_required` when stored data prevents activation;
+- `500 invalid_installed_model` when persisted release JSON cannot be reparsed for diff or activation;
+- `503 model_runtime_state_unavailable` when no authoritative active selection can be read;
+- `503 model_registry_refresh_failed` when activation committed but the process could not publish the
+  new selection; and
+- `503 model_registry_unavailable` while a process has marked its request registry unhealthy.
 
 As elsewhere, errors use the shared `{ "error": { "code", "message", "details" } }` envelope.
 
 ### Base 0.5 OpenAPI lock
 
-The complete canonical default OpenAPI document digest through WP7, plus readable path/method and
+The complete canonical default OpenAPI document digest for Base 0.5, plus readable path/method and
 component-schema inventories, are asserted by `backend/tests/test_openapi_contract.py`. A separate
 enabled-mode inventory asserts the mutation-gated draft surface. Any public shape change therefore
-requires an intentional contract-test update. Later Base 0.5 packages update the lock in the same
-change that implements each planned contract.
+requires an intentional contract-test update.
+
+Every operation also documents the shared `ApiErrorResponse` envelope as its default error response.
+The generated contract includes representative `invalid_cursor`, `version_conflict` and
+`request_validation_error` examples; concrete status codes and endpoint-specific codes remain as
+documented in the sections above.
 
 All metadata collection endpoints accept an opaque `cursor` and a `pageSize` from 1 to 500 (default
 100). They return:

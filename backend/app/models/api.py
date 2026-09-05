@@ -4,6 +4,16 @@ from typing import Any, Literal
 from pydantic import UUID4, BaseModel, ConfigDict, Field, model_validator
 
 
+class ApiErrorBody(BaseModel):
+    code: str
+    message: str
+    details: Any | None = None
+
+
+class ApiErrorResponse(BaseModel):
+    error: ApiErrorBody
+
+
 class AttributeInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

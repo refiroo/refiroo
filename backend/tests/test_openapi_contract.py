@@ -4,15 +4,15 @@ import json
 from app.main import app, create_app
 
 
-def test_base_0_5_wp5_default_openapi_document_is_locked():
+def test_base_0_5_default_openapi_document_is_locked():
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
 
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "59315430b1b2e76099ba877d8bd568290ff0bb29dde7965623474596f3d3a775"
+        "9e2e2ff94cee32519f4f2c3aec9892c495e5ee3db690906b2165e363b0e2a333"
     )
 
 
-def test_base_0_5_wp5_default_openapi_path_and_method_inventory_is_locked():
+def test_base_0_5_default_openapi_path_and_method_inventory_is_locked():
     schema = app.openapi()
 
     actual = {
@@ -52,10 +52,12 @@ def test_base_0_5_wp5_default_openapi_path_and_method_inventory_is_locked():
     }
 
 
-def test_base_0_5_wp5_default_openapi_component_schema_inventory_is_locked():
+def test_base_0_5_default_openapi_component_schema_inventory_is_locked():
     schema_names = set(app.openapi()["components"]["schemas"])
 
     assert schema_names == {
+        "ApiErrorBody",
+        "ApiErrorResponse",
         "AllowedObjectTypePair",
         "AuditEventPage",
         "AuditEventResponse",
@@ -67,7 +69,6 @@ def test_base_0_5_wp5_default_openapi_component_schema_inventory_is_locked():
         "AttributeValueResponse",
         "AttributeValueWrite",
         "CapabilitiesResponse",
-        "HTTPValidationError",
         "InitialRelationInput",
         "MetadataPage_ApplicationResponse_",
         "MetadataPage_AttributeTypeResponse_",
@@ -97,11 +98,26 @@ def test_base_0_5_wp5_default_openapi_component_schema_inventory_is_locked():
         "RelationResponse",
         "RelationTypeResponse",
         "RelationUpdate",
-        "ValidationError",
     }
 
 
-def test_base_0_5_wp5_enabled_openapi_exposes_guarded_activation(monkeypatch):
+def test_base_0_5_openapi_documents_bounded_pages_and_structured_errors():
+    schema = app.openapi()
+
+    relation_response = schema["paths"]["/api/v1/relations"]["get"]["responses"]
+    assert relation_response["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/RelationPage"
+    }
+    error_content = relation_response["default"]["content"]["application/json"]
+    assert error_content["schema"] == {"$ref": "#/components/schemas/ApiErrorResponse"}
+    assert set(error_content["examples"]) == {
+        "invalidCursor",
+        "requestValidation",
+        "versionConflict",
+    }
+
+
+def test_base_0_5_enabled_openapi_exposes_guarded_activation(monkeypatch):
     monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
     schema = create_app().openapi()
 

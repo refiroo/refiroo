@@ -6,7 +6,14 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-05
+
 ### Added
+
+- A global model workbench with always-readable installed releases and capability-gated JSON draft
+  creation/import/editing, validation diagnostics, canonical compilation, semantic comparison,
+  browser export, immutable installation and guarded activation. Optimistic conflicts preserve local
+  input, and mutation controls remain absent by default.
 
 - Base 0.5 generic object-management UI. Workspace context is explicit in the app shell and URLs;
   collection search, repeatable state filters, built-in sorting and page size survive browser
@@ -90,6 +97,14 @@ All notable changes to this project are documented in this file. The format foll
   renderers with two object types, run locally and in CI via `npm test`.
 
 ### Changed
+
+- The bundled starter content release is now `0.5.0`; its model-language `schemaVersion` remains
+  `0.4` because Base 0.5 did not change the declarative schema contract. Existing databases retain
+  their database-selected active release until an administrator deliberately activates another
+  installed release.
+- Release operations now have documented backup and rollback boundaries: back up before migrations,
+  use activation for compatible model-content rollback, and restore the matching database backup for
+  application/schema rollback rather than editing immutable releases or relying on Alembic downgrade.
 
 - Hardened the Base 0.5 WP2/WP3 lifecycle foundation after review: compatibility checks now include
   numeric relation attributes and enforce cardinality across every allowed pair sharing a relation

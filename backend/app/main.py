@@ -18,6 +18,7 @@ from .errors import (
     unexpected_error_handler,
     validation_error_handler,
 )
+from .models.api import ApiErrorResponse
 from .routers import attributes, model, model_management, objects, relations
 from .services.model_loader import load_bootstrap_model
 from .services.model_registry import model_registry
@@ -41,6 +42,46 @@ def create_app() -> FastAPI:
         version="0.3.0",
         description="API-first, model-driven reference data management engine.",
         lifespan=lifespan,
+        responses={
+            "default": {
+                "model": ApiErrorResponse,
+                "description": "Structured API error",
+                "content": {
+                    "application/json": {
+                        "examples": {
+                            "invalidCursor": {
+                                "summary": "Cursor does not match this collection request",
+                                "value": {
+                                    "error": {
+                                        "code": "invalid_cursor",
+                                        "message": "Cursor is invalid",
+                                    }
+                                },
+                            },
+                            "versionConflict": {
+                                "summary": "Optimistic concurrency claim is stale",
+                                "value": {
+                                    "error": {
+                                        "code": "version_conflict",
+                                        "message": "Object version has changed",
+                                    }
+                                },
+                            },
+                            "requestValidation": {
+                                "summary": "Request body or parameters are invalid",
+                                "value": {
+                                    "error": {
+                                        "code": "request_validation_error",
+                                        "message": "Request validation failed",
+                                        "details": [],
+                                    }
+                                },
+                            },
+                        }
+                    }
+                },
+            }
+        },
     )
     application.state.model_admin_mutations_enabled = mutations_enabled
     application.add_exception_handler(ApiError, api_error_handler)

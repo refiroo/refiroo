@@ -178,7 +178,7 @@ def test_active_model_headers_and_release_read_apis_are_coherent():
 
 def test_release_cursor_rejects_tampering_and_filter_reuse():
     with SessionLocal() as session:
-        ensure_bootstrap_release(session, _model("0.5.0"))
+        ensure_bootstrap_release(session, _model("0.5.1-test-cursor"))
         session.commit()
 
     with TestClient(app) as client:

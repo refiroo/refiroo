@@ -13,7 +13,7 @@ The starter model contains three configured applications:
 They are starter definitions, not reserved engine modules. A model can replace them or add entirely
 different applications.
 
-## Current state — model 0.4
+## Current state — Base 0.5
 
 - Global reusable attribute types and object-type attribute bindings
 - Forward/reverse typed relations, features and allowed object-type relation triples
@@ -28,6 +28,7 @@ different applications.
 - Relation cardinality checks and audit events
 - Cursor pagination with explicit limits and optimistic concurrency
 - React application/view navigation, searchable hierarchy explorer and stable object routes
+- Explicit workspace context and URL-backed collection search, state, sorting and page size
 - Registry-driven collection views and composable object details with main/side panels
 - Reusable attribute, child, relation, table and hierarchy panels
 - Model-driven runtime CRUD for objects, individual typed attribute values and mutable relationships
@@ -37,11 +38,13 @@ different applications.
 - Optional Domain/Codelist-to-System Value representations that preserve the separate system hierarchy
 - Translation CRUD with generic Domain, Codelist and Master Value targets, atomic required bindings,
   and active Language-scoped uniqueness
+- A global model workbench for installed-release inspection and export, plus capability-gated JSON
+  draft validation, comparison, installation and activation
 - Docker development environment and continuous-integration workflow
 
 Mapping-grid and hierarchy-tree views are defined by the model but currently resolve to the generic
-collection presentation. Base 0.5 first strengthens object management and introduces safe model
-lifecycle foundations; dedicated interaction components follow.
+collection presentation. Base 0.5 supplies the bounded query and lifecycle foundations; dedicated
+interaction components follow in Model 0.6.
 
 ## Run with Docker
 
@@ -91,6 +94,27 @@ to enable draft CRUD, draft compilation, release installation and guarded activa
 `WEB_CONCURRENCY=1` explicitly when configuring a worker count; startup rejects mutation enablement
 with multiple workers until cross-process release propagation exists. Installed-release reads, diff
 and inline validation remain available without the flag.
+
+### Model releases and rollback
+
+`RDM_MODEL_PATH` (or `model/rdm-starter.json` by default) is bootstrap input, not the active-model
+setting. Startup validates and installs missing bootstrap content, but an existing database keeps the
+release selected in `model_runtime_state`. Every request resolves that database-selected immutable
+release; changing the file alone does not activate it.
+
+The administration lifecycle is deliberately staged: save editable JSON as a versioned draft,
+validate/compile it without persistence side effects, install it as an immutable inactive release,
+then activate it with the current runtime version and active-release ID. Activation is refused when
+stored runtime data is incompatible.
+
+Before upgrading, stop writers and back up the database with the database engine's consistent backup
+procedure. Run Alembic migrations before starting the new application. To roll back model content,
+activate a previously installed compatible release through the Models workbench or activation API;
+do not edit installed JSON or point `RDM_MODEL_PATH` at an older file. Application/schema rollback is
+a separate operational change: restore the matching pre-upgrade database backup before running older
+code because Alembic downgrades and automatic runtime-data transformations are not a supported
+production rollback path. See `docs/API.md` for the activation contract and `docs/ARCHITECTURE.md` for
+the detailed runbook.
 
 ## Repository guide
 

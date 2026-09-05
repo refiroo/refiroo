@@ -4,9 +4,9 @@ This roadmap sequences product outcomes rather than isolated screens or endpoint
 remain model-driven, work with at least two object or relation configurations, preserve typed values and
 optimistic concurrency, and keep public collections cursor-paged.
 
-## Current baseline — model 0.4
+## Current baseline — Base 0.5
 
-The executable foundation is complete:
+The operational foundation is complete:
 
 - Versioned JSON application model with startup validation and immutable installed releases
 - Stable public UUIDs for metadata and runtime entities, with Alembic-managed schema upgrades
@@ -20,18 +20,22 @@ The executable foundation is complete:
 - Translation lifecycle support with required targets and active target/language uniqueness
 - Optional Domain/Codelist representations by System Values without coupling their hierarchies
 - Backend and frontend regression suites, linting, production builds and CI coverage
+- Database-selected immutable runtime releases, editable drafts, side-effect-free compilation and
+  compatibility-gated installation/activation through the global Models workbench
+- Explicit workspace and URL-backed collection state, signed built-in sort cursors, bounded relation
+  expansion and indexed cursor-paged object history
 
 The `mappingGrid` and `tree` view types still use the generic collection renderer. Integration-scale
-queries, bulk operations, authentication and model administration remain intentionally outside this
-baseline.
+queries, bulk operations, authentication, authorization and distributed model activation remain
+intentionally outside this baseline.
 
-The next release is a bounded **Base 0.5** foundation before the task-specific workspaces. It closes the
-most visible object-management gaps, makes the installed model lifecycle explicit and supplies the
-paged relation/query primitives the mapping workspace needs. Mapping then proves relation-centric
-querying and mutation; translation and hierarchy reuse those bounded-query and composition patterns.
-Production hardening still precedes unrestricted self-service publishing and graphical model design.
+Base 0.5 closed the most visible object-management gaps, made the installed model lifecycle explicit
+and supplied the paged relation/query primitives the next mapping workspace needs. Model 0.6 now
+proves relation-centric querying and mutation; translation and hierarchy reuse those bounded-query
+and composition patterns. Production hardening still precedes unrestricted self-service publishing
+and graphical model design.
 
-## Base 0.5 — Operational base and model lifecycle foundation
+## Base 0.5 — Operational base and model lifecycle foundation (complete)
 
 ### Product outcome
 
@@ -79,36 +83,43 @@ administrative boundary is enabled.
 The implementation-ready task order, contracts and file-level handoff are in
 [`BASE_0_5_IMPLEMENTATION_PLAN.md`](BASE_0_5_IMPLEMENTATION_PLAN.md).
 
-## Milestone 1 — Relation-driven mapping workspace
+## Model 0.6 / Milestone 1 — Relation-driven mapping workspace
 
 ### Product outcome
 
-A data steward can see mapping coverage, find target candidates, create or remove mappings and safely
-replace a mapping without navigating object-by-object. The renderer must not know starter keys such as
-`system-value-maps-to-master`.
+A data steward can select a known workspace, see mapping coverage, find target candidates, create or
+remove mappings and safely replace a mapping without navigating object-by-object. The renderer must
+not know starter keys such as `system-value-maps-to-master`.
 
 ### Delivery scope
 
-1. Define and validate a typed `mappingGrid` view configuration: source type, target type, relation,
+1. Add a first-class workspace catalogue and bounded discovery API, with stable keys and presentation
+   labels, then replace the Base 0.5 free-text workspace-key field with an accessible catalogue-backed
+   selector. Keep the selected stable key in the URL and preserve it across application, view and
+   object navigation. Define catalogue authority, provisioning and unknown/retired-workspace behavior
+   before implementation; do not infer the list by issuing unbounded object queries.
+2. Define and validate a typed `mappingGrid` view configuration: source type, target type, relation,
    displayed fields, direction and permitted actions.
-2. Add a cursor-paged, batched relation-expansion query that returns source rows with selected targets
+3. Add a cursor-paged, batched relation-expansion query that returns source rows with selected targets
    and avoids per-row relation requests.
-3. Support mapped and unmapped filtering plus server-side candidate search; ambiguous multi-mapping
+4. Support mapped and unmapped filtering plus server-side candidate search; ambiguous multi-mapping
    state must be explicit rather than silently selecting one edge.
-4. Implement create, remove and safe replace operations with optimistic concurrency. Replacement must
+5. Implement create, remove and safe replace operations with optimistic concurrency. Replacement must
    have an atomic backend contract rather than exposing a delete-then-create failure window in the UI.
-5. Allow a target object to be created from the mapping workflow when the model permits creation, then
+6. Allow a target object to be created from the mapping workflow when the model permits creation, then
    select it without embedding object-type-specific form logic.
-6. Add bounded bulk mapping after the single-row contract is proven, with per-row outcomes and no
+7. Add bounded bulk mapping after the single-row contract is proven, with per-row outcomes and no
    client-side loop over individual mutation endpoints.
-7. Record relation audit events for every mapping transition and expose enough history to explain who
+8. Record relation audit events for every mapping transition and expose enough history to explain who
    or what changed a mapping once identity is available.
-8. Exercise the backend contract and renderer with the starter mapping and a second synthetic relation
+9. Exercise the backend contract and renderer with the starter mapping and a second synthetic relation
    whose object types, labels and direction differ.
 
 ### Exit gate
 
 - The mapping workspace remains responsive with cursor-sized pages and batched expansions.
+- Normal workspace selection is catalogue-backed rather than free text; the selected workspace remains
+  explicit in the URL and scopes object creation, lookup and collection requests consistently.
 - Concurrent remapping returns a recoverable conflict and never loses the previously valid mapping.
 - Bulk failures identify affected rows without obscuring successful or unchanged mappings.
 - Model validation rejects incomplete or incompatible mapping-grid configuration with a precise path.

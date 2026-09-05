@@ -255,7 +255,9 @@ stable model keys and presentation semantics; the React API adapter owns all bac
 
 ## Versioning
 
-`schemaVersion` versions the model language. Schema 0.4 adds object-level cross-field validation,
+`schemaVersion` versions the model language; the starter content release `0.5.0` continues to use
+schema `0.4` because Base 0.5 changes runtime lifecycle and presentation behavior rather than the
+declarative language. Schema 0.4 adds object-level cross-field validation,
 required initial relationships and scoped relationship uniqueness to the 0.3 detail-composition
 contract. `release.version` versions one model package. Each distinct
 validated model is installed as an immutable database release identified by its content hash.

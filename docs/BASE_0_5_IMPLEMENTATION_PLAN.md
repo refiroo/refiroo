@@ -1,6 +1,6 @@
 # Base 0.5 implementation plan
 
-**Status:** Ready for execution  
+**Status:** Complete (2026-09-05)
 **Target:** Model release 0.5  
 **Scope:** Operational object management, model lifecycle foundations and a lightweight model
 workbench  
@@ -19,7 +19,7 @@ workbench
 | WP5 — Upgrade object and relation query foundations | Complete | Signed keyset cursors; bounded relation/history pages; indexed audit subjects |
 | WP6 — Improve generic object management UI | Complete | URL/workspace state; generic actions; retry states; paged relations/history |
 | WP7 — Add the lightweight model workbench | Complete | Global Models route; capability-gated drafts; validation/diff/install/activation workflow |
-| WP8 — Release integration and documentation | Next | Ready after WP7 |
+| WP8 — Release integration and documentation | Complete | Starter release 0.5.0; operations runbook; complete OpenAPI error/page contract; release gates |
 
 ## Handoff instructions
 
@@ -579,6 +579,20 @@ Tasks:
 4. Mark completed work packages and move `PROJECT_STATUS.md` to Milestone 1 only after all Base 0.5
    exit criteria pass.
 5. Add a changelog entry and migration/backup notes.
+
+Completion record:
+
+- promoted the bundled starter content to release `0.5.0` while retaining model-language schema
+  `0.4`;
+- documented database-selected runtime authority, bootstrap behavior, mutation flags, the supported
+  single-process topology and the draft/validate/install/activate lifecycle;
+- documented cursor contracts, active-model headers, lifecycle failures, the relation-page breaking
+  change and separate model-content versus application/schema rollback procedures;
+- added a generated OpenAPI error-envelope schema with cursor, concurrency and request-validation
+  examples while preserving the locked bounded collection schemas;
+- added migration coverage proving a model 0.4 active release and runtime object survive upgrade, and
+  verified fresh boot, mutation-disabled/enabled surfaces and wheel migration packaging; and
+- completed the Base 0.5 documentation, changelog and roadmap transition to Model 0.6 / Milestone 1.
 
 ## Required validation
 

@@ -73,6 +73,47 @@ release key/version identity is unique. Multiple active rows or conflicting hist
 the upgrade before the new schema is applied. The migration does not delete releases, rewrite their
 identity or guess which immutable snapshot to preserve.
 
+### Upgrade, backup and rollback operations
+
+The bootstrap model path and the active release are separate operational controls. On startup the
+configured JSON is validated and installed when its content is absent. If runtime state already
+exists, startup preserves its selected installed release even when the bootstrap file contains a
+newer release. Administrators inspect the release catalogue and explicitly activate a compatible
+candidate; deployments must never use a bootstrap-file replacement as an implicit publish action.
+
+Before an application upgrade, stop or quiesce writers and take a database-engine-consistent backup.
+Keep that backup together with the application image/version and deployment configuration, especially
+`DATABASE_URL`, `RDM_MODEL_PATH`, `RDM_CURSOR_SIGNING_KEY`, `MODEL_ADMIN_MUTATIONS_ENABLED` and worker
+topology. Run `alembic upgrade head` using the new application before accepting traffic. The startup
+path also upgrades to head, but an explicit migration step makes failures observable before service
+cutover.
+
+From a source checkout, the explicit migration command is:
+
+```bash
+cd backend
+.venv/bin/python -m alembic upgrade head
+```
+
+For the default SQLite deployment, stop writers and use SQLite's online `.backup` command or copy the
+database only while it is closed; retain the database file and application version together. For
+PostgreSQL, use the platform's consistent `pg_dump`/snapshot procedure and verify that the restore
+includes schema and data. Test restoration before treating either backup as a rollback point.
+
+There are two distinct rollback cases:
+
+- For model content, activate a previously installed release using fresh runtime-state concurrency
+  tokens. The same compatibility analysis applies in both directions, so rollback is rejected when
+  current stored data would be invalid under the older release.
+- For application code or database schema, stop the new deployment and restore the pre-upgrade
+  database backup together with the matching older application version. Production rollback must not
+  depend on Alembic downgrade scripts or manual edits to immutable release rows; Base 0.5 provides no
+  automatic runtime-data migration or transformation executor.
+
+If activation commits but local publication fails, the process becomes unready and refuses
+model-dependent requests. Restart the process to load the committed database selection before taking
+further action; do not guess the prior selection from the bootstrap file.
+
 ## Runtime object graph
 
 `objects` contains stable UUID, workspace, application, object type, parent, state, name, version and

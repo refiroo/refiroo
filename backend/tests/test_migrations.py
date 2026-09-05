@@ -51,6 +51,7 @@ def test_runtime_state_migration_adopts_one_legacy_active_release(tmp_path):
     config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
     command.upgrade(config, "20260903_01")
 
+    runtime_object_id = "22222222-2222-4222-8222-222222222222"
     with engine.begin() as connection:
         connection.execute(
             text(
@@ -66,6 +67,20 @@ def test_runtime_state_migration_adopts_one_legacy_active_release(tmp_path):
                 "installed_at": "2026-09-04T12:00:00Z",
             },
         )
+        connection.execute(
+            text(
+                "INSERT INTO objects "
+                "(id, workspace_key, application_key, object_type_key, parent_object_id, state, "
+                "name, version, created_at, updated_at) VALUES "
+                "(:object_id, 'migration-workspace', 'rdm-master', 'domain', NULL, 'active', "
+                "'Preserved domain', 3, :created_at, :updated_at)"
+            ),
+            {
+                "object_id": runtime_object_id,
+                "created_at": "2026-09-04T12:00:00Z",
+                "updated_at": "2026-09-04T12:05:00Z",
+            },
+        )
 
     command.upgrade(config, "head")
 
@@ -77,7 +92,21 @@ def test_runtime_state_migration_adopts_one_legacy_active_release(tmp_path):
             text("SELECT id FROM model_releases WHERE public_id = :public_id"),
             {"public_id": "11111111-1111-4111-8111-111111111111"},
         )
+        runtime_object = connection.execute(
+            text(
+                "SELECT id, workspace_key, object_type_key, name, version FROM objects "
+                "WHERE id = :object_id"
+            ),
+            {"object_id": runtime_object_id},
+        ).one()
     assert state == (1, release_id, 1)
+    assert runtime_object == (
+        runtime_object_id,
+        "migration-workspace",
+        "domain",
+        "Preserved domain",
+        3,
+    )
     unique_constraints = inspect(engine).get_unique_constraints("model_releases")
     assert any(item["name"] == "uq_model_release_identity" for item in unique_constraints)
 

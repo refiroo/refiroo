@@ -2,14 +2,14 @@
 
 ## Current baseline
 
-Model release `0.4.0` is an executable vertical slice of a generic reference-data engine. The versioned JSON
-model is the source of truth for applications, global attribute types, object types and bindings,
-relation types, allowed source/relation/target triples and UI views.
+Model release `0.5.0` is the completed operational base of a generic reference-data engine. The
+versioned JSON model is the source of truth for applications, global attribute types, object types and
+bindings, relation types, allowed source/relation/target triples and UI views.
 
 The starter model contains three configurable applications—RDM Master, RDM Systems and RDM
 Translations—but the runtime contains no branches for those names or their object-type keys.
 
-Base 0.5 WP7 is complete. The singleton database runtime-state row selects the authoritative installed
+Base 0.5 is complete. The singleton database runtime-state row selects the authoritative installed
 release, and source JSON remains bootstrap input only. Each request uses one immutable model and
 metadata snapshot. Read-only release APIs now include key-based semantic diff and bounded runtime-data
 compatibility analysis, while inline model validation returns stable JSON-path diagnostics without
@@ -124,6 +124,9 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 
 ## Known gaps
 
+- The Base 0.5 workspace selector accepts a raw workspace key because no authoritative workspace
+  catalogue exists yet. Model 0.6 plans bounded workspace discovery and a catalogue-backed selector;
+  its authority, provisioning and unknown/retired-workspace behavior must be defined first.
 - Configured `mappingGrid` and `tree` views still resolve through the registry to the generic
   collection renderer; dedicated interactions are not implemented yet.
 - Relations support full instance CRUD (create/read-one/update/delete with optimistic concurrency);
@@ -138,7 +141,7 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 
 ## Next vertical slice
 
-Complete the bounded Base 0.5 operational foundation before building the dedicated mapping workspace:
+Begin Model 0.6 / Milestone 1 with the relation-driven mapping workspace. Base 0.5 delivered:
 
 1. **Done (WP1):** Make the database-selected installed release the single authoritative runtime
    model snapshot.
@@ -151,21 +154,25 @@ Complete the bounded Base 0.5 operational foundation before building the dedicat
 6. **Done (WP6):** Make workspace and URL-backed collection state explicit in the generic object UI,
    including sort, state and page-size controls and the history panel.
 7. **Done (WP7):** Add the lightweight JSON model workbench, with model mutations disabled by default.
-8. Complete Base 0.5 release integration and documentation.
+8. **Done (WP8):** Promote the starter content release to 0.5, complete release integration,
+   operational documentation, migration/package verification and the locked OpenAPI error contract.
 
 See `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` for the implementation-ready work packages and
 `docs/ROADMAP.md` for the exit gate and sequenced milestones that follow.
 
-The first seven work packages are complete; WP8 (release integration and documentation) is next.
+All Base 0.5 work packages and exit gates are complete. Model 0.6 / Milestone 1 starts with an
+authoritative workspace catalogue and then the relation-driven mapping workspace described in the
+roadmap.
 
 ## Coding-agent handoff
 
 Open the repository root, then start a new coding chat with:
 
-> Read `AGENTS.md` and `docs/PROJECT_STATUS.md`, then summarize the current model and implement the next
-> incomplete work package in `docs/BASE_0_5_IMPLEMENTATION_PLAN.md`. Preserve all product invariants,
-> its scope boundaries and the work-package order. Before editing, report the current worktree status
-> and identify the API, persistence, backend tests and generic UI components that will change.
+> Read `AGENTS.md`, `docs/PROJECT_STATUS.md` and `docs/ROADMAP.md`, then summarize the current model and
+> implement the first incomplete Model 0.6 / Milestone 1 slice. Preserve all product invariants and
+> define the workspace-catalogue authority and lifecycle before implementation. Before editing,
+> report the current worktree status and identify the model, API, persistence, backend tests and
+> generic UI components that will change.
 
 Make a Git checkpoint before the first new slice. Run
 `backend/.venv/bin/python -m ruff check backend`,
