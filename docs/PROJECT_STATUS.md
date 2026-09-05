@@ -26,6 +26,14 @@ for identity.
 The generic UI carries explicit workspace context in its shell and routes, restores URL-backed
 collection search/state/sort/page-size controls, provides reusable row actions and retry states, and
 shows independently paged relation expansion and audit history on object details.
+The frontend has since had a structural pass, phases 0–4 of
+`docs/FRONTEND_STRUCTURE_REFACTOR.md`, ahead of the Base 0.6 UI work. It changed no API contract,
+model contract or architecture: `frontend/src` is organized into `app/`, `features/`, `ui/`,
+`model/`, `routing/`, `lib/`, `types/` and `styles/`; cursor paging, search debouncing and API error
+handling each have one implementation; and the frontend has lint and format tooling for the first
+time, which the definition of done had always required. Phase 5, a shared modal primitive, is
+approved and pending; phase 6 depends on Base 0.6 decision D3.
+
 The global Models workbench keeps installed releases readable when administration mutations are
 disabled. When enabled, it supports JSON draft creation/import/editing, authoritative validation,
 optimistic-conflict recovery, canonical compilation, semantic diff and compatibility review, browser
@@ -133,12 +141,20 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
   contract.
 - Configured `mappingGrid`, `tree`, `form` and `dashboard` views still resolve through the registry to
   the generic collection renderer. Their `config` remains an open property bag, so declared semantic
-  views are not yet guaranteed to have distinct validated behavior.
+  views are not yet guaranteed to have distinct validated behavior. The registry now lives in
+  `frontend/src/features/objects/views/registry.ts`, so decision D3 is expressed there rather than
+  inside the collection screen.
 - Model-declared `filterable` and `sortable` attribute features are not implemented in object queries;
   collection controls cover search, free-text state and built-in sorts only.
 - The UI has component-level regression coverage but no browser-level workflow, automated
   accessibility or visual-regression release gate. Its visual language is an ad hoc compact dashboard
-  rather than a documented, task-tested RDM design system.
+  rather than a documented, task-tested RDM design system. The stylesheet is now layered under
+  `frontend/src/styles/`, but its tokens are still six custom properties over several hundred
+  hardcoded colours, which the D5 UI-foundation decision has to address.
+- Four dialogs each rebuild their own backdrop and differ in keyboard behavior: only `ConfirmDialog`
+  and `CreateDraftDialog` close on Escape and restore focus, none trap focus, and two carry hardcoded
+  `aria-labelledby` ids that would collide. Phase 5 of `docs/FRONTEND_STRUCTURE_REFACTOR.md` is
+  approved to introduce a shared modal primitive and is the next frontend change.
 - The model lifecycle is complete, but its workbench remains a plain JSON-centred interface without
   structured section navigation, draft provenance/duplication or navigation-away protection.
 - Relations support full instance CRUD (create/read-one/update/delete with optimistic concurrency);
@@ -195,8 +211,9 @@ Open the repository root, then start a new coding chat with:
 
 Make a Git checkpoint before the first new slice. Run
 `backend/.venv/bin/python -m ruff check backend`,
-`backend/.venv/bin/python -m pytest backend/tests -q`, `npm --prefix frontend test`,
-`npm --prefix frontend run build` and `git diff --check` before considering it complete. Base 0.6
+`backend/.venv/bin/python -m pytest backend/tests -q`, `npm --prefix frontend run lint`,
+`npm --prefix frontend test`, `npm --prefix frontend run build` and `git diff --check` before
+considering it complete. The frontend lint step is new; it must report zero errors. Base 0.6
 release validation must also include its browser, accessibility and visual-regression suites and must
 run on the supported Python 3.12 toolchain; the local review environment used on 2026-09-05 was Python
 3.14.7 and is not sufficient as the only release environment.

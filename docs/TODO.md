@@ -6,10 +6,15 @@ release plan and changelog rather than accumulating it here.
 
 ## Now — Base 0.6
 
+- [ ] Frontend structure refactor phase 5: replace the four hand-rolled dialog backdrops with a
+  shared modal primitive. Approved; the only remaining behavior-changing item from
+  `FRONTEND_STRUCTURE_REFACTOR.md`. Do it before WP1 so the UI foundation builds on one dialog.
 - [ ] WP0: walk the Base 0.6 acceptance journeys and approve the interaction specification.
 - [ ] D1: define workspace authority, provisioning, default selection and retirement behavior.
 - [ ] D2: define the authority and allowed values for runtime object state.
-- [ ] D3: define typed table/mapping-grid contracts and schema 0.4 compatibility.
+- [ ] D3: define typed table/mapping-grid contracts and schema 0.4 compatibility. Once decided,
+  frontend phase 6 makes `features/objects/views/registry.ts` stop presenting every declared view
+  type as a table.
 - [ ] D4: define atomic mapping replacement and its concurrency token.
 - [ ] D5: choose ownership or adoption of accessible UI primitives.
 - [ ] WP1: implement the UI foundation and simplified application shell.

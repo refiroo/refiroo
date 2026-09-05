@@ -4,8 +4,8 @@ Structural reorganization of `frontend/src` following the review recorded as eig
 (FE-01 … FE-18). Counterpart to `docs/BACKEND_STRUCTURE_REFACTOR.md`, which describes the
 equivalent pass over `backend/app`.
 
-**Status:** Phases 0–4 planned for immediate execution. Phase 5 approved, scheduled after review.
-Phase 6 deferred to Base 0.6 decision D3.
+**Status:** Phases 0–4 complete on `refactor/frontend-structure`. Phase 5 approved and scheduled
+after review of those. Phase 6 deferred to Base 0.6 decision D3.
 
 ## Scope
 
@@ -43,7 +43,7 @@ frontend/src/
 │   └── errors.ts                ApiError, isApiError, errorMessage               (FE-05)
 ├── model/
 │   ├── lookup.ts                objectTypeFor, applicationFor, relationChoices
-│   ├── fields.ts                attributeName, fieldValue, formatValue           (FE-04)
+│   ├── fields.ts                attributeName, fieldValue                        (FE-04)
 │   └── defaults.ts              fallbackDetail, DEFAULT_COLLECTION_QUERY
 ├── features/
 │   ├── objects/
@@ -53,7 +53,10 @@ frontend/src/
 │   │   ├── ObjectFormDialog.tsx
 │   │   ├── ObjectToolbar.tsx
 │   │   ├── Explorer.tsx
+│   │   ├── CollectionView.tsx   the table renderer the registry selects
 │   │   ├── views/registry.ts    view type → component                            (FE-02)
+│   │   ├── views/types.ts       ViewComponentProps
+│   │   ├── views/CollectionViewHost.tsx  dispatch
 │   │   └── panels/
 │   │       ├── registry.ts      panel type → component                           (FE-02)
 │   │       ├── AttributesPanel.tsx / AttributeValueDialog.tsx                    (FE-03)
@@ -70,12 +73,12 @@ frontend/src/
 ├── ui/                          feature-agnostic primitives
 │   ├── ConfirmDialog.tsx  Pagination.tsx  InlineError.tsx
 │   ├── ObjectTable.tsx  ObjectLookup.tsx
+│   ├── formatValue.tsx                                                           (FE-04)
 │   └── AttributeField.tsx  attributeForm.ts                                      (FE-04)
 ├── lib/
 │   ├── download.ts                                                               (FE-04)
 │   └── hooks/
 │       ├── useDebouncedValue.ts                                                  (FE-09)
-│       ├── useAsyncResource.ts                                                   (FE-10)
 │       ├── useCursorPages.ts                                                     (FE-11)
 │       └── useCursorFeed.ts                                                      (FE-11)
 ├── types/
@@ -84,13 +87,17 @@ frontend/src/
 │   ├── runtime.ts   objects, relations, pages, audit, delete impact
 │   ├── modelAdmin.ts drafts, releases, diagnostics, compilation, capabilities
 │   └── ui.ts        RouteState, CollectionQueryState
+├── styles.css                   entry point, imports the layers below
 ├── styles/
-│   ├── base.css  layout.css  components.css                                      (FE-16)
+│   ├── base.css  layout.css  components.css  responsive.css                      (FE-16)
 └── test/
     ├── fixtures.ts  setup.ts
 ```
 
 Tests stay co-located with the module they cover and move with it.
+
+This is the layout as built. Three deviations from the layout as planned are recorded under
+Verification below.
 
 ## Phases
 
@@ -99,10 +106,10 @@ Each phase is a separate commit so that mechanical diffs never hide behavioral o
 | Phase | Findings | Behavior change |
 | --- | --- | --- |
 | 0 — Tooling | FE-12 … FE-15 | none |
-| 1 — Registry rendering | FE-01, FE-02 | React component identity only |
+| 1 — Registry rendering | FE-01, FE-02 (typing) | React component identity only |
 | 2 — Error handling | FE-05, FE-06 | five error messages become readable |
 | 3 — Shared hooks | FE-09 … FE-11 | none |
-| 4 — Structure | FE-03, FE-04, FE-07, FE-08, FE-16, FE-17 | none |
+| 4 — Structure | FE-02 (relocation), FE-03, FE-04, FE-07, FE-08, FE-16, FE-17 | none |
 | 5 — Modal primitive | FE-18 | **yes** — Escape and focus restore become consistent |
 | 6 — View-type honesty | (deferred) | **yes** — requires Base 0.6 decision D3 |
 
@@ -115,9 +122,14 @@ Each phase is a separate commit so that mechanical diffs never hide behavioral o
 never been enforceable.
 
 Add ESLint 10 with `typescript-eslint` and `eslint-plugin-react-hooks`, and an `npm run lint`
-script. `react-hooks/rules-of-hooks` is what makes FE-01 a checked invariant rather than a
-convention, and `react-hooks/exhaustive-deps` covers the hand-maintained dependency arrays in
-`CollectionView` and `Explorer`.
+script.
+
+The linter does **not** catch FE-01. `react-hooks/rules-of-hooks` cannot see through a registry
+lookup to know that the value being called is a component, so the invocation bug stays a matter of
+review rather than of enforcement. What the plugin does contribute is `react-hooks/exhaustive-deps`
+over the hand-maintained dependency arrays in `CollectionView` and `Explorer`, plus
+`react-hooks/refs` and `react-hooks/set-state-in-effect`, which between them found 16 real sites on
+the first run.
 
 ### FE-13 — dependencies are unpinned, and build tooling sits in `dependencies`
 
@@ -355,4 +367,64 @@ FE-02 exists to make it a registry edit rather than surgery inside `CollectionVi
 
 ## Verification
 
-Recorded on completion of Phases 0–4.
+Recorded on completion of Phases 0–4, on `refactor/frontend-structure`.
+
+| Gate | Baseline (665c530) | After Phase 4 |
+| --- | --- | --- |
+| `npm run lint` | did not exist | 0 errors, 16 warnings |
+| `npm run test` | 51 tests, 12 files | 55 tests, 14 files |
+| `npm run build` | succeeds | succeeds |
+| Built CSS | `index-BtF1GmjO.css`, 21.29 kB | **byte-identical** |
+| Built JS | 265.43 kB / 78.58 kB gzip | 264.11 kB / 78.78 kB gzip |
+| Backend `pytest` | 225 passed | 225 passed (untouched) |
+| Backend `ruff check` | clean | clean |
+
+Beyond the gates, a real Uvicorn backend and a Vite dev server were run together: the dev server
+resolved every relocated module through the `@/` alias, and a production build made against the
+live backend served its bundle and stylesheet.
+
+The CSS hash being unchanged is the evidence that FE-16 reordered nothing. The JS is 1.3 kB smaller
+because the error helpers replaced 36 inline expressions and the paging hooks replaced five
+hand-written implementations; it gzips 0.2 kB larger because the added documentation comments and
+longer identifiers compress slightly less well.
+
+### Structure
+
+| | Baseline | After |
+| --- | --- | --- |
+| Modules under `src/` | 41 | 69 |
+| Largest file | `types.ts`, 393 lines | `styles/components.css`, 1060 lines |
+| Largest TypeScript file | `ObjectDetail.tsx`, 292 lines | `RelationsPanel.tsx`, 305 lines |
+| Longest line | 2158 characters | 147 characters |
+| Files over 250 lines | 2 | 3 |
+| `useState` in the largest component | 19 (`ObjectDetail`) | 9 (`ObjectDetail`) |
+
+### Deviations from the plan
+
+Three, each recorded in the commit that made it:
+
+1. **`formatValue` went to `ui/formatValue` rather than `model/fields`.** It returns JSX, and
+   `model/` is more useful kept free of presentation.
+2. **FE-10 `useAsyncResource` was not extracted.** Consolidating paging under FE-11 removed five of
+   the eight cancellable-load copies. The three that remain share no shape — the Explorer loads many
+   collections at once, `ModelDraftEditor` debounces validation over editor text, `ModelWorkbench`
+   appends one draft to a list — and `ObjectDetail`'s own load must reject rather than convert
+   failure into state, because panels call it through `onReload` and depend on that. Extracting a
+   hook for them would be the speculative abstraction AGENTS.md warns against.
+3. **`react-hooks/set-state-in-effect` was not promoted to error.** `react-hooks/refs` was, which
+   was the substantive half of the Phase 4 exit criterion. The ten remaining `set-state-in-effect`
+   sites are fetch-in-effect and prop-mirroring; clearing them means adopting a data-fetching
+   library or reworking those components, which is behavior rather than structure. The reason is
+   recorded in `eslint.config.js` beside the rule.
+
+### Behavior changes
+
+Two, both intended and both stated before the work:
+
+- **FE-05.** Seven error messages lost an `Error: ` prefix and now read like every other message.
+- **FE-01.** React treats each panel and view as its own component instance. No panel holds state at
+  that level today, so nothing observable changed; the point is that adding state is now safe.
+
+One incidental change surfaced while extracting `CreateDraftDialog`: it now restores focus to
+whichever control opened it, rather than always to the New draft button. Opened from a release
+detail, focus previously jumped across the screen.

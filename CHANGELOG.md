@@ -6,6 +6,45 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Frontend structure refactor, phases 0–4 of `docs/FRONTEND_STRUCTURE_REFACTOR.md`. No API
+  contract, model contract or architectural change. `frontend/src` is reorganized into `app/`,
+  `features/`, `ui/`, `model/`, `routing/`, `lib/`, `types/` and `styles/`, with every internal
+  import going through an `@/` alias. `types.ts` and `utils/model.ts` are split by concern behind a
+  barrel, the four overloaded components are split into 28 modules, and `styles.css` becomes four
+  layers whose built output is byte-identical.
+
+- The generic view and panel registries are rendered as elements rather than called as functions.
+  Nothing was broken, but a panel component gaining state would have made `ObjectDetail`'s hook
+  order depend on which panels a model declares as visible. The panel registry is keyed by the
+  `PanelDefinition` discriminant, removing its per-entry casts, and both registries now live in
+  their own modules.
+
+- Client error handling is consolidated in `api/errors`. `isApiError` replaces five untyped casts
+  used to detect optimistic-concurrency conflicts, and `errorMessage` replaces 36 inline
+  expressions. Seven messages that reached the UI as `Error: …` now read like every other message.
+
+- Cursor paging and search debouncing are consolidated into `useCursorPages`, `useCursorFeed` and
+  `useDebouncedValue`, replacing two incompatible paging implementations across seven components.
+
+### Added
+
+- Frontend lint and format tooling: ESLint 10 with `typescript-eslint` and
+  `eslint-plugin-react-hooks`, and Prettier. `AGENTS.md` listed "linting passes" in the definition
+  of done, but the frontend had no linter. Dependencies are pinned instead of `"latest"`, build
+  tooling moves to `devDependencies`, and the Dockerfile uses `npm ci`; TypeScript is pinned to 6.x
+  because `typescript-eslint` cannot yet parse with the TypeScript 7 native compiler.
+
+- An application-level smoke test covering the extracted router: model-driven shell rendering, deep
+  collection URLs, fallback when a URL names a retired application, and returning from an object to
+  the collection and workspace it was opened from.
+
+### Fixed
+
+- A detail panel naming an object type that a later release retired now reports it instead of
+  crashing the detail screen through a non-null assertion.
+
 ## [0.5.0] - 2026-09-05
 
 ### Added

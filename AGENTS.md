@@ -76,15 +76,34 @@ errors explicit and machine-readable.
 
 ### Frontend
 
-- React, TypeScript and Vite.
-- Keep model contracts in `src/types.ts`.
+- React, TypeScript and Vite. See `docs/FRONTEND_STRUCTURE_REFACTOR.md` for the module layout and
+  the reasoning behind it.
+- Import within `src/` through the `@/` alias, never with relative paths that climb directories.
+- Keep model contracts in `src/types/`, which `src/types/index.ts` re-exports as one barrel. Split
+  by area: `model.ts` for the declarative model, `runtime.ts` for stored objects and relations,
+  `modelAdmin.ts` for drafts and releases, and `ui.ts` for state the browser owns such as
+  `RouteState` — that is not a model contract and does not belong beside one.
 - Generic renderers receive model definitions as input.
 - Do not embed object-specific columns, labels or forms in components.
+- Resolve a declared view or panel type through its registry in `features/objects/views/` or
+  `features/objects/panels/`, and render the result as an element. Calling it as a function puts
+  its hooks in the caller's hook list.
+- `model/` holds reads over the model and stays free of JSX; presentation belongs in `ui/`.
+- Page a collection with `lib/hooks/useCursorPages` for backward movement or `useCursorFeed` for
+  append-on-demand. Do not hand-write a cursor stack.
+- Recognise an API failure with `isApiError` from `api/errors`, never by reading `code` off a cast,
+  and render one with `errorMessage` so users never see an `Error:` prefix.
 - Preserve keyboard operation and semantic HTML.
+- Run `npm run lint` and `npm run format` before finishing. `react-hooks/set-state-in-effect` is
+  configured as a warning for the reason recorded in `eslint.config.js`; do not add sites to it.
 
 ## Definition of done
 
 A change is complete when tests pass, linting passes, the frontend builds, new configuration is
 validated, documentation matches the implementation, and no branch was added for a starter
 application or object-type key.
+
+Concretely: `pytest` and `ruff check app/ tests/` in `backend/`, and `npm run lint`, `npm run test`
+and `npm run build` in `frontend/`. The frontend lint step must report zero errors; warnings are
+listed in `eslint.config.js` with their justification.
 
