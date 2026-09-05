@@ -28,6 +28,12 @@ All notable changes to this project are documented in this file. The format foll
 - Cursor paging and search debouncing are consolidated into `useCursorPages`, `useCursorFeed` and
   `useDebouncedValue`, replacing two incompatible paging implementations across seven components.
 
+- Every dialog shares one modal shell, `ui/Modal`. Five dialogs previously rebuilt the same backdrop
+  and disagreed about its behavior. `ObjectFormDialog`, `AttributeValueDialog` and
+  `RelationFormDialog` now close on Escape and return focus to whatever opened them; Tab is trapped
+  inside an open dialog; the page no longer scrolls behind one; and two dialogs that carried
+  hardcoded `aria-labelledby` ids now generate them, so opening two cannot produce duplicate ids.
+
 ### Added
 
 - Frontend lint and format tooling: ESLint 10 with `typescript-eslint` and

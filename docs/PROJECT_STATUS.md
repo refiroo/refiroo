@@ -31,8 +31,9 @@ The frontend has since had a structural pass, phases 0–4 of
 model contract or architecture: `frontend/src` is organized into `app/`, `features/`, `ui/`,
 `model/`, `routing/`, `lib/`, `types/` and `styles/`; cursor paging, search debouncing and API error
 handling each have one implementation; and the frontend has lint and format tooling for the first
-time, which the definition of done had always required. Phase 5, a shared modal primitive, is
-approved and pending; phase 6 depends on Base 0.6 decision D3.
+time, which the definition of done had always required. Phase 5 followed: every dialog now shares
+one modal shell in `frontend/src/ui/Modal.tsx`, with Escape, focus restore, a focus trap and a
+scroll lock applied consistently. Phase 6 remains, and depends on Base 0.6 decision D3.
 
 The global Models workbench keeps installed releases readable when administration mutations are
 disabled. When enabled, it supports JSON draft creation/import/editing, authoritative validation,
@@ -151,10 +152,9 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
   rather than a documented, task-tested RDM design system. The stylesheet is now layered under
   `frontend/src/styles/`, but its tokens are still six custom properties over several hundred
   hardcoded colours, which the D5 UI-foundation decision has to address.
-- Four dialogs each rebuild their own backdrop and differ in keyboard behavior: only `ConfirmDialog`
-  and `CreateDraftDialog` close on Escape and restore focus, none trap focus, and two carry hardcoded
-  `aria-labelledby` ids that would collide. Phase 5 of `docs/FRONTEND_STRUCTURE_REFACTOR.md` is
-  approved to introduce a shared modal primitive and is the next frontend change.
+- Dialog keyboard behavior is now consistent through the shared `ui/Modal` shell, but it has only
+  been exercised in jsdom. Nothing has driven a real browser or a screen reader; Base 0.6 WP6 owns
+  that gate.
 - The model lifecycle is complete, but its workbench remains a plain JSON-centred interface without
   structured section navigation, draft provenance/duplication or navigation-away protection.
 - Relations support full instance CRUD (create/read-one/update/delete with optimistic concurrency);

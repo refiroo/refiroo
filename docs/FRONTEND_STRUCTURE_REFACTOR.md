@@ -4,8 +4,8 @@ Structural reorganization of `frontend/src` following the review recorded as eig
 (FE-01 … FE-18). Counterpart to `docs/BACKEND_STRUCTURE_REFACTOR.md`, which describes the
 equivalent pass over `backend/app`.
 
-**Status:** Phases 0–4 complete on `refactor/frontend-structure`. Phase 5 approved and scheduled
-after review of those. Phase 6 deferred to Base 0.6 decision D3.
+**Status:** Phases 0–5 complete on `refactor/frontend-structure`. Phase 6 deferred to Base 0.6
+decision D3.
 
 ## Scope
 
@@ -14,7 +14,7 @@ The application keeps its hand-rolled history router, its registry-based generic
 plain-CSS styling. Every runtime code path stays unaware of application and object-type keys.
 
 Phases 0–4 are behavior-preserving with two deliberate exceptions, both recorded below: FE-05 makes
-five error messages more readable, and FE-01 changes how React identifies the generic renderers.
+seven error messages more readable, and FE-01 changes how React identifies the generic renderers.
 Phase 5 changes dialog keyboard behavior on purpose.
 
 Verification for every phase is `npm run lint && npm run test && npm run build`.
@@ -71,6 +71,7 @@ frontend/src/
 │   └── workspaces/
 │       └── WorkspaceSelector.tsx
 ├── ui/                          feature-agnostic primitives
+│   ├── Modal.tsx                backdrop, header, Escape, focus, scroll lock       (FE-18)
 │   ├── ConfirmDialog.tsx  Pagination.tsx  InlineError.tsx
 │   ├── ObjectTable.tsx  ObjectLookup.tsx
 │   ├── formatValue.tsx                                                           (FE-04)
@@ -110,7 +111,7 @@ Each phase is a separate commit so that mechanical diffs never hide behavioral o
 | 2 — Error handling | FE-05, FE-06 | five error messages become readable |
 | 3 — Shared hooks | FE-09 … FE-11 | none |
 | 4 — Structure | FE-02 (relocation), FE-03, FE-04, FE-07, FE-08, FE-16, FE-17 | none |
-| 5 — Modal primitive | FE-18 | **yes** — Escape and focus restore become consistent |
+| 5 — Modal primitive | FE-18 | **yes** — Escape, focus restore, focus trap, scroll lock |
 | 6 — View-type honesty | (deferred) | **yes** — requires Base 0.6 decision D3 |
 
 ## Phase 0 — Tooling
@@ -323,7 +324,7 @@ unchanged.
 - `binding!` and `attribute!` are asserted six times inside one JSX expression in
   `AttributesPanel.tsx:41-43`. Narrow once above the return.
 
-## Phase 5 — Modal primitive (approved, scheduled after Phase 0–4 review)
+## Phase 5 — Modal primitive (complete)
 
 ### FE-18 — four hand-rolled dialogs with divergent keyboard behavior
 
@@ -342,12 +343,39 @@ dialog each rebuild the same backdrop markup. Their behavior differs:
 the codebase does not hold that line. The two hardcoded ids also collide if two dialogs are ever
 open at once.
 
-Introduce `ui/Modal.tsx` owning the backdrop, `role`/`aria-modal`, a generated `aria-labelledby`,
-Escape, focus restore, focus trap and scroll lock, and rebuild `ConfirmDialog` on it.
+`ui/Modal.tsx` owns the backdrop, the dialog container, the header, `role`/`aria-modal`, a generated
+`aria-labelledby`, Escape, focus restore, a focus trap and a scroll lock. `ConfirmDialog` is rebuilt
+on it and the other four migrate to it.
 
-**Behavior change, intended.** Three dialogs that currently ignore Escape start closing on it, and
-focus returns to the element that opened them. Existing dialog tests are reviewed rather than
-merely re-run.
+Children render as direct children of the dialog container, after the header, because the
+stylesheet targets `.dialog form` and `.confirm-dialog > .dialog-actions` directly. The single CSS
+addition suppresses a focus ring on the now focusable container.
+
+Two decisions worth recording:
+
+- **Initial focus.** A child that claims focus with `autoFocus` keeps it; the modal only acts when
+  nothing inside is focused, and then focuses the container. `ConfirmDialog` passes an
+  `initialFocusRef` for Cancel, so confirming a destructive action stays a deliberate second act.
+- **Nesting.** A module-level stack means Escape reaches only the innermost dialog, and the page's
+  own `overflow` is captured once — when the first modal opens — rather than by each modal.
+
+**Behavior changes, all intended.**
+
+- `ObjectFormDialog`, `AttributeValueDialog` and `RelationFormDialog` close on Escape and return
+  focus to whatever opened them.
+- Tab is trapped inside an open dialog in both directions.
+- The page cannot scroll behind an open dialog.
+- Two open dialogs no longer share a title id.
+- `RelationFormDialog`'s Cancel is disabled while a write is in flight, as the others already were.
+
+Existing dialog tests were reviewed rather than merely re-run: none asserted on the replaced markup,
+and the one that names a dialog by role — the install confirmation in `ModelWorkbench.test` — still
+matches, because `ConfirmDialog` keeps its `alertdialog` role and accessible name.
+
+**Two bugs were found by the new tests rather than shipped.** The focusable-element query filtered
+on `offsetParent`, which is always null under jsdom and would have emptied the focus trap there. And
+a second modal opening over a first captured the already-locked `overflow` and restored that value
+on close, leaving the page permanently unscrollable.
 
 ## Phase 6 — View-type honesty (deferred to Base 0.6 decision D3)
 
@@ -369,21 +397,22 @@ FE-02 exists to make it a registry edit rather than surgery inside `CollectionVi
 
 Recorded on completion of Phases 0–4, on `refactor/frontend-structure`.
 
-| Gate | Baseline (665c530) | After Phase 4 |
-| --- | --- | --- |
-| `npm run lint` | did not exist | 0 errors, 16 warnings |
-| `npm run test` | 51 tests, 12 files | 55 tests, 14 files |
-| `npm run build` | succeeds | succeeds |
-| Built CSS | `index-BtF1GmjO.css`, 21.29 kB | **byte-identical** |
-| Built JS | 265.43 kB / 78.58 kB gzip | 264.11 kB / 78.78 kB gzip |
-| Backend `pytest` | 225 passed | 225 passed (untouched) |
-| Backend `ruff check` | clean | clean |
+| Gate | Baseline (665c530) | After Phase 4 | After Phase 5 |
+| --- | --- | --- | --- |
+| `npm run lint` | did not exist | 0 errors, 16 warnings | 0 errors, 16 warnings |
+| `npm run test` | 51 tests, 12 files | 55 tests, 14 files | 66 tests, 15 files |
+| `npm run build` | succeeds | succeeds | succeeds |
+| Built CSS | `index-BtF1GmjO.css`, 21.29 kB | **byte-identical** | 21.32 kB (one rule added) |
+| Built JS | 265.43 kB / 78.58 kB gzip | 264.11 kB / 78.78 kB gzip | 263.78 kB / 79.13 kB gzip |
+| Backend `pytest` | 225 passed | 225 passed (untouched) | 225 passed (untouched) |
+| Backend `ruff check` | clean | clean | clean |
 
 Beyond the gates, a real Uvicorn backend and a Vite dev server were run together: the dev server
 resolved every relocated module through the `@/` alias, and a production build made against the
 live backend served its bundle and stylesheet.
 
-The CSS hash being unchanged is the evidence that FE-16 reordered nothing. The JS is 1.3 kB smaller
+The CSS hash being unchanged through Phase 4 is the evidence that FE-16 reordered nothing. Phase 5
+adds exactly one rule, suppressing the focus ring on the focusable dialog container. The JS is 1.3 kB smaller
 because the error helpers replaced 36 inline expressions and the paging hooks replaced five
 hand-written implementations; it gzips 0.2 kB larger because the added documentation comments and
 longer identifiers compress slightly less well.
@@ -419,7 +448,7 @@ Three, each recorded in the commit that made it:
 
 ### Behavior changes
 
-Two, both intended and both stated before the work:
+From Phases 0–4, two, both intended and both stated before the work:
 
 - **FE-05.** Seven error messages lost an `Error: ` prefix and now read like every other message.
 - **FE-01.** React treats each panel and view as its own component instance. No panel holds state at
@@ -428,3 +457,13 @@ Two, both intended and both stated before the work:
 One incidental change surfaced while extracting `CreateDraftDialog`: it now restores focus to
 whichever control opened it, rather than always to the New draft button. Opened from a release
 detail, focus previously jumped across the screen.
+
+From Phase 5, the dialog keyboard changes listed under FE-18 above. These are the point of that
+phase rather than a side effect of it.
+
+### What was not verified in a browser
+
+Every gate above is command-line. The dialog behavior is covered by tests in jsdom, and the built
+bundle was served against a live backend, but nothing drove a real browser: no click-through of the
+focus trap, no screen-reader check, and no visual confirmation of the scroll lock. Base 0.6 WP6 adds
+the browser, accessibility and visual-regression gates that would close that gap.

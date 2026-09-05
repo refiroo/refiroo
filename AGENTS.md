@@ -93,6 +93,8 @@ errors explicit and machine-readable.
   append-on-demand. Do not hand-write a cursor stack.
 - Recognise an API failure with `isApiError` from `api/errors`, never by reading `code` off a cast,
   and render one with `errorMessage` so users never see an `Error:` prefix.
+- Build a dialog with `ui/Modal`, which owns the backdrop, the generated `aria-labelledby`,
+  Escape, focus restore, the focus trap and the scroll lock. Do not hand-roll a `.dialog-backdrop`.
 - Preserve keyboard operation and semantic HTML.
 - Run `npm run lint` and `npm run format` before finishing. `react-hooks/set-state-in-effect` is
   configured as a warning for the reason recorded in `eslint.config.js`; do not add sites to it.
