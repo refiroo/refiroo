@@ -17,18 +17,16 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
 
-      // Two rules are temporarily relaxed so that Phase 0 of
-      // docs/FRONTEND_STRUCTURE_REFACTOR.md installs the linter without also rewriting the code it
-      // measures. Both are promoted back to "error" as the exit criterion of Phase 4.
+      // Relaxed in Phase 0 of docs/FRONTEND_STRUCTURE_REFACTOR.md so the linter could be installed
+      // without also rewriting the code it measures. `react-hooks/refs` was cleared in Phase 4 and
+      // is back at its default "error".
       //
-      // set-state-in-effect: the engine fetches inside effects and deliberately carries no
-      // data-fetching library, so `setLoading(true)` before a request is the intended pattern.
-      // Phase 3 collapses the seven copies into `lib/hooks/useAsyncResource`.
-      //
-      // refs: one site, the return-to-collection memory in App.tsx, writes a ref during render.
-      // Phase 4 moves it into `app/useRouter.ts`, where it becomes an effect.
+      // `set-state-in-effect` stays a warning. The engine fetches inside effects and deliberately
+      // carries no data-fetching library, so `setLoading(true)` before a request is the intended
+      // pattern; the remaining ten sites are that, plus components mirroring a prop into state.
+      // Promoting it means either adopting a data library or reworking those components, which is
+      // a change to behavior rather than to structure.
       "react-hooks/set-state-in-effect": "warn",
-      "react-hooks/refs": "warn",
     },
   },
   {

@@ -1,4 +1,4 @@
-import type { EngineModel, ObjectItem } from "../types";
+import type { EngineModel, ObjectItem } from "@/types";
 
 // A minimal two-object-type model used to exercise the generic renderers and helpers. The point of
 // the fixture is to prove the code path is model-driven, not to mirror the starter application.

@@ -1,0 +1,47 @@
+/* Design tokens, element resets and the focus treatment every control inherits. */
+
+:root {
+  font-family:
+    Inter,
+    ui-sans-serif,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  color: #17221f;
+  background: #f3f5f2;
+  font-synthesis: none;
+  --ink: #17221f;
+  --muted: #66736e;
+  --line: #dfe5e1;
+  --soft-line: #e9eeeb;
+  --surface: #fff;
+  --accent: #174f43;
+  --accent-soft: #e6f1ed;
+  --sidebar: 328px;
+}
+
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 3px solid rgba(41, 112, 94, 0.22);
+  outline-offset: 1px;
+}

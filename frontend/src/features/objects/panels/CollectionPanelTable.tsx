@@ -1,0 +1,115 @@
+/**
+ * A searchable, cursor-paged table of objects embedded inside a detail panel.
+ *
+ * Shared by the children and table panels, which differ only in how they choose the object type
+ * and whether rows are filtered to the object being viewed.
+ */
+
+import { useState } from "react";
+import { api } from "@/api/client";
+import { useCursorPages } from "@/lib/hooks/useCursorPages";
+import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
+import { objectTypeFor } from "@/model/lookup";
+import type { ObjectItem } from "@/types";
+import { InlineError } from "@/ui/InlineError";
+import { ObjectTable } from "@/ui/ObjectTable";
+import { Pagination } from "@/ui/Pagination";
+import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
+import type { PanelProps } from "./types";
+
+export function CollectionPanelTable({
+  model,
+  application,
+  object,
+  objectTypeKey,
+  columns,
+  pageSize,
+  parentObjectId,
+  allowCreate,
+  onOpen,
+  onChanged,
+}: PanelProps & {
+  objectTypeKey: string;
+  columns: string[];
+  pageSize: number;
+  parentObjectId?: string;
+  allowCreate: boolean;
+}) {
+  const objectType = objectTypeFor(model, objectTypeKey);
+  const [searchInput, setSearchInput] = useState("");
+  const search = useDebouncedValue(searchInput.trim());
+  const [creating, setCreating] = useState(false);
+  const pages = useCursorPages<ObjectItem>(
+    objectType
+      ? (cursor) =>
+          api.objects(objectTypeKey, {
+            applicationKey: application.key,
+            workspaceKey: object.workspaceKey,
+            search,
+            cursor,
+            pageSize,
+            parentObjectId,
+          })
+      : null,
+    [application.key, object.workspaceKey, objectTypeKey, pageSize, parentObjectId, search],
+  );
+  const { loading, error } = pages;
+
+  function refresh() {
+    pages.retry();
+    onChanged();
+  }
+
+  // A release can retire an object type that a configured panel still names. Reporting that is
+  // better than the non-null assertion this used to carry, which crashed the whole detail screen.
+  if (!objectType)
+    return (
+      <div className="panel-state">This panel refers to object type “{objectTypeKey}”, which is not in the model.</div>
+    );
+
+  return (
+    <div className="embedded-table">
+      <div className="embedded-toolbar">
+        <label className="search-box compact">
+          <span>⌕</span>
+          <input
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            placeholder={`Search ${objectType.pluralName.toLowerCase()}`}
+          />
+        </label>
+        {allowCreate && (
+          <button className="secondary" onClick={() => setCreating(true)}>
+            + Add {objectType.name}
+          </button>
+        )}
+      </div>
+      {error && <InlineError message={error} onRetry={pages.retry} />}
+      <ObjectTable
+        model={model}
+        columns={columns}
+        objects={error ? [] : pages.items}
+        loading={loading && !error}
+        onOpen={(item) => onOpen(item.objectTypeKey, item.id, item.applicationKey)}
+      />
+      {!error && (
+        <Pagination page={pages.pageNumber} hasNext={pages.hasNext} onPrevious={pages.previous} onNext={pages.next} />
+      )}
+      {creating && (
+        <ObjectFormDialog
+          model={model}
+          applicationKey={application.key}
+          workspaceKey={object.workspaceKey}
+          objectType={objectType}
+          parentObjectId={parentObjectId}
+          parentObjectTypeKey={parentObjectId ? object.objectTypeKey : undefined}
+          onClose={() => setCreating(false)}
+          onSaved={() => {
+            setCreating(false);
+            refresh();
+          }}
+        />
+      )}
+    </div>
+  );
+}

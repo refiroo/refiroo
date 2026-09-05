@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { errorMessage } from "../../api/errors";
-import type { CursorPage } from "./useCursorFeed";
+import { errorMessage } from "@/api/errors";
+import type { CursorPage } from "@/lib/hooks/useCursorFeed";
 
 export interface CursorPages<T> {
   /** Items on the page currently shown. */
@@ -51,8 +51,13 @@ export function useCursorPages<T>(
   const [retryToken, setRetryToken] = useState(0);
 
   const fetchRef = useRef(fetchPage);
-  fetchRef.current = fetchPage;
   const enabled = fetchPage !== null;
+
+  // Declared before the loading effect so React runs it first, leaving the ref on this render's
+  // closure before anything reads it. Assigning during render would be a render-phase write.
+  useEffect(() => {
+    fetchRef.current = fetchPage;
+  });
 
   useEffect(() => {
     setPaging({ key, cursors: [undefined], index: 0 });
@@ -77,7 +82,6 @@ export function useCursorPages<T>(
     return () => {
       alive = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- the caller declares the query keys
   }, [key, active.index, cursor, retryToken, enabled]);
 
   return {

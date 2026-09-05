@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { errorMessage } from "../../api/errors";
+import { errorMessage } from "@/api/errors";
 
 export interface CursorPage<T> {
   items: T[];
@@ -53,10 +53,15 @@ export function useCursorFeed<T>(
   // The caller rebuilds both closures every render. Holding them in refs keeps the request
   // identity out of the dependency list, so the feed reloads only when `deps` say to.
   const fetchRef = useRef(fetchPage);
-  fetchRef.current = fetchPage;
   const mergeRef = useRef(merge);
-  mergeRef.current = merge;
   const failedMode = useRef<"reload" | "more">("reload");
+
+  // Declared before the loading effect so React runs it first, leaving both refs on this render's
+  // closures before anything reads them. Assigning during render would be a render-phase write.
+  useEffect(() => {
+    fetchRef.current = fetchPage;
+    mergeRef.current = merge;
+  });
 
   useEffect(() => {
     let active = true;

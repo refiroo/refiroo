@@ -20,13 +20,13 @@ import type {
   ModelReleasePage,
   ModelRuntimeState,
   ModelValidation,
-} from "../types";
+} from "@/types";
 
-import { ApiError } from "./errors";
+import { ApiError } from "@/api/errors";
 
 // `ApiError` is re-exported because it is what `request` throws; `errorMessage` and
 // `isApiError` live in ./errors so that a test mocking this module does not shadow them.
-export { ApiError } from "./errors";
+export { ApiError } from "@/api/errors";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
