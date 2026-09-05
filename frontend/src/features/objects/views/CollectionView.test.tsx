@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { domainObject, testModel } from "@/test/fixtures";
-import { CollectionView } from "@/features/objects/CollectionView";
+import { CollectionView } from "@/features/objects/views/CollectionViewHost";
 
 vi.mock("@/api/client", () => ({
   ApiError: class ApiError extends Error {},

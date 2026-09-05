@@ -1,3 +1,7 @@
+/**
+ * The table renderer behind every declared view type. Selected through `views/registry`.
+ */
+
 import { useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
@@ -10,48 +14,10 @@ import { ObjectTable } from "@/ui/ObjectTable";
 import { Pagination } from "@/ui/Pagination";
 import { ObjectToolbar } from "@/features/objects/ObjectToolbar";
 import { useCursorPages } from "@/lib/hooks/useCursorPages";
-import type {
-  ApplicationDefinition,
-  CollectionQueryState,
-  DeleteImpact,
-  EngineModel,
-  ObjectItem,
-  ViewDefinition,
-} from "@/types";
+import type { DeleteImpact, ObjectItem } from "@/types";
+import type { ViewComponentProps } from "./views/types";
 
-export interface ViewComponentProps {
-  model: EngineModel;
-  application: ApplicationDefinition;
-  view: ViewDefinition;
-  workspaceKey: string;
-  query: CollectionQueryState;
-  onQueryChange: (query: CollectionQueryState) => void;
-  onOpen: (item: ObjectItem) => void;
-  onChanged: () => void;
-}
-
-/**
- * View type key to the component that renders it.
- *
- * Every declared view type currently resolves to the same collection renderer, so a model
- * declaring `tree` or `mappingGrid` is shown a flat table under that label. Base 0.6 decision D3
- * governs how declared-but-unimplemented view types are represented; this registry is the single
- * seam where that decision is expressed. See Phase 6 of docs/FRONTEND_STRUCTURE_REFACTOR.md.
- */
-export const viewComponentRegistry: Record<ViewDefinition["type"], React.ComponentType<ViewComponentProps>> = {
-  table: ObjectCollectionView,
-  tree: ObjectCollectionView,
-  mappingGrid: ObjectCollectionView,
-  form: ObjectCollectionView,
-  dashboard: ObjectCollectionView,
-};
-
-export function CollectionView(props: ViewComponentProps) {
-  const Component = viewComponentRegistry[props.view.type];
-  return <Component {...props} />;
-}
-
-function ObjectCollectionView({
+export function ObjectCollectionView({
   model,
   application,
   view,
