@@ -129,20 +129,20 @@ export function AppShell({
       )}
       <main id="main-content" className="workspace-main" tabIndex={-1}>
         {activeRoute.kind !== "models" && (
-          <div className="shell-context" aria-label="Current context">
-            <span>
+          <ol className="shell-context" aria-label="Current context">
+            <li>
               <small>Workspace</small>
               {activeRoute.workspaceKey}
-            </span>
-            <span>
+            </li>
+            <li>
               <small>Application</small>
               {application.name}
-            </span>
-            <span>
+            </li>
+            <li>
               <small>{activeRoute.kind === "list" ? "View" : "Object type"}</small>
               {activeView?.name ?? activeObjectType?.name}
-            </span>
-          </div>
+            </li>
+          </ol>
         )}
         {children}
       </main>

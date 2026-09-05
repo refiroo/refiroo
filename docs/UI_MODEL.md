@@ -49,9 +49,11 @@ The CSS token contract is defined in `frontend/src/styles/base.css` and grouped 
 
 Plain component CSS consumes those tokens; the application model never contains a CSS token or
 primitive-library name. The shell exposes product, workspace, application, view and object-type
-context separately, includes a skip link and collapses application navigation behind a labelled
-control at narrow widths. Tables retain native table semantics inside a labelled horizontal-scroll
-region. Contextual row actions use a keyboard-operated menu while `Open` remains directly visible.
+context separately, includes a skip link and exposes the context trail as a labelled ordered list,
+then collapses application navigation behind a labelled control at narrow widths. Tables retain native
+table semantics inside a labelled horizontal-scroll region. Contextual row actions use a
+keyboard-operated menu while `Open` remains directly visible. Newly mounted task-level error notices
+receive focus so their preserved-input and recovery message is announced immediately.
 
 The WP1 workspace combobox intentionally preserves Base 0.5 custom-key entry and offers only the
 current and default keys as local suggestions. It proves the interaction boundary but is not a

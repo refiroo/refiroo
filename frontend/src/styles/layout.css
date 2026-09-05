@@ -299,18 +299,20 @@
 .shell-context {
   max-width: 1500px;
   margin: 0 auto 20px;
+  padding: 0;
   display: flex;
   align-items: center;
   gap: 0;
+  list-style: none;
   color: var(--color-text-muted);
   font-size: var(--text-small);
 }
-.shell-context span {
+.shell-context li {
   display: grid;
   gap: 2px;
   padding-right: 18px;
 }
-.shell-context span + span {
+.shell-context li + li {
   padding-left: 18px;
   border-left: 1px solid var(--color-border);
 }

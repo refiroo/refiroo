@@ -35,7 +35,7 @@ describe("App", () => {
       "true",
     );
     expect(document.getElementById("workspace-navigation")).toHaveClass("navigation-open");
-    expect(screen.getByLabelText("Current context")).toHaveTextContent(
+    expect(screen.getByRole("list", { name: "Current context" })).toHaveTextContent(
       "WorkspacedefaultApplicationTest AppViewDomains",
     );
     expect(window.location.pathname).toBe("/apps/test-app/views/domains");

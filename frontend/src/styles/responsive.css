@@ -95,13 +95,13 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
     margin-bottom: 18px;
   }
-  .shell-context span,
-  .shell-context span + span {
+  .shell-context li,
+  .shell-context li + li {
     min-width: 0;
     padding: 0 9px;
     overflow-wrap: anywhere;
   }
-  .shell-context span:first-child {
+  .shell-context li:first-child {
     padding-left: 0;
   }
   .collection-header {

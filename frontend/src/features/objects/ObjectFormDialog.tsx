@@ -266,7 +266,7 @@ export function ObjectFormDialog({
           ))
         )}
         {error && (
-          <Notice tone="error" title="The object was not saved" focusable>
+          <Notice tone="error" title="The object was not saved" focusOnMount>
             {error}
           </Notice>
         )}
