@@ -17,6 +17,26 @@ describe("ObjectFormDialog", () => {
     vi.mocked(api.object).mockResolvedValue({ ...domainObject, version: 2 });
   });
 
+  it("closes on Escape and keeps focus on the field the form opened with", () => {
+    const onClose = vi.fn();
+    render(
+      <ObjectFormDialog
+        model={testModel}
+        applicationKey="test-app"
+        workspaceKey="west"
+        objectType={testModel.objectTypes[0]}
+        onClose={onClose}
+        onSaved={vi.fn()}
+      />,
+    );
+
+    // The dialog autofocuses Name, so the shared modal must not pull focus to itself.
+    expect(document.activeElement).toBe(screen.getByLabelText("Name"));
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("creates an object with typed model attributes", async () => {
     render(
       <ObjectFormDialog

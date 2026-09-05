@@ -5,10 +5,11 @@
  * enters the system either by copying a release or by the user handing over a document.
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import type { ModelDraft, ModelReleaseSummary } from "@/types";
+import { Modal } from "@/ui/Modal";
 
 export interface CreateDraftSeed {
   name: string;
@@ -32,18 +33,6 @@ export function CreateDraftDialog({
   const [importText, setImportText] = useState("{}");
   const [createError, setCreateError] = useState("");
   const [pending, setPending] = useState(false);
-
-  useEffect(() => {
-    const previous = document.activeElement as HTMLElement | null;
-    const escape = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !pending) onClose();
-    };
-    window.addEventListener("keydown", escape);
-    return () => {
-      window.removeEventListener("keydown", escape);
-      previous?.focus();
-    };
-  }, [onClose, pending]);
 
   async function createDraft() {
     setCreateError("");
@@ -76,104 +65,84 @@ export function CreateDraftDialog({
   }
 
   return (
-    <div className="dialog-backdrop" onMouseDown={() => !pending && onClose()}>
-      <div
-        className="dialog compact-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="create-draft-title"
-        onMouseDown={(event) => event.stopPropagation()}
+    <Modal title="Create draft" eyebrow="Model candidate" size="compact" busy={pending} onClose={onClose}>
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          void createDraft();
+        }}
       >
-        <div className="dialog-header">
-          <div>
-            <p className="eyebrow">Model candidate</p>
-            <h2 id="create-draft-title">Create draft</h2>
-          </div>
-          <button className="close" aria-label="Close" disabled={pending} onClick={() => onClose()}>
-            ×
-          </button>
-        </div>
-        <form
-          onSubmit={(event) => {
-            event.preventDefault();
-            void createDraft();
-          }}
-        >
+        <label>
+          Draft name
+          <input
+            autoFocus
+            required
+            maxLength={300}
+            value={createName}
+            onChange={(event) => setCreateName(event.target.value)}
+          />
+        </label>
+        <label>
+          Starting document
+          <select value={createSource} onChange={(event) => setCreateSource(event.target.value as typeof createSource)}>
+            <option value="release">Installed release</option>
+            <option value="empty">Empty JSON object</option>
+            <option value="import">Import JSON</option>
+          </select>
+        </label>
+        {createSource === "release" && (
           <label>
-            Draft name
-            <input
-              autoFocus
-              required
-              maxLength={300}
-              value={createName}
-              onChange={(event) => setCreateName(event.target.value)}
-            />
-          </label>
-          <label>
-            Starting document
-            <select
-              value={createSource}
-              onChange={(event) => setCreateSource(event.target.value as typeof createSource)}
-            >
-              <option value="release">Installed release</option>
-              <option value="empty">Empty JSON object</option>
-              <option value="import">Import JSON</option>
+            Base release
+            <select value={createReleaseId} onChange={(event) => setCreateReleaseId(event.target.value)}>
+              {releases.map((release) => (
+                <option key={release.id} value={release.id}>
+                  {release.key}@{release.version}
+                  {release.active ? " (active)" : ""}
+                </option>
+              ))}
             </select>
           </label>
-          {createSource === "release" && (
+        )}
+        {createSource === "import" && (
+          <>
             <label>
-              Base release
-              <select value={createReleaseId} onChange={(event) => setCreateReleaseId(event.target.value)}>
-                {releases.map((release) => (
-                  <option key={release.id} value={release.id}>
-                    {release.key}@{release.version}
-                    {release.active ? " (active)" : ""}
-                  </option>
-                ))}
-              </select>
+              JSON document
+              <textarea rows={12} value={importText} onChange={(event) => setImportText(event.target.value)} />
             </label>
-          )}
-          {createSource === "import" && (
-            <>
-              <label>
-                JSON document
-                <textarea rows={12} value={importText} onChange={(event) => setImportText(event.target.value)} />
-              </label>
-              <label>
-                Or choose a JSON file
-                <input
-                  type="file"
-                  accept="application/json,.json"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file)
-                      file
-                        .text()
-                        .then(setImportText)
-                        .catch((cause) => setCreateError(errorMessage(cause)));
-                  }}
-                />
-              </label>
-            </>
-          )}
-          {createError && (
-            <div className="notice error-notice" role="alert">
-              {createError}
-            </div>
-          )}
-          <div className="dialog-actions">
-            <button type="button" className="secondary" disabled={pending} onClick={() => onClose()}>
-              Cancel
-            </button>
-            <button
-              className="primary"
-              disabled={pending || !createName.trim() || (createSource === "release" && !createReleaseId)}
-            >
-              {pending ? "Creating…" : "Create draft"}
-            </button>
+            <label>
+              Or choose a JSON file
+              <input
+                type="file"
+                accept="application/json,.json"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file)
+                    file
+                      .text()
+                      .then(setImportText)
+                      .catch((cause) => setCreateError(errorMessage(cause)));
+                }}
+              />
+            </label>
+          </>
+        )}
+        {createError && (
+          <div className="notice error-notice" role="alert">
+            {createError}
           </div>
-        </form>
-      </div>
-    </div>
+        )}
+        <div className="dialog-actions">
+          <button type="button" className="secondary" disabled={pending} onClick={() => onClose()}>
+            Cancel
+          </button>
+          <button
+            className="primary"
+            disabled={pending || !createName.trim() || (createSource === "release" && !createReleaseId)}
+          >
+            {pending ? "Creating…" : "Create draft"}
+          </button>
+        </div>
+      </form>
+    </Modal>
   );
 }

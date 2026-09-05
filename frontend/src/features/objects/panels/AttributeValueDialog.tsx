@@ -5,13 +5,14 @@
  * rather than silently overwriting a newer one; on that rejection the caller reloads.
  */
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { AttributeTypeDefinition, ObjectAttributeValue, ObjectItem, ObjectTypeAttributeDefinition } from "@/types";
 import { AttributeField } from "@/ui/AttributeField";
 import { attributeValueFromForm } from "@/ui/attributeForm";
+import { Modal } from "@/ui/Modal";
 
 export function AttributeValueDialog({
   object,
@@ -32,7 +33,6 @@ export function AttributeValueDialog({
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const titleId = useMemo(() => `attribute-${attribute.key}-title`, [attribute.key]);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
@@ -56,36 +56,25 @@ export function AttributeValueDialog({
     }
   }
   return (
-    <div className="dialog-backdrop" onMouseDown={() => !saving && onClose()}>
-      <div
-        className="dialog compact-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="dialog-header">
-          <div>
-            <p className="eyebrow">{stored ? "Edit attribute" : "Add attribute"}</p>
-            <h2 id={titleId}>{attribute.name}</h2>
-          </div>
-          <button type="button" className="close" onClick={onClose}>
-            ×
+    <Modal
+      title={attribute.name}
+      eyebrow={stored ? "Edit attribute" : "Add attribute"}
+      size="compact"
+      busy={saving}
+      onClose={onClose}
+    >
+      <form onSubmit={submit}>
+        <AttributeField attribute={attribute} binding={binding} value={stored?.value} autoFocus />
+        {error && <div className="notice error-notice">{error}</div>}
+        <div className="dialog-actions">
+          <button type="button" className="secondary" disabled={saving} onClick={onClose}>
+            Cancel
+          </button>
+          <button className="primary" disabled={saving}>
+            {saving ? "Saving…" : "Save"}
           </button>
         </div>
-        <form onSubmit={submit}>
-          <AttributeField attribute={attribute} binding={binding} value={stored?.value} autoFocus />
-          {error && <div className="notice error-notice">{error}</div>}
-          <div className="dialog-actions">
-            <button type="button" className="secondary" onClick={onClose}>
-              Cancel
-            </button>
-            <button className="primary" disabled={saving}>
-              {saving ? "Saving…" : "Save"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 }

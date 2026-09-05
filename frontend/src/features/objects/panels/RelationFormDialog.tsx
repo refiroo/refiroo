@@ -14,6 +14,7 @@ import type { RelationChoice } from "@/model/lookup";
 import type { AttributeTypeDefinition, EngineModel, ObjectItem, RelationItem } from "@/types";
 import { AttributeField } from "@/ui/AttributeField";
 import { attributeValueFromForm } from "@/ui/attributeForm";
+import { Modal } from "@/ui/Modal";
 import { ObjectLookup } from "@/ui/ObjectLookup";
 
 export function RelationFormDialog({
@@ -83,76 +84,64 @@ export function RelationFormDialog({
   }
   if (!choice) return null;
   return (
-    <div className="dialog-backdrop" onMouseDown={() => !saving && onClose()}>
-      <div
-        className="dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="relation-form-title"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="dialog-header">
-          <div>
-            <p className="eyebrow">{existing ? "Edit relationship" : "Create relationship"}</p>
-            <h2 id="relation-form-title">{existing ? choice.label : "Connect an object"}</h2>
-          </div>
-          <button type="button" className="close" onClick={onClose}>
-            ×
+    <Modal
+      title={existing ? choice.label : "Connect an object"}
+      eyebrow={existing ? "Edit relationship" : "Create relationship"}
+      busy={saving}
+      onClose={onClose}
+    >
+      <form onSubmit={submit}>
+        {!existing && (
+          <>
+            <label>
+              Relationship
+              <select
+                value={choiceIndex}
+                onChange={(event) => {
+                  setChoiceIndex(Number(event.target.value));
+                  setCandidate(undefined);
+                }}
+              >
+                {choices.map((item, index) => (
+                  <option
+                    key={`${item.direction}:${item.relation.relationTypeKey}:${item.otherObjectTypeKey}`}
+                    value={index}
+                  >
+                    {item.label} ({item.direction})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Object
+              <ObjectLookup
+                objectTypeKey={choice.otherObjectTypeKey}
+                workspaceKey={object.workspaceKey}
+                excludeId={object.id}
+                value={candidate}
+                required
+                onChange={setCandidate}
+              />
+            </label>
+          </>
+        )}
+        {attributes.map((attribute) => (
+          <AttributeField
+            key={attribute.key}
+            attribute={attribute}
+            value={existing?.relation.attributes[attribute.key]}
+          />
+        ))}
+        {error && <div className="notice error-notice">{error}</div>}
+        <div className="dialog-actions">
+          <button type="button" className="secondary" disabled={saving} onClick={onClose}>
+            Cancel
+          </button>
+          <button className="primary" disabled={saving || (!existing && !candidate)}>
+            {saving ? "Saving…" : existing ? "Save" : "Create"}
           </button>
         </div>
-        <form onSubmit={submit}>
-          {!existing && (
-            <>
-              <label>
-                Relationship
-                <select
-                  value={choiceIndex}
-                  onChange={(event) => {
-                    setChoiceIndex(Number(event.target.value));
-                    setCandidate(undefined);
-                  }}
-                >
-                  {choices.map((item, index) => (
-                    <option
-                      key={`${item.direction}:${item.relation.relationTypeKey}:${item.otherObjectTypeKey}`}
-                      value={index}
-                    >
-                      {item.label} ({item.direction})
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                Object
-                <ObjectLookup
-                  objectTypeKey={choice.otherObjectTypeKey}
-                  workspaceKey={object.workspaceKey}
-                  excludeId={object.id}
-                  value={candidate}
-                  required
-                  onChange={setCandidate}
-                />
-              </label>
-            </>
-          )}
-          {attributes.map((attribute) => (
-            <AttributeField
-              key={attribute.key}
-              attribute={attribute}
-              value={existing?.relation.attributes[attribute.key]}
-            />
-          ))}
-          {error && <div className="notice error-notice">{error}</div>}
-          <div className="dialog-actions">
-            <button type="button" className="secondary" onClick={onClose}>
-              Cancel
-            </button>
-            <button className="primary" disabled={saving || (!existing && !candidate)}>
-              {saving ? "Saving…" : existing ? "Save" : "Create"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 }

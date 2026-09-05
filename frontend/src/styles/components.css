@@ -502,6 +502,12 @@ tbody tr:last-child td {
   border-radius: 16px;
   box-shadow: 0 28px 90px rgba(9, 24, 18, 0.28);
 }
+
+/* The dialog container is focusable so that opening one always moves focus off the control behind
+   it, even when nothing inside claims focus. It is not interactive, so it shows no focus ring. */
+.dialog:focus {
+  outline: none;
+}
 .dialog-header {
   display: flex;
   align-items: flex-start;

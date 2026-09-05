@@ -5,6 +5,7 @@ import { errorMessage, isApiError } from "@/api/errors";
 import type { EngineModel, ObjectItem, ObjectTypeDefinition } from "@/types";
 import { AttributeField } from "@/ui/AttributeField";
 import { attributeValueFromForm } from "@/ui/attributeForm";
+import { Modal } from "@/ui/Modal";
 import { ObjectLookup } from "@/ui/ObjectLookup";
 
 export function ObjectFormDialog({
@@ -151,145 +152,132 @@ export function ObjectFormDialog({
   }
 
   return (
-    <div className="dialog-backdrop" onMouseDown={() => !saving && onClose()}>
-      <div
-        className="dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="object-form-title"
-        onMouseDown={(event) => event.stopPropagation()}
-      >
-        <div className="dialog-header">
-          <div>
-            <p className="eyebrow">{object ? "Edit object" : "Create in context"}</p>
-            <h2 id="object-form-title">{object ? object.name : `New ${objectType.name}`}</h2>
-          </div>
-          <button className="close" type="button" disabled={saving} onClick={onClose} aria-label="Close">
-            ×
+    <Modal
+      title={object ? object.name : `New ${objectType.name}`}
+      eyebrow={object ? "Edit object" : "Create in context"}
+      busy={saving}
+      onClose={onClose}
+    >
+      <form onSubmit={submit}>
+        {parentTypeKeys.length > 0 && (
+          <label>
+            Parent
+            {parentTypeKeys.length > 1 && (
+              <select
+                aria-label="Parent type"
+                value={activeParentTypeKey}
+                onChange={(event) => {
+                  setParentTypeKey(event.target.value);
+                  setParentId(null);
+                }}
+              >
+                {parentTypeKeys.map((key) => (
+                  <option key={key} value={key}>
+                    {model.objectTypes.find((item) => item.key === key)?.name ?? key}
+                  </option>
+                ))}
+              </select>
+            )}
+            <ObjectLookup
+              objectTypeKey={activeParentTypeKey}
+              applicationKey={applicationKey}
+              workspaceKey={activeWorkspaceKey}
+              excludeId={object?.id}
+              selectedId={parentId}
+              selectedLabel={object?.path.at(-2)?.name}
+              required={parentRequired}
+              onChange={(item) => setParentId(item?.id ?? null)}
+            />
+          </label>
+        )}
+        {!object &&
+          requiredRelationGroups.map((group) => {
+            const definition = model.relationTypes.find((relation) => relation.key === group.relationTypeKey);
+            const selectedType = requiredRelationTypes[group.relationTypeKey] ?? group.relations[0]?.fromObjectTypeKey;
+            const locked = lockedInitialRelationKeys.includes(group.relationTypeKey);
+            return (
+              <fieldset key={group.relationTypeKey}>
+                <legend>{definition?.reverseName ?? group.relationTypeKey}</legend>
+                {locked ? (
+                  <p>
+                    <strong>{requiredRelationObjects[group.relationTypeKey]?.name}</strong>
+                  </p>
+                ) : (
+                  <>
+                    {group.relations.length > 1 && (
+                      <label>
+                        Object type
+                        <select
+                          aria-label={`${definition?.reverseName ?? group.relationTypeKey} object type`}
+                          value={selectedType}
+                          onChange={(event) => {
+                            setRequiredRelationTypes((current) => ({
+                              ...current,
+                              [group.relationTypeKey]: event.target.value,
+                            }));
+                            setRequiredRelationObjects((current) => ({
+                              ...current,
+                              [group.relationTypeKey]: undefined,
+                            }));
+                          }}
+                        >
+                          {group.relations.map((relation) => (
+                            <option key={relation.fromObjectTypeKey} value={relation.fromObjectTypeKey}>
+                              {model.objectTypes.find((item) => item.key === relation.fromObjectTypeKey)?.name ??
+                                relation.fromObjectTypeKey}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    )}
+                    <ObjectLookup
+                      objectTypeKey={selectedType}
+                      workspaceKey={activeWorkspaceKey}
+                      required
+                      value={requiredRelationObjects[group.relationTypeKey]}
+                      onChange={(item) =>
+                        setRequiredRelationObjects((current) => ({ ...current, [group.relationTypeKey]: item }))
+                      }
+                    />
+                  </>
+                )}
+              </fieldset>
+            );
+          })}
+        <label>
+          Name
+          <input name="name" required autoFocus defaultValue={object?.name} />
+        </label>
+        {object ? (
+          <label>
+            State
+            <input name="state" required defaultValue={object.state} />
+          </label>
+        ) : (
+          bindings.map((binding) => (
+            <AttributeField
+              key={binding.attributeTypeKey}
+              binding={binding}
+              attribute={attributeMap.get(binding.attributeTypeKey)!}
+            />
+          ))
+        )}
+        {error && <div className="notice error-notice">{error}</div>}
+        <div className="dialog-actions">
+          <button type="button" className="secondary" disabled={saving} onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="primary"
+            disabled={
+              saving ||
+              (!object && requiredRelationGroups.some((group) => !requiredRelationObjects[group.relationTypeKey]))
+            }
+          >
+            {saving ? "Saving…" : object ? "Save changes" : "Create"}
           </button>
         </div>
-        <form onSubmit={submit}>
-          {parentTypeKeys.length > 0 && (
-            <label>
-              Parent
-              {parentTypeKeys.length > 1 && (
-                <select
-                  aria-label="Parent type"
-                  value={activeParentTypeKey}
-                  onChange={(event) => {
-                    setParentTypeKey(event.target.value);
-                    setParentId(null);
-                  }}
-                >
-                  {parentTypeKeys.map((key) => (
-                    <option key={key} value={key}>
-                      {model.objectTypes.find((item) => item.key === key)?.name ?? key}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <ObjectLookup
-                objectTypeKey={activeParentTypeKey}
-                applicationKey={applicationKey}
-                workspaceKey={activeWorkspaceKey}
-                excludeId={object?.id}
-                selectedId={parentId}
-                selectedLabel={object?.path.at(-2)?.name}
-                required={parentRequired}
-                onChange={(item) => setParentId(item?.id ?? null)}
-              />
-            </label>
-          )}
-          {!object &&
-            requiredRelationGroups.map((group) => {
-              const definition = model.relationTypes.find((relation) => relation.key === group.relationTypeKey);
-              const selectedType =
-                requiredRelationTypes[group.relationTypeKey] ?? group.relations[0]?.fromObjectTypeKey;
-              const locked = lockedInitialRelationKeys.includes(group.relationTypeKey);
-              return (
-                <fieldset key={group.relationTypeKey}>
-                  <legend>{definition?.reverseName ?? group.relationTypeKey}</legend>
-                  {locked ? (
-                    <p>
-                      <strong>{requiredRelationObjects[group.relationTypeKey]?.name}</strong>
-                    </p>
-                  ) : (
-                    <>
-                      {group.relations.length > 1 && (
-                        <label>
-                          Object type
-                          <select
-                            aria-label={`${definition?.reverseName ?? group.relationTypeKey} object type`}
-                            value={selectedType}
-                            onChange={(event) => {
-                              setRequiredRelationTypes((current) => ({
-                                ...current,
-                                [group.relationTypeKey]: event.target.value,
-                              }));
-                              setRequiredRelationObjects((current) => ({
-                                ...current,
-                                [group.relationTypeKey]: undefined,
-                              }));
-                            }}
-                          >
-                            {group.relations.map((relation) => (
-                              <option key={relation.fromObjectTypeKey} value={relation.fromObjectTypeKey}>
-                                {model.objectTypes.find((item) => item.key === relation.fromObjectTypeKey)?.name ??
-                                  relation.fromObjectTypeKey}
-                              </option>
-                            ))}
-                          </select>
-                        </label>
-                      )}
-                      <ObjectLookup
-                        objectTypeKey={selectedType}
-                        workspaceKey={activeWorkspaceKey}
-                        required
-                        value={requiredRelationObjects[group.relationTypeKey]}
-                        onChange={(item) =>
-                          setRequiredRelationObjects((current) => ({ ...current, [group.relationTypeKey]: item }))
-                        }
-                      />
-                    </>
-                  )}
-                </fieldset>
-              );
-            })}
-          <label>
-            Name
-            <input name="name" required autoFocus defaultValue={object?.name} />
-          </label>
-          {object ? (
-            <label>
-              State
-              <input name="state" required defaultValue={object.state} />
-            </label>
-          ) : (
-            bindings.map((binding) => (
-              <AttributeField
-                key={binding.attributeTypeKey}
-                binding={binding}
-                attribute={attributeMap.get(binding.attributeTypeKey)!}
-              />
-            ))
-          )}
-          {error && <div className="notice error-notice">{error}</div>}
-          <div className="dialog-actions">
-            <button type="button" className="secondary" disabled={saving} onClick={onClose}>
-              Cancel
-            </button>
-            <button
-              className="primary"
-              disabled={
-                saving ||
-                (!object && requiredRelationGroups.some((group) => !requiredRelationObjects[group.relationTypeKey]))
-              }
-            >
-              {saving ? "Saving…" : object ? "Save changes" : "Create"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      </form>
+    </Modal>
   );
 }
