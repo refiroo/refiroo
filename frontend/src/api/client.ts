@@ -22,19 +22,13 @@ import type {
   ModelValidation,
 } from "../types";
 
-const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+import { ApiError } from "./errors";
 
-export class ApiError extends Error {
-  constructor(
-    public readonly status: number,
-    public readonly code: string,
-    message: string,
-    public readonly details?: unknown,
-  ) {
-    super(message);
-    this.name = "ApiError";
-  }
-}
+// `ApiError` is re-exported because it is what `request` throws; `errorMessage` and
+// `isApiError` live in ./errors so that a test mocking this module does not shadow them.
+export { ApiError } from "./errors";
+
+const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {

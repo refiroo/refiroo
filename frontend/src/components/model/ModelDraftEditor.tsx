@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ApiError, api } from "../../api/client";
+import { api } from "../../api/client";
+import { errorMessage, isApiError } from "../../api/errors";
 import type { ModelCompilation, ModelDraft, ModelValidation } from "../../types";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { ModelDiagnostics } from "./ModelDiagnostics";
@@ -63,10 +64,10 @@ export function ModelDraftEditor({
             if (!cancelled) setValidation(result);
           })
           .catch((cause) => {
-            if (!cancelled) setError(String(cause));
+            if (!cancelled) setError(errorMessage(cause));
           });
       } catch (cause) {
-        setSyntaxError(cause instanceof Error ? cause.message : String(cause));
+        setSyntaxError(errorMessage(cause));
         setValidation(undefined);
       }
     }, 350);
@@ -87,7 +88,7 @@ export function ModelDraftEditor({
     try {
       model = parseDocument(text);
     } catch (cause) {
-      setSyntaxError(String(cause));
+      setSyntaxError(errorMessage(cause));
       return;
     }
     setPending("save");
@@ -96,8 +97,8 @@ export function ModelDraftEditor({
       onSaved(saved);
       setCompilation(undefined);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-      setConflict(cause instanceof ApiError && cause.code === "version_conflict");
+      setError(errorMessage(cause));
+      setConflict(isApiError(cause, "version_conflict"));
     } finally {
       setPending("");
     }
@@ -109,7 +110,7 @@ export function ModelDraftEditor({
     try {
       setCompilation(await api.compileModelDraft(draft.id, draft.version));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setPending("");
     }
@@ -123,7 +124,7 @@ export function ModelDraftEditor({
       setConfirm(undefined);
       onInstalled(release.id);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setPending("");
     }
@@ -137,7 +138,7 @@ export function ModelDraftEditor({
       setConfirm(undefined);
       onDeleted();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setPending("");
     }
@@ -165,7 +166,7 @@ export function ModelDraftEditor({
         throw new Error("Clipboard access is unavailable. Select and copy the editor content manually.");
       await navigator.clipboard.writeText(text);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     }
   }
 
@@ -175,7 +176,7 @@ export function ModelDraftEditor({
     try {
       await onReload();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setPending("");
     }

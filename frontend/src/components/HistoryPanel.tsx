@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { errorMessage } from "../api/errors";
 import type { AuditEventItem } from "../types";
 import { InlineError } from "./AsyncState";
 
@@ -30,7 +31,7 @@ export function HistoryPanel({
       setCursor(page.nextCursor ?? undefined);
     } catch (cause) {
       setRetryReset(reset);
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setLoading(false);
     }

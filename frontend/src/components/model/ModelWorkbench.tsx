@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../../api/client";
+import { errorMessage } from "../../api/errors";
 import type {
   CapabilitiesResponse,
   ModelDraft,
@@ -70,7 +71,7 @@ export function ModelWorkbench({
         if (!cancelled) setDrafts((items) => appendUnique(items, [draft]));
       })
       .catch((cause) => {
-        if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause));
+        if (!cancelled) setError(errorMessage(cause));
       });
     return () => {
       cancelled = true;
@@ -101,7 +102,7 @@ export function ModelWorkbench({
       if (!route.releaseId && !route.draftId && releasePage.items.length)
         onRouteChange({ kind: "models", releaseId: state.activeReleaseId });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     }
   }
 
@@ -116,7 +117,7 @@ export function ModelWorkbench({
       setReleases((items) => appendUnique(items, page.items));
       setReleaseCursor(page.nextCursor);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     }
   }
 
@@ -127,7 +128,7 @@ export function ModelWorkbench({
       setDrafts((items) => appendUnique(items, page.items));
       setDraftCursor(page.nextCursor);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     }
   }
 
@@ -163,7 +164,7 @@ export function ModelWorkbench({
       setCreating(false);
       onRouteChange({ kind: "models", draftId: draft.id });
     } catch (cause) {
-      setCreateError(cause instanceof Error ? cause.message : String(cause));
+      setCreateError(errorMessage(cause));
     } finally {
       setPending(false);
     }
@@ -380,7 +381,7 @@ export function ModelWorkbench({
                           file
                             .text()
                             .then(setImportText)
-                            .catch((cause) => setCreateError(String(cause)));
+                            .catch((cause) => setCreateError(errorMessage(cause)));
                       }}
                     />
                   </label>

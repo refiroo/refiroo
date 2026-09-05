@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "../api/client";
+import { errorMessage, isApiError } from "../api/errors";
 import type { EngineModel, ObjectItem, ObjectTypeDefinition } from "../types";
 import { AttributeField, attributeValueFromForm } from "./AttributeField";
 import { ObjectLookup } from "./ObjectLookup";
@@ -132,7 +133,7 @@ export function ObjectFormDialog({
         );
       }
     } catch (cause) {
-      if (object && (cause as { code?: string }).code === "version_conflict") {
+      if (object && isApiError(cause, "version_conflict")) {
         try {
           const fresh = await api.object(objectType.key, object.id);
           setBaselineObject(fresh);
@@ -141,9 +142,9 @@ export function ObjectFormDialog({
             "The object changed. Its latest version has been loaded; your edits are preserved. Review and save again.",
           );
         } catch (reloadCause) {
-          setError(reloadCause instanceof Error ? reloadCause.message : String(reloadCause));
+          setError(errorMessage(reloadCause));
         }
-      } else setError(cause instanceof Error ? cause.message : String(cause));
+      } else setError(errorMessage(cause));
       setSaving(false);
     }
   }

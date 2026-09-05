@@ -19,25 +19,23 @@ const panel: RelationsPanelDefinition = {
 
 describe("RelationsPanel", () => {
   beforeEach(() =>
-    vi
-      .mocked(api.relations)
-      .mockResolvedValue({
-        items: [
-          {
-            direction: "outgoing",
-            relation: {
-              id: "relation",
-              relationTypeKey: "domain-contains-codelist",
-              fromObjectId: domainObject.id,
-              toObjectId: codelistObject.id,
-              attributes: {},
-              version: 1,
-            },
-            object: codelistObject,
+    vi.mocked(api.relations).mockResolvedValue({
+      items: [
+        {
+          direction: "outgoing",
+          relation: {
+            id: "relation",
+            relationTypeKey: "domain-contains-codelist",
+            fromObjectId: domainObject.id,
+            toObjectId: codelistObject.id,
+            attributes: {},
+            version: 1,
           },
-        ],
-        nextCursor: null,
-      }),
+          object: codelistObject,
+        },
+      ],
+      nextCursor: null,
+    }),
   );
 
   it("shows direction-correct labels and protects managed containment rows", async () => {

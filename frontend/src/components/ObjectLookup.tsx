@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
+import { errorMessage } from "../api/errors";
 import type { ObjectItem } from "../types";
 import { InlineError } from "./AsyncState";
 
@@ -60,7 +61,7 @@ export function ObjectLookup({
       .catch((cause) => {
         if (active) {
           setErrorMode("load");
-          setError(cause instanceof Error ? cause.message : String(cause));
+          setError(errorMessage(cause));
         }
       })
       .finally(() => active && setLoading(false));
@@ -83,7 +84,7 @@ export function ObjectLookup({
       setError("");
     } catch (cause) {
       setErrorMode("more");
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setLoading(false);
     }

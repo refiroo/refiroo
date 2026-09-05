@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../api/client";
+import { ApiError } from "../api/errors";
 import { domainObject, testModel } from "../test/fixtures";
 import { ObjectFormDialog } from "./ObjectFormDialog";
 
@@ -115,7 +116,7 @@ describe("ObjectFormDialog", () => {
 
   it("refreshes a conflicting version without discarding entered values", async () => {
     vi.mocked(api.updateObject)
-      .mockRejectedValueOnce(Object.assign(new Error("Stale version"), { code: "version_conflict" }))
+      .mockRejectedValueOnce(new ApiError(409, "version_conflict", "Stale version"))
       .mockResolvedValueOnce({ ...domainObject, name: "Kept edit", version: 3 });
     render(
       <ObjectFormDialog

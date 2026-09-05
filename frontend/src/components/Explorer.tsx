@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { api } from "../api/client";
+import { errorMessage } from "../api/errors";
 import { objectTypeFor } from "../utils/model";
 import type { ApplicationDefinition, EngineModel, ObjectItem, ObjectPage } from "../types";
 import { InlineError } from "./AsyncState";
@@ -52,7 +53,7 @@ export function Explorer({
         setPages(Object.fromEntries(results.map(([key, page]) => [key, { ...page, loaded: page.items }])));
         setError("");
       })
-      .catch((cause) => active && setError(cause instanceof Error ? cause.message : String(cause)))
+      .catch((cause) => active && setError(errorMessage(cause)))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
@@ -91,7 +92,7 @@ export function Explorer({
       );
       setPages(Object.fromEntries(entries));
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setLoading(false);
     }

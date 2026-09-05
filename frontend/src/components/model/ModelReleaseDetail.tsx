@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../../api/client";
+import { errorMessage } from "../../api/errors";
 import type { ModelRelease, ModelReleaseDiff, ModelRuntimeState } from "../../types";
 import { ConfirmDialog } from "../ConfirmDialog";
 import { ModelDiff } from "./ModelDiff";
@@ -44,11 +45,11 @@ export function ModelReleaseDetail({
               if (!cancelled) setDiff(result);
             })
             .catch((cause) => {
-              if (!cancelled) setError(String(cause));
+              if (!cancelled) setError(errorMessage(cause));
             });
       })
       .catch((cause) => {
-        if (!cancelled) setError(String(cause));
+        if (!cancelled) setError(errorMessage(cause));
       });
     return () => {
       cancelled = true;
@@ -64,7 +65,7 @@ export function ModelReleaseDetail({
       setConfirm(false);
       onActivated(activated);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setPending(false);
     }

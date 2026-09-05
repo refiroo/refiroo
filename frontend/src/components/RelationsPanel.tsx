@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "../api/client";
+import { errorMessage, isApiError } from "../api/errors";
 import type {
   AttributeTypeDefinition,
   EngineModel,
@@ -87,7 +88,7 @@ export function RelationsPanel({
       setError("");
     } catch (cause) {
       setErrorMode("load");
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setLoading(false);
     }
@@ -109,7 +110,7 @@ export function RelationsPanel({
       setCursor(page.nextCursor ?? undefined);
     } catch (cause) {
       setErrorMode("more");
-      setError(cause instanceof Error ? cause.message : String(cause));
+      setError(errorMessage(cause));
     } finally {
       setLoading(false);
     }
@@ -144,13 +145,13 @@ export function RelationsPanel({
       onChanged();
       await load();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-      if ((cause as { code?: string }).code === "version_conflict") {
+      setError(errorMessage(cause));
+      if (isApiError(cause, "version_conflict")) {
         try {
           const fresh = await api.relation(removing.relation.id);
           setRemoving({ ...removing, relation: fresh });
         } catch (reloadCause) {
-          setError(reloadCause instanceof Error ? reloadCause.message : String(reloadCause));
+          setError(errorMessage(reloadCause));
         }
       }
     } finally {
@@ -376,13 +377,13 @@ function RelationFormDialog({
         });
       onSaved();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-      if (existing && (cause as { code?: string }).code === "version_conflict") {
+      setError(errorMessage(cause));
+      if (existing && isApiError(cause, "version_conflict")) {
         try {
           const fresh = await api.relation(existing.relation.id);
           setRelationVersion(fresh.version);
         } catch (reloadCause) {
-          setError(reloadCause instanceof Error ? reloadCause.message : String(reloadCause));
+          setError(errorMessage(reloadCause));
         }
       }
       setSaving(false);

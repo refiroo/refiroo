@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import type { FormEvent } from "react";
 import { api } from "../api/client";
+import { errorMessage, isApiError } from "../api/errors";
 import type {
   AttributeTypeDefinition,
   AttributesPanelDefinition,
@@ -54,7 +55,7 @@ export function AttributesPanel({
       setRemoving(undefined);
       onChanged();
     } catch (cause) {
-      setRemoveError(cause instanceof Error ? cause.message : String(cause));
+      setRemoveError(errorMessage(cause));
       await onReload();
     } finally {
       setPending(false);
@@ -160,12 +161,12 @@ function AttributeValueDialog({
         : await api.createAttribute(object.objectTypeKey, object.id, attribute.key, value, object.version);
       onSaved(saved);
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : String(cause));
-      if ((cause as { code?: string }).code === "version_conflict") {
+      setError(errorMessage(cause));
+      if (isApiError(cause, "version_conflict")) {
         try {
           await onConflict();
         } catch (reloadCause) {
-          setError(reloadCause instanceof Error ? reloadCause.message : String(reloadCause));
+          setError(errorMessage(reloadCause));
         }
       }
       setSaving(false);

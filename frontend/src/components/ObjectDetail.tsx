@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { api, ApiError } from "../api/client";
+import { api } from "../api/client";
+import { errorMessage, isApiError } from "../api/errors";
 import { fallbackDetail, fieldValue, objectTypeFor } from "../utils/model";
 import { AttributesPanel as EditableAttributesPanel } from "./AttributesPanel";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -132,7 +133,7 @@ export function ObjectDetail({
         setObject(loaded);
         setError("");
       })
-      .catch((cause) => active && setError(String(cause)))
+      .catch((cause) => active && setError(errorMessage(cause)))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
@@ -151,7 +152,7 @@ export function ObjectDetail({
             onClick={() => {
               setLoading(true);
               loadObject()
-                .catch((cause) => setError(cause instanceof Error ? cause.message : String(cause)))
+                .catch((cause) => setError(errorMessage(cause)))
                 .finally(() => setLoading(false));
             }}
           >
@@ -185,17 +186,17 @@ export function ObjectDetail({
       onChanged();
       onDeleted();
     } catch (cause) {
-      if (cause instanceof ApiError && cause.code === "object_has_dependents" && cause.details) {
+      if (isApiError(cause, "object_has_dependents") && cause.details) {
         setDeleteImpact(cause.details as DeleteImpact);
         setDeleteError("");
       } else {
-        setDeleteError(cause instanceof Error ? cause.message : String(cause));
+        setDeleteError(errorMessage(cause));
       }
-      if ((cause as { code?: string }).code === "version_conflict") {
+      if (isApiError(cause, "version_conflict")) {
         try {
           await loadObject();
         } catch (reloadCause) {
-          setDeleteError(reloadCause instanceof Error ? reloadCause.message : String(reloadCause));
+          setDeleteError(errorMessage(reloadCause));
         }
         setDeleteImpact(undefined);
       }
@@ -457,7 +458,7 @@ function CollectionPanelTable({
           setError("");
         }
       })
-      .catch((cause) => active && setError(cause instanceof Error ? cause.message : String(cause)))
+      .catch((cause) => active && setError(errorMessage(cause)))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;

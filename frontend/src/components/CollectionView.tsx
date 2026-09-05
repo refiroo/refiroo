@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { api, ApiError } from "../api/client";
+import { api } from "../api/client";
+import { errorMessage, isApiError } from "../api/errors";
 import { objectTypeFor } from "../utils/model";
 import { InlineError } from "./AsyncState";
 import { ConfirmDialog } from "./ConfirmDialog";
@@ -110,7 +111,7 @@ function ObjectCollectionView({
           setError("");
         }
       })
-      .catch((cause) => active && setError(cause instanceof Error ? cause.message : String(cause)))
+      .catch((cause) => active && setError(errorMessage(cause)))
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
@@ -148,17 +149,17 @@ function ObjectCollectionView({
       setDeleteImpact(undefined);
       refresh();
     } catch (cause) {
-      if (cause instanceof ApiError && cause.code === "object_has_dependents" && cause.details) {
+      if (isApiError(cause, "object_has_dependents") && cause.details) {
         setDeleteImpact(cause.details as DeleteImpact);
-      } else if (cause instanceof ApiError && cause.code === "version_conflict") {
+      } else if (isApiError(cause, "version_conflict")) {
         try {
           setDeleting(await api.object(activeObjectType.key, deleting.id));
           setDeleteImpact(undefined);
           setDeleteError("The object changed. Its latest version has been loaded; review and try again.");
         } catch (reloadCause) {
-          setDeleteError(reloadCause instanceof Error ? reloadCause.message : String(reloadCause));
+          setDeleteError(errorMessage(reloadCause));
         }
-      } else setDeleteError(cause instanceof Error ? cause.message : String(cause));
+      } else setDeleteError(errorMessage(cause));
     } finally {
       setDeletePending(false);
     }

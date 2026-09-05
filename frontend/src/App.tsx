@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { api } from "./api/client";
+import { errorMessage } from "./api/errors";
 import { CollectionView } from "./components/CollectionView";
 import { Explorer } from "./components/Explorer";
 import { applicationFor, defaultRoute, parseRoute, routePath, viewRoute } from "./utils/model";
@@ -25,7 +26,7 @@ export default function App() {
         if (`${window.location.pathname}${window.location.search}` !== routePath(initial))
           window.history.replaceState({}, "", routePath(initial));
       })
-      .catch((cause) => setError(String(cause)));
+      .catch((cause) => setError(errorMessage(cause)));
   }, []);
 
   useEffect(() => {
