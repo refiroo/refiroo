@@ -299,7 +299,7 @@ class WorkspaceUpdate(BaseModel):
         return value.strip() if isinstance(value, str) else value
 
     @model_validator(mode="after")
-    def require_workspace_change(self) -> "WorkspaceUpdate":
+    def require_workspace_change(self) -> WorkspaceUpdate:
         if self.label is None and self.status is None:
             raise ValueError("At least one of 'label' or 'status' is required")
         return self
@@ -348,7 +348,7 @@ class ModelDraftUpdate(BaseModel):
     model: dict[str, Any] | None = None
 
     @model_validator(mode="after")
-    def require_change(self) -> "ModelDraftUpdate":
+    def require_change(self) -> ModelDraftUpdate:
         if self.name is None and self.model is None:
             raise ValueError("At least one of 'name' or 'model' is required")
         return self

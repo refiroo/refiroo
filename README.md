@@ -64,8 +64,8 @@ Open:
 
 Backend:
 
-Python 3.12 is the supported version (see `.python-version` and `backend/Dockerfile`); the package
-declares `requires-python >= 3.12`.
+Python 3.14 is the supported version (see `.python-version` and `backend/Dockerfile`); the package
+declares `requires-python >= 3.14`. Python 3.12 compatibility is not maintained.
 
 ```bash
 cd backend

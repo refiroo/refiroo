@@ -1,7 +1,6 @@
 """Add persisted, versioned model drafts."""
 
 import sqlalchemy as sa
-
 from alembic import op
 
 revision = "20260904_02"

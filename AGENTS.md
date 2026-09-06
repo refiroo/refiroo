@@ -53,7 +53,7 @@ errors explicit and machine-readable.
 
 ### Backend
 
-- Python 3.12, FastAPI, Pydantic 2 and SQLAlchemy 2.
+- Python 3.14, FastAPI, Pydantic 2 and SQLAlchemy 2.
 - Type public functions.
 - Keep Pydantic API models separate from SQLAlchemy persistence models.
 - Keep model parsing and validation independent of the database.
@@ -108,4 +108,3 @@ application or object-type key.
 Concretely: `pytest` and `ruff check app/ tests/` in `backend/`, and `npm run lint`, `npm run test`
 and `npm run build` in `frontend/`. The frontend lint step must report zero errors; warnings are
 listed in `eslint.config.js` with their justification.
-

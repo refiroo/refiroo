@@ -8,6 +8,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- The backend now requires Python 3.14. The local version pin, package metadata, Ruff target, CI
+  runtime, container base image and development documentation all use 3.14; Python 3.12
+  compatibility is no longer maintained.
+
 - Frontend structure refactor, phases 0–4 of `docs/FRONTEND_STRUCTURE_REFACTOR.md`. No API
   contract, model contract or architectural change. `frontend/src` is reorganized into `app/`,
   `features/`, `ui/`, `model/`, `routing/`, `lib/`, `types/` and `styles/`, with every internal

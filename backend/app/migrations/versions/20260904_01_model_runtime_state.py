@@ -3,7 +3,6 @@
 from datetime import UTC, datetime
 
 import sqlalchemy as sa
-
 from alembic import op
 
 revision = "20260904_01"

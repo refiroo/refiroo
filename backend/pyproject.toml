@@ -2,7 +2,7 @@
 name = "rdm-engine-backend"
 version = "0.3.0"
 description = "Model-driven reference data management engine"
-requires-python = ">=3.12"
+requires-python = ">=3.14"
 dependencies = [
   "alembic>=1.14,<2",
   "fastapi>=0.115,<1",
@@ -31,4 +31,4 @@ include = ["app*"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py312"
+target-version = "py314"

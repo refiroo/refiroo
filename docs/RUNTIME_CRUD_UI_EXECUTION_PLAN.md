@@ -351,7 +351,7 @@ the contract change in `docs/API.md`.
 
 ## Required validation commands
 
-Run from the repository root with the supported Python 3.12 and installed project dependencies:
+Run from the repository root with the supported Python 3.14 and installed project dependencies:
 
 ```bash
 python -m ruff check backend

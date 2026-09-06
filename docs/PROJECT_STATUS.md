@@ -227,5 +227,4 @@ Make a Git checkpoint before the first new slice. Run
 `npm --prefix frontend test`, `npm --prefix frontend run build` and `git diff --check` before
 considering it complete. The frontend lint step is new; it must report zero errors. Base 0.6
 release validation must also include its browser, accessibility and visual-regression suites and must
-run on the supported Python 3.12 toolchain; the local review environment used on 2026-09-05 was Python
-3.14.7 and is not sufficient as the only release environment.
+run on the supported Python 3.14 toolchain.

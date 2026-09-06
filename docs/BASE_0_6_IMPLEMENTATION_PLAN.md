@@ -276,7 +276,7 @@ contract suites, packaging checks, `README.md`, `CHANGELOG.md` and current docum
 4. Re-run the usability walkthrough and resolve or explicitly defer serious findings.
 5. Update README, changelog, API examples and status documentation to match shipped behavior.
 
-Exit: all journeys and the repository definition of done pass on Python 3.12 and the supported frontend
+Exit: all journeys and the repository definition of done pass on Python 3.14 and the supported frontend
 toolchain.
 
 ## Release acceptance criteria
