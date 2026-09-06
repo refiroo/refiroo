@@ -23,6 +23,11 @@ def transition(model_path: Path) -> str:
     create_database()
     with SessionLocal() as session:
         runtime_state, active_release = require_runtime_state(session)
+        if active_release.schema_version != "0.4":
+            raise RuntimeError(
+                "The offline schema transition requires a selected schema 0.4 release; "
+                f"found schema {active_release.schema_version}"
+            )
         active_model = parse_schema_04_for_transition(active_release.model_json)
         try:
             candidate_release, _created = install_model_release(session, candidate)

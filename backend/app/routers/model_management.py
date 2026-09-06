@@ -38,6 +38,7 @@ from ..services.model.releases import (
     ModelMigrationRequired,
     ModelReleaseNotFound,
     ReleaseIdentityConflict,
+    UnsupportedModelSchema,
     activate_model_release,
     install_model_release,
     model_activation_lock,
@@ -86,6 +87,16 @@ def activate_release(
                 {
                     "activeReleaseId": exc.active_release_id,
                     "runtimeVersion": exc.runtime_version,
+                },
+            ) from exc
+        except UnsupportedModelSchema as exc:
+            raise api_error(
+                422,
+                "unsupported_schema_version",
+                f"Schema version '{exc.schema_version}' cannot be activated",
+                {
+                    "schemaVersion": exc.schema_version,
+                    "supportedSchemaVersions": ["0.5"],
                 },
             ) from exc
         except ModelMigrationRequired as exc:

@@ -80,6 +80,38 @@ describe("CollectionView", () => {
     );
   });
 
+  it("clears search, state and typed filters together", () => {
+    const onQueryChange = vi.fn();
+    render(
+      <CollectionView
+        model={testModel}
+        application={testModel.applications[0]}
+        view={testModel.applications[0].views[0]}
+        workspaceKey="west"
+        query={{
+          search: "station",
+          states: ["active"],
+          sort: "name",
+          pageSize: 20,
+          filters: [{ field: "code", operator: "startsWith", value: "CLI" }],
+        }}
+        onQueryChange={onQueryChange}
+        onOpen={vi.fn()}
+        onChanged={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Clear filters" }));
+
+    expect(onQueryChange).toHaveBeenCalledWith({
+      search: "",
+      states: [],
+      sort: "name",
+      pageSize: 20,
+      filters: [],
+    });
+  });
+
   it("keeps a failed request distinct and retries it", async () => {
     vi.mocked(api.objects)
       .mockRejectedValueOnce(new Error("Collection unavailable"))

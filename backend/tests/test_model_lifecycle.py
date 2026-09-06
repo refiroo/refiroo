@@ -820,6 +820,54 @@ def test_activation_rejects_corrupted_installed_model_without_mutation(monkeypat
             assert state.version == expected_version
 
 
+def test_activation_rejects_a_historical_schema_release_without_mutation(monkeypatch):
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    enabled_app = create_app()
+    with TestClient(enabled_app) as client:
+        active = client.get("/api/v1/model")
+        active_release_id = active.headers["X-Model-Release-Id"]
+        with SessionLocal() as session:
+            identity = uuid4().hex
+            historical = ModelRelease(
+                release_key=f"historical-schema-{identity}",
+                release_name="Historical schema",
+                release_version=f"0.4.9-{identity}",
+                schema_version="0.4",
+                model_hash=identity * 2,
+                model_json={"schemaVersion": "0.4", "historical": True},
+                is_active=False,
+            )
+            session.add(historical)
+            session.commit()
+            historical_id = historical.public_id
+            state = session.get(ModelRuntimeState, 1)
+            assert state is not None
+            expected_version = state.version
+
+        response = client.post(
+            f"/api/v1/model-releases/{historical_id}/activation",
+            json={
+                "expectedRuntimeVersion": expected_version,
+                "expectedActiveReleaseId": active_release_id,
+            },
+        )
+
+        assert response.status_code == 422
+        assert response.json()["error"] == {
+            "code": "unsupported_schema_version",
+            "message": "Schema version '0.4' cannot be activated",
+            "details": {
+                "schemaVersion": "0.4",
+                "supportedSchemaVersions": ["0.5"],
+            },
+        }
+        assert client.get("/api/v1/model").headers["X-Model-Release-Id"] == active_release_id
+        with SessionLocal() as session:
+            state = session.get(ModelRuntimeState, 1)
+            assert state is not None
+            assert state.version == expected_version
+
+
 def test_model_admin_mutations_reject_multi_worker_configuration(monkeypatch):
     monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
     monkeypatch.setenv("WEB_CONCURRENCY", "2")

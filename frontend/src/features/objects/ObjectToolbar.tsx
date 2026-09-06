@@ -62,7 +62,9 @@ export function ObjectToolbar({
           />
         );
       })}
-      {query.filters.length > 0 && <button onClick={() => onChange({ ...query, filters: [] })}>Clear filters</button>}
+      {(query.search !== "" || query.states.length > 0 || query.filters.length > 0) && (
+        <button onClick={() => onChange({ ...query, search: "", states: [], filters: [] })}>Clear filters</button>
+      )}
       <SelectField
         className="toolbar-field"
         label="Sort"

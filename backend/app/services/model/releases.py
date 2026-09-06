@@ -45,6 +45,11 @@ class ModelReleaseNotFound(Exception):
 
 
 @dataclass(frozen=True)
+class UnsupportedModelSchema(Exception):
+    schema_version: str
+
+
+@dataclass(frozen=True)
 class InvalidInstalledModel(Exception):
     diagnostics: tuple[ModelDiagnostic, ...]
 
@@ -91,6 +96,9 @@ def activate_model_release(
         or active_release.public_id != expected_active_release_id
     ):
         raise ActivationConflict(active_release.public_id, runtime_state.version)
+
+    if candidate_release.schema_version != "0.5":
+        raise UnsupportedModelSchema(candidate_release.schema_version)
 
     active_compilation = compile_model(active_release.model_json)
     candidate_compilation = compile_model(candidate_release.model_json)

@@ -226,8 +226,9 @@ same transaction as its conditional runtime-state update. It commits that select
 the process registry. A post-commit registry refresh failure returns `503
 model_registry_refresh_failed`; `/health` then reports `503` and model-dependent requests are refused
 rather than using a guessed snapshot (`503 model_registry_unavailable`). Restarting successfully
-reloads the database-selected release. If an installed release fails reparsing, activation returns
-`500 invalid_installed_model` and leaves runtime state unchanged.
+reloads the database-selected release. Historical releases using an unsupported schema return `422
+unsupported_schema_version`; if a supported installed release fails reparsing, activation returns
+`500 invalid_installed_model`. Both failures leave runtime state unchanged.
 
 #### Drafts, validation, compilation and installation
 
@@ -327,6 +328,8 @@ are not mutation-gated. Lifecycle errors use:
 - `409 version_conflict` for a stale draft version;
 - `409 release_identity_conflict` for the same release key/version with different content;
 - `422 invalid_model` when installation recompilation fails;
+- `422 unsupported_schema_version` when activation targets a historical release whose schema is not
+  supported by the runtime;
 - `409 activation_conflict` for stale runtime-state tokens; and
 - `409 model_migration_required` when stored data prevents activation;
 - `500 invalid_installed_model` when persisted release JSON cannot be reparsed for diff or activation;

@@ -98,6 +98,29 @@ def test_offline_schema_upgrade_rolls_back_installation_when_compatibility_fails
         assert releases[0].public_id == old_release_id
 
 
+def test_offline_schema_upgrade_rejects_a_selected_schema_05_release(tmp_path, monkeypatch):
+    database_path = tmp_path / "already-upgraded.db"
+    _legacy_database(database_path)
+    with monkeypatch.context() as patch:
+        patch.setenv("DATABASE_URL", f"sqlite:///{database_path}")
+        reload_settings()
+        selected_id = transition(MODEL_PATH)
+        with pytest.raises(
+            RuntimeError,
+            match="requires a selected schema 0.4 release; found schema 0.5",
+        ):
+            transition(MODEL_PATH)
+    reload_settings()
+
+    engine = create_engine(f"sqlite:///{database_path}")
+    with Session(engine) as session:
+        state = session.get(ModelRuntimeState, 1)
+        releases = list(session.scalars(select(ModelRelease)))
+        assert state.version == 2
+        assert session.get(ModelRelease, state.active_model_release_id).public_id == selected_id
+        assert len(releases) == 2
+
+
 def test_schema_04_release_remains_listable_and_exportable_as_history():
     with TestClient(app) as client:
         with SessionLocal() as session:
