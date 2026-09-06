@@ -9,13 +9,17 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from app.cli.model_schema_upgrade import transition
-from app.config import reload_settings
+from app.config import get_settings, reload_settings
 from app.db import SessionLocal
-from app.main import app
+from app.main import app, create_app, schema_upgrade_command
 from app.models.database import ModelRelease, ModelRuntimeState
 from app.services.model.compatibility import CompatibilityResult
 from app.services.model.diagnostics import ModelDiagnostic
-from app.services.model.registry import ModelRegistry
+from app.services.model.registry import (
+    ModelRegistry,
+    UnsupportedSelectedModelSchema,
+    model_registry,
+)
 
 MODEL_PATH = Path(__file__).resolve().parents[2] / "model" / "rdm-starter.json"
 
@@ -50,9 +54,10 @@ def test_offline_schema_upgrade_installs_checks_and_atomically_selects_candidate
     old_release_id = _legacy_database(database_path)
     engine = create_engine(f"sqlite:///{database_path}")
     with Session(engine) as session, pytest.raises(
-        RuntimeError, match="unsupported schema version '0.4'"
-    ):
+        UnsupportedSelectedModelSchema
+    ) as error:
         ModelRegistry().resolve_active(session)
+    assert error.value.schema_version == "0.4"
     with monkeypatch.context() as patch:
         patch.setenv("DATABASE_URL", f"sqlite:///{database_path}")
         reload_settings()
@@ -119,6 +124,29 @@ def test_offline_schema_upgrade_rejects_a_selected_schema_05_release(tmp_path, m
         assert state.version == 2
         assert session.get(ModelRelease, state.active_model_release_id).public_id == selected_id
         assert len(releases) == 2
+
+
+def test_startup_reports_the_exact_schema_upgrade_command_without_a_traceback(
+    monkeypatch, caplog
+):
+    def reject_selected_schema(_session):
+        raise UnsupportedSelectedModelSchema("0.4")
+
+    model_registry.clear()
+    monkeypatch.setattr(model_registry, "resolve_active", reject_selected_schema)
+    try:
+        with caplog.at_level("ERROR", logger="app.main"), TestClient(
+            create_app()
+        ) as client:
+            assert client.get("/health").status_code == 503
+
+        assert "RDM Engine cannot serve model-backed requests" in caplog.text
+        assert schema_upgrade_command(get_settings()) in caplog.text
+        assert "<path>" not in caplog.text
+        assert "Traceback" not in caplog.text
+        assert all(record.exc_info is None for record in caplog.records)
+    finally:
+        model_registry.clear()
 
 
 def test_schema_04_release_remains_listable_and_exportable_as_history():

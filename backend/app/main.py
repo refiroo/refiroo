@@ -1,11 +1,15 @@
+import logging
+import shlex
+import sys
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from .config import reload_settings
+from .config import Settings, get_settings, reload_settings
 from .db import SessionLocal, create_database
 from .errors import (
     ApiError,
@@ -26,7 +30,23 @@ from .routers import (
 )
 from .services.model.bootstrap import bootstrap_model
 from .services.model.loader import load_bootstrap_model
-from .services.model.registry import model_registry
+from .services.model.registry import UnsupportedSelectedModelSchema, model_registry
+
+logger = logging.getLogger(__name__)
+
+
+def schema_upgrade_command(settings: Settings) -> str:
+    backend_path = Path(__file__).resolve().parents[1]
+    command = shlex.join(
+        [
+            sys.executable,
+            "-m",
+            "app.cli.model_schema_upgrade",
+            "--model",
+            str(settings.model_path.resolve()),
+        ]
+    )
+    return f"cd {shlex.quote(str(backend_path))} && {command}"
 
 
 @asynccontextmanager
@@ -35,7 +55,19 @@ async def lifespan(_: FastAPI):
     create_database()
     bootstrap_model(loaded_model)
     with SessionLocal() as session:
-        model_registry.resolve_active(session)
+        try:
+            model_registry.resolve_active(session)
+        except UnsupportedSelectedModelSchema as exc:
+            model_registry.mark_unhealthy()
+            logger.error(
+                "RDM Engine cannot serve model-backed requests: the database selects schema %s, "
+                "but this version supports schema 0.5.\n"
+                "Stop all RDM Engine processes using this database, run this exact command in the "
+                "same configured environment, then restart the API:\n  %s\n"
+                "Until the transition succeeds, /health returns HTTP 503.",
+                exc.schema_version,
+                schema_upgrade_command(get_settings()),
+            )
     yield
 
 

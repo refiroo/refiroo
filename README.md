@@ -110,6 +110,12 @@ setting. Startup validates and installs missing bootstrap content, but an existi
 release selected in `model_runtime_state`. Every request resolves that database-selected immutable
 release; changing the file alone does not activate it.
 
+If an existing database still selects a schema 0.4 release, startup keeps the API in an unhealthy
+state instead of emitting an exception traceback. The startup log names the selected and supported
+schemas and prints the exact offline transition command for the configured model path. Stop every
+process using that database, run the displayed command in the same configured environment, and then
+restart the API; `/health` returns HTTP `503` until the transition succeeds.
+
 The administration lifecycle is deliberately staged: save editable JSON as a versioned draft,
 validate/compile it without persistence side effects, install it as an immutable inactive release,
 then activate it with the current runtime version and active-release ID. Activation is refused when

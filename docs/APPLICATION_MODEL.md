@@ -290,6 +290,12 @@ data, stop traffic and run from `backend/`:
 .venv/bin/python -m app.cli.model_schema_upgrade --model ../model/rdm-starter.json
 ```
 
+When startup finds a database that still selects schema 0.4, it handles that known condition without
+an exception traceback, marks the process unhealthy and logs a copy-pasteable version of this command
+using the running interpreter and configured model path. The command must run in the same configured
+environment so it targets the same `DATABASE_URL`; `/health` remains HTTP `503` until the transition
+has succeeded and the API is restarted.
+
 The command reads the selected schema 0.4 release without starting the request runtime, validates and
 installs the candidate, runs the normal compatibility analysis and atomically changes runtime state.
 Any validation, compatibility or concurrency failure rolls the transaction back.

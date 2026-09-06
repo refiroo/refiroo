@@ -86,7 +86,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description="Atomically select a compatible schema 0.5 model in an offline database"
     )
-    parser.add_argument("--model", required=True, type=Path)
+    parser.add_argument(
+        "--model",
+        required=True,
+        type=Path,
+        help="Path to the schema 0.5 model JSON to validate, install and select",
+    )
     args = parser.parse_args()
     release_id = transition(args.model)
     print(f"Selected schema 0.5 model release {release_id}")
