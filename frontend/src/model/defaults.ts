@@ -11,6 +11,7 @@ export const DEFAULT_COLLECTION_QUERY = {
   states: [] as string[],
   sort: "name" as ObjectSort,
   pageSize: 20,
+  filters: [],
 };
 
 export function fallbackDetail(objectType: ObjectTypeDefinition): DetailViewDefinition {

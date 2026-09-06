@@ -4,15 +4,15 @@ import json
 from app.main import app, create_app
 
 
-def test_base_0_6_wp2_default_openapi_document_is_locked():
+def test_base_0_6_wp3_default_openapi_document_is_locked():
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
 
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "a21a5ebfc636f5298c86bc1bb20a8e05f7a9333224e85d0c36f15851f393052f"
+        "20b9e55a79da738eabe80d75853ddeeade0f7dcac2c6931da7823fc89c39e3e1"
     )
 
 
-def test_base_0_6_wp2_default_openapi_path_and_method_inventory_is_locked():
+def test_base_0_6_wp3_default_openapi_path_and_method_inventory_is_locked():
     schema = app.openapi()
 
     actual = {
@@ -53,7 +53,7 @@ def test_base_0_6_wp2_default_openapi_path_and_method_inventory_is_locked():
     }
 
 
-def test_base_0_6_wp2_default_openapi_component_schema_inventory_is_locked():
+def test_base_0_6_wp3_default_openapi_component_schema_inventory_is_locked():
     schema_names = set(app.openapi()["components"]["schemas"])
 
     assert schema_names == {
@@ -123,6 +123,10 @@ def test_base_0_5_openapi_documents_bounded_pages_and_structured_errors():
         "requestValidation",
         "versionConflict",
     }
+    object_parameters = schema["paths"]["/api/v1/objects/{object_type_key}"]["get"][
+        "parameters"
+    ]
+    assert any(item["name"] == "filter.<field>.<operator>" for item in object_parameters)
 
 
 def test_base_0_5_enabled_openapi_exposes_guarded_activation(monkeypatch):

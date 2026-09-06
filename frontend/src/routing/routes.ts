@@ -4,20 +4,17 @@
  * hand-edited or stale URL falls back to a valid route rather than rendering an empty screen.
  */
 
-import type { ApplicationDefinition, EngineModel, ObjectSort, RouteState } from "@/types";
+import type { ApplicationDefinition, EngineModel, RouteState, ViewDefinition } from "@/types";
 import { DEFAULT_COLLECTION_QUERY, DEFAULT_WORKSPACE } from "@/model/defaults";
 import { applicationFor } from "@/model/lookup";
 
-const OBJECT_SORTS = new Set<ObjectSort>([
-  "name",
-  "-name",
-  "state",
-  "-state",
-  "createdAt",
-  "-createdAt",
-  "updatedAt",
-  "-updatedAt",
-]);
+function viewDefaults(view: ViewDefinition | undefined) {
+  return {
+    ...DEFAULT_COLLECTION_QUERY,
+    sort: view?.config.defaultSort ?? DEFAULT_COLLECTION_QUERY.sort,
+    pageSize: view?.config.pageSize ?? DEFAULT_COLLECTION_QUERY.pageSize,
+  };
+}
 
 export function defaultRoute(
   model: EngineModel,
@@ -29,7 +26,7 @@ export function defaultRoute(
     applicationKey: application?.key ?? "",
     viewKey: application?.defaultView ?? "",
     workspaceKey,
-    ...DEFAULT_COLLECTION_QUERY,
+    ...viewDefaults(application?.views.find((view) => view.key === application.defaultView)),
   };
 }
 
@@ -44,9 +41,21 @@ export function parseRoute(model: EngineModel, defaultWorkspaceKey = DEFAULT_WOR
   }
   if (parts[0] === "apps" && parts[2] === "views" && parts[3]) {
     const application = applicationFor(model, parts[1]);
-    if (application?.views.some((view) => view.key === parts[3])) {
-      const candidateSort = query.get("sort") as ObjectSort | null;
+    const view = application?.views.find((view) => view.key === parts[3]);
+    if (view) {
+      const candidateSort = query.get("sort");
       const requestedPageSize = Number(query.get("pageSize"));
+      const allowedSorts = new Set(view.config.sortFields.flatMap((field) => [field, `-${field}`]));
+      const filters = Array.from(query.entries())
+        .filter(([key]) => key.startsWith("filter."))
+        .flatMap(([key, value]) => {
+          const separator = key.lastIndexOf(".");
+          const field = key.slice("filter.".length, separator);
+          const operator = key.slice(separator + 1);
+          return field && operator && view.config.filterFields.includes(field)
+            ? [{ field, operator, value }]
+            : [];
+        });
       return {
         kind: "list",
         applicationKey: parts[1],
@@ -57,11 +66,12 @@ export function parseRoute(model: EngineModel, defaultWorkspaceKey = DEFAULT_WOR
           .getAll("state")
           .map((value) => value.trim())
           .filter(Boolean),
-        sort: candidateSort && OBJECT_SORTS.has(candidateSort) ? candidateSort : DEFAULT_COLLECTION_QUERY.sort,
+        sort: candidateSort && allowedSorts.has(candidateSort) ? candidateSort : view.config.defaultSort,
         pageSize:
-          Number.isInteger(requestedPageSize) && requestedPageSize >= 1 && requestedPageSize <= 500
+          Number.isInteger(requestedPageSize) && requestedPageSize >= 1 && requestedPageSize <= 100
             ? requestedPageSize
-            : DEFAULT_COLLECTION_QUERY.pageSize,
+            : view.config.pageSize,
+        filters,
       };
     }
   }
@@ -92,6 +102,7 @@ export function routePath(route: RouteState) {
   if (route.kind === "list") {
     if (route.search) query.set("search", route.search);
     route.states.forEach((state) => query.append("state", state));
+    route.filters.forEach(({ field, operator, value }) => query.append(`filter.${field}.${operator}`, value));
     query.set("sort", route.sort);
     query.set("pageSize", String(route.pageSize));
     return `/apps/${app}/views/${encodeURIComponent(route.viewKey)}?${query}`;
@@ -104,5 +115,6 @@ export function viewRoute(
   viewKey: string,
   workspaceKey = DEFAULT_WORKSPACE,
 ): Extract<RouteState, { kind: "list" }> {
-  return { kind: "list", applicationKey: application.key, viewKey, workspaceKey, ...DEFAULT_COLLECTION_QUERY };
+  const view = application.views.find((item) => item.key === viewKey);
+  return { kind: "list", applicationKey: application.key, viewKey, workspaceKey, ...viewDefaults(view) };
 }

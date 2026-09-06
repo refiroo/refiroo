@@ -30,6 +30,12 @@ The global workspace catalogue is now authoritative: a singleton, concurrency-pr
 the active default; discovery is searchable and cursor-paged; unknown explicit keys fail; and retired
 workspaces remain readable while rejecting object, attribute and relation mutations. The shell uses
 catalogue labels and keeps stable keys in URLs instead of accepting free-text authority.
+Schema 0.5 is now the only runnable model language. It provides an extra-forbidden typed table
+contract, rejects unimplemented semantic view types, and drives model-aware typed filters, attribute
+sorts and URL-stable cursor paging. Historical schema 0.4 releases remain inspectable, while fresh
+bootstrap and the offline `python -m app.cli.model_schema_upgrade --model <path>` transition establish
+the schema 0.5 runtime selection. The starter is content release 0.6.0; its former tree is represented
+honestly as a table and its mapping view is deferred to schema 0.6.
 The frontend has since had a structural pass, phases 0–4 of
 `docs/FRONTEND_STRUCTURE_REFACTOR.md`, ahead of the Base 0.6 UI work. It changed no API contract,
 model contract or architecture: `frontend/src` is organized into `app/`, `features/`, `ui/`,
@@ -67,8 +73,8 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
 
 ## Implemented
 
-- `model/rdm-starter.json`: schema-language 0.4 model with 22 attributes, 9 object types, 13 relation
-  types, 16 allowed triples, three applications, collection views and typed detail compositions. Domain
+- `model/rdm-starter.json`: schema-language 0.5/content-release 0.6.0 model with 22 attributes, 9 object
+  types, 13 relation types, 16 allowed triples, three applications, collection views and typed detail compositions. Domain
   and Codelist objects can have optional System Value representations without joining the independent
   system containment hierarchy.
 - Translation objects support translated name, description and value content, are contained by a
@@ -149,15 +155,10 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
   replacement: stable logical objects, immutable active/retired revisions, editable derived drafts,
   atomic activation, direct retirement without replacement, retired discovery and visible
   derivation/supersession lineage.
-- Configured `mappingGrid`, `tree`, `form` and `dashboard` views still resolve through the registry to
-  the generic collection renderer. Their `config` remains an open property bag, so declared semantic
-  views are not yet guaranteed to have distinct validated behavior. ADR-021 defines the Base 0.6
-  replacement: a strict schema 0.5 table contract, rejection of unimplemented view types and no
-  schema 0.4 runtime adapter. `mappingGrid` moves to schema 0.6/product 0.7. The registry now lives in
-  `frontend/src/features/objects/views/registry.ts`, where that decision is implemented rather than
-  inside the collection screen.
-- Model-declared `filterable` and `sortable` attribute features are not implemented in object queries;
-  collection controls cover search, free-text state and built-in sorts only.
+- Schema 0.5 intentionally omits `mappingGrid`, `tree`, `form` and `dashboard`; those declarations are
+  rejected rather than routed to the table renderer. `mappingGrid` moves to schema 0.6/product 0.7.
+- Typed table filtering and sorting cover the bounded daily-use grammar. Integration-scale query
+  expressions, relation-expanded filtering and multi-sort remain deferred.
 - The UI has component-level regression coverage but no browser-level workflow, automated
   accessibility or visual-regression release checks. WP1 now provides the documented RDM token and
   semantic-wrapper foundation, but broader adoption and real-browser proof remain release work rather
@@ -207,8 +208,8 @@ See `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` for the completed historical work pac
 the active delivery queue and `docs/ROADMAP.md` for the release criteria and later milestones.
 
 All Base 0.5 work packages and acceptance criteria are complete. D1 through D5 are accepted. The Base 0.6 WP0
-interaction baseline, WP1 UI foundation and WP2 workspace authority are complete. WP3 schema 0.5
-typed tables are next, followed by authoritative object revisions, lifecycle UI and release checks. Core mapping
+interaction baseline, WP1 UI foundation, WP2 workspace authority and WP3 typed tables are complete.
+WP4 authoritative object revisions are next, followed by lifecycle UI and release checks. Core mapping
 is product 0.7 and bulk mapping remains in the later integration milestone.
 
 ## Coding-agent handoff
@@ -217,7 +218,7 @@ Open the repository root, then start a new coding chat with:
 
 > Read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP.md`, `docs/UI_MODEL.md`,
 > `docs/BASE_0_6_IMPLEMENTATION_PLAN.md` and `docs/BASE_0_6_INTERACTION_SPEC.md`. Review the
-> accepted WP0 interaction baseline, its frontend acceptance fixtures and the completed WP1-WP2 work, then execute Base 0.6 WP3
+> accepted WP0 interaction baseline, its frontend acceptance fixtures and the completed WP1-WP3 work, then execute Base 0.6 WP4
 > only. Do not pull deferred mapping or model-workbench redesign into Base 0.6.
 > Preserve all product invariants and report the current worktree status before editing.
 

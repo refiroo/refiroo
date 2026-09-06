@@ -1,9 +1,9 @@
 {
-  "schemaVersion": "0.4",
+  "schemaVersion": "0.5",
   "release": {
     "key": "rdm-starter",
     "name": "RDM Starter Model",
-    "version": "0.5.0"
+    "version": "0.6.0"
   },
   "product": {
     "name": "RDM Engine",
@@ -14,7 +14,7 @@
       "key": "description",
       "name": "Description",
       "valueType": "longText",
-      "features": { "searchable": true },
+      "features": { "searchable": true, "filterable": true, "sortable": true },
       "ui": { "component": "textarea" }
     },
     {
@@ -27,12 +27,12 @@
     {
       "key": "domain-code",
       "name": "Domain code",
-      "features": { "searchable": true, "unique": true }
+      "features": { "searchable": true, "unique": true, "filterable": true, "sortable": true }
     },
     {
       "key": "codelist-code",
       "name": "Codelist code",
-      "features": { "searchable": true, "unique": true }
+      "features": { "searchable": true, "unique": true, "filterable": true, "sortable": true }
     },
     {
       "key": "translations-enabled",
@@ -60,7 +60,7 @@
     {
       "key": "value-code",
       "name": "Value code",
-      "features": { "searchable": true }
+      "features": { "searchable": true, "filterable": true, "sortable": true }
     },
     {
       "key": "value-name",
@@ -71,14 +71,14 @@
       "key": "sort-order",
       "name": "Sort order",
       "valueType": "integer",
-      "features": { "sortable": true }
+      "features": { "filterable": true, "sortable": true }
     },
-    { "key": "valid-from", "name": "Valid from", "valueType": "date" },
-    { "key": "valid-to", "name": "Valid to", "valueType": "date" },
+    { "key": "valid-from", "name": "Valid from", "valueType": "date", "features": { "filterable": true, "sortable": true } },
+    { "key": "valid-to", "name": "Valid to", "valueType": "date", "features": { "filterable": true, "sortable": true } },
     {
       "key": "system-code",
       "name": "System code",
-      "features": { "searchable": true, "unique": true }
+      "features": { "searchable": true, "unique": true, "filterable": true, "sortable": true }
     },
     {
       "key": "system-type",
@@ -93,7 +93,7 @@
     {
       "key": "language-code",
       "name": "Language code",
-      "features": { "searchable": true, "unique": true }
+      "features": { "searchable": true, "unique": true, "filterable": true, "sortable": true }
     },
     {
       "key": "locale-code",
@@ -402,9 +402,9 @@
       "defaultView": "domains",
       "settings": { "importEnabled": true, "exportEnabled": true },
       "views": [
-        { "key": "domains", "name": "Domains", "type": "table", "objectTypeKey": "domain", "config": { "columns": ["name", "domain-code", "description", "active"], "defaultSort": "domain-code" } },
-        { "key": "codelists", "name": "Codelists", "type": "table", "objectTypeKey": "codelist", "config": { "columns": ["name", "codelist-code", "hierarchical", "translations-enabled", "active"] } },
-        { "key": "master-values", "name": "Master values", "type": "tree", "objectTypeKey": "master-value", "config": { "columns": ["name", "master-id", "value-code", "value-name", "active"], "parentRelationTypes": ["codelist-contains-value", "master-value-has-child"] } }
+        { "key": "domains", "name": "Domains", "type": "table", "objectTypeKey": "domain", "config": { "columns": ["name", "domain-code", "description", "active"], "filterFields": ["domain-code", "description", "active"], "sortFields": ["name", "domain-code", "description"], "defaultSort": "domain-code", "pageSize": 20 } },
+        { "key": "codelists", "name": "Codelists", "type": "table", "objectTypeKey": "codelist", "config": { "columns": ["name", "codelist-code", "hierarchical", "translations-enabled", "active"], "filterFields": ["codelist-code", "active"], "sortFields": ["name", "codelist-code"], "defaultSort": "name", "pageSize": 20 } },
+        { "key": "master-values", "name": "Master values", "type": "table", "objectTypeKey": "master-value", "config": { "columns": ["name", "master-id", "value-code", "value-name", "active"], "filterFields": ["value-code", "sort-order", "valid-from", "active"], "sortFields": ["name", "value-code", "sort-order", "valid-from"], "defaultSort": "name", "pageSize": 20 } }
       ],
       "details": [
         {
@@ -455,9 +455,8 @@
       "defaultView": "systems",
       "settings": { "importEnabled": true, "exportEnabled": true },
       "views": [
-        { "key": "systems", "name": "Systems", "type": "table", "objectTypeKey": "system", "config": { "columns": ["name", "system-code", "system-type", "description", "active"] } },
-        { "key": "system-values", "name": "System values", "type": "table", "objectTypeKey": "system-value", "config": { "columns": ["name", "value-code", "value-name", "external-id", "active"] } },
-        { "key": "mappings", "name": "Mappings", "type": "mappingGrid", "objectTypeKey": "system-value", "config": { "columns": ["name", "value-code", "value-name", "external-id", "active"], "sourceObjectTypeKey": "system-value", "targetObjectTypeKey": "master-value", "relationTypeKey": "system-value-maps-to-master" } }
+        { "key": "systems", "name": "Systems", "type": "table", "objectTypeKey": "system", "config": { "columns": ["name", "system-code", "system-type", "description", "active"], "filterFields": ["system-type", "active"], "sortFields": ["name", "system-code"], "defaultSort": "name", "pageSize": 20 } },
+        { "key": "system-values", "name": "System values", "type": "table", "objectTypeKey": "system-value", "config": { "columns": ["name", "value-code", "value-name", "external-id", "active"], "filterFields": ["value-code", "active"], "sortFields": ["name", "value-code"], "defaultSort": "name", "pageSize": 20 } }
       ],
       "details": [
         {
@@ -493,8 +492,8 @@
       "defaultView": "languages",
       "settings": { "importEnabled": true, "exportEnabled": true },
       "views": [
-        { "key": "languages", "name": "Languages", "type": "table", "objectTypeKey": "language", "config": { "columns": ["name", "language-code", "locale-code", "active"] } },
-        { "key": "translations", "name": "Translations", "type": "table", "objectTypeKey": "translation", "config": { "columns": ["ancestor:language", "ancestor:translation-group", "name", "translated-name", "translated-description", "translated-value", "active"] } }
+        { "key": "languages", "name": "Languages", "type": "table", "objectTypeKey": "language", "config": { "columns": ["name", "language-code", "locale-code", "active"], "filterFields": ["language-code", "active"], "sortFields": ["name", "language-code"], "defaultSort": "name", "pageSize": 20 } },
+        { "key": "translations", "name": "Translations", "type": "table", "objectTypeKey": "translation", "config": { "columns": ["name", "translated-name", "translated-description", "translated-value", "active"], "filterFields": ["active"], "sortFields": ["name"], "defaultSort": "name", "pageSize": 20 } }
       ],
       "details": [
         {

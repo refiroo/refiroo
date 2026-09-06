@@ -39,11 +39,12 @@ export function ObjectCollectionView({
             search: query.search,
             state: query.states,
             sort: query.sort,
+            filters: query.filters,
             cursor,
             pageSize: query.pageSize,
           })
       : null,
-    [application.key, view.key, workspaceKey, query.search, query.states, query.sort, query.pageSize],
+    [application.key, view.key, workspaceKey, query.search, query.states, query.sort, query.pageSize, query.filters],
   );
   const { loading, error } = pages;
   const [showCreate, setShowCreate] = useState(false);
@@ -106,6 +107,8 @@ export function ObjectCollectionView({
       </header>
       <section className="surface collection-surface">
         <ObjectToolbar
+          model={model}
+          view={view}
           query={query}
           onChange={onQueryChange}
           placeholder={`Search ${objectType.pluralName.toLowerCase()}`}
@@ -119,6 +122,11 @@ export function ObjectCollectionView({
               </>
             )}
           </span>
+          {query.filters.length > 0 && (
+            <span aria-label="Applied filters">
+              {query.filters.map((filter) => `${filter.field} ${filter.operator} ${filter.value}`).join(" · ")}
+            </span>
+          )}
         </div>
         {error && <InlineError message={error} onRetry={pages.retry} />}
         <ObjectTable
@@ -130,6 +138,11 @@ export function ObjectCollectionView({
           onEdit={readOnly ? undefined : setEditing}
           onDelete={readOnly ? undefined : setDeleting}
           label={`${view.name} table`}
+          emptyMessage={
+            query.search || query.filters.length > 0 || query.states.length > 0
+              ? "No results match these filters"
+              : `No ${objectType.pluralName.toLowerCase()} in this workspace yet`
+          }
         />
         {!error && (
           <Pagination page={pages.pageNumber} hasNext={pages.hasNext} onPrevious={pages.previous} onNext={pages.next} />

@@ -10,7 +10,7 @@ control presentation.
 
 ```json
 {
-  "schemaVersion": "0.4",
+  "schemaVersion": "0.5",
   "release": {},
   "product": {},
   "attributeTypes": [],
@@ -45,7 +45,9 @@ Features are typed JSON values. For example:
 Attribute-type features control engine behavior. `unique: true` enforces workspace-scoped uniqueness
 for the value at create and update (HTTP `409 duplicate_attribute_value`); it is not supported for
 `json` values and is rejected at model load. `searchable` includes the attribute in object search.
-`filterable` and `sortable` are reserved presentation hints not yet implemented in the API.
+`filterable` and `sortable` enable the schema 0.5 daily-use query grammar for non-JSON attributes.
+Table views select the subset exposed as controls; the API validates capability from the attribute
+definition itself.
 `validation.minimum` and `validation.maximum` are numeric bounds and apply only to `integer` and
 `decimal` value types. Bounds must be finite numbers, and `minimum` cannot exceed `maximum`; invalid
 bounds or bounds declared on another value type are rejected at model load.
@@ -194,11 +196,11 @@ publishes the parent projection and typed relation atomically.
 An application selects object types and exposes model-defined views. Object types may be shared across
 applications. Applications use immutable keys; names are presentation labels and are not API filters.
 
-Schema 0.4 recognizes `table`, `form`, `mappingGrid`, `tree` and `dashboard`, although current runtime
-rendering does not implement their distinct semantics honestly. Schema 0.5 deliberately supports only
-the strict `table` contract. Later schemas add a type only together with its validated contract and
-renderer. Configuration refers to stable object, attribute and relation keys—never backend URLs or
-database IDs.
+Schema 0.5 deliberately supports only the strict `table` contract. Its extra-forbidden configuration
+requires non-empty unique `columns`, `filterFields`, `sortFields`, a `defaultSort` selected from the
+declared sort fields and a `pageSize` from 1 to 100. Later schemas add a type only together with its
+validated contract and renderer. Configuration refers to stable object, attribute and relation
+keys—never backend URLs or database IDs.
 
 ## Detail composition
 
@@ -263,16 +265,15 @@ stable model keys and presentation semantics; the React API adapter owns all bac
 
 ## Versioning
 
-`schemaVersion` versions the model language; the starter content release `0.5.0` continues to use
-schema `0.4` because Base 0.5 changes runtime lifecycle and presentation behavior rather than the
-declarative language. Schema 0.4 adds object-level cross-field validation,
-required initial relationships and scoped relationship uniqueness to the 0.3 detail-composition
-contract. `release.version` versions one model package. Each distinct
+`schemaVersion` versions the model language; the starter content release `0.6.0` uses schema `0.5`.
+Schema 0.4 added object-level cross-field validation, required initial relationships and scoped
+relationship uniqueness to the 0.3 detail-composition contract. Schema 0.5 adds strict typed table
+views. `release.version` versions one model package. Each distinct
 validated model is installed as an immutable database release identified by its content hash.
 
 Runtime-object revision lifecycle is separate from this model-language and model-release versioning.
 ADR-020 defines engine-owned `draft`, `active` and `retired` revision states, so Base 0.6 does not add
-configurable object states to schema 0.4. The model continues to declare the fields and relationship
+configurable object states to schema 0.5. The model continues to declare the fields and relationship
 rules validated in each object revision, while the runtime owns revision identity, lineage and atomic
 activation.
 
@@ -281,3 +282,14 @@ accept declarations for the still-unimplemented `mappingGrid`, `form`, `dashboar
 types. Stored schema 0.4 releases remain historical immutable JSON. Product 0.7 adds `mappingGrid` in
 schema 0.6. A future workspace-scoped release assignment may stage model and data migrations, but
 mixed schema-language operation requires explicit support for every concurrently served version.
+
+Development databases can reset and bootstrap the schema 0.5 starter. To preserve compatible runtime
+data, stop traffic and run from `backend/`:
+
+```bash
+.venv/bin/python -m app.cli.model_schema_upgrade --model ../model/rdm-starter.json
+```
+
+The command reads the selected schema 0.4 release without starting the request runtime, validates and
+installs the candidate, runs the normal compatibility analysis and atomically changes runtime state.
+Any validation, compatibility or concurrency failure rolls the transaction back.

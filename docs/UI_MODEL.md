@@ -141,8 +141,8 @@ System owning a related System Value.
 
 When an object type has no explicit detail entry, the engine derives a minimal attribute-and-hierarchy
 composition from its bindings. Explicit details are preferred for task-oriented screens. Dedicated
-mapping-grid and tree interactions remain future components; Base 0.5 currently resolves those view
-types to the generic collection renderer as a known compatibility gap.
+mapping-grid and tree interactions remain future components; schema 0.5 rejects those view types
+instead of resolving them to a misleading generic collection renderer.
 
 The model itself is an immutable installed release. Editing object-type, attribute-type and relation-
 type definitions is model administration and is not part of runtime CRUD.

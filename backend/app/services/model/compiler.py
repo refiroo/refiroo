@@ -33,6 +33,18 @@ class CompilationResult:
 
 def compile_model(source: Any) -> CompilationResult:
     """Validate shape, then references, then canonicalize."""
+    if isinstance(source, dict) and source.get("schemaVersion") not in {None, "0.5"}:
+        supplied = source.get("schemaVersion")
+        return _invalid(
+            (
+                ModelDiagnostic(
+                    severity="error",
+                    code="unsupported_schema_version",
+                    path="/schemaVersion",
+                    message=f"Schema version '{supplied}' is unsupported; supported versions: ['0.5']",
+                ),
+            )
+        )
     try:
         model = EngineModel.model_validate(source)
     except ValidationError as exc:

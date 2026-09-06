@@ -22,7 +22,13 @@ describe("CollectionView", () => {
         application={testModel.applications[0]}
         view={testModel.applications[0].views[0]}
         workspaceKey="west"
-        query={{ search: "station", states: ["active", "draft"], sort: "-updatedAt", pageSize: 50 }}
+        query={{
+          search: "station",
+          states: ["active", "draft"],
+          sort: "-code",
+          pageSize: 50,
+          filters: [{ field: "code", operator: "startsWith", value: "CLI" }],
+        }}
         onQueryChange={vi.fn()}
         onOpen={vi.fn()}
         onChanged={vi.fn()}
@@ -36,7 +42,8 @@ describe("CollectionView", () => {
           workspaceKey: "west",
           search: "station",
           state: ["active", "draft"],
-          sort: "-updatedAt",
+          sort: "-code",
+          filters: [{ field: "code", operator: "startsWith", value: "CLI" }],
           pageSize: 50,
         }),
       ),
@@ -44,6 +51,33 @@ describe("CollectionView", () => {
     fireEvent.click(screen.getByRole("button", { name: `More actions for ${domainObject.name}` }));
     expect(await screen.findByRole("menuitem", { name: "Edit" })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: "Delete" })).toBeInTheDocument();
+  });
+
+  it("renders only model-declared typed filters and sorts", () => {
+    const onQueryChange = vi.fn();
+    render(
+      <CollectionView
+        model={testModel}
+        application={testModel.applications[0]}
+        view={testModel.applications[0].views[0]}
+        workspaceKey="west"
+        query={{ search: "", states: [], sort: "name", pageSize: 20, filters: [] }}
+        onQueryChange={onQueryChange}
+        onOpen={vi.fn()}
+        onChanged={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("combobox", { name: "Code operator" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Active value" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("States")).not.toBeInTheDocument();
+    fireEvent.change(screen.getByRole("combobox", { name: "Code operator" }), {
+      target: { value: "startsWith" },
+    });
+    fireEvent.change(screen.getByRole("textbox", { name: "Code value" }), { target: { value: "CLI" } });
+    fireEvent.blur(screen.getByRole("textbox", { name: "Code value" }));
+    expect(onQueryChange).toHaveBeenLastCalledWith(
+      expect.objectContaining({ filters: [{ field: "code", operator: "startsWith", value: "CLI" }] }),
+    );
   });
 
   it("keeps a failed request distinct and retries it", async () => {
@@ -56,7 +90,7 @@ describe("CollectionView", () => {
         application={testModel.applications[0]}
         view={testModel.applications[0].views[0]}
         workspaceKey="west"
-        query={{ search: "", states: [], sort: "name", pageSize: 20 }}
+        query={{ search: "", states: [], sort: "name", pageSize: 20, filters: [] }}
         onQueryChange={vi.fn()}
         onOpen={vi.fn()}
         onChanged={vi.fn()}

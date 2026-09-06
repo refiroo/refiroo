@@ -3,17 +3,24 @@ import type { EngineModel, ObjectItem } from "@/types";
 // A minimal two-object-type model used to exercise the generic renderers and helpers. The point of
 // the fixture is to prove the code path is model-driven, not to mirror the starter application.
 export const testModel: EngineModel = {
-  schemaVersion: "0.3",
+  schemaVersion: "0.5",
   release: { key: "test", name: "Test", version: "0.3.0" },
   product: { name: "Test Engine" },
   attributeTypes: [
-    { key: "code", name: "Code", valueType: "text", features: {}, validation: {}, ui: {} },
+    {
+      key: "code",
+      name: "Code",
+      valueType: "text",
+      features: { filterable: true, sortable: true },
+      validation: {},
+      ui: {},
+    },
     {
       key: "active",
       name: "Active",
       valueType: "boolean",
       default: true,
-      features: {},
+      features: { filterable: true },
       validation: {},
       ui: {},
     },
@@ -75,7 +82,13 @@ export const testModel: EngineModel = {
           name: "Domains",
           type: "table",
           objectTypeKey: "domain",
-          config: { columns: ["name", "code"] },
+          config: {
+            columns: ["name", "code"],
+            filterFields: ["code", "active"],
+            sortFields: ["name", "code"],
+            defaultSort: "name",
+            pageSize: 20,
+          },
         },
       ],
       details: [],

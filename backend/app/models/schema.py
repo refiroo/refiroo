@@ -103,14 +103,27 @@ class ObjectTypeRelationDefinition(ModelDefinition):
     features: Mapping[str, Any] = Field(default_factory=dict)
 
 
-class ViewDefinition(ModelDefinition):
-    model_config = ConfigDict(extra="allow")
+class TableViewConfig(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
+
+    columns: tuple[str, ...] = Field(min_length=1)
+    filterFields: tuple[str, ...] = Field(min_length=1)
+    sortFields: tuple[str, ...] = Field(min_length=1)
+    defaultSort: str
+    pageSize: int = Field(ge=1, le=100)
+
+
+class TableViewDefinition(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
 
     key: str
     name: str
-    type: Literal["table", "form", "dashboard", "mappingGrid", "tree"]
-    objectTypeKey: str | None = None
-    config: Mapping[str, Any] = Field(default_factory=dict)
+    type: Literal["table"]
+    objectTypeKey: str
+    config: TableViewConfig
+
+
+ViewDefinition = TableViewDefinition
 
 
 class BreadcrumbDefinition(ModelDefinition):
@@ -252,7 +265,7 @@ class ModelReleaseDefinition(ModelDefinition):
 class EngineModel(ModelDefinition):
     model_config = ConfigDict(extra="forbid")
 
-    schemaVersion: str
+    schemaVersion: Literal["0.5"]
     release: ModelReleaseDefinition
     product: ProductDefinition
     attributeTypes: tuple[AttributeTypeDefinition, ...]

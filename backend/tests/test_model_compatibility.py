@@ -11,7 +11,7 @@ from app.services.model.compatibility import analyze_compatibility
 
 def _source() -> dict:
     return {
-        "schemaVersion": "0.4",
+        "schemaVersion": "0.5",
         "release": {"key": "compat", "name": "Compatibility", "version": "1"},
         "product": {"name": "Compatibility test"},
         "attributeTypes": [
@@ -78,6 +78,13 @@ def _source() -> dict:
                         "name": "Sources",
                         "type": "table",
                         "objectTypeKey": "source",
+                        "config": {
+                            "columns": ["name"],
+                            "filterFields": ["name"],
+                            "sortFields": ["name"],
+                            "defaultSort": "name",
+                            "pageSize": 20,
+                        },
                     }
                 ],
             }

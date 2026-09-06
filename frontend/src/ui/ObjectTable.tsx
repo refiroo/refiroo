@@ -12,6 +12,7 @@ export function ObjectTable({
   onEdit,
   onDelete,
   label = "Objects",
+  emptyMessage = "Nothing to show yet.",
 }: {
   model: EngineModel;
   columns: string[];
@@ -21,6 +22,7 @@ export function ObjectTable({
   onEdit?: (item: ObjectItem) => void;
   onDelete?: (item: ObjectItem) => void;
   label?: string;
+  emptyMessage?: string;
 }) {
   const hasActions = Boolean(onEdit || onDelete);
   return (
@@ -45,7 +47,7 @@ export function ObjectTable({
           ) : objects.length === 0 ? (
             <tr>
               <td colSpan={columns.length + (hasActions ? 1 : 0)} className="empty-row">
-                Nothing to show yet.
+                {emptyMessage}
               </td>
             </tr>
           ) : (

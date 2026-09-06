@@ -59,13 +59,21 @@ export interface ObjectTypeRelationDefinition {
   features?: Record<string, unknown>;
 }
 
-export interface ViewDefinition {
+export interface TableViewDefinition {
   key: string;
   name: string;
-  type: "table" | "form" | "dashboard" | "mappingGrid" | "tree";
-  objectTypeKey?: string;
-  config: { columns?: string[]; [key: string]: unknown };
+  type: "table";
+  objectTypeKey: string;
+  config: {
+    columns: string[];
+    filterFields: string[];
+    sortFields: string[];
+    defaultSort: string;
+    pageSize: number;
+  };
 }
+
+export type ViewDefinition = TableViewDefinition;
 
 export interface BreadcrumbDefinition {
   showApplication: boolean;

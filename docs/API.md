@@ -537,13 +537,24 @@ must disable it or protect the API with external access control.
 - `DELETE /api/v1/objects/{objectTypeKey}/{objectId}` — delete an object
 
 Collections accept `cursor`, `pageSize`, `applicationKey`, `workspaceKey`, `parentObjectId`, repeatable
-`state`, `search` and `sort`. Supported sorts are `name`, `state`, `createdAt` and `updatedAt`; prefix a
-sort with `-` for descending order. Omitting `sort` preserves creation sequence order. Every ordering
-uses the internal sequence as a non-public final tie-breaker. Page size defaults to 100 and has a
-documented maximum of 500. `nextCursor` is null only when that traversal is complete.
+`state`, `search`, one `sort` and typed filters named
+`filter.<field>.<operator>=<value>`. Built-in fields and model attributes with the corresponding
+`filterable` or `sortable` feature are available; JSON attributes are excluded. Prefix a sort with
+`-` for descending order. Null and unset attribute values sort last in either direction, and every
+ordering uses the internal sequence as a non-public final tie-breaker. Omitting `sort` preserves
+creation sequence order. Page size defaults to 100 and has a documented maximum of 500.
+`nextCursor` is null only when that traversal is complete.
+
+Text filters support `eq`, `contains`, `startsWith` and `isNull`; number, date and datetime filters
+support `eq`, `lt`, `lte`, `gt`, `gte` and `isNull`; booleans support `eq` and `isNull`. Attribute
+fields also support `isUnset`. `isNull` and `isUnset` take `true` or `false`; boolean values use the
+same lexical form, while dates and datetimes use ISO 8601. Exact equality is case-sensitive and the
+two text matching operators are case-insensitive. Different filters combine with AND; repeated `eq`
+for one field combines with OR. Invalid grammar, capability, operator or typed input returns
+`422 invalid_filter` (or `invalid_sort`) with `details.path` identifying the query parameter.
 
 Object cursors are signed opaque tokens bound to the object type, selected sort and every effective
-filter, including workspace and the normalized set of repeated states. A malformed token, a changed
+filter, including workspace, normalized typed filters and repeated states. A malformed token, a changed
 sort or filter, or reuse for another collection returns `422 invalid_cursor`. Predicates use keyset
 positions rather than offsets, so duplicate names and timestamps remain deterministic and inserts do
 not cause already traversed rows to repeat.

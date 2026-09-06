@@ -1,96 +1,205 @@
 import { useEffect, useState } from "react";
-import type { CollectionQueryState, ObjectSort } from "@/types";
+import { attributeName } from "@/model/fields";
+import type { CollectionQueryState, EngineModel, ValueType, ViewDefinition } from "@/types";
 import { Icon } from "@/ui/Icon";
 import { SelectField } from "@/ui/Selection";
 
-const SORTS: Array<{ value: ObjectSort; label: string }> = [
-  { value: "name", label: "Name (A–Z)" },
-  { value: "-name", label: "Name (Z–A)" },
-  { value: "state", label: "State (A–Z)" },
-  { value: "-state", label: "State (Z–A)" },
-  { value: "createdAt", label: "Created (oldest)" },
-  { value: "-createdAt", label: "Created (newest)" },
-  { value: "updatedAt", label: "Updated (oldest)" },
-  { value: "-updatedAt", label: "Updated (newest)" },
-];
+const OPERATOR_LABELS: Record<string, string> = {
+  eq: "is",
+  contains: "contains",
+  startsWith: "starts with",
+  lt: "is less than",
+  lte: "is at most",
+  gt: "is greater than",
+  gte: "is at least",
+  isNull: "is null",
+  isUnset: "is unset",
+};
 
 export function ObjectToolbar({
+  model,
+  view,
   query,
   placeholder,
   onChange,
 }: {
+  model: EngineModel;
+  view: ViewDefinition;
   query: CollectionQueryState;
   placeholder: string;
   onChange: (query: CollectionQueryState) => void;
 }) {
-  const [searchInput, setSearchInput] = useState(query.search);
-  const [stateInput, setStateInput] = useState(query.states.join(", "));
-
-  useEffect(() => setSearchInput(query.search), [query.search]);
-  useEffect(() => setStateInput(query.states.join(", ")), [query.states]);
-  useEffect(() => {
-    const timer = window.setTimeout(() => {
-      const search = searchInput.trim();
-      if (search !== query.search) onChange({ ...query, search });
-    }, 250);
-    return () => window.clearTimeout(timer);
-  }, [searchInput, query, onChange]);
-
-  function applyStates() {
-    const states = Array.from(
-      new Set(
-        stateInput
-          .split(",")
-          .map((value) => value.trim())
-          .filter(Boolean),
-      ),
-    );
-    if (states.join("\0") !== query.states.join("\0")) onChange({ ...query, states });
+  function applyFilter(field: string, input: { operator: string; value: string }) {
+    const remaining = query.filters.filter((filter) => filter.field !== field);
+    const filters = input.value === "" ? remaining : [...remaining, { field, ...input }];
+    onChange({ ...query, filters });
   }
+
+  const sorts = view.config.sortFields.flatMap((field) => [
+    { id: field, label: `${attributeName(model, field)} (ascending)` },
+    { id: `-${field}`, label: `${attributeName(model, field)} (descending)` },
+  ]);
 
   return (
     <div className="collection-toolbar object-toolbar">
-      <label className="search-box">
-        <Icon name="search" />
-        <input
-          aria-label="Search"
-          value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
-          placeholder={placeholder}
-        />
-      </label>
-      <label className="toolbar-field">
-        States
-        <input
-          aria-label="States"
-          value={stateInput}
-          onChange={(event) => setStateInput(event.target.value)}
-          onBlur={applyStates}
-          onKeyDown={(event) => {
-            if (event.key === "Enter") {
-              event.preventDefault();
-              applyStates();
-            }
-          }}
-          placeholder="active, draft"
-        />
-      </label>
+      <SearchControl
+        key={query.search}
+        initialValue={query.search}
+        placeholder={placeholder}
+        onApply={(search) => onChange({ ...query, search })}
+      />
+      {view.config.filterFields.map((field) => {
+        const type = valueType(model, field);
+        const current = query.filters.find((filter) => filter.field === field);
+        return (
+          <FilterControl
+            key={`${field}:${current?.operator ?? ""}:${current?.value ?? ""}`}
+            label={attributeName(model, field)}
+            type={type}
+            attribute={!isBuiltIn(field)}
+            initial={current ?? { operator: defaultOperator(type), value: "" }}
+            onApply={(input) => applyFilter(field, input)}
+          />
+        );
+      })}
+      {query.filters.length > 0 && <button onClick={() => onChange({ ...query, filters: [] })}>Clear filters</button>}
       <SelectField
         className="toolbar-field"
         label="Sort"
         value={query.sort}
-        options={SORTS.map((sort) => ({ id: sort.value, label: sort.label }))}
-        onChange={(sort) => onChange({ ...query, sort: sort as ObjectSort })}
+        options={sorts}
+        onChange={(sort) => onChange({ ...query, sort })}
       />
       <SelectField
         className="toolbar-field"
         label="Per page"
         value={String(query.pageSize)}
-        options={Array.from(new Set([10, 20, 50, 100, query.pageSize]))
+        options={Array.from(new Set([10, 20, 50, 100, view.config.pageSize, query.pageSize]))
           .sort((a, b) => a - b)
           .map((size) => ({ id: String(size), label: String(size) }))}
         onChange={(pageSize) => onChange({ ...query, pageSize: Number(pageSize) })}
       />
     </div>
   );
+}
+
+function SearchControl({
+  initialValue,
+  placeholder,
+  onApply,
+}: {
+  initialValue: string;
+  placeholder: string;
+  onApply: (value: string) => void;
+}) {
+  const [value, setValue] = useState(initialValue);
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const search = value.trim();
+      if (search !== initialValue) onApply(search);
+    }, 250);
+    return () => window.clearTimeout(timer);
+  }, [initialValue, onApply, value]);
+  return (
+    <label className="search-box">
+      <Icon name="search" />
+      <input
+        aria-label="Search"
+        value={value}
+        onChange={(event) => setValue(event.target.value)}
+        placeholder={placeholder}
+      />
+    </label>
+  );
+}
+
+function FilterControl({
+  label,
+  type,
+  attribute,
+  initial,
+  onApply,
+}: {
+  label: string;
+  type: ValueType;
+  attribute: boolean;
+  initial: { operator: string; value: string };
+  onApply: (input: { operator: string; value: string }) => void;
+}) {
+  const [input, setInput] = useState(initial);
+  const operators = filterOperators(type, attribute);
+  const booleanValue = type === "boolean" || input.operator === "isNull" || input.operator === "isUnset";
+  return (
+    <div className="toolbar-filter">
+      <span>{label}</span>
+      <select
+        aria-label={`${label} operator`}
+        value={input.operator}
+        onChange={(event) => {
+          const next = { operator: event.target.value, value: "" };
+          setInput(next);
+        }}
+      >
+        {operators.map((operator) => (
+          <option key={operator} value={operator}>
+            {OPERATOR_LABELS[operator]}
+          </option>
+        ))}
+      </select>
+      {booleanValue ? (
+        <select
+          aria-label={`${label} value`}
+          value={input.value}
+          onChange={(event) => {
+            const next = { ...input, value: event.target.value };
+            setInput(next);
+            onApply(next);
+          }}
+        >
+          <option value="">Any</option>
+          <option value="true">Yes</option>
+          <option value="false">No</option>
+        </select>
+      ) : (
+        <input
+          aria-label={`${label} value`}
+          type={inputType(type)}
+          value={input.value}
+          onChange={(event) => setInput({ ...input, value: event.target.value })}
+          onBlur={(event) => onApply({ ...input, value: event.target.value.trim() })}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") onApply({ ...input, value: event.currentTarget.value.trim() });
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function isBuiltIn(field: string) {
+  return ["id", "name", "state", "createdAt", "updatedAt"].includes(field);
+}
+
+function valueType(model: EngineModel, field: string): ValueType {
+  if (["createdAt", "updatedAt"].includes(field)) return "dateTime";
+  return model.attributeTypes.find((attribute) => attribute.key === field)?.valueType ?? "text";
+}
+
+function defaultOperator(type: ValueType) {
+  return type === "text" || type === "longText" ? "contains" : "eq";
+}
+
+function filterOperators(type: ValueType, attribute: boolean) {
+  const unset = attribute ? ["isUnset"] : [];
+  if (type === "text" || type === "longText") return ["eq", "contains", "startsWith", "isNull", ...unset];
+  if (["integer", "decimal", "date", "dateTime"].includes(type))
+    return ["eq", "lt", "lte", "gt", "gte", "isNull", ...unset];
+  return ["eq", "isNull", ...unset];
+}
+
+function inputType(type: ValueType) {
+  if (type === "integer" || type === "decimal") return "number";
+  if (type === "date") return "date";
+  if (type === "dateTime") return "datetime-local";
+  return "text";
 }

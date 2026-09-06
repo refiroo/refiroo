@@ -11,6 +11,7 @@ import type {
   RelationUpdateInput,
   AuditEventPage,
   ObjectSort,
+  CollectionFilter,
   CapabilitiesResponse,
   ModelCompilation,
   ModelDraft,
@@ -66,6 +67,7 @@ export interface ObjectQuery {
   parentObjectId?: string;
   state?: string[];
   sort?: ObjectSort;
+  filters?: CollectionFilter[];
 }
 
 function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
@@ -77,6 +79,7 @@ function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
   if (query.parentObjectId) params.set("parentObjectId", query.parentObjectId);
   query.state?.forEach((state) => params.append("state", state));
   if (query.sort) params.set("sort", query.sort);
+  query.filters?.forEach(({ field, operator, value }) => params.append(`filter.${field}.${operator}`, value));
   return `/api/v1/objects/${encodeURIComponent(objectTypeKey)}?${params}`;
 }
 

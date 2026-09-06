@@ -5,14 +5,20 @@
  * declarative model the engine serves, and no backend response carries them.
  */
 
-export type ObjectSort =
-  "name" | "-name" | "state" | "-state" | "createdAt" | "-createdAt" | "updatedAt" | "-updatedAt";
+export type ObjectSort = string;
+
+export interface CollectionFilter {
+  field: string;
+  operator: string;
+  value: string;
+}
 
 export interface CollectionQueryState {
   search: string;
   states: string[];
   sort: ObjectSort;
   pageSize: number;
+  filters: CollectionFilter[];
 }
 
 export type RouteState =

@@ -50,6 +50,23 @@ describe("API client", () => {
     expect(url.searchParams.get("sort")).toBe("-updatedAt");
   });
 
+  it("encodes repeatable typed table filters", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await api.objects("domain", {
+      filters: [
+        { field: "code", operator: "eq", value: "A" },
+        { field: "code", operator: "eq", value: "B" },
+        { field: "active", operator: "eq", value: "true" },
+      ],
+    });
+    const url = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(url.searchParams.getAll("filter.code.eq")).toEqual(["A", "B"]);
+    expect(url.searchParams.get("filter.active.eq")).toBe("true");
+  });
+
   it("searches the bounded workspace catalogue", async () => {
     const fetchMock = vi
       .fn()

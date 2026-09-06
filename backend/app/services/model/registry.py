@@ -40,6 +40,12 @@ class ModelRegistry:
 
     def _load_active(self, session: Session) -> ModelSnapshot:
         _runtime_state, release = require_runtime_state(session)
+        if release.schema_version != "0.5":
+            raise RuntimeError(
+                "The selected runtime model uses unsupported schema version "
+                f"'{release.schema_version}'; reset and bootstrap schema 0.5 or run "
+                "python -m app.cli.model_schema_upgrade --model <path> while traffic is stopped"
+            )
         cache_key = (release.public_id, release.model_hash)
         with self._condition:
             model = self._models.get(cache_key)

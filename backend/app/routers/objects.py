@@ -1,6 +1,6 @@
-from typing import Annotated, Literal
+from typing import Annotated
 
-from fastapi import APIRouter, Query, Response, status
+from fastapi import APIRouter, Query, Request, Response, status
 
 from ..db import DbSession
 from ..errors import api_error
@@ -28,21 +28,27 @@ from ..services.workspaces import resolve_workspace
 
 router = APIRouter(prefix="/api/v1", tags=["objects"])
 
-ObjectSort = Literal[
-    "name",
-    "-name",
-    "state",
-    "-state",
-    "createdAt",
-    "-createdAt",
-    "updatedAt",
-    "-updatedAt",
-]
-
-
-@router.get("/objects/{object_type_key}", response_model=ObjectPage)
+@router.get(
+    "/objects/{object_type_key}",
+    response_model=ObjectPage,
+    openapi_extra={
+        "parameters": [
+            {
+                "name": "filter.<field>.<operator>",
+                "in": "query",
+                "required": False,
+                "description": (
+                    "Repeatable schema 0.5 typed filter. Operators and lexical values depend on "
+                    "the model-declared field type and filterable capability."
+                ),
+                "schema": {"type": "string"},
+            }
+        ]
+    },
+)
 def list_objects(
     object_type_key: str,
+    request: Request,
     session: DbSession,
     snapshot: ActiveModelSnapshot,
     cursor: str | None = None,
@@ -52,7 +58,10 @@ def list_objects(
     parent_object_id: str | None = Query(default=None, alias="parentObjectId"),
     state_filter: Annotated[list[str] | None, Query(alias="state")] = None,
     search: str | None = None,
-    sort: ObjectSort | None = None,
+    sort: str | None = Query(
+        default=None,
+        description="One built-in or model-declared sortable field; prefix '-' for descending",
+    ),
 ) -> ObjectPage:
     model = snapshot.model
     workspace_key = resolve_workspace(session, workspace_key).key
@@ -65,6 +74,7 @@ def list_objects(
         states=state_filter,
         search=search or None,
         sort=sort,
+        field_filters=_field_filters(request),
     )
     objects, next_cursor = paginate_statement(
         session,
@@ -77,6 +87,31 @@ def list_objects(
         message="Object cursor is invalid",
     )
     return ObjectPage(items=build_object_responses(session, model, objects), nextCursor=next_cursor)
+
+
+def _field_filters(request: Request) -> list[tuple[str, str, str]]:
+    result: list[tuple[str, str, str]] = []
+    for key, value in request.query_params.multi_items():
+        if not key.startswith("filter."):
+            continue
+        field_operator = key.removeprefix("filter.")
+        if "." not in field_operator:
+            raise api_error(
+                422,
+                "invalid_filter",
+                f"Invalid filter parameter '{key}'",
+                {"path": f"/query/{key}"},
+            )
+        field, operator = field_operator.rsplit(".", 1)
+        if not field or not operator:
+            raise api_error(
+                422,
+                "invalid_filter",
+                f"Invalid filter parameter '{key}'",
+                {"path": f"/query/{key}"},
+            )
+        result.append((field, operator, value))
+    return result
 
 
 @router.post(

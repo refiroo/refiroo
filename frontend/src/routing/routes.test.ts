@@ -27,6 +27,7 @@ describe("routes", () => {
       states: [],
       sort: "name",
       pageSize: 20,
+      filters: [],
     });
   });
 
@@ -47,7 +48,7 @@ describe("routes", () => {
     window.history.pushState(
       {},
       "",
-      "/apps/test-app/views/domains?workspaceKey=west&search=A%26B&state=active&state=draft&sort=-updatedAt&pageSize=50",
+      "/apps/test-app/views/domains?workspaceKey=west&search=A%26B&state=active&state=draft&sort=-code&pageSize=50&filter.code.startsWith=Cli",
     );
     const route = parseRoute(testModel);
     expect(route).toEqual({
@@ -57,11 +58,12 @@ describe("routes", () => {
       workspaceKey: "west",
       search: "A&B",
       states: ["active", "draft"],
-      sort: "-updatedAt",
+      sort: "-code",
       pageSize: 50,
+      filters: [{ field: "code", operator: "startsWith", value: "Cli" }],
     });
     expect(routePath(route)).toBe(
-      "/apps/test-app/views/domains?workspaceKey=west&search=A%26B&state=active&state=draft&sort=-updatedAt&pageSize=50",
+      "/apps/test-app/views/domains?workspaceKey=west&search=A%26B&state=active&state=draft&filter.code.startsWith=Cli&sort=-code&pageSize=50",
     );
     window.history.pushState({}, "", "/");
   });

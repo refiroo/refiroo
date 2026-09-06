@@ -26,7 +26,8 @@ release plan and changelog rather than accumulating it here.
 - [x] WP1: implement the RDM-owned accessible UI foundation, exact dependency locks, import boundary,
   semantic wrappers and clarified desktop/narrow application shell.
 - [x] WP2: add the workspace catalogue, default runtime state, administration API and selector.
-- [ ] WP3: implement schema 0.5 typed tables and the fixed daily-use filter/sort grammar.
+- [x] WP3: implement schema 0.5 typed tables, the fixed daily-use filter/sort grammar and the
+  atomic offline schema transition command.
 - [ ] WP4: make runtime-object revisions authoritative; migrate data and add draft, activation,
   retirement, history and retired-discovery contracts.
 - [ ] WP5: deliver coherent root-draft, revise-from-history, activation, retirement and lineage UI.

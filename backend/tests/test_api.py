@@ -259,7 +259,7 @@ def test_model_object_hierarchy_and_relation_vertical_slice():
     with TestClient(app) as client:
         model_response = client.get("/api/v1/model")
         assert model_response.status_code == 200
-        assert model_response.json()["schemaVersion"] == "0.4"
+        assert model_response.json()["schemaVersion"] == "0.5"
         assert model_response.json()["applications"][0]["details"][0]["panels"][0]["type"] == (
             "children"
         )

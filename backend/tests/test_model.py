@@ -30,6 +30,32 @@ def test_starter_model_is_valid():
     ]
     assert model.applications[0].details[0].panels[0].type == "children"
     assert model.applications[0].details[1].panels[0].type == "children"
+    assert model.schemaVersion == "0.5"
+    assert model.release.version == "0.6.0"
+    assert {view.type for app in model.applications for view in app.views} == {"table"}
+
+
+def test_schema_dispatch_and_strict_table_shape_are_explicit():
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    legacy = deepcopy(source)
+    legacy["schemaVersion"] = "0.4"
+    unsupported = compile_model(legacy)
+    assert [(item.code, item.path) for item in unsupported.diagnostics] == [
+        ("unsupported_schema_version", "/schemaVersion")
+    ]
+
+    unimplemented = deepcopy(source)
+    unimplemented["applications"][0]["views"][0]["type"] = "mappingGrid"
+    invalid_type = compile_model(unimplemented)
+    assert invalid_type.diagnostics[0].path == "/applications/0/views/0/type"
+
+    extra = deepcopy(source)
+    extra["applications"][0]["views"][0]["config"]["endpoint"] = "/internal"
+    invalid_extra = compile_model(extra)
+    assert (invalid_extra.diagnostics[0].code, invalid_extra.diagnostics[0].path) == (
+        "unknown_field",
+        "/applications/0/views/0/config/endpoint",
+    )
 
 
 def test_compiler_returns_stable_cross_reference_diagnostic_path():

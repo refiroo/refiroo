@@ -1,6 +1,6 @@
 # Base 0.6 implementation plan
 
-**Status:** In progress; D1-D5 accepted, WP0-WP2 complete, WP3 is next
+**Status:** In progress; D1-D5 accepted, WP0-WP3 complete, WP4 is next
 
 **Target:** Product release 0.6.0
 
@@ -208,7 +208,7 @@ capability/configuration handling, frontend API/types, shell selector and tests.
 Exit: workspace resolution is catalogue-backed and deterministic; the default cannot be retired;
 retired scopes are readable but not mutable; no route implicitly provisions or deletes a workspace.
 
-### WP3 — Deliver schema 0.5 typed tables
+### WP3 — Deliver schema 0.5 typed tables (complete)
 
 Primary areas: model schema/compiler/validation, object query and pagination services, frontend model
 types and table view, starter/synthetic models, OpenAPI locks and tests.
@@ -309,7 +309,7 @@ object states fail with actionable diagnostics; and verify the wheel contains ev
 
 ## Coding-agent handoff
 
-Implement work packages in order and keep each independently reviewable. WP0 through WP2 are complete;
-WP3 is the next package. Inspect the worktree before each package, preserve unrelated changes, update
+Implement work packages in order and keep each independently reviewable. WP0 through WP3 are complete;
+WP4 is the next package. Inspect the worktree before each package, preserve unrelated changes, update
 OpenAPI locks with public contracts and create a checkpoint only after that package's definition of
 done passes.

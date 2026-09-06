@@ -38,6 +38,7 @@ class SortKey:
     descending: bool = False
     parse: Callable[[str], Any] = str
     format: Callable[[Any], str] = str
+    extract: Callable[[Session, Any], Any] | None = None
 
 
 def integer_key(name: str, column: Any, attribute: str, *, descending: bool = False) -> SortKey:
@@ -105,7 +106,7 @@ def paginate_statement[Row](
     next_cursor = None
     if len(rows) > page_size:
         next_cursor = encode_cursor(
-            _row_position(keys, visible[-1]),
+            _row_position(session, keys, visible[-1]),
             scope=scope,
             sort=sort,
             filters=filters,
@@ -167,14 +168,18 @@ def _keyset_predicate(keys: Sequence[SortKey], values: Sequence[Any]) -> Any:
     """Lexicographic ``(k0, k1, ...) > (v0, v1, ...)`` honoring each key's direction."""
     clauses = []
     for index, (key, value) in enumerate(zip(keys, values, strict=True)):
-        comparison = key.column < value if key.descending else key.column > value
+        comparison = None if value is None else (key.column < value if key.descending else key.column > value)
         equalities = [
             previous.column == previous_value
             for previous, previous_value in zip(keys[:index], values[:index], strict=True)
         ]
-        clauses.append(and_(*equalities, comparison) if equalities else comparison)
+        if comparison is not None:
+            clauses.append(and_(*equalities, comparison) if equalities else comparison)
     return or_(*clauses)
 
 
-def _row_position(keys: Sequence[SortKey], row: Any) -> tuple[str, ...]:
-    return tuple(key.format(getattr(row, key.attribute)) for key in keys)
+def _row_position(session: Session, keys: Sequence[SortKey], row: Any) -> tuple[str, ...]:
+    return tuple(
+        key.format(key.extract(session, row) if key.extract else getattr(row, key.attribute))
+        for key in keys
+    )
