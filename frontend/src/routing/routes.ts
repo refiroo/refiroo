@@ -19,21 +19,24 @@ const OBJECT_SORTS = new Set<ObjectSort>([
   "-updatedAt",
 ]);
 
-export function defaultRoute(model: EngineModel): Extract<RouteState, { kind: "list" }> {
+export function defaultRoute(
+  model: EngineModel,
+  workspaceKey = DEFAULT_WORKSPACE,
+): Extract<RouteState, { kind: "list" }> {
   const application = model.applications[0];
   return {
     kind: "list",
     applicationKey: application?.key ?? "",
     viewKey: application?.defaultView ?? "",
-    workspaceKey: DEFAULT_WORKSPACE,
+    workspaceKey,
     ...DEFAULT_COLLECTION_QUERY,
   };
 }
 
-export function parseRoute(model: EngineModel): RouteState {
+export function parseRoute(model: EngineModel, defaultWorkspaceKey = DEFAULT_WORKSPACE): RouteState {
   const parts = window.location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
   const query = new URLSearchParams(window.location.search);
-  const workspaceKey = query.get("workspaceKey")?.trim() || DEFAULT_WORKSPACE;
+  const workspaceKey = query.get("workspaceKey")?.trim() || defaultWorkspaceKey;
   if (parts[0] === "models") {
     const releaseId = query.get("releaseId")?.trim() || undefined;
     const draftId = query.get("draftId")?.trim() || undefined;
@@ -74,7 +77,7 @@ export function parseRoute(model: EngineModel): RouteState {
       };
     }
   }
-  return { ...defaultRoute(model), workspaceKey };
+  return { ...defaultRoute(model, defaultWorkspaceKey), workspaceKey };
 }
 
 export function routePath(route: RouteState) {

@@ -20,6 +20,9 @@ import type {
   ModelReleasePage,
   ModelRuntimeState,
   ModelValidation,
+  Workspace,
+  WorkspacePage,
+  WorkspaceRuntimeState,
 } from "@/types";
 
 import { ApiError } from "@/api/errors";
@@ -80,6 +83,24 @@ function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
 export const api = {
   model: () => request<EngineModel>("/api/v1/model"),
   capabilities: () => request<CapabilitiesResponse>("/api/v1/capabilities"),
+  workspaces: (
+    options: {
+      search?: string;
+      status?: "active" | "retired" | "all";
+      cursor?: string;
+      pageSize?: number;
+    } = {},
+  ) => {
+    const params = new URLSearchParams({
+      status: options.status ?? "active",
+      pageSize: String(options.pageSize ?? 100),
+    });
+    if (options.search) params.set("search", options.search);
+    if (options.cursor) params.set("cursor", options.cursor);
+    return request<WorkspacePage>(`/api/v1/workspaces?${params}`);
+  },
+  workspace: (workspaceKey: string) => request<Workspace>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}`),
+  workspaceRuntimeState: () => request<WorkspaceRuntimeState>("/api/v1/workspace-runtime-state"),
   modelReleases: (options: { cursor?: string; pageSize?: number } = {}) => {
     const params = new URLSearchParams({ pageSize: String(options.pageSize ?? 100) });
     if (options.cursor) params.set("cursor", options.cursor);

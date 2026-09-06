@@ -13,7 +13,7 @@ The starter model contains three configured applications:
 They are starter definitions, not reserved engine modules. A model can replace them or add entirely
 different applications.
 
-## Current state — Base 0.5
+## Current state — Base 0.6 in progress
 
 - Global reusable attribute types and object-type attribute bindings
 - Forward/reverse typed relations, features and allowed object-type relation triples
@@ -28,7 +28,8 @@ different applications.
 - Relation cardinality checks and audit events
 - Cursor pagination with explicit limits and optimistic concurrency
 - React application/view navigation, searchable hierarchy explorer and stable object routes
-- Explicit workspace context and URL-backed collection search, state, sorting and page size
+- Catalogue-backed workspace selection with a concurrency-protected default, searchable bounded
+  discovery, URL-stable keys and read-only retired scopes
 - Registry-driven collection views and composable object details with main/side panels
 - Reusable attribute, child, relation, table and hierarchy panels
 - Model-driven runtime CRUD for objects, individual typed attribute values and mutable relationships
@@ -42,11 +43,10 @@ different applications.
   draft validation, comparison, installation and activation
 - Docker development environment and continuous-integration workflow
 
-Mapping-grid and hierarchy-tree views are defined by the model but currently resolve to the generic
-collection presentation. Base 0.5 supplies the bounded query and lifecycle foundations. Product
-release 0.6 first establishes a task-tested UI foundation, catalogue-backed workspace selection,
-typed collection semantics and coherent object editing, then proves them through the core mapping
-workspace. Translation and hierarchy interactions follow in later milestones.
+Base 0.5 supplies the bounded query and model-lifecycle foundations. Base 0.6 has established its
+task-tested UI foundation and authoritative workspace catalogue; typed collection semantics and
+coherent runtime-object revisions follow. Typed mapping-grid behavior is product 0.7, with translation
+and hierarchy interactions in later milestones.
 
 ## Run with Docker
 
@@ -97,6 +97,12 @@ to enable draft CRUD, draft compilation, release installation and guarded activa
 with multiple workers until cross-process release propagation exists. Installed-release reads, diff
 and inline validation remain available without the flag.
 
+Workspace administration is registered by default until authentication exists. Set
+`WORKSPACE_ADMIN_MUTATIONS_ENABLED=false` on an API exposed outside a trusted environment unless an
+external access-control layer protects it. The flag removes workspace create/update/default-switch
+routes; it is a deployment capability, not caller authorization. Workspace discovery remains
+available, retired workspaces remain readable, and all runtime mutations in them are rejected.
+
 ### Model releases and rollback
 
 `RDM_MODEL_PATH` (or `model/rdm-starter.json` by default) is bootstrap input, not the active-model
@@ -130,10 +136,10 @@ the detailed runbook.
 | `backend/app/migrations` | Versioned Alembic database migrations |
 | `frontend/src/App.tsx` | Model-driven application and form renderer |
 | `docs/PROJECT_STATUS.md` | Current implementation and next work |
-| `docs/ROADMAP.md` | Sequenced product milestones and release gates |
+| `docs/ROADMAP.md` | Sequenced product milestones and release criteria |
 | `docs/TODO.md` | Prioritized active delivery queue |
 | `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` | Ordered Base 0.5 coding handoff and acceptance criteria |
-| `docs/BASE_0_6_IMPLEMENTATION_PLAN.md` | Ordered Base 0.6 decisions, work packages and exit gates |
+| `docs/BASE_0_6_IMPLEMENTATION_PLAN.md` | Ordered Base 0.6 decisions, work packages and acceptance criteria |
 | `docs/UI_MODEL.md` | UI semantics, interaction priorities and usability direction |
 | `AGENTS.md` | Authoritative instructions for coding agents |
 

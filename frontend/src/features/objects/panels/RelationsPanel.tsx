@@ -18,12 +18,14 @@ export function RelationsPanel({
   panel,
   onOpen,
   onChanged = () => undefined,
+  readOnly = false,
 }: {
   model: EngineModel;
   object: ObjectItem;
   panel: RelationsPanelDefinition;
   onOpen: (objectTypeKey: string, objectId: string, applicationKey?: string) => void;
   onChanged?: () => void;
+  readOnly?: boolean;
 }) {
   const [removeError, setRemoveError] = useState("");
   const [creating, setCreating] = useState(false);
@@ -133,17 +135,18 @@ export function RelationsPanel({
   return (
     <>
       <div className="embedded-toolbar relation-toolbar">
-        {dependentCreates.map((creation) => (
-          <button
-            key={`${creation.relationTypeKey}:${creation.objectTypeKey}`}
-            className="secondary"
-            onClick={() => setCreatingDependent(creation)}
-          >
-            <Icon name="plus" /> Add{" "}
-            {model.objectTypes.find((item) => item.key === creation.objectTypeKey)?.name ?? creation.objectTypeKey}
-          </button>
-        ))}
-        {choices.length > 0 && (
+        {!readOnly &&
+          dependentCreates.map((creation) => (
+            <button
+              key={`${creation.relationTypeKey}:${creation.objectTypeKey}`}
+              className="secondary"
+              onClick={() => setCreatingDependent(creation)}
+            >
+              <Icon name="plus" /> Add{" "}
+              {model.objectTypes.find((item) => item.key === creation.objectTypeKey)?.name ?? creation.objectTypeKey}
+            </button>
+          ))}
+        {!readOnly && choices.length > 0 && (
           <button className="secondary" onClick={() => setCreating(true)}>
             <Icon name="plus" /> Add relationship
           </button>
@@ -211,14 +214,14 @@ export function RelationsPanel({
                             <span className="managed-label">Managed through Parent</span>
                           ) : (
                             <>
-                              {hasAttributes && <button onClick={() => setEditing(item)}>Edit</button>}
+                              {!readOnly && hasAttributes && <button onClick={() => setEditing(item)}>Edit</button>}
                               {required ? (
                                 <span className="managed-label">Required relationship</span>
-                              ) : (
+                              ) : !readOnly ? (
                                 <button className="text-danger" onClick={() => setRemoving(item)}>
                                   Delete
                                 </button>
-                              )}
+                              ) : null}
                             </>
                           )}
                         </div>

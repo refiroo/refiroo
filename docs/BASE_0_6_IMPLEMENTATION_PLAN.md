@@ -1,6 +1,6 @@
 # Base 0.6 implementation plan
 
-**Status:** In progress; D1-D5 accepted, WP0 and WP1 complete, WP2 is next
+**Status:** In progress; D1-D5 accepted, WP0-WP2 complete, WP3 is next
 
 **Target:** Product release 0.6.0
 
@@ -175,7 +175,7 @@ fixtures.
 5. Create representative fixtures for two object types and active- and retired-derived histories.
 
 Exit: the interaction specification is independently reviewable and every journey has observable
-acceptance criteria. D1-D5 are already resolved and are not a remaining gate.
+acceptance criteria. D1-D5 are already resolved and require no further decision.
 
 ### WP1 — Build the UI foundation and shell (complete)
 
@@ -192,7 +192,7 @@ Primary areas: `frontend/package.json`, `frontend/eslint.config.js`, `frontend/s
 Exit: the shell, workspace selector, one table and one draft workflow use the boundary; keyboard and
 narrow-layout tests pass; no starter key determines presentation.
 
-### WP2 — Implement workspace authority and selection
+### WP2 — Implement workspace authority and selection (complete)
 
 Primary areas: database models and Alembic, a focused workspace service/router and API models,
 capability/configuration handling, frontend API/types, shell selector and tests.
@@ -279,7 +279,7 @@ contract suites, packaging checks, `README.md`, `CHANGELOG.md` and current docum
 Exit: all journeys and the repository definition of done pass on Python 3.12 and the supported frontend
 toolchain.
 
-## Release exit gate
+## Release acceptance criteria
 
 - Workspace selection is catalogue-backed, URL-stable and correctly read-only when retired.
 - Schema 0.5 table declarations are typed, validated and honestly rendered.
@@ -309,7 +309,7 @@ object states fail with actionable diagnostics; and verify the wheel contains ev
 
 ## Coding-agent handoff
 
-Implement work packages in order and keep each independently reviewable. WP0 and WP1 are complete;
-WP2 is the next package. Inspect the worktree before each package, preserve unrelated changes, update
+Implement work packages in order and keep each independently reviewable. WP0 through WP2 are complete;
+WP3 is the next package. Inspect the worktree before each package, preserve unrelated changes, update
 OpenAPI locks with public contracts and create a checkpoint only after that package's definition of
 done passes.

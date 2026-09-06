@@ -30,6 +30,7 @@ function AttributesPanelSection(props: PanelProps<AttributesPanelDefinition>) {
       onObjectChanged={props.onObjectChanged}
       onReload={props.onReload}
       onChanged={props.onChanged}
+      readOnly={props.readOnly}
     />
   );
 }
@@ -42,6 +43,7 @@ function RelationsPanelSection(props: PanelProps<RelationsPanelDefinition>) {
       panel={props.panel}
       onOpen={props.onOpen}
       onChanged={props.onChanged}
+      readOnly={props.readOnly}
     />
   );
 }

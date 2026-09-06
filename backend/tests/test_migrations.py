@@ -99,6 +99,12 @@ def test_runtime_state_migration_adopts_one_legacy_active_release(tmp_path):
             ),
             {"object_id": runtime_object_id},
         ).one()
+        workspaces = connection.execute(
+            text("SELECT key, label, status, version FROM workspaces ORDER BY key")
+        ).all()
+        workspace_state = connection.execute(
+            text("SELECT id, default_workspace_key, version FROM workspace_runtime_state")
+        ).one()
     assert state == (1, release_id, 1)
     assert runtime_object == (
         runtime_object_id,
@@ -106,6 +112,16 @@ def test_runtime_state_migration_adopts_one_legacy_active_release(tmp_path):
         "domain",
         "Preserved domain",
         3,
+    )
+    assert workspaces == [
+        ("default", "Default", "active", 1),
+        ("migration-workspace", "migration-workspace", "active", 1),
+    ]
+    assert workspace_state == (1, "default", 1)
+    assert any(
+        foreign_key["referred_table"] == "workspaces"
+        and foreign_key["constrained_columns"] == ["workspace_key"]
+        for foreign_key in inspect(engine).get_foreign_keys("objects")
     )
     unique_constraints = inspect(engine).get_unique_constraints("model_releases")
     assert any(item["name"] == "uq_model_release_identity" for item in unique_constraints)

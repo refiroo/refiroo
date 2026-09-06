@@ -26,6 +26,10 @@ for identity.
 The generic UI carries explicit workspace context in its shell and routes, restores URL-backed
 collection search/state/sort/page-size controls, provides reusable row actions and retry states, and
 shows independently paged relation expansion and audit history on object details.
+The global workspace catalogue is now authoritative: a singleton, concurrency-protected state selects
+the active default; discovery is searchable and cursor-paged; unknown explicit keys fail; and retired
+workspaces remain readable while rejecting object, attribute and relation mutations. The shell uses
+catalogue labels and keeps stable keys in URLs instead of accepting free-text authority.
 The frontend has since had a structural pass, phases 0–4 of
 `docs/FRONTEND_STRUCTURE_REFACTOR.md`, ahead of the Base 0.6 UI work. It changed no API contract,
 model contract or architecture: `frontend/src` is organized into `app/`, `features/`, `ui/`,
@@ -139,9 +143,6 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 
 ## Known gaps
 
-- The Base 0.5 workspace selector accepts a raw workspace key because no authoritative workspace
-  catalogue exists yet. Base 0.6 plans bounded workspace discovery and a catalogue-backed selector;
-  ADR-019 now fixes its authority, administration, default selection and unknown/retired behavior.
 - Object management is functionally complete but fragmented: the main edit dialog changes core fields
   and parent while stored attributes are managed through separate detail-panel actions. Runtime object
   state and state filtering still use unconstrained text in Base 0.5. ADR-020 now defines the Base 0.6
@@ -158,12 +159,12 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 - Model-declared `filterable` and `sortable` attribute features are not implemented in object queries;
   collection controls cover search, free-text state and built-in sorts only.
 - The UI has component-level regression coverage but no browser-level workflow, automated
-  accessibility or visual-regression release gate. WP1 now provides the documented RDM token and
+  accessibility or visual-regression release checks. WP1 now provides the documented RDM token and
   semantic-wrapper foundation, but broader adoption and real-browser proof remain release work rather
   than a claim that component primitives alone complete accessibility.
 - Dialog keyboard behavior is now consistent through the shared `ui/Modal` shell, but it has only
   been exercised in jsdom. Nothing has driven a real browser or a screen reader; Base 0.6 WP6 owns
-  that gate.
+  those checks.
 - The model lifecycle is complete, but its workbench remains a plain JSON-centred interface. Its
   broader usability redesign is deferred beyond Base 0.6 so runtime-object revisions stay bounded.
 - Relations support full instance CRUD (create/read-one/update/delete with optimistic concurrency);
@@ -203,11 +204,11 @@ Base 0.5 delivered:
 
 See `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` for the completed historical work packages,
 `docs/BASE_0_6_IMPLEMENTATION_PLAN.md` for the next implementation-ready handoff, `docs/TODO.md` for
-the active delivery queue and `docs/ROADMAP.md` for the release exit gate and later milestones.
+the active delivery queue and `docs/ROADMAP.md` for the release criteria and later milestones.
 
-All Base 0.5 work packages and exit gates are complete. D1 through D5 are accepted. The Base 0.6 WP0
-interaction baseline and WP1 UI foundation are complete. WP2 workspace authority is next, followed by
-schema 0.5 typed tables, authoritative object revisions, lifecycle UI and release gates. Core mapping
+All Base 0.5 work packages and acceptance criteria are complete. D1 through D5 are accepted. The Base 0.6 WP0
+interaction baseline, WP1 UI foundation and WP2 workspace authority are complete. WP3 schema 0.5
+typed tables are next, followed by authoritative object revisions, lifecycle UI and release checks. Core mapping
 is product 0.7 and bulk mapping remains in the later integration milestone.
 
 ## Coding-agent handoff
@@ -215,8 +216,8 @@ is product 0.7 and bulk mapping remains in the later integration milestone.
 Open the repository root, then start a new coding chat with:
 
 > Read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP.md`, `docs/UI_MODEL.md`,
-> `docs/BASE_0_6_IMPLEMENTATION_PLAN.md` and `docs/BASE_0_6_INTERACTION_SPEC.md`. Review the WP0
-> accepted WP0 interaction baseline and its frontend acceptance fixtures, then execute Base 0.6 WP1
+> `docs/BASE_0_6_IMPLEMENTATION_PLAN.md` and `docs/BASE_0_6_INTERACTION_SPEC.md`. Review the
+> accepted WP0 interaction baseline, its frontend acceptance fixtures and the completed WP1-WP2 work, then execute Base 0.6 WP3
 > only. Do not pull deferred mapping or model-workbench redesign into Base 0.6.
 > Preserve all product invariants and report the current worktree status before editing.
 

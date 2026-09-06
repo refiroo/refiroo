@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Any, Literal
 
-from pydantic import UUID4, BaseModel, ConfigDict, Field, model_validator
+from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class ApiErrorBody(BaseModel):
@@ -56,7 +56,7 @@ class ObjectCreate(BaseModel):
     applicationKey: str
     objectTypeKey: str
     name: str = Field(min_length=1, max_length=500)
-    workspaceKey: str = "default"
+    workspaceKey: str | None = None
     parentObjectId: UUID4 | None = None
     state: str = "active"
     attributes: list[AttributeInput] = Field(default_factory=list)
@@ -265,8 +265,71 @@ class ModelAdminCapabilities(BaseModel):
     activate: bool
 
 
+class WorkspaceAdminCapabilities(BaseModel):
+    manageWorkspaces: bool
+
+
 class CapabilitiesResponse(BaseModel):
     modelAdmin: ModelAdminCapabilities
+    workspaceAdmin: WorkspaceAdminCapabilities
+
+
+class WorkspaceCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    key: str = Field(min_length=1, max_length=160, pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+    label: str = Field(min_length=1, max_length=300)
+
+    @field_validator("key", "label", mode="before")
+    @classmethod
+    def trim_workspace_create_text(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
+class WorkspaceUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expectedVersion: int = Field(ge=1)
+    label: str | None = Field(default=None, min_length=1, max_length=300)
+    status: Literal["active", "retired"] | None = None
+
+    @field_validator("label", mode="before")
+    @classmethod
+    def trim_workspace_label(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+    @model_validator(mode="after")
+    def require_workspace_change(self) -> "WorkspaceUpdate":
+        if self.label is None and self.status is None:
+            raise ValueError("At least one of 'label' or 'status' is required")
+        return self
+
+
+class WorkspaceResponse(BaseModel):
+    key: str
+    label: str
+    status: Literal["active", "retired"]
+    version: int
+    createdAt: datetime
+    updatedAt: datetime
+
+
+class WorkspacePage(BaseModel):
+    items: list[WorkspaceResponse]
+    nextCursor: str | None
+
+
+class WorkspaceRuntimeStateUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    defaultWorkspaceKey: str = Field(min_length=1, max_length=160)
+    expectedVersion: int = Field(ge=1)
+
+
+class WorkspaceRuntimeStateResponse(BaseModel):
+    defaultWorkspaceKey: str
+    version: int
+    updatedAt: datetime
 
 
 class ModelDraftCreate(BaseModel):

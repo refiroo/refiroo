@@ -25,12 +25,12 @@ release plan and changelog rather than accumulating it here.
   Lucide behind one accessible icon wrapper and direct feature imports prohibited.
 - [x] WP1: implement the RDM-owned accessible UI foundation, exact dependency locks, import boundary,
   semantic wrappers and clarified desktop/narrow application shell.
-- [ ] WP2: add the workspace catalogue, default runtime state, administration API and selector.
+- [x] WP2: add the workspace catalogue, default runtime state, administration API and selector.
 - [ ] WP3: implement schema 0.5 typed tables and the fixed daily-use filter/sort grammar.
 - [ ] WP4: make runtime-object revisions authoritative; migrate data and add draft, activation,
   retirement, history and retired-discovery contracts.
 - [ ] WP5: deliver coherent root-draft, revise-from-history, activation, retirement and lineage UI.
-- [ ] WP6: add browser, accessibility and visual-regression gates and complete release validation.
+- [ ] WP6: add browser, accessibility and visual-regression checks and complete release validation.
 
 See `BASE_0_6_IMPLEMENTATION_PLAN.md` for scope, file boundaries and exit criteria.
 

@@ -75,15 +75,22 @@ export function ComboBoxField({
   options,
   onChange,
   description,
+  allowsCustomValue = true,
+  onSelect,
 }: {
   label: string;
   value: string;
   options: readonly SelectionOption[];
   onChange: (value: string) => void;
   description?: string;
+  allowsCustomValue?: boolean;
+  onSelect?: (value: string) => void;
 }) {
   function select(key: Key | null) {
-    if (key !== null) onChange(String(key));
+    if (key !== null) {
+      onChange(String(key));
+      onSelect?.(String(key));
+    }
   }
 
   return (
@@ -92,7 +99,7 @@ export function ComboBoxField({
       inputValue={value}
       onInputChange={onChange}
       onSelectionChange={select}
-      allowsCustomValue
+      allowsCustomValue={allowsCustomValue}
       allowsEmptyCollection
       menuTrigger="focus"
     >

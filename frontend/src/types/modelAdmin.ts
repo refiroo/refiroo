@@ -12,6 +12,9 @@ export interface ModelAdminCapabilities {
 
 export interface CapabilitiesResponse {
   modelAdmin: ModelAdminCapabilities;
+  workspaceAdmin: {
+    manageWorkspaces: boolean;
+  };
 }
 
 export interface ModelDiagnostic {

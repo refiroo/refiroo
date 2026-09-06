@@ -80,6 +80,41 @@ class ModelDraft(Base):
     )
 
 
+class Workspace(Base):
+    __tablename__ = "workspaces"
+    __table_args__ = (
+        CheckConstraint("status IN ('active', 'retired')", name="ck_workspace_status"),
+    )
+
+    key: Mapped[str] = mapped_column(String(160), primary_key=True)
+    label: Mapped[str] = mapped_column(String(300))
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="active", index=True)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+
+class WorkspaceRuntimeState(Base):
+    __tablename__ = "workspace_runtime_state"
+    __table_args__ = (CheckConstraint("id = 1", name="ck_workspace_runtime_state_singleton"),)
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    default_workspace_key: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.key", ondelete="RESTRICT"), nullable=False
+    )
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+
 class ApplicationMeta(Base):
     __tablename__ = "model_applications"
     __table_args__ = (UniqueConstraint("model_release_id", "key", name="uq_model_application_key"),)
@@ -253,7 +288,9 @@ class RdmObject(Base):
     id: Mapped[str] = mapped_column(
         String(36), unique=True, index=True, default=lambda: str(uuid4())
     )
-    workspace_key: Mapped[str] = mapped_column(String(160), default="default", index=True)
+    workspace_key: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.key", ondelete="RESTRICT"), default="default", index=True
+    )
     application_key: Mapped[str] = mapped_column(String(160), index=True)
     object_type_key: Mapped[str] = mapped_column(String(160), index=True)
     parent_object_id: Mapped[str | None] = mapped_column(

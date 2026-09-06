@@ -16,4 +16,5 @@ export interface PanelProps<P extends PanelDefinition = PanelDefinition> {
   onChanged: () => void;
   onObjectChanged: (object: ObjectItem) => void;
   onReload: () => Promise<void>;
+  readOnly: boolean;
 }

@@ -46,6 +46,7 @@ describe("ModelWorkbench", () => {
   it("keeps release inspection visible while hiding mutation actions", async () => {
     vi.mocked(api.capabilities).mockResolvedValue({
       modelAdmin: { readReleases: true, manageDrafts: false, install: false, activate: false },
+      workspaceAdmin: { manageWorkspaces: true },
     });
     vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
     vi.mocked(api.modelRuntimeState).mockResolvedValue({

@@ -55,10 +55,10 @@ table semantics inside a labelled horizontal-scroll region. Contextual row actio
 keyboard-operated menu while `Open` remains directly visible. Newly mounted task-level error notices
 receive focus so their preserved-input and recovery message is announced immediately.
 
-The WP1 workspace combobox intentionally preserves Base 0.5 custom-key entry and offers only the
-current and default keys as local suggestions. It proves the interaction boundary but is not a
-workspace catalogue; searchable catalogue data, labels, retirement state and unknown-key handling
-remain exclusively WP2.
+WP1 initially preserved Base 0.5 custom-key entry as an interaction boundary. WP2 replaces that
+temporary behavior with the authoritative, searchable workspace catalogue. The selector displays
+workspace labels while retaining stable keys in URLs, identifies retired selections and does not
+accept arbitrary keys.
 
 ## Component registry
 
@@ -149,7 +149,7 @@ type definitions is model administration and is not part of runtime CRUD.
 
 ## Base 0.5 usability gaps
 
-Base 0.5 proves the contracts but not yet the intended experience:
+Before Base 0.6 work began, Base 0.5 proved the contracts but not yet the intended experience:
 
 - complete object editing is split between a core-fields dialog and individual attribute actions;
 - workspace and runtime object state are entered as free text, and the mutable object row cannot
@@ -159,7 +159,7 @@ Base 0.5 proves the contracts but not yet the intended experience:
 - application/view navigation and the always-visible object explorer compete for attention;
 - typography, surfaces, badges and status treatments come from one ad hoc stylesheet rather than a
   documented visual system; and
-- component tests exist, but browser-level task, automated accessibility and visual-regression gates
+- component tests exist, but browser-level task, automated accessibility and visual-regression checks
   do not.
 
 These are the Base 0.6 starting conditions, not reasons to replace the underlying model-driven
@@ -187,4 +187,4 @@ The structured designer should eventually use reference-aware catalogues, forms,
 matrices and live preview. A dependency graph may help users understand a model, but a node-and-edge
 canvas is not the default authoring surface.
 
-See `BASE_0_6_IMPLEMENTATION_PLAN.md` for the decision gates, acceptance journeys and work packages.
+See `BASE_0_6_IMPLEMENTATION_PLAN.md` for the accepted decisions, acceptance journeys and work packages.

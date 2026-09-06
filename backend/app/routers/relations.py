@@ -29,12 +29,11 @@ from ..services.relations import (
     load_relation,
     validate_relation_attributes,
 )
+from ..services.workspaces import resolve_workspace
 
 router = APIRouter(prefix="/api/v1", tags=["relations"])
 
-_RELATION_KEYS = (
-    integer_key("sequenceId", ObjectRelation.sequence_id, "sequence_id"),
-)
+_RELATION_KEYS = (integer_key("sequenceId", ObjectRelation.sequence_id, "sequence_id"),)
 
 
 @router.post(
@@ -85,9 +84,7 @@ def get_relations(
         )
     )
     if effective_relation_type_key:
-        statement = statement.where(
-            ObjectRelation.relation_type_key == effective_relation_type_key
-        )
+        statement = statement.where(ObjectRelation.relation_type_key == effective_relation_type_key)
 
     visible, next_cursor = paginate_statement(
         session,
@@ -133,9 +130,7 @@ def get_relations(
 
 def _related_id(relation: ObjectRelation, object_id: str) -> str:
     return (
-        relation.to_object_id
-        if relation.from_object_id == object_id
-        else relation.from_object_id
+        relation.to_object_id if relation.from_object_id == object_id else relation.from_object_id
     )
 
 
@@ -157,6 +152,7 @@ def update_relation(
     relation = load_relation(session, relation_id)
     from_object = load_object(session, relation.from_object_id)
     to_object = load_object(session, relation.to_object_id)
+    resolve_workspace(session, from_object.workspace_key, require_active=True)
     ensure_relation_mutable(model, relation.relation_type_key, to_object.object_type_key)
     allowed = find_allowed_relation(
         model,
@@ -193,6 +189,7 @@ def delete_relation(
     relation = load_relation(session, relation_id)
     from_object = load_object(session, relation.from_object_id)
     to_object = load_object(session, relation.to_object_id)
+    resolve_workspace(session, from_object.workspace_key, require_active=True)
     ensure_relation_mutable(model, relation.relation_type_key, to_object.object_type_key)
     allowed = find_allowed_relation(
         model,

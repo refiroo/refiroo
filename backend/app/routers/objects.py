@@ -24,6 +24,7 @@ from ..services.objects import (
     update_object_record,
 )
 from ..services.pagination import paginate_statement
+from ..services.workspaces import resolve_workspace
 
 router = APIRouter(prefix="/api/v1", tags=["objects"])
 
@@ -47,13 +48,14 @@ def list_objects(
     cursor: str | None = None,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
     application_key: str | None = Query(default=None, alias="applicationKey"),
-    workspace_key: str = Query(default="default", alias="workspaceKey"),
+    workspace_key: str | None = Query(default=None, alias="workspaceKey"),
     parent_object_id: str | None = Query(default=None, alias="parentObjectId"),
     state_filter: Annotated[list[str] | None, Query(alias="state")] = None,
     search: str | None = None,
     sort: ObjectSort | None = None,
 ) -> ObjectPage:
     model = snapshot.model
+    workspace_key = resolve_workspace(session, workspace_key).key
     query = build_object_query(
         model,
         object_type_key=object_type_key,
@@ -74,9 +76,7 @@ def list_objects(
         page_size=page_size,
         message="Object cursor is invalid",
     )
-    return ObjectPage(
-        items=build_object_responses(session, model, objects), nextCursor=next_cursor
-    )
+    return ObjectPage(items=build_object_responses(session, model, objects), nextCursor=next_cursor)
 
 
 @router.post(
@@ -153,6 +153,7 @@ def delete_object(
     model = snapshot.model
     get_object_type(model, object_type_key)
     item = load_object(session, object_id, object_type_key)
+    resolve_workspace(session, item.workspace_key, require_active=True)
     claim_object_version(session, item, expected_version)
     plan = build_delete_plan(session, model, item, cascade=True)
     if plan.has_dependents and not cascade:

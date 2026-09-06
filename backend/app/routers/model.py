@@ -17,6 +17,7 @@ from ..models.api import (
     ObjectTypeRelationResponse,
     ObjectTypeResponse,
     RelationTypeResponse,
+    WorkspaceAdminCapabilities,
 )
 from ..services.cursors import METADATA_CURSOR_MESSAGE
 from ..services.model.compiler import compile_model
@@ -45,7 +46,10 @@ def get_capabilities(request: Request) -> CapabilitiesResponse:
             manageDrafts=mutations_enabled,
             install=mutations_enabled,
             activate=mutations_enabled,
-        )
+        ),
+        workspaceAdmin=WorkspaceAdminCapabilities(
+            manageWorkspaces=bool(request.app.state.workspace_admin_mutations_enabled)
+        ),
     )
 
 

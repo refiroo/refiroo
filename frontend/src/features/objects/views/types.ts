@@ -14,4 +14,5 @@ export interface ViewComponentProps {
   onQueryChange: (query: CollectionQueryState) => void;
   onOpen: (item: ObjectItem) => void;
   onChanged: () => void;
+  readOnly?: boolean;
 }

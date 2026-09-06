@@ -155,12 +155,13 @@ def _object_sort_keys(sort: str | None) -> tuple[SortKey, ...]:
     return (primary, sequence)
 
 
-def create_object_record(
-    session: Session, model: EngineModel, payload: ObjectCreate
-) -> RdmObject:
+def create_object_record(session: Session, model: EngineModel, payload: ObjectCreate) -> RdmObject:
     """Create one object with its attributes, containment edge and initial relations."""
     from .relations import create_relation_instance
+    from .workspaces import resolve_workspace
 
+    workspace = resolve_workspace(session, payload.workspaceKey, require_active=True)
+    workspace_key = workspace.key
     object_type_key = payload.objectTypeKey
     object_type = get_object_type(model, object_type_key)
     validate_application_object_type(model, payload.applicationKey, object_type_key)
@@ -181,14 +182,12 @@ def create_object_record(
         model,
         object_type_key,
         payload.applicationKey,
-        payload.workspaceKey,
+        workspace_key,
         str(payload.parentObjectId) if payload.parentObjectId is not None else None,
     )
-    check_attribute_uniqueness(
-        session, model, attributes, workspace_key=payload.workspaceKey
-    )
+    check_attribute_uniqueness(session, model, attributes, workspace_key=workspace_key)
     item = RdmObject(
-        workspace_key=payload.workspaceKey,
+        workspace_key=workspace_key,
         application_key=payload.applicationKey,
         object_type_key=object_type_key,
         parent_object_id=parent.id if parent else None,
@@ -263,6 +262,7 @@ def update_object_record(
 ) -> RdmObject:
     """Apply a partial object update under optimistic concurrency."""
     from .relations import validate_scoped_relations_for_subtree
+    from .workspaces import resolve_workspace
 
     object_type = get_object_type(model, object_type_key)
     attributes = (
@@ -274,6 +274,7 @@ def update_object_record(
     )
 
     item = load_object(session, object_id, object_type_key)
+    resolve_workspace(session, item.workspace_key, require_active=True)
     claim_object_version(session, item, payload.expectedVersion)
 
     if attributes is not None:

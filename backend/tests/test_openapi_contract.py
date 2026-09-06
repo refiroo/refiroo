@@ -4,15 +4,15 @@ import json
 from app.main import app, create_app
 
 
-def test_base_0_5_default_openapi_document_is_locked():
+def test_base_0_6_wp2_default_openapi_document_is_locked():
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
 
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "9e2e2ff94cee32519f4f2c3aec9892c495e5ee3db690906b2165e363b0e2a333"
+        "a21a5ebfc636f5298c86bc1bb20a8e05f7a9333224e85d0c36f15851f393052f"
     )
 
 
-def test_base_0_5_default_openapi_path_and_method_inventory_is_locked():
+def test_base_0_6_wp2_default_openapi_path_and_method_inventory_is_locked():
     schema = app.openapi()
 
     actual = {
@@ -38,11 +38,12 @@ def test_base_0_5_default_openapi_path_and_method_inventory_is_locked():
         "/api/v1/relation-types": frozenset({"get"}),
         "/api/v1/relation-types/{relation_type_key}": frozenset({"get"}),
         "/api/v1/object-type-relations": frozenset({"get"}),
+        "/api/v1/workspaces": frozenset({"get", "post"}),
+        "/api/v1/workspaces/{workspace_key}": frozenset({"get", "patch"}),
+        "/api/v1/workspace-runtime-state": frozenset({"get", "patch"}),
         "/api/v1/objects/{object_type_key}": frozenset({"get"}),
         "/api/v1/objects": frozenset({"post"}),
-        "/api/v1/objects/{object_type_key}/{object_id}": frozenset(
-            {"delete", "get", "patch"}
-        ),
+        "/api/v1/objects/{object_type_key}/{object_id}": frozenset({"delete", "get", "patch"}),
         "/api/v1/objects/{object_type_key}/{object_id}/history": frozenset({"get"}),
         "/api/v1/relations": frozenset({"get", "post"}),
         "/api/v1/relations/{relation_id}": frozenset({"delete", "get", "patch"}),
@@ -52,7 +53,7 @@ def test_base_0_5_default_openapi_path_and_method_inventory_is_locked():
     }
 
 
-def test_base_0_5_default_openapi_component_schema_inventory_is_locked():
+def test_base_0_6_wp2_default_openapi_component_schema_inventory_is_locked():
     schema_names = set(app.openapi()["components"]["schemas"])
 
     assert schema_names == {
@@ -98,6 +99,13 @@ def test_base_0_5_default_openapi_component_schema_inventory_is_locked():
         "RelationResponse",
         "RelationTypeResponse",
         "RelationUpdate",
+        "WorkspaceAdminCapabilities",
+        "WorkspaceCreate",
+        "WorkspacePage",
+        "WorkspaceResponse",
+        "WorkspaceRuntimeStateResponse",
+        "WorkspaceRuntimeStateUpdate",
+        "WorkspaceUpdate",
     }
 
 

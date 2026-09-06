@@ -26,6 +26,7 @@ from ..services.objects import (
     load_object,
 )
 from ..services.relations import validate_scoped_relations_for_subtree
+from ..services.workspaces import resolve_workspace
 
 router = APIRouter(prefix="/api/v1", tags=["attributes"])
 
@@ -59,6 +60,7 @@ def _write_attribute_value(
     """Shared write path for creating and replacing a single attribute value."""
     object_type = get_object_type(model, object_type_key)
     item = load_object(session, object_id, object_type_key)
+    resolve_workspace(session, item.workspace_key, require_active=True)
     claim_object_version(session, item, payload.expectedVersion)
     if require_absent:
         ensure_attribute_value_absent(session, item.id, attribute_type_key)
@@ -145,6 +147,7 @@ def delete_attribute_value(
     model = snapshot.model
     object_type = get_object_type(model, object_type_key)
     item = load_object(session, object_id, object_type_key)
+    resolve_workspace(session, item.workspace_key, require_active=True)
     claim_object_version(session, item, expected_version)
     row = load_attribute_value(session, item.id, attribute_type_key)
     validate_deletable_attribute(object_type, attribute_type_key)

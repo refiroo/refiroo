@@ -22,6 +22,7 @@ export function AttributesPanel({
   onObjectChanged,
   onReload,
   onChanged = () => undefined,
+  readOnly = false,
 }: {
   model: EngineModel;
   object: ObjectItem;
@@ -29,6 +30,7 @@ export function AttributesPanel({
   onObjectChanged: (object: ObjectItem) => void;
   onReload: () => Promise<void>;
   onChanged?: () => void;
+  readOnly?: boolean;
 }) {
   const objectType = objectTypeFor(model, object.objectTypeKey);
   const bindingMap = new Map((objectType?.attributes ?? []).map((binding) => [binding.attributeTypeKey, binding]));
@@ -77,7 +79,7 @@ export function AttributesPanel({
             <div key={field}>
               <dt>{attributeName(model, field)}</dt>
               <dd>{formatValue(fieldValue(object, field, model))}</dd>
-              {editable && (
+              {!readOnly && editable && (
                 <div className="row-actions">
                   {stored ? (
                     <>

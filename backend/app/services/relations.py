@@ -13,9 +13,7 @@ from .attributes import current_attribute_values, normalize_value
 from .audit import record_audit_event
 
 
-def find_allowed_relation(
-    model: EngineModel, relation_type_key: str, from_type: str, to_type: str
-):
+def find_allowed_relation(model: EngineModel, relation_type_key: str, from_type: str, to_type: str):
     relation_type = model.relation_type(relation_type_key)
     if not relation_type:
         raise api_error(
@@ -93,11 +91,13 @@ def create_relation_instance(
     to_object: RdmObject | None = None,
 ) -> ObjectRelation:
     from .objects import load_object
+    from .workspaces import resolve_workspace
 
     from_object = from_object or load_object(session, str(payload.fromObjectId))
     to_object = to_object or load_object(session, str(payload.toObjectId))
     if from_object.workspace_key != to_object.workspace_key:
         raise api_error(422, "relation_wrong_scope", "Related objects must share a workspace")
+    resolve_workspace(session, from_object.workspace_key, require_active=True)
     allowed = find_allowed_relation(
         model,
         payload.relationTypeKey,
@@ -287,7 +287,9 @@ def ensure_relation_mutable(
         )
 
 
-def claim_relation_version(session: Session, relation: ObjectRelation, expected_version: int) -> None:
+def claim_relation_version(
+    session: Session, relation: ObjectRelation, expected_version: int
+) -> None:
     result = session.execute(
         update(ObjectRelation)
         .where(ObjectRelation.id == relation.id, ObjectRelation.version == expected_version)

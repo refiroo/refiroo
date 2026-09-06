@@ -2,8 +2,9 @@
 
 ## Entity identifiers
 
-Every entity exposed by the API carries a stable public `id`. IDs are **never** the internal database
-sequence numbers.
+Model metadata and runtime graph entities exposed by the API carry a stable public `id`. IDs are
+**never** internal database sequence numbers. A workspace is the deliberate exception: its immutable,
+case-sensitive `key` is its public identity and its administration responses do not invent a second ID.
 
 | Entity | `id` format | Additional key | Notes |
 |---|---|---|---|
@@ -14,6 +15,7 @@ sequence numbers.
 | Object | UUID v4 | — | Generated at creation time |
 | Attribute value | UUID v4 | — | Generated at creation time |
 | Object relation | UUID v4 | — | Generated at creation time |
+| Workspace | Stable key | `key` | Runtime-owned global catalogue record |
 
 **Type entities** (application, object type, attribute type, relation type) are identified by both a
 UUID `id` and a human-readable `key`. URL paths and model references use `key`; the `id` appears in
@@ -26,8 +28,8 @@ under their parent object by the attribute type's `key`
 (`/objects/{objectTypeKey}/{objectId}/attributes/{attributeTypeKey}`); their UUID `id` appears in every
 response body. See [Attribute value endpoints](#attribute-value-endpoints).
 
-Future custom entity types follow the same convention: every type and every instance receives a UUID
-`id` in its API response.
+Future model types and graph instances follow the same UUID convention. Runtime administration
+resources may instead define an explicit stable-key identity, as the workspace catalogue does.
 
 ### Response shape — type entities
 
@@ -114,6 +116,9 @@ Capabilities return deployment-supported operations explicitly:
     "manageDrafts": false,
     "install": false,
     "activate": false
+  },
+  "workspaceAdmin": {
+    "manageWorkspaces": true
   }
 }
 ```
@@ -122,6 +127,8 @@ Capabilities return deployment-supported operations explicitly:
 when `MODEL_ADMIN_MUTATIONS_ENABLED=true`; `activate` follows the same gate. The flag is a deployment
 guard, not an authorization mechanism. Mutation enablement requires a single process; startup rejects
 `WEB_CONCURRENCY` values greater than one until cross-process release propagation exists.
+`workspaceAdmin.manageWorkspaces` follows `WORKSPACE_ADMIN_MUTATIONS_ENABLED`, which defaults to true
+until authentication exists. It is a deployment capability and not evidence of caller authorization.
 
 `GET /api/v1/model` continues to return the active `EngineModel` body and adds:
 
@@ -330,12 +337,13 @@ are not mutation-gated. Lifecycle errors use:
 
 As elsewhere, errors use the shared `{ "error": { "code", "message", "details" } }` envelope.
 
-### Base 0.5 OpenAPI lock
+### OpenAPI lock
 
-The complete canonical default OpenAPI document digest for Base 0.5, plus readable path/method and
-component-schema inventories, are asserted by `backend/tests/test_openapi_contract.py`. A separate
-enabled-mode inventory asserts the mutation-gated draft surface. Any public shape change therefore
-requires an intentional contract-test update.
+The complete canonical default OpenAPI document digest for the current implementation, plus readable
+path/method and component-schema inventories, are asserted by
+`backend/tests/test_openapi_contract.py`. Separate enabled-mode inventories assert the optional model
+and workspace administration surfaces. Any public shape change therefore requires an intentional
+contract-test update.
 
 Every operation also documents the shared `ApiErrorResponse` envelope as its default error response.
 The generated contract includes representative `invalid_cursor`, `version_conflict` and
@@ -500,6 +508,26 @@ multiple object-type pairs — for example a reusable "contains" relation allowe
 parent/child combinations. The relation type's own `id` identifies the type itself; each pair's
 `id` identifies the specific binding.
 
+## Workspace endpoints
+
+- `GET /api/v1/workspaces?search=...&status=active|retired|all&pageSize=...&cursor=...`
+- `GET /api/v1/workspaces/{workspaceKey}`
+- `POST /api/v1/workspaces`
+- `PATCH /api/v1/workspaces/{workspaceKey}`
+- `GET /api/v1/workspace-runtime-state`
+- `PATCH /api/v1/workspace-runtime-state`
+
+Workspace keys are immutable and case-sensitive. Discovery defaults to active records and uses a
+filter-bound keyset cursor; detail reads include retired records. Updates claim the workspace version,
+and changing the default claims the independent singleton runtime-state version. The current default
+cannot be retired, and there is no delete or rename route. Unknown explicit scopes return
+`workspace_not_found`; retired scopes remain readable but all object, attribute and relation writes
+return `workspace_retired`.
+
+Create/update/default-switch routes are absent when `WORKSPACE_ADMIN_MUTATIONS_ENABLED=false`.
+The flag defaults to true only for the pre-authentication development posture; exposed deployments
+must disable it or protect the API with external access control.
+
 ## Object endpoints
 
 - `GET /api/v1/objects/{objectTypeKey}` — list objects of a type
@@ -568,7 +596,7 @@ commit atomically. A stale root `expectedVersion` returns HTTP 409.
 | `applicationKey` | Yes | Application the object belongs to. |
 | `objectTypeKey` | Yes | Type of the object to create. |
 | `name` | Yes | Display name (1–500 characters). |
-| `workspaceKey` | No | Defaults to `"default"`. |
+| `workspaceKey` | No | Resolves to the catalogue's current default workspace. |
 | `parentObjectId` | No | Parent object UUID. Required for non-root-creatable types. |
 | `state` | No | Defaults to `"active"`. |
 | `attributes` | No | Array of attribute values (see below). |

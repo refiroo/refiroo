@@ -35,6 +35,7 @@ class Settings(BaseModel):
     model_path: Path = DEFAULT_MODEL_PATH
     cors_origins: tuple[str, ...] = (DEFAULT_CORS_ORIGINS,)
     model_admin_mutations_enabled: bool = False
+    workspace_admin_mutations_enabled: bool = True
     web_concurrency: int = Field(default=1, ge=1)
     cursor_signing_key: bytes = _EPHEMERAL_CURSOR_SIGNING_KEY
 
@@ -45,15 +46,16 @@ class Settings(BaseModel):
         configured_signing_key = env.get("RDM_CURSOR_SIGNING_KEY")
         return cls(
             database_url=env.get("DATABASE_URL", DEFAULT_DATABASE_URL),
-            model_path=Path(configured_model_path)
-            if configured_model_path
-            else DEFAULT_MODEL_PATH,
+            model_path=Path(configured_model_path) if configured_model_path else DEFAULT_MODEL_PATH,
             cors_origins=tuple(
                 origin.strip()
                 for origin in env.get("CORS_ORIGINS", DEFAULT_CORS_ORIGINS).split(",")
             ),
             model_admin_mutations_enabled=(
                 env.get("MODEL_ADMIN_MUTATIONS_ENABLED", "false").strip().lower() in TRUTHY
+            ),
+            workspace_admin_mutations_enabled=(
+                env.get("WORKSPACE_ADMIN_MUTATIONS_ENABLED", "true").strip().lower() in TRUTHY
             ),
             web_concurrency=_worker_count(env.get("WEB_CONCURRENCY", "1")),
             cursor_signing_key=(
@@ -113,3 +115,7 @@ def cors_origins() -> list[str]:
 
 def model_admin_mutations_enabled() -> bool:
     return get_settings().model_admin_mutations_enabled
+
+
+def workspace_admin_mutations_enabled() -> bool:
+    return get_settings().workspace_admin_mutations_enabled

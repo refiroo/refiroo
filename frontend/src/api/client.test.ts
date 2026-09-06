@@ -50,6 +50,19 @@ describe("API client", () => {
     expect(url.searchParams.get("sort")).toBe("-updatedAt");
   });
 
+  it("searches the bounded workspace catalogue", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await api.workspaces({ search: "Central & East", status: "all", pageSize: 25 });
+    const url = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(url.pathname).toBe("/api/v1/workspaces");
+    expect(url.searchParams.get("search")).toBe("Central & East");
+    expect(url.searchParams.get("status")).toBe("all");
+    expect(url.searchParams.get("pageSize")).toBe("25");
+  });
+
   it("requests a bounded object history page", async () => {
     const fetchMock = vi
       .fn()

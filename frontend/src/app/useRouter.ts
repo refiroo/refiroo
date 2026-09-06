@@ -21,12 +21,13 @@ export interface Router {
   /** Pushes or replaces a route, keeping the URL and the rendered route in step. */
   navigate: (next: RouteState, replace?: boolean) => void;
   /**
-   * The collection the user last looked at, used to return to it from a detail screen.
+   * The collection the user last looked at, optionally scoped to an application, used to return
+   * from detail and to restore each application's view and query after navigation.
    *
    * A function rather than a value, because it is remembered in a ref: reading it during render
    * would tie the rendered output to something React does not track.
    */
-  lastCollection: () => ListRoute | undefined;
+  lastCollection: (applicationKey?: string) => ListRoute | undefined;
   /** Moves the remembered collection to another workspace, so returning to it stays in place. */
   rememberWorkspace: (workspaceKey: string) => void;
   /** Re-reads the active model, after a different release is activated. */
@@ -44,13 +45,15 @@ export function useRouter(): Router {
   const [model, setModel] = useState<EngineModel>();
   const [route, setRoute] = useState<RouteState>();
   const [error, setError] = useState("");
-  const lastCollection = useRef<ListRoute | undefined>(undefined);
+  const [defaultWorkspaceKey, setDefaultWorkspaceKey] = useState("default");
+  const lastCollections = useRef(new Map<string, ListRoute>());
+  const mostRecentCollection = useRef<ListRoute | undefined>(undefined);
 
   useEffect(() => {
-    api
-      .model()
-      .then((loaded) => {
-        const initial = parseRoute(loaded);
+    Promise.all([api.model(), api.workspaceRuntimeState()])
+      .then(([loaded, workspaceState]) => {
+        setDefaultWorkspaceKey(workspaceState.defaultWorkspaceKey);
+        const initial = parseRoute(loaded, workspaceState.defaultWorkspaceKey);
         setModel(loaded);
         setRoute(initial);
         if (`${window.location.pathname}${window.location.search}` !== routePath(initial))
@@ -61,18 +64,26 @@ export function useRouter(): Router {
 
   useEffect(() => {
     if (!model) return;
-    const pop = () => setRoute(parseRoute(model));
+    const pop = () => setRoute(parseRoute(model, defaultWorkspaceKey));
     window.addEventListener("popstate", pop);
     return () => window.removeEventListener("popstate", pop);
-  }, [model]);
+  }, [defaultWorkspaceKey, model]);
 
   const requested = model && route && route.kind !== "models" ? applicationFor(model, route.applicationKey) : undefined;
-  const active = model && route ? (route.kind === "models" || requested ? route : defaultRoute(model)) : undefined;
+  const active =
+    model && route
+      ? route.kind === "models" || requested
+        ? route
+        : defaultRoute(model, defaultWorkspaceKey)
+      : undefined;
 
   // Remembering the collection is a write, so it belongs in an effect rather than in render. The
   // value is only ever read from event handlers, which run after effects have committed.
   useEffect(() => {
-    if (active?.kind === "list") lastCollection.current = active;
+    if (active?.kind === "list") {
+      lastCollections.current.set(active.applicationKey, active);
+      mostRecentCollection.current = active;
+    }
   }, [active]);
 
   const navigate = useCallback((next: RouteState, replace = false) => {
@@ -85,7 +96,10 @@ export function useRouter(): Router {
   }, []);
 
   const rememberWorkspace = useCallback((workspaceKey: string) => {
-    if (lastCollection.current) lastCollection.current = { ...lastCollection.current, workspaceKey };
+    for (const [applicationKey, collection] of lastCollections.current) {
+      lastCollections.current.set(applicationKey, { ...collection, workspaceKey });
+    }
+    if (mostRecentCollection.current) mostRecentCollection.current = { ...mostRecentCollection.current, workspaceKey };
   }, []);
 
   return {
@@ -93,7 +107,8 @@ export function useRouter(): Router {
     error,
     route: active,
     navigate,
-    lastCollection: () => lastCollection.current,
+    lastCollection: (applicationKey) =>
+      applicationKey ? lastCollections.current.get(applicationKey) : mostRecentCollection.current,
     rememberWorkspace,
     reloadModel,
   };

@@ -29,6 +29,7 @@ export function CollectionPanelTable({
   allowCreate,
   onOpen,
   onChanged,
+  readOnly,
 }: PanelProps & {
   objectTypeKey: string;
   columns: string[];
@@ -79,7 +80,7 @@ export function CollectionPanelTable({
             placeholder={`Search ${objectType.pluralName.toLowerCase()}`}
           />
         </label>
-        {allowCreate && (
+        {allowCreate && !readOnly && (
           <button className="secondary" onClick={() => setCreating(true)}>
             <Icon name="plus" /> Add {objectType.name}
           </button>

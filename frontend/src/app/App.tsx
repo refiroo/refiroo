@@ -4,13 +4,14 @@ import { ObjectDetail } from "@/features/objects/ObjectDetail";
 import { ModelWorkbench } from "@/features/model-admin/ModelWorkbench";
 import { defaultRoute, viewRoute } from "@/routing/routes";
 import { applicationFor } from "@/model/lookup";
-import type { ApplicationDefinition, CollectionQueryState, ObjectItem } from "@/types";
+import type { ApplicationDefinition, CollectionQueryState, ObjectItem, Workspace } from "@/types";
 import { AppShell } from "./AppShell";
 import { useRouter } from "./useRouter";
 
 export default function App() {
   const { model, error, route, navigate, lastCollection, rememberWorkspace, reloadModel } = useRouter();
   const [refreshToken, setRefreshToken] = useState(0);
+  const [workspace, setWorkspace] = useState<Workspace>();
 
   if (!model || !route) return <div className="center-message">{error || "Loading the model…"}</div>;
   const requested = route.kind === "models" ? undefined : applicationFor(model, route.applicationKey);
@@ -19,11 +20,14 @@ export default function App() {
   // Aliased because the handlers below are hoisted function declarations, which TypeScript types
   // from the declaration rather than from the narrowing performed by the guard above.
   const activeModel = model;
+  const workspaceReadOnly =
+    activeRoute.kind !== "models" && (workspace?.key !== activeRoute.workspaceKey || workspace.status !== "active");
 
   function selectApplication(selected: ApplicationDefinition) {
     const workspaceKey =
       activeRoute.kind === "models" ? (lastCollection()?.workspaceKey ?? "default") : activeRoute.workspaceKey;
-    navigate(viewRoute(selected, selected.defaultView, workspaceKey));
+    const remembered = lastCollection(selected.key);
+    navigate(remembered ? { ...remembered, workspaceKey } : viewRoute(selected, selected.defaultView, workspaceKey));
   }
 
   function openObject(item: Pick<ObjectItem, "applicationKey" | "objectTypeKey" | "id" | "workspaceKey">) {
@@ -43,8 +47,8 @@ export default function App() {
 
   function backToCollection() {
     if (activeRoute.kind === "models") return;
-    const remembered = lastCollection();
-    if (remembered?.applicationKey === application.key) {
+    const remembered = lastCollection(application.key);
+    if (remembered) {
       navigate(remembered);
       return;
     }
@@ -65,7 +69,17 @@ export default function App() {
   function changeWorkspace(workspaceKey: string) {
     if (activeRoute.kind === "models") return;
     rememberWorkspace(workspaceKey);
-    navigate({ ...activeRoute, workspaceKey });
+    if (activeRoute.kind === "detail") {
+      const matchingView = application.views.find((view) => view.objectTypeKey === activeRoute.objectTypeKey);
+      const remembered = lastCollection(application.key);
+      navigate(
+        remembered && remembered.viewKey === matchingView?.key
+          ? { ...remembered, workspaceKey }
+          : viewRoute(application, matchingView?.key ?? application.defaultView, workspaceKey),
+      );
+    } else {
+      navigate({ ...activeRoute, workspaceKey });
+    }
     setRefreshToken((value) => value + 1);
   }
 
@@ -78,6 +92,8 @@ export default function App() {
       onNavigate={navigate}
       onSelectApplication={selectApplication}
       onChangeWorkspace={changeWorkspace}
+      workspace={workspace}
+      onWorkspaceResolved={setWorkspace}
       onHome={goHome}
       onOpenObject={openObject}
     >
@@ -98,6 +114,7 @@ export default function App() {
           onQueryChange={(query: CollectionQueryState) => navigate({ ...activeRoute, ...query })}
           onOpen={openObject}
           onChanged={() => setRefreshToken((value) => value + 1)}
+          readOnly={workspaceReadOnly}
         />
       ) : (
         <ObjectDetail
@@ -111,6 +128,7 @@ export default function App() {
           onBack={backToCollection}
           onDeleted={backToCollection}
           onChanged={() => setRefreshToken((value) => value + 1)}
+          readOnly={workspaceReadOnly}
         />
       )}
     </AppShell>

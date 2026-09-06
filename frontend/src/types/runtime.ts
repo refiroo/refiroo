@@ -20,6 +20,26 @@ export interface ObjectItem {
   updatedAt: string;
 }
 
+export interface Workspace {
+  key: string;
+  label: string;
+  status: "active" | "retired";
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkspacePage {
+  items: Workspace[];
+  nextCursor: string | null;
+}
+
+export interface WorkspaceRuntimeState {
+  defaultWorkspaceKey: string;
+  version: number;
+  updatedAt: string;
+}
+
 export interface ObjectAttributeInput {
   attributeTypeKey: string;
   value: unknown;

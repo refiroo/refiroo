@@ -27,6 +27,7 @@ export function ObjectCollectionView({
   onQueryChange,
   onOpen,
   onChanged,
+  readOnly = false,
 }: ViewComponentProps) {
   const objectType = view.objectTypeKey ? objectTypeFor(model, view.objectTypeKey) : undefined;
   const pages = useCursorPages<ObjectItem>(
@@ -97,7 +98,7 @@ export function ObjectCollectionView({
           <h1>{view.name}</h1>
           <p>{objectType.description ?? application.description}</p>
         </div>
-        {objectType.features.rootCreatable === true && (
+        {!readOnly && objectType.features.rootCreatable === true && (
           <button className="primary" onClick={() => setShowCreate(true)}>
             <Icon name="plus" /> New {objectType.name}
           </button>
@@ -126,8 +127,8 @@ export function ObjectCollectionView({
           objects={error ? [] : pages.items}
           loading={loading && !error}
           onOpen={onOpen}
-          onEdit={setEditing}
-          onDelete={setDeleting}
+          onEdit={readOnly ? undefined : setEditing}
+          onDelete={readOnly ? undefined : setDeleting}
           label={`${view.name} table`}
         />
         {!error && (

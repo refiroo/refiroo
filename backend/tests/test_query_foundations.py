@@ -155,6 +155,7 @@ def test_every_built_in_object_sort_supports_cursor_traversal():
 def test_relation_expansion_is_paged_cursor_bound_and_workspace_filtered():
     token = uuid4().hex[:8]
     with TestClient(app) as client:
+        client.post("/api/v1/workspaces", json={"key": "other", "label": "Other"})
         anchor = _create_domain(client, f"ANCHOR_{token}", 1)
         related = [_create_domain(client, f"RELATED_{token}", index) for index in range(2)]
         relation_ids = []
@@ -185,9 +186,7 @@ def test_relation_expansion_is_paged_cursor_bound_and_workspace_filtered():
             )
             session.commit()
 
-        first = client.get(
-            "/api/v1/relations", params={"objectId": anchor["id"], "pageSize": 1}
-        )
+        first = client.get("/api/v1/relations", params={"objectId": anchor["id"], "pageSize": 1})
         assert first.status_code == 200
         assert first.json()["nextCursor"] is not None
         second = client.get(
@@ -220,6 +219,9 @@ def test_relation_expansion_is_paged_cursor_bound_and_workspace_filtered():
 def test_object_parent_candidate_and_relation_queries_preserve_workspace_scope():
     token = f"WP5_{uuid4().hex[:8]}"
     with TestClient(app) as client:
+        for key in ("west", "east"):
+            response = client.post("/api/v1/workspaces", json={"key": key, "label": key.title()})
+            assert response.status_code in {201, 409}
         west = _create_domain(client, token, 1, workspace_key="west")
         east = _create_domain(client, token, 2, workspace_key="east")
 
@@ -391,13 +393,10 @@ def test_relation_writes_project_both_endpoint_subjects():
             ("domain", domain["id"]),
             ("system-value", system_value["id"]),
         ):
-            history = client.get(
-                f"/api/v1/objects/{object_type_key}/{object_id}/history"
-            )
+            history = client.get(f"/api/v1/objects/{object_type_key}/{object_id}/history")
             assert history.status_code == 200
             assert any(
-                item["aggregateType"] == "relation"
-                and item["aggregateId"] == relation.json()["id"]
+                item["aggregateType"] == "relation" and item["aggregateId"] == relation.json()["id"]
                 for item in history.json()["items"]
             )
             relation_updates = [

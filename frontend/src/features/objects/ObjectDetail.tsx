@@ -22,6 +22,7 @@ export function ObjectDetail({
   onBack,
   onDeleted,
   onChanged,
+  readOnly = false,
 }: {
   model: EngineModel;
   application: ApplicationDefinition;
@@ -32,6 +33,7 @@ export function ObjectDetail({
   onBack: () => void;
   onDeleted: () => void;
   onChanged: () => void;
+  readOnly?: boolean;
 }) {
   const [object, setObject] = useState<ObjectItem>();
   const [loading, setLoading] = useState(true);
@@ -167,6 +169,7 @@ export function ObjectDetail({
             handleChanged();
           }}
           onReload={loadObject}
+          readOnly={readOnly}
         />
       </section>
     );
@@ -199,12 +202,16 @@ export function ObjectDetail({
         </div>
         <div className="detail-actions">
           <span className="version">v{object.version}</span>
-          <button className="primary" onClick={() => setEditing(true)}>
-            Edit
-          </button>
-          <button className="danger-outline" onClick={() => setDeleting(true)}>
-            Delete object
-          </button>
+          {!readOnly && (
+            <>
+              <button className="primary" onClick={() => setEditing(true)}>
+                Edit
+              </button>
+              <button className="danger-outline" onClick={() => setDeleting(true)}>
+                Delete object
+              </button>
+            </>
+          )}
         </div>
       </header>
       <div className={`detail-grid ${sidePanels.length ? "with-side" : ""}`}>

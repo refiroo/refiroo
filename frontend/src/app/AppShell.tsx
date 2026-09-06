@@ -13,8 +13,9 @@ import type { ReactNode } from "react";
 import { Explorer } from "@/features/objects/Explorer";
 import { WorkspaceSelector } from "@/features/workspaces/WorkspaceSelector";
 import { viewRoute } from "@/routing/routes";
-import type { ApplicationDefinition, EngineModel, ObjectItem, RouteState } from "@/types";
+import type { ApplicationDefinition, EngineModel, ObjectItem, RouteState, Workspace } from "@/types";
 import { Icon } from "@/ui/Icon";
+import { Notice } from "@/ui/Notice";
 
 export function AppShell({
   model,
@@ -24,6 +25,8 @@ export function AppShell({
   onNavigate,
   onSelectApplication,
   onChangeWorkspace,
+  workspace,
+  onWorkspaceResolved,
   onHome,
   onOpenObject,
   children,
@@ -35,6 +38,8 @@ export function AppShell({
   onNavigate: (route: RouteState) => void;
   onSelectApplication: (application: ApplicationDefinition) => void;
   onChangeWorkspace: (workspaceKey: string) => void;
+  workspace?: Workspace;
+  onWorkspaceResolved: (workspace: Workspace) => void;
   onHome: () => void;
   onOpenObject: (item: Pick<ObjectItem, "applicationKey" | "objectTypeKey" | "id" | "workspaceKey">) => void;
   children: ReactNode;
@@ -78,7 +83,11 @@ export function AppShell({
           </button>
         </nav>
         {activeRoute.kind !== "models" && (
-          <WorkspaceSelector workspaceKey={activeRoute.workspaceKey} onChange={onChangeWorkspace} />
+          <WorkspaceSelector
+            workspaceKey={activeRoute.workspaceKey}
+            onChange={onChangeWorkspace}
+            onResolved={onWorkspaceResolved}
+          />
         )}
         <div className="release-chip">
           <span />
@@ -132,7 +141,7 @@ export function AppShell({
           <ol className="shell-context" aria-label="Current context">
             <li>
               <small>Workspace</small>
-              {activeRoute.workspaceKey}
+              {workspace?.key === activeRoute.workspaceKey ? workspace.label : activeRoute.workspaceKey}
             </li>
             <li>
               <small>Application</small>
@@ -144,6 +153,13 @@ export function AppShell({
             </li>
           </ol>
         )}
+        {activeRoute.kind !== "models" &&
+          workspace?.key === activeRoute.workspaceKey &&
+          workspace.status === "retired" && (
+            <Notice tone="info" title="Read-only workspace">
+              This workspace is retired. Runtime data and history remain available, but changes are disabled.
+            </Notice>
+          )}
         {children}
       </main>
     </div>

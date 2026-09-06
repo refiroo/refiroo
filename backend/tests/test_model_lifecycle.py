@@ -181,9 +181,7 @@ def test_active_model_headers_and_release_read_apis_are_coherent():
         assert detail_with_model.status_code == 200
         assert detail_with_model.json()["model"] == model_response.json()
 
-        by_key = client.get(
-            "/api/v1/model-releases", params={"releaseKey": summary["key"]}
-        )
+        by_key = client.get("/api/v1/model-releases", params={"releaseKey": summary["key"]})
         assert by_key.status_code == 200
         assert any(item["id"] == release_id for item in by_key.json()["items"])
 
@@ -217,9 +215,7 @@ def test_release_cursor_rejects_tampering_and_filter_reuse():
 
 def test_unknown_model_release_is_explicit():
     with TestClient(app) as client:
-        response = client.get(
-            "/api/v1/model-releases/00000000-0000-4000-8000-000000000000"
-        )
+        response = client.get("/api/v1/model-releases/00000000-0000-4000-8000-000000000000")
 
     assert response.status_code == 404
     assert response.json()["error"]["code"] == "model_release_not_found"
@@ -303,9 +299,7 @@ def test_release_diff_preserves_json_null_before_and_after_values():
 
     assert response.status_code == 200
     description_change = next(
-        item
-        for item in response.json()["changes"]
-        if item["path"] == "/product/description"
+        item for item in response.json()["changes"] if item["path"] == "/product/description"
     )
     assert description_change["kind"] == "changed"
     assert description_change["after"] is None
@@ -335,7 +329,8 @@ def test_model_admin_capabilities_and_routes_are_disabled_by_default():
             "manageDrafts": False,
             "install": False,
             "activate": False,
-        }
+        },
+        "workspaceAdmin": {"manageWorkspaces": True},
     }
     assert drafts.status_code == 404
     assert "/api/v1/model-drafts" not in app.openapi()["paths"]
@@ -410,10 +405,7 @@ def test_draft_crud_compile_and_installation_lifecycle(monkeypatch):
         assert compiled.json()["valid"] is True
         assert compiled.json()["model"] == candidate
         assert compiled.json()["againstReleaseId"] == active_release_id
-        assert any(
-            change["path"] == "/product/name"
-            for change in compiled.json()["changes"]
-        )
+        assert any(change["path"] == "/product/name" for change in compiled.json()["changes"])
         null_change = next(
             change
             for change in compiled.json()["changes"]
@@ -460,17 +452,20 @@ def test_draft_crud_compile_and_installation_lifecycle(monkeypatch):
         assert client.get(f"/api/v1/model-drafts/{draft['id']}").status_code == 404
 
     with SessionLocal() as session:
-        assert session.scalar(
-            select(func.count()).select_from(ModelRelease).where(
-                ModelRelease.public_id == release["id"]
+        assert (
+            session.scalar(
+                select(func.count())
+                .select_from(ModelRelease)
+                .where(ModelRelease.public_id == release["id"])
             )
-        ) == 1
+            == 1
+        )
         assert session.scalar(select(func.count()).select_from(ModelDraft)) == 0
         audit_events = list(
             session.scalars(
-                select(AuditEvent).where(
-                    AuditEvent.aggregate_id.in_([draft["id"], release["id"]])
-                ).order_by(AuditEvent.sequence_id)
+                select(AuditEvent)
+                .where(AuditEvent.aggregate_id.in_([draft["id"], release["id"]]))
+                .order_by(AuditEvent.sequence_id)
             )
         )
         assert [event.action for event in audit_events] == [
@@ -714,9 +709,7 @@ def test_concurrent_activation_allows_only_one_runtime_state_claim(monkeypatch):
                 candidate_model = active.json()
                 candidate_model["release"]["version"] = f"0.4.0-wp4-concurrent-{suffix}"
                 candidates.append(
-                    ensure_bootstrap_release(
-                        session, EngineModel.model_validate(candidate_model)
-                    )
+                    ensure_bootstrap_release(session, EngineModel.model_validate(candidate_model))
                 )
             session.commit()
             state = session.get(ModelRuntimeState, 1)
@@ -739,9 +732,9 @@ def test_concurrent_activation_allows_only_one_runtime_state_claim(monkeypatch):
         conflict = next(response for response in responses if response.status_code == 409)
         assert conflict.json()["error"]["code"] == "activation_conflict"
         winner = next(response for response in responses if response.status_code == 200).json()
-        assert client.get("/api/v1/model").headers["X-Model-Release-Id"] == winner[
-            "activeReleaseId"
-        ]
+        assert (
+            client.get("/api/v1/model").headers["X-Model-Release-Id"] == winner["activeReleaseId"]
+        )
 
 
 def test_registry_refresh_failure_leaves_committed_activation_unready(monkeypatch):

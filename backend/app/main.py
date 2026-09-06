@@ -15,7 +15,15 @@ from .errors import (
     validation_error_handler,
 )
 from .models.api import ApiErrorResponse
-from .routers import attributes, model, model_management, model_releases, objects, relations
+from .routers import (
+    attributes,
+    model,
+    model_management,
+    model_releases,
+    objects,
+    relations,
+    workspaces,
+)
 from .services.model.bootstrap import bootstrap_model
 from .services.model.loader import load_bootstrap_model
 from .services.model.registry import model_registry
@@ -35,6 +43,7 @@ def create_app() -> FastAPI:
     settings = reload_settings()
     settings.validate_model_admin_topology()
     mutations_enabled = settings.model_admin_mutations_enabled
+    workspace_mutations_enabled = settings.workspace_admin_mutations_enabled
     application = FastAPI(
         title="RDM Engine API",
         version="0.3.0",
@@ -82,6 +91,7 @@ def create_app() -> FastAPI:
         },
     )
     application.state.model_admin_mutations_enabled = mutations_enabled
+    application.state.workspace_admin_mutations_enabled = workspace_mutations_enabled
     application.add_exception_handler(ApiError, api_error_handler)
     application.add_exception_handler(RequestValidationError, validation_error_handler)
     application.add_exception_handler(StarletteHTTPException, http_error_handler)
@@ -103,6 +113,9 @@ def create_app() -> FastAPI:
 
     application.include_router(model.router)
     application.include_router(model_releases.router)
+    application.include_router(workspaces.read_router)
+    if workspace_mutations_enabled:
+        application.include_router(workspaces.admin_router)
     if mutations_enabled:
         application.include_router(model_management.router)
     application.include_router(objects.router)
