@@ -293,6 +293,16 @@ class RdmObject(Base):
     )
     application_key: Mapped[str] = mapped_column(String(160), index=True)
     object_type_key: Mapped[str] = mapped_column(String(160), index=True)
+    active_revision_id: Mapped[str | None] = mapped_column(
+        ForeignKey(
+            "object_revisions.id",
+            name="fk_objects_active_revision_id_object_revisions",
+            ondelete="RESTRICT",
+            use_alter=True,
+        ),
+        nullable=True,
+        index=True,
+    )
     parent_object_id: Mapped[str | None] = mapped_column(
         ForeignKey("objects.id", ondelete="RESTRICT"), nullable=True, index=True
     )
@@ -304,6 +314,76 @@ class RdmObject(Base):
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
+
+
+class ObjectRevision(Base):
+    __tablename__ = "object_revisions"
+    __table_args__ = (
+        UniqueConstraint("object_id", "revision_number", name="uq_object_revision_number"),
+        CheckConstraint("status IN ('active', 'retired')", name="ck_object_revision_status"),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[str] = mapped_column(
+        String(36), unique=True, index=True, default=lambda: str(uuid4())
+    )
+    object_id: Mapped[str] = mapped_column(
+        ForeignKey("objects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    model_release_id: Mapped[int] = mapped_column(
+        ForeignKey("model_releases.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    revision_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
+    derived_from_revision_id: Mapped[str | None] = mapped_column(
+        ForeignKey("object_revisions.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    supersedes_revision_id: Mapped[str | None] = mapped_column(
+        ForeignKey("object_revisions.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    name: Mapped[str] = mapped_column(String(500))
+    parent_object_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    required_relations: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    activated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    retired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ObjectDraft(Base):
+    __tablename__ = "object_drafts"
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[str] = mapped_column(
+        String(36), unique=True, index=True, default=lambda: str(uuid4())
+    )
+    object_id: Mapped[str] = mapped_column(
+        ForeignKey("objects.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    model_release_id: Mapped[int] = mapped_column(
+        ForeignKey("model_releases.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    derived_from_revision_id: Mapped[str | None] = mapped_column(
+        ForeignKey("object_revisions.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
+    name: Mapped[str] = mapped_column(String(500))
+    parent_object_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    required_relations: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )

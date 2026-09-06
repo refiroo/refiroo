@@ -97,6 +97,8 @@ def create_relation_instance(
     to_object = to_object or load_object(session, str(payload.toObjectId))
     if from_object.workspace_key != to_object.workspace_key:
         raise api_error(422, "relation_wrong_scope", "Related objects must share a workspace")
+    if from_object.active_revision_id is None or to_object.active_revision_id is None:
+        raise api_error(422, "relation_endpoint_not_active", "Related objects must be active")
     resolve_workspace(session, from_object.workspace_key, require_active=True)
     allowed = find_allowed_relation(
         model,
@@ -105,6 +107,12 @@ def create_relation_instance(
         to_object.object_type_key,
     )
     ensure_relation_mutable(model, payload.relationTypeKey, to_object.object_type_key)
+    if allowed.required:
+        raise api_error(
+            422,
+            "immutable_relation",
+            "Object-owned required relationships change through object drafts",
+        )
     validate_cardinality(session, allowed, payload)
     _validate_unique_to_ancestor(session, allowed, payload, to_object)
     attributes = validate_relation_attributes(model, allowed, payload.attributes)

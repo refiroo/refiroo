@@ -127,7 +127,7 @@ def _check_query_capability(
     view_path: str,
     index: ModelIndex,
 ) -> None:
-    built_in = {"id", "name", "state", "createdAt", "updatedAt"}
+    built_in = {"id", "name", "createdAt", "updatedAt"}
     if field in built_in:
         return
     object_type = index.object_types[view.objectTypeKey]

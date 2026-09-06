@@ -1,6 +1,6 @@
 # Base 0.6 implementation plan
 
-**Status:** In progress; D1-D5 accepted, WP0-WP3 complete, WP4 is next
+**Status:** In progress; D1-D5 accepted, WP0-WP4 complete, WP5 is next
 
 **Target:** Product release 0.6.0
 
@@ -228,7 +228,7 @@ types and table view, starter/synthetic models, OpenAPI locks and tests.
 Exit: two object types use configured typed fields; null/unset, case, range, invalid-value and cursor
 semantics are covered; schema-version failures are explicit; no `mappingGrid` contract is implied.
 
-### WP4 — Make object revisions authoritative
+### WP4 — Make object revisions authoritative (complete)
 
 Primary areas: database models and Alembic, object/revision API models, focused draft/snapshot/
 activation/retirement services and routers, attribute/containment/relation/audit integration and tests.
@@ -309,7 +309,7 @@ object states fail with actionable diagnostics; and verify the wheel contains ev
 
 ## Coding-agent handoff
 
-Implement work packages in order and keep each independently reviewable. WP0 through WP3 are complete;
-WP4 is the next package. Inspect the worktree before each package, preserve unrelated changes, update
+Implement work packages in order and keep each independently reviewable. WP0 through WP4 are complete;
+WP5 is the next package. Inspect the worktree before each package, preserve unrelated changes, update
 OpenAPI locks with public contracts and create a checkpoint only after that package's definition of
 done passes.

@@ -1,4 +1,5 @@
 from copy import deepcopy
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import create_engine
@@ -112,6 +113,7 @@ def _object(session: Session, object_type: str, *, parent: RdmObject | None = No
         workspace_key="default",
         name=object_type,
         parent_object_id=parent.id if parent else None,
+        active_revision_id=str(uuid4()),
     )
     session.add(item)
     session.flush()

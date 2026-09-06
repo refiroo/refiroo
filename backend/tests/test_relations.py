@@ -437,8 +437,8 @@ def test_duplicate_initial_relations_return_a_conflict_without_leaving_an_orphan
             },
         )
 
-        assert response.status_code == 409
-        assert response.json()["error"]["code"] == "duplicate_relation"
+        assert response.status_code == 422
+        assert response.json()["error"]["code"] == "invalid_required_relation"
         assert client.get(f"/api/v1/objects/system-value/{public_id}").status_code == 404
 
 

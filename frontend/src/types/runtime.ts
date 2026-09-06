@@ -1,6 +1,6 @@
 /**
  * Runtime data contracts: stored objects and relations, their pages, audit history and the
- * impact preview returned before a cascading delete.
+ * impact preview returned before cascading retirement.
  */
 
 import type { ValueType } from "@/types/model";
@@ -11,7 +11,8 @@ export interface ObjectItem {
   applicationKey: string;
   objectTypeKey: string;
   parentObjectId: string | null;
-  state: string;
+  activeRevisionId: string | null;
+  lifecycle: "active" | "retired";
   name: string;
   path: Array<{ id: string; name: string; objectTypeKey: string }>;
   attributes: ObjectAttributeValue[];
@@ -117,33 +118,16 @@ export interface AuditEventPage {
   nextCursor: string | null;
 }
 
-export interface DeleteObjectSummary {
+export interface RetirementImpactObject {
   id: string;
   name: string;
   objectTypeKey: string;
-  applicationKey: string;
-  parentObjectId: string | null;
+  reason: "containment" | "required-ownership";
 }
 
-export interface DeleteObjectDependency extends DeleteObjectSummary {
-  reason: "child" | "fkDependent";
-  viaObjectId: string;
-  relationTypeKey?: string;
-}
-
-export interface DeleteRelationshipDependency {
-  id: string;
-  relationTypeKey: string;
-  fromObject: DeleteObjectSummary;
-  toObject: DeleteObjectSummary;
-  fkPk: boolean;
-  relatedObjectWillBeDeleted: boolean;
-}
-
-export interface DeleteImpact {
-  rootObject: DeleteObjectSummary;
-  objectsToDelete: DeleteObjectDependency[];
-  relationshipsToRemove: DeleteRelationshipDependency[];
+export interface RetirementImpact {
+  rootObjectId: string;
+  objectsToRetire: RetirementImpactObject[];
   objectCount: number;
-  relationshipCount: number;
+  retainedAssociationCount: number;
 }

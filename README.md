@@ -22,7 +22,7 @@ different applications.
 - Compatibility-gated release activation with runtime-state concurrency and lifecycle audit
 - Side-effect-free model validation with stable diagnostics, key-based release diff and bounded
   runtime-data compatibility analysis
-- Generic objects with application, workspace, object type, state, parent and path
+- Stable logical objects with model-pinned mutable drafts and immutable active/retired revisions
 - Separately stored typed attribute values—text, integer, decimal, boolean, date, datetime and JSON
 - Typed object relations, automatic parent relations and hierarchy cycle protection
 - Relation cardinality checks and audit events
@@ -32,9 +32,9 @@ different applications.
   discovery, URL-stable keys and read-only retired scopes
 - Registry-driven collection views and composable object details with main/side panels
 - Reusable attribute, child, relation, table and hierarchy panels
-- Model-driven runtime CRUD for objects, individual typed attribute values and mutable relationships
+- Atomic draft activation for core fields, typed attributes, containment and required relationships
 - Accessible confirmations, structured mutation errors and optimistic-concurrency recovery
-- Dependency-previewed object deletion with explicit transactional graph cascade
+- Dependency-previewed active-revision retirement with explicit transactional ownership cascade
 - Cross-application relationship lookup with server-side search and cursor pagination
 - Optional Domain/Codelist-to-System Value representations that preserve the separate system hierarchy
 - Translation CRUD with generic Domain, Codelist and Master Value targets, atomic required bindings,
@@ -44,8 +44,8 @@ different applications.
 - Docker development environment and continuous-integration workflow
 
 Base 0.5 supplies the bounded query and model-lifecycle foundations. Base 0.6 has established its
-task-tested UI foundation and authoritative workspace catalogue; typed collection semantics and
-coherent runtime-object revisions follow. Typed mapping-grid behavior is product 0.7, with translation
+task-tested UI foundation, authoritative workspace catalogue, typed collection semantics and
+authoritative runtime-object revisions; the coherent lifecycle UI follows. Typed mapping-grid behavior is product 0.7, with translation
 and hierarchy interactions in later milestones.
 
 ## Run with Docker
@@ -129,6 +129,20 @@ a separate operational change: restore the matching pre-upgrade database backup 
 code because Alembic downgrades and automatic runtime-data transformations are not a supported
 production rollback path. See `docs/API.md` for the activation contract and `docs/ARCHITECTURE.md` for
 the detailed runbook.
+
+Run database migrations through the environment-aware operator command:
+
+```bash
+cd backend
+.venv/bin/python -m app.cli.database_upgrade
+```
+
+If a migration cannot complete safely, startup does not emit a framework traceback or continue as if
+the schema were usable. The process enters maintenance mode, `/health` returns HTTP `503`, and the log
+reports the database without credentials, current and target revisions, the failure reason, safe
+backup/retry instructions, and what to include in an escalation. The WP4 migration automatically
+recovers empty SQLite tables or columns left by an interrupted pre-backfill attempt; it refuses to
+delete partial lifecycle data or an unfamiliar schema.
 
 ## Repository guide
 

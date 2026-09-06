@@ -19,12 +19,12 @@ Guarded activation reparses and compatibility-checks installed candidates transa
 runtime state with both concurrency tokens, commits before refreshing the local registry and makes
 readiness unhealthy if publication fails. Activation is available only in the supported single-worker
 mutation topology.
-Object collections use signed, filter-bound keyset cursors with repeatable state filters and built-in
-sorting. Relation expansion and object audit history are cursor-paged and workspace-bound; an indexed
+Object collections use signed, filter-bound keyset cursors with explicit active/retired lifecycle,
+typed filters and built-in sorting. Relation expansion and object audit history are cursor-paged and workspace-bound; an indexed
 audit-subject projection connects object, attribute and relation events without querying JSON payloads
 for identity.
 The generic UI carries explicit workspace context in its shell and routes, restores URL-backed
-collection search/state/sort/page-size controls, provides reusable row actions and retry states, and
+collection search/sort/page-size controls, provides reusable row actions and retry states, and
 shows independently paged relation expansion and audit history on object details.
 The global workspace catalogue is now authoritative: a singleton, concurrency-protected state selects
 the active default; discovery is searchable and cursor-paged; unknown explicit keys fail; and retired
@@ -36,6 +36,12 @@ sorts and URL-stable cursor paging. Historical schema 0.4 releases remain inspec
 bootstrap and the offline `python -m app.cli.model_schema_upgrade --model <path>` transition establish
 the schema 0.5 runtime selection. The starter is content release 0.6.0; its former tree is represented
 honestly as a table and its mapping view is deferred to schema 0.6.
+Runtime-object revisions are now authoritative. Stable object rows retain scope and identity while
+mutable drafts and immutable active/retired revisions pin the validating model release and snapshot
+core fields, parent, typed attributes and required ownership relationships. Activation publishes the
+complete projection atomically with draft-version and active-revision concurrency; direct retirement
+retains identity, immutable history and independent associations. The migration preserves public
+object IDs, maps the three known legacy states and stops with values and counts for unknown states.
 The frontend has since had a structural pass, phases 0–4 of
 `docs/FRONTEND_STRUCTURE_REFACTOR.md`, ahead of the Base 0.6 UI work. It changed no API contract,
 model contract or architecture: `frontend/src` is organized into `app/`, `features/`, `ui/`,
@@ -115,7 +121,11 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
   directed required single-valued PK→FK bindings to dependent objects.
 - `backend/app/migrations`: versioned Alembic database migrations are the single source of schema truth;
   the initial migration provisions new databases and upgrades existing ones, and startup runs only
-  `alembic upgrade head`.
+  `alembic upgrade head`. The environment-aware `app.cli.database_upgrade` command and startup
+  boundary turn failures into actionable, credential-safe operator messages without tracebacks. The
+  WP4 migration recovers only recognized empty SQLite DDL from an interrupted attempt and refuses
+  unsafe cleanup. Startup regression coverage now exercises clean boot, restart, preceding-revision
+  upgrade, interrupted-DDL recovery and maintenance-mode refusal against real temporary databases.
 - `frontend/src`: model-generated application/view navigation, searchable runtime explorer, stable
   workspace-explicit routes, view and panel component registries, URL-backed searchable/filterable/
   sortable cursor-paged collections, composable object details and
@@ -149,12 +159,10 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 
 ## Known gaps
 
-- Object management is functionally complete but fragmented: the main edit dialog changes core fields
-  and parent while stored attributes are managed through separate detail-panel actions. Runtime object
-  state and state filtering still use unconstrained text in Base 0.5. ADR-020 now defines the Base 0.6
-  replacement: stable logical objects, immutable active/retired revisions, editable derived drafts,
-  atomic activation, direct retirement without replacement, retired discovery and visible
-  derivation/supersession lineage.
+- The authoritative lifecycle backend is complete. The current frontend consumes lifecycle-shaped
+  object responses and the public revision-token retirement API, but object creation, core editing and
+  attribute editing still use hidden immediate-mutation compatibility adapters. WP5 must replace those
+  fragmented dialogs with one complete draft editor plus retired discovery and lineage UI.
 - Schema 0.5 intentionally omits `mappingGrid`, `tree`, `form` and `dashboard`; those declarations are
   rejected rather than routed to the table renderer. `mappingGrid` moves to schema 0.6/product 0.7.
 - Typed table filtering and sorting cover the bounded daily-use grammar. Integration-scale query
@@ -208,8 +216,8 @@ See `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` for the completed historical work pac
 the active delivery queue and `docs/ROADMAP.md` for the release criteria and later milestones.
 
 All Base 0.5 work packages and acceptance criteria are complete. D1 through D5 are accepted. The Base 0.6 WP0
-interaction baseline, WP1 UI foundation, WP2 workspace authority and WP3 typed tables are complete.
-WP4 authoritative object revisions are next, followed by lifecycle UI and release checks. Core mapping
+interaction baseline, WP1 UI foundation, WP2 workspace authority, WP3 typed tables and WP4
+authoritative object revisions are complete. WP5 lifecycle UI is next, followed by release checks. Core mapping
 is product 0.7 and bulk mapping remains in the later integration milestone.
 
 ## Coding-agent handoff
@@ -218,7 +226,7 @@ Open the repository root, then start a new coding chat with:
 
 > Read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP.md`, `docs/UI_MODEL.md`,
 > `docs/BASE_0_6_IMPLEMENTATION_PLAN.md` and `docs/BASE_0_6_INTERACTION_SPEC.md`. Review the
-> accepted WP0 interaction baseline, its frontend acceptance fixtures and the completed WP1-WP3 work, then execute Base 0.6 WP4
+> accepted WP0 interaction baseline, its frontend acceptance fixtures and the completed WP1-WP4 work, then execute Base 0.6 WP5
 > only. Do not pull deferred mapping or model-workbench redesign into Base 0.6.
 > Preserve all product invariants and report the current worktree status before editing.
 

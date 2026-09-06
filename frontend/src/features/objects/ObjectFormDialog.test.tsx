@@ -12,7 +12,7 @@ vi.mock("@/api/client", () => ({
 describe("ObjectFormDialog", () => {
   beforeEach(() => {
     vi.mocked(api.createObject).mockResolvedValue(domainObject);
-    vi.mocked(api.updateObject).mockResolvedValue({ ...domainObject, name: "Updated", state: "draft", version: 2 });
+    vi.mocked(api.updateObject).mockResolvedValue({ ...domainObject, name: "Updated", version: 2 });
     vi.mocked(api.objects).mockResolvedValue({ items: [domainObject], nextCursor: null });
     vi.mocked(api.object).mockResolvedValue({ ...domainObject, version: 2 });
   });
@@ -123,13 +123,11 @@ describe("ObjectFormDialog", () => {
       />,
     );
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Updated" } });
-    fireEvent.change(screen.getByLabelText("State"), { target: { value: "draft" } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await waitFor(() =>
       expect(api.updateObject).toHaveBeenCalledWith("domain", domainObject.id, {
         expectedVersion: 1,
         name: "Updated",
-        state: "draft",
       }),
     );
   });

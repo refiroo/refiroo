@@ -4,9 +4,9 @@ import { errorMessage, isApiError } from "@/api/errors";
 import { fallbackDetail } from "@/model/defaults";
 import { fieldValue } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
-import type { ApplicationDefinition, DeleteImpact, EngineModel, ObjectItem, PanelDefinition } from "@/types";
+import type { ApplicationDefinition, EngineModel, ObjectItem, PanelDefinition, RetirementImpact } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
-import { DeleteImpactSummary } from "./DeleteImpactSummary";
+import { RetirementImpactSummary } from "./RetirementImpactSummary";
 import { ObjectFormDialog } from "./ObjectFormDialog";
 import { HistoryPanel } from "./panels/HistoryPanel";
 import { panelComponentRegistry } from "./panels/registry";
@@ -39,10 +39,10 @@ export function ObjectDetail({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState(false);
-  const [deleting, setDeleting] = useState(false);
-  const [deletePending, setDeletePending] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
-  const [deleteImpact, setDeleteImpact] = useState<DeleteImpact>();
+  const [retiring, setRetiring] = useState(false);
+  const [retirementPending, setRetirementPending] = useState(false);
+  const [retirementError, setRetirementError] = useState("");
+  const [retirementImpact, setRetirementImpact] = useState<RetirementImpact>();
   const [historyRefresh, setHistoryRefresh] = useState(0);
   const objectType = objectTypeFor(model, objectTypeKey);
   const detail =
@@ -123,29 +123,34 @@ export function ObjectDetail({
   const title = fieldValue(object, detail.header.titleField, model);
   const subtitle = detail.header.subtitleField ? fieldValue(object, detail.header.subtitleField, model) : undefined;
 
-  async function deleteObject() {
-    setDeletePending(true);
-    setDeleteError("");
+  async function retireObject() {
+    setRetirementPending(true);
+    setRetirementError("");
     try {
-      await api.deleteObject(currentObjectType.key, currentObject.id, currentObject.version, Boolean(deleteImpact));
+      await api.retireObject(
+        currentObjectType.key,
+        currentObject.id,
+        currentObject.activeRevisionId!,
+        Boolean(retirementImpact),
+      );
       onChanged();
       onDeleted();
     } catch (cause) {
-      if (isApiError(cause, "object_has_dependents") && cause.details) {
-        setDeleteImpact(cause.details as DeleteImpact);
-        setDeleteError("");
+      if (isApiError(cause, "object_has_dependants") && cause.details) {
+        setRetirementImpact(cause.details as RetirementImpact);
+        setRetirementError("");
       } else {
-        setDeleteError(errorMessage(cause));
+        setRetirementError(errorMessage(cause));
       }
-      if (isApiError(cause, "version_conflict")) {
+      if (isApiError(cause, "active_revision_conflict")) {
         try {
           await loadObject();
         } catch (reloadCause) {
-          setDeleteError(errorMessage(reloadCause));
+          setRetirementError(errorMessage(reloadCause));
         }
-        setDeleteImpact(undefined);
+        setRetirementImpact(undefined);
       }
-      setDeletePending(false);
+      setRetirementPending(false);
     }
   }
 
@@ -207,8 +212,8 @@ export function ObjectDetail({
               <button className="primary" onClick={() => setEditing(true)}>
                 Edit
               </button>
-              <button className="danger-outline" onClick={() => setDeleting(true)}>
-                Delete object
+              <button className="danger-outline" onClick={() => setRetiring(true)}>
+                Retire object
               </button>
             </>
           )}
@@ -236,25 +241,25 @@ export function ObjectDetail({
           }}
         />
       )}
-      {deleting && (
+      {retiring && (
         <ConfirmDialog
-          title={deleteImpact ? `Cascade delete ${deleteImpact.objectCount} objects?` : `Delete “${object.name}”?`}
-          confirmLabel={deleteImpact ? "Cascade delete" : "Delete object"}
-          pending={deletePending}
-          error={deleteError}
+          title={retirementImpact ? `Retire ${retirementImpact.objectCount} objects?` : `Retire “${object.name}”?`}
+          confirmLabel={retirementImpact ? "Confirm retirement" : "Retire object"}
+          pending={retirementPending}
+          error={retirementError}
           onCancel={() => {
-            setDeleting(false);
-            setDeleteError("");
-            setDeleteImpact(undefined);
+            setRetiring(false);
+            setRetirementError("");
+            setRetirementImpact(undefined);
           }}
-          onConfirm={deleteObject}
+          onConfirm={retireObject}
         >
-          {deleteImpact ? (
-            <DeleteImpactSummary model={model} impact={deleteImpact} />
+          {retirementImpact ? (
+            <RetirementImpactSummary model={model} impact={retirementImpact} />
           ) : (
             <p>
-              The engine will first check for children and relationships. If dependencies exist, nothing will be deleted
-              until you review and confirm the cascade.
+              The engine will first check for dependent objects. If dependencies exist, nothing will be retired until
+              you review and confirm the cascade.
             </p>
           )}
         </ConfirmDialog>

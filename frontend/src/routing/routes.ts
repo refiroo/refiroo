@@ -52,9 +52,7 @@ export function parseRoute(model: EngineModel, defaultWorkspaceKey = DEFAULT_WOR
           const separator = key.lastIndexOf(".");
           const field = key.slice("filter.".length, separator);
           const operator = key.slice(separator + 1);
-          return field && operator && view.config.filterFields.includes(field)
-            ? [{ field, operator, value }]
-            : [];
+          return field && operator && view.config.filterFields.includes(field) ? [{ field, operator, value }] : [];
         });
       return {
         kind: "list",
@@ -62,10 +60,6 @@ export function parseRoute(model: EngineModel, defaultWorkspaceKey = DEFAULT_WOR
         viewKey: parts[3],
         workspaceKey,
         search: query.get("search") ?? "",
-        states: query
-          .getAll("state")
-          .map((value) => value.trim())
-          .filter(Boolean),
         sort: candidateSort && allowedSorts.has(candidateSort) ? candidateSort : view.config.defaultSort,
         pageSize:
           Number.isInteger(requestedPageSize) && requestedPageSize >= 1 && requestedPageSize <= 100
@@ -101,7 +95,6 @@ export function routePath(route: RouteState) {
   const query = new URLSearchParams({ workspaceKey: route.workspaceKey });
   if (route.kind === "list") {
     if (route.search) query.set("search", route.search);
-    route.states.forEach((state) => query.append("state", state));
     route.filters.forEach(({ field, operator, value }) => query.append(`filter.${field}.${operator}`, value));
     query.set("sort", route.sort);
     query.set("pageSize", String(route.pageSize));

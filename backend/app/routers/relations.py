@@ -17,6 +17,7 @@ from ..models.api import (
 from ..models.database import ObjectRelation, RdmObject
 from ..services.audit import record_audit_event
 from ..services.model.registry import ActiveModelSnapshot
+from ..services.object_lifecycle import load_active_object
 from ..services.objects import build_object_responses, load_object
 from ..services.pagination import integer_key, paginate_statement
 from ..services.relations import (
@@ -64,7 +65,7 @@ def get_relations(
     cursor: str | None = None,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> RelationPage:
-    anchor = load_object(session, object_id)
+    anchor = load_active_object(session, object_id)
     effective_relation_type_key = relation_type_key or None
     clauses = []
     if direction in {"outgoing", "both"}:
@@ -81,6 +82,8 @@ def get_relations(
             or_(*clauses),
             from_object.workspace_key == anchor.workspace_key,
             to_object.workspace_key == anchor.workspace_key,
+            from_object.active_revision_id.is_not(None),
+            to_object.active_revision_id.is_not(None),
         )
     )
     if effective_relation_type_key:
@@ -152,6 +155,8 @@ def update_relation(
     relation = load_relation(session, relation_id)
     from_object = load_object(session, relation.from_object_id)
     to_object = load_object(session, relation.to_object_id)
+    if from_object.active_revision_id is None or to_object.active_revision_id is None:
+        raise api_error(409, "relation_endpoint_retired", "Related objects must be active")
     resolve_workspace(session, from_object.workspace_key, require_active=True)
     ensure_relation_mutable(model, relation.relation_type_key, to_object.object_type_key)
     allowed = find_allowed_relation(
@@ -160,6 +165,12 @@ def update_relation(
         from_object.object_type_key,
         to_object.object_type_key,
     )
+    if allowed.required:
+        raise api_error(
+            422,
+            "immutable_relation",
+            "Object-owned required relationships change through object drafts",
+        )
     claim_relation_version(session, relation, payload.expectedVersion)
     attributes = validate_relation_attributes(model, allowed, payload.attributes)
     old_attributes = relation.attributes
@@ -189,6 +200,8 @@ def delete_relation(
     relation = load_relation(session, relation_id)
     from_object = load_object(session, relation.from_object_id)
     to_object = load_object(session, relation.to_object_id)
+    if from_object.active_revision_id is None or to_object.active_revision_id is None:
+        raise api_error(409, "relation_endpoint_retired", "Related objects must be active")
     resolve_workspace(session, from_object.workspace_key, require_active=True)
     ensure_relation_mutable(model, relation.relation_type_key, to_object.object_type_key)
     allowed = find_allowed_relation(

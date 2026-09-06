@@ -15,7 +15,7 @@ from ..models.api import (
     ObjectUpdate,
     RelationCreate,
 )
-from ..models.database import AttributeValue, ObjectRelation, RdmObject
+from ..models.database import AttributeValue, ObjectRelation, ObjectRevision, RdmObject
 from ..models.schema import ApplicationDefinition, EngineModel, ObjectTypeDefinition
 from .attributes import (
     VALUE_COLUMNS,
@@ -32,7 +32,6 @@ from .pagination import SortKey, datetime_key, integer_key, text_key
 OBJECT_SORT_COLUMNS: dict[str, Any] = {
     "id": RdmObject.id,
     "name": RdmObject.name,
-    "state": RdmObject.state,
     "createdAt": RdmObject.created_at,
     "updatedAt": RdmObject.updated_at,
     "sequenceId": RdmObject.sequence_id,
@@ -83,10 +82,10 @@ def build_object_query(
     application_key: str | None,
     workspace_key: str,
     parent_object_id: str | None,
-    states: list[str] | None,
     search: str | None,
     sort: str | None,
     field_filters: list[tuple[str, str, str]] | None = None,
+    lifecycle: str = "active",
 ) -> ObjectQuery:
     """Build the filtered statement, keyset and cursor filters for an object collection."""
     object_type = get_object_type(model, object_type_key)
@@ -97,14 +96,18 @@ def build_object_query(
         RdmObject.object_type_key == object_type_key,
         RdmObject.workspace_key == workspace_key,
     )
+    if lifecycle == "active":
+        statement = statement.where(RdmObject.active_revision_id.is_not(None))
+    else:
+        statement = statement.where(
+            RdmObject.active_revision_id.is_(None),
+            exists(select(1).where(ObjectRevision.object_id == RdmObject.id)),
+        )
     if application_key:
         statement = statement.where(RdmObject.application_key == application_key)
     if parent_object_id:
         statement = statement.where(RdmObject.parent_object_id == parent_object_id)
 
-    effective_states = sorted(set(states or []))
-    if effective_states:
-        statement = statement.where(RdmObject.state.in_(effective_states))
     if search:
         statement = statement.where(_search_predicate(model, object_type, search))
     normalized_filters, predicates = _typed_filter_predicates(
@@ -121,9 +124,9 @@ def build_object_query(
             "objectTypeKey": object_type_key,
             "parentObjectId": parent_object_id,
             "search": search,
-            "state": effective_states,
             "typedFilters": normalized_filters,
             "workspaceKey": workspace_key,
+            "lifecycle": lifecycle,
         },
     )
 
@@ -626,6 +629,8 @@ def validate_parent(
         return None, None
 
     parent = load_object(session, parent_object_id)
+    if parent.active_revision_id is None:
+        raise api_error(422, "parent_not_active", "Parent must have an active revision")
     if parent.application_key != application_key or parent.workspace_key != workspace_key:
         raise api_error(
             422, "parent_wrong_scope", "Parent must be in the same application and workspace"
@@ -687,7 +692,8 @@ def build_object_responses(
             applicationKey=item.application_key,
             objectTypeKey=item.object_type_key,
             parentObjectId=item.parent_object_id,
-            state=item.state,
+            activeRevisionId=item.active_revision_id,
+            lifecycle="active" if item.active_revision_id is not None else "retired",
             name=item.name,
             path=paths[item.id],
             attributes=_build_attribute_outputs(model, values[item.id]),

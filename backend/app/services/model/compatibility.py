@@ -391,6 +391,7 @@ def _check_cardinality(
         .where(
             ObjectRelation.relation_type_key == pair.relationTypeKey,
             target.object_type_key == pair.toObjectTypeKey,
+            target.active_revision_id.is_not(None),
         )
         .group_by(ObjectRelation.to_object_id)
         .having(func.count() > 1)
@@ -405,6 +406,7 @@ def _check_cardinality(
             .where(
                 ObjectRelation.relation_type_key == pair.relationTypeKey,
                 source.object_type_key == pair.fromObjectTypeKey,
+                source.active_revision_id.is_not(None),
             )
             .group_by(ObjectRelation.from_object_id)
             .having(func.count() > 1)
@@ -432,7 +434,9 @@ def _count_scoped_uniqueness_violations(
         RdmObject.parent_object_id.label("parent_id"),
         RdmObject.object_type_key.label("ancestor_type"),
         literal(0).label("depth"),
-    ).cte("object_lineage", recursive=True)
+    ).where(RdmObject.active_revision_id.is_not(None)).cte(
+        "object_lineage", recursive=True
+    )
     parent = aliased(RdmObject)
     lineage = lineage.union_all(
         select(
@@ -478,6 +482,8 @@ def _count_scoped_uniqueness_violations(
             ObjectRelation.relation_type_key == pair.relationTypeKey,
             source.object_type_key == pair.fromObjectTypeKey,
             target.object_type_key == pair.toObjectTypeKey,
+            source.active_revision_id.is_not(None),
+            target.active_revision_id.is_not(None),
         )
     )
     condition = pair.features.get("uniqueWhenToAttributeEquals")
@@ -507,18 +513,26 @@ def _count_scoped_uniqueness_violations(
 
 def _count_objects(session: Session, *conditions: Any) -> int:
     return int(
-        session.scalar(select(func.count()).select_from(RdmObject).where(*conditions)) or 0
+        session.scalar(
+            select(func.count())
+            .select_from(RdmObject)
+            .where(RdmObject.active_revision_id.is_not(None), *conditions)
+        )
+        or 0
     )
 
 
 def _count_attribute_values(
     session: Session, attribute_key: str, object_type_key: str | None = None
 ) -> int:
-    statement = select(func.count()).select_from(AttributeValue)
+    statement = (
+        select(func.count())
+        .select_from(AttributeValue)
+        .join(RdmObject, RdmObject.id == AttributeValue.object_id)
+        .where(RdmObject.active_revision_id.is_not(None))
+    )
     if object_type_key is not None:
-        statement = statement.join(RdmObject, RdmObject.id == AttributeValue.object_id).where(
-            RdmObject.object_type_key == object_type_key
-        )
+        statement = statement.where(RdmObject.object_type_key == object_type_key)
     return int(
         session.scalar(statement.where(AttributeValue.attribute_type_key == attribute_key)) or 0
     )
@@ -581,6 +595,7 @@ def _count_duplicate_attribute_groups(session: Session, key: str, value_type: st
         select(RdmObject.workspace_key, column)
         .join(AttributeValue, AttributeValue.object_id == RdmObject.id)
         .where(*conditions)
+        .where(RdmObject.active_revision_id.is_not(None))
         .group_by(RdmObject.workspace_key, column)
         .having(func.count() > 1)
         .subquery()
@@ -601,6 +616,8 @@ def _count_relation_pair(session: Session, pair: ObjectTypeRelationDefinition) -
                 ObjectRelation.relation_type_key == pair.relationTypeKey,
                 from_object.object_type_key == pair.fromObjectTypeKey,
                 to_object.object_type_key == pair.toObjectTypeKey,
+                from_object.active_revision_id.is_not(None),
+                to_object.active_revision_id.is_not(None),
             )
         )
         or 0
@@ -619,11 +636,19 @@ def _count_relation_attribute_bound_violations(
         if bound_name == "minimum"
         else numeric_value > bound_value
     )
+    from_object = aliased(RdmObject)
+    to_object = aliased(RdmObject)
     return int(
         session.scalar(
             select(func.count())
             .select_from(ObjectRelation)
-            .where(violation)
+            .join(from_object, from_object.id == ObjectRelation.from_object_id)
+            .join(to_object, to_object.id == ObjectRelation.to_object_id)
+            .where(
+                violation,
+                from_object.active_revision_id.is_not(None),
+                to_object.active_revision_id.is_not(None),
+            )
         )
         or 0
     )
@@ -650,6 +675,8 @@ def _count_relations_with_attribute(
                 ObjectRelation.relation_type_key == pair.relationTypeKey,
                 from_object.object_type_key == pair.fromObjectTypeKey,
                 to_object.object_type_key == pair.toObjectTypeKey,
+                from_object.active_revision_id.is_not(None),
+                to_object.active_revision_id.is_not(None),
                 has_key,
             )
         )
@@ -671,6 +698,7 @@ def _count_missing_required_relation(
             ObjectRelation.to_object_id == RdmObject.id,
             ObjectRelation.relation_type_key == relation_key,
             source.object_type_key.in_(source_keys),
+            source.active_revision_id.is_not(None),
         )
     )
     return _count_objects(

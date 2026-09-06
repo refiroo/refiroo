@@ -65,7 +65,7 @@ export interface ObjectQuery {
   cursor?: string;
   pageSize?: number;
   parentObjectId?: string;
-  state?: string[];
+  lifecycle?: "active" | "retired";
   sort?: ObjectSort;
   filters?: CollectionFilter[];
 }
@@ -77,7 +77,7 @@ function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
   if (query.search) params.set("search", query.search);
   if (query.cursor) params.set("cursor", query.cursor);
   if (query.parentObjectId) params.set("parentObjectId", query.parentObjectId);
-  query.state?.forEach((state) => params.append("state", state));
+  if (query.lifecycle) params.set("lifecycle", query.lifecycle);
   if (query.sort) params.set("sort", query.sort);
   query.filters?.forEach(({ field, operator, value }) => params.append(`filter.${field}.${operator}`, value));
   return `/api/v1/objects/${encodeURIComponent(objectTypeKey)}?${params}`;
@@ -177,7 +177,6 @@ export const api = {
     payload: {
       expectedVersion: number;
       name?: string;
-      state?: string;
       parentObjectId?: string | null;
       attributes?: ObjectAttributeInput[];
     },
@@ -194,6 +193,11 @@ export const api = {
       { method: "DELETE" },
     );
   },
+  retireObject: (objectTypeKey: string, objectId: string, expectedActiveRevisionId: string, cascade = false) =>
+    request<void>(`/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}/retirement`, {
+      method: "POST",
+      body: JSON.stringify({ expectedActiveRevisionId, cascade }),
+    }),
   attribute: (objectTypeKey: string, objectId: string, attributeTypeKey: string) =>
     request<AttributeValueResponse>(attributePath(objectTypeKey, objectId, attributeTypeKey)),
   createAttribute: (

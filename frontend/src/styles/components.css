@@ -799,15 +799,15 @@ tbody tr:last-child td {
   justify-self: start;
   margin: 0;
 }
-.delete-impact section {
+.retirement-impact section {
   margin-top: 16px;
 }
-.delete-impact h3 {
+.retirement-impact h3 {
   margin: 0 0 7px;
   color: var(--ink);
   font-size: 12px;
 }
-.delete-impact ul {
+.retirement-impact ul {
   max-height: 180px;
   overflow-y: auto;
   margin: 0;
@@ -816,18 +816,18 @@ tbody tr:last-child td {
   border: 1px solid var(--soft-line);
   border-radius: 8px;
 }
-.delete-impact li {
+.retirement-impact li {
   padding: 9px 11px;
   border-bottom: 1px solid var(--soft-line);
   overflow-wrap: anywhere;
 }
-.delete-impact li:last-child {
+.retirement-impact li:last-child {
   border-bottom: 0;
 }
-.delete-impact li span {
+.retirement-impact li span {
   color: var(--muted);
 }
-.delete-impact li small {
+.retirement-impact li small {
   display: block;
   margin-top: 2px;
   color: #7b8782;

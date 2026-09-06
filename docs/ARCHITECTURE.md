@@ -99,8 +99,16 @@ From a source checkout, the explicit migration command is:
 
 ```bash
 cd backend
-.venv/bin/python -m alembic upgrade head
+.venv/bin/python -m app.cli.database_upgrade
 ```
+
+The command uses the same configured `DATABASE_URL` as the application. Migration failures are
+translated into an operator-facing message containing the sanitized database target, current and
+target revisions, reason, recovery steps and escalation details. Startup catches the same condition,
+enters maintenance mode and serves `/health` as HTTP `503` without printing a framework traceback.
+An interrupted WP4 SQLite migration is retried automatically only when its partial lifecycle tables
+are structurally recognizable and empty and every partial active-revision pointer is null. Otherwise
+the engine preserves the database and requires backup plus operator review.
 
 For the default SQLite deployment, stop writers and use SQLite's online `.backup` command or copy the
 database only while it is closed; retain the database file and application version together. For

@@ -8,14 +8,14 @@ import { errorMessage, isApiError } from "@/api/errors";
 import { objectTypeFor } from "@/model/lookup";
 import { InlineError } from "@/ui/InlineError";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
-import { DeleteImpactSummary } from "@/features/objects/DeleteImpactSummary";
+import { RetirementImpactSummary } from "@/features/objects/RetirementImpactSummary";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { ObjectTable } from "@/ui/ObjectTable";
 import { Pagination } from "@/ui/Pagination";
 import { Icon } from "@/ui/Icon";
 import { ObjectToolbar } from "@/features/objects/ObjectToolbar";
 import { useCursorPages } from "@/lib/hooks/useCursorPages";
-import type { DeleteImpact, ObjectItem } from "@/types";
+import type { ObjectItem, RetirementImpact } from "@/types";
 import type { ViewComponentProps } from "./views/types";
 
 export function ObjectCollectionView({
@@ -37,22 +37,22 @@ export function ObjectCollectionView({
             applicationKey: application.key,
             workspaceKey,
             search: query.search,
-            state: query.states,
+            lifecycle: "active",
             sort: query.sort,
             filters: query.filters,
             cursor,
             pageSize: query.pageSize,
           })
       : null,
-    [application.key, view.key, workspaceKey, query.search, query.states, query.sort, query.pageSize, query.filters],
+    [application.key, view.key, workspaceKey, query.search, query.sort, query.pageSize, query.filters],
   );
   const { loading, error } = pages;
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<ObjectItem>();
-  const [deleting, setDeleting] = useState<ObjectItem>();
-  const [deleteImpact, setDeleteImpact] = useState<DeleteImpact>();
-  const [deletePending, setDeletePending] = useState(false);
-  const [deleteError, setDeleteError] = useState("");
+  const [retiring, setRetiring] = useState<ObjectItem>();
+  const [retirementImpact, setRetirementImpact] = useState<RetirementImpact>();
+  const [retirementPending, setRetirementPending] = useState(false);
+  const [retirementError, setRetirementError] = useState("");
 
   if (!objectType) return <div className="empty-state">This configured view does not select an object type.</div>;
   const activeObjectType = objectType;
@@ -66,29 +66,29 @@ export function ObjectCollectionView({
     onChanged();
   }
 
-  async function deleteObject() {
-    if (!deleting) return;
-    setDeletePending(true);
-    setDeleteError("");
+  async function retireObject() {
+    if (!retiring) return;
+    setRetirementPending(true);
+    setRetirementError("");
     try {
-      await api.deleteObject(activeObjectType.key, deleting.id, deleting.version, Boolean(deleteImpact));
-      setDeleting(undefined);
-      setDeleteImpact(undefined);
+      await api.retireObject(activeObjectType.key, retiring.id, retiring.activeRevisionId!, Boolean(retirementImpact));
+      setRetiring(undefined);
+      setRetirementImpact(undefined);
       refresh();
     } catch (cause) {
-      if (isApiError(cause, "object_has_dependents") && cause.details) {
-        setDeleteImpact(cause.details as DeleteImpact);
-      } else if (isApiError(cause, "version_conflict")) {
+      if (isApiError(cause, "object_has_dependants") && cause.details) {
+        setRetirementImpact(cause.details as RetirementImpact);
+      } else if (isApiError(cause, "active_revision_conflict")) {
         try {
-          setDeleting(await api.object(activeObjectType.key, deleting.id));
-          setDeleteImpact(undefined);
-          setDeleteError("The object changed. Its latest version has been loaded; review and try again.");
+          setRetiring(await api.object(activeObjectType.key, retiring.id));
+          setRetirementImpact(undefined);
+          setRetirementError("The object changed. Its latest version has been loaded; review and try again.");
         } catch (reloadCause) {
-          setDeleteError(errorMessage(reloadCause));
+          setRetirementError(errorMessage(reloadCause));
         }
-      } else setDeleteError(errorMessage(cause));
+      } else setRetirementError(errorMessage(cause));
     } finally {
-      setDeletePending(false);
+      setRetirementPending(false);
     }
   }
 
@@ -136,10 +136,10 @@ export function ObjectCollectionView({
           loading={loading && !error}
           onOpen={onOpen}
           onEdit={readOnly ? undefined : setEditing}
-          onDelete={readOnly ? undefined : setDeleting}
+          onDelete={readOnly ? undefined : setRetiring}
           label={`${view.name} table`}
           emptyMessage={
-            query.search || query.filters.length > 0 || query.states.length > 0
+            query.search || query.filters.length > 0
               ? "No results match these filters"
               : `No ${objectType.pluralName.toLowerCase()} in this workspace yet`
           }
@@ -175,23 +175,25 @@ export function ObjectCollectionView({
           }}
         />
       )}
-      {deleting && (
+      {retiring && (
         <ConfirmDialog
-          title={deleteImpact ? `Cascade delete ${deleteImpact.objectCount} objects?` : `Delete “${deleting.name}”?`}
-          confirmLabel={deleteImpact ? "Cascade delete" : "Delete object"}
-          pending={deletePending}
-          error={deleteError}
+          title={retirementImpact ? `Retire ${retirementImpact.objectCount} objects?` : `Retire “${retiring.name}”?`}
+          confirmLabel={retirementImpact ? "Confirm retirement" : "Retire object"}
+          pending={retirementPending}
+          error={retirementError}
           onCancel={() => {
-            setDeleting(undefined);
-            setDeleteImpact(undefined);
-            setDeleteError("");
+            setRetiring(undefined);
+            setRetirementImpact(undefined);
+            setRetirementError("");
           }}
-          onConfirm={deleteObject}
+          onConfirm={retireObject}
         >
-          {deleteImpact ? (
-            <DeleteImpactSummary model={model} impact={deleteImpact} />
+          {retirementImpact ? (
+            <RetirementImpactSummary model={model} impact={retirementImpact} />
           ) : (
-            <p>The engine will check dependencies before deleting. A cascade always requires separate confirmation.</p>
+            <p>
+              The engine will check dependencies before retirement. A cascade always requires separate confirmation.
+            </p>
           )}
         </ConfirmDialog>
       )}

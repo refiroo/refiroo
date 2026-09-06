@@ -40,6 +40,24 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Database migration failures now produce a credential-safe operator message with the current and
+  target revisions, recovery command, backup requirement and escalation details. Startup enters
+  maintenance mode without a traceback, and the WP4 migration safely retries recognized empty SQLite
+  DDL left by an interrupted attempt. Real-database startup, restart and interruption regression tests
+  cover the failure that previously left the development application unable to boot.
+
+- Base 0.6 authoritative runtime-object revisions. Stable logical objects now own model-pinned,
+  optimistic drafts and immutable active/retired snapshots with separate derivation and supersession
+  lineage. Root and historical drafts, explicit activation, cursor-paged history, retired discovery,
+  direct retirement and ownership-cascade retirement are public API contracts. Activation publishes
+  core fields, typed attributes, containment and required relationships atomically; independent
+  associations and published identity survive retirement. The Alembic transition preserves object
+  UUIDs, migrates known active/draft/retired rows and rejects unknown legacy states with counts.
+  Post-implementation hardening conditionally claims the final draft version during activation,
+  prevents compatibility adapters from drifting the lifecycle projection, rejects corrupt
+  cross-workspace retirement graphs and aligns the existing UI with lifecycle responses and
+  revision-token retirement language while the complete WP5 draft workbench remains deferred.
+
 - Frontend lint and format tooling: ESLint 10 with `typescript-eslint` and
   `eslint-plugin-react-hooks`, and Prettier. `AGENTS.md` listed "linting passes" in the definition
   of done, but the frontend had no linter. Dependencies are pinned instead of `"latest"`, build

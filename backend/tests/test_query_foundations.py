@@ -77,42 +77,43 @@ def test_object_cursor_handles_duplicate_names_and_insert_between_pages():
         assert len(seen) == len(set(seen))
 
 
-def test_object_state_is_repeatable_and_cursor_is_bound_to_filters_and_sort():
+def test_object_lifecycle_is_bound_to_cursor_filters_and_sort():
     token = f"WP5_{uuid4().hex[:8]}"
     with TestClient(app) as client:
-        active = _create_domain(client, token, 1, state="active")
-        draft = _create_domain(client, token, 2, state="draft")
-        _create_domain(client, token, 3, state="retired")
+        first_object = _create_domain(client, token, 1)
+        second_object = _create_domain(client, token, 2)
         first = client.get(
             "/api/v1/objects/domain",
             params=[
                 ("search", token),
-                ("state", "active"),
-                ("state", "draft"),
                 ("sort", "-name"),
                 ("pageSize", "1"),
             ],
         )
         assert first.status_code == 200
-        assert first.json()["items"][0]["id"] == draft["id"]
+        assert first.json()["items"][0]["id"] == second_object["id"]
         cursor = first.json()["nextCursor"]
         second = client.get(
             "/api/v1/objects/domain",
             params=[
                 ("search", token),
-                ("state", "draft"),
-                ("state", "active"),
                 ("sort", "-name"),
                 ("pageSize", "1"),
                 ("cursor", cursor),
             ],
         )
         assert second.status_code == 200
-        assert second.json()["items"][0]["id"] == active["id"]
+        assert second.json()["items"][0]["id"] == first_object["id"]
 
         mismatched = client.get(
             "/api/v1/objects/domain",
-            params={"search": token, "sort": "name", "pageSize": 1, "cursor": cursor},
+            params={
+                "search": token,
+                "sort": "-name",
+                "lifecycle": "retired",
+                "pageSize": 1,
+                "cursor": cursor,
+            },
         )
         assert mismatched.status_code == 422
         assert mismatched.json()["error"]["code"] == "invalid_cursor"
@@ -122,14 +123,11 @@ def test_every_built_in_object_sort_supports_cursor_traversal():
     token = f"WP5_{uuid4().hex[:8]}"
     with TestClient(app) as client:
         created = {
-            _create_domain(client, token, index, state=state)["id"]
-            for index, state in enumerate(("draft", "active", "retired"), start=1)
+            _create_domain(client, token, index)["id"] for index in range(1, 4)
         }
         for sort in (
             "name",
             "-name",
-            "state",
-            "-state",
             "createdAt",
             "-createdAt",
             "updatedAt",
@@ -335,9 +333,12 @@ def test_object_history_includes_safe_object_and_connected_relation_events():
             assert page.status_code == 200
             events.extend(page.json()["items"])
             cursor = page.json()["nextCursor"]
-        assert len({item["id"] for item in events}) == 3
-        assert {item["aggregateType"] for item in events} == {"object", "relation"}
-        assert any(item["attributeTypeKeys"] == ["domain-code"] for item in events)
+        assert len({item["id"] for item in events}) == 6
+        assert {item["aggregateType"] for item in events} == {
+            "object-draft",
+            "object-revision",
+            "relation",
+        }
         assert all("changes" not in item for item in events)
 
         wrong_object = client.get(

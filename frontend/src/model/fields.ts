@@ -2,7 +2,7 @@
  * Projection of an object onto the field keys a view or panel declares.
  *
  * `attributeName` labels a key and `fieldValue` reads it, both handling the built-in keys (name,
- * state, path, ancestors, timestamps) alongside attached attribute types. `formatValue` renders a
+ * path, ancestors and timestamps) alongside attached attribute types. `formatValue` renders a
  * read value; it renders JSX and so lives in `ui/formatValue` rather than here, keeping this
  * module free of presentation.
  */
@@ -16,7 +16,6 @@ export function attributeName(model: EngineModel, key: string) {
     return objectTypeFor(model, objectTypeKey)?.name ?? objectTypeKey;
   }
   if (key === "name") return "Name";
-  if (key === "state") return "State";
   if (key === "path") return "Path";
   if (key === "objectType") return "Type";
   if (key === "id") return "ID";
@@ -31,7 +30,6 @@ export function fieldValue(item: ObjectItem, key: string, model: EngineModel): u
     return item.path.find((part) => part.objectTypeKey === objectTypeKey)?.name;
   }
   if (key === "name") return item.name;
-  if (key === "state") return item.state;
   if (key === "path") return item.path.map((part) => part.name).join(" / ");
   if (key === "objectType") return objectTypeFor(model, item.objectTypeKey)?.name ?? item.objectTypeKey;
   if (key === "id") return item.id;

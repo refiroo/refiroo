@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import Settings, get_settings, reload_settings
-from .db import SessionLocal, create_database
+from .db import DatabaseMigrationError, SessionLocal, create_database
 from .errors import (
     ApiError,
     api_error_handler,
@@ -24,6 +24,7 @@ from .routers import (
     model,
     model_management,
     model_releases,
+    object_lifecycle,
     objects,
     relations,
     workspaces,
@@ -52,7 +53,13 @@ def schema_upgrade_command(settings: Settings) -> str:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     loaded_model = load_bootstrap_model()
-    create_database()
+    try:
+        create_database()
+    except DatabaseMigrationError as exc:
+        model_registry.mark_unhealthy()
+        logger.error("%s", exc)
+        yield
+        return
     bootstrap_model(loaded_model)
     with SessionLocal() as session:
         try:
@@ -151,6 +158,7 @@ def create_app() -> FastAPI:
     if mutations_enabled:
         application.include_router(model_management.router)
     application.include_router(objects.router)
+    application.include_router(object_lifecycle.router)
     application.include_router(relations.router)
     application.include_router(attributes.router)
     return application

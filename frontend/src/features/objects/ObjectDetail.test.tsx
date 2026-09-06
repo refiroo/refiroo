@@ -2,40 +2,30 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api, ApiError } from "@/api/client";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
-import type { DeleteImpact } from "@/types";
+import type { RetirementImpact } from "@/types";
 import { ObjectDetail } from "@/features/objects/ObjectDetail";
 
 afterEach(() => vi.restoreAllMocks());
 
-describe("ObjectDetail deletion", () => {
+describe("ObjectDetail retirement", () => {
   it("previews dependencies before sending a confirmed cascade", async () => {
-    const externalObject = {
-      id: "77777777-7777-4777-8777-777777777777",
-      name: "External value",
-      objectTypeKey: "codelist",
-      applicationKey: "other-app",
-      parentObjectId: null,
-    };
-    const impact: DeleteImpact = {
-      rootObject: { ...domainObject, parentObjectId: null },
-      objectsToDelete: [{ ...codelistObject, reason: "child", viaObjectId: domainObject.id }],
-      relationshipsToRemove: [
+    const impact: RetirementImpact = {
+      rootObjectId: domainObject.id,
+      objectsToRetire: [
         {
-          id: "relationship",
-          relationTypeKey: "links",
-          fromObject: { ...domainObject, parentObjectId: null },
-          toObject: externalObject,
-          fkPk: false,
-          relatedObjectWillBeDeleted: false,
+          id: codelistObject.id,
+          name: codelistObject.name,
+          objectTypeKey: codelistObject.objectTypeKey,
+          reason: "containment",
         },
       ],
       objectCount: 2,
-      relationshipCount: 2,
+      retainedAssociationCount: 1,
     };
     vi.spyOn(api, "object").mockResolvedValue(domainObject);
     vi.spyOn(api, "objectHistory").mockResolvedValue({ items: [], nextCursor: null });
-    vi.spyOn(api, "deleteObject")
-      .mockRejectedValueOnce(new ApiError(409, "object_has_dependents", "Confirmation required", impact))
+    vi.spyOn(api, "retireObject")
+      .mockRejectedValueOnce(new ApiError(409, "object_has_dependants", "Confirmation required", impact))
       .mockResolvedValueOnce(undefined);
     const onDeleted = vi.fn();
     render(
@@ -52,14 +42,16 @@ describe("ObjectDetail deletion", () => {
       />,
     );
 
-    fireEvent.click(await screen.findByRole("button", { name: "Delete object" }));
-    fireEvent.click(screen.getAllByRole("button", { name: "Delete object" }).at(-1)!);
-    expect(await screen.findByText("Nothing has been deleted yet.")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Retire object" }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Retire object" }).at(-1)!);
+    expect(await screen.findByText("Nothing has been retired yet.")).toBeInTheDocument();
     expect(screen.getByText("Timetable types")).toBeInTheDocument();
-    expect(screen.getByText("The object at the other endpoint is preserved")).toBeInTheDocument();
+    expect(screen.getByText("1 independent association is retained as history.")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Cascade delete" }));
-    await waitFor(() => expect(api.deleteObject).toHaveBeenLastCalledWith("domain", domainObject.id, 1, true));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm retirement" }));
+    await waitFor(() =>
+      expect(api.retireObject).toHaveBeenLastCalledWith("domain", domainObject.id, domainObject.activeRevisionId, true),
+    );
     expect(onDeleted).toHaveBeenCalledOnce();
   });
 });

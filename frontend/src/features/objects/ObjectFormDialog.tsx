@@ -102,12 +102,10 @@ export function ObjectFormDialog({
       const data = new FormData(form);
       const name = String(data.get("name"));
       if (object) {
-        const payload: { expectedVersion: number; name?: string; state?: string; parentObjectId?: string | null } = {
+        const payload: { expectedVersion: number; name?: string; parentObjectId?: string | null } = {
           expectedVersion: objectVersion,
         };
-        const state = String(data.get("state"));
         if (name !== baselineObject?.name) payload.name = name;
-        if (state !== baselineObject?.state) payload.state = state;
         if (parentId !== baselineObject?.parentObjectId) payload.parentObjectId = parentId;
         onSaved(await api.updateObject(objectType.key, object.id, payload));
       } else {
@@ -251,20 +249,14 @@ export function ObjectFormDialog({
           Name
           <input name="name" required autoFocus defaultValue={object?.name} />
         </label>
-        {object ? (
-          <label>
-            State
-            <input name="state" required defaultValue={object.state} />
-          </label>
-        ) : (
+        {!object &&
           bindings.map((binding) => (
             <AttributeField
               key={binding.attributeTypeKey}
               binding={binding}
               attribute={attributeMap.get(binding.attributeTypeKey)!}
             />
-          ))
-        )}
+          ))}
         {error && (
           <Notice tone="error" title="The object was not saved" focusOnMount>
             {error}

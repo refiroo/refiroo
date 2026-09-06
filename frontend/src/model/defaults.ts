@@ -8,7 +8,6 @@ import type { DetailViewDefinition, ObjectTypeDefinition, ObjectSort } from "@/t
 export const DEFAULT_WORKSPACE = "default";
 export const DEFAULT_COLLECTION_QUERY = {
   search: "",
-  states: [] as string[],
   sort: "name" as ObjectSort,
   pageSize: 20,
   filters: [],

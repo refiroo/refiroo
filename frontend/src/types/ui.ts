@@ -15,7 +15,6 @@ export interface CollectionFilter {
 
 export interface CollectionQueryState {
   search: string;
-  states: string[];
   sort: ObjectSort;
   pageSize: number;
   filters: CollectionFilter[];

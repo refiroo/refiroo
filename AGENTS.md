@@ -49,6 +49,24 @@ For each feature:
 Avoid speculative abstractions. Add a generalization after two real RDM cases demonstrate it. Keep API
 errors explicit and machine-readable.
 
+### Error handling and regression fixes
+
+- A stack trace is diagnostic data, not an operator-facing error message. Handle expected operational
+  failures at the relevant boundary and report what failed, why it failed, the resulting service
+  state, the safe recovery action and the information needed when escalating it. Do not require a
+  user or operator to interpret a Python, JavaScript, SQL or framework traceback.
+- Do not silently discard the underlying cause. Preserve it for controlled debug diagnostics or a
+  correlation identifier, while keeping normal logs and API responses concise, safe and actionable.
+- Fixing a defect includes a regression test that reproduces the observed failure mode and verifies
+  the human-facing error behavior. Also test the adjacent real execution boundary that allowed the
+  defect through; unit coverage of the corrected function alone is insufficient.
+- When a migration or startup path changes, test clean bootstrap, upgrade from the preceding revision,
+  restart, and recovery or actionable refusal after an interrupted migration. Exercise the FastAPI
+  lifespan against a real temporary database and perform a final smoke start against the configured
+  development database or an isolated copy of it.
+- Validation reports must state what was actually exercised and any remaining limitations. Never use
+  a broad claim such as “the application works” based only on passing unit or fixture-level tests.
+
 ## Code conventions
 
 ### Backend
@@ -104,6 +122,9 @@ errors explicit and machine-readable.
 A change is complete when tests pass, linting passes, the frontend builds, new configuration is
 validated, documentation matches the implementation, and no branch was added for a starter
 application or object-type key.
+
+For startup or migration changes, completion additionally requires the startup and interrupted-
+migration checks in the error-handling section above; a green unit suite alone is not sufficient.
 
 Concretely: `pytest` and `ruff check app/ tests/` in `backend/`, and `npm run lint`, `npm run test`
 and `npm run build` in `frontend/`. The frontend lint step must report zero errors; warnings are

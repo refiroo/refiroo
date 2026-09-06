@@ -28,6 +28,8 @@ def validate_attributes(
     attributes: dict[str, Any],
     *,
     partial: bool = False,
+    apply_defaults: bool = True,
+    allow_read_only: bool = False,
 ) -> dict[str, Any]:
     bindings = {item.attributeTypeKey: item for item in object_type.attributes}
     unknown = set(attributes) - set(bindings)
@@ -35,11 +37,11 @@ def validate_attributes(
         raise api_error(422, "unknown_attributes", f"Unknown attributes: {sorted(unknown)}")
 
     read_only = [key for key in attributes if bindings[key].readOnly]
-    if read_only:
+    if read_only and not allow_read_only:
         raise api_error(422, "read_only_attributes", f"Read-only attributes: {read_only}")
 
     result = dict(attributes)
-    if not partial:
+    if not partial and apply_defaults:
         for binding in object_type.attributes:
             definition = _attribute_definition(model, binding.attributeTypeKey)
             if binding.attributeTypeKey not in result and definition.default is not None:
@@ -252,6 +254,7 @@ def check_attribute_uniqueness(
                 AttributeValue.attribute_type_key == key,
                 column == value,
                 RdmObject.workspace_key == workspace_key,
+                RdmObject.active_revision_id.is_not(None),
             )
         )
         if exclude_object_id is not None:

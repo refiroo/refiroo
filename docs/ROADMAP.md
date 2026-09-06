@@ -23,9 +23,9 @@ The operational foundation is complete:
 - Database-selected model releases, drafts, compilation, diff, compatibility and guarded activation
 - URL-backed workspace/list state, stable cursors, bounded relation expansion and audit history
 
-Base 0.6 WP1-WP3 have delivered the UI foundation, workspace discovery and strict schema 0.5 typed
-tables. Authoritative runtime-object revisions, integration-scale operations, authentication and
-distributed activation are not present. Base 0.6 completes the common operational foundation before
+Base 0.6 WP1-WP4 have delivered the UI foundation, workspace discovery, strict schema 0.5 typed
+tables and authoritative runtime-object revisions. The coherent lifecycle UI, integration-scale
+operations, authentication and distributed activation are not present. Base 0.6 completes the common operational foundation before
 specialist workspaces.
 
 ## Base 0.5 — Operational base and model lifecycle foundation (complete)

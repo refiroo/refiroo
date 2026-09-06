@@ -434,7 +434,7 @@ def test_delete_object_with_children_is_rejected():
             f"/api/v1/objects/domain/{domain['id']}", params={"expectedVersion": 1}
         )
         assert response.status_code == 409
-        assert response.json()["error"]["code"] == "object_has_dependents"
+        assert response.json()["error"]["code"] == "object_has_dependants"
 
 
 def test_delete_object_with_mapping_relation_is_rejected():
@@ -500,8 +500,8 @@ def test_delete_object_with_mapping_relation_is_rejected():
         response = client.delete(
             f"/api/v1/objects/master-value/{master['id']}", params={"expectedVersion": 1}
         )
-        assert response.status_code == 409
-        assert response.json()["error"]["code"] == "object_has_dependents"
+        assert response.status_code == 204
+        assert client.get(f"/api/v1/relations/{mapping.json()['id']}").status_code == 200
 
 
 def test_update_cannot_null_required_attribute():

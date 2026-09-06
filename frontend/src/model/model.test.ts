@@ -81,7 +81,6 @@ describe("relationship model helpers", () => {
 describe("attributeName", () => {
   it("maps built-in column keys to labels", () => {
     expect(attributeName(testModel, "name")).toBe("Name");
-    expect(attributeName(testModel, "state")).toBe("State");
     expect(attributeName(testModel, "objectType")).toBe("Type");
   });
 

@@ -76,7 +76,7 @@ export function ObjectTable({
                             ? [
                                 {
                                   id: "delete",
-                                  label: "Delete",
+                                  label: "Retire",
                                   tone: "danger" as const,
                                   onAction: () => onDelete(item),
                                 },

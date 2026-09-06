@@ -79,7 +79,7 @@ def _create_graph(client: TestClient):
     return domain, codelist, master, system, system_value, relation
 
 
-def test_non_cascade_delete_returns_recursive_child_impact_without_mutating():
+def test_non_cascade_retirement_returns_recursive_child_impact_without_mutating():
     with TestClient(app) as client:
         domain, codelist, master, _system, _system_value, _relation = _create_graph(client)
 
@@ -89,9 +89,10 @@ def test_non_cascade_delete_returns_recursive_child_impact_without_mutating():
 
         assert response.status_code == 409
         error = response.json()["error"]
-        assert error["code"] == "object_has_dependents"
+        assert error["code"] == "object_has_dependants"
         assert error["details"]["objectCount"] == 3
-        assert {item["id"] for item in error["details"]["objectsToDelete"]} == {
+        assert error["details"]["retainedAssociationCount"] == 1
+        assert {item["id"] for item in error["details"]["objectsToRetire"]} == {
             codelist["id"],
             master["id"],
         }
@@ -107,26 +108,16 @@ def test_non_cascade_delete_returns_recursive_child_impact_without_mutating():
         assert client.get(f"/api/v1/objects/master-value/{master['id']}").status_code == 404
 
 
-def test_cascade_unlinks_optional_non_parent_relation_but_preserves_related_object():
+def test_retirement_retains_optional_non_parent_relation_and_related_identity():
     with TestClient(app) as client:
         _domain, _codelist, master, _system, system_value, relation = _create_graph(client)
 
-        preview = client.delete(
+        retired = client.delete(
             f"/api/v1/objects/master-value/{master['id']}", params={"expectedVersion": 1}
         )
-        assert preview.status_code == 409
-        relationship = preview.json()["error"]["details"]["relationshipsToRemove"][0]
-        assert relationship["id"] == relation["id"]
-        assert relationship["fkPk"] is False
-        assert relationship["relatedObjectWillBeDeleted"] is False
-
-        deleted = client.delete(
-            f"/api/v1/objects/master-value/{master['id']}",
-            params={"expectedVersion": 1, "cascade": True},
-        )
-        assert deleted.status_code == 204
+        assert retired.status_code == 204
         assert client.get(f"/api/v1/objects/system-value/{system_value['id']}").status_code == 200
-        assert client.get(f"/api/v1/relations/{relation['id']}").status_code == 404
+        assert client.get(f"/api/v1/relations/{relation['id']}").status_code == 200
 
 
 def test_cascade_deleting_reference_structure_preserves_system_representation():
@@ -145,13 +136,7 @@ def test_cascade_deleting_reference_structure_preserves_system_representation():
             f"/api/v1/objects/domain/{domain['id']}", params={"expectedVersion": 1}
         )
         assert preview.status_code == 409
-        relationship = next(
-            item
-            for item in preview.json()["error"]["details"]["relationshipsToRemove"]
-            if item["id"] == representation["id"]
-        )
-        assert relationship["fkPk"] is False
-        assert relationship["relatedObjectWillBeDeleted"] is False
+        assert preview.json()["error"]["details"]["objectCount"] == 3
 
         deleted = client.delete(
             f"/api/v1/objects/domain/{domain['id']}",
@@ -159,7 +144,7 @@ def test_cascade_deleting_reference_structure_preserves_system_representation():
         )
         assert deleted.status_code == 204
         assert client.get(f"/api/v1/objects/system-value/{system_value['id']}").status_code == 200
-        assert client.get(f"/api/v1/relations/{representation['id']}").status_code == 404
+        assert client.get(f"/api/v1/relations/{representation['id']}").status_code == 200
 
 
 def test_cascade_deletes_required_single_valued_fk_dependent():
@@ -189,9 +174,9 @@ def test_cascade_deletes_required_single_valued_fk_dependent():
             assert preview.status_code == 409
             details = preview.json()["error"]["details"]
             dependent = next(
-                item for item in details["objectsToDelete"] if item["id"] == master["id"]
+                item for item in details["objectsToRetire"] if item["id"] == master["id"]
             )
-            assert dependent["reason"] == "fkDependent"
+            assert dependent["reason"] == "required-ownership"
 
             deleted = client.delete(
                 f"/api/v1/objects/system-value/{system_value['id']}",

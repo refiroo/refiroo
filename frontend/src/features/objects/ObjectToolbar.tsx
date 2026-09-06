@@ -62,8 +62,8 @@ export function ObjectToolbar({
           />
         );
       })}
-      {(query.search !== "" || query.states.length > 0 || query.filters.length > 0) && (
-        <button onClick={() => onChange({ ...query, search: "", states: [], filters: [] })}>Clear filters</button>
+      {(query.search !== "" || query.filters.length > 0) && (
+        <button onClick={() => onChange({ ...query, search: "", filters: [] })}>Clear filters</button>
       )}
       <SelectField
         className="toolbar-field"
@@ -179,7 +179,7 @@ function FilterControl({
 }
 
 function isBuiltIn(field: string) {
-  return ["id", "name", "state", "createdAt", "updatedAt"].includes(field);
+  return ["id", "name", "createdAt", "updatedAt"].includes(field);
 }
 
 function valueType(model: EngineModel, field: string): ValueType {

@@ -3,7 +3,7 @@
  *
  * `code` is the machine-readable identifier the backend returns in `error.code`; `details` is the
  * matching `error.details` payload, used by callers that act on a specific failure such as
- * `object_has_dependents`.
+ * `object_has_dependants`.
  */
 export class ApiError extends Error {
   constructor(

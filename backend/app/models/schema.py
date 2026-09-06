@@ -17,7 +17,7 @@ ValueType = Literal[
 ]
 Cardinality = Literal["one-to-one", "one-to-many", "many-to-many"]
 
-BUILT_IN_COLUMNS = {"id", "name", "state", "path", "createdAt", "updatedAt"}
+BUILT_IN_COLUMNS = {"id", "name", "path", "createdAt", "updatedAt"}
 DETAIL_FIELD_KEYS = BUILT_IN_COLUMNS | {"objectType"}
 
 

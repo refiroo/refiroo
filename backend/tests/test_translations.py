@@ -266,8 +266,8 @@ def test_required_translation_target_cannot_be_unlinked_and_cascades_with_owner(
         )
         assert preview.status_code == 409
         assert any(
-            item["id"] == translation["id"] and item["reason"] == "fkDependent"
-            for item in preview.json()["error"]["details"]["objectsToDelete"]
+            item["id"] == translation["id"] and item["reason"] == "required-ownership"
+            for item in preview.json()["error"]["details"]["objectsToRetire"]
         )
 
         deleted = client.delete(

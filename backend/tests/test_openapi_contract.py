@@ -4,15 +4,15 @@ import json
 from app.main import app, create_app
 
 
-def test_base_0_6_wp3_default_openapi_document_is_locked():
+def test_base_0_6_wp4_default_openapi_document_is_locked():
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
 
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "20b9e55a79da738eabe80d75853ddeeade0f7dcac2c6931da7823fc89c39e3e1"
+        "4497ea77d75f9c5f84ced4bac3c091ba5c20f96abf35ab81ce7d21dfa5a65d9c"
     )
 
 
-def test_base_0_6_wp3_default_openapi_path_and_method_inventory_is_locked():
+def test_base_0_6_wp4_default_openapi_path_and_method_inventory_is_locked():
     schema = app.openapi()
 
     actual = {
@@ -42,18 +42,29 @@ def test_base_0_6_wp3_default_openapi_path_and_method_inventory_is_locked():
         "/api/v1/workspaces/{workspace_key}": frozenset({"get", "patch"}),
         "/api/v1/workspace-runtime-state": frozenset({"get", "patch"}),
         "/api/v1/objects/{object_type_key}": frozenset({"get"}),
-        "/api/v1/objects": frozenset({"post"}),
-        "/api/v1/objects/{object_type_key}/{object_id}": frozenset({"delete", "get", "patch"}),
+        "/api/v1/objects/{object_type_key}/{object_id}": frozenset({"get"}),
         "/api/v1/objects/{object_type_key}/{object_id}/history": frozenset({"get"}),
+        "/api/v1/object-drafts": frozenset({"post"}),
+        "/api/v1/objects/{object_type_key}/{object_id}/drafts": frozenset(
+            {"get", "post"}
+        ),
+        "/api/v1/object-drafts/{draft_id}": frozenset({"get", "patch", "delete"}),
+        "/api/v1/object-drafts/{draft_id}/activation": frozenset({"post"}),
+        "/api/v1/objects/{object_type_key}/{object_id}/revisions": frozenset({"get"}),
+        "/api/v1/object-revisions/{revision_id}": frozenset({"get"}),
+        "/api/v1/objects/{object_type_key}/{object_id}/retirement": frozenset({"post"}),
+        "/api/v1/objects/{object_type_key}/{object_id}/retirement-impact": frozenset(
+            {"get"}
+        ),
         "/api/v1/relations": frozenset({"get", "post"}),
         "/api/v1/relations/{relation_id}": frozenset({"delete", "get", "patch"}),
         "/api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}": (
-            frozenset({"delete", "get", "patch", "post"})
+            frozenset({"get"})
         ),
     }
 
 
-def test_base_0_6_wp3_default_openapi_component_schema_inventory_is_locked():
+def test_base_0_6_wp4_default_openapi_component_schema_inventory_is_locked():
     schema_names = set(app.openapi()["components"]["schemas"])
 
     assert schema_names == {
@@ -68,7 +79,6 @@ def test_base_0_6_wp3_default_openapi_component_schema_inventory_is_locked():
         "AttributeOutput",
         "AttributeTypeResponse",
         "AttributeValueResponse",
-        "AttributeValueWrite",
         "CapabilitiesResponse",
         "InitialRelationInput",
         "MetadataPage_ApplicationResponse_",
@@ -87,18 +97,30 @@ def test_base_0_6_wp3_default_openapi_component_schema_inventory_is_locked():
         "ModelReleaseSummary",
         "ModelRuntimeStateResponse",
         "ModelValidationResponse",
-        "ObjectCreate",
+        "ObjectDraftActivationRequest",
+        "ObjectDraftCloneRequest",
+        "ObjectDraftCreate",
+        "ObjectDraftDeleteRequest",
+        "ObjectDraftPage",
+        "ObjectDraftResponse",
+        "ObjectDraftUpdate",
         "ObjectPage",
         "ObjectResponse",
+        "ObjectRetirementRequest",
+        "ObjectRetirementImpactResponse",
+        "ObjectRetirementResponse",
+        "ObjectRevisionPage",
+        "ObjectRevisionResponse",
         "ObjectTypeRelationResponse",
         "ObjectTypeResponse",
-        "ObjectUpdate",
         "RelationCreate",
         "RelationExpansion",
         "RelationPage",
         "RelationResponse",
         "RelationTypeResponse",
         "RelationUpdate",
+        "RequiredRelationshipOutput",
+        "RetirementImpactObject",
         "WorkspaceAdminCapabilities",
         "WorkspaceCreate",
         "WorkspacePage",

@@ -144,6 +144,7 @@ def test_numeric_ranges_and_capability_errors_are_model_aware():
                     application_key="rdm-master",
                     object_type_key="master-value",
                     name=f"{token} {number}",
+                    active_revision_id=str(uuid4()),
                 )
                 session.add(item)
                 session.flush()
