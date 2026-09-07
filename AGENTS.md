@@ -129,3 +129,81 @@ migration checks in the error-handling section above; a green unit suite alone i
 Concretely: `pytest` and `ruff check app/ tests/` in `backend/`, and `npm run lint`, `npm run test`
 and `npm run build` in `frontend/`. The frontend lint step must report zero errors; warnings are
 listed in `eslint.config.js` with their justification.
+
+## Agent orchestration
+
+The primary agent owns scope, coordination, final integration and the final answer.
+
+For implementation work packages:
+
+1. Delegate targeted code-path discovery to the `explorer` agent.
+2. Use the `architect` agent only when requirements or architectural boundaries
+   remain genuinely ambiguous.
+3. Delegate implementation to one `implementer` agent.
+4. After implementation, delegate focused verification to the `test_runner` agent.
+5. For substantial or cross-module work, delegate final review to the `reviewer` agent.
+6. The primary agent resolves review findings and performs final verification.
+
+Use configured subagents automatically without requiring the user to request them
+in every prompt.
+
+### Model allocation
+
+- Use Luna for targeted searches, code-path mapping, mechanical checks and test execution.
+- Use Terra for normal implementation, debugging and code review.
+- Reserve Sol for orchestration, difficult architecture decisions, conflicting
+  requirements and complex failures that Terra could not resolve.
+- Do not let subagents inherit Sol merely because the primary agent uses Sol.
+- Start with low or medium reasoning and increase it only when the task demonstrates
+  that deeper reasoning is needed.
+
+### Proportional use
+
+Do not run the full agent sequence for every change.
+
+- Small localized change: one Terra implementer, then focused verification.
+- Normal work package: Luna explorer, Terra implementer, Luna test runner.
+- Large cross-module work package: parallel read-only exploration where useful,
+  then one Terra implementer, test runner and Terra reviewer.
+- Architectural decision: Sol architect before implementation.
+- Failed implementation: return the concrete failure to the same agent first;
+  escalate to Sol only when the failure requires architectural reasoning.
+
+Do not spawn multiple agents to independently analyse the same code.
+
+### Editing and concurrency
+
+Read-only agents may run in parallel when examining independent areas.
+
+Only one agent may write to a given module at a time. Prefer one implementation
+owner for the complete work package when backend and frontend changes are coupled.
+
+Do not run implementation and review concurrently. Review the completed diff.
+
+Subagents must preserve unrelated working-tree changes and must not commit,
+revert or rewrite another agent's work.
+
+### Context discipline
+
+Give each subagent only:
+
+- the active work-package specification;
+- relevant acceptance criteria;
+- relevant architecture constraints;
+- the files or modules it is expected to inspect.
+
+Subagents should use targeted search rather than reading the whole repository.
+They must return concise findings with file and symbol references, without raw
+logs or a complete narration of their work.
+
+The primary agent should reuse subagent findings and must not repeat the same
+repository-wide exploration unless the evidence is incomplete.
+
+### Work-package completion
+
+The objective is a completed, verified work package, not merely an implementation
+plan.
+
+When a work package is too large to implement safely as one ownership unit, stop
+after discovery and propose explicit independently deliverable slices. Do not
+silently divide one work package into overlapping implementation tasks.

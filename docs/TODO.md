@@ -55,6 +55,8 @@ See `BASE_0_6_IMPLEMENTATION_PLAN.md` for scope, file boundaries and exit criter
 
 ## Later — production and self-service authoring
 
+- [ ] Complete the release licensing checklist in [LICENSING_TODO.md](LICENSING_TODO.md), including
+  ownership, contribution, dependency, security, trademark and commercial-service documentation.
 - [ ] PostgreSQL performance and multi-writer uniqueness hardening.
 - [ ] OIDC, application/object/operation authorization and audit identity.
 - [ ] Replace the pre-authentication, default-enabled workspace mutation posture with authenticated,
