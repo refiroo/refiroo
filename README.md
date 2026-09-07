@@ -22,7 +22,7 @@ different applications.
 - Compatibility-gated release activation with runtime-state concurrency and lifecycle audit
 - Side-effect-free model validation with stable diagnostics, key-based release diff and bounded
   runtime-data compatibility analysis
-- Stable logical objects with model-pinned mutable drafts and immutable active/retired revisions
+- Stable workspace, object and relation identities; ADR-024 lifecycle contracts are frozen and WP6-WP8 implement workspace revisions
 - Separately stored typed attribute values—text, integer, decimal, boolean, date, datetime and JSON
 - Typed object relations, automatic parent relations and hierarchy cycle protection
 - Relation cardinality checks and audit events
@@ -32,9 +32,9 @@ different applications.
   discovery, URL-stable keys and read-only retired scopes
 - Registry-driven collection views and composable object details with main/side panels
 - Reusable attribute, child, relation, table and hierarchy panels
-- Atomic draft activation for core fields, typed attributes, containment and required relationships
+- Transitional per-object revision code from rejected WP4, retained only as corrective migration input
 - Accessible confirmations, structured mutation errors and optimistic-concurrency recovery
-- Dependency-previewed active-revision retirement with explicit transactional ownership cascade
+- Dependency previews for draft-scoped object removal are part of the corrective workspace plan
 - Cross-application relationship lookup with server-side search and cursor pagination
 - Optional Domain/Codelist-to-System Value representations that preserve the separate system hierarchy
 - Translation CRUD with generic Domain, Codelist and Master Value targets, atomic required bindings,
@@ -43,10 +43,11 @@ different applications.
   draft validation, comparison, installation and activation
 - Docker development environment and continuous-integration workflow
 
-Base 0.5 supplies the bounded query and model-lifecycle foundations. Base 0.6 has established its
-task-tested UI foundation, authoritative workspace catalogue, typed collection semantics and
-authoritative runtime-object revisions; the coherent lifecycle UI follows. Typed mapping-grid behavior is product 0.7, with translation
-and hierarchy interactions in later milestones.
+Base 0.5 supplies the bounded query and model-lifecycle foundations. Base 0.6 has established its UI
+foundation, authoritative workspace catalogue and typed collection semantics. Its delivered WP4
+per-object publication boundary was rejected before release. ADR-024 and corrective WP5-WP8 replace
+it with workspace drafts and immutable workspace revisions before WP9 release validation. Typed
+mapping-grid behavior remains product 0.7, with translation and hierarchy interactions later.
 
 ## Run with Docker
 

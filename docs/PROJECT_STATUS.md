@@ -19,10 +19,11 @@ Guarded activation reparses and compatibility-checks installed candidates transa
 runtime state with both concurrency tokens, commits before refreshing the local registry and makes
 readiness unhealthy if publication fails. Activation is available only in the supported single-worker
 mutation topology.
-Object collections use signed, filter-bound keyset cursors with explicit active/retired lifecycle,
-typed filters and built-in sorting. Relation expansion and object audit history are cursor-paged and workspace-bound; an indexed
-audit-subject projection connects object, attribute and relation events without querying JSON payloads
-for identity.
+The checked-in WP4 backend still exposes signed, filter-bound object cursors with its rejected
+active/retired lifecycle. It is corrective migration debt, not an ADR-024 contract; workspace
+draft/revision cursors replace it in WP6/WP7. Relation expansion and object audit history are
+cursor-paged and workspace-bound; an indexed audit-subject projection connects object, attribute and
+relation events without querying JSON payloads for identity.
 The generic UI carries explicit workspace context in its shell and routes, restores URL-backed
 collection search/sort/page-size controls, provides reusable row actions and retry states, and
 shows independently paged relation expansion and audit history on object details.
@@ -36,12 +37,11 @@ sorts and URL-stable cursor paging. Historical schema 0.4 releases remain inspec
 bootstrap and the offline `python -m app.cli.model_schema_upgrade --model <path>` transition establish
 the schema 0.5 runtime selection. The starter is content release 0.6.0; its former tree is represented
 honestly as a table and its mapping view is deferred to schema 0.6.
-Runtime-object revisions are now authoritative. Stable object rows retain scope and identity while
-mutable drafts and immutable active/retired revisions pin the validating model release and snapshot
-core fields, parent, typed attributes and required ownership relationships. Activation publishes the
-complete projection atomically with draft-version and active-revision concurrency; direct retirement
-retains identity, immutable history and independent associations. The migration preserves public
-object IDs, maps the three known legacy states and stops with values and counts for unknown states.
+Base 0.6 WP4 implemented authoritative per-object revisions, but that publication boundary has been
+rejected before release. ADR-024 supersedes ADR-020: the workspace is the publication aggregate, and
+objects, attributes, containment and relations are records inside mutable workspace drafts and
+immutable workspace revisions. The WP4 schema and APIs remain temporarily present only as corrective
+migration input; they are not a compatibility commitment or a foundation for UI work.
 The frontend has since had a structural pass, phases 0–4 of
 `docs/FRONTEND_STRUCTURE_REFACTOR.md`, ahead of the Base 0.6 UI work. It changed no API contract,
 model contract or architecture: `frontend/src` is organized into `app/`, `features/`, `ui/`,
@@ -104,7 +104,7 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
 - `backend/app/models/database.py` and `backend/app/db.py`: immutable model-release metadata plus runtime objects, typed attribute
   values, typed relations and audit events.
 - `backend/app/services/attributes.py`: attribute validation, defaults and typed persistence conversion.
-- `backend/app/routers` and `backend/app/services`: metadata discovery, generic object CRUD,
+- `backend/app/routers` and `backend/app/services`: metadata discovery and legacy generic object CRUD,
   search/cursors, concurrency checks, hierarchy maintenance, relation instance CRUD
   (create/read-one/update/delete) with optimistic concurrency, cardinality checks and model-declared,
   typed relation attributes — engine-maintained
@@ -115,10 +115,10 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
   concurrency as object writes. Standalone reads expose the current object version, and mutations
   atomically claim that version before writing; `backend/app/main.py` contains application assembly
   only.
-- Workspace-scoped attribute uniqueness for `features.unique` (`409 duplicate_attribute_value`) and
-  transactional object deletion with a structured dependency preview and explicit cascade option.
-  Cascade recursively deletes containment descendants, unlinks independent associations, and follows
-  directed required single-valued PK→FK bindings to dependent objects.
+- The rejected WP4 persistence still includes workspace-scoped attribute uniqueness and transactional
+  object deletion with dependency preview/cascade behavior. These current routes are corrective
+  migration input only: under ADR-024 they become draft-graph validation/removal and must not be
+  surfaced as current publication behavior.
 - `backend/app/migrations`: versioned Alembic database migrations are the single source of schema truth;
   the initial migration provisions new databases and upgrades existing ones, and startup runs only
   `alembic upgrade head`. The environment-aware `app.cli.database_upgrade` command and startup
@@ -128,14 +128,10 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
   upgrade, interrupted-DDL recovery and maintenance-mode refusal against real temporary databases.
 - `frontend/src`: model-generated application/view navigation, searchable runtime explorer, stable
   workspace-explicit routes, view and panel component registries, URL-backed searchable/filterable/
-  sortable cursor-paged collections, composable object details and
-  full runtime CRUD for objects, individual typed attribute values and mutable relationships. Relation
-  creation derives valid endpoint types and direction from the loaded model, uses cross-application
-  server-side lookup, and keeps engine-managed containment edges read-only.
-  Generic collection rows support open/edit/delete, failed collection and lookup requests remain
-  retryable errors, and object details expose cursor-paged audit history. Required non-parent bindings
-  are selected in the generated object form and created atomically with
-  the new object and its containment relation.
+  sortable cursor-paged collections, composable object details and cursor-paged audit history.
+  Published object content is deliberately read-only: WP5 removed the rejected object-retirement and
+  mutation surface until WP8 supplies the workspace-draft editor. Failed collection and lookup reads
+  remain retryable, while engine-maintained containment edges remain read-only.
 - The global model workbench provides release inspection and structured model summaries in read-only
   deployments, and capability-gated JSON draft, validation, diff, installation and activation flows in
   the supported model-administration topology.
@@ -159,10 +155,9 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 
 ## Known gaps
 
-- The authoritative lifecycle backend is complete. The current frontend consumes lifecycle-shaped
-  object responses and the public revision-token retirement API, but object creation, core editing and
-  attribute editing still use hidden immediate-mutation compatibility adapters. WP5 must replace those
-  fragmented dialogs with one complete draft editor plus retired discovery and lineage UI.
+- The delivered WP4 lifecycle backend uses the wrong per-object publication boundary. WP5 has frozen
+  workspace lifecycle contracts; WP6-WP8 must replace the WP4 persistence/API/UI seams with
+  workspace drafts and revisions. No new UI should consume object activation or retirement APIs.
 - Schema 0.5 intentionally omits `mappingGrid`, `tree`, `form` and `dashboard`; those declarations are
   rejected rather than routed to the table renderer. `mappingGrid` moves to schema 0.6/product 0.7.
 - Typed table filtering and sorting cover the bounded daily-use grammar. Integration-scale query
@@ -172,10 +167,10 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
   semantic-wrapper foundation, but broader adoption and real-browser proof remain release work rather
   than a claim that component primitives alone complete accessibility.
 - Dialog keyboard behavior is now consistent through the shared `ui/Modal` shell, but it has only
-  been exercised in jsdom. Nothing has driven a real browser or a screen reader; Base 0.6 WP6 owns
+  been exercised in jsdom. Nothing has driven a real browser or a screen reader; Base 0.6 WP9 owns
   those checks.
 - The model lifecycle is complete, but its workbench remains a plain JSON-centred interface. Its
-  broader usability redesign is deferred beyond Base 0.6 so runtime-object revisions stay bounded.
+  broader usability redesign is deferred beyond Base 0.6 so the corrective workspace lifecycle stays bounded.
 - Relations support full instance CRUD (create/read-one/update/delete with optimistic concurrency);
   bulk relation endpoints remain.
 - Attribute uniqueness is enforced at the service layer; a database-level unique constraint/index
@@ -188,12 +183,11 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 
 ## Next vertical slice
 
-Product release 0.6 now has its bounded versioned-daily-operations interaction baseline in
-`docs/BASE_0_6_INTERACTION_SPEC.md` and reusable J1-J7 data in
-`frontend/src/test/base06AcceptanceFixtures.ts`. That baseline has been independently reviewed and is
-the accepted interaction contract for the following work packages. Mapping remains the next
-specialist release, after workspace selection, typed tables and authoritative runtime-object
-revisions are proven.
+Product release 0.6 retains the workspace-navigation, typed-table, responsive, keyboard, focus and
+action-hierarchy findings from `docs/BASE_0_6_INTERACTION_SPEC.md`. Its object-lifecycle journeys and
+`frontend/src/test/base06AcceptanceFixtures.ts` now define workspace-draft/revision scenarios before
+backend or UI implementation continues. Mapping
+remains the next specialist release after authoritative workspace revisions are proven.
 
 Base 0.5 delivered:
 
@@ -215,9 +209,10 @@ See `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` for the completed historical work pac
 `docs/BASE_0_6_IMPLEMENTATION_PLAN.md` for the next implementation-ready handoff, `docs/TODO.md` for
 the active delivery queue and `docs/ROADMAP.md` for the release criteria and later milestones.
 
-All Base 0.5 work packages and acceptance criteria are complete. D1 through D5 are accepted. The Base 0.6 WP0
-interaction baseline, WP1 UI foundation, WP2 workspace authority, WP3 typed tables and WP4
-authoritative object revisions are complete. WP5 lifecycle UI is next, followed by release checks. Core mapping
+All Base 0.5 work packages and acceptance criteria are complete. Base 0.6 WP1 UI foundation, WP2
+workspace authority and WP3 typed tables remain complete. The delivered WP4 object-revision design is
+rejected and must not be extended. ADR-024 and corrective WP5-WP8 re-establish workspace-level
+publication before WP9 release checks. Core mapping
 is product 0.7 and bulk mapping remains in the later integration milestone.
 
 ## Coding-agent handoff
@@ -226,8 +221,9 @@ Open the repository root, then start a new coding chat with:
 
 > Read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP.md`, `docs/UI_MODEL.md`,
 > `docs/BASE_0_6_IMPLEMENTATION_PLAN.md` and `docs/BASE_0_6_INTERACTION_SPEC.md`. Review the
-> accepted WP0 interaction baseline, its frontend acceptance fixtures and the completed WP1-WP4 work, then execute Base 0.6 WP5
-> only. Do not pull deferred mapping or model-workbench redesign into Base 0.6.
+> retained WP0 navigation/table/accessibility findings and the completed WP1-WP3 work. Treat WP4's
+> object lifecycle as rejected migration input, then execute corrective Base 0.6 WP5 only. Do not
+> build UI on object activation/retirement or pull deferred mapping/model-workbench redesign into 0.6.
 > Preserve all product invariants and report the current worktree status before editing.
 
 Make a Git checkpoint before the first new slice. Run

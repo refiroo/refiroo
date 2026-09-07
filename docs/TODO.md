@@ -12,10 +12,9 @@ release plan and changelog rather than accumulating it here.
   selection, explicit unknown-key failure and read-only retirement. Mutation routes are
   capability-gated but enabled by default until authentication exists; this is not an authorization
   boundary, so exposed deployments must disable them or provide external access control.
-- [x] D2: ADR-020 defines immutable runtime-object revisions, editable drafts, atomic activation and
-  separate derivation/supersession lineage. Existing-object drafts clone an active or retired revision;
-  only a new logical object may have a root draft, and it must contain valid initial data. The current
-  active revision can be retired without replacement and later used to derive a new draft.
+- [x] D2 correction: ADR-024 supersedes ADR-020. Workspaces own mutable content drafts and immutable
+  revisions; objects and relations inside them have stable identities and audit versions but no
+  independent publication lifecycle.
 - [x] D3: ADR-021 defines a strict schema 0.5 table contract, explicit schema-version dispatch and
   pre-production schema 0.4 rejection with reset and offline one-shot transition paths. Frontend phase
   6 must reject semantic view types that do not yet have honest contracts and renderers.
@@ -28,10 +27,13 @@ release plan and changelog rather than accumulating it here.
 - [x] WP2: add the workspace catalogue, default runtime state, administration API and selector.
 - [x] WP3: implement schema 0.5 typed tables, the fixed daily-use filter/sort grammar and the
   atomic offline schema transition command.
-- [x] WP4: make runtime-object revisions authoritative; migrate data and add draft, activation,
-  retirement, history and retired-discovery contracts.
-- [ ] WP5: deliver coherent root-draft, revise-from-history, activation, retirement and lineage UI.
-- [ ] WP6: add browser, accessibility and visual-regression checks and complete release validation.
+- [x] WP4: delivered per-object revisions; rejected before release and retained only as corrective
+  migration input.
+- [x] WP5: refroze ADR-024 workspace lifecycle journeys, fixtures, API design, concurrency, cursor and migration contracts; no persistence or APIs implemented.
+- [ ] WP6: replace object-lifecycle persistence with workspace drafts/revisions and corrective migration.
+- [ ] WP7: implement draft-scoped object/relation editing, complete validation and atomic workspace publication.
+- [ ] WP8: deliver workspace-level Published, Drafts and History UI with conflict recovery.
+- [ ] WP9: add browser, accessibility and visual-regression checks and complete release validation.
 
 See `BASE_0_6_IMPLEMENTATION_PLAN.md` for scope, file boundaries and exit criteria.
 
@@ -68,7 +70,7 @@ See `BASE_0_6_IMPLEMENTATION_PLAN.md` for scope, file boundaries and exit criter
 
 - `mappingGrid`, mapping APIs or relation-set-version implementation.
 - Model-workbench information-architecture redesign.
-- Physical purge of a published logical object's revisions or audit history.
+- Physical purge of published workspace revisions or audit history.
 - Graph-canvas-first model authoring.
 - Arbitrary server-filesystem model load/save.
 - Client-side loops over single-item APIs presented as bulk operations.

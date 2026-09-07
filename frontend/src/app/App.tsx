@@ -20,8 +20,6 @@ export default function App() {
   // Aliased because the handlers below are hoisted function declarations, which TypeScript types
   // from the declaration rather than from the narrowing performed by the guard above.
   const activeModel = model;
-  const workspaceReadOnly =
-    activeRoute.kind !== "models" && (workspace?.key !== activeRoute.workspaceKey || workspace.status !== "active");
 
   function selectApplication(selected: ApplicationDefinition) {
     const workspaceKey =
@@ -113,8 +111,6 @@ export default function App() {
           query={activeRoute}
           onQueryChange={(query: CollectionQueryState) => navigate({ ...activeRoute, ...query })}
           onOpen={openObject}
-          onChanged={() => setRefreshToken((value) => value + 1)}
-          readOnly={workspaceReadOnly}
         />
       ) : (
         <ObjectDetail
@@ -126,9 +122,6 @@ export default function App() {
           workspaceKey={activeRoute.workspaceKey}
           onOpen={openObjectById}
           onBack={backToCollection}
-          onDeleted={backToCollection}
-          onChanged={() => setRefreshToken((value) => value + 1)}
-          readOnly={workspaceReadOnly}
         />
       )}
     </AppShell>

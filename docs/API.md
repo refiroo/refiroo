@@ -531,62 +531,46 @@ Create/update/default-switch routes are absent when `WORKSPACE_ADMIN_MUTATIONS_E
 The flag defaults to true only for the pre-authentication development posture; exposed deployments
 must disable it or protect the API with external access control.
 
-## Runtime-object lifecycle endpoints
+## Workspace publication API design (WP5 contract; not implemented)
 
-Base 0.6 exposes stable logical objects, mutable drafts and immutable revisions as separate
-resources:
+ADR-024 replaces the rejected WP4 object-lifecycle surface. The checked-in object-draft, object-
+revision, activation and object-retirement endpoints are corrective migration debt, not public
+contracts; clients and UI must not call them. WP6 implements storage and migration; WP7 implements
+these API shapes.
 
-- `GET /api/v1/objects/{objectTypeKey}?lifecycle=active|retired` lists active objects by default or
-  logical objects with no current active revision when `lifecycle=retired`.
-- `GET /api/v1/objects/{objectTypeKey}/{objectId}` returns only the current active projection.
-- `POST /api/v1/object-drafts` creates a populated root draft and its stable logical identity.
-- `GET|PATCH|DELETE /api/v1/object-drafts/{draftId}` reads, saves or discards the only mutable
-  object-owned snapshot. PATCH and DELETE require `expectedVersion`.
-- `GET|POST /api/v1/objects/{objectTypeKey}/{objectId}/drafts` lists drafts or clones the request's
-  required `derivedFromRevisionId`.
-- `POST /api/v1/object-drafts/{draftId}/activation` publishes a complete draft using
+- `GET|POST /api/v1/workspaces/{workspaceKey}/drafts` lists cursor-paged drafts or creates an empty
+  root draft / a draft derived from an explicit immutable workspace revision.
+- `GET|PATCH|DELETE /api/v1/workspace-drafts/{draftId}` reads, names or discards a mutable draft.
+  PATCH and DELETE claim `expectedVersion`.
+- Draft-scoped object, attribute, containment and relation collections and mutations are under
+  `/api/v1/workspace-drafts/{draftId}/...`. Record writes claim `expectedRecordVersion` and the
+  workspace draft version; they never mutate an active projection.
+- `POST /api/v1/workspace-drafts/{draftId}/validation` validates the complete effective graph without
+  publication. `POST /api/v1/workspace-drafts/{draftId}/activation` requires
   `expectedDraftVersion` and nullable `expectedActiveRevisionId`.
-- `GET /api/v1/objects/{objectTypeKey}/{objectId}/revisions` and
-  `GET /api/v1/object-revisions/{revisionId}` expose immutable, cursor-paged history and snapshots.
-- `POST /api/v1/objects/{objectTypeKey}/{objectId}/retirement` retires the expected active revision;
-  `cascade: true` explicitly authorizes retirement of reported owned dependants.
-- `GET /api/v1/objects/{objectTypeKey}/{objectId}/retirement-impact` returns the current owned
-  dependants and retained-association count without mutation, bound to `expectedActiveRevisionId`.
+- `GET /api/v1/workspaces/{workspaceKey}/revisions` and
+  `GET /api/v1/workspace-revisions/{revisionId}` expose cursor-paged immutable history and bounded
+  snapshot reads.
+- `POST /api/v1/workspaces/{workspaceKey}/retirement` retires only the active workspace content
+  revision under `expectedActiveRevisionId`; it does not retire, delete or change any individual
+  object.
 
-Draft and revision snapshots contain `name`, `parentObjectId`, typed `attributes` and
-`requiredRelationships`. They also expose the pinned `modelReleaseId`. A root draft has a null
-`derivedFromRevisionId`. On activation the revision retains that derivation edge while
-`supersedesRevisionId` records the revision that was active at publication. Activating while no
-revision is active requires a null expected identity and records a null supersession edge.
-
-Activation validates the complete snapshot against its pinned/current model, claims the current
-active identity, retires any superseded revision and publishes core fields, typed attributes,
-containment and required ownership edges in one transaction. Draft edits never change an active
-projection. Conflicts include `draft_version_conflict`, `active_revision_conflict`,
-`draft_model_release_conflict`, existing structured validation/uniqueness diagnostics and
-`object_has_dependants` when retirement requires `cascade: true`. That response reports the complete
-owned object count, each dependant and reason, and the number of independent associations retained as
-history. Malformed revision tokens fail request validation before retirement analysis.
-
-Retirement clears the active pointer without deleting the logical identity, drafts, revisions,
-audit history or independent associations. Retired discovery remains filterable, sortable and
-cursor-paged, and any retained revision may seed a separately validated draft. Discarding the last
-root draft of a never-activated identity removes that empty identity shell; published identities are
-never physically purged by Base 0.6.
-
-Collection cursors bind `lifecycle`, workspace, search, parent, typed filters and sort. Free-text
-runtime object state is no longer a public query or response field. The starter model's `active`
-attribute remains independent business availability data. The standalone attribute path is read-only
-in the public WP4 contract. Required ownership and containment relations likewise change only through
-draft activation; ordinary independent associations remain mutable but require active endpoints.
+A workspace revision snapshots one graph: objects, typed attributes, containment (both parent
+projection and typed edge), required ownership relations and independent relations. Stable object and
+relation UUIDs remain integration identities but have no lifecycle state. Drafts and revisions pin
+`modelReleaseId`; an activation against another resolved model returns
+`workspace_draft_model_release_conflict` and never rebases implicitly. Conflicts are
+`workspace_draft_version_conflict`, `version_conflict`, `workspace_active_revision_conflict`,
+`workspace_draft_model_release_conflict`, `workspace_cursor_invalid`, and graph
+validation/uniqueness diagnostics. Cursors bind workspace, draft or revision identity, model release,
+query filters and sort; a publication switch cannot continue a page.
 
 ## Historical Base 0.5 object contract
 
 The following section records the superseded Base 0.5 immediate-mutation contract for upgrade
-context. Its create, update, delete and standalone attribute mutation routes are hidden compatibility
-adapters until WP5 completes the frontend migration; each adapter now delegates to draft activation or
-retirement and is not part of the locked public OpenAPI surface. The current frontend already uses the
-public retirement contract. New clients must use the lifecycle endpoints above.
+context. The checked-in routes are rejected WP4 correction input, not a locked public OpenAPI surface.
+WP5 did not alter persistence or routes; WP6/WP7 replace them without a dual-authority adapter. The
+frontend intentionally exposes published content as read-only until the workspace-draft UI exists.
 
 - `GET /api/v1/objects/{objectTypeKey}` — list objects of a type
 - `POST /api/v1/objects` — create an object

@@ -23,10 +23,10 @@ The operational foundation is complete:
 - Database-selected model releases, drafts, compilation, diff, compatibility and guarded activation
 - URL-backed workspace/list state, stable cursors, bounded relation expansion and audit history
 
-Base 0.6 WP1-WP4 have delivered the UI foundation, workspace discovery, strict schema 0.5 typed
-tables and authoritative runtime-object revisions. The coherent lifecycle UI, integration-scale
-operations, authentication and distributed activation are not present. Base 0.6 completes the common operational foundation before
-specialist workspaces.
+Base 0.6 WP1-WP3 have delivered the UI foundation, workspace discovery and strict schema 0.5 typed
+tables. WP4 delivered per-object revisions, but that publication boundary was rejected before release;
+ADR-024 and corrective WP5-WP8 replace it with authoritative workspace revisions before WP9 release
+validation. Integration-scale operations, authentication and distributed activation are not present.
 
 ## Base 0.5 — Operational base and model lifecycle foundation (complete)
 
@@ -50,9 +50,9 @@ The completed handoff is [`BASE_0_5_IMPLEMENTATION_PLAN.md`](BASE_0_5_IMPLEMENTA
 
 ### Product outcome
 
-A steward can select a known workspace, use typed table filters and sorts, create a populated root
-draft, revise an active or historical revision, retire the current revision without replacement and
-later reactivate through a new draft. History makes derivation and supersession independently visible.
+A steward can select a known workspace, use typed table filters and sorts, edit several related
+records inside one workspace draft, validate the complete graph and publish one immutable workspace
+revision atomically. Workspace history makes derivation and supersession independently visible.
 
 ### Delivery scope
 
@@ -65,22 +65,25 @@ later reactivate through a new draft. History makes derivation and supersession 
    operators must treat it as a deployment switch, not authorization.
 4. Introduce schema 0.5 with a strict `table` contract and typed server-side daily-use filters/sorts.
    Schema 0.4 stays stored/listable/exportable but is not runnable.
-5. Implement ADR-020 authoritative runtime-object revisions, populated root drafts, drafts derived from
-   active or retired history, activation, direct retirement and explicit lifecycle discovery.
-6. Migrate Base 0.5 object state without changing stable object IDs. Replace published-object physical
-   deletion with retirement and preserve immutable history.
-7. Deliver the coherent lifecycle UI and browser, keyboard, accessibility, visual, migration and
-   package validation.
+5. Replace rejected ADR-020 with ADR-024 authoritative workspace revisions, root and history-derived
+   workspace drafts, validation, atomic activation and publication retirement.
+6. Correctively migrate Base 0.5 or WP4-shaped data without changing stable workspace, object or
+   relation IDs; remove per-object lifecycle authority after conversion.
+7. Route object, attribute, containment and relation edits through an explicit workspace draft and
+   validate the complete candidate graph before publication.
+8. Deliver workspace-level Published, Drafts and History UI.
+9. Complete browser, keyboard, accessibility, visual, migration and package validation.
 
 ### Exit gate
 
 - Workspace resolution is catalogue-backed, URL-stable and retired scopes are read-only.
 - Schema 0.5 table views are typed, validated and honestly rendered.
 - Daily-use filters/sorts are typed, bounded and cursor-stable.
-- Revision storage is authoritative; active projections are transactional derivatives.
-- Root drafts, historical branching, activation and direct retirement are understandable and atomic.
-- Retired objects remain discoverable, readable, draftable and capable of later activation.
-- Derivation and supersession history are distinct and conflicts preserve local input.
+- Workspace revision storage is authoritative; active object/relation projections are transactional derivatives.
+- Workspace drafts, historical branching, validation, activation and publication retirement are
+  understandable and atomic.
+- Published and historical workspace snapshots remain readable; objects have no independent lifecycle.
+- Workspace derivation and supersession history are distinct and conflicts preserve local input.
 - The complete repository definition of done passes on the supported toolchain.
 
 The implementation handoff is [`BASE_0_6_IMPLEMENTATION_PLAN.md`](BASE_0_6_IMPLEMENTATION_PLAN.md).
@@ -99,8 +102,8 @@ navigating low-level relation screens.
 2. Add cursor-paged batched mapping rows with mapped, unmapped and ambiguous states and server-side
    candidate search.
 3. Implement ADR-022 exact-binding relation-set versions across mapping and generic relation writes.
-4. Provide one atomic replace operation for zero or one target with recoverable conflict context.
-5. Reuse generic draft creation when target creation is allowed; activation remains explicit.
+4. Provide one draft-scoped atomic replace operation for zero or one target with recoverable conflict context.
+5. Reuse workspace-draft object creation when target creation is allowed; workspace activation remains explicit.
 6. Audit mapping transitions and underlying relation changes.
 7. Prove the contract and renderer with two relation bindings whose types, direction and labels differ.
 
@@ -109,7 +112,7 @@ navigating low-level relation screens.
 - Mapping pages and candidates are bounded and avoid per-row requests.
 - Concurrent replacement cannot lose a valid mapping or replace another binding's edges.
 - Unmapped and ambiguous rows have the same set-level concurrency protection.
-- Generic relation routes cannot bypass the mapping token.
+- Draft-scoped generic relation routes cannot bypass the mapping token or active publication boundary.
 - Schema 0.6 is explicitly dispatched and the schema 0.5 transition has a documented reset or
   migration path appropriate to the pre-production compatibility policy.
 
@@ -125,13 +128,13 @@ without manually traversing containment.
 
 1. Define a typed translation view from model-declared object, language, containment and relation keys.
 2. Add a bounded matrix/coverage query rather than one request per cell.
-3. Create a populated translation root draft from a cell and activate it atomically with required
-   containment/target relationships.
-4. Edit or retire translations through drafts and lifecycle actions, never direct active-row mutation.
-5. Enforce target/language uniqueness among active revisions at activation.
+3. Create or update a translation in the selected workspace draft with required containment/target relationships.
+4. Publish translation changes through workspace activation, never direct active-row mutation.
+5. Enforce target/language uniqueness in the complete candidate workspace graph at activation.
 
-Exit: missing and retired translations are distinguishable; writes preserve drafts on conflict; the
-matrix remains bounded for representative target/language volumes.
+Exit: missing candidate translations and translations present only in workspace history are
+distinguishable; writes preserve the workspace draft on conflict; the matrix remains bounded for
+representative target/language volumes.
 
 ### Milestone B — Hierarchy workspace
 
@@ -139,9 +142,8 @@ A steward browses and maintains deep model-defined hierarchies through lazy load
 
 1. Define a strict typed `tree` view contract.
 2. Add cursor-paged root/child traversal with bounded path context.
-3. Create children as populated drafts and perform rename, state or parent changes through draft
-   activation.
-4. Validate cycles and publish `parent_object_id` plus the typed edge atomically at activation.
+3. Create children and perform rename, state or parent changes inside the selected workspace draft.
+4. Validate cycles and publish `parent_object_id` plus the typed edge atomically with the workspace revision.
 5. Exercise mixed-type containment and recursive self-hierarchy configurations.
 
 Exit: traversal is bounded; reparenting changes both representations or neither; keyboard navigation
@@ -158,8 +160,7 @@ than UI endpoints or undocumented limits.
 
 1. Advanced model-aware queries beyond configured daily-use table filters.
 2. Model-driven effective dates and `asOf` behavior where explicitly configured.
-3. Bounded bulk root-draft creation, draft updates, activation and upsert with per-item outcomes and
-   idempotency.
+3. Bounded bulk workspace-draft record creation, updates and upsert with per-item outcomes and idempotency.
 4. Asynchronous import/export with validation previews and resumable job status.
 5. Ordered change feed and retryable webhooks.
 6. Bounded bulk relation/mapping operations with explicit concurrency semantics.

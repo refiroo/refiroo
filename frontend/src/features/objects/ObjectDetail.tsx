@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
-import { errorMessage, isApiError } from "@/api/errors";
+import { errorMessage } from "@/api/errors";
 import { fallbackDetail } from "@/model/defaults";
 import { fieldValue } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
-import type { ApplicationDefinition, EngineModel, ObjectItem, PanelDefinition, RetirementImpact } from "@/types";
-import { ConfirmDialog } from "@/ui/ConfirmDialog";
-import { RetirementImpactSummary } from "./RetirementImpactSummary";
-import { ObjectFormDialog } from "./ObjectFormDialog";
+import type { ApplicationDefinition, EngineModel, ObjectItem, PanelDefinition } from "@/types";
 import { HistoryPanel } from "./panels/HistoryPanel";
 import { panelComponentRegistry } from "./panels/registry";
 import type { PanelProps } from "./panels/types";
@@ -20,9 +17,6 @@ export function ObjectDetail({
   workspaceKey,
   onOpen,
   onBack,
-  onDeleted,
-  onChanged,
-  readOnly = false,
 }: {
   model: EngineModel;
   application: ApplicationDefinition;
@@ -31,18 +25,10 @@ export function ObjectDetail({
   workspaceKey: string;
   onOpen: (objectTypeKey: string, objectId: string, applicationKey?: string) => void;
   onBack: () => void;
-  onDeleted: () => void;
-  onChanged: () => void;
-  readOnly?: boolean;
 }) {
   const [object, setObject] = useState<ObjectItem>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [editing, setEditing] = useState(false);
-  const [retiring, setRetiring] = useState(false);
-  const [retirementPending, setRetirementPending] = useState(false);
-  const [retirementError, setRetirementError] = useState("");
-  const [retirementImpact, setRetirementImpact] = useState<RetirementImpact>();
   const [historyRefresh, setHistoryRefresh] = useState(0);
   const objectType = objectTypeFor(model, objectTypeKey);
   const detail =
@@ -110,49 +96,12 @@ export function ObjectDetail({
       </div>
     );
   const currentObject = object;
-  const currentObjectType = objectType;
-
-  function handleChanged() {
-    setHistoryRefresh((value) => value + 1);
-    onChanged();
-  }
 
   const panels = detail.panels.filter((panel) => panel.visible);
   const mainPanels = panels.filter((panel) => panel.region === "main").sort((a, b) => a.order - b.order);
   const sidePanels = panels.filter((panel) => panel.region === "side").sort((a, b) => a.order - b.order);
   const title = fieldValue(object, detail.header.titleField, model);
   const subtitle = detail.header.subtitleField ? fieldValue(object, detail.header.subtitleField, model) : undefined;
-
-  async function retireObject() {
-    setRetirementPending(true);
-    setRetirementError("");
-    try {
-      await api.retireObject(
-        currentObjectType.key,
-        currentObject.id,
-        currentObject.activeRevisionId!,
-        Boolean(retirementImpact),
-      );
-      onChanged();
-      onDeleted();
-    } catch (cause) {
-      if (isApiError(cause, "object_has_dependants") && cause.details) {
-        setRetirementImpact(cause.details as RetirementImpact);
-        setRetirementError("");
-      } else {
-        setRetirementError(errorMessage(cause));
-      }
-      if (isApiError(cause, "active_revision_conflict")) {
-        try {
-          await loadObject();
-        } catch (reloadCause) {
-          setRetirementError(errorMessage(reloadCause));
-        }
-        setRetirementImpact(undefined);
-      }
-      setRetirementPending(false);
-    }
-  }
 
   function renderPanel(panel: PanelDefinition) {
     // The registry is keyed by the union discriminant, so each entry is narrower than the union
@@ -168,13 +117,13 @@ export function ObjectDetail({
           object={currentObject}
           panel={panel}
           onOpen={onOpen}
-          onChanged={handleChanged}
+          onChanged={() => undefined}
           onObjectChanged={(saved) => {
             setObject(saved);
-            handleChanged();
+            setHistoryRefresh((value) => value + 1);
           }}
           onReload={loadObject}
-          readOnly={readOnly}
+          readOnly
         />
       </section>
     );
@@ -207,16 +156,6 @@ export function ObjectDetail({
         </div>
         <div className="detail-actions">
           <span className="version">v{object.version}</span>
-          {!readOnly && (
-            <>
-              <button className="primary" onClick={() => setEditing(true)}>
-                Edit
-              </button>
-              <button className="danger-outline" onClick={() => setRetiring(true)}>
-                Retire object
-              </button>
-            </>
-          )}
         </div>
       </header>
       <div className={`detail-grid ${sidePanels.length ? "with-side" : ""}`}>
@@ -226,44 +165,6 @@ export function ObjectDetail({
         </div>
         {sidePanels.length > 0 && <aside className="panel-column side-panels">{sidePanels.map(renderPanel)}</aside>}
       </div>
-      {editing && (
-        <ObjectFormDialog
-          model={model}
-          applicationKey={application.key}
-          workspaceKey={workspaceKey}
-          objectType={objectType}
-          object={object}
-          onClose={() => setEditing(false)}
-          onSaved={(saved) => {
-            setObject(saved);
-            setEditing(false);
-            handleChanged();
-          }}
-        />
-      )}
-      {retiring && (
-        <ConfirmDialog
-          title={retirementImpact ? `Retire ${retirementImpact.objectCount} objects?` : `Retire “${object.name}”?`}
-          confirmLabel={retirementImpact ? "Confirm retirement" : "Retire object"}
-          pending={retirementPending}
-          error={retirementError}
-          onCancel={() => {
-            setRetiring(false);
-            setRetirementError("");
-            setRetirementImpact(undefined);
-          }}
-          onConfirm={retireObject}
-        >
-          {retirementImpact ? (
-            <RetirementImpactSummary model={model} impact={retirementImpact} />
-          ) : (
-            <p>
-              The engine will first check for dependent objects. If dependencies exist, nothing will be retired until
-              you review and confirm the cascade.
-            </p>
-          )}
-        </ConfirmDialog>
-      )}
     </>
   );
 }

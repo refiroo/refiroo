@@ -86,8 +86,9 @@ obtain a complete collection.
 
 ### Model and content versions must be distinct
 
-The new design separates model-language version, model release and runtime-object version. This is needed
-for safe schema migration, optimistic concurrency and reproducible integrations.
+The new design separates model-language version, model release, workspace content revision and
+draft-record version. This is needed for safe schema migration, coherent publication, optimistic
+concurrency and reproducible integrations.
 
 ## Clean implementation boundary
 

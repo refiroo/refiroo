@@ -6,7 +6,7 @@ import { CollectionView } from "@/features/objects/views/CollectionViewHost";
 
 vi.mock("@/api/client", () => ({
   ApiError: class ApiError extends Error {},
-  api: { objects: vi.fn(), retireObject: vi.fn(), object: vi.fn() },
+  api: { objects: vi.fn(), object: vi.fn() },
 }));
 
 describe("CollectionView", () => {
@@ -30,7 +30,6 @@ describe("CollectionView", () => {
         }}
         onQueryChange={vi.fn()}
         onOpen={vi.fn()}
-        onChanged={vi.fn()}
       />,
     );
     await waitFor(() =>
@@ -40,16 +39,15 @@ describe("CollectionView", () => {
           applicationKey: "test-app",
           workspaceKey: "west",
           search: "station",
-          lifecycle: "active",
           sort: "-code",
           filters: [{ field: "code", operator: "startsWith", value: "CLI" }],
           pageSize: 50,
         }),
       ),
     );
-    fireEvent.click(screen.getByRole("button", { name: `More actions for ${domainObject.name}` }));
-    expect(await screen.findByRole("menuitem", { name: "Edit" })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: "Retire" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Connections" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More actions for Connections" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Edit")).not.toBeInTheDocument();
   });
 
   it("renders only model-declared typed filters and sorts", () => {
@@ -63,7 +61,6 @@ describe("CollectionView", () => {
         query={{ search: "", sort: "name", pageSize: 20, filters: [] }}
         onQueryChange={onQueryChange}
         onOpen={vi.fn()}
-        onChanged={vi.fn()}
       />,
     );
     expect(screen.getByRole("combobox", { name: "Code operator" })).toBeInTheDocument();
@@ -95,7 +92,6 @@ describe("CollectionView", () => {
         }}
         onQueryChange={onQueryChange}
         onOpen={vi.fn()}
-        onChanged={vi.fn()}
       />,
     );
 
@@ -122,7 +118,6 @@ describe("CollectionView", () => {
         query={{ search: "", sort: "name", pageSize: 20, filters: [] }}
         onQueryChange={vi.fn()}
         onOpen={vi.fn()}
-        onChanged={vi.fn()}
       />,
     );
     fireEvent.click(await screen.findByRole("button", { name: "Retry" }));

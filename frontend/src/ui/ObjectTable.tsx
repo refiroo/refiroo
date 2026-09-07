@@ -1,7 +1,6 @@
 import type { EngineModel, ObjectItem } from "@/types";
 import { formatValue } from "@/ui/formatValue";
 import { attributeName, fieldValue } from "@/model/fields";
-import { ActionMenu } from "@/ui/ActionMenu";
 
 export function ObjectTable({
   model,
@@ -9,8 +8,6 @@ export function ObjectTable({
   objects,
   loading = false,
   onOpen,
-  onEdit,
-  onDelete,
   label = "Objects",
   emptyMessage = "Nothing to show yet.",
 }: {
@@ -19,12 +16,9 @@ export function ObjectTable({
   objects: ObjectItem[];
   loading?: boolean;
   onOpen: (item: ObjectItem) => void;
-  onEdit?: (item: ObjectItem) => void;
-  onDelete?: (item: ObjectItem) => void;
   label?: string;
   emptyMessage?: string;
 }) {
-  const hasActions = Boolean(onEdit || onDelete);
   return (
     <div className="table-wrap" role="region" aria-label={label} tabIndex={0}>
       <table aria-busy={loading || undefined}>
@@ -34,19 +28,18 @@ export function ObjectTable({
             {columns.map((column) => (
               <th key={column}>{attributeName(model, column)}</th>
             ))}
-            {hasActions && <th>Actions</th>}
           </tr>
         </thead>
         <tbody>
           {loading ? (
             <tr>
-              <td colSpan={columns.length + (hasActions ? 1 : 0)} className="empty-row">
+              <td colSpan={columns.length} className="empty-row">
                 Loading…
               </td>
             </tr>
           ) : objects.length === 0 ? (
             <tr>
-              <td colSpan={columns.length + (hasActions ? 1 : 0)} className="empty-row">
+              <td colSpan={columns.length} className="empty-row">
                 {emptyMessage}
               </td>
             </tr>
@@ -64,29 +57,6 @@ export function ObjectTable({
                     )}
                   </td>
                 ))}
-                {hasActions && (
-                  <td>
-                    <div className="row-actions">
-                      <button onClick={() => onOpen(item)}>Open</button>
-                      <ActionMenu
-                        label={`More actions for ${item.name}`}
-                        items={[
-                          ...(onEdit ? [{ id: "edit", label: "Edit", onAction: () => onEdit(item) }] : []),
-                          ...(onDelete
-                            ? [
-                                {
-                                  id: "delete",
-                                  label: "Retire",
-                                  tone: "danger" as const,
-                                  onAction: () => onDelete(item),
-                                },
-                              ]
-                            : []),
-                        ]}
-                      />
-                    </div>
-                  </td>
-                )}
               </tr>
             ))
           )}

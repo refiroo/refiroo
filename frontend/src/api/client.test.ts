@@ -39,14 +39,13 @@ describe("API client", () => {
     expect(url).not.toContain("applicationKey");
   });
 
-  it("encodes lifecycle filtering and built-in sorting", async () => {
+  it("encodes built-in sorting", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValue(new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
-    await api.objects("domain", { workspaceKey: "west", lifecycle: "retired", sort: "-updatedAt", pageSize: 50 });
+    await api.objects("domain", { workspaceKey: "west", sort: "-updatedAt", pageSize: 50 });
     const url = new URL(String(fetchMock.mock.calls[0][0]));
-    expect(url.searchParams.get("lifecycle")).toBe("retired");
     expect(url.searchParams.get("sort")).toBe("-updatedAt");
   });
 
@@ -105,17 +104,6 @@ describe("API client", () => {
     await api.deleteObject("kind", "object", 7, true);
     expect(fetchMock.mock.calls[0][0]).not.toContain("cascade=true");
     expect(fetchMock.mock.calls[1][0]).toContain("cascade=true");
-  });
-
-  it("retires through the revision-aware lifecycle endpoint", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(new Response("{}", { status: 200 }));
-    vi.stubGlobal("fetch", fetchMock);
-    await api.retireObject("kind", "object", "active-revision", true);
-    expect(fetchMock.mock.calls[0][0]).toContain("/objects/kind/object/retirement");
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({
-      expectedActiveRevisionId: "active-revision",
-      cascade: true,
-    });
   });
 
   it("creates direction-ready relationship payloads without changing them", async () => {

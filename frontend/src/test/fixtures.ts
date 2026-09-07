@@ -103,8 +103,6 @@ export const domainObject: ObjectItem = {
   applicationKey: "test-app",
   objectTypeKey: "domain",
   parentObjectId: null,
-  activeRevisionId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
-  lifecycle: "active",
   name: "Connections",
   path: [{ id: "11111111-1111-4111-8111-111111111111", name: "Connections", objectTypeKey: "domain" }],
   attributes: [

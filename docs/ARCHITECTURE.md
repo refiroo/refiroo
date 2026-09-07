@@ -140,8 +140,8 @@ authorization boundary.
 
 In the Base 0.5 projection, `objects` contains stable UUID, workspace, application, object type, parent,
 state, name, version and timestamps. `parent_object_id` is the primary containment hierarchy used for
-efficient navigation and path construction. ADR-020 replaces that row as the content authority in Base
-0.6 while retaining stable identity and query projections as described below.
+efficient navigation and path construction. ADR-024 replaces those mutable rows as publication
+authority in Base 0.6 while retaining stable identities and transactionally derived query projections.
 
 `attribute_values` stores one value per object and attribute type. The declared type selects a physical
 column: text, integer, decimal, boolean, date, datetime or JSON. This retains dynamic modelling without
@@ -159,27 +159,25 @@ another binding of the same relation type to be replaced accidentally.
 
 `audit_events` is an ordered append-only foundation for history and a future change feed.
 
-### Base 0.6 runtime-object revision direction
+### Base 0.6 workspace revision direction
 
-ADR-020 evolves the single mutable object projection into a stable logical object with immutable active
-and retired revisions plus mutable drafts. A revision snapshots object-owned core fields, parent, typed
-attributes and required ownership relationships. Independent associations continue to address the
-stable logical object and keep their own relation concurrency and audit history.
+ADR-024 makes the workspace the runtime-data publication aggregate. A workspace owns mutable drafts
+and immutable published revisions. Each revision represents one coherent graph of objects, typed
+attributes, containment and relations. Stable object and relation UUIDs survive across workspace
+revisions, but records do not have independent draft, active or retired lifecycle states.
 
-The stable object row owns identity, workspace, application and object type. Draft/revision tables are
-authoritative for object-owned content and pin the immutable model release used for validation. Query-optimized active
-columns and child rows are projections written only by activation in the same transaction as the
-active-revision pointer. Draft edits never mutate those projections. Activation against a different
-currently resolved model release fails explicitly rather than silently rebasing content. Cloning an
-older revision validates the copied snapshot against and pins the currently resolved release; the
-immutable source revision keeps its original release identity.
+A root workspace draft begins empty; a derived draft is a copy-on-write overlay over a selected
+immutable workspace revision. The draft pins the application-model release used for validation.
+Record-level versions support concurrent draft editing, while the workspace draft's aggregate version
+and expected active workspace revision protect publication. Activation validates the complete
+effective graph and atomically changes the workspace active-revision pointer together with every
+query-optimized object and relation projection. Draft edits never mutate those active projections.
 
-Draft lineage has two edges: the immutable revision copied into the draft and the active revision
-superseded when that draft is activated. Activation validates the complete snapshot and atomically
-retires the current active revision under an expected-active-revision claim. Direct retirement uses
-the same expected identity, clears the active pointer and retains the logical object and history so a
-retired revision can seed a later draft. This runtime-data lifecycle remains separate from immutable
-application-model releases and their draft/install/activate process.
+Workspace lineage has two edges: the immutable workspace revision used as the draft base and the
+workspace revision active when that draft is published. Publication retirement clears the workspace's
+active content pointer without iterating through records or deleting stable identities and history.
+This content lifecycle remains distinct from immutable application-model releases and from the
+workspace catalogue's administrative active/retired status.
 
 ## Why both hierarchy and relations exist
 
@@ -187,14 +185,12 @@ Containment and semantic relationships overlap but serve different access patter
 tree navigation and path building efficient. Typed relations preserve meaning, reverse labels and
 model constraints. The service layer owns their consistency; clients must not update them separately.
 
-For a published logical object, retirement replaces physical deletion. A normal retirement never
-retires owned dependants implicitly: it returns a structured impact report. An explicitly confirmed
-cascade walks containment and model-defined PK→FK ownership edges, retires active dependants, unlinks
-their active projections and writes audit events in one transaction. Independent associations remain
-attached to stable logical identities but disappear from current-active traversal while an endpoint is
-retired. Any mutable draft may be discarded; removing the last never-activated root draft also removes
-its empty identity shell. A published logical identity and its history require a separately authorized
-future purge operation.
+Deletion is a change inside a workspace draft. It removes the record and model-owned dependants from
+that draft's candidate graph after an impact preview; it does not rewrite an already published
+workspace revision. Independent associations are handled according to their model binding in the same
+candidate graph. The removal becomes visible only when the workspace draft is validated and activated.
+Historical workspace revisions retain the former object and relation identities. Physical purge of
+workspace history requires a separately authorized future retention operation.
 
 ## API projection
 

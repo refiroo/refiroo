@@ -152,8 +152,8 @@ type definitions is model administration and is not part of runtime CRUD.
 Before Base 0.6 work began, Base 0.5 proved the contracts but not yet the intended experience:
 
 - complete object editing is split between a core-fields dialog and individual attribute actions;
-- workspace and runtime object state are entered as free text, and the mutable object row cannot
-  represent the immutable revision lineage accepted in ADR-020;
+- workspace and runtime object state are entered as free text, and the mutable workspace dataset
+  cannot represent the immutable publication lineage accepted in ADR-024;
 - model-declared attribute filtering and sorting are not consumed by collection queries;
 - all top-level view types currently resolve to the collection renderer;
 - application/view navigation and the always-visible object explorer compete for attention;
@@ -168,20 +168,20 @@ architecture.
 ## Base 0.6 direction
 
 Base 0.6 first establishes the task flows and UI primitives, then delivers workspace discovery,
-typed collection semantics and coherent runtime-object revision handling. New objects begin as
-validated root drafts. Existing objects are revised by cloning an active or retired immutable revision,
-editing the resulting draft and activating it explicitly. History presents “Created from” separately
-from “Superseded on activation”, so branching from an earlier retired revision remains understandable.
-An active revision may be retired without replacement; the logical object remains discoverable and a
-retired revision can seed a later draft. The mapping grid is the first specialist view after this
+typed collection semantics and coherent workspace publication. A steward creates or opens a workspace
+draft and edits objects, attributes, containment and relations within that explicit context. Published
+and historical workspace revisions are read-only. Activation validates and publishes the complete
+candidate graph atomically; no object row has its own draft/active/retired lifecycle. Workspace history
+presents “Created from” separately from “Superseded on activation”, so branching from an earlier
+workspace revision remains understandable. The mapping grid is the first specialist view after this
 foundation, in product 0.7/schema 0.6. Broader model-workbench redesign also remains deferred so Base
-0.6 stays focused on daily runtime-object operations.
+0.6 stays focused on daily workspace operations.
 
-The reviewed and accepted WP0 interaction baseline is
-`BASE_0_6_INTERACTION_SPEC.md`. It fixes the information hierarchy, low-fidelity task states,
-responsive and keyboard behavior, action hierarchy, conflict recovery and observable criteria for all
-seven Base 0.6 journeys. Its deterministic frontend fixtures cover Codelist containment and
-Translation containment plus required ownership without making either starter key a runtime branch.
+The original WP0 interaction baseline in `BASE_0_6_INTERACTION_SPEC.md` is superseded for lifecycle
+behavior because it placed activation on individual objects. Corrective WP5 retains its navigation,
+typed-table, responsive, keyboard, focus and action-hierarchy findings while replacing journeys 3-7
+and their fixtures with workspace-level publication scenarios spanning multiple object types and
+relations.
 
 The structured designer should eventually use reference-aware catalogues, forms, relationship
 matrices and live preview. A dependency graph may help users understand a model, but a node-and-edge

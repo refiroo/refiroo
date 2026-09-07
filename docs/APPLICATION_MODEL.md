@@ -96,9 +96,9 @@ object is its dependent. An explicitly confirmed cascade from the owner deletes 
 optional binding or a `many-to-many` binding is an association; cascade removes the relation instance
 but preserves the object at the other endpoint. Parent containment remains governed by
 `parentObjectId` and always cascades from parent to descendants when cascade deletion is confirmed.
-ADR-020 preserves the same ownership graph for impact preview but replaces published-object deletion
-with active-revision retirement; immutable revisions and associations between stable identities are
-retained.
+ADR-024 preserves the same ownership graph for draft deletion impact. Removing an object changes only
+the candidate workspace draft; previously published workspace revisions and their stable identities
+remain immutable.
 
 ## Relation patterns
 
@@ -157,15 +157,15 @@ may have multiple System Value representations, while each represented System Va
 most one Domain or Codelist through this relation type. It does not change the System Value's parent:
 System and System Group containment remains the separate system hierarchy. Because the association is
 optional rather than an ownership binding, cascade deletion of the Domain or Codelist removes the edge
-but preserves the System Value under Base 0.5. Under ADR-020 retirement, the association remains on
-the stable identities but is omitted from current-active traversal while an endpoint is retired.
+but preserves the System Value under Base 0.5. Under ADR-024, editing or removing the association is a
+workspace-draft change and becomes active only with the complete workspace revision.
 
 `object-has-translation` is a required one-to-many ownership binding. Its shared relation type ensures
 that a Translation has exactly one target across all permitted target types. Each binding declares
 `uniqueToAncestorTypeKey: language` together with an `active == true` target-attribute condition,
 preventing multiple business-active Translations for the same object and Language while allowing
-business-inactive current content. Under ADR-020 the check considers current active revisions that
-meet that predicate; retired revisions remain history and do not reserve the scope. Future
+business-inactive current content. Under ADR-024 the check considers the complete candidate workspace
+graph at activation; historical workspace revisions do not reserve the scope. Future
 translatable object types are enabled by adding another explicit allowed triple to the JSON model.
 
 ### Feature flags summary
@@ -188,8 +188,8 @@ the parent ID and typed relation atomically. Self-relations support arbitrary-de
 Relations named in an object type's `behavior.parentRelationTypeKeys` — the containment and hierarchy
 relations above — are engine-maintained. The relations API returns them on reads but rejects direct
 creation, update or deletion with `422 immutable_relation`, so `parent_object_id` and the typed
-relation cannot diverge. Under ADR-020, reparenting edits a draft snapshot; activation validates and
-publishes the parent projection and typed relation atomically.
+relation cannot diverge. Under ADR-024, reparenting edits the selected workspace draft; workspace
+activation validates and publishes the parent projection and typed relation atomically.
 
 ## Applications and views
 
@@ -271,11 +271,11 @@ relationship uniqueness to the 0.3 detail-composition contract. Schema 0.5 adds 
 views. `release.version` versions one model package. Each distinct
 validated model is installed as an immutable database release identified by its content hash.
 
-Runtime-object revision lifecycle is separate from this model-language and model-release versioning.
-ADR-020 defines engine-owned `draft`, `active` and `retired` revision states, so Base 0.6 does not add
-configurable object states to schema 0.5. The model continues to declare the fields and relationship
-rules validated in each object revision, while the runtime owns revision identity, lineage and atomic
-activation.
+Workspace content-revision lifecycle is separate from this model-language and model-release
+versioning. ADR-024 defines engine-owned workspace drafts and immutable active/retired workspace
+revisions, so Base 0.6 does not add configurable object lifecycle states to schema 0.5. The model
+continues to declare the fields and relationship rules validated across each candidate workspace graph,
+while the runtime owns workspace revision identity, lineage and atomic activation.
 
 ADR-021 reserves schema 0.5 for a strict `table` definition. Base 0.6 does not run schema 0.4 models or
 accept declarations for the still-unimplemented `mappingGrid`, `form`, `dashboard` and `tree` view

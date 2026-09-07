@@ -1,6 +1,6 @@
 /**
- * Runtime data contracts: stored objects and relations, their pages, audit history and the
- * impact preview returned before cascading retirement.
+ * Runtime data contracts: stored objects and relations, their pages, audit history and workspace
+ * runtime state.
  */
 
 import type { ValueType } from "@/types/model";
@@ -11,8 +11,6 @@ export interface ObjectItem {
   applicationKey: string;
   objectTypeKey: string;
   parentObjectId: string | null;
-  activeRevisionId: string | null;
-  lifecycle: "active" | "retired";
   name: string;
   path: Array<{ id: string; name: string; objectTypeKey: string }>;
   attributes: ObjectAttributeValue[];
@@ -116,18 +114,4 @@ export interface AuditEventItem {
 export interface AuditEventPage {
   items: AuditEventItem[];
   nextCursor: string | null;
-}
-
-export interface RetirementImpactObject {
-  id: string;
-  name: string;
-  objectTypeKey: string;
-  reason: "containment" | "required-ownership";
-}
-
-export interface RetirementImpact {
-  rootObjectId: string;
-  objectsToRetire: RetirementImpactObject[];
-  objectCount: number;
-  retainedAssociationCount: number;
 }

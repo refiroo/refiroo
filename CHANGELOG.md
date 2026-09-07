@@ -54,9 +54,11 @@ All notable changes to this project are documented in this file. The format foll
   associations and published identity survive retirement. The Alembic transition preserves object
   UUIDs, migrates known active/draft/retired rows and rejects unknown legacy states with counts.
   Post-implementation hardening conditionally claims the final draft version during activation,
-  prevents compatibility adapters from drifting the lifecycle projection, rejects corrupt
-  cross-workspace retirement graphs and aligns the existing UI with lifecycle responses and
-  revision-token retirement language while the complete WP5 draft workbench remains deferred.
+  prevents compatibility adapters from drifting the lifecycle projection and rejects corrupt
+  cross-workspace retirement graphs.
+  This pre-release design was subsequently rejected as the wrong publication boundary. ADR-024 and
+  corrective WP5 froze workspace-level journeys, fixtures and API design; WP6-WP8 replace the
+  persistence, API and UI boundary. These object-lifecycle APIs are not a compatibility commitment.
 
 - Frontend lint and format tooling: ESLint 10 with `typescript-eslint` and
   `eslint-plugin-react-hooks`, and Prettier. `AGENTS.md` listed "linting passes" in the definition
