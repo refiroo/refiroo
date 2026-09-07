@@ -4,10 +4,10 @@ import json
 from app.main import app, create_app
 
 
-def test_base_0_6_wp6_openapi_document_is_locked():
+def test_base_0_6_wp7_openapi_document_is_locked():
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "6d995189e5ce31cf4c8eaa822f0a2fee52a6026e618951c819736a597722536a"
+        "43bd4ec1869f89d89caa9deca60cd31312a14c5a9951d253af5437fdfee61875"
     )
 
 
@@ -18,21 +18,18 @@ def test_wp6_openapi_removes_rejected_object_lifecycle_and_direct_writes():
         "/api/v1/object-drafts/{draft_id}",
         "/api/v1/object-drafts/{draft_id}/activation",
         "/api/v1/object-revisions/{revision_id}",
-        "/api/v1/relations",
-        "/api/v1/relations/{relation_id}",
+        "/api/v1/workspace-drafts/{draft_id}/objects",
+        "/api/v1/workspace-drafts/{draft_id}/relations",
     }
     assert not (set(paths) & forbidden)
+    assert set(paths["/api/v1/objects"]) == {"post"}
     assert set(paths["/api/v1/objects/{object_type_key}"]) == {"get"}
-    assert set(paths["/api/v1/objects/{object_type_key}/{object_id}"]) == {"get"}
+    assert set(paths["/api/v1/objects/{object_type_key}/{object_id}"]) == {"get", "patch", "delete"}
+    assert set(paths["/api/v1/relations"]) == {"get", "post"}
+    assert set(paths["/api/v1/relations/{relation_id}"]) == {"get", "patch", "delete"}
     schemas = set(app.openapi()["components"]["schemas"])
-    assert not {
-        "ObjectDraftCreate",
-        "ObjectDraftResponse",
-        "ObjectRevisionResponse",
-        "ObjectRetirementRequest",
-        "RelationCreate",
-        "RelationResponse",
-    } & schemas
+    assert not {"ObjectDraftCreate", "ObjectDraftResponse", "ObjectRevisionResponse", "ObjectRetirementRequest"} & schemas
+    assert {"RelationCreate", "RelationResponse"} <= schemas
 
 
 def test_wp6_openapi_keeps_bounded_active_object_reads_and_structured_errors():

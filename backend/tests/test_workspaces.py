@@ -1,6 +1,5 @@
 from uuid import uuid4
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app, create_app
@@ -55,7 +54,6 @@ def test_workspace_catalogue_pages_searches_and_rejects_unknown_scope():
         assert unknown.json()["error"]["code"] == "workspace_not_found"
 
 
-@pytest.mark.skip(reason="WP7 replaces the direct object-create portion of this workspace journey")
 def test_default_switch_is_atomic_and_omitted_scope_uses_the_catalogue_default():
     workspace_key = _key("default-target")
     with TestClient(app) as client:
@@ -83,15 +81,18 @@ def test_default_switch_is_atomic_and_omitted_scope_uses_the_catalogue_default()
         assert stale.status_code == 409
         assert stale.json()["error"]["code"] == "version_conflict"
 
+        draft = client.post(f"/api/v1/workspaces/{workspace_key}/drafts", json={}).json()
         created = client.post(
             "/api/v1/objects",
             json={
-                "applicationKey": "rdm-master",
-                "objectTypeKey": "domain",
+                "applicationKey": "rdm-translations",
+                "objectTypeKey": "language",
                 "name": "Catalogue default object",
                 "attributes": [
-                    {"attributeTypeKey": "domain-code", "value": _key("catalogue-default")}
+                    {"attributeTypeKey": "language-code", "value": _key("catalogue-default")}
                 ],
+                "workspaceDraftId": draft["id"],
+                "expectedWorkspaceDraftVersion": draft["version"],
             },
         )
         assert created.status_code == 201
@@ -108,37 +109,33 @@ def test_default_switch_is_atomic_and_omitted_scope_uses_the_catalogue_default()
         assert restored.status_code == 200
 
 
-@pytest.mark.skip(reason="WP7 replaces direct runtime mutations with draft-scoped writes")
 def test_retired_workspace_remains_readable_but_blocks_all_runtime_mutations():
     workspace_key = _key("archive")
     with TestClient(app) as client:
         created_workspace = client.post(
             "/api/v1/workspaces", json={"key": workspace_key, "label": "Archive"}
         ).json()
+        draft = client.post(f"/api/v1/workspaces/{workspace_key}/drafts", json={}).json()
         created_object = client.post(
             "/api/v1/objects",
             json={
-                "applicationKey": "rdm-master",
-                "objectTypeKey": "domain",
+                "applicationKey": "rdm-translations",
+                "objectTypeKey": "language",
                 "workspaceKey": workspace_key,
                 "name": "Archived domain",
                 "attributes": [
-                    {"attributeTypeKey": "domain-code", "value": _key("archive-domain")}
+                    {"attributeTypeKey": "language-code", "value": _key("archive-domain")}
                 ],
+                "workspaceDraftId": draft["id"],
+                "expectedWorkspaceDraftVersion": draft["version"],
             },
         ).json()
-        second_object = client.post(
-            "/api/v1/objects",
-            json={
-                "applicationKey": "rdm-master",
-                "objectTypeKey": "domain",
-                "workspaceKey": workspace_key,
-                "name": "Second archived domain",
-                "attributes": [
-                    {"attributeTypeKey": "domain-code", "value": _key("archive-second")}
-                ],
-            },
-        ).json()
+        activation = client.post(
+            f"/api/v1/workspace-drafts/{draft['id']}/activation",
+            json={"expectedDraftVersion": 2, "expectedActiveRevisionId": None},
+        )
+        assert activation.status_code == 200
+        blocked_draft = client.post(f"/api/v1/workspaces/{workspace_key}/drafts", json={}).json()
         retired = client.patch(
             f"/api/v1/workspaces/{workspace_key}",
             json={"status": "retired", "expectedVersion": created_workspace["version"]},
@@ -167,33 +164,35 @@ def test_retired_workspace_remains_readable_but_blocks_all_runtime_mutations():
 
         assert client.get(f"/api/v1/workspaces/{workspace_key}").status_code == 200
         assert (
-            client.get("/api/v1/objects/domain", params={"workspaceKey": workspace_key}).status_code
+            client.get("/api/v1/objects/language", params={"workspaceKey": workspace_key}).status_code
             == 200
         )
-        assert client.get(f"/api/v1/objects/domain/{created_object['id']}").status_code == 200
+        assert client.get(f"/api/v1/objects/language/{created_object['id']}", params={"workspaceKey": workspace_key}).status_code == 200
 
         update = client.patch(
-            f"/api/v1/objects/domain/{created_object['id']}",
-            json={"name": "Blocked", "expectedVersion": created_object["version"]},
+            f"/api/v1/objects/language/{created_object['id']}",
+                json={"name": "Blocked", "expectedVersion": created_object["version"], "workspaceDraftId": blocked_draft["id"], "expectedWorkspaceDraftVersion": 1},
         )
         assert update.status_code == 409
         assert update.json()["error"]["code"] == "workspace_retired"
         create = client.post(
             "/api/v1/objects",
             json={
-                "applicationKey": "rdm-master",
-                "objectTypeKey": "domain",
+                "applicationKey": "rdm-translations",
+                "objectTypeKey": "language",
                 "workspaceKey": workspace_key,
                 "name": "Blocked",
-                "attributes": [{"attributeTypeKey": "domain-code", "value": _key("blocked")}],
+                "attributes": [{"attributeTypeKey": "language-code", "value": _key("blocked")}],
+                "workspaceDraftId": blocked_draft["id"],
+                "expectedWorkspaceDraftVersion": 1,
             },
         )
         assert create.status_code == 409
         assert create.json()["error"]["code"] == "workspace_retired"
 
         attribute = client.patch(
-            f"/api/v1/objects/domain/{created_object['id']}/attributes/domain-code",
-            json={"value": _key("blocked-attribute"), "expectedVersion": created_object["version"]},
+            f"/api/v1/objects/language/{created_object['id']}/attributes/language-code",
+            json={"value": _key("blocked-attribute"), "expectedVersion": created_object["version"], "workspaceDraftId": blocked_draft["id"], "expectedWorkspaceDraftVersion": 1},
         )
         assert attribute.status_code == 409
         assert attribute.json()["error"]["code"] == "workspace_retired"
@@ -202,15 +201,17 @@ def test_retired_workspace_remains_readable_but_blocks_all_runtime_mutations():
             json={
                 "relationTypeKey": "not-reached",
                 "fromObjectId": created_object["id"],
-                "toObjectId": second_object["id"],
+                "toObjectId": created_object["id"],
                 "attributes": {},
+                "workspaceDraftId": blocked_draft["id"],
+                "expectedWorkspaceDraftVersion": 1,
             },
         )
         assert relation.status_code == 409
         assert relation.json()["error"]["code"] == "workspace_retired"
         delete = client.delete(
-            f"/api/v1/objects/domain/{created_object['id']}",
-            params={"expectedVersion": created_object["version"]},
+            f"/api/v1/objects/language/{created_object['id']}",
+            params={"expectedVersion": created_object["version"], "workspaceDraftId": blocked_draft["id"], "expectedWorkspaceDraftVersion": 1},
         )
         assert delete.status_code == 409
         assert delete.json()["error"]["code"] == "workspace_retired"

@@ -20,12 +20,11 @@ runtime state with both concurrency tokens, commits before refreshing the local 
 readiness unhealthy if publication fails. Activation is available only in the supported single-worker
 mutation topology.
 WP6 removes the rejected per-object lifecycle persistence and public mutation surface while retaining
-workspace drafts and immutable workspace revisions. WP7 is currently stopped for correction: it must
-restore the established generic object, attribute, relation and translation CRUD over WP6 storage,
-then keep workspace draft/revision discovery, validation, guarded atomic publication and publication
-retirement as separate workspace operations. Active reads resolve through the selected workspace
-revision; writes use the same CRUD contract against a selected workspace draft; published and
-historical revisions remain immutable.
+workspace drafts and immutable workspace revisions. Corrective WP7 restores the established generic
+object, attribute, relation and translation CRUD over WP6 storage. Workspace draft/revision discovery,
+validation, guarded atomic publication and publication retirement remain separate workspace operations.
+Active reads resolve through the selected workspace revision; writes use the same CRUD contract against
+an explicit workspace draft; published and historical revisions remain immutable.
 Audit-subject projection remains cursor-paged and workspace-bound without querying JSON payloads for identity.
 The generic UI carries explicit workspace context in its shell and routes, restores URL-backed
 collection search/sort/page-size controls, provides reusable row actions and retry states, and
@@ -159,10 +158,10 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 
 ## Known gaps
 
-- WP7 backend publication is stopped and incomplete. Its correction gate is restored generic CRUD over
-  WP6 storage, with no nested draft-object/relation API and no object activation or retirement UI/API.
-  WP8 owns workspace lifecycle orchestration, WP9 reuses generic CRUD UI in draft context, and WP10
-  owns integration/release validation.
+- WP7 backend corrective work is complete: generic CRUD is draft-scoped, draft/revision query and
+  history contexts are cursor-bound, and no nested draft-object/relation API exists. WP8 owns workspace
+  lifecycle orchestration, WP9 reuses generic CRUD UI in draft context, and WP10 owns integration/release
+  validation.
 - Schema 0.5 intentionally omits `mappingGrid`, `tree`, `form` and `dashboard`; those declarations are
   rejected rather than routed to the table renderer. `mappingGrid` moves to schema 0.6/product 0.7.
 - Typed table filtering and sorting cover the bounded daily-use grammar. Integration-scale query

@@ -1,16 +1,16 @@
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient
+from sqlalchemy import select
+from test_api import DraftTestClient
 
 from app.db import SessionLocal
-from app.errors import ApiError
 from app.main import app
+from app.models.database import ModelRelease
 from app.services.model.loader import load_bootstrap_model
 from app.services.model.registry import ModelSnapshot, resolve_model_snapshot
-from app.services.relations import claim_relation_version, load_relation
 
-pytestmark = pytest.mark.skip(reason="WP7 replaces direct published-relation mutations with draft-scoped APIs")
+TestClient = DraftTestClient
 
 
 def _attr(key: str, value):
@@ -35,16 +35,28 @@ def mapping_relation_attributes():
         for item in model.objectTypeRelations
     )
     model = model.model_copy(update={"objectTypeRelations": object_type_relations})
+    with SessionLocal() as session:
+        release = session.scalar(select(ModelRelease).where(ModelRelease.is_active.is_(True)))
+        assert release is not None
+        original_json = release.model_json
+        release.model_json = model.model_dump(mode="json")
+        session.commit()
+        release_db_id, release_id, model_hash = release.id, release.public_id, release.model_hash
     app.dependency_overrides[resolve_model_snapshot] = lambda: ModelSnapshot(
-        release_db_id=-1,
-        release_id="test-release",
-        model_hash="test-hash",
+        release_db_id=release_db_id,
+        release_id=release_id,
+        model_hash=model_hash,
         model=model,
     )
     try:
         yield
     finally:
         app.dependency_overrides.pop(resolve_model_snapshot, None)
+        with SessionLocal() as session:
+            release = session.get(ModelRelease, release_db_id)
+            assert release is not None
+            release.model_json = original_json
+            session.commit()
 
 
 def _create_domain(client, suffix):
@@ -57,7 +69,7 @@ def _create_domain(client, suffix):
             "attributes": [_attr("domain-code", f"DOM_{suffix}")],
         },
     )
-    assert response.status_code == 201
+    assert response.status_code == 201, response.text
     return response.json()
 
 
@@ -440,7 +452,7 @@ def test_duplicate_initial_relations_return_a_conflict_without_leaving_an_orphan
         )
 
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "invalid_required_relation"
+        assert response.json()["error"]["code"] == "duplicate_initial_relation"
         assert client.get(f"/api/v1/objects/system-value/{public_id}").status_code == 404
 
 
@@ -450,17 +462,14 @@ def test_duplicate_initial_relations_return_a_conflict_without_leaving_an_orphan
 def test_relation_version_claim_rejects_a_relation_loaded_before_a_competing_write():
     with TestClient(app) as client:
         mapping = _create_mapping(client, _suffix())
-
-        with SessionLocal() as stale_session:
-            stale_relation = load_relation(stale_session, mapping["id"])
-            stale_session.expunge(stale_relation)
-
-        with SessionLocal() as winning_session:
-            winning_relation = load_relation(winning_session, mapping["id"])
-            claim_relation_version(winning_session, winning_relation, mapping["version"])
-            winning_session.commit()
-
-        with SessionLocal() as losing_session:
-            with pytest.raises(ApiError) as exc_info:
-                claim_relation_version(losing_session, stale_relation, mapping["version"])
-            assert exc_info.value.code == "version_conflict"
+        winner = client.patch(
+            _relation_path(mapping["id"]),
+            json={"attributes": {}, "expectedVersion": mapping["version"]},
+        )
+        assert winner.status_code == 200
+        loser = client.patch(
+            _relation_path(mapping["id"]),
+            json={"attributes": {}, "expectedVersion": mapping["version"]},
+        )
+        assert loser.status_code == 409
+        assert loser.json()["error"]["code"] == "version_conflict"

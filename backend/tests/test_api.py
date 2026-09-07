@@ -1,11 +1,61 @@
 from uuid import uuid4
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
 
-pytestmark = pytest.mark.skip(reason="WP7 replaces direct published-object mutations with draft-scoped APIs")
+
+class DraftTestClient(TestClient):
+    """Exercise the legacy generic CRUD assertions through one explicit draft context."""
+
+    draft_id: str
+    draft_version: int
+
+    def __enter__(self):
+        client = super().__enter__()
+        draft = super().request("POST", "/api/v1/workspaces/default/drafts", json={})
+        assert draft.status_code == 201, draft.text
+        self.draft_id = draft.json()["id"]
+        self.draft_version = draft.json()["version"]
+        return client
+
+    def request(self, method, url, **kwargs):
+        is_runtime_route = url.startswith(("/api/v1/objects", "/api/v1/relations"))
+        if not is_runtime_route:
+            return super().request(method, url, **kwargs)
+        if method.upper() in {"POST", "PATCH"}:
+            payload = dict(kwargs.get("json") or {})
+            payload.setdefault("workspaceDraftId", self.draft_id)
+            payload.setdefault("expectedWorkspaceDraftVersion", self.draft_version)
+            kwargs["json"] = payload
+        else:
+            supplied = kwargs.get("params") or {}
+            if isinstance(supplied, list):
+                params = list(supplied)
+                keys = {key for key, _value in params}
+                if "workspaceDraftId" not in keys:
+                    params.append(("workspaceDraftId", self.draft_id))
+            else:
+                params = dict(supplied)
+                params.setdefault("workspaceDraftId", self.draft_id)
+            if method.upper() == "DELETE":
+                if isinstance(params, list):
+                    if not any(key == "expectedWorkspaceDraftVersion" for key, _value in params):
+                        params.append(("expectedWorkspaceDraftVersion", self.draft_version))
+                else:
+                    params.setdefault("expectedWorkspaceDraftVersion", self.draft_version)
+            kwargs["params"] = params
+        response = super().request(method, url, **kwargs)
+        if response.is_success:
+            version = response.json().get("workspaceDraftVersion") if response.content else None
+            if version is not None:
+                self.draft_version = version
+            elif method.upper() == "DELETE":
+                self.draft_version += 1
+        return response
+
+
+TestClient = DraftTestClient
 
 
 def _attr(key: str, value):
@@ -504,7 +554,9 @@ def test_delete_object_with_mapping_relation_is_rejected():
             f"/api/v1/objects/master-value/{master['id']}", params={"expectedVersion": 1}
         )
         assert response.status_code == 204
-        assert client.get(f"/api/v1/relations/{mapping.json()['id']}").status_code == 200
+        # Deleting a draft record removes its optional association from that candidate graph;
+        # the published revision remains untouched until workspace activation.
+        assert client.get(f"/api/v1/relations/{mapping.json()['id']}").status_code == 404
 
 
 def test_update_cannot_null_required_attribute():

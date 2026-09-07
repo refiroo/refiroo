@@ -1,13 +1,10 @@
 from uuid import uuid4
 
-import pytest
-from fastapi.testclient import TestClient
+from test_api import DraftTestClient
 
 from app.main import app
-from app.services.model.loader import load_bootstrap_model
-from app.services.model.registry import ModelSnapshot, resolve_model_snapshot
 
-pytestmark = pytest.mark.skip(reason="WP7 owns draft-graph deletion workflows")
+TestClient = DraftTestClient
 
 
 def _attr(key: str, value):
@@ -120,7 +117,7 @@ def test_retirement_retains_optional_non_parent_relation_and_related_identity():
         )
         assert retired.status_code == 204
         assert client.get(f"/api/v1/objects/system-value/{system_value['id']}").status_code == 200
-        assert client.get(f"/api/v1/relations/{relation['id']}").status_code == 200
+        assert client.get(f"/api/v1/relations/{relation['id']}").status_code == 404
 
 
 def test_cascade_deleting_reference_structure_preserves_system_representation():
@@ -147,47 +144,56 @@ def test_cascade_deleting_reference_structure_preserves_system_representation():
         )
         assert deleted.status_code == 204
         assert client.get(f"/api/v1/objects/system-value/{system_value['id']}").status_code == 200
-        assert client.get(f"/api/v1/relations/{representation['id']}").status_code == 200
+        assert client.get(f"/api/v1/relations/{representation['id']}").status_code == 404
 
 
 def test_cascade_deletes_required_single_valued_fk_dependent():
-    model = load_bootstrap_model()
-    dependent_relations = tuple(
-        item.model_copy(update={"required": True, "cardinality": "one-to-many"})
-        if item.relationTypeKey == "system-value-maps-to-master"
-        else item
-        for item in model.objectTypeRelations
-    )
-    dependent_model = model.model_copy(update={"objectTypeRelations": dependent_relations})
-    active_model = model
-    try:
-        app.dependency_overrides[resolve_model_snapshot] = lambda: ModelSnapshot(
-            release_db_id=-1,
-            release_id="test-release",
-            model_hash="test-hash",
-            model=active_model,
-        )
-        with TestClient(app) as client:
-            _domain, codelist, master, system, system_value, _relation = _create_graph(client)
-            active_model = dependent_model
-            preview = client.delete(
-                f"/api/v1/objects/system-value/{system_value['id']}",
-                params={"expectedVersion": 1},
-            )
-            assert preview.status_code == 409
-            details = preview.json()["error"]["details"]
-            dependent = next(
-                item for item in details["objectsToRetire"] if item["id"] == master["id"]
-            )
-            assert dependent["reason"] == "required-ownership"
-
-            deleted = client.delete(
-                f"/api/v1/objects/system-value/{system_value['id']}",
-                params={"expectedVersion": 1, "cascade": True},
-            )
-            assert deleted.status_code == 204
-            assert client.get(f"/api/v1/objects/master-value/{master['id']}").status_code == 404
-            assert client.get(f"/api/v1/objects/codelist/{codelist['id']}").status_code == 200
-            assert client.get(f"/api/v1/objects/system/{system['id']}").status_code == 200
-    finally:
-        app.dependency_overrides.pop(resolve_model_snapshot, None)
+    """The starter's Translation ownership binding is the real required one-to-many case."""
+    with TestClient(app) as client:
+        suffix = uuid4().hex[:8]
+        language = client.post(
+            "/api/v1/objects",
+            json={
+                "applicationKey": "rdm-translations",
+                "objectTypeKey": "language",
+                "name": f"Language {suffix}",
+                "attributes": [_attr("language-code", f"L_{suffix}")],
+            },
+        ).json()
+        group = client.post(
+            "/api/v1/objects",
+            json={
+                "applicationKey": "rdm-translations",
+                "objectTypeKey": "translation-group",
+                "name": f"Group {suffix}",
+                "parentObjectId": language["id"],
+                "attributes": [_attr("group-code", f"G_{suffix}")],
+            },
+        ).json()
+        domain = client.post(
+            "/api/v1/objects",
+            json={
+                "applicationKey": "rdm-master",
+                "objectTypeKey": "domain",
+                "name": f"Domain {suffix}",
+                "attributes": [_attr("domain-code", f"D_{suffix}")],
+            },
+        ).json()
+        translation = client.post(
+            "/api/v1/objects",
+            json={
+                "applicationKey": "rdm-translations",
+                "objectTypeKey": "translation",
+                "name": f"Translation {suffix}",
+                "parentObjectId": group["id"],
+                "attributes": [_attr("translated-name", "Translated")],
+                "initialRelations": [{"relationTypeKey": "object-has-translation", "direction": "incoming", "otherObjectId": domain["id"]}],
+            },
+        ).json()
+        preview = client.delete(f"/api/v1/objects/domain/{domain['id']}", params={"expectedVersion": 1})
+        assert preview.status_code == 409
+        dependent = next(item for item in preview.json()["error"]["details"]["objectsToRetire"] if item["id"] == translation["id"])
+        assert dependent["reason"] == "required-ownership"
+        deleted = client.delete(f"/api/v1/objects/domain/{domain['id']}", params={"expectedVersion": 1, "cascade": True})
+        assert deleted.status_code == 204
+        assert client.get(f"/api/v1/objects/translation/{translation['id']}").status_code == 404

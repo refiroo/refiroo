@@ -1,13 +1,8 @@
 from uuid import uuid4
 
-import pytest
-from fastapi.testclient import TestClient
+from test_api import DraftTestClient as TestClient
 
-from app.db import SessionLocal
 from app.main import app
-from app.models.database import AttributeValue, RdmObject
-
-pytestmark = pytest.mark.skip(reason="WP7 will provide the draft-scoped fixture setup for typed runtime queries")
 
 
 def _attribute(key: str, value):
@@ -139,28 +134,24 @@ def test_attribute_sort_is_cursor_stable_nulls_last_and_bound_to_filters():
 def test_numeric_ranges_and_capability_errors_are_model_aware():
     token = f"WP3_{uuid4().hex[:8]}"
     with TestClient(app) as client:
-        with SessionLocal() as session:
-            created = []
-            for number in (1, 5, 10):
-                item = RdmObject(
-                    workspace_key="default",
-                    application_key="rdm-master",
-                    object_type_key="master-value",
-                    name=f"{token} {number}",
-                    active_revision_id=str(uuid4()),
-                )
-                session.add(item)
-                session.flush()
-                session.add(
-                    AttributeValue(
-                        object_id=item.id,
-                        attribute_type_key="sort-order",
-                        value_type="integer",
-                        integer_value=number,
-                    )
-                )
-                created.append((number, item.id))
-            session.commit()
+        created = []
+        for number in (1, 5, 10):
+            response = client.post(
+                "/api/v1/objects",
+                json={
+                    "applicationKey": "rdm-master",
+                    "objectTypeKey": "master-value",
+                    "name": f"{token} {number}",
+                    "attributes": [
+                        _attribute("master-id", f"{token}-master-{number}"),
+                        _attribute("value-code", f"{token}-value-{number}"),
+                        _attribute("value-name", f"{token} {number}"),
+                        _attribute("sort-order", number),
+                    ],
+                },
+            )
+            assert response.status_code == 201, response.text
+            created.append((number, response.json()["id"]))
 
         response = client.get(
             "/api/v1/objects/master-value",

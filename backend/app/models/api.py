@@ -31,6 +31,7 @@ class AttributeOutput(BaseModel):
 
 class AttributeValueResponse(AttributeOutput):
     objectVersion: int
+    workspaceDraftVersion: int | None = None
 
 
 class AttributeValueWrite(BaseModel):
@@ -38,6 +39,8 @@ class AttributeValueWrite(BaseModel):
 
     value: Any
     expectedVersion: int = Field(ge=1)
+    workspaceDraftId: UUID4 | None = None
+    expectedWorkspaceDraftVersion: int | None = Field(default=None, ge=1)
 
 
 class InitialRelationInput(BaseModel):
@@ -60,6 +63,8 @@ class ObjectCreate(BaseModel):
     parentObjectId: UUID4 | None = None
     attributes: list[AttributeInput] = Field(default_factory=list)
     initialRelations: list[InitialRelationInput] = Field(default_factory=list)
+    workspaceDraftId: UUID4 | None = None
+    expectedWorkspaceDraftVersion: int | None = Field(default=None, ge=1)
 
 
 class ObjectUpdate(BaseModel):
@@ -69,6 +74,8 @@ class ObjectUpdate(BaseModel):
     parentObjectId: UUID4 | None = None
     attributes: list[AttributeInput] | None = None
     expectedVersion: int = Field(ge=1)
+    workspaceDraftId: UUID4 | None = None
+    expectedWorkspaceDraftVersion: int | None = Field(default=None, ge=1)
 
 
 class ObjectResponse(BaseModel):
@@ -83,10 +90,170 @@ class ObjectResponse(BaseModel):
     version: int
     createdAt: datetime
     updatedAt: datetime
+    workspaceDraftVersion: int | None = None
 
 
 class ObjectPage(BaseModel):
     items: list[ObjectResponse]
+    nextCursor: str | None
+
+
+class WorkspaceDraftCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str | None = Field(default=None, max_length=300)
+    derivedFromRevisionId: UUID4 | None = None
+
+
+class WorkspaceDraftUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str | None = Field(default=None, max_length=300)
+    expectedVersion: int = Field(ge=1)
+
+
+class WorkspaceDraftResponse(BaseModel):
+    id: str
+    workspaceKey: str
+    name: str | None
+    modelReleaseId: str
+    derivedFromRevisionId: str | None
+    version: int
+    createdAt: datetime
+    updatedAt: datetime
+
+
+class WorkspaceDraftPage(BaseModel):
+    items: list[WorkspaceDraftResponse]
+    nextCursor: str | None
+
+
+class WorkspaceRevisionResponse(BaseModel):
+    id: str
+    workspaceKey: str
+    modelReleaseId: str
+    revisionNumber: int
+    status: Literal["active", "retired"]
+    derivedFromRevisionId: str | None
+    supersedesRevisionId: str | None
+    createdAt: datetime
+    activatedAt: datetime
+    retiredAt: datetime | None
+
+
+class WorkspaceRevisionPage(BaseModel):
+    items: list[WorkspaceRevisionResponse]
+    nextCursor: str | None
+
+
+class WorkspaceDraftObjectWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: UUID4 | None = None
+    applicationKey: str
+    objectTypeKey: str
+    name: str = Field(min_length=1, max_length=500)
+    parentObjectId: UUID4 | None = None
+    attributes: dict[str, Any] = Field(default_factory=dict)
+    initialRelations: list[InitialRelationInput] = Field(default_factory=list)
+    expectedDraftVersion: int = Field(ge=1)
+    expectedRecordVersion: int | None = Field(default=None, ge=1)
+
+
+class WorkspaceDraftObjectUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    name: str | None = Field(default=None, min_length=1, max_length=500)
+    parentObjectId: UUID4 | None = None
+    attributes: dict[str, Any] | None = None
+    expectedDraftVersion: int = Field(ge=1)
+    expectedRecordVersion: int = Field(ge=1)
+
+
+class WorkspaceDraftRelationWrite(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: UUID4 | None = None
+    relationTypeKey: str
+    fromObjectId: UUID4
+    toObjectId: UUID4
+    attributes: dict[str, Any] = Field(default_factory=dict)
+    expectedDraftVersion: int = Field(ge=1)
+    expectedRecordVersion: int | None = Field(default=None, ge=1)
+
+
+class WorkspaceDraftRelationUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    relationTypeKey: str | None = None
+    fromObjectId: UUID4 | None = None
+    toObjectId: UUID4 | None = None
+    attributes: dict[str, Any] | None = None
+    expectedDraftVersion: int = Field(ge=1)
+    expectedRecordVersion: int = Field(ge=1)
+
+
+class WorkspaceDraftActivation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expectedDraftVersion: int = Field(ge=1)
+    expectedActiveRevisionId: UUID4 | None = None
+
+
+class WorkspaceRetirement(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    expectedActiveRevisionId: UUID4
+
+
+class WorkspaceDraftValidation(BaseModel):
+    valid: bool
+    diagnostics: list[dict[str, Any]]
+
+
+class WorkspaceDraftObjectResponse(BaseModel):
+    id: str
+    applicationKey: str
+    objectTypeKey: str
+    name: str
+    parentObjectId: str | None
+    attributes: dict[str, Any]
+    version: int
+
+
+class WorkspaceDraftObjectPage(BaseModel):
+    items: list[WorkspaceDraftObjectResponse]
+    nextCursor: str | None
+
+
+class WorkspaceDraftRelationResponse(BaseModel):
+    id: str
+    relationTypeKey: str
+    fromObjectId: str
+    toObjectId: str
+    attributes: dict[str, Any]
+    version: int
+
+
+class WorkspaceDraftRelationPage(BaseModel):
+    items: list[WorkspaceDraftRelationResponse]
+    nextCursor: str | None
+
+
+class WorkspaceDraftAttributePatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    value: Any
+    expectedDraftVersion: int = Field(ge=1)
+    expectedRecordVersion: int = Field(ge=1)
+
+
+class WorkspaceRevisionObjectResponse(WorkspaceDraftObjectResponse):
+    revisionId: str
+
+
+class WorkspaceRevisionObjectPage(BaseModel):
+    items: list[WorkspaceRevisionObjectResponse]
+    nextCursor: str | None
+
+
+class WorkspaceRevisionRelationResponse(WorkspaceDraftRelationResponse):
+    revisionId: str
+
+
+class WorkspaceRevisionRelationPage(BaseModel):
+    items: list[WorkspaceRevisionRelationResponse]
     nextCursor: str | None
 
 
@@ -97,6 +264,8 @@ class RelationCreate(BaseModel):
     fromObjectId: UUID4
     toObjectId: UUID4
     attributes: dict[str, Any] = Field(default_factory=dict)
+    workspaceDraftId: UUID4 | None = None
+    expectedWorkspaceDraftVersion: int | None = Field(default=None, ge=1)
 
 
 class RelationUpdate(BaseModel):
@@ -104,6 +273,8 @@ class RelationUpdate(BaseModel):
 
     attributes: dict[str, Any]
     expectedVersion: int = Field(ge=1)
+    workspaceDraftId: UUID4 | None = None
+    expectedWorkspaceDraftVersion: int | None = Field(default=None, ge=1)
 
 
 class RelationResponse(RelationCreate):
@@ -111,6 +282,7 @@ class RelationResponse(RelationCreate):
     version: int
     createdAt: datetime
     updatedAt: datetime
+    workspaceDraftVersion: int | None = None
 
 
 class ApplicationResponse(BaseModel):

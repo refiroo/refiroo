@@ -1,18 +1,39 @@
 from typing import Literal
 
 from fastapi import APIRouter, Query, status
+from sqlalchemy import select
 
 from ..db import DbSession
+from ..errors import api_error
 from ..models.api import (
     WorkspaceCreate,
+    WorkspaceDraftActivation,
+    WorkspaceDraftCreate,
+    WorkspaceDraftPage,
+    WorkspaceDraftResponse,
+    WorkspaceDraftUpdate,
+    WorkspaceDraftValidation,
     WorkspacePage,
     WorkspaceResponse,
+    WorkspaceRetirement,
+    WorkspaceRevisionPage,
+    WorkspaceRevisionResponse,
     WorkspaceRuntimeStateResponse,
     WorkspaceRuntimeStateUpdate,
     WorkspaceUpdate,
 )
-from ..models.database import Workspace
-from ..services.pagination import paginate_statement, text_key
+from ..models.database import ModelRelease, Workspace, WorkspaceDraft, WorkspaceRevision
+from ..services.model.registry import ActiveModelSnapshot
+from ..services.pagination import paginate_sequence, paginate_statement, text_key
+from ..services.workspace_revisions import (
+    activate_draft,
+    create_draft,
+    discard_draft,
+    pinned_model,
+    retire_publication,
+    update_draft,
+    validate_draft,
+)
 from ..services.workspaces import (
     build_workspace_query,
     create_workspace,
@@ -81,3 +102,186 @@ def patch_workspace_runtime_state(
     return runtime_state_response(
         set_default_workspace(session, payload.defaultWorkspaceKey, payload.expectedVersion)
     )
+
+
+def _draft_response(session, item: WorkspaceDraft) -> WorkspaceDraftResponse:
+    release = session.get(ModelRelease, item.model_release_id)
+    return WorkspaceDraftResponse(
+        id=item.id,
+        workspaceKey=item.workspace_key,
+        name=item.name,
+        modelReleaseId=release.public_id if release else str(item.model_release_id),
+        derivedFromRevisionId=item.derived_from_revision_id,
+        version=item.version,
+        createdAt=item.created_at,
+        updatedAt=item.updated_at,
+    )
+
+
+def _revision_response(session, item: WorkspaceRevision) -> WorkspaceRevisionResponse:
+    release = session.get(ModelRelease, item.model_release_id)
+    return WorkspaceRevisionResponse(
+        id=item.id,
+        workspaceKey=item.workspace_key,
+        modelReleaseId=release.public_id if release else str(item.model_release_id),
+        revisionNumber=item.revision_number,
+        status=item.status,
+        derivedFromRevisionId=item.derived_from_revision_id,
+        supersedesRevisionId=item.supersedes_revision_id,
+        createdAt=item.created_at,
+        activatedAt=item.activated_at,
+        retiredAt=item.retired_at,
+    )
+
+
+@read_router.get("/workspaces/{workspace_key}/drafts", response_model=WorkspaceDraftPage)
+def list_workspace_drafts(
+    workspace_key: str,
+    session: DbSession,
+    cursor: str | None = None,
+    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+) -> WorkspaceDraftPage:
+    load_workspace(session, workspace_key)
+    items = list(
+        session.scalars(select(WorkspaceDraft).where(WorkspaceDraft.workspace_key == workspace_key))
+    )
+    page, next_cursor = paginate_sequence(
+        items,
+        lambda x: (x.created_at.isoformat(), x.id),
+        scope="workspace-drafts",
+        filters={"workspaceKey": workspace_key},
+        cursor=cursor,
+        page_size=page_size,
+        sort=("createdAt", "id"),
+        message="Workspace draft cursor is invalid",
+    )
+    return WorkspaceDraftPage(
+        items=[_draft_response(session, x) for x in page], nextCursor=next_cursor
+    )
+
+
+@admin_router.post(
+    "/workspaces/{workspace_key}/drafts",
+    response_model=WorkspaceDraftResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def post_workspace_draft(
+    workspace_key: str,
+    payload: WorkspaceDraftCreate,
+    session: DbSession,
+    snapshot: ActiveModelSnapshot,
+) -> WorkspaceDraftResponse:
+    return _draft_response(
+        session,
+        create_draft(
+            session,
+            workspace_key,
+            snapshot.release_db_id,
+            name=payload.name,
+            source_revision_id=str(payload.derivedFromRevisionId)
+            if payload.derivedFromRevisionId
+            else None,
+        ),
+    )
+
+
+@read_router.get("/workspace-drafts/{draft_id}", response_model=WorkspaceDraftResponse)
+def get_workspace_draft(draft_id: str, session: DbSession) -> WorkspaceDraftResponse:
+    return _draft_response(
+        session,
+        session.get(WorkspaceDraft, draft_id)
+        or (_ for _ in ()).throw(
+            api_error(404, "workspace_draft_not_found", "Workspace draft not found")
+        ),
+    )
+
+
+@admin_router.patch("/workspace-drafts/{draft_id}", response_model=WorkspaceDraftResponse)
+def patch_workspace_draft(
+    draft_id: str, payload: WorkspaceDraftUpdate, session: DbSession
+) -> WorkspaceDraftResponse:
+    return _draft_response(
+        session, update_draft(session, draft_id, payload.expectedVersion, payload.name)
+    )
+
+
+@admin_router.delete("/workspace-drafts/{draft_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_workspace_draft(
+    draft_id: str, session: DbSession, expected_version: int = Query(alias="expectedVersion", ge=1)
+) -> None:
+    discard_draft(session, draft_id, expected_version)
+
+
+@admin_router.post(
+    "/workspace-drafts/{draft_id}/validation", response_model=WorkspaceDraftValidation
+)
+def validate_workspace_draft(
+    draft_id: str, session: DbSession, snapshot: ActiveModelSnapshot
+) -> WorkspaceDraftValidation:
+    _draft, draft_model = pinned_model(session, draft_id)
+    diagnostics = validate_draft(session, draft_id, draft_model, snapshot.release_db_id)
+    return WorkspaceDraftValidation(valid=not diagnostics, diagnostics=diagnostics)
+
+
+@admin_router.post(
+    "/workspace-drafts/{draft_id}/activation", response_model=WorkspaceRevisionResponse
+)
+def activate_workspace_draft(
+    draft_id: str,
+    payload: WorkspaceDraftActivation,
+    session: DbSession,
+    snapshot: ActiveModelSnapshot,
+) -> WorkspaceRevisionResponse:
+    _draft, draft_model = pinned_model(session, draft_id)
+    revision = activate_draft(
+        session,
+        draft_id,
+        draft_model,
+        snapshot.release_db_id,
+        payload.expectedDraftVersion,
+        str(payload.expectedActiveRevisionId) if payload.expectedActiveRevisionId else None,
+    )
+    return _revision_response(session, revision)
+
+
+@read_router.get("/workspaces/{workspace_key}/revisions", response_model=WorkspaceRevisionPage)
+def list_workspace_revisions(
+    workspace_key: str,
+    session: DbSession,
+    cursor: str | None = None,
+    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+) -> WorkspaceRevisionPage:
+    load_workspace(session, workspace_key)
+    items = list(
+        session.scalars(
+            select(WorkspaceRevision).where(WorkspaceRevision.workspace_key == workspace_key)
+        )
+    )
+    page, next_cursor = paginate_sequence(
+        items,
+        lambda x: (x.revision_number.__str__(), x.id),
+        scope="workspace-revisions",
+        filters={"workspaceKey": workspace_key},
+        cursor=cursor,
+        page_size=page_size,
+        sort=("revisionNumber", "id"),
+        message="Workspace revision cursor is invalid",
+    )
+    return WorkspaceRevisionPage(
+        items=[_revision_response(session, x) for x in page], nextCursor=next_cursor
+    )
+
+
+@read_router.get("/workspace-revisions/{revision_id}", response_model=WorkspaceRevisionResponse)
+def get_workspace_revision(revision_id: str, session: DbSession) -> WorkspaceRevisionResponse:
+    item = session.scalar(select(WorkspaceRevision).where(WorkspaceRevision.id == revision_id))
+    if item is None:
+        raise api_error(404, "workspace_revision_not_found", "Workspace revision not found")
+    return _revision_response(session, item)
+
+
+@admin_router.post("/workspaces/{workspace_key}/retirement", status_code=status.HTTP_204_NO_CONTENT)
+def retire_workspace_publication(
+    workspace_key: str, payload: WorkspaceRetirement, session: DbSession
+) -> None:
+    retire_publication(session, workspace_key, str(payload.expectedActiveRevisionId))

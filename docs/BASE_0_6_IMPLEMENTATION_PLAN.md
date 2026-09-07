@@ -306,7 +306,7 @@ audit projections and backend contract tests.
 Exit: each workspace resolves exactly one active content revision or none; no object-level lifecycle
 authority remains; migration and startup recovery preserve stable public identities.
 
-### WP7 — Restore generic CRUD over workspace revisions (stopped pending corrected implementation)
+### WP7 — Restore generic CRUD over workspace revisions (completed corrective implementation)
 
 Primary areas: existing generic object/attribute/relation services and routers, workspace revision
 resolution, query/pagination, audit and OpenAPI locks. Use Git history as a recovery source; do not

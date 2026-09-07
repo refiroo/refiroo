@@ -48,9 +48,9 @@ different applications.
 Base 0.5 supplies the bounded query and model-lifecycle foundations. Base 0.6 has established its UI
 foundation, authoritative workspace catalogue, typed collection semantics and WP6 workspace-revision
 persistence. Its delivered WP4 per-object publication boundary was rejected before release and has
-been removed by the corrective migration. WP7 is currently stopped while generic CRUD is restored over
-the new storage boundary; WP8 completes workspace lifecycle orchestration, WP9 restores/reuses the
-generic CRUD UI in draft context, and WP10 performs release validation. Typed
+been removed by the corrective migration. Corrective WP7 restores generic CRUD over the new storage
+boundary; WP8 completes workspace lifecycle orchestration, WP9 restores/reuses the generic CRUD UI in
+draft context, and WP10 performs release validation. Typed
 mapping-grid behavior remains product 0.7, with translation and hierarchy interactions later.
 
 ## Run with Docker

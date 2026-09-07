@@ -123,11 +123,12 @@ def paginate_sequence[Item](
     cursor: str | None,
     page_size: int,
     sort: tuple[str, ...] = ("key",),
+    descending: bool = False,
     message: str = "Cursor is invalid",
 ) -> tuple[list[Item], str | None]:
     """Page an in-memory sequence ordered by its identity tuple."""
     cursor_filters = filters or {}
-    ordered = sorted(items, key=identity)
+    ordered = sorted(items, key=identity, reverse=descending)
     if cursor is not None:
         cursor_identity = decode_cursor(
             cursor,
@@ -139,7 +140,11 @@ def paginate_sequence[Item](
         expected_width = len(identity(ordered[0])) if ordered else len(cursor_identity)
         if len(cursor_identity) != expected_width:
             raise api_error(422, "invalid_cursor", message)
-        ordered = [item for item in ordered if identity(item) > cursor_identity]
+        ordered = [
+            item
+            for item in ordered
+            if (identity(item) < cursor_identity if descending else identity(item) > cursor_identity)
+        ]
     page = ordered[: page_size + 1]
     visible = page[:page_size]
     next_cursor = (

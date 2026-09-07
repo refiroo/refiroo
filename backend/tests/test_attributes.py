@@ -1,9 +1,8 @@
 from uuid import uuid4
 
 import pytest
-from fastapi.testclient import TestClient
+from test_api import DraftTestClient
 
-from app.db import SessionLocal
 from app.errors import ApiError
 from app.main import app
 from app.models.database import AttributeValue
@@ -12,10 +11,9 @@ from app.services.attributes import (
     build_attribute_value_response,
     validate_deletable_attribute,
 )
-
-pytestmark = pytest.mark.skip(reason="WP7 replaces direct published-attribute mutations with draft-scoped APIs")
 from app.services.model.loader import load_bootstrap_model
-from app.services.objects import claim_object_version, load_object
+
+TestClient = DraftTestClient
 
 
 def _attr(key: str, value):
@@ -235,20 +233,17 @@ def test_update_attribute_value_rejects_stale_version():
 def test_version_claim_rejects_an_object_loaded_before_a_competing_write():
     with TestClient(app) as client:
         domain = _create_domain(client, _suffix())
-
-        with SessionLocal() as stale_session:
-            stale_item = load_object(stale_session, domain["id"], "domain")
-            stale_session.expunge(stale_item)
-
-        with SessionLocal() as winning_session:
-            winning_item = load_object(winning_session, domain["id"], "domain")
-            claim_object_version(winning_session, winning_item, domain["version"])
-            winning_session.commit()
-
-        with SessionLocal() as losing_session:
-            with pytest.raises(ApiError) as exc_info:
-                claim_object_version(losing_session, stale_item, domain["version"])
-            assert exc_info.value.code == "version_conflict"
+        winner = client.post(
+            _path(domain["id"], "description"),
+            json={"value": "Winner", "expectedVersion": domain["version"]},
+        )
+        assert winner.status_code == 201
+        loser = client.patch(
+            _path(domain["id"], "description"),
+            json={"value": "Loser", "expectedVersion": domain["version"]},
+        )
+        assert loser.status_code == 409
+        assert loser.json()["error"]["code"] == "version_conflict"
 
 
 def test_update_unique_attribute_conflicts_across_objects():

@@ -368,6 +368,7 @@ class WorkspaceDraft(Base):
     derived_from_revision_id: Mapped[str | None] = mapped_column(
         ForeignKey("workspace_revisions.id", ondelete="RESTRICT"), nullable=True, index=True
     )
+    name: Mapped[str | None] = mapped_column(String(300), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
@@ -436,7 +437,9 @@ class ObjectRelation(Base):
 
 class WorkspaceRevisionObject(Base):
     __tablename__ = "workspace_revision_objects"
-    __table_args__ = (UniqueConstraint("revision_id", "object_id", name="uq_workspace_revision_object"),)
+    __table_args__ = (
+        UniqueConstraint("revision_id", "object_id", name="uq_workspace_revision_object"),
+    )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     revision_id: Mapped[str] = mapped_column(
@@ -489,7 +492,9 @@ class WorkspaceDraftObject(Base):
 
 class WorkspaceDraftRelation(Base):
     __tablename__ = "workspace_draft_relations"
-    __table_args__ = (UniqueConstraint("draft_id", "relation_id", name="uq_workspace_draft_relation"),)
+    __table_args__ = (
+        UniqueConstraint("draft_id", "relation_id", name="uq_workspace_draft_relation"),
+    )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     draft_id: Mapped[str] = mapped_column(

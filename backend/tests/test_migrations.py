@@ -52,7 +52,7 @@ def test_object_lifecycle_migration_recovers_empty_sqlite_ddl_from_interrupted_r
     inspector = inspect(engine)
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "20260907_01"
+            "20260907_03"
         )
     assert any(
         foreign_key["referred_table"] == "workspace_revisions"
