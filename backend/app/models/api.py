@@ -58,7 +58,6 @@ class ObjectCreate(BaseModel):
     name: str = Field(min_length=1, max_length=500)
     workspaceKey: str | None = None
     parentObjectId: UUID4 | None = None
-    state: Literal["active"] = "active"
     attributes: list[AttributeInput] = Field(default_factory=list)
     initialRelations: list[InitialRelationInput] = Field(default_factory=list)
 
@@ -67,7 +66,6 @@ class ObjectUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     name: str | None = Field(default=None, min_length=1, max_length=500)
-    state: Literal["active"] | None = None
     parentObjectId: UUID4 | None = None
     attributes: list[AttributeInput] | None = None
     expectedVersion: int = Field(ge=1)
@@ -79,8 +77,6 @@ class ObjectResponse(BaseModel):
     applicationKey: str
     objectTypeKey: str
     parentObjectId: str | None
-    activeRevisionId: str | None
-    lifecycle: Literal["active", "retired"]
     name: str
     path: list[dict[str, str]]
     attributes: list[AttributeOutput]
@@ -92,148 +88,6 @@ class ObjectResponse(BaseModel):
 class ObjectPage(BaseModel):
     items: list[ObjectResponse]
     nextCursor: str | None
-
-
-class ObjectSnapshotWrite(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    name: str | None = Field(default=None, min_length=1, max_length=500)
-    parentObjectId: UUID4 | None = None
-    attributes: list[AttributeInput] | None = None
-    requiredRelationships: list[InitialRelationInput] | None = None
-
-
-class ObjectDraftCreate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    objectId: UUID4 | None = None
-    applicationKey: str
-    objectTypeKey: str
-    name: str = Field(min_length=1, max_length=500)
-    workspaceKey: str | None = None
-    parentObjectId: UUID4 | None = None
-    attributes: list[AttributeInput] = Field(default_factory=list)
-    requiredRelationships: list[InitialRelationInput] = Field(default_factory=list)
-
-
-class ObjectDraftCloneRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    derivedFromRevisionId: UUID4
-
-
-class ObjectDraftUpdate(ObjectSnapshotWrite):
-    expectedVersion: int = Field(ge=1)
-
-    @model_validator(mode="after")
-    def require_object_draft_change(self) -> ObjectDraftUpdate:
-        changed = self.model_fields_set - {"expectedVersion"}
-        if not changed:
-            raise ValueError("At least one draft field is required")
-        nullable_only = changed - {"parentObjectId"}
-        explicit_nulls = sorted(
-            field_name for field_name in nullable_only if getattr(self, field_name) is None
-        )
-        if explicit_nulls:
-            raise ValueError(
-                "Draft fields other than 'parentObjectId' cannot be null: "
-                + ", ".join(explicit_nulls)
-            )
-        return self
-
-
-class ObjectDraftDeleteRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    expectedVersion: int = Field(ge=1)
-
-
-class ObjectDraftActivationRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    expectedDraftVersion: int = Field(ge=1)
-    expectedActiveRevisionId: UUID4 | None
-
-
-class ObjectRetirementRequest(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    expectedActiveRevisionId: UUID4
-    cascade: bool = False
-
-
-class RequiredRelationshipOutput(BaseModel):
-    relationTypeKey: str
-    direction: Literal["outgoing", "incoming"]
-    otherObjectId: str
-    attributes: dict[str, Any]
-
-
-class ObjectDraftResponse(BaseModel):
-    id: str
-    objectId: str
-    workspaceKey: str
-    applicationKey: str
-    objectTypeKey: str
-    modelReleaseId: str
-    derivedFromRevisionId: str | None
-    name: str
-    parentObjectId: str | None
-    attributes: list[AttributeInput]
-    requiredRelationships: list[RequiredRelationshipOutput]
-    version: int
-    createdAt: datetime
-    updatedAt: datetime
-
-
-class ObjectDraftPage(BaseModel):
-    items: list[ObjectDraftResponse]
-    nextCursor: str | None
-
-
-class ObjectRevisionResponse(BaseModel):
-    id: str
-    objectId: str
-    workspaceKey: str
-    applicationKey: str
-    objectTypeKey: str
-    modelReleaseId: str
-    revisionNumber: int
-    lifecycle: Literal["active", "retired"]
-    derivedFromRevisionId: str | None
-    supersedesRevisionId: str | None
-    name: str
-    parentObjectId: str | None
-    attributes: list[AttributeInput]
-    requiredRelationships: list[RequiredRelationshipOutput]
-    createdAt: datetime
-    activatedAt: datetime
-    retiredAt: datetime | None
-
-
-class ObjectRevisionPage(BaseModel):
-    items: list[ObjectRevisionResponse]
-    nextCursor: str | None
-
-
-class RetirementImpactObject(BaseModel):
-    id: str
-    objectTypeKey: str
-    name: str
-    reason: Literal["containment", "required-ownership"]
-
-
-class ObjectRetirementResponse(BaseModel):
-    retiredRevision: ObjectRevisionResponse
-    retiredDependants: list[RetirementImpactObject]
-    retainedAssociationCount: int
-
-
-class ObjectRetirementImpactResponse(BaseModel):
-    activeRevisionId: str
-    dependants: list[RetirementImpactObject]
-    retainedAssociationCount: int
-    cascadeRequired: bool
 
 
 class RelationCreate(BaseModel):

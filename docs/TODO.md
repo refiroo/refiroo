@@ -30,7 +30,7 @@ release plan and changelog rather than accumulating it here.
 - [x] WP4: delivered per-object revisions; rejected before release and retained only as corrective
   migration input.
 - [x] WP5: refroze ADR-024 workspace lifecycle journeys, fixtures, API design, concurrency, cursor and migration contracts; no persistence or APIs implemented.
-- [ ] WP6: replace object-lifecycle persistence with workspace drafts/revisions and corrective migration.
+- [x] WP6: replace object-lifecycle persistence with workspace drafts/revisions and corrective migration.
 - [ ] WP7: implement draft-scoped object/relation editing, complete validation and atomic workspace publication.
 - [ ] WP8: deliver workspace-level Published, Drafts and History UI with conflict recovery.
 - [ ] WP9: add browser, accessibility and visual-regression checks and complete release validation.

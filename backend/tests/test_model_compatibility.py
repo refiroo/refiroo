@@ -2,10 +2,18 @@ from copy import deepcopy
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
-from app.models.database import AttributeValue, Base, ObjectRelation, RdmObject
+from app.models.database import (
+    AttributeValue,
+    Base,
+    ObjectRelation,
+    RdmObject,
+    Workspace,
+    WorkspaceRevision,
+    WorkspaceRevisionObject,
+)
 from app.models.schema import EngineModel
 from app.services.model.compatibility import analyze_compatibility
 
@@ -102,6 +110,25 @@ def session():
     engine = create_engine("sqlite://")
     Base.metadata.create_all(engine)
     with Session(engine) as value:
+        revision_id = str(uuid4())
+        value.add(
+            Workspace(
+                key="default",
+                label="Default",
+                status="active",
+                active_revision_id=revision_id,
+            )
+        )
+        value.add(
+            WorkspaceRevision(
+                id=revision_id,
+                workspace_key="default",
+                model_release_id=1,
+                revision_number=1,
+                status="active",
+            )
+        )
+        value.flush()
         yield value
     engine.dispose()
 
@@ -113,9 +140,24 @@ def _object(session: Session, object_type: str, *, parent: RdmObject | None = No
         workspace_key="default",
         name=object_type,
         parent_object_id=parent.id if parent else None,
-        active_revision_id=str(uuid4()),
     )
     session.add(item)
+    session.flush()
+    revision_id = session.scalar(
+        select(Workspace.active_revision_id).where(Workspace.key == "default")
+    )
+    session.add(
+        WorkspaceRevisionObject(
+            revision_id=revision_id,
+            object_id=item.id,
+            application_key=item.application_key,
+            object_type_key=item.object_type_key,
+            name=item.name,
+            parent_object_id=item.parent_object_id,
+            attributes={},
+            version=item.version,
+        )
+    )
     session.flush()
     return item
 

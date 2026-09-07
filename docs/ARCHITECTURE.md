@@ -173,6 +173,15 @@ and expected active workspace revision protect publication. Activation validates
 effective graph and atomically changes the workspace active-revision pointer together with every
 query-optimized object and relation projection. Draft edits never mutate those active projections.
 
+`20260907_01_workspace_revisions` is the corrective persistence boundary. It creates workspace
+draft/revision membership keyed by stable public object and relation UUIDs, materializes an initial
+revision only from an unambiguous effective workspace graph, and then removes rejected per-object
+draft/revision tables, object state and object active-revision authority. Mixed source lifecycle
+states stop with a workspace-specific actionable diagnostic rather than being guessed.
+Draft membership is an overlay: its derivation pointer selects the immutable base and its rows carry
+only changed records or explicit tombstones, so a later editor does not copy a whole published graph
+to make one change.
+
 Workspace lineage has two edges: the immutable workspace revision used as the draft base and the
 workspace revision active when that draft is published. Publication retirement clears the workspace's
 active content pointer without iterating through records or deleting stable identities and history.

@@ -15,7 +15,13 @@ from ..models.api import (
     ObjectUpdate,
     RelationCreate,
 )
-from ..models.database import AttributeValue, ObjectRelation, ObjectRevision, RdmObject
+from ..models.database import (
+    AttributeValue,
+    ObjectRelation,
+    RdmObject,
+    Workspace,
+    WorkspaceRevisionObject,
+)
 from ..models.schema import ApplicationDefinition, EngineModel, ObjectTypeDefinition
 from .attributes import (
     VALUE_COLUMNS,
@@ -85,7 +91,6 @@ def build_object_query(
     search: str | None,
     sort: str | None,
     field_filters: list[tuple[str, str, str]] | None = None,
-    lifecycle: str = "active",
 ) -> ObjectQuery:
     """Build the filtered statement, keyset and cursor filters for an object collection."""
     object_type = get_object_type(model, object_type_key)
@@ -96,13 +101,11 @@ def build_object_query(
         RdmObject.object_type_key == object_type_key,
         RdmObject.workspace_key == workspace_key,
     )
-    if lifecycle == "active":
-        statement = statement.where(RdmObject.active_revision_id.is_not(None))
-    else:
-        statement = statement.where(
-            RdmObject.active_revision_id.is_(None),
-            exists(select(1).where(ObjectRevision.object_id == RdmObject.id)),
-        )
+    statement = statement.join(Workspace, Workspace.key == RdmObject.workspace_key).join(
+        WorkspaceRevisionObject,
+        (WorkspaceRevisionObject.revision_id == Workspace.active_revision_id)
+        & (WorkspaceRevisionObject.object_id == RdmObject.id),
+    )
     if application_key:
         statement = statement.where(RdmObject.application_key == application_key)
     if parent_object_id:
@@ -126,7 +129,6 @@ def build_object_query(
             "search": search,
             "typedFilters": normalized_filters,
             "workspaceKey": workspace_key,
-            "lifecycle": lifecycle,
         },
     )
 
@@ -383,6 +385,11 @@ def _format_typed_value(value: Any) -> str:
 
 def create_object_record(session: Session, model: EngineModel, payload: ObjectCreate) -> RdmObject:
     """Create one object with its attributes, containment edge and initial relations."""
+    raise api_error(
+        409,
+        "workspace_draft_required",
+        "Published workspace objects are read-only; create records in a workspace draft",
+    )
     from .relations import create_relation_instance
     from .workspaces import resolve_workspace
 
@@ -487,6 +494,11 @@ def update_object_record(
     payload: ObjectUpdate,
 ) -> RdmObject:
     """Apply a partial object update under optimistic concurrency."""
+    raise api_error(
+        409,
+        "workspace_draft_required",
+        "Published workspace objects are read-only; edit records in a workspace draft",
+    )
     from .relations import validate_scoped_relations_for_subtree
     from .workspaces import resolve_workspace
 
@@ -600,6 +612,28 @@ def load_object(session: Session, object_id: str, object_type_key: str | None = 
     return item
 
 
+def load_active_projection(
+    session: Session, object_id: str, object_type_key: str | None = None
+) -> RdmObject:
+    """Load a record only when it belongs to its workspace's selected revision."""
+    statement = (
+        select(RdmObject)
+        .join(Workspace, Workspace.key == RdmObject.workspace_key)
+        .join(
+            WorkspaceRevisionObject,
+            (WorkspaceRevisionObject.revision_id == Workspace.active_revision_id)
+            & (WorkspaceRevisionObject.object_id == RdmObject.id),
+        )
+        .where(RdmObject.id == object_id)
+    )
+    if object_type_key:
+        statement = statement.where(RdmObject.object_type_key == object_type_key)
+    item = session.scalar(statement)
+    if not item:
+        raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
+    return item
+
+
 def claim_object_version(session: Session, item: RdmObject, expected_version: int) -> None:
     result = session.execute(
         update(RdmObject)
@@ -629,8 +663,10 @@ def validate_parent(
         return None, None
 
     parent = load_object(session, parent_object_id)
-    if parent.active_revision_id is None:
-        raise api_error(422, "parent_not_active", "Parent must have an active revision")
+    if session.scalar(
+        select(Workspace.active_revision_id).where(Workspace.key == parent.workspace_key)
+    ) is None:
+        raise api_error(422, "parent_not_active", "Parent workspace has no active revision")
     if parent.application_key != application_key or parent.workspace_key != workspace_key:
         raise api_error(
             422, "parent_wrong_scope", "Parent must be in the same application and workspace"
@@ -692,8 +728,6 @@ def build_object_responses(
             applicationKey=item.application_key,
             objectTypeKey=item.object_type_key,
             parentObjectId=item.parent_object_id,
-            activeRevisionId=item.active_revision_id,
-            lifecycle="active" if item.active_revision_id is not None else "retired",
             name=item.name,
             path=paths[item.id],
             attributes=_build_attribute_outputs(model, values[item.id]),

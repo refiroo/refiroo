@@ -22,7 +22,7 @@ different applications.
 - Compatibility-gated release activation with runtime-state concurrency and lifecycle audit
 - Side-effect-free model validation with stable diagnostics, key-based release diff and bounded
   runtime-data compatibility analysis
-- Stable workspace, object and relation identities; ADR-024 lifecycle contracts are frozen and WP6-WP8 implement workspace revisions
+- Stable workspace, object and relation identities; WP6 persistence establishes ADR-024 workspace revisions, while WP7-WP8 deliver their APIs and UI
 - Separately stored typed attribute values—text, integer, decimal, boolean, date, datetime and JSON
 - Typed object relations, automatic parent relations and hierarchy cycle protection
 - Relation cardinality checks and audit events
@@ -44,9 +44,10 @@ different applications.
 - Docker development environment and continuous-integration workflow
 
 Base 0.5 supplies the bounded query and model-lifecycle foundations. Base 0.6 has established its UI
-foundation, authoritative workspace catalogue and typed collection semantics. Its delivered WP4
-per-object publication boundary was rejected before release. ADR-024 and corrective WP5-WP8 replace
-it with workspace drafts and immutable workspace revisions before WP9 release validation. Typed
+foundation, authoritative workspace catalogue, typed collection semantics and WP6 workspace-revision
+persistence. Its delivered WP4 per-object publication boundary was rejected before release and has
+been removed by the corrective migration. WP7-WP8 add the workspace draft APIs and UI before WP9
+release validation. Typed
 mapping-grid behavior remains product 0.7, with translation and hierarchy interactions later.
 
 ## Run with Docker

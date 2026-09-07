@@ -4,7 +4,13 @@ from typing import Any
 from sqlalchemy import Numeric, and_, cast, exists, func, literal, or_, select
 from sqlalchemy.orm import Session, aliased
 
-from ...models.database import AttributeValue, ObjectRelation, RdmObject
+from ...models.database import (
+    AttributeValue,
+    ObjectRelation,
+    RdmObject,
+    Workspace,
+    WorkspaceRevisionObject,
+)
 from ...models.schema import EngineModel, ObjectTypeRelationDefinition
 from ..attributes import VALUE_COLUMNS, normalize_value
 from .compiler import ModelDiagnostic
@@ -15,6 +21,18 @@ class CompatibilityResult:
         self.classification = "migration_required" if diagnostics else "compatible"
         self.active_release_id = active_release_id
         self.diagnostics = tuple(diagnostics)
+
+
+def _is_in_active_workspace(item: Any) -> Any:
+    """Keep compatibility analysis scoped to the workspace publication authority."""
+    return exists(
+        select(WorkspaceRevisionObject.sequence_id)
+        .join(Workspace, Workspace.active_revision_id == WorkspaceRevisionObject.revision_id)
+        .where(
+            Workspace.key == item.workspace_key,
+            WorkspaceRevisionObject.object_id == item.id,
+        )
+    )
 
 
 def analyze_compatibility(
@@ -391,7 +409,7 @@ def _check_cardinality(
         .where(
             ObjectRelation.relation_type_key == pair.relationTypeKey,
             target.object_type_key == pair.toObjectTypeKey,
-            target.active_revision_id.is_not(None),
+            _is_in_active_workspace(target),
         )
         .group_by(ObjectRelation.to_object_id)
         .having(func.count() > 1)
@@ -406,7 +424,7 @@ def _check_cardinality(
             .where(
                 ObjectRelation.relation_type_key == pair.relationTypeKey,
                 source.object_type_key == pair.fromObjectTypeKey,
-                source.active_revision_id.is_not(None),
+                _is_in_active_workspace(source),
             )
             .group_by(ObjectRelation.from_object_id)
             .having(func.count() > 1)
@@ -434,7 +452,7 @@ def _count_scoped_uniqueness_violations(
         RdmObject.parent_object_id.label("parent_id"),
         RdmObject.object_type_key.label("ancestor_type"),
         literal(0).label("depth"),
-    ).where(RdmObject.active_revision_id.is_not(None)).cte(
+    ).where(_is_in_active_workspace(RdmObject)).cte(
         "object_lineage", recursive=True
     )
     parent = aliased(RdmObject)
@@ -482,8 +500,8 @@ def _count_scoped_uniqueness_violations(
             ObjectRelation.relation_type_key == pair.relationTypeKey,
             source.object_type_key == pair.fromObjectTypeKey,
             target.object_type_key == pair.toObjectTypeKey,
-            source.active_revision_id.is_not(None),
-            target.active_revision_id.is_not(None),
+            _is_in_active_workspace(source),
+            _is_in_active_workspace(target),
         )
     )
     condition = pair.features.get("uniqueWhenToAttributeEquals")
@@ -516,7 +534,7 @@ def _count_objects(session: Session, *conditions: Any) -> int:
         session.scalar(
             select(func.count())
             .select_from(RdmObject)
-            .where(RdmObject.active_revision_id.is_not(None), *conditions)
+            .where(_is_in_active_workspace(RdmObject), *conditions)
         )
         or 0
     )
@@ -529,7 +547,7 @@ def _count_attribute_values(
         select(func.count())
         .select_from(AttributeValue)
         .join(RdmObject, RdmObject.id == AttributeValue.object_id)
-        .where(RdmObject.active_revision_id.is_not(None))
+        .where(_is_in_active_workspace(RdmObject))
     )
     if object_type_key is not None:
         statement = statement.where(RdmObject.object_type_key == object_type_key)
@@ -595,7 +613,7 @@ def _count_duplicate_attribute_groups(session: Session, key: str, value_type: st
         select(RdmObject.workspace_key, column)
         .join(AttributeValue, AttributeValue.object_id == RdmObject.id)
         .where(*conditions)
-        .where(RdmObject.active_revision_id.is_not(None))
+        .where(_is_in_active_workspace(RdmObject))
         .group_by(RdmObject.workspace_key, column)
         .having(func.count() > 1)
         .subquery()
@@ -616,8 +634,8 @@ def _count_relation_pair(session: Session, pair: ObjectTypeRelationDefinition) -
                 ObjectRelation.relation_type_key == pair.relationTypeKey,
                 from_object.object_type_key == pair.fromObjectTypeKey,
                 to_object.object_type_key == pair.toObjectTypeKey,
-                from_object.active_revision_id.is_not(None),
-                to_object.active_revision_id.is_not(None),
+                _is_in_active_workspace(from_object),
+                _is_in_active_workspace(to_object),
             )
         )
         or 0
@@ -646,8 +664,8 @@ def _count_relation_attribute_bound_violations(
             .join(to_object, to_object.id == ObjectRelation.to_object_id)
             .where(
                 violation,
-                from_object.active_revision_id.is_not(None),
-                to_object.active_revision_id.is_not(None),
+                _is_in_active_workspace(from_object),
+                _is_in_active_workspace(to_object),
             )
         )
         or 0
@@ -675,8 +693,8 @@ def _count_relations_with_attribute(
                 ObjectRelation.relation_type_key == pair.relationTypeKey,
                 from_object.object_type_key == pair.fromObjectTypeKey,
                 to_object.object_type_key == pair.toObjectTypeKey,
-                from_object.active_revision_id.is_not(None),
-                to_object.active_revision_id.is_not(None),
+                _is_in_active_workspace(from_object),
+                _is_in_active_workspace(to_object),
                 has_key,
             )
         )
@@ -698,7 +716,7 @@ def _count_missing_required_relation(
             ObjectRelation.to_object_id == RdmObject.id,
             ObjectRelation.relation_type_key == relation_key,
             source.object_type_key.in_(source_keys),
-            source.active_revision_id.is_not(None),
+            _is_in_active_workspace(source),
         )
     )
     return _count_objects(

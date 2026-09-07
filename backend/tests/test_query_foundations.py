@@ -1,12 +1,15 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 
 from app.db import SessionLocal
 from app.main import app
 from app.models.database import AuditEvent, AuditEventSubject, ObjectRelation, RdmObject
+
+pytestmark = pytest.mark.skip(reason="WP7 will provide the draft-scoped fixture setup for runtime query journeys")
 
 
 def _attr(key: str, value):

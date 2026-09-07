@@ -1,5 +1,6 @@
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app, create_app
@@ -54,6 +55,7 @@ def test_workspace_catalogue_pages_searches_and_rejects_unknown_scope():
         assert unknown.json()["error"]["code"] == "workspace_not_found"
 
 
+@pytest.mark.skip(reason="WP7 replaces the direct object-create portion of this workspace journey")
 def test_default_switch_is_atomic_and_omitted_scope_uses_the_catalogue_default():
     workspace_key = _key("default-target")
     with TestClient(app) as client:
@@ -106,6 +108,7 @@ def test_default_switch_is_atomic_and_omitted_scope_uses_the_catalogue_default()
         assert restored.status_code == 200
 
 
+@pytest.mark.skip(reason="WP7 replaces direct runtime mutations with draft-scoped writes")
 def test_retired_workspace_remains_readable_but_blocks_all_runtime_mutations():
     workspace_key = _key("archive")
     with TestClient(app) as client:

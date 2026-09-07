@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..errors import api_error
 from ..models.api import RelationCreate, RelationResponse
-from ..models.database import ObjectRelation, RdmObject
+from ..models.database import ObjectRelation, RdmObject, Workspace
 from ..models.schema import EngineModel, ObjectTypeRelationDefinition
 from .attributes import current_attribute_values, normalize_value
 from .audit import record_audit_event
@@ -90,6 +90,11 @@ def create_relation_instance(
     from_object: RdmObject | None = None,
     to_object: RdmObject | None = None,
 ) -> ObjectRelation:
+    raise api_error(
+        409,
+        "workspace_draft_required",
+        "Published workspace relations are read-only; edit relations in a workspace draft",
+    )
     from .objects import load_object
     from .workspaces import resolve_workspace
 
@@ -97,7 +102,9 @@ def create_relation_instance(
     to_object = to_object or load_object(session, str(payload.toObjectId))
     if from_object.workspace_key != to_object.workspace_key:
         raise api_error(422, "relation_wrong_scope", "Related objects must share a workspace")
-    if from_object.active_revision_id is None or to_object.active_revision_id is None:
+    if session.scalar(
+        select(Workspace.active_revision_id).where(Workspace.key == from_object.workspace_key)
+    ) is None:
         raise api_error(422, "relation_endpoint_not_active", "Related objects must be active")
     resolve_workspace(session, from_object.workspace_key, require_active=True)
     allowed = find_allowed_relation(

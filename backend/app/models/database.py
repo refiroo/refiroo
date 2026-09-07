@@ -89,6 +89,16 @@ class Workspace(Base):
     key: Mapped[str] = mapped_column(String(160), primary_key=True)
     label: Mapped[str] = mapped_column(String(300))
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active", index=True)
+    active_revision_id: Mapped[str | None] = mapped_column(
+        ForeignKey(
+            "workspace_revisions.id",
+            name="fk_workspaces_active_revision_id_workspace_revisions",
+            ondelete="RESTRICT",
+            use_alter=True,
+        ),
+        nullable=True,
+        index=True,
+    )
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
@@ -293,20 +303,9 @@ class RdmObject(Base):
     )
     application_key: Mapped[str] = mapped_column(String(160), index=True)
     object_type_key: Mapped[str] = mapped_column(String(160), index=True)
-    active_revision_id: Mapped[str | None] = mapped_column(
-        ForeignKey(
-            "object_revisions.id",
-            name="fk_objects_active_revision_id_object_revisions",
-            ondelete="RESTRICT",
-            use_alter=True,
-        ),
-        nullable=True,
-        index=True,
-    )
     parent_object_id: Mapped[str | None] = mapped_column(
         ForeignKey("objects.id", ondelete="RESTRICT"), nullable=True, index=True
     )
-    state: Mapped[str] = mapped_column(String(60), default="active", index=True)
     name: Mapped[str] = mapped_column(String(500), index=True)
     version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(
@@ -319,19 +318,19 @@ class RdmObject(Base):
     )
 
 
-class ObjectRevision(Base):
-    __tablename__ = "object_revisions"
+class WorkspaceRevision(Base):
+    __tablename__ = "workspace_revisions"
     __table_args__ = (
-        UniqueConstraint("object_id", "revision_number", name="uq_object_revision_number"),
-        CheckConstraint("status IN ('active', 'retired')", name="ck_object_revision_status"),
+        UniqueConstraint("workspace_key", "revision_number", name="uq_workspace_revision_number"),
+        CheckConstraint("status IN ('active', 'retired')", name="ck_workspace_revision_status"),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     id: Mapped[str] = mapped_column(
         String(36), unique=True, index=True, default=lambda: str(uuid4())
     )
-    object_id: Mapped[str] = mapped_column(
-        ForeignKey("objects.id", ondelete="CASCADE"), nullable=False, index=True
+    workspace_key: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.key", ondelete="RESTRICT"), nullable=False, index=True
     )
     model_release_id: Mapped[int] = mapped_column(
         ForeignKey("model_releases.id", ondelete="RESTRICT"), nullable=False, index=True
@@ -339,15 +338,11 @@ class ObjectRevision(Base):
     revision_number: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
     derived_from_revision_id: Mapped[str | None] = mapped_column(
-        ForeignKey("object_revisions.id", ondelete="RESTRICT"), nullable=True, index=True
+        ForeignKey("workspace_revisions.id", ondelete="RESTRICT"), nullable=True, index=True
     )
     supersedes_revision_id: Mapped[str | None] = mapped_column(
-        ForeignKey("object_revisions.id", ondelete="RESTRICT"), nullable=True, index=True
+        ForeignKey("workspace_revisions.id", ondelete="RESTRICT"), nullable=True, index=True
     )
-    name: Mapped[str] = mapped_column(String(500))
-    parent_object_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
-    attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
-    required_relations: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )
@@ -357,26 +352,22 @@ class ObjectRevision(Base):
     retired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
-class ObjectDraft(Base):
-    __tablename__ = "object_drafts"
+class WorkspaceDraft(Base):
+    __tablename__ = "workspace_drafts"
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     id: Mapped[str] = mapped_column(
         String(36), unique=True, index=True, default=lambda: str(uuid4())
     )
-    object_id: Mapped[str] = mapped_column(
-        ForeignKey("objects.id", ondelete="CASCADE"), nullable=False, index=True
+    workspace_key: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.key", ondelete="RESTRICT"), nullable=False, index=True
     )
     model_release_id: Mapped[int] = mapped_column(
         ForeignKey("model_releases.id", ondelete="RESTRICT"), nullable=False, index=True
     )
     derived_from_revision_id: Mapped[str | None] = mapped_column(
-        ForeignKey("object_revisions.id", ondelete="RESTRICT"), nullable=True, index=True
+        ForeignKey("workspace_revisions.id", ondelete="RESTRICT"), nullable=True, index=True
     )
-    name: Mapped[str] = mapped_column(String(500))
-    parent_object_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
-    attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
-    required_relations: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
@@ -441,6 +432,76 @@ class ObjectRelation(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
+
+
+class WorkspaceRevisionObject(Base):
+    __tablename__ = "workspace_revision_objects"
+    __table_args__ = (UniqueConstraint("revision_id", "object_id", name="uq_workspace_revision_object"),)
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    revision_id: Mapped[str] = mapped_column(
+        ForeignKey("workspace_revisions.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    object_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    application_key: Mapped[str] = mapped_column(String(160))
+    object_type_key: Mapped[str] = mapped_column(String(160), index=True)
+    name: Mapped[str] = mapped_column(String(500))
+    parent_object_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
+
+class WorkspaceRevisionRelation(Base):
+    __tablename__ = "workspace_revision_relations"
+    __table_args__ = (
+        UniqueConstraint("revision_id", "relation_id", name="uq_workspace_revision_relation"),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    revision_id: Mapped[str] = mapped_column(
+        ForeignKey("workspace_revisions.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    relation_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    relation_type_key: Mapped[str] = mapped_column(String(160), index=True)
+    from_object_id: Mapped[str] = mapped_column(String(36), index=True)
+    to_object_id: Mapped[str] = mapped_column(String(36), index=True)
+    attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
+
+class WorkspaceDraftObject(Base):
+    __tablename__ = "workspace_draft_objects"
+    __table_args__ = (UniqueConstraint("draft_id", "object_id", name="uq_workspace_draft_object"),)
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    draft_id: Mapped[str] = mapped_column(
+        ForeignKey("workspace_drafts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    object_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    application_key: Mapped[str] = mapped_column(String(160))
+    object_type_key: Mapped[str] = mapped_column(String(160), index=True)
+    name: Mapped[str] = mapped_column(String(500))
+    parent_object_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+class WorkspaceDraftRelation(Base):
+    __tablename__ = "workspace_draft_relations"
+    __table_args__ = (UniqueConstraint("draft_id", "relation_id", name="uq_workspace_draft_relation"),)
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    draft_id: Mapped[str] = mapped_column(
+        ForeignKey("workspace_drafts.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    relation_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    relation_type_key: Mapped[str] = mapped_column(String(160), index=True)
+    from_object_id: Mapped[str] = mapped_column(String(36), index=True)
+    to_object_id: Mapped[str] = mapped_column(String(36), index=True)
+    attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
 class AuditEvent(Base):

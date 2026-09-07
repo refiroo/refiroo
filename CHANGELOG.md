@@ -8,6 +8,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Corrective Base 0.6 WP6 persistence: workspace drafts and immutable workspace revisions own the
+  runtime graph. The migration converts only unambiguous Base 0.5/rejected-WP4 workspace graphs,
+  preserves public object and relation UUIDs, and removes per-object lifecycle persistence.
+
 - The backend now requires Python 3.14. The local version pin, package metadata, Ruff target, CI
   runtime, container base image and development documentation all use 3.14; Python 3.12
   compatibility is no longer maintained.

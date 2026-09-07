@@ -20,13 +20,10 @@ from .errors import (
 )
 from .models.api import ApiErrorResponse
 from .routers import (
-    attributes,
     model,
     model_management,
     model_releases,
-    object_lifecycle,
     objects,
-    relations,
     workspaces,
 )
 from .services.model.bootstrap import bootstrap_model
@@ -158,9 +155,6 @@ def create_app() -> FastAPI:
     if mutations_enabled:
         application.include_router(model_management.router)
     application.include_router(objects.router)
-    application.include_router(object_lifecycle.router)
-    application.include_router(relations.router)
-    application.include_router(attributes.router)
     return application
 
 

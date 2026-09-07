@@ -19,11 +19,10 @@ Guarded activation reparses and compatibility-checks installed candidates transa
 runtime state with both concurrency tokens, commits before refreshing the local registry and makes
 readiness unhealthy if publication fails. Activation is available only in the supported single-worker
 mutation topology.
-The checked-in WP4 backend still exposes signed, filter-bound object cursors with its rejected
-active/retired lifecycle. It is corrective migration debt, not an ADR-024 contract; workspace
-draft/revision cursors replace it in WP6/WP7. Relation expansion and object audit history are
-cursor-paged and workspace-bound; an indexed audit-subject projection connects object, attribute and
-relation events without querying JSON payloads for identity.
+WP6 removes the rejected per-object lifecycle persistence and public mutation surface. Workspace
+draft/revision persistence is authoritative; active object reads require membership in the selected
+workspace revision. WP7 will add draft/revision cursors and editing/publication APIs. Audit-subject
+projection remains cursor-paged and workspace-bound without querying JSON payloads for identity.
 The generic UI carries explicit workspace context in its shell and routes, restores URL-backed
 collection search/sort/page-size controls, provides reusable row actions and retry states, and
 shows independently paged relation expansion and audit history on object details.
@@ -40,8 +39,8 @@ honestly as a table and its mapping view is deferred to schema 0.6.
 Base 0.6 WP4 implemented authoritative per-object revisions, but that publication boundary has been
 rejected before release. ADR-024 supersedes ADR-020: the workspace is the publication aggregate, and
 objects, attributes, containment and relations are records inside mutable workspace drafts and
-immutable workspace revisions. The WP4 schema and APIs remain temporarily present only as corrective
-migration input; they are not a compatibility commitment or a foundation for UI work.
+immutable workspace revisions. The historical WP4 schema is migration input only; its object
+lifecycle tables, pointers and APIs are removed after successful corrective conversion.
 The frontend has since had a structural pass, phases 0–4 of
 `docs/FRONTEND_STRUCTURE_REFACTOR.md`, ahead of the Base 0.6 UI work. It changed no API contract,
 model contract or architecture: `frontend/src` is organized into `app/`, `features/`, `ui/`,
@@ -155,9 +154,9 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 
 ## Known gaps
 
-- The delivered WP4 lifecycle backend uses the wrong per-object publication boundary. WP5 has frozen
-  workspace lifecycle contracts; WP6-WP8 must replace the WP4 persistence/API/UI seams with
-  workspace drafts and revisions. No new UI should consume object activation or retirement APIs.
+- WP6 persistence is complete, but WP7 must provide draft-scoped object/relation editing, whole-graph
+  validation, projection rebuild on activation and workspace history/retirement APIs. WP8 then owns
+  the corresponding UI. No UI may consume object activation or retirement APIs.
 - Schema 0.5 intentionally omits `mappingGrid`, `tree`, `form` and `dashboard`; those declarations are
   rejected rather than routed to the table renderer. `mappingGrid` moves to schema 0.6/product 0.7.
 - Typed table filtering and sorting cover the bounded daily-use grammar. Integration-scale query

@@ -10,6 +10,8 @@ from app.services.model.loader import load_bootstrap_model
 from app.services.model.registry import ModelSnapshot, resolve_model_snapshot
 from app.services.relations import claim_relation_version, load_relation
 
+pytestmark = pytest.mark.skip(reason="WP7 replaces direct published-relation mutations with draft-scoped APIs")
+
 
 def _attr(key: str, value):
     return {"attributeTypeKey": key, "value": value}

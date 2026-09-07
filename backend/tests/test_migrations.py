@@ -7,7 +7,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
 
-from app.models.database import Base, ObjectDraft, ObjectRevision
+from app.models.database import Base, WorkspaceRevision
 
 
 def test_fresh_migration_provisions_the_complete_current_schema(tmp_path):
@@ -16,6 +16,8 @@ def test_fresh_migration_provisions_the_complete_current_schema(tmp_path):
     config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
 
+    command.upgrade(config, "20260906_01")
+    assert {"object_drafts", "object_revisions"}.issubset(inspect(engine).get_table_names())
     command.upgrade(config, "head")
 
     inspector = inspect(engine)
@@ -24,10 +26,13 @@ def test_fresh_migration_provisions_the_complete_current_schema(tmp_path):
         assert {column["name"] for column in inspector.get_columns(table_name)} == {
             column.name for column in table.columns
         }
+    assert "object_revisions" not in inspector.get_table_names()
+    assert "object_drafts" not in inspector.get_table_names()
+    assert "active_revision_id" not in {column["name"] for column in inspector.get_columns("objects")}
     assert any(
-        foreign_key["referred_table"] == "object_revisions"
+        foreign_key["referred_table"] == "workspace_revisions"
         and foreign_key["constrained_columns"] == ["active_revision_id"]
-        for foreign_key in inspector.get_foreign_keys("objects")
+        for foreign_key in inspector.get_foreign_keys("workspaces")
     )
 
 
@@ -38,33 +43,164 @@ def test_object_lifecycle_migration_recovers_empty_sqlite_ddl_from_interrupted_r
     engine = create_engine(f"sqlite:///{database_path}")
     config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
-    command.upgrade(config, "20260905_02")
+    command.upgrade(config, "20260906_01")
 
-    ObjectRevision.__table__.create(engine)
-    ObjectDraft.__table__.create(engine)
-    with engine.begin() as connection:
-        connection.execute(
-            text("ALTER TABLE objects ADD COLUMN active_revision_id VARCHAR(36)")
-        )
-        connection.execute(
-            text(
-                "CREATE INDEX ix_objects_active_revision_id "
-                "ON objects (active_revision_id)"
-            )
-        )
+    WorkspaceRevision.__table__.create(engine)
 
     command.upgrade(config, "head")
 
     inspector = inspect(engine)
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "20260906_01"
+            "20260907_01"
         )
     assert any(
-        foreign_key["referred_table"] == "object_revisions"
+        foreign_key["referred_table"] == "workspace_revisions"
         and foreign_key["constrained_columns"] == ["active_revision_id"]
-        for foreign_key in inspector.get_foreign_keys("objects")
+        for foreign_key in inspector.get_foreign_keys("workspaces")
     )
+
+
+def test_workspace_revision_migration_refuses_unknown_partial_ddl(tmp_path):
+    database_path = tmp_path / "unsafe-interrupted-workspace-revision.db"
+    engine = create_engine(f"sqlite:///{database_path}")
+    config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
+    command.upgrade(config, "20260906_01")
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE workspace_revisions (id VARCHAR(36))"))
+
+    with pytest.raises(RuntimeError, match="workspace_revisions has an unexpected schema"):
+        command.upgrade(config, "head")
+
+
+def test_base_0_5_graph_becomes_one_workspace_revision_with_stable_ids(tmp_path):
+    database_path = tmp_path / "base-0-5-graph.db"
+    engine = create_engine(f"sqlite:///{database_path}")
+    config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
+    command.upgrade(config, "20260905_02")
+    parent_id = "11111111-1111-4111-8111-111111111111"
+    child_id = "22222222-2222-4222-8222-222222222222"
+    relation_id = "33333333-3333-4333-8333-333333333333"
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO model_releases "
+                "(public_id, release_key, release_name, release_version, schema_version, "
+                "model_hash, model_json, is_active, installed_at) VALUES "
+                "('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'starter', 'Starter', '0.5.0', "
+                "'0.5', :hash, '{}', true, :at)"
+            ),
+            {"hash": "a" * 64, "at": "2026-09-07T10:00:00Z"},
+        )
+        release_id = connection.scalar(text("SELECT id FROM model_releases"))
+        connection.execute(
+            text(
+                "INSERT INTO model_runtime_state (id, active_model_release_id, version, updated_at) "
+                "VALUES (1, :release_id, 1, :at)"
+            ),
+            {"release_id": release_id, "at": "2026-09-07T10:00:00Z"},
+        )
+        for object_id, object_type, name, parent in (
+            (parent_id, "domain", "Parent", None),
+            (child_id, "codelist", "Child", parent_id),
+        ):
+            connection.execute(
+                text(
+                    "INSERT INTO objects (id, workspace_key, application_key, object_type_key, "
+                    "parent_object_id, state, name, version, created_at, updated_at) VALUES "
+                    "(:id, 'default', 'rdm-master', :type, :parent, 'active', :name, 7, :at, :at)"
+                ),
+                {"id": object_id, "type": object_type, "parent": parent, "name": name, "at": "2026-09-07T10:00:00Z"},
+            )
+        connection.execute(
+            text(
+                "INSERT INTO attribute_values (id, object_id, attribute_type_key, value_type, "
+                "integer_value, value_source, version) VALUES "
+                "('44444444-4444-4444-8444-444444444444', :object_id, 'rank', 'integer', 42, 'own', 3)"
+            ),
+            {"object_id": child_id},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO object_relations (id, relation_type_key, from_object_id, to_object_id, "
+                "attributes, version, created_at, updated_at) VALUES "
+                "(:id, 'contains', :parent, :child, :attributes, 5, :at, :at)"
+            ),
+            {
+                "id": relation_id,
+                "parent": parent_id,
+                "child": child_id,
+                "attributes": json.dumps({"order": 1}),
+                "at": "2026-09-07T10:00:00Z",
+            },
+        )
+
+    command.upgrade(config, "20260906_01")
+    assert {"object_drafts", "object_revisions"}.issubset(inspect(engine).get_table_names())
+    # The rejected WP4 migration leaves objects as a projection.  Deliberately diverge it from
+    # the selected immutable snapshots: WP6 must copy the effective snapshots, then rebuild the
+    # projection, rather than silently promoting these stale base-row values.
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE objects SET name = 'stale projection', parent_object_id = NULL, version = 99 "
+                "WHERE id = :object_id"
+            ),
+            {"object_id": child_id},
+        )
+        connection.execute(
+            text(
+                "UPDATE attribute_values SET integer_value = 999 "
+                "WHERE object_id = :object_id AND attribute_type_key = 'rank'"
+            ),
+            {"object_id": child_id},
+        )
+    command.upgrade(config, "head")
+
+    with engine.connect() as connection:
+        revision_id = connection.scalar(
+            text("SELECT active_revision_id FROM workspaces WHERE key = 'default'")
+        )
+        objects = connection.execute(
+            text(
+                "SELECT object_id, parent_object_id, attributes, version FROM workspace_revision_objects "
+                "WHERE revision_id = :revision_id ORDER BY object_id"
+            ),
+            {"revision_id": revision_id},
+        ).all()
+        projection = connection.execute(
+            text(
+                "SELECT name, parent_object_id, version FROM objects WHERE id = :object_id"
+            ),
+            {"object_id": child_id},
+        ).one()
+        projected_attribute = connection.execute(
+            text(
+                "SELECT value_type, integer_value FROM attribute_values "
+                "WHERE object_id = :object_id AND attribute_type_key = 'rank'"
+            ),
+            {"object_id": child_id},
+        ).one()
+        relations = connection.execute(
+            text(
+                "SELECT relation_id, from_object_id, to_object_id, attributes, version "
+                "FROM workspace_revision_relations WHERE revision_id = :revision_id"
+            ),
+            {"revision_id": revision_id},
+        ).all()
+    assert revision_id is not None
+    assert objects == [
+        (parent_id, None, "{}", 7),
+        (child_id, parent_id, '{"rank": 42}', 99),
+    ]
+    assert relations == [(relation_id, parent_id, child_id, '{"order": 1}', 5)]
+    assert projection == ("Child", parent_id, 99)
+    assert projected_attribute == ("integer", 42)
+    inspector = inspect(engine)
+    assert {"object_drafts", "object_revisions"}.isdisjoint(inspector.get_table_names())
+    assert "active_revision_id" not in {column["name"] for column in inspector.get_columns("objects")}
 
 
 def test_public_id_migration_upgrades_existing_metadata_table(tmp_path):
@@ -205,7 +341,7 @@ def test_runtime_state_migration_rejects_ambiguous_legacy_active_releases(tmp_pa
         raise AssertionError("Ambiguous legacy active releases must stop the migration")
 
 
-def test_object_revision_migration_maps_all_known_states_and_preserves_public_ids(tmp_path):
+def test_workspace_revision_migration_refuses_mixed_object_lifecycle_states(tmp_path):
     database_path = tmp_path / "object-states.db"
     engine = create_engine(f"sqlite:///{database_path}")
     config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
@@ -286,44 +422,8 @@ def test_object_revision_migration_maps_all_known_states_and_preserves_public_id
             },
         )
 
-    command.upgrade(config, "head")
-
-    with engine.connect() as connection:
-        objects = connection.execute(
-            text("SELECT id, active_revision_id FROM objects ORDER BY id")
-        ).all()
-        revisions = connection.execute(
-            text(
-                "SELECT object_id, id, status, attributes FROM object_revisions "
-                "ORDER BY object_id"
-            )
-        ).all()
-        drafts = connection.execute(
-            text("SELECT object_id, derived_from_revision_id, attributes FROM object_drafts")
-        ).all()
-    assert objects[0][0] == ids["active"]
-    assert objects[0][1] == revisions[0][1]
-    assert objects[1:] == [(ids["draft"], None), (ids["retired"], None)]
-    assert [(row[0], row[2], json.loads(row[3])) for row in revisions] == [
-        (ids["active"], "active", {"domain-code": "ACTIVE"}),
-        (ids["retired"], "retired", {"domain-code": "RETIRED"}),
-    ]
-    assert [(row[0], row[1], json.loads(row[2])) for row in drafts] == [
-        (ids["draft"], None, {"domain-code": "DRAFT"})
-    ]
-    with engine.connect() as connection:
-        required_relations = connection.scalar(
-            text("SELECT required_relations FROM object_drafts WHERE object_id = :object_id"),
-            {"object_id": ids["draft"]},
-        )
-    assert json.loads(required_relations) == [
-        {
-            "relationTypeKey": "owns",
-            "direction": "incoming",
-            "otherObjectId": ids["active"],
-            "attributes": {"rank": 1},
-        }
-    ]
+    with pytest.raises(RuntimeError, match="workspace 'default'.*states are ambiguous"):
+        command.upgrade(config, "head")
 
 
 def test_runtime_state_migration_rejects_duplicate_legacy_release_identities(tmp_path):
