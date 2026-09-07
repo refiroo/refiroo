@@ -31,9 +31,14 @@ release plan and changelog rather than accumulating it here.
   migration input.
 - [x] WP5: refroze ADR-024 workspace lifecycle journeys, fixtures, API design, concurrency, cursor and migration contracts; no persistence or APIs implemented.
 - [x] WP6: replace object-lifecycle persistence with workspace drafts/revisions and corrective migration.
-- [ ] WP7: implement draft-scoped object/relation editing, complete validation and atomic workspace publication.
-- [ ] WP8: deliver workspace-level Published, Drafts and History UI with conflict recovery.
-- [ ] WP9: add browser, accessibility and visual-regression checks and complete release validation.
+- [ ] WP7: restore established generic object, attribute, containment, relation and translation CRUD over
+  WP6 workspace storage; do not introduce nested draft CRUD resources or object lifecycle.
+- [ ] WP8: complete workspace draft/revision discovery, graph validation, atomic activation and
+  publication retirement as workspace-level operations.
+- [ ] WP9: restore and reuse generic CRUD UI inside explicit workspace-draft context, including empty
+  relationship/translation states and conflict recovery.
+- [ ] WP10: run real integration, browser, accessibility, visual-regression, migration, packaging and
+  release validation with no CRUD suites skipped.
 
 See `BASE_0_6_IMPLEMENTATION_PLAN.md` for scope, file boundaries and exit criteria.
 
@@ -75,3 +80,5 @@ See `BASE_0_6_IMPLEMENTATION_PLAN.md` for scope, file boundaries and exit criter
 - Arbitrary server-filesystem model load/save.
 - Client-side loops over single-item APIs presented as bulk operations.
 - Starter-key branches in backend or frontend behavior.
+- Object drafts, object revisions, object activation/retirement, or per-object publication state.
+- A second public CRUD dialect under `/workspace-drafts/{draftId}/objects` or `/relations`.

@@ -44,6 +44,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Planned Base 0.6 WP7-WP10 correction: workspace publication remains the lifecycle boundary, while
+  the established generic object, attribute, relation and translation CRUD contract is restored over
+  WP6 storage. Workspace drafts provide write context but do not create draft objects, draft relations
+  or nested public CRUD resources. The stopped WP7 implementation is not complete until the original
+  CRUD and translation suites are restored and enabled.
+
 - Database migration failures now produce a credential-safe operator message with the current and
   target revisions, recovery command, backup requirement and escalation details. Startup enters
   maintenance mode without a traceback, and the WP4 migration safely retries recognized empty SQLite
@@ -61,8 +67,9 @@ All notable changes to this project are documented in this file. The format foll
   prevents compatibility adapters from drifting the lifecycle projection and rejects corrupt
   cross-workspace retirement graphs.
   This pre-release design was subsequently rejected as the wrong publication boundary. ADR-024 and
-  corrective WP5 froze workspace-level journeys, fixtures and API design; WP6-WP8 replace the
-  persistence, API and UI boundary. These object-lifecycle APIs are not a compatibility commitment.
+  corrective WP5 froze workspace-level journeys, fixtures and API design; WP6 supplies the corrected
+  persistence, and WP7-WP10 restore generic CRUD, complete workspace orchestration and deliver the UI
+  and release validation. These object-lifecycle APIs are not a compatibility commitment.
 
 - Frontend lint and format tooling: ESLint 10 with `typescript-eslint` and
   `eslint-plugin-react-hooks`, and Prettier. `AGENTS.md` listed "linting passes" in the definition

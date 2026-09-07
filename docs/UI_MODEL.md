@@ -101,7 +101,11 @@ help text and visibility. The renderer supplies accessible defaults when hints a
 - Model lifecycle presentation distinguishes draft save, validation, immutable installation and
   activation.
 
-## Current implementation
+## Established CRUD UI contract and WP9 recovery target
+
+The behaviors in this section existed before the WP5/WP6 transition. They are the required generic UI
+contract, but the current WP6-based runtime does not expose all of them. WP7 must restore the backend
+contract and WP9 must restore/reuse these controls in a selected workspace draft.
 
 The UI renders all application and view navigation from the model and keeps stable routes for
 application views and objects. Its searchable explorer combines configured object types, parent
@@ -111,7 +115,7 @@ pagination.
 Generic detail pages render configured breadcrumbs, headers, main panels and optional side panels via
 the panel registry. Attribute, child, relation, table and hierarchy panels are reusable across object
 types. Child and table panels reuse the same collection table and cursor controls as list views.
-Runtime object CRUD is available from those generated screens. Root-creatable object types expose a
+The restored runtime object CRUD must use those generated screens. Root-creatable object types expose a
 collection create action; contained types are created from parent-filtered panels. Object detail edits
 core fields with optimistic concurrency and provides a two-stage delete action. The first request is
 non-cascading; when dependencies exist, the dialog renders the returned child objects, PK/FK
@@ -129,7 +133,8 @@ the latter preselects and locks the target while retaining model-derived parent 
 Attribute panels distinguish an unset value from a stored falsy or null value. Editable bindings expose
 model-driven add/edit actions, while optional stored values can be removed with confirmation. Required,
 read-only and hidden bindings retain their declared behavior. All eight value types use one typed field
-renderer and individual attribute writes carry the containing object's current version.
+renderer, and individual attribute writes must carry both the containing object's current version and
+the selected workspace draft's current version.
 
 Relation panels preserve relation identity, attributes, direction and version. They derive valid
 incoming and outgoing creation choices from the panel configuration and allowed object-type triples,
@@ -169,13 +174,14 @@ architecture.
 
 Base 0.6 first establishes the task flows and UI primitives, then delivers workspace discovery,
 typed collection semantics and coherent workspace publication. A steward creates or opens a workspace
-draft and edits objects, attributes, containment and relations within that explicit context. Published
-and historical workspace revisions are read-only. Activation validates and publishes the complete
-candidate graph atomically; no object row has its own draft/active/retired lifecycle. Workspace history
-presents “Created from” separately from “Superseded on activation”, so branching from an earlier
-workspace revision remains understandable. The mapping grid is the first specialist view after this
-foundation, in product 0.7/schema 0.6. Broader model-workbench redesign also remains deferred so Base
-0.6 stays focused on daily workspace operations.
+draft and uses the same generic object, attribute, containment, relation and translation CRUD controls
+within that explicit context. Published and historical workspace revisions are read-only. Activation
+validates and publishes the complete candidate graph atomically; no object row has its own
+draft/active/retired lifecycle. Workspace history presents “Created from” separately from “Superseded
+on activation”, so branching from an earlier workspace revision remains understandable. Relationship
+and translation panels render successful empty collections as empty UI states, never as retryable errors.
+The mapping grid is the first specialist view after this foundation, in product 0.7/schema 0.6. Broader
+model-workbench redesign also remains deferred so Base 0.6 stays focused on daily workspace operations.
 
 The original WP0 interaction baseline in `BASE_0_6_INTERACTION_SPEC.md` is superseded for lifecycle
 behavior because it placed activation on individual objects. Corrective WP5 retains its navigation,

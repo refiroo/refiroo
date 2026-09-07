@@ -24,9 +24,11 @@ The operational foundation is complete:
 - URL-backed workspace/list state, stable cursors, bounded relation expansion and audit history
 
 Base 0.6 WP1-WP3 have delivered the UI foundation, workspace discovery and strict schema 0.5 typed
-tables. WP4 delivered per-object revisions, but that publication boundary was rejected before release;
-ADR-024 and corrective WP5-WP8 replace it with authoritative workspace revisions before WP9 release
-validation. Integration-scale operations, authentication and distributed activation are not present.
+tables. WP4 delivered per-object revisions, but that publication boundary was rejected before release.
+WP5 and WP6 retain the workspace-level contract and authoritative workspace-revision persistence. WP7
+is a stopped recovery slice that restores generic CRUD over that storage; WP8-WP10 then complete
+workspace lifecycle orchestration, CRUD UI integration and release validation. Integration-scale
+operations, authentication and distributed activation are not present.
 
 ## Base 0.5 — Operational base and model lifecycle foundation (complete)
 
@@ -65,14 +67,19 @@ revision atomically. Workspace history makes derivation and supersession indepen
    operators must treat it as a deployment switch, not authorization.
 4. Introduce schema 0.5 with a strict `table` contract and typed server-side daily-use filters/sorts.
    Schema 0.4 stays stored/listable/exportable but is not runnable.
-5. Replace rejected ADR-020 with ADR-024 authoritative workspace revisions, root and history-derived
-   workspace drafts, validation, atomic activation and publication retirement.
-6. Correctively migrate Base 0.5 or WP4-shaped data without changing stable workspace, object or
-   relation IDs; remove per-object lifecycle authority after conversion.
-7. Route object, attribute, containment and relation edits through an explicit workspace draft and
-   validate the complete candidate graph before publication.
-8. Deliver workspace-level Published, Drafts and History UI.
-9. Complete browser, keyboard, accessibility, visual, migration and package validation.
+5. **Done:** Replace rejected ADR-020 contract with ADR-024's workspace-level publication boundary.
+6. **Done:** Add authoritative workspace revision/draft persistence and correctively migrate Base 0.5
+   or WP4-shaped data without changing stable workspace, object or relation IDs; remove per-object
+   lifecycle authority after conversion.
+7. Restore the established generic object, attribute, containment, relation and translation CRUD over
+   workspace-backed storage. Workspace context changes the backing snapshot, not the CRUD contract;
+   no nested draft-object/relation API is introduced.
+8. Complete workspace-level draft/revision discovery, graph validation, atomic activation and
+   publication retirement.
+9. Restore/reuse generic CRUD UI inside an explicit workspace draft, with empty related collections
+   rendered as empty states.
+10. Complete browser, keyboard, accessibility, visual, migration, package and real integration
+   validation without skipped CRUD suites.
 
 ### Exit gate
 

@@ -1,7 +1,7 @@
 # Base 0.6 implementation plan
 
-**Status:** Replanned; WP0-WP3 complete, the delivered WP4 object-lifecycle design is rejected and
-must be replaced by WP5-WP8 before WP9 release validation
+**Status:** Replanned; WP0-WP3 complete, WP5 workspace publication and WP6 persistence retained;
+WP7 is stopped and must restore generic CRUD over that storage before WP8-WP10
 
 **Target:** Product release 0.6.0
 
@@ -26,7 +26,7 @@ workspace-revision migration and daily-operation journeys can be completed as on
 ## Release principles
 
 1. Design and test complete tasks, not isolated components.
-2. Keep workspace content revisions, application-model releases and record-level draft concurrency distinct.
+2. Keep workspace content revisions, application-model releases and record-level optimistic concurrency distinct.
 3. Keep the engine generic: runtime and UI code never branch on starter keys.
 4. The workspace revision is the publication authority; active object and relation projections are
    transactionally derived from it.
@@ -127,15 +127,22 @@ workspace-revision migration and daily-operation journeys can be completed as on
 - Object IDs remain stable public identifiers across workspace revisions. Object core fields,
   parents, typed attributes, required ownership relations and independent relations belong to the
   workspace-draft/revision snapshot. They have no independent `draft`, `active` or `retired` state.
-- Active object and relation APIs resolve only the workspace's active revision. Draft editing APIs
-  require `workspaceDraftId`; historical reads require `workspaceRevisionId`. No mutation route may
-  silently target the active projection.
+- The established generic object, attribute and relation CRUD contract is unchanged. A workspace
+  content context selects its backing snapshot: `workspaceKey` selects the active revision for
+  published reads, `workspaceDraftId` selects the effective mutable draft for draft reads and writes,
+  and `workspaceRevisionId` selects an immutable historical revision. A request must not combine
+  draft and historical contexts. Record routes remain canonical and must not create a second CRUD
+  vocabulary.
+- Historical reads require `workspaceRevisionId`; no mutation route may silently target an active or
+  historical projection. There are no object drafts, object revisions or independent record lifecycle
+  states.
 - `GET/POST /api/v1/workspaces/{workspaceKey}/drafts` lists or creates workspace drafts.
   `GET/PATCH/DELETE /api/v1/workspace-drafts/{draftId}` reads, names or discards a draft with
   optimistic concurrency.
-- Draft-scoped object and relation collections remain cursor-paged under
-  `/api/v1/workspace-drafts/{draftId}/...`; record writes carry both the workspace-draft version and a
-  record version so unrelated editors receive explicit conflicts without inventing record lifecycle.
+- The canonical object, attribute and relation resources retain their existing paths, request and
+  response shapes, pagination and validation semantics. A selected workspace draft is execution
+  context, not a new public resource dialect. Record writes must carry the workspace-draft and record
+  concurrency claims so unrelated editors receive explicit conflicts without inventing record lifecycle.
 - `POST /api/v1/workspace-drafts/{draftId}/validation` validates the complete effective object graph
   without publication. `POST /api/v1/workspace-drafts/{draftId}/activation` requires
   `expectedDraftVersion` and `expectedActiveRevisionId` and publishes every changed object, attribute,
@@ -173,7 +180,7 @@ Use representative data from at least two object types and two ownership/contain
 Completed for the original object-lifecycle proposal, but its lifecycle portions are superseded by
 the workspace-level correction in WP5. Workspace selection, typed-table, responsive, keyboard and
 action-hierarchy findings remain useful; object-draft/revision journeys and fixtures are not
-authoritative for WP6-WP9.
+authoritative for WP6-WP10.
 
 Primary areas: `docs/UI_MODEL.md`, focused interaction notes/fixtures under `docs/`, and frontend test
 fixtures.
@@ -299,61 +306,85 @@ audit projections and backend contract tests.
 Exit: each workspace resolves exactly one active content revision or none; no object-level lifecycle
 authority remains; migration and startup recovery preserve stable public identities.
 
-### WP7 — Implement workspace-draft editing and atomic publication
+### WP7 — Restore generic CRUD over workspace revisions (stopped pending corrected implementation)
 
-Primary areas: workspace lifecycle API models/router/services, draft-scoped object/attribute/relation
-services, query/pagination, audit and OpenAPI locks.
+Primary areas: existing generic object/attribute/relation services and routers, workspace revision
+resolution, query/pagination, audit and OpenAPI locks. Use Git history as a recovery source; do not
+replace the established CRUD surface with nested draft resources.
+
+1. Review the stopped WP7 diff and retain only valid workspace lifecycle infrastructure.
+2. Recover established object, attribute, containment, relation and translation behavior selectively
+   from the pre-WP6 history. Use `a3ead41^` to locate deleted backend CRUD. Use `41aa7e7^` only as a
+   source for individual generic frontend controls: that tree is `60c8967` and also contains the
+   rejected lifecycle UI, so never restore a file wholesale without removing object drafts, object
+   revisions, activation and retirement behavior.
+3. Restore one canonical generic CRUD contract. Do not make
+   `/api/v1/workspace-drafts/{draftId}/objects` or `/relations` public CRUD resources; workspace
+   draft/revision discovery and lifecycle actions remain under workspace resources.
+4. Resolve the same CRUD operations against the active workspace revision when `workspaceKey` is the
+   read context, the effective workspace draft when `workspaceDraftId` is supplied, and an immutable
+   historical revision when `workspaceRevisionId` is supplied. Writes require `workspaceDraftId`;
+   create payloads retain `workspaceKey` and must match the draft's workspace. Preserve typed values,
+   model validation, containment atomicity,
+   relation cardinality, translation atomicity, pagination and optimistic concurrency.
+5. Ensure empty relationship and translation collections return successful empty pages, not retryable
+   errors. Restore and unskip the object, attribute, relation, cascade and translation test suites.
+6. Keep workspace draft/revision discovery, validation, activation and publication retirement separate
+   from record CRUD; activation still validates and publishes the complete graph atomically.
+7. Update OpenAPI inventory and digest locks only for the corrected public contract.
+
+Exit: all established CRUD operations work against workspace-backed storage with no semantic or public
+API regression; active reads remain unchanged until workspace activation; conflicts publish nothing and
+preserve the workspace draft; no object-level lifecycle authority or duplicate CRUD dialect remains.
+
+### WP8 — Complete workspace lifecycle orchestration
+
+Primary areas: workspace lifecycle API models/router/services, draft/revision discovery, graph
+validation, activation, retirement, audit and OpenAPI locks.
 
 1. Implement workspace draft/revision discovery, root and history-derived draft creation, discard,
-   complete validation, activation and publication retirement.
-2. Route every object, attribute, containment and relation mutation through an explicit workspace
-   draft; active and historical reads are immutable.
-3. Keep record-level optimistic concurrency inside a workspace draft and separately claim the complete
-   draft plus expected active workspace revision during activation.
-4. Validate the complete effective graph at activation: types, required attributes/relations,
-   containment cycles, cardinality, uniqueness and pinned application-model release.
-5. Bind draft and revision collection cursors to workspace, model release and content revision/draft
-   identity; never page across a publication switch silently.
-6. Remove the rejected object lifecycle endpoints from the public OpenAPI inventory and update its
-   digest and error-schema locks.
+   complete graph validation, activation and publication retirement.
+2. Require explicit workspace-draft context for writes while preserving the canonical CRUD operations;
+   active and historical reads remain immutable.
+3. Claim draft, record and expected active-revision concurrency independently and publish the complete
+   graph atomically, preserving the draft after failure.
+4. Bind cursors to workspace, model release and exact active revision or draft identity.
+5. Keep lifecycle endpoints under workspace resources and never expose object/relation lifecycle
+   endpoints or nested draft CRUD aliases.
 
-Exit: related edits remain invisible to active reads until one atomic workspace activation; conflicts
-publish nothing and preserve the workspace draft.
+Exit: workspace lifecycle is complete and independently testable; no object is independently activated
+or retired and generic CRUD semantics remain unchanged.
 
-### WP8 — Deliver coherent workspace lifecycle UI
+### WP9 — Restore and reuse generic CRUD UI in workspace context
 
-Primary areas: workspace pages, `frontend/src/features/objects/`, frontend runtime types/API client,
-shared UI wrappers, routing/state handling and focused component tests.
+Primary areas: workspace pages, `frontend/src/features/objects/`, runtime types/API client, routing,
+shared UI wrappers and focused component tests.
 
-1. Add workspace-level `Published`, `Drafts` and `History` destinations; lifecycle is not repeated on
-   every object row or detail page.
-2. Create/open a workspace draft before enabling record mutations. Tables, details, object forms,
-   attribute fields and relationship editors retain their generic model-driven behavior inside that
-   explicit draft context.
-3. Show draft change summaries and validation results across all affected object types and relations
-   before activation.
-4. Show workspace `Created from` separately from `Superseded on activation`, and allow a new workspace
-   draft to derive from an active or retired workspace revision.
-5. Provide explicit workspace activation and publication-retirement dialogs with impact,
-   confirmation and conflict recovery.
-6. Preserve dirty input on field, record-version, workspace-draft-version, active-revision,
-   uniqueness and pinned-model errors.
-7. Keep published and historical workspace content read-only and keep essential table/actions visible
-   without hover-only behavior.
+1. Restore Add/Edit object and attribute operations, Add/Edit/Delete relation operations, and Add/Edit
+   translation operations using the existing generic forms and panels.
+2. Add workspace-level Published, Drafts and History destinations and require a selected draft before
+   enabling record writes; do not duplicate lifecycle actions on object rows or details.
+3. Render empty relationships and translations as empty collections, not error/retry panels.
+4. Preserve dirty input, keyboard/focus behavior and conflict recovery inside the selected draft.
+5. Keep published and historical content read-only and remove every object retirement control.
 
-Exit: journeys 2-7 operate in one visible workspace draft and publish or retire the dataset as a
-whole; no object is independently activated or retired.
+Exit: the established CRUD UI operates inside a workspace draft without changing its semantics, and
+workspace lifecycle controls remain visibly workspace-level.
 
-### WP9 — Validate and release
+### WP10 — Integration recovery and release validation
 
-Primary areas: browser/accessibility/visual configuration and scenarios, backend migration and
-contract suites, packaging checks, `README.md`, `CHANGELOG.md` and current documentation.
+Primary areas: real-browser/accessibility/visual scenarios, backend contract and migration suites,
+packaging checks, `README.md`, `CHANGELOG.md` and current documentation.
 
-1. Add real-browser tests for all seven corrected journeys and automated accessibility plus keyboard coverage.
-2. Add visual regression for shell, selector, table, workspace draft editor, history and retirement states.
-3. Run backend contract/concurrency suites, migration/fresh-boot tests and packaged-wheel checks.
-4. Re-run the usability walkthrough and resolve or explicitly defer serious findings.
-5. Update README, changelog, API examples and status documentation to match shipped behavior.
+1. Add real frontend-to-backend coverage for object, attribute, relation and translation CRUD, including
+   empty relationship/translation states and at least two object types.
+2. Verify draft changes are invisible to published reads, activation publishes all changes together,
+   and failed activation publishes nothing while preserving the draft.
+3. Add browser, keyboard, accessibility and visual regression coverage for shell, selector, tables,
+   generic forms, workspace draft, history and retirement states.
+4. Run backend contract/concurrency/migration/fresh-boot and packaged-wheel checks, frontend lint,
+   tests and production build, and verify no relevant CRUD suite is skipped.
+5. Update release documentation and record manual acceptance results.
 
 Exit: all corrected journeys and the repository definition of done pass on Python 3.14 and the
 supported frontend toolchain; the public contract contains no rejected object-lifecycle endpoint.
@@ -364,6 +395,8 @@ supported frontend toolchain; the public contract contains no rejected object-li
 - Schema 0.5 table declarations are typed, validated and honestly rendered.
 - Daily-use filters and sorts are typed, server-side, bounded and cursor-stable.
 - Workspace revision storage is authoritative and active object/relation projections are transactional derivatives.
+- Generic object, attribute, containment, relation and translation CRUD retains one canonical contract;
+  workspace context changes the backing snapshot, not the operation semantics.
 - A steward can create a root workspace draft, derive from any historical workspace revision, retire
   publication without deleting record history and later reactivate through a new workspace draft.
 - Workspace history distinguishes derivation from supersession and published snapshots remain immutable.
@@ -388,8 +421,9 @@ object states fail with actionable diagnostics; and verify the wheel contains ev
 
 ## Coding-agent handoff
 
-Implement corrective work packages in order and keep each independently reviewable. WP0 through WP3
-remain complete. Do not build UI on the rejected WP4 object-lifecycle contract. WP5 is complete; WP6-WP8
-replace the persistence, API and UI boundary before WP9 release validation. Inspect the
+Implement work packages in order and keep each independently reviewable. WP0 through WP3, WP5 and WP6
+remain complete. Do not build UI or APIs on the rejected WP4 object-lifecycle contract. WP7 is the
+current stopped recovery package: restore generic CRUD over WP6 storage and re-enable its tests before
+starting WP8 lifecycle orchestration, WP9 CRUD UI integration or WP10 release validation. Inspect the
 worktree before each package, preserve unrelated changes, update OpenAPI locks with public contracts
 and create a checkpoint only after that package's definition of done passes.

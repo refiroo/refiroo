@@ -91,9 +91,9 @@ conditional uniqueness predicate. Historical workspace revisions do not reserve 
 
 **Status:** Accepted; mutation scope amended by ADR-024
 
-Active and historical relation routes are read-only. Draft-scoped `GET`, `PATCH` and `DELETE` routes
-give mutable relation records full read and mutation support with the same optimistic concurrency as
-draft object records: mutations carry `expectedVersion`, claim it atomically, and return
+Active and historical relation reads are read-only. The canonical relation `GET`, `PATCH` and `DELETE`
+operations give mutable relation records full read and mutation support with the same optimistic
+concurrency as object records when a workspace draft is selected: mutations carry `expectedVersion`, claim it atomically, and return
 `409 version_conflict` on a stale claim. Relation identity —
 `relationTypeKey`, `fromObjectId`, `toObjectId` — is immutable; only the relation `attributes` are
 updatable. Re-targeting an ordinary edge is expressed as delete + create. ADR-022's mapping aggregate
@@ -512,3 +512,27 @@ are pre-release implementation debt, not a supported compatibility surface. The 
 preserves workspace keys and public object/relation UUIDs, materializes one initial workspace revision
 from each unambiguous effective graph and removes the duplicate object-lifecycle authority. Physical
 purge of workspace history remains outside Base 0.6.
+
+## ADR-025 — Keep generic CRUD independent of workspace publication
+
+**Status:** Accepted for Base 0.6; constrains WP7-WP10
+
+Workspace lifecycle determines the storage and publication context of runtime data. It does not alter
+the established generic CRUD contract for objects, typed attributes, containment, relations or
+translations. Published reads resolve against the active workspace revision; the same operations write
+against a selected mutable workspace draft. Validation, typed values, cardinality, uniqueness,
+containment atomicity, translation atomicity, pagination and optimistic concurrency remain the same.
+
+The canonical record APIs use explicit content context rather than route duplication: `workspaceKey`
+selects the active revision for published reads, `workspaceDraftId` selects the effective mutable draft
+for draft reads and writes, and `workspaceRevisionId` selects immutable history. Draft and historical
+contexts are mutually exclusive. Every write requires `workspaceDraftId`; object creation may infer
+`workspaceKey` from that draft and rejects a mismatch when the key is supplied explicitly.
+
+There are no draft objects, draft relations, object revisions or independent record publication states.
+Nested draft-specific CRUD paths such as `/workspace-drafts/{draftId}/objects` and
+`/workspace-drafts/{draftId}/relations` are not public resources. Workspace resources own draft
+creation, validation, activation, history and publication retirement; record resources remain generic
+and receive workspace context explicitly. Empty relationship and translation collections are successful
+empty pages, never operational errors. Any implementation that deletes or duplicates established CRUD
+to introduce workspace lifecycle violates this decision.

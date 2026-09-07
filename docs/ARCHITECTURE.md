@@ -173,6 +173,16 @@ and expected active workspace revision protect publication. Activation validates
 effective graph and atomically changes the workspace active-revision pointer together with every
 query-optimized object and relation projection. Draft edits never mutate those active projections.
 
+Workspace lifecycle is orthogonal to record management. Object, typed attribute, containment, relation
+and translation CRUD retain one generic contract and one set of validation and concurrency semantics.
+Published reads resolve against the active workspace revision; the same CRUD operations write against
+the selected mutable workspace draft. `workspaceKey`, `workspaceDraftId` and `workspaceRevisionId`
+select the active, mutable-draft and immutable-history content contexts respectively; draft and history
+contexts are mutually exclusive and every write requires the draft context. A draft workspace does not
+contain draft objects or draft relations, and nested `/workspace-drafts/{draftId}/objects` or
+`/relations` resources are not a second public API. Lifecycle endpoints belong to the workspace
+resource and govern the complete graph.
+
 `20260907_01_workspace_revisions` is the corrective persistence boundary. It creates workspace
 draft/revision membership keyed by stable public object and relation UUIDs, materializes an initial
 revision only from an unambiguous effective workspace graph, and then removes rejected per-object
