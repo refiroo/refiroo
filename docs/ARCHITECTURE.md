@@ -217,8 +217,8 @@ lifecycle tables. Subsequent storage changes use additive Alembic migrations and
 bootstrap, preceding-revision, restart and interrupted-migration recovery/refusal tests.
 
 Publication retirement removes only the designation, leaving live data and history available. It is
-not consumer withdrawal or catalogue retirement. Revision discovery must be newest first; oldest-first
-implementation remains a WP8.1 correction. The UI must distinguish the current editable dataset from
+not consumer withdrawal or catalogue retirement. Revision discovery is newest first through bounded,
+deterministic cursor paging. The UI must distinguish the current editable dataset from
 an immutable publication snapshot, which can be older than recent live changes.
 
 ### Workspace lifecycle orchestration (WP8)

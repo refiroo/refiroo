@@ -679,7 +679,7 @@ Publication retirement clears the current-publication designation. Live records 
 this action does not withdraw consumer reads, set a business availability field or retire the catalogue
 workspace. Catalogue retirement remains the read-only control. The confirmation and result must say so.
 Workspace revision history is **newest first** with a deterministic unique pagination tie-breaker;
-current oldest-first behavior is an implementation correction, not an alternate accepted UX.
+the former oldest-first behavior was an implementation defect, not an alternate accepted UX.
 
 Current live cursors bind endpoint/query/workspace/order, without a model or publication revision token.
 They survive publication and are not frozen dataset snapshots. Draft and history cursors bind their

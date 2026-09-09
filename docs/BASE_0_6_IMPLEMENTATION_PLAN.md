@@ -77,8 +77,8 @@ is development/bootstrap support, not the required daily starting screen.
   use their documented draft/active-revision claims. See `API.md` for route-specific shapes.
 - Publication retirement clears the current-publication designation while live data and immutable
   history remain. It must not disable live access or act as catalogue retirement.
-- Revision discovery is newest first with deterministic cursor paging. Current oldest-first behavior
-  must change with tests and API documentation before the history UI is accepted.
+- Revision discovery is newest first with deterministic cursor paging. WP8.1-C supplies the API and
+  service boundary; the history UI remains in WP9.
 
 ### Table queries and cursors
 
@@ -336,7 +336,7 @@ workspace routes, effective membership/merge and lifecycle tests.
 
 **Status: complete (2026-09-09).** SQLite current-live bases are private immutable snapshots with an
 explicit source discriminator and retry/refusal isolation boundary. PostgreSQL capture remains explicitly
-unsupported pending an equivalent protocol; WP8.1-C, WP9 and WP10 remain open.
+unsupported pending an equivalent protocol; WP8.1-C is complete, while WP9 and WP10 remain open.
 
 - Provide an explicit current-live source and a separate historical source while retaining existing
   historical derivation. Do not reinterpret an existing client request ambiguously; define the request
@@ -360,6 +360,12 @@ against real temporary databases, plus final startup against the configured data
 #### WP8.1-C — History order and retirement contract proof
 
 Primary areas: revision pagination service/router, cursor tests, retirement integration tests and API docs.
+
+**Status: complete (2026-09-09).** Revision discovery uses bounded newest-first database keyset paging;
+tests cover exact retry, a newly published revision between pages, the 9/10 numeric boundary, cursor
+scope/direction errors and page-size bounds. Publication retirement retains immutable history and full
+live CRUD while catalogue retirement rejects writes without side effects. Historical derivation applies
+authored changes over current live data and preserves unrelated later live records.
 
 - Implement newest-first revision history with a unique tie-breaker, bounded pages and exact retry.
 - Preserve old snapshot content; historical derivation is not full-dataset replacement.
@@ -462,7 +468,7 @@ whitespace; it does not claim these runtime tests were executed.
 Read this plan, ADR-027, the product stories/scenarios, `PROJECT_STATUS.md`, `API.md` and the interaction
 specification. Inspect the dirty worktree and preserve unrelated changes. Start with WP8.1-A; give each
 slice one implementation owner, followed by focused verification and review appropriate to scope.
-Complete WP8.1-C before accepting dependent WP9 history flows, then execute WP9 and WP10.
+WP8.1-C is complete; execute WP9 and WP10 next.
 State story IDs, user-visible behavior, exclusions, public-contract changes and direct evidence before
 coding. Preserve all generic controls and invariants. Commit only when explicitly requested.
 

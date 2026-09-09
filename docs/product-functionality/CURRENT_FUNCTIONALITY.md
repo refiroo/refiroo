@@ -315,13 +315,13 @@ Evidence: [activation merge tests](../../backend/tests/test_wp8_activation_merge
 **User outcome:** A user can understand publication lineage, inspect a frozen snapshot and stop
 designating a revision as current without deleting its history.
 
-The API lists immutable workspace revisions oldest first and exposes a selected snapshot for record and
+The API lists immutable workspace revisions newest first with bounded deterministic cursor paging and
+exposes a selected snapshot for record and
 relationship reads. It keeps “created from” separate from “superseded on activation,” so branching from
 older history remains truthful.
 
-The accepted 0.6 interaction baseline expects newest-first history. The current oldest-first API order
-is an implementation gap assigned to WP8.1-C. The user confirmed newest-first in GAP-05; it is no
-longer an open product choice.
+The user confirmed newest-first order in GAP-05, and WP8.1-C implements that API boundary. The browser
+history journey remains assigned to WP9/WP10.
 
 Publication retirement clears the current published revision under a concurrency check while retaining
 workspace identity, historical revisions and stable record identities. It is distinct from retiring the

@@ -209,14 +209,18 @@ def test_retirement_requires_and_enforces_the_active_revision_claim():
     workspace_key = unique_key("retire-conflict")
     with TestClient(app) as client:
         create_workspace(client, workspace_key)
-        revision = publish_language_revision(client, workspace_key, unique_key("rc"))
+        previous = publish_language_revision(client, workspace_key, unique_key("previous"))
+        revision = publish_language_revision(
+            client, workspace_key, unique_key("rc"), expected_active_revision_id=previous["id"]
+        )
         before_snapshot = published_graph_snapshot(client, workspace_key)
 
         # A stale expectedActiveRevisionId conflicts and clears nothing.
         stale = retire_publication(
-            client, workspace_key, str(uuid4()), expected_status=409
+            client, workspace_key, previous["id"], expected_status=409
         )
         assert stale.json()["error"]["code"] == "workspace_active_revision_conflict"
+        assert stale.json()["error"]["message"] == "Active workspace revision has changed"
         assert workspace_active_revision_id(workspace_key) == revision["id"]
         assert revision_status(revision["id"]) == "active"
         assert published_graph_snapshot(client, workspace_key) == before_snapshot
@@ -580,3 +584,69 @@ def test_audit_aggregate_id_column_is_wide_enough_for_the_longest_legal_workspac
     with TestClient(app) as client:
         assert client.get("/health").json() == {"status": "ok"}
         assert _audit_aggregate_id_column_length() >= 160
+
+
+def test_live_crud_after_publication_retirement_then_catalogue_read_only():
+    with TestClient(app) as client:
+        key = unique_key("retire-live-crud")
+        workspace = create_workspace(client, key)
+        revision = publish_language_revision(client, key, unique_key("live"))
+        snapshot = revision_graph_snapshot(client, revision["id"])
+        retire_publication(client, key, revision["id"])
+        language = published_object(client, key, "language", revision["language"]["id"])
+        url = f"/api/v1/objects/language/{language['id']}"
+        renamed = client.patch(
+            url,
+            json={"name": "Live after retirement", "expectedVersion": language["version"]},
+        )
+        assert renamed.status_code == 200, renamed.text
+        assert renamed.json()["name"] == "Live after retirement"
+        changed = client.patch(
+            f"{url}/attributes/language-code",
+            json={"value": unique_key("changed"), "expectedVersion": renamed.json()["version"]},
+        )
+        assert changed.status_code == 200, changed.text
+        payload = {
+            "workspaceKey": key,
+            "applicationKey": "rdm-master",
+            "objectTypeKey": "domain",
+            "name": "Created after retirement",
+            "attributes": [attribute("domain-code", unique_key("live-domain"))],
+        }
+        created = client.post("/api/v1/objects", json=payload)
+        assert created.status_code == 201, created.text
+        domain = created.json()
+        deleted = client.delete(
+            f"/api/v1/objects/domain/{domain['id']}", params={"expectedVersion": domain["version"]}
+        )
+        assert deleted.status_code == 204, deleted.text
+        assert workspace_active_revision_id(key) is None
+        assert len(workspace_revisions(key)) == 1
+        assert revision_graph_snapshot(client, revision["id"]) == snapshot
+
+        retired = client.patch(
+            f"/api/v1/workspaces/{key}",
+            json={"status": "retired", "expectedVersion": workspace["version"]},
+        )
+        assert retired.status_code == 200, retired.text
+        live = published_object(client, key, "language", language["id"])
+        before = published_graph_snapshot(client, key)
+        with SessionLocal() as session:
+            audit_count = session.scalar(select(func.count()).select_from(AuditEvent))
+        attempts = [
+            client.post("/api/v1/objects", json=payload),
+            client.patch(url, json={"name": "Forbidden", "expectedVersion": live["version"]}),
+            client.patch(
+                f"{url}/attributes/language-code",
+                json={"value": "forbidden", "expectedVersion": live["version"]},
+            ),
+            client.delete(url, params={"expectedVersion": live["version"]}),
+        ]
+        for response in attempts:
+            assert response.status_code == 409, response.text
+            assert response.json()["error"]["code"] == "workspace_retired"
+            assert response.json()["error"]["message"]
+        assert published_graph_snapshot(client, key) == before
+        assert revision_graph_snapshot(client, revision["id"]) == snapshot
+        with SessionLocal() as session:
+            assert session.scalar(select(func.count()).select_from(AuditEvent)) == audit_count

@@ -29,6 +29,9 @@ describe("Base 0.6 acceptance fixtures", () => {
       workspaceIdentityRetained: true,
       objectIdentitiesRetained: true,
     });
+    const retirementJourney = fixtures.journeys.find((journey) => journey.id === "J6");
+    expect(retirementJourney?.title).not.toMatch(/restore/i);
+    expect(retirementJourney?.observe).toContain("live data and immutable history remain available");
   });
   it("preserves draft input for every workspace-level conflict", () => {
     expect(Object.values(fixtures.conflicts).every((conflict) => conflict.preserve.length > 0)).toBe(true);

@@ -575,8 +575,10 @@ implemented by this documentation update.
   binding's read-only restriction.
 - `GET /api/v1/workspaces/{workspaceKey}/revisions` and
   `GET /api/v1/workspace-revisions/{revisionId}` expose cursor-paged immutable history and bounded
-  snapshot reads. Current revision discovery is oldest first; newest-first order is the accepted
-  ADR-027 target assigned to WP8.1-C, not delivered by these docs.
+  snapshot reads. Revision discovery is newest first by revision number and public UUID as a unique
+  descending tie-breaker. Its cursor is bound to the workspace and descending sort; an ascending,
+  malformed or differently scoped cursor returns `422 invalid_cursor` with
+  `Workspace revision cursor is invalid`. Pages contain 1–500 items and exact retry is deterministic.
 - `POST /api/v1/workspaces/{workspaceKey}/retirement` retires the active workspace content revision
   under `expectedActiveRevisionId` and clears its publication designation. It retains the live
   records; it does not retire, delete or change any individual object, and it is not a user-facing

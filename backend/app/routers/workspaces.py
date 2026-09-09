@@ -24,7 +24,7 @@ from ..models.api import (
 )
 from ..models.database import ModelRelease, Workspace, WorkspaceDraft, WorkspaceRevision
 from ..services.model.registry import ActiveModelSnapshot
-from ..services.pagination import paginate_sequence, paginate_statement, text_key
+from ..services.pagination import integer_key, paginate_sequence, paginate_statement, text_key
 from ..services.workspace_audit import record_draft_validated
 from ..services.workspace_revisions import (
     activate_draft,
@@ -282,21 +282,19 @@ def list_workspace_revisions(
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> WorkspaceRevisionPage:
     load_workspace(session, workspace_key)
-    items = list(
-        session.scalars(
-            select(WorkspaceRevision).where(WorkspaceRevision.workspace_key == workspace_key)
-        )
-    )
-    # Paginate by a fixed-width revision-number token so the cursor orders numerically (an unpadded
-    # string would sort revision 10 before revision 2) while remaining a strict total order with id.
-    page, next_cursor = paginate_sequence(
-        items,
-        lambda x: (f"{x.revision_number:010d}", x.id),
+    page, next_cursor = paginate_statement(
+        session,
+        select(WorkspaceRevision).where(WorkspaceRevision.workspace_key == workspace_key),
+        keys=(
+            integer_key(
+                "revisionNumber", WorkspaceRevision.revision_number, "revision_number", descending=True
+            ),
+            text_key("id", WorkspaceRevision.id, "id", descending=True),
+        ),
         scope="workspace-revisions",
         filters={"workspaceKey": workspace_key},
         cursor=cursor,
         page_size=page_size,
-        sort=("revisionNumber", "id"),
         message="Workspace revision cursor is invalid",
     )
     return WorkspaceRevisionPage(

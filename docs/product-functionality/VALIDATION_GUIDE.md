@@ -190,8 +190,8 @@ of these patterns outside explicitly labelled historical sections:
 - WP9 wording that says a selected draft is required before enabling any record write; and
 - release criteria that call revision projections authoritative without acknowledging the live data
   store as the active read/write source; and
-- history status that treats the accepted newest-first target as already implemented while the API
-  remains oldest first; WP8.1-C owns the code/test change.
+- history status that describes the API as oldest first; WP8.1-C changed revision discovery to bounded,
+  deterministic newest-first paging. Browser history acceptance remains in WP9/WP10.
 - historical model migration described as a current force flag, or loss confirmation that bypasses
   target validation, parser support or workspace isolation.
 

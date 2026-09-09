@@ -212,9 +212,9 @@ export const base06AcceptanceFixtures = {
     },
     {
       id: "J6",
-      title: "Retire workspace publication and restore it",
-      actions: ["retire workspace publication", "confirm", "derive and activate"],
-      observe: ["workspace identity and revision history remain readable"],
+      title: "Retire a publication and derive new work from history",
+      actions: ["retire workspace publication", "confirm designation removal", "derive and activate changes"],
+      observe: ["live data and immutable history remain available"],
     },
     {
       id: "J7",

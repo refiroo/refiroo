@@ -7,7 +7,7 @@ release plan and changelog rather than accumulating it here.
 ## Now — Base 0.6 completion under ADR-027
 
 User GAP-01–GAP-08 answers are accepted. That resolves product direction, not runtime delivery.
-The next sequence is **WP8.1-C → WP9 → WP10**. Completed checkboxes below record prior work;
+The next sequence is **WP9 → WP10**. Completed checkboxes below record prior work;
 they do not close the newly identified authority or browser gaps.
 
 - [x] Consolidate accepted live/draft/history and historical-migration direction in ADR-027 and the
@@ -18,7 +18,7 @@ they do not close the newly identified authority or browser gaps.
 - [x] WP8.1-B: capture an immutable current-live draft base including post-publication edits, model and
   record versions; support live data without a prior publication. Historical source remains separate,
   empty-root creation stays development/bootstrap support, and additive migration preserves prior drafts.
-- [ ] WP8.1-C: newest-first revision history and cursor tests; prove designation retirement preserves
+- [x] WP8.1-C: newest-first revision history and cursor tests; prove designation retirement preserves
   live access, catalogue retirement rejects writes, and history is not a direct restore operation.
 - [ ] WP9: restore complete live CRUD and optional draft UI, non-default context throughout the task,
   pinned read-only history, truthful retirement, coherent editing and preserved-input recovery.

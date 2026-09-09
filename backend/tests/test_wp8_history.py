@@ -38,6 +38,7 @@ from wp8_support import (
 from app.db import SessionLocal
 from app.main import app
 from app.models.database import WorkspaceRevisionObject
+from app.services.cursors import encode_cursor
 
 
 def _canonical_object(item: dict) -> dict:
@@ -123,7 +124,7 @@ def test_branch_derived_from_older_history_has_distinct_derived_from_and_superse
         draft3 = create_draft(
             client, workspace_key, name="r3", derived_from_revision_id=r2["id"]
         ).json()
-        create_object(
+        codelist_a = create_object(
             client,
             draft3,
             "rdm-master",
@@ -131,7 +132,7 @@ def test_branch_derived_from_older_history_has_distinct_derived_from_and_superse
             f"Codelist {unique_key('branchC')}",
             attributes=[attribute("codelist-code", f"cl-{uuid4().hex[:8]}")],
             parent_object_id=domain_a["id"],
-        )
+        ).json()
         r3 = activate_draft(
             client,
             draft3["id"],
@@ -173,8 +174,13 @@ def test_branch_derived_from_older_history_has_distinct_derived_from_and_superse
         assert r4_detail["supersedesRevisionId"] == r3["id"]
         assert "derivedFromRevisionId" in r4_detail and "supersedesRevisionId" in r4_detail
 
-        # The branch graph is published: the branch domain is visible and the retired R3 graph is no
-        # longer the active projection (only the carried-forward language plus the branch domain).
+        # Historical derivation applies only authored changes: later live domain and child survive.
+        assert client.get(
+            f"/api/v1/objects/domain/{domain_a['id']}", params={"workspaceKey": workspace_key}
+        ).status_code == 200
+        assert client.get(
+            f"/api/v1/objects/codelist/{codelist_a['id']}", params={"workspaceKey": workspace_key}
+        ).status_code == 200
         published_domain = client.get(
             f"/api/v1/objects/domain/{domain_b['id']}", params={"workspaceKey": workspace_key}
         )
@@ -194,7 +200,7 @@ def test_revision_list_cursor_pagination_is_bounded_and_scoped_to_workspace():
         workspace_key = unique_key("revision-page")
         create_workspace(client, workspace_key)
         revision_ids: list[str] = []
-        for index in range(4):
+        for index in range(12):
             revision = _publish_language_revision(
                 client, workspace_key, unique_key(f"page-{index}")
             )
@@ -216,16 +222,58 @@ def test_revision_list_cursor_pagination_is_bounded_and_scoped_to_workspace():
         assert second_page.status_code == 200
         body2 = second_page.json()
         assert len(body2["items"]) == 2
-        assert body2["nextCursor"] is None
+        assert body2["nextCursor"] is not None
 
+        retry = client.get(
+            f"/api/v1/workspaces/{workspace_key}/revisions",
+            params={"pageSize": 2, "cursor": cursor},
+        )
+        assert retry.json() == body2
+        # New publications appear before this cursor; continuing does not repeat or skip old rows.
+        newest = _publish_language_revision(client, workspace_key, unique_key("during-paging"))
         combined = body["items"] + body2["items"]
+        next_cursor = body2["nextCursor"]
+        while next_cursor:
+            page = client.get(
+                f"/api/v1/workspaces/{workspace_key}/revisions",
+                params={"pageSize": 2, "cursor": next_cursor},
+            )
+            assert page.status_code == 200
+            assert 0 < len(page.json()["items"]) <= 2
+            combined.extend(page.json()["items"])
+            next_cursor = page.json()["nextCursor"]
+        assert [item["id"] for item in combined] == revision_ids[::-1]
+        assert client.get(
+            f"/api/v1/workspaces/{workspace_key}/revisions", params={"pageSize": 1}
+        ).json()["items"][0]["id"] == newest["id"]
         assert {item["id"] for item in combined} == set(revision_ids)
         numbers = [item["revisionNumber"] for item in combined]
-        assert numbers == sorted(numbers)
+        assert numbers == sorted(numbers, reverse=True)
         # Every page item carries the full revision metadata including the separate lineage fields.
         for item in combined:
             assert "derivedFromRevisionId" in item and "supersedesRevisionId" in item
             assert item["workspaceKey"] == workspace_key
+
+        # Sort direction is part of the contract: old ascending and malformed tokens are refused.
+        legacy = encode_cursor(
+            ("0000000002", revision_ids[1]),
+            scope="workspace-revisions",
+            sort=("revisionNumber", "id"),
+            filters={"workspaceKey": workspace_key},
+        )
+        for invalid in (legacy, "malformed"):
+            rejected = client.get(
+                f"/api/v1/workspaces/{workspace_key}/revisions",
+                params={"cursor": invalid},
+            )
+            assert rejected.status_code == 422
+            assert rejected.json()["error"] == {
+                "code": "invalid_cursor", "message": "Workspace revision cursor is invalid"
+            }
+        for size in (0, 501):
+            assert client.get(
+                f"/api/v1/workspaces/{workspace_key}/revisions", params={"pageSize": size}
+            ).status_code == 422
 
         # The list is bound to the workspace: a cursor minted for one workspace cannot page another.
         other_key = unique_key("revision-other")
