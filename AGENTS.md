@@ -2,15 +2,17 @@
 
 ## Read first
 
-Before changing code or the model, read in this order:
+Use the smallest authoritative context that covers the requested change:
 
 1. `docs/PROJECT_STATUS.md`
-2. `docs/PRODUCT.md`
-3. `docs/ARCHITECTURE.md`
-4. `docs/APPLICATION_MODEL.md`
-5. `docs/SOURCE_MODEL_ANALYSIS.md`
-6. `docs/DECISIONS.md`
-7. The relevant backend or frontend source files
+2. The active work-package section and its acceptance criteria
+3. The relevant ADR, API or model-contract section
+4. The source files and tests on the execution path being changed
+
+Read `docs/PRODUCT.md`, `docs/ARCHITECTURE.md`, `docs/APPLICATION_MODEL.md`,
+`docs/SOURCE_MODEL_ANALYSIS.md` and `docs/DECISIONS.md` in full only when the task
+changes or reopens product, architecture or model-contract decisions. Prefer targeted
+searches and relevant sections over loading complete documents into the session.
 
 Do not infer the product from one screen or object type. This is a generic model-driven engine. RDM
 Master, Systems and Translations are starter applications, not hardcoded modules.
@@ -35,16 +37,17 @@ Master, Systems and Translations are starter applications, not hardcoded modules
 
 ## Working method
 
-For each feature:
+For each feature, apply only the steps relevant to its scope:
 
 1. State the user-visible behavior in a small plan.
 2. Extend the application model only when behavior must be configurable.
 3. Add model validation before relying on new configuration.
 4. Update metadata persistence if the model contract changes.
-5. Implement backend behavior and tests.
-6. Implement the generic UI component and exercise it with at least two object types.
-7. Update documentation and add an architecture decision when the tradeoff is durable.
-8. Run backend tests, linting and the frontend production build.
+5. Implement behavior and focused tests in the affected layer.
+6. For UI changes, implement a generic component and exercise it with at least two object types.
+7. Update documentation when behavior or contracts change; add an architecture decision only
+   for a durable architectural choice.
+8. Run the validation required for the affected layer as defined below.
 
 Avoid speculative abstractions. Add a generalization after two real RDM cases demonstrate it. Keep API
 errors explicit and machine-readable.
@@ -119,64 +122,66 @@ errors explicit and machine-readable.
 
 ## Definition of done
 
-A change is complete when tests pass, linting passes, the frontend builds, new configuration is
-validated, documentation matches the implementation, and no branch was added for a starter
+A change is complete when the checks relevant to its changed layers pass, new configuration is
+validated, documentation matches changed behavior, and no branch was added for a starter
 application or object-type key.
 
 For startup or migration changes, completion additionally requires the startup and interrupted-
 migration checks in the error-handling section above; a green unit suite alone is not sufficient.
 
-Concretely: `pytest` and `ruff check app/ tests/` in `backend/`, and `npm run lint`, `npm run test`
-and `npm run build` in `frontend/`. The frontend lint step must report zero errors; warnings are
-listed in `eslint.config.js` with their justification.
+Use this validation matrix:
+
+- Backend code: run focused tests while iterating, then `ruff check app/ tests/` and the full
+  `pytest` suite once after the final backend change.
+- Frontend code: run focused tests while iterating, then `npm run format`, `npm run lint`,
+  `npm run test` and `npm run build` once after the final frontend change. Lint must report zero
+  errors; justified warnings are listed in `eslint.config.js`.
+- Cross-stack behavior or a public contract: run both backend and frontend final gates.
+- Startup or migration code: also run the focused bootstrap, upgrade, restart, interrupted-
+  migration, lifespan and final smoke checks required above.
+- Documentation or agent configuration only: validate syntax, links or configuration as relevant;
+  application test suites are not required.
+
+Do not rerun a passing gate unless relevant code changed afterward or a failure remains unexplained.
+Never run multiple backend `pytest` processes concurrently because they share a test database.
 
 ## Agent orchestration
 
-The primary agent owns scope, coordination, final integration and the final answer.
+The primary agent implements, validates, reviews and reports directly by default. Do not delegate
+routine discovery, implementation, testing or review merely to follow a workflow.
 
-For implementation work packages:
+Use one subagent only when it materially improves the result:
 
-1. Delegate targeted code-path discovery to the `explorer` agent.
-2. Use the `architect` agent only when requirements or architectural boundaries
-   remain genuinely ambiguous.
-3. Delegate implementation to one `implementer` agent.
-4. After implementation, delegate focused verification to the `test_runner` agent.
-5. For substantial or cross-module work, delegate final review to the `reviewer` agent.
-6. The primary agent resolves review findings and performs final verification.
+- an unfamiliar area needs bounded, read-only discovery;
+- a genuine architecture question remains after consulting existing decisions;
+- a migration, concurrency, security or broad public-contract change merits independent review; or
+- the user explicitly requests delegation or parallel agents.
 
-Use configured subagents automatically without requiring the user to request them
-in every prompt.
+Use at most one subagent during a normal work package. Multiple subagents require an explicit user
+request or clearly independent work whose time saving outweighs their token and coordination cost.
+The primary agent remains responsible for the completed implementation and final validation.
 
 ### Model allocation
 
-- Use Luna for targeted searches, code-path mapping, mechanical checks and test execution.
-- Use Terra for normal implementation, debugging and code review.
-- Reserve Sol for orchestration, difficult architecture decisions, conflicting
-  requirements and complex failures that Terra could not resolve.
-- Do not let subagents inherit Sol merely because the primary agent uses Sol.
-- Start with low or medium reasoning and increase it only when the task demonstrates
-  that deeper reasoning is needed.
+- Use Luna only for narrow, repeatable searches or mechanical checks.
+- Use Terra for a bounded implementation or focused review.
+- Use Sol for difficult architecture decisions, invariant-heavy implementation or complex failures.
+- Start with low or medium reasoning and increase it only when concrete complexity requires it.
 
 ### Proportional use
 
-Do not run the full agent sequence for every change.
+- Small and normal changes: the primary agent works directly.
+- Unfamiliar code path: one explorer returns a short map, then the primary agent continues.
+- Genuine architectural ambiguity: one architect returns a decision, then the primary agent continues.
+- High-risk completed change: one reviewer examines the final diff.
+- Test execution stays with the primary agent unless the user explicitly requests a test runner.
 
-- Small localized change: one Terra implementer, then focused verification.
-- Normal work package: Luna explorer, Terra implementer, Luna test runner.
-- Large cross-module work package: parallel read-only exploration where useful,
-  then one Terra implementer, test runner and Terra reviewer.
-- Architectural decision: Sol architect before implementation.
-- Failed implementation: return the concrete failure to the same agent first;
-  escalate to Sol only when the failure requires architectural reasoning.
-
-Do not spawn multiple agents to independently analyse the same code.
+Do not spawn multiple agents to analyse the same code or repeat work the primary agent has completed.
 
 ### Editing and concurrency
 
-Read-only agents may run in parallel when examining independent areas.
-
-Only one agent may write to a given module at a time. Prefer one implementation
-owner for the complete work package when backend and frontend changes are coupled.
+Only one agent may write during a work package. Prefer the primary agent as the implementation
+owner; if implementation is delegated, give one agent the complete bounded ownership unit.
 
 Do not run implementation and review concurrently. Review the completed diff.
 
@@ -187,7 +192,7 @@ revert or rewrite another agent's work.
 
 Give each subagent only:
 
-- the active work-package specification;
+- a reference to the active work-package specification rather than a copy of it;
 - relevant acceptance criteria;
 - relevant architecture constraints;
 - the files or modules it is expected to inspect.
@@ -196,8 +201,8 @@ Subagents should use targeted search rather than reading the whole repository.
 They must return concise findings with file and symbol references, without raw
 logs or a complete narration of their work.
 
-The primary agent should reuse subagent findings and must not repeat the same
-repository-wide exploration unless the evidence is incomplete.
+Keep prompts short and ask one concrete question. The primary agent should reuse subagent findings
+and must not repeat the same exploration unless the evidence is incomplete.
 
 ### Work-package completion
 
