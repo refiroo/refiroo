@@ -27,7 +27,7 @@ new ideas can be tested before being promoted into the typed schema.
 ## Attribute types
 
 An attribute type is global and reusable. It defines a stable key, label, value type, default, features,
-validation and optional UI hints. Schema 0.2 supports `text`, `longText`, `integer`, `decimal`, `boolean`,
+validation and optional UI hints. The current schema supports `text`, `longText`, `integer`, `decimal`, `boolean`,
 `date`, `dateTime` and `json`.
 
 Features are typed JSON values. For example:
@@ -90,15 +90,15 @@ may store. Relation create and update reject undeclared keys and validate each s
 declared type and numeric bounds before persistence. An empty list therefore means the relation carries
 no instance attributes rather than accepting arbitrary JSON.
 
-In the Base 0.5 physical-deletion contract, a directed non-parent binding with `required: true` and `one-to-one` or
+In the live and optional-draft deletion contract, a directed non-parent binding with `required: true` and `one-to-one` or
 `one-to-many` cardinality represents PK→FK ownership: the `from` object is the owner and the `to`
 object is its dependent. An explicitly confirmed cascade from the owner deletes the dependent. An
 optional binding or a `many-to-many` binding is an association; cascade removes the relation instance
 but preserves the object at the other endpoint. Parent containment remains governed by
 `parentObjectId` and always cascades from parent to descendants when cascade deletion is confirmed.
-ADR-024 preserves the same ownership graph for draft deletion impact. Removing an object changes only
-the candidate workspace draft; previously published workspace revisions and their stable identities
-remain immutable.
+The same ownership rules apply live or within an explicitly selected draft. Live deletion is immediate;
+draft deletion changes only the candidate until activation. Historical snapshots remain immutable in
+both cases (ADR-026/027).
 
 ## Relation patterns
 
@@ -157,15 +157,16 @@ may have multiple System Value representations, while each represented System Va
 most one Domain or Codelist through this relation type. It does not change the System Value's parent:
 System and System Group containment remains the separate system hierarchy. Because the association is
 optional rather than an ownership binding, cascade deletion of the Domain or Codelist removes the edge
-but preserves the System Value under Base 0.5. Under ADR-024, editing or removing the association is a
-workspace-draft change and becomes active only with the complete workspace revision.
+but preserves the System Value. Association edits are live by default; explicitly draft-scoped edits
+remain staged until activation. The system containment hierarchy is independent in both contexts.
 
 `object-has-translation` is a required one-to-many ownership binding. Its shared relation type ensures
 that a Translation has exactly one target across all permitted target types. Each binding declares
 `uniqueToAncestorTypeKey: language` together with an `active == true` target-attribute condition,
 preventing multiple business-active Translations for the same object and Language while allowing
-business-inactive current content. Under ADR-024 the check considers the complete candidate workspace
-graph at activation; historical workspace revisions do not reserve the scope. Future
+business-inactive current content. The rule is enforced for live changes and effective draft content,
+then checked across the merged graph during activation. Historical revisions do not reserve the
+current scope. Future
 translatable object types are enabled by adding another explicit allowed triple to the JSON model.
 
 ### Feature flags summary
@@ -188,8 +189,8 @@ the parent ID and typed relation atomically. Self-relations support arbitrary-de
 Relations named in an object type's `behavior.parentRelationTypeKeys` — the containment and hierarchy
 relations above — are engine-maintained. The relations API returns them on reads but rejects direct
 creation, update or deletion with `422 immutable_relation`, so `parent_object_id` and the typed
-relation cannot diverge. Under ADR-024, reparenting edits the selected workspace draft; workspace
-activation validates and publishes the parent projection and typed relation atomically.
+relation cannot diverge. Reparenting updates both representations atomically in live or explicit draft
+context; activation revalidates staged changes with current live content (ADR-026/027).
 
 ## Applications and views
 
@@ -271,11 +272,17 @@ relationship uniqueness to the 0.3 detail-composition contract. Schema 0.5 adds 
 views. `release.version` versions one model package. Each distinct
 validated model is installed as an immutable database release identified by its content hash.
 
-Workspace content-revision lifecycle is separate from this model-language and model-release
-versioning. ADR-024 defines engine-owned workspace drafts and immutable active/retired workspace
-revisions, so Base 0.6 does not add configurable object lifecycle states to schema 0.5. The model
-continues to declare the fields and relationship rules validated across each candidate workspace graph,
-while the runtime owns workspace revision identity, lineage and atomic activation.
+Workspace snapshots, data drafts and record versions are separate from model-language and model-release
+versions. ADR-026/027 keep current data live and editable while coordinated draft activation records
+immutable history. Base 0.6 adds no configurable object publication states. The model declares rules
+used for live writes, effective drafts and the final merged activation graph; the runtime owns their
+context, versions, lineage and atomicity.
+
+A workspace data draft does not edit definitions. Historical snapshots must be interpreted under their
+pinned supported model (WP8.1 correction). Current-live draft bases must capture the selected model and
+current record versions without pretending that the last publication contains recent live edits.
+Historical schema replacement with reviewed potential loss is an explicit 0.10 migration and model
+selection operation under ADR-027; it does not mutate an immutable model release or bypass validation.
 
 ADR-021 reserves schema 0.5 for a strict `table` definition. Base 0.6 does not run schema 0.4 models or
 accept declarations for the still-unimplemented `mappingGrid`, `form`, `dashboard` and `tree` view

@@ -96,9 +96,10 @@ The source file remains discovery material and is not distributed with the proje
 is a manually authored, product-owned representation of the general concepts. No source API endpoint,
 vendor core key, schema URL, visual design or proprietary runtime assumption is required by the engine.
 
-## Immediate implications
+## Historical implications and current planning authority
 
-The current implementation proves applications, tabs, tables, typed forms, CRUD and one parent-child
-relation flow from the independent model. The next slice should prove a mapping workflow using the
-`system-value-maps-to-master` relation, including unmapped filtering and safe remapping. That is the
-next meaningful test of the model before expanding all 23 source object types.
+The initial analysis prioritized proving generic applications, typed fields, CRUD and parent-child
+relations before expanding the full source model. It identified mapping as the first specialist test
+of the model. Current delivery sequencing is owned by `ROADMAP.md` and the Base 0.6 plan: complete
+WP8.1 authority corrections, WP9 daily browser use and WP10 validation first; mapping follows in 0.7.
+This source analysis is evidence for product design, not a competing next-package instruction.

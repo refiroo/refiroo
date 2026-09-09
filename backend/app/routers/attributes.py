@@ -7,7 +7,13 @@ from ..models.api import AttributeValueResponse, AttributeValueWrite, ObjectResp
 from ..models.database import WorkspaceRevision, WorkspaceRevisionObject
 from ..services.attributes import build_attribute_value_response, load_attribute_value
 from ..services.model.registry import ActiveModelSnapshot
-from ..services.objects import get_object_type, load_active_projection
+from ..services.objects import (
+    build_object_responses,
+    delete_live_attribute_value,
+    get_object_type,
+    load_active_projection,
+    set_live_attribute_value,
+)
 from ..services.workspace_revisions import (
     delete_draft_attribute,
     effective_draft_membership,
@@ -74,32 +80,41 @@ def get_attribute_value(object_type_key: str, object_id: str, attribute_type_key
 
 def _write(object_type_key: str, object_id: str, attribute_type_key: str, payload: AttributeValueWrite,
            session, snapshot, *, delete: bool = False, require_absent: bool = False) -> Response | ObjectResponse:
-    if not payload.workspaceDraftId or payload.workspaceDraftId is None or payload.expectedWorkspaceDraftVersion is None:
-        raise api_error(409, "workspace_draft_required", "workspaceDraftId and expectedWorkspaceDraftVersion are required")
-    ensure_draft_writable(session, str(payload.workspaceDraftId))
-    membership = effective_draft_membership(session, str(payload.workspaceDraftId))
-    item = next((entry for entry in membership.objects if entry.object_id == object_id and entry.object_type_key == object_type_key), None)
-    if item is None:
-        raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
-    present = attribute_type_key in (item.attributes or {})
-    if delete:
-        if not present:
-            raise api_error(404, "attribute_not_found", f"Attribute '{attribute_type_key}' has no value on object '{object_id}'")
-        row = delete_draft_attribute(session, str(payload.workspaceDraftId), object_id, attribute_type_key,
-                                     payload.expectedWorkspaceDraftVersion, payload.expectedVersion)
-    else:
+    if payload.workspaceDraftId:
+        draft_id = str(payload.workspaceDraftId)
+        if payload.expectedWorkspaceDraftVersion is None:
+            raise api_error(409, "workspace_draft_required",
+                            "expectedWorkspaceDraftVersion is required when targeting a workspace draft")
+        ensure_draft_writable(session, draft_id)
+        membership = effective_draft_membership(session, draft_id)
+        item = next((entry for entry in membership.objects if entry.object_id == object_id and entry.object_type_key == object_type_key), None)
+        if item is None:
+            raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
+        present = attribute_type_key in (item.attributes or {})
+        if delete:
+            if not present:
+                raise api_error(404, "attribute_not_found", f"Attribute '{attribute_type_key}' has no value on object '{object_id}'")
+            delete_draft_attribute(session, draft_id, object_id, attribute_type_key,
+                                   payload.expectedWorkspaceDraftVersion, payload.expectedVersion)
+            return Response(status_code=204)
         if require_absent and present:
             raise api_error(409, "attribute_already_exists", f"Attribute '{attribute_type_key}' already has a value on object '{object_id}'")
         if not require_absent and not present:
             raise api_error(404, "attribute_not_found", f"Attribute '{attribute_type_key}' has no value on object '{object_id}'")
-        row = patch_draft_attribute(session, str(payload.workspaceDraftId), object_id, attribute_type_key,
+        row = patch_draft_attribute(session, draft_id, object_id, attribute_type_key,
                                     payload.value, payload.expectedWorkspaceDraftVersion, payload.expectedVersion)
+        draft = effective_draft_membership(session, draft_id).draft
+        return _draft_object_response(row, draft_id, snapshot.model).model_copy(
+            update={"workspaceKey": draft.workspace_key, "workspaceDraftVersion": draft.version}
+        )
     if delete:
+        delete_live_attribute_value(session, snapshot.model, object_type_key, object_id,
+                                    attribute_type_key, payload.expectedVersion)
         return Response(status_code=204)
-    draft = effective_draft_membership(session, str(payload.workspaceDraftId)).draft
-    return _draft_object_response(row, str(payload.workspaceDraftId), snapshot.model).model_copy(
-        update={"workspaceKey": draft.workspace_key, "workspaceDraftVersion": draft.version}
-    )
+    set_live_attribute_value(session, snapshot.model, object_type_key, object_id, attribute_type_key,
+                             payload.value, payload.expectedVersion, create_only=require_absent)
+    item = load_active_projection(session, object_id, object_type_key)
+    return build_object_responses(session, snapshot.model, [item])[0]
 
 
 @router.post(PATH, response_model=ObjectResponse, status_code=status.HTTP_201_CREATED)

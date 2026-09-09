@@ -101,9 +101,17 @@ describe("API client", () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204 }));
     vi.stubGlobal("fetch", fetchMock);
     await api.deleteObject("kind", "object", 7);
-    await api.deleteObject("kind", "object", 7, true);
+    await api.deleteObject("kind", "object", 7, {
+      cascade: true,
+      deletionPreviewToken: "signed-preview",
+      workspaceDraftId: "draft/id",
+      expectedWorkspaceDraftVersion: 11,
+    });
     expect(fetchMock.mock.calls[0][0]).not.toContain("cascade=true");
     expect(fetchMock.mock.calls[1][0]).toContain("cascade=true");
+    expect(fetchMock.mock.calls[1][0]).toContain("deletionPreviewToken=signed-preview");
+    expect(fetchMock.mock.calls[1][0]).toContain("workspaceDraftId=draft%2Fid");
+    expect(fetchMock.mock.calls[1][0]).toContain("expectedWorkspaceDraftVersion=11");
   });
 
   it("creates direction-ready relationship payloads without changing them", async () => {

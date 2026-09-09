@@ -203,60 +203,6 @@ class WorkspaceDraftValidation(BaseModel):
     diagnostics: list[dict[str, Any]]
 
 
-class WorkspaceDraftObjectResponse(BaseModel):
-    id: str
-    applicationKey: str
-    objectTypeKey: str
-    name: str
-    parentObjectId: str | None
-    attributes: dict[str, Any]
-    version: int
-
-
-class WorkspaceDraftObjectPage(BaseModel):
-    items: list[WorkspaceDraftObjectResponse]
-    nextCursor: str | None
-
-
-class WorkspaceDraftRelationResponse(BaseModel):
-    id: str
-    relationTypeKey: str
-    fromObjectId: str
-    toObjectId: str
-    attributes: dict[str, Any]
-    version: int
-
-
-class WorkspaceDraftRelationPage(BaseModel):
-    items: list[WorkspaceDraftRelationResponse]
-    nextCursor: str | None
-
-
-class WorkspaceDraftAttributePatch(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    value: Any
-    expectedDraftVersion: int = Field(ge=1)
-    expectedRecordVersion: int = Field(ge=1)
-
-
-class WorkspaceRevisionObjectResponse(WorkspaceDraftObjectResponse):
-    revisionId: str
-
-
-class WorkspaceRevisionObjectPage(BaseModel):
-    items: list[WorkspaceRevisionObjectResponse]
-    nextCursor: str | None
-
-
-class WorkspaceRevisionRelationResponse(WorkspaceDraftRelationResponse):
-    revisionId: str
-
-
-class WorkspaceRevisionRelationPage(BaseModel):
-    items: list[WorkspaceRevisionRelationResponse]
-    nextCursor: str | None
-
-
 class RelationCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

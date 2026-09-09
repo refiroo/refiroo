@@ -1,5 +1,10 @@
 # Product definition
 
+For the user-facing functionality baseline, realistic stories, acceptance scenarios and product
+roadmap, start with [the product functionality guide](product-functionality/README.md). Its
+[planning handoff](product-functionality/PLANNING_HANDOFF.md) records gaps to reconcile before updating
+technical documentation and implementation plans.
+
 ## Purpose
 
 RDM Engine lets teams define and operate reference-data applications without developing a separate
@@ -19,15 +24,44 @@ APIs without writing application-specific code.
 - Developers consuming reliable, scalable reference-data APIs
 - Product administrators defining new RDM applications through configuration
 
-## Core capabilities
+## Product capabilities and delivery channels
 
-1. Define applications, object types, reusable attribute types and typed relationships.
-2. Organize values into codelists, hierarchies and other model-defined structures.
-3. Map canonical values to representations in external systems.
-4. Attach language-specific translations to governed values.
-5. Generate effective tables, forms, mapping grids, selectors and trees from configuration.
-6. Provide integration-grade query, bulk, import/export, webhook and change-feed APIs.
-7. Record provenance, versions and changes.
+The product provides a reusable definition of applications, record types, typed fields, relationships
+and views. Data owners use that definition to organize codes, maintain translations and connect values
+across systems. Starter applications are examples of configuration, never special runtime modules.
+
+| Capability | Current development position | Product coverage |
+| --- | --- | --- |
+| Model-defined navigation, tables, search and record inspection | Browser foundation present; non-default workspace detail context needs repair | F01–F04, US-D01–D05, US-D13 |
+| Live record, field, parent, relationship and basic translation maintenance | API available; complete browser authoring remains Base 0.6 work | F05–F11, US-D06–D14, US-L01–L02 |
+| Optional coordinated data changes | Draft and merge services present; current-live draft base and composed browser acceptance remain gaps | F12–F14, US-W01–W08 |
+| Inspect, check, install and activate application definitions | JSON workbench and release APIs present; installation and activation are separate | F15, US-P01–P04, US-P06 |
+| Stable paged integration reads | Available; larger exchange and advanced query planned for 0.9 | F16, US-I01–I09 |
+| Dedicated mapping, translation coverage and hierarchy views | Mapping 0.7; translation and hierarchy 0.8 | US-M01–M04, US-L03–L04, US-H01–H02 |
+| Authenticated shared production operation | Production hardening and staged model rollout planned for 0.10 | US-S01, US-O03–O06, US-P07 |
+| Structured model authoring and reusable definitions | Planned for 1.0, retaining existing validation and release protections | US-P05, US-P08 |
+
+“API available” does not mean a complete browser task. Current top-level views support strict tables;
+a form used for record editing is not an implemented configurable top-level `form` view. Mapping grids,
+trees and other specialist declarations require their own validated contract and renderer. Dashboards
+have no scheduled user outcome. The [functionality catalogue](product-functionality/CURRENT_FUNCTIONALITY.md)
+records channel limitations; no browser acceptance is implied by the presence of a component.
+
+## Change rules
+
+- **Daily reference data:** adding or correcting a record, field, translation, parent or ordinary
+  relationship is a direct live operation. Save validates the data, prevents silent overwrite and
+  records the change. It does not require a design draft or create a workspace revision.
+- **Coordinated data changes:** users may explicitly select a workspace design draft. Its changes stay
+  separate until activation applies them together over current live data. Unrelated live changes
+  survive; conflicting or invalid changes publish nothing and preserve the draft and live content.
+- **Application definitions:** a model draft changes the allowed structures and rules. Installation
+  produces an immutable release; activation separately selects it after compatibility checks. A data
+  draft is not a model editor, and replacing the bootstrap file is not an activation mechanism.
+
+These rules apply to the specialist mapping, translation and hierarchy flows and to later bulk
+operations. Touching several records alone is not a reason to require a draft. Any additional mandatory
+review step needs a stated user benefit or specific risk and an explicit product decision.
 
 ## Boundaries
 
@@ -36,8 +70,20 @@ business glossary, lineage scanner or enterprise governance suite. Generic appli
 where the same object/attribute/relation/view model is genuinely useful, but RDM integration remains the design
 centre.
 
-## Initial success condition
+## Success and recurring acceptance
 
-An administrator can define a new application in JSON, restart the engine, and obtain navigation,
-tables, forms, validated CRUD APIs and relationships without modifying Python or TypeScript. A model
-release is installed as an immutable metadata snapshot so the running behavior is reproducible.
+An administrator can define and release another reference-data application without changing Python
+or TypeScript. A steward can then select its workspace, find a record, create or correct it with its
+required fields and connections, and see the live result through the same generic controls. A normal
+correction takes one coherent edit and save, with no release ceremony. The same journeys work for at
+least two differently configured record types.
+
+Acceptance is assessed through [user stories](product-functionality/USER_STORIES.md) and
+[realistic scenarios](product-functionality/ACCEPTANCE_SCENARIOS.md), not merely by whether a route,
+component or model declaration exists. Each work package names the affected story IDs, existing flows
+it must preserve, and the evidence needed for its claimed channel. Release gates exercise the composed
+browser and service, including failure, concurrency, keyboard operation and narrow layouts.
+
+Use the [validation guide](product-functionality/VALIDATION_GUIDE.md) to record results and compare
+required steps, repeated input and recovery with the previous flow. A documentation update or passing
+component suite cannot mark an unexecuted user journey complete.

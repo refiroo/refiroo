@@ -1,113 +1,137 @@
 # Base 0.6 interaction specification
 
-**Status:** Accepted corrective WP5 baseline
+**Status:** Accepted product baseline updated from GAP-01–GAP-08, 2026-09-08; implementation and
+composed-browser validation remain WP8.1/WP9/WP10 work.
 
-**Authority:** ADR-024 and `BASE_0_6_IMPLEMENTATION_PLAN.md`
+**Authority:** ADR-026/027, `PRODUCT.md`, product stories/scenarios and `BASE_0_6_IMPLEMENTATION_PLAN.md`.
+Existing `frontend/src/test/base06AcceptanceFixtures.ts` must be extended to this behavior during
+implementation; it is not proof that these revised journeys already work.
 
-This freezes user-visible workspace publication behavior for later WP6 persistence and WP7 APIs/UI;
-it does not authorize either implementation. The canonical data is
-`frontend/src/test/base06AcceptanceFixtures.ts`. No object has a draft, active, retired or published
-state: those terms apply only to a workspace draft or workspace revision.
+## Context and write rules
 
-## Scope and read-only rules
+The trail is `Workspace / Application / View`, with **Live**, a named **Draft**, or a selected
+**Historical revision** when applicable. Workspace labels are primary and stable keys stay in routes.
+Carry the selected context into details, panels, lookups, related records and history, then restore the
+originating same-origin list address and its search, filters, sorting and page position.
 
-The retained WP0 behavior is workspace catalogue selection, schema 0.5 typed tables, URL-backed
-query state, responsive layout, keyboard operation, focus restoration and action hierarchy. This
-baseline replaces lifecycle journeys J3-J7 with workspace-draft/revision journeys, and excludes
-mapping-grid UI, model-workbench redesign, persistence and API implementation.
-
-The visible trail is `Workspace / Application / View`, extended by `Workspace draft` or `Workspace
-revision` when one is open. Workspace labels are primary and stable keys remain URL state. An active
-catalogue workspace may have an active content revision or no published content; a retired catalogue
-workspace is always read-only. Catalogue retirement and publication retirement are different actions.
-
-Published and historical workspace revisions are immutable. Until the workspace-draft editor exists,
-all published object content remains read-only: collection rows offer `Open` only, and object detail
-offers no create, edit, activate, retire, draft or revision actions. The rejected WP4 backend must not
-be surfaced as a client capability. Opening an object preserves an encoded same-origin return list URL.
-Workspace, filter or sort changes clear cursors. A cursor is never reused after the active revision,
-draft or model release that bound it changes.
-
-## Workspace draft editor
-
-```text
-Workspace: Central Europe / Draft: September terminology / Saved v7
-Based on: revision 4                 Model release: 0.6.0
-
-Objects          Relations           Validation
-Timetable types  MOT              contains / translates
-
-[Discard draft]                         [Save draft] [Review and activate]
-```
-
-A root draft starts empty. A derived draft has an explicit source workspace revision and is edited as
-one coherent graph: object fields and typed attributes, containment parent/typed edge, required
-relationships and independent relations. The UI never presents a per-object publication action.
-Record edits use record versions for useful editor feedback; saving also advances the aggregate draft
-version. Dirty/busy guards and notices follow the retained WP0 accessibility rules.
-
-Validation is non-publishing and covers the complete effective graph. Activation review shows the
-source revision, currently active revision expected to be superseded, model release, validation and
-impact. It requires `expectedDraftVersion` and nullable `expectedActiveRevisionId`. Success publishes
-all candidate objects, attributes, containment edges and relations atomically, opens the new immutable
-workspace revision and restores focus to its heading.
-
-## Workspace history and publication retirement
-
-```text
-Central Europe                              Published revision 5
-[Create workspace draft] [Retire publication]
-
-History
-Revision 5  PUBLISHED    Created from: revision 3
-                        Superseded on activation: revision 4
-                        [Open snapshot] [Create draft from this revision]
-```
-
-History is newest first and cursor-paged. Each revision displays immutable ID, publication state,
-time, pinned model release and both lineage edges. `Created from` is `derivedFromRevisionId`; it can
-differ from `Superseded on activation`, `supersedesRevisionId`. Failed older-page loading keeps loaded
-history and retries the exact cursor.
-
-`Retire publication` is only a workspace-level action. Its confirmation names the workspace revision,
-explains that the current dataset will no longer be published, and requires the expected active
-workspace revision ID. It never lists, marks or retires individual objects. Success clears the active
-workspace content-revision pointer while retaining workspace identity, immutable history and stable
-object/relation identities. A later root or history-derived workspace draft is the only way to publish
-content again.
-
-## Conflict recovery
-
-Every conflict states the failed action, what remains preserved and the safe next step; it never
-silently retries.
-
-| Conflict | Preserved state | Recovery |
+| Context | Record actions | Concurrency and meaning |
 | --- | --- | --- |
-| Record version | Local record fields and latest draft context | Compare/adopt the current record, then explicitly save. |
-| Workspace draft version | Complete local graph edits | Reload or reconcile the latest draft, then explicitly save or activate. |
-| Active workspace revision | Saved draft and source lineage | Review current workspace revision; activation requires a fresh expected revision. |
-| Uniqueness/graph validation | Complete draft | Focus the implicated record/edge and validate or activate again. |
-| Pinned model release | Persisted draft and browser input | Show pinned/current releases; automatic rebase is unavailable. |
+| Live, catalogue active | Add, edit and delete as permitted by the model | Existing-record version; immediate validated save and audit; no draft/revision required |
+| Selected data draft | Same generic record controls | Record plus aggregate draft version; changes remain staged |
+| Historical revision | Inspect only, start a new draft from history | Pinned supported model; snapshot never edited |
+| Catalogue retired | Read only | No data or lifecycle mutation |
 
-## Journey acceptance criteria
+Model-defined availability is a field value, not an individual record publication state. Workspace
+publication retirement removes the current-publication designation but does not make live data
+unavailable or read-only. Data drafts and model-definition drafts are visibly separate.
 
-1. **J1 — Workspace and application context.** Select a catalogue workspace by label, retain its
-   stable key and table state across applications, and show retired catalogue workspaces as read-only.
-2. **J2 — Typed find, open and return.** Apply declared typed filters/sort, open an object, and return
-   to the exact URL state without a broadened request.
-3. **J3 — Root workspace draft.** Create an empty root draft, add objects of two types with typed
-   attributes, containment and a required relation, validate the graph, then activate it once.
-4. **J4 — Coherent graph edit.** Derive from the active workspace revision, change an object, its
-   containment parent and an independent relation, and verify active reads stay unchanged until one
-   activation publishes the full graph.
-5. **J5 — History branch lineage.** Derive from an earlier workspace revision while a later revision
-   is active; after activation, show distinct source and superseded revision IDs.
-6. **J6 — Publication retirement and restoration.** Retire the active workspace publication without
-   deleting records or history, then derive a workspace draft from history and publish it again.
-7. **J7 — Recover without losing input.** Independently exercise record-version, draft-version,
-   active-revision, uniqueness and pinned-model conflicts; no partial graph becomes published.
+Collections use typed configured filters and bounded paging. Context/filter/sort changes discard their
+continuation. Live cursors are not frozen snapshots and currently survive publication; draft/history
+cursors identify their selected context. Do not claim invalidation from a token component that is not
+actually encoded.
 
-Fixtures cover desktop (`1280 x 800`) and narrow (`390 x 844`) states. Existing semantic table,
-modal, keyboard, focus, busy, retry and responsive rules remain in force. A page has one primary
-action; an unavailable mutation is hidden with an adjacent explanation, never represented by an
-object-level lifecycle control.
+## Everyday record maintenance
+
+Open a live record, edit the required fields in one coherent form and save once. Root creation starts
+from a collection; child or dependent creation starts in its useful context. Preselect known parent or
+target and collect the remaining required fields/connections in the same flow. Generic initial
+relationships are part of record creation; do not expose low-level repair steps after an invalid save.
+
+Do not require creating, naming, validating or activating a draft for routine maintenance. Preserve
+optional individual-field actions, distinguish missing from false/zero/null and retain model-defined
+read-only/required constraints. Containment changes through the Parent control, not an editable
+engine-maintained relation. Ordinary relation identity is fixed; specialist atomic mapping follows 0.7.
+
+Deletion presents the actual impact on owned dependants and affected links. Cancel changes nothing;
+cascade needs explicit confirmation. Independent associated records survive. A successful empty panel
+looks empty, while a failed panel explains the failure and retries without resetting successful data.
+
+## Optional workspace data draft
+
+```text
+Workspace: Retail Reference / Live
+[Add record]                         [Prepare coordinated changes]
+
+Create data draft
+Source: Current live data | Selected historical revision
+Name: September delivery changes
+[Cancel]                                      [Create draft]
+```
+
+Current-live creation copies the actual live graph and versions, including edits after publication
+and a workspace with no publication. It does not publish a checkpoint just to begin. Historical
+creation labels the chosen source revision and pinned model. Empty-root creation is development/
+bootstrap support; an empty workspace naturally yields an empty current-live copy.
+
+```text
+Workspace: Retail Reference / Draft: September delivery changes / Saved v7
+Started from: Live data captured at <time>       Model release: <release>
+Historical source: <revision, when applicable>
+
+Records       Relationships       Validation
+[Discard draft]                         [Validate] [Review and activate]
+```
+
+Reuse record controls, with the draft version carried through each save. Do not add a second “save
+all” layer unless a defined unsaved aggregate edit actually needs it. Validation checks the complete
+candidate without publication. Activation review shows source, expected current publication, model,
+authored changes and validation result. It applies authored changes over current live data, preserving
+unrelated live edits; failures preserve draft and live content. No row has an activation button.
+
+## History and publication designation
+
+History is **newest first**, cursor-paged, and displays time, model release, immutable revision identity
+and separate “Started from” and “Superseded on activation” references. A live-base capture identity must
+not be replaced by a misleading old-publication label. Loaded history survives a failed older-page
+request; retry uses the exact continuation.
+
+“Start a draft from this revision” never says “Restore live data.” Newer untouched live records survive
+later activation. Opening a historical record uses its supported pinned definition and read-only
+controls. Unsupported historical schema versions receive a clear explanation; current definitions
+must not be substituted silently.
+
+“Retire publication” confirmation names the selected current revision and says: remove its current-
+publication designation; live records and historical snapshots remain available. It is a workspace
+operation with the expected revision claim. It does not mark individual records retired. Catalogue
+retirement is a separate administrative read-only operation.
+
+## Conflict and failure recovery
+
+| Failure | Preserved state | Next action |
+| --- | --- | --- |
+| Live or draft record version | Entered fields and persisted data | Review current record, reconcile and explicitly retry |
+| Aggregate draft version | Local input and persisted draft | Reload/reconcile current draft version before save or activation |
+| Current publication changed | Draft, source and live data | Review current publication and make a fresh activation claim |
+| Field/relationship/whole-graph validation | Input, draft and live data | Focus the affected field/record, correct it and check again |
+| Historical/current model mismatch | Draft, history and live selection | Show both definitions and migration requirement; cancel/back is available |
+| Failed page or panel | Successful loaded content and query context | Retry the failed request without broadening it |
+
+Product 0.10 adds the accepted historical model replacement path: preview incompatibilities and
+potential data loss for a named workspace and installed target definition (normally the historical
+pin), explicitly confirm the reviewed migration or cancel. Confirmation is bound to
+current model/data/draft versions and an executable transformation. It does not waive valid target
+data or supported schema parsing. Only the selected workspace assignment changes; other workspaces
+are unaffected. Base 0.6 must not present an enabled override button for this future capability.
+
+## Acceptance journeys
+
+Use SC-01–SC-06, SC-08 and the current-foundation portions of SC-12–SC-14 from
+[product acceptance scenarios](product-functionality/ACCEPTANCE_SCENARIOS.md). They replace the former
+seven draft-only journey definitions as the complete release gate. Preserve these legacy labels for
+fixture migration and traceability:
+
+| Legacy label | Revised behavior / product scenario |
+| --- | --- |
+| J1 context | SC-01: non-default context through the whole task |
+| J2 find/open/return | SC-01: typed query and exact list return |
+| J3 create | SC-02/SC-03: normal live authoring; SC-05: optional copied draft |
+| J4 coordinated edit | SC-06: draft changes staged, unrelated live work preserved |
+| J5 source lineage | SC-08: historical source distinct from supersession, no direct restore |
+| J6 retirement | SC-08: designation removal distinct from catalogue retirement and availability |
+| J7 recovery | SC-02/SC-04/SC-06: preserved input, atomic refusal and retry |
+
+Exercise at least two record types and ownership/containment configurations. Retain desktop
+`1280 × 800` and narrow `390 × 844` fixture targets, then report actual real-browser viewport sizes.
+Use semantic controls, visible focus, keyboard operation, meaningful labels, modal focus restoration,
+dirty/busy guards and one clear primary action for the task. Record accessibility and visual evidence
+actually executed; neither a mock fixture nor a route returning 200 proves the full flow.

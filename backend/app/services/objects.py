@@ -15,21 +15,19 @@ from ..models.api import (
     ObjectUpdate,
     RelationCreate,
 )
-from ..models.database import (
-    AttributeValue,
-    ObjectRelation,
-    RdmObject,
-    Workspace,
-    WorkspaceRevisionObject,
-)
+from ..models.database import AttributeValue, ObjectRelation, RdmObject
 from ..models.schema import ApplicationDefinition, EngineModel, ObjectTypeDefinition
 from .attributes import (
     VALUE_COLUMNS,
+    apply_attribute_values,
     check_attribute_uniqueness,
+    current_attribute_values,
     load_attribute_values,
+    remove_attribute_value_row,
     save_attribute_values,
     validate_attribute_change,
     validate_attributes,
+    validate_deletable_attribute,
     validate_object_attribute_rules,
 )
 from .audit import record_audit_event
@@ -100,11 +98,6 @@ def build_object_query(
     statement = select(RdmObject).where(
         RdmObject.object_type_key == object_type_key,
         RdmObject.workspace_key == workspace_key,
-    )
-    statement = statement.join(Workspace, Workspace.key == RdmObject.workspace_key).join(
-        WorkspaceRevisionObject,
-        (WorkspaceRevisionObject.revision_id == Workspace.active_revision_id)
-        & (WorkspaceRevisionObject.object_id == RdmObject.id),
     )
     if application_key:
         statement = statement.where(RdmObject.application_key == application_key)
@@ -384,12 +377,11 @@ def _format_typed_value(value: Any) -> str:
 
 
 def create_object_record(session: Session, model: EngineModel, payload: ObjectCreate) -> RdmObject:
-    """Create one object with its attributes, containment edge and initial relations."""
-    raise api_error(
-        409,
-        "workspace_draft_required",
-        "Published workspace objects are read-only; create records in a workspace draft",
-    )
+    """Create one object in the workspace's live object store.
+
+    Requires an active (non-retired) workspace.  The record is immediately part of the
+    authoritative live projection; no workspace revision is minted.
+    """
     from .relations import create_relation_instance
     from .workspaces import resolve_workspace
 
@@ -424,7 +416,6 @@ def create_object_record(session: Session, model: EngineModel, payload: ObjectCr
         application_key=payload.applicationKey,
         object_type_key=object_type_key,
         parent_object_id=parent.id if parent else None,
-        state=payload.state,
         name=payload.name,
     )
     if public_id is not None:
@@ -493,12 +484,7 @@ def update_object_record(
     object_id: str,
     payload: ObjectUpdate,
 ) -> RdmObject:
-    """Apply a partial object update under optimistic concurrency."""
-    raise api_error(
-        409,
-        "workspace_draft_required",
-        "Published workspace objects are read-only; edit records in a workspace draft",
-    )
+    """Apply a partial live object update under optimistic concurrency."""
     from .relations import validate_scoped_relations_for_subtree
     from .workspaces import resolve_workspace
 
@@ -522,9 +508,6 @@ def update_object_record(
     if payload.name is not None:
         changes["name"] = {"from": item.name, "to": payload.name}
         item.name = payload.name
-    if payload.state is not None:
-        changes["state"] = {"from": item.state, "to": payload.state}
-        item.state = payload.state
     if "parentObjectId" in payload.model_fields_set:
         old_parent = item.parent_object_id
         parent, parent_relation = validate_parent(
@@ -554,6 +537,102 @@ def update_object_record(
         action="updated",
         version=item.version,
         changes=changes,
+        object_ids=[item.id],
+    )
+    session.commit()
+    return item
+
+
+def set_live_attribute_value(
+    session: Session,
+    model: EngineModel,
+    object_type_key: str,
+    object_id: str,
+    attribute_type_key: str,
+    value: Any,
+    expected_version: int,
+    *,
+    create_only: bool = False,
+) -> RdmObject:
+    """Set one live attribute value under the object's optimistic-concurrency version.
+
+    ``create_only`` (POST) requires the value to be absent; otherwise the value must already exist
+    (PATCH).  The object version is claimed and bumped, the merged rules are re-validated, and the
+    attribute row is upserted.
+    """
+    from .workspaces import resolve_workspace
+
+    object_type = get_object_type(model, object_type_key)
+    item = load_object(session, object_id, object_type_key)
+    resolve_workspace(session, item.workspace_key, require_active=True)
+    present = attribute_type_key in current_attribute_values(session, item.id)
+    if create_only and present:
+        raise api_error(
+            409,
+            "attribute_already_exists",
+            f"Attribute '{attribute_type_key}' already has a value on object '{object_id}'",
+        )
+    if not create_only and not present:
+        raise api_error(
+            404,
+            "attribute_not_found",
+            f"Attribute '{attribute_type_key}' has no value on object '{object_id}'",
+        )
+    normalized = validate_attributes(model, object_type, {attribute_type_key: value}, partial=True)
+    claim_object_version(session, item, expected_version)
+    apply_attribute_values(session, model, object_type, item, normalized)
+    record_audit_event(
+        session,
+        aggregate_type="object",
+        aggregate_id=item.id,
+        action="updated",
+        version=item.version,
+        changes={"attributes": normalized},
+        object_ids=[item.id],
+    )
+    session.commit()
+    return item
+
+
+def delete_live_attribute_value(
+    session: Session,
+    model: EngineModel,
+    object_type_key: str,
+    object_id: str,
+    attribute_type_key: str,
+    expected_version: int,
+) -> RdmObject:
+    """Delete one live attribute value under the object's optimistic-concurrency version.
+
+    Read-only and required attributes cannot be deleted; object-level rules are re-validated over
+    the surviving values before the row is removed.
+    """
+    from .workspaces import resolve_workspace
+
+    object_type = get_object_type(model, object_type_key)
+    item = load_object(session, object_id, object_type_key)
+    resolve_workspace(session, item.workspace_key, require_active=True)
+    validate_deletable_attribute(object_type, attribute_type_key)
+    current = current_attribute_values(session, item.id)
+    if attribute_type_key not in current:
+        raise api_error(
+            404,
+            "attribute_not_found",
+            f"Attribute '{attribute_type_key}' has no value on object '{object_id}'",
+        )
+    remaining = {
+        key: value for key, value in current.items() if key != attribute_type_key
+    }
+    validate_object_attribute_rules(object_type, remaining)
+    claim_object_version(session, item, expected_version)
+    remove_attribute_value_row(session, item.id, attribute_type_key)
+    record_audit_event(
+        session,
+        aggregate_type="object",
+        aggregate_id=item.id,
+        action="updated",
+        version=item.version,
+        changes={"attributes": {attribute_type_key: None}},
         object_ids=[item.id],
     )
     session.commit()
@@ -615,23 +694,12 @@ def load_object(session: Session, object_id: str, object_type_key: str | None = 
 def load_active_projection(
     session: Session, object_id: str, object_type_key: str | None = None
 ) -> RdmObject:
-    """Load a record only when it belongs to its workspace's selected revision."""
-    statement = (
-        select(RdmObject)
-        .join(Workspace, Workspace.key == RdmObject.workspace_key)
-        .join(
-            WorkspaceRevisionObject,
-            (WorkspaceRevisionObject.revision_id == Workspace.active_revision_id)
-            & (WorkspaceRevisionObject.object_id == RdmObject.id),
-        )
-        .where(RdmObject.id == object_id)
-    )
-    if object_type_key:
-        statement = statement.where(RdmObject.object_type_key == object_type_key)
-    item = session.scalar(statement)
-    if not item:
-        raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
-    return item
+    """Load a live record from the workspace's active object store.
+
+    The active object store is the authoritative, directly-mutable projection; an object is
+    visible here as soon as it is written, with no workspace revision required.
+    """
+    return load_object(session, object_id, object_type_key)
 
 
 def claim_object_version(session: Session, item: RdmObject, expected_version: int) -> None:
@@ -663,10 +731,6 @@ def validate_parent(
         return None, None
 
     parent = load_object(session, parent_object_id)
-    if session.scalar(
-        select(Workspace.active_revision_id).where(Workspace.key == parent.workspace_key)
-    ) is None:
-        raise api_error(422, "parent_not_active", "Parent workspace has no active revision")
     if parent.application_key != application_key or parent.workspace_key != workspace_key:
         raise api_error(
             422, "parent_wrong_scope", "Parent must be in the same application and workspace"

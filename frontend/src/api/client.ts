@@ -69,6 +69,13 @@ export interface ObjectQuery {
   filters?: CollectionFilter[];
 }
 
+export interface ObjectDeleteOptions {
+  cascade?: boolean;
+  deletionPreviewToken?: string;
+  workspaceDraftId?: string;
+  expectedWorkspaceDraftVersion?: number;
+}
+
 function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
   const params = new URLSearchParams({ pageSize: String(query.pageSize ?? 20) });
   if (query.applicationKey) params.set("applicationKey", query.applicationKey);
@@ -183,9 +190,19 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
-  deleteObject: (objectTypeKey: string, objectId: string, expectedVersion: number, cascade = false) => {
+  deleteObject: (
+    objectTypeKey: string,
+    objectId: string,
+    expectedVersion: number,
+    options: ObjectDeleteOptions = {},
+  ) => {
     const params = new URLSearchParams({ expectedVersion: String(expectedVersion) });
-    if (cascade) params.set("cascade", "true");
+    if (options.cascade) params.set("cascade", "true");
+    if (options.deletionPreviewToken) params.set("deletionPreviewToken", options.deletionPreviewToken);
+    if (options.workspaceDraftId) params.set("workspaceDraftId", options.workspaceDraftId);
+    if (options.expectedWorkspaceDraftVersion !== undefined) {
+      params.set("expectedWorkspaceDraftVersion", String(options.expectedWorkspaceDraftVersion));
+    }
     return request<void>(
       `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}?${params}`,
       { method: "DELETE" },

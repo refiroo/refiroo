@@ -38,14 +38,15 @@ not rewritten. Runtime objects reference stable keys so model migrations can be 
 
 ## ADR-006 — Maintain containment and typed parent relations
 
-**Status:** Accepted; lifecycle application amended by ADR-024
+**Status:** Accepted; live/draft application consolidated by ADR-026 and ADR-027
 
 Hierarchy uses `parent_object_id` for efficient navigation and a typed relation for semantics. The
 service layer creates and moves both atomically and prevents cycles.
 
-ADR-024 changes when that mutation becomes effective. Changing a parent edits only the selected
-workspace draft. Workspace activation validates cycles and atomically publishes both the active parent
-projection and its typed containment edge; a published workspace revision is never changed in place.
+Changing a parent updates the live parent and typed containment edge together unless the caller
+explicitly selects a workspace draft. In a draft, the same change stays staged; activation revalidates
+the merged graph and applies both representations together. Historical revisions never change in place
+(ADR-026/ADR-027 supersede ADR-024’s former draft-only timing).
 
 ## ADR-007 — Generate UI behavior, not markup
 
@@ -73,7 +74,7 @@ branches in the model.
 
 ## ADR-010 — Enforce attribute uniqueness at the service layer
 
-**Status:** Accepted; lifecycle application amended by ADR-024
+**Status:** Accepted; live/draft application consolidated by ADR-026 and ADR-027
 
 Attribute types may declare `features.unique`. Uniqueness is enforced at create and update by the
 service layer, scoped to a single workspace and to the attribute type key. This keeps the runtime
@@ -83,17 +84,18 @@ attribute type. `json` values are excluded because their equality is not order-s
 writers; a database-level constraint (partial unique index or a dedicated unique-key table) is the
 planned hardening for PostgreSQL.
 
-Under ADR-024, draft validation may report a prospective uniqueness conflict, but workspace activation
-is the authoritative check across the complete candidate graph after applying any model-declared
-conditional uniqueness predicate. Historical workspace revisions do not reserve a unique value.
+Live writes enforce configured uniqueness against live content. Draft validation checks the effective
+candidate, and activation rechecks the merged live graph after applying any configured conditional
+predicate. Historical revisions do not reserve a current unique value. ADR-026/ADR-027 supersede the
+former assumption that activation is the only live validation boundary.
 
 ## ADR-011 — Relation instance CRUD mutates only non-parent edges
 
-**Status:** Accepted; mutation scope amended by ADR-024
+**Status:** Accepted; live/draft mutation scope consolidated by ADR-026 and ADR-027
 
-Active and historical relation reads are read-only. The canonical relation `GET`, `PATCH` and `DELETE`
-operations give mutable relation records full read and mutation support with the same optimistic
-concurrency as object records when a workspace draft is selected: mutations carry `expectedVersion`, claim it atomically, and return
+Live relation records support canonical create/read/update/delete. Historical snapshots are read-only.
+Updates and deletes carry the relation `expectedVersion`; an explicitly selected draft additionally
+requires its aggregate version. Version claims are atomic and return
 `409 version_conflict` on a stale claim. Relation identity —
 `relationTypeKey`, `fromObjectId`, `toObjectId` — is immutable; only the relation `attributes` are
 updatable. Re-targeting an ordinary edge is expressed as delete + create. ADR-022's mapping aggregate
@@ -103,23 +105,23 @@ replacement rather than exposing a partially changed mapping.
 Parent-containment and hierarchy edges — relation types named in the target object type's
 `behavior.parentRelationTypeKeys` and written atomically on object parent changes — are
 engine-maintained and therefore rejected by the relations API (`422 immutable_relation`). Keeping them
-read-only prevents `parent_object_id` and the typed relation from diverging; reparenting always changes
-the workspace draft and workspace activation rewrites both atomically.
+read-only prevents `parent_object_id` and the typed relation from diverging; the record Parent operation
+updates both atomically in live or explicitly selected draft context.
 
 Required non-parent relations remain readable and may update declared relation attributes, but cannot
 be independently deleted because doing so would invalidate their dependent object. They are created
-atomically with that object inside the workspace draft and removed through draft deletion impact.
+atomically with that object in the selected live/draft context and removed through its deletion impact.
 
 ## ADR-012 — Preview destructive graph cascades and derive ownership from relation bindings
 
-**Status:** Accepted; lifecycle application amended by ADR-024
+**Status:** Accepted; live/draft application consolidated by ADR-026 and ADR-027
 
-Under ADR-024, deleting a record is a change to a mutable workspace draft. When candidate dependencies
-exist, a deletion request returns a structured impact report and mutates nothing; callers must repeat
-it with `cascade=true` to authorize recursive removal of the reported owned dependants from that
-draft. The impact is recomputed and applied transactionally. Independent associations are removed or
-retained according to their binding in the same candidate graph. Active and historical workspace
-revisions remain unchanged until activation and forever afterward.
+Deleting a live record removes it and its owned dependants immediately after the required impact
+confirmation. An explicitly draft-scoped deletion affects only that candidate until activation. When
+dependencies exist, a non-cascading request returns an impact report and changes nothing; callers
+confirm `cascade=true` to remove owned dependants. Impact is recomputed and applied transactionally.
+Independent associated records survive. Neither path rewrites immutable historical snapshots.
+ADR-026/ADR-027 supersede the former draft-only deletion rule.
 
 Any mutable workspace draft may be discarded with optimistic concurrency. Physical purge of stable
 identities, published workspace revisions and audit history is a separately authorized retention
@@ -148,7 +150,7 @@ System Value; removing its System or System Group continues to cascade through s
 
 ## ADR-014 — Create required translation targets atomically
 
-**Status:** Accepted; lifecycle application amended by ADR-024
+**Status:** Accepted; live/draft application consolidated by ADR-026 and ADR-027
 
 A Translation is contained by a Translation Group and is also a lifecycle-dependent representation of
 exactly one translated object. The translated object therefore owns the Translation through the shared,
@@ -156,11 +158,11 @@ required `object-has-translation` one-to-many relation. Domain, Codelist and Mas
 allowed source types; later model releases extend the same relation with additional source types rather
 than introducing runtime key branches or wildcard application membership.
 
-Translation creation inside a workspace draft accepts model-derived initial relationships. Activating
-the workspace draft publishes the Translation, its containment edge, target edge, attributes and audit
-events atomically with every other candidate change. Required relations cannot be deleted
-independently. `uniqueToAncestorTypeKey: language` together with the model-declared `active == true`
-business predicate is enforced across the complete candidate workspace graph. This prevents duplicate
+Translation creation accepts model-derived initial relationships and saves the record, parent edge,
+target edge and fields together in the selected live or draft context. Draft changes become live only
+when activation applies the coordinated changes. Required relations cannot be deleted independently.
+`uniqueToAncestorTypeKey: language` with the configured `active == true` business predicate is checked
+for live writes, draft validation and the final merged graph at activation. This prevents duplicate
 available Translations for one target and Language while allowing unavailable current content and
 immutable historical workspace revisions. Activation, including after a draft parent change, rechecks
 the constraint.
@@ -173,8 +175,10 @@ The singleton database runtime-state row is the authority for the active install
 `MODEL_PATH` is bootstrap input only: startup validates and installs that content when needed, but a
 different bootstrap file does not implicitly replace an already selected release.
 
-Each request resolves runtime state once and uses the corresponding immutable parsed `EngineModel`
-and metadata release for every model-dependent operation. The process registry may cache snapshots by
+Each live-data request resolves runtime state once and uses the corresponding immutable parsed
+`EngineModel` and metadata release for every model-dependent operation. ADR-027 extends the explicit
+context contract: draft/history requests resolve their pinned supported model instead, consistently
+through validation and response composition; WP8.1 implements the missing historical boundary. The process registry may cache snapshots by
 release public ID and content hash, but it must not independently choose the active release. This
 prevents one request from combining JSON from one release with metadata rows from another.
 
@@ -397,32 +401,34 @@ migration, protected administration and a bounded supported-version window.
 
 ## ADR-022 — Version complete relation sets for atomic mapping
 
-**Status:** Accepted; amended by ADR-024
+**Status:** Accepted for product 0.7; live/draft scope consolidated by ADR-026 and ADR-027
 
 Mapping concurrency belongs to the complete directional relation set, not to an object or one relation
 instance. A source object may currently have zero, one or several matching edges, so neither an object
 version nor an individual relation version can protect create, remove, replace and ambiguous-state
-resolution consistently. Under ADR-024, mappings target stable object identities inside one explicit
-workspace draft and are published with that complete workspace revision; they never mutate active
-relations directly.
+resolution consistently. Mapping mutations target stable records in a live workspace or an explicitly
+selected design draft. Live replacement is immediately visible; draft replacement remains staged.
+This replaces ADR-024’s former draft-only mapping scope.
 
-`relation_set_versions` stores one optimistic integer version for an exact allowed binding:
-workspace draft, relation type, `fromObjectTypeKey`, `toObjectTypeKey`, stable anchor object and `outgoing`
+The planned `relation_set_versions` contract stores one optimistic integer version for an exact binding:
+workspace and explicit live/draft context, relation type, `fromObjectTypeKey`, `toObjectTypeKey`, stable anchor object and `outgoing`
 or `incoming` direction. Including both endpoint types prevents two allowed bindings of the same
 relation type from sharing and replacing each other's set. Every generic relation create, attribute
 update or delete atomically increments the outgoing and incoming sets for that exact binding.
 Mapping-grid rows return this value as `mappingVersion`; a previously untouched set has version zero,
 claimed safely under the scope's database uniqueness constraint.
 
-`PUT /api/v1/workspace-drafts/{draftId}/mappings/{relationTypeKey}/{sourceObjectId}` accepts explicit direction,
+The product 0.7 mapping operation accepts explicit content context and direction,
 `sourceObjectTypeKey`, `targetObjectTypeKey`, `expectedMappingVersion`, a nullable `targetObjectId` and
 relation attributes. Endpoint type keys remain required when the target is null so removal cannot
 broaden its scope. A null target removes the complete selected-target set and requires empty
 attributes. A non-null target replaces the complete set with exactly that target, allowing one
-operation to create, replace or resolve an ambiguous mapping. The service validates workspace and
-draft status, candidate endpoint records, endpoint types, direction, the exact allowed relation binding,
+operation to create, replace or resolve an ambiguous mapping. The service validates workspace status
+and draft status when a draft is selected, candidate endpoint records, endpoint types, direction, the exact allowed relation binding,
 cardinality and typed relation attributes. Mapping views reject containment and required ownership
-bindings because those edges are governed as object-owned changes inside the same workspace draft.
+bindings because the record operation owns those relationships. The former draft-nested PUT proposal
+is superseded; freeze the canonical live/optional-draft route and request contract in the 0.7 package
+before implementation. No mapping endpoint is delivered by this decision.
 
 The transaction conditionally claims the relation-set version, deletes obsolete edges, preserves or
 updates the selected edge or creates it when absent, increments the set version and commits. A stale
@@ -431,11 +437,11 @@ summaries; nothing changes. Requesting the already-current target with identical
 idempotent no-op with no version increment or audit event.
 
 One mapping-transition audit event records old and new target and relation identities, while the
-underlying relation audit remains available. Draft-scoped generic relation mutation routes participate
+underlying relation audit remains available. Live and draft generic relation mutation routes participate
 in the same set-version maintenance and therefore cannot bypass mapping concurrency. A retired
 workspace, closed draft or endpoint absent from the candidate graph cannot be mutated through the
-mapping operation. The mapping transition becomes externally visible only when the workspace draft is
-activated.
+mapping operation. Draft application must also preserve live mapping-set conflict protection; live
+replacement must not require workspace activation.
 
 ## ADR-023 — Build RDM UI components on React Aria behavior
 
@@ -469,70 +475,255 @@ task flows are accessible.
 
 ## ADR-024 — Publish runtime data as immutable workspace revisions
 
-**Status:** Accepted; supersedes ADR-020
+**Status:** Accepted workspace aggregate; current data authority and write timing amended by ADR-026
+and consolidated by ADR-027. Supersedes the rejected ADR-020 per-object lifecycle.
 
-A workspace is the unit of runtime-data governance and publication. It owns zero or one active
-immutable content revision, any number of immutable historical revisions and any number of mutable
-workspace drafts. Objects, attributes, containment and relations are records within that aggregate;
-they do not independently enter draft, active or retired lifecycle states.
+A workspace owns coordinated data drafts and immutable historical revisions. Object, attribute,
+containment and relation records retain stable public identities; they have no independent publication
+lifecycle. A coordinated activation applies one validated change set and records one immutable snapshot.
 
-This boundary prevents a published workspace from becoming an accidental mixture of independently
-activated record versions. Cross-record requirements, uniqueness, cardinality, containment and
-mapping consistency can be validated against one candidate graph and published together. Stable
-object and relation UUIDs remain addressable across workspace revisions for integration references and
-audit, but stable identity does not imply an independent publication lifecycle.
+The original draft-only mutation rule and wholesale replacement of active projections are superseded.
+Current data is live and editable without a draft. Activation applies authored changes over the current
+live graph, preserving unrelated live work and refusing conflicts. A historical revision cannot be
+edited or used as a direct restore operation.
 
-A root workspace draft begins empty. A derived draft uses copy-on-write storage over one selected
-workspace revision. Draft edits may use record-level optimistic versions for useful concurrent editor
-feedback, while the workspace draft also has an aggregate version. Activation requires the expected
-draft version and expected active workspace revision ID, validates the complete effective graph under
-the draft's pinned application-model release and atomically changes the workspace revision pointer and
-all active query projections. No active object or relation mutation endpoint may bypass this draft.
+History keeps the draft source (`derivedFromRevisionId`, where sourced from a revision) distinct from
+activation supersession (`supersedesRevisionId`). ADR-027 adds a fresh current-live starting point that
+must not pretend the last published revision contains later live edits. Drafts and revisions pin a model
+release; current implementation gaps and migration restrictions are recorded in the Base 0.6 plan.
 
-Workspace lineage has two separate edges. `derivedFromRevisionId` identifies the immutable workspace
-revision used as the draft base. `supersedesRevisionId` identifies the workspace revision active when
-the draft was published. Branching from older history therefore remains truthful even when activation
-replaces a newer revision. Published and historical snapshots are read-only.
+Publication retirement removes the current-publication designation and retains live data and history.
+It does not withdraw live reads or make a workspace read-only. Catalogue retirement is the separate
+read-only control. Cursor binding follows the actual live/draft/history context, not a blanket active-
+revision rule; see `API.md` and ADR-027.
 
-Publication retirement clears the active content-revision pointer under an expected-revision claim and
-retains the workspace, stable record identities, immutable revisions and audit history. It does not
-iterate through objects to mark each one retired. This content operation is distinct from ADR-019's
-catalogue status: catalogue retirement controls whether a workspace may be mutated, while content
-retirement controls whether it currently publishes a dataset. Product language and API names must
-keep those concepts distinct.
-
-Each workspace draft and revision pins the immutable application-model release used for validation.
-Activation against a different currently resolved model release returns
-`workspace_draft_model_release_conflict`; Base 0.6 does not silently rebase. Collection cursors bind to
-the workspace plus active revision or draft identity so a publication switch cannot continue a page
-against different content.
-
-The rejected ADR-020 tables, object active-revision pointers and object activation/retirement endpoints
-are pre-release implementation debt, not a supported compatibility surface. The corrective migration
-preserves workspace keys and public object/relation UUIDs, materializes one initial workspace revision
-from each unambiguous effective graph and removes the duplicate object-lifecycle authority. Physical
-purge of workspace history remains outside Base 0.6.
+The corrective migration preserves workspace keys and public record identities, materializes an initial
+revision from each unambiguous graph and removes rejected per-object lifecycle authority. Physical
+purge of history remains outside Base 0.6.
 
 ## ADR-025 — Keep generic CRUD independent of workspace publication
 
-**Status:** Accepted for Base 0.6; constrains WP7-WP10
+**Status:** Accepted; draft-required clauses amended by ADR-026 and consolidated by ADR-027.
 
-Workspace lifecycle determines the storage and publication context of runtime data. It does not alter
-the established generic CRUD contract for objects, typed attributes, containment, relations or
-translations. Published reads resolve against the active workspace revision; the same operations write
-against a selected mutable workspace draft. Validation, typed values, cardinality, uniqueness,
-containment atomicity, translation atomicity, pagination and optimistic concurrency remain the same.
+Objects, typed fields, containment, relations and translations use one generic CRUD contract. Live
+writes do not require a draft; explicitly selecting `workspaceDraftId` stages the same operations.
+`workspaceRevisionId` selects immutable history and cannot be combined with draft context. Workspace
+identity remains explicit in routing and must be preserved across the complete user journey.
 
-The canonical record APIs use explicit content context rather than route duplication: `workspaceKey`
-selects the active revision for published reads, `workspaceDraftId` selects the effective mutable draft
-for draft reads and writes, and `workspaceRevisionId` selects immutable history. Draft and historical
-contexts are mutually exclusive. Every write requires `workspaceDraftId`; object creation may infer
-`workspaceKey` from that draft and rejects a mismatch when the key is supplied explicitly.
+Live updates/deletes claim the record version. Draft updates/deletes additionally claim the draft
+version; creating a new record has no pre-existing record version to claim. Live object creation needs
+an explicit workspace key; existing-record mutation resolves the record's workspace. See `API.md` for
+route-specific inputs rather than adding unsupported workspace fields to every payload.
 
-There are no draft objects, draft relations, object revisions or independent record publication states.
-Nested draft-specific CRUD paths such as `/workspace-drafts/{draftId}/objects` and
-`/workspace-drafts/{draftId}/relations` are not public resources. Workspace resources own draft
-creation, validation, activation, history and publication retirement; record resources remain generic
-and receive workspace context explicitly. Empty relationship and translation collections are successful
-empty pages, never operational errors. Any implementation that deletes or duplicates established CRUD
-to introduce workspace lifecycle violates this decision.
+Workspace endpoints own draft creation, validation, activation and publication history. Record endpoints
+remain canonical; nested draft-object/relation resources and per-record publication controls are not a
+second public API. Required initial relationships, typed data, uniqueness, containment, deletion impact
+and concurrency retain their generic semantics. Empty collections are successful empty pages.
+
+## ADR-026 — Active workspaces are live-writable for data; drafts are the design path
+
+**Status:** Accepted 2026-09-07; live CRUD and delta-merge implementation recorded in Slices 0–5.
+The fresh current-live draft base and dependent authority checks remain implementation work; the earlier
+blanket “implemented” label overstated completion. ADR-027 consolidates the accepted 2026-09-08 product
+answers without treating documentation acceptance as runtime delivery.
+
+### Motivation — the product statement was the arbiter
+
+`PRODUCT.md` names the primary users: *"data owners maintaining canonical codes and names"* and *"local
+data stewards maintaining translations and availability."* Maintaining reference data is a continuous,
+day-to-day operation: a data owner adds a new canonical value, edits a code's label, retires an obsolete
+value. ADR-024/ADR-025 (and the WP7/WP8 implementation they drove) interpreted every record write as a
+staged, released mutation: an active workspace was immutable for **both** model and data, and every
+write required a `workspaceDraftId` followed by a later atomic activation that created a new workspace
+revision and retired the previous one. For an RDM that forces each single value edit through a release
+ceremony. The product statement said the operator edits reference data continuously; the lifecycle
+decisions said the opposite. That inconsistency is the root cause this decision corrects.
+
+### Decision
+
+A workspace distinguishes two layers, and each has its own write rule:
+
+1. **The model is immutable on an active workspace.** Schema/application-model change is not performed by
+   editing an active workspace in place. This was already true (model releases are global and immutable;
+   workspace drafts/revisions pin a release) and remains true.
+2. **The active workspace's data content is live and writable.** Object, typed-attribute, containment and
+   relation writes against the active workspace take effect directly on the live object store
+   (`RdmObject` / `AttributeValue` / `ObjectRelation`), are immediately visible to active reads, are
+   optimistically locked at the **record** level (`expectedVersion`) and audited per change. They do not
+   create a workspace draft, a workspace revision or any "release."
+
+Therefore `workspaceDraftId` becomes **optional** on record writes:
+
+- **Supplied** → the write stages into that workspace draft (the unchanged copy-on-write machinery and
+  `expectedWorkspaceDraftVersion` claim), for review and later atomic activation.
+- **Omitted** → the write applies directly to the active workspace's live object store, claiming only the
+  record version.
+
+The **workspace draft remains the design playground**: a separate, safe surface to author objects,
+values and relationships independently of the live store; application-definition drafts remain a
+separate concept. When
+the design is ready it is brought to the active workspace through validation + activation, retiring the
+superseded state.
+
+The standalone record-CRUD service functions — `create_object_record`, `update_object_record`
+(`services/objects.py`), relation CRUD helpers (`services/relations.py`) and the deletion/cascade plan
+module (`services/deletion.py`) — are restored and remain **independently maintained and referenced**.
+They are not helpers of the workspace-draft functions; they are the service layer for record writes,
+with the workspace-draft path layered on top for the design surface.
+
+### Amendments to prior decisions
+
+- ADR-024's *"No active object or relation mutation endpoint may bypass this draft"* is amended to apply
+  to the **design path**; data-content writes against the active workspace no longer require a draft.
+- ADR-025's *"Every write requires `workspaceDraftId`"* is amended: writes **may** target the active live
+  store directly; a draft is required only when the caller chooses the design path.
+- Immutable workspace revisions, activation/retirement, history, lineage, cursor binding and lifecycle
+  audit remain exactly as ADR-024/ADR-025 specify for the design path. Published/historical revision
+  content stays immutable; provenance for live data edits is the per-record version plus the audit trail.
+
+### Resolved decision — activation is a delta-merge over live content
+
+The owner locked option (b): direct live data writes are allowed **at any time**, including while a
+design draft is open, and activation applies the draft as a **delta over the current live content**, not
+a wholesale replacement.
+
+- Required target: a draft started from live captures a fresh immutable snapshot of **current live
+  content** and its record versions at creation. The current implementation only supports empty or
+  selected-revision bases; WP8.1 must close this gap. Empty drafts are development/bootstrap support,
+  not the ordinary user starting flow. Historical-source creation remains a distinct choice.
+- At activation the delta is the draft's created/updated/tombstoned rows relative to that base.
+  Activation applies **only those rows** onto the current live projection, with **per-record version
+  conflict detection**: any record the draft touched must still sit at exactly the version it had in the
+  draft's base snapshot, so a concurrent live edit of the same record always conflicts rather than being
+  silently overwritten. A draft-created id that already exists live is an `id_collision`, and a draft
+  edge that would duplicate a live `(type, from, to)` edge is a `duplicate_edge`; every conflict is
+  reported under `409 version_conflict` with `details.conflicts` (kind, id, code, expected/actual
+  version) before anything is written.
+- Objects created or edited live that the draft never touched are **preserved**.
+- Activation then re-validates the **merged** live graph (whole-graph), writes one new immutable
+  `WorkspaceRevision` snapshot of the merged content, advances `active_revision_id`, retires the
+  previous active revision and deletes the draft — all atomic.
+- Any conflict or validation failure rolls back and **publishes nothing**; both the draft and the live
+  content are preserved for the caller to reconcile.
+
+Active reads resolve the **live projection** (`RdmObject`/`AttributeValue`/`ObjectRelation`); revision
+snapshots (`WorkspaceRevisionObject`/`WorkspaceRevisionRelation`) serve **history only**
+(`workspaceRevisionId`). Live provenance is the per-record `version` plus `AuditEvent` under the
+`object`/`relation` aggregates; live writes never mint a workspace revision. A revision snapshots the
+full merged live content, so a draft branched from an old revision never drops unrelated newer live
+content its membership did not contain. This replaces the pre-correction wholesale projection rebuild
+in `activate_draft`.
+
+### Process note — how the discrepancy happened and how to avoid repeating it
+
+The inconsistency was **structural and unflagged**: the product brief (`PRODUCT.md`) described the
+continuous-maintenance RDM job, while the lifecycle decisions (ADR-020 → ADR-024/ADR-025) and the WP6-WP8
+packages implemented every write as a staged, released mutation — and each package passed its own gate.
+The standalone record-CRUD functions, which are the natural home for live active writes, were treated as
+dead and deleted even though their behaviour is what `PRODUCT.md` promises. The conflict surfaced only
+after delivery, when the removal was challenged.
+
+Going forward, at **every** stage gate test the candidate against the product statement —
+*"what does a data owner do every day, and does this decision allow it without ceremony?"* — and surface
+any tension in the gate report rather than after. Never delete code, even code with zero current callers,
+without recording the intent and obtaining sign-off. State the two layers explicitly in every decision:
+**product model / schema** (released, immutable) versus **reference-data content** (live, editable,
+versioned by record and audit). If a later decision contradicts an earlier one, say so at the time and
+record the amendment, as ADR-026 does here.
+
+## ADR-027 — Consolidate live data, draft sources and reviewed historical migration
+
+**Status:** Accepted product direction, 2026-09-08, from the user's GAP-01–GAP-08 answers in
+`product-functionality/PLANNING_HANDOFF.md`. Implementation is partial; Base 0.6 WP8.1/WP9/WP10 and
+product 0.10 own the remaining work described below. This decision consolidates ADR-026 and explicitly
+amends obsolete draft-only and restore wording in ADR-006/010/011/012/014/022/024/025.
+
+### Data authority and ordinary work
+
+The selected immutable application-model release defines current rules. Live `RdmObject`,
+`AttributeValue` and `ObjectRelation` rows define current data, including records created since the
+latest publication and data in readable catalogue-retired workspaces. Model compatibility must examine
+all live content served under that model; revision membership is not a substitute for this population.
+
+Normal create/update/delete, typed fields, translations, parent changes and ordinary relationships
+remain direct live operations with validation, record concurrency and audit. Optional workspace data
+drafts contain coordinated data changes. Model drafts contain proposed definitions. One never silently
+changes the other. All browser paths must retain workspace context and use familiar generic controls.
+
+### Draft sources and application
+
+The normal choices are **current live data** and **a selected historical revision**. Current-live
+creation captures a consistent immutable internal base, including fields, records, relationships,
+parent structure, model identity and record versions. It includes edits since the latest publication
+and works when live data has no publication. Creating this base must not activate anything or create a
+user-visible publication. Empty draft creation remains only a development/bootstrap concern; a new
+empty workspace can use the same current-live choice and obtain an empty base naturally.
+
+Historical derivation retains the source revision and its pinned definition. “Retired” here means a
+historical publication revision; a catalogue-retired workspace remains read-only. It does not restore the
+active workspace: only deliberately authored changes are candidates for application. A live-start base
+and the historical publication used for lineage are distinct identities; an implementation must not
+label an older publication as the actual current-live base.
+
+Normal activation applies authored changes over current live data, preserves unrelated changes and
+revalidates the merged graph. A touched-record conflict or invalid graph changes neither live data nor
+the draft. Older history is not an undo button. Immutable history must be interpreted with its pinned
+model; unsupported historical schemas receive an explicit refusal, not interpretation under guessed
+current definitions. Supporting historical content does not imply every obsolete schema language can
+run indefinitely.
+
+### Publication designation and history order
+
+Publication retirement clears the current-publication designation. Live records remain available;
+this action does not withdraw consumer reads, set a business availability field or retire the catalogue
+workspace. Catalogue retirement remains the read-only control. The confirmation and result must say so.
+Workspace revision history is **newest first** with a deterministic unique pagination tie-breaker;
+current oldest-first behavior is an implementation correction, not an alternate accepted UX.
+
+Current live cursors bind endpoint/query/workspace/order, without a model or publication revision token.
+They survive publication and are not frozen dataset snapshots. Draft and history cursors bind their
+selected identities and query. A stronger future consistency guarantee requires an explicit contract
+change and tests, not a documentation-only assertion that tokens already contain those identities.
+
+### Historical drafts incompatible with the active definition
+
+The user requires a warning and **confirm schema replacement with potential data loss, or cancel**
+when a historical draft cannot be applied under the current active definition. Preserve that requirement
+as a reviewed model-and-data migration flow in product 0.10, alongside GAP-08's accepted migration and
+workspace-model assignment boundary. It is not implemented by adding a force flag to Base 0.6 activation.
+
+The preview names one selected workspace and one installed immutable target release, normally the
+historical draft’s pinned release. Confirmation migrates current live data to that target and changes
+only the selected workspace’s model assignment; it does not silently repin the draft to today’s model.
+The flow identifies source/current/target definitions, proposed conversions, removed/changed fields
+and relationships, and potential data loss before explicit confirmation. Bind
+confirmation to that reviewed plan and the current data/model versions; changed inputs invalidate it.
+Cancellation changes nothing. A confirmed execution transforms data and switches the applicable model
+selection atomically, validates the result against the target definition and preserves immutable
+history. Failure leaves the prior usable state and draft intact, with actionable diagnostics.
+
+Model selection is global today. A historical-data action must not silently replace the definition
+for other workspaces. The 0.10 plan must use its workspace-scoped assignment/migration capability; the action must not
+switch the global model as a shortcut. Selecting an older model release
+never mutates that immutable release. Model release and `schemaVersion` are distinct; unsupported
+model-language versions require executable parser/runtime support before any confirmed migration. Loss approval authorizes the reviewed transformation, not data
+that violates the target rules, silent conflict overwrite or arbitrary deletion.
+
+Until the migration path is implemented, Base 0.6 preserves incompatible drafts and explains the pinned
+and active model mismatch. Cancellation/back remains available; it must not present an enabled
+confirmation promising an unsupported schema override.
+
+### Acceptance and delivery
+
+- WP8.1 corrects live compatibility population, current-live bases, pinned historical interpretation
+  and newest-first history before accepting the dependent design UI.
+- WP9 restores live CRUD, optional draft modes, immutable history and truthful retirement wording.
+- WP10 executes SC-01–SC-06, SC-08, SC-12–SC-14 in the appropriate channels, including live-only model
+  incompatibility, historical typing after a model switch and migration/startup boundaries.
+- Product 0.7–0.9 specialists and integration preserve live maintenance with optional staging.
+- Product 0.10 validates preview, explicit loss confirmation, cancellation, stale-review refusal,
+  atomic migration/switch, history preservation and isolation of unaffected workspaces.
+
+Decision acceptance is not implementation evidence. Every package and release records the stories,
+actual channels exercised, failure outcomes, skips and simplicity comparison from the product
+validation guide. No component-only pass establishes a complete browser journey.

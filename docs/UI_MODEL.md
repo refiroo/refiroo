@@ -70,8 +70,9 @@ is:
 - `form`: grouped fields, relations and validation
 - `mappingGrid`: source values, selected targets, coverage filters and atomic mapping; bounded bulk
   mapping is a later integration capability
-- `tree`: hierarchy browsing, parent selection and safe reordering
-- `dashboard`: panels composed from queries and entry-point actions
+- `tree`: hierarchy browsing, contextual child creation and safe parent selection; sibling ordering
+  has no separately accepted contract
+- `dashboard`: unscheduled concept, not a release commitment
 
 In Base 0.6, only `table` is an implemented schema 0.5 top-level view. A semantic view never resolves
 to an unrelated component; `mappingGrid`, `form`, `dashboard` and `tree` declarations are rejected
@@ -104,8 +105,10 @@ help text and visibility. The renderer supplies accessible defaults when hints a
 ## Established CRUD UI contract and WP9 recovery target
 
 The behaviors in this section existed before the WP5/WP6 transition. They are the required generic UI
-contract, but the current WP6-based runtime does not expose all of them. WP7 must restore the backend
-contract and WP9 must restore/reuse these controls in a selected workspace draft.
+contract, and WP7 restored the backend contract over the workspace-revision runtime. WP9 must
+restore/reuse these controls for normal live writes and explicitly selected optional drafts under
+ADR-026/027. Current disconnected controls and lost non-default detail context are implementation
+gaps, not read-only product rules.
 
 The UI renders all application and view navigation from the model and keeps stable routes for
 application views and objects. Its searchable explorer combines configured object types, parent
@@ -133,8 +136,8 @@ the latter preselects and locks the target while retaining model-derived parent 
 Attribute panels distinguish an unset value from a stored falsy or null value. Editable bindings expose
 model-driven add/edit actions, while optional stored values can be removed with confirmation. Required,
 read-only and hidden bindings retain their declared behavior. All eight value types use one typed field
-renderer, and individual attribute writes must carry both the containing object's current version and
-the selected workspace draft's current version.
+renderer. Individual attribute writes claim the containing object’s current version; only explicitly
+draft-scoped writes additionally claim the draft’s current version.
 
 Relation panels preserve relation identity, attributes, direction and version. They derive valid
 incoming and outgoing creation choices from the panel configuration and allowed object-type triples,
@@ -172,22 +175,32 @@ architecture.
 
 ## Base 0.6 direction
 
-Base 0.6 first establishes the task flows and UI primitives, then delivers workspace discovery,
-typed collection semantics and coherent workspace publication. A steward creates or opens a workspace
-draft and uses the same generic object, attribute, containment, relation and translation CRUD controls
-within that explicit context. Published and historical workspace revisions are read-only. Activation
-validates and publishes the complete candidate graph atomically; no object row has its own
-draft/active/retired lifecycle. Workspace history presents “Created from” separately from “Superseded
-on activation”, so branching from an earlier workspace revision remains understandable. Relationship
-and translation panels render successful empty collections as empty UI states, never as retryable errors.
-The mapping grid is the first specialist view after this foundation, in product 0.7/schema 0.6. Broader
-model-workbench redesign also remains deferred so Base 0.6 stays focused on daily workspace operations.
+Base 0.6 completes daily live maintenance using model-driven tables, forms and detail panels. The
+visible context distinguishes **Live**, an explicitly selected **Draft**, and immutable **History**.
+A catalogue-retired workspace is read-only. Model-defined availability is an ordinary field; it is not
+an object publication state. Publication retirement removes the current-publication designation while
+live data stays available.
 
-The original WP0 interaction baseline in `BASE_0_6_INTERACTION_SPEC.md` is superseded for lifecycle
-behavior because it placed activation on individual objects. Corrective WP5 retains its navigation,
-typed-table, responsive, keyboard, focus and action-hierarchy findings while replacing journeys 3-7
-and their fixtures with workspace-level publication scenarios spanning multiple object types and
-relations.
+A draft starts from actual current live data, including edits since the latest publication, or from
+an explicitly selected historical snapshot. Empty-root creation is a development/bootstrap mechanism,
+not the normal user workflow. WP8.1 supplies the missing current-live base and pinned historical model
+interpretation before the dependent browser flows can be accepted.
+
+Activation applies only authored changes over current live content, checks touched-record conflicts,
+preserves unrelated live work and validates the final combined graph. History is newest first and
+presents source separately from supersession. Starting a draft from history is not restoring the active
+dataset. Cancel, validation failure and version conflicts preserve input and persisted draft/live data.
+
+A model-mismatched historical draft cannot activate through the Base 0.6 data flow. Show the source and
+current models and explain the migration requirement. Product 0.10 adds a separate reviewed migration:
+preview affected schema/data and potential loss, confirm the exact plan or cancel, then apply an atomic
+workspace model/data change. Do not enable a fake override control or change other workspaces’ models.
+Application-model drafts and workspace data drafts remain separate resources and concepts.
+
+The [interaction specification](BASE_0_6_INTERACTION_SPEC.md) and product scenarios are the current
+acceptance baseline. Earlier WP0/WP5 fixtures remain implementation evidence for the behaviors they
+actually cover; update them alongside code rather than declaring the new flows proven by old fixtures.
+Mapping 0.7 and translation/tree 0.8 preserve generic maintenance while adding specialist interactions.
 
 The structured designer should eventually use reference-aware catalogues, forms, relationship
 matrices and live preview. A dependency graph may help users understand a model, but a node-and-edge

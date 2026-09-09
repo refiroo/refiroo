@@ -22,8 +22,8 @@ different applications.
 - Compatibility-gated release activation with runtime-state concurrency and lifecycle audit
 - Side-effect-free model validation with stable diagnostics, key-based release diff and bounded
   runtime-data compatibility analysis
-- Stable workspace, object and relation identities; WP6 establishes ADR-024 persistence, WP7 restores
-  generic CRUD, WP8 completes lifecycle orchestration, WP9 restores the UI, and WP10 validates the release
+- Stable workspace, object and relation identities; WP6 established ADR-024 persistence, WP7 restored
+  generic CRUD and WP8 added lifecycle orchestration; WP8.1 corrects authority gaps before WP9/WP10
 - Separately stored typed attribute values—text, integer, decimal, boolean, date, datetime and JSON
 - Typed object relations, automatic parent relations and hierarchy cycle protection
 - Relation cardinality checks and audit events
@@ -35,23 +35,36 @@ different applications.
 - Reusable attribute, child, relation, table and hierarchy panels
 - Transitional per-object revision code from rejected WP4 is retained only as corrective migration input
 - Accessible confirmations, structured mutation errors and optimistic-concurrency recovery
-- Generic object, attribute, relation and translation CRUD remains one contract and is the WP7
-  recovery target; workspace drafts provide context for writes and never create draft objects or draft relations
+- Generic object, attribute, relation and translation CRUD remains one contract restored by WP7;
+  normal writes are live and an explicitly selected workspace draft is optional; no per-record lifecycle
+- Live active data writes (ADR-026, implemented): the active workspace is live-writable for **data** —
+  record writes no longer require a workspace draft (`workspaceDraftId` optional; omitted → direct live
+  write, immediate and audited, no workspace revision). The model stays immutable on an active
+  workspace; drafts remain the design playground; activation delta-merges over live content. See
+  `docs/DECISIONS.md` ADR-026/027 and the Base 0.6 implementation plan.
 - Cross-application relationship lookup with server-side search and cursor pagination
 - Optional Domain/Codelist-to-System Value representations that preserve the separate system hierarchy
 - Translation CRUD with generic Domain, Codelist and Master Value targets, atomic required bindings,
-  and active Language-scoped uniqueness is established behavior that WP7 must restore over WP6 storage
+  and active Language-scoped uniqueness is established behavior WP7 restored over WP6 storage
 - A global model workbench for installed-release inspection and export, plus capability-gated JSON
   draft validation, comparison, installation and activation
 - Docker development environment and continuous-integration workflow
 
 Base 0.5 supplies the bounded query and model-lifecycle foundations. Base 0.6 has established its UI
-foundation, authoritative workspace catalogue, typed collection semantics and WP6 workspace-revision
-persistence. Its delivered WP4 per-object publication boundary was rejected before release and has
-been removed by the corrective migration. Corrective WP7 restores generic CRUD over the new storage
-boundary; WP8 completes workspace lifecycle orchestration, WP9 restores/reuses the generic CRUD UI in
-draft context, and WP10 performs release validation. Typed
-mapping-grid behavior remains product 0.7, with translation and hierarchy interactions later.
+foundation, authoritative workspace catalogue, typed collection semantics, WP6 workspace-revision
+persistence, the WP7 generic-CRUD restoration and the WP8 workspace lifecycle orchestration. Its
+delivered WP4 per-object publication boundary was rejected before release and has been removed by the
+corrective migration. Remaining work starts with WP8.1: live model-compatibility coverage, actual
+current-live draft bases, pinned historical reads and newest-first history. WP9 completes generic live
+editing with optional drafts and correct workspace context; WP10 proves the composed release journeys.
+Browser write components are currently disconnected, and non-default detail context needs repair.
+Typed mapping-grid behavior remains product 0.7, with translation and hierarchy interactions later.
+
+Start with the [product functionality guide](docs/product-functionality/README.md) for available/planned
+functions, stories and realistic acceptance scenarios. The [implementation plan](docs/BASE_0_6_IMPLEMENTATION_PLAN.md)
+and [delivery queue](docs/TODO.md) trace remaining work to those outcomes. Historical schema replacement
+with preview and explicit loss confirmation is a planned 0.10 migration, not a current force action.
+This documentation update does not constitute fresh runtime or browser validation.
 
 ## Run with Docker
 

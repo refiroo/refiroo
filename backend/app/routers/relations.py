@@ -26,7 +26,13 @@ from ..models.database import (
 from ..services.model.registry import ActiveModelSnapshot
 from ..services.objects import build_object_responses, load_active_projection
 from ..services.pagination import integer_key, paginate_sequence, paginate_statement
-from ..services.relations import build_relation_response
+from ..services.relations import (
+    build_relation_response,
+    create_live_relation,
+    delete_live_relation,
+    load_relation,
+    update_live_relation,
+)
 from ..services.workspace_revisions import (
     delete_draft_relation,
     effective_draft_membership,
@@ -42,16 +48,24 @@ def _draft_response(item) -> RelationResponse:
     now = datetime.now(UTC)
     return RelationResponse(id=item.relation_id, relationTypeKey=item.relation_type_key, fromObjectId=item.from_object_id, toObjectId=item.to_object_id, attributes=item.attributes or {}, version=item.version, createdAt=now, updatedAt=now)
 
-def _ctx(draft: str | None, expected: int | None) -> tuple[str, int]:
-    if not draft or expected is None:
-        raise api_error(409, "workspace_draft_required", "workspaceDraftId and expectedWorkspaceDraftVersion are required")
-    return draft, expected
+def _ctx(draft: str, expected: int | None) -> int:
+    if expected is None:
+        raise api_error(
+            409,
+            "workspace_draft_required",
+            "expectedWorkspaceDraftVersion is required when targeting a workspace draft",
+        )
+    return expected
 
 @router.post("/relations", response_model=RelationResponse, status_code=status.HTTP_201_CREATED)
 def create_relation(payload: RelationCreate, session: DbSession, snapshot: ActiveModelSnapshot) -> RelationResponse:
-    draft, expected = _ctx(str(payload.workspaceDraftId) if payload.workspaceDraftId else None, payload.expectedWorkspaceDraftVersion)
-    row = put_draft_relation(session, draft, WorkspaceDraftRelationWrite(id=None, relationTypeKey=payload.relationTypeKey, fromObjectId=payload.fromObjectId, toObjectId=payload.toObjectId, attributes=payload.attributes, expectedDraftVersion=expected, expectedRecordVersion=None))
-    return _draft_response(row).model_copy(update={"workspaceDraftVersion": effective_draft_membership(session, draft).draft.version})
+    if payload.workspaceDraftId:
+        draft = str(payload.workspaceDraftId)
+        expected = _ctx(draft, payload.expectedWorkspaceDraftVersion)
+        row = put_draft_relation(session, draft, WorkspaceDraftRelationWrite(id=None, relationTypeKey=payload.relationTypeKey, fromObjectId=payload.fromObjectId, toObjectId=payload.toObjectId, attributes=payload.attributes, expectedDraftVersion=expected, expectedRecordVersion=None))
+        return _draft_response(row).model_copy(update={"workspaceDraftVersion": effective_draft_membership(session, draft).draft.version})
+    row = create_live_relation(session, snapshot.model, payload)
+    return build_relation_response(row)
 
 @router.get("/relations", response_model=RelationPage)
 def list_relations(session: DbSession, snapshot: ActiveModelSnapshot, object_id: str = Query(alias="objectId"), direction: Literal["outgoing", "incoming", "both"] = "both", relation_type_key: str | None = Query(default=None, alias="relationTypeKey"), workspace_key: str | None = Query(default=None, alias="workspaceKey"), workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"), workspace_revision_id: str | None = Query(default=None, alias="workspaceRevisionId"), cursor: str | None = None, page_size: int = Query(default=100, ge=1, le=500, alias="pageSize")) -> RelationPage:
@@ -88,7 +102,7 @@ def list_relations(session: DbSession, snapshot: ActiveModelSnapshot, object_id:
     from_object, to_object = aliased(RdmObject), aliased(RdmObject)
     statement = select(ObjectRelation).join(from_object, from_object.id == ObjectRelation.from_object_id).join(to_object, to_object.id == ObjectRelation.to_object_id).where(or_(*clauses), from_object.workspace_key == anchor.workspace_key, to_object.workspace_key == anchor.workspace_key)
     if relation_type_key: statement = statement.where(ObjectRelation.relation_type_key == relation_type_key)
-    rows, next_cursor = paginate_statement(session, statement, keys=(integer_key("sequenceId", ObjectRelation.sequence_id, "sequence_id"),), scope="relations", filters={"objectId": object_id, "direction": direction, "relationTypeKey": relation_type_key, "workspaceKey": anchor.workspace_key, "activeRevisionId": workspace.active_revision_id}, cursor=cursor, page_size=page_size, message="Relation cursor is invalid")
+    rows, next_cursor = paginate_statement(session, statement, keys=(integer_key("sequenceId", ObjectRelation.sequence_id, "sequence_id"),), scope="relations", filters={"objectId": object_id, "direction": direction, "relationTypeKey": relation_type_key, "workspaceKey": anchor.workspace_key}, cursor=cursor, page_size=page_size, message="Relation cursor is invalid")
     related_ids = [row.to_object_id if row.from_object_id == object_id else row.from_object_id for row in rows]
     related = {item.id: item for item in session.scalars(select(RdmObject).where(RdmObject.id.in_(related_ids)))}
     return RelationPage(items=[RelationExpansion(direction="outgoing" if row.from_object_id == object_id else "incoming", relation=build_relation_response(row), object=build_object_responses(session, snapshot.model, [related[ row.to_object_id if row.from_object_id == object_id else row.from_object_id]])[0]) for row in rows], nextCursor=next_cursor)
@@ -104,17 +118,27 @@ def get_relation(relation_id: str, session: DbSession, snapshot: ActiveModelSnap
         row = session.scalar(select(WorkspaceRevisionRelation).where(WorkspaceRevisionRelation.revision_id == workspace_revision_id, WorkspaceRevisionRelation.relation_id == relation_id))
         if row is None: raise api_error(404, "relation_not_found", "Relation not found")
         return _draft_response(row)
-    row = session.get(ObjectRelation, relation_id)
-    if row is None: raise api_error(404, "relation_not_found", "Relation not found")
+    row = load_relation(session, relation_id)
     return build_relation_response(row)
 
 @router.patch("/relations/{relation_id}", response_model=RelationResponse)
 def update_relation(relation_id: str, payload: RelationUpdate, session: DbSession, snapshot: ActiveModelSnapshot) -> RelationResponse:
-    draft, expected = _ctx(str(payload.workspaceDraftId) if payload.workspaceDraftId else None, payload.expectedWorkspaceDraftVersion)
-    row = update_draft_relation(session, draft, relation_id, WorkspaceDraftRelationUpdate(attributes=payload.attributes, expectedDraftVersion=expected, expectedRecordVersion=payload.expectedVersion))
-    return _draft_response(row).model_copy(update={"workspaceDraftVersion": effective_draft_membership(session, draft).draft.version})
+    if payload.workspaceDraftId:
+        draft = str(payload.workspaceDraftId)
+        expected = _ctx(draft, payload.expectedWorkspaceDraftVersion)
+        row = update_draft_relation(session, draft, relation_id, WorkspaceDraftRelationUpdate(attributes=payload.attributes, expectedDraftVersion=expected, expectedRecordVersion=payload.expectedVersion))
+        return _draft_response(row).model_copy(update={"workspaceDraftVersion": effective_draft_membership(session, draft).draft.version})
+    row = update_live_relation(session, snapshot.model, relation_id, payload)
+    return build_relation_response(row)
 
 @router.delete("/relations/{relation_id}", status_code=204)
-def remove_relation(relation_id: str, session: DbSession, snapshot: ActiveModelSnapshot, workspace_draft_id: str = Query(alias="workspaceDraftId"), expected_workspace_draft_version: int = Query(alias="expectedWorkspaceDraftVersion", ge=1), expected_version: int = Query(alias="expectedVersion", ge=1)) -> Response:
-    delete_draft_relation(session, workspace_draft_id, relation_id, expected_workspace_draft_version, expected_version)
+def remove_relation(relation_id: str, session: DbSession, snapshot: ActiveModelSnapshot,
+                    workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
+                    expected_workspace_draft_version: int | None = Query(default=None, alias="expectedWorkspaceDraftVersion", ge=1),
+                    expected_version: int = Query(alias="expectedVersion", ge=1)) -> Response:
+    if workspace_draft_id:
+        _ctx(workspace_draft_id, expected_workspace_draft_version)
+        delete_draft_relation(session, workspace_draft_id, relation_id, expected_workspace_draft_version, expected_version)
+    else:
+        delete_live_relation(session, snapshot.model, relation_id, expected_version)
     return Response(status_code=204)

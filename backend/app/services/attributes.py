@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..errors import api_error
 from ..models.api import AttributeValueResponse
-from ..models.database import AttributeValue, RdmObject, Workspace
+from ..models.database import AttributeValue, RdmObject
 from ..models.schema import AttributeTypeDefinition, EngineModel, ObjectTypeDefinition
 
 VALUE_COLUMNS = {
@@ -116,16 +116,12 @@ def apply_attribute_values(
     item: RdmObject,
     attributes: dict[str, Any],
 ) -> None:
-    """Validate, persist and re-check one attribute write as a single sequence.
+    """Validate, persist and re-check a live attribute write as a single sequence.
 
     Every path that writes attribute values must run these steps in this order; keeping them here
-    stops a caller from performing the write while skipping one of the checks.
+    stops a caller from performing the write while skipping one of the checks.  The caller is
+    responsible for claiming the object's optimistic-concurrency version first.
     """
-    raise api_error(
-        409,
-        "workspace_draft_required",
-        "Published workspace attributes are read-only; edit attributes in a workspace draft",
-    )
     from .relations import validate_scoped_relations_for_subtree
 
     validate_attribute_change(session, model, object_type, item, attributes)
@@ -259,9 +255,6 @@ def check_attribute_uniqueness(
                 AttributeValue.attribute_type_key == key,
                 column == value,
                 RdmObject.workspace_key == workspace_key,
-                RdmObject.workspace_key.in_(
-                    select(Workspace.key).where(Workspace.active_revision_id.is_not(None))
-                ),
             )
         )
         if exclude_object_id is not None:
@@ -290,6 +283,14 @@ def load_attribute_value(
             f"Attribute '{attribute_type_key}' has no value on object '{object_id}'",
         )
     return row
+
+
+def remove_attribute_value_row(
+    session: Session, object_id: str, attribute_type_key: str
+) -> None:
+    """Physically delete one live attribute value row (404 when absent)."""
+    row = load_attribute_value(session, object_id, attribute_type_key)
+    session.delete(row)
 
 
 def ensure_attribute_value_absent(

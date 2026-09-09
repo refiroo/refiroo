@@ -531,66 +531,106 @@ Create/update/default-switch routes are absent when `WORKSPACE_ADMIN_MUTATIONS_E
 The flag defaults to true only for the pre-authentication development posture; exposed deployments
 must disable it or protect the API with external access control.
 
-## Workspace publication API design (WP7-WP8)
+## Workspace data drafts and publication history — current API and accepted targets
 
 ADR-024 replaces the rejected WP4 object-lifecycle surface. Object-draft, object-revision, activation
 and object-retirement endpoints from WP4 are migration history, not public contracts; clients and UI
-must not call them. WP6 implements storage and migration, WP7 restores the canonical record resources
-over that storage, and WP8 completes the workspace lifecycle surface below.
+must not call them. WP6 implemented the workspace-revision storage and corrective migration, WP7
+restored the canonical record resources over that storage, and WP8 completed and tested the workspace
+lifecycle surface below. ADR-026 restored direct live writes; ADR-027 records the remaining WP8.1
+corrections. Current behavior and accepted targets are distinguished below; no new endpoint is
+implemented by this documentation update.
 
 - `GET|POST /api/v1/workspaces/{workspaceKey}/drafts` lists cursor-paged drafts or creates an empty
-  root draft / a draft derived from an explicit immutable workspace revision.
+  root draft / a draft derived from an explicit immutable workspace revision. It does not yet copy
+  the current live graph into a new root draft.
 - `GET|PATCH|DELETE /api/v1/workspace-drafts/{draftId}` reads, names or discards a mutable draft.
   PATCH and DELETE claim `expectedVersion`.
 - The existing canonical object, attribute, containment and relation resources retain their paths,
-  request/response shapes and CRUD semantics. `workspaceKey` selects the active revision for published
-  reads, `workspaceDraftId` selects the effective mutable draft for draft reads and writes, and
+  request/response shapes and CRUD semantics. `workspaceKey` selects the live active projection for
+  active reads, `workspaceDraftId` selects the effective mutable draft for draft reads and writes, and
   `workspaceRevisionId` selects an immutable historical revision. Draft and historical contexts are
-  mutually exclusive. Writes require `workspaceDraftId`; object creation also retains `workspaceKey`,
-  which must match the draft. This execution context is not a second public CRUD dialect. In particular,
-  `/api/v1/workspace-drafts/{draftId}/objects` and `/api/v1/workspace-drafts/{draftId}/relations`
-  are explicitly not public resources. Record writes claim `expectedRecordVersion` and the workspace
-  draft version; they never mutate an active projection.
+  mutually exclusive. Writes are draft-gated only when the caller supplies `workspaceDraftId` (with
+  `expectedWorkspaceDraftVersion`); draft updates and deletes also claim the existing record's
+  `expectedVersion`, while draft creation has no prior record version. Without a draft, mutations
+  target the live store; updates/deletes claim the record `expectedVersion`, while creation has no
+  previous record version; an existing object or relation
+  supplies its workspace context. Only a live object create requires `workspaceKey`. This execution context is not a second public CRUD
+  dialect. In particular, `/api/v1/workspace-drafts/{draftId}/objects` and
+  `/api/v1/workspace-drafts/{draftId}/relations` are explicitly not public resources. Canonical draft record
+  updates/deletes use `expectedVersion` and `expectedWorkspaceDraftVersion`; internal service models
+  use different names and are not a second client contract. Live writes never mutate a revision snapshot.
 - `POST /api/v1/workspace-drafts/{draftId}/validation` validates the complete effective graph without
   publication. `POST /api/v1/workspace-drafts/{draftId}/activation` requires
   `expectedDraftVersion` and nullable `expectedActiveRevisionId`.
+  Stored read-only values, including model defaults, are valid snapshot content and are checked for
+  their declared types and constraints; ordinary writes and attribute deletion still enforce the
+  binding's read-only restriction.
 - `GET /api/v1/workspaces/{workspaceKey}/revisions` and
   `GET /api/v1/workspace-revisions/{revisionId}` expose cursor-paged immutable history and bounded
-  snapshot reads.
-- `POST /api/v1/workspaces/{workspaceKey}/retirement` retires only the active workspace content
-  revision under `expectedActiveRevisionId`; it does not retire, delete or change any individual
-  object.
+  snapshot reads. Current revision discovery is oldest first; newest-first order is the accepted
+  ADR-027 target assigned to WP8.1-C, not delivered by these docs.
+- `POST /api/v1/workspaces/{workspaceKey}/retirement` retires the active workspace content revision
+  under `expectedActiveRevisionId` and clears its publication designation. It retains the live
+  records; it does not retire, delete or change any individual object, and it is not a user-facing
+  data-withdrawal operation.
 
 A workspace revision snapshots one graph: objects, typed attributes, containment (both parent
 projection and typed edge), required ownership relations and independent relations. Stable object and
-relation UUIDs remain integration identities but have no lifecycle state. Drafts and revisions pin
-`modelReleaseId`; an activation against another resolved model returns
-`workspace_draft_model_release_conflict` and never rebases implicitly. Conflicts are
-`workspace_draft_version_conflict`, `version_conflict`, `workspace_active_revision_conflict`,
-`workspace_draft_model_release_conflict`, `workspace_cursor_invalid`, and graph
-validation/uniqueness diagnostics. Cursors bind workspace, draft or revision identity, model release,
-query filters and sort; a publication switch cannot continue a page.
+relation UUIDs remain integration identities but have no lifecycle state. Drafts pin `modelReleaseId`;
+revisions persist a `modelReleaseId` as their historical model identity. Activation against another
+resolved model returns
+`workspace_draft_model_release_conflict` and never rebases implicitly. Activation delta-merges the
+draft onto the current live content and snapshots the merged graph, so a draft branched from an old
+revision preserves newer live records it never touched (ADR-026). Conflicts are
+`workspace_draft_version_conflict`, `workspace_active_revision_conflict`,
+`workspace_draft_model_release_conflict`, and
+`version_conflict` — activation reports every per-record merge divergence under `409 version_conflict`
+with `details.conflicts` (`kind`, `id`, `code` `version_mismatch`/`id_collision`/`duplicate_edge`,
+expected/actual version) — plus `422 workspace_graph_invalid` when the merged graph fails whole-graph
+validation. Draft and historical collection cursors bind their selected context identity and query
+filters; malformed/mismatched tokens return `422 invalid_cursor`. Live collection cursors bind the
+effective live workspace and query filters. Current cursor
+tokens do not bind a model or revision ID unless that context is itself selected.
+
+> **Target — ADR-027 / WP8.1.** A new root workspace draft must start from a copy of the current live
+> graph, including when no workspace revision has been published. Historical derivation remains an
+> explicit, separately labelled choice. This is accepted planning work, not current endpoint behavior.
+> Workspace data drafts and application-model drafts remain separate tools.
+
+> **Target — WP8.1 historical reads.** Resolve snapshots with their pinned supported model; current
+> read routes still use the active model in relevant response/query paths. This correction belongs in
+> Base 0.6 and is distinct from schema migration.
+>
+> **Target — product 0.10 historical model migration.** Preview incompatibilities and potential data
+> loss for one workspace and a named installed target release (normally the historical draft’s pin),
+> then confirm the exact reviewed plan or cancel. Confirmed execution migrates live data to that target and changes
+> only the selected workspace model assignment atomically. Model drafts and data drafts remain separate;
+> target validity, conflict checks and parser support still apply. No `force` flag exists today.
 
 ## Generic runtime CRUD contract
 
 The following routes remain the canonical generic runtime CRUD contract. Workspace lifecycle changes
-the selected storage/publication context, not these operations. Published and historical reads are
-read-only; the same operations write to an explicitly selected mutable workspace draft. There are no
-object drafts, object revisions or object lifecycle endpoints.
+the selected storage/publication context, not these operations. Historical reads are read-only; the
+same operations write either to an explicitly selected mutable workspace draft or, without one, directly
+to the live active store (explicit workspace on creation, record version on updates/deletes). There are no object drafts, object
+revisions or object lifecycle endpoints.
 
 Content context extends rather than replaces the established payloads. Collection and identity reads
 use their existing active `workspaceKey` context by default; optional `workspaceDraftId` selects the
 effective draft and optional `workspaceRevisionId` selects immutable history. Those two optional
-contexts are mutually exclusive. Collection filters and paging behave identically in every content
-context. POST and PATCH bodies carry `workspaceDraftId` and
-`expectedWorkspaceDraftVersion` alongside the established record fields; DELETE carries both as query
-parameters. Object creation may omit `workspaceKey` and infer it from the selected draft; when supplied,
-the service rejects a mismatch. Successful writes return the updated record and workspace-draft concurrency values so
-the next generic operation can make both claims.
+contexts are mutually exclusive. POST, PATCH and DELETE use `workspaceDraftId` plus
+`expectedWorkspaceDraftVersion` only for the draft path. A live object create must provide
+`workspaceKey`; a draft create infers it from the draft. Live object updates, attribute writes and
+relation mutations infer the workspace from their existing record(s), so their payloads do not add
+`workspaceKey`. Successful draft record mutation responses supply `workspaceDraftVersion`. It has no usable value
+for live/history responses; the nullable response fields currently serialize as null where unset.
+Draft GET paths do not consistently populate it, so read the draft resource for its current aggregate
+version rather than assuming every record read returns one.
 
 - `GET /api/v1/objects/{objectTypeKey}` — list objects of a type
 - `POST /api/v1/objects` — create an object
-- `GET /api/v1/objects/{objectTypeKey}/{objectId}?workspaceDraftId={id}|workspaceRevisionId={id}` — get one object from draft or history; omit both for the active revision
+- `GET /api/v1/objects/{objectTypeKey}/{objectId}?workspaceDraftId={id}|workspaceRevisionId={id}` — get one object from draft or history; omit both for the live active projection
 - `PATCH /api/v1/objects/{objectTypeKey}/{objectId}` — update an object
 - `DELETE /api/v1/objects/{objectTypeKey}/{objectId}` — delete an object
 
@@ -611,51 +651,84 @@ two text matching operators are case-insensitive. Different filters combine with
 for one field combines with OR. Invalid grammar, capability, operator or typed input returns
 `422 invalid_filter` (or `invalid_sort`) with `details.path` identifying the query parameter.
 
-Object cursors are signed opaque tokens bound to the object type, selected sort, exact workspace
-revision or draft identity and every effective normalized filter. A malformed token, a changed sort or
-filter, a publication switch or reuse for another collection returns `422 invalid_cursor`. Predicates use keyset
+Object cursors are signed opaque tokens. Live cursors bind object type, selected sort, effective live
+workspace and every effective normalized filter; they do not bind a model or revision. Draft and
+historical cursors additionally bind their selected draft or revision context. A malformed token, a
+changed sort/filter/context or reuse for another collection returns `422 invalid_cursor`. A live
+publication switch alone does not invalidate the cursor. Live predicates use keyset
 positions rather than offsets, so duplicate names and timestamps remain deterministic and inserts do
-not cause already traversed rows to repeat.
+not cause already traversed rows to repeat merely by shifting offsets. Live changes to sort keys may
+affect traversal; a live cursor is not a snapshot-consistent export.
 
 Draft-context `DELETE` requires `workspaceDraftId`, `expectedWorkspaceDraftVersion` and
-`expectedVersion`, and accepts optional `cascade` (default `false`). It changes only the selected
-workspace draft; published reads remain unchanged until activation. Without cascade,
+`expectedVersion`; live `DELETE` requires only `expectedVersion`. Both accept optional `cascade`
+(default `false`). A draft delete changes only the selected workspace draft; live reads remain
+unchanged until activation. Without cascade,
 an object that has no children or non-parent relations is deleted normally. If dependencies exist, the
-request performs no deletion and returns `409 object_has_dependents` with a structured impact report:
+request performs no deletion and returns `409 object_has_dependants` with a structured impact report:
 
 ```json
 {
   "error": {
-    "code": "object_has_dependents",
-    "message": "Deleting this object requires cascade confirmation",
+    "code": "object_has_dependants",
+    "message": "Object has dependant records or relationships; repeat with cascade=true",
     "details": {
-      "rootObject": { "id": "...", "name": "Connections", "objectTypeKey": "domain" },
       "objectsToDelete": [
-        { "id": "...", "name": "Timetables", "objectTypeKey": "codelist", "reason": "child", "viaObjectId": "..." }
-      ],
-      "relationshipsToRemove": [
         {
           "id": "...",
-          "relationTypeKey": "maps-to",
-          "fromObject": { "id": "...", "name": "Source value", "objectTypeKey": "source-value" },
-          "toObject": { "id": "...", "name": "Target value", "objectTypeKey": "target-value" },
-          "fkPk": false,
-          "relatedObjectWillBeDeleted": false
+          "name": "Timetables",
+          "objectTypeKey": "codelist",
+          "applicationKey": "rdm-master",
+          "parentObjectId": "...",
+          "reason": "child"
         }
       ],
+      "objectsToRetire": [
+        {
+          "id": "...",
+          "name": "Timetables",
+          "objectTypeKey": "codelist",
+          "applicationKey": "rdm-master",
+          "parentObjectId": "...",
+          "reason": "child"
+        }
+      ],
+      "relationshipsToRemove": [
+        { "id": "...", "relationTypeKey": "maps-to" }
+      ],
       "objectCount": 2,
-      "relationshipCount": 2
+      "relationshipCount": 1,
+      "retainedAssociationCount": 1,
+      "deletionPreviewToken": "opaque-signed-token"
     }
   }
 }
 ```
 
-Retrying with `cascade=true` recursively deletes all containment descendants and their attributes, and
+Confirming requires both `cascade=true` and the opaque `deletionPreviewToken` returned by that exact
+preview. The token locks the displayed hierarchy and incident relationships, including their record
+versions, workspace/draft and model context. If an object, attribute, parent link or incident
+relationship changes before confirmation, deletion changes nothing and returns `409
+deletion_preview_changed`: `The object was modified by another session. Please retry.` The client must
+request and display a fresh preview. A missing token returns `409 deletion_preview_required`; a token
+cannot be reused for another object, workspace, draft or model.
+
+Deletion is always confined to one workspace. If inconsistent stored data contains a containment or
+relationship edge into another workspace, the operation changes nothing and returns `409
+workspace_graph_invalid` so the data can be repaired safely.
+
+A matching confirmation recursively deletes all containment descendants and their attributes, and
 removes every relationship incident to the deletion set. Optional and many-to-many non-parent links
 are unlinked without deleting the other endpoint. A directed, required `one-to-one` or `one-to-many`
 binding has PK→FK ownership semantics; cascading from its `from` owner also deletes its `to` dependent,
-including that dependent's own containment descendants. The complete operation and its audit events
-commit atomically. A stale root `expectedVersion` returns HTTP 409.
+including that dependent's own containment descendants. The confirmed hierarchy is re-read and
+compared inside the deletion transaction before any delete or audit persists. The complete operation
+and its audit events commit atomically. A stale root `expectedVersion` returns HTTP 409.
+
+`objectsToDelete` contains the dependent rows, while `objectCount` includes the root object. The
+duplicate `objectsToRetire` key is retained for legacy compatibility and has the same rows; it does
+not mean that this delete retires records. `retainedAssociationCount` counts incident relationships
+with an endpoint outside the deletion set.
 
 ### Create request
 
@@ -667,9 +740,9 @@ commit atomically. A stale root `expectedVersion` returns HTTP 409.
 | `applicationKey` | Yes | Application the object belongs to. |
 | `objectTypeKey` | Yes | Type of the object to create. |
 | `name` | Yes | Display name (1–500 characters). |
-| `workspaceKey` | No | Inferred from `workspaceDraftId` when omitted; when supplied, it must match the draft's workspace. |
-| `workspaceDraftId` | Yes | Mutable workspace draft that receives the record. |
-| `expectedWorkspaceDraftVersion` | Yes | Aggregate workspace-draft concurrency claim. |
+| `workspaceKey` | Yes for live create; No for draft create | Required without `workspaceDraftId`; inferred from the draft when targeting one. Current draft creation follows the draft identity; the route does not independently check a supplied conflicting key. Context mismatch enforcement is a WP8.1/WP9 contract gap, not a client permission to cross workspaces. |
+| `workspaceDraftId` | No | Optional mutable workspace draft that receives the record. Omit it for a live create. |
+| `expectedWorkspaceDraftVersion` | When targeting a draft | Aggregate workspace-draft concurrency claim. |
 | `parentObjectId` | No | Parent object UUID. Required for non-root-creatable types. |
 | `attributes` | No | Array of attribute values (see below). |
 | `initialRelations` | Conditionally | Required non-parent relationships created atomically with the object. |
@@ -681,8 +754,6 @@ commit atomically. A stale root `expectedVersion` returns HTTP 409.
   "objectTypeKey": "domain",
   "name": "Connections",
   "workspaceKey": "default",
-  "workspaceDraftId": "workspace-draft-uuid",
-  "expectedWorkspaceDraftVersion": 3,
   "parentObjectId": null,
   "attributes": [
     { "attributeTypeKey": "domain-code", "value": "CONNECTIONS" },
@@ -695,7 +766,8 @@ Each `initialRelations` item contains `relationTypeKey`, `direction` relative to
 `otherObjectId`, and optional relation `attributes`. If a model binding is required at the new object's
 target side, creation returns `422 missing_required_relations` unless a matching incoming relation is
 provided. Object, attributes, containment, initial relationships and audit events commit in one
-transaction. For example, a Translation is created with its target as follows:
+transaction. The first create example is live. For the optional staged path, supply the draft and its
+version; for example, a Translation with its target can be created in a selected draft as follows:
 
 ```json
 {
@@ -754,8 +826,9 @@ database-level constraint is planned.
 ### Update request
 
 `PATCH /api/v1/objects/{objectTypeKey}/{objectId}` accepts a partial update. Only provided fields
-are changed. `expectedVersion`, `workspaceDraftId` and `expectedWorkspaceDraftVersion` are required
-and claimed atomically; stale or concurrent writes return HTTP 409.
+are changed. `expectedVersion` is required for live and draft updates. `workspaceDraftId` is optional;
+when present, `expectedWorkspaceDraftVersion` is required as well. Claims are atomic; stale writes
+return HTTP 409. Live payloads do not accept `workspaceKey`.
 
 ```json
 {
@@ -763,11 +836,12 @@ and claimed atomically; stale or concurrent writes return HTTP 409.
   "attributes": [
     { "attributeTypeKey": "description", "value": "Updated description" }
   ],
-  "expectedVersion": 1,
-  "workspaceDraftId": "workspace-draft-uuid",
-  "expectedWorkspaceDraftVersion": 5
+  "expectedVersion": 1
 }
 ```
+
+For a draft update, add `workspaceDraftId` and `expectedWorkspaceDraftVersion` to the same payload.
+The preceding example is a normal live correction and does not create a workspace revision.
 
 ### Attribute value endpoints
 
@@ -782,13 +856,15 @@ mutually exclusive content-context rules as object reads.
 - `PATCH /api/v1/objects/{objectTypeKey}/{objectId}/attributes/{attributeTypeKey}` — update a stored value
 - `DELETE /api/v1/objects/{objectTypeKey}/{objectId}/attributes/{attributeTypeKey}?expectedVersion={n}&workspaceDraftId={id}&expectedWorkspaceDraftVersion={n}` — remove a stored value
 
-`GET` returns a single attribute response item plus `objectVersion`, the current concurrency token for
-the containing object, and `workspaceDraftVersion` when reading draft context. `POST` and `PATCH`
-return the full object response plus the resulting draft version. All three mutating endpoints
-require `expectedVersion` — the object's current `version` — plus the selected draft and its expected
-version. Both claims are atomic, so concurrent requests cannot both write from the same versions.
-Returning the tokens from `GET` and successful mutations gives callers the values required for the
-next write.
+`GET` returns one stored value with `objectVersion`, the containing object's version. Current draft
+attribute GET does not populate `workspaceDraftVersion`; the optional field is null. Read the draft
+resource to obtain its aggregate version. `POST`/`PATCH` return the full object response; successful
+draft writes populate the resulting draft version. Live writes have no draft claim or usable draft
+version. `DELETE` returns 204.
+
+All attribute mutations require the object's `expectedVersion`. Only explicitly draft-scoped writes
+also require `workspaceDraftId` and `expectedWorkspaceDraftVersion` (body for POST/PATCH, query for
+DELETE). Both claims apply atomically in draft context; live mutations claim only the object version.
 
 ```json
 {
@@ -798,12 +874,13 @@ next write.
   "valueType": "longText",
   "value": "Connections domain",
   "objectVersion": 1,
-  "workspaceDraftVersion": 6
+  "workspaceDraftVersion": null
 }
 ```
 
-The example above is a draft-context response. Published and historical attribute responses omit
-`workspaceDraftVersion` because those contexts are immutable.
+This read does not supply a draft version, even when the record was requested through a draft.
+Historical values are immutable; live values remain writable. Null draft metadata is not a read-only
+flag.
 
 `POST` and `PATCH` share a request body:
 
@@ -818,6 +895,8 @@ The example above is a draft-context response. Published and historical attribut
 
 - `POST` creates only when no value is stored for the key (`409 attribute_already_exists` otherwise).
 - `PATCH` updates only a stored value (`404 attribute_not_found` when the key has no value yet).
+- For a live POST/PATCH, omit both draft fields from the example. For live DELETE, supply only
+  `expectedVersion`; the draft query fields shown in the route list are optional context.
 - `DELETE` removes a stored value and returns 204. Required attributes cannot be deleted
   (`422 cannot_delete_required_attribute`); read-only attributes are rejected with
   `422 read_only_attributes`. Deleting an optional value reverts that attribute to "not stored".
@@ -851,17 +930,18 @@ a `details` array.
 - `DELETE /api/v1/relations/{relationId}?expectedVersion={n}&workspaceDraftId={id}&expectedWorkspaceDraftVersion={n}`
 
 Relation GET routes accept optional `workspaceDraftId` or `workspaceRevisionId` under the same
-mutually exclusive content-context rules as object reads. POST and PATCH bodies include
-`workspaceDraftId` and `expectedWorkspaceDraftVersion`; DELETE includes them as query parameters. The
-established relation identity, attributes and `expectedVersion` fields are otherwise unchanged.
+mutually exclusive content-context rules as object reads. POST/PATCH use optional draft fields in
+the body; DELETE uses them in query parameters. Supplying `workspaceDraftId` requires the draft version.
+Live update/delete claim only the relation `expectedVersion`; creation has no existing relation version.
+Endpoints identify their workspace; live mutation payloads do not accept a new `workspaceKey` field.
 
 `GET /api/v1/relations` accepts its existing `objectId`, `direction` and `relationTypeKey` filters plus
 bounded `pageSize` (1–500, default 100) and opaque `cursor`. It returns
 `{"items": [...], "nextCursor": null}` rather than an unbounded array. A legitimate collection with
 no matching relationships returns `{"items": [], "nextCursor": null}`. The cursor is signed and bound
-to the anchor object, direction, relation type, workspace and exact active revision, draft or historical
-revision identity; malformed or mismatched cursors
-return `422 invalid_cursor`. Both relation endpoint objects are joined in the anchor object's
+to the anchor object, direction, relation type and effective workspace. Draft/history continuations
+add their selected context identity; live continuations do not bind an active revision or model.
+Publication alone does not invalidate a live continuation. Malformed or mismatched cursors return `422 invalid_cursor`. Both relation endpoint objects are joined in the anchor object's
 workspace before projection, preventing a corrupt or legacy cross-workspace edge from being exposed.
 
 This page shape is an intentional pre-1.0 breaking change. Callers must follow `nextCursor` unchanged
@@ -881,7 +961,8 @@ reads one relation; an unknown id returns `404 relation_not_found`.
 
 `PATCH /api/v1/relations/{relationId}` accepts `{"attributes": {...}, "expectedVersion": n,
 "workspaceDraftId": "...", "expectedWorkspaceDraftVersion": n}`. The
-relation identity (`relationTypeKey`, `fromObjectId`, `toObjectId`) is immutable; only `attributes`
+example is draft-scoped; omit its two draft fields for a live update. The relation identity
+(`relationTypeKey`, `fromObjectId`, `toObjectId`) is immutable; only `attributes`
 can be replaced. Replacement attributes are validated against the original allowed pair in the same
 transaction as the version claim. `DELETE` returns 204 and removes the relation row. Both mutations
 take `expectedVersion` and atomically claim the version, returning `409 version_conflict` when the

@@ -8,8 +8,38 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Reviewed the uncommitted WP8 implementation against the live/draft API contracts. Corrected
+  activation and cascade deletion ordering, association confirmation and ownership checks, atomic
+  draft version claims, public relation UUID reads, retired-workspace publication guards, and
+  read-only attribute handling, draft containment validation and cross-workspace ID collisions.
+  Added request-boundary and audit-migration regression coverage. Cascade confirmation now requires
+  the signed token from the exact displayed preview and rejects any intervening hierarchy change with
+  no deletion or audit side effects. Missing tokens are rejected before stale-version checks, draft
+  deletion verifies the route object type, live deletion serializes against workspace retirement and
+  inconsistent cross-workspace graph edges are refused. The frontend adapter carries both live and
+  draft confirmation context. The separately planned WP8.1 authority corrections remain open.
+
+- Reconciled technical documentation and delivery planning with the accepted product stories and
+  GAP-01–GAP-08 answers. ADR-027 consolidates live data, optional copied drafts, immutable history,
+  truthful publication retirement and newest-first history. The remaining sequence is WP8.1 authority
+  corrections, WP9 browser completion and WP10 composed validation; historical model replacement with
+  reviewed loss confirmation is planned for 0.10. Corrected API documentation against current payloads
+  and cursor behavior. This entry records documentation changes, not implementation or new test passes.
+
+- Implemented ADR-026 live active data writes: the active workspace is live-writable for **data**.
+  `workspaceDraftId` is optional on record writes — present stages into the design draft; absent
+  writes directly to the live active object store (record `expectedVersion` claim + audit, no
+  workspace revision). Active reads resolve the live projection; activation is a delta-merge of the
+  draft onto current live content with per-record version conflict detection (`version_mismatch` /
+  `id_collision` / `duplicate_edge`), merged-graph validation and a merged revision snapshot that
+  preserves live-only records. Restored `services/objects.py` CRUD functions, `services/relations.py`
+  helpers and `services/deletion.py` as the live write path basis; added the workspace-audit seam and
+  a corrective migration widening the audit `aggregate_id` column to host live object/relation ids.
+  Amends ADR-024/ADR-025 write-context clauses for data content.
+
 - Corrective Base 0.6 WP6 persistence: workspace drafts and immutable workspace revisions own the
-  runtime graph. The migration converts only unambiguous Base 0.5/rejected-WP4 workspace graphs,
+  staged/historical graph; ADR-026 subsequently restores live-row current-data authority. The migration
+  converts only unambiguous Base 0.5/rejected-WP4 workspace graphs,
   preserves public object and relation UUIDs, and removes per-object lifecycle persistence.
 
 - The backend now requires Python 3.14. The local version pin, package metadata, Ruff target, CI
@@ -44,11 +74,22 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
-- Planned Base 0.6 WP7-WP10 correction: workspace publication remains the lifecycle boundary, while
-  the established generic object, attribute, relation and translation CRUD contract is restored over
-  WP6 storage. Workspace drafts provide write context but do not create draft objects, draft relations
-  or nested public CRUD resources. The stopped WP7 implementation is not complete until the original
-  CRUD and translation suites are restored and enabled.
+- Base 0.6 WP7 corrective CRUD restoration: the established generic object, attribute, relation and
+  translation CRUD contract is restored over WP6 workspace storage. Originally draft-scoped, it was
+  extended by ADR-026 to direct live writes plus optional drafts. No per-record lifecycle or nested
+  public CRUD resources are introduced, and the
+  original CRUD, attribute, cascade and translation suites are restored and enabled.
+
+- Base 0.6 WP8 workspace lifecycle orchestration (backend-only; WP9 UI pending). Root and
+  history-derived workspace drafts, whole-graph validation, atomic activation that writes one immutable
+  workspace revision of the merged live graph and applies authored changes in one transaction after the
+  ADR-026 correction,
+  cursor-paged immutable revision history, and publication retirement under an expected active-revision
+  claim. Draft/revision/validation/activation/retirement events use dedicated workspace aggregates with
+  bounded identity payloads, kept separate from record-level `object-draft` and `relation` audit
+  events. Objects, typed attributes, containment and relations remain ordinary records through the
+  canonical generic CRUD routers; no per-object lifecycle or nested workspace-draft CRUD resources
+  exist.
 
 - Database migration failures now produce a credential-safe operator message with the current and
   target revisions, recovery command, backup requirement and escalation details. Startup enters
@@ -67,9 +108,10 @@ All notable changes to this project are documented in this file. The format foll
   prevents compatibility adapters from drifting the lifecycle projection and rejects corrupt
   cross-workspace retirement graphs.
   This pre-release design was subsequently rejected as the wrong publication boundary. ADR-024 and
-  corrective WP5 froze workspace-level journeys, fixtures and API design; WP6 supplies the corrected
-  persistence, and WP7-WP10 restore generic CRUD, complete workspace orchestration and deliver the UI
-  and release validation. These object-lifecycle APIs are not a compatibility commitment.
+  corrective WP5 froze workspace-level journeys, fixtures and API design; WP6 supplied the corrected
+  persistence, WP7 restored generic CRUD and WP8 completed workspace orchestration, with WP9-WP10
+  delivering the UI and release validation. These object-lifecycle APIs are not a compatibility
+  commitment.
 
 - Frontend lint and format tooling: ESLint 10 with `typescript-eslint` and
   `eslint-plugin-react-hooks`, and Prettier. `AGENTS.md` listed "linting passes" in the definition

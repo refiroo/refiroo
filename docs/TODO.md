@@ -4,7 +4,31 @@ This file is the prioritized delivery queue. The roadmap owns sequencing and out
 implementation plan owns detailed contracts and work packages. Keep completed historical work in its
 release plan and changelog rather than accumulating it here.
 
-## Now — Base 0.6
+## Now — Base 0.6 completion under ADR-027
+
+User GAP-01–GAP-08 answers are accepted. That resolves product direction, not runtime delivery.
+The next sequence is **WP8.1-A/B/C → WP9 → WP10**. Completed checkboxes below record prior work;
+they do not close the newly identified authority or browser gaps.
+
+- [x] Consolidate accepted live/draft/history and historical-migration direction in ADR-027 and the
+  technical planning baseline; retain user comments in the product planning handoff.
+- [ ] WP8.1-A: make model compatibility inspect all authoritative live data and resolve historical
+  reads using their pinned supported model. Prove live-only incompatibility and historical typing after
+  model activation, including readable retired workspace content.
+- [ ] WP8.1-B: capture an immutable current-live draft base including post-publication edits, model and
+  record versions; support live data without a prior publication. Keep historical source separate and
+  empty-root creation as development/bootstrap support. Preserve existing drafts through migrations.
+- [ ] WP8.1-C: newest-first revision history and cursor tests; prove designation retirement preserves
+  live access, catalogue retirement rejects writes, and history is not a direct restore operation.
+- [ ] WP9: restore complete live CRUD and optional draft UI, non-default context throughout the task,
+  pinned read-only history, truthful retirement, coherent editing and preserved-input recovery.
+- [ ] WP10: execute product scenarios against a real browser/backend, plus accessibility, visual,
+  concurrency, live-only compatibility, history, migration/lifespan and packaging gates. Record evidence
+  by story and channel; no component-only acceptance or relevant skipped CRUD suite.
+
+See `BASE_0_6_IMPLEMENTATION_PLAN.md` for slice ownership, contracts, exclusions and exit evidence.
+
+## Prior Base 0.6 delivery record
 
 - [x] WP0: independently review and accept the produced seven-journey interaction specification and
   frontend acceptance fixtures.
@@ -31,25 +55,44 @@ release plan and changelog rather than accumulating it here.
   migration input.
 - [x] WP5: refroze ADR-024 workspace lifecycle journeys, fixtures, API design, concurrency, cursor and migration contracts; no persistence or APIs implemented.
 - [x] WP6: replace object-lifecycle persistence with workspace drafts/revisions and corrective migration.
-- [ ] WP7: restore established generic object, attribute, containment, relation and translation CRUD over
-  WP6 workspace storage; do not introduce nested draft CRUD resources or object lifecycle.
-- [ ] WP8: complete workspace draft/revision discovery, graph validation, atomic activation and
+- [x] WP7: restore established generic object, attribute, containment, relation and translation CRUD over
+  WP6 workspace storage; no nested draft CRUD resources or object lifecycle remain.
+- [x] WP8: complete workspace draft/revision discovery, graph validation, atomic activation and
   publication retirement as workspace-level operations.
-- [ ] WP9: restore and reuse generic CRUD UI inside explicit workspace-draft context, including empty
-  relationship/translation states and conflict recovery.
-- [ ] WP10: run real integration, browser, accessibility, visual-regression, migration, packaging and
-  release validation with no CRUD suites skipped.
-
-See `BASE_0_6_IMPLEMENTATION_PLAN.md` for scope, file boundaries and exit criteria.
+- [x] WP8 amendment (ADR-026, implemented 2026-09-07): `workspaceDraftId` is optional on record writes
+  so the **active workspace is live-writable for data** (absent draft → write directly to the live
+  object store with a record `expectedVersion` claim and audit; no workspace revision). Active reads
+  resolve the live projection; model stays immutable on active; drafts remain the design playground.
+  - [x] Slice 0: decision note + doc/roadmap/plan/TODO updates (this entry, plus ADR-026, the
+    discrepancy highlight, and the API/architecture/status/README/CHANGELOG notes).
+  - [x] Slice 1: live read path — active reads resolve the live projection (drop the active-revision
+    membership join for the active context); cursors bind workspace+filters only; history reads stay on
+    `workspaceRevisionId` snapshots.
+  - [x] Slice 2: live write service path — modernize restored `create_object_record`/
+    `update_object_record`, relation helpers and `deletion.py` as the live create/update/delete/cascade
+    path (delete is physical over live rows; provenance = record version + `object`/`relation` audit).
+  - [x] Slice 3: optional draft context in the object/relation/attribute routers (draft present → draft
+    path; absent → live path, resolving `workspaceKey`, requiring an active workspace).
+  - [x] Slice 4: activation **delta-merge over live** — apply only the draft's created/updated/tombstoned
+    rows onto live with per-record version conflict detection; preserve live-only objects; validate the
+    merged graph; write a merged immutable revision snapshot; publish nothing and preserve draft + live
+    on any conflict/validation failure.
+  - [x] Slice 5: audit additions, OpenAPI digest, full-suite + new live/delta-merge tests; adjusted
+    `test_wp8_history.py` active-without-draft expectations; historical-context write rejection stays.
+The prior ADR-026 slice record establishes live CRUD and delta merge. Its blanket completion wording
+must not imply that fresh live draft bases, full model/history authority or browser journeys are done;
+those are tracked above. Previous test totals are historical, not newly executed evidence.
 
 ## Next
 
 - [ ] Product 0.7/schema 0.6: typed `mappingGrid`, cursor-paged coverage and candidate lookup.
-- [ ] Implement ADR-022 exact-binding relation-set versions and atomic mapping replacement.
-- [ ] Translation coverage matrix and in-cell lifecycle workflow.
-- [ ] Lazy hierarchy workspace with contextual creation and atomic reparenting.
+- [ ] Implement ADR-022 exact-binding relation-set versions and atomic mapping replacement in live
+  and optional-draft contexts; generic relation writes participate in the same protection (0.7).
+- [ ] Translation coverage matrix and in-cell live editing, with explicit optional staging (0.8).
+- [ ] Lazy hierarchy workspace with contextual live creation and atomic reparenting, optional draft (0.8).
 - [ ] Integration-grade query expressions beyond Base 0.6 daily-use filters.
-- [ ] Bounded bulk object and relation operations, including bulk mapping.
+- [ ] Bounded live bulk object/relation/mapping operations with explicit optional staging, per-item
+  outcomes and safe retry; do not require a draft merely because several records change (0.9).
 - [ ] Asynchronous CSV/Excel import and export with validation previews.
 - [ ] Ordered change feed and retryable webhooks.
 
@@ -65,6 +108,10 @@ See `BASE_0_6_IMPLEMENTATION_PLAN.md` for scope, file boundaries and exit criter
 - [ ] Structured model designer with reference-aware forms, matrices and live preview.
 - [ ] Read-only dependency graph visualization where it improves comprehension.
 - [ ] Product 0.10: executable runtime-data migration plans for currently blocked model changes.
+- [ ] Product 0.10: historical-draft model replacement with a side-effect-free impact/loss preview,
+  explicit confirmation tied to the reviewed versions or cancel, atomic workspace model/data switch,
+  immutable history and unaffected-workspace isolation. Confirmation cannot waive target validity or
+  parser support; no Base 0.6 force flag. Covers the accepted GAP-02 addition and separate GAP-08 concepts.
 - [ ] Product 0.10: add workspace-scoped model-release assignment for staged tenant or
   governance-domain rollout.
   Resolve the workspace before its immutable model snapshot, scope compatibility and migration to that

@@ -22,7 +22,12 @@ def test_canonical_draft_object_and_attribute_journey():
         assert created.status_code == 201
         item = created.json()
         assert item["workspaceDraftVersion"] == 2
-        assert client.get("/api/v1/objects/domain", params={"workspaceDraftId": draft["id"]}).status_code == 200
+        assert (
+            client.get(
+                "/api/v1/objects/domain", params={"workspaceDraftId": draft["id"]}
+            ).status_code
+            == 200
+        )
         updated = client.patch(
             f"/api/v1/objects/domain/{item['id']}",
             json={
@@ -52,11 +57,17 @@ def test_empty_draft_relation_page_and_nested_routes_are_absent():
         draft = client.post("/api/v1/workspaces/default/drafts", json={}).json()
         response = client.get(
             "/api/v1/relations",
-            params={"objectId": "00000000-0000-0000-0000-000000000000", "workspaceDraftId": draft["id"]},
+            params={
+                "objectId": "00000000-0000-0000-0000-000000000000",
+                "workspaceDraftId": draft["id"],
+            },
         )
         assert response.status_code == 200, response.text
         assert response.json() == {"items": [], "nextCursor": None}
-        assert "/api/v1/workspace-drafts/{draft_id}/objects" not in client.get("/openapi.json").json()["paths"]
+        assert (
+            "/api/v1/workspace-drafts/{draft_id}/objects"
+            not in client.get("/openapi.json").json()["paths"]
+        )
 
 
 def test_draft_object_cursor_binds_query_context_and_honours_descending_name_sort():
@@ -69,7 +80,9 @@ def test_draft_object_cursor_binds_query_context_and_honours_descending_name_sor
                     "applicationKey": "rdm-master",
                     "objectTypeKey": "domain",
                     "name": name,
-                    "attributes": [{"attributeTypeKey": "domain-code", "value": f"wp7-query-{uuid4().hex}"}],
+                    "attributes": [
+                        {"attributeTypeKey": "domain-code", "value": f"wp7-query-{uuid4().hex}"}
+                    ],
                     "workspaceDraftId": draft["id"],
                     "expectedWorkspaceDraftVersion": index,
                 },
@@ -77,7 +90,12 @@ def test_draft_object_cursor_binds_query_context_and_honours_descending_name_sor
             assert response.status_code == 201, response.text
         first = client.get(
             "/api/v1/objects/domain",
-            params={"workspaceDraftId": draft["id"], "search": "query", "sort": "-name", "pageSize": 1},
+            params={
+                "workspaceDraftId": draft["id"],
+                "search": "query",
+                "sort": "-name",
+                "pageSize": 1,
+            },
         )
         assert first.status_code == 200, first.text
         assert first.json()["items"][0]["name"] == "Zulu query"
@@ -85,13 +103,25 @@ def test_draft_object_cursor_binds_query_context_and_honours_descending_name_sor
         assert cursor
         second = client.get(
             "/api/v1/objects/domain",
-            params={"workspaceDraftId": draft["id"], "search": "query", "sort": "-name", "pageSize": 1, "cursor": cursor},
+            params={
+                "workspaceDraftId": draft["id"],
+                "search": "query",
+                "sort": "-name",
+                "pageSize": 1,
+                "cursor": cursor,
+            },
         )
         assert second.status_code == 200, second.text
         assert second.json()["items"][0]["name"] == "Alpha query"
         mismatch = client.get(
             "/api/v1/objects/domain",
-            params={"workspaceDraftId": draft["id"], "search": "different", "sort": "-name", "pageSize": 1, "cursor": cursor},
+            params={
+                "workspaceDraftId": draft["id"],
+                "search": "different",
+                "sort": "-name",
+                "pageSize": 1,
+                "cursor": cursor,
+            },
         )
         assert mismatch.status_code == 422
         assert mismatch.json()["error"]["code"] == "invalid_cursor"
@@ -100,17 +130,33 @@ def test_draft_object_cursor_binds_query_context_and_honours_descending_name_sor
 def test_draft_history_projects_canonical_mutation_events():
     with TestClient(app) as client:
         draft = client.post("/api/v1/workspaces/default/drafts", json={}).json()
-        created = client.post("/api/v1/objects", json={
-            "applicationKey": "rdm-master", "objectTypeKey": "domain", "name": "History domain",
-            "attributes": [{"attributeTypeKey": "domain-code", "value": f"history-{uuid4().hex}"}],
-            "workspaceDraftId": draft["id"], "expectedWorkspaceDraftVersion": 1,
-        }).json()
-        updated = client.patch(f"/api/v1/objects/domain/{created['id']}", json={
-            "name": "History domain updated", "expectedVersion": created["version"],
-            "workspaceDraftId": draft["id"], "expectedWorkspaceDraftVersion": 2,
-        })
+        created = client.post(
+            "/api/v1/objects",
+            json={
+                "applicationKey": "rdm-master",
+                "objectTypeKey": "domain",
+                "name": "History domain",
+                "attributes": [
+                    {"attributeTypeKey": "domain-code", "value": f"history-{uuid4().hex}"}
+                ],
+                "workspaceDraftId": draft["id"],
+                "expectedWorkspaceDraftVersion": 1,
+            },
+        ).json()
+        updated = client.patch(
+            f"/api/v1/objects/domain/{created['id']}",
+            json={
+                "name": "History domain updated",
+                "expectedVersion": created["version"],
+                "workspaceDraftId": draft["id"],
+                "expectedWorkspaceDraftVersion": 2,
+            },
+        )
         assert updated.status_code == 200
-        history = client.get(f"/api/v1/objects/domain/{created['id']}/history", params={"workspaceDraftId": draft["id"]})
+        history = client.get(
+            f"/api/v1/objects/domain/{created['id']}/history",
+            params={"workspaceDraftId": draft["id"]},
+        )
         assert history.status_code == 200, history.text
         assert [event["action"] for event in history.json()["items"]] == ["updated", "created"]
 
@@ -130,7 +176,9 @@ def test_historical_attribute_read_uses_the_canonical_subresource():
                 "applicationKey": "rdm-translations",
                 "objectTypeKey": "language",
                 "name": "Historical WP7 language",
-                "attributes": [{"attributeTypeKey": "language-code", "value": f"history-{uuid4().hex}"}],
+                "attributes": [
+                    {"attributeTypeKey": "language-code", "value": f"history-{uuid4().hex}"}
+                ],
                 "workspaceDraftId": draft["id"],
                 "expectedWorkspaceDraftVersion": 1,
             },
@@ -163,7 +211,9 @@ def test_draft_delete_previews_and_cascades_containment_without_touching_publish
                 "applicationKey": "rdm-translations",
                 "objectTypeKey": "language",
                 "name": "Cascade language",
-                "attributes": [{"attributeTypeKey": "language-code", "value": f"cascade-{uuid4().hex}"}],
+                "attributes": [
+                    {"attributeTypeKey": "language-code", "value": f"cascade-{uuid4().hex}"}
+                ],
                 "workspaceDraftId": draft["id"],
                 "expectedWorkspaceDraftVersion": 1,
             },
@@ -175,7 +225,9 @@ def test_draft_delete_previews_and_cascades_containment_without_touching_publish
                 "objectTypeKey": "translation-group",
                 "name": "Cascade group",
                 "parentObjectId": language["id"],
-                "attributes": [{"attributeTypeKey": "group-code", "value": f"cascade-{uuid4().hex}"}],
+                "attributes": [
+                    {"attributeTypeKey": "group-code", "value": f"cascade-{uuid4().hex}"}
+                ],
                 "workspaceDraftId": draft["id"],
                 "expectedWorkspaceDraftVersion": 2,
             },
@@ -197,10 +249,14 @@ def test_draft_delete_previews_and_cascades_containment_without_touching_publish
                 "expectedWorkspaceDraftVersion": 3,
                 "expectedVersion": language["version"],
                 "cascade": "true",
+                "deletionPreviewToken": preview.json()["error"]["details"]["deletionPreviewToken"],
             },
         )
         assert deleted.status_code == 204, deleted.text
-        assert client.get(
-            f"/api/v1/objects/translation-group/{group['id']}",
-            params={"workspaceDraftId": draft["id"]},
-        ).status_code == 404
+        assert (
+            client.get(
+                f"/api/v1/objects/translation-group/{group['id']}",
+                params={"workspaceDraftId": draft["id"]},
+            ).status_code
+            == 404
+        )

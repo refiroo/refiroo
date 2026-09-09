@@ -100,7 +100,11 @@ def test_non_cascade_retirement_returns_recursive_child_impact_without_mutating(
 
         deleted = client.delete(
             f"/api/v1/objects/domain/{domain['id']}",
-            params={"expectedVersion": 1, "cascade": True},
+            params={
+                "expectedVersion": 1,
+                "cascade": True,
+                "deletionPreviewToken": error["details"]["deletionPreviewToken"],
+            },
         )
         assert deleted.status_code == 204
         assert client.get(f"/api/v1/objects/domain/{domain['id']}").status_code == 404
@@ -108,14 +112,25 @@ def test_non_cascade_retirement_returns_recursive_child_impact_without_mutating(
         assert client.get(f"/api/v1/objects/master-value/{master['id']}").status_code == 404
 
 
-def test_retirement_retains_optional_non_parent_relation_and_related_identity():
+def test_confirmed_delete_unlinks_optional_relation_and_retains_related_identity():
     with TestClient(app) as client:
         _domain, _codelist, master, _system, system_value, relation = _create_graph(client)
 
-        retired = client.delete(
+        deleted = client.delete(
             f"/api/v1/objects/master-value/{master['id']}", params={"expectedVersion": 1}
         )
-        assert retired.status_code == 204
+        assert deleted.status_code == 409
+        assert deleted.json()["error"]["code"] == "object_has_dependants"
+        preview = deleted
+        deleted = client.delete(
+            f"/api/v1/objects/master-value/{master['id']}",
+            params={
+                "expectedVersion": 1,
+                "cascade": True,
+                "deletionPreviewToken": preview.json()["error"]["details"]["deletionPreviewToken"],
+            },
+        )
+        assert deleted.status_code == 204
         assert client.get(f"/api/v1/objects/system-value/{system_value['id']}").status_code == 200
         assert client.get(f"/api/v1/relations/{relation['id']}").status_code == 404
 
@@ -140,7 +155,11 @@ def test_cascade_deleting_reference_structure_preserves_system_representation():
 
         deleted = client.delete(
             f"/api/v1/objects/domain/{domain['id']}",
-            params={"expectedVersion": 1, "cascade": True},
+            params={
+                "expectedVersion": 1,
+                "cascade": True,
+                "deletionPreviewToken": preview.json()["error"]["details"]["deletionPreviewToken"],
+            },
         )
         assert deleted.status_code == 204
         assert client.get(f"/api/v1/objects/system-value/{system_value['id']}").status_code == 200
@@ -187,13 +206,32 @@ def test_cascade_deletes_required_single_valued_fk_dependent():
                 "name": f"Translation {suffix}",
                 "parentObjectId": group["id"],
                 "attributes": [_attr("translated-name", "Translated")],
-                "initialRelations": [{"relationTypeKey": "object-has-translation", "direction": "incoming", "otherObjectId": domain["id"]}],
+                "initialRelations": [
+                    {
+                        "relationTypeKey": "object-has-translation",
+                        "direction": "incoming",
+                        "otherObjectId": domain["id"],
+                    }
+                ],
             },
         ).json()
-        preview = client.delete(f"/api/v1/objects/domain/{domain['id']}", params={"expectedVersion": 1})
+        preview = client.delete(
+            f"/api/v1/objects/domain/{domain['id']}", params={"expectedVersion": 1}
+        )
         assert preview.status_code == 409
-        dependent = next(item for item in preview.json()["error"]["details"]["objectsToRetire"] if item["id"] == translation["id"])
+        dependent = next(
+            item
+            for item in preview.json()["error"]["details"]["objectsToRetire"]
+            if item["id"] == translation["id"]
+        )
         assert dependent["reason"] == "required-ownership"
-        deleted = client.delete(f"/api/v1/objects/domain/{domain['id']}", params={"expectedVersion": 1, "cascade": True})
+        deleted = client.delete(
+            f"/api/v1/objects/domain/{domain['id']}",
+            params={
+                "expectedVersion": 1,
+                "cascade": True,
+                "deletionPreviewToken": preview.json()["error"]["details"]["deletionPreviewToken"],
+            },
+        )
         assert deleted.status_code == 204
         assert client.get(f"/api/v1/objects/translation/{translation['id']}").status_code == 404

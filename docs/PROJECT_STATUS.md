@@ -1,68 +1,84 @@
 # Project status
 
-## Current baseline
+## Current development baseline — reviewed 2026-09-08
 
-Model release `0.5.0` is the completed operational base of a generic reference-data engine. The
-versioned JSON model is the source of truth for applications, global attribute types, object types and
-bindings, relation types, allowed source/relation/target triples and UI views.
+Base 0.5 is the completed operational/model-release foundation. Base 0.6 remains in development on a
+working tree with uncommitted backend and documentation changes. The starter model is content release
+0.6.0 on schema language 0.5; that version does not establish completion of product 0.6.
 
-The starter model contains three configurable applications—RDM Master, RDM Systems and RDM
-Translations—but the runtime contains no branches for those names or their object-type keys.
+The generic model defines applications, object types, reusable fields, allowed relationships and views.
+Master, Systems and Translations are configurable starter examples; runtime code must remain unaware
+of their keys. The selected immutable model governs current behavior; the configured source JSON is
+bootstrap input, not a parallel activation mechanism.
 
-Base 0.5 is complete. The singleton database runtime-state row selects the authoritative installed
-release, and source JSON remains bootstrap input only. Each request uses one immutable model and
-metadata snapshot. Read-only release APIs now include key-based semantic diff and bounded runtime-data
-compatibility analysis, while inline model validation returns stable JSON-path diagnostics without
-persistence side effects. Mutation-gated, versioned drafts can be edited and compiled, then installed
-atomically as inactive immutable releases without changing the active runtime selection.
-Guarded activation reparses and compatibility-checks installed candidates transactionally, claims the
-runtime state with both concurrency tokens, commits before refreshing the local registry and makes
-readiness unhealthy if publication fails. Activation is available only in the supported single-worker
-mutation topology.
-WP6 removes the rejected per-object lifecycle persistence and public mutation surface while retaining
-workspace drafts and immutable workspace revisions. Corrective WP7 restores the established generic
-object, attribute, relation and translation CRUD over WP6 storage. Workspace draft/revision discovery,
-validation, guarded atomic publication and publication retirement remain separate workspace operations.
-Active reads resolve through the selected workspace revision; writes use the same CRUD contract against
-an explicit workspace draft; published and historical revisions remain immutable.
-Audit-subject projection remains cursor-paged and workspace-bound without querying JSON payloads for identity.
-The generic UI carries explicit workspace context in its shell and routes, restores URL-backed
-collection search/sort/page-size controls, provides reusable row actions and retry states, and
-shows independently paged relation expansion and audit history on object details.
-The global workspace catalogue is now authoritative: a singleton, concurrency-protected state selects
-the active default; discovery is searchable and cursor-paged; unknown explicit keys fail; and retired
-workspaces remain readable while rejecting object, attribute and relation mutations. The shell uses
-catalogue labels and keeps stable keys in URLs instead of accepting free-text authority.
-Schema 0.5 is now the only runnable model language. It provides an extra-forbidden typed table
-contract, rejects unimplemented semantic view types, and drives model-aware typed filters, attribute
-sorts and URL-stable cursor paging. Historical schema 0.4 releases remain inspectable, while fresh
-bootstrap and the offline `python -m app.cli.model_schema_upgrade --model <path>` transition establish
-the schema 0.5 runtime selection. The starter is content release 0.6.0; its former tree is represented
-honestly as a table and its mapping view is deferred to schema 0.6.
-Base 0.6 WP4 implemented authoritative per-object revisions, but that publication boundary has been
-rejected before release. ADR-024 supersedes ADR-020: the workspace is the publication aggregate, and
-objects, attributes, containment and relations are records inside mutable workspace drafts and
-immutable workspace revisions. The historical WP4 schema is migration input only; its object
-lifecycle tables, pointers and APIs are removed after successful corrective conversion.
-The frontend has since had a structural pass, phases 0–4 of
-`docs/FRONTEND_STRUCTURE_REFACTOR.md`, ahead of the Base 0.6 UI work. It changed no API contract,
-model contract or architecture: `frontend/src` is organized into `app/`, `features/`, `ui/`,
-`model/`, `routing/`, `lib/`, `types/` and `styles/`; cursor paging, search debouncing and API error
-handling each have one implementation; and the frontend has lint and format tooling for the first
-time, which the definition of done had always required. Phase 5 followed: every dialog now shares
-one modal shell in `frontend/src/ui/Modal.tsx`, with Escape, focus restore, a focus trap and a
-scroll lock applied consistently. Base 0.6 WP1 then moved those difficult overlay mechanics behind
-the RDM-owned React Aria boundary, added exact Lucide and React Aria dependency locks, enforced the
-feature-import boundary in ESLint, and established semantic selection, menu, notice, dialog, tab and
-icon wrappers with documented plain-CSS tokens. The shell now distinguishes product, workspace,
-application, view and object-type context, provides a skip link and labelled narrow-layout
-navigation, and keeps native table semantics in a labelled scroll region. Phase 6 remains as
-implementation work governed by accepted ADR-021.
+## Accepted product direction and actual availability
 
-The global Models workbench keeps installed releases readable when administration mutations are
-disabled. When enabled, it supports JSON draft creation/import/editing, authoritative validation,
-optimistic-conflict recovery, canonical compilation, semantic diff and compatibility review, browser
-export, immutable installation and guarded activation without starter-model key branches.
+ADR-026 restored direct live reference-data maintenance. ADR-027 consolidates the user's accepted
+GAP-01–GAP-08 answers and distinguishes accepted targets from implementation evidence.
+
+| Area | Present foundation | Remaining delivery |
+| --- | --- | --- |
+| Live data | Generic object, field, parent, relation and translation APIs; record concurrency and audit | Complete browser authoring and non-default workspace context |
+| Optional data drafts | Empty or historical-revision sources, effective membership, validation and delta merge | Fresh current-live bases including post-publication edits and no prior publication |
+| Historical data | Immutable revision storage and read APIs | Consistent pinned-model interpretation; newest-first discovery |
+| Publication retirement | Removes current-publication designation while retaining live data/history | Truthful browser confirmation and direct regression evidence |
+| Model administration | Immutable releases, JSON drafts, validation/diff/install/activation workbench | Compatibility population must include all authoritative live data; history must use its pin |
+| UI foundation | Catalogue selection, typed tables, generic panels, RDM wrappers and modal behavior | Reachable complete live/draft/history journeys with browser/accessibility/visual evidence |
+| Specialist workflows | Generic data semantics to reuse | Mapping 0.7, translation/hierarchy 0.8, integration 0.9 |
+| Production and model migration | Basic readiness and actionable startup refusal | Authenticated production operation, staged assignments and reviewed historical model migration in 0.10 |
+
+Ordinary live saves create neither a draft nor a revision. Draft activation applies authored changes
+over current live data, preserves unrelated live work and publishes nothing on a touched-record conflict
+or invalid merged graph. Historical derivation is not a direct restore. Publication retirement does
+not withdraw live data or make the workspace read-only; catalogue retirement is the read-only control.
+Data drafts and application-definition drafts are different concepts.
+
+The current default/non-default browser gap and disconnected record controls are documented in the
+[functionality catalogue](product-functionality/CURRENT_FUNCTIONALITY.md). A component or API present
+in code does not establish that a browser user can complete its story.
+
+## Next delivery sequence
+
+1. **WP8.1-A:** authoritative live compatibility population and pinned supported-model historical reads.
+2. **WP8.1-B:** immutable current-live draft bases, independent of publication lineage, including upgrade
+   preservation of existing drafts and migration/startup evidence.
+3. **WP8.1-C:** newest-first history and explicit retirement/history behavior tests.
+4. **WP9:** complete live CRUD, optional copied drafts and immutable history through generic browser
+   controls, preserving workspace context, typed inputs, conflicts, keyboard and narrow-layout behavior.
+5. **WP10:** composed frontend/backend scenarios, authority/concurrency boundaries, browser accessibility
+   and visual evidence, migration/lifespan, packaging and public-contract checks.
+
+The accepted historical-model warning and confirm-or-cancel behavior belongs to the planned 0.10
+workspace assignment/migration flow. Until it exists, Base 0.6 preserves incompatible drafts and reports
+the mismatch. No force flag or implicit global schema override is part of the current contract.
+
+See [implementation plan](BASE_0_6_IMPLEMENTATION_PLAN.md), [delivery queue](TODO.md),
+[roadmap](ROADMAP.md) and [product acceptance scenarios](product-functionality/ACCEPTANCE_SCENARIOS.md).
+
+## Evidence boundary
+
+The subsequent [WP8 implementation review](../review-notes/wp8-implementation-review-2026-09-08.md)
+reviewed the uncommitted diff and corrected confirmed lifecycle/CRUD defects. Its backend, frontend,
+migration and installed-wheel evidence is recorded separately; it does not close WP8.1–WP10.
+The follow-up closes SC-04's service boundary: cascade confirmation requires the signed identity from
+the exact displayed preview and rejects intervening hierarchy changes without deleting data. Live
+deletion also claims active workspace status for the transaction and refuses stored graph edges that
+cross workspace boundaries. The frontend adapter carries live or draft confirmation context. The WP9
+browser control must show the returned retry message when it becomes reachable.
+
+Prior WP0–WP8 and ADR-026 reports record backend/component/build validation at their own snapshots.
+This technical-documentation update ran document/contract/traceability checks only; it did not execute
+runtime, browser or migration suites. Prior green totals cannot close the newly identified gaps.
+Release acceptance needs the actual evidence specified by WP10, with relevant skips reported as gaps.
+
+## Product correction retained from the ADR-026 retrospective
+
+Earlier lifecycle decisions routed every reference-data edit through a draft and release ceremony,
+contradicting continuous maintenance in the product statement. The correction restores live editing
+and keeps coordinated data changes optional. Every future gate must ask whether a data owner can
+still perform daily work without unnecessary steps. Model definitions, live data and history each
+need explicit authority; an appended amendment does not repair contradictory canonical instructions.
+Record capability removals and contract reversals for explicit product review before implementing them.
 
 ## Source evidence incorporated
 
@@ -110,8 +126,8 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
   generic object CRUD, search/cursors, concurrency checks, hierarchy maintenance and relation instance
   CRUD (create/read-one/update/delete) with optimistic concurrency, cardinality checks and
   model-declared typed relation attributes. WP6 removed these public mutation routes before their
-  workspace-backed replacements existed; WP7 must recover their behavior selectively from Git history.
-  Engine-maintained parent-containment relations remain read-only through the relation API. The
+  workspace-backed replacements existed; corrective WP7 restored their behavior selectively from Git
+  history. Engine-maintained parent-containment relations remain read-only through the relation API. The
   established object-scoped attribute-value endpoints
   (`GET`/`POST`/`PATCH`/`DELETE` on `/objects/{type}/{id}/attributes/{attributeTypeKey}`) set, read,
   update and delete single stored values with the same validation, uniqueness and object-version
@@ -119,8 +135,8 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
   atomically claim that version before writing; `backend/app/main.py` contains application assembly
   only.
 - Git history retains workspace-scoped attribute uniqueness and transactional object deletion with
-  dependency preview/cascade behavior. WP7 restores those generic semantics in the selected workspace
-  draft, but must not restore the rejected WP4 lifecycle routes, tables or publication behavior.
+  dependency preview/cascade behavior. WP7 restored those generic semantics in the selected workspace
+  draft without restoring rejected WP4 lifecycle. ADR-026 also restores these semantics for live writes.
 - `backend/app/migrations`: versioned Alembic database migrations are the single source of schema truth;
   the initial migration provisions new databases and upgrades existing ones, and startup runs only
   `alembic upgrade head`. The environment-aware `app.cli.database_upgrade` command and startup
@@ -132,7 +148,7 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
   workspace-explicit routes, view and panel component registries, URL-backed searchable/filterable/
   sortable cursor-paged collections, composable object details and cursor-paged audit history.
   Workspace lifecycle UI is not yet complete. Generic object, attribute, relation and translation
-  controls must be restored and reused inside a selected workspace draft; failed collection and lookup
+  controls must be restored for live writes with optional draft context; failed collection and lookup
   reads remain retryable, while genuinely empty relationship/translation collections render as empty
   states and engine-maintained containment edges remain read-only.
 - The global model workbench provides release inspection and structured model summaries in read-only
@@ -156,89 +172,41 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
 
 See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding invariants.
 
-## Known gaps
+## Remaining limitations
 
-- WP7 backend corrective work is complete: generic CRUD is draft-scoped, draft/revision query and
-  history contexts are cursor-bound, and no nested draft-object/relation API exists. WP8 owns workspace
-  lifecycle orchestration, WP9 reuses generic CRUD UI in draft context, and WP10 owns integration/release
-  validation.
-- Schema 0.5 intentionally omits `mappingGrid`, `tree`, `form` and `dashboard`; those declarations are
-  rejected rather than routed to the table renderer. `mappingGrid` moves to schema 0.6/product 0.7.
-- Typed table filtering and sorting cover the bounded daily-use grammar. Integration-scale query
-  expressions, relation-expanded filtering and multi-sort remain deferred.
-- The UI has component-level regression coverage but no browser-level workflow, automated
-  accessibility or visual-regression release checks. WP1 now provides the documented RDM token and
-  semantic-wrapper foundation, but broader adoption and real-browser proof remain release work rather
-  than a claim that component primitives alone complete accessibility.
-- Dialog keyboard behavior is now consistent through the shared `ui/Modal` shell, but it has only
-  been exercised in jsdom. Nothing has driven a real browser or a screen reader; Base 0.6 WP10 owns
-  those checks.
-- The model lifecycle is complete, but its workbench remains a plain JSON-centred interface. Its
-  broader usability redesign is deferred beyond Base 0.6 so the corrective workspace lifecycle stays bounded.
-- The established relation CRUD implementation supports create/read-one/update/delete with optimistic
-  concurrency, but WP6 removed its public routes. WP7 must restore that behavior over workspace-backed
-  storage; bulk relation endpoints remain later work.
-- Attribute uniqueness is enforced at the service layer; a database-level unique constraint/index
-  remains before multi-writer PostgreSQL deployment.
-- Ancestor-scoped relationship uniqueness is enforced transactionally by the service layer; database
-  hardening remains for multi-writer PostgreSQL deployment.
-- Integration-grade filtering, sorting, bulk upsert, imports/exports, change feeds and webhooks remain.
-- OIDC, permissions and PostgreSQL performance/index work remain.
-- The starter model is representative, not a one-to-one migration of every supplied source type.
+- No complete browser CRUD/draft/history journey is claimed until WP9/WP10 evidence exists.
+- Current-live draft capture, live compatibility coverage and historical model interpretation need
+  WP8.1; stored revision/model IDs alone do not satisfy those boundaries.
+- Schema 0.5 supports strict table views; `mappingGrid`, top-level `form`, `dashboard` and `tree` are
+  not implemented renderers. Specialist mappings and tree/translation coverage follow the roadmap.
+- Advanced queries, effective-date/as-of semantics, bulk upsert, imports/exports, change feeds and
+  webhooks remain planned; no synchronous collection has an undocumented unlimited mode.
+- The model workbench remains JSON-centred; structured authoring and extensions are 1.0 work.
+- Multi-writer uniqueness hardening, PostgreSQL performance, authenticated access, actor attribution,
+  observability, backup/restore rehearsal and multi-node model propagation remain production work.
+- Global model selection is current authority. Workspace-scoped migration/assignment and confirmed
+  potential-loss historical model changes require 0.10 and supported parser/runtime versions.
+- The starter remains representative rather than a one-to-one reproduction of the source export.
 
-## Next vertical slice
+## Historical delivery record
 
-Product release 0.6 retains the workspace-navigation, typed-table, responsive, keyboard, focus and
-action-hierarchy findings from `docs/BASE_0_6_INTERACTION_SPEC.md`. The immediate next slice is WP7:
-recover and re-enable generic object, attribute, relation and translation CRUD against WP6 workspace
-storage. WP8 then completes workspace lifecycle orchestration, WP9 restores/reuses the generic CRUD UI
-inside draft context, and WP10 performs real integration and release validation. Mapping remains the
-next specialist release after Base 0.6 is proven.
-
-Base 0.5 delivered:
-
-1. **Done (WP1):** Make the database-selected installed release the single authoritative runtime
-   model snapshot.
-2. **Done (WP2):** Add validation, canonical compilation, semantic diff and runtime-data compatibility
-   analysis.
-3. **Done (WP3):** Add versioned drafts and immutable installation.
-4. **Done (WP4):** Add guarded, compatibility-checked activation.
-5. **Done (WP5):** Add signed built-in sorting, cursor-paged relation expansion and cursor-paged object
-   audit history.
-6. **Done (WP6):** Make workspace and URL-backed collection state explicit in the generic object UI,
-   including sort, state and page-size controls and the history panel.
-7. **Done (WP7):** Add the lightweight JSON model workbench, with model mutations disabled by default.
-8. **Done (WP8):** Promote the starter content release to 0.5, complete release integration,
-   operational documentation, migration/package verification and the locked OpenAPI error contract.
-
-See `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` for the completed historical work packages,
-`docs/BASE_0_6_IMPLEMENTATION_PLAN.md` for the next implementation-ready handoff, `docs/TODO.md` for
-the active delivery queue and `docs/ROADMAP.md` for the release criteria and later milestones.
-
-All Base 0.5 work packages and acceptance criteria are complete. Base 0.6 WP1 UI foundation, WP2
-workspace authority, WP3 typed tables, WP5 workspace contract and WP6 workspace persistence remain
-complete. The delivered WP4 object-revision design is rejected and must not be extended. WP7 is the
-current recovery slice; WP8-WP10 complete workspace lifecycle, generic CRUD UI integration and release
-checks. Core mapping is product 0.7 and bulk mapping remains in the later integration milestone.
+Base 0.5 delivered runtime model selection, model compilation/diff/compatibility, versioned drafts,
+immutable install, guarded activation, bounded query/audit improvements and the JSON workbench.
+Base 0.6 WP1–WP3 delivered UI primitives, workspace catalogue and typed tables. WP4's individual-object
+publication design was rejected before release and removed through the corrective WP6 migration;
+WP5 refroze workspace scope, WP7 restored generic CRUD and WP8 implemented lifecycle services.
+ADR-026 then restored direct live data and delta merge. Those records do not make WP8.1–WP10 complete.
+The earlier plans and changelog preserve delivery details; do not rebuild rejected object lifecycle.
 
 ## Coding-agent handoff
 
-Open the repository root, then start a new coding chat with:
+Read `AGENTS.md`, the product stories/scenarios, ADR-027, `BASE_0_6_IMPLEMENTATION_PLAN.md`, `API.md`
+and `BASE_0_6_INTERACTION_SPEC.md`. Preserve the dirty tree and start with WP8.1-A, then B/C before
+accepting dependent WP9 design/history behavior. Complete WP9 and WP10 against the named stories.
+Use one implementation owner per slice, focused verification and appropriate review. Do not commit
+unless explicitly requested. Summarize each completed batch while work continues so scope can be
+corrected before the entire task finishes.
 
-> Read `AGENTS.md`, `docs/PROJECT_STATUS.md`, `docs/ROADMAP.md`, `docs/UI_MODEL.md`,
-> `docs/BASE_0_6_IMPLEMENTATION_PLAN.md` and `docs/BASE_0_6_INTERACTION_SPEC.md`. Review the
-> completed WP1-WP3, retained WP5 contract and WP6 workspace persistence. Execute WP7 as a recovery
-> slice: use `a3ead41^` to locate deleted backend CRUD and use `41aa7e7^` only as a source for
-> individual generic frontend controls because that tree also contains rejected lifecycle UI. Recover
-> object/attribute/relation/translation behavior selectively, exclude object lifecycle, and resolve it
-> against workspace drafts/revisions without
-> introducing nested draft CRUD resources. Then proceed to WP8-WP10 in order. Preserve all product
-> invariants and report the current worktree status before editing.
-
-Make a Git checkpoint before the first new slice. Run
-`backend/.venv/bin/python -m ruff check backend`,
-`backend/.venv/bin/python -m pytest backend/tests -q`, `npm --prefix frontend run lint`,
-`npm --prefix frontend test`, `npm --prefix frontend run build` and `git diff --check` before
-considering it complete. The frontend lint step is new; it must report zero errors. Base 0.6
-release validation must also include its browser, accessibility and visual-regression suites and must
-run on the supported Python 3.14 toolchain.
+For implementation run backend Ruff/tests, frontend lint/format/tests/build and `git diff --check`
+using the exact commands in the Base 0.6 plan. Also execute the named browser, migration/startup and
+wheel gates on Python 3.14. Report evidence and limits; no documentation change counts as a runtime fix.

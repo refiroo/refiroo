@@ -1,142 +1,361 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, or_, select, text, update
 from sqlalchemy.orm import Session
 
-from ..models.database import AttributeValue, ObjectRelation, RdmObject
+from ..errors import ApiError, api_error
+from ..models.database import AttributeValue, ObjectRelation, RdmObject, Workspace
 from ..models.schema import EngineModel, ObjectTypeRelationDefinition
 from .audit import record_audit_event
+from .cursors import decode_cursor, encode_cursor
 
 
 @dataclass
 class DeletePlan:
+    """A live cascade: the root object plus every record the database cascade must remove.
+
+    The dependant closure mirrors ``delete_draft_object`` so the live delete surfaces exactly the
+    same ``object_has_dependants`` contract as the draft path: containment children plus the
+    targets of an outgoing required one-to-one / one-to-many relation.  ``relations`` holds every
+    edge incident to the planned set (edges to surviving objects are removed with the delete).
+    """
+
     root_id: str
     objects: dict[str, RdmObject]
-    object_reasons: dict[str, dict]
+    reasons: dict[str, str]
     relations: dict[str, ObjectRelation]
-    non_parent_relation_ids: set[str]
 
     @property
-    def has_dependents(self) -> bool:
-        return len(self.objects) > 1 or bool(self.non_parent_relation_ids)
+    def dependant_object_ids(self) -> list[str]:
+        return [object_id for object_id in sorted(self.objects) if object_id != self.root_id]
+
+    @property
+    def incident_relations(self) -> list[ObjectRelation]:
+        return list(self.relations.values())
+
+    @property
+    def has_dependants(self) -> bool:
+        return len(self.objects) > 1
+
+
+def deletion_preview_token(
+    *,
+    scope: str,
+    context: dict[str, object],
+    objects: list[tuple[str, int, str | None]],
+    relations: list[tuple[str, int, str, str, str]],
+) -> str:
+    """Sign the exact hierarchy and incident edges shown by a deletion preview."""
+    canonical = json.dumps(
+        {"objects": sorted(objects), "relations": sorted(relations)},
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode()
+    digest = hashlib.sha256(canonical).hexdigest()
+    return encode_cursor((digest,), scope=scope, sort=("deletion-impact",), filters=context)
+
+
+def require_matching_deletion_preview(
+    token: str | None,
+    *,
+    scope: str,
+    context: dict[str, object],
+    objects: list[tuple[str, int, str | None]],
+    relations: list[tuple[str, int, str, str, str]],
+) -> None:
+    """Reject confirmation unless it matches the unchanged previewed hierarchy."""
+    if token is None:
+        raise api_error(
+            409,
+            "deletion_preview_required",
+            "Deletion must be previewed before cascade confirmation",
+        )
+    expected = deletion_preview_token(
+        scope=scope, context=context, objects=objects, relations=relations
+    )
+    try:
+        supplied_digest = decode_cursor(
+            token,
+            scope=scope,
+            sort=("deletion-impact",),
+            filters=context,
+            position_size=1,
+            message="Deletion preview is invalid",
+        )[0]
+        expected_digest = decode_cursor(
+            expected,
+            scope=scope,
+            sort=("deletion-impact",),
+            filters=context,
+            position_size=1,
+        )[0]
+    except ApiError as exc:
+        if exc.code != "invalid_cursor":
+            raise
+        raise api_error(
+            409,
+            "deletion_preview_changed",
+            "The object was modified by another session. Please retry.",
+        ) from None
+    if supplied_digest != expected_digest:
+        raise api_error(
+            409,
+            "deletion_preview_changed",
+            "The object was modified by another session. Please retry.",
+        )
+
+
+def require_deletion_preview(token: str | None) -> None:
+    """Require preview confirmation before looking up or claiming mutable graph state."""
+    if token is None:
+        raise api_error(
+            409,
+            "deletion_preview_required",
+            "Deletion must be previewed before cascade confirmation",
+        )
+
+
+def deletion_preview_changed() -> ApiError:
+    """Return the stable conflict shown when a confirmed deletion preview is stale."""
+    return api_error(
+        409,
+        "deletion_preview_changed",
+        "The object was modified by another session. Please retry.",
+    )
+
+
+def _plan_identity(
+    plan: DeletePlan,
+) -> tuple[list[tuple[str, int, str | None]], list[tuple[str, int, str, str, str]]]:
+    return (
+        [(item.id, item.version, item.parent_object_id) for item in plan.objects.values()],
+        [
+            (
+                item.id,
+                item.version,
+                item.relation_type_key,
+                item.from_object_id,
+                item.to_object_id,
+            )
+            for item in plan.relations.values()
+        ],
+    )
+
+
+def _is_parent_relation(
+    model: EngineModel, relation: ObjectRelation, objects: dict[str, RdmObject]
+) -> bool:
+    target = objects.get(relation.to_object_id)
+    if target is None:
+        return False
+    object_type = model.object_type(target.object_type_key)
+    return bool(
+        object_type
+        and relation.relation_type_key
+        in (object_type.behavior or {}).get("parentRelationTypeKeys", [])
+    )
+
+
+def _has_non_parent_incident(plan: DeletePlan, model: EngineModel) -> bool:
+    return any(
+        not _is_parent_relation(model, relation, plan.objects)
+        for relation in plan.incident_relations
+    )
 
 
 def build_delete_plan(
     session: Session, model: EngineModel, root: RdmObject, *, cascade: bool
 ) -> DeletePlan:
-    objects = {root.id: root}
-    reasons: dict[str, dict] = {}
-    relations: dict[str, ObjectRelation] = {}
-    non_parent_relation_ids: set[str] = set()
-    pending = [root]
+    """Compute the live dependant closure for ``root``.
 
-    while pending:
-        current = pending.pop()
-        children = list(
-            session.scalars(select(RdmObject).where(RdmObject.parent_object_id == current.id))
-        )
-        for child in children:
-            if child.id not in objects:
-                objects[child.id] = child
-                reasons[child.id] = {"reason": "child", "viaObjectId": current.id}
-                pending.append(child)
-
-        incident = list(
-            session.scalars(
-                select(ObjectRelation).where(
-                    or_(
-                        ObjectRelation.from_object_id == current.id,
-                        ObjectRelation.to_object_id == current.id,
-                    )
-                )
-            )
-        )
-        for relation in incident:
-            relations[relation.id] = relation
-            from_object = _load_object(session, objects, relation.from_object_id)
-            to_object = _load_object(session, objects, relation.to_object_id)
-            if _is_parent_relation(model, relation, from_object, to_object):
-                continue
-            non_parent_relation_ids.add(relation.id)
-            allowed = _allowed_relation(model, relation, from_object, to_object)
-            if (
-                cascade
-                and current.id == relation.from_object_id
-                and allowed is not None
-                and _is_fk_pk_relation(model, allowed)
-                and to_object.id not in objects
-            ):
-                objects[to_object.id] = to_object
-                reasons[to_object.id] = {
-                    "reason": "fkDependent",
-                    "viaObjectId": current.id,
-                    "relationTypeKey": relation.relation_type_key,
-                }
-                pending.append(to_object)
-
-    # Include every edge that the database will remove, including edges between two planned objects
-    # that were not encountered before the related object entered the traversal.
-    planned_ids = set(objects)
-    if planned_ids:
-        for relation in session.scalars(
-            select(ObjectRelation).where(
-                or_(
-                    ObjectRelation.from_object_id.in_(planned_ids),
-                    ObjectRelation.to_object_id.in_(planned_ids),
-                )
-            )
+    Children and required-ownership targets are dependants regardless of ``cascade``; the flag
+    only authorises *executing* the plan instead of raising ``object_has_dependants``.
+    """
+    planned = {root.id: root}
+    reasons: dict[str, str] = {root.id: "root"}
+    frontier = [root.id]
+    while frontier:
+        current_id = frontier.pop()
+        current = planned[current_id]
+        for child in session.scalars(
+            select(RdmObject).where(RdmObject.parent_object_id == current_id)
         ):
-            relations[relation.id] = relation
-            from_object = _load_object(session, objects, relation.from_object_id)
-            to_object = _load_object(session, objects, relation.to_object_id)
-            if not _is_parent_relation(model, relation, from_object, to_object):
-                non_parent_relation_ids.add(relation.id)
+            _require_same_workspace(root.workspace_key, child, edge="parent")
+            if child.id not in planned:
+                planned[child.id] = child
+                reasons[child.id] = "child"
+                frontier.append(child.id)
+        for relation in session.scalars(
+            select(ObjectRelation).where(ObjectRelation.from_object_id == current_id)
+        ):
+            if relation.to_object_id in planned:
+                continue
+            target = session.scalar(select(RdmObject).where(RdmObject.id == relation.to_object_id))
+            if target is None:  # A relation FK should make this unreachable.
+                continue
+            _require_same_workspace(root.workspace_key, target, edge=relation.id)
+            allowed = _allowed_relation(model, relation, current, target)
+            relation_type = model.relation_type(relation.relation_type_key)
+            if (
+                allowed is not None
+                and relation_type is not None
+                and relation_type.isOriented
+                and allowed.required
+                and allowed.cardinality in {"one-to-one", "one-to-many"}
+            ):
+                planned[target.id] = target
+                reasons[target.id] = "required-ownership"
+                frontier.append(target.id)
 
-    return DeletePlan(root.id, objects, reasons, relations, non_parent_relation_ids)
-
-
-def delete_plan_details(session: Session, model: EngineModel, plan: DeletePlan) -> dict:
-    object_summaries = {
-        object_id: _object_summary(item) for object_id, item in plan.objects.items()
-    }
-    dependencies = [
-        {**object_summaries[object_id], **reason}
-        for object_id, reason in plan.object_reasons.items()
-    ]
-    relationships = []
-    for relation_id in sorted(plan.non_parent_relation_ids):
-        relation = plan.relations[relation_id]
-        from_object = _load_object(session, plan.objects, relation.from_object_id)
-        to_object = _load_object(session, plan.objects, relation.to_object_id)
-        allowed = _allowed_relation(model, relation, from_object, to_object)
-        relationships.append(
-            {
-                "id": relation.id,
-                "relationTypeKey": relation.relation_type_key,
-                "fromObject": _object_summary(from_object),
-                "toObject": _object_summary(to_object),
-                "fkPk": allowed is not None and _is_fk_pk_relation(model, allowed),
-                "relatedObjectWillBeDeleted": (
-                    relation.from_object_id in plan.objects
-                    and relation.to_object_id in plan.objects
-                ),
-            }
+    planned_ids = set(planned)
+    relations: dict[str, ObjectRelation] = {}
+    for relation in session.scalars(
+        select(ObjectRelation).where(
+            or_(
+                ObjectRelation.from_object_id.in_(planned_ids),
+                ObjectRelation.to_object_id.in_(planned_ids),
+            )
         )
-    return {
-        "rootObject": object_summaries[plan.root_id],
-        "objectsToDelete": dependencies,
-        "relationshipsToRemove": relationships,
-        "objectCount": len(plan.objects),
-        "relationshipCount": len(plan.relations),
+    ):
+        for endpoint_id in (relation.from_object_id, relation.to_object_id):
+            endpoint = planned.get(endpoint_id) or session.scalar(
+                select(RdmObject).where(RdmObject.id == endpoint_id)
+            )
+            if endpoint is not None:
+                _require_same_workspace(root.workspace_key, endpoint, edge=relation.id)
+        relations[relation.id] = relation
+    return DeletePlan(root.id, planned, reasons, relations)
+
+
+def delete_object_record(
+    session: Session,
+    model: EngineModel,
+    object_type_key: str,
+    object_id: str,
+    expected_version: int,
+    *,
+    cascade: bool = False,
+    deletion_preview: str | None = None,
+    model_identity: str,
+) -> None:
+    """Delete a live object and, with ``cascade``, its dependant closure.
+
+    ``expected_version`` is claimed against the live root before any change; a stale claim or a
+    non-cascade delete with dependants raises inside the transaction so nothing is committed.
+    """
+    from .objects import claim_object_version, load_object
+    from .workspaces import resolve_workspace
+
+    if cascade:
+        require_deletion_preview(deletion_preview)
+    try:
+        root = load_object(session, object_id, object_type_key)
+    except ApiError as exc:
+        if cascade and deletion_preview is not None and exc.code == "object_not_found":
+            raise deletion_preview_changed() from None
+        raise
+    resolve_workspace(session, root.workspace_key, require_active=True)
+    # This conditional write is the workspace mutation claim. It gives SQLite the same serialized
+    # active-status decision that a row lock provides on PostgreSQL, and makes retirement wait until
+    # this deletion transaction commits or rolls back.
+    active_claim = session.execute(
+        update(Workspace)
+        .where(Workspace.key == root.workspace_key, Workspace.status == "active")
+        .values(updated_at=Workspace.updated_at)
+        .execution_options(synchronize_session=False)
+    )
+    if active_claim.rowcount != 1:
+        raise api_error(
+            409,
+            "workspace_retired",
+            f"Workspace '{root.workspace_key}' is retired and cannot be modified",
+        )
+    if cascade and session.bind is not None and session.bind.dialect.name == "postgresql":
+        # Wait for earlier graph writes, then prevent new object/attribute/relation writes while the
+        # confirmed impact is re-read, compared and deleted in this transaction.
+        session.execute(
+            text(
+                "LOCK TABLE objects, attribute_values, object_relations IN SHARE ROW EXCLUSIVE MODE"
+            )
+        )
+    try:
+        claim_object_version(session, root, expected_version)
+    except ApiError as exc:
+        if cascade and deletion_preview is not None and exc.code == "version_conflict":
+            raise deletion_preview_changed() from None
+        raise
+    plan = build_delete_plan(session, model, root, cascade=cascade)
+    context = {
+        "workspaceKey": root.workspace_key,
+        "objectTypeKey": object_type_key,
+        "objectId": object_id,
+        "model": model_identity,
     }
+    objects, relations = _plan_identity(plan)
+    if not cascade and (plan.has_dependants or _has_non_parent_incident(plan, model)):
+        dependants = [
+            {
+                "id": item.id,
+                "name": item.name,
+                "objectTypeKey": item.object_type_key,
+                "applicationKey": item.application_key,
+                "parentObjectId": item.parent_object_id,
+                "reason": plan.reasons[item.id],
+            }
+            for item in (plan.objects[object_id] for object_id in plan.dependant_object_ids)
+        ]
+        incident = plan.incident_relations
+        raise api_error(
+            409,
+            "object_has_dependants",
+            "Object has dependant records or relationships; repeat with cascade=true",
+            {
+                "objectsToDelete": dependants,
+                "objectsToRetire": dependants,
+                "relationshipsToRemove": [
+                    {"id": relation.id, "relationTypeKey": relation.relation_type_key}
+                    for relation in incident
+                ],
+                "objectCount": len(plan.objects),
+                "relationshipCount": len(incident),
+                "retainedAssociationCount": sum(
+                    1
+                    for relation in incident
+                    if relation.from_object_id not in plan.objects
+                    or relation.to_object_id not in plan.objects
+                ),
+                "deletionPreviewToken": deletion_preview_token(
+                    scope="live-deletion",
+                    context=context,
+                    objects=objects,
+                    relations=relations,
+                ),
+            },
+        )
+    if cascade:
+        require_matching_deletion_preview(
+            deletion_preview,
+            scope="live-deletion",
+            context=context,
+            objects=objects,
+            relations=relations,
+        )
+    execute_delete_plan(session, plan)
+    session.commit()
 
 
 def execute_delete_plan(session: Session, plan: DeletePlan) -> None:
-    object_ids = set(plan.objects)
-    relation_ids = set(plan.relations)
+    """Audit then physically remove the planned relations, attribute values and objects.
 
+    Containment pointers are detached within the transaction before deleting a mixed parent/child
+    batch, preserving the RESTRICT foreign-key boundary.  Live delete is physical: retired/historical revision snapshots and the audit log
+    retain the record.
+    """
+    object_ids = set(plan.objects)
     for relation in plan.relations.values():
         record_audit_event(
             session,
@@ -166,22 +385,15 @@ def execute_delete_plan(session: Session, plan: DeletePlan) -> None:
             object_ids=[item.id],
         )
 
-    if relation_ids:
-        session.execute(delete(ObjectRelation).where(ObjectRelation.id.in_(relation_ids)))
+    if plan.relations:
+        session.execute(delete(ObjectRelation).where(ObjectRelation.id.in_(set(plan.relations))))
     session.execute(delete(AttributeValue).where(AttributeValue.object_id.in_(object_ids)))
-    for item in sorted(
-        plan.objects.values(), key=lambda value: _depth(value, plan.objects), reverse=True
-    ):
+    # RESTRICT parent FKs must be detached before SQLAlchemy flushes a mixed parent/child batch.
+    session.execute(
+        update(RdmObject).where(RdmObject.id.in_(object_ids)).values(parent_object_id=None)
+    )
+    for item in plan.objects.values():
         session.delete(item)
-
-
-def _load_object(session: Session, loaded: dict[str, RdmObject], object_id: str) -> RdmObject:
-    item = loaded.get(object_id)
-    if item is None:
-        item = session.scalar(select(RdmObject).where(RdmObject.id == object_id))
-    if item is None:  # A relation FK should make this impossible.
-        raise RuntimeError(f"Relation references missing object '{object_id}'")
-    return item
 
 
 def _allowed_relation(
@@ -202,46 +414,16 @@ def _allowed_relation(
     )
 
 
-def _is_parent_relation(
-    model: EngineModel,
-    relation: ObjectRelation,
-    from_object: RdmObject,
-    to_object: RdmObject,
-) -> bool:
-    target_type = model.object_type(to_object.object_type_key)
-    return bool(
-        target_type
-        and relation.relation_type_key in target_type.behavior.get("parentRelationTypeKeys", [])
-        and to_object.parent_object_id == from_object.id
-    )
-
-
-def _is_fk_pk_relation(model: EngineModel, allowed: ObjectTypeRelationDefinition) -> bool:
-    relation_type = model.relation_type(allowed.relationTypeKey)
-    return bool(
-        relation_type
-        and relation_type.isOriented
-        and allowed.required
-        and allowed.cardinality in {"one-to-one", "one-to-many"}
-    )
-
-
-def _object_summary(item: RdmObject) -> dict[str, str | None]:
-    return {
-        "id": item.id,
-        "name": item.name,
-        "objectTypeKey": item.object_type_key,
-        "applicationKey": item.application_key,
-        "parentObjectId": item.parent_object_id,
-    }
-
-
-def _depth(item: RdmObject, objects: dict[str, RdmObject]) -> int:
-    depth = 0
-    parent_id = item.parent_object_id
-    seen = {item.id}
-    while parent_id in objects and parent_id not in seen:
-        seen.add(parent_id)
-        depth += 1
-        parent_id = objects[parent_id].parent_object_id
-    return depth
+def _require_same_workspace(workspace_key: str, item: RdmObject, *, edge: str) -> None:
+    if item.workspace_key != workspace_key:
+        raise api_error(
+            409,
+            "workspace_graph_invalid",
+            "Object hierarchy crosses workspace boundaries; deletion was refused",
+            {
+                "workspaceKey": workspace_key,
+                "otherWorkspaceKey": item.workspace_key,
+                "objectId": item.id,
+                "edge": edge,
+            },
+        )

@@ -515,7 +515,9 @@ class AuditEvent(Base):
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     event_id: Mapped[str] = mapped_column(String(36), unique=True, default=lambda: str(uuid4()))
     aggregate_type: Mapped[str] = mapped_column(String(40), index=True)
-    aggregate_id: Mapped[str] = mapped_column(String(36), index=True)
+    # Wide enough to hold the longest legal Workspace.key (String(160)) for the workspace-scoped
+    # lifecycle aggregate (publication retirement aggregates on the real workspace key).
+    aggregate_id: Mapped[str] = mapped_column(String(255), index=True)
     action: Mapped[str] = mapped_column(String(80), index=True)
     version: Mapped[int] = mapped_column(Integer)
     changes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)

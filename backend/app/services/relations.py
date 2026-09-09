@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..errors import api_error
 from ..models.api import RelationCreate, RelationResponse
-from ..models.database import ObjectRelation, RdmObject, Workspace
+from ..models.database import ObjectRelation, RdmObject
 from ..models.schema import EngineModel, ObjectTypeRelationDefinition
 from .attributes import current_attribute_values, normalize_value
 from .audit import record_audit_event
@@ -90,11 +90,12 @@ def create_relation_instance(
     from_object: RdmObject | None = None,
     to_object: RdmObject | None = None,
 ) -> ObjectRelation:
-    raise api_error(
-        409,
-        "workspace_draft_required",
-        "Published workspace relations are read-only; edit relations in a workspace draft",
-    )
+    """Create a relation in the live object store of a shared active workspace.
+
+    Both endpoints must be live objects of the same active (non-retired) workspace.  Engine-
+    maintained containment edges (the parent relation of an object type) are rejected here; they
+    are written atomically when the owning object's parent changes.
+    """
     from .objects import load_object
     from .workspaces import resolve_workspace
 
@@ -102,10 +103,6 @@ def create_relation_instance(
     to_object = to_object or load_object(session, str(payload.toObjectId))
     if from_object.workspace_key != to_object.workspace_key:
         raise api_error(422, "relation_wrong_scope", "Related objects must share a workspace")
-    if session.scalar(
-        select(Workspace.active_revision_id).where(Workspace.key == from_object.workspace_key)
-    ) is None:
-        raise api_error(422, "relation_endpoint_not_active", "Related objects must be active")
     resolve_workspace(session, from_object.workspace_key, require_active=True)
     allowed = find_allowed_relation(
         model,
@@ -114,12 +111,6 @@ def create_relation_instance(
         to_object.object_type_key,
     )
     ensure_relation_mutable(model, payload.relationTypeKey, to_object.object_type_key)
-    if allowed.required:
-        raise api_error(
-            422,
-            "immutable_relation",
-            "Object-owned required relationships change through object drafts",
-        )
     validate_cardinality(session, allowed, payload)
     _validate_unique_to_ancestor(session, allowed, payload, to_object)
     attributes = validate_relation_attributes(model, allowed, payload.attributes)
@@ -314,6 +305,90 @@ def claim_relation_version(
     if result.rowcount != 1:
         raise api_error(409, "version_conflict", "Relation version has changed")
     session.refresh(relation)
+
+
+def create_live_relation(
+    session: Session, model: EngineModel, payload: RelationCreate
+) -> ObjectRelation:
+    """Create a relation in the live object store and commit the transaction."""
+    relation = create_relation_instance(session, model, payload)
+    session.commit()
+    return relation
+
+
+def update_live_relation(
+    session: Session, model: EngineModel, relation_id: str, payload: Any
+) -> ObjectRelation:
+    """Update a live relation's attributes under optimistic concurrency.
+
+    Endpoints and relation type are identity and cannot change through the update contract; only
+    the relation attributes are mutable.  Engine-maintained containment edges are rejected.
+    """
+    from .objects import load_object
+    from .workspaces import resolve_workspace
+
+    relation = load_relation(session, relation_id)
+    from_object = load_object(session, relation.from_object_id)
+    to_object = load_object(session, relation.to_object_id)
+    resolve_workspace(session, from_object.workspace_key, require_active=True)
+    ensure_relation_mutable(model, relation.relation_type_key, to_object.object_type_key)
+    allowed = find_allowed_relation(
+        model,
+        relation.relation_type_key,
+        from_object.object_type_key,
+        to_object.object_type_key,
+    )
+    attributes = validate_relation_attributes(model, allowed, payload.attributes)
+    claim_relation_version(session, relation, payload.expectedVersion)
+    relation.attributes = attributes
+    record_audit_event(
+        session,
+        aggregate_type="relation",
+        aggregate_id=relation.id,
+        action="updated",
+        version=relation.version,
+        changes={"attributes": attributes},
+        object_ids=[relation.from_object_id, relation.to_object_id],
+    )
+    session.commit()
+    return relation
+
+
+def delete_live_relation(
+    session: Session, model: EngineModel, relation_id: str, expected_version: int
+) -> None:
+    """Delete a live relation that is not engine-maintained and not required."""
+    from .objects import load_object
+    from .workspaces import resolve_workspace
+
+    relation = load_relation(session, relation_id)
+    from_object = load_object(session, relation.from_object_id)
+    to_object = load_object(session, relation.to_object_id)
+    resolve_workspace(session, from_object.workspace_key, require_active=True)
+    ensure_relation_mutable(model, relation.relation_type_key, to_object.object_type_key)
+    allowed = find_allowed_relation(
+        model,
+        relation.relation_type_key,
+        from_object.object_type_key,
+        to_object.object_type_key,
+    )
+    ensure_relation_deletable(allowed)
+    claim_relation_version(session, relation, expected_version)
+    record_audit_event(
+        session,
+        aggregate_type="relation",
+        aggregate_id=relation.id,
+        action="deleted",
+        version=relation.version,
+        changes={
+            "relationTypeKey": relation.relation_type_key,
+            "fromObjectId": relation.from_object_id,
+            "toObjectId": relation.to_object_id,
+        },
+        object_ids=[relation.from_object_id, relation.to_object_id],
+    )
+    session.delete(relation)
+    session.commit()
 
 
 def build_relation_response(relation: ObjectRelation) -> RelationResponse:

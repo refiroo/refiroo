@@ -134,6 +134,13 @@ def test_attribute_sort_is_cursor_stable_nulls_last_and_bound_to_filters():
 def test_numeric_ranges_and_capability_errors_are_model_aware():
     token = f"WP3_{uuid4().hex[:8]}"
     with TestClient(app) as client:
+        domain = _domain(client, token, "Numeric fixture", "parent")
+        parent = client.post("/api/v1/objects", json={
+            "applicationKey": "rdm-master", "objectTypeKey": "codelist", "name": "Numbers",
+            "parentObjectId": domain["id"],
+            "attributes": [_attribute("codelist-code", f"{token}-numbers")],
+        })
+        assert parent.status_code == 201, parent.text
         created = []
         for number in (1, 5, 10):
             response = client.post(
@@ -141,6 +148,7 @@ def test_numeric_ranges_and_capability_errors_are_model_aware():
                 json={
                     "applicationKey": "rdm-master",
                     "objectTypeKey": "master-value",
+                    "parentObjectId": parent.json()["id"],
                     "name": f"{token} {number}",
                     "attributes": [
                         _attribute("master-id", f"{token}-master-{number}"),

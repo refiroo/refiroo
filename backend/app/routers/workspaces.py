@@ -4,7 +4,7 @@ from fastapi import APIRouter, Query, status
 from sqlalchemy import select
 
 from ..db import DbSession
-from ..errors import api_error
+from ..errors import ApiError, api_error
 from ..models.api import (
     WorkspaceCreate,
     WorkspaceDraftActivation,
@@ -25,10 +25,12 @@ from ..models.api import (
 from ..models.database import ModelRelease, Workspace, WorkspaceDraft, WorkspaceRevision
 from ..services.model.registry import ActiveModelSnapshot
 from ..services.pagination import paginate_sequence, paginate_statement, text_key
+from ..services.workspace_audit import record_draft_validated
 from ..services.workspace_revisions import (
     activate_draft,
     create_draft,
     discard_draft,
+    effective_draft_membership,
     pinned_model,
     retire_publication,
     update_draft,
@@ -187,13 +189,12 @@ def post_workspace_draft(
 
 @read_router.get("/workspace-drafts/{draft_id}", response_model=WorkspaceDraftResponse)
 def get_workspace_draft(draft_id: str, session: DbSession) -> WorkspaceDraftResponse:
-    return _draft_response(
-        session,
-        session.get(WorkspaceDraft, draft_id)
-        or (_ for _ in ()).throw(
-            api_error(404, "workspace_draft_not_found", "Workspace draft not found")
-        ),
-    )
+    # WorkspaceDraft's ORM primary key is the autoincrement sequence_id, so session.get by the
+    # stable public id would always miss; resolve through the unique id column instead.
+    item = session.scalar(select(WorkspaceDraft).where(WorkspaceDraft.id == draft_id))
+    if item is None:
+        raise api_error(404, "workspace_draft_not_found", "Workspace draft not found")
+    return _draft_response(session, item)
 
 
 @admin_router.patch("/workspace-drafts/{draft_id}", response_model=WorkspaceDraftResponse)
@@ -218,8 +219,27 @@ def delete_workspace_draft(
 def validate_workspace_draft(
     draft_id: str, session: DbSession, snapshot: ActiveModelSnapshot
 ) -> WorkspaceDraftValidation:
-    _draft, draft_model = pinned_model(session, draft_id)
+    draft, draft_model = pinned_model(session, draft_id)
     diagnostics = validate_draft(session, draft_id, draft_model, snapshot.release_db_id)
+    # A validation never mutates the draft graph or bumps its version; the audit record is its only
+    # side effect and is bounded to identity metadata plus counts (see D3a).  The conflict
+    # short-circuit can leave a corrupt base unresolved, so fall back to zero counts instead of
+    # failing a validation that already reported its diagnostic.
+    try:
+        membership = effective_draft_membership(session, draft_id)
+        object_count, relation_count = len(membership.objects), len(membership.relations)
+    except ApiError:
+        object_count, relation_count = 0, 0
+    record_draft_validated(
+        session,
+        draft=draft,
+        valid=not diagnostics,
+        error_codes=[item["code"] for item in diagnostics],
+        object_count=object_count,
+        relation_count=relation_count,
+        error_count=len(diagnostics),
+    )
+    session.commit()
     return WorkspaceDraftValidation(valid=not diagnostics, diagnostics=diagnostics)
 
 
@@ -257,9 +277,11 @@ def list_workspace_revisions(
             select(WorkspaceRevision).where(WorkspaceRevision.workspace_key == workspace_key)
         )
     )
+    # Paginate by a fixed-width revision-number token so the cursor orders numerically (an unpadded
+    # string would sort revision 10 before revision 2) while remaining a strict total order with id.
     page, next_cursor = paginate_sequence(
         items,
-        lambda x: (x.revision_number.__str__(), x.id),
+        lambda x: (f"{x.revision_number:010d}", x.id),
         scope="workspace-revisions",
         filters={"workspaceKey": workspace_key},
         cursor=cursor,

@@ -120,18 +120,17 @@ def test_translation_is_created_with_containment_and_target_atomically():
         assert values["translated-value"] == f"Translated {suffix}"
         assert values["active"] is True
 
-        relations = client.get(
-            "/api/v1/relations", params={"objectId": translation["id"]}
-        ).json()["items"]
-        assert {
-            (item["direction"], item["relation"]["relationTypeKey"])
-            for item in relations
-        } == {
+        relations = client.get("/api/v1/relations", params={"objectId": translation["id"]}).json()[
+            "items"
+        ]
+        assert {(item["direction"], item["relation"]["relationTypeKey"]) for item in relations} == {
             ("incoming", "translation-group-contains-translation"),
             ("incoming", "object-has-translation"),
         }
         target = next(
-            item for item in relations if item["relation"]["relationTypeKey"] == "object-has-translation"
+            item
+            for item in relations
+            if item["relation"]["relationTypeKey"] == "object-has-translation"
         )
         assert target["object"]["id"] == domain["id"]
 
@@ -145,9 +144,7 @@ def test_domain_codelist_and_master_value_are_all_translation_targets():
         for index, target in enumerate(targets):
             response = client.post(
                 "/api/v1/objects",
-                json=_translation_payload(
-                    group["id"], target["id"], f"{suffix}_{index}"
-                ),
+                json=_translation_payload(group["id"], target["id"], f"{suffix}_{index}"),
             )
             assert response.status_code == 201, response.text
             relation = next(
@@ -248,9 +245,9 @@ def test_required_translation_target_cannot_be_unlinked_and_cascades_with_owner(
             "/api/v1/objects",
             json=_translation_payload(group["id"], domain["id"], suffix),
         ).json()
-        relations = client.get(
-            "/api/v1/relations", params={"objectId": translation["id"]}
-        ).json()["items"]
+        relations = client.get("/api/v1/relations", params={"objectId": translation["id"]}).json()[
+            "items"
+        ]
         target_relation = next(
             item["relation"]
             for item in relations
@@ -274,7 +271,11 @@ def test_required_translation_target_cannot_be_unlinked_and_cascades_with_owner(
 
         deleted = client.delete(
             f"/api/v1/objects/domain/{domain['id']}",
-            params={"expectedVersion": 1, "cascade": True},
+            params={
+                "expectedVersion": 1,
+                "cascade": True,
+                "deletionPreviewToken": preview.json()["error"]["details"]["deletionPreviewToken"],
+            },
         )
         assert deleted.status_code == 204
         assert client.get(f"/api/v1/objects/translation/{translation['id']}").status_code == 404
@@ -301,8 +302,7 @@ def test_last_translation_content_attribute_cannot_be_removed():
         unchanged = client.get(f"/api/v1/objects/translation/{translation['id']}").json()
         assert unchanged["version"] == 1
         assert any(
-            item["attributeTypeKey"] == "translated-value"
-            for item in unchanged["attributes"]
+            item["attributeTypeKey"] == "translated-value" for item in unchanged["attributes"]
         )
 
 

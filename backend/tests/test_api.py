@@ -553,10 +553,11 @@ def test_delete_object_with_mapping_relation_is_rejected():
         response = client.delete(
             f"/api/v1/objects/master-value/{master['id']}", params={"expectedVersion": 1}
         )
-        assert response.status_code == 204
-        # Deleting a draft record removes its optional association from that candidate graph;
-        # the published revision remains untouched until workspace activation.
-        assert client.get(f"/api/v1/relations/{mapping.json()['id']}").status_code == 404
+        assert response.status_code == 409
+        assert response.json()["error"]["code"] == "object_has_dependants"
+        # An association requires explicit cascade confirmation even without dependent objects.
+        assert client.get(f"/api/v1/relations/{mapping.json()['id']}").status_code == 200
+        assert client.get(f"/api/v1/objects/master-value/{master['id']}").status_code == 200
 
 
 def test_update_cannot_null_required_attribute():

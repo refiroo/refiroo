@@ -1,0 +1,602 @@
+"""Shared HTTP + direct-persistence helpers for WP8 lifecycle packages.
+
+These helpers mirror the in-file helpers used by ``test_wp8_draft_lifecycle.py`` so later packages
+(activation, retirement, history) can reuse one small support module.  Every object/relation create
+through the canonical CRUD routers carries the explicit ``workspaceDraftId`` and
+``expectedWorkspaceDraftVersion`` claims, and ``draft["version"]`` is kept in sync from the response
+so a caller always knows the latest aggregate concurrency token.
+"""
+
+import json
+from uuid import uuid4
+
+from sqlalchemy import func, select
+
+from app.db import SessionLocal
+from app.models.database import (
+    ModelRelease,
+    Workspace,
+    WorkspaceDraft,
+    WorkspaceDraftObject,
+    WorkspaceDraftRelation,
+    WorkspaceRevision,
+)
+
+
+def unique_key(prefix: str) -> str:
+    return f"{prefix}-{uuid4().hex[:10]}"
+
+
+def create_workspace(client, key: str) -> dict:
+    response = client.post("/api/v1/workspaces", json={"key": key, "label": key})
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def create_draft(
+    client,
+    workspace_key: str,
+    *,
+    name: str | None = None,
+    derived_from_revision_id: str | None = None,
+    expected_status: int = 201,
+):
+    payload: dict = {}
+    if name is not None:
+        payload["name"] = name
+    if derived_from_revision_id is not None:
+        payload["derivedFromRevisionId"] = derived_from_revision_id
+    response = client.post(f"/api/v1/workspaces/{workspace_key}/drafts", json=payload)
+    assert response.status_code == expected_status, response.text
+    return response
+
+
+def attribute(key: str, value):
+    return {"attributeTypeKey": key, "value": value}
+
+
+def create_object(
+    client,
+    draft: dict,
+    application_key: str,
+    object_type_key: str,
+    name: str,
+    *,
+    attributes=None,
+    parent_object_id: str | None = None,
+    initial_relations=None,
+    expected_status: int = 201,
+):
+    payload = {
+        "applicationKey": application_key,
+        "objectTypeKey": object_type_key,
+        "name": name,
+        "attributes": attributes or [],
+        "workspaceDraftId": draft["id"],
+        "expectedWorkspaceDraftVersion": draft["version"],
+    }
+    if parent_object_id is not None:
+        payload["parentObjectId"] = parent_object_id
+    if initial_relations is not None:
+        payload["initialRelations"] = initial_relations
+    response = client.post("/api/v1/objects", json=payload)
+    assert response.status_code == expected_status, response.text
+    if response.status_code == 201:
+        draft["version"] = response.json()["workspaceDraftVersion"]
+    return response
+
+
+def update_object(
+    client,
+    draft: dict,
+    object_type_key: str,
+    object_id: str,
+    *,
+    payload: dict,
+    expected_status: int = 200,
+):
+    body = {
+        **payload,
+        "workspaceDraftId": draft["id"],
+        "expectedWorkspaceDraftVersion": draft["version"],
+    }
+    response = client.patch(
+        f"/api/v1/objects/{object_type_key}/{object_id}", json=body
+    )
+    assert response.status_code == expected_status, response.text
+    if response.status_code == 200:
+        draft["version"] = response.json()["workspaceDraftVersion"]
+    return response
+
+
+def create_relation(
+    client,
+    draft: dict,
+    relation_type_key: str,
+    from_object_id: str,
+    to_object_id: str,
+    *,
+    attributes=None,
+    expected_status: int = 201,
+):
+    response = client.post(
+        "/api/v1/relations",
+        json={
+            "relationTypeKey": relation_type_key,
+            "fromObjectId": from_object_id,
+            "toObjectId": to_object_id,
+            "attributes": attributes or {},
+            "workspaceDraftId": draft["id"],
+            "expectedWorkspaceDraftVersion": draft["version"],
+        },
+    )
+    assert response.status_code == expected_status, response.text
+    if response.status_code == 201:
+        draft["version"] = response.json()["workspaceDraftVersion"]
+    return response
+
+
+def validate_draft(client, draft_id: str):
+    response = client.post(f"/api/v1/workspace-drafts/{draft_id}/validation")
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def activate_draft(
+    client,
+    draft_id: str,
+    *,
+    expected_draft_version: int,
+    expected_active_revision_id: str | None = None,
+    explicit_null_active_revision: bool = False,
+    expected_status: int = 200,
+):
+    """POST the activation route, asserting the caller's claimed active revision.
+
+    ``expected_active_revision_id=None`` with ``explicit_null_active_revision=False`` omits the claim
+    entirely; pass ``explicit_null_active_revision=True`` to send an explicit ``null`` claim (the
+    route treats both identically, but the explicit form is what "no active revision" callers send).
+    """
+    payload = {"expectedDraftVersion": expected_draft_version}
+    if explicit_null_active_revision:
+        payload["expectedActiveRevisionId"] = None
+    elif expected_active_revision_id is not None:
+        payload["expectedActiveRevisionId"] = expected_active_revision_id
+    response = client.post(f"/api/v1/workspace-drafts/{draft_id}/activation", json=payload)
+    assert response.status_code == expected_status, response.text
+    return response
+
+
+def retire_publication(
+    client,
+    workspace_key: str,
+    expected_active_revision_id: str,
+    *,
+    expected_status: int = 204,
+):
+    """POST the publication-retirement route, asserting the caller's claimed active revision.
+
+    Returns the raw ``requests``/``TestClient`` response so callers can assert body fields for
+    conflict cases; on success the route returns 204 with no body.
+    """
+    response = client.post(
+        f"/api/v1/workspaces/{workspace_key}/retirement",
+        json={"expectedActiveRevisionId": expected_active_revision_id},
+    )
+    assert response.status_code == expected_status, response.text
+    return response
+
+
+def workspace_row(workspace_key: str) -> Workspace:
+    with SessionLocal() as session:
+        workspace = session.scalar(select(Workspace).where(Workspace.key == workspace_key))
+        assert workspace is not None, f"Workspace '{workspace_key}' not found"
+        return workspace
+
+
+def workspace_active_revision_id(workspace_key: str) -> str | None:
+    return workspace_row(workspace_key).active_revision_id
+
+
+def workspace_revisions(workspace_key: str) -> list[WorkspaceRevision]:
+    with SessionLocal() as session:
+        return list(
+            session.scalars(
+                select(WorkspaceRevision)
+                .where(WorkspaceRevision.workspace_key == workspace_key)
+                .order_by(WorkspaceRevision.revision_number)
+            )
+        )
+
+
+def revision_status(revision_id: str) -> str:
+    with SessionLocal() as session:
+        revision = session.scalar(
+            select(WorkspaceRevision).where(WorkspaceRevision.id == revision_id)
+        )
+        assert revision is not None, f"Revision '{revision_id}' not found"
+        return revision.status
+
+
+def revision_counts(revision_id: str) -> tuple[int, int]:
+    """Count the immutable snapshot rows (objects, relations) of a revision."""
+    from app.models.database import WorkspaceRevisionObject, WorkspaceRevisionRelation
+
+    with SessionLocal() as session:
+        objects = session.scalar(
+            select(func.count())
+            .select_from(WorkspaceRevisionObject)
+            .where(WorkspaceRevisionObject.revision_id == revision_id)
+        )
+        relations = session.scalar(
+            select(func.count())
+            .select_from(WorkspaceRevisionRelation)
+            .where(WorkspaceRevisionRelation.revision_id == revision_id)
+        )
+    return int(objects or 0), int(relations or 0)
+
+
+def published_object(client, workspace_key: str, object_type_key: str, object_id: str):
+    """Return a published (active) object read, or None when it is not visible."""
+    response = client.get(
+        f"/api/v1/objects/{object_type_key}/{object_id}", params={"workspaceKey": workspace_key}
+    )
+    if response.status_code == 404:
+        return None
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def published_relations(client, workspace_key: str, object_id: str) -> list[dict]:
+    response = client.get(
+        "/api/v1/relations",
+        params={"objectId": object_id, "workspaceKey": workspace_key, "pageSize": 500},
+    )
+    assert response.status_code == 200, response.text
+    return response.json()["items"]
+
+
+def _graph_snapshot(client, context_params: dict, object_types) -> str:
+    """Canonical JSON of a workspace graph read through one read context.
+
+    ``context_params`` selects the read context for both object collections and the per-anchor
+    relation feeds: ``{"workspaceKey": key}`` for the published active projection,
+    ``{"workspaceRevisionId": id}`` for an immutable revision snapshot, and
+    ``{"workspaceDraftId": id}`` for a mutable draft's effective membership.  Only structural fields
+    are captured (never the fabricated request-time ``createdAt``/``updatedAt`` timestamps emitted by
+    the draft/revision builders), so two snapshots are comparable across read contexts.
+    """
+    snapshot: dict[str, list] = {"objects": [], "relations": []}
+    params = {"pageSize": 500, **context_params}
+    for object_type in object_types:
+        response = client.get(f"/api/v1/objects/{object_type}", params=params)
+        assert response.status_code == 200, response.text
+        for item in response.json()["items"]:
+            snapshot["objects"].append(
+                (
+                    item["objectTypeKey"],
+                    item["id"],
+                    item["name"],
+                    item["parentObjectId"],
+                    tuple(
+                        sorted((attribute["attributeTypeKey"], attribute["value"]) for attribute in item["attributes"])
+                    ),
+                )
+            )
+            anchor = client.get(
+                "/api/v1/relations",
+                params={"objectId": item["id"], **params},
+            )
+            assert anchor.status_code == 200, anchor.text
+            for relation in anchor.json()["items"]:
+                snapshot["relations"].append(
+                    (
+                        relation["direction"],
+                        relation["relation"]["relationTypeKey"],
+                        relation["relation"]["fromObjectId"],
+                        relation["relation"]["toObjectId"],
+                        tuple(
+                            sorted(
+                                (key, value)
+                                for key, value in (relation["relation"]["attributes"] or {}).items()
+                            )
+                        ),
+                    )
+                )
+    return json.dumps(snapshot, sort_keys=True, default=str)
+
+
+def graph_snapshot_sets(snapshot_json: str) -> tuple[set, set]:
+    """Return ``(objects, relations)`` as sets so order-insensitive content comparison is possible.
+
+    ``json.dumps`` degrades the captured tuples into JSON arrays, so every nested array is converted
+    back into a tuple before the entries become hashable set elements.
+    """
+
+    def object_entry(entry: list) -> tuple:
+        return (
+            entry[0],
+            entry[1],
+            entry[2],
+            entry[3],
+            tuple((pair[0], pair[1]) for pair in entry[4]),
+        )
+
+    def relation_entry(entry: list) -> tuple:
+        return (
+            entry[0],
+            entry[1],
+            entry[2],
+            entry[3],
+            tuple((pair[0], pair[1]) for pair in entry[4]),
+        )
+
+    payload = json.loads(snapshot_json)
+    return {object_entry(entry) for entry in payload["objects"]}, {
+        relation_entry(entry) for entry in payload["relations"]
+    }
+
+
+def published_graph_snapshot(
+    client,
+    workspace_key: str,
+    object_types=("language", "translation-group", "translation", "domain", "codelist"),
+) -> str:
+    """Canonical JSON of the workspace's published active projection.
+
+    Objects are captured from every ``object_types`` collection and relations from each visible
+    anchor, so two snapshots are byte-comparable only when the complete effective graph is identical.
+    """
+    return _graph_snapshot(client, {"workspaceKey": workspace_key}, object_types)
+
+
+def revision_graph_snapshot(
+    client,
+    revision_id: str,
+    object_types=("language", "translation-group", "translation", "domain", "codelist"),
+) -> str:
+    """Canonical JSON of an immutable revision's object/relation snapshot read through the generic
+    object/relation routers bound to ``workspaceRevisionId``."""
+    return _graph_snapshot(client, {"workspaceRevisionId": revision_id}, object_types)
+
+
+def draft_graph_snapshot(
+    client,
+    draft_id: str,
+    object_types=("language", "translation-group", "translation", "domain", "codelist"),
+) -> str:
+    """Canonical JSON of a mutable draft's effective membership read through the generic object and
+    relation routers bound to ``workspaceDraftId``."""
+    return _graph_snapshot(client, {"workspaceDraftId": draft_id}, object_types)
+
+
+def translation_relation(target_id: str) -> list[dict]:
+    return [
+        {
+            "relationTypeKey": "object-has-translation",
+            "direction": "incoming",
+            "otherObjectId": target_id,
+        }
+    ]
+
+
+def create_domain(client, draft: dict, suffix: str) -> dict:
+    """Create a standalone rdm-master domain record inside a workspace draft."""
+    return create_object(
+        client,
+        draft,
+        "rdm-master",
+        "domain",
+        f"Domain {suffix}",
+        attributes=[attribute("domain-code", f"dom-{suffix}-{uuid4().hex[:8]}")],
+    ).json()
+
+
+def build_complete_graph(client, workspace_key: str, suffix: str) -> tuple[dict, dict]:
+    """Language -> group containment, domain -> codelist containment, one translation.
+
+    Mirrors the complete graph the package-2 validation suite treats as valid: it carries typed
+    containment edges across the rdm-translations and rdm-master applications plus one independent
+    required ownership relation (``object-has-translation`` from the domain to the translation).
+    """
+    draft = create_draft(client, workspace_key, name=f"graph {suffix}").json()
+    language = create_object(
+        client,
+        draft,
+        "rdm-translations",
+        "language",
+        f"Language {suffix}",
+        attributes=[attribute("language-code", f"lang-{suffix}-{uuid4().hex[:8]}")],
+    ).json()
+    group = create_object(
+        client,
+        draft,
+        "rdm-translations",
+        "translation-group",
+        f"Group {suffix}",
+        attributes=[attribute("group-code", f"grp-{suffix}-{uuid4().hex[:8]}")],
+        parent_object_id=language["id"],
+    ).json()
+    domain = create_domain(client, draft, unique_key(suffix))
+    codelist = create_object(
+        client,
+        draft,
+        "rdm-master",
+        "codelist",
+        f"Codelist {suffix}",
+        attributes=[attribute("codelist-code", f"cl-{uuid4().hex[:8]}")],
+        parent_object_id=domain["id"],
+    ).json()
+    translation = create_object(
+        client,
+        draft,
+        "rdm-translations",
+        "translation",
+        f"Translation {suffix}",
+        attributes=[attribute("translated-value", f"tv-{uuid4().hex[:8]}")],
+        parent_object_id=group["id"],
+        initial_relations=translation_relation(domain["id"]),
+    ).json()
+    return draft, {
+        "language": language,
+        "group": group,
+        "domain": domain,
+        "codelist": codelist,
+        "translation": translation,
+    }
+
+
+def publish_language_revision(
+    client,
+    workspace_key: str,
+    suffix: str,
+    *,
+    expected_active_revision_id: str | None = None,
+) -> dict:
+    """Publish one draft containing a single language record into a revision."""
+    draft = create_draft(client, workspace_key, name=f"seed {suffix}").json()
+    language = create_object(
+        client,
+        draft,
+        "rdm-translations",
+        "language",
+        f"Language {suffix}",
+        attributes=[attribute("language-code", f"lang-{suffix}-{uuid4().hex[:8]}")],
+    ).json()
+    revision = activate_draft(
+        client,
+        draft["id"],
+        expected_draft_version=draft["version"],
+        expected_active_revision_id=expected_active_revision_id,
+    ).json()
+    return {**revision, "language": language, "draft": draft}
+
+
+def diagnostic_codes(result: dict) -> list[str]:
+    return [item["code"] for item in result["diagnostics"]]
+
+
+def inject_draft_object(
+    draft_id: str,
+    object_id: str,
+    application_key: str,
+    object_type_key: str,
+    name: str,
+    *,
+    parent_object_id: str | None = None,
+    attributes: dict | None = None,
+    version: int = 1,
+) -> None:
+    with SessionLocal() as session:
+        session.add(
+            WorkspaceDraftObject(
+                draft_id=draft_id,
+                object_id=object_id,
+                application_key=application_key,
+                object_type_key=object_type_key,
+                name=name,
+                parent_object_id=parent_object_id,
+                attributes=attributes or {},
+                version=version,
+                is_deleted=False,
+            )
+        )
+        session.commit()
+
+
+def inject_draft_relation(
+    draft_id: str,
+    relation_id: str,
+    relation_type_key: str,
+    from_object_id: str,
+    to_object_id: str,
+    *,
+    attributes: dict | None = None,
+    version: int = 1,
+) -> None:
+    with SessionLocal() as session:
+        session.add(
+            WorkspaceDraftRelation(
+                draft_id=draft_id,
+                relation_id=relation_id,
+                relation_type_key=relation_type_key,
+                from_object_id=from_object_id,
+                to_object_id=to_object_id,
+                attributes=attributes or {},
+                version=version,
+                is_deleted=False,
+            )
+        )
+        session.commit()
+
+
+def delete_draft_relation(draft_id: str, *, relation_type_key: str, to_object_id: str) -> None:
+    with SessionLocal() as session:
+        rows = list(
+            session.scalars(
+                select(WorkspaceDraftRelation).where(
+                    WorkspaceDraftRelation.draft_id == draft_id,
+                    WorkspaceDraftRelation.relation_type_key == relation_type_key,
+                    WorkspaceDraftRelation.to_object_id == to_object_id,
+                )
+            )
+        )
+        for row in rows:
+            session.delete(row)
+        session.commit()
+
+
+def draft_membership_counts(draft_id: str) -> tuple[int, int]:
+    with SessionLocal() as session:
+        objects = list(
+            session.scalars(
+                select(WorkspaceDraftObject).where(
+                    WorkspaceDraftObject.draft_id == draft_id,
+                    WorkspaceDraftObject.is_deleted.is_(False),
+                )
+            )
+        )
+        relations = list(
+            session.scalars(
+                select(WorkspaceDraftRelation).where(
+                    WorkspaceDraftRelation.draft_id == draft_id,
+                    WorkspaceDraftRelation.is_deleted.is_(False),
+                )
+            )
+        )
+        return len(objects), len(relations)
+
+
+def rewire_draft_to_release(draft_id: str, release: ModelRelease) -> None:
+    with SessionLocal() as session:
+        draft = session.scalar(select(WorkspaceDraft).where(WorkspaceDraft.id == draft_id))
+        assert draft is not None
+        draft.model_release_id = release.id
+        session.commit()
+
+
+def copy_active_model_release_as_unused() -> ModelRelease:
+    """Insert a non-active twin release with a distinct release version and return it."""
+    with SessionLocal() as session:
+        active = session.scalar(
+            select(ModelRelease).order_by(ModelRelease.is_active.desc()).limit(1)
+        )
+        assert active is not None, "No active model release installed"
+        model_json = dict(active.model_json)
+        model_json["release"] = {
+            **model_json["release"],
+            "version": f"0.6.0-unused-{uuid4().hex[:6]}",
+        }
+        twin = ModelRelease(
+            release_key=active.release_key,
+            release_name=active.release_name,
+            release_version=model_json["release"]["version"],
+            schema_version=active.schema_version,
+            model_hash=uuid4().hex,
+            model_json=model_json,
+            is_active=False,
+        )
+        session.add(twin)
+        session.commit()
+        session.refresh(twin)
+        return twin
