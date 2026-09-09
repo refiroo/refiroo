@@ -309,7 +309,7 @@ or retired and generic CRUD semantics remain unchanged.
 Deliver the following bounded slices sequentially. One implementation owner per slice; no overlapping
 module writers. Each slice produces an independently reviewed diff and direct boundary evidence.
 
-#### WP8.1-A — Live compatibility and pinned historical interpretation
+#### WP8.1-A — Live compatibility and pinned historical interpretation (implemented)
 
 Primary areas: `backend/app/services/model/compatibility.py`, snapshot dependencies/resolution,
 object/attribute/relation query and response services, routers and focused integration tests.

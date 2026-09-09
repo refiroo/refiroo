@@ -39,13 +39,12 @@ in code does not establish that a browser user can complete its story.
 
 ## Next delivery sequence
 
-1. **WP8.1-A:** authoritative live compatibility population and pinned supported-model historical reads.
-2. **WP8.1-B:** immutable current-live draft bases, independent of publication lineage, including upgrade
-   preservation of existing drafts and migration/startup evidence.
-3. **WP8.1-C:** newest-first history and explicit retirement/history behavior tests.
-4. **WP9:** complete live CRUD, optional copied drafts and immutable history through generic browser
+1. **WP8.1-B:** immutable current-live draft bases, independent of publication lineage, including upgrade
+  preservation of existing drafts and migration/startup evidence.
+2. **WP8.1-C:** newest-first history and explicit retirement/history behavior tests.
+3. **WP9:** complete live CRUD, optional copied drafts and immutable history through generic browser
    controls, preserving workspace context, typed inputs, conflicts, keyboard and narrow-layout behavior.
-5. **WP10:** composed frontend/backend scenarios, authority/concurrency boundaries, browser accessibility
+4. **WP10:** composed frontend/backend scenarios, authority/concurrency boundaries, browser accessibility
    and visual evidence, migration/lifespan, packaging and public-contract checks.
 
 The accepted historical-model warning and confirm-or-cancel behavior belongs to the planned 0.10
@@ -59,7 +58,8 @@ See [implementation plan](BASE_0_6_IMPLEMENTATION_PLAN.md), [delivery queue](TOD
 
 The subsequent [WP8 implementation review](../review-notes/wp8-implementation-review-2026-09-08.md)
 reviewed the uncommitted diff and corrected confirmed lifecycle/CRUD defects. Its backend, frontend,
-migration and installed-wheel evidence is recorded separately; it does not close WP8.1–WP10.
+migration and installed-wheel evidence is recorded separately; it does not close the remaining
+WP8.1-B/C–WP10 work.
 The follow-up closes SC-04's service boundary: cascade confirmation requires the signed identity from
 the exact displayed preview and rejects intervening hierarchy changes without deleting data. Live
 deletion also claims active workspace status for the transaction and refuses stored graph edges that
@@ -175,8 +175,9 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 ## Remaining limitations
 
 - No complete browser CRUD/draft/history journey is claimed until WP9/WP10 evidence exists.
-- Current-live draft capture, live compatibility coverage and historical model interpretation need
-  WP8.1; stored revision/model IDs alone do not satisfy those boundaries.
+- Current-live draft capture remains in WP8.1-B; newest-first history and retirement behavior remain in
+  WP8.1-C. WP8.1-A now covers all authoritative live compatibility rows and pinned model interpretation
+  for draft/history reads; stored revision/model IDs are resolved before query and response semantics.
 - Schema 0.5 supports strict table views; `mappingGrid`, top-level `form`, `dashboard` and `tree` are
   not implemented renderers. Specialist mappings and tree/translation coverage follow the roadmap.
 - Advanced queries, effective-date/as-of semantics, bulk upsert, imports/exports, change feeds and
@@ -195,7 +196,8 @@ immutable install, guarded activation, bounded query/audit improvements and the 
 Base 0.6 WP1–WP3 delivered UI primitives, workspace catalogue and typed tables. WP4's individual-object
 publication design was rejected before release and removed through the corrective WP6 migration;
 WP5 refroze workspace scope, WP7 restored generic CRUD and WP8 implemented lifecycle services.
-ADR-026 then restored direct live data and delta merge. Those records do not make WP8.1–WP10 complete.
+ADR-026 then restored direct live data and delta merge. Those records do not make WP8.1-B/C–WP10
+complete.
 The earlier plans and changelog preserve delivery details; do not rebuild rejected object lifecycle.
 
 ## Coding-agent handoff

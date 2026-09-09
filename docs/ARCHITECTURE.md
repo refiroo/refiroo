@@ -35,8 +35,8 @@ The active release is selected by a singleton database runtime-state row. The co
 bootstrap input: it can install missing content and initialize an empty runtime state, but it is not a
 parallel runtime authority. A live-data request reads runtime state once, resolves the selected release
 to one immutable parsed model snapshot and uses that release’s metadata throughout the request.
-Draft/history requests must resolve their own pinned supported definition under ADR-027; the historical
-path requires WP8.1 correction, rather than using global current metadata to interpret old content. An in-process
+Draft/history requests resolve their own pinned supported definition under ADR-027, rather than using
+global current metadata to interpret old content. An in-process
 registry may cache snapshots by public release ID and hash; it never decides which release is active.
 Definition models are frozen recursively, including nested collections, so cached snapshots cannot be
 changed without installing and selecting a different release.
@@ -193,9 +193,9 @@ start editing. The current service instead starts empty or from a selected revis
 drafts remain a separate option. Source lineage and the actual live-base identity must not be conflated.
 
 Workspace revisions retain derivation and supersession separately. Starting from older history does
-not restore the active dataset: untouched newer live content remains. Revision reads must resolve the
-pinned model before typing values, validating query fields or composing responses. Current routes need
-that authority correction; it is not yet proven by stored model IDs alone.
+not restore the active dataset: untouched newer live content remains. Revision reads resolve the pinned
+model before typing values, validating query fields or composing responses. Unsupported or corrupt pins
+return structured errors without falling back to the active model.
 
 Model compatibility must examine all authoritative live records, including live-only rows and readable
 catalogue-retired scopes. History can be excluded from that population only when historical reads use

@@ -17,7 +17,11 @@ from ..models.api import (
 from ..models.database import WorkspaceRevision, WorkspaceRevisionObject
 from ..services.audit import list_object_history
 from ..services.deletion import delete_object_record
-from ..services.model.registry import ActiveModelSnapshot
+from ..services.model.registry import (
+    RequestModelSnapshot,
+    resolve_draft_snapshot,
+    resolve_model_snapshot,
+)
 from ..services.objects import (
     OBJECT_SORT_COLUMNS,
     _built_in_value_type,
@@ -187,7 +191,7 @@ def _require_draft_context(draft_id: str, expected: int | None) -> int:
 
 @router.post("/objects", response_model=ObjectResponse, status_code=status.HTTP_201_CREATED)
 def create_object(
-    payload: ObjectCreate, session: DbSession, snapshot: ActiveModelSnapshot
+    payload: ObjectCreate, session: DbSession
 ) -> ObjectResponse:
     attribute_keys = [item.attributeTypeKey for item in payload.attributes]
     if len(attribute_keys) != len(set(attribute_keys)):
@@ -195,6 +199,17 @@ def create_object(
     if payload.workspaceDraftId:
         draft_id = str(payload.workspaceDraftId)
         expected = _require_draft_context(draft_id, payload.expectedWorkspaceDraftVersion)
+        membership = effective_draft_membership(session, draft_id)
+        if payload.workspaceKey is not None and payload.workspaceKey != membership.draft.workspace_key:
+            raise api_error(
+                422,
+                "workspace_context_mismatch",
+                "workspaceKey does not match workspaceDraftId",
+                {
+                    "workspaceKey": payload.workspaceKey,
+                    "contextWorkspaceKey": membership.draft.workspace_key,
+                },
+            )
         row = put_draft_object(
             session,
             draft_id,
@@ -213,7 +228,7 @@ def create_object(
         membership = effective_draft_membership(session, draft_id)
         draft = membership.draft
         return _draft_object_response(
-            row, draft_id, snapshot.model, objects=membership.objects
+            row, draft_id, resolve_draft_snapshot(session, draft_id).model, objects=membership.objects
         ).model_copy(
             update={"workspaceKey": draft.workspace_key, "workspaceDraftVersion": draft.version}
         )
@@ -224,6 +239,7 @@ def create_object(
             "workspaceKey is required for a live (active workspace) write; omit workspaceDraftId "
             "and provide workspaceKey, or target a workspace draft",
         )
+    snapshot = resolve_model_snapshot(session)
     item = create_object_record(session, snapshot.model, payload)
     return build_object_responses(session, snapshot.model, [item])[0]
 
@@ -234,7 +250,6 @@ def update_object(
     object_id: str,
     payload: ObjectUpdate,
     session: DbSession,
-    snapshot: ActiveModelSnapshot,
 ) -> ObjectResponse:
     fields = payload.model_dump(
         exclude={"expectedVersion", "workspaceDraftId", "expectedWorkspaceDraftVersion"},
@@ -254,10 +269,11 @@ def update_object(
         membership = effective_draft_membership(session, draft_id)
         draft = membership.draft
         return _draft_object_response(
-            row, draft_id, snapshot.model, objects=membership.objects
+            row, draft_id, resolve_draft_snapshot(session, draft_id).model, objects=membership.objects
         ).model_copy(
             update={"workspaceKey": draft.workspace_key, "workspaceDraftVersion": draft.version}
         )
+    snapshot = resolve_model_snapshot(session)
     item = update_object_record(session, snapshot.model, object_type_key, object_id, payload)
     return build_object_responses(session, snapshot.model, [item])[0]
 
@@ -267,7 +283,6 @@ def delete_object(
     object_type_key: str,
     object_id: str,
     session: DbSession,
-    snapshot: ActiveModelSnapshot,
     workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
     expected_workspace_draft_version: int | None = Query(
         default=None, alias="expectedWorkspaceDraftVersion", ge=1
@@ -289,6 +304,7 @@ def delete_object(
             deletion_preview=deletion_preview_token,
         )
     else:
+        snapshot = resolve_model_snapshot(session)
         delete_object_record(
             session,
             snapshot.model,
@@ -324,7 +340,7 @@ def list_objects(
     object_type_key: str,
     request: Request,
     session: DbSession,
-    snapshot: ActiveModelSnapshot,
+    snapshot: RequestModelSnapshot,
     cursor: str | None = None,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
     application_key: str | None = Query(default=None, alias="applicationKey"),
@@ -518,7 +534,7 @@ def get_object(
     object_type_key: str,
     object_id: str,
     session: DbSession,
-    snapshot: ActiveModelSnapshot,
+    snapshot: RequestModelSnapshot,
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
     workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
     workspace_revision_id: str | None = Query(default=None, alias="workspaceRevisionId"),
@@ -576,13 +592,13 @@ def get_object_history(
     object_type_key: str,
     object_id: str,
     session: DbSession,
-    snapshot: ActiveModelSnapshot,
     cursor: str | None = None,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
     workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
 ) -> AuditEventPage:
-    get_object_type(snapshot.model, object_type_key)
     if workspace_draft_id:
+        snapshot = resolve_draft_snapshot(session, workspace_draft_id)
+        get_object_type(snapshot.model, object_type_key)
         membership = effective_draft_membership(session, workspace_draft_id)
         item = next(
             (
@@ -602,6 +618,8 @@ def get_object_history(
             cursor=cursor,
             page_size=page_size,
         )
+    snapshot = resolve_model_snapshot(session)
+    get_object_type(snapshot.model, object_type_key)
     item = load_object(session, object_id, object_type_key)
     return list_object_history(
         session,

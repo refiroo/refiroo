@@ -7,7 +7,7 @@ from app.main import app, create_app
 def test_base_0_6_wp7_openapi_document_is_locked():
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "9e6109e408a0a8b16d155a8c976a5e98e77cfeba5f135b508bfb18c24fea2229"
+        "f5770dcde390ce8a8c120ddc62e25060428c13f9191ce37f00aa1e2d5e789aeb"
     )
 
 

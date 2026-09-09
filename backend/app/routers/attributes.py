@@ -6,7 +6,11 @@ from ..errors import api_error
 from ..models.api import AttributeValueResponse, AttributeValueWrite, ObjectResponse
 from ..models.database import WorkspaceRevision, WorkspaceRevisionObject
 from ..services.attributes import build_attribute_value_response, load_attribute_value
-from ..services.model.registry import ActiveModelSnapshot
+from ..services.model.registry import (
+    RequestModelSnapshot,
+    resolve_draft_snapshot,
+    resolve_model_snapshot,
+)
 from ..services.objects import (
     build_object_responses,
     delete_live_attribute_value,
@@ -28,7 +32,7 @@ PATH = "/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}"
 
 @router.get(PATH, response_model=AttributeValueResponse)
 def get_attribute_value(object_type_key: str, object_id: str, attribute_type_key: str,
-                        session: DbSession, snapshot: ActiveModelSnapshot,
+                        session: DbSession, snapshot: RequestModelSnapshot,
                         workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
                         workspace_revision_id: str | None = Query(default=None, alias="workspaceRevisionId")) -> AttributeValueResponse:
     if workspace_draft_id and workspace_revision_id:
@@ -104,13 +108,15 @@ def _write(object_type_key: str, object_id: str, attribute_type_key: str, payloa
         row = patch_draft_attribute(session, draft_id, object_id, attribute_type_key,
                                     payload.value, payload.expectedWorkspaceDraftVersion, payload.expectedVersion)
         draft = effective_draft_membership(session, draft_id).draft
-        return _draft_object_response(row, draft_id, snapshot.model).model_copy(
+        return _draft_object_response(row, draft_id, resolve_draft_snapshot(session, draft_id).model).model_copy(
             update={"workspaceKey": draft.workspace_key, "workspaceDraftVersion": draft.version}
         )
     if delete:
+        snapshot = snapshot or resolve_model_snapshot(session)
         delete_live_attribute_value(session, snapshot.model, object_type_key, object_id,
                                     attribute_type_key, payload.expectedVersion)
         return Response(status_code=204)
+    snapshot = snapshot or resolve_model_snapshot(session)
     set_live_attribute_value(session, snapshot.model, object_type_key, object_id, attribute_type_key,
                              payload.value, payload.expectedVersion, create_only=require_absent)
     item = load_active_projection(session, object_id, object_type_key)
@@ -119,23 +125,23 @@ def _write(object_type_key: str, object_id: str, attribute_type_key: str, payloa
 
 @router.post(PATH, response_model=ObjectResponse, status_code=status.HTTP_201_CREATED)
 def create_attribute_value(object_type_key: str, object_id: str, attribute_type_key: str,
-                           payload: AttributeValueWrite, session: DbSession, snapshot: ActiveModelSnapshot):
-    return _write(object_type_key, object_id, attribute_type_key, payload, session, snapshot, require_absent=True)
+                           payload: AttributeValueWrite, session: DbSession):
+    return _write(object_type_key, object_id, attribute_type_key, payload, session, None, require_absent=True)
 
 
 @router.patch(PATH, response_model=ObjectResponse)
 def update_attribute_value(object_type_key: str, object_id: str, attribute_type_key: str,
-                           payload: AttributeValueWrite, session: DbSession, snapshot: ActiveModelSnapshot):
-    return _write(object_type_key, object_id, attribute_type_key, payload, session, snapshot)
+                           payload: AttributeValueWrite, session: DbSession):
+    return _write(object_type_key, object_id, attribute_type_key, payload, session, None)
 
 
 @router.delete(PATH, status_code=204)
 def remove_attribute_value(object_type_key: str, object_id: str, attribute_type_key: str,
-                           session: DbSession, snapshot: ActiveModelSnapshot,
+                           session: DbSession,
                            workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
                            expected_workspace_draft_version: int | None = Query(default=None, alias="expectedWorkspaceDraftVersion", ge=1),
                            expected_version: int = Query(ge=1, alias="expectedVersion")):
     payload = AttributeValueWrite(value=None, expectedVersion=expected_version,
                                   workspaceDraftId=workspace_draft_id,
                                   expectedWorkspaceDraftVersion=expected_workspace_draft_version)
-    return _write(object_type_key, object_id, attribute_type_key, payload, session, snapshot, delete=True)
+    return _write(object_type_key, object_id, attribute_type_key, payload, session, None, delete=True)

@@ -8,8 +8,6 @@ from ...models.database import (
     AttributeValue,
     ObjectRelation,
     RdmObject,
-    Workspace,
-    WorkspaceRevisionObject,
 )
 from ...models.schema import EngineModel, ObjectTypeRelationDefinition
 from ..attributes import VALUE_COLUMNS, normalize_value
@@ -23,16 +21,14 @@ class CompatibilityResult:
         self.diagnostics = tuple(diagnostics)
 
 
-def _is_in_active_workspace(item: Any) -> Any:
-    """Keep compatibility analysis scoped to the workspace publication authority."""
-    return exists(
-        select(WorkspaceRevisionObject.sequence_id)
-        .join(Workspace, Workspace.active_revision_id == WorkspaceRevisionObject.revision_id)
-        .where(
-            Workspace.key == item.workspace_key,
-            WorkspaceRevisionObject.object_id == item.id,
-        )
-    )
+def _is_in_active_workspace(_item: Any) -> Any:
+    """Compatibility covers every authoritative live row, including retired catalogues.
+
+    The helper name is retained at the query call sites for a small, reviewable change.  Live
+    objects are authoritative independently of whether their workspace still has an active
+    publication; revision membership is historical data and must not hide live incompatibilities.
+    """
+    return literal(True)
 
 
 def analyze_compatibility(

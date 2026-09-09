@@ -8,6 +8,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Implemented WP8.1-A model authority boundaries. Compatibility now examines all authoritative live
+  objects, attributes and relations, including catalogue-retired workspaces. Draft and historical
+  reads resolve their pinned supported model before filters, typed responses and relation expansion;
+  missing, corrupt or unsupported pins and workspace-context mismatches return structured errors.
+  WP8.1-B current-live draft bases and WP8.1-C history ordering remain planned.
+
 - Reviewed the uncommitted WP8 implementation against the live/draft API contracts. Corrected
   activation and cascade deletion ordering, association confirmation and ownership checks, atomic
   draft version claims, public relation UUID reads, retired-workspace publication guards, and

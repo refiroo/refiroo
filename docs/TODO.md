@@ -7,12 +7,12 @@ release plan and changelog rather than accumulating it here.
 ## Now — Base 0.6 completion under ADR-027
 
 User GAP-01–GAP-08 answers are accepted. That resolves product direction, not runtime delivery.
-The next sequence is **WP8.1-A/B/C → WP9 → WP10**. Completed checkboxes below record prior work;
+The next sequence is **WP8.1-B/C → WP9 → WP10**. Completed checkboxes below record prior work;
 they do not close the newly identified authority or browser gaps.
 
 - [x] Consolidate accepted live/draft/history and historical-migration direction in ADR-027 and the
   technical planning baseline; retain user comments in the product planning handoff.
-- [ ] WP8.1-A: make model compatibility inspect all authoritative live data and resolve historical
+- [x] WP8.1-A: make model compatibility inspect all authoritative live data and resolve historical
   reads using their pinned supported model. Prove live-only incompatibility and historical typing after
   model activation, including readable retired workspace content.
 - [ ] WP8.1-B: capture an immutable current-live draft base including post-publication edits, model and

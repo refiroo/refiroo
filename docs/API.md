@@ -598,9 +598,18 @@ tokens do not bind a model or revision ID unless that context is itself selected
 > explicit, separately labelled choice. This is accepted planning work, not current endpoint behavior.
 > Workspace data drafts and application-model drafts remain separate tools.
 
-> **Target — WP8.1 historical reads.** Resolve snapshots with their pinned supported model; current
-> read routes still use the active model in relevant response/query paths. This correction belongs in
-> Base 0.6 and is distinct from schema migration.
+Historical draft and revision reads resolve their pinned supported model before field/filter metadata,
+typed responses or relationship expansion. Missing, corrupt or unsupported pins return structured
+errors and never fall back to the active model. Supplying `workspaceKey` with a draft or revision must
+match that context; draft and revision IDs remain mutually exclusive. Live writes continue to resolve
+the active model, while draft writes validate and respond using the draft's pinned model.
+
+These refusals use the normal error envelope. A context mismatch is `422` with
+`{"error":{"code":"workspace_context_mismatch","message":"workspaceKey does not match the selected context","details":{"workspaceKey":"...","contextWorkspaceKey":"..."}}}`.
+A missing pinned release is `409` with code `pinned_model_unavailable`; an invalid pinned document is
+`409` with `pinned_model_invalid` and its diagnostics; and an unsupported schema is `409` with
+`unsupported_pinned_model_schema`, including `modelReleaseId`, `schemaVersion`, and
+`supportedSchemaVersions: ["0.5"]` in details.
 >
 > **Target — product 0.10 historical model migration.** Preview incompatibilities and potential data
 > loss for one workspace and a named installed target release (normally the historical draft’s pin),
@@ -740,7 +749,7 @@ with an endpoint outside the deletion set.
 | `applicationKey` | Yes | Application the object belongs to. |
 | `objectTypeKey` | Yes | Type of the object to create. |
 | `name` | Yes | Display name (1–500 characters). |
-| `workspaceKey` | Yes for live create; No for draft create | Required without `workspaceDraftId`; inferred from the draft when targeting one. Current draft creation follows the draft identity; the route does not independently check a supplied conflicting key. Context mismatch enforcement is a WP8.1/WP9 contract gap, not a client permission to cross workspaces. |
+| `workspaceKey` | Yes for live create; No for draft create | Required without `workspaceDraftId`; inferred from the draft when targeting one. A supplied key must match the selected draft or revision context. |
 | `workspaceDraftId` | No | Optional mutable workspace draft that receives the record. Omit it for a live create. |
 | `expectedWorkspaceDraftVersion` | When targeting a draft | Aggregate workspace-draft concurrency claim. |
 | `parentObjectId` | No | Parent object UUID. Required for non-root-creatable types. |
