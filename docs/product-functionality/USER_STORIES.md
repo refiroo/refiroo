@@ -251,8 +251,8 @@ are using now so that recent corrections and additions are not absent from my wo
 live data exists without a publication. Later live edits do not rewrite that starting view. Starting
 from an older historical snapshot remains an explicitly different choice.
 
-**Coverage:** F12, F13. **Status:** User-accepted GAP-02 / ADR-027 intent; implementation remains required before
-0.6 design acceptance. **Example:** SC-05.
+**Coverage:** F12, F13. **Status:** SQLite API implemented by WP8.1-B; browser acceptance remains
+WP9/WP10 work. **Example:** SC-05.
 
 ## Localization steward
 

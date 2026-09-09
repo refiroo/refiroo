@@ -39,6 +39,7 @@ def create_draft(
     *,
     name: str | None = None,
     derived_from_revision_id: str | None = None,
+    source: str | None = None,
     expected_status: int = 201,
 ):
     payload: dict = {}
@@ -46,6 +47,8 @@ def create_draft(
         payload["name"] = name
     if derived_from_revision_id is not None:
         payload["derivedFromRevisionId"] = derived_from_revision_id
+    if source is not None:
+        payload["source"] = source
     response = client.post(f"/api/v1/workspaces/{workspace_key}/drafts", json=payload)
     assert response.status_code == expected_status, response.text
     return response

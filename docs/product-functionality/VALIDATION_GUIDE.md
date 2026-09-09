@@ -39,7 +39,7 @@ acceptance evidence.
 | US-D11 | F10 deletion impact               | E2 cascade tests + E3 disconnected dialog           | 0.6 WP9/WP10                     |
 | US-D12 | F11 record history                | E2 audit + E3 default-workspace history panel       | WP9 context fix; E1 in WP10      |
 | US-D13 | F01 model-defined applications    | E3 shell/view/panel tests across record types       | Current; E1 proof in WP10        |
-| US-W01 | F12 design draft                  | Empty/revision-source API tests; current-live base gap | GAP-02, then 0.6 WP9/WP10       |
+| US-W01 | F12 design draft                  | Current-live/history-source API tests; browser gap | 0.6 WP9/WP10                    |
 | US-W02 | F13 graph validation              | E2 whole-graph validation tests                     | 0.6 WP9/WP10                     |
 | US-W03 | F13 atomic activation             | E2 activation tests                                 | 0.6 WP9/WP10                     |
 | US-W04 | F13/F17 delta merge               | E2 activation-merge tests                           | 0.6 WP10                         |

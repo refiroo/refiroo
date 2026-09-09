@@ -49,7 +49,7 @@ preloaded demonstration data.
 | Keep a shared list accurate | Add, correct or remove a value and its fields, with clear validation and change history | Service available; browser authoring remains 0.6 work | US-D06–D08, US-D11–D12, US-D14 |
 | Organize and connect data | Choose a valid parent, connect related records and understand deletion impact | Service available; browser authoring remains 0.6 work | US-D09–D11 |
 | Work in several domains | Use the configured terminology, fields and views through familiar controls | Model-driven foundation exists | US-D13, US-P06 |
-| Prepare a coordinated change | Work in an optional draft, check it and apply its changes together while preserving unrelated live work | Service largely available; current-live draft base and browser gaps remain | US-W01–W08 |
+| Prepare a coordinated change | Work in an optional draft, check it and apply its changes together while preserving unrelated live work | Current-live/history API available; browser gaps remain | US-W01–W08 |
 | Maintain translations | Enter a target, language and translated content together; prevent conflicting active translations | Basic service available; browser completion 0.6, coverage view 0.8 | US-L01–L04 |
 | Manage system equivalences | See missing or conflicting mappings and choose, replace or clear a target in one action | Specialist workflow planned for 0.7 | US-M01–M04 |
 | Navigate a deep hierarchy | Expand the relevant branch, add a child or move a record without losing context | Specialist workflow planned for 0.8 | US-H01–H02 |

@@ -76,7 +76,7 @@ not alter live data until activation. Historical snapshots do not change in eith
 1. Open the workspace's Drafts area.
 2. Choose a clearly labelled source: current live data or a historical snapshot. Empty drafts are
    development/bootstrap support, not the normal creation flow.
-   The current-live option is required behavior accepted in GAP-02, with implementation still pending in WP8.1-B.
+   The current-live option is implemented by WP8.1-B; browser controls for choosing it remain WP9 work.
 3. Name the draft and make changes using the normal record controls.
 4. Validate the complete candidate.
 5. Review the source, current live context, model release, changes and validation result.
@@ -88,10 +88,10 @@ afterward. A conflict or invalid graph publishes nothing and preserves the draft
 
 ## J06 — Continue live work while a design draft is open
 
-**Current channel:** Merge service available through the API; current-live draft creation remains
-GAP-02 and the browser is pending.
+**Current channel:** Merge and current-live draft creation are available through the SQLite API; the
+browser journey is pending.
 
-1. A design draft starts from current live content (target behavior; validate with SC-05).
+1. A design draft starts from a private immutable copy of current live content.
 2. Routine live edits continue without using the draft.
 3. The design team edits other records in the draft.
 4. Activation computes only the draft's changes.

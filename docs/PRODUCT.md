@@ -34,7 +34,7 @@ across systems. Starter applications are examples of configuration, never specia
 | --- | --- | --- |
 | Model-defined navigation, tables, search and record inspection | Browser foundation present; non-default workspace detail context needs repair | F01–F04, US-D01–D05, US-D13 |
 | Live record, field, parent, relationship and basic translation maintenance | API available; complete browser authoring remains Base 0.6 work | F05–F11, US-D06–D14, US-L01–L02 |
-| Optional coordinated data changes | Draft and merge services present; current-live draft base and composed browser acceptance remain gaps | F12–F14, US-W01–W08 |
+| Optional coordinated data changes | Current-live and historical draft sources plus merge services available through the API; composed browser acceptance remains | F12–F14, US-W01–W08 |
 | Inspect, check, install and activate application definitions | JSON workbench and release APIs present; installation and activation are separate | F15, US-P01–P04, US-P06 |
 | Stable paged integration reads | Available; larger exchange and advanced query planned for 0.9 | F16, US-I01–I09 |
 | Dedicated mapping, translation coverage and hierarchy views | Mapping 0.7; translation and hierarchy 0.8 | US-M01–M04, US-L03–L04, US-H01–H02 |

@@ -64,7 +64,7 @@ def test_wp8_upgrade_preserves_audit_subjects_and_restarts(tmp_path, monkeypatch
             with engine.connect() as connection:
                 assert (
                     connection.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "20260908_01"
+                    == "20260909_01"
                 )
     finally:
         engine.dispose()
@@ -89,7 +89,7 @@ def test_wp8_interrupted_batch_refuses_safely_and_preserves_history(tmp_path, mo
             ):
                 assert client.get("/health").status_code == 503
             message = str(error.call_args.args[1])
-            assert "20260907_03" in message and "20260908_01" in message
+            assert "20260907_03" in message and "20260909_01" in message
             assert "_alembic_tmp_audit_events" in message
             assert "take a consistent backup" in message
             assert "python -m app.cli.database_upgrade" in message
@@ -104,6 +104,45 @@ def test_wp8_interrupted_batch_refuses_safely_and_preserves_history(tmp_path, mo
             )
             assert (
                 connection.scalar(text("SELECT version_num FROM alembic_version")) == "20260907_03"
+            )
+    finally:
+        engine.dispose()
+        model_registry.clear()
+        reload_settings()
+
+
+def test_current_live_base_interrupted_migration_refuses_startup_and_preserves_partial_table(
+    tmp_path, monkeypatch
+):
+    path = tmp_path / "current-live-base-interrupted.db"
+    config = Config(str(Path(__file__).parents[1] / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{path}")
+    command.upgrade(config, "20260908_01")
+    engine = create_engine(f"sqlite:///{path}")
+    with engine.begin() as connection:
+        connection.execute(text("CREATE TABLE workspace_draft_bases (sentinel TEXT)"))
+        connection.execute(text("INSERT INTO workspace_draft_bases VALUES ('preserve')"))
+    try:
+        with monkeypatch.context() as patch:
+            patch.setenv("DATABASE_URL", f"sqlite:///{path}")
+            model_registry.clear()
+            with (
+                mock_patch.object(main_module.logger, "error") as error,
+                TestClient(create_app()) as client,
+            ):
+                assert client.get("/health").status_code == 503
+            message = str(error.call_args.args[1])
+            assert "20260908_01" in message and "20260909_01" in message
+            assert "workspace_draft_bases" in message
+            assert "take a consistent backup" in message
+            assert "python -m app.cli.database_upgrade" in message
+            assert "Traceback" not in message
+        with engine.connect() as connection:
+            assert (
+                connection.scalar(text("SELECT sentinel FROM workspace_draft_bases")) == "preserve"
+            )
+            assert (
+                connection.scalar(text("SELECT version_num FROM alembic_version")) == "20260908_01"
             )
     finally:
         engine.dispose()

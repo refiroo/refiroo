@@ -101,7 +101,16 @@ class ObjectPage(BaseModel):
 class WorkspaceDraftCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str | None = Field(default=None, max_length=300)
+    source: Literal["currentLive", "revision"] | None = None
     derivedFromRevisionId: UUID4 | None = None
+
+    @model_validator(mode="after")
+    def validate_source(self) -> WorkspaceDraftCreate:
+        if self.source == "revision" and self.derivedFromRevisionId is None:
+            raise ValueError("derivedFromRevisionId is required when source is revision")
+        if self.source == "currentLive" and self.derivedFromRevisionId is not None:
+            raise ValueError("derivedFromRevisionId cannot be combined with source currentLive")
+        return self
 
 
 class WorkspaceDraftUpdate(BaseModel):
@@ -115,6 +124,7 @@ class WorkspaceDraftResponse(BaseModel):
     workspaceKey: str
     name: str | None
     modelReleaseId: str
+    source: Literal["currentLive", "revision", "empty"]
     derivedFromRevisionId: str | None
     version: int
     createdAt: datetime

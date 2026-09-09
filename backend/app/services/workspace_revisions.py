@@ -12,16 +12,21 @@ from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import delete, or_, select, update
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from ..errors import ApiError, api_error
 from ..models.database import (
     AttributeValue,
     ModelRelease,
+    ModelRuntimeState,
     ObjectRelation,
     RdmObject,
     Workspace,
     WorkspaceDraft,
+    WorkspaceDraftBase,
+    WorkspaceDraftBaseObject,
+    WorkspaceDraftBaseRelation,
     WorkspaceDraftObject,
     WorkspaceDraftRelation,
     WorkspaceRevision,
@@ -51,8 +56,10 @@ from .workspace_audit import (
 @dataclass(frozen=True)
 class EffectiveDraftMembership:
     draft: WorkspaceDraft
-    objects: tuple[WorkspaceRevisionObject | WorkspaceDraftObject, ...]
-    relations: tuple[WorkspaceRevisionRelation | WorkspaceDraftRelation, ...]
+    objects: tuple[WorkspaceRevisionObject | WorkspaceDraftBaseObject | WorkspaceDraftObject, ...]
+    relations: tuple[
+        WorkspaceRevisionRelation | WorkspaceDraftBaseRelation | WorkspaceDraftRelation, ...
+    ]
 
 
 def effective_draft_membership(session: Session, draft_id: str) -> EffectiveDraftMembership:
@@ -64,8 +71,12 @@ def effective_draft_membership(session: Session, draft_id: str) -> EffectiveDraf
     draft = session.scalar(select(WorkspaceDraft).where(WorkspaceDraft.id == draft_id))
     if draft is None:
         raise api_error(404, "workspace_draft_not_found", f"Workspace draft '{draft_id}' not found")
-    objects: dict[str, WorkspaceRevisionObject | WorkspaceDraftObject] = {}
-    relations: dict[str, WorkspaceRevisionRelation | WorkspaceDraftRelation] = {}
+    objects: dict[
+        str, WorkspaceRevisionObject | WorkspaceDraftBaseObject | WorkspaceDraftObject
+    ] = {}
+    relations: dict[
+        str, WorkspaceRevisionRelation | WorkspaceDraftBaseRelation | WorkspaceDraftRelation
+    ] = {}
     if draft.derived_from_revision_id is not None:
         revision = session.scalar(
             select(WorkspaceRevision).where(WorkspaceRevision.id == draft.derived_from_revision_id)
@@ -89,6 +100,28 @@ def effective_draft_membership(session: Session, draft_id: str) -> EffectiveDraf
             for item in session.scalars(
                 select(WorkspaceRevisionRelation).where(
                     WorkspaceRevisionRelation.revision_id == revision.id
+                )
+            )
+        }
+    if draft.base_id is not None:
+        base = session.get(WorkspaceDraftBase, draft.base_id)
+        if base is None or base.workspace_key != draft.workspace_key:
+            raise api_error(
+                409,
+                "workspace_draft_base_invalid",
+                "Workspace draft current-live base is missing or belongs to another workspace",
+            )
+        objects = {
+            item.object_id: item
+            for item in session.scalars(
+                select(WorkspaceDraftBaseObject).where(WorkspaceDraftBaseObject.base_id == base.id)
+            )
+        }
+        relations = {
+            item.relation_id: item
+            for item in session.scalars(
+                select(WorkspaceDraftBaseRelation).where(
+                    WorkspaceDraftBaseRelation.base_id == base.id
                 )
             )
         }
@@ -166,7 +199,31 @@ def create_draft(
     *,
     name: str | None = None,
     source_revision_id: str | None = None,
+    source: str | None = None,
+    expected_model_runtime_release_id: int | None = None,
 ) -> WorkspaceDraft:
+    if source not in (None, "currentLive", "revision"):
+        raise api_error(422, "workspace_draft_source_invalid", "Workspace draft source is invalid")
+    if source == "revision" and source_revision_id is None:
+        raise api_error(
+            422,
+            "workspace_draft_source_invalid",
+            "A historical source requires a workspace revision id",
+        )
+    if source == "currentLive" and source_revision_id is not None:
+        raise api_error(
+            422,
+            "workspace_draft_source_invalid",
+            "A current-live source cannot include a workspace revision id",
+        )
+    if source == "currentLive":
+        return _create_current_live_draft(
+            session,
+            workspace_key,
+            model_release_id,
+            name=name,
+            expected_model_runtime_release_id=expected_model_runtime_release_id,
+        )
     workspace = session.get(Workspace, workspace_key)
     if workspace is None:
         raise api_error(404, "workspace_not_found", f"Workspace '{workspace_key}' not found")
@@ -198,6 +255,133 @@ def create_draft(
     return draft
 
 
+def _create_current_live_draft(
+    session: Session,
+    workspace_key: str,
+    model_release_id: int,
+    *,
+    name: str | None,
+    expected_model_runtime_release_id: int | None,
+) -> WorkspaceDraft:
+    """Capture one private base under SQLite's database-wide writer reservation.
+
+    SQLite is the supported Base 0.6 runtime database.  ``BEGIN IMMEDIATE`` prevents a concurrent
+    live writer (including model activation) from committing between graph rows, attributes, edges and
+    the runtime-state comparison.  Other dialects are refused until their equivalent capture protocol
+    is implemented, rather than silently returning a weaker mixed snapshot.
+    """
+    if session.bind is None or session.bind.dialect.name != "sqlite":
+        raise api_error(
+            409,
+            "workspace_draft_snapshot_unsupported",
+            "Current-live draft capture is supported only on SQLite in this release",
+        )
+    # Active-model dependency resolution may have opened a read transaction before this service.
+    # Discard it so the capture starts at the explicit writer reservation rather than a stale read view.
+    session.rollback()
+    try:
+        session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+    except OperationalError as exc:
+        session.rollback()
+        raise api_error(
+            409,
+            "workspace_draft_snapshot_retry",
+            "Current live data is busy; retry starting the draft after the active write finishes",
+        ) from exc
+    try:
+        workspace = session.get(Workspace, workspace_key)
+        if workspace is None:
+            raise api_error(404, "workspace_not_found", f"Workspace '{workspace_key}' not found")
+        if workspace.status != "active":
+            raise api_error(409, "workspace_retired", "Retired workspaces cannot be edited")
+        state = session.get(ModelRuntimeState, 1)
+        if (
+            state is None
+            or state.active_model_release_id != model_release_id
+            or (
+                expected_model_runtime_release_id is not None
+                and state.active_model_release_id != expected_model_runtime_release_id
+            )
+        ):
+            raise api_error(
+                409,
+                "workspace_draft_snapshot_retry",
+                "The selected model changed before current-live capture; retry with the current model",
+            )
+        base = WorkspaceDraftBase(
+            workspace_key=workspace_key,
+            model_release_id=model_release_id,
+            model_runtime_version=state.version,
+        )
+        session.add(base)
+        session.flush()
+        live_objects, attributes, live_relations = _load_live_membership(session, workspace_key)
+        for item in live_objects:
+            session.add(
+                WorkspaceDraftBaseObject(
+                    base_id=base.id,
+                    object_id=item.id,
+                    application_key=item.application_key,
+                    object_type_key=item.object_type_key,
+                    name=item.name,
+                    parent_object_id=item.parent_object_id,
+                    attributes={
+                        key: value for key, (_row_id, value) in attributes[item.id].items()
+                    },
+                    version=item.version,
+                )
+            )
+        for item in live_relations:
+            session.add(
+                WorkspaceDraftBaseRelation(
+                    base_id=base.id,
+                    relation_id=item.id,
+                    relation_type_key=item.relation_type_key,
+                    from_object_id=item.from_object_id,
+                    to_object_id=item.to_object_id,
+                    attributes=dict(item.attributes or {}),
+                    version=item.version,
+                )
+            )
+        draft = WorkspaceDraft(
+            workspace_key=workspace_key,
+            model_release_id=model_release_id,
+            base_id=base.id,
+            name=name,
+        )
+        session.add(draft)
+        session.flush()
+        record_draft_created(session, draft=draft)
+        session.commit()
+        session.refresh(draft)
+        return draft
+    except Exception:
+        session.rollback()
+        raise
+
+
+def _load_live_membership(
+    session: Session, workspace_key: str
+) -> tuple[list[RdmObject], dict[str, dict[str, tuple[str, Any]]], list[ObjectRelation]]:
+    """Load the graph after current-live capture has acquired its SQLite writer reservation."""
+    objects = list(
+        session.scalars(select(RdmObject).where(RdmObject.workspace_key == workspace_key))
+    )
+    object_ids = [item.id for item in objects]
+    attributes = load_attribute_values(session, object_ids)
+    relations: list[ObjectRelation] = []
+    if object_ids:
+        relations = list(
+            session.scalars(
+                select(ObjectRelation).where(
+                    ObjectRelation.from_object_id.in_(object_ids),
+                    ObjectRelation.to_object_id.in_(object_ids),
+                )
+            )
+        )
+    return objects, attributes, relations
+
+
 def update_draft(
     session: Session, draft_id: str, expected_version: int, name: str | None
 ) -> WorkspaceDraft:
@@ -215,8 +399,24 @@ def discard_draft(session: Session, draft_id: str, expected_version: int) -> Non
     draft = _draft(session, draft_id, for_update=True)
     _claim_draft(session, draft, expected_version)
     record_draft_discarded(session, draft=draft)
-    session.delete(draft)
+    _delete_draft_and_base(session, draft)
     session.commit()
+
+
+def _delete_draft_and_base(session: Session, draft: WorkspaceDraft) -> None:
+    """Remove a private base explicitly because SQLite does not enable FK cascades by default."""
+    base_id = draft.base_id
+    session.delete(draft)
+    session.flush()
+    if base_id is None:
+        return
+    session.execute(
+        delete(WorkspaceDraftBaseRelation).where(WorkspaceDraftBaseRelation.base_id == base_id)
+    )
+    session.execute(
+        delete(WorkspaceDraftBaseObject).where(WorkspaceDraftBaseObject.base_id == base_id)
+    )
+    session.execute(delete(WorkspaceDraftBase).where(WorkspaceDraftBase.id == base_id))
 
 
 def _record_conflict(expected: int | None, actual: int, label: str) -> None:
@@ -1642,8 +1842,37 @@ class _LiveMerge:
 
 def _revision_snapshot_maps(
     session: Session, draft: WorkspaceDraft
-) -> tuple[dict[str, WorkspaceRevisionObject], dict[str, WorkspaceRevisionRelation]]:
-    """Index the draft's derived-from revision snapshot by stable id (empty for a root draft)."""
+) -> tuple[
+    dict[str, WorkspaceRevisionObject | WorkspaceDraftBaseObject],
+    dict[str, WorkspaceRevisionRelation | WorkspaceDraftBaseRelation],
+]:
+    """Index the immutable source snapshot by stable id (empty for a legacy root draft)."""
+    if draft.base_id is not None:
+        base = session.get(WorkspaceDraftBase, draft.base_id)
+        if base is None or base.workspace_key != draft.workspace_key:
+            raise api_error(
+                409,
+                "workspace_draft_base_invalid",
+                "Workspace draft current-live base is missing or belongs to another workspace",
+            )
+        return (
+            {
+                item.object_id: item
+                for item in session.scalars(
+                    select(WorkspaceDraftBaseObject).where(
+                        WorkspaceDraftBaseObject.base_id == base.id
+                    )
+                )
+            },
+            {
+                item.relation_id: item
+                for item in session.scalars(
+                    select(WorkspaceDraftBaseRelation).where(
+                        WorkspaceDraftBaseRelation.base_id == base.id
+                    )
+                )
+            },
+        )
     if draft.derived_from_revision_id is None:
         return {}, {}
     objects = {
@@ -1681,8 +1910,8 @@ def _merge_version_conflict(
 def _merge_draft_over_live(
     session: Session,
     draft: WorkspaceDraft,
-    base_objects: dict[str, WorkspaceRevisionObject],
-    base_relations: dict[str, WorkspaceRevisionRelation],
+    base_objects: dict[str, WorkspaceRevisionObject | WorkspaceDraftBaseObject],
+    base_relations: dict[str, WorkspaceRevisionRelation | WorkspaceDraftBaseRelation],
 ) -> _LiveMerge:
     """Compute the live content that would result from applying the draft's delta.
 
@@ -2113,7 +2342,7 @@ def activate_draft(
         old.retired_at = datetime.now(UTC)
     revision.activated_at = datetime.now(UTC)
     workspace.active_revision_id = revision.id
-    session.delete(draft)
+    _delete_draft_and_base(session, draft)
     session.commit()
     return revision
 

@@ -20,7 +20,7 @@ complete user experience. No application tests were executed for this documentat
 | F09 | Maintain translations                                     | Components present  | Available      | Translation workspace is roadmap |
 | F10 | Preview and confirm dependent deletion                    | Components present  | Available      | Browser completion is WP9        |
 | F11 | Inspect record history                                    | Default only        | Available      | Non-default context is dropped   |
-| F12 | Prepare a workspace design draft                          | Unavailable         | Partial        | Current-live base gap; browser WP9 |
+| F12 | Prepare a workspace design draft                          | Unavailable         | Available      | Browser completion is WP9        |
 | F13 | Validate and activate a design draft                      | Unavailable         | Available      | Browser completion is WP9        |
 | F14 | Browse immutable workspace history and retire publication | Unavailable         | Available      | Browser completion is WP9        |
 | F15 | Inspect and release application models                    | Implemented         | Available      | Browser validation pending       |
@@ -279,18 +279,16 @@ Evidence: [history panel](../../frontend/src/features/objects/panels/HistoryPane
 
 **User outcome:** A team can prepare a coordinated graph change without disturbing live data.
 
-Through the API a user can create an empty draft or derive one from a selected immutable revision,
-give it a name, list and open drafts, edit records through the normal record APIs, and discard the
-draft. A derived draft presents the selected base together with its changes.
-
-**Current limitation:** draft creation does not capture a fresh snapshot of current live content.
-Selecting the latest revision misses live edits made since that publication. ADR-026 requires the
-current-live starting point; this is [GAP-02](PLANNING_HANDOFF.md), not completed functionality.
-Starting from history is also not a full rollback: only explicitly authored draft changes are applied
-at activation, while untouched newer live data is preserved.
+Through the API a user can start from a private immutable copy of current live content or derive a
+draft from a selected immutable revision, give it a name, list and open drafts, edit records through
+the normal record APIs, and discard the draft. Current-live capture includes changes made since the
+latest publication and works without a publication. A derived draft presents the selected historical
+base together with its changes. Starting from history is not a full rollback: only explicitly authored
+draft changes are applied at activation, while untouched newer live data is preserved.
 
 Draft edits use both record versions and a draft-wide version. Drafts pin the application-model release
-against which they are validated. The browser has no workspace draft destination or editor yet.
+against which they are validated. Current-live capture is implemented for SQLite and explicitly refused
+on unsupported database dialects. The browser has no workspace draft destination or editor yet.
 
 Evidence: [workspace routes](../../backend/app/routers/workspaces.py),
 [workspace revision service](../../backend/app/services/workspace_revisions.py).

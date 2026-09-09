@@ -186,11 +186,21 @@ It checks touched-record versions, preserves unrelated live work, validates the 
 commits the new immutable revision, live changes, publication designation and draft removal together.
 Any conflict or validation failure publishes nothing and preserves the draft and live data.
 
-**Accepted source contract; WP8.1 implementation required:** a current-live draft captures an internal
-immutable snapshot at creation, including recent live edits and the model/record versions needed for
-conflict detection. It works without a prior publication and does not mint a public revision merely to
-start editing. The current service instead starts empty or from a selected revision. Historical-source
-drafts remain a separate option. Source lineage and the actual live-base identity must not be conflated.
+**Current-live source contract:** a current-live draft captures a private immutable
+`WorkspaceDraftBase*` snapshot at creation, including recent live edits, typed fields, both forms of
+containment, independent relations, selected model identity and record versions. It works without a
+prior publication and does not mint a public revision merely to start editing. Its base identity is
+separate from historical publication lineage. `source: currentLive` selects this base, while
+`source: revision` requires the selected revision; omitted source preserves legacy empty/revision
+semantics for compatibility.
+
+This capture is implemented and validated on SQLite. PostgreSQL and other dialects return an explicit
+unsupported refusal until an equivalent protocol exists. The service restarts its SQLite request transaction as `BEGIN
+IMMEDIATE`, so all independent SQLite live/model writers are excluded until the base commits, then
+checks the request-selected model release against the runtime state under that reservation. A busy
+database or selection change returns an actionable retry; unsupported dialects are explicitly refused
+until an equivalent capture protocol exists. Base rows are removed atomically with draft discard or
+activation, while existing nullable-base drafts retain their original source and IDs through upgrade.
 
 Workspace revisions retain derivation and supersession separately. Starting from older history does
 not restore the active dataset: untouched newer live content remains. Revision reads resolve the pinned
@@ -218,10 +228,11 @@ Lifecycle orchestration lives in `app/services/workspace_revisions.py`, its audi
 whole-graph validation, atomic activation and publication retirement are workspace-scoped operations
 that never address individual records.
 
-- **Current draft implementation.** A root draft starts empty; a derived draft records `derivedFromRevisionId` and overlays
-  only its changed rows and tombstones on that immutable base (`effective_draft_membership`). Rename,
-  discard and record edits each claim the draft's aggregate version. Fresh current-live capture is the
-  required WP8.1 extension; the empty root is not the normal user workflow.
+- **Current draft implementation.** `source: currentLive` captures a private immutable live base;
+  `source: revision` records `derivedFromRevisionId`. Both overlay only changed rows and tombstones on
+  that immutable base (`effective_draft_membership`). Omitted source remains the compatible empty root
+  or historical request form; empty creation is not the normal user workflow. Rename, discard and
+  record edits each claim the draft's aggregate version.
 - **Validation.** `POST /api/v1/workspace-drafts/{draftId}/validation` is side-effect-free over the
   effective graph: it validates attributes, containment, ownership, cardinality, ancestor-scoped
   uniqueness and model pinning, and records only a bounded outcome audit event (validity, deduplicated

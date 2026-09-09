@@ -52,7 +52,7 @@ def test_object_lifecycle_migration_recovers_empty_sqlite_ddl_from_interrupted_r
     inspector = inspect(engine)
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "20260908_01"
+            "20260909_01"
         )
     assert any(
         foreign_key["referred_table"] == "workspace_revisions"
@@ -72,6 +72,119 @@ def test_workspace_revision_migration_refuses_unknown_partial_ddl(tmp_path):
 
     with pytest.raises(RuntimeError, match="workspace_revisions has an unexpected schema"):
         command.upgrade(config, "head")
+
+
+def test_current_live_base_migration_preserves_existing_workspace_drafts(tmp_path):
+    database_path = tmp_path / "current-live-base-upgrade.db"
+    engine = create_engine(f"sqlite:///{database_path}")
+    config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
+    config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
+    command.upgrade(config, "20260908_01")
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO model_releases (public_id, release_key, release_name, release_version, "
+                "schema_version, model_hash, model_json, is_active, installed_at) VALUES "
+                "('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', 'starter', 'Starter', '0.6.0', '0.5', "
+                ":hash, '{}', true, :at)"
+            ),
+            {"hash": "b" * 64, "at": "2026-09-09T10:00:00Z"},
+        )
+        release_id = connection.scalar(text("SELECT id FROM model_releases"))
+        connection.execute(
+            text(
+                "INSERT INTO workspaces (key, label, status, version, created_at, updated_at) VALUES "
+                "('legacy-base', 'Legacy base', 'active', 4, :at, :at)"
+            ),
+            {"at": "2026-09-09T10:00:00Z"},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO workspace_drafts (id, workspace_key, model_release_id, name, version, "
+                "created_at, updated_at) VALUES ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb', 'legacy-base', "
+                ":release_id, 'keep me', 7, :at, :at)"
+            ),
+            {"release_id": release_id, "at": "2026-09-09T10:00:00Z"},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO workspace_revisions (id, workspace_key, model_release_id, revision_number, "
+                "status, derived_from_revision_id, supersedes_revision_id, created_at, activated_at) VALUES "
+                "('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'legacy-base', :release_id, 1, 'retired', "
+                "NULL, NULL, :at, :at)"
+            ),
+            {"release_id": release_id, "at": "2026-09-09T10:00:00Z"},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO workspace_revision_objects (revision_id, object_id, application_key, "
+                "object_type_key, name, parent_object_id, attributes, version) VALUES "
+                "('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', "
+                "'rdm-master', 'domain', 'Pinned object', NULL, '{\"domain-code\": \"before\"}', 5)"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO workspace_revision_relations (revision_id, relation_id, relation_type_key, "
+                "from_object_id, to_object_id, attributes, version) VALUES "
+                "('cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee', "
+                "'example-edge', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', "
+                "'dddddddd-dddd-4ddd-8ddd-dddddddddddd', '{\"note\": \"before\"}', 6)"
+            )
+        )
+        connection.execute(
+            text(
+                "INSERT INTO workspace_drafts (id, workspace_key, model_release_id, derived_from_revision_id, "
+                "name, version, created_at, updated_at) VALUES ('ffffffff-ffff-4fff-8fff-ffffffffffff', "
+                "'legacy-base', :release_id, 'cccccccc-cccc-4ccc-8ccc-cccccccccccc', 'historical', 8, :at, :at)"
+            ),
+            {"release_id": release_id, "at": "2026-09-09T10:00:00Z"},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO workspace_draft_objects (draft_id, object_id, application_key, object_type_key, "
+                "name, parent_object_id, attributes, version, is_deleted) VALUES "
+                "('ffffffff-ffff-4fff-8fff-ffffffffffff', 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', "
+                "'rdm-master', 'domain', 'Pinned object', NULL, '{\"domain-code\": \"before\"}', 5, true)"
+            )
+        )
+    command.upgrade(config, "head")
+    with engine.connect() as connection:
+        draft = connection.execute(
+            text(
+                "SELECT id, name, version, base_id FROM workspace_drafts "
+                "WHERE id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'"
+            )
+        ).one()
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20260909_01"
+    assert draft == ("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "keep me", 7, None)
+    with engine.connect() as connection:
+        historical = connection.execute(
+            text(
+                "SELECT id, derived_from_revision_id, version, base_id FROM workspace_drafts "
+                "WHERE id = 'ffffffff-ffff-4fff-8fff-ffffffffffff'"
+            )
+        ).one()
+        snapshot = connection.execute(
+            text(
+                "SELECT name, attributes, version FROM workspace_revision_objects "
+                "WHERE revision_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'"
+            )
+        ).one()
+        overlay = connection.execute(
+            text(
+                "SELECT object_id, is_deleted, version FROM workspace_draft_objects "
+                "WHERE draft_id = 'ffffffff-ffff-4fff-8fff-ffffffffffff'"
+            )
+        ).one()
+    assert historical == (
+        "ffffffff-ffff-4fff-8fff-ffffffffffff",
+        "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
+        8,
+        None,
+    )
+    assert snapshot == ("Pinned object", '{"domain-code": "before"}', 5)
+    assert overlay == ("dddddddd-dddd-4ddd-8ddd-dddddddddddd", 1, 5)
 
 
 def test_base_0_5_graph_becomes_one_workspace_revision_with_stable_ids(tmp_path):

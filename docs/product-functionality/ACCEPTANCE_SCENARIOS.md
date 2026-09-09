@@ -97,7 +97,7 @@ opaque token returned by that exact preview and never silently expands or change
 
 ## SC-05 — Start a design from what is live today
 
-**Stories:** US-W01, US-W08. **Target:** 0.6 design acceptance; GAP-02 is accepted, implementation remains WP8.1-B.
+**Stories:** US-W01, US-W08. **Target:** 0.6 design acceptance; WP8.1-B provides the SQLite API boundary, while the browser journey remains WP9/WP10 work.
 
 **Given** the latest publication predates a live `LOCKER` addition and a corrected label, **when** a
 steward chooses “start from current live data,” **then** the new draft contains both the addition and

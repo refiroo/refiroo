@@ -19,10 +19,10 @@ GAP-01–GAP-08 answers and distinguishes accepted targets from implementation e
 | Area | Present foundation | Remaining delivery |
 | --- | --- | --- |
 | Live data | Generic object, field, parent, relation and translation APIs; record concurrency and audit | Complete browser authoring and non-default workspace context |
-| Optional data drafts | Empty or historical-revision sources, effective membership, validation and delta merge | Fresh current-live bases including post-publication edits and no prior publication |
-| Historical data | Immutable revision storage and read APIs | Consistent pinned-model interpretation; newest-first discovery |
+| Optional data drafts | Current-live, empty-bootstrap and historical-revision sources; effective membership, validation and delta merge | Complete browser source selection and editing journey |
+| Historical data | Immutable revision storage and pinned-model read APIs | Newest-first discovery |
 | Publication retirement | Removes current-publication designation while retaining live data/history | Truthful browser confirmation and direct regression evidence |
-| Model administration | Immutable releases, JSON drafts, validation/diff/install/activation workbench | Compatibility population must include all authoritative live data; history must use its pin |
+| Model administration | Immutable releases, JSON drafts, validation/diff/install/activation workbench; authoritative live compatibility population | Complete browser administration acceptance |
 | UI foundation | Catalogue selection, typed tables, generic panels, RDM wrappers and modal behavior | Reachable complete live/draft/history journeys with browser/accessibility/visual evidence |
 | Specialist workflows | Generic data semantics to reuse | Mapping 0.7, translation/hierarchy 0.8, integration 0.9 |
 | Production and model migration | Basic readiness and actionable startup refusal | Authenticated production operation, staged assignments and reviewed historical model migration in 0.10 |
@@ -39,8 +39,8 @@ in code does not establish that a browser user can complete its story.
 
 ## Next delivery sequence
 
-1. **WP8.1-B:** immutable current-live draft bases, independent of publication lineage, including upgrade
-  preservation of existing drafts and migration/startup evidence.
+1. **WP8.1-B:** complete — immutable SQLite current-live draft bases independent of publication lineage,
+  with explicit source selection, migration preservation and focused regression evidence.
 2. **WP8.1-C:** newest-first history and explicit retirement/history behavior tests.
 3. **WP9:** complete live CRUD, optional copied drafts and immutable history through generic browser
    controls, preserving workspace context, typed inputs, conflicts, keyboard and narrow-layout behavior.
@@ -59,7 +59,7 @@ See [implementation plan](BASE_0_6_IMPLEMENTATION_PLAN.md), [delivery queue](TOD
 The subsequent [WP8 implementation review](../review-notes/wp8-implementation-review-2026-09-08.md)
 reviewed the uncommitted diff and corrected confirmed lifecycle/CRUD defects. Its backend, frontend,
 migration and installed-wheel evidence is recorded separately; it does not close the remaining
-WP8.1-B/C–WP10 work.
+WP8.1-C–WP10 work.
 The follow-up closes SC-04's service boundary: cascade confirmation requires the signed identity from
 the exact displayed preview and rejects intervening hierarchy changes without deleting data. Live
 deletion also claims active workspace status for the transaction and refuses stored graph edges that
@@ -175,8 +175,8 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 ## Remaining limitations
 
 - No complete browser CRUD/draft/history journey is claimed until WP9/WP10 evidence exists.
-- Current-live draft capture remains in WP8.1-B; newest-first history and retirement behavior remain in
-  WP8.1-C. WP8.1-A now covers all authoritative live compatibility rows and pinned model interpretation
+- Current-live draft capture is delivered by WP8.1-B; newest-first history and retirement behavior remain
+  in WP8.1-C. WP8.1-A now covers all authoritative live compatibility rows and pinned model interpretation
   for draft/history reads; stored revision/model IDs are resolved before query and response semantics.
 - Schema 0.5 supports strict table views; `mappingGrid`, top-level `form`, `dashboard` and `tree` are
   not implemented renderers. Specialist mappings and tree/translation coverage follow the roadmap.
@@ -196,7 +196,7 @@ immutable install, guarded activation, bounded query/audit improvements and the 
 Base 0.6 WP1–WP3 delivered UI primitives, workspace catalogue and typed tables. WP4's individual-object
 publication design was rejected before release and removed through the corrective WP6 migration;
 WP5 refroze workspace scope, WP7 restored generic CRUD and WP8 implemented lifecycle services.
-ADR-026 then restored direct live data and delta merge. Those records do not make WP8.1-B/C–WP10
+ADR-026 then restored direct live data and delta merge. Those records do not make WP8.1-C–WP10
 complete.
 The earlier plans and changelog preserve delivery details; do not rebuild rejected object lifecycle.
 

@@ -334,6 +334,10 @@ ID or a unit test of its getter is not enough. No data migration or new schema o
 Primary areas: workspace persistence, additive Alembic revision if required, draft service/API models,
 workspace routes, effective membership/merge and lifecycle tests.
 
+**Status: complete (2026-09-09).** SQLite current-live bases are private immutable snapshots with an
+explicit source discriminator and retry/refusal isolation boundary. PostgreSQL capture remains explicitly
+unsupported pending an equivalent protocol; WP8.1-C, WP9 and WP10 remain open.
+
 - Provide an explicit current-live source and a separate historical source while retaining existing
   historical derivation. Do not reinterpret an existing client request ambiguously; define the request
   discriminator and compatibility treatment in `API.md` and OpenAPI before changing behavior.
@@ -458,7 +462,7 @@ whitespace; it does not claim these runtime tests were executed.
 Read this plan, ADR-027, the product stories/scenarios, `PROJECT_STATUS.md`, `API.md` and the interaction
 specification. Inspect the dirty worktree and preserve unrelated changes. Start with WP8.1-A; give each
 slice one implementation owner, followed by focused verification and review appropriate to scope.
-Complete WP8.1-B/C before accepting dependent WP9 design/history flows, then execute WP9 and WP10.
+Complete WP8.1-C before accepting dependent WP9 history flows, then execute WP9 and WP10.
 State story IDs, user-visible behavior, exclusions, public-contract changes and direct evidence before
 coding. Preserve all generic controls and invariants. Commit only when explicitly requested.
 

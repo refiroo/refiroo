@@ -108,11 +108,19 @@ def patch_workspace_runtime_state(
 
 def _draft_response(session, item: WorkspaceDraft) -> WorkspaceDraftResponse:
     release = session.get(ModelRelease, item.model_release_id)
+    source = (
+        "currentLive"
+        if item.base_id is not None
+        else "revision"
+        if item.derived_from_revision_id
+        else "empty"
+    )
     return WorkspaceDraftResponse(
         id=item.id,
         workspaceKey=item.workspace_key,
         name=item.name,
         modelReleaseId=release.public_id if release else str(item.model_release_id),
+        source=source,
         derivedFromRevisionId=item.derived_from_revision_id,
         version=item.version,
         createdAt=item.created_at,
@@ -183,6 +191,8 @@ def post_workspace_draft(
             source_revision_id=str(payload.derivedFromRevisionId)
             if payload.derivedFromRevisionId
             else None,
+            source=payload.source,
+            expected_model_runtime_release_id=snapshot.release_db_id,
         ),
     )
 

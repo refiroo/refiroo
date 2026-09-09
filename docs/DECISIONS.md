@@ -523,8 +523,9 @@ and concurrency retain their generic semantics. Empty collections are successful
 ## ADR-026 — Active workspaces are live-writable for data; drafts are the design path
 
 **Status:** Accepted 2026-09-07; live CRUD and delta-merge implementation recorded in Slices 0–5.
-The fresh current-live draft base and dependent authority checks remain implementation work; the earlier
-blanket “implemented” label overstated completion. ADR-027 consolidates the accepted 2026-09-08 product
+The fresh current-live draft base is implemented for SQLite by WP8.1-B; later authority and browser
+checks remain implementation work. The earlier blanket “implemented” label overstated completion.
+ADR-027 consolidates the accepted 2026-09-08 product
 answers without treating documentation acceptance as runtime delivery.
 
 ### Motivation — the product statement was the arbiter
@@ -588,9 +589,9 @@ design draft is open, and activation applies the draft as a **delta over the cur
 a wholesale replacement.
 
 - Required target: a draft started from live captures a fresh immutable snapshot of **current live
-  content** and its record versions at creation. The current implementation only supports empty or
-  selected-revision bases; WP8.1 must close this gap. Empty drafts are development/bootstrap support,
-  not the ordinary user starting flow. Historical-source creation remains a distinct choice.
+  content** and its record versions at creation. WP8.1-B implements this for SQLite; unsupported
+  database dialects receive an explicit refusal. Empty drafts are development/bootstrap support, not
+  the ordinary user starting flow. Historical-source creation remains a distinct choice.
 - At activation the delta is the draft's created/updated/tombstoned rows relative to that base.
   Activation applies **only those rows** onto the current live projection, with **per-record version
   conflict detection**: any record the draft touched must still sit at exactly the version it had in the

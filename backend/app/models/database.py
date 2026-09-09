@@ -368,6 +368,11 @@ class WorkspaceDraft(Base):
     derived_from_revision_id: Mapped[str | None] = mapped_column(
         ForeignKey("workspace_revisions.id", ondelete="RESTRICT"), nullable=True, index=True
     )
+    # A current-live base is deliberately not a publication revision.  Legacy drafts retain a
+    # null base id and continue to resolve their original empty/revision source.
+    base_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workspace_draft_bases.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     name: Mapped[str | None] = mapped_column(String(300), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(
@@ -463,6 +468,59 @@ class WorkspaceRevisionRelation(Base):
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     revision_id: Mapped[str] = mapped_column(
         ForeignKey("workspace_revisions.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    relation_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    relation_type_key: Mapped[str] = mapped_column(String(160), index=True)
+    from_object_id: Mapped[str] = mapped_column(String(36), index=True)
+    to_object_id: Mapped[str] = mapped_column(String(36), index=True)
+    attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
+
+class WorkspaceDraftBase(Base):
+    """Private immutable current-live source captured for one mutable draft."""
+
+    __tablename__ = "workspace_draft_bases"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    workspace_key: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.key", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    model_release_id: Mapped[int] = mapped_column(
+        ForeignKey("model_releases.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    model_runtime_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+
+class WorkspaceDraftBaseObject(Base):
+    __tablename__ = "workspace_draft_base_objects"
+    __table_args__ = (UniqueConstraint("base_id", "object_id", name="uq_workspace_draft_base_object"),)
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    base_id: Mapped[str] = mapped_column(
+        ForeignKey("workspace_draft_bases.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    object_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    application_key: Mapped[str] = mapped_column(String(160))
+    object_type_key: Mapped[str] = mapped_column(String(160), index=True)
+    name: Mapped[str] = mapped_column(String(500))
+    parent_object_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+
+
+class WorkspaceDraftBaseRelation(Base):
+    __tablename__ = "workspace_draft_base_relations"
+    __table_args__ = (
+        UniqueConstraint("base_id", "relation_id", name="uq_workspace_draft_base_relation"),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    base_id: Mapped[str] = mapped_column(
+        ForeignKey("workspace_draft_bases.id", ondelete="CASCADE"), nullable=False, index=True
     )
     relation_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     relation_type_key: Mapped[str] = mapped_column(String(160), index=True)

@@ -541,9 +541,16 @@ lifecycle surface below. ADR-026 restored direct live writes; ADR-027 records th
 corrections. Current behavior and accepted targets are distinguished below; no new endpoint is
 implemented by this documentation update.
 
-- `GET|POST /api/v1/workspaces/{workspaceKey}/drafts` lists cursor-paged drafts or creates an empty
-  root draft / a draft derived from an explicit immutable workspace revision. It does not yet copy
-  the current live graph into a new root draft.
+- `GET|POST /api/v1/workspaces/{workspaceKey}/drafts` lists cursor-paged drafts or creates a draft
+  from an explicit source. `source: "currentLive"` captures a private immutable base from the current
+  live graph; it includes typed fields, parent/typed containment edges, independent relations, record
+  versions and the selected model identity, and works when no publication exists. It creates neither a
+  public revision nor an activation. `source: "revision"` requires `derivedFromRevisionId` and retains
+  the selected immutable historical revision as the source. For compatibility, omitted `source` keeps
+  the old meaning: a supplied `derivedFromRevisionId` is historical derivation and its absence creates
+  the documented empty development/bootstrap root. `currentLive` rejects a revision id and `revision`
+  rejects its absence with request validation errors; clients must not infer current data from the last
+  publication.
 - `GET|PATCH|DELETE /api/v1/workspace-drafts/{draftId}` reads, names or discards a mutable draft.
   PATCH and DELETE claim `expectedVersion`.
 - The existing canonical object, attribute, containment and relation resources retain their paths,
@@ -593,10 +600,19 @@ filters; malformed/mismatched tokens return `422 invalid_cursor`. Live collectio
 effective live workspace and query filters. Current cursor
 tokens do not bind a model or revision ID unless that context is itself selected.
 
-> **Target — ADR-027 / WP8.1.** A new root workspace draft must start from a copy of the current live
-> graph, including when no workspace revision has been published. Historical derivation remains an
-> explicit, separately labelled choice. This is accepted planning work, not current endpoint behavior.
-> Workspace data drafts and application-model drafts remain separate tools.
+Current-live snapshot capture is implemented and validated for SQLite. PostgreSQL and other dialects
+currently return `409 workspace_draft_snapshot_unsupported` for this operation. The
+service starts an explicit `BEGIN IMMEDIATE` transaction before reading the graph, which excludes
+independent SQLite live/model writers through the base commit. It compares the request's selected model
+release with `model_runtime_state` under that reservation; a lock conflict or changed selection returns
+`409 workspace_draft_snapshot_retry` with an actionable retry message. Other database dialects return
+`409 workspace_draft_snapshot_unsupported` rather than silently offering a weaker, potentially mixed
+snapshot. The private base is deleted with its draft on discard or activation and is never a public
+revision or publication lineage.
+
+Draft responses return `source: "currentLive"`, `"revision"` or `"empty"`; `empty` reports a
+compatible legacy/bootstrap draft and is not a normal new-draft source choice. The private base ID is
+not exposed.
 
 Historical draft and revision reads resolve their pinned supported model before field/filter metadata,
 typed responses or relationship expansion. Missing, corrupt or unsupported pins return structured
