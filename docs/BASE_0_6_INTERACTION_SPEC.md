@@ -30,6 +30,12 @@ continuation. Live cursors are not frozen snapshots and currently survive public
 cursors identify their selected context. Do not claim invalidation from a token component that is not
 actually encoded.
 
+WP9-A stores the live collection cursor trail in repeatable `cursor` URL parameters.
+Returning from details, including related records in another application, restores
+the originating collection query and page. Changing workspace or collection controls
+starts from the first page. A failed page read retains loaded rows from the same query;
+Retry repeats that request. Failed initial reads do not display a misleading empty state.
+
 ## Everyday record maintenance
 
 Open a live record, edit the required fields in one coherent form and save once. Root creation starts
@@ -46,7 +52,36 @@ Deletion presents the actual impact on owned dependants and affected links. Canc
 cascade needs explicit confirmation. Independent associated records survive. A successful empty panel
 looks empty, while a failed panel explains the failure and retries without resetting successful data.
 
+WP9-B exposes Add on live collections and child/dependent panels, plus Edit object and Delete object
+on details. Catalogue retirement removes these write controls. The edit form preserves entered values
+on failure and displays current saved content after a version conflict; only deliberately edited fields
+are submitted when the user saves again. Individual field and relationship forms retain their input
+and display current values on conflicts as well.
+
+The first Delete confirmation requests ordinary deletion. When dependencies exist, the API returns
+an impact without deleting anything; the dialog lists owned records and affected relationships for
+explicit confirmation using the returned signed token. A stale preview leaves the displayed impact
+and retry message visible. Retry refreshes the root version; the user requests and reviews a fresh
+impact before confirming again. It never automatically resubmits a cascade.
+
 ## Optional workspace data draft
+
+WP9-C implements Live/Drafts navigation. Draft collection and detail URLs carry
+`workspaceDraftId`; switching applications, opening related records, returning to a collection and
+reloading retain it. Live remains a separate, directly editable context. Draft creation explicitly
+copies current live data, including post-publication edits and workspaces without a publication.
+The source label names that capture, independently of the publication activation will supersede.
+
+The same record, field, parent, relationship, translation and signed-delete controls operate inside
+the selected draft. Its resource supplies the aggregate version, including when individual record
+reads omit it. Record and aggregate conflicts preserve entered fields and require an explicit retry.
+A successful save followed by a failed version refresh is reported as saved; further writes wait for
+an explicit version refresh. Draft record details do not present live audit history as draft history.
+
+Validate draft checks the effective graph. Activation is enabled only for that checked draft version
+and asks for confirmation of the workspace publication; activation rechecks the final merged graph.
+Conflict feedback identifies affected records and preserves the draft. Discard has a separate
+confirmation and leaves live content unchanged. Historical source selection remains slice D.
 
 ```text
 Workspace: Retail Reference / Live

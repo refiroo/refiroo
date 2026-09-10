@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
-import { api } from "@/api/client";
+import { useWorkspaceData, useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { errorMessage } from "@/api/errors";
 import { fallbackDetail } from "@/model/defaults";
 import { fieldValue } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import type { ApplicationDefinition, EngineModel, ObjectItem, PanelDefinition } from "@/types";
+import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
+import { ObjectDeleteDialog } from "@/features/objects/ObjectDeleteDialog";
 import { HistoryPanel } from "./panels/HistoryPanel";
 import { panelComponentRegistry } from "./panels/registry";
 import type { PanelProps } from "./panels/types";
@@ -17,6 +19,8 @@ export function ObjectDetail({
   workspaceKey,
   onOpen,
   onBack,
+  readOnly = true,
+  onChanged = () => undefined,
 }: {
   model: EngineModel;
   application: ApplicationDefinition;
@@ -25,7 +29,14 @@ export function ObjectDetail({
   workspaceKey: string;
   onOpen: (objectTypeKey: string, objectId: string, applicationKey?: string) => void;
   onBack: () => void;
+  readOnly?: boolean;
+  onChanged?: () => void;
 }) {
+  const api = useDataApi();
+  const { draft } = useWorkspaceData();
+  const [editing, setEditing] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [panelRefresh, setPanelRefresh] = useState(0);
   const [object, setObject] = useState<ObjectItem>();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -41,7 +52,7 @@ export function ObjectDetail({
    * deliberately not converted into component state here.
    */
   async function loadObject() {
-    const loaded = await api.object(objectTypeKey, objectId);
+    const loaded = await api.object(objectTypeKey, objectId, workspaceKey);
     if (loaded.applicationKey !== application.key) throw new Error("This object belongs to another application.");
     if (loaded.workspaceKey !== workspaceKey)
       throw new Error(`This object does not belong to workspace “${workspaceKey}”.`);
@@ -53,7 +64,7 @@ export function ObjectDetail({
     let active = true;
     setLoading(true);
     api
-      .object(objectTypeKey, objectId)
+      .object(objectTypeKey, objectId, workspaceKey)
       .then((loaded) => {
         if (!active) return;
         if (loaded.applicationKey !== application.key) throw new Error("This object belongs to another application.");
@@ -69,7 +80,7 @@ export function ObjectDetail({
     };
     // The effect repeats loadObject rather than calling it, because it must ignore a response that
     // arrives after the route moved on and loadObject has no cancellation of its own.
-  }, [application.key, objectId, objectTypeKey, workspaceKey]);
+  }, [api, application.key, objectId, objectTypeKey, workspaceKey]);
 
   if (loading) return <div className="page-loading">Loading object…</div>;
   if (error || !object || !objectType || !detail)
@@ -117,13 +128,17 @@ export function ObjectDetail({
           object={currentObject}
           panel={panel}
           onOpen={onOpen}
-          onChanged={() => undefined}
+          onChanged={() => {
+            onChanged();
+            setHistoryRefresh((value) => value + 1);
+          }}
           onObjectChanged={(saved) => {
             setObject(saved);
+            onChanged();
             setHistoryRefresh((value) => value + 1);
           }}
           onReload={loadObject}
-          readOnly
+          readOnly={readOnly}
         />
       </section>
     );
@@ -155,16 +170,57 @@ export function ObjectDetail({
           {subtitle !== undefined && subtitle !== null && subtitle !== "" && <p>{String(subtitle)}</p>}
         </div>
         <div className="detail-actions">
+          {!readOnly && (
+            <>
+              <button className="primary" onClick={() => setEditing(true)}>
+                Edit object
+              </button>
+              <button className="text-danger" onClick={() => setDeleting(true)}>
+                Delete object
+              </button>
+            </>
+          )}
+          <button className="secondary" onClick={onBack}>
+            Back to list
+          </button>
           <span className="version">v{object.version}</span>
         </div>
       </header>
-      <div className={`detail-grid ${sidePanels.length ? "with-side" : ""}`}>
+      <div key={panelRefresh} className={`detail-grid ${sidePanels.length ? "with-side" : ""}`}>
         <div className="panel-column">
           {mainPanels.map(renderPanel)}
-          <HistoryPanel objectTypeKey={objectTypeKey} objectId={objectId} refreshToken={historyRefresh} />
+          {!draft && <HistoryPanel objectTypeKey={objectTypeKey} objectId={objectId} refreshToken={historyRefresh} />}
         </div>
         {sidePanels.length > 0 && <aside className="panel-column side-panels">{sidePanels.map(renderPanel)}</aside>}
       </div>
+      {editing && !readOnly && (
+        <ObjectFormDialog
+          model={model}
+          applicationKey={application.key}
+          workspaceKey={workspaceKey}
+          objectType={objectType}
+          object={object}
+          onClose={() => setEditing(false)}
+          onSaved={(saved) => {
+            setObject(saved);
+            setEditing(false);
+            setHistoryRefresh((value) => value + 1);
+            setPanelRefresh((value) => value + 1);
+            onChanged();
+          }}
+        />
+      )}
+      {deleting && !readOnly && (
+        <ObjectDeleteDialog
+          model={model}
+          object={object}
+          onClose={() => setDeleting(false)}
+          onDeleted={() => {
+            onChanged();
+            onBack();
+          }}
+        />
+      )}
     </>
   );
 }

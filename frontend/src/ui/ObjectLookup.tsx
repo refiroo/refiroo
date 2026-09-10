@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "@/api/client";
+import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { ObjectItem } from "@/types";
@@ -26,6 +26,7 @@ export function ObjectLookup({
   required?: boolean;
   onChange: (item: ObjectItem | undefined) => void;
 }) {
+  const api = useDataApi();
   const [input, setInput] = useState("");
   const search = useDebouncedValue(input.trim());
   const { items, loading, error, hasMore, loadMore, retry } = useCursorFeed<ObjectItem>(

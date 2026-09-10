@@ -1,13 +1,15 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
-import { domainObject, testModel } from "@/test/fixtures";
+import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import type { ApplicationDefinition } from "@/types";
 import App from "./App";
 
 vi.mock("@/api/client", () => ({
   api: {
     model: vi.fn(),
+    workspaceDraft: vi.fn(),
+    modelRelease: vi.fn(),
     workspaceRuntimeState: vi.fn(),
     workspace: vi.fn(),
     workspaces: vi.fn(),
@@ -95,7 +97,7 @@ describe("App", () => {
 
     expect(await screen.findByText("Read-only workspace")).toBeInTheDocument();
     expect(screen.getByRole("list", { name: "Current context" })).toHaveTextContent("Historical archive");
-    expect(screen.queryByRole("button", { name: "New Domain" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Add Domain" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /More actions for/ })).not.toBeInTheDocument();
   });
 
@@ -117,6 +119,7 @@ describe("App", () => {
     expect(screen.getByText("Read-only workspace")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Edit" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Delete object" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Edit object" })).not.toBeInTheDocument();
   });
 
   it("restores a deep collection route, including workspace and query state, from the URL", async () => {
@@ -192,6 +195,61 @@ describe("App", () => {
     expect(new URLSearchParams(window.location.search).get("workspaceKey")).toBe("west");
   });
 
+  it.each([domainObject, codelistObject])(
+    "restores page two after $objectTypeKey detail and parent navigation",
+    async (object) => {
+      const model = structuredClone(testModel);
+      const view = model.applications[0].views[0];
+      view.objectTypeKey = object.objectTypeKey;
+      view.config.filterFields.push("createdAt");
+      const row = { ...object, workspaceKey: "west" };
+      vi.mocked(api.model).mockResolvedValue(model);
+      vi.mocked(api.objects).mockImplementation(async (_type, query) => ({
+        items: query.sort ? [{ ...row, name: query.cursor ? "Second page record" : "First page record" }] : [],
+        nextCursor: query.cursor ? null : "west-second",
+      }));
+      vi.mocked(api.object).mockImplementation(async (type) => ({
+        ...(type === "domain" ? domainObject : codelistObject),
+        workspaceKey: "west",
+      }));
+      vi.mocked(api.objectHistory).mockResolvedValue({ items: [], nextCursor: null });
+      visit(
+        "/apps/test-app/views/domains?workspaceKey=west&search=record&sort=-name&pageSize=10&filter.createdAt.gte=2026-01-01",
+      );
+      render(<App />);
+      await screen.findByRole("button", { name: "First page record" });
+      fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Second page record" }));
+      expect(await screen.findByRole("heading", { name: object.name, level: 1 })).toBeInTheDocument();
+      if (object.objectTypeKey === "codelist") {
+        fireEvent.click(
+          within(screen.getByRole("navigation", { name: "Breadcrumb" })).getByRole("button", {
+            name: domainObject.name,
+          }),
+        );
+        expect(await screen.findByRole("heading", { name: domainObject.name, level: 1 })).toBeInTheDocument();
+      }
+      fireEvent.click(screen.getByRole("button", { name: "Back to list" }));
+      expect(await screen.findByRole("button", { name: "Second page record" })).toBeInTheDocument();
+      expect(screen.getByText("Page 2")).toBeInTheDocument();
+      const query = new URLSearchParams(window.location.search);
+      expect(query.getAll("cursor")).toEqual(["west-second"]);
+      expect(query.get("workspaceKey")).toBe("west");
+      expect(query.get("filter.createdAt.gte")).toBe("2026-01-01");
+      expect(query.get("search")).toBe("record");
+      expect(api.objects).toHaveBeenLastCalledWith(
+        object.objectTypeKey,
+        expect.objectContaining({
+          workspaceKey: "west",
+          cursor: "west-second",
+          sort: "-name",
+          pageSize: 10,
+        }),
+      );
+      expect(vi.mocked(api.object).mock.calls.every(([, , workspace]) => workspace === "west")).toBe(true);
+    },
+  );
+
   it("falls back to the default route when the URL names an application the model does not have", async () => {
     visit("/apps/retired-app/views/anything");
     render(<App />);
@@ -200,7 +258,9 @@ describe("App", () => {
   });
 
   it("navigates into an object and back to the collection it came from", async () => {
-    vi.mocked(api.object).mockResolvedValue(domainObject);
+    const westObject = { ...domainObject, workspaceKey: "west" };
+    vi.mocked(api.objects).mockResolvedValue({ items: [westObject], nextCursor: null });
+    vi.mocked(api.object).mockResolvedValue(westObject);
     vi.mocked(api.objectHistory).mockResolvedValue({ items: [], nextCursor: null });
     visit("/apps/test-app/views/domains?workspaceKey=west");
     render(<App />);
@@ -216,8 +276,52 @@ describe("App", () => {
     fireEvent.click(within(breadcrumb).getByRole("button", { name: "Test App" }));
 
     // The remembered collection carries the workspace it was viewed in, so returning restores it
-    // even though the object itself lives in another workspace.
+    // and both detail loads and return navigation retain that workspace.
     await waitFor(() => expect(window.location.pathname).toContain("/views/domains"));
     expect(window.location.search).toContain("workspaceKey=west");
+  });
+  it("keeps draft detail, related lookups and return navigation in the selected context, with its pinned model", async () => {
+    const draft = {
+      id: "draft-1",
+      workspaceKey: "west",
+      name: "Review",
+      modelReleaseId: "pin",
+      source: "currentLive" as const,
+      derivedFromRevisionId: null,
+      version: 8,
+      createdAt: "",
+      updatedAt: "",
+    };
+    vi.mocked(api.workspaceDraft).mockResolvedValue(draft);
+    vi.mocked(api.modelRelease).mockResolvedValue({
+      id: "pin",
+      key: "pin",
+      name: "Pinned",
+      version: "1",
+      schemaVersion: testModel.schemaVersion,
+      modelHash: "hash",
+      installedAt: "",
+      active: true,
+      model: testModel as unknown as Record<string, unknown>,
+    });
+    vi.mocked(api.object).mockResolvedValue({ ...domainObject, workspaceKey: "west" });
+    vi.mocked(api.objects).mockResolvedValue({ items: [], nextCursor: null });
+    visit(`/apps/test-app/objects/domain/${domainObject.id}?workspaceKey=west&workspaceDraftId=draft-1`);
+    render(<App />);
+    expect(await screen.findByRole("heading", { name: domainObject.name, level: 1 })).toBeInTheDocument();
+    expect(api.modelRelease).toHaveBeenCalledWith("pin", true);
+    expect(api.object).toHaveBeenCalledWith("domain", domainObject.id, "west", "draft-1");
+    expect(screen.getByRole("heading", { name: "Review · Draft v8" })).toBeInTheDocument();
+    expect(api.objectHistory).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Back to list" }));
+    await waitFor(() => expect(window.location.pathname).toContain("/views/domains"));
+    expect(window.location.search).toContain("workspaceDraftId=draft-1");
+    expect(vi.mocked(api.objects).mock.calls.every(([, query]) => query.workspaceDraftId === "draft-1")).toBe(true);
+    fireEvent.click(
+      within(screen.getByRole("navigation", { name: "Workspace data context" })).getByRole("button", {
+        name: "Live",
+      }),
+    );
+    await waitFor(() => expect(window.location.search).not.toContain("workspaceDraftId"));
   });
 });

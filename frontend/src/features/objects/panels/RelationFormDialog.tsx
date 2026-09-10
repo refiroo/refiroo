@@ -8,12 +8,14 @@
 
 import { useState } from "react";
 import type { FormEvent } from "react";
-import { api } from "@/api/client";
+import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { RelationChoice } from "@/model/lookup";
-import type { AttributeTypeDefinition, EngineModel, ObjectItem, RelationItem } from "@/types";
+import type { AttributeTypeDefinition, EngineModel, ObjectItem, RelationItem, RelationRecord } from "@/types";
 import { AttributeField } from "@/ui/AttributeField";
 import { attributeValueFromForm } from "@/ui/attributeForm";
+import { Notice } from "@/ui/Notice";
+import { formatValue } from "@/ui/formatValue";
 import { Modal } from "@/ui/Modal";
 import { ObjectLookup } from "@/ui/ObjectLookup";
 
@@ -32,6 +34,7 @@ export function RelationFormDialog({
   onClose: () => void;
   onSaved: () => void;
 }) {
+  const api = useDataApi();
   const existingChoice =
     existing &&
     choices.find(
@@ -44,6 +47,8 @@ export function RelationFormDialog({
   const [candidate, setCandidate] = useState<ObjectItem | undefined>(existing?.object);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [dirty, setDirty] = useState(false);
+  const [current, setCurrent] = useState<RelationRecord>();
   const [relationVersion, setRelationVersion] = useState(existing?.relation.version ?? 1);
   const choice = choices[choiceIndex];
   const attributes = (choice?.relation.attributeTypeKeys ?? [])
@@ -71,10 +76,14 @@ export function RelationFormDialog({
       onSaved();
     } catch (cause) {
       setError(errorMessage(cause));
-      if (existing && isApiError(cause, "version_conflict")) {
+      if (
+        existing &&
+        (isApiError(cause, "version_conflict") || isApiError(cause, "workspace_draft_version_conflict"))
+      ) {
         try {
-          const fresh = await api.relation(existing.relation.id);
+          const fresh = await api.relation(existing.relation.id, object.workspaceKey);
           setRelationVersion(fresh.version);
+          setCurrent(fresh);
         } catch (reloadCause) {
           setError(errorMessage(reloadCause));
         }
@@ -88,9 +97,10 @@ export function RelationFormDialog({
       title={existing ? choice.label : "Connect an object"}
       eyebrow={existing ? "Edit relationship" : "Create relationship"}
       busy={saving}
+      dirty={dirty}
       onClose={onClose}
     >
-      <form onSubmit={submit}>
+      <form onSubmit={submit} onChange={() => setDirty(true)}>
         {!existing && (
           <>
             <label>
@@ -132,9 +142,31 @@ export function RelationFormDialog({
             value={existing?.relation.attributes[attribute.key]}
           />
         ))}
-        {error && <div className="notice error-notice">{error}</div>}
+        {current && (
+          <Notice title={`Current saved relationship (v${current.version})`}>
+            <p>Your input is preserved. Review before saving again.</p>
+            <dl>
+              {attributes.map((attribute) => (
+                <div key={attribute.key}>
+                  <dt>{attribute.name}</dt>
+                  <dd>{formatValue(current.attributes[attribute.key])}</dd>
+                </div>
+              ))}
+            </dl>
+          </Notice>
+        )}
+        {error && (
+          <Notice tone="error" title="The relationship was not saved" focusOnMount>
+            {error}
+          </Notice>
+        )}
         <div className="dialog-actions">
-          <button type="button" className="secondary" disabled={saving} onClick={onClose}>
+          <button
+            type="button"
+            className="secondary"
+            disabled={saving}
+            onClick={() => (!dirty || window.confirm("Discard your unsaved changes?")) && onClose()}
+          >
             Cancel
           </button>
           <button className="primary" disabled={saving || (!existing && !candidate)}>

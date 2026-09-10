@@ -1,5 +1,9 @@
 import type {
   EngineModel,
+  WorkspaceDraft,
+  WorkspaceDraftPage,
+  WorkspaceRevision,
+  WorkspaceDraftValidation,
   InitialRelationInput,
   ObjectAttributeInput,
   ObjectItem,
@@ -58,7 +62,13 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+export interface DraftWriteContext {
+  workspaceDraftId?: string;
+  expectedWorkspaceDraftVersion?: number;
+}
+
 export interface ObjectQuery {
+  workspaceDraftId?: string;
   applicationKey?: string;
   workspaceKey?: string;
   search?: string;
@@ -79,6 +89,7 @@ export interface ObjectDeleteOptions {
 function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
   const params = new URLSearchParams({ pageSize: String(query.pageSize ?? 20) });
   if (query.applicationKey) params.set("applicationKey", query.applicationKey);
+  if (query.workspaceDraftId) params.set("workspaceDraftId", query.workspaceDraftId);
   if (query.workspaceKey) params.set("workspaceKey", query.workspaceKey);
   if (query.search) params.set("search", query.search);
   if (query.cursor) params.set("cursor", query.cursor);
@@ -108,6 +119,34 @@ export const api = {
     return request<WorkspacePage>(`/api/v1/workspaces?${params}`);
   },
   workspace: (workspaceKey: string) => request<Workspace>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}`),
+  workspaceDrafts: (workspaceKey: string, cursor?: string) => {
+    const query = new URLSearchParams({ pageSize: "50" });
+    if (cursor) query.set("cursor", cursor);
+    return request<WorkspaceDraftPage>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/drafts?${query}`);
+  },
+  workspaceDraft: (id: string) => request<WorkspaceDraft>(`/api/v1/workspace-drafts/${encodeURIComponent(id)}`),
+  createWorkspaceDraft: (workspaceKey: string, name: string) =>
+    request<WorkspaceDraft>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/drafts`, {
+      method: "POST",
+      body: JSON.stringify({ name, source: "currentLive" }),
+    }),
+  discardWorkspaceDraft: (id: string, expectedVersion: number) =>
+    request<void>(`/api/v1/workspace-drafts/${encodeURIComponent(id)}?expectedVersion=${expectedVersion}`, {
+      method: "DELETE",
+    }),
+  validateWorkspaceDraft: (id: string) =>
+    request<WorkspaceDraftValidation>(`/api/v1/workspace-drafts/${encodeURIComponent(id)}/validation`, {
+      method: "POST",
+    }),
+  activateWorkspaceDraft: (id: string, expectedDraftVersion: number, expectedActiveRevisionId: string | null) =>
+    request<WorkspaceRevision>(`/api/v1/workspace-drafts/${encodeURIComponent(id)}/activation`, {
+      method: "POST",
+      body: JSON.stringify({ expectedDraftVersion, expectedActiveRevisionId }),
+    }),
+  latestWorkspaceRevision: (workspaceKey: string) =>
+    request<{ items: WorkspaceRevision[]; nextCursor: string | null }>(
+      `/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/revisions?pageSize=1`,
+    ),
   workspaceRuntimeState: () => request<WorkspaceRuntimeState>("/api/v1/workspace-runtime-state"),
   modelReleases: (options: { cursor?: string; pageSize?: number } = {}) => {
     const params = new URLSearchParams({ pageSize: String(options.pageSize ?? 100) });
@@ -159,11 +198,17 @@ export const api = {
       body: JSON.stringify({ expectedRuntimeVersion: state.version, expectedActiveReleaseId: state.activeReleaseId }),
     }),
   objects: (objectTypeKey: string, query: ObjectQuery) => request<ObjectPage>(objectQueryPath(objectTypeKey, query)),
-  object: (objectTypeKey: string, objectId: string) =>
-    request<ObjectItem>(`/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}`),
+  object: (objectTypeKey: string, objectId: string, workspaceKey?: string, workspaceDraftId?: string) =>
+    request<ObjectItem>(
+      withWorkspace(
+        `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}`,
+        workspaceKey,
+        workspaceDraftId,
+      ),
+    ),
   createObject: (
     objectTypeKey: string,
-    payload: {
+    payload: DraftWriteContext & {
       applicationKey: string;
       workspaceKey: string;
       name: string;
@@ -179,7 +224,7 @@ export const api = {
   updateObject: (
     objectTypeKey: string,
     objectId: string,
-    payload: {
+    payload: DraftWriteContext & {
       expectedVersion: number;
       name?: string;
       parentObjectId?: string | null;
@@ -208,18 +253,21 @@ export const api = {
       { method: "DELETE" },
     );
   },
-  attribute: (objectTypeKey: string, objectId: string, attributeTypeKey: string) =>
-    request<AttributeValueResponse>(attributePath(objectTypeKey, objectId, attributeTypeKey)),
+  attribute: (objectTypeKey: string, objectId: string, attributeTypeKey: string, workspaceDraftId?: string) =>
+    request<AttributeValueResponse>(
+      withWorkspace(attributePath(objectTypeKey, objectId, attributeTypeKey), undefined, workspaceDraftId),
+    ),
   createAttribute: (
     objectTypeKey: string,
     objectId: string,
     attributeTypeKey: string,
     value: unknown,
     expectedVersion: number,
+    context: DraftWriteContext = {},
   ) =>
     request<ObjectItem>(attributePath(objectTypeKey, objectId, attributeTypeKey), {
       method: "POST",
-      body: JSON.stringify({ value, expectedVersion }),
+      body: JSON.stringify({ value, expectedVersion, ...context }),
     }),
   updateAttribute: (
     objectTypeKey: string,
@@ -227,18 +275,30 @@ export const api = {
     attributeTypeKey: string,
     value: unknown,
     expectedVersion: number,
+    context: DraftWriteContext = {},
   ) =>
     request<ObjectItem>(attributePath(objectTypeKey, objectId, attributeTypeKey), {
       method: "PATCH",
-      body: JSON.stringify({ value, expectedVersion }),
+      body: JSON.stringify({ value, expectedVersion, ...context }),
     }),
-  deleteAttribute: (objectTypeKey: string, objectId: string, attributeTypeKey: string, expectedVersion: number) =>
-    request<void>(`${attributePath(objectTypeKey, objectId, attributeTypeKey)}?expectedVersion=${expectedVersion}`, {
-      method: "DELETE",
-    }),
+  deleteAttribute: (
+    objectTypeKey: string,
+    objectId: string,
+    attributeTypeKey: string,
+    expectedVersion: number,
+    context: DraftWriteContext = {},
+  ) =>
+    request<void>(
+      `${attributePath(objectTypeKey, objectId, attributeTypeKey)}?${writeQuery(expectedVersion, context)}`,
+      {
+        method: "DELETE",
+      },
+    ),
   relations: (
     objectId: string,
     options: {
+      workspaceKey?: string;
+      workspaceDraftId?: string;
       direction?: "incoming" | "outgoing" | "both";
       relationTypeKey?: string;
       cursor?: string;
@@ -246,22 +306,27 @@ export const api = {
     } = {},
   ) => {
     const params = new URLSearchParams({ objectId });
+    if (options.workspaceDraftId) params.set("workspaceDraftId", options.workspaceDraftId);
+    if (options.workspaceKey) params.set("workspaceKey", options.workspaceKey);
     if (options.direction) params.set("direction", options.direction);
     if (options.relationTypeKey) params.set("relationTypeKey", options.relationTypeKey);
     if (options.cursor) params.set("cursor", options.cursor);
     params.set("pageSize", String(options.pageSize ?? 100));
     return request<RelationPage>(`/api/v1/relations?${params}`);
   },
-  createRelation: (payload: RelationCreateInput) =>
+  createRelation: (payload: RelationCreateInput & DraftWriteContext) =>
     request<RelationRecord>("/api/v1/relations", { method: "POST", body: JSON.stringify(payload) }),
-  relation: (relationId: string) => request<RelationRecord>(`/api/v1/relations/${encodeURIComponent(relationId)}`),
-  updateRelation: (relationId: string, payload: RelationUpdateInput) =>
+  relation: (relationId: string, workspaceKey?: string, workspaceDraftId?: string) =>
+    request<RelationRecord>(
+      withWorkspace(`/api/v1/relations/${encodeURIComponent(relationId)}`, workspaceKey, workspaceDraftId),
+    ),
+  updateRelation: (relationId: string, payload: RelationUpdateInput & DraftWriteContext) =>
     request<RelationRecord>(`/api/v1/relations/${encodeURIComponent(relationId)}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
-  deleteRelation: (relationId: string, expectedVersion: number) =>
-    request<void>(`/api/v1/relations/${encodeURIComponent(relationId)}?expectedVersion=${expectedVersion}`, {
+  deleteRelation: (relationId: string, expectedVersion: number, context: DraftWriteContext = {}) =>
+    request<void>(`/api/v1/relations/${encodeURIComponent(relationId)}?${writeQuery(expectedVersion, context)}`, {
       method: "DELETE",
     }),
   objectHistory: (objectTypeKey: string, objectId: string, options: { cursor?: string; pageSize?: number } = {}) => {
@@ -275,4 +340,19 @@ export const api = {
 
 function attributePath(objectTypeKey: string, objectId: string, attributeTypeKey: string) {
   return `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}/attributes/${encodeURIComponent(attributeTypeKey)}`;
+}
+
+function withWorkspace(path: string, workspaceKey?: string, workspaceDraftId?: string) {
+  const params = new URLSearchParams();
+  if (workspaceKey) params.set("workspaceKey", workspaceKey);
+  if (workspaceDraftId) params.set("workspaceDraftId", workspaceDraftId);
+  return params.size ? `${path}?${params}` : path;
+}
+
+function writeQuery(expectedVersion: number, context: DraftWriteContext) {
+  const params = new URLSearchParams({ expectedVersion: String(expectedVersion) });
+  if (context.workspaceDraftId) params.set("workspaceDraftId", context.workspaceDraftId);
+  if (context.expectedWorkspaceDraftVersion !== undefined)
+    params.set("expectedWorkspaceDraftVersion", String(context.expectedWorkspaceDraftVersion));
+  return params;
 }

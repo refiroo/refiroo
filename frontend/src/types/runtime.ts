@@ -44,6 +44,15 @@ export interface ObjectAttributeInput {
   value: unknown;
 }
 
+export interface ObjectDeletionImpact {
+  objectsToDelete: Array<{ id: string; name: string; objectTypeKey: string }>;
+  relationshipsToRemove: Array<{ id: string; relationTypeKey: string }>;
+  objectCount: number;
+  relationshipCount: number;
+  retainedAssociationCount: number;
+  deletionPreviewToken: string;
+}
+
 export interface InitialRelationInput {
   relationTypeKey: string;
   direction: "outgoing" | "incoming";
@@ -114,4 +123,39 @@ export interface AuditEventItem {
 export interface AuditEventPage {
   items: AuditEventItem[];
   nextCursor: string | null;
+}
+
+export interface WorkspaceDraft {
+  id: string;
+  workspaceKey: string;
+  name: string | null;
+  modelReleaseId: string;
+  source: "currentLive" | "revision" | "empty";
+  derivedFromRevisionId: string | null;
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkspaceDraftPage {
+  items: WorkspaceDraft[];
+  nextCursor: string | null;
+}
+
+export interface WorkspaceRevision {
+  id: string;
+  workspaceKey: string;
+  modelReleaseId: string;
+  revisionNumber: number;
+  status: "active" | "retired";
+  derivedFromRevisionId: string | null;
+  supersedesRevisionId: string | null;
+  createdAt: string;
+  activatedAt: string;
+  retiredAt: string | null;
+}
+
+export interface WorkspaceDraftValidation {
+  valid: boolean;
+  diagnostics: Array<Record<string, unknown>>;
 }

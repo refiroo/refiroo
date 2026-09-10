@@ -120,7 +120,9 @@ describe("CollectionView", () => {
         onOpen={vi.fn()}
       />,
     );
-    fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
+    await screen.findByRole("button", { name: "Retry" });
+    expect(screen.queryByText(/No .* in this workspace yet/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByText("Connections")).toBeInTheDocument();
     expect(api.objects).toHaveBeenCalledTimes(2);
   });

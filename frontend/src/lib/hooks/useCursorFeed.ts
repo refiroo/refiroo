@@ -44,6 +44,8 @@ export function useCursorFeed<T>(
   deps: React.DependencyList,
   merge: (previous: T[], incoming: T[]) => T[] = (previous, incoming) => [...previous, ...incoming],
 ): CursorFeed<T> {
+  const key = JSON.stringify(deps);
+  const [loadedKey, setLoadedKey] = useState<string>();
   const [items, setItems] = useState<T[]>([]);
   const [cursor, setCursor] = useState<string>();
   const [loading, setLoading] = useState(true);
@@ -73,6 +75,7 @@ export function useCursorFeed<T>(
       .current(undefined)
       .then((page) => {
         if (!active || requestGeneration.current !== generation) return;
+        setLoadedKey(key);
         setItems(mergeRef.current([], page.items));
         setCursor(page.nextCursor ?? undefined);
       })
@@ -92,7 +95,7 @@ export function useCursorFeed<T>(
   }, [...deps, reloadToken]);
 
   const loadMore = useCallback(() => {
-    if (!cursor) return;
+    if (!cursor || loadedKey !== key || loading) return;
     const generation = requestGeneration.current;
     setLoading(true);
     setError("");
@@ -111,7 +114,7 @@ export function useCursorFeed<T>(
       .finally(() => {
         if (requestGeneration.current === generation) setLoading(false);
       });
-  }, [cursor]);
+  }, [cursor, key, loadedKey, loading]);
 
   const reload = useCallback(() => {
     requestGeneration.current += 1;
@@ -122,5 +125,14 @@ export function useCursorFeed<T>(
     else reload();
   }, [loadMore, reload]);
 
-  return { items, loading, error, hasMore: Boolean(cursor), loadMore, retry, reload, setItems };
+  return {
+    items: loadedKey === key ? items : [],
+    loading,
+    error,
+    hasMore: loadedKey === key && Boolean(cursor),
+    loadMore,
+    retry,
+    reload,
+    setItems,
+  };
 }

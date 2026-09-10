@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { api } from "@/api/client";
+import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { errorMessage, isApiError } from "@/api/errors";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import type { EngineModel, ObjectItem, RelationItem, RelationsPanelDefinition } from "@/types";
@@ -27,6 +27,7 @@ export function RelationsPanel({
   onChanged?: () => void;
   readOnly?: boolean;
 }) {
+  const api = useDataApi();
   const [removeError, setRemoveError] = useState("");
   const [creating, setCreating] = useState(false);
   const [creatingDependent, setCreatingDependent] = useState<{
@@ -79,11 +80,12 @@ export function RelationsPanel({
   } = useCursorFeed<RelationItem>(
     (cursor) =>
       api.relations(object.id, {
+        workspaceKey: object.workspaceKey,
         direction: panel.config.direction,
         ...(relationTypeKey ? { relationTypeKey } : {}),
         ...(cursor ? { cursor } : {}),
       }),
-    [object.id, panel.config.direction, relationTypeKey],
+    [object.id, object.workspaceKey, panel.config.direction, relationTypeKey],
   );
   // Loading failures belong to the panel; delete failures stay in their confirmation dialog so
   // cancelling that action cannot leave the collection in a persistent feed-error state.
@@ -119,9 +121,9 @@ export function RelationsPanel({
       reload();
     } catch (cause) {
       setRemoveError(errorMessage(cause));
-      if (isApiError(cause, "version_conflict")) {
+      if (isApiError(cause, "version_conflict") || isApiError(cause, "workspace_draft_version_conflict")) {
         try {
-          const fresh = await api.relation(removing.relation.id);
+          const fresh = await api.relation(removing.relation.id, object.workspaceKey);
           setRemoving({ ...removing, relation: fresh });
         } catch (reloadCause) {
           setRemoveError(errorMessage(reloadCause));

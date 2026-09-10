@@ -39,6 +39,19 @@ describe("API client", () => {
     expect(url).not.toContain("applicationKey");
   });
 
+  it("encodes workspace context on record and relationship reads", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({}), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    await api.object("external value", "object/id", "West & East");
+    await api.relations("object/id", { workspaceKey: "West & East", cursor: "next token" });
+    await api.relation("relation/id", "West & East");
+    for (const [url] of fetchMock.mock.calls) {
+      expect(new URL(String(url)).searchParams.get("workspaceKey")).toBe("West & East");
+    }
+    expect(new URL(String(fetchMock.mock.calls[0][0])).pathname).toBe("/api/v1/objects/external%20value/object%2Fid");
+    expect(new URL(String(fetchMock.mock.calls[1][0])).searchParams.get("cursor")).toBe("next token");
+  });
+
   it("encodes built-in sorting", async () => {
     const fetchMock = vi
       .fn()
@@ -163,5 +176,30 @@ describe("API client", () => {
       expectedRuntimeVersion: 3,
       expectedActiveReleaseId: "active",
     });
+  });
+});
+
+it("encodes canonical draft reads, mutations and explicit current-live lifecycle requests", async () => {
+  const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({}), { status: 200 }));
+  vi.stubGlobal("fetch", fetchMock);
+  const context = { workspaceDraftId: "draft/id", expectedWorkspaceDraftVersion: 7 };
+  await api.object("type", "id", "west", context.workspaceDraftId);
+  await api.objects("type", { workspaceKey: "west", workspaceDraftId: context.workspaceDraftId });
+  await api.relations("id", { workspaceKey: "west", workspaceDraftId: context.workspaceDraftId });
+  await api.relation("id", "west", context.workspaceDraftId);
+  await api.updateAttribute("type", "id", "flag", false, 3, context);
+  await api.deleteAttribute("type", "id", "flag", 3, context);
+  await api.deleteRelation("id", 2, context);
+  await api.createWorkspaceDraft("west", "Coordinated changes");
+  await api.activateWorkspaceDraft("draft/id", 7, null);
+  for (const [url] of fetchMock.mock.calls.slice(0, 4))
+    expect(new URL(url).searchParams.get("workspaceDraftId")).toBe("draft/id");
+  expect(JSON.parse(fetchMock.mock.calls[4][1].body)).toEqual({ value: false, expectedVersion: 3, ...context });
+  for (const [url] of fetchMock.mock.calls.slice(5, 7))
+    expect(new URL(url).searchParams.get("expectedWorkspaceDraftVersion")).toBe("7");
+  expect(JSON.parse(fetchMock.mock.calls[7][1].body)).toEqual({ name: "Coordinated changes", source: "currentLive" });
+  expect(JSON.parse(fetchMock.mock.calls[8][1].body)).toEqual({
+    expectedDraftVersion: 7,
+    expectedActiveRevisionId: null,
   });
 });

@@ -31,7 +31,7 @@ export function ObjectTable({
           </tr>
         </thead>
         <tbody>
-          {loading ? (
+          {loading && objects.length === 0 ? (
             <tr>
               <td colSpan={columns.length} className="empty-row">
                 Loading…

@@ -41,8 +41,12 @@ in code does not establish that a browser user can complete its story.
 
 1. **WP8.1-C:** complete — bounded newest-first revision paging, deterministic cursor retry and direct
    retirement/history behavior evidence.
-2. **WP9:** complete live CRUD, optional copied drafts and immutable history through generic browser
-   controls, preserving workspace context, typed inputs, conflicts, keyboard and narrow-layout behavior.
+2. **WP9:** slice A implements live workspace navigation and page restoration with retry/content
+   preservation. Slice B adds direct live Add/Edit/Delete, typed fields, ordinary relationships and
+   translations, conflict reconciliation and signed deletion confirmation. Slice C adds optional
+   current-live drafts, shared draft authoring, validation, activation and discard with aggregate
+   concurrency and conflict feedback. Immutable history controls remain in slice D. See the
+   [browser regressions](../frontend/e2e/README.md) for slice A/B/C scope and execution.
 3. **WP10:** composed frontend/backend scenarios, authority/concurrency boundaries, browser accessibility
    and visual evidence, migration/lifespan, packaging and public-contract checks.
 

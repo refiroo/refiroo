@@ -384,7 +384,12 @@ but the complete WP9 design/history acceptance depends on this gate.
 
 ### WP9 — Complete generic browser tasks in live, draft and history contexts
 
-**Status:** Planned. **Stories:** US-D01–D14, US-L01–L02, US-W01–W08, US-U01.
+**Status:** In progress. Slice A implements live workspace navigation, cursor-position restoration,
+and retry/content preservation. Slice B implements direct live authoring, coherent typed forms,
+conflict reconciliation and signed deletion confirmation. Slice C implements optional current-live
+drafts and canonical draft CRUD, aggregate-version recovery, validation, activation and discard.
+SC-05/SC-06 and draft SC-04 have isolated real-backend browser evidence. History remains slice D. See the
+[WP9 browser regressions](../frontend/e2e/README.md) for reproducible slice A/B/C checks. **Stories:** US-D01–D14, US-L01–L02, US-W01–W08, US-U01.
 Primary areas: `frontend/src/features/workspaces/`, `features/objects/`, API client/types, routing,
 model resolution, shell and RDM-owned UI wrappers.
 

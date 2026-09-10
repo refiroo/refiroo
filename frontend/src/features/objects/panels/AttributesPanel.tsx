@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api } from "@/api/client";
+import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { errorMessage } from "@/api/errors";
 import type {
   AttributeTypeDefinition,
@@ -32,6 +32,7 @@ export function AttributesPanel({
   onChanged?: () => void;
   readOnly?: boolean;
 }) {
+  const api = useDataApi();
   const objectType = objectTypeFor(model, object.objectTypeKey);
   const bindingMap = new Map((objectType?.attributes ?? []).map((binding) => [binding.attributeTypeKey, binding]));
   const [editing, setEditing] = useState<{
@@ -58,7 +59,11 @@ export function AttributesPanel({
       onChanged();
     } catch (cause) {
       setRemoveError(errorMessage(cause));
-      await onReload();
+      try {
+        await onReload();
+      } catch (reloadCause) {
+        setRemoveError(errorMessage(reloadCause));
+      }
     } finally {
       setPending(false);
     }

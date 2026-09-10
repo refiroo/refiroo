@@ -10,6 +10,8 @@ export interface ViewComponentProps {
   application: ApplicationDefinition;
   view: ViewDefinition;
   workspaceKey: string;
+  readOnly?: boolean;
+  onChanged?: () => void;
   query: CollectionQueryState;
   onQueryChange: (query: CollectionQueryState) => void;
   onOpen: (item: ObjectItem) => void;

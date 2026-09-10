@@ -2,7 +2,9 @@
  * The table renderer behind every declared view type. Selected through `views/registry`.
  */
 
-import { api } from "@/api/client";
+import { useState } from "react";
+import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
+import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { objectTypeFor } from "@/model/lookup";
 import { InlineError } from "@/ui/InlineError";
 import { ObjectTable } from "@/ui/ObjectTable";
@@ -20,7 +22,11 @@ export function ObjectCollectionView({
   query,
   onQueryChange,
   onOpen,
+  readOnly = true,
+  onChanged,
 }: ViewComponentProps) {
+  const api = useDataApi();
+  const [creating, setCreating] = useState(false);
   const objectType = view.objectTypeKey ? objectTypeFor(model, view.objectTypeKey) : undefined;
   const pages = useCursorPages<ObjectItem>(
     objectType
@@ -36,6 +42,7 @@ export function ObjectCollectionView({
           })
       : null,
     [application.key, view.key, workspaceKey, query.search, query.sort, query.pageSize, query.filters],
+    { cursors: query.cursors ?? [], onChange: (cursors) => onQueryChange({ ...query, cursors }) },
   );
   const { loading, error } = pages;
 
@@ -52,13 +59,18 @@ export function ObjectCollectionView({
           <h1>{view.name}</h1>
           <p>{objectType.description ?? application.description}</p>
         </div>
+        {!readOnly && (
+          <button className="primary" onClick={() => setCreating(true)}>
+            Add {objectType.name}
+          </button>
+        )}
       </header>
       <section className="surface collection-surface">
         <ObjectToolbar
           model={model}
           view={view}
           query={query}
-          onChange={onQueryChange}
+          onChange={(next) => onQueryChange({ ...next, cursors: undefined })}
           placeholder={`Search ${objectType.pluralName.toLowerCase()}`}
         />
         <div className="collection-meta">
@@ -77,23 +89,45 @@ export function ObjectCollectionView({
           )}
         </div>
         {error && <InlineError message={error} onRetry={pages.retry} />}
-        <ObjectTable
-          model={model}
-          columns={columns}
-          objects={error ? [] : pages.items}
-          loading={loading && !error}
-          onOpen={onOpen}
-          label={`${view.name} table`}
-          emptyMessage={
-            query.search || query.filters.length > 0
-              ? "No results match these filters"
-              : `No ${objectType.pluralName.toLowerCase()} in this workspace yet`
-          }
-        />
+        {(!error || pages.items.length > 0) && (
+          <ObjectTable
+            model={model}
+            columns={columns}
+            objects={pages.items}
+            loading={loading}
+            onOpen={onOpen}
+            label={`${view.name} table`}
+            emptyMessage={
+              query.search || query.filters.length > 0
+                ? "No results match these filters"
+                : `No ${objectType.pluralName.toLowerCase()} in this workspace yet`
+            }
+          />
+        )}
         {!error && (
-          <Pagination page={pages.pageNumber} hasNext={pages.hasNext} onPrevious={pages.previous} onNext={pages.next} />
+          <Pagination
+            disabled={loading}
+            page={pages.pageNumber}
+            hasNext={pages.hasNext}
+            onPrevious={pages.previous}
+            onNext={pages.next}
+          />
         )}
       </section>
+      {creating && !readOnly && (
+        <ObjectFormDialog
+          model={model}
+          applicationKey={application.key}
+          workspaceKey={workspaceKey}
+          objectType={objectType}
+          onClose={() => setCreating(false)}
+          onSaved={(item) => {
+            setCreating(false);
+            onChanged?.();
+            onOpen(item);
+          }}
+        />
+      )}
     </>
   );
 }

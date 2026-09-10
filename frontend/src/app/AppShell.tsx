@@ -118,7 +118,10 @@ export function AppShell({
                 aria-current={activeRoute.kind === "list" && activeRoute.viewKey === view.key ? "page" : undefined}
                 onClick={() => {
                   setNavigationOpen(false);
-                  onNavigate(viewRoute(application, view.key, activeRoute.workspaceKey));
+                  onNavigate({
+                    ...viewRoute(application, view.key, activeRoute.workspaceKey),
+                    workspaceDraftId: activeRoute.workspaceDraftId,
+                  });
                 }}
               >
                 <span>{view.name}</span>
@@ -126,14 +129,17 @@ export function AppShell({
               </button>
             ))}
           </nav>
-          <Explorer
-            model={model}
-            application={application}
-            workspaceKey={activeRoute.workspaceKey}
-            activeObjectId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
-            refreshToken={refreshToken}
-            onOpen={onOpenObject}
-          />
+          {activeRoute.kind !== "drafts" && (
+            <Explorer
+              key={`${application.key}:${activeRoute.workspaceKey}`}
+              model={model}
+              application={application}
+              workspaceKey={activeRoute.workspaceKey}
+              activeObjectId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
+              refreshToken={refreshToken}
+              onOpen={onOpenObject}
+            />
+          )}
         </aside>
       )}
       <main id="main-content" className="workspace-main" tabIndex={-1}>
@@ -160,6 +166,33 @@ export function AppShell({
               This workspace is retired. Runtime data and history remain available, but changes are disabled.
             </Notice>
           )}
+        {activeRoute.kind !== "models" && (
+          <nav className="detail-actions" aria-label="Workspace data context">
+            <button
+              className="secondary"
+              aria-current={activeRoute.kind !== "drafts" && !activeRoute.workspaceDraftId ? "page" : undefined}
+              onClick={() => onNavigate(viewRoute(application, application.defaultView, activeRoute.workspaceKey))}
+            >
+              Live
+            </button>
+            <button
+              className="secondary"
+              aria-current={activeRoute.kind === "drafts" || activeRoute.workspaceDraftId ? "page" : undefined}
+              onClick={() =>
+                onNavigate({ kind: "drafts", applicationKey: application.key, workspaceKey: activeRoute.workspaceKey })
+              }
+            >
+              Drafts
+            </button>
+            <span>
+              {activeRoute.workspaceDraftId
+                ? "Editing a draft"
+                : activeRoute.kind === "drafts"
+                  ? "Optional coordinated changes"
+                  : "Editing live data"}
+            </span>
+          </nav>
+        )}
         {children}
       </main>
     </div>

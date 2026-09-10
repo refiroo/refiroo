@@ -136,6 +136,7 @@ describe("ObjectFormDialog", () => {
     vi.mocked(api.updateObject)
       .mockRejectedValueOnce(new ApiError(409, "version_conflict", "Stale version"))
       .mockResolvedValueOnce({ ...domainObject, name: "Kept edit", version: 3 });
+    vi.mocked(api.object).mockResolvedValueOnce({ ...domainObject, name: "Someone else", version: 2 });
     render(
       <ObjectFormDialog
         model={testModel}
@@ -151,12 +152,13 @@ describe("ObjectFormDialog", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     expect(await screen.findByText(/your edits are preserved/i)).toBeInTheDocument();
     expect(name).toHaveValue("Kept edit");
+    fireEvent.change(name, { target: { value: domainObject.name } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await waitFor(() =>
       expect(api.updateObject).toHaveBeenLastCalledWith(
         "domain",
         domainObject.id,
-        expect.objectContaining({ expectedVersion: 2, name: "Kept edit" }),
+        expect.objectContaining({ expectedVersion: 2, name: domainObject.name }),
       ),
     );
   });
@@ -248,6 +250,57 @@ describe("ObjectFormDialog", () => {
           ],
         }),
       ),
+    );
+  });
+  it("saves zero and false with core changes while showing current content on a conflict", async () => {
+    const count = { key: "count", name: "Count", valueType: "integer" as const, features: {}, validation: {}, ui: {} };
+    const type = {
+      ...testModel.objectTypes[0],
+      attributes: [
+        ...testModel.objectTypes[0].attributes,
+        { attributeTypeKey: "count", required: false, readOnly: false, order: 30, ui: {} },
+      ],
+    };
+    const model = {
+      ...testModel,
+      attributeTypes: [...testModel.attributeTypes, count],
+      objectTypes: [type, ...testModel.objectTypes.slice(1)],
+    };
+    vi.mocked(api.updateObject).mockRejectedValueOnce(new ApiError(409, "version_conflict", "Stale"));
+    vi.mocked(api.object).mockResolvedValueOnce({
+      ...domainObject,
+      name: "Other steward",
+      version: 2,
+      attributes: [
+        ...domainObject.attributes,
+        { id: "count", attributeTypeKey: "count", name: "Count", valueType: "integer", value: 7 },
+      ],
+    });
+    render(
+      <ObjectFormDialog
+        model={model}
+        applicationKey="test-app"
+        objectType={type}
+        object={domainObject}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Count"), { target: { value: "0" } });
+    fireEvent.click(screen.getByLabelText("Active"));
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    expect(await screen.findByText("Other steward")).toBeInTheDocument();
+    expect(screen.getByLabelText("Count")).toHaveValue(0);
+    expect(screen.getByLabelText("Active")).not.toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() =>
+      expect(api.updateObject).toHaveBeenLastCalledWith("domain", domainObject.id, {
+        expectedVersion: 2,
+        attributes: [
+          { attributeTypeKey: "active", value: false },
+          { attributeTypeKey: "count", value: 0 },
+        ],
+      }),
     );
   });
 });

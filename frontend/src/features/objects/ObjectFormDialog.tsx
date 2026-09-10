@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { api } from "@/api/client";
+import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { errorMessage, isApiError } from "@/api/errors";
-import type { EngineModel, ObjectItem, ObjectTypeDefinition } from "@/types";
+import type { EngineModel, ObjectItem, ObjectTypeDefinition, ObjectAttributeInput } from "@/types";
 import { AttributeField } from "@/ui/AttributeField";
 import { attributeValueFromForm } from "@/ui/attributeForm";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
+import { CurrentObjectContent } from "@/features/objects/CurrentObjectContent";
 import { ObjectLookup } from "@/ui/ObjectLookup";
 
 export function ObjectFormDialog({
@@ -34,8 +35,11 @@ export function ObjectFormDialog({
   onClose: () => void;
   onSaved: (item: ObjectItem) => void;
 }) {
+  const api = useDataApi();
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const editedFields = useRef(new Set<string>());
+  const editedParent = useRef(false);
   const [dirty, setDirty] = useState(false);
   const [baselineObject, setBaselineObject] = useState(object);
   const [objectVersion, setObjectVersion] = useState(object?.version ?? 1);
@@ -102,11 +106,28 @@ export function ObjectFormDialog({
       const data = new FormData(form);
       const name = String(data.get("name"));
       if (object) {
-        const payload: { expectedVersion: number; name?: string; parentObjectId?: string | null } = {
+        const payload: {
+          expectedVersion: number;
+          name?: string;
+          parentObjectId?: string | null;
+          attributes?: ObjectAttributeInput[];
+        } = {
           expectedVersion: objectVersion,
         };
-        if (name !== baselineObject?.name) payload.name = name;
-        if (parentId !== baselineObject?.parentObjectId) payload.parentObjectId = parentId;
+        if (editedFields.current.has("name") && name !== baselineObject?.name) payload.name = name;
+        if (editedParent.current && parentId !== baselineObject?.parentObjectId) payload.parentObjectId = parentId;
+        const attributes = bindings
+          .filter((binding) => !binding.readOnly && editedFields.current.has(binding.attributeTypeKey))
+          .flatMap((binding) => {
+            const definition = attributeMap.get(binding.attributeTypeKey)!;
+            const value = attributeValueFromForm(form, definition);
+            const stored = baselineObject?.attributes.find((item) => item.attributeTypeKey === definition.key);
+            const original = stored?.value;
+            return JSON.stringify(value) === JSON.stringify(original)
+              ? []
+              : [{ attributeTypeKey: definition.key, value }];
+          });
+        if (attributes.length) payload.attributes = attributes;
         onSaved(await api.updateObject(objectType.key, object.id, payload));
       } else {
         const attributes = bindings
@@ -135,13 +156,15 @@ export function ObjectFormDialog({
         );
       }
     } catch (cause) {
-      if (object && isApiError(cause, "version_conflict")) {
+      if (object && (isApiError(cause, "version_conflict") || isApiError(cause, "workspace_draft_version_conflict"))) {
         try {
-          const fresh = await api.object(objectType.key, object.id);
+          const fresh = await api.object(objectType.key, object.id, activeWorkspaceKey);
           setBaselineObject(fresh);
           setObjectVersion(fresh.version);
           setError(
-            "The object changed. Its latest version has been loaded; your edits are preserved. Review and save again.",
+            isApiError(cause, "workspace_draft_version_conflict")
+              ? "The draft changed. Current content is loaded; your edits are preserved. Review and save again."
+              : "The object changed. Its latest version has been loaded; your edits are preserved. Review and save again.",
           );
         } catch (reloadCause) {
           setError(errorMessage(reloadCause));
@@ -159,7 +182,15 @@ export function ObjectFormDialog({
       dirty={dirty}
       onClose={onClose}
     >
-      <form onSubmit={submit} onChange={() => setDirty(true)}>
+      <form
+        onSubmit={submit}
+        onChange={(event) => {
+          setDirty(true);
+          const target = event.target;
+          if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement)
+            editedFields.current.add(target.name);
+        }}
+      >
         {parentTypeKeys.length > 0 && (
           <label>
             Parent
@@ -168,6 +199,7 @@ export function ObjectFormDialog({
                 aria-label="Parent type"
                 value={activeParentTypeKey}
                 onChange={(event) => {
+                  editedParent.current = true;
                   setParentTypeKey(event.target.value);
                   setParentId(null);
                 }}
@@ -187,7 +219,10 @@ export function ObjectFormDialog({
               selectedId={parentId}
               selectedLabel={object?.path.at(-2)?.name}
               required={parentRequired}
-              onChange={(item) => setParentId(item?.id ?? null)}
+              onChange={(item) => {
+                editedParent.current = true;
+                setParentId(item?.id ?? null);
+              }}
             />
           </label>
         )}
@@ -249,14 +284,17 @@ export function ObjectFormDialog({
           Name
           <input name="name" required autoFocus defaultValue={object?.name} />
         </label>
-        {!object &&
-          bindings.map((binding) => (
-            <AttributeField
-              key={binding.attributeTypeKey}
-              binding={binding}
-              attribute={attributeMap.get(binding.attributeTypeKey)!}
-            />
-          ))}
+        {bindings.map((binding) => (
+          <AttributeField
+            key={binding.attributeTypeKey}
+            binding={binding}
+            attribute={attributeMap.get(binding.attributeTypeKey)!}
+            value={object?.attributes.find((item) => item.attributeTypeKey === binding.attributeTypeKey)?.value}
+          />
+        ))}
+        {object && baselineObject && baselineObject !== object && (
+          <CurrentObjectContent model={model} object={baselineObject} />
+        )}
         {error && (
           <Notice tone="error" title="The object was not saved" focusOnMount>
             {error}

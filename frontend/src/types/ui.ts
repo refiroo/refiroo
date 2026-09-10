@@ -18,9 +18,25 @@ export interface CollectionQueryState {
   sort: ObjectSort;
   pageSize: number;
   filters: CollectionFilter[];
+  /** Cursor trail maintained by useCursorPages; omitted on the first page. */
+  cursors?: string[];
 }
 
 export type RouteState =
-  | ({ kind: "list"; applicationKey: string; viewKey: string; workspaceKey: string } & CollectionQueryState)
-  | { kind: "detail"; applicationKey: string; objectTypeKey: string; objectId: string; workspaceKey: string }
+  | ({
+      kind: "list";
+      applicationKey: string;
+      viewKey: string;
+      workspaceKey: string;
+      workspaceDraftId?: string;
+    } & CollectionQueryState)
+  | {
+      kind: "detail";
+      applicationKey: string;
+      objectTypeKey: string;
+      objectId: string;
+      workspaceKey: string;
+      workspaceDraftId?: string;
+    }
+  | { kind: "drafts"; applicationKey: string; workspaceKey: string; workspaceDraftId?: undefined }
   | { kind: "models"; releaseId?: string; draftId?: string };

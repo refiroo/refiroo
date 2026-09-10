@@ -40,6 +40,8 @@ describe("useCursorFeed", () => {
     fireEvent.click(await screen.findByRole("button", { name: "More" }));
     rerender(<Feed query="new" fetchPage={fetchPage} />);
     await waitFor(() => expect(fetchPage).toHaveBeenCalledTimes(3));
+    expect(screen.queryByText("old-first")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "More" })).not.toBeInTheDocument();
 
     await act(async () => newFirst.resolve({ items: ["new-first"], nextCursor: null }));
     expect(await screen.findByText("new-first")).toBeInTheDocument();

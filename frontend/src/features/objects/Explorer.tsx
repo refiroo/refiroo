@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { api } from "@/api/client";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { errorMessage } from "@/api/errors";
 import { objectTypeFor } from "@/model/lookup";
@@ -26,16 +26,23 @@ export function Explorer({
   refreshToken: number;
   onOpen: (item: ObjectItem) => void;
 }) {
+  const api = useDataApi();
   const [searchInput, setSearchInput] = useState("");
   const search = useDebouncedValue(searchInput.trim());
   const [pages, setPages] = useState<Record<string, LoadedPage>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [retryToken, setRetryToken] = useState(0);
+  const [loadedSearch, setLoadedSearch] = useState<string>();
+  const [failedMore, setFailedMore] = useState(false);
+  const generation = useRef(0);
 
   useEffect(() => {
     let active = true;
+    const requestGeneration = ++generation.current;
     setLoading(true);
+    setError("");
+    setFailedMore(false);
     Promise.all(
       application.objectTypeKeys.map(
         async (key) =>
@@ -46,7 +53,8 @@ export function Explorer({
       ),
     )
       .then((results) => {
-        if (!active) return;
+        if (!active || generation.current !== requestGeneration) return;
+        setLoadedSearch(search);
         setPages(Object.fromEntries(results.map(([key, page]) => [key, { ...page, loaded: page.items }])));
         setError("");
       })
@@ -54,10 +62,14 @@ export function Explorer({
       .finally(() => active && setLoading(false));
     return () => {
       active = false;
+      generation.current += 1;
     };
-  }, [application.key, application.objectTypeKeys.join("|"), refreshToken, retryToken, search, workspaceKey]);
+  }, [api, application.key, application.objectTypeKeys.join("|"), refreshToken, retryToken, search, workspaceKey]);
 
-  const objects = useMemo(() => Object.values(pages).flatMap((page) => page.loaded), [pages]);
+  const objects = useMemo(
+    () => (loadedSearch === search ? Object.values(pages).flatMap((page) => page.loaded) : []),
+    [pages, loadedSearch, search],
+  );
   const objectIds = new Set(objects.map((item) => item.id));
   const roots = objects
     .filter((item) => !item.parentObjectId || !objectIds.has(item.parentObjectId))
@@ -68,9 +80,11 @@ export function Explorer({
     children.set(item.parentObjectId, [...(children.get(item.parentObjectId) ?? []), item]);
   }
   for (const values of children.values()) values.sort(comparePaths);
-  const canLoadMore = Object.values(pages).some((page) => page.nextCursor);
+  const canLoadMore = loadedSearch === search && Object.values(pages).some((page) => page.nextCursor);
 
   async function loadMore() {
+    if (loading || !canLoadMore) return;
+    const requestGeneration = generation.current;
     setLoading(true);
     setError("");
     try {
@@ -87,11 +101,14 @@ export function Explorer({
           return [key, { ...next, loaded: [...page.loaded, ...next.items] }] as [string, LoadedPage];
         }),
       );
+      if (generation.current !== requestGeneration) return;
       setPages(Object.fromEntries(entries));
     } catch (cause) {
+      if (generation.current !== requestGeneration) return;
+      setFailedMore(true);
       setError(errorMessage(cause));
     } finally {
-      setLoading(false);
+      if (generation.current === requestGeneration) setLoading(false);
     }
   }
 
@@ -136,18 +153,19 @@ export function Explorer({
           <span key={key}>{objectTypeFor(model, key)?.pluralName ?? key}</span>
         ))}
       </div>
-      {error ? (
-        <InlineError message={error} onRetry={() => setRetryToken((value) => value + 1)} />
+      {error && (
+        <InlineError message={error} onRetry={failedMore ? loadMore : () => setRetryToken((value) => value + 1)} />
+      )}
+      {roots.length ? (
+        <ul className="tree">{roots.map((item) => node(item, search ? Math.max(0, item.path.length - 1) : 0))}</ul>
       ) : loading ? (
         <div className="explorer-empty">Loading objects…</div>
-      ) : roots.length ? (
-        <ul className="tree">{roots.map((item) => node(item, search ? Math.max(0, item.path.length - 1) : 0))}</ul>
-      ) : (
+      ) : !error ? (
         <div className="explorer-empty">{search ? "No matching objects." : "No objects in this application yet."}</div>
-      )}
-      {canLoadMore && (
-        <button className="load-more" onClick={loadMore}>
-          Load more objects
+      ) : null}
+      {canLoadMore && !error && (
+        <button className="load-more" disabled={loading} onClick={loadMore}>
+          {loading ? "Loading…" : "Load more objects"}
         </button>
       )}
     </section>

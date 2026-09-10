@@ -43,6 +43,16 @@ describe("routes", () => {
     window.history.pushState({}, "", "/");
   });
 
+  it("round-trips the cursor trail with its workspace and typed query", () => {
+    const route = {
+      ...defaultRoute(testModel, "west"),
+      cursors: ["token/one+", "token&two"],
+      filters: [{ field: "code", operator: "eq", value: "A&B" }],
+    };
+    window.history.replaceState({}, "", routePath(route));
+    expect(parseRoute(testModel)).toEqual(route);
+  });
+
   it("restores supported collection controls and drops legacy object-state filters", () => {
     window.history.pushState(
       {},
@@ -65,4 +75,22 @@ describe("routes", () => {
     );
     window.history.pushState({}, "", "/");
   });
+});
+
+it("round-trips draft collections, detail bookmarks and the separate drafts catalogue", () => {
+  for (const path of [
+    "/apps/test-app/views/domains?workspaceKey=west&workspaceDraftId=draft-1",
+    "/apps/test-app/objects/domain/object-1?workspaceKey=west&workspaceDraftId=draft-1",
+    "/apps/test-app/drafts?workspaceKey=west",
+  ]) {
+    window.history.replaceState({}, "", path);
+    const route = parseRoute(testModel);
+    expect(route).toMatchObject({
+      workspaceKey: "west",
+      ...(path.includes("workspaceDraftId") ? { workspaceDraftId: "draft-1" } : { kind: "drafts" }),
+    });
+    window.history.replaceState({}, "", routePath(route));
+    expect(parseRoute(testModel)).toEqual(route);
+  }
+  window.history.replaceState({}, "", "/");
 });

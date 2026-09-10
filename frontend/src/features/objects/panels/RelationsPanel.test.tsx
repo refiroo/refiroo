@@ -167,6 +167,7 @@ describe("RelationsPanel", () => {
     expect(screen.getByText("Timetable types")).toBeInTheDocument();
     await waitFor(() =>
       expect(api.relations).toHaveBeenLastCalledWith(domainObject.id, {
+        workspaceKey: "default",
         direction: "outgoing",
         relationTypeKey: "domain-contains-codelist",
         cursor: "next",
@@ -205,6 +206,7 @@ describe("RelationsPanel", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
     expect(await screen.findByText("Procedures")).toBeInTheDocument();
     expect(api.relations).toHaveBeenLastCalledWith(domainObject.id, {
+      workspaceKey: "default",
       direction: "outgoing",
       relationTypeKey: "domain-contains-codelist",
       cursor: "next",

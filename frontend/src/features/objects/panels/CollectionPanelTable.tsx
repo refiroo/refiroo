@@ -6,7 +6,7 @@
  */
 
 import { useState } from "react";
-import { api } from "@/api/client";
+import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorPages } from "@/lib/hooks/useCursorPages";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { objectTypeFor } from "@/model/lookup";
@@ -37,6 +37,7 @@ export function CollectionPanelTable({
   parentObjectId?: string;
   allowCreate: boolean;
 }) {
+  const api = useDataApi();
   const objectType = objectTypeFor(model, objectTypeKey);
   const [searchInput, setSearchInput] = useState("");
   const search = useDebouncedValue(searchInput.trim());
@@ -87,15 +88,23 @@ export function CollectionPanelTable({
         )}
       </div>
       {error && <InlineError message={error} onRetry={pages.retry} />}
-      <ObjectTable
-        model={model}
-        columns={columns}
-        objects={error ? [] : pages.items}
-        loading={loading && !error}
-        onOpen={(item) => onOpen(item.objectTypeKey, item.id, item.applicationKey)}
-      />
+      {(!error || pages.items.length > 0) && (
+        <ObjectTable
+          model={model}
+          columns={columns}
+          objects={pages.items}
+          loading={loading}
+          onOpen={(item) => onOpen(item.objectTypeKey, item.id, item.applicationKey)}
+        />
+      )}
       {!error && (
-        <Pagination page={pages.pageNumber} hasNext={pages.hasNext} onPrevious={pages.previous} onNext={pages.next} />
+        <Pagination
+          disabled={loading}
+          page={pages.pageNumber}
+          hasNext={pages.hasNext}
+          onPrevious={pages.previous}
+          onNext={pages.next}
+        />
       )}
       {creating && (
         <ObjectFormDialog

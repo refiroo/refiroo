@@ -97,9 +97,20 @@ export function useRouter(): Router {
 
   const rememberWorkspace = useCallback((workspaceKey: string) => {
     for (const [applicationKey, collection] of lastCollections.current) {
-      lastCollections.current.set(applicationKey, { ...collection, workspaceKey });
+      lastCollections.current.set(applicationKey, {
+        ...collection,
+        workspaceKey,
+        workspaceDraftId: undefined,
+        cursors: undefined,
+      });
     }
-    if (mostRecentCollection.current) mostRecentCollection.current = { ...mostRecentCollection.current, workspaceKey };
+    if (mostRecentCollection.current)
+      mostRecentCollection.current = {
+        ...mostRecentCollection.current,
+        workspaceKey,
+        workspaceDraftId: undefined,
+        cursors: undefined,
+      };
   }, []);
 
   return {
