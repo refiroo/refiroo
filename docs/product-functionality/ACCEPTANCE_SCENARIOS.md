@@ -274,6 +274,30 @@ replacing its public identity. Unknown workspace keys fail rather than selecting
 **Simplicity check:** people choose recognizable labels; stable technical identifiers are managed by
 the interface or integration rather than copied manually during ordinary stewardship.
 
+## SC-15 — Prepare for the next model version in one draft while live keeps the current one
+
+**Stories:** US-W01, US-W03, US-W08, US-W09, US-P03. **Target:** model selection is global today;
+draft version selection is a 0.7 plan with the schema 0.6 release (ADR-028).
+
+A model administrator installs a candidate definition without activating it. Retail has two drafts:
+draft1 works under the definition that serves live data, and draft2 is created against the candidate.
+Opening draft2 shows the candidate's fields, rules and views. draft1, the live records and immutable
+history are unchanged and still follow the active definition. Activating draft1 while its definition
+no longer matches the active one is refused with an explanation rather than quietly moved onto it.
+
+The administrator activates the candidate, so live now follows it. draft2 activates through the
+ordinary path, because the definition it was preparing under is now the active one. The steward then
+chooses for draft1: discard it, which changes no data, or explicitly move it onto the new definition.
+Moving is offered only when draft1's content already satisfies the new definition; otherwise the
+reviewed conversion and loss preview of 0.10 is required, and declining changes nothing.
+
+Selecting an unavailable, corrupt or unsupported definition is refused with the reason, and leaves live
+data, the other draft, history and every other workspace untouched. No model change reaches live data
+merely because a draft selected it.
+
+**Simplicity check:** a steward can see which definition each draft is working under without reading
+deployment mechanics, and discarding a draft is always available and never requires model agreement.
+
 ## Repeated usability measurements
 
 For a first walkthrough, record a baseline rather than inventing completion-time promises. On later

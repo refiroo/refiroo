@@ -133,6 +133,14 @@ navigating low-level relation screens.
    creation must not silently change the mapping, and draft activation remains explicit.
 6. Audit mapping transitions and underlying relation changes.
 7. Prove the contract and renderer with two relation bindings whose types, direction and labels differ.
+8. Let a workspace draft work under a version the user chooses, so one draft prepares the schema 0.6
+   release while another stays on the version serving live data. Draft reads, writes and validation
+   use the version chosen for that draft instead of the global selection (ADR-028; US-W09, SC-15).
+9. Keep ordinary activation unchanged: a draft activates only once its version matches the active
+   release, which the existing guarded release-activation path already establishes. Nothing activates
+   or moves a draft onto another version while that version differs from the active release. Once the
+   new release serves live data, the remaining draft is either thrown away — which needs no model
+   agreement — or explicitly moved onto the new release where its content already fits it.
 
 ### Exit gate
 
@@ -143,6 +151,13 @@ navigating low-level relation screens.
   relation-set concurrency boundary. A draft cannot be used to bypass live conflict detection.
 - Schema 0.6 is explicitly dispatched and the schema 0.5 transition has a documented reset or
   migration path appropriate to the pre-production compatibility policy.
+- A draft may be created against, or explicitly moved onto, an installed release the deployment can
+  parse and support; unavailable, corrupt or unsupported targets are refused with the existing
+  pinned-model error codes, and choosing one never forces a change through or switches the version
+  used across the product.
+- Choosing a version changes only that draft. Live data, immutable history, other drafts and other
+  workspaces are unchanged, and nothing activates a draft whose version differs from the active
+  release.
 
 ## Product release 0.8 — Translation and hierarchy workspaces
 
@@ -223,9 +238,14 @@ migrated between immutable model releases in controlled stages.
 - Historical-draft model replacement targeting one workspace and a named installed immutable release
   (normally the historical pin), with a preview of incompatibilities and potential data loss,
   confirmation bound to the exact reviewed versions or cancel, and atomic model/data application;
-  this is the accepted GAP-02 extension, not a force flag on ordinary activation
+  this is the accepted GAP-02 extension, not an override of ordinary activation
 - Workspace-scoped model-release assignment: resolve workspace before its immutable snapshot, migrate
   its data, then atomically switch its release
+- Moving a draft onto a release its content does not fit: reuse the 0.10 conversion machinery against
+  that draft and the live data under it, preview the conversions and any loss of draft-authored
+  content, and apply only on confirmation of the exact reviewed draft and release versions, or cancel;
+  once the new release serves live data, a draft still on the replaced release is explicitly moved or
+  thrown away and is never moved onto another release on its own
 - Explicit mixed-schema conversion rules and a bounded supported schema-version window
 - First-public-release licensing, contribution/security policies and compatibility commitment
 
@@ -238,10 +258,18 @@ migrated between immutable model releases in controlled stages.
 - Confirmed historical migration validates transformed data, preserves immutable history, affects only
   the selected workspace assignment, and changes nothing on cancel, stale review or execution failure.
 - Supported schema versions and their migration/removal dates are published.
+- Moving a draft onto a release its content does not fit cannot be forced through: the target must be
+  installed and supported by the deployment, the conversion is previewed and confirmed against the
+  exact reviewed versions or cancelled, and a failed re-check changes nothing.
+- Moving a draft changes only that draft. Live data, immutable history, other drafts and other
+  workspace assignments are unchanged on the move, on cancel, on a stale review, on an unsupported
+  target and on a failed re-check.
 
-Workspace pinning is a staged-rollout mechanism, not a substitute for schema compatibility: every
-schema version that can be pinned must have a parser, runtime contract and data path supported by the
-same deployment.
+Running two model versions side by side is a way to roll a change out gradually, not a way around
+compatibility: every version that can be chosen must have a parser and data path the same deployment
+supports, and content written under one version cannot be served under another until it is checked or
+converted. Activating is never just choosing a version: a draft activates only once its version
+matches the active release, which the existing guarded release-activation path establishes.
 
 ## Product release 1.0 — Self-service model authoring and extensions
 
@@ -267,7 +295,7 @@ JSON workbench and lifecycle foundation.
 
 | Milestone | Stories | Acceptance scenarios | Dependency to preserve |
 | --- | --- | --- | --- |
-| 0.7 mapping | US-M01–M04 | SC-07 | Complete generic record/relationship flows; live and draft conflict protection |
+| 0.7 mapping | US-M01–M04, US-W09 | SC-07, SC-15 | Complete generic record/relationship flows; live and draft conflict protection |
 | 0.8 translation/hierarchy | US-L03–L04, US-H01–H02 | SC-09, separately gated workflows | Generic translation and parent editing remain usable |
 | 0.9 integration | US-I03–I09 | SC-10–SC-11 and advanced-query extension | Same validation and workspace rules as individual writes |
 | 0.10 production | US-S01, US-O03–O06, US-P07 | SC-13 | Protected operation, measured recovery and consistent model selection |

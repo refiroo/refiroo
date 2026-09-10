@@ -254,6 +254,26 @@ from an older historical snapshot remains an explicitly different choice.
 **Coverage:** F12, F13. **Status:** SQLite API implemented by WP8.1-B; browser acceptance remains
 WP9/WP10 work. **Example:** SC-05.
 
+### US-W09 — Work on the next model version in one draft while live keeps the current one
+
+**Story:** As a steward, I want one draft to work under a not-yet-active model version while live data
+and my other drafts keep the version in use, so that I can prepare for a model change without moving
+the whole workspace onto it.
+
+**Accepted when:** that draft reads, writes and validates under the version selected for it rather than
+the globally active one, while live data, immutable history, every other draft and every other
+workspace continue under the active version unchanged. A draft may select only a version that is
+installed, complete and supported by this deployment; an unavailable, corrupt or unsupported selection
+is refused with an explanation and changes nothing. Once the selected version becomes the active one,
+that draft activates through the ordinary path. A draft still on the replaced version is never quietly
+moved onto another one: it can be discarded without model agreement, or explicitly moved onto the new
+version where its content already satisfies it. Choosing a version changes nothing but that draft: it
+never forces a model change through and never switches the version used anywhere else.
+
+**Coverage:** F12, F15, F17. **Status:** Roadmap 0.7 with the schema 0.6 release (ADR-028). Moving a
+draft onto a version its content does not already satisfy is reviewed 0.10 migration work.
+**Example:** SC-15.
+
 ## Localization steward
 
 ### US-L01 — Create a valid translation in one operation

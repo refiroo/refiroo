@@ -25,7 +25,7 @@ GAP-01–GAP-08 answers and distinguishes accepted targets from implementation e
 | Model administration | Immutable releases, JSON drafts, validation/diff/install/activation workbench; authoritative live compatibility population | Complete browser administration acceptance |
 | UI foundation | Catalogue selection, typed tables, generic panels, RDM wrappers and reachable live/draft/history journeys | Composed browser, accessibility and visual evidence in WP10 |
 | Specialist workflows | Generic data semantics to reuse | Mapping 0.7, translation/hierarchy 0.8, integration 0.9 |
-| Production and model migration | Basic readiness and actionable startup refusal | Authenticated production operation, staged assignments and reviewed historical model migration in 0.10 |
+| Production and model migration | Basic readiness and actionable startup refusal | Authenticated production operation, staged assignments and reviewed historical model migration in 0.10; a draft choosing its own version in 0.7 |
 
 Ordinary live saves create neither a draft nor a revision. Draft activation applies authored changes
 over current live data, preserves unrelated live work and publishes nothing on a touched-record conflict
@@ -51,9 +51,15 @@ in code does not establish that a browser user can complete its story.
 3. **WP10:** composed frontend/backend scenarios, authority/concurrency boundaries, browser accessibility
    and visual evidence, migration/lifespan, packaging and public-contract checks.
 
-The accepted historical-model warning and confirm-or-cancel behavior belongs to the planned 0.10
-workspace assignment/migration flow. Until it exists, Base 0.6 preserves incompatible drafts and reports
-the mismatch. No force flag or implicit global schema override is part of the current contract.
+Moving a draft onto a version its content does not already fit (ADR-028), and the accepted
+historical-model warning and confirm-or-cancel behavior, belong to the planned 0.10 workspace
+assignment/migration flow. Letting a draft work under a version the user chooses is product 0.7 work
+with schema 0.6. Today no client can choose a draft's version, current-live capture refuses a version
+that is not active, and activation refuses any version other than the active one. Until then, Base 0.6
+preserves incompatible drafts and reports the mismatch, a draft whose version is no longer active stays
+readable and editable under that version and can be thrown away without model agreement, and promotion
+of a non-active version is not available. Nothing in the current contract forces a model change through
+or switches the version used across the product.
 
 See [implementation plan](BASE_0_6_IMPLEMENTATION_PLAN.md), [delivery queue](TODO.md),
 [roadmap](ROADMAP.md) and [product acceptance scenarios](product-functionality/ACCEPTANCE_SCENARIOS.md).
@@ -187,8 +193,12 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 - The model workbench remains JSON-centred; structured authoring and extensions are 1.0 work.
 - Multi-writer uniqueness hardening, PostgreSQL performance, authenticated access, actor attribution,
   observability, backup/restore rehearsal and multi-node model propagation remain production work.
-- Global model selection is current authority. Workspace-scoped migration/assignment and confirmed
-  potential-loss historical model changes require 0.10 and supported parser/runtime versions.
+- The version serving live data is chosen globally today. Per-workspace migration/assignment, moving
+  a draft onto a version its content does not fit, and confirmed potential-loss historical model
+  changes require 0.10 and supported parser/runtime versions; letting a draft work under a version the
+  user chooses is scheduled for 0.7 (ADR-028). No client can choose a draft's version today, and a
+  draft on a version that has since been replaced can be read, edited and thrown away, but not
+  activated or promoted.
 - The starter remains representative rather than a one-to-one reproduction of the source export.
 
 ## Historical delivery record

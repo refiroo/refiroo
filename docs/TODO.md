@@ -88,6 +88,12 @@ those are tracked above. Previous test totals are historical, not newly executed
 - [ ] Product 0.7/schema 0.6: typed `mappingGrid`, cursor-paged coverage and candidate lookup.
 - [ ] Implement ADR-022 exact-binding relation-set versions and atomic mapping replacement in live
   and optional-draft contexts; generic relation writes participate in the same protection (0.7).
+- [ ] Product 0.7 (ADR-028): let a workspace draft work under a version the user chooses, so one draft
+  prepares the schema 0.6 release while another stays on the version serving live data. Draft reads,
+  writes and validation use the version chosen for that draft; an unavailable, corrupt or unsupported
+  target is refused with the existing pinned-model error codes; choosing a version changes nothing
+  else. Ordinary activation is unchanged — a draft whose version differs from the active release
+  cannot activate.
 - [ ] Translation coverage matrix and in-cell live editing, with explicit optional staging (0.8).
 - [ ] Lazy hierarchy workspace with contextual live creation and atomic reparenting, optional draft (0.8).
 - [ ] Integration-grade query expressions beyond Base 0.6 daily-use filters.
@@ -111,13 +117,18 @@ those are tracked above. Previous test totals are historical, not newly executed
 - [ ] Product 0.10: historical-draft model replacement with a side-effect-free impact/loss preview,
   explicit confirmation tied to the reviewed versions or cancel, atomic workspace model/data switch,
   immutable history and unaffected-workspace isolation. Confirmation cannot waive target validity or
-  parser support; no Base 0.6 force flag. Covers the accepted GAP-02 addition and separate GAP-08 concepts.
+  parser support; nothing in Base 0.6 overrides them.
 - [ ] Product 0.10: add workspace-scoped model-release assignment for staged tenant or
   governance-domain rollout.
   Resolve the workspace before its immutable model snapshot, scope compatibility and migration to that
   workspace, bind cursors to the release identity and switch assignments atomically. Supporting mixed
   schema-language versions additionally requires a bounded current/previous parser window and explicit
   conversion; workspace pinning alone is not schema compatibility.
+- [ ] Product 0.10 (ADR-028): move a draft onto a release its content does not already satisfy, by
+  reusing the migration preview/confirm machinery against that draft's own candidate graph and
+  current-live base. The review reports conversions and potential draft loss and applies only on
+  confirmation of the exact reviewed draft and release versions; nothing forces the move through or
+  happens without being asked, and a move never deletes draft content to make a target fit.
 - [ ] Extension packaging after two concrete reuse cases exist.
 
 ## Explicitly not planned for Base 0.6

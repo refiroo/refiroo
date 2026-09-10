@@ -79,6 +79,7 @@ acceptance evidence.
 | --- | --- | --- | --- |
 | US-D14 | Availability without deletion | Existing generic field semantics; composed proof pending | SC-02 / 0.6 |
 | US-W08 | Fresh live draft starting view | Accepted decision; source gap GAP-02 | SC-05 / 0.6 |
+| US-W09 | Draft model-version selection | Accepted decision; global selection today | SC-15 / 0.7 with schema 0.6 |
 | US-M04 | Missing mapping target creation | Roadmap; no completed specialist flow | SC-07 / 0.7 |
 | US-L04 | In-context translation edit | Roadmap; generic service is not matrix proof | SC-09 / 0.8 |
 | US-H01 | Large hierarchy navigation | Roadmap | SC-09 / 0.8 |
@@ -192,7 +193,7 @@ of these patterns outside explicitly labelled historical sections:
   store as the active read/write source; and
 - history status that describes the API as oldest first; WP8.1-C changed revision discovery to bounded,
   deterministic newest-first paging. Browser history acceptance remains in WP9/WP10.
-- historical model migration described as a current force flag, or loss confirmation that bypasses
+- historical model migration described as a current override, or loss confirmation that bypasses
   target validation, parser support or workspace isolation.
 
 Historical decisions may retain superseded text when clearly labelled. Current status, API, roadmap and

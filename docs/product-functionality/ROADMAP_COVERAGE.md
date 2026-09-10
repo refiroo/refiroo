@@ -11,7 +11,7 @@ The technical roadmap needs the reconciliations in [planning handoff](PLANNING_H
 | ------------ | --------------------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------- |
 | Base 0.5     | Establish stable bounded APIs and the application-model release lifecycle   | US-I01-I02, US-P01-P04                     | Completed foundation                           |
 | Product 0.6  | Complete model-driven daily browser use and optional workspace design       | US-D01–D14, US-W01–W08, US-L01–L02, US-P06, US-U01 | Current-live draft API available; browser gaps remain for WP9/WP10 |
-| Product 0.7  | Review mapping coverage and replace one mapping atomically                  | US-M01–M04                                 | Roadmap                                        |
+| Product 0.7  | Review mapping coverage and replace one mapping atomically                  | US-M01–M04, US-W09                         | Roadmap                                        |
 | Product 0.8  | Work efficiently with translation coverage and deep hierarchies             | US-L03–L04, US-H01–H02   | Roadmap                                        |
 | Product 0.9  | Exchange and synchronize data at integration scale                          | US-I03–I09                                 | Roadmap                                        |
 | Product 0.10 | Operate securely and reliably with multiple writers/nodes and staged models | US-S01, US-O03–O06, US-P07                     | Roadmap                                        |
@@ -82,7 +82,8 @@ an explicit alternative, not a prerequisite.**
 
 **Why next:** mapping is a central RDM task that generic relationship editing does not make simple.
 **Depends on:** usable live record/relationship maintenance, optional draft context and two proven
-relationship configurations. **Acceptance:** SC-07, stories US-M01–M04.
+relationship configurations. **Acceptance:** SC-07, stories US-M01–M04; and SC-15, story US-W09 for
+draft model-version selection (ADR-028).
 
 ### User outcome
 
@@ -98,7 +99,8 @@ managing low-level relationship records.
 - one concurrency version for the complete mapping set, including currently empty or ambiguous sets;
 - conflict responses with bounded current-target context;
 - creation of a missing target through normal workspace record creation where configuration permits;
-  and
+- draft model-version selection, so one draft prepares under a candidate release while live data and
+  other drafts keep the release in use (US-W09, ADR-028); and
 - mapping-transition audit in addition to underlying relationship history.
 
 ### Validation guardrails

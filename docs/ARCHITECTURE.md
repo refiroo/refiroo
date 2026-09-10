@@ -48,6 +48,16 @@ Staged assignment requires executable data migration, atomic switching, cursor b
 identity, protected administration, multi-node propagation and concurrent parser/runtime support for
 every permitted schema version. It cannot be implemented as workspace pinning alone.
 
+A draft works under a model version the user chooses without changing which version serves live data.
+The draft may be created against, or explicitly moved onto, an installed supported release; its reads,
+writes and validation then use that release while live data keeps the active one (ADR-028). A draft
+graph interpreted under one release cannot be served under another until it is validated or converted,
+so choosing a version is never just a label change: moving a draft onto a release its stored content
+does not already satisfy is conversion work, described below. Activation is unchanged: `activate_draft`
+merges authored changes onto live data and never alters model selection, so a draft activates only once
+its version equals the active release, and any other version is refused with
+`workspace_draft_model_release_conflict`.
+
 Model authoring has three explicit stages. Drafts are mutable, versioned database records. Validation,
 canonical compilation, semantic diff and compatibility analysis do not persist changes. Installation
 creates immutable content-addressed release metadata but leaves runtime selection unchanged.
@@ -328,3 +338,7 @@ failure preserves the prior usable state and draft. Historical snapshots remain 
 Today's model selection is global, so a workspace action cannot silently change other workspaces'
 rules. The future implementation must use the planned workspace assignment boundary and preserve other
 workspaces’ assignments and data. Loss confirmation does not waive target-model validity or concurrency checks.
+
+The same preview and confirm steps apply to one draft (ADR-028), run against that draft's own candidate
+graph and the live data under it instead of current live data alone: moving a draft onto a release whose
+rules its stored content does not already satisfy happens only from a reviewed preview.

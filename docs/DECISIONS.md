@@ -691,11 +691,12 @@ change and tests, not a documentation-only assertion that tokens already contain
 The user requires a warning and **confirm schema replacement with potential data loss, or cancel**
 when a historical draft cannot be applied under the current active definition. Preserve that requirement
 as a reviewed model-and-data migration flow in product 0.10, alongside GAP-08's accepted migration and
-workspace-model assignment boundary. It is not implemented by adding a force flag to Base 0.6 activation.
+workspace-model assignment boundary. Base 0.6 activation does not override the compatibility check for
+this case.
 
 The preview names one selected workspace and one installed immutable target release, normally the
 historical draft’s pinned release. Confirmation migrates current live data to that target and changes
-only the selected workspace’s model assignment; it does not silently repin the draft to today’s model.
+only the selected workspace’s model assignment; it does not quietly move the draft onto today’s model.
 The flow identifies source/current/target definitions, proposed conversions, removed/changed fields
 and relationships, and potential data loss before explicit confirmation. Bind
 confirmation to that reviewed plan and the current data/model versions; changed inputs invalidate it.
@@ -728,3 +729,52 @@ confirmation promising an unsupported schema override.
 Decision acceptance is not implementation evidence. Every package and release records the stories,
 actual channels exercised, failure outcomes, skips and simplicity comparison from the product
 validation guide. No component-only pass establishes a complete browser journey.
+
+## ADR-028 — One draft may prepare the next model version while live keeps the current one
+
+**Status:** Accepted product direction, 2026-09-10. Not implemented. The work splits across two
+releases: letting a draft work under a version the user chooses is **product 0.7 work**, and moving a
+draft onto a version its content does not already fit is **product 0.10 work**, reusing the conversion
+machinery ADR-027 already places there.
+
+### The requirement
+
+A draft works under a model version the user chooses, while live data keeps the version it is on
+today. An administrator installs the next version — installing alone changes nothing for anyone — and
+one draft is created against it; inside that draft the user sees the new fields, rules and views.
+Other drafts, the live records, the immutable history and every other workspace keep using the version
+that serves live data. When the administrator activates the new version, live data moves to it, the
+draft that prepared it activates through the ordinary path because its version is now the active one,
+and any draft still on the old version is either thrown away — which changes no data — or explicitly
+moved onto the new version.
+
+Choosing a version is an edit to that single draft and to nothing else: it is not a way to force a
+model change past the compatibility check, and it does not switch the version used anywhere else.
+Ordinary activation is unchanged, and a draft whose version differs from the active release is refused
+with `workspace_draft_model_release_conflict`.
+
+### Moving a draft onto a new version
+
+A draft whose content does not already satisfy the new version cannot be served under it. That case is
+a data conversion rather than a version choice: it needs the conversion, loss-preview and
+exact-confirmation machinery ADR-027 places in 0.10, applied to that draft and the live data under it.
+
+The review names the source, current and target versions, the changes it would make and any draft
+content that would be lost; confirming applies exactly the draft and version that were reviewed;
+cancelling, a stale review or a failure leaves the draft, its version, live data and history
+untouched. A conversion never deletes draft content to make the new version accept it.
+
+### Acceptance
+
+Product 0.7 delivery requires: a draft can be created against, or explicitly moved onto, an installed
+release the deployment can parse and support; an unavailable, corrupt or unsupported target is refused
+with the existing pinned-model error codes; draft reads, writes and validation use the version chosen
+for that draft rather than the global selection; live data, immutable history, other drafts and other
+workspaces are unchanged whenever a draft's version changes; and no path activates a draft whose
+version differs from the active one.
+
+Product 0.10 delivery additionally requires: a preview and confirm-or-cancel contract bound to the
+exact reviewed versions, whole-graph revalidation under the target, and conversion of stored content
+the target does not already accept. Nothing on any path forces a change through, moves a draft without
+being asked, or switches the version used across the product; and reading, editing and discarding a
+draft under a version that has since been replaced keeps working without needing model agreement.

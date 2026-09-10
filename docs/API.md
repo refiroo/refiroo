@@ -633,7 +633,27 @@ A missing pinned release is `409` with code `pinned_model_unavailable`; an inval
 > loss for one workspace and a named installed target release (normally the historical draft’s pin),
 > then confirm the exact reviewed plan or cancel. Confirmed execution migrates live data to that target and changes
 > only the selected workspace model assignment atomically. Model drafts and data drafts remain separate;
-> target validity, conflict checks and parser support still apply. No `force` flag exists today.
+> target validity, conflict checks and parser support still apply. Nothing today overrides them.
+>
+> **Target — product 0.7 draft version selection (ADR-028).** A workspace draft may be created against,
+> or explicitly moved onto, any installed release the deployment supports, so one draft prepares a
+> candidate release while another continues on the release serving live data. The target must be
+> installed, parseable and supported; refusal reuses the existing pinned-model envelope
+> (`pinned_model_unavailable`, `pinned_model_invalid`, `unsupported_pinned_model_schema`) rather than
+> introducing a weaker success path. Choosing a release is an edit to that draft and never changes
+> another draft, another workspace or the active selection. It does not make ordinary activation accept
+> a mismatched model: the refusal above still holds, and a draft whose version differs from the active
+> release cannot activate. Once a prepared release is activated and begins serving live data, a draft
+> still on the replaced release remains readable and editable under its own version and must be
+> explicitly moved or discarded before it can activate.
+>
+> **Target — product 0.10 moving a draft onto an incompatible release (ADR-028).** Moving a draft onto
+> a release whose rules its stored content does not already satisfy requires the conversion machinery
+> above, applied to that draft's own candidate graph and its current-live base: a review reports the
+> conversions and any potential loss of draft-authored content, and applies only on confirmation of the
+> exact reviewed draft and release versions. Cancel, stale review or revalidation failure changes the
+> draft, its version, live data and history not at all, and a move never deletes draft content to make a
+> target fit.
 
 ## Generic runtime CRUD contract
 

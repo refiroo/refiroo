@@ -86,11 +86,16 @@ this review did not refresh their vendor sources or adopt their proposals wholes
 | GAP-06 live specialist/integration flows | Roadmap 0.7–0.9 packages | Live default plus explicit optional draft; generic paths preserve the same rules |
 | GAP-07 stronger validation | WP10 and each later release | Actual composed journeys and boundary evidence, not component-only acceptance |
 | GAP-08 separate data/model drafts | ADR-027, WP9, product 0.10 | No data activation silently edits model definitions or global selection |
+| GAP-08 stage a candidate release in an optional draft | ADR-028, product 0.7 | A draft is created against, or explicitly moved onto, an installed supported release; a draft the target does not already accept needs the reviewed 0.10 conversion; nothing forces a change through or moves a draft without being asked |
 
 The historical-schema confirmation requested in GAP-02 is preserved as a planned capability. It is
 not a current activation flag. The 0.10 workspace model-assignment/migration boundary avoids changing
 other workspaces’ rules. An unsupported schema language still needs parser/runtime support. A
 catalogue-retired workspace is read-only; historical derivation means a retired publication snapshot.
+ADR-028 keeps a data draft on a release the user chooses without changing any data. A draft whose
+content the chosen release already accepts is a draft edit with no migration and no assignment; a
+draft the chosen release does not already accept needs the reviewed 0.10 conversion. Either way a
+draft edit never changes the release serving data.
 
 ## Technical documentation update method
 

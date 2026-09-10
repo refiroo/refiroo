@@ -38,7 +38,7 @@ wording now points to the current roadmap rather than instructing premature mapp
 | Historical schema incompatibility | Preview loss and confirm exact migration or cancel; separate data/model drafts and workspace assignment | Product 0.10; US-P07/SC-13 migration variants |
 | Validation and simple flows | Actual composed journey evidence, two configurations, preserved input and explicit complexity comparison | WP10 and each later release |
 
-The historical migration is not a force flag. Base 0.6 preserves incompatible drafts and refuses
+The historical migration is not an override. Base 0.6 preserves incompatible drafts and refuses
 activation. The 0.10 plan must transform/validate data and switch only the selected workspace model
 assignment atomically after a fresh reviewed confirmation. Cancel, stale review and failure change
 nothing; immutable history and other workspaces remain unaffected. Unsupported schema languages still
@@ -48,7 +48,7 @@ require parser/runtime support.
 
 - A final read-only architecture/plan review passed the authority and release boundaries after one
   clarification: migration targets a named installed immutable release, normally the historical pin,
-  for one workspace only. The preview cannot ambiguously mean silently repinning the historical draft.
+  for one workspace only. The preview cannot ambiguously mean quietly moving the historical draft.
 - Reused targeted read-only API discovery and architecture analysis; checked the actual route/model
   declarations where inputs, response nullability, initial relationships or cursor claims differed.
 - Checked local Markdown links and anchors, table column counts, code fences and whitespace across
