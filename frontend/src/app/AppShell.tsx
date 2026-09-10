@@ -51,6 +51,10 @@ export function AppShell({
     activeRoute.kind === "detail"
       ? model.objectTypes.find((item) => item.key === activeRoute.objectTypeKey)
       : undefined;
+  const workspaceDraftId =
+    activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.workspaceDraftId : undefined;
+  const workspaceRevisionId =
+    activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.workspaceRevisionId : undefined;
 
   return (
     <div className={`app-shell${activeRoute.kind === "models" ? " models-mode" : ""}`}>
@@ -120,7 +124,8 @@ export function AppShell({
                   setNavigationOpen(false);
                   onNavigate({
                     ...viewRoute(application, view.key, activeRoute.workspaceKey),
-                    workspaceDraftId: activeRoute.workspaceDraftId,
+                    workspaceDraftId,
+                    workspaceRevisionId,
                   });
                 }}
               >
@@ -129,7 +134,7 @@ export function AppShell({
               </button>
             ))}
           </nav>
-          {activeRoute.kind !== "drafts" && (
+          {activeRoute.kind !== "drafts" && activeRoute.kind !== "history" && (
             <Explorer
               key={`${application.key}:${activeRoute.workspaceKey}`}
               model={model}
@@ -154,8 +159,10 @@ export function AppShell({
               {application.name}
             </li>
             <li>
-              <small>{activeRoute.kind === "list" ? "View" : "Object type"}</small>
-              {activeView?.name ?? activeObjectType?.name}
+              <small>
+                {activeRoute.kind === "list" ? "View" : activeRoute.kind === "detail" ? "Object type" : "Context"}
+              </small>
+              {activeView?.name ?? activeObjectType?.name ?? (activeRoute.kind === "drafts" ? "Drafts" : "History")}
             </li>
           </ol>
         )}
@@ -170,26 +177,46 @@ export function AppShell({
           <nav className="detail-actions" aria-label="Workspace data context">
             <button
               className="secondary"
-              aria-current={activeRoute.kind !== "drafts" && !activeRoute.workspaceDraftId ? "page" : undefined}
+              aria-current={
+                activeRoute.kind !== "drafts" &&
+                activeRoute.kind !== "history" &&
+                !workspaceDraftId &&
+                !workspaceRevisionId
+                  ? "page"
+                  : undefined
+              }
               onClick={() => onNavigate(viewRoute(application, application.defaultView, activeRoute.workspaceKey))}
             >
               Live
             </button>
             <button
               className="secondary"
-              aria-current={activeRoute.kind === "drafts" || activeRoute.workspaceDraftId ? "page" : undefined}
+              aria-current={activeRoute.kind === "drafts" || workspaceDraftId ? "page" : undefined}
               onClick={() =>
                 onNavigate({ kind: "drafts", applicationKey: application.key, workspaceKey: activeRoute.workspaceKey })
               }
             >
               Drafts
             </button>
+            <button
+              className="secondary"
+              aria-current={activeRoute.kind === "history" || workspaceRevisionId ? "page" : undefined}
+              onClick={() =>
+                onNavigate({ kind: "history", applicationKey: application.key, workspaceKey: activeRoute.workspaceKey })
+              }
+            >
+              History
+            </button>
             <span>
-              {activeRoute.workspaceDraftId
+              {workspaceDraftId
                 ? "Editing a draft"
                 : activeRoute.kind === "drafts"
                   ? "Optional coordinated changes"
-                  : "Editing live data"}
+                  : workspaceRevisionId
+                    ? "Inspecting immutable history"
+                    : activeRoute.kind === "history"
+                      ? "Publication history"
+                      : "Editing live data"}
             </span>
           </nav>
         )}

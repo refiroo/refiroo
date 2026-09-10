@@ -77,3 +77,20 @@ screenshots, server logs and `report.json` in its printed temporary evidence dir
 History/historical-source acceptance remains slice D; WP10 composed release, full accessibility,
 visual, migration and packaging gates remain separate. Backend code and public contracts are
 unchanged by slice C, so its final unit/build gates are frontend-only.
+
+
+## Slice D: immutable history and historical sources
+
+```sh
+npm --prefix frontend run test:browser:history
+```
+
+The isolated real-backend runner exercises SC-08: newest-first history, an unchanged typed older
+snapshot under its pinned model, revision context through shared list/detail reads, immutable controls,
+an explicitly labelled historical draft source, pinned/current model mismatch guidance, truthful
+publication retirement, and catalogue retirement as a separate read-only state. It records screenshots,
+server logs and `report.json` in its printed temporary evidence directory.
+
+Exact failed-page retry is additionally locked by the focused history-feed component regression; the
+real-backend runner uses the API's normal bounded page. WP10 still owns composed release, full
+accessibility/visual, migration and packaging acceptance.

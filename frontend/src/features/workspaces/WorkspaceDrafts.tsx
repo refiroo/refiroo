@@ -145,7 +145,7 @@ export function DraftDiagnostics({ items }: { items: Array<Record<string, unknow
 }
 
 export function DraftActions({ readOnly, onExit }: { readOnly: boolean; onExit: (message: string) => void }) {
-  const { draft, warning, refresh } = useWorkspaceData();
+  const { draft, activeModelReleaseId, warning, refresh } = useWorkspaceData();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [diagnostics, setDiagnostics] = useState<Array<Record<string, unknown>>>([]);
@@ -219,6 +219,13 @@ export function DraftActions({ readOnly, onExit }: { readOnly: boolean; onExit: 
         {current.name || "Untitled draft"} · Draft v{current.version}
       </h2>
       <p>Source: {draftSource(current)}. Changes here remain private to this draft until activation.</p>
+      {activeModelReleaseId && activeModelReleaseId !== current.modelReleaseId && (
+        <Notice tone="warning" title="Draft model differs from the current model">
+          This draft uses pinned model {current.modelReleaseId}; the current model is {activeModelReleaseId}. Your draft
+          and entered values are preserved. Base 0.6 cannot replace the workspace model from here; a supported model
+          migration is required before activation.
+        </Notice>
+      )}
       {warning && (
         <InlineError
           message={warning}

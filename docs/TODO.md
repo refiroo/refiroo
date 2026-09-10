@@ -7,8 +7,8 @@ release plan and changelog rather than accumulating it here.
 ## Now — Base 0.6 completion under ADR-027
 
 User GAP-01–GAP-08 answers are accepted. That resolves product direction, not runtime delivery.
-The next sequence is **WP9 → WP10**. Completed checkboxes below record prior work;
-they do not close the newly identified authority or browser gaps.
+The next package is **WP10**. Completed checkboxes below record prior work;
+they do not replace the composed release evidence still required there.
 
 - [x] Consolidate accepted live/draft/history and historical-migration direction in ADR-027 and the
   technical planning baseline; retain user comments in the product planning handoff.
@@ -20,7 +20,7 @@ they do not close the newly identified authority or browser gaps.
   empty-root creation stays development/bootstrap support, and additive migration preserves prior drafts.
 - [x] WP8.1-C: newest-first revision history and cursor tests; prove designation retirement preserves
   live access, catalogue retirement rejects writes, and history is not a direct restore operation.
-- [ ] WP9: restore complete live CRUD and optional draft UI, non-default context throughout the task,
+- [x] WP9: restore complete live CRUD and optional draft UI, non-default context throughout the task,
   pinned read-only history, truthful retirement, coherent editing and preserved-input recovery.
 - [ ] WP10: execute product scenarios against a real browser/backend, plus accessibility, visual,
   concurrency, live-only compatibility, history, migration/lifespan and packaging gates. Record evidence

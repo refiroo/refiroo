@@ -35,8 +35,11 @@ export function parseRoute(model: EngineModel, defaultWorkspaceKey = DEFAULT_WOR
   const query = new URLSearchParams(window.location.search);
   const workspaceKey = query.get("workspaceKey")?.trim() || defaultWorkspaceKey;
   const workspaceDraftId = query.get("workspaceDraftId")?.trim() || undefined;
+  const workspaceRevisionId = workspaceDraftId ? undefined : query.get("workspaceRevisionId")?.trim() || undefined;
   if (parts[0] === "apps" && parts[2] === "drafts" && applicationFor(model, parts[1]))
     return { kind: "drafts", applicationKey: parts[1], workspaceKey };
+  if (parts[0] === "apps" && parts[2] === "history" && applicationFor(model, parts[1]))
+    return { kind: "history", applicationKey: parts[1], workspaceKey };
   if (parts[0] === "models") {
     const releaseId = query.get("releaseId")?.trim() || undefined;
     const draftId = query.get("draftId")?.trim() || undefined;
@@ -63,6 +66,7 @@ export function parseRoute(model: EngineModel, defaultWorkspaceKey = DEFAULT_WOR
         viewKey: parts[3],
         workspaceKey,
         ...(workspaceDraftId ? { workspaceDraftId } : {}),
+        ...(workspaceRevisionId ? { workspaceRevisionId } : {}),
         search: query.get("search") ?? "",
         sort: candidateSort && allowedSorts.has(candidateSort) ? candidateSort : view.config.defaultSort,
         pageSize:
@@ -84,6 +88,7 @@ export function parseRoute(model: EngineModel, defaultWorkspaceKey = DEFAULT_WOR
         objectId: parts[4],
         workspaceKey,
         ...(workspaceDraftId ? { workspaceDraftId } : {}),
+        ...(workspaceRevisionId ? { workspaceRevisionId } : {}),
       };
     }
   }
@@ -100,7 +105,9 @@ export function routePath(route: RouteState) {
   const app = encodeURIComponent(route.applicationKey);
   const query = new URLSearchParams({ workspaceKey: route.workspaceKey });
   if (route.kind === "drafts") return `/apps/${app}/drafts?${query}`;
+  if (route.kind === "history") return `/apps/${app}/history?${query}`;
   if (route.workspaceDraftId) query.set("workspaceDraftId", route.workspaceDraftId);
+  if (route.workspaceRevisionId) query.set("workspaceRevisionId", route.workspaceRevisionId);
   if (route.kind === "list") {
     if (route.search) query.set("search", route.search);
     route.filters.forEach(({ field, operator, value }) => query.append(`filter.${field}.${operator}`, value));

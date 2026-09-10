@@ -13,7 +13,8 @@
     "preview": "vite preview --host 0.0.0.0",
     "test:browser": "node e2e/wp9-navigation.mjs",
     "test:browser:authoring": "node e2e/wp9-authoring.mjs",
-    "test:browser:drafts": "node e2e/wp9-drafts.mjs"
+    "test:browser:drafts": "node e2e/wp9-drafts.mjs",
+    "test:browser:history": "node e2e/wp9-history.mjs"
   },
   "dependencies": {
     "lucide-react": "1.39.0",

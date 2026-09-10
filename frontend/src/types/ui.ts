@@ -29,6 +29,7 @@ export type RouteState =
       viewKey: string;
       workspaceKey: string;
       workspaceDraftId?: string;
+      workspaceRevisionId?: string;
     } & CollectionQueryState)
   | {
       kind: "detail";
@@ -37,6 +38,8 @@ export type RouteState =
       objectId: string;
       workspaceKey: string;
       workspaceDraftId?: string;
+      workspaceRevisionId?: string;
     }
   | { kind: "drafts"; applicationKey: string; workspaceKey: string; workspaceDraftId?: undefined }
+  | { kind: "history"; applicationKey: string; workspaceKey: string }
   | { kind: "models"; releaseId?: string; draftId?: string };

@@ -203,3 +203,26 @@ it("encodes canonical draft reads, mutations and explicit current-live lifecycle
     expectedActiveRevisionId: null,
   });
 });
+
+it("encodes immutable history reads, historical derivation and publication retirement", async () => {
+  const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({}), { status: 200 }));
+  vi.stubGlobal("fetch", fetchMock);
+  await api.workspaceRevisions("west", "older token");
+  await api.workspaceRevision("revision/id");
+  await api.object("type", "object", "west", undefined, "revision/id");
+  await api.objects("type", { workspaceKey: "west", workspaceRevisionId: "revision/id" });
+  await api.relations("object", { workspaceKey: "west", workspaceRevisionId: "revision/id" });
+  await api.createHistoricalWorkspaceDraft("west", "Review old values", "revision/id");
+  await api.retireWorkspacePublication("west", "revision/id");
+
+  expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get("cursor")).toBe("older token");
+  expect(fetchMock.mock.calls[1][0]).toContain("/workspace-revisions/revision%2Fid");
+  for (const [url] of fetchMock.mock.calls.slice(2, 5))
+    expect(new URL(url).searchParams.get("workspaceRevisionId")).toBe("revision/id");
+  expect(JSON.parse(fetchMock.mock.calls[5][1].body)).toEqual({
+    name: "Review old values",
+    source: "revision",
+    derivedFromRevisionId: "revision/id",
+  });
+  expect(JSON.parse(fetchMock.mock.calls[6][1].body)).toEqual({ expectedActiveRevisionId: "revision/id" });
+});

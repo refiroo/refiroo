@@ -9,6 +9,7 @@ import { AppShell } from "./AppShell";
 import { useRouter, type Router } from "./useRouter";
 import { WorkspaceDataProvider, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { DraftActions, WorkspaceDrafts } from "@/features/workspaces/WorkspaceDrafts";
+import { HistoricalRevisionBanner, WorkspaceHistory } from "@/features/workspaces/WorkspaceHistory";
 import { Notice } from "@/ui/Notice";
 
 export default function App() {
@@ -16,11 +17,13 @@ export default function App() {
   const [message, setMessage] = useState("");
   const { model, route, error } = router;
   if (!model || !route) return <div className="center-message">{error || "Loading the model…"}</div>;
-  const draftId = route.kind === "models" ? undefined : route.workspaceDraftId;
+  const draftId = route.kind === "list" || route.kind === "detail" ? route.workspaceDraftId : undefined;
+  const revisionId = route.kind === "list" || route.kind === "detail" ? route.workspaceRevisionId : undefined;
   return (
     <WorkspaceDataProvider
-      key={`${route.kind === "models" ? "models" : route.workspaceKey}:${draftId ?? "live"}`}
+      key={`${route.kind === "models" ? "models" : route.workspaceKey}:${draftId ?? revisionId ?? "live"}`}
       draftId={draftId}
+      revisionId={revisionId}
       workspaceKey={route.kind === "models" ? "" : route.workspaceKey}
       model={model}
     >
@@ -52,8 +55,12 @@ function AppContent({
   // from the declaration rather than from the narrowing performed by the guard above.
   const activeModel = model;
 
-  const workspaceDraftId = activeRoute.kind === "models" ? undefined : activeRoute.workspaceDraftId;
+  const workspaceDraftId =
+    activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.workspaceDraftId : undefined;
+  const workspaceRevisionId =
+    activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.workspaceRevisionId : undefined;
   const readOnly =
+    Boolean(workspaceRevisionId) ||
     workspace?.key !== (activeRoute.kind === "models" ? "" : activeRoute.workspaceKey) ||
     workspace?.status !== "active";
 
@@ -67,12 +74,15 @@ function AppContent({
             ...remembered,
             workspaceKey,
             workspaceDraftId,
+            workspaceRevisionId,
             cursors:
-              remembered.workspaceKey === workspaceKey && remembered.workspaceDraftId === workspaceDraftId
+              remembered.workspaceKey === workspaceKey &&
+              remembered.workspaceDraftId === workspaceDraftId &&
+              remembered.workspaceRevisionId === workspaceRevisionId
                 ? remembered.cursors
                 : undefined,
           }
-        : { ...viewRoute(selected, selected.defaultView, workspaceKey), workspaceDraftId },
+        : { ...viewRoute(selected, selected.defaultView, workspaceKey), workspaceDraftId, workspaceRevisionId },
     );
   }
 
@@ -84,6 +94,7 @@ function AppContent({
       objectId: item.id,
       workspaceKey: activeRoute.kind === "models" ? item.workspaceKey : activeRoute.workspaceKey,
       workspaceDraftId,
+      workspaceRevisionId,
     });
   }
 
@@ -96,13 +107,18 @@ function AppContent({
       objectId,
       workspaceKey: activeRoute.workspaceKey,
       workspaceDraftId,
+      workspaceRevisionId,
     });
   }
 
   function backToCollection() {
     if (activeRoute.kind === "models") return;
     const remembered = lastCollection();
-    if (remembered?.workspaceKey === activeRoute.workspaceKey && remembered.workspaceDraftId === workspaceDraftId) {
+    if (
+      remembered?.workspaceKey === activeRoute.workspaceKey &&
+      remembered.workspaceDraftId === workspaceDraftId &&
+      remembered.workspaceRevisionId === workspaceRevisionId
+    ) {
       navigate(remembered);
       return;
     }
@@ -112,6 +128,7 @@ function AppContent({
     navigate({
       ...viewRoute(application, matchingView?.key ?? application.defaultView, activeRoute.workspaceKey),
       workspaceDraftId,
+      workspaceRevisionId,
     });
   }
 
@@ -119,6 +136,7 @@ function AppContent({
     navigate({
       ...defaultRoute(activeModel),
       workspaceDraftId,
+      workspaceRevisionId,
       workspaceKey:
         activeRoute.kind === "models" ? (lastCollection()?.workspaceKey ?? "default") : activeRoute.workspaceKey,
     });
@@ -132,13 +150,25 @@ function AppContent({
       const remembered = lastCollection(application.key);
       navigate(
         remembered && remembered.viewKey === matchingView?.key
-          ? { ...remembered, workspaceKey, workspaceDraftId: undefined, cursors: undefined }
+          ? {
+              ...remembered,
+              workspaceKey,
+              workspaceDraftId: undefined,
+              workspaceRevisionId: undefined,
+              cursors: undefined,
+            }
           : viewRoute(application, matchingView?.key ?? application.defaultView, workspaceKey),
       );
-    } else if (activeRoute.kind === "drafts") {
+    } else if (activeRoute.kind === "drafts" || activeRoute.kind === "history") {
       navigate({ ...activeRoute, workspaceKey });
     } else {
-      navigate({ ...activeRoute, workspaceKey, workspaceDraftId: undefined, cursors: undefined });
+      navigate({
+        ...activeRoute,
+        workspaceKey,
+        workspaceDraftId: undefined,
+        workspaceRevisionId: undefined,
+        cursors: undefined,
+      });
     }
     setRefreshToken((value) => value + 1);
   }
@@ -168,6 +198,13 @@ function AppContent({
           }}
         />
       )}
+      {data.revision && (
+        <HistoricalRevisionBanner
+          onExit={() =>
+            navigate({ kind: "history", applicationKey: application.key, workspaceKey: data.revision!.workspaceKey })
+          }
+        />
+      )}
       {activeRoute.kind === "models" ? (
         <ModelWorkbench
           route={activeRoute}
@@ -185,9 +222,26 @@ function AppContent({
             })
           }
         />
+      ) : activeRoute.kind === "history" ? (
+        <WorkspaceHistory
+          workspaceKey={activeRoute.workspaceKey}
+          readOnly={readOnly}
+          onOpen={(id) =>
+            navigate({
+              ...viewRoute(application, application.defaultView, activeRoute.workspaceKey),
+              workspaceRevisionId: id,
+            })
+          }
+          onDraftCreated={(id) =>
+            navigate({
+              ...viewRoute(application, application.defaultView, activeRoute.workspaceKey),
+              workspaceDraftId: id,
+            })
+          }
+        />
       ) : activeRoute.kind === "list" ? (
         <CollectionView
-          key={`${application.key}:${activeRoute.viewKey}:${activeRoute.workspaceKey}`}
+          key={`${application.key}:${activeRoute.viewKey}:${activeRoute.workspaceKey}:${workspaceDraftId ?? workspaceRevisionId ?? "live"}`}
           model={model}
           application={application}
           view={application.views.find((view) => view.key === activeRoute.viewKey) ?? application.views[0]}

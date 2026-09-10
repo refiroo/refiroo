@@ -101,6 +101,7 @@ export function useRouter(): Router {
         ...collection,
         workspaceKey,
         workspaceDraftId: undefined,
+        workspaceRevisionId: undefined,
         cursors: undefined,
       });
     }
@@ -109,6 +110,7 @@ export function useRouter(): Router {
         ...mostRecentCollection.current,
         workspaceKey,
         workspaceDraftId: undefined,
+        workspaceRevisionId: undefined,
         cursors: undefined,
       };
   }, []);

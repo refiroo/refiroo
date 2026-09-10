@@ -9,7 +9,10 @@ vi.mock("@/api/client", () => ({
   api: {
     model: vi.fn(),
     workspaceDraft: vi.fn(),
+    workspaceRevision: vi.fn(),
+    workspaceRevisions: vi.fn(),
     modelRelease: vi.fn(),
+    modelRuntimeState: vi.fn(),
     workspaceRuntimeState: vi.fn(),
     workspace: vi.fn(),
     workspaces: vi.fn(),
@@ -17,6 +20,8 @@ vi.mock("@/api/client", () => ({
     object: vi.fn(),
     objectHistory: vi.fn(),
     relations: vi.fn(),
+    createHistoricalWorkspaceDraft: vi.fn(),
+    retireWorkspacePublication: vi.fn(),
   },
 }));
 
@@ -33,6 +38,12 @@ describe("App", () => {
       version: 1,
       updatedAt: "2026-09-05T00:00:00Z",
     });
+    vi.mocked(api.modelRuntimeState).mockResolvedValue({
+      activeReleaseId: "current-model",
+      activeModelHash: "hash",
+      version: 1,
+      updatedAt: "2026-09-05T00:00:00Z",
+    });
     vi.mocked(api.workspace).mockImplementation(async (key) => ({
       key,
       label: key === "default" ? "Default" : key,
@@ -42,6 +53,7 @@ describe("App", () => {
       updatedAt: "2026-09-05T00:00:00Z",
     }));
     vi.mocked(api.workspaces).mockResolvedValue({ items: [], nextCursor: null });
+    vi.mocked(api.workspaceRevisions).mockResolvedValue({ items: [], nextCursor: null });
     vi.mocked(api.objects).mockImplementation(async (objectTypeKey) => ({
       items: objectTypeKey === "domain" ? [domainObject] : [],
       nextCursor: null,
@@ -323,5 +335,86 @@ describe("App", () => {
       }),
     );
     await waitFor(() => expect(window.location.search).not.toContain("workspaceDraftId"));
+  });
+
+  it("opens immutable history with its pinned model and keeps revision context through detail and return", async () => {
+    const revision = {
+      id: "revision-2",
+      workspaceKey: "west",
+      modelReleaseId: "historical-model",
+      revisionNumber: 2,
+      status: "retired" as const,
+      derivedFromRevisionId: "revision-1",
+      supersedesRevisionId: "revision-1",
+      createdAt: "2026-09-01T00:00:00Z",
+      activatedAt: "2026-09-01T00:00:00Z",
+      retiredAt: "2026-09-02T00:00:00Z",
+    };
+    vi.mocked(api.workspaceRevision).mockResolvedValue(revision);
+    vi.mocked(api.modelRelease).mockResolvedValue({
+      id: "historical-model",
+      key: "historical-model",
+      name: "Historical model",
+      version: "0.5-old",
+      schemaVersion: testModel.schemaVersion,
+      modelHash: "old-hash",
+      installedAt: "",
+      active: false,
+      model: testModel as unknown as Record<string, unknown>,
+    });
+    vi.mocked(api.object).mockResolvedValue({ ...domainObject, workspaceKey: "west", name: "Historical domain" });
+    vi.mocked(api.objects).mockResolvedValue({
+      items: [{ ...domainObject, workspaceKey: "west", name: "Historical domain" }],
+      nextCursor: null,
+    });
+    visit("/apps/test-app/views/domains?workspaceKey=west&workspaceRevisionId=revision-2");
+    render(<App />);
+
+    expect(await screen.findByText("Immutable revision 2")).toBeInTheDocument();
+    expect(screen.getByText(/interpreted with pinned model release historical-model/)).toBeInTheDocument();
+    expect(screen.getByText(/supported model migration/)).toBeInTheDocument();
+    fireEvent.click((await screen.findAllByRole("button", { name: "Historical domain" }))[0]);
+    expect(await screen.findByRole("heading", { name: "Historical domain", level: 1 })).toBeInTheDocument();
+    expect(api.object).toHaveBeenCalledWith("domain", domainObject.id, "west", undefined, "revision-2");
+    expect(screen.queryByRole("button", { name: "Edit object" })).not.toBeInTheDocument();
+    expect(api.objectHistory).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Back to list" }));
+    await waitFor(() => expect(window.location.search).toContain("workspaceRevisionId=revision-2"));
+    fireEvent.click(screen.getByRole("button", { name: "Back to publication history" }));
+    await waitFor(() => expect(window.location.pathname).toBe("/apps/test-app/history"));
+  });
+
+  it("refuses an unsupported historical schema without rendering it under the current model", async () => {
+    vi.mocked(api.workspaceRevision).mockResolvedValue({
+      id: "unsupported-revision",
+      workspaceKey: "west",
+      modelReleaseId: "unsupported-model",
+      revisionNumber: 1,
+      status: "retired",
+      derivedFromRevisionId: null,
+      supersedesRevisionId: null,
+      createdAt: "",
+      activatedAt: "",
+      retiredAt: "",
+    });
+    vi.mocked(api.modelRelease).mockResolvedValue({
+      id: "unsupported-model",
+      key: "unsupported-model",
+      name: "Unsupported model",
+      version: "old",
+      schemaVersion: "0.4",
+      modelHash: "old-hash",
+      installedAt: "",
+      active: false,
+      model: testModel as unknown as Record<string, unknown>,
+    });
+    visit("/apps/test-app/views/domains?workspaceKey=west&workspaceRevisionId=unsupported-revision");
+    render(<App />);
+
+    expect(await screen.findByText(/pinned model schema 0.4 is unsupported/)).toBeInTheDocument();
+    expect(screen.getByText(/has not been interpreted with the current model/)).toBeInTheDocument();
+    expect(api.objects).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Return to Live" })).toBeInTheDocument();
   });
 });

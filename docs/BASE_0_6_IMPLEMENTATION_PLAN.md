@@ -384,12 +384,13 @@ but the complete WP9 design/history acceptance depends on this gate.
 
 ### WP9 — Complete generic browser tasks in live, draft and history contexts
 
-**Status:** In progress. Slice A implements live workspace navigation, cursor-position restoration,
+**Status:** Complete. Slice A implements live workspace navigation, cursor-position restoration,
 and retry/content preservation. Slice B implements direct live authoring, coherent typed forms,
 conflict reconciliation and signed deletion confirmation. Slice C implements optional current-live
 drafts and canonical draft CRUD, aggregate-version recovery, validation, activation and discard.
-SC-05/SC-06 and draft SC-04 have isolated real-backend browser evidence. History remains slice D. See the
-[WP9 browser regressions](../frontend/e2e/README.md) for reproducible slice A/B/C checks. **Stories:** US-D01–D14, US-L01–L02, US-W01–W08, US-U01.
+Slice D implements newest-first history, pinned-model immutable reads, historical draft sources and
+truthful publication retirement. SC-01–SC-06 and SC-08 have isolated real-backend browser evidence. See the
+[WP9 browser regressions](../frontend/e2e/README.md) for reproducible slice A–D checks. **Stories:** US-D01–D14, US-L01–L02, US-W01–W08, US-U01.
 Primary areas: `frontend/src/features/workspaces/`, `features/objects/`, API client/types, routing,
 model resolution, shell and RDM-owned UI wrappers.
 
@@ -473,7 +474,7 @@ whitespace; it does not claim these runtime tests were executed.
 Read this plan, ADR-027, the product stories/scenarios, `PROJECT_STATUS.md`, `API.md` and the interaction
 specification. Inspect the dirty worktree and preserve unrelated changes. Start with WP8.1-A; give each
 slice one implementation owner, followed by focused verification and review appropriate to scope.
-WP8.1-C is complete; execute WP9 and WP10 next.
+WP8.1-C and WP9 are complete; execute WP10 next.
 State story IDs, user-visible behavior, exclusions, public-contract changes and direct evidence before
 coding. Preserve all generic controls and invariants. Commit only when explicitly requested.
 

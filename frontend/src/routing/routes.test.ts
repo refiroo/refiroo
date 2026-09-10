@@ -94,3 +94,21 @@ it("round-trips draft collections, detail bookmarks and the separate drafts cata
   }
   window.history.replaceState({}, "", "/");
 });
+
+it("round-trips history discovery and immutable collection/detail contexts", () => {
+  for (const path of [
+    "/apps/test-app/history?workspaceKey=west",
+    "/apps/test-app/views/domains?workspaceKey=west&workspaceRevisionId=revision-2",
+    "/apps/test-app/objects/domain/object-1?workspaceKey=west&workspaceRevisionId=revision-2",
+  ]) {
+    window.history.replaceState({}, "", path);
+    const route = parseRoute(testModel);
+    expect(route).toMatchObject({
+      workspaceKey: "west",
+      ...(path.includes("workspaceRevisionId") ? { workspaceRevisionId: "revision-2" } : { kind: "history" }),
+    });
+    window.history.replaceState({}, "", routePath(route));
+    expect(parseRoute(testModel)).toEqual(route);
+  }
+  window.history.replaceState({}, "", "/");
+});

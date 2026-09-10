@@ -3,6 +3,7 @@ import type {
   WorkspaceDraft,
   WorkspaceDraftPage,
   WorkspaceRevision,
+  WorkspaceRevisionPage,
   WorkspaceDraftValidation,
   InitialRelationInput,
   ObjectAttributeInput,
@@ -69,6 +70,7 @@ export interface DraftWriteContext {
 
 export interface ObjectQuery {
   workspaceDraftId?: string;
+  workspaceRevisionId?: string;
   applicationKey?: string;
   workspaceKey?: string;
   search?: string;
@@ -90,6 +92,7 @@ function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
   const params = new URLSearchParams({ pageSize: String(query.pageSize ?? 20) });
   if (query.applicationKey) params.set("applicationKey", query.applicationKey);
   if (query.workspaceDraftId) params.set("workspaceDraftId", query.workspaceDraftId);
+  if (query.workspaceRevisionId) params.set("workspaceRevisionId", query.workspaceRevisionId);
   if (query.workspaceKey) params.set("workspaceKey", query.workspaceKey);
   if (query.search) params.set("search", query.search);
   if (query.cursor) params.set("cursor", query.cursor);
@@ -130,6 +133,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ name, source: "currentLive" }),
     }),
+  createHistoricalWorkspaceDraft: (workspaceKey: string, name: string, revisionId: string) =>
+    request<WorkspaceDraft>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/drafts`, {
+      method: "POST",
+      body: JSON.stringify({ name, source: "revision", derivedFromRevisionId: revisionId }),
+    }),
   discardWorkspaceDraft: (id: string, expectedVersion: number) =>
     request<void>(`/api/v1/workspace-drafts/${encodeURIComponent(id)}?expectedVersion=${expectedVersion}`, {
       method: "DELETE",
@@ -147,6 +155,18 @@ export const api = {
     request<{ items: WorkspaceRevision[]; nextCursor: string | null }>(
       `/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/revisions?pageSize=1`,
     ),
+  workspaceRevisions: (workspaceKey: string, cursor?: string) => {
+    const query = new URLSearchParams({ pageSize: "50" });
+    if (cursor) query.set("cursor", cursor);
+    return request<WorkspaceRevisionPage>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/revisions?${query}`);
+  },
+  workspaceRevision: (id: string) =>
+    request<WorkspaceRevision>(`/api/v1/workspace-revisions/${encodeURIComponent(id)}`),
+  retireWorkspacePublication: (workspaceKey: string, expectedActiveRevisionId: string) =>
+    request<void>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/retirement`, {
+      method: "POST",
+      body: JSON.stringify({ expectedActiveRevisionId }),
+    }),
   workspaceRuntimeState: () => request<WorkspaceRuntimeState>("/api/v1/workspace-runtime-state"),
   modelReleases: (options: { cursor?: string; pageSize?: number } = {}) => {
     const params = new URLSearchParams({ pageSize: String(options.pageSize ?? 100) });
@@ -198,12 +218,19 @@ export const api = {
       body: JSON.stringify({ expectedRuntimeVersion: state.version, expectedActiveReleaseId: state.activeReleaseId }),
     }),
   objects: (objectTypeKey: string, query: ObjectQuery) => request<ObjectPage>(objectQueryPath(objectTypeKey, query)),
-  object: (objectTypeKey: string, objectId: string, workspaceKey?: string, workspaceDraftId?: string) =>
+  object: (
+    objectTypeKey: string,
+    objectId: string,
+    workspaceKey?: string,
+    workspaceDraftId?: string,
+    workspaceRevisionId?: string,
+  ) =>
     request<ObjectItem>(
       withWorkspace(
         `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}`,
         workspaceKey,
         workspaceDraftId,
+        workspaceRevisionId,
       ),
     ),
   createObject: (
@@ -253,9 +280,20 @@ export const api = {
       { method: "DELETE" },
     );
   },
-  attribute: (objectTypeKey: string, objectId: string, attributeTypeKey: string, workspaceDraftId?: string) =>
+  attribute: (
+    objectTypeKey: string,
+    objectId: string,
+    attributeTypeKey: string,
+    workspaceDraftId?: string,
+    workspaceRevisionId?: string,
+  ) =>
     request<AttributeValueResponse>(
-      withWorkspace(attributePath(objectTypeKey, objectId, attributeTypeKey), undefined, workspaceDraftId),
+      withWorkspace(
+        attributePath(objectTypeKey, objectId, attributeTypeKey),
+        undefined,
+        workspaceDraftId,
+        workspaceRevisionId,
+      ),
     ),
   createAttribute: (
     objectTypeKey: string,
@@ -299,6 +337,7 @@ export const api = {
     options: {
       workspaceKey?: string;
       workspaceDraftId?: string;
+      workspaceRevisionId?: string;
       direction?: "incoming" | "outgoing" | "both";
       relationTypeKey?: string;
       cursor?: string;
@@ -307,6 +346,7 @@ export const api = {
   ) => {
     const params = new URLSearchParams({ objectId });
     if (options.workspaceDraftId) params.set("workspaceDraftId", options.workspaceDraftId);
+    if (options.workspaceRevisionId) params.set("workspaceRevisionId", options.workspaceRevisionId);
     if (options.workspaceKey) params.set("workspaceKey", options.workspaceKey);
     if (options.direction) params.set("direction", options.direction);
     if (options.relationTypeKey) params.set("relationTypeKey", options.relationTypeKey);
@@ -316,9 +356,14 @@ export const api = {
   },
   createRelation: (payload: RelationCreateInput & DraftWriteContext) =>
     request<RelationRecord>("/api/v1/relations", { method: "POST", body: JSON.stringify(payload) }),
-  relation: (relationId: string, workspaceKey?: string, workspaceDraftId?: string) =>
+  relation: (relationId: string, workspaceKey?: string, workspaceDraftId?: string, workspaceRevisionId?: string) =>
     request<RelationRecord>(
-      withWorkspace(`/api/v1/relations/${encodeURIComponent(relationId)}`, workspaceKey, workspaceDraftId),
+      withWorkspace(
+        `/api/v1/relations/${encodeURIComponent(relationId)}`,
+        workspaceKey,
+        workspaceDraftId,
+        workspaceRevisionId,
+      ),
     ),
   updateRelation: (relationId: string, payload: RelationUpdateInput & DraftWriteContext) =>
     request<RelationRecord>(`/api/v1/relations/${encodeURIComponent(relationId)}`, {
@@ -342,10 +387,11 @@ function attributePath(objectTypeKey: string, objectId: string, attributeTypeKey
   return `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}/attributes/${encodeURIComponent(attributeTypeKey)}`;
 }
 
-function withWorkspace(path: string, workspaceKey?: string, workspaceDraftId?: string) {
+function withWorkspace(path: string, workspaceKey?: string, workspaceDraftId?: string, workspaceRevisionId?: string) {
   const params = new URLSearchParams();
   if (workspaceKey) params.set("workspaceKey", workspaceKey);
   if (workspaceDraftId) params.set("workspaceDraftId", workspaceDraftId);
+  if (workspaceRevisionId) params.set("workspaceRevisionId", workspaceRevisionId);
   return params.size ? `${path}?${params}` : path;
 }
 

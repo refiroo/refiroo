@@ -33,7 +33,7 @@ export function ObjectDetail({
   onChanged?: () => void;
 }) {
   const api = useDataApi();
-  const { draft } = useWorkspaceData();
+  const { draft, revision } = useWorkspaceData();
   const [editing, setEditing] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [panelRefresh, setPanelRefresh] = useState(0);
@@ -189,7 +189,9 @@ export function ObjectDetail({
       <div key={panelRefresh} className={`detail-grid ${sidePanels.length ? "with-side" : ""}`}>
         <div className="panel-column">
           {mainPanels.map(renderPanel)}
-          {!draft && <HistoryPanel objectTypeKey={objectTypeKey} objectId={objectId} refreshToken={historyRefresh} />}
+          {!draft && !revision && (
+            <HistoryPanel objectTypeKey={objectTypeKey} objectId={objectId} refreshToken={historyRefresh} />
+          )}
         </div>
         {sidePanels.length > 0 && <aside className="panel-column side-panels">{sidePanels.map(renderPanel)}</aside>}
       </div>

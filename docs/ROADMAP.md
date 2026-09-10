@@ -27,9 +27,9 @@ Base 0.6 WP1-WP3 have delivered the UI foundation, workspace discovery and stric
 tables. WP4 delivered per-object revisions, but that publication boundary was rejected before release.
 WP5 and WP6 introduced workspace draft/revision storage. WP7 restored generic CRUD and WP8 added
 lifecycle orchestration; ADR-026 restored direct live writes and conflict-aware draft activation.
-The product review identifies remaining authority and browser gaps; recorded package completion does
-not close those gaps. WP8.1-A/B/C corrects them before the affected WP9 flows
-are accepted, followed by WP10 integration and release validation. Integration-scale operations,
+The product review identified authority and browser gaps; recorded package completion alone did not
+close them. WP8.1-A/B/C corrected the authority gaps and WP9 completed the affected isolated browser
+flows, followed by WP10 integration and release validation. Integration-scale operations,
 authentication and distributed activation are not present.
 
 ## Base 0.5 — Operational base and model lifecycle foundation (complete)

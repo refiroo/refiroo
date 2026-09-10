@@ -155,6 +155,11 @@ export interface WorkspaceRevision {
   retiredAt: string | null;
 }
 
+export interface WorkspaceRevisionPage {
+  items: WorkspaceRevision[];
+  nextCursor: string | null;
+}
+
 export interface WorkspaceDraftValidation {
   valid: boolean;
   diagnostics: Array<Record<string, unknown>>;
