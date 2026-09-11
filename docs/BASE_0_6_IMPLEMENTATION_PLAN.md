@@ -1,8 +1,7 @@
 # Base 0.6 implementation plan
 
-**Status:** Product resolutions accepted on 2026-09-08 (ADR-027). Prior WP0–WP8 delivery is retained
-as history. Remaining delivery order is WP8.1 authority corrections, WP9 complete live/optional-draft UI,
-then WP10 composed release validation. This planning update implements no runtime behavior.
+**Status:** Released 2026-09-11. All work packages complete (WP0–WP10, WP8.1-A–C, ADR-026,
+UI-01–UI-06). UI-07 (automated accessibility/visual gates) deferred to product 0.7.
 
 **Target:** Product 0.6.0, schema language 0.5. The starter model content is already version 0.6.0;
 that number alone does not mean the product release is accepted.
@@ -422,8 +421,10 @@ workspace administration redesign, schema migration and model-workbench redesign
 
 ### WP10 — Validate the composed product and publish the evidence
 
-**Status:** Planned. Primary areas: browser harness, accessibility/visual checks, backend integration,
-migration/lifespan/package suites and release documentation. No new feature scope hides in this gate.
+**Status:** Complete. Composed release validation exercised against real browser and backend. Automated
+accessibility and visual-regression tooling (UI-07) is deferred to 0.7; manual keyboard and focus
+checks are recorded. Primary areas: browser harness, backend integration, migration/lifespan/package
+suites and release documentation.
 
 1. Execute the required journeys above against a real backend and isolated database. Test live CRUD
    without a draft/revision, optional staging, current-live bases, concurrency/delta merge, whole-graph
@@ -474,7 +475,7 @@ whitespace; it does not claim these runtime tests were executed.
 Read this plan, ADR-027, the product stories/scenarios, `PROJECT_STATUS.md`, `API.md` and the interaction
 specification. Inspect the dirty worktree and preserve unrelated changes. Start with WP8.1-A; give each
 slice one implementation owner, followed by focused verification and review appropriate to scope.
-WP8.1-C and WP9 are complete; execute WP10 next.
+All work packages are complete. Base 0.6 is released (2026-09-11).
 State story IDs, user-visible behavior, exclusions, public-contract changes and direct evidence before
 coding. Preserve all generic controls and invariants. Commit only when explicitly requested.
 

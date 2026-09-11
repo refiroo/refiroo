@@ -13,7 +13,7 @@ The starter model contains three configured applications:
 They are starter definitions, not reserved engine modules. A model can replace them or add entirely
 different applications.
 
-## Current state — Base 0.6 in progress
+## Current state — Base 0.6 released
 
 - Global reusable attribute types and object-type attribute bindings
 - Forward/reverse typed relations, features and allowed object-type relation triples
@@ -22,8 +22,7 @@ different applications.
 - Compatibility-gated release activation with runtime-state concurrency and lifecycle audit
 - Side-effect-free model validation with stable diagnostics, key-based release diff and bounded
   runtime-data compatibility analysis
-- Stable workspace, object and relation identities; WP6 established ADR-024 persistence, WP7 restored
-  generic CRUD and WP8 added lifecycle orchestration; WP8.1 corrects authority gaps before WP9/WP10
+- Stable workspace, object and relation identities with workspace-level publication boundary
 - Separately stored typed attribute values—text, integer, decimal, boolean, date, datetime and JSON
 - Typed object relations, automatic parent relations and hierarchy cycle protection
 - Relation cardinality checks and audit events
@@ -33,38 +32,37 @@ different applications.
   discovery, URL-stable keys and read-only retired scopes
 - Registry-driven collection views and composable object details with main/side panels
 - Reusable attribute, child, relation, table and hierarchy panels
-- Transitional per-object revision code from rejected WP4 is retained only as corrective migration input
 - Accessible confirmations, structured mutation errors and optimistic-concurrency recovery
-- Generic object, attribute, relation and translation CRUD remains one contract restored by WP7;
-  normal writes are live and an explicitly selected workspace draft is optional; no per-record lifecycle
-- Live active data writes (ADR-026, implemented): the active workspace is live-writable for **data** —
+- Generic object, attribute, relation and translation CRUD as one contract; normal writes are live
+  and an explicitly selected workspace draft is optional; no per-record lifecycle
+- Live active data writes (ADR-026): the active workspace is live-writable for **data** —
   record writes no longer require a workspace draft (`workspaceDraftId` optional; omitted → direct live
   write, immediate and audited, no workspace revision). The model stays immutable on an active
-  workspace; drafts remain the design playground; activation delta-merges over live content. See
-  `docs/DECISIONS.md` ADR-026/027 and the Base 0.6 implementation plan.
+  workspace; drafts remain the design playground; activation delta-merges over live content
+- Complete browser journeys for live CRUD, optional drafts, newest-first immutable history, historical
+  draft sources, truthful publication retirement and conflict reconciliation (WP9)
+- Composed release validation with real-browser and backend evidence (WP10)
+- Frontend redesign (UI-01–UI-06): compact navigation, focused collections, record inspector, inline
+  field editing, resizable panels, display preferences and refined draft presentation
 - Cross-application relationship lookup with server-side search and cursor pagination
 - Optional Domain/Codelist-to-System Value representations that preserve the separate system hierarchy
 - Translation CRUD with generic Domain, Codelist and Master Value targets, atomic required bindings,
-  and active Language-scoped uniqueness is established behavior WP7 restored over WP6 storage
+  and active Language-scoped uniqueness
 - A global model workbench for installed-release inspection and export, plus capability-gated JSON
   draft validation, comparison, installation and activation
 - Docker development environment and continuous-integration workflow
 
-Base 0.5 supplies the bounded query and model-lifecycle foundations. Base 0.6 has established its UI
-foundation, authoritative workspace catalogue, typed collection semantics, WP6 workspace-revision
-persistence, the WP7 generic-CRUD restoration and the WP8 workspace lifecycle orchestration. Its
-delivered WP4 per-object publication boundary was rejected before release and has been removed by the
-corrective migration. Remaining work starts with WP8.1: live model-compatibility coverage, actual
-current-live draft bases, pinned historical reads and newest-first history. WP9 completes generic live
-editing with optional drafts and correct workspace context; WP10 proves the composed release journeys.
-Browser write components are currently disconnected, and non-default detail context needs repair.
-Typed mapping-grid behavior remains product 0.7, with translation and hierarchy interactions later.
+Base 0.5 supplies the bounded query and model-lifecycle foundations. Base 0.6 delivers daily live
+operations and optional coordinated design: a steward can maintain live records, fields, parents,
+relationships and translations without a draft; use optional workspace drafts for coordinated changes
+with delta-merge activation; browse newest-first immutable history; and retire publications truthfully.
+Automated accessibility and visual-regression tooling (UI-07) is deferred to 0.7.
+Typed mapping-grid behavior is product 0.7, with translation and hierarchy interactions in 0.8.
 
 Start with the [product functionality guide](docs/product-functionality/README.md) for available/planned
-functions, stories and realistic acceptance scenarios. The [implementation plan](docs/BASE_0_6_IMPLEMENTATION_PLAN.md)
-and [delivery queue](docs/TODO.md) trace remaining work to those outcomes. Historical schema replacement
-with preview and explicit loss confirmation is a planned 0.10 migration, not a current force action.
-This documentation update does not constitute fresh runtime or browser validation.
+functions, stories and realistic acceptance scenarios. The [delivery queue](docs/TODO.md) traces
+remaining 0.7 work. Historical schema replacement with preview and explicit loss confirmation is a
+planned 0.10 migration, not a current force action.
 
 ## Run with Docker
 

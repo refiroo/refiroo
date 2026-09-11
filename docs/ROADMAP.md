@@ -8,29 +8,21 @@ The release train is 0.6 for daily live operations and optional coordinated desi
 hierarchy, 0.9 for integration APIs, 0.10 for production hardening and staged workspace model rollout,
 and 1.0 for self-service model authoring and extensions.
 
-## Current development baseline — Base 0.5 foundation and Base 0.6 progress
+## Current development baseline — Base 0.6 released, Base 0.7 next
 
-The operational foundation is complete:
+Base 0.5 delivered the operational and model-release foundation. Base 0.6 is released (2026-09-11):
 
-- Versioned JSON application model with startup validation and immutable installed releases
-- Stable public UUIDs and Alembic-managed schema upgrades
-- Generic object CRUD, typed attribute CRUD and mutable non-containment relation CRUD
-- Optimistic concurrency with structured API errors
-- Atomic parent containment as hierarchy and typed relation
-- Model-declared cardinality, relation attributes and scoped uniqueness
-- Dependency previews and explicit graph cascades for current physical deletion behavior
-- Model-composed collection/detail UI and server-side relation lookup
-- Database-selected model releases, drafts, compilation, diff, compatibility and guarded activation
-- URL-backed workspace/list state, stable cursors, bounded relation expansion and audit history
+- Daily live operations: generic object, field, parent, relation and translation CRUD without a draft
+- Optional coordinated design: workspace drafts, validation, delta-merge activation over live content
+- Immutable newest-first history with pinned-model reads and historical draft sources
+- Truthful publication retirement (designation only; live data and history remain accessible)
+- Complete browser journeys (WP9) with real-backend evidence for two configured object types
+- Composed release validation (WP10) including keyboard/focus/narrow-layout and migration/packaging
+- Frontend redesign (UI-01–UI-06): compact navigation, focused collections, record inspector, inline
+  field editing, resizable panels, display preferences and refined draft presentation
+- UI-07 (automated accessibility and visual-regression gates) is deferred to 0.7
 
-Base 0.6 WP1-WP3 have delivered the UI foundation, workspace discovery and strict schema 0.5 typed
-tables. WP4 delivered per-object revisions, but that publication boundary was rejected before release.
-WP5 and WP6 introduced workspace draft/revision storage. WP7 restored generic CRUD and WP8 added
-lifecycle orchestration; ADR-026 restored direct live writes and conflict-aware draft activation.
-The product review identified authority and browser gaps; recorded package completion alone did not
-close them. WP8.1-A/B/C corrected the authority gaps and WP9 completed the affected isolated browser
-flows, followed by WP10 integration and release validation. Integration-scale operations,
-authentication and distributed activation are not present.
+Integration-scale operations, authentication and distributed activation are not present.
 
 ## Base 0.5 — Operational base and model lifecycle foundation (complete)
 
@@ -50,7 +42,9 @@ compare, install and activate immutable model releases through the guarded JSON 
 
 The completed handoff is [`BASE_0_5_IMPLEMENTATION_PLAN.md`](BASE_0_5_IMPLEMENTATION_PLAN.md).
 
-## Product release 0.6 — Daily live operations and optional coordinated design
+## Product release 0.6 — Daily live operations and optional coordinated design (complete)
+
+Released 2026-09-11. Implementation: [`BASE_0_6_IMPLEMENTATION_PLAN.md`](BASE_0_6_IMPLEMENTATION_PLAN.md).
 
 ### Product outcome
 
@@ -64,54 +58,20 @@ Product traceability: US-D01–D14, US-W01–W08, US-L01–L02, US-P06 and US-U0
 SC-01–SC-06, SC-08 and the existing-workbench part of SC-12. Source and outcome definitions live in
 [product functionality](product-functionality/README.md).
 
-### Delivery scope
+### Delivery record
 
-1. Freeze task-based interaction behavior for workspace selection, tables, draft editing, history,
-   activation, retirement and conflict recovery.
-2. Build ADR-023's RDM-owned accessible UI foundation and clarify application/view/workspace/object
-   context across desktop and narrow layouts.
-3. Implement ADR-019's global workspace catalogue, singleton default state, bounded discovery and
-   selector. Until authentication exists, `WORKSPACE_ADMIN_MUTATIONS_ENABLED` is enabled by default;
-   operators must treat it as a deployment switch, not authorization.
-4. Introduce schema 0.5 with a strict `table` contract and typed server-side daily-use filters/sorts.
-   Schema 0.4 stays stored/listable/exportable but is not runnable.
-5. **Done:** Replace rejected ADR-020 contract with ADR-024's workspace-level publication boundary.
-6. **Done:** Add workspace revision/draft persistence and correctively migrate Base 0.5
-   or WP4-shaped data without changing stable workspace, object or relation IDs; remove per-object
-   lifecycle authority after conversion.
-7. Restore the established generic object, attribute, containment, relation and translation CRUD over
-   workspace-backed storage. Live, draft and history select the data context while preserving the CRUD contract;
-   no nested draft-object/relation API is introduced.
-8. Complete workspace-level draft/revision discovery, graph validation, atomic activation and
-   publication retirement.
-9. Restore/reuse generic CRUD UI for live writes and explicitly selected optional drafts. Carry the
-   workspace through list, detail, lookup, history and return. Render empty related collections as
-   successful empty states, and preserve input during validation/conflict recovery.
-10. Complete browser, keyboard, accessibility, visual, migration, package and real integration
-   validation without skipped CRUD suites.
+WP1–WP3 delivered the UI foundation, workspace catalogue and typed tables. WP4's per-object publication
+boundary was rejected and removed through the corrective WP6 migration. WP5 refroze workspace scope,
+WP7 restored generic CRUD and WP8 implemented lifecycle orchestration. ADR-026 restored direct live
+writes and delta merge. WP8.1-A–C closed authority, draft-source and history/retirement corrections.
+WP9 completed browser journeys for live CRUD, optional drafts, immutable history, historical draft
+sources and truthful publication retirement. WP10 validated the composed product. The frontend redesign
+(UI-01–UI-06) delivered compact navigation, focused collections, record inspector, inline field editing,
+resizable panels and refined draft presentation.
 
-### Exit gate
+### Deferred to 0.7
 
-- Workspace resolution is catalogue-backed, URL-stable and retired scopes are read-only.
-- Schema 0.5 table views are typed, validated and honestly rendered.
-- Daily-use filters/sorts are typed, bounded and cursor-stable.
-- Live object, field and relation storage is authoritative for current data; workspace revisions are
-  immutable historical snapshots. Ordinary live saves create neither a draft nor a revision.
-- A draft started from current live data includes post-publication edits and works without an existing
-  publication. This requirement is not satisfied by selecting the latest stored revision.
-- Activation preserves unrelated live changes and publishes nothing on a touched-record conflict or
-  invalid merged graph.
-- Workspace drafts, historical branching, validation, activation and publication retirement are
-  understandable and atomic.
-- Published and historical workspace snapshots remain readable; objects have no independent lifecycle.
-- Workspace derivation and supersession history are distinct and conflicts preserve local input.
-- The complete repository definition of done passes on the supported toolchain.
-
-The live-write rules above incorporate ADR-026 directly. The implementation handoff is
-[`BASE_0_6_IMPLEMENTATION_PLAN.md`](BASE_0_6_IMPLEMENTATION_PLAN.md); the
-[product planning handoff](product-functionality/PLANNING_HANDOFF.md) identifies outstanding
-implementation evidence and documentation reconciliation. These are release requirements, not a claim
-that the current development tree has passed the complete journey gate.
+- UI-07: automated accessibility and visual-regression gates using the existing Playwright harness.
 
 ## Product release 0.7 — Core mapping
 
@@ -141,6 +101,8 @@ navigating low-level relation screens.
    or moves a draft onto another version while that version differs from the active release. Once the
    new release serves live data, the remaining draft is either thrown away — which needs no model
    agreement — or explicitly moved onto the new release where its content already fits it.
+10. UI-07 (carried from 0.6): add automated accessibility and visual-regression gates using the existing
+    Playwright harness with `@axe-core/playwright` and visual comparison baselines.
 
 ### Exit gate
 

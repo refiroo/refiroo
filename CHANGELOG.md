@@ -6,13 +6,20 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-11
+
 ### Changed
 
 - Implemented WP8.1-A model authority boundaries. Compatibility now examines all authoritative live
   objects, attributes and relations, including catalogue-retired workspaces. Draft and historical
   reads resolve their pinned supported model before filters, typed responses and relation expansion;
   missing, corrupt or unsupported pins and workspace-context mismatches return structured errors.
-  WP8.1-B current-live draft bases and WP8.1-C history ordering remain planned.
+
+- WP8.1-B captures an immutable current-live draft base including post-publication edits, model and
+  record versions, with live data that has no prior publication. Historical source remains separate.
+
+- WP8.1-C delivers newest-first revision history with deterministic cursor retry. Designation
+  retirement preserves live access and history; catalogue retirement rejects writes.
 
 - Reviewed the uncommitted WP8 implementation against the live/draft API contracts. Corrected
   activation and cascade deletion ordering, association confirmation and ownership checks, atomic
@@ -23,14 +30,12 @@ All notable changes to this project are documented in this file. The format foll
   no deletion or audit side effects. Missing tokens are rejected before stale-version checks, draft
   deletion verifies the route object type, live deletion serializes against workspace retirement and
   inconsistent cross-workspace graph edges are refused. The frontend adapter carries both live and
-  draft confirmation context. The separately planned WP8.1 authority corrections remain open.
+  draft confirmation context.
 
 - Reconciled technical documentation and delivery planning with the accepted product stories and
   GAP-01–GAP-08 answers. ADR-027 consolidates live data, optional copied drafts, immutable history,
-  truthful publication retirement and newest-first history. The remaining sequence is WP8.1 authority
-  corrections, WP9 browser completion and WP10 composed validation; historical model replacement with
-  reviewed loss confirmation is planned for 0.10. Corrected API documentation against current payloads
-  and cursor behavior. This entry records documentation changes, not implementation or new test passes.
+  truthful publication retirement and newest-first history. Corrected API documentation against
+  current payloads and cursor behavior.
 
 - Implemented ADR-026 live active data writes: the active workspace is live-writable for **data**.
   `workspaceDraftId` is optional on record writes — present stages into the design draft; absent
@@ -78,7 +83,36 @@ All notable changes to this project are documented in this file. The format foll
   inside an open dialog; the page no longer scrolls behind one; and two dialogs that carried
   hardcoded `aria-labelledby` ids now generate them, so opening two cannot produce duplicate ids.
 
+- Frontend redesign (UI-01–UI-06). Compact neutral sidebar with workspace/application/view
+  navigation; Browse hierarchy default with browser-local expand/collapse persistence; accessible
+  mobile navigation drawer. Focused collections with search, typed filter popover, sort, display
+  controls, sticky headings, comfortable/compact density and mobile-aware column prioritisation.
+  Full-width record inspector with collection-origin preservation through reload/Back/Forward,
+  contextual action menus, dirty-edit navigation guards and cross-application related-record return.
+  Inline typed field editing with explicit save/cancel, null/removal distinction, saved/error
+  feedback and retained coherent multi-field forms. Pointer and keyboard resizable navigation rail,
+  inspector and table columns with browser-local display preferences. Refined draft catalogue,
+  named-draft strip, consistent error/loading/empty/confirmation treatment and composed
+  desktop/mobile visual review. UI-07 (automated accessibility and visual-regression gates) is
+  deferred to 0.7.
+
 ### Added
+
+- WP9 complete generic browser tasks in live, draft and history contexts. Slice A implements live
+  workspace navigation with cursor-position restoration and retry/content preservation. Slice B
+  implements direct live Add/Edit/Delete with typed fields, ordinary relationships and translations,
+  conflict reconciliation and signed deletion confirmation. Slice C implements optional current-live
+  drafts, shared draft authoring, validation, activation and discard with aggregate concurrency and
+  conflict feedback. Slice D implements newest-first immutable history, pinned-model reads, historical
+  draft sources and truthful publication retirement. SC-01–SC-06 and SC-08 have isolated real-backend
+  browser evidence with two configured object types at desktop and 390px mobile widths.
+
+- WP10 composed release validation: product scenarios exercised against a real browser and backend,
+  including live CRUD without a draft, optional staging, current-live draft bases, concurrency and
+  delta merge, whole-graph atomic failure, live-only compatibility and pinned historical typing.
+  Keyboard/focus/narrow-layout journeys, migration/lifespan, packaging and public-contract checks.
+  Automated accessibility and visual-regression tooling (UI-07) is deferred; manual keyboard and
+  focus checks are recorded.
 
 - Base 0.6 WP7 corrective CRUD restoration: the established generic object, attribute, relation and
   translation CRUD contract is restored over WP6 workspace storage. Originally draft-scoped, it was
@@ -86,7 +120,7 @@ All notable changes to this project are documented in this file. The format foll
   public CRUD resources are introduced, and the
   original CRUD, attribute, cascade and translation suites are restored and enabled.
 
-- Base 0.6 WP8 workspace lifecycle orchestration (backend-only; WP9 UI pending). Root and
+- Base 0.6 WP8 workspace lifecycle orchestration. Root and
   history-derived workspace drafts, whole-graph validation, atomic activation that writes one immutable
   workspace revision of the merged live graph and applies authored changes in one transaction after the
   ADR-026 correction,

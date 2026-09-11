@@ -1,10 +1,10 @@
 # Project status
 
-## Current development baseline — reviewed 2026-09-08
+## Current development baseline — released 2026-09-11
 
-Base 0.5 is the completed operational/model-release foundation. Base 0.6 remains in development on a
-working tree with uncommitted backend and documentation changes. The starter model is content release
-0.6.0 on schema language 0.5; that version does not establish completion of product 0.6.
+Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released. The starter
+model is content release 0.6.0 on schema language 0.5. Next development targets product 0.7 (core
+mapping, schema 0.6, draft version selection).
 
 The generic model defines applications, object types, reusable fields, allowed relationships and views.
 Master, Systems and Translations are configurable starter examples; runtime code must remain unaware
@@ -16,16 +16,16 @@ bootstrap input, not a parallel activation mechanism.
 ADR-026 restored direct live reference-data maintenance. ADR-027 consolidates the user's accepted
 GAP-01–GAP-08 answers and distinguishes accepted targets from implementation evidence.
 
-| Area | Present foundation | Remaining delivery |
+| Area | 0.6 state | Next |
 | --- | --- | --- |
-| Live data | Generic object, field, parent, relation and translation APIs and browser controls; record concurrency and audit | Composed WP10 release acceptance |
-| Optional data drafts | Current-live and historical source selection, shared browser editing, validation and delta merge | Composed WP10 release acceptance |
-| Historical data | Newest-first browser discovery, pinned-model immutable reads and historical draft derivation | Composed WP10 release acceptance |
-| Publication retirement | Truthful browser confirmation removes only the designation while retaining live data/history | Composed WP10 release acceptance |
-| Model administration | Immutable releases, JSON drafts, validation/diff/install/activation workbench; authoritative live compatibility population | Complete browser administration acceptance |
-| UI foundation | Catalogue selection, typed tables, generic panels, RDM wrappers and reachable live/draft/history journeys | Composed browser, accessibility and visual evidence in WP10 |
+| Live data | Complete: generic object, field, parent, relation and translation APIs and browser controls; record concurrency and audit | — |
+| Optional data drafts | Complete: current-live and historical source selection, shared browser editing, validation and delta merge | — |
+| Historical data | Complete: newest-first browser discovery, pinned-model immutable reads and historical draft derivation | — |
+| Publication retirement | Complete: truthful browser confirmation removes only the designation while retaining live data/history | — |
+| Model administration | Complete: immutable releases, JSON drafts, validation/diff/install/activation workbench | Browser administration acceptance (0.7+) |
+| UI foundation | Complete: catalogue selection, typed tables, generic panels, redesigned navigation/collections/inspector/inline editing | Automated accessibility/visual gates (UI-07, 0.7) |
 | Specialist workflows | Generic data semantics to reuse | Mapping 0.7, translation/hierarchy 0.8, integration 0.9 |
-| Production and model migration | Basic readiness and actionable startup refusal | Authenticated production operation, staged assignments and reviewed historical model migration in 0.10; a draft choosing its own version in 0.7 |
+| Production and model migration | Basic readiness and actionable startup refusal | Authenticated production, staged assignments and reviewed historical model migration 0.10; draft version selection 0.7 |
 
 Ordinary live saves create neither a draft nor a revision. Draft activation applies authored changes
 over current live data, preserves unrelated live work and publishes nothing on a touched-record conflict
@@ -37,29 +37,19 @@ The current default/non-default browser gap and disconnected record controls are
 [functionality catalogue](product-functionality/CURRENT_FUNCTIONALITY.md). A component or API present
 in code does not establish that a browser user can complete its story.
 
-## Next delivery sequence
+## Next delivery sequence — product 0.7
 
-1. **WP8.1-C:** complete — bounded newest-first revision paging, deterministic cursor retry and direct
-   retirement/history behavior evidence.
-2. **WP9:** complete — slice A implements live workspace navigation and page restoration with retry/content
-   preservation. Slice B adds direct live Add/Edit/Delete, typed fields, ordinary relationships and
-   translations, conflict reconciliation and signed deletion confirmation. Slice C adds optional
-   current-live drafts, shared draft authoring, validation, activation and discard with aggregate
-   concurrency and conflict feedback. Slice D adds newest-first immutable history, pinned-model reads,
-   historical draft sources and truthful publication retirement. See the
-   [browser regressions](../frontend/e2e/README.md) for slice A–D scope and execution.
-3. **WP10:** composed frontend/backend scenarios, authority/concurrency boundaries, browser accessibility
-   and visual evidence, migration/lifespan, packaging and public-contract checks.
+1. **Typed `mappingGrid`:** introduce schema 0.6 with a strict `mappingGrid` branch; cursor-paged batched
+   mapping rows with mapped, unmapped and ambiguous states and server-side candidate search.
+2. **ADR-022 relation-set versions:** exact-binding relation-set versions and atomic mapping replacement
+   in live and optional-draft contexts; generic relation writes participate in the same protection.
+3. **ADR-028 draft version selection:** let a workspace draft work under a version the user chooses, so
+   one draft prepares the schema 0.6 release while another stays on the version serving live data.
+4. **UI-07 (carried from 0.6):** automated accessibility and visual-regression gates using the existing
+   Playwright harness with `@axe-core/playwright` and visual comparison baselines.
 
-Moving a draft onto a version its content does not already fit (ADR-028), and the accepted
-historical-model warning and confirm-or-cancel behavior, belong to the planned 0.10 workspace
-assignment/migration flow. Letting a draft work under a version the user chooses is product 0.7 work
-with schema 0.6. Today no client can choose a draft's version, current-live capture refuses a version
-that is not active, and activation refuses any version other than the active one. Until then, Base 0.6
-preserves incompatible drafts and reports the mismatch, a draft whose version is no longer active stays
-readable and editable under that version and can be thrown away without model agreement, and promotion
-of a non-active version is not available. Nothing in the current contract forces a model change through
-or switches the version used across the product.
+Moving a draft onto a version its content does not already fit, and the accepted historical-model
+warning and confirm-or-cancel behavior, belong to the planned 0.10 workspace assignment/migration flow.
 
 See [implementation plan](BASE_0_6_IMPLEMENTATION_PLAN.md), [delivery queue](TODO.md),
 [roadmap](ROADMAP.md) and [product acceptance scenarios](product-functionality/ACCEPTANCE_SCENARIOS.md).
@@ -157,10 +147,12 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
 - `frontend/src`: model-generated application/view navigation, searchable runtime explorer, stable
   workspace-explicit routes, view and panel component registries, URL-backed searchable/filterable/
   sortable cursor-paged collections, composable object details and cursor-paged audit history.
-  Workspace lifecycle UI is not yet complete. Generic object, attribute, relation and translation
-  controls must be restored for live writes with optional draft context; failed collection and lookup
-  reads remain retryable, while genuinely empty relationship/translation collections render as empty
-  states and engine-maintained containment edges remain read-only.
+  Complete workspace lifecycle UI with live CRUD, optional drafts, newest-first immutable history,
+  historical draft sources, truthful publication retirement and conflict reconciliation. Frontend
+  redesign (UI-01–UI-06) delivers compact navigation, focused collections, record inspector, inline
+  field editing, resizable panels and refined draft presentation. Failed collection and lookup reads
+  remain retryable; genuinely empty relationship/translation collections render as empty states;
+  engine-maintained containment edges remain read-only.
 - The global model workbench provides release inspection and structured model summaries in read-only
   deployments, and capability-gated JSON draft, validation, diff, installation and activation flows in
   the supported model-administration topology.
@@ -184,8 +176,8 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 
 ## Remaining limitations
 
-- WP9 supplies isolated real-backend browser evidence for live CRUD, optional drafts and immutable
-  history. WP10 still owns their composed release, accessibility/visual, migration and packaging evidence.
+- Automated accessibility and visual-regression tooling (UI-07) is deferred to 0.7; manual keyboard
+  and focus checks are recorded. No automated conformance claim exists.
 - Schema 0.5 supports strict table views; `mappingGrid`, top-level `form`, `dashboard` and `tree` are
   not implemented renderers. Specialist mappings and tree/translation coverage follow the roadmap.
 - Advanced queries, effective-date/as-of semantics, bulk upsert, imports/exports, change feeds and
@@ -209,19 +201,21 @@ Base 0.6 WP1–WP3 delivered UI primitives, workspace catalogue and typed tables
 publication design was rejected before release and removed through the corrective WP6 migration;
 WP5 refroze workspace scope, WP7 restored generic CRUD and WP8 implemented lifecycle services.
 ADR-026 then restored direct live data and delta merge. WP8.1-A–C subsequently closed the remaining
-backend authority, draft-source and history/retirement corrections; WP9 then completed the isolated
-browser journeys. WP10 remains incomplete.
+backend authority, draft-source and history/retirement corrections; WP9 completed the isolated
+browser journeys; WP10 validated the composed product. The frontend redesign (UI-01–UI-06) delivered
+compact navigation, focused collections, record inspector, inline field editing, resizable panels
+and refined draft presentation. UI-07 (automated accessibility/visual gates) is deferred to 0.7.
 The earlier plans and changelog preserve delivery details; do not rebuild rejected object lifecycle.
 
 ## Coding-agent handoff
 
-Read `AGENTS.md`, the product stories/scenarios, ADR-027, `BASE_0_6_IMPLEMENTATION_PLAN.md`, `API.md`
-and `BASE_0_6_INTERACTION_SPEC.md`. Preserve the dirty tree. WP8.1-A–C and WP9 are complete; execute
-WP10 against the named stories.
+Read `AGENTS.md`, the product stories/scenarios, ADR-027, `ROADMAP.md`, `API.md` and `TODO.md`.
+Base 0.6 is released; next work targets product 0.7 (core mapping, schema 0.6, draft version
+selection). UI-07 is also carried into 0.7.
 Use one implementation owner per slice, focused verification and appropriate review. Do not commit
 unless explicitly requested. Summarize each completed batch while work continues so scope can be
 corrected before the entire task finishes.
 
-For implementation run backend Ruff/tests, frontend lint/format/tests/build and `git diff --check`
-using the exact commands in the Base 0.6 plan. Also execute the named browser, migration/startup and
-wheel gates on Python 3.14. Report evidence and limits; no documentation change counts as a runtime fix.
+For implementation run backend Ruff/tests, frontend lint/format/tests/build and `git diff --check`.
+Also execute the named browser, migration/startup and wheel gates on Python 3.14. Report evidence
+and limits; no documentation change counts as a runtime fix.
