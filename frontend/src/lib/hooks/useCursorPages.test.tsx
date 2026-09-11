@@ -3,6 +3,25 @@ import { describe, expect, it, vi } from "vitest";
 import { useCursorPages } from "@/lib/hooks/useCursorPages";
 
 describe("useCursorPages", () => {
+  it("retains a later page when a mutation refresh fails and retries it without losing the cursor", async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce({ items: ["saved row"], nextCursor: null })
+      .mockRejectedValueOnce(new Error("Refresh unavailable"))
+      .mockResolvedValueOnce({ items: ["updated row"], nextCursor: null });
+    const { result, rerender } = renderHook(
+      ({ token }) => useCursorPages(fetch, ["west"], { cursors: ["second"], onChange: vi.fn() }, token),
+      { initialProps: { token: 0 } },
+    );
+    await waitFor(() => expect(result.current.items).toEqual(["saved row"]));
+    rerender({ token: 1 });
+    await waitFor(() => expect(result.current.error).toBe("Refresh unavailable"));
+    expect(result.current.items).toEqual(["saved row"]);
+    expect(result.current.pageNumber).toBe(2);
+    act(() => result.current.retry());
+    await waitFor(() => expect(result.current.items).toEqual(["updated row"]));
+    expect(fetch.mock.calls.map(([cursor]) => cursor)).toEqual(["second", "second", "second"]);
+  });
   it("retains the displayed page on failure and retries the same requested cursor", async () => {
     const fetch = vi
       .fn()

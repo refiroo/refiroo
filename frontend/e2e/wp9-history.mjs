@@ -176,14 +176,18 @@ try {
   await page.locator("main table").getByRole("button", { name: "Published old domain", exact: true }).click();
   await page.getByRole("heading", { name: "Published old domain", exact: true }).waitFor();
   assert.match(await page.locator("main").innerText(), /History count\s*7/i);
-  assert.equal(await page.getByText(oldModelVersion, { exact: true }).count() > 0, true);
-  assert.equal(await page.getByRole("button", { name: "Edit object", exact: true }).count(), 0);
+  await page.getByText("Information", { exact: true }).click();
+  await page.getByText(`Model version ${oldModelVersion}`, { exact: true }).waitFor();
+  await page.getByText("Information", { exact: true }).click();
+  await page.getByRole("button", { name: "Record actions", exact: true }).click();
+  assert.equal(await page.getByRole("menuitem", { name: "Edit all fields", exact: true }).count(), 0);
+  await page.keyboard.press("Escape");
   assert(historicalReads.some((url) => url.includes(`workspaceRevisionId=${oldRevision.id}`)));
   await page.screenshot({ path: resolve(output, "historical-snapshot.png"), fullPage: true });
   checks.push("Older snapshot remains typed and unchanged under its pinned model; shared list/detail reads carry the immutable revision and expose no write controls");
 
   await page.getByRole("button", { name: "Back to publication history" }).click();
-  const sourceCard = page.locator("article.history-card").filter({ hasText: `Revision ${oldRevision.revisionNumber}` });
+  const sourceCard = oldCard;
   await sourceCard.getByRole("button", { name: "Start a draft from this revision" }).click();
   await page.getByRole("dialog").getByLabel("Draft name").fill("Historical review");
   await page.getByRole("dialog").getByRole("button", { name: "Create draft" }).click();
@@ -194,7 +198,9 @@ try {
   checks.push("Historical derivation is explicitly labelled, keeps the old model pin and explains that Base 0.6 requires migration instead of promising restore or implicit override");
 
   await page.goto(`${uiUrl}/apps/rdm-master/history?workspaceKey=${workspaceKey}`);
-  const currentCard = page.locator("article.history-card").filter({ hasText: `Revision ${currentRevision.revisionNumber}` });
+  const currentCard = page.locator("article.history-card").filter({
+    has: page.getByRole("heading", { name: new RegExp(`Revision ${currentRevision.revisionNumber} · Current publication`) }),
+  });
   await currentCard.getByRole("button", { name: "Retire publication" }).click();
   const confirmation = page.getByRole("alertdialog");
   assert.match(await confirmation.innerText(), /Live records and all historical snapshots remain available/);

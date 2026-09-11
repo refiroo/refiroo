@@ -1,3 +1,4 @@
+import { useNavigationGuard } from "@/routing/navigationGuard";
 /**
  * Creates a relationship to another object, or edits the attributes carried by an existing one.
  *
@@ -55,6 +56,7 @@ export function RelationFormDialog({
     .map((key) => model.attributeTypes.find((item) => item.key === key))
     .filter((item): item is AttributeTypeDefinition => Boolean(item));
 
+  const finishNavigation = useNavigationGuard(dirty, saving, onClose);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!choice || (!existing && !candidate)) return;
@@ -73,6 +75,7 @@ export function RelationFormDialog({
           toObjectId: choice.direction === "outgoing" ? candidate!.id : object.id,
           attributes: values,
         });
+      finishNavigation();
       onSaved();
     } catch (cause) {
       setError(errorMessage(cause));
@@ -130,7 +133,10 @@ export function RelationFormDialog({
                 excludeId={object.id}
                 value={candidate}
                 required
-                onChange={setCandidate}
+                onChange={(item) => {
+                  setDirty(true);
+                  setCandidate(item);
+                }}
               />
             </label>
           </>

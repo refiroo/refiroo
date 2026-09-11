@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
 import { ObjectDetail } from "@/features/objects/ObjectDetail";
 import { ModelWorkbench } from "@/features/model-admin/ModelWorkbench";
@@ -46,6 +46,7 @@ function AppContent({
   const model = data.model ?? currentModel;
   const [refreshToken, setRefreshToken] = useState(0);
   const [workspace, setWorkspace] = useState<Workspace>();
+  const actionSequence = useRef(0);
 
   if (!model || !route) return <div className="center-message">{error || "Loading the model…"}</div>;
   const requested = route.kind === "models" ? undefined : applicationFor(model, route.applicationKey);
@@ -86,25 +87,38 @@ function AppContent({
     );
   }
 
-  function openObject(item: Pick<ObjectItem, "applicationKey" | "objectTypeKey" | "id" | "workspaceKey">) {
+  function openObject(
+    item: Pick<ObjectItem, "applicationKey" | "objectTypeKey" | "id" | "workspaceKey">,
+    action?: "edit" | "delete",
+    source?: "hierarchy",
+  ) {
     navigate({
       kind: "detail",
       applicationKey: item.applicationKey,
       objectTypeKey: item.objectTypeKey,
       objectId: item.id,
+      ...(source === "hierarchy" ? { collectionOrigin: null } : {}),
+      ...(action ? { actionRequest: { action, key: ++actionSequence.current } } : {}),
       workspaceKey: activeRoute.kind === "models" ? item.workspaceKey : activeRoute.workspaceKey,
       workspaceDraftId,
       workspaceRevisionId,
     });
   }
 
-  function openObjectById(objectTypeKey: string, objectId: string, applicationKey = application.key) {
+  function openObjectById(
+    objectTypeKey: string,
+    objectId: string,
+    applicationKey = application.key,
+    action?: "edit" | "delete",
+  ) {
     if (activeRoute.kind === "models") return;
     navigate({
       kind: "detail",
       applicationKey,
       objectTypeKey,
       objectId,
+      ...(action ? { actionRequest: { action, key: ++actionSequence.current } } : {}),
+      fullPage: activeRoute.kind === "detail" ? activeRoute.fullPage : undefined,
       workspaceKey: activeRoute.workspaceKey,
       workspaceDraftId,
       workspaceRevisionId,
@@ -113,7 +127,7 @@ function AppContent({
 
   function backToCollection() {
     if (activeRoute.kind === "models") return;
-    const remembered = lastCollection();
+    const remembered = activeRoute.kind === "detail" ? activeRoute.collectionOrigin : undefined;
     if (
       remembered?.workspaceKey === activeRoute.workspaceKey &&
       remembered.workspaceDraftId === workspaceDraftId &&
@@ -144,11 +158,11 @@ function AppContent({
 
   function changeWorkspace(workspaceKey: string) {
     if (activeRoute.kind === "models") return;
-    rememberWorkspace(workspaceKey);
+    let changed: boolean;
     if (activeRoute.kind === "detail") {
       const matchingView = application.views.find((view) => view.objectTypeKey === activeRoute.objectTypeKey);
       const remembered = lastCollection(application.key);
-      navigate(
+      changed = navigate(
         remembered && remembered.viewKey === matchingView?.key
           ? {
               ...remembered,
@@ -160,9 +174,9 @@ function AppContent({
           : viewRoute(application, matchingView?.key ?? application.defaultView, workspaceKey),
       );
     } else if (activeRoute.kind === "drafts" || activeRoute.kind === "history") {
-      navigate({ ...activeRoute, workspaceKey });
+      changed = navigate({ ...activeRoute, workspaceKey });
     } else {
-      navigate({
+      changed = navigate({
         ...activeRoute,
         workspaceKey,
         workspaceDraftId: undefined,
@@ -170,8 +184,21 @@ function AppContent({
         cursors: undefined,
       });
     }
-    setRefreshToken((value) => value + 1);
+    if (changed) {
+      rememberWorkspace(workspaceKey);
+      setRefreshToken((value) => value + 1);
+    }
   }
+
+  const collection =
+    activeRoute.kind === "list"
+      ? activeRoute
+      : activeRoute.kind === "detail"
+        ? activeRoute.collectionOrigin
+        : undefined;
+  const collectionApplication = collection ? applicationFor(model, collection.applicationKey) : undefined;
+  const hasDetail = activeRoute.kind === "detail";
+  const inspector = hasDetail && Boolean(collection) && activeRoute.fullPage === false;
 
   return (
     <AppShell
@@ -185,7 +212,7 @@ function AppContent({
       workspace={workspace}
       onWorkspaceResolved={setWorkspace}
       onHome={goHome}
-      onOpenObject={openObject}
+      onOpenObject={(item) => openObject(item, undefined, "hierarchy")}
     >
       {message && <Notice tone="success">{message}</Notice>}
       {data.draft && (
@@ -239,32 +266,54 @@ function AppContent({
             })
           }
         />
-      ) : activeRoute.kind === "list" ? (
-        <CollectionView
-          key={`${application.key}:${activeRoute.viewKey}:${activeRoute.workspaceKey}:${workspaceDraftId ?? workspaceRevisionId ?? "live"}`}
-          model={model}
-          application={application}
-          view={application.views.find((view) => view.key === activeRoute.viewKey) ?? application.views[0]}
-          workspaceKey={activeRoute.workspaceKey}
-          readOnly={readOnly}
-          onChanged={() => setRefreshToken((value) => value + 1)}
-          query={activeRoute}
-          onQueryChange={(query: CollectionQueryState) => navigate({ ...activeRoute, ...query })}
-          onOpen={openObject}
-        />
       ) : (
-        <ObjectDetail
-          key={`${application.key}:${activeRoute.objectTypeKey}:${activeRoute.objectId}:${activeRoute.workspaceKey}`}
-          model={model}
-          application={application}
-          objectTypeKey={activeRoute.objectTypeKey}
-          objectId={activeRoute.objectId}
-          workspaceKey={activeRoute.workspaceKey}
-          readOnly={readOnly}
-          onChanged={() => setRefreshToken((value) => value + 1)}
-          onOpen={openObjectById}
-          onBack={backToCollection}
-        />
+        <div className={`record-workspace${inspector ? " has-inspector" : ""}${hasDetail ? " has-record" : ""}`}>
+          {collection && collectionApplication && (
+            <div className="record-collection" hidden={hasDetail && !inspector}>
+              <CollectionView
+                key={`${collection.applicationKey}:${collection.viewKey}:${collection.workspaceKey}:${workspaceDraftId ?? workspaceRevisionId ?? "live"}`}
+                model={model}
+                application={collectionApplication}
+                view={
+                  collectionApplication.views.find((view) => view.key === collection.viewKey) ??
+                  collectionApplication.views[0]
+                }
+                workspaceKey={collection.workspaceKey}
+                readOnly={readOnly}
+                refreshToken={refreshToken}
+                selectedId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
+                onChanged={() => setRefreshToken((value) => value + 1)}
+                query={collection}
+                onQueryChange={(query: CollectionQueryState) =>
+                  navigate(
+                    activeRoute.kind === "detail"
+                      ? { ...activeRoute, collectionOrigin: { ...collection, ...query } }
+                      : { ...collection, ...query },
+                  )
+                }
+                onOpen={openObject}
+              />
+            </div>
+          )}
+          {activeRoute.kind === "detail" && (
+            <ObjectDetail
+              key={`${application.key}:${activeRoute.objectTypeKey}:${activeRoute.objectId}:${activeRoute.workspaceKey}:${activeRoute.actionRequest?.key ?? 0}`}
+              model={model}
+              application={application}
+              objectTypeKey={activeRoute.objectTypeKey}
+              objectId={activeRoute.objectId}
+              workspaceKey={activeRoute.workspaceKey}
+              inspector={inspector}
+              initialAction={activeRoute.actionRequest?.action}
+              onExpand={inspector ? () => navigate({ ...activeRoute, fullPage: true }) : undefined}
+              readOnly={readOnly}
+              onChanged={() => setRefreshToken((value) => value + 1)}
+              onOpen={openObjectById}
+              showBackToList={activeRoute.collectionOrigin !== null}
+              onBack={backToCollection}
+            />
+          )}
+        </div>
       )}
     </AppShell>
   );

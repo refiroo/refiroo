@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { CollectionPanelTable } from "@/features/objects/panels/CollectionPanelTable";
@@ -28,7 +28,7 @@ describe("embedded collection reads", () => {
           order: 1,
           config: { objectTypeKeys: [row.objectTypeKey], columns: ["name"], pageSize: 1 },
         }}
-        columns={["name"]}
+        columns={["name", "code"]}
         pageSize={1}
         parentObjectId={domainObject.id}
         allowCreate={false}
@@ -40,6 +40,14 @@ describe("embedded collection reads", () => {
       />,
     );
     await screen.findByRole("button", { name: row.name });
+    fireEvent.click(screen.getByRole("button", { name: "Display" }));
+    const display = await screen.findByRole("dialog", { name: "Display" });
+    fireEvent.click(within(display).getByLabelText("Code"));
+    fireEvent.change(within(display).getByLabelText("Density"), { target: { value: "compact" } });
+    fireEvent.click(within(display).getByRole("button", { name: "Done" }));
+    expect(screen.queryByRole("columnheader", { name: "Code" })).not.toBeInTheDocument();
+    expect(read).toHaveBeenCalledTimes(1);
+
     fireEvent.click(screen.getByRole("button", { name: "Next page" }));
     await screen.findByText("Children unavailable");
     expect(screen.getByRole("button", { name: row.name })).toBeInTheDocument();

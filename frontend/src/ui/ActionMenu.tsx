@@ -8,9 +8,19 @@ export type ActionMenuItem = {
   onAction: () => void;
 };
 
-export function ActionMenu({ label = "More actions", items }: { label?: string; items: readonly ActionMenuItem[] }) {
+export function ActionMenu({
+  label = "More actions",
+  items,
+  isOpen,
+  onOpenChange,
+}: {
+  label?: string;
+  items: readonly ActionMenuItem[];
+  isOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
   return (
-    <MenuTrigger>
+    <MenuTrigger isOpen={isOpen} onOpenChange={onOpenChange}>
       <Button className="icon-button menu-trigger" aria-label={label}>
         <Icon name="more" />
       </Button>

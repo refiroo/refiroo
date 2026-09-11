@@ -1,0 +1,20 @@
+{
+  "browser": "152.0.7977.83",
+  "viewports": [
+    "1440x1000",
+    "390x844",
+    "720x500 (200% layout equivalent)"
+  ],
+  "checks": [
+    "UI-02 domain: typed filter controls/chip isolation, cursor reset, heading/menu sort, display ownership, reload and mobile columns/focus",
+    "Child panel paging/retry, independent relationship retry and empty translation state, cross-application and two containment paths",
+    "domain: typed filter, later page failure/retry, reload, detail failure/retry, audit, return, browser Back, workspace switch",
+    "UI-02 system: typed filter controls/chip isolation, cursor reset, heading/menu sort, display ownership, reload and mobile columns/focus",
+    "system: typed filter, later page failure/retry, reload, detail failure/retry, audit, return, browser Back, workspace switch",
+    "390x844 drawer opens by keyboard and touch, Escape/Close restore focus, hidden hierarchy search survives drawer and mode changes; no page overflow",
+    "Two workspaces and Domain/System draft navigation retain named draft and workspace identity; 720px CSS viewport checks 200%-zoom-equivalent reflow and drawer focus",
+    "Hierarchy continuation survives mode changes without changing the later-page collection URL; all configured Master/System views fit vertically; model administration remains reachable at desktop/mobile"
+  ],
+  "pageErrors": [],
+  "isolatedDatabase": "/var/folders/dg/lftfjtjn4yzfdj4gf3751np00000gp/T/rdm-wp9-navigation-DNQuYl/database.sqlite"
+}

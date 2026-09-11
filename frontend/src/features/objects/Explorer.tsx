@@ -27,6 +27,24 @@ export function Explorer({
   onOpen: (item: ObjectItem) => void;
 }) {
   const api = useDataApi();
+  const storageKey = `rdm:hierarchy:v1:${JSON.stringify([workspaceKey, application.key])}`;
+  const [branchState, setBranchState] = useState(() => ({ key: storageKey, collapsed: readCollapsed(storageKey) }));
+  if (branchState.key !== storageKey) {
+    setBranchState({ key: storageKey, collapsed: readCollapsed(storageKey) });
+  }
+
+  function toggleBranch(id: string) {
+    const collapsed = new Set(branchState.collapsed);
+    if (collapsed.has(id)) collapsed.delete(id);
+    else collapsed.add(id);
+    setBranchState({ key: storageKey, collapsed });
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify([...collapsed]));
+    } catch {
+      // Storage may be unavailable; keep this session's navigation usable.
+    }
+  }
+
   const [searchInput, setSearchInput] = useState("");
   const search = useDebouncedValue(searchInput.trim());
   const [pages, setPages] = useState<Record<string, LoadedPage>>({});
@@ -113,46 +131,48 @@ export function Explorer({
   }
 
   function node(item: ObjectItem, depth: number): React.ReactNode {
+    const hasChildren = Boolean(children.get(item.id)?.length);
+    const expanded = !branchState.collapsed.has(item.id);
     return (
       <li key={item.id}>
-        <button
-          className={item.id === activeObjectId ? "active" : ""}
-          style={{ paddingLeft: `${12 + depth * 17}px` }}
-          onClick={() => onOpen(item)}
-        >
-          <span className="tree-branch">{children.has(item.id) ? <Icon name="chevron-down" size={14} /> : null}</span>
-          <span className="tree-name">{item.name}</span>
-          <span className="type-tag">{objectTypeFor(model, item.objectTypeKey)?.name}</span>
-        </button>
-        {children.get(item.id)?.length ? (
-          <ul>{children.get(item.id)!.map((child) => node(child, depth + 1))}</ul>
-        ) : null}
+        <div className="tree-row" style={{ paddingLeft: `${12 + depth * 17}px` }}>
+          {hasChildren ? (
+            <button
+              className="tree-toggle"
+              aria-label={`${expanded ? "Collapse" : "Expand"} ${item.name}`}
+              aria-expanded={expanded}
+              onClick={() => toggleBranch(item.id)}
+            >
+              <Icon name={expanded ? "chevron-down" : "chevron-right"} size={14} />
+            </button>
+          ) : (
+            <span className="tree-branch" />
+          )}
+          <button
+            className={item.id === activeObjectId ? "active" : ""}
+            aria-current={item.id === activeObjectId ? "page" : undefined}
+            onClick={() => onOpen(item)}
+          >
+            <span className="tree-name">{item.name}</span>
+            <span className="type-tag">{objectTypeFor(model, item.objectTypeKey)?.name}</span>
+          </button>
+        </div>
+        {hasChildren && expanded ? <ul>{children.get(item.id)!.map((child) => node(child, depth + 1))}</ul> : null}
       </li>
     );
   }
 
   return (
     <section className="explorer" aria-label={`${application.name} explorer`}>
-      <div className="explorer-heading">
-        <div>
-          <p className="eyebrow">Current application</p>
-          <h2>{application.name}</h2>
-        </div>
-        <span className="app-badge" style={{ backgroundColor: application.color }} />
-      </div>
       <label className="search-box compact">
         <Icon name="search" />
         <input
           value={searchInput}
           onChange={(event) => setSearchInput(event.target.value)}
+          aria-label="Search this explorer"
           placeholder="Search this explorer"
         />
       </label>
-      <div className="explorer-types">
-        {application.objectTypeKeys.map((key) => (
-          <span key={key}>{objectTypeFor(model, key)?.pluralName ?? key}</span>
-        ))}
-      </div>
       {error && (
         <InlineError message={error} onRetry={failedMore ? loadMore : () => setRetryToken((value) => value + 1)} />
       )}
@@ -177,4 +197,14 @@ function comparePaths(left: ObjectItem, right: ObjectItem) {
     .map((part) => part.name)
     .join("/")
     .localeCompare(right.path.map((part) => part.name).join("/"));
+}
+
+function readCollapsed(key: string): Set<string> {
+  try {
+    const value: unknown = JSON.parse(window.localStorage.getItem(key) ?? "[]");
+    if (Array.isArray(value) && value.every((id) => typeof id === "string")) return new Set(value);
+  } catch {
+    // Invalid or unavailable storage falls back to the initial expanded hierarchy.
+  }
+  return new Set();
 }

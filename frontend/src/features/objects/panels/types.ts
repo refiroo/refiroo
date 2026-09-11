@@ -12,7 +12,7 @@ export interface PanelProps<P extends PanelDefinition = PanelDefinition> {
   application: ApplicationDefinition;
   object: ObjectItem;
   panel: P;
-  onOpen: (objectTypeKey: string, objectId: string, applicationKey?: string) => void;
+  onOpen: (objectTypeKey: string, objectId: string, applicationKey?: string, action?: "edit" | "delete") => void;
   onChanged: () => void;
   onObjectChanged: (object: ObjectItem) => void;
   onReload: () => Promise<void>;

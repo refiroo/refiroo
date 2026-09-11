@@ -1,12 +1,6 @@
 /* Narrow-viewport overrides. Kept together so a breakpoint is changed in one place. */
 
 @media (max-width: 1080px) {
-  :root {
-    --sidebar: 270px;
-  }
-  .product-mark {
-    min-width: 218px;
-  }
   .workspace-main {
     padding: 28px 24px 40px;
   }
@@ -33,76 +27,31 @@
     display: block;
   }
   .global-header {
-    position: static;
-    min-height: 64px;
-    padding: 12px 16px;
-    flex-wrap: wrap;
+    padding: 10px 16px;
   }
   .product-mark {
     min-width: 0;
   }
-  .product-mark strong,
-  .release-chip {
-    display: none;
-  }
-  .workspace-selector {
-    margin-left: auto;
-  }
-  .workspace-selector .field-description {
-    display: none;
-  }
-  .workspace-selector .selection-field > [slot="label"] {
-    color: #b9c7c2;
-  }
-  .workspace-selector .combo-control {
-    min-width: 138px;
-  }
-  .application-nav {
-    order: 2;
-    width: 100%;
-  }
-  .workspace-sidebar {
-    display: none;
-    border-right: 0;
-    border-bottom: 1px solid var(--line);
-  }
-  .workspace-sidebar.navigation-open {
-    display: block;
+  .product-mark strong {
+    font-size: 13px;
   }
   .navigation-toggle {
-    width: 100%;
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 10px 16px;
+    padding: 12px 16px;
+    width: 100%;
     border: 0;
-    border-bottom: 1px solid var(--color-border);
-    background: var(--color-surface);
-    color: var(--color-text);
-    font-weight: 700;
+    border-bottom: 1px solid var(--line);
+    background: #f5f6f5;
+    color: var(--ink);
     text-align: left;
   }
-  .explorer {
-    max-height: 360px;
-    overflow: auto;
-  }
   .workspace-main {
-    padding: 24px 16px 36px;
+    padding: 16px 16px 32px;
   }
   .shell-context {
-    align-items: stretch;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    margin-bottom: 18px;
-  }
-  .shell-context li,
-  .shell-context li + li {
-    min-width: 0;
-    padding: 0 9px;
-    overflow-wrap: anywhere;
-  }
-  .shell-context li:first-child {
-    padding-left: 0;
+    font-size: 12px;
   }
   .collection-header {
     align-items: flex-start;
@@ -162,5 +111,81 @@
   }
   .model-summary div:nth-child(even) {
     border-right: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .navigation-dialog {
+    width: min(340px, 100%);
+  }
+  .page-header {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .detail-actions {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 760px) {
+  .object-toolbar,
+  .embedded-toolbar {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .object-toolbar .search-box,
+  .embedded-toolbar .search-box {
+    flex: 1 1 100%;
+  }
+  .mobile-columns-toggle {
+    display: block;
+    margin: 8px 16px;
+  }
+  .object-table:not(.show-all-columns) .mobile-secondary-column {
+    display: none;
+  }
+  .object-table td {
+    max-width: 180px;
+  }
+  .object-table .cell-link {
+    max-width: 160px;
+    min-height: 32px;
+  }
+  .column-sort {
+    min-height: 32px;
+  }
+  .display-columns label {
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 1080px) {
+  .record-workspace.has-inspector {
+    display: block;
+  }
+  .record-workspace.has-record > .record-collection {
+    display: none;
+  }
+  .record-inspector {
+    border-left: 0;
+    padding-left: 0;
+  }
+  .expand-record {
+    display: none;
+  }
+}
+@media (max-width: 1080px) {
+  .record-inspector {
+    position: static;
+    max-height: none;
+    overflow: visible;
+  }
+}
+@media (max-width: 1080px) {
+  .record-detail:not(.record-inspector) .detail-grid.with-side > .main-panels,
+  .record-detail:not(.record-inspector) .detail-grid.with-side > .side-panels {
+    grid-column: auto;
+    grid-row: auto;
   }
 }

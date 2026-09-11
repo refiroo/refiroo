@@ -1,67 +1,160 @@
+import { useState, type ReactNode } from "react";
 import type { EngineModel, ObjectItem } from "@/types";
 import { formatValue } from "@/ui/formatValue";
 import { attributeName, fieldValue } from "@/model/fields";
 
 export function ObjectTable({
+  compact = false,
+  identityColumn,
+  sort,
+  sortFields = [],
+  onSort,
   model,
   columns,
   objects,
   loading = false,
   onOpen,
+  selectedId,
+  renderActions,
   label = "Objects",
   emptyMessage = "Nothing to show yet.",
 }: {
+  compact?: boolean;
+  identityColumn?: string;
+  sort?: string;
+  sortFields?: string[];
+  onSort?: (sort: string) => void;
   model: EngineModel;
   columns: string[];
   objects: ObjectItem[];
   loading?: boolean;
   onOpen: (item: ObjectItem) => void;
+  selectedId?: string;
+  renderActions?: (item: ObjectItem, menu: { isOpen: boolean; onOpenChange: (open: boolean) => void }) => ReactNode;
   label?: string;
   emptyMessage?: string;
 }) {
+  const [allColumns, setAllColumns] = useState(false);
+  const [menuId, setMenuId] = useState<string>();
+  const identity = identityColumn ?? (columns.includes("name") ? "name" : columns.includes("id") ? "id" : columns[0]);
+  const mobileColumns = [identity, ...columns.filter((column) => column !== identity)].slice(0, 3);
+  const secondary = (column: string) => (!mobileColumns.includes(column) ? "mobile-secondary-column" : undefined);
   return (
-    <div className="table-wrap" role="region" aria-label={label} tabIndex={0}>
-      <table aria-busy={loading || undefined}>
-        <caption className="visually-hidden">{label}</caption>
-        <thead>
-          <tr>
-            {columns.map((column) => (
-              <th key={column}>{attributeName(model, column)}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {loading && objects.length === 0 ? (
+    <>
+      {columns.length > 3 && (
+        <button
+          className="secondary mobile-columns-toggle"
+          aria-expanded={allColumns}
+          onClick={() => setAllColumns(!allColumns)}
+        >
+          {allColumns ? "Show fewer columns" : `Show all ${columns.length} columns`}
+        </button>
+      )}
+      <div
+        className={`table-wrap object-table${compact ? " density-compact" : ""}${allColumns ? " show-all-columns" : ""}`}
+        role="region"
+        aria-label={label}
+        tabIndex={0}
+      >
+        <table aria-busy={loading || undefined}>
+          <caption className="visually-hidden">{label}</caption>
+          <thead>
             <tr>
-              <td colSpan={columns.length} className="empty-row">
-                Loading…
-              </td>
+              {columns.map((column) => (
+                <th
+                  key={column}
+                  className={secondary(column)}
+                  scope="col"
+                  aria-sort={
+                    sort?.replace(/^-/, "") === column ? (sort.startsWith("-") ? "descending" : "ascending") : undefined
+                  }
+                >
+                  {onSort && sortFields.includes(column) ? (
+                    <button className="column-sort" onClick={() => onSort(sort === column ? `-${column}` : column)}>
+                      {attributeName(model, column)}
+                      {sort?.replace(/^-/, "") === column && (
+                        <span aria-hidden="true">{sort.startsWith("-") ? " ↓" : " ↑"}</span>
+                      )}
+                    </button>
+                  ) : (
+                    attributeName(model, column)
+                  )}
+                </th>
+              ))}
+              {renderActions && (
+                <th scope="col" className="record-actions-column">
+                  <span className="visually-hidden">Record actions</span>
+                </th>
+              )}
             </tr>
-          ) : objects.length === 0 ? (
-            <tr>
-              <td colSpan={columns.length} className="empty-row">
-                {emptyMessage}
-              </td>
-            </tr>
-          ) : (
-            objects.map((item) => (
-              <tr key={item.id}>
-                {columns.map((column, index) => (
-                  <td key={column}>
-                    {index === 0 ? (
-                      <button className="cell-link" onClick={() => onOpen(item)}>
-                        {formatValue(fieldValue(item, column, model))}
-                      </button>
-                    ) : (
-                      formatValue(fieldValue(item, column, model))
-                    )}
-                  </td>
-                ))}
+          </thead>
+          <tbody>
+            {loading && objects.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length + Number(Boolean(renderActions))} className="empty-row">
+                  Loading…
+                </td>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
-    </div>
+            ) : objects.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length + Number(Boolean(renderActions))} className="empty-row">
+                  {emptyMessage}
+                </td>
+              </tr>
+            ) : (
+              objects.map((item) => (
+                <tr
+                  key={item.id}
+                  className={selectedId === item.id ? "selected-record" : undefined}
+                  onContextMenu={
+                    renderActions
+                      ? (event) => {
+                          event.preventDefault();
+                          setMenuId(item.id);
+                        }
+                      : undefined
+                  }
+                  onKeyDown={
+                    renderActions
+                      ? (event) => {
+                          if (event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) {
+                            event.preventDefault();
+                            setMenuId(item.id);
+                          }
+                        }
+                      : undefined
+                  }
+                >
+                  {columns.map((column) => (
+                    <td key={column} className={secondary(column)}>
+                      {column === identity ? (
+                        <button
+                          className="cell-link"
+                          data-record-id={item.id}
+                          aria-current={selectedId === item.id ? "true" : undefined}
+                          onClick={() => onOpen(item)}
+                        >
+                          {formatValue(fieldValue(item, column, model))}
+                        </button>
+                      ) : (
+                        formatValue(fieldValue(item, column, model))
+                      )}
+                    </td>
+                  ))}
+                  {renderActions && (
+                    <td className="record-actions-column">
+                      {renderActions(item, {
+                        isOpen: menuId === item.id,
+                        onOpenChange: (open) => setMenuId(open ? item.id : undefined),
+                      })}
+                    </td>
+                  )}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }

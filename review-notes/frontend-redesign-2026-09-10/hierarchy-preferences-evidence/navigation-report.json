@@ -1,0 +1,31 @@
+{
+  "browser": "152.0.7977.83",
+  "viewports": [
+    "1440x1000",
+    "390x844",
+    "720x500 (200% layout equivalent)"
+  ],
+  "checks": [
+    "UI-02 domain: typed filter controls/chip isolation, cursor reset, heading/menu sort, display ownership, reload and mobile columns/focus",
+    "UI-03B domain-live: collection/inspector split, expand/reload/Back/Forward, canonical copy link, all panel titles retained, mobile single screen, real save refresh, right-click and keyboard row actions",
+    "UI-03A domain-live: exact filtered collection return after record reload, Back/Forward cancellation and discard, native reload cancellation, delayed real save navigation protection, retained editable input at 1440px and 390px",
+    "Child panel paging/retry, independent relationship retry and empty translation state, cross-application and two containment paths",
+    "domain: typed filter, later page failure/retry, reload, detail failure/retry, audit, return, browser Back, workspace switch",
+    "UI-02 system: typed filter controls/chip isolation, cursor reset, heading/menu sort, display ownership, reload and mobile columns/focus",
+    "UI-03B system-live: collection/inspector split, expand/reload/Back/Forward, canonical copy link, all panel titles retained, mobile single screen, real save refresh, right-click and keyboard row actions",
+    "UI-03A system-live: exact filtered collection return after record reload, Back/Forward cancellation and discard, native reload cancellation, delayed real save navigation protection, retained editable input at 1440px and 390px",
+    "system: typed filter, later page failure/retry, reload, detail failure/retry, audit, return, browser Back, workspace switch",
+    "390x844 drawer opens by keyboard and touch, Escape/Close restore focus, hidden hierarchy search survives drawer and mode changes; no page overflow",
+    "UI-03B domain-draft: collection/inspector split, expand/reload/Back/Forward, canonical copy link, all panel titles retained, mobile single screen, real save refresh, right-click and keyboard row actions",
+    "UI-03A domain-draft: exact filtered collection return after record reload, Back/Forward cancellation and discard, native reload cancellation, delayed real save navigation protection, retained editable input at 1440px and 390px",
+    "UI-03B system-draft: collection/inspector split, expand/reload/Back/Forward, canonical copy link, all panel titles retained, mobile single screen, real save refresh, right-click and keyboard row actions",
+    "UI-03A system-draft: exact filtered collection return after record reload, Back/Forward cancellation and discard, native reload cancellation, delayed real save navigation protection, retained editable input at 1440px and 390px",
+    "Two workspaces and Domain/System draft navigation retain named draft and workspace identity; 720px CSS viewport checks 200%-zoom-equivalent reflow and drawer focus",
+    "Hierarchy continuation survives mode changes without changing the later-page collection URL; all configured Master/System views fit vertically; model administration remains reachable at desktop/mobile",
+    "UI-03B domain: deleting the only row on page two closes the record, refreshes the collection and returns to page one with its filter intact",
+    "UI-03B system: deleting the only row on page two closes the record, refreshes the collection and returns to page one with its filter intact",
+    "Hierarchy preferences: hierarchy first; first-visit default and saved Views/hierarchy selection restored across reload without changing record URL; independent collapse without record navigation, collapsed and expanded state restored across reload, keyboard expansion at desktop/mobile. UI-03B hierarchy regression: select a master value from Browse hierarchy while a codelist inspector is open; discard the unrelated collection, restore the full record view with Value details, retain the behavior after reload at 1440px and 390px"
+  ],
+  "pageErrors": [],
+  "isolatedDatabase": "/var/folders/dg/lftfjtjn4yzfdj4gf3751np00000gp/T/rdm-wp9-navigation-aZT6TB/database.sqlite"
+}

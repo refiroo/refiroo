@@ -1,3 +1,4 @@
+import { useNavigationGuard } from "@/routing/navigationGuard";
 import { useState } from "react";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { errorMessage, isApiError } from "@/api/errors";
@@ -21,6 +22,7 @@ export function ObjectDeleteDialog({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [stale, setStale] = useState(false);
+  const finishNavigation = useNavigationGuard(false, pending, onClose);
   async function confirm() {
     setPending(true);
     setError("");
@@ -40,6 +42,7 @@ export function ObjectDeleteDialog({
         version,
         impact ? { cascade: true, deletionPreviewToken: impact.deletionPreviewToken } : {},
       );
+      finishNavigation();
       onDeleted();
     } catch (cause) {
       if (isApiError(cause, "object_has_dependants")) {

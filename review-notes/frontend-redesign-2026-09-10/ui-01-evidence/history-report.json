@@ -1,0 +1,15 @@
+{
+  "browser": "152.0.7977.83",
+  "viewports": [
+    "1440x1000"
+  ],
+  "checks": [
+    "Older snapshot remains typed and unchanged under its pinned model; shared list/detail reads carry the immutable revision and expose no write controls",
+    "Historical derivation is explicitly labelled, keeps the old model pin and explains that Base 0.6 requires migration instead of promising restore or implicit override",
+    "Publication retirement names the selected revision and removes only its designation; current live data and both immutable snapshots remain readable",
+    "Catalogue retirement is a separate read-only state: history stays visible while draft and publication mutations disappear"
+  ],
+  "pageErrors": [],
+  "historicalReadCount": 19,
+  "isolatedDatabase": "/var/folders/dg/lftfjtjn4yzfdj4gf3751np00000gp/T/rdm-wp9-history-7wlK3A/database.sqlite"
+}

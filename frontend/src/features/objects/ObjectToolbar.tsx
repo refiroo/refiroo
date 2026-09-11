@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { attributeName } from "@/model/fields";
 import type { CollectionQueryState, EngineModel, ValueType, ViewDefinition } from "@/types";
 import { Icon } from "@/ui/Icon";
 import { SelectField } from "@/ui/Selection";
+import { ControlPopover } from "@/ui/ControlPopover";
 
 const OPERATOR_LABELS: Record<string, string> = {
   eq: "is",
@@ -22,7 +23,9 @@ export function ObjectToolbar({
   query,
   placeholder,
   onChange,
+  display,
 }: {
+  display: ReactNode;
   model: EngineModel;
   view: ViewDefinition;
   query: CollectionQueryState;
@@ -41,47 +44,61 @@ export function ObjectToolbar({
   ]);
 
   return (
-    <div className="collection-toolbar object-toolbar">
-      <SearchControl
-        key={query.search}
-        initialValue={query.search}
-        placeholder={placeholder}
-        onApply={(search) => onChange({ ...query, search })}
-      />
-      {view.config.filterFields.map((field) => {
-        const type = valueType(model, field);
-        const current = query.filters.find((filter) => filter.field === field);
-        return (
-          <FilterControl
-            key={`${field}:${current?.operator ?? ""}:${current?.value ?? ""}`}
-            label={attributeName(model, field)}
-            type={type}
-            attribute={!isBuiltIn(field)}
-            initial={current ?? { operator: defaultOperator(type), value: "" }}
-            onApply={(input) => applyFilter(field, input)}
+    <>
+      <div className="collection-toolbar object-toolbar">
+        <SearchControl
+          key={query.search}
+          initialValue={query.search}
+          placeholder={placeholder}
+          onApply={(search) => onChange({ ...query, search })}
+        />
+        <ControlPopover label="Filter">
+          {view.config.filterFields.map((field) => {
+            const type = valueType(model, field);
+            const current = query.filters.find((filter) => filter.field === field);
+            return (
+              <FilterControl
+                key={field}
+                label={attributeName(model, field)}
+                type={type}
+                attribute={!isBuiltIn(field)}
+                initial={current ?? { operator: defaultOperator(type), value: "" }}
+                onApply={(input) => applyFilter(field, input)}
+              />
+            );
+          })}
+          {view.config.filterFields.length === 0 && <p>No filters configured for this view.</p>}
+        </ControlPopover>
+        <ControlPopover label="Sort">
+          <SelectField
+            className="toolbar-field"
+            label="Sort"
+            value={query.sort}
+            options={sorts}
+            onChange={(sort) => onChange({ ...query, sort })}
           />
-        );
-      })}
-      {(query.search !== "" || query.filters.length > 0) && (
-        <button onClick={() => onChange({ ...query, search: "", filters: [] })}>Clear filters</button>
-      )}
-      <SelectField
-        className="toolbar-field"
-        label="Sort"
-        value={query.sort}
-        options={sorts}
-        onChange={(sort) => onChange({ ...query, sort })}
-      />
-      <SelectField
-        className="toolbar-field"
-        label="Per page"
-        value={String(query.pageSize)}
-        options={Array.from(new Set([10, 20, 50, 100, view.config.pageSize, query.pageSize]))
-          .sort((a, b) => a - b)
-          .map((size) => ({ id: String(size), label: String(size) }))}
-        onChange={(pageSize) => onChange({ ...query, pageSize: Number(pageSize) })}
-      />
-    </div>
+        </ControlPopover>
+        {display}
+      </div>
+      <div className="filter-chips" aria-label="Applied filters">
+        {query.filters.map((filter, index) => (
+          <button
+            className="secondary filter-chip"
+            key={`${filter.field}:${filter.operator}:${index}`}
+            aria-label={`Remove ${attributeName(model, filter.field)} ${OPERATOR_LABELS[filter.operator] ?? filter.operator} ${filter.value}`}
+            onClick={() => onChange({ ...query, filters: query.filters.filter((_, position) => position !== index) })}
+          >
+            {attributeName(model, filter.field)} {OPERATOR_LABELS[filter.operator] ?? filter.operator} {filter.value}{" "}
+            <span aria-hidden="true">×</span>
+          </button>
+        ))}
+        {(query.search !== "" || query.filters.length > 0) && (
+          <button className="secondary" onClick={() => onChange({ ...query, search: "", filters: [] })}>
+            Clear filters
+          </button>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -129,6 +146,11 @@ function FilterControl({
   onApply: (input: { operator: string; value: string }) => void;
 }) {
   const [input, setInput] = useState(initial);
+  const [applied, setApplied] = useState(initial);
+  if (applied.operator !== initial.operator || applied.value !== initial.value) {
+    setApplied(initial);
+    setInput(initial);
+  }
   const operators = filterOperators(type, attribute);
   const booleanValue = type === "boolean" || input.operator === "isNull" || input.operator === "isUnset";
   return (

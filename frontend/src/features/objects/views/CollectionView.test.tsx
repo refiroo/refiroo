@@ -1,4 +1,6 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { useState } from "react";
+import type { CollectionQueryState } from "@/types";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { domainObject, testModel } from "@/test/fixtures";
@@ -50,7 +52,7 @@ describe("CollectionView", () => {
     expect(screen.queryByText("Edit")).not.toBeInTheDocument();
   });
 
-  it("renders only model-declared typed filters and sorts", () => {
+  it("renders only model-declared typed filters and sorts", async () => {
     const onQueryChange = vi.fn();
     render(
       <CollectionView
@@ -63,6 +65,8 @@ describe("CollectionView", () => {
         onOpen={vi.fn()}
       />,
     );
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }));
+    await screen.findByRole("dialog", { name: "Filter" });
     expect(screen.getByRole("combobox", { name: "Code operator" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Active value" })).toBeInTheDocument();
     expect(screen.queryByLabelText("States")).not.toBeInTheDocument();
@@ -126,4 +130,80 @@ describe("CollectionView", () => {
     expect(await screen.findByText("Connections")).toBeInTheDocument();
     expect(api.objects).toHaveBeenCalledTimes(2);
   });
+});
+
+it.each(["domain", "codelist"])("preserves typed filters and query/display ownership for %s", async (objectTypeKey) => {
+  const model = structuredClone(testModel);
+  model.attributeTypes.push(
+    { key: "count", name: "Count", valueType: "integer", features: {}, validation: {}, ui: {} },
+    { key: "date", name: "Date", valueType: "date", features: {}, validation: {}, ui: {} },
+  );
+  const view = {
+    ...model.applications[0].views[0],
+    objectTypeKey,
+    config: { ...model.applications[0].views[0].config, filterFields: ["code", "active", "count", "date"] },
+  };
+  let latest: CollectionQueryState;
+  function Harness() {
+    const [query, setQuery] = useState<CollectionQueryState>({
+      search: "",
+      sort: "name",
+      pageSize: 20,
+      cursors: ["later"],
+      filters: [],
+    });
+    latest = query;
+    return (
+      <CollectionView
+        model={model}
+        application={model.applications[0]}
+        view={view}
+        workspaceKey="west"
+        query={query}
+        onQueryChange={setQuery}
+        onOpen={vi.fn()}
+      />
+    );
+  }
+  render(<Harness />);
+  await screen.findByRole("button", { name: "Connections" });
+  expect(screen.queryByLabelText("Count value")).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Filter" }));
+  await screen.findByRole("dialog", { name: "Filter" });
+  fireEvent.change(screen.getByLabelText("Count value"), { target: { value: "0" } });
+  fireEvent.keyDown(screen.getByLabelText("Count value"), { key: "Enter" });
+  fireEvent.change(screen.getByLabelText("Active value"), { target: { value: "false" } });
+  fireEvent.change(screen.getByLabelText("Date operator"), { target: { value: "gte" } });
+  fireEvent.change(screen.getByLabelText("Date value"), { target: { value: "2026-01-01" } });
+  fireEvent.blur(screen.getByLabelText("Date value"));
+  fireEvent.change(screen.getByLabelText("Code operator"), { target: { value: "isUnset" } });
+  fireEvent.change(screen.getByLabelText("Code value"), { target: { value: "true" } });
+  expect(latest!.filters).toEqual([
+    { field: "count", operator: "eq", value: "0" },
+    { field: "active", operator: "eq", value: "false" },
+    { field: "date", operator: "gte", value: "2026-01-01" },
+    { field: "code", operator: "isUnset", value: "true" },
+  ]);
+  expect(latest!.cursors).toBeUndefined();
+  fireEvent.change(screen.getByLabelText("Code operator"), { target: { value: "isNull" } });
+  fireEvent.change(screen.getByLabelText("Code value"), { target: { value: "false" } });
+  expect(latest!.filters.at(-1)).toEqual({ field: "code", operator: "isNull", value: "false" });
+  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  fireEvent.click(screen.getByRole("button", { name: "Remove Count is 0" }));
+  expect(latest!.filters.map((filter) => filter.field)).toEqual(["active", "date", "code"]);
+  fireEvent.click(screen.getByRole("button", { name: "Display" }));
+  const display = await screen.findByRole("dialog", { name: "Display" });
+  expect(within(display).getByLabelText("Name (record identity)")).toBeDisabled();
+  const before = latest!;
+  fireEvent.click(within(display).getByLabelText("Code"));
+  fireEvent.change(within(display).getByLabelText("Density"), { target: { value: "compact" } });
+  expect(latest!).toBe(before);
+  fireEvent.change(within(display).getByLabelText("Per page"), { target: { value: "50" } });
+  expect(latest!.pageSize).toBe(50);
+  expect(latest!.cursors).toBeUndefined();
+  fireEvent.click(within(display).getByRole("button", { name: "Done" }));
+  expect(screen.queryByRole("columnheader", { name: "Code" })).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /Name/ }));
+  expect(latest!.sort).toBe("-name");
+  expect(screen.getByRole("columnheader", { name: /Name/ })).toHaveAttribute("aria-sort", "descending");
 });

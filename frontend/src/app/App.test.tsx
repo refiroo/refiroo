@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import type { ApplicationDefinition } from "@/types";
@@ -18,6 +18,8 @@ vi.mock("@/api/client", () => ({
     workspaces: vi.fn(),
     objects: vi.fn(),
     object: vi.fn(),
+    updateObject: vi.fn(),
+    deleteObject: vi.fn(),
     objectHistory: vi.fn(),
     relations: vi.fn(),
     createHistoricalWorkspaceDraft: vi.fn(),
@@ -30,8 +32,22 @@ function visit(path: string) {
 }
 
 describe("App", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(api.relations).mockResolvedValue({ items: [], nextCursor: null });
+    const stored = new Map<string, string>();
+    vi.stubGlobal("localStorage", {
+      getItem: (key: string) => stored.get(key) ?? null,
+      setItem: (key: string, value: string) => stored.set(key, value),
+    });
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
+    );
     vi.mocked(api.model).mockResolvedValue(testModel);
     vi.mocked(api.workspaceRuntimeState).mockResolvedValue({
       defaultWorkspaceKey: "default",
@@ -60,6 +76,143 @@ describe("App", () => {
     }));
   });
 
+  it.each([domainObject, codelistObject])(
+    "keeps $objectTypeKey collection mounted through inspect/expand, refreshes saves and leaves a usable page after deletion",
+    async (original) => {
+      const model = structuredClone(testModel);
+      model.applications[0].views[0].objectTypeKey = original.objectTypeKey;
+      vi.mocked(api.model).mockResolvedValue(model);
+      let object = { ...original, parentObjectId: original.path.at(-2)?.id ?? null };
+      let deleted = false;
+      vi.mocked(api.object).mockImplementation(async (_type, id) =>
+        id === domainObject.id && original.objectTypeKey === "codelist" ? domainObject : object,
+      );
+      vi.mocked(api.objectHistory).mockResolvedValue({ items: [], nextCursor: null });
+      vi.mocked(api.objects).mockImplementation(async (_type, query) => ({
+        items: query.sort
+          ? query.cursor
+            ? deleted
+              ? []
+              : [object]
+            : [{ ...original, id: "other", name: "Earlier record" }]
+          : [],
+        nextCursor: query.cursor ? null : "second",
+      }));
+      vi.mocked(api.updateObject).mockImplementation(async () => {
+        object = { ...object, name: "Updated record", version: 2 };
+        return object;
+      });
+      vi.mocked(api.deleteObject).mockImplementation(async () => {
+        deleted = true;
+      });
+      visit("/apps/test-app/views/domains?workspaceKey=default&search=record&sort=name&pageSize=10&cursor=second");
+      render(<App />);
+      const table = await screen.findByRole("region", { name: "Domains table" });
+      fireEvent.click(await within(table).findByRole("button", { name: original.name }));
+      const record = await screen.findByRole("article", { name: "Record details" });
+      expect(record).not.toHaveClass("record-inspector");
+      expect(screen.queryByRole("button", { name: "Expand to full page" })).not.toBeInTheDocument();
+      expect(within(table).getByRole("button", { name: original.name, hidden: true })).toHaveAttribute(
+        "aria-current",
+        "true",
+      );
+      expect(table.closest("[hidden]")).not.toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Record actions" }));
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Edit all fields" }));
+      fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Updated record" } });
+      fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+      await within(table).findByRole("button", { name: "Updated record", hidden: true });
+      expect(screen.getByRole("heading", { name: "Updated record", level: 1 })).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Back to list" }));
+      expect(within(table).getByRole("button", { name: "Updated record" })).toHaveFocus();
+      fireEvent.contextMenu(within(table).getByRole("button", { name: "Updated record" }));
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Delete record" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+      await within(table).findByRole("button", { name: "Earlier record" });
+      expect(screen.queryByRole("article", { name: "Record details" })).not.toBeInTheDocument();
+      expect(new URLSearchParams(window.location.search).get("search")).toBe("record");
+      expect(new URLSearchParams(window.location.search).getAll("cursor")).toEqual([]);
+    },
+  );
+
+  it("requires deliberate discard before selecting another row or closing the inspector", async () => {
+    const other = { ...domainObject, id: "other", name: "Other record" };
+    vi.mocked(api.objects).mockResolvedValue({ items: [domainObject, other], nextCursor: null });
+    vi.mocked(api.object).mockImplementation(async (_type, id) => (id === other.id ? other : domainObject));
+    vi.mocked(api.objectHistory).mockResolvedValue({ items: [], nextCursor: null });
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    visit("/apps/test-app/views/domains?workspaceKey=default");
+    render(<App />);
+    const table = await screen.findByRole("region", { name: "Domains table" });
+    fireEvent.click(await within(table).findByRole("button", { name: domainObject.name }));
+    fireEvent.click(await screen.findByRole("button", { name: "Record actions" }));
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Edit all fields" }));
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Uncommitted input" } });
+    fireEvent.click(within(table).getByRole("button", { name: other.name, hidden: true }));
+    expect(screen.getByLabelText("Name")).toHaveValue("Uncommitted input");
+    fireEvent.click(screen.getByRole("button", { name: "Back to list", hidden: true }));
+    expect(screen.getByLabelText("Name")).toHaveValue("Uncommitted input");
+    expect(confirm).toHaveBeenCalledTimes(2);
+    confirm.mockReturnValue(true);
+    fireEvent.click(within(table).getByRole("button", { name: other.name, hidden: true }));
+    await screen.findByRole("heading", { name: other.name, level: 1 });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.click(within(table).getByRole("button", { name: "Name", hidden: true }));
+    expect(screen.getByRole("heading", { name: other.name, level: 1 })).toBeInTheDocument();
+    expect(new URLSearchParams(window.history.state.rdmNavigation.collectionPath.split("?")[1]).get("sort")).toBe(
+      "-name",
+    );
+  });
+
+  it("orders hierarchy first and restores the selected navigation mode on reload without changing the route", async () => {
+    visit("/apps/test-app/views/domains?workspaceKey=default&search=Connections");
+    const first = render(<App />);
+    const group = await screen.findByRole("group", { name: "Navigation mode" });
+    expect(
+      within(group)
+        .getAllByRole("button")
+        .map((button) => button.textContent),
+    ).toEqual(["Browse hierarchy", "Views"]);
+    expect(within(group).getByRole("button", { name: "Browse hierarchy" })).toHaveAttribute("aria-pressed", "true");
+    const location = window.location.href;
+    fireEvent.click(within(group).getByRole("button", { name: "Views" }));
+    first.unmount();
+    const second = render(<App />);
+    expect(await screen.findByRole("button", { name: "Views" })).toHaveAttribute("aria-pressed", "true");
+    expect(window.location.href).toBe(location);
+    fireEvent.click(screen.getByRole("button", { name: "Browse hierarchy" }));
+    second.unmount();
+    render(<App />);
+    expect(await screen.findByRole("button", { name: "Browse hierarchy" })).toHaveAttribute("aria-pressed", "true");
+    expect(window.location.href).toBe(location);
+  });
+
+  it("opens hierarchy selections as full records without keeping an unrelated collection mounted", async () => {
+    vi.mocked(api.objects).mockImplementation(async (type) => ({
+      items: type === "domain" ? [domainObject] : [codelistObject],
+      nextCursor: null,
+    }));
+    vi.mocked(api.object).mockImplementation(async (type) => (type === "domain" ? domainObject : codelistObject));
+    vi.mocked(api.objectHistory).mockResolvedValue({ items: [], nextCursor: null });
+    visit("/apps/test-app/views/domains?workspaceKey=default&search=Connections&sort=name&pageSize=10");
+    render(<App />);
+    const table = await screen.findByRole("region", { name: "Domains table" });
+    fireEvent.click(await within(table).findByRole("button", { name: domainObject.name }));
+    expect(await screen.findByRole("article", { name: "Record details" })).not.toHaveClass("record-inspector");
+    expect(screen.getByRole("button", { name: "Browse hierarchy" })).toHaveAttribute("aria-pressed", "true");
+    const explorer = await screen.findByRole("region", { name: "Test App explorer" });
+    fireEvent.click(await within(explorer).findByRole("button", { name: /Timetable types/ }));
+    await screen.findByRole("heading", { name: codelistObject.name, level: 1 });
+    expect(screen.getByRole("article", { name: "Record details" })).not.toHaveClass("record-inspector");
+    expect(screen.queryByRole("region", { name: "Domains table", hidden: true })).not.toBeInTheDocument();
+    expect(window.history.state.rdmNavigation.collectionPath).toBeUndefined();
+    expect(screen.queryByRole("button", { name: "Back to list" })).not.toBeInTheDocument();
+    fireEvent.click(within(explorer).getByRole("button", { name: /Connections/ }));
+    await screen.findByRole("heading", { name: domainObject.name, level: 1 });
+    expect(screen.queryByRole("region", { name: "Domains table", hidden: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Back to list" })).not.toBeInTheDocument();
+  });
+
   it("renders the shell from the model and lands on the default view", async () => {
     visit("/");
     render(<App />);
@@ -71,14 +224,8 @@ describe("App", () => {
     const navigationToggle = screen.getByRole("button", { name: "Browse application" });
     expect(navigationToggle).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(navigationToggle);
-    expect(screen.getByRole("button", { name: "Hide application navigation" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
-    );
-    expect(document.getElementById("workspace-navigation")).toHaveClass("navigation-open");
-    expect(screen.getByRole("list", { name: "Current context" })).toHaveTextContent(
-      "WorkspaceDefaultApplicationTest AppViewDomains",
-    );
+    expect(navigationToggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText("Current context")).toHaveTextContent("Default / Test AppLive");
     expect(window.location.pathname).toBe("/apps/test-app/views/domains");
   });
 
@@ -108,7 +255,7 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Read-only workspace")).toBeInTheDocument();
-    expect(screen.getByRole("list", { name: "Current context" })).toHaveTextContent("Historical archive");
+    expect(screen.getByLabelText("Current context")).toHaveTextContent("Historical archive");
     expect(screen.queryByRole("button", { name: "Add Domain" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /More actions for/ })).not.toBeInTheDocument();
   });
@@ -228,7 +375,7 @@ describe("App", () => {
       visit(
         "/apps/test-app/views/domains?workspaceKey=west&search=record&sort=-name&pageSize=10&filter.createdAt.gte=2026-01-01",
       );
-      render(<App />);
+      const firstRender = render(<App />);
       await screen.findByRole("button", { name: "First page record" });
       fireEvent.click(screen.getByRole("button", { name: "Next page" }));
       fireEvent.click(await screen.findByRole("button", { name: "Second page record" }));
@@ -241,6 +388,9 @@ describe("App", () => {
         );
         expect(await screen.findByRole("heading", { name: domainObject.name, level: 1 })).toBeInTheDocument();
       }
+      firstRender.unmount();
+      render(<App />);
+      await screen.findByRole("heading", { name: domainObject.name, level: 1 });
       fireEvent.click(screen.getByRole("button", { name: "Back to list" }));
       expect(await screen.findByRole("button", { name: "Second page record" })).toBeInTheDocument();
       expect(screen.getByText("Page 2")).toBeInTheDocument();
@@ -249,7 +399,7 @@ describe("App", () => {
       expect(query.get("workspaceKey")).toBe("west");
       expect(query.get("filter.createdAt.gte")).toBe("2026-01-01");
       expect(query.get("search")).toBe("record");
-      expect(api.objects).toHaveBeenLastCalledWith(
+      expect(api.objects).toHaveBeenCalledWith(
         object.objectTypeKey,
         expect.objectContaining({
           workspaceKey: "west",

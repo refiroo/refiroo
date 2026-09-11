@@ -1,3 +1,4 @@
+import { recordAction } from "./record-actions.mjs";
 // Real-backend SC-05/SC-06 and draft SC-04 regression. All model/data mutations target a temporary database.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -108,7 +109,7 @@ try {
   const value = (object, key) => object.attributes.find((item) => item.attributeTypeKey === key)?.value;
   async function open(object, draftId) {
     await page.goto(`${uiUrl}/apps/${object.applicationKey}/objects/${object.objectTypeKey}/${object.id}?workspaceKey=${workspaceKey}${draftId ? `&workspaceDraftId=${draftId}` : ""}`);
-    await shown(page.getByRole("button", { name: "Edit object", exact: true }));
+    await shown(page.getByRole("button", { name: "Record actions", exact: true }));
   }
   async function startDraft(name) {
     await page.getByRole("navigation", { name: "Workspace data context" }).getByRole("button", { name: "Drafts", exact: true }).click();
@@ -121,7 +122,7 @@ try {
   }
   async function edit(object, draftId, fields) {
     await open(object, draftId);
-    await page.getByRole("button", { name: "Edit object", exact: true }).click();
+    await recordAction(page, "Edit all fields");
     for (const [key, val] of Object.entries(fields)) {
       const control = dialog().getByLabel(key, { exact: true });
       if (typeof val === "boolean") await control.setChecked(val); else await control.fill(val);
@@ -193,10 +194,11 @@ try {
   assert(draftRelations.items.some((item) => item.relation.toObjectId === systemValue.id));
   assert(!(await api(`/relations?objectId=${domain.id}&workspaceKey=${workspaceKey}`)).items.some((item) => item.relation.toObjectId === systemValue.id));
   // In-app navigation and reload retain draft identity across applications and back to the collection.
+  await page.locator(".application-nav summary").click();
   await page.getByRole("navigation", { name: "Applications" }).getByRole("button", { name: model.applications.find((app) => app.key === "rdm-systems").name, exact: true }).click();
   assert.equal(new URL(page.url()).searchParams.get("workspaceDraftId"), first);
   await page.reload();
-  await shown(page.getByText("Partner reviewed", { exact: true }).first());
+  await shown(page.getByRole("main").getByRole("button", { name: "Partner reviewed", exact: true }));
   await open(domain, first);
   await validate();
   const revision = await publish();
@@ -219,7 +221,7 @@ try {
   assert.equal((await api(`/workspaces/${workspaceKey}/revisions`)).items.length, 1);
   // Record and aggregate conflict: preserve entered controls and require explicit retry.
   await open(domain, second);
-  await page.getByRole("button", { name: "Edit object", exact: true }).click();
+  await recordAction(page, "Edit all fields");
   await dialog().getByLabel("Name", { exact: true }).fill("My preserved input");
   const latestDraft = await api(`/workspace-drafts/${second}`);
   const latestObject = await get(domain, second);
@@ -270,7 +272,7 @@ try {
   await open(domain);
   const fourth = await startDraft("Draft deletion review");
   await open(domain, fourth);
-  await page.getByRole("button", { name: "Delete object", exact: true }).click();
+  await recordAction(page, "Delete record");
   await confirm().getByRole("button", { name: "Delete", exact: true }).click();
   await shown(confirm().getByRole("button", { name: "Confirm deletion", exact: true }));
   const beforeDelete = await api(`/workspace-drafts/${fourth}`);
@@ -290,7 +292,7 @@ try {
   assert.equal((await fetch(`${apiUrl}/api/v1/objects/translation/${translation.id}?workspaceDraftId=${fourth}`)).status, 404);
   // Independent system hierarchy can be deleted using the same draft control.
   await open(system, fourth);
-  await page.getByRole("button", { name: "Delete object", exact: true }).click();
+  await recordAction(page, "Delete record");
   await confirm().getByRole("button", { name: "Delete", exact: true }).click();
   await confirm().getByRole("button", { name: "Confirm deletion", exact: true }).click();
   await confirm().waitFor({ state: "hidden" });

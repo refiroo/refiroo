@@ -94,3 +94,53 @@ server logs and `report.json` in its printed temporary evidence directory.
 Exact failed-page retry is additionally locked by the focused history-feed component regression; the
 real-backend runner uses the API's normal bounded page. WP10 still owns composed release, full
 accessibility/visual, migration and packaging acceptance.
+
+## UI-01 navigation foundation
+
+`test:browser` also checks the compact shell, all configured Master/System views, hierarchy
+continuation across mode changes, touch/keyboard drawer dismissal and focus restoration, retained
+search and collection position, named drafts in two workspaces, and desktop/mobile model navigation.
+It captures 1440px and 390px screens plus a 720px CSS viewport for 200%-zoom-equivalent reflow.
+This is not an operating-system browser-zoom or manual assistive-technology test.
+
+## UI-02 collection controls
+
+`test:browser` additionally exercises Filter chips, zero/false and date operations, null/unset
+distinctions, cursor reset, heading and menu sorting, column visibility, density, URL-backed page
+size/reload, mobile column access and popover focus for Domain and System collections. The embedded
+Codelist collection exercises display/page-size controls at desktop and 390px, alongside its existing
+failed-page preservation/retry checks. Successful requests use the isolated real backend. Screenshots
+and `report.json` are recorded with the navigation evidence. This does not supply UI-07 automated
+accessibility/visual baselines or UI-05 preference persistence.
+
+## UI-03A navigation preservation
+
+`test:browser` includes `ui03a-navigation.mjs` in the same isolated backend harness. Domain and System
+records in Live and a named Draft retain filtered later-page origins through record reload and
+Back/Forward. At 1440px and 390px it verifies cancelled navigation preserves editable input, explicit
+discard permits navigation, native reload cancellation retains the form, and a delayed real save
+blocks Back until completion. Cross-application related-record reload returns to the original list.
+The existing authoring and draft runners exercise successful writes, conflicts and signed deletion
+through the guarded record editors. Evidence is written to the runner's temporary output directory.
+This section records the UI-03A navigation coverage. UI-03B extends it below; UI-07 remains deferred.
+
+## UI-03B inspector and record actions
+
+The navigation runner now checks the full-width collection-record default, reload/Back/Forward,
+canonical Copy link, all configured panel headings, mobile single-screen layout, real save refresh,
+right-click and keyboard row menus, and last-row deletion with filter-preserving page recovery.
+Domain and System are covered in Live and Draft at 1440px and 390px. The hierarchy regression starts
+in a codelist record and selects a master value from Browse hierarchy: the unrelated collection
+must disappear, Value details must be available in the full record view, and reload must preserve it.
+
+The live-authoring, draft and history runners use the visible Record actions menu and retain their
+mutation, conflict, signed-deletion and read-only assertions. UI-07 remains deferred; these screenshots
+and interaction checks do not establish an accessibility audit or automated visual baselines.
+
+### Hierarchy preferences correction
+
+The navigation runner also verifies Browse hierarchy first and selected on the first visit, saved
+Views/hierarchy selection across reloads without changing the selected record URL, separate branch toggles that
+retain the selected record, collapsed and expanded state restored across real reloads, and keyboard
+expansion at desktop/mobile widths. Preferences are browser-local per workspace/application.
+See [correction evidence](../../review-notes/frontend-redesign-2026-09-10/hierarchy-preferences-evidence/README.md).

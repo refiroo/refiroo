@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
 import { useWorkspaceData, useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { errorMessage } from "@/api/errors";
 import { fallbackDetail } from "@/model/defaults";
@@ -19,6 +20,10 @@ export function ObjectDetail({
   workspaceKey,
   onOpen,
   onBack,
+  showBackToList = true,
+  inspector = false,
+  onExpand,
+  initialAction,
   readOnly = true,
   onChanged = () => undefined,
 }: {
@@ -27,15 +32,21 @@ export function ObjectDetail({
   objectTypeKey: string;
   objectId: string;
   workspaceKey: string;
-  onOpen: (objectTypeKey: string, objectId: string, applicationKey?: string) => void;
+  onOpen: (objectTypeKey: string, objectId: string, applicationKey?: string, action?: "edit" | "delete") => void;
   onBack: () => void;
+  showBackToList?: boolean;
+  inspector?: boolean;
+  onExpand?: () => void;
+  initialAction?: "edit" | "delete";
   readOnly?: boolean;
   onChanged?: () => void;
 }) {
   const api = useDataApi();
   const { draft, revision } = useWorkspaceData();
-  const [editing, setEditing] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [editing, setEditing] = useState(initialAction === "edit");
+  const [deleting, setDeleting] = useState(initialAction === "delete");
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [panelRefresh, setPanelRefresh] = useState(0);
   const [object, setObject] = useState<ObjectItem>();
   const [loading, setLoading] = useState(true);
@@ -44,7 +55,7 @@ export function ObjectDetail({
   const objectType = objectTypeFor(model, objectTypeKey);
   const detail =
     application.details.find((item) => item.objectTypeKey === objectTypeKey) ??
-    (objectType ? fallbackDetail(objectType) : undefined);
+    (objectType ? fallbackDetail(objectType, model) : undefined);
 
   /**
    * Loads the object and rejects when it does not belong to the application and workspace the
@@ -82,6 +93,10 @@ export function ObjectDetail({
     // arrives after the route moved on and loadObject has no cancellation of its own.
   }, [api, application.key, objectId, objectTypeKey, workspaceKey]);
 
+  useEffect(() => {
+    if (!loading && !initialAction) titleRef.current?.focus();
+  }, [loading, objectId, inspector, initialAction]);
+
   if (loading) return <div className="page-loading">Loading object…</div>;
   if (error || !object || !objectType || !detail)
     return (
@@ -100,9 +115,11 @@ export function ObjectDetail({
           >
             Retry
           </button>
-          <button className="secondary" onClick={onBack}>
-            Back to list
-          </button>
+          {showBackToList && (
+            <button className="secondary" onClick={onBack}>
+              Back to list
+            </button>
+          )}
         </div>
       </div>
     );
@@ -145,7 +162,7 @@ export function ObjectDetail({
   }
 
   return (
-    <>
+    <article className={`record-detail${inspector ? " record-inspector" : ""}`} aria-label="Record details">
       <nav className="breadcrumbs" aria-label="Breadcrumb">
         {detail.breadcrumbs.showApplication && <button onClick={onBack}>{application.name}</button>}
         {detail.breadcrumbs.showAncestors &&
@@ -160,40 +177,54 @@ export function ObjectDetail({
           </span>
         )}
       </nav>
-      <header className="page-header detail-header">
+      <header
+        className="page-header detail-header"
+        onContextMenu={(event) => {
+          event.preventDefault();
+          setMenuOpen(true);
+        }}
+      >
         <div className="object-icon" style={{ background: application.color }}>
           {iconLetters(objectType.icon ?? objectType.name)}
         </div>
         <div className="detail-title">
           {detail.header.showObjectType && <p className="eyebrow">{objectType.name}</p>}
-          <h1>{String(title ?? object.name)}</h1>
+          <h1 ref={titleRef} tabIndex={-1}>
+            {String(title ?? object.name)}
+          </h1>
           {subtitle !== undefined && subtitle !== null && subtitle !== "" && <p>{String(subtitle)}</p>}
         </div>
         <div className="detail-actions">
-          {!readOnly && (
-            <>
-              <button className="primary" onClick={() => setEditing(true)}>
-                Edit object
-              </button>
-              <button className="text-danger" onClick={() => setDeleting(true)}>
-                Delete object
-              </button>
-            </>
+          <RecordActionMenu
+            object={object}
+            readOnly={readOnly}
+            label="Record actions"
+            isOpen={menuOpen}
+            onOpenChange={setMenuOpen}
+            onEdit={() => setEditing(true)}
+            onDelete={() => setDeleting(true)}
+          />
+          {onExpand && (
+            <button className="secondary expand-record" onClick={onExpand}>
+              Expand to full page
+            </button>
           )}
-          <button className="secondary" onClick={onBack}>
-            Back to list
-          </button>
+          {showBackToList && (
+            <button className="secondary" onClick={onBack}>
+              Back to list
+            </button>
+          )}
           <span className="version">v{object.version}</span>
         </div>
       </header>
       <div key={panelRefresh} className={`detail-grid ${sidePanels.length ? "with-side" : ""}`}>
-        <div className="panel-column">
+        {sidePanels.length > 0 && <aside className="panel-column side-panels">{sidePanels.map(renderPanel)}</aside>}
+        <div className="panel-column main-panels">
           {mainPanels.map(renderPanel)}
           {!draft && !revision && (
             <HistoryPanel objectTypeKey={objectTypeKey} objectId={objectId} refreshToken={historyRefresh} />
           )}
         </div>
-        {sidePanels.length > 0 && <aside className="panel-column side-panels">{sidePanels.map(renderPanel)}</aside>}
       </div>
       {editing && !readOnly && (
         <ObjectFormDialog
@@ -223,7 +254,7 @@ export function ObjectDetail({
           }}
         />
       )}
-    </>
+    </article>
   );
 }
 

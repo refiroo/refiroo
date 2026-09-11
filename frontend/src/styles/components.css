@@ -9,7 +9,7 @@
 }
 .page-header h1 {
   margin: 0;
-  font-size: clamp(25px, 2.2vw, 34px);
+  font-size: clamp(23px, 2vw, 28px);
   letter-spacing: -0.035em;
   line-height: 1.1;
 }
@@ -36,8 +36,7 @@
 .surface {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 13px;
-  box-shadow: 0 8px 26px rgba(22, 39, 33, 0.035);
+  border-radius: var(--radius-surface);
 }
 .collection-surface {
   max-width: 1500px;
@@ -1201,4 +1200,193 @@ tbody tr:last-child td {
 .error-state h1 {
   margin: 0 0 8px;
   color: var(--ink);
+}
+
+/* Collection controls share the existing React Aria focus and dismissal behavior. */
+.control-popover {
+  z-index: 100;
+  width: min(360px, calc(100vw - 24px));
+  max-height: min(650px, calc(100dvh - 32px));
+  overflow-y: auto;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px #172b241a;
+}
+.control-popover [role="dialog"] {
+  display: grid;
+  gap: 16px;
+  outline: none;
+}
+.control-popover header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.control-popover h2 {
+  margin: 0;
+  font-size: 16px;
+}
+.control-popover .toolbar-field,
+.control-popover .toolbar-filter {
+  color: var(--ink);
+}
+.display-columns {
+  display: grid;
+  gap: 8px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.display-columns legend {
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.display-columns label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+}
+.filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 16px 12px;
+}
+.filter-chips:empty {
+  display: none;
+}
+.filter-chips button {
+  font-size: 12px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.object-table {
+  max-height: 65vh;
+}
+.object-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.column-sort {
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+.object-table tbody tr:hover,
+.object-table tbody tr:focus-within {
+  background: #edf5f0;
+}
+.object-table .cell-link:focus-visible {
+  outline-offset: 3px;
+}
+.object-table.density-compact td {
+  padding: 8px 14px;
+}
+.mobile-columns-toggle {
+  display: none;
+}
+
+/* One shared record renderer, presented beside its originating collection when space permits. */
+.record-workspace {
+  min-width: 0;
+}
+.record-workspace.has-inspector {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(360px, 44%);
+  gap: 24px;
+  align-items: start;
+}
+.record-collection,
+.record-detail {
+  min-width: 0;
+}
+.record-inspector {
+  border-left: 1px solid var(--line);
+  padding-left: 24px;
+}
+.record-detail .detail-header {
+  min-height: 0;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding-bottom: 16px;
+}
+.record-detail .object-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  font-size: 11px;
+}
+.record-detail .detail-title {
+  flex: 1;
+  padding-left: 0;
+}
+.record-detail .detail-title h1 {
+  font-size: 22px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.record-inspector .detail-actions {
+  width: 100%;
+  flex-wrap: wrap;
+  margin-left: 0;
+}
+.record-inspector .detail-grid.with-side {
+  grid-template-columns: minmax(0, 1fr);
+}
+.record-inspector .side-panels {
+  position: static;
+  grid-template-columns: minmax(0, 1fr);
+}
+.record-inspector .attribute-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+.record-detail .empty-row,
+.record-detail .panel-state {
+  padding: 14px 16px;
+}
+.record-actions-column {
+  width: 44px;
+  padding: 4px;
+}
+.record-action-menu {
+  position: relative;
+}
+.record-action-feedback:not(:empty) {
+  display: block;
+  max-width: 240px;
+  padding: 6px;
+  font-size: 12px;
+  white-space: normal;
+}
+.object-table tr.selected-record > td {
+  background: #edf5f1;
+}
+.object-table tr.selected-record .cell-link {
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.record-inspector {
+  position: sticky;
+  top: 16px;
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  scrollbar-gutter: stable;
+}
+/* Read supporting record properties first. On wide full pages, preserve the two model regions. */
+.record-detail:not(.record-inspector) .detail-grid.with-side > .main-panels {
+  grid-column: 1;
+  grid-row: 1;
+}
+.record-detail:not(.record-inspector) .detail-grid.with-side > .side-panels {
+  grid-column: 2;
+  grid-row: 1;
 }

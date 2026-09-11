@@ -6,12 +6,14 @@
  */
 
 import { useState } from "react";
+import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorPages } from "@/lib/hooks/useCursorPages";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { objectTypeFor } from "@/model/lookup";
 import type { ObjectItem } from "@/types";
 import { InlineError } from "@/ui/InlineError";
+import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
 import { ObjectTable } from "@/ui/ObjectTable";
 import { Pagination } from "@/ui/Pagination";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
@@ -38,6 +40,8 @@ export function CollectionPanelTable({
   allowCreate: boolean;
 }) {
   const api = useDataApi();
+  const display = useTableDisplay(columns, `${application.key}:${object.id}:${objectTypeKey}`);
+  const [selectedPageSize, setPageSize] = useState(pageSize);
   const objectType = objectTypeFor(model, objectTypeKey);
   const [searchInput, setSearchInput] = useState("");
   const search = useDebouncedValue(searchInput.trim());
@@ -50,11 +54,11 @@ export function CollectionPanelTable({
             workspaceKey: object.workspaceKey,
             search,
             cursor,
-            pageSize,
+            pageSize: selectedPageSize,
             parentObjectId,
           })
       : null,
-    [application.key, object.workspaceKey, objectTypeKey, pageSize, parentObjectId, search],
+    [application.key, object.workspaceKey, objectTypeKey, selectedPageSize, parentObjectId, search],
   );
   const { loading, error } = pages;
 
@@ -76,11 +80,20 @@ export function CollectionPanelTable({
         <label className="search-box compact">
           <Icon name="search" />
           <input
+            aria-label={`Search ${objectType.pluralName.toLowerCase()}`}
             value={searchInput}
             onChange={(event) => setSearchInput(event.target.value)}
             placeholder={`Search ${objectType.pluralName.toLowerCase()}`}
           />
         </label>
+        <TableDisplay
+          model={model}
+          columns={columns}
+          display={display}
+          pageSize={selectedPageSize}
+          defaultPageSize={pageSize}
+          onPageSize={setPageSize}
+        />
         {allowCreate && !readOnly && (
           <button className="secondary" onClick={() => setCreating(true)}>
             <Icon name="plus" /> Add {objectType.name}
@@ -91,10 +104,21 @@ export function CollectionPanelTable({
       {(!error || pages.items.length > 0) && (
         <ObjectTable
           model={model}
-          columns={columns}
+          columns={display.columns}
+          compact={display.compact}
+          identityColumn={display.identity}
           objects={pages.items}
           loading={loading}
           onOpen={(item) => onOpen(item.objectTypeKey, item.id, item.applicationKey)}
+          renderActions={(item, menu) => (
+            <RecordActionMenu
+              object={item}
+              readOnly={readOnly}
+              onEdit={() => onOpen(item.objectTypeKey, item.id, item.applicationKey, "edit")}
+              onDelete={() => onOpen(item.objectTypeKey, item.id, item.applicationKey, "delete")}
+              {...menu}
+            />
+          )}
         />
       )}
       {!error && (

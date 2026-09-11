@@ -36,6 +36,90 @@ the originating collection query and page. Changing workspace or collection cont
 starts from the first page. A failed page read retains loaded rows from the same query;
 Retry repeats that request. Failed initial reads do not display a misleading empty state.
 
+UI-03A retains each record's originating collection in its browser-history entry, including the
+query, cursor trail and workspace/draft/revision context. Record reload and Back/Forward restore
+that entry's origin, including after following a related record in another application. Origins
+are checked against the model and selected data context; invalid origins fall back to the record's
+matching collection. Copied record URLs contain no origin and open the full detail page.
+
+Record, individual-value and relationship editors require confirmation before router navigation
+discards unsaved input. Cancelling Back/Forward retains the editor and restores its URL; reload/tab
+close use the browser's native unsaved-input prompt. In-flight editor/deletion requests refuse router
+navigation until completion. Successful saves release their guard before opening the saved record;
+failed saves keep entered values protected. Form input is not persisted. Browser-native unload
+prompts remain subject to browser support and user interaction.
+
+## Record presentation
+
+Collection rows open the same full-width record presentation used by Browse hierarchy, at desktop
+and mobile widths. The originating collection remains mounted but hidden, retaining its query,
+page and temporary display choices. Back to list restores it and returns focus to the selected row
+when present. Reload and browser Back/Forward preserve the full-width presentation and origin.
+
+Browse hierarchy retains its standalone record-navigation behavior: selecting a hierarchy node
+opens the configured full record view and does not retain an unrelated table in the middle. Further
+hierarchy selections remain standalone. A copied record link likewise opens the full record view.
+Records opened through Browse hierarchy omit Back to list, including after reload and related-record
+navigation. Collection-based navigation retains it; direct links retain their fallback collection
+return. Explicit application/ancestor breadcrumbs remain available.
+
+Inspector and full-page views share the same detail renderer, data context and configured panels.
+The supporting side region appears first in stacked inspector/mobile layouts, keeping record
+properties readily available; wide full pages keep the main and side regions side by side. Ordering
+within each region is retained. Empty sections use compact spacing and keep their add controls.
+Live record activity remains separate from workspace revision history.
+
+Record actions offers Edit all fields, Copy link and Delete record. Collection and embedded-table
+rows expose the same actions through a visible menu, right-click or Shift+F10. Row edit/delete opens
+the selected record's existing coherent form or signed-impact confirmation. Read-only records offer
+Copy link only. Copy preserves workspace/draft/revision identity and reports clipboard refusal with
+a manual-copy recovery action.
+
+Saves refresh the visible record and collection without losing continuation or previously loaded
+rows on refresh failure. Changing collection controls retains the selected inspector while updating
+its return query. Deletion closes the deleted record and refreshes the collection; if its later page
+is now empty, paging returns to a preceding page while retaining the query.
+
+## Navigation presentation
+
+UI-01 places workspace and application selection above the configured views in a compact neutral
+sidebar. Browse hierarchy appears first, followed by Views. On the first visit hierarchy is selected;
+after a choice, browser local storage restores the selected mode on reload from the first render.
+The preference applies across applications and workspaces and does not change the current route. Each branch
+has a separate keyboard-accessible expand/collapse button that does not select the record. Branches
+start expanded; explicit collapsed choices persist in browser local storage per workspace/application
+using stable record IDs, shared across Live, Draft and history contexts. Expanding a parent restores
+its descendants' own choices. Invalid or unavailable storage falls back to usable session state.
+These preferences belong to this browser, not a server-synced account. Hiding either navigation or
+the mobile drawer preserves explorer search and continuation. Application choices and views use
+vertical lists. Model administration has a separate secondary entry; model and schema versions are
+available through Information. The main content shows workspace/application and Live, named Draft,
+or historical context, followed by the page heading.
+
+At widths up to 760px, Browse application opens a modal navigation drawer. Escape, Close and outside
+interaction dismiss it and restore focus. The selected location remains visible in the main content
+when closed. Navigation preserves the existing workspace, draft/revision and collection route rules.
+
+## Collection presentation
+
+UI-02 keeps search visible and places configured typed filters behind Filter. Applied filters are
+individually removable; removing one preserves the others and search. Sortable configured headings
+and the Sort menu share one active sort, indicated only on its actual column. Display controls expose
+only configured columns, retain a record identity column, and offer comfortable/compact rows.
+
+In the collection-only view, search, filters, sort, page size and continuation remain URL-backed;
+with a selected inspector they belong to its browser-history collection origin. Changing a query
+control starts at page one; column visibility and density do not change the query or page. Embedded
+collection page size belongs to that mounted panel. Display choices are temporary and reset on leaving
+the collection/reloading; local persistence belongs to UI-05. Embedded panels expose search and display,
+without inventing filter/sort configuration absent from their model contract.
+
+At mobile widths the table prioritises record identity and two other visible configured columns.
+Show all columns exposes the remainder with horizontal table scrolling; Display also allows choosing
+columns. Tables retain sticky headings within bounded scrolling, keyboard record links and focus
+highlighting. Counts describe only the loaded page; loading, an empty result and failed reads remain
+distinct. UI-03B adds single-record selection for the inspector without introducing bulk selection.
+
 ## Everyday record maintenance
 
 Open a live record, edit the required fields in one coherent form and save once. Root creation starts
@@ -170,3 +254,10 @@ Exercise at least two record types and ownership/containment configurations. Ret
 Use semantic controls, visible focus, keyboard operation, meaningful labels, modal focus restoration,
 dirty/busy guards and one clear primary action for the task. Record accessibility and visual evidence
 actually executed; neither a mock fixture nor a route returning 200 proves the full flow.
+
+### Unconfigured record details
+
+When an object type has no explicit detail configuration, its generic fallback derives child
+collections from declared containment relationships and displays its incoming/outgoing relationships.
+Properties and hierarchy use the side region, matching configured record layouts. This covers
+System groups and Translation groups without domain-specific renderer branches or model changes.

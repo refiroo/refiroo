@@ -30,9 +30,13 @@ export function defaultRoute(
   };
 }
 
-export function parseRoute(model: EngineModel, defaultWorkspaceKey = DEFAULT_WORKSPACE): RouteState {
-  const parts = window.location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
-  const query = new URLSearchParams(window.location.search);
+export function parseRoute(
+  model: EngineModel,
+  defaultWorkspaceKey = DEFAULT_WORKSPACE,
+  location: Pick<Location, "pathname" | "search"> = window.location,
+): RouteState {
+  const parts = location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
+  const query = new URLSearchParams(location.search);
   const workspaceKey = query.get("workspaceKey")?.trim() || defaultWorkspaceKey;
   const workspaceDraftId = query.get("workspaceDraftId")?.trim() || undefined;
   const workspaceRevisionId = workspaceDraftId ? undefined : query.get("workspaceRevisionId")?.trim() || undefined;

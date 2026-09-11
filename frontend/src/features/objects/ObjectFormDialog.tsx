@@ -1,3 +1,4 @@
+import { useNavigationGuard } from "@/routing/navigationGuard";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
@@ -97,6 +98,7 @@ export function ObjectFormDialog({
     setRequiredRelationObjects({});
   }, [activeWorkspaceKey]);
 
+  const finishNavigation = useNavigationGuard(dirty, saving, onClose);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
@@ -128,7 +130,9 @@ export function ObjectFormDialog({
               : [{ attributeTypeKey: definition.key, value }];
           });
         if (attributes.length) payload.attributes = attributes;
-        onSaved(await api.updateObject(objectType.key, object.id, payload));
+        const saved = await api.updateObject(objectType.key, object.id, payload);
+        finishNavigation();
+        onSaved(saved);
       } else {
         const attributes = bindings
           .filter((binding) => !binding.readOnly)
@@ -144,16 +148,16 @@ export function ObjectFormDialog({
           otherObjectId: requiredRelationObjects[group.relationTypeKey]!.id,
           attributes: {},
         }));
-        onSaved(
-          await api.createObject(objectType.key, {
-            applicationKey,
-            workspaceKey: activeWorkspaceKey,
-            name,
-            parentObjectId: parentId ?? undefined,
-            attributes,
-            initialRelations,
-          }),
-        );
+        const saved = await api.createObject(objectType.key, {
+          applicationKey,
+          workspaceKey: activeWorkspaceKey,
+          name,
+          parentObjectId: parentId ?? undefined,
+          attributes,
+          initialRelations,
+        });
+        finishNavigation();
+        onSaved(saved);
       }
     } catch (cause) {
       if (object && (isApiError(cause, "version_conflict") || isApiError(cause, "workspace_draft_version_conflict"))) {
@@ -220,6 +224,7 @@ export function ObjectFormDialog({
               selectedLabel={object?.path.at(-2)?.name}
               required={parentRequired}
               onChange={(item) => {
+                setDirty(true);
                 editedParent.current = true;
                 setParentId(item?.id ?? null);
               }}
@@ -271,9 +276,10 @@ export function ObjectFormDialog({
                       workspaceKey={activeWorkspaceKey}
                       required
                       value={requiredRelationObjects[group.relationTypeKey]}
-                      onChange={(item) =>
-                        setRequiredRelationObjects((current) => ({ ...current, [group.relationTypeKey]: item }))
-                      }
+                      onChange={(item) => {
+                        setDirty(true);
+                        setRequiredRelationObjects((current) => ({ ...current, [group.relationTypeKey]: item }));
+                      }}
                     />
                   </>
                 )}

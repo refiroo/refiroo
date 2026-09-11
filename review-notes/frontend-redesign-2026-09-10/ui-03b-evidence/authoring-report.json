@@ -1,0 +1,20 @@
+{
+  "browser": "152.0.7977.83",
+  "viewports": [
+    "1440x1000",
+    "390x844"
+  ],
+  "checks": [
+    "Domain: root create, zero/false, concurrent correction with current content, unrelated field retained, cancelled edit, unavailable record retained",
+    "System: root create, zero/false, concurrent correction with current content, unrelated field retained, cancelled edit, unavailable record retained",
+    "Master and System containment: one-save child creates and managed parent links; coherent parent move",
+    "Ordinary relationship add/edit/delete, typed zero and explicit conflict reconciliation keep both records; recreated independent association for deletion impact",
+    "Translation creation from target and group: two target types, atomic required parent/target, rejected missing content and duplicate active target/language preserve input and leave no partial records",
+    "Individual fields: add/edit/remove, last meaningful content refusal, conflict shows current content and preserves input",
+    "390x844 keyboard opens edit, traps and restores focus, Escape cancels, no horizontal page overflow",
+    "Signed deletion: cancel before/after impact, containment and required-target ownership, stale dependent change refused without deletes, fresh explicit confirmation, independent System and Translation hierarchies survive",
+    "All authoring uses live canonical APIs with no drafts/revisions; catalogue retirement removes every tested write control"
+  ],
+  "pageErrors": [],
+  "isolatedDatabase": "/var/folders/dg/lftfjtjn4yzfdj4gf3751np00000gp/T/rdm-wp9-authoring-b8IHwq/database.sqlite"
+}

@@ -36,6 +36,12 @@ export type RouteState =
       applicationKey: string;
       objectTypeKey: string;
       objectId: string;
+      /** Browser-history context, deliberately absent from the shareable record URL. */
+      collectionOrigin?: Extract<RouteState, { kind: "list" }> | null;
+      /** Presentation belongs to the history entry, not the canonical record link. */
+      fullPage?: boolean;
+      /** One-shot row action; never restored from history or a copied link. */
+      actionRequest?: { action: "edit" | "delete"; key: number };
       workspaceKey: string;
       workspaceDraftId?: string;
       workspaceRevisionId?: string;

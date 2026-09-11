@@ -1,0 +1,16 @@
+{
+  "browser": "152.0.7977.83",
+  "viewports": [
+    "1440x1000",
+    "390x844"
+  ],
+  "checks": [
+    "SC-05 no-publication current-live copy; SC-06 two-type draft edits with zero/false, translation create with atomic ownership, individual field edit and typed ordinary relation remain invisible live, then activate together preserving unrelated correction and addition; application navigation and reload retain draft",
+    "SC-05 post-publication additions and edits copied; record/aggregate conflict retains form input with explicit retry; SC-06 touched-record activation conflict names identity, preserves draft and publishes no other changes",
+    "SC-06 validation before a later independent live change; invalid merged unique-field graph returns 422 diagnostics with no publication or partial writes; discard cancellation and confirmed discard leave live untouched",
+    "Draft SC-04 two containment types: signed preview and stale-preview refusal; retry obtains current aggregate and new preview; deleting Master containment retains independent System hierarchy; draft deletions leave live untouched; narrow confirmation Escape/focus restoration"
+  ],
+  "pageErrors": [],
+  "canonicalDraftWrites": 15,
+  "isolatedDatabase": "/var/folders/dg/lftfjtjn4yzfdj4gf3751np00000gp/T/rdm-wp9-drafts-pB2ZWL/database.sqlite"
+}

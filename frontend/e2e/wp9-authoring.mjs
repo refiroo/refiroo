@@ -1,3 +1,4 @@
+import { recordAction } from "./record-actions.mjs";
 // Real-backend SC-02/SC-03 and live SC-04 regression. All model/data mutations target a temporary database.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -96,7 +97,7 @@ try {
   const value = (object, key) => object.attributes.find((attribute) => attribute.attributeTypeKey === key)?.value;
   async function open(object) {
     await page.goto(`${uiUrl}/apps/${object.applicationKey}/objects/${object.objectTypeKey}/${object.id}?workspaceKey=${workspaceKey}`);
-    await shown(page.getByRole("button", { name: "Edit object", exact: true }));
+    await shown(page.getByRole("button", { name: "Record actions", exact: true }));
   }
   async function save(label = "Save changes", status = 200) {
     const response = page.waitForResponse((response) => (label === "Save" ? ["POST", "PATCH"].includes(response.request().method()) : response.request().method() === (label === "Create" ? "POST" : "PATCH")) && response.url().includes("/api/v1/objects"));
@@ -127,8 +128,8 @@ try {
     assert.equal(item.workspaceKey, workspaceKey);
     assert.equal(value(item, "qa-count"), 0);
     assert.equal(value(item, "active"), false);
-    await shown(page.getByRole("button", { name: "Edit object", exact: true }));
-    await page.getByRole("button", { name: "Edit object", exact: true }).click();
+    await shown(page.getByRole("button", { name: "Record actions", exact: true }));
+    await recordAction(page, "Edit all fields");
     await dialog().getByLabel("Name", { exact: true }).fill(`${label} mine`);
     await dialog().getByLabel("Count", { exact: true }).fill("1");
     await api(`/objects/${type}/${item.id}`, { expectedVersion: item.version, name: `${label} theirs`, attributes: [{ attributeTypeKey: "description", value: "Unrelated concurrent content" }] }, "PATCH");
@@ -143,7 +144,7 @@ try {
     assert.equal(value(fresh, "qa-count"), 0);
     assert.equal(value(fresh, "active"), false);
     assert.equal(value(fresh, "description"), "Unrelated concurrent content");
-    await page.getByRole("button", { name: "Edit object", exact: true }).click();
+    await recordAction(page, "Edit all fields");
     await dialog().getByLabel("Name", { exact: true }).fill("Cancelled");
     await page.keyboard.press("Escape");
     await dialog().waitFor({ state: "hidden" });
@@ -161,11 +162,11 @@ try {
   const parentRelations = await api(`/relations?objectId=${master.id}&workspaceKey=${workspaceKey}`);
   assert(parentRelations.items.some((item) => item.relation.relationTypeKey === "codelist-contains-value"));
   await open(master);
-  await page.getByRole("button", { name: "Edit object", exact: true }).click();
+  await recordAction(page, "Edit all fields");
   await dialog().getByLabel("Select object", { exact: true }).selectOption(otherList.id);
   await save();
   assert.equal((await get(master)).parentObjectId, otherList.id);
-  await page.getByRole("button", { name: "Edit object", exact: true }).click();
+  await recordAction(page, "Edit all fields");
   await dialog().getByLabel("Select object", { exact: true }).selectOption(codelist.id);
   await save();
   checks.push("Master and System containment: one-save child creates and managed parent links; coherent parent move");
@@ -265,7 +266,9 @@ try {
   checks.push("Individual fields: add/edit/remove, last meaningful content refusal, conflict shows current content and preserves input");
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: "Edit object", exact: true }).focus();
+  await page.getByRole("button", { name: "Record actions", exact: true }).focus();
+  await page.keyboard.press("Enter");
+  await page.getByRole("menuitem", { name: "Edit all fields", exact: true }).focus();
   await page.keyboard.press("Enter");
   assert.equal(await dialog().getByLabel("Name", { exact: true }).evaluate((node) => node === document.activeElement), true);
   await dialog().getByRole("button", { name: "Save changes" }).focus();
@@ -275,12 +278,12 @@ try {
   await page.screenshot({ path: resolve(output, "narrow-authoring.png"), fullPage: true });
   await page.keyboard.press("Escape");
   await dialog().waitFor({ state: "hidden" });
-  assert.equal(await page.getByRole("button", { name: "Edit object", exact: true }).evaluate((node) => node === document.activeElement), true);
+  await page.waitForFunction(() => document.activeElement?.getAttribute("aria-label") === "Record actions");
   checks.push("390x844 keyboard opens edit, traps and restores focus, Escape cancels, no horizontal page overflow");
   await page.setViewportSize({ width: 1440, height: 1000 });
 
   await open(codelist);
-  await page.getByRole("button", { name: "Delete object", exact: true }).click();
+  await recordAction(page, "Delete record");
   await confirm().getByRole("button", { name: "Cancel", exact: true }).click();
   await get(codelist);
   async function deletionClick(label, status) {
@@ -290,7 +293,7 @@ try {
     if (result.status() !== status) assert.fail(`Expected ${status}, received ${result.status()}: ${await result.text()}`);
     return result.status() === 204 ? undefined : result.json();
   }
-  await page.getByRole("button", { name: "Delete object", exact: true }).click();
+  await recordAction(page, "Delete record");
   const preview = await deletionClick("Delete", 409);
   assert(preview.error.details.objectsToDelete.some((item) => item.id === translation.id));
   await shown(confirm().getByText(/Czech locker/));
@@ -298,7 +301,7 @@ try {
   await page.screenshot({ path: resolve(output, "deletion-impact.png"), fullPage: true });
   await confirm().getByRole("button", { name: "Cancel", exact: true }).click();
   await get(master); await get(translation); await get(systemValue);
-  await page.getByRole("button", { name: "Delete object", exact: true }).click();
+  await recordAction(page, "Delete record");
   await deletionClick("Delete", 409);
   const changed = await get(translation);
   await api(`/objects/translation/${translation.id}`, { expectedVersion: changed.version, name: "Changed dependent" }, "PATCH");
@@ -326,8 +329,10 @@ try {
     await page.goto(`${uiUrl}/apps/rdm-master/objects/domain/${roots.domain.id}?workspaceKey=${workspaceKey}`);
     await shown(page.getByText("Read-only workspace", { exact: true }));
     await shown(page.getByRole("heading", { name: "Domain mine", exact: true }));
-    assert.equal(await page.getByRole("button", { name: "Edit object", exact: true }).count(), 0);
-    assert.equal(await page.getByRole("button", { name: "Delete object", exact: true }).count(), 0);
+    await page.getByRole("button", { name: "Record actions", exact: true }).click();
+    assert.equal(await page.getByRole("menuitem", { name: "Edit all fields", exact: true }).count(), 0);
+    assert.equal(await page.getByRole("menuitem", { name: "Delete record", exact: true }).count(), 0);
+    await page.keyboard.press("Escape");
     assert.equal(await page.locator("section.panel").getByRole("button", { name: /^Add |^Edit$|^Remove$/ }).count(), 0);
     await page.getByRole("button", { name: "Back to list", exact: true }).click();
     await shown(page.getByRole("heading", { name: "Domains", exact: true }));

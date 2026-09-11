@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { allowNavigation } from "@/routing/navigationGuard";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import { domainObject, testModel } from "@/test/fixtures";
@@ -10,11 +11,41 @@ vi.mock("@/api/client", () => ({
 }));
 
 describe("ObjectFormDialog", () => {
+  afterEach(() => vi.restoreAllMocks());
   beforeEach(() => {
     vi.mocked(api.createObject).mockResolvedValue(domainObject);
     vi.mocked(api.updateObject).mockResolvedValue({ ...domainObject, name: "Updated", version: 2 });
     vi.mocked(api.objects).mockResolvedValue({ items: [domainObject], nextCursor: null });
     vi.mocked(api.object).mockResolvedValue({ ...domainObject, version: 2 });
+  });
+
+  it("preserves edits on refused navigation and failed save, then permits navigation from successful save", async () => {
+    const confirm = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const onClose = vi.fn();
+    const onSaved = vi.fn(() => expect(allowNavigation()).toBe(true));
+    vi.mocked(api.updateObject).mockRejectedValueOnce(new Error("Temporarily unavailable"));
+    render(
+      <ObjectFormDialog
+        model={testModel}
+        applicationKey="test-app"
+        workspaceKey="default"
+        objectType={testModel.objectTypes[0]}
+        object={domainObject}
+        onClose={onClose}
+        onSaved={onSaved}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Retained" } });
+    expect(allowNavigation()).toBe(false);
+    expect(screen.getByLabelText("Name")).toHaveValue("Retained");
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await screen.findByText("Temporarily unavailable");
+    expect(allowNavigation()).toBe(false);
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByLabelText("Name")).toHaveValue("Retained");
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+    await waitFor(() => expect(onSaved).toHaveBeenCalledOnce());
+    expect(confirm).toHaveBeenCalledTimes(2);
   });
 
   it("closes on Escape and keeps focus on the field the form opened with", () => {

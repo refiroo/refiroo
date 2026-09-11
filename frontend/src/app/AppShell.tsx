@@ -4,8 +4,7 @@
  * views each one declares and the product name — so the frame carries no knowledge of any
  * particular application.
  *
- * The models route hides the sidebar, since model administration is global rather than scoped to an
- * application and workspace.
+ * Model administration has a separate secondary entry and omits workspace controls.
  */
 
 import { useState } from "react";
@@ -15,6 +14,8 @@ import { WorkspaceSelector } from "@/features/workspaces/WorkspaceSelector";
 import { viewRoute } from "@/routing/routes";
 import type { ApplicationDefinition, EngineModel, ObjectItem, RouteState, Workspace } from "@/types";
 import { Icon } from "@/ui/Icon";
+import { NavigationDrawer } from "@/ui/NavigationDrawer";
+import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { Notice } from "@/ui/Notice";
 
 export function AppShell({
@@ -44,20 +45,30 @@ export function AppShell({
   onOpenObject: (item: Pick<ObjectItem, "applicationKey" | "objectTypeKey" | "id" | "workspaceKey">) => void;
   children: ReactNode;
 }) {
+  const { draft } = useWorkspaceData();
+  const [hierarchy, setHierarchy] = useState(() => {
+    try {
+      return window.localStorage.getItem("rdm:navigation-mode:v1") !== "views";
+    } catch {
+      return true;
+    }
+  });
+  function selectNavigationMode(nextHierarchy: boolean) {
+    setHierarchy(nextHierarchy);
+    try {
+      window.localStorage.setItem("rdm:navigation-mode:v1", nextHierarchy ? "hierarchy" : "views");
+    } catch {
+      // Keep navigation usable when browser storage is unavailable.
+    }
+  }
   const [navigationOpen, setNavigationOpen] = useState(false);
-  const activeView =
-    activeRoute.kind === "list" ? application.views.find((view) => view.key === activeRoute.viewKey) : undefined;
-  const activeObjectType =
-    activeRoute.kind === "detail"
-      ? model.objectTypes.find((item) => item.key === activeRoute.objectTypeKey)
-      : undefined;
   const workspaceDraftId =
     activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.workspaceDraftId : undefined;
   const workspaceRevisionId =
     activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.workspaceRevisionId : undefined;
 
   return (
-    <div className={`app-shell${activeRoute.kind === "models" ? " models-mode" : ""}`}>
+    <div className="app-shell">
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
@@ -66,105 +77,125 @@ export function AppShell({
           <span>R</span>
           <strong>{model.product.name}</strong>
         </button>
-        <nav className="application-nav" aria-label="Applications">
-          {model.applications.map((item) => (
-            <button
-              key={item.key}
-              className={activeRoute.kind !== "models" && item.key === application.key ? "active" : ""}
-              aria-current={activeRoute.kind !== "models" && item.key === application.key ? "page" : undefined}
-              onClick={() => onSelectApplication(item)}
-            >
-              <span style={{ backgroundColor: item.color }} />
-              {item.name}
-            </button>
-          ))}
-          <button
-            className={activeRoute.kind === "models" ? "active" : ""}
-            aria-current={activeRoute.kind === "models" ? "page" : undefined}
-            onClick={() => onNavigate({ kind: "models" })}
-          >
-            Models
-          </button>
-        </nav>
-        {activeRoute.kind !== "models" && (
-          <WorkspaceSelector
-            workspaceKey={activeRoute.workspaceKey}
-            onChange={onChangeWorkspace}
-            onResolved={onWorkspaceResolved}
-          />
-        )}
-        <div className="release-chip">
-          <span />
-          {model.release.version}
-        </div>
+        <details className="version-info">
+          <summary>Information</summary>
+          <p>Model version {model.release.version}</p>
+          <p>Schema {model.schemaVersion}</p>
+        </details>
       </header>
-      {activeRoute.kind !== "models" && (
-        <button
-          type="button"
-          className="navigation-toggle"
-          aria-expanded={navigationOpen}
-          aria-controls="workspace-navigation"
-          onClick={() => setNavigationOpen((open) => !open)}
-        >
-          <Icon name="menu" />
-          {navigationOpen ? "Hide application navigation" : "Browse application"}
-        </button>
-      )}
-      {activeRoute.kind !== "models" && (
-        <aside id="workspace-navigation" className={`workspace-sidebar${navigationOpen ? " navigation-open" : ""}`}>
-          <nav className="view-nav" aria-label={`${application.name} views`}>
-            <p className="nav-label">{application.name}</p>
-            <h2>Views</h2>
-            {application.views.map((view) => (
-              <button
-                key={view.key}
-                className={activeRoute.kind === "list" && activeRoute.viewKey === view.key ? "active" : ""}
-                aria-current={activeRoute.kind === "list" && activeRoute.viewKey === view.key ? "page" : undefined}
-                onClick={() => {
-                  setNavigationOpen(false);
-                  onNavigate({
-                    ...viewRoute(application, view.key, activeRoute.workspaceKey),
-                    workspaceDraftId,
-                    workspaceRevisionId,
-                  });
-                }}
-              >
-                <span>{view.name}</span>
-                <small>{view.type}</small>
-              </button>
-            ))}
-          </nav>
-          {activeRoute.kind !== "drafts" && activeRoute.kind !== "history" && (
-            <Explorer
-              key={`${application.key}:${activeRoute.workspaceKey}`}
-              model={model}
-              application={application}
+      <button
+        type="button"
+        className="navigation-toggle"
+        aria-haspopup="dialog"
+        aria-controls="workspace-navigation"
+        aria-expanded={navigationOpen}
+        onClick={() => setNavigationOpen(true)}
+      >
+        <Icon name="menu" /> Browse application
+      </button>
+      <NavigationDrawer open={navigationOpen} onClose={() => setNavigationOpen(false)}>
+        <div id="workspace-navigation">
+          {activeRoute.kind !== "models" && (
+            <WorkspaceSelector
               workspaceKey={activeRoute.workspaceKey}
-              activeObjectId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
-              refreshToken={refreshToken}
-              onOpen={onOpenObject}
+              onChange={onChangeWorkspace}
+              onResolved={onWorkspaceResolved}
             />
           )}
-        </aside>
-      )}
+          <nav className="application-nav" aria-label="Applications">
+            <details>
+              <summary>Application · {application.name}</summary>
+              {model.applications.map((item) => (
+                <button
+                  key={item.key}
+                  aria-current={activeRoute.kind !== "models" && item.key === application.key ? "page" : undefined}
+                  onClick={(event) => {
+                    event.currentTarget.closest("details")?.removeAttribute("open");
+                    onSelectApplication(item);
+                    setNavigationOpen(false);
+                  }}
+                >
+                  {item.name}
+                </button>
+              ))}
+            </details>
+          </nav>
+          {activeRoute.kind !== "models" && (
+            <>
+              <div className="navigation-mode" role="group" aria-label="Navigation mode">
+                <button aria-pressed={hierarchy} onClick={() => selectNavigationMode(true)}>
+                  Browse hierarchy
+                </button>
+                <button aria-pressed={!hierarchy} onClick={() => selectNavigationMode(false)}>
+                  Views
+                </button>
+              </div>
+              <nav className="view-nav" aria-label={`${application.name} views`} hidden={hierarchy}>
+                {application.views.map((view) => (
+                  <button
+                    key={view.key}
+                    className={activeRoute.kind === "list" && activeRoute.viewKey === view.key ? "active" : ""}
+                    aria-current={activeRoute.kind === "list" && activeRoute.viewKey === view.key ? "page" : undefined}
+                    onClick={() => {
+                      setNavigationOpen(false);
+                      onNavigate({
+                        ...viewRoute(application, view.key, activeRoute.workspaceKey),
+                        workspaceDraftId,
+                        workspaceRevisionId,
+                      });
+                    }}
+                  >
+                    <span>{view.name}</span>
+                  </button>
+                ))}
+              </nav>
+              <div hidden={!hierarchy}>
+                <Explorer
+                  key={`${application.key}:${activeRoute.workspaceKey}`}
+                  model={model}
+                  application={application}
+                  workspaceKey={activeRoute.workspaceKey}
+                  activeObjectId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
+                  refreshToken={refreshToken}
+                  onOpen={(item) => {
+                    onOpenObject(item);
+                    setNavigationOpen(false);
+                  }}
+                />
+              </div>
+            </>
+          )}
+          <nav className="secondary-navigation" aria-label="Administration">
+            <button
+              aria-current={activeRoute.kind === "models" ? "page" : undefined}
+              onClick={() => {
+                onNavigate({ kind: "models" });
+                setNavigationOpen(false);
+              }}
+            >
+              Models
+            </button>
+          </nav>
+        </div>
+      </NavigationDrawer>
       <main id="main-content" className="workspace-main" tabIndex={-1}>
         {activeRoute.kind !== "models" && (
-          <ol className="shell-context" aria-label="Current context">
-            <li>
-              <small>Workspace</small>
-              {workspace?.key === activeRoute.workspaceKey ? workspace.label : activeRoute.workspaceKey}
-            </li>
-            <li>
-              <small>Application</small>
-              {application.name}
-            </li>
-            <li>
-              <small>
-                {activeRoute.kind === "list" ? "View" : activeRoute.kind === "detail" ? "Object type" : "Context"}
-              </small>
-              {activeView?.name ?? activeObjectType?.name ?? (activeRoute.kind === "drafts" ? "Drafts" : "History")}
-            </li>
-          </ol>
+          <div role="group" className="shell-context" aria-label="Current context">
+            {workspace?.key === activeRoute.workspaceKey ? workspace.label : activeRoute.workspaceKey}
+            <span aria-hidden="true"> / </span>
+            {application.name}
+            <span className="context-status">
+              {workspaceDraftId
+                ? `Draft · ${draft?.name || "Untitled draft"}`
+                : workspaceRevisionId
+                  ? "Historical snapshot"
+                  : activeRoute.kind === "drafts"
+                    ? "Drafts"
+                    : activeRoute.kind === "history"
+                      ? "History"
+                      : "Live"}
+            </span>
+          </div>
         )}
         {activeRoute.kind !== "models" &&
           workspace?.key === activeRoute.workspaceKey &&
@@ -207,17 +238,6 @@ export function AppShell({
             >
               History
             </button>
-            <span>
-              {workspaceDraftId
-                ? "Editing a draft"
-                : activeRoute.kind === "drafts"
-                  ? "Optional coordinated changes"
-                  : workspaceRevisionId
-                    ? "Inspecting immutable history"
-                    : activeRoute.kind === "history"
-                      ? "Publication history"
-                      : "Editing live data"}
-            </span>
           </nav>
         )}
         {children}

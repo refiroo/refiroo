@@ -1,3 +1,4 @@
+import { useNavigationGuard } from "@/routing/navigationGuard";
 /**
  * Sets or replaces one attribute value on an object.
  *
@@ -38,6 +39,7 @@ export function AttributeValueDialog({
   const [error, setError] = useState("");
   const [dirty, setDirty] = useState(false);
   const [conflict, setConflict] = useState(false);
+  const finishNavigation = useNavigationGuard(dirty, saving, onClose);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
@@ -47,6 +49,7 @@ export function AttributeValueDialog({
       const saved = object.attributes.some((item) => item.attributeTypeKey === attribute.key)
         ? await api.updateAttribute(object.objectTypeKey, object.id, attribute.key, value, object.version)
         : await api.createAttribute(object.objectTypeKey, object.id, attribute.key, value, object.version);
+      finishNavigation();
       onSaved(saved);
     } catch (cause) {
       setError(errorMessage(cause));

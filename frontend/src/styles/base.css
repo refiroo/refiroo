@@ -9,7 +9,7 @@
     "Segoe UI",
     sans-serif;
   color: #17221f;
-  background: #f3f5f2;
+  background: #fff;
   font-synthesis: none;
   --ink: #17221f;
   --muted: #66736e;
@@ -18,7 +18,7 @@
   --surface: #fff;
   --accent: #174f43;
   --accent-soft: #e6f1ed;
-  --sidebar: 328px;
+  --sidebar: 248px;
 
   /* RDM semantic foundation. Components consume these roles rather than vendor theme values. */
   --color-canvas: #f3f5f2;
@@ -34,8 +34,8 @@
   --color-warning-soft: #fff7e2;
   --color-success-soft: #e7f5eb;
   --focus-ring: 0 0 0 3px rgba(41, 112, 94, 0.24);
-  --radius-control: 8px;
-  --radius-surface: 13px;
+  --radius-control: 5px;
+  --radius-surface: 6px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;

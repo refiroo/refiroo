@@ -25,6 +25,7 @@ export function useCursorPages<T>(
   fetchPage: ((cursor?: string) => Promise<CursorPage<T>>) | null,
   deps: React.DependencyList,
   position?: { cursors: string[]; onChange: (cursors: string[]) => void },
+  refreshToken = 0,
 ): CursorPages<T> {
   const key = JSON.stringify(deps);
   const [paging, setPaging] = useState<{ key: string; cursors: string[] }>({ key, cursors: [] });
@@ -33,7 +34,7 @@ export function useCursorPages<T>(
   const index = cursors.length;
   const [result, setResult] = useState<{ key: string; index: number; page: CursorPage<T> }>();
   const [retryToken, setRetryToken] = useState(0);
-  const requestKey = JSON.stringify([key, cursors, retryToken]);
+  const requestKey = JSON.stringify([key, cursors, retryToken, refreshToken]);
   const [status, setStatus] = useState({ requestKey, loading: true, error: "" });
   const fetchRef = useRef(fetchPage);
   const enabled = fetchPage !== null;

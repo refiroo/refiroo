@@ -22,13 +22,38 @@ describe("ObjectDetail lifecycle controls", () => {
         workspaceKey="west"
         onOpen={vi.fn()}
         onBack={vi.fn()}
+        showBackToList={false}
       />,
     );
     expect(await screen.findByText("Record temporarily unavailable")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Back to list" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByRole("heading", { name: object.name })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Back to list" })).not.toBeInTheDocument();
     expect(read).toHaveBeenNthCalledWith(1, object.objectTypeKey, object.id, "west");
     expect(read).toHaveBeenNthCalledWith(2, object.objectTypeKey, object.id, "west");
+  });
+
+  it("renders model-derived child collections and relationships when detail configuration is absent", async () => {
+    vi.spyOn(api, "object").mockResolvedValue(domainObject);
+    vi.spyOn(api, "objectHistory").mockResolvedValue({ items: [], nextCursor: null });
+    const children = vi.spyOn(api, "objects").mockResolvedValue({ items: [codelistObject], nextCursor: null });
+    const relations = vi.spyOn(api, "relations").mockResolvedValue({ items: [], nextCursor: null });
+    render(
+      <ObjectDetail
+        model={testModel}
+        application={{ ...testModel.applications[0], details: [] }}
+        objectTypeKey={domainObject.objectTypeKey}
+        objectId={domainObject.id}
+        workspaceKey="default"
+        onOpen={vi.fn()}
+        onBack={vi.fn()}
+      />,
+    );
+    expect(await screen.findByRole("heading", { name: "Relationships" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: codelistObject.name })).toBeInTheDocument();
+    expect(children).toHaveBeenCalledWith("codelist", expect.objectContaining({ parentObjectId: domainObject.id }));
+    expect(relations).toHaveBeenCalledWith(domainObject.id, expect.objectContaining({ direction: "both" }));
   });
 
   it("does not expose object retirement controls or call a retirement API", async () => {
@@ -67,13 +92,15 @@ describe("ObjectDetail lifecycle controls", () => {
         onBack: vi.fn(),
       };
       const { rerender } = render(<ObjectDetail {...props} readOnly={false} />);
-      expect(await screen.findByRole("button", { name: "Edit object" })).toBeInTheDocument();
-      fireEvent.click(screen.getByRole("button", { name: "Edit object" }));
+      fireEvent.click(await screen.findByRole("button", { name: "Record actions" }));
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Edit all fields" }));
       expect(screen.getByLabelText("Name")).toHaveValue(object.name);
       fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
       rerender(<ObjectDetail {...props} readOnly />);
-      expect(screen.queryByRole("button", { name: "Edit object" })).not.toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Delete object" })).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Record actions" }));
+      expect(await screen.findByRole("menuitem", { name: "Copy link" })).toBeInTheDocument();
+      expect(screen.queryByRole("menuitem", { name: "Edit all fields" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("menuitem", { name: "Delete record" })).not.toBeInTheDocument();
     },
   );
 });

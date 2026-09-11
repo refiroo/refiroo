@@ -12,7 +12,9 @@ export interface ViewComponentProps {
   workspaceKey: string;
   readOnly?: boolean;
   onChanged?: () => void;
+  refreshToken?: number;
+  selectedId?: string;
   query: CollectionQueryState;
   onQueryChange: (query: CollectionQueryState) => void;
-  onOpen: (item: ObjectItem) => void;
+  onOpen: (item: ObjectItem, action?: "edit" | "delete") => void;
 }
