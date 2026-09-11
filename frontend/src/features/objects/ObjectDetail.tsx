@@ -1,4 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useLocalNumberPreference } from "@/lib/localPreference";
+import { ResizeHandle } from "@/ui/ResizeHandle";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
 import { useWorkspaceData, useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { errorMessage } from "@/api/errors";
@@ -52,6 +54,12 @@ export function ObjectDetail({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [historyRefresh, setHistoryRefresh] = useState(0);
+  const propertiesWidth = useLocalNumberPreference(
+    `rdm:layout:properties-width:v1:${application.key}:${objectTypeKey}`,
+    300,
+    240,
+    640,
+  );
   const objectType = objectTypeFor(model, objectTypeKey);
   const detail =
     application.details.find((item) => item.objectTypeKey === objectTypeKey) ??
@@ -217,8 +225,24 @@ export function ObjectDetail({
           <span className="version">v{object.version}</span>
         </div>
       </header>
-      <div key={panelRefresh} className={`detail-grid ${sidePanels.length ? "with-side" : ""}`}>
+      <div
+        key={panelRefresh}
+        className={`detail-grid ${sidePanels.length ? "with-side" : ""}`}
+        style={{ "--properties-width": `${propertiesWidth.value}px` } as CSSProperties}
+      >
         {sidePanels.length > 0 && <aside className="panel-column side-panels">{sidePanels.map(renderPanel)}</aside>}
+        {sidePanels.length > 0 && !inspector && (
+          <ResizeHandle
+            className="properties-resizer"
+            label="Resize record properties"
+            value={propertiesWidth.value}
+            min={240}
+            max={640}
+            direction={-1}
+            onChange={propertiesWidth.change}
+            onReset={propertiesWidth.reset}
+          />
+        )}
         <div className="panel-column main-panels">
           {mainPanels.map(renderPanel)}
           {!draft && !revision && (

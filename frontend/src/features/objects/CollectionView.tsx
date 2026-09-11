@@ -137,6 +137,8 @@ export function ObjectCollectionView({
             model={model}
             columns={display.columns}
             compact={display.compact}
+            columnWidths={display.widths}
+            onColumnWidth={display.setWidth}
             identityColumn={display.identity}
             sort={query.sort}
             sortFields={view.config.sortFields}

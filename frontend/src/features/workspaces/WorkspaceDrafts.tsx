@@ -37,18 +37,23 @@ export function WorkspaceDrafts({
           Start from current live data
         </button>
       )}
-      {feed.items.map((draft) => (
-        <article key={draft.id}>
-          <h2>
-            <button className="secondary" onClick={() => onOpen(draft.id)}>
-              {draft.name || "Untitled draft"}
-            </button>
-          </h2>
-          <p>
-            Source: {draftSource(draft)} · Version {draft.version}
-          </p>
-        </article>
-      ))}
+      <div className="draft-list">
+        {feed.items.map((draft) => (
+          <article className="draft-card" key={draft.id}>
+            <div>
+              <span className="context-status">Draft</span>
+              <h2>{draft.name || "Untitled draft"}</h2>
+              <p>{draftSource(draft)}</p>
+            </div>
+            <div className="draft-card-actions">
+              <span>Version {draft.version}</span>
+              <button className="secondary" onClick={() => onOpen(draft.id)}>
+                Open draft
+              </button>
+            </div>
+          </article>
+        ))}
+      </div>
       {feed.loading && <p>Loading drafts…</p>}
       {feed.error && <InlineError message={feed.error} onRetry={feed.retry} />}
       {!feed.loading && !feed.error && !feed.items.length && (
@@ -215,9 +220,13 @@ export function DraftActions({ readOnly, onExit }: { readOnly: boolean; onExit: 
   }
   return (
     <section className="surface panel" aria-label="Draft publication">
-      <h2>
-        {current.name || "Untitled draft"} · Draft v{current.version}
-      </h2>
+      <div className="draft-publication-heading">
+        <div>
+          <span className="context-status">Named draft</span>
+          <h2>{current.name || "Untitled draft"}</h2>
+        </div>
+        <strong>Version {current.version}</strong>
+      </div>
       <p>Source: {draftSource(current)}. Changes here remain private to this draft until activation.</p>
       {activeModelReleaseId && activeModelReleaseId !== current.modelReleaseId && (
         <Notice tone="warning" title="Draft model differs from the current model">
@@ -235,20 +244,37 @@ export function DraftActions({ readOnly, onExit }: { readOnly: boolean; onExit: 
         />
       )}
       {!readOnly && (
-        <div className="detail-actions">
-          <button className="secondary" disabled={pending} onClick={check}>
-            Validate draft
-          </button>
-          <button
-            className="primary"
-            disabled={pending || !validation?.result.valid || validation.version !== current.version}
-            onClick={() => setConfirm("activate")}
-          >
-            Activate draft
-          </button>
-          <button className="text-danger" disabled={pending} onClick={() => setConfirm("discard")}>
-            Discard draft
-          </button>
+        <div className="draft-workflow">
+          <div className="draft-workflow-step">
+            <span aria-hidden="true">1</span>
+            <div>
+              <strong>Review readiness</strong>
+              <small>Check the full draft graph and current publication.</small>
+            </div>
+            <button className="secondary" disabled={pending} onClick={check}>
+              Validate draft
+            </button>
+          </div>
+          <div className="draft-workflow-step">
+            <span aria-hidden="true">2</span>
+            <div>
+              <strong>Publish reviewed changes</strong>
+              <small>Activation is available after a successful validation.</small>
+            </div>
+            <button
+              className="primary"
+              disabled={pending || !validation?.result.valid || validation.version !== current.version}
+              onClick={() => setConfirm("activate")}
+            >
+              Activate draft
+            </button>
+          </div>
+          <details className="draft-secondary-actions">
+            <summary>More draft actions</summary>
+            <button className="text-danger" disabled={pending} onClick={() => setConfirm("discard")}>
+              Discard draft
+            </button>
+          </details>
         </div>
       )}
       {validation && (

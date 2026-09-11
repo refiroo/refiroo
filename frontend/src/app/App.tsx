@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type CSSProperties } from "react";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
 import { ObjectDetail } from "@/features/objects/ObjectDetail";
 import { ModelWorkbench } from "@/features/model-admin/ModelWorkbench";
@@ -11,6 +11,8 @@ import { WorkspaceDataProvider, useWorkspaceData } from "@/features/workspaces/W
 import { DraftActions, WorkspaceDrafts } from "@/features/workspaces/WorkspaceDrafts";
 import { HistoricalRevisionBanner, WorkspaceHistory } from "@/features/workspaces/WorkspaceHistory";
 import { Notice } from "@/ui/Notice";
+import { ResizeHandle } from "@/ui/ResizeHandle";
+import { useLocalNumberPreference } from "@/lib/localPreference";
 
 export default function App() {
   const router = useRouter();
@@ -47,6 +49,12 @@ function AppContent({
   const [refreshToken, setRefreshToken] = useState(0);
   const [workspace, setWorkspace] = useState<Workspace>();
   const actionSequence = useRef(0);
+  const inspectorWidth = useLocalNumberPreference(
+    `rdm:layout:inspector-width:v1:${route && route.kind !== "models" ? route.applicationKey : "record"}:${route?.kind === "detail" ? (route.collectionOrigin?.viewKey ?? "record") : "record"}`,
+    480,
+    360,
+    720,
+  );
 
   if (!model || !route) return <div className="center-message">{error || "Loading the model…"}</div>;
   const requested = route.kind === "models" ? undefined : applicationFor(model, route.applicationKey);
@@ -199,7 +207,6 @@ function AppContent({
   const collectionApplication = collection ? applicationFor(model, collection.applicationKey) : undefined;
   const hasDetail = activeRoute.kind === "detail";
   const inspector = hasDetail && Boolean(collection) && activeRoute.fullPage === false;
-
   return (
     <AppShell
       model={model}
@@ -267,7 +274,10 @@ function AppContent({
           }
         />
       ) : (
-        <div className={`record-workspace${inspector ? " has-inspector" : ""}${hasDetail ? " has-record" : ""}`}>
+        <div
+          className={`record-workspace${inspector ? " has-inspector" : ""}${hasDetail ? " has-record" : ""}`}
+          style={{ "--inspector-width": `${inspectorWidth.value}px` } as CSSProperties}
+        >
           {collection && collectionApplication && (
             <div className="record-collection" hidden={hasDetail && !inspector}>
               <CollectionView
@@ -296,22 +306,36 @@ function AppContent({
             </div>
           )}
           {activeRoute.kind === "detail" && (
-            <ObjectDetail
-              key={`${application.key}:${activeRoute.objectTypeKey}:${activeRoute.objectId}:${activeRoute.workspaceKey}:${activeRoute.actionRequest?.key ?? 0}`}
-              model={model}
-              application={application}
-              objectTypeKey={activeRoute.objectTypeKey}
-              objectId={activeRoute.objectId}
-              workspaceKey={activeRoute.workspaceKey}
-              inspector={inspector}
-              initialAction={activeRoute.actionRequest?.action}
-              onExpand={inspector ? () => navigate({ ...activeRoute, fullPage: true }) : undefined}
-              readOnly={readOnly}
-              onChanged={() => setRefreshToken((value) => value + 1)}
-              onOpen={openObjectById}
-              showBackToList={activeRoute.collectionOrigin !== null}
-              onBack={backToCollection}
-            />
+            <>
+              {inspector && (
+                <ResizeHandle
+                  className="inspector-resizer"
+                  label="Resize record inspector"
+                  value={inspectorWidth.value}
+                  min={360}
+                  max={720}
+                  direction={-1}
+                  onChange={inspectorWidth.change}
+                  onReset={inspectorWidth.reset}
+                />
+              )}
+              <ObjectDetail
+                key={`${application.key}:${activeRoute.objectTypeKey}:${activeRoute.objectId}:${activeRoute.workspaceKey}:${activeRoute.actionRequest?.key ?? 0}`}
+                model={model}
+                application={application}
+                objectTypeKey={activeRoute.objectTypeKey}
+                objectId={activeRoute.objectId}
+                workspaceKey={activeRoute.workspaceKey}
+                inspector={inspector}
+                initialAction={activeRoute.actionRequest?.action}
+                onExpand={inspector ? () => navigate({ ...activeRoute, fullPage: true }) : undefined}
+                readOnly={readOnly}
+                onChanged={() => setRefreshToken((value) => value + 1)}
+                onOpen={openObjectById}
+                showBackToList={activeRoute.collectionOrigin !== null}
+                onBack={backToCollection}
+              />
+            </>
           )}
         </div>
       )}

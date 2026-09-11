@@ -190,7 +190,8 @@ retain Back to list; hierarchy records omit it. An unrelated collection must not
 
 ## UI-04 — Inline fields and clear save feedback
 
-Status: not started. Dependency: UI-03.
+Status: implementation complete — 2026-09-11. [Combined UI-04–UI-06 evidence](ui-04-06-evidence/README.md).
+Dependency: UI-03. Validation was intentionally consolidated and kept lightweight at the user's request.
 
 **User outcome:** users correct one value in place and still edit several fields coherently.
 
@@ -225,7 +226,8 @@ Status: not started. Dependency: UI-03.
 
 ## UI-05 — Selective resizing and remembered display preferences
 
-Status: not started. Dependency: UI-04.
+Status: implementation complete — 2026-09-11. [Combined UI-04–UI-06 evidence](ui-04-06-evidence/README.md).
+Dependency: UI-04. Validation was intentionally consolidated and kept lightweight at the user's request.
 
 **User outcome:** users adapt useful working space without managing a complicated dashboard.
 
@@ -233,8 +235,9 @@ Status: not started. Dependency: UI-04.
 
 - Resize the navigation rail, desktop inspector and useful text-heavy table columns.
   Keep action/icon columns fixed; enforce sensible minimum/maximum widths.
-- Provide keyboard resize support and clickable width presets/Reset layout, so dragging
-  is optional. Disable split-pane resizing in the mobile single-screen layout.
+- Provide visible draggable dividers with arrow-key resizing and double-click/Enter reset.
+  Rail and inspector preset buttons were removed at the user's request. Include the properties
+  divider in the default full record page. Disable split-pane resizing in the mobile single-screen layout.
 - Remember display preferences locally with keys scoped to the relevant view/layout.
   Store no records or draft input. Existing saved values must tolerate removed/changed columns,
   a narrower viewport, blocked storage and corrupted preferences.
@@ -254,7 +257,8 @@ and a small shared preference helper if needed by these real consumers.
 
 ## UI-06 — Draft presentation and composed visual acceptance
 
-Status: not started. Dependency: UI-05.
+Status: implementation complete — 2026-09-11. [Combined UI-04–UI-06 evidence](ui-04-06-evidence/README.md).
+Dependency: UI-05. UI-07 remains deferred; full visual and accessibility automation is therefore outside this evidence.
 
 **User outcome:** the complete redesigned journey feels consistent, including coordinated changes
 and failure recovery, rather than only the happy-path record screen.

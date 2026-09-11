@@ -106,6 +106,8 @@ export function CollectionPanelTable({
           model={model}
           columns={display.columns}
           compact={display.compact}
+          columnWidths={display.widths}
+          onColumnWidth={display.setWidth}
           identityColumn={display.identity}
           objects={pages.items}
           loading={loading}

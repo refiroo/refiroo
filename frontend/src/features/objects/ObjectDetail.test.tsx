@@ -4,9 +4,52 @@ import { api } from "@/api/client";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import { ObjectDetail } from "@/features/objects/ObjectDetail";
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe("ObjectDetail lifecycle controls", () => {
+  it.each([domainObject, codelistObject])(
+    "resizes $objectTypeKey properties while preserving inline input",
+    async (object) => {
+      const stored = new Map<string, string>();
+      vi.stubGlobal("localStorage", {
+        getItem: (key: string) => stored.get(key) ?? null,
+        setItem: (key: string, value: string) => stored.set(key, value),
+        removeItem: (key: string) => stored.delete(key),
+      });
+      vi.spyOn(api, "object").mockResolvedValue(object);
+      vi.spyOn(api, "objectHistory").mockResolvedValue({ items: [], nextCursor: null });
+      vi.spyOn(api, "objects").mockResolvedValue({ items: [], nextCursor: null });
+      vi.spyOn(api, "relations").mockResolvedValue({ items: [], nextCursor: null });
+      render(
+        <ObjectDetail
+          model={testModel}
+          application={testModel.applications[0]}
+          objectTypeKey={object.objectTypeKey}
+          objectId={object.id}
+          workspaceKey="default"
+          onOpen={vi.fn()}
+          onBack={vi.fn()}
+          readOnly={false}
+        />,
+      );
+      const divider = await screen.findByRole("separator", { name: "Resize record properties" });
+      fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+      const input = screen.getByLabelText("Code");
+      fireEvent.change(input, { target: { value: "unsaved" } });
+      fireEvent.keyDown(divider, { key: "ArrowLeft" });
+      expect(divider).toHaveAttribute("aria-valuenow", "310");
+      expect(input).toHaveValue("unsaved");
+      const key = `rdm:layout:properties-width:v1:${object.applicationKey}:${object.objectTypeKey}`;
+      expect(stored.get(key)).toBe("310");
+      fireEvent.doubleClick(divider);
+      expect(divider).toHaveAttribute("aria-valuenow", "300");
+      expect(stored.has(key)).toBe(false);
+      expect(input).toHaveValue("unsaved");
+    },
+  );
   it.each([domainObject, codelistObject])("retries $objectTypeKey in the selected workspace", async (object) => {
     const read = vi
       .spyOn(api, "object")

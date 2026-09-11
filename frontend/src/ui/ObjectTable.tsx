@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import type { EngineModel, ObjectItem } from "@/types";
 import { formatValue } from "@/ui/formatValue";
 import { attributeName, fieldValue } from "@/model/fields";
+import { ResizeHandle } from "@/ui/ResizeHandle";
 
 export function ObjectTable({
   compact = false,
@@ -18,6 +19,8 @@ export function ObjectTable({
   renderActions,
   label = "Objects",
   emptyMessage = "Nothing to show yet.",
+  columnWidths = {},
+  onColumnWidth,
 }: {
   compact?: boolean;
   identityColumn?: string;
@@ -33,6 +36,8 @@ export function ObjectTable({
   renderActions?: (item: ObjectItem, menu: { isOpen: boolean; onOpenChange: (open: boolean) => void }) => ReactNode;
   label?: string;
   emptyMessage?: string;
+  columnWidths?: Record<string, number>;
+  onColumnWidth?: (column: string, width: number) => void;
 }) {
   const [allColumns, setAllColumns] = useState(false);
   const [menuId, setMenuId] = useState<string>();
@@ -68,6 +73,9 @@ export function ObjectTable({
                   aria-sort={
                     sort?.replace(/^-/, "") === column ? (sort.startsWith("-") ? "descending" : "ascending") : undefined
                   }
+                  style={
+                    columnWidths[column] ? { width: columnWidths[column], minWidth: columnWidths[column] } : undefined
+                  }
                 >
                   {onSort && sortFields.includes(column) ? (
                     <button className="column-sort" onClick={() => onSort(sort === column ? `-${column}` : column)}>
@@ -78,6 +86,16 @@ export function ObjectTable({
                     </button>
                   ) : (
                     attributeName(model, column)
+                  )}
+                  {onColumnWidth && (
+                    <ResizeHandle
+                      className="column-resizer"
+                      label={`Resize ${attributeName(model, column)} column`}
+                      value={columnWidths[column] ?? 100}
+                      min={120}
+                      max={520}
+                      onChange={(width) => onColumnWidth(column, width)}
+                    />
                   )}
                 </th>
               ))}

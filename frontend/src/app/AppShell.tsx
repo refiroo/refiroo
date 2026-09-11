@@ -8,7 +8,7 @@
  */
 
 import { useState } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { Explorer } from "@/features/objects/Explorer";
 import { WorkspaceSelector } from "@/features/workspaces/WorkspaceSelector";
 import { viewRoute } from "@/routing/routes";
@@ -17,6 +17,8 @@ import { Icon } from "@/ui/Icon";
 import { NavigationDrawer } from "@/ui/NavigationDrawer";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { Notice } from "@/ui/Notice";
+import { ResizeHandle } from "@/ui/ResizeHandle";
+import { useLocalNumberPreference } from "@/lib/localPreference";
 
 export function AppShell({
   model,
@@ -46,6 +48,7 @@ export function AppShell({
   children: ReactNode;
 }) {
   const { draft } = useWorkspaceData();
+  const rail = useLocalNumberPreference("rdm:layout:navigation-width:v1", 248, 210, 380);
   const [hierarchy, setHierarchy] = useState(() => {
     try {
       return window.localStorage.getItem("rdm:navigation-mode:v1") !== "views";
@@ -68,7 +71,7 @@ export function AppShell({
     activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.workspaceRevisionId : undefined;
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" style={{ "--sidebar": `${rail.value}px` } as CSSProperties}>
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
@@ -178,6 +181,15 @@ export function AppShell({
           </nav>
         </div>
       </NavigationDrawer>
+      <ResizeHandle
+        className="navigation-resizer"
+        label="Resize navigation rail"
+        value={rail.value}
+        min={210}
+        max={380}
+        onChange={rail.change}
+        onReset={rail.reset}
+      />
       <main id="main-content" className="workspace-main" tabIndex={-1}>
         {activeRoute.kind !== "models" && (
           <div role="group" className="shell-context" aria-label="Current context">

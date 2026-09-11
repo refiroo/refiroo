@@ -1300,9 +1300,17 @@ tbody tr:last-child td {
 }
 .record-workspace.has-inspector {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(360px, 44%);
-  gap: 24px;
+  grid-template-columns: minmax(0, 1fr) 10px minmax(0, min(var(--inspector-width), 55%));
+  gap: 0;
   align-items: start;
+}
+.record-workspace.has-inspector .record-collection {
+  padding-right: 18px;
+}
+.inspector-resizer {
+  position: sticky;
+  top: 16px;
+  height: calc(100dvh - 32px);
 }
 .record-collection,
 .record-detail {
@@ -1310,7 +1318,93 @@ tbody tr:last-child td {
 }
 .record-inspector {
   border-left: 1px solid var(--line);
-  padding-left: 24px;
+  padding-left: 18px;
+}
+.object-table th {
+  position: relative;
+}
+.column-resizer {
+  position: absolute;
+  z-index: 2;
+  top: 0;
+  right: -5px;
+  width: 10px;
+  height: 100%;
+}
+.display-preset-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.draft-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 20px;
+}
+.draft-card,
+.draft-publication-heading,
+.draft-workflow-step {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+.draft-card {
+  padding: 16px;
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius-control);
+}
+.draft-card h2,
+.draft-publication-heading h2 {
+  margin: 5px 0;
+  font-size: 18px;
+}
+.draft-card p,
+.draft-workflow-step small {
+  margin: 0;
+  color: var(--muted);
+}
+.draft-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+}
+.draft-workflow {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+}
+.draft-workflow-step {
+  padding: 12px;
+  border: 1px solid var(--soft-line);
+  border-radius: var(--radius-control);
+}
+.draft-workflow-step > span {
+  display: grid;
+  place-items: center;
+  flex: 0 0 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #e4f0e8;
+  color: #205b3d;
+  font-weight: 750;
+}
+.draft-workflow-step > div {
+  display: grid;
+  flex: 1;
+  gap: 3px;
+}
+.draft-secondary-actions {
+  justify-self: end;
+}
+.draft-secondary-actions summary {
+  cursor: pointer;
+  color: var(--muted);
+}
+.draft-secondary-actions button {
+  margin-top: 8px;
 }
 .record-detail .detail-header {
   min-height: 0;
@@ -1387,6 +1481,67 @@ tbody tr:last-child td {
   grid-row: 1;
 }
 .record-detail:not(.record-inspector) .detail-grid.with-side > .side-panels {
+  grid-column: 3;
+  grid-row: 1;
+}
+.record-detail:not(.record-inspector) .detail-grid.with-side {
+  grid-template-columns: minmax(0, 1fr) 12px minmax(0, min(var(--properties-width, 300px), 50%));
+  column-gap: 8px;
+}
+.properties-resizer {
+  position: sticky;
+  top: 86px;
   grid-column: 2;
   grid-row: 1;
+  height: calc(100dvh - 110px);
+}
+.properties-resizer::before,
+.inspector-resizer::before {
+  content: "";
+  position: absolute;
+  top: 45%;
+  left: 1px;
+  right: 1px;
+  height: 32px;
+  border-radius: 4px;
+  background: var(--line);
+}
+
+.inline-attribute-editor {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border, #d5ddd8);
+  border-radius: 6px;
+  background: #f8faf9;
+}
+.inline-attribute-editor fieldset {
+  min-width: 0;
+  border: 0;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.inline-attribute-editor input:not([type="checkbox"]),
+.inline-attribute-editor textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.inline-attribute-editor .dialog-actions {
+  flex-wrap: wrap;
+}
+.inline-save-status {
+  color: #276345;
+  margin: 6px 0;
+}
+.attribute-grid .row-actions button {
+  min-height: 32px;
+}
+@media (max-width: 600px) {
+  .attribute-grid .row-actions button,
+  .inline-attribute-editor button {
+    min-height: 44px;
+  }
 }

@@ -66,6 +66,7 @@ try {
     type.attributes.push({ attributeTypeKey: "qa-count" }, { attributeTypeKey: "qa-date" });
   }
   for (const app of model.applications) {
+    for (const detail of app.details.filter((item) => ["domain", "system"].includes(item.objectTypeKey))) detail.panels.find((item) => item.type === "attributes").config.fields.push("qa-count", "qa-date");
     for (const view of app.views.filter((view) => ["domain", "system"].includes(view.objectTypeKey))) {
       view.config.filterFields.push("qa-count", "qa-date");
       view.config.columns.push("qa-count", "qa-date");
@@ -106,6 +107,13 @@ try {
     if (result.status() !== status) assert.fail(`Expected ${status}, received ${result.status()}: ${await result.text()}`);
     if (status === 200 || status === 201) await dialog().waitFor({ state: "hidden" });
     return result.json();
+  }
+  async function saveInline(status = 200) {
+    const response = page.waitForResponse((response) => ["POST", "PATCH"].includes(response.request().method()) && response.url().includes("/attributes/"));
+    await page.getByRole("form").getByRole("button", { name: "Save", exact: true }).click();
+    const result = await response;
+    assert.equal(result.status(), status, await result.text());
+    if (status < 300) await page.getByRole("form").waitFor({ state: "hidden" });
   }
   async function addChild(owner, typeName, name, fields) {
     await open(owner);
@@ -153,6 +161,49 @@ try {
     assert(!active.items.some((record) => record.id === item.id));
     checks.push(`${label}: root create, zero/false, concurrent correction with current content, unrelated field retained, cancelled edit, unavailable record retained`);
   }
+  for (const [type, label] of [["domain", "Domain"], ["system", "System"]]) {
+    const item = roots[type];
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 1000 });
+      await open(item);
+      const row = (label) => page.locator(".attribute-grid > div").filter({ has: page.locator("dt", { hasText: new RegExp(`^${label}$`) }) });
+      await row("Count").getByRole("button", { name: "Edit", exact: true }).focus();
+      await page.keyboard.press("Enter");
+      await page.getByRole("form").getByLabel("Count", { exact: true }).fill("0");
+      await page.screenshot({ path: resolve(output, `ui-04-${type}-${width}.png`), fullPage: true });
+      await saveInline();
+      assert.equal(value(await get(item), "qa-count"), 0);
+      await page.waitForFunction(() => document.activeElement?.textContent === "Edit");
+      await row("Date").getByRole("button", { name: /Add value|Edit/ }).click();
+      await page.getByRole("form").getByLabel("Date", { exact: true }).fill("2026-09-11");
+      await saveInline(width === 1440 ? 201 : 200);
+      assert.equal(value(await get(item), "qa-date"), "2026-09-11");
+      await row("Active").getByRole("button", { name: "Edit", exact: true }).click();
+      await page.getByRole("form").getByLabel("Active", { exact: true }).check();
+      assert.equal(value(await get(item), "active"), false);
+      await page.getByRole("form").getByLabel("Active", { exact: true }).uncheck();
+      await saveInline();
+      assert.equal(value(await get(item), "active"), false);
+      await row("Description").getByRole("button", { name: "Edit", exact: true }).click();
+      await page.getByRole("form").getByLabel("Description", { exact: true }).fill("First line");
+      await page.keyboard.press("End");
+      await page.keyboard.press("Enter");
+      await page.keyboard.type("Second line");
+      assert.equal(await page.getByRole("form").count(), 1);
+      await saveInline();
+      assert.equal(value(await get(item), "description"), "First line\nSecond line");
+      await row(`${label} code`).getByRole("button", { name: "Edit", exact: true }).click();
+      assert.equal(await page.getByRole("form").getByLabel("Set null").count(), 0);
+      await page.getByRole("form").getByLabel(`${label} code`, { exact: true }).fill("");
+      await page.getByRole("form").getByRole("button", { name: "Save", exact: true }).click();
+      assert.equal(await page.getByRole("form").count(), 1);
+      await page.keyboard.press("Escape");
+      assert.equal(await page.getByRole("form").count(), 0);
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
+    }
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  checks.push("UI-04: Domain and System inline zero, date, false, multiline Enter, required validation, Escape and focus restore at desktop and 390px; no checkbox autosave or horizontal overflow");
   const codelist = await addChild(roots.domain, "Codelist", "Delivery Methods", { "Codelist code": "DELIVERY" });
   const otherList = await addChild(roots.domain, "Codelist", "Other methods", { "Codelist code": "OTHER" });
   const master = await addChild(codelist, "Master value", "Parcel locker", { "Master ID": "LOCKER-ID", "Value code": "LOCKER", "Value name": "Parcel locker" });
@@ -246,17 +297,17 @@ try {
   await shown(confirm().getByText(/At least one/i));
   await confirm().getByRole("button", { name: "Cancel", exact: true }).click();
   const description = fields.locator(".attribute-grid > div").filter({ has: page.locator("dt", { hasText: /^Translated description$/ }) });
-  await description.getByRole("button", { name: "Add", exact: true }).click();
-  await dialog().getByLabel("Translated description", { exact: true }).fill("Optional description");
-  await save("Save", 201);
+  await description.getByRole("button", { name: "Add value", exact: true }).click();
+  await page.getByRole("form").getByLabel("Translated description", { exact: true }).fill("Optional description");
+  await saveInline(201);
   await translatedName.getByRole("button", { name: "Edit", exact: true }).click();
-  await dialog().getByLabel("Translated name", { exact: true }).fill("Moje změna");
+  await page.getByRole("form").getByLabel("Translated name", { exact: true }).fill("Moje změna");
   const old = await get(translation);
   await api(`/objects/translation/${translation.id}`, { expectedVersion: old.version, attributes: [{ attributeTypeKey: "translated-name", value: "Jiná změna" }] }, "PATCH");
-  await save("Save", 409);
-  await shown(dialog().getByText(/Jiná změna/));
-  assert.equal(await dialog().getByLabel("Translated name", { exact: true }).inputValue(), "Moje změna");
-  await save("Save");
+  await saveInline(409);
+  await shown(page.getByRole("form").getByText(/Jiná změna/));
+  assert.equal(await page.getByRole("form").getByLabel("Translated name", { exact: true }).inputValue(), "Moje změna");
+  await saveInline();
   await description.getByRole("button", { name: "Remove", exact: true }).click();
   response = page.waitForResponse((response) => response.request().method() === "DELETE" && response.url().includes("/attributes/"));
   await confirm().getByRole("button", { name: "Remove value" }).click();

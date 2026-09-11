@@ -18,6 +18,7 @@ export function AttributeField({
       <label className="checkbox">
         <input
           name={name}
+          aria-label={attribute.name}
           type="checkbox"
           autoFocus={autoFocus}
           defaultChecked={value === undefined ? attribute.default === true : value === true}
@@ -32,6 +33,7 @@ export function AttributeField({
   }
   const common = {
     name,
+    "aria-label": attribute.name,
     required: binding?.required,
     disabled: binding?.readOnly,
     autoFocus,

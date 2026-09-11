@@ -26,6 +26,10 @@
   .app-shell {
     display: block;
   }
+  .navigation-resizer,
+  .column-resizer {
+    display: none;
+  }
   .global-header {
     padding: 10px 16px;
   }
@@ -158,11 +162,31 @@
   .display-columns label {
     min-height: 44px;
   }
+  .draft-card,
+  .draft-publication-heading,
+  .draft-workflow-step {
+    align-items: stretch;
+    flex-direction: column;
+    gap: 10px;
+  }
+  .draft-card-actions {
+    justify-content: space-between;
+  }
+  .draft-workflow-step > span {
+    display: none;
+  }
+  .draft-secondary-actions {
+    justify-self: stretch;
+  }
 }
 
 @media (max-width: 1080px) {
   .record-workspace.has-inspector {
     display: block;
+  }
+  .inspector-resizer,
+  .properties-resizer {
+    display: none;
   }
   .record-workspace.has-record > .record-collection {
     display: none;
@@ -183,6 +207,9 @@
   }
 }
 @media (max-width: 1080px) {
+  .record-detail:not(.record-inspector) .detail-grid.with-side {
+    grid-template-columns: 1fr;
+  }
   .record-detail:not(.record-inspector) .detail-grid.with-side > .main-panels,
   .record-detail:not(.record-inspector) .detail-grid.with-side > .side-panels {
     grid-column: auto;

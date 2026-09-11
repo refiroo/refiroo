@@ -2,9 +2,32 @@
    main content column. */
 
 .app-shell {
+  position: relative;
   min-height: 100vh;
   display: grid;
   grid-template: auto 1fr / var(--sidebar) minmax(0, 1fr);
+}
+.resize-handle {
+  touch-action: none;
+  cursor: col-resize;
+}
+.resize-handle::after {
+  content: "";
+  position: absolute;
+  inset: 0 3px;
+  border-left: 2px solid var(--line);
+}
+.resize-handle:hover::after,
+.resize-handle:focus-visible::after {
+  border-color: var(--accent);
+}
+.navigation-resizer {
+  position: fixed;
+  z-index: 3;
+  top: 45px;
+  bottom: 0;
+  left: calc(var(--sidebar) - 5px);
+  width: 10px;
 }
 .skip-link {
   position: fixed;

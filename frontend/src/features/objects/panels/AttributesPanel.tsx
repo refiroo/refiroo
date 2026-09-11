@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { useRef, useState } from "react";
+import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { errorMessage } from "@/api/errors";
 import type {
   AttributeTypeDefinition,
@@ -11,8 +11,10 @@ import type {
 } from "@/types";
 import { attributeName, fieldValue } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
+import { Modal } from "@/ui/Modal";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
-import { AttributeValueDialog } from "./AttributeValueDialog";
+import { InlineAttributeEditor } from "./InlineAttributeEditor";
+import { useNavigationGuard } from "@/routing/navigationGuard";
 import { formatValue } from "@/ui/formatValue";
 
 export function AttributesPanel({
@@ -33,6 +35,14 @@ export function AttributesPanel({
   readOnly?: boolean;
 }) {
   const api = useDataApi();
+  const { draft, warning } = useWorkspaceData();
+  const trigger = useRef<HTMLDivElement | null>(null);
+  const [savedField, setSavedField] = useState("");
+  const [removed, setRemoved] = useState(false);
+  const closeEditor = () => {
+    setEditing(undefined);
+    requestAnimationFrame(() => trigger.current?.querySelector("button")?.focus());
+  };
   const objectType = objectTypeFor(model, object.objectTypeKey);
   const bindingMap = new Map((objectType?.attributes ?? []).map((binding) => [binding.attributeTypeKey, binding]));
   const [editing, setEditing] = useState<{
@@ -48,19 +58,27 @@ export function AttributesPanel({
   const [removeError, setRemoveError] = useState("");
   const [pending, setPending] = useState(false);
 
+  useNavigationGuard(false, pending, () => setRemoving(undefined));
   async function remove() {
     if (!removing) return;
     setPending(true);
     setRemoveError("");
+    let committed = removed;
     try {
-      await api.deleteAttribute(object.objectTypeKey, object.id, removing.attribute.key, object.version);
+      if (!removed) {
+        await api.deleteAttribute(object.objectTypeKey, object.id, removing.attribute.key, object.version);
+        committed = true;
+        setRemoved(true);
+        onChanged();
+      }
       await onReload();
       setRemoving(undefined);
-      onChanged();
+      setSavedField(removing.attribute.key);
+      setRemoved(false);
     } catch (cause) {
       setRemoveError(errorMessage(cause));
       try {
-        await onReload();
+        if (!committed) await onReload();
       } catch (reloadCause) {
         setRemoveError(errorMessage(reloadCause));
       }
@@ -83,20 +101,77 @@ export function AttributesPanel({
           return (
             <div key={field}>
               <dt>{attributeName(model, field)}</dt>
-              <dd>{formatValue(fieldValue(object, field, model))}</dd>
-              {!readOnly && editable && (
+              <dd>
+                {editing?.attribute.key === field ? (
+                  <InlineAttributeEditor
+                    object={object}
+                    {...editing}
+                    onClose={closeEditor}
+                    onSaved={(saved) => {
+                      onObjectChanged(saved);
+                      setSavedField(field);
+                      closeEditor();
+                    }}
+                    onConflict={onReload}
+                  />
+                ) : (
+                  <>
+                    {attribute
+                      ? !stored
+                        ? "Not set"
+                        : stored.value === null
+                          ? "Null"
+                          : stored.value === ""
+                            ? "Empty text"
+                            : formatValue(stored.value)
+                      : formatValue(fieldValue(object, field, model))}
+                    {savedField === field && (
+                      <p role="status" className="inline-save-status">
+                        {warning || (draft ? `Saved to draft “${draft.name}”` : "Saved to Live")}
+                      </p>
+                    )}
+                  </>
+                )}
+              </dd>
+              {!readOnly && editable && editing?.attribute.key !== field && (
                 <div className="row-actions">
                   {stored ? (
                     <>
-                      <button onClick={() => setEditing({ ...editable, stored })}>Edit</button>
+                      <button
+                        disabled={!!editing || !!removing || !!warning}
+                        onClick={(event) => {
+                          trigger.current = event.currentTarget.closest(".attribute-grid > div");
+                          setSavedField("");
+                          setEditing({ ...editable, stored });
+                        }}
+                      >
+                        Edit
+                      </button>
                       {!editable.binding.required && (
-                        <button className="text-danger" onClick={() => setRemoving({ ...editable, stored })}>
+                        <button
+                          disabled={!!editing || !!removing || !!warning}
+                          className="text-danger"
+                          onClick={() => {
+                            setRemoveError("");
+                            setRemoved(false);
+                            setRemoving({ ...editable, stored });
+                          }}
+                        >
                           Remove
                         </button>
                       )}
                     </>
                   ) : (
-                    !editable.binding.required && <button onClick={() => setEditing({ ...editable })}>Add</button>
+                    <button
+                      disabled={!!editing || !!removing || !!warning}
+                      onClick={(event) => {
+                        trigger.current = event.currentTarget.closest(".attribute-grid > div");
+                        setSavedField("");
+                        setEditing({ ...editable });
+                      }}
+                    >
+                      Add value
+                    </button>
                   )}
                 </div>
               )}
@@ -104,29 +179,27 @@ export function AttributesPanel({
           );
         })}
       </dl>
-      {editing && (
-        <AttributeValueDialog
-          object={object}
-          {...editing}
-          onClose={() => setEditing(undefined)}
-          onSaved={(saved) => {
-            onObjectChanged(saved);
-            setEditing(undefined);
-          }}
-          onConflict={onReload}
-        />
-      )}
-      {removing && (
-        <ConfirmDialog
-          title={`Remove ${removing.attribute.name}?`}
-          confirmLabel="Remove value"
-          pending={pending}
-          error={removeError}
-          onCancel={() => setRemoving(undefined)}
-          onConfirm={remove}
-        >
-          <p>The optional value will become unset. This does not delete the object.</p>
-        </ConfirmDialog>
+      {removing && removed ? (
+        <Modal title="Value removed; refresh needed" showClose={false} busy onClose={() => undefined}>
+          <p role="status">The value was removed. Refresh before making another change.</p>
+          {removeError && <p role="alert">{removeError}</p>}
+          <button disabled={pending} onClick={remove}>
+            {pending ? "Refreshing…" : "Retry refresh"}
+          </button>
+        </Modal>
+      ) : (
+        removing && (
+          <ConfirmDialog
+            title={`Remove ${removing.attribute.name}?`}
+            confirmLabel="Remove value"
+            pending={pending}
+            error={removeError}
+            onCancel={() => setRemoving(undefined)}
+            onConfirm={remove}
+          >
+            <p>The optional value will become unset. This does not delete the object.</p>
+          </ConfirmDialog>
+        )
       )}
     </>
   );

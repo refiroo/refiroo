@@ -174,9 +174,9 @@ try {
   await open(translation, first);
   const translatedName = panel(page, "Translation details").locator(".attribute-grid > div").filter({ has: page.locator("dt", { hasText: /^Translated name$/ }) });
   await translatedName.getByRole("button", { name: "Edit", exact: true }).click();
-  await dialog().getByLabel("Translated name", { exact: true }).fill("Doručení");
-  await dialog().getByRole("button", { name: "Save", exact: true }).click();
-  await dialog().waitFor({ state: "hidden" });
+  await page.getByRole("form").getByLabel("Translated name", { exact: true }).fill("Doručení");
+  await page.getByRole("form").getByRole("button", { name: "Save", exact: true }).click();
+  await page.getByRole("form").waitFor({ state: "hidden" });
   assert.equal(value(await get(translation, first), "translated-name"), "Doručení");
   await api(`/objects/domain/${other.id}`, { expectedVersion: other.version, name: "Payment live correction" }, "PATCH");
   const addition = await create("domain", "rdm-master", "Live addition", "domain-code", "LIVE-ADDITION");
