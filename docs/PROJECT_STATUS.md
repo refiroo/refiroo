@@ -4,8 +4,8 @@
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released. The starter
 model is content release 0.7.0 on schema language 0.6. Next development targets product 0.7 (core
-mapping, schema 0.6, draft version selection). WP-1 (accessibility gates) and WP-2 (schema 0.6
-`mappingGrid` view contract) are delivered.
+mapping, schema 0.6, draft version selection). WP-1 (accessibility gates), WP-2 (schema 0.6
+`mappingGrid` view contract) and WP-3 (relation-set version persistence) are delivered.
 
 The generic model defines applications, object types, reusable fields, allowed relationships and views.
 Master, Systems and Translations are configurable starter examples; runtime code must remain unaware
@@ -44,8 +44,9 @@ in code does not establish that a browser user can complete its story.
    contract, discriminated union dispatch, full validation rules and a frontend placeholder renderer.
    Cursor-paged batched mapping rows with mapped, unmapped and ambiguous states and server-side
    candidate search follow in WP-4/WP-5/WP-8A/WP-8B.
-2. **ADR-022 relation-set versions:** exact-binding relation-set versions and atomic mapping replacement
-   in live and optional-draft contexts; generic relation writes participate in the same protection.
+2. **ADR-022 relation-set versions (WP-3, delivered 2026-09-12):** exact-binding relation-set versions
+   integrated into all generic relation writes in live and optional-draft contexts. Atomic mapping
+   replacement follows in WP-5.
 3. **ADR-028 draft version selection:** let a workspace draft work under a version the user chooses, so
    one draft prepares the schema 0.6 release while another stays on the version serving live data.
 4. **UI-07 (carried from 0.6, delivered 2026-09-12):** automated accessibility and visual-regression
@@ -60,8 +61,8 @@ See [implementation plan](BASE_0_7_IMPLEMENTATION_PLAN.md), [delivery queue](TOD
 
 ### 0.7 plan review boundary — 2026-09-12
 
-WP-1–WP-3 scopes are frozen. WP-1/WP-2 implementation review is pending and separate; WP-3
-implementation is in progress. The plan review established later-package requirements, not foundation
+WP-1–WP-3 scopes are frozen and delivered. WP-1/WP-2/WP-3 implementation review is pending and
+separate. The plan review established later-package requirements, not foundation
 defects or new runtime pass evidence. WP-4/WP-5 add view-specific bounded reads, retained relation
 identities and direction-aware mapping validation. WP-6/WP-7 add atomic complete-candidate compatibility
 and browser model-context refresh. WP-8A delivers coverage; WP-8B adds mapping actions. WP-9 extends
@@ -136,7 +137,7 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
   concurrency, old/new release audit identities and hashes, post-commit registry refresh, unhealthy
   readiness on publication failure and startup rejection of configured multi-worker mutation mode.
 - `backend/app/models/database.py` and `backend/app/db.py`: immutable model-release metadata plus runtime objects, typed attribute
-  values, typed relations and audit events.
+  values, typed relations, exact-binding relation-set versions and audit events.
 - `backend/app/services/attributes.py`: attribute validation, defaults and typed persistence conversion.
 - The Base 0.5/pre-WP6 `backend/app/routers` and `backend/app/services` implementation established
   generic object CRUD, search/cursors, concurrency checks, hierarchy maintenance and relation instance
@@ -196,8 +197,10 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
   (`npm run test:visual`) are delivered. Two known violations are allowlisted with tracked references.
   Visual baselines cover light theme only (no dark theme exists yet).
 - Schema 0.6 supports strict table views and the `mappingGrid` view contract (validated model,
-  placeholder frontend renderer). The full mapping grid UI ships in WP-8A/WP-8B. Top-level `form`, `dashboard`
-  and `tree` are not implemented renderers. Specialist tree/translation coverage follow the roadmap.
+  placeholder frontend renderer). Exact-binding relation-set versions are integrated into all generic
+  relation writes; the mapping coverage API (WP-4), replacement API (WP-5) and full mapping grid UI
+  (WP-8A/WP-8B) are next. Top-level `form`, `dashboard` and `tree` are not implemented renderers.
+  Specialist tree/translation coverage follow the roadmap.
 - Advanced queries, effective-date/as-of semantics, bulk upsert, imports/exports, change feeds and
   webhooks remain planned; no synchronous collection has an undocumented unlimited mode.
 - The model workbench remains JSON-centred; structured authoring and extensions are 1.0 work.
@@ -226,15 +229,17 @@ and refined draft presentation. UI-07 was carried into early 0.7.
 UI-07 (automated accessibility and visual-regression gates) was delivered in early 0.7 (2026-09-12).
 WP-2 (schema 0.6 `mappingGrid` view contract) was delivered 2026-09-12: discriminated union dispatch,
 full validation rules, starter model 0.7.0 with two mapping grid views, and a frontend placeholder
-renderer. The earlier plans and changelog preserve delivery details; do not rebuild rejected object
-lifecycle.
+renderer. WP-3 (relation-set version persistence) was delivered 2026-09-12: `relation_set_versions`
+table with lazy row creation, integrated into all six generic relation mutation paths (live and draft),
+draft deletion cascade and activation merge. The earlier plans and changelog preserve delivery details;
+do not rebuild rejected object lifecycle.
 
 ## Coding-agent handoff
 
 Read `AGENTS.md`, the product stories/scenarios, ADR-027, `ROADMAP.md`, `API.md` and `TODO.md`.
 Base 0.6 is released; next work targets product 0.7 (core mapping, schema 0.6, draft version
-selection). WP-1 (UI-07 accessibility gates) and WP-2 (schema 0.6 `mappingGrid` view contract) are
-delivered.
+selection). WP-1 (UI-07 accessibility gates), WP-2 (schema 0.6 `mappingGrid` view contract) and
+WP-3 (relation-set version persistence) are delivered.
 Use one implementation owner per slice, focused verification and appropriate review. Do not commit
 unless explicitly requested. Summarize each completed batch while work continues so scope can be
 corrected before the entire task finishes.

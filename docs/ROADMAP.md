@@ -81,6 +81,7 @@ navigating low-level relation screens.
 2. Add cursor-paged batched mapping rows with mapped, unmapped and ambiguous states and server-side
    candidate search.
 3. Implement ADR-022 exact-binding relation-set versions across mapping and generic relation writes.
+   **(WP-3, delivered 2026-09-12.)**
 4. Provide atomic replacement with zero or one target where the binding permits it, directly live
    or in an explicitly selected design draft, with recoverable conflict context.
 5. Reuse ordinary record creation in the selected context when target creation is allowed; target

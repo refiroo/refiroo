@@ -1,7 +1,7 @@
 # Base 0.7 implementation plan
 
-**Status:** In progress. WP-1 and WP-2 delivered; their implementation review is pending and separate
-from this plan review. WP-3 implementation is in progress. WP-1–WP-3 scopes are frozen.
+**Status:** In progress. WP-1, WP-2 and WP-3 delivered; their implementation review is pending and
+separate from this plan review. WP-1–WP-3 scopes are frozen.
 
 **Target:** Product 0.7.0, schema language 0.6. The starter model content advances to a version on
 schema 0.6; that number alone does not mean the product release is accepted.
@@ -180,7 +180,9 @@ binding, missing columns) is rejected with precise JSON-path errors. Tests cover
 
 ---
 
-#### WP-3: Relation-set version persistence and generic participation
+#### WP-3: Relation-set version persistence and generic participation ✓
+
+**Status:** Delivered.
 
 **Scope:**
 
@@ -219,6 +221,40 @@ binding, missing columns) is rejected with precise JSON-path errors. Tests cover
 **Exit:** Every generic relation write atomically maintains set versions. Concurrent relation writes
 to the same binding conflict correctly. Draft and live contexts have independent version tracks.
 Existing relation tests still pass (set versions are transparent).
+
+**Delivery notes:**
+
+- `relation_set_versions` table added through Alembic migration `20260912_01`. Composite unique key
+  on (workspace_key, workspace_draft_id, relation_type_key, from_object_type_key, to_object_type_key,
+  anchor_object_id, direction) with a partial unique index `uq_relation_set_version_live` for the
+  live context (where `workspace_draft_id IS NULL`), because NULL != NULL in SQL unique constraints.
+  Integer `version` starts at 0 (implicit) for untouched sets; first mutation inserts with version 1.
+  `CHECK` constraint limits direction to `outgoing` or `incoming`. Foreign keys cascade on workspace
+  and draft deletion.
+- `RelationSetVersion` SQLAlchemy model in `models/database.py` mirrors the migration schema
+  including the partial unique index.
+- `services/relation_set_versions.py` provides three functions: `increment_set_versions` (atomically
+  advances both outgoing and incoming sets for a mutation, creating rows lazily on first touch),
+  `delete_draft_set_versions` (removes all set-version rows for a discarded draft) and
+  `merge_draft_set_versions_to_live` (carries draft mutation counts into live set versions during
+  activation, then deletes draft rows).
+- Integrated into all six generic relation mutation paths: `create_live_relation`,
+  `update_live_relation` and `delete_live_relation` in `services/relations.py`; `put_draft_relation`,
+  `patch_draft_relation` and `delete_draft_relation` in `services/workspace_revisions.py`.
+  Set-version maintenance is transparent to callers — no API response change.
+- Draft deletion path (`_delete_draft_and_base`) calls `delete_draft_set_versions` before deleting
+  the draft. Draft activation path calls `merge_draft_set_versions_to_live` before cleanup.
+- 9 focused tests in `tests/test_relation_set_versions.py`: create/update/delete increment both
+  outgoing and incoming versions; different bindings have independent version tracks; draft-scoped
+  relation create increments draft-scoped set version; draft and live versions are independent;
+  draft discard cascades set-version rows; draft activation merges set versions into live;
+  existing relation API responses are unchanged (transparent).
+- **D3 resolved:** lazy row creation with implicit version 0 for untouched sets, as specified in
+  ADR-022.
+- **D4 resolved:** activation merges draft set versions by adding the draft's mutation count to the
+  live set version, then deletes draft rows.
+- All 379 backend tests pass. Migration tests confirm the new table is included in the complete
+  current schema and that upgrade/interrupted-migration paths work correctly.
 
 ---
 
@@ -626,8 +662,8 @@ WP-1, WP-2, WP-3 and WP-6 have no cross-dependencies and can proceed in any orde
 | --- | --- | --- | --- |
 | D1 | Candidate search fields: view-declared or derived from target type? | Explicit in view config | WP-2 ✓ |
 | D2 | Schema 0.5 → 0.6 CLI transition path? | New model file sufficient pre-production | WP-2 ✓ |
-| D3 | Set-version row lifecycle: eager or lazy? | Frozen WP-3 decision; consume its delivered contract | Frozen |
-| D4 | Activation merge strategy for set versions? | Frozen WP-3 decision; validate integration in WP-9 | Frozen |
+| D3 | Set-version row lifecycle: eager or lazy? | Lazy, implicit version 0 for untouched sets | WP-3 ✓ |
+| D4 | Activation merge strategy for set versions? | Add draft mutation count to live version, then delete draft rows | WP-3 ✓ |
 | D5 | Coverage endpoint: new router or extend relations? | New dedicated mapping router | WP-4 |
 | D6 | HTTP method for mapping replacement? | PUT (idempotent set replacement) | WP-5 |
 | D7 | Replacement target count? | One target; separate direction-aware cardinality checks | WP-5 |

@@ -402,7 +402,9 @@ migration, protected administration and a bounded supported-version window.
 
 ## ADR-022 — Version complete relation sets for atomic mapping
 
-**Status:** Accepted for product 0.7; live/draft scope consolidated by ADR-026 and ADR-027
+**Status:** Accepted for product 0.7; live/draft scope consolidated by ADR-026 and ADR-027.
+Relation-set version persistence delivered in WP-3 (2026-09-12); mapping replacement API planned for
+WP-5.
 
 Mapping concurrency belongs to the complete directional relation set, not to an object or one relation
 instance. A source object may currently have zero, one or several matching edges, so neither an object
@@ -411,7 +413,7 @@ resolution consistently. Mapping mutations target stable records in a live works
 selected design draft. Live replacement is immediately visible; draft replacement remains staged.
 This replaces ADR-024’s former draft-only mapping scope.
 
-The planned `relation_set_versions` contract stores one optimistic integer version for an exact binding:
+The `relation_set_versions` table (delivered in WP-3) stores one optimistic integer version for an exact binding:
 workspace and explicit live/draft context, relation type, `fromObjectTypeKey`, `toObjectTypeKey`, stable anchor object and `outgoing`
 or `incoming` direction. Including both endpoint types prevents two allowed bindings of the same
 relation type from sharing and replacing each other's set. Every generic relation create, attribute

@@ -29,6 +29,17 @@ All notable changes to this project are documented in this file. The format foll
   placeholder renderer pending WP-8A/WP-8B. 11 new backend tests cover parse, activation, backward
   compatibility and all validation rejection paths.
 
+- Relation-set version persistence and generic participation (Build 0.7 WP-3). Every generic relation
+  write (create, update, delete) now atomically maintains exact-binding set versions in both the
+  outgoing and incoming directions. The `relation_set_versions` table tracks the optimistic version
+  of each (workspace, optional draft, relation type, from/to object-type pair, anchor object,
+  direction) combination. Rows are created lazily on first touch with version 1; untouched sets have
+  implicit version 0. Draft-scoped and live-scoped versions are independent. Draft deletion cascades
+  set-version rows; draft activation merges draft mutation counts into live set versions. A partial
+  unique index protects live-context uniqueness where `workspace_draft_id IS NULL`. 9 focused tests
+  cover all mutation paths, independent bindings, draft/live isolation, cascade and activation merge.
+  All 379 backend tests pass.
+
 - UI-07 automated accessibility and visual-regression gates (WP-1). `npm run test:a11y` runs
   axe-core WCAG 2.1 AA checks on 9 core page types across two object types; `npm run test:visual`
   compares viewport screenshots against committed baselines using pixelmatch. ~16 color-contrast

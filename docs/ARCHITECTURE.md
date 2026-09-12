@@ -164,13 +164,16 @@ reducing every value to text.
 validated before insertion. Creating or moving a contained object maintains `parent_object_id` and the
 corresponding typed parent relation together.
 
-Product 0.7 will implement ADR-022 exact-binding relation-set versions for mapping concurrency. Each
-relation write advances the outgoing and incoming sets for its exact workspace, relation type and
-endpoint-type binding. A mapping replacement claims one anchor/direction/binding set and changes its
-complete zero/one/many edge state atomically, protecting unmapped and ambiguous rows without allowing
-another binding of the same relation type to be replaced accidentally.
+`relation_set_versions` implements ADR-022 exact-binding relation-set versions for mapping concurrency
+(WP-3, delivered 2026-09-12). Each relation write advances the outgoing and incoming sets for its exact
+workspace, relation type and endpoint-type binding. Rows are created lazily on first touch; untouched
+sets have implicit version 0. Draft-scoped and live-scoped versions are independent; draft deletion
+cascades them, and activation merges draft mutation counts into the live version. A mapping replacement
+(WP-5, planned) claims one anchor/direction/binding set and changes its complete zero/one/many edge
+state atomically, protecting unmapped and ambiguous rows without allowing another binding of the same
+relation type to be replaced accidentally.
 
-The 0.7 plan freezes WP-1–WP-3. Later mapping reads resolve the existing view configuration under
+The 0.7 plan freezes WP-1–WP-3 (all delivered). Later mapping reads resolve the existing view configuration under
 an explicit live/draft model context and return bounded target previews with exact counts and
 version-bound continuation. Replacement preserves an existing selected relation identity and validates
 cardinality in the actual direction. Draft version selection validates the complete effective graph

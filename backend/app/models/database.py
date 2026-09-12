@@ -10,11 +10,13 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     Numeric,
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
@@ -565,6 +567,58 @@ class WorkspaceDraftRelation(Base):
     attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     version: Mapped[int] = mapped_column(Integer, default=1)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+class RelationSetVersion(Base):
+    __tablename__ = "relation_set_versions"
+    __table_args__ = (
+        UniqueConstraint(
+            "workspace_key",
+            "workspace_draft_id",
+            "relation_type_key",
+            "from_object_type_key",
+            "to_object_type_key",
+            "anchor_object_id",
+            "direction",
+            name="uq_relation_set_version",
+        ),
+        CheckConstraint("direction IN ('outgoing', 'incoming')", name="ck_rsv_direction"),
+        Index(
+            "uq_relation_set_version_live",
+            "workspace_key",
+            "relation_type_key",
+            "from_object_type_key",
+            "to_object_type_key",
+            "anchor_object_id",
+            "direction",
+            unique=True,
+            sqlite_where=text("workspace_draft_id IS NULL"),
+            postgresql_where=text("workspace_draft_id IS NULL"),
+        ),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    workspace_key: Mapped[str] = mapped_column(
+        ForeignKey("workspaces.key", ondelete="CASCADE"), nullable=False, index=True
+    )
+    workspace_draft_id: Mapped[str | None] = mapped_column(
+        ForeignKey("workspace_drafts.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    relation_type_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    from_object_type_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    to_object_type_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    anchor_object_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    direction: Mapped[str] = mapped_column(String(10), nullable=False)
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )
 
 
 class AuditEvent(Base):
