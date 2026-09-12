@@ -474,7 +474,10 @@ describe("App", () => {
     expect(await screen.findByRole("heading", { name: domainObject.name, level: 1 })).toBeInTheDocument();
     expect(api.modelRelease).toHaveBeenCalledWith("pin", true);
     expect(api.object).toHaveBeenCalledWith("domain", domainObject.id, "west", "draft-1");
-    expect(screen.getByRole("heading", { name: "Review · Draft v8" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Current context" })).toHaveTextContent("Draft · Review");
+    expect(
+      within(screen.getByRole("region", { name: "Draft publication" })).getByText("Version 8"),
+    ).toBeInTheDocument();
     expect(api.objectHistory).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Back to list" }));
     await waitFor(() => expect(window.location.pathname).toContain("/views/domains"));

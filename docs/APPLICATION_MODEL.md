@@ -346,7 +346,7 @@ but cannot be activated. `form`, `dashboard` and `tree` view types remain unimpl
 workspace-scoped release assignment may stage model and data migrations, but mixed schema-language
 operation requires explicit support for every concurrently served version.
 
-Development databases can reset and bootstrap the schema 0.5 starter. To preserve compatible runtime
+Development databases can reset and bootstrap the schema 0.6 starter. To preserve compatible runtime
 data, stop traffic and run from `backend/`:
 
 ```bash
@@ -360,5 +360,6 @@ environment so it targets the same `DATABASE_URL`; `/health` remains HTTP `503` 
 has succeeded and the API is restarted.
 
 The command reads the selected schema 0.4 release without starting the request runtime, validates and
-installs the candidate, runs the normal compatibility analysis and atomically changes runtime state.
+installs a supported schema 0.5 or 0.6 candidate, runs the normal compatibility analysis and atomically
+changes runtime state.
 Any validation, compatibility or concurrency failure rolls the transaction back.

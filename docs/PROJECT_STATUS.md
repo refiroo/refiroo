@@ -194,7 +194,8 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 ## Remaining limitations
 
 - Automated accessibility gates (`npm run test:a11y`) and visual-regression gates
-  (`npm run test:visual`) are delivered. Two known violations are allowlisted with tracked references.
+  (`npm run test:visual`) are delivered. Two known violations are allowlisted by exact target
+  and bounded node count with tracked references.
   Visual baselines cover light theme only (no dark theme exists yet).
 - Schema 0.6 supports strict table views and the `mappingGrid` view contract (validated model,
   placeholder frontend renderer). Exact-binding relation-set versions are integrated into all generic

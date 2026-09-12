@@ -92,8 +92,11 @@ the update workflow is documented.
   types, record detail ×2, draft collection, draft detail, history, model workbench, drafts list).
   All pages pass with zero unexpected violations.
 - `npm run test:visual` compares viewport screenshots against 9 committed baselines using pixelmatch.
-  `npm run test:visual:update` accepts new baselines after intentional visual changes.
-- Two allowlisted violations with tracked references: `region` (WP1-001: resize-handle separator
+  `npm run test:visual:update` accepts new baselines after intentional visual changes. Missing
+  baselines fail the normal gate; only explicit update mode creates or replaces them.
+- Two allowlisted violations with tracked references in `TODO.md`, exact node targets and bounded
+  counts (the duplicate-label exception applies only to System detail): `region` (WP1-001: resize-handle
+  separator
   between landmarks) and `landmark-unique` (WP1-002: duplicate "Objects" aria-label on child/relation
   panels).
 - ~16 color-contrast violations fixed by darkening muted text colors to `var(--color-text-muted)`
@@ -157,7 +160,8 @@ binding, missing columns) is rejected with precise JSON-path errors. Tests cover
 **Delivery notes:**
 
 - `MappingGridViewConfig` and `MappingGridViewDefinition` added to `models/schema.py` with a
-  Pydantic discriminated union on `ViewDefinition.type`. `schemaVersion` accepts `"0.5"` and `"0.6"`.
+  Pydantic discriminated union on `ViewDefinition.type`. `schemaVersion` accepts `"0.5"` and `"0.6"`;
+  schema 0.5 rejects `mappingGrid` at the view type path, while schema 0.6 also accepts table-only models.
 - Validation in `application_rules.py` checks: relation type exists, from/to object types exist,
   matching `objectTypeRelations` triple exists, relation is not containment (`parentOf`), binding is
   not required-ownership, source/target columns reference attached attributes, candidate search fields
@@ -171,12 +175,26 @@ binding, missing columns) is rejected with precise JSON-path errors. Tests cover
   styled placeholder renderer; the full mapping grid UI ships in WP-8.
 - 11 new backend tests covering parse, activation, backward compatibility and all validation rejection
   paths. Schema upgrade tests generate a schema 0.5 fixture at test time to isolate from the 0.6
-  starter model. All 370 backend tests pass; frontend build and 161/162 tests pass (1 pre-existing
-  failure unrelated to WP-2).
+  starter model. Initial validation recorded 370 backend passes and 161/162 frontend passes.
+  The stale draft-context test assertion is corrected in the WP-1/WP-2 review fixes; final
+  regression evidence is recorded below.
 - `APPLICATION_MODEL.md` updated with the `mappingGrid` contract table and validation rules.
 - **D1 resolved:** `candidateSearchFields` declared explicitly in view config (consistent with table
   view's `filterFields`).
+- Offline schema 0.4 recovery accepts compatible schema 0.5 or 0.6 candidates, preserving the
+  documented startup command with the current starter. Tests run the actual logged command,
+  verify interrupted-transaction rollback, restart and safe repeat refusal.
 - **D2 resolved:** new model file sufficient pre-production; no CLI upgrade tooling for 0.5 → 0.6.
+
+**WP-1/WP-2 review validation:** Backend Ruff and all 384 tests pass; frontend formatting,
+lint (zero errors, 12 existing warnings), all 162 tests and production build pass. Four gate-helper
+regressions pass. Chrome accessibility checks pass on nine core pages and reject two injected
+violations; all nine visual comparisons pass with the reviewed loaded-workbench baseline.
+Real temporary-database lifespan checks cover clean bootstrap, restart, supported recovery candidates,
+interrupted-transition rollback and safe repeat refusal; the full suite also exercises database upgrade
+and interrupted-migration refusal/recovery. A consistent copy of the configured development database
+starts and restarts with health/model reads returning 200 under its selected schema 0.5 release.
+These are WP-1/WP-2 regression checks, not composed 0.7 product acceptance or dark-theme coverage.
 
 ---
 

@@ -155,7 +155,10 @@ npm --prefix frontend run test:a11y
 Runs axe-core (WCAG 2.1 AA + best practices) on core page types: collection tables (Domain,
 System), record detail with panels, draft editing, history view, model workbench and the drafts
 list. Violations not covered by the explicit allowlist in `e2e/accessibility-gate.mjs` fail the
-gate. Each allowlisted rule must reference a tracked issue. Screenshots and a JSON report are
+gate. Exceptions require a tracked issue, an exact axe node target and a maximum node count;
+page-specific exceptions apply only to their named pages. Additional nodes and changed related-node
+sets still fail the gate. The runner also injects new
+violations to verify that the exceptions do not hide them. Screenshots and a JSON report are
 written to a temporary evidence directory.
 
 
@@ -165,9 +168,11 @@ written to a temporary evidence directory.
 npm --prefix frontend run test:visual
 ```
 
-Compares full-page screenshots of the same core page types against committed baselines in
+Compares viewport screenshots of the same core page types against committed baselines in
 `e2e/baselines/`. A pixel-diff threshold of 0.5% of total pixels is allowed; exceeding it fails
-the gate. Diff and actual images are written to a temporary evidence directory.
+the gate. Missing baselines also fail; only `test:visual:update` creates or replaces them.
+Diff and actual images are written to a temporary evidence directory. Capture waits for API requests
+and busy panels to settle so a visible heading cannot produce a loading-state comparison.
 
 To accept intentional visual changes:
 
@@ -189,3 +194,9 @@ browser/API evidence with independent bindings and differing same-schema release
 and isolation checks. Existing baseline pages alone do not establish coverage of those new controls.
 No new scenario pass is claimed here. See [the 0.7 plan](../../docs/BASE_0_7_IMPLEMENTATION_PLAN.md).
 Dark variants remain deferred until dark mode exists; reuse passing gates unless relevant code changes.
+
+Run gate-helper regressions (including missing baseline refusal and scoped accessibility exceptions):
+
+```sh
+npm --prefix frontend run test:gate-helpers
+```

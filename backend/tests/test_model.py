@@ -2,7 +2,12 @@ from copy import deepcopy
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 
+from app.db import SessionLocal
+from app.main import create_app
+from app.models.database import ModelRelease
 from app.models.schema import EngineModel
 from app.services.model.compiler import ModelValidationError, compile_model, parse_model
 from app.services.model.diff import semantic_diff
@@ -532,3 +537,48 @@ def test_mapping_grid_rejects_duplicate_source_columns():
     view["config"]["sourceColumns"] = ["name", "name"]
     result = compile_model(source)
     assert not result.valid
+
+
+def test_schema_05_rejects_mapping_grid_with_the_view_type_path():
+    source = _mapping_grid_source()
+    source["schemaVersion"] = "0.5"
+    result = compile_model(source)
+    assert not result.valid
+    diagnostic = result.diagnostics[0]
+    assert diagnostic.path.endswith("/views/master-to-system-mapping/type")
+    assert diagnostic.code == "invalid_model"
+    assert "requires schema version 0.6" in diagnostic.message
+
+
+def test_schema_06_with_only_table_views_is_valid():
+    source = _mapping_grid_source()
+    for application in source["applications"]:
+        application["views"] = [view for view in application["views"] if view["type"] == "table"]
+    assert compile_model(source).valid
+
+
+def test_schema_05_mapping_grid_is_refused_by_validation_and_draft_installation(monkeypatch):
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    source = _mapping_grid_source()
+    source["schemaVersion"] = "0.5"
+    with TestClient(create_app()) as client:
+        with SessionLocal() as session:
+            before = session.scalar(select(func.count()).select_from(ModelRelease))
+        validation = client.post("/api/v1/model-validations", json={"model": source})
+        assert validation.status_code == 200
+        assert validation.json()["valid"] is False
+        assert validation.json()["diagnostics"][0]["path"].endswith("/type")
+        draft = client.post("/api/v1/model-drafts", json={"name": "Wrong schema", "model": source})
+        assert draft.status_code == 201
+        installation = client.post(
+            f"/api/v1/model-drafts/{draft.json()['id']}/installation",
+            json={"expectedVersion": 1},
+        )
+        assert installation.status_code == 422
+        assert installation.json()["error"]["code"] == "invalid_model"
+        with SessionLocal() as session:
+            assert session.scalar(select(func.count()).select_from(ModelRelease)) == before
+        deleted = client.delete(
+            f"/api/v1/model-drafts/{draft.json()['id']}", params={"expectedVersion": 1}
+        )
+        assert deleted.status_code == 204

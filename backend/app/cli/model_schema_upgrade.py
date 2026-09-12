@@ -1,7 +1,8 @@
-"""Atomically transition an offline database from a selected schema 0.4 model to 0.5."""
+"""Atomically transition an offline database from a selected schema 0.4 model to a supported schema."""
 
 import argparse
 import json
+import sys
 from dataclasses import asdict
 from pathlib import Path
 
@@ -10,6 +11,7 @@ from sqlalchemy import update
 from ..db import SessionLocal, create_database
 from ..models.database import AuditEvent, ModelRelease, ModelRuntimeState
 from ..services.model.compatibility import analyze_compatibility
+from ..services.model.diagnostics import ModelValidationError
 from ..services.model.legacy import parse_schema_04_for_transition
 from ..services.model.loader import load_model
 from ..services.model.releases import ReleaseIdentityConflict, install_model_release
@@ -18,8 +20,8 @@ from ..services.model.runtime import require_runtime_state
 
 def transition(model_path: Path) -> str:
     candidate = load_model(model_path)
-    if candidate.schemaVersion != "0.5":
-        raise RuntimeError("The transition candidate must use schema version 0.5")
+    if candidate.schemaVersion not in {"0.5", "0.6"}:
+        raise RuntimeError("The transition candidate must use schema version 0.5 or 0.6")
     create_database()
     with SessionLocal() as session:
         runtime_state, active_release = require_runtime_state(session)
@@ -84,17 +86,26 @@ def transition(model_path: Path) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Atomically select a compatible schema 0.5 model in an offline database"
+        description="Atomically select a compatible schema 0.5 or 0.6 model in an offline database"
     )
     parser.add_argument(
         "--model",
         required=True,
         type=Path,
-        help="Path to the schema 0.5 model JSON to validate, install and select",
+        help="Path to the schema 0.5 or 0.6 model JSON to validate, install and select",
     )
     args = parser.parse_args()
-    release_id = transition(args.model)
-    print(f"Selected schema 0.5 model release {release_id}")
+    try:
+        release_id = transition(args.model)
+    except (RuntimeError, ModelValidationError, OSError) as exc:
+        print(
+            f"Schema transition refused: {exc}. The selected release is unchanged. "
+            "Correct the candidate or resolve the reported incompatibility, then retry "
+            "with traffic stopped. Restart the API only after the transition succeeds.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1) from None
+    print(f"Selected supported model release {release_id}")
 
 
 if __name__ == "__main__":

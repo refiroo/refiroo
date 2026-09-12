@@ -32,6 +32,12 @@ def check(model: EngineModel, index: ModelIndex) -> None:
             if isinstance(view, TableViewDefinition):
                 _check_table_view(application, view, view_path, index)
             elif isinstance(view, MappingGridViewDefinition):
+                if model.schemaVersion != "0.6":
+                    raise ModelReferenceError(
+                        "invalid_model",
+                        f"{view_path}/type",
+                        "The mappingGrid view type requires schema version 0.6",
+                    )
                 _check_mapping_grid_view(application, view, view_path, model, index)
         check_details(model, application, application_path, index)
 

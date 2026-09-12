@@ -7,10 +7,10 @@ import { PNG } from "pngjs";
 import pixelmatch from "pixelmatch";
 
 const helpers = dirname(fileURLToPath(import.meta.url));
-const baselineDir = resolve(helpers, "..", "baselines");
+const committedBaselineDir = resolve(helpers, "..", "baselines");
 
 /**
- * Capture a full-page screenshot and compare against a named baseline.
+ * Capture a viewport screenshot and compare against a named baseline.
  *
  * When `--update-baselines` is in process.argv, the screenshot is saved as the new baseline
  * and the comparison is skipped.
@@ -19,25 +19,39 @@ const baselineDir = resolve(helpers, "..", "baselines");
  * @param {string} name - Unique baseline name (e.g. "collection-table-domain-light").
  * @param {object} options
  * @param {string} [options.outputDir] - Directory for diff/actual images (defaults to temp evidence dir).
+ * @param {string} [options.baselineDir] - Baseline directory (defaults to committed baselines).
  * @param {number} [options.threshold=0.1] - pixelmatch color threshold (0-1). Default 0.1.
  * @param {number} [options.maxDiffPercent=0.5] - Maximum percentage of differing pixels before failure.
  * @returns {Promise<{passed: boolean, diffPercent: number, baselineCreated: boolean, message: string}>}
  */
 export async function compareScreenshot(page, name, options = {}) {
-  const { outputDir, threshold = 0.1, maxDiffPercent = 0.5 } = options;
+  const { outputDir, threshold = 0.1, maxDiffPercent = 0.5, baselineDir = committedBaselineDir } = options;
   const updateMode = process.argv.includes("--update-baselines");
   const baselinePath = resolve(baselineDir, `${name}.png`);
   const actualBuffer = await page.screenshot({ fullPage: false });
 
   await mkdir(baselineDir, { recursive: true });
 
-  if (updateMode || !existsSync(baselinePath)) {
+  if (updateMode) {
     await writeFile(baselinePath, actualBuffer);
     return {
       passed: true,
       diffPercent: 0,
       baselineCreated: true,
-      message: updateMode ? `Baseline updated: ${name}` : `Baseline created: ${name}`,
+      message: `Baseline updated: ${name}`,
+    };
+  }
+
+  if (!existsSync(baselinePath)) {
+    if (outputDir) {
+      await mkdir(outputDir, { recursive: true });
+      await writeFile(resolve(outputDir, `${name}-actual.png`), actualBuffer);
+    }
+    return {
+      passed: false,
+      diffPercent: 100,
+      baselineCreated: false,
+      message: `Missing baseline: ${name}. Run test:visual:update and review the new baseline before committing.`,
     };
   }
 
@@ -59,14 +73,9 @@ export async function compareScreenshot(page, name, options = {}) {
   }
 
   const diffPng = new PNG({ width: baseline.width, height: baseline.height });
-  const diffPixels = pixelmatch(
-    baseline.data,
-    actual.data,
-    diffPng.data,
-    baseline.width,
-    baseline.height,
-    { threshold },
-  );
+  const diffPixels = pixelmatch(baseline.data, actual.data, diffPng.data, baseline.width, baseline.height, {
+    threshold,
+  });
   const totalPixels = baseline.width * baseline.height;
   const diffPercent = (diffPixels / totalPixels) * 100;
   const passed = diffPercent <= maxDiffPercent;

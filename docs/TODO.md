@@ -90,3 +90,10 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - Starter-key branches in backend or frontend behavior.
 - Object drafts, object revisions, object activation/retirement, or per-object publication state.
 - A second public CRUD dialect under `/workspace-drafts/{draftId}/objects` or `/relations`.
+
+## Known accessibility exceptions
+
+- [ ] WP1-001: place the navigation resize separator inside a landmark. The gate permits only
+  the known separator target, with one matching node per page.
+- [ ] WP1-002: give the child/relation table regions distinct accessible labels. The gate permits
+  one known duplicate-label target on the System detail page only.

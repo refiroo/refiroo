@@ -1,5 +1,8 @@
 import json
+import os
+import subprocess
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
 from alembic import command
@@ -43,6 +46,8 @@ def _legacy_database(database_path: Path) -> str:
     config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
     command.upgrade(config, "head")
     source = json.loads(MODEL_PATH.read_text())
+    for application in source["applications"]:
+        application["views"] = [view for view in application["views"] if view["type"] == "table"]
     source["schemaVersion"] = "0.4"
     source["release"]["version"] = "0.5.0"
     engine = create_engine(f"sqlite:///{database_path}")
@@ -191,3 +196,54 @@ def test_schema_04_release_remains_listable_and_exportable_as_history():
         assert detail.status_code == 200
         assert detail.json()["schemaVersion"] == "0.4"
         assert detail.json()["model"] == {"schemaVersion": "0.4", "historical": True}
+
+
+@pytest.mark.parametrize("candidate_schema", ["0.5", "0.6"])
+def test_actual_startup_recovery_command_selects_supported_candidate_and_restarts(
+    tmp_path, monkeypatch, candidate_schema
+):
+    database_path = tmp_path / "recovery.db"
+    old_release_id = _legacy_database(database_path)
+    candidate_path = _schema_05_model_path(tmp_path) if candidate_schema == "0.5" else MODEL_PATH
+    with monkeypatch.context() as patch:
+        patch.setenv("DATABASE_URL", f"sqlite:///{database_path}")
+        patch.setenv("RDM_MODEL_PATH", str(candidate_path))
+        reload_settings()
+        model_registry.clear()
+        try:
+            error_log = Mock()
+            patch.setattr("app.main.logger.error", error_log)
+            with TestClient(create_app()) as client:
+                assert client.get("/health").status_code == 503
+            command_text = schema_upgrade_command(get_settings())
+            assert error_log.call_args.args[2] == command_text
+            # Interrupt after candidate installation and runtime updates, before commit.
+            with monkeypatch.context() as interruption:
+                interruption.setattr("app.cli.model_schema_upgrade.AuditEvent", Mock(side_effect=RuntimeError("interrupted transition")))
+                with pytest.raises(RuntimeError, match="interrupted transition"):
+                    transition(candidate_path)
+            engine = create_engine(f"sqlite:///{database_path}")
+            with Session(engine) as session:
+                state = session.get(ModelRuntimeState, 1)
+                assert state.version == 1
+                assert session.get(ModelRelease, state.active_model_release_id).public_id == old_release_id
+            result = subprocess.run(command_text, shell=True, capture_output=True, text=True, env=os.environ.copy(), check=False)
+            assert result.returncode == 0, result.stderr
+            assert "Selected supported model release" in result.stdout
+            model_registry.clear()  # A process restart resets registry readiness.
+            with TestClient(create_app()) as client:
+                assert client.get("/health").status_code == 200
+                assert client.get("/api/v1/model").json()["schemaVersion"] == candidate_schema
+            with TestClient(create_app()) as client:
+                assert client.get("/health").status_code == 200
+            # Retrying an already completed transition refuses safely and preserves the release.
+            refused = subprocess.run(command_text, shell=True, capture_output=True, text=True, env=os.environ.copy(), check=False)
+            assert refused.returncode == 1
+            assert "Schema transition refused" in refused.stderr
+            assert "selected release is unchanged" in refused.stderr
+            assert "Traceback" not in refused.stderr
+            with TestClient(create_app()) as client:
+                assert client.get("/health").status_code == 200
+        finally:
+            model_registry.clear()
+    reload_settings()

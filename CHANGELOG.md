@@ -6,6 +6,15 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Fixed
+
+- Build 0.7 WP-1/WP-2 review fixes: scope accessibility exceptions to known targets and node counts,
+  fail visual comparisons on missing baselines outside explicit update mode, reject `mappingGrid`
+  under schema 0.5, and allow the documented offline schema 0.4 recovery to select a compatible
+  schema 0.5 or 0.6 candidate. The CLI reports expected refusals without a traceback, and the draft
+  context regression now checks the current named-draft and version presentation. Visual capture
+  waits for loaded panels, and the model-workbench baseline now covers the loaded release detail.
+
 ### Changed
 
 - Extended the planned 0.7 design and delivery documentation after plan review: WP-1–WP-3 remain

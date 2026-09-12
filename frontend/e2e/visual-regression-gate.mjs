@@ -15,6 +15,10 @@ async function shown(locator) {
 }
 
 async function capture(page, name, outputDir) {
+  // A record heading can appear while its independently fetched panels still load.
+  await page.waitForLoadState("networkidle");
+  await page.waitForFunction(() => document.querySelectorAll('[aria-busy="true"]').length === 0);
+  await page.evaluate(() => document.fonts.ready);
   const result = await compareScreenshot(page, name, { outputDir });
   checks.push(result.message);
   if (!result.passed) failures.push(result.message);
@@ -55,7 +59,9 @@ try {
   await capture(page, "draft-editing-light", output);
 
   // --- 6. Draft record detail ---
-  await page.goto(`${uiUrl}/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default&workspaceDraftId=${draft.id}`);
+  await page.goto(
+    `${uiUrl}/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default&workspaceDraftId=${draft.id}`,
+  );
   await shown(page.getByRole("heading", { name: "Domain 00" }));
   await capture(page, "draft-detail-light", output);
 
@@ -98,7 +104,9 @@ try {
   if (harness) {
     try {
       await writeFile(resolve(harness.output, "server.log"), harness.log());
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
   process.exitCode = 1;
 } finally {
