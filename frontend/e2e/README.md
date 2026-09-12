@@ -144,3 +144,38 @@ Views/hierarchy selection across reloads without changing the selected record UR
 retain the selected record, collapsed and expanded state restored across real reloads, and keyboard
 expansion at desktop/mobile widths. Preferences are browser-local per workspace/application.
 See [correction evidence](../../review-notes/frontend-redesign-2026-09-10/hierarchy-preferences-evidence/README.md).
+
+
+## UI-07 accessibility gate
+
+```sh
+npm --prefix frontend run test:a11y
+```
+
+Runs axe-core (WCAG 2.1 AA + best practices) on core page types: collection tables (Domain,
+System), record detail with panels, draft editing, history view, model workbench and the drafts
+list. Violations not covered by the explicit allowlist in `e2e/accessibility-gate.mjs` fail the
+gate. Each allowlisted rule must reference a tracked issue. Screenshots and a JSON report are
+written to a temporary evidence directory.
+
+
+## UI-07 visual regression gate
+
+```sh
+npm --prefix frontend run test:visual
+```
+
+Compares full-page screenshots of the same core page types against committed baselines in
+`e2e/baselines/`. A pixel-diff threshold of 0.5% of total pixels is allowed; exceeding it fails
+the gate. Diff and actual images are written to a temporary evidence directory.
+
+To accept intentional visual changes:
+
+```sh
+npm --prefix frontend run test:visual:update
+```
+
+This captures new baselines. Review the updated PNGs in `e2e/baselines/`, then commit them.
+
+Dark theme baselines are deferred until the application implements a dark mode. When dark mode
+lands, add `*-dark` baseline variants to the visual regression gate.

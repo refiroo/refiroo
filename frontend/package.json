@@ -14,7 +14,10 @@
     "test:browser": "node e2e/wp9-navigation.mjs",
     "test:browser:authoring": "node e2e/wp9-authoring.mjs",
     "test:browser:drafts": "node e2e/wp9-drafts.mjs",
-    "test:browser:history": "node e2e/wp9-history.mjs"
+    "test:browser:history": "node e2e/wp9-history.mjs",
+    "test:a11y": "node e2e/accessibility-gate.mjs",
+    "test:visual": "node e2e/visual-regression-gate.mjs",
+    "test:visual:update": "node e2e/visual-regression-gate.mjs --update-baselines"
   },
   "dependencies": {
     "lucide-react": "1.39.0",
@@ -23,6 +26,7 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
     "@eslint/js": "^10.0.1",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^7.0.1",
@@ -34,7 +38,9 @@
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.12.0",
     "jsdom": "^29.1.1",
+    "pixelmatch": "^7.2.0",
     "playwright": "1.56.1",
+    "pngjs": "^7.0.0",
     "prettier": "^3.9.6",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.69.0",

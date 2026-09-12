@@ -29,7 +29,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  color: #84908b;
+  color: var(--color-text-muted);
   font-size: 11px;
   margin-bottom: 11px;
 }
@@ -223,7 +223,7 @@ table {
   font-size: var(--text-body);
 }
 th {
-  color: #77847e;
+  color: var(--color-text-muted);
   background: #fafbfa;
   font-size: var(--text-small);
   font-weight: 700;
@@ -264,7 +264,7 @@ tbody tr:last-child td {
 }
 .empty-row {
   padding: 42px;
-  color: #8b9691;
+  color: var(--color-text-muted);
   text-align: center;
 }
 .pill {
@@ -272,7 +272,7 @@ tbody tr:last-child td {
   padding: 3px 7px;
   border-radius: 99px;
   background: #ecefed;
-  color: #66716d;
+  color: #4a5652;
   font-size: 9px;
   font-weight: 750;
 }
@@ -291,7 +291,7 @@ tbody tr:last-child td {
   gap: 7px;
   padding: 10px 15px;
   border-top: 1px solid var(--soft-line);
-  color: #84908b;
+  color: var(--color-text-muted);
   font-size: 10px;
 }
 .pagination span {
@@ -354,7 +354,7 @@ tbody tr:last-child td {
   padding: 5px 8px;
   border-radius: 6px;
   background: #e9eeeb;
-  color: #75817c;
+  color: #4a5652;
   font-size: 9px;
   font-weight: 800;
 }
@@ -416,7 +416,7 @@ tbody tr:last-child td {
   border-bottom: 1px solid #edf1ef;
 }
 .attribute-grid dt {
-  color: #7a8781;
+  color: var(--color-text-muted);
   font-size: 9px;
   font-weight: 800;
   text-transform: uppercase;
@@ -454,7 +454,7 @@ tbody tr:last-child td {
   white-space: nowrap;
 }
 .managed-label {
-  color: #7d8984;
+  color: var(--color-text-muted);
   font-size: 9px;
   white-space: normal;
 }
@@ -478,7 +478,7 @@ tbody tr:last-child td {
 }
 .hierarchy-panel > div span,
 .hierarchy-panel small {
-  color: #85918c;
+  color: var(--color-text-muted);
   font-size: 9px;
 }
 .hierarchy-panel button {
@@ -815,7 +815,7 @@ tbody tr:last-child td {
 }
 .panel-state {
   padding: 28px 16px;
-  color: #87938e;
+  color: var(--muted);
   text-align: center;
   font-size: 11px;
 }
@@ -854,7 +854,7 @@ tbody tr:last-child td {
   overflow-wrap: anywhere;
 }
 .history-timeline small {
-  color: #8a9691;
+  color: var(--color-text-muted);
   font-size: 9px;
 }
 .history-more {
@@ -927,7 +927,7 @@ tbody tr:last-child td {
   overflow-wrap: anywhere;
 }
 .model-catalogue button small {
-  color: var(--muted);
+  color: #52605b;
   font-size: 9px;
   overflow-wrap: anywhere;
 }

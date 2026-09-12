@@ -141,6 +141,15 @@ Use this validation matrix:
   migration, lifespan and final smoke checks required above.
 - Documentation or agent configuration only: validate syntax, links or configuration as relevant;
   application test suites are not required.
+- Accessibility gate: run `npm run test:a11y` after UI changes that affect page structure, ARIA
+  attributes or interactive controls. The gate runs axe-core on core page types (collection tables,
+  record details, draft editing, history, model workbench) with two object types and fails on
+  unexpected violations. Known violations are allowlisted in `e2e/accessibility-gate.mjs` with
+  tracked issue references.
+- Visual regression gate: run `npm run test:visual` after CSS, layout or component changes. The
+  gate compares screenshots against committed baselines in `e2e/baselines/`. To accept intentional
+  visual changes, run `npm run test:visual:update`, review the updated baselines, and commit them.
+  Dark theme baselines are deferred until a dark mode is implemented.
 
 Do not rerun a passing gate unless relevant code changed afterward or a failure remains unexplained.
 Never run multiple backend `pytest` processes concurrently because they share a test database.

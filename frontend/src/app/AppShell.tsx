@@ -97,7 +97,7 @@ export function AppShell({
         <Icon name="menu" /> Browse application
       </button>
       <NavigationDrawer open={navigationOpen} onClose={() => setNavigationOpen(false)}>
-        <div id="workspace-navigation">
+        <aside id="workspace-navigation" aria-label="Workspace navigation">
           {activeRoute.kind !== "models" && (
             <WorkspaceSelector
               workspaceKey={activeRoute.workspaceKey}
@@ -179,7 +179,7 @@ export function AppShell({
               Models
             </button>
           </nav>
-        </div>
+        </aside>
       </NavigationDrawer>
       <ResizeHandle
         className="navigation-resizer"

@@ -241,15 +241,15 @@
   text-overflow: ellipsis;
   padding: 2px 5px;
   border-radius: 4px;
-  color: #87938e;
-  background: rgba(0, 0, 0, 0.035);
+  color: #4d5955;
+  background: rgba(0, 0, 0, 0.05);
   white-space: nowrap;
   font-size: 8px;
   font-weight: 650;
 }
 .explorer-empty {
   padding: 28px 10px;
-  color: #89948f;
+  color: var(--muted);
   text-align: center;
   font-size: 11px;
 }

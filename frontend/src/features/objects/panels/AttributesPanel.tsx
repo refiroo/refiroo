@@ -132,49 +132,49 @@ export function AttributesPanel({
                     )}
                   </>
                 )}
-              </dd>
-              {!readOnly && editable && editing?.attribute.key !== field && (
-                <div className="row-actions">
-                  {stored ? (
-                    <>
+                {!readOnly && editable && editing?.attribute.key !== field && (
+                  <div className="row-actions">
+                    {stored ? (
+                      <>
+                        <button
+                          disabled={!!editing || !!removing || !!warning}
+                          onClick={(event) => {
+                            trigger.current = event.currentTarget.closest(".attribute-grid > div");
+                            setSavedField("");
+                            setEditing({ ...editable, stored });
+                          }}
+                        >
+                          Edit
+                        </button>
+                        {!editable.binding.required && (
+                          <button
+                            disabled={!!editing || !!removing || !!warning}
+                            className="text-danger"
+                            onClick={() => {
+                              setRemoveError("");
+                              setRemoved(false);
+                              setRemoving({ ...editable, stored });
+                            }}
+                          >
+                            Remove
+                          </button>
+                        )}
+                      </>
+                    ) : (
                       <button
                         disabled={!!editing || !!removing || !!warning}
                         onClick={(event) => {
                           trigger.current = event.currentTarget.closest(".attribute-grid > div");
                           setSavedField("");
-                          setEditing({ ...editable, stored });
+                          setEditing({ ...editable });
                         }}
                       >
-                        Edit
+                        Add value
                       </button>
-                      {!editable.binding.required && (
-                        <button
-                          disabled={!!editing || !!removing || !!warning}
-                          className="text-danger"
-                          onClick={() => {
-                            setRemoveError("");
-                            setRemoved(false);
-                            setRemoving({ ...editable, stored });
-                          }}
-                        >
-                          Remove
-                        </button>
-                      )}
-                    </>
-                  ) : (
-                    <button
-                      disabled={!!editing || !!removing || !!warning}
-                      onClick={(event) => {
-                        trigger.current = event.currentTarget.closest(".attribute-grid > div");
-                        setSavedField("");
-                        setEditing({ ...editable });
-                      }}
-                    >
-                      Add value
-                    </button>
-                  )}
-                </div>
-              )}
+                    )}
+                  </div>
+                )}
+              </dd>
             </div>
           );
         })}
