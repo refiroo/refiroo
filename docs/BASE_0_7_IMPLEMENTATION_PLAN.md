@@ -1,6 +1,7 @@
 # Base 0.7 implementation plan
 
-**Status:** Planning. Not started.
+**Status:** In progress. WP-1 and WP-2 delivered; their implementation review is pending and separate
+from this plan review. WP-3 implementation is in progress. WP-1–WP-3 scopes are frozen.
 
 **Target:** Product 0.7.0, schema language 0.6. The starter model content advances to a version on
 schema 0.6; that number alone does not mean the product release is accepted.
@@ -32,6 +33,21 @@ Excluded: moving a draft onto a version its content does not fit (0.10 conversio
 workspace-scoped model-release assignment (0.10), translation/hierarchy specialist views (0.8),
 bulk/integration APIs (0.9), authentication (0.10), physical history purge, model-designer redesign.
 
+## Frozen-scope boundary and 2026-09-12 design follow-up
+
+WP-1–WP-3 retain their existing scope and delivery evidence. The plan review does not establish
+implementation defects in them or replace the pending WP-1/WP-2 review. Later packages consume their
+contracts and add integration acceptance evidence:
+
+| Frozen foundation | Follow-up owner | Required evidence |
+| --- | --- | --- |
+| WP-1 gates | WP-7, WP-8A, WP-8B, WP-9 | New version-selection and mapping controls included in accessibility and visual scenarios |
+| WP-2 configuration | WP-4, WP-9 | View-specific API configuration and independent relation-binding fixtures |
+| WP-3 set versions | WP-4, WP-5, WP-9 | Consistent coverage/version reads, both directional sets, generic-write races and activation conflicts |
+
+If that evidence reveals a missing foundation capability, activate WP-10 below; do not amend a frozen
+package implicitly. Dark-theme baselines remain deferred until dark mode exists.
+
 ## Work packages
 
 Each work package is scoped for one LLM coding session. Dependencies between packages are stated
@@ -39,7 +55,9 @@ explicitly; independent packages may be implemented in any order within their ti
 
 ### Tier 0 — Foundation (no 0.7 dependencies)
 
-#### WP-1: UI-07 — Automated accessibility and visual-regression gates
+#### WP-1: UI-07 — Automated accessibility and visual-regression gates ✓
+
+**Status:** Delivered.
 
 **Carried from 0.6.** Add tooling gates using the existing Playwright harness; no application logic
 changes.
@@ -68,11 +86,30 @@ changes.
 comparisons; violations and unexpected visual changes fail the gate. Baselines are committed and
 the update workflow is documented.
 
+**Delivery notes:**
+
+- `npm run test:a11y` runs axe-core WCAG 2.1 AA checks on 9 page types (collection table ×2 object
+  types, record detail ×2, draft collection, draft detail, history, model workbench, drafts list).
+  All pages pass with zero unexpected violations.
+- `npm run test:visual` compares viewport screenshots against 9 committed baselines using pixelmatch.
+  `npm run test:visual:update` accepts new baselines after intentional visual changes.
+- Two allowlisted violations with tracked references: `region` (WP1-001: resize-handle separator
+  between landmarks) and `landmark-unique` (WP1-002: duplicate "Objects" aria-label on child/relation
+  panels).
+- ~16 color-contrast violations fixed by darkening muted text colors to `var(--color-text-muted)`
+  (`#66736e`, 4.68:1 on white). One `definition-list` violation fixed (row-actions moved inside
+  `<dd>`). Sidebar changed from `<div>` to `<aside>` with `aria-label`.
+- **Deviation from scope item 5:** baselines captured for light theme only. Dark theme does not exist
+  yet; dark-theme baselines will be added when a dark theme is implemented.
+- Gate documented in `AGENTS.md` validation matrix and `frontend/e2e/README.md`.
+
 ---
 
 ### Tier 1 — Schema and persistence (no cross-tier dependencies)
 
-#### WP-2: Schema 0.6 model language — `mappingGrid` view contract
+#### WP-2: Schema 0.6 model language — `mappingGrid` view contract ✓
+
+**Status:** Delivered.
 
 **Scope:**
 
@@ -116,6 +153,30 @@ tests.
 **Exit:** A schema 0.6 model with `mappingGrid` views parses, validates, installs and activates. A
 schema 0.5 model still works. Invalid mapping-grid configuration (wrong relation type, containment
 binding, missing columns) is rejected with precise JSON-path errors. Tests cover both schema versions.
+
+**Delivery notes:**
+
+- `MappingGridViewConfig` and `MappingGridViewDefinition` added to `models/schema.py` with a
+  Pydantic discriminated union on `ViewDefinition.type`. `schemaVersion` accepts `"0.5"` and `"0.6"`.
+- Validation in `application_rules.py` checks: relation type exists, from/to object types exist,
+  matching `objectTypeRelations` triple exists, relation is not containment (`parentOf`), binding is
+  not required-ownership, source/target columns reference attached attributes, candidate search fields
+  are searchable target-type attributes, all field lists are unique.
+- Compiler, registry, releases, router and startup updated to support both schema versions.
+- Starter model advanced to schema 0.6 / content release 0.7.0 with two `mappingGrid` views:
+  `system-to-master-mapping` (outgoing, system-value → master-value in RDM Systems) and
+  `master-to-system-mapping` (incoming, master-value ← system-value in RDM Master).
+- Frontend `ViewDefinition` is a TypeScript discriminated union. Type-safe narrowing in App.tsx,
+  routes.ts, CollectionView.tsx and ObjectToolbar.tsx. The view registry dispatches `mappingGrid` to a
+  styled placeholder renderer; the full mapping grid UI ships in WP-8.
+- 11 new backend tests covering parse, activation, backward compatibility and all validation rejection
+  paths. Schema upgrade tests generate a schema 0.5 fixture at test time to isolate from the 0.6
+  starter model. All 370 backend tests pass; frontend build and 161/162 tests pass (1 pre-existing
+  failure unrelated to WP-2).
+- `APPLICATION_MODEL.md` updated with the `mappingGrid` contract table and validation rules.
+- **D1 resolved:** `candidateSearchFields` declared explicitly in view config (consistent with table
+  view's `filterFields`).
+- **D2 resolved:** new model file sufficient pre-production; no CLI upgrade tooling for 0.5 → 0.6.
 
 ---
 
@@ -170,19 +231,31 @@ Existing relation tests still pass (set versions are transparent).
 1. Add a mapping coverage query endpoint:
    `GET /api/v1/workspaces/{workspaceKey}/mapping-coverage?relationTypeKey=...&fromObjectTypeKey=...&toObjectTypeKey=...&direction=...`
    with cursor pagination (`pageSize`, `cursor`), optional search on source name/attributes.
+   Require `applicationKey` and `viewKey` to resolve the existing `mappingGrid` configuration under
+   the effective live or draft-pinned model. Explicit binding parameters must match that view.
+   Multiple views over one binding may select different columns and candidate search fields.
 2. The response returns batched rows: each row contains the source object identity and display fields,
    the current mapping state (`mapped` | `unmapped` | `ambiguous`), the current target(s) with
    display fields, and the current `mappingVersion` (relation-set version) for that source.
+   Return exact `targetCount`, at most 20 target summaries, and an explicit cursor-paged target-detail
+   query for remaining targets; never truncate without reporting the count and continuation.
+   State derives from the complete count. Fields, state, targets and version describe one consistent
+   read; target continuation binds the observed mapping version and requires refresh if it changed.
 3. The query resolves against the view's configured relation binding and counts outgoing (or incoming,
    per direction) edges per source object. Zero edges = unmapped, one = mapped, more than one =
    ambiguous.
 4. Support `workspaceDraftId` query parameter for draft-context coverage.
 5. Add server-side candidate search:
    `GET /api/v1/workspaces/{workspaceKey}/mapping-candidates?objectTypeKey=...&search=...`
-   returning candidate target objects for mapping, with cursor pagination. Candidates are objects of
+   with the same required application/view identity and optional `workspaceDraftId`, returning
+   candidate target objects for mapping, with cursor pagination. `objectTypeKey` must match the
+   configured target side for the selected direction. Candidates are objects of
    the target type in the same workspace, searched by name and configured searchable attributes.
 6. Both endpoints validate the relation binding against the active model (or draft-pinned model) and
-   return `404` for unknown bindings.
+   return `404` for unknown bindings or views, and an explicit validation error for view/binding
+   mismatches. Cursors bind workspace, live/draft context, effective release, view, direction and
+   query configuration. Typed projections use the selected view; candidate eligibility respects
+   direction-aware constraints, with final validation on save.
 
 **Primary areas:** `backend/app/routers/` (new mapping router or extension of relations router),
 `backend/app/services/` (new mapping service), `backend/app/models/api.py`, tests.
@@ -200,7 +273,9 @@ versions to return as `mappingVersion`).
 **Exit:** Coverage returns correct mapped/unmapped/ambiguous states with set versions. Candidate
 search returns bounded, searchable results. Both endpoints page correctly and validate against the
 model. Draft context returns draft-scoped coverage and versions. Tests cover all three mapping states,
-pagination and invalid-binding rejection.
+pagination and invalid-binding rejection. Include multiple views over one binding, candidates beyond
+page one, large ambiguous sets, mismatched cursors and concurrent coverage reads. These are WP-4
+integration checks, not amendments to WP-2/WP-3.
 
 ---
 
@@ -217,22 +292,35 @@ pagination and invalid-binding rejection.
 2. Validate: workspace status, draft status if `workspaceDraftId` is supplied, source and target
    object existence and types, exact allowed binding match, binding is not containment or required
    ownership, cardinality, and typed relation attributes.
-3. Transaction: conditionally claim the relation-set version; delete all existing edges for the exact
-   binding and anchor; if target is non-null, create the new edge; increment the set version; commit.
+3. Transaction: conditionally claim the relation-set version; delete obsolete edges for the exact
+   binding and anchor except an already-existing selected edge; preserve its public identity and
+   update its attributes if requested, or create it when absent. Maintain all affected outgoing and
+   incoming sets through the WP-3 service without double increments, then commit atomically.
 4. A null target with empty attributes removes the mapping (all edges for that binding and source).
 5. A non-null target replaces the complete set with exactly that target.
 6. Stale version claim returns `409 mapping_version_conflict` with current version and bounded
-   current-target summaries; nothing changes.
+   current-target summaries; nothing changes. Use WP-4's exact count, bounded preview and target
+   continuation convention. Check stale tokens before treating an identical request as a no-op.
 7. Requesting the already-current target with identical attributes is an idempotent no-op: no version
    increment, no audit event.
 8. Record one mapping-transition audit event with old/new target and relation identities.
 9. Live and draft contexts are both supported. Draft writes claim `expectedWorkspaceDraftVersion` in
-   addition to `expectedMappingVersion`.
+   addition to `expectedMappingVersion`. Both conflict paths preserve attempted input in the client.
+10. Omitted `attributes` preserves values on a retained edge; for a new edge it supplies no explicit
+    values and normal typed validation/defaults apply. An explicit object replaces the complete
+    attribute set; `{}` clears it only where valid. Clearing a mapping permits omitted or empty
+    attributes only. No typed attribute write bypasses the canonical validation boundary.
+11. Preserve underlying relation audit events as well as the single mapping-transition event.
+    Attribute-only changes count as a transition; semantic no-ops produce neither event.
+12. One selected target is the mapping-operation rule, separate from relation cardinality.
+    Check cardinality in the actual direction and across the applicable relation scope; never infer
+    outgoing single-target cardinality from `one-to-many`. Clear is permitted only if empty is valid.
 
 **Primary areas:** `backend/app/routers/mapping.py`, `backend/app/services/mapping.py`,
 `backend/app/models/api.py`, `backend/app/services/audit.py`, tests.
 
-**Prerequisites:** WP-3 (relation-set versions), WP-2 (model validation of mapping bindings).
+**Prerequisites:** WP-3 (relation-set versions), WP-2 (model validation of mapping bindings),
+and WP-4 response-contract freeze for bounded conflict target summaries.
 
 **Decisions needed:**
 
@@ -240,7 +328,7 @@ pagination and invalid-binding rejection.
   complete set. `PUT` is semantically correct (idempotent replacement of the complete mapping set for
   one source). _Recommendation:_ `PUT` on a resource identified by the binding + source.
 - **D7: Cardinality enforcement.** For `many-to-many` bindings, replacement sets exactly one target.
-  For `one-to-one` and `one-to-many` bindings, the single-target constraint is already enforced.
+  Underlying cardinality constraints are checked separately and depend on direction.
   Should `many-to-many` mapping replacement be limited to one target per operation, or should it
   accept a list? _Recommendation:_ one target per operation for 0.7; a multi-target variant can be
   added in 0.9 bulk operations if needed. This keeps the conflict model simple.
@@ -248,7 +336,9 @@ pagination and invalid-binding rejection.
 **Exit:** Mapping replacement creates, replaces and removes mappings atomically. Concurrent
 replacement conflicts with the current version. Idempotent re-save does not increment the version.
 Audit records the transition. Draft and live contexts both work. Two different relation bindings are
-exercised. Invalid bindings, containment and required-ownership are rejected.
+exercised. Invalid bindings, containment and required-ownership are rejected. Test retained relation
+identity during ambiguous resolution, omitted/empty/typed attributes, both directions, constrained
+candidate targets, rejected clearing, generic-write versus replacement races and both draft tokens.
 
 ---
 
@@ -281,10 +371,21 @@ exercised. Invalid bindings, containment and required-ownership are rejected.
    UI can display which version each draft works under.
 7. Current-live base creation: when a draft is created against a non-active release, the base still
    captures current live content and record versions, but the draft's model context uses the selected
-   release. The base is a data snapshot, not a model snapshot.
+   release. The base is a data snapshot, not a model snapshot. Validate the complete copied candidate
+   against the selected target before committing creation; incompatible inherited content returns
+   `409 draft_content_incompatible` without leaving a draft/base behind. Keep the captured active
+   release/runtime version separate from the chosen draft pin, preserving snapshot retry checks.
 8. Compatibility check: when moving a draft to a new release, run the existing model compatibility
-   analysis against the draft's candidate content. If incompatible, refuse with structured
+   rules through a draft-scoped whole-graph validation boundary. The current live-table compatibility
+   analyzer cannot be called unchanged for this purpose. Validate effective membership: immutable
+   base plus authored replacements/new rows minus tombstones, including attributes, ownership,
+   containment, uniqueness and cardinality. If incompatible, refuse with bounded structured
    diagnostics; do not attempt conversion.
+9. Version change claims `expectedDraftVersion` and validates the same candidate graph atomically
+   with updating the pin. Success increments the draft version and audits old/new public release
+   identities; stale claims or failures leave pin, content and version unchanged. Selecting the
+   current pin with a valid token is a no-op. Historical-source creation retains its source pin;
+   selecting a different release is an explicit subsequent compatible version change.
 
 **Primary areas:** `backend/app/services/workspaces.py`, `backend/app/services/model/runtime.py`,
 `backend/app/routers/workspaces.py`, `backend/app/models/api.py`, tests.
@@ -297,7 +398,7 @@ testing.
 
 - **D8: Content compatibility when changing a draft's version.** When a draft moves from release A to
   release B, what content is checked? _Recommendation:_ check the draft's authored candidate content
-  (draft objects, attributes, relations) against the target model. If the target model removes an
+  (complete effective objects, attributes and relations, including inherited base content) against the target model. If the target model removes an
   object type, attribute type or relation type that the draft uses, refuse. If the target adds new
   required fields, refuse (the draft has not provided them). This is a strict "content must already
   fit" check, not a conversion.
@@ -307,7 +408,10 @@ validation use the draft's pinned model. A draft on a non-active release cannot 
 draft to a release its content satisfies succeeds; moving to an incompatible release is refused with
 diagnostics. Discarding is always available. Tests cover: draft on active release (existing behavior),
 draft on non-active release, activation refusal, version change, incompatible version change refusal,
-discard, and two drafts on different releases in the same workspace.
+discard, and two drafts on different releases in the same workspace. Include incompatible creation,
+inherited invalid content, tombstoned content, concurrent edits during version change, snapshot retries,
+and unchanged live/history/other-workspace state. Two same-schema releases must differ in fields,
+rules and views so model-context selection is observable.
 
 ---
 
@@ -319,10 +423,10 @@ discard, and two drafts on different releases in the same workspace.
    release. Available releases come from the installed-releases list endpoint. Historical-source
    creation retains the source revision's pinned release.
 2. Draft list and detail: display which model release each draft works under. Distinguish "active
-   version" from "preparing for version X" visually.
+   version" from a different pinned version visually, including replaced older releases.
 3. Draft detail banner: when a draft's version differs from the active release, show an informational
-   banner explaining the state ("This draft is preparing for [version]. It can be activated once that
-   version is active.").
+   banner explaining the state ("This draft uses [version]; live uses [active version]. Activation
+   requires these versions to match.").
 4. Activation refusal: when a draft's version does not match the active release, the activate button
    is disabled with a tooltip/explanation. The existing `workspace_draft_model_release_conflict`
    error handling is retained as a server-side safety net.
@@ -332,6 +436,13 @@ discard, and two drafts on different releases in the same workspace.
 6. Discard: always available, never requires model agreement. No change to existing discard flow.
 7. The mapping grid and table views resolve their column/filter/sort configuration from the draft's
    pinned model, not the global active model.
+8. Successful pin changes reload the pinned model and refresh applications, navigation, views,
+   detail panels, forms, lookups, permissions/capabilities and model-dependent caches. Reset obsolete
+   cursors. If the route/view no longer exists, offer a valid model-declared destination.
+   Protect dirty input before changing context. A refresh detecting an external pin change must
+   reload the model before enabling writes; never pair a new draft token with stale model forms.
+9. Exercise the creation/version selectors, incompatibility diagnostics and activation explanation
+   in accessibility and visual scenarios, including an older retained pin.
 
 **Primary areas:** `frontend/src/features/workspaces/`, `frontend/src/features/objects/`,
 `frontend/src/api/`, `frontend/src/types/`, tests.
@@ -343,23 +454,37 @@ discard, and two drafts on different releases in the same workspace.
 **Exit:** A steward can create a draft against a non-active release, see which version it uses,
 attempt activation (refused with explanation), change its version (where content fits), and discard
 it freely. Two drafts on different releases coexist without interference. Tests cover the creation
-selector, version display, activation refusal and discard paths.
+selector, version display, activation refusal and discard paths, different same-schema model content,
+removed views, dirty-input protection and an external version change.
 
 ---
 
 ### Tier 4 — Mapping frontend (depends on WP-2, WP-4, WP-5)
 
-#### WP-8: Mapping grid view — frontend
+#### WP-8A: Read-only mapping grid — frontend
+
+**Scope:** Replace the placeholder with generic cursor-paged coverage and bounded target previews,
+state/count display, target continuation, empty/error/retry states, keyboard operation and responsive
+layout. Resolve the effective model and view, use the WP-4 API, and preserve workspace/draft context.
+
+**Prerequisites:** WP-2 and WP-4. Live-only development may precede WP-7; acceptance of the
+non-active-draft context requires WP-7.
+
+**Exit:** Coverage works for two independent relation bindings and both directions, including large
+ambiguous sets. Extend accessibility/visual scenarios to the new view and run affected-layer gates.
+No mapping mutations are required to accept this slice.
+
+#### WP-8B: Mapping actions — frontend
 
 **Scope:**
 
-1. Add a `mappingGrid` view renderer in the view registry. The renderer receives its configuration
-   from the schema 0.6 model and renders a cursor-paged grid of source objects with their mapping
-   state.
-2. Each row shows: source object display fields (configured columns), mapping state indicator
-   (mapped/unmapped/ambiguous), current target display fields, and an action to change the mapping.
+1. Extend the accepted WP-8A renderer with generic mapping actions driven by its configuration.
+2. Add a change-mapping action to each eligible source row and refresh coverage after a saved change.
 3. Mapping action opens an inline or modal target selector with server-side candidate search. The
-   selector shows target candidates and supports search, selection and clearing.
+   selector shows cursor-paged target candidates and supports search, selection and clearing only
+   where empty is valid. Keep mapping and draft aggregate tokens current without discarding the
+   attempted choice; separately handle `mapping_version_conflict` and draft-version conflicts.
+   Respect typed relation-attribute semantics from WP-5; a target-only edit must not clear attributes.
 4. On save, call the mapping replacement endpoint with the current `mappingVersion`. Handle conflict
    (`409 mapping_version_conflict`) by showing the current mapping state and preserving the user's
    attempted choice for retry.
@@ -374,8 +499,10 @@ selector, version display, activation refusal and discard paths.
 **Primary areas:** `frontend/src/features/objects/views/`, `frontend/src/features/objects/panels/`
 (if mapping is also a panel type), `frontend/src/api/`, `frontend/src/types/model.ts`, tests.
 
-**Prerequisites:** WP-2 (schema 0.6 model with mapping-grid config), WP-4 (coverage API), WP-5
-(replacement API).
+**Prerequisites:** WP-8A and WP-5. Non-active-draft acceptance also depends on WP-7.
+Extend accessibility/visual scenarios to candidate search, conflict recovery, clearing and target
+creation. Target creation reuses generic fields, parent/ownership selection and validation under the
+selected draft model, with refreshed draft tokens and no mapping change until explicit save.
 
 **Decisions needed:**
 
@@ -411,19 +538,31 @@ Keyboard navigation works. Two object types are exercised.
    context, two relation bindings) as composed browser + API evidence.
 3. Execute SC-15 (draft version selection, two drafts on different releases, activation of the
    prepared draft after the new release becomes active, discard of the remaining draft, refusal of
-   unsupported releases) as composed browser + API evidence.
+   unavailable, corrupt and unsupported releases) as composed browser + API evidence. Use two
+   content releases on the same schema with visibly different fields, rules and views, and verify
+   incompatible creation/version change leaves all other contexts untouched.
 4. Verify cross-cutting concerns: keyboard navigation, narrow-screen layout, empty/error/retry
    states, dirty-input preservation and workspace context retention across all mapping and version-
    selection flows.
 5. Run the full validation matrix: backend Ruff + pytest, frontend lint + format + test + build,
-   migration/bootstrap checks, accessibility and visual-regression gates (WP-1), and
-   `git diff --check`.
+   migration/bootstrap checks, extended accessibility and visual-regression scenarios, and
+   `git diff --check`. Reuse passing final package gates when relevant code has not changed; run
+   composed scenarios here and rerun other gates only for relevant changes or unexplained failures.
 6. Update `PROJECT_STATUS.md`, `ROADMAP.md`, `TODO.md`, `CHANGELOG.md` and this plan with delivery
    evidence and any remaining gaps.
 
+7. Add an independent allowed binding fixture beyond the two opposite-direction starter views of
+   one binding. Demonstrate independent versions and unchanged unrelated bindings, candidates beyond
+   page one, large ambiguous target sets and typed relation attributes. Include generic-write versus
+   mapping races, draft aggregate conflicts and live mapping changes before draft activation,
+   including changes to a different edge in the same touched set. Untouched live work must survive.
+8. Missing foundation behavior activates WP-10; do not treat a failing integration check as evidence
+   that frozen implementation has already been reviewed or silently waive the release criterion.
+
 **Primary areas:** test data, e2e tests, documentation.
 
-**Prerequisites:** All other work packages.
+**Prerequisites:** WP-1–WP-7, WP-8A and WP-8B; any triggered WP-10 slices must close before
+release acceptance.
 
 **Decisions needed:** None.
 
@@ -431,6 +570,25 @@ Keyboard navigation works. Two object types are exercised.
 documentation reflects the delivered state. Any gaps or simplifications are explicitly stated.
 
 ---
+
+#### WP-10: Conditional 0.7 foundation hardening
+
+**Status:** Conditional; no defect has been established by this plan review.
+
+**Trigger:** WP-4/WP-5/WP-9 integration evidence identifies a missing WP-1/WP-2/WP-3 capability
+needed for SC-07/SC-15. Before editing, record the reproduced failure, affected contract, bounded
+ownership and acceptance criteria as a WP-10 slice. Do not reopen frozen scopes or duplicate their
+pending reviews. A required schema extension is a separately named model-contract slice; otherwise
+prefer the existing contract and later-package API configuration.
+
+**Scope:** Correct only established gaps, for example relation-set read consistency, directional
+maintenance or draft activation conflict protection. Preserve unrelated bindings, live work,
+stable identities and explicit refusals. Add regression coverage at the real integration boundary;
+startup/migration corrections also require the applicable recovery and smoke gates.
+
+**Exit:** The reproduced failure is fixed and its relevant gates pass. Required slices block 0.7
+acceptance and WP-9 is rerun for affected scenarios. If no trigger occurs, record “not required”; this
+package is not speculative implementation work.
 
 ## Dependency graph
 
@@ -440,19 +598,22 @@ WP-2 (Schema 0.6)                    — independent
 WP-3 (Relation-set versions)         — independent
 
 WP-4 (Mapping coverage API)          — depends on WP-2, WP-3
-WP-5 (Mapping replacement API)       — depends on WP-2, WP-3
+WP-5 (Mapping replacement API)       — depends on WP-2, WP-3, WP-4 response-contract freeze
 
 WP-6 (Draft version selection BE)    — independent (WP-2 recommended)
 WP-7 (Draft version selection FE)    — depends on WP-6
 
-WP-8 (Mapping grid frontend)         — depends on WP-2, WP-4, WP-5
+WP-8A (Read-only mapping grid)        — depends on WP-2, WP-4
+WP-8B (Mapping actions)              — depends on WP-8A, WP-5
+                                     — non-active-draft acceptance of both requires WP-7
+WP-10 (Conditional hardening)        — triggered by integration evidence; blocks acceptance if needed
 
 WP-9 (Composed validation)           — depends on all
 ```
 
 Parallelizable tracks:
 
-- **Track 1 (mapping):** WP-2 → WP-3 → WP-4 + WP-5 → WP-8
+- **Track 1 (mapping):** WP-2 → WP-3 → WP-4 + WP-5 → WP-8A → WP-8B
 - **Track 2 (draft version):** WP-6 → WP-7
 - **Track 3 (accessibility):** WP-1 (any time)
 - **Final:** WP-9
@@ -463,16 +624,19 @@ WP-1, WP-2, WP-3 and WP-6 have no cross-dependencies and can proceed in any orde
 
 | ID | Question | Recommendation | Blocking |
 | --- | --- | --- | --- |
-| D1 | Candidate search fields: view-declared or derived from target type? | Explicit in view config | WP-2 |
-| D2 | Schema 0.5 → 0.6 CLI transition path? | New model file sufficient pre-production | WP-2 |
-| D3 | Set-version row lifecycle: eager or lazy? | Lazy with version 0 (ADR-022) | WP-3 |
-| D4 | Activation merge strategy for set versions? | Same touched-record conflict as records | WP-3 |
+| D1 | Candidate search fields: view-declared or derived from target type? | Explicit in view config | WP-2 ✓ |
+| D2 | Schema 0.5 → 0.6 CLI transition path? | New model file sufficient pre-production | WP-2 ✓ |
+| D3 | Set-version row lifecycle: eager or lazy? | Frozen WP-3 decision; consume its delivered contract | Frozen |
+| D4 | Activation merge strategy for set versions? | Frozen WP-3 decision; validate integration in WP-9 | Frozen |
 | D5 | Coverage endpoint: new router or extend relations? | New dedicated mapping router | WP-4 |
 | D6 | HTTP method for mapping replacement? | PUT (idempotent set replacement) | WP-5 |
-| D7 | Many-to-many: one target per operation or a list? | One target for 0.7 | WP-5 |
-| D8 | Content compatibility check when changing draft version? | Strict "must already fit" | WP-6 |
-| D9 | Mapping as view only, or also as panel? | View only for 0.7 | WP-8 |
-| D10 | Target creation: modal or navigation? | Modal (preserves context) | WP-8 |
+| D7 | Replacement target count? | One target; separate direction-aware cardinality checks | WP-5 |
+| D8 | Creation/version-change compatibility? | Complete effective graph must already fit; atomic refusal | WP-6 |
+| D9 | Mapping as view only, or also as panel? | View only for 0.7 | WP-8B |
+| D10 | Target creation: modal or navigation? | Modal (preserves context) | WP-8B |
+| D11 | View configuration for mapping reads? | Required application/view identity; binding must match | WP-4 |
+| D12 | Ambiguous target response bounds? | Exact count, 20-item preview, version-bound continuation | WP-4/WP-5 |
+| D13 | Relation identity and attribute omission? | Retain selected edge; omission preserves retained values | WP-5 |
 
 ## Starter model changes
 
@@ -481,8 +645,8 @@ The starter model advances from schema 0.5 / content 0.6.0 to schema 0.6 / conte
 - Schema version changes from `"0.5"` to `"0.6"`.
 - At least one `mappingGrid` view is added for the `system-value-maps-to-master` relation binding in
   the Systems application (outgoing from System Value to Master Value).
-- A second mapping view exercises a different relation binding with different direction and labels to
-  prove the contract is generic.
+- The delivered second mapping view uses the reverse direction of the same binding. WP-9 adds a
+  separate test-model binding with different labels to prove binding independence; WP-2 is frozen.
 - Existing table views are retained unchanged.
 
 ## Schema transition
@@ -498,14 +662,8 @@ have implicit version 0.
 
 ## Risk and scope notes
 
-- **WP-8 (mapping frontend) is the largest single package.** It introduces a new view type, a target
-  selector with search, conflict UI and target creation in context. If it proves too large for one
-  session, it can be split into: (a) read-only mapping grid with coverage display, and (b) mapping
-  actions (replacement, conflict, target creation). The split boundary is clean because the coverage
-  API (WP-4) and replacement API (WP-5) are independent endpoints.
-- **WP-6 (draft version selection backend)** is lower risk because the `model_release_id` column
-  already exists on `WorkspaceDraft`. The main work is changing how draft-scoped operations resolve
-  their model context and adding the version-change endpoint with compatibility checks.
-- **Set-version integration into activation** (part of WP-3) requires careful design to ensure
-  draft set versions merge correctly with live versions during delta-merge activation. This is the
-  most novel concurrency concern in 0.7.
+- **WP-8 is split into WP-8A and WP-8B** so coverage and actions have separate acceptance gates.
+- **WP-6 is invariant-heavy despite the existing pin column.** Whole-candidate compatibility,
+  snapshot consistency, atomic version changes and isolation are its main risks.
+- **WP-3 activation behavior is frozen.** Later integration evidence must verify same-set conflicts
+  and preservation of unrelated live work; confirmed missing behavior belongs to conditional WP-10.

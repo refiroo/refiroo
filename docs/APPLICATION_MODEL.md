@@ -245,6 +245,18 @@ Validation rejects containment relations (`parentOf: true`) and required-ownersh
 (`required: true` with `one-to-one` or `one-to-many` cardinality), since mapping replacement is
 designed for voluntary association relations.
 
+### Planned 0.7 consumption of the frozen mapping-grid contract
+
+WP-4 identifies `applicationKey`/`viewKey` under the effective live or draft-pinned model to resolve
+columns and candidate search fields; supplied binding keys must match. Incoming direction anchors rows
+on the physical `to` type and searches candidates on the physical `from` type. This requires no new
+schema fields. WP-5 preserves selected relation identities and validates direction-aware cardinality;
+its one-selected-target operation does not redefine the underlying binding. WP-8A/WP-8B add bounded
+coverage and generic actions; WP-9 exercises an independent binding beyond the starter's two views of
+one binding. Any required future schema extension is a separate conditional WP-10 model-contract slice.
+The schema contract delivered in WP-2 remains frozen. See [0.7 plan](BASE_0_7_IMPLEMENTATION_PLAN.md)
+and the planned mapping API in [API.md](API.md).
+
 ## Detail composition
 
 Applications may declare one `details` entry per object type. Keeping detail composition on the

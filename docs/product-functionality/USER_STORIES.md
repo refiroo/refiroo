@@ -268,7 +268,10 @@ is refused with an explanation and changes nothing. Once the selected version be
 that draft activates through the ordinary path. A draft still on the replaced version is never quietly
 moved onto another one: it can be discarded without model agreement, or explicitly moved onto the new
 version where its content already satisfies it. Choosing a version changes nothing but that draft: it
-never forces a model change through and never switches the version used anywhere else.
+never forces a model change through and never switches the version used anywhere else. Creation and
+version changes require the complete candidate, including inherited content, to already fit. Refusal
+leaves existing content and model selection unchanged; the browser refreshes all model-dependent
+navigation/forms safely, preserving unsaved input when a version change is declined or fails.
 
 **Coverage:** F12, F15, F17. **Status:** Roadmap 0.7 with the schema 0.6 release (ADR-028). Moving a
 draft onto a version its content does not already satisfy is reviewed 0.10 migration work.
@@ -327,7 +330,8 @@ explicitly selected draft changes remain staged. Failed input is retained.
 that I can prioritize work and understand data quality.
 
 **Accepted when:** The list distinguishes a missing mapping, one selected target and several conflicting
-targets. I can find candidates beyond the visible rows, using the configured relationship names and
+targets. Large conflicting sets have an exact count and a way to inspect remaining targets without
+an unlimited response. I can find candidates beyond the visible rows, using the configured relationship names and
 direction, without opening each source individually.
 
 **Coverage:** Planned mapping grid. **Status:** Roadmap 0.7.
@@ -349,7 +353,8 @@ retrying; my attempted replacement changes nothing until then.
 result is protected by the same concurrency rule as an existing or missing mapping.
 
 **Accepted when:** Resolving several conflicting targets has the same protection against overwriting
-newer work as choosing a first target. Connections with another business meaning remain unchanged.
+newer work as choosing a first target. Connections with another business meaning remain unchanged. Retaining an existing selected target
+preserves its relation identity and declared attributes unless I explicitly change them.
 
 **Coverage:** Planned mapping operation. **Status:** Roadmap 0.7.
 

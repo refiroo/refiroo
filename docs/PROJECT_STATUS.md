@@ -3,8 +3,9 @@
 ## Current development baseline — released 2026-09-11
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released. The starter
-model is content release 0.6.0 on schema language 0.5. Next development targets product 0.7 (core
-mapping, schema 0.6, draft version selection).
+model is content release 0.7.0 on schema language 0.6. Next development targets product 0.7 (core
+mapping, schema 0.6, draft version selection). WP-1 (accessibility gates) and WP-2 (schema 0.6
+`mappingGrid` view contract) are delivered.
 
 The generic model defines applications, object types, reusable fields, allowed relationships and views.
 Master, Systems and Translations are configurable starter examples; runtime code must remain unaware
@@ -23,8 +24,8 @@ GAP-01–GAP-08 answers and distinguishes accepted targets from implementation e
 | Historical data | Complete: newest-first browser discovery, pinned-model immutable reads and historical draft derivation | — |
 | Publication retirement | Complete: truthful browser confirmation removes only the designation while retaining live data/history | — |
 | Model administration | Complete: immutable releases, JSON drafts, validation/diff/install/activation workbench | Browser administration acceptance (0.7+) |
-| UI foundation | Complete: catalogue selection, typed tables, generic panels, redesigned navigation/collections/inspector/inline editing | Automated accessibility/visual gates (UI-07, 0.7) |
-| Specialist workflows | Generic data semantics to reuse | Mapping 0.7, translation/hierarchy 0.8, integration 0.9 |
+| UI foundation | Complete: catalogue selection, typed tables, generic panels, redesigned navigation/collections/inspector/inline editing, automated accessibility and visual-regression gates (UI-07) | — |
+| Specialist workflows | Schema 0.6 `mappingGrid` view contract delivered; placeholder frontend renderer | Mapping API/UI 0.7, translation/hierarchy 0.8, integration 0.9 |
 | Production and model migration | Basic readiness and actionable startup refusal | Authenticated production, staged assignments and reviewed historical model migration 0.10; draft version selection 0.7 |
 
 Ordinary live saves create neither a draft nor a revision. Draft activation applies authored changes
@@ -39,20 +40,34 @@ in code does not establish that a browser user can complete its story.
 
 ## Next delivery sequence — product 0.7
 
-1. **Typed `mappingGrid`:** introduce schema 0.6 with a strict `mappingGrid` branch; cursor-paged batched
-   mapping rows with mapped, unmapped and ambiguous states and server-side candidate search.
+1. **Typed `mappingGrid` (WP-2, delivered 2026-09-12):** schema 0.6 with a strict `mappingGrid` view
+   contract, discriminated union dispatch, full validation rules and a frontend placeholder renderer.
+   Cursor-paged batched mapping rows with mapped, unmapped and ambiguous states and server-side
+   candidate search follow in WP-4/WP-5/WP-8A/WP-8B.
 2. **ADR-022 relation-set versions:** exact-binding relation-set versions and atomic mapping replacement
    in live and optional-draft contexts; generic relation writes participate in the same protection.
 3. **ADR-028 draft version selection:** let a workspace draft work under a version the user chooses, so
    one draft prepares the schema 0.6 release while another stays on the version serving live data.
-4. **UI-07 (carried from 0.6):** automated accessibility and visual-regression gates using the existing
-   Playwright harness with `@axe-core/playwright` and visual comparison baselines.
+4. **UI-07 (carried from 0.6, delivered 2026-09-12):** automated accessibility and visual-regression
+   gates using the existing Playwright harness with `@axe-core/playwright` and visual comparison
+   baselines. Light-theme baselines committed; dark-theme baselines deferred until a dark theme exists.
 
 Moving a draft onto a version its content does not already fit, and the accepted historical-model
 warning and confirm-or-cancel behavior, belong to the planned 0.10 workspace assignment/migration flow.
 
-See [implementation plan](BASE_0_6_IMPLEMENTATION_PLAN.md), [delivery queue](TODO.md),
+See [implementation plan](BASE_0_7_IMPLEMENTATION_PLAN.md), [delivery queue](TODO.md),
 [roadmap](ROADMAP.md) and [product acceptance scenarios](product-functionality/ACCEPTANCE_SCENARIOS.md).
+
+### 0.7 plan review boundary — 2026-09-12
+
+WP-1–WP-3 scopes are frozen. WP-1/WP-2 implementation review is pending and separate; WP-3
+implementation is in progress. The plan review established later-package requirements, not foundation
+defects or new runtime pass evidence. WP-4/WP-5 add view-specific bounded reads, retained relation
+identities and direction-aware mapping validation. WP-6/WP-7 add atomic complete-candidate compatibility
+and browser model-context refresh. WP-8A delivers coverage; WP-8B adds mapping actions. WP-9 extends
+new-control accessibility/visual evidence and checks independent bindings, differing same-schema
+releases, generic-write races and activation/live set conflicts. Confirmed missing foundation behavior
+triggers bounded WP-10 work before acceptance. Dark baselines stay deferred until dark mode exists.
 
 ## Evidence boundary
 
@@ -97,8 +112,9 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
 
 ## Implemented
 
-- `model/rdm-starter.json`: schema-language 0.5/content-release 0.6.0 model with 22 attributes, 9 object
-  types, 13 relation types, 16 allowed triples, three applications, collection views and typed detail compositions. Domain
+- `model/rdm-starter.json`: schema-language 0.6/content-release 0.7.0 model with 22 attributes, 9 object
+  types, 13 relation types, 16 allowed triples, three applications, table and mapping grid collection
+  views and typed detail compositions. Domain
   and Codelist objects can have optional System Value representations without joining the independent
   system containment hierarchy.
 - Translation objects support translated name, description and value content, are contained by a
@@ -176,10 +192,12 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 
 ## Remaining limitations
 
-- Automated accessibility and visual-regression tooling (UI-07) is deferred to 0.7; manual keyboard
-  and focus checks are recorded. No automated conformance claim exists.
-- Schema 0.5 supports strict table views; `mappingGrid`, top-level `form`, `dashboard` and `tree` are
-  not implemented renderers. Specialist mappings and tree/translation coverage follow the roadmap.
+- Automated accessibility gates (`npm run test:a11y`) and visual-regression gates
+  (`npm run test:visual`) are delivered. Two known violations are allowlisted with tracked references.
+  Visual baselines cover light theme only (no dark theme exists yet).
+- Schema 0.6 supports strict table views and the `mappingGrid` view contract (validated model,
+  placeholder frontend renderer). The full mapping grid UI ships in WP-8A/WP-8B. Top-level `form`, `dashboard`
+  and `tree` are not implemented renderers. Specialist tree/translation coverage follow the roadmap.
 - Advanced queries, effective-date/as-of semantics, bulk upsert, imports/exports, change feeds and
   webhooks remain planned; no synchronous collection has an undocumented unlimited mode.
 - The model workbench remains JSON-centred; structured authoring and extensions are 1.0 work.
@@ -204,14 +222,19 @@ ADR-026 then restored direct live data and delta merge. WP8.1-A–C subsequently
 backend authority, draft-source and history/retirement corrections; WP9 completed the isolated
 browser journeys; WP10 validated the composed product. The frontend redesign (UI-01–UI-06) delivered
 compact navigation, focused collections, record inspector, inline field editing, resizable panels
-and refined draft presentation. UI-07 (automated accessibility/visual gates) is deferred to 0.7.
-The earlier plans and changelog preserve delivery details; do not rebuild rejected object lifecycle.
+and refined draft presentation. UI-07 was carried into early 0.7.
+UI-07 (automated accessibility and visual-regression gates) was delivered in early 0.7 (2026-09-12).
+WP-2 (schema 0.6 `mappingGrid` view contract) was delivered 2026-09-12: discriminated union dispatch,
+full validation rules, starter model 0.7.0 with two mapping grid views, and a frontend placeholder
+renderer. The earlier plans and changelog preserve delivery details; do not rebuild rejected object
+lifecycle.
 
 ## Coding-agent handoff
 
 Read `AGENTS.md`, the product stories/scenarios, ADR-027, `ROADMAP.md`, `API.md` and `TODO.md`.
 Base 0.6 is released; next work targets product 0.7 (core mapping, schema 0.6, draft version
-selection). UI-07 is also carried into 0.7.
+selection). WP-1 (UI-07 accessibility gates) and WP-2 (schema 0.6 `mappingGrid` view contract) are
+delivered.
 Use one implementation owner per slice, focused verification and appropriate review. Do not commit
 unless explicitly requested. Summarize each completed batch while work continues so scope can be
 corrected before the entire task finishes.

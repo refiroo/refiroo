@@ -20,8 +20,6 @@ Base 0.5 delivered the operational and model-release foundation. Base 0.6 is rel
 - Composed release validation (WP10) including keyboard/focus/narrow-layout and migration/packaging
 - Frontend redesign (UI-01–UI-06): compact navigation, focused collections, record inspector, inline
   field editing, resizable panels, display preferences and refined draft presentation
-- UI-07 (automated accessibility and visual-regression gates) is deferred to 0.7
-
 Integration-scale operations, authentication and distributed activation are not present.
 
 ## Base 0.5 — Operational base and model lifecycle foundation (complete)
@@ -69,10 +67,6 @@ sources and truthful publication retirement. WP10 validated the composed product
 (UI-01–UI-06) delivered compact navigation, focused collections, record inspector, inline field editing,
 resizable panels and refined draft presentation.
 
-### Deferred to 0.7
-
-- UI-07: automated accessibility and visual-regression gates using the existing Playwright harness.
-
 ## Product release 0.7 — Core mapping
 
 ### Product outcome
@@ -83,7 +77,7 @@ navigating low-level relation screens.
 ### Delivery scope
 
 1. Introduce schema 0.6 with a strict `mappingGrid` branch; reject containment and required ownership
-   bindings as independently mutable mappings.
+   bindings as independently mutable mappings. **(WP-2, delivered 2026-09-12.)**
 2. Add cursor-paged batched mapping rows with mapped, unmapped and ambiguous states and server-side
    candidate search.
 3. Implement ADR-022 exact-binding relation-set versions across mapping and generic relation writes.
@@ -101,8 +95,19 @@ navigating low-level relation screens.
    or moves a draft onto another version while that version differs from the active release. Once the
    new release serves live data, the remaining draft is either thrown away — which needs no model
    agreement — or explicitly moved onto the new release where its content already fits it.
-10. UI-07 (carried from 0.6): add automated accessibility and visual-regression gates using the existing
-    Playwright harness with `@axe-core/playwright` and visual comparison baselines.
+10. UI-07 (carried from 0.6, delivered 2026-09-12): automated accessibility and visual-regression gates
+    using the existing Playwright harness with `@axe-core/playwright` and visual comparison baselines.
+    Light-theme baselines committed; dark-theme baselines deferred until a dark theme exists.
+
+11. Keep WP-1–WP-3 frozen. Later packages add view-specific bounded mapping reads, retained relation
+    identities, direction-aware constraints and atomic whole-candidate draft compatibility checks.
+12. Deliver mapping coverage in WP-8A and actions in WP-8B. Extend new-control accessibility/visual
+    evidence and composed race/isolation scenarios in WP-9. Confirmed foundation gaps trigger bounded
+    WP-10 slices before release acceptance; no speculative foundation changes are scheduled.
+
+The [0.7 implementation plan](BASE_0_7_IMPLEMENTATION_PLAN.md) owns detailed follow-up acceptance
+criteria; [API.md](API.md) distinguishes these planned contracts from delivered endpoints.
+
 
 ### Exit gate
 

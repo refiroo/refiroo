@@ -261,3 +261,12 @@ Source: [delivery roadmap](../ROADMAP.md), [current queue](../TODO.md),
 Approval workflow, duplication shortcuts and localized interface/model labels remain discovery topics.
 No unscheduled candidate is implied to be part of 1.0. Use the decision table in the planning handoff
 before adding release scope.
+
+## 0.7 delivery refinement — planned
+
+WP-1–WP-3 are frozen. Mapping coverage/actions are independently accepted in WP-8A/WP-8B;
+WP-4/WP-5 define bounded view-specific reads and preserve selected relationship identity/attributes.
+WP-6/WP-7 require whole-candidate compatibility, atomic pin changes and safe model-context refresh.
+WP-9 proves independent bindings, same-schema differing releases, race/isolation behavior and the new
+controls' accessibility/visual behavior. Conditional WP-10 addresses only confirmed foundation gaps.
+See [the 0.7 plan](../BASE_0_7_IMPLEMENTATION_PLAN.md); these refinements add no delivery evidence.

@@ -170,6 +170,15 @@ endpoint-type binding. A mapping replacement claims one anchor/direction/binding
 complete zero/one/many edge state atomically, protecting unmapped and ambiguous rows without allowing
 another binding of the same relation type to be replaced accidentally.
 
+The 0.7 plan freezes WP-1–WP-3. Later mapping reads resolve the existing view configuration under
+an explicit live/draft model context and return bounded target previews with exact counts and
+version-bound continuation. Replacement preserves an existing selected relation identity and validates
+cardinality in the actual direction. Draft version selection validates the complete effective graph
+and changes its pin atomically, keeping the captured active snapshot identity separate. Browser model
+transitions refresh all dependent state. These are planned requirements in
+[the 0.7 plan](BASE_0_7_IMPLEMENTATION_PLAN.md) and [API.md](API.md); confirmed foundation gaps
+belong to conditional WP-10 before acceptance, rather than amendments to frozen package scope.
+
 `audit_events` is an ordered append-only foundation for history and a future change feed.
 
 ### Current data, drafts and history

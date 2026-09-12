@@ -56,8 +56,11 @@ Base 0.5 supplies the bounded query and model-lifecycle foundations. Base 0.6 de
 operations and optional coordinated design: a steward can maintain live records, fields, parents,
 relationships and translations without a draft; use optional workspace drafts for coordinated changes
 with delta-merge activation; browse newest-first immutable history; and retire publications truthfully.
-Automated accessibility and visual-regression tooling (UI-07) is deferred to 0.7.
-Typed mapping-grid behavior is product 0.7, with translation and hierarchy interactions in 0.8.
+Automated accessibility and visual-regression tooling (UI-07) and the schema 0.6 mapping-grid
+contract are delivered; the mapping renderer is currently a placeholder. The full workflow and draft
+model-version selection remain planned 0.7 work, with translation and hierarchy interactions in 0.8.
+The [0.7 plan](docs/BASE_0_7_IMPLEMENTATION_PLAN.md) freezes WP1–WP3, splits mapping coverage/actions
+into WP8A/WP8B and assigns integration acceptance to WP9, with conditional WP10 for confirmed gaps.
 
 Start with the [product functionality guide](docs/product-functionality/README.md) for available/planned
 functions, stories and realistic acceptance scenarios. The [delivery queue](docs/TODO.md) traces

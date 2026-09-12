@@ -42,8 +42,9 @@ across systems. Starter applications are examples of configuration, never specia
 | Structured model authoring and reusable definitions | Planned for 1.0, retaining existing validation and release protections | US-P05, US-P08 |
 
 “API available” does not mean a complete browser task. Current top-level views support strict tables;
-a form used for record editing is not an implemented configurable top-level `form` view. Mapping grids,
-trees and other specialist declarations require their own validated contract and renderer. Dashboards
+a form used for record editing is not an implemented configurable top-level `form` view. Schema 0.6
+mapping-grid configuration is delivered, with a placeholder renderer; its complete workflow remains
+0.7 work. Trees and other specialist declarations require their own validated contract and renderer. Dashboards
 have no scheduled user outcome. The [functionality catalogue](product-functionality/CURRENT_FUNCTIONALITY.md)
 records channel limitations; no browser acceptance is implied by the presence of a component.
 

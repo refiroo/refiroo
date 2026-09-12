@@ -182,3 +182,13 @@ calls. No operation relies on an undocumented unlimited page.
 
 The normal operator path must not require interpreting a Python, SQL or framework traceback. The
 underlying cause remains available through controlled diagnostics or escalation information.
+
+## 0.7 journey safeguards — planned
+
+In J10, clear is offered only where empty is valid. Search continues beyond page one; large ambiguous
+sets expose counts and continuation. Keeping a selected existing target preserves its relationship
+identity and attributes. Mapping and draft-version conflicts retain the attempted choice for review.
+When changing a draft model, the full candidate must already fit; failure changes nothing. Success
+reloads model-dependent views, forms and lookups, resets obsolete cursors and recovers removed routes
+without silently discarding dirty input. Older pinned releases remain usable and are labelled neutrally.
+See SC-07/SC-15 and [the 0.7 plan](../BASE_0_7_IMPLEMENTATION_PLAN.md) for composed evidence.

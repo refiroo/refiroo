@@ -97,6 +97,15 @@ content the chosen release already accepts is a draft edit with no migration and
 draft the chosen release does not already accept needs the reviewed 0.10 conversion. Either way a
 draft edit never changes the release serving data.
 
+## 0.7 plan review follow-up — 2026-09-12
+
+WP-1–WP-3 are frozen; WP-1/WP-2 implementation review remains separate and WP-3 is in progress.
+[The 0.7 plan](../BASE_0_7_IMPLEMENTATION_PLAN.md) assigns view-specific bounded mapping reads and
+identity/attribute/cardinality semantics to WP-4/WP-5, whole-candidate atomic compatibility and full
+browser model refresh to WP-6/WP-7, coverage/actions to WP-8A/WP-8B and expanded composed evidence to
+WP-9. Confirmed foundation gaps trigger bounded WP-10 work before acceptance. These are planning
+requirements, not findings from the pending implementation reviews or new delivered capabilities.
+
 ## Technical documentation update method
 
 1. Reconcile GAP-01–GAP-08 with the current source and record each resolution or explicit deferral.

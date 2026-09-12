@@ -627,7 +627,7 @@ These refusals use the normal error envelope. A context mismatch is `422` with
 A missing pinned release is `409` with code `pinned_model_unavailable`; an invalid pinned document is
 `409` with `pinned_model_invalid` and its diagnostics; and an unsupported schema is `409` with
 `unsupported_pinned_model_schema`, including `modelReleaseId`, `schemaVersion`, and
-`supportedSchemaVersions: ["0.5"]` in details.
+`supportedSchemaVersions: ["0.5", "0.6"]` in details.
 >
 > **Target — product 0.10 historical model migration.** Preview incompatibilities and potential data
 > loss for one workspace and a named installed target release (normally the historical draft’s pin),
@@ -646,6 +646,17 @@ A missing pinned release is `409` with code `pinned_model_unavailable`; an inval
 > release cannot activate. Once a prepared release is activated and begins serving live data, a draft
 > still on the replaced release remains readable and editable under its own version and must be
 > explicitly moved or discarded before it can activate.
+>
+> **0.7 compatibility and atomicity detail (WP-6/WP-7, planned).** Current-live draft creation
+> against a selected release and explicit pin changes validate the complete effective candidate graph,
+> including inherited content and tombstones, under that release. Incompatible content returns
+> `409 draft_content_incompatible` with bounded diagnostics; creation leaves no draft/base, and failed
+> changes leave content, pin and version unchanged. Version change atomically claims the expected draft
+> version, validates and updates the pin, increments its version and audits old/new release identities.
+> The snapshot's captured active release/runtime token is separate from the chosen draft pin.
+> Historical-source creation retains its source pin; another selection is a subsequent explicit change.
+> The browser reloads all model-dependent navigation, forms, lookups and caches, resets obsolete cursors
+> and protects dirty input on local or externally detected pin changes.
 >
 > **Target — product 0.10 moving a draft onto an incompatible release (ADR-028).** Moving a draft onto
 > a release whose rules its stored content does not already satisfy requires the conversion machinery
@@ -1048,3 +1059,49 @@ identity, type and workspace; mismatches return `422 invalid_cursor`.
 
 There will be no equivalent of enumerating numeric attribute IDs `1..1000` or using `take: 0` for a full
 extract.
+
+## Target — product 0.7 mapping API (WP-4/WP-5, not delivered)
+
+WP-1–WP-3 scopes remain frozen. These contracts belong to later packages and their composed
+acceptance, not to the pending foundation implementation reviews.
+
+- `GET /api/v1/workspaces/{workspaceKey}/mapping-coverage` takes `applicationKey`, `viewKey`,
+  explicit `relationTypeKey`, `fromObjectTypeKey`, `toObjectTypeKey`, `direction`, bounded `pageSize`,
+  `cursor`, optional source search and optional `workspaceDraftId`. The effective model resolves the
+  configured `mappingGrid`; supplied binding fields must match. Display fields and candidate search
+  fields come from that view, so views sharing a binding can differ without a schema extension.
+- `GET /api/v1/workspaces/{workspaceKey}/mapping-candidates` takes the same view/context identity,
+  `objectTypeKey` matching the configured target side, search and cursor pagination. Eligibility is
+  direction-aware; final existence, type, cardinality and graph constraints are checked on save.
+- Coverage rows expose typed source/display fields, mapping state, `mappingVersion`, exact
+  `targetCount`, at most 20 target summaries and a continuation for remaining targets. State reflects
+  the complete count. A cursor-paged target-detail query identifies the same view/binding/anchor and
+  observed version; changed versions require refresh. Conflict responses use the same bounded preview
+  convention. Coverage fields and version describe one consistent read.
+- Cursors bind workspace, live/draft context, effective model release, view, direction and query
+  configuration. Unknown view/binding is `404`; mismatched configuration and cursors are explicit
+  validation errors. Exact target-detail route and response field names are frozen in WP-4 before
+  implementation, with contract examples and pagination tests.
+- `PUT /api/v1/workspaces/{workspaceKey}/mappings` accepts explicit physical endpoint type keys,
+  relation type, direction, `sourceObjectId` (the row anchor), nullable `targetObjectId`,
+  `expectedMappingVersion`, optional relation `attributes` and optional draft context with
+  `expectedWorkspaceDraftVersion`. Incoming direction reverses row/target roles, not physical keys.
+  Null removes only the exact selected set. Non-null replaces it with one selected target.
+- Validate status, endpoint identities and the effective model; reject containment/required ownership.
+  Clearing is allowed only where empty is valid. The operation's one-target rule does not change the
+  binding's direction-aware cardinality or broaden validation to overwrite another source's mapping.
+- Claim tokens before no-op detection. A stale mapping token returns `409 mapping_version_conflict`
+  with current version/count/preview/continuation and no changes. Draft aggregate conflicts remain
+  distinct. Preserve the selected existing relation identity, remove obsolete edges, update selected
+  attributes or create an absent edge, and maintain all affected outgoing/incoming versions through
+  the foundation service atomically without double increments.
+- Omitted attributes preserve a retained edge's values; for a new edge they supply no explicit values
+  and normal defaults/validation apply. An explicit attribute object replaces the complete set;
+  `{}` clears only where valid. Null target requires omitted or empty attributes. Typed writes use
+  the canonical validation boundary. An identical complete state with valid tokens is a no-op with
+  no version increment or audit. Changes retain underlying relation audit and add one transition
+  event with old/new target and relation identities, including attribute-only changes.
+
+WP-9 verifies generic-write/mapping races, both directional sets, independent bindings and draft
+activation versus live same-set changes. Confirmed missing foundation capabilities trigger a bounded
+WP-10 slice and block acceptance; they do not retroactively change WP-3 scope.

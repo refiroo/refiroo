@@ -140,3 +140,11 @@ unsupported view must not be advertised as delivered. General dashboards have no
 
 Read next: [user stories](USER_STORIES.md), [product roadmap](ROADMAP_COVERAGE.md),
 [planning handoff](PLANNING_HANDOFF.md).
+
+## Planned 0.7 refinement
+
+The [0.7 plan](../BASE_0_7_IMPLEMENTATION_PLAN.md) separates mapping coverage (WP-8A) from actions
+(WP-8B). Large ambiguous mappings remain inspectable through bounded pages; keeping a selected target
+preserves its relationship identity and attributes. A draft's chosen definition must already accept
+its complete content. Failed choices change nothing; successful choices refresh the browser's fields,
+rules and views safely. SC-07/SC-15 remain release acceptance requirements, not delivered evidence.

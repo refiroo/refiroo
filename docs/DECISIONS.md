@@ -372,12 +372,13 @@ Sorts place null and unset values last in either direction and always append a h
 tie-breaker. API capability follows attribute features and types; a view's declared fields are the
 UI-visible subset. Cursor fingerprints include the normalized filters and sort.
 
-Mapping-grid configuration is deliberately not part of schema 0.5 or Base 0.6. The focused mapping
-release will introduce schema 0.6 with the additional discriminated branch and the ADR-022 runtime
-contract. This keeps schema 0.5 and the daily-operations release independently implementable.
+Mapping-grid configuration is deliberately not part of schema 0.5 or the Base 0.6 release. Product 0.7
+introduces schema 0.6 with the `mappingGrid` discriminated branch (WP-2, delivered 2026-09-12). Schema
+0.6 is a strict superset of 0.5; a schema 0.5 model remains valid and activatable under schema 0.6.
+This keeps schema 0.5 and the daily-operations release independently implementable.
 
 The compiler dispatches explicitly by schema version and returns `unsupported_schema_version` with
-the supplied and supported versions. Base 0.6 supports schema 0.5 as an active runtime model and does
+the supplied and supported versions. The runtime supports schema 0.5 and 0.6 as active models and does
 not implement a schema 0.4 compatibility adapter. Immutable schema 0.4 releases may remain stored,
 listed and exported as historical JSON, but cannot be activated or used as the selected runtime model.
 Startup fails clearly when runtime state still selects one.
@@ -442,6 +443,18 @@ in the same set-version maintenance and therefore cannot bypass mapping concurre
 workspace, closed draft or endpoint absent from the candidate graph cannot be mutated through the
 mapping operation. Draft application must also preserve live mapping-set conflict protection; live
 replacement must not require workspace activation.
+
+### 0.7 implementation detail — later packages, 2026-09-12
+
+WP-1–WP-3 are frozen; this clarification governs WP-4 onward and does not review their implementation.
+Mapping reads identify the application/view supplying the existing configuration. Coverage and conflict
+responses carry exact target counts with bounded previews and cursor-paged continuation, and coverage
+state and version describe a consistent read. Replacement retains the selected existing relation;
+omitted attributes preserve its values, while an explicit object replaces the set under typed
+validation. One selected target is the operation rule, separate from direction-aware cardinality.
+Later integration acceptance checks generic-write races, both directional sets and draft activation
+against live same-set changes. Confirmed foundation gaps belong to conditional WP-10, not frozen WP-3.
+See the planned mapping API section in [API.md](API.md) and [0.7 plan](BASE_0_7_IMPLEMENTATION_PLAN.md).
 
 ## ADR-023 — Build RDM UI components on React Aria behavior
 
@@ -778,3 +791,17 @@ exact reviewed versions, whole-graph revalidation under the target, and conversi
 the target does not already accept. Nothing on any path forces a change through, moves a draft without
 being asked, or switches the version used across the product; and reading, editing and discarding a
 draft under a version that has since been replaced keeps working without needing model agreement.
+
+### ADR-028 0.7 implementation detail — WP-6/WP-7, 2026-09-12
+
+Creation against a selected model and explicit version changes require the complete effective
+candidate graph to already satisfy it: immutable base plus authored changes minus tombstones.
+Compatibility checks include inherited content, not only authored rows, and use a draft-scoped
+validation boundary rather than the unchanged live-table compatibility analyzer. Creation refusal
+leaves no draft/base. Version change claims the draft token and validates/updates the pin atomically;
+failure leaves content, pin and version unchanged. The captured active snapshot identity stays separate
+from the chosen pin. Historical-source creation retains its source model; another selection is explicit.
+Browser context transitions reload the pinned model and all dependent routes, views, forms, lookups and
+cursors, protecting dirty input and detecting external pin changes. A differing pin may be an older
+release, so explanations name pinned and active versions neutrally. No conversion or activation bypass
+is added. These are planned later-package requirements, not foundation implementation amendments.

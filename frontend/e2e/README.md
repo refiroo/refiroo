@@ -122,7 +122,7 @@ discard permits navigation, native reload cancellation retains the form, and a d
 blocks Back until completion. Cross-application related-record reload returns to the original list.
 The existing authoring and draft runners exercise successful writes, conflicts and signed deletion
 through the guarded record editors. Evidence is written to the runner's temporary output directory.
-This section records the UI-03A navigation coverage. UI-03B extends it below; UI-07 remains deferred.
+This section records the UI-03A navigation coverage. UI-03B extends it below; UI-07 gate delivery is recorded below.
 
 ## UI-03B inspector and record actions
 
@@ -134,7 +134,7 @@ in a codelist record and selects a master value from Browse hierarchy: the unrel
 must disappear, Value details must be available in the full record view, and reload must preserve it.
 
 The live-authoring, draft and history runners use the visible Record actions menu and retain their
-mutation, conflict, signed-deletion and read-only assertions. UI-07 remains deferred; these screenshots
+mutation, conflict, signed-deletion and read-only assertions. UI-07 gates are documented below; these screenshots
 and interaction checks do not establish an accessibility audit or automated visual baselines.
 
 ### Hierarchy preferences correction
@@ -179,3 +179,13 @@ This captures new baselines. Review the updated PNGs in `e2e/baselines/`, then c
 
 Dark theme baselines are deferred until the application implements a dark mode. When dark mode
 lands, add `*-dark` baseline variants to the visual regression gate.
+
+## Planned 0.7 scenario extensions
+
+WP-1–WP-3 scopes are frozen. WP-7/WP-8A/WP-8B extend the existing accessibility and visual gates to
+version selection/change diagnostics, mapping coverage/target continuation, candidate selection,
+conflict recovery, clearing and contextual target creation. WP-9 supplies composed SC-07/SC-15
+browser/API evidence with independent bindings and differing same-schema releases, including concurrency
+and isolation checks. Existing baseline pages alone do not establish coverage of those new controls.
+No new scenario pass is claimed here. See [the 0.7 plan](../../docs/BASE_0_7_IMPLEMENTATION_PLAN.md).
+Dark variants remain deferred until dark mode exists; reuse passing gates unless relevant code changes.

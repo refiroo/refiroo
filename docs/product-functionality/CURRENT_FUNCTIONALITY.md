@@ -219,7 +219,10 @@ contract.
 
 This function is not the dedicated mapping product. Today a generic relationship can represent a
 mapping, but coverage states, atomic replacement, candidate workflow and mapping-specific concurrency
-arrive in product 0.7.
+arrive in product 0.7. Schema 0.6 mapping-grid configuration and a placeholder renderer are delivered;
+this does not establish a completed mapping journey. The [0.7 plan](../BASE_0_7_IMPLEMENTATION_PLAN.md)
+places coverage in WP-8A and actions in WP-8B, with bounded target inspection, retained relation
+identities and integration acceptance in WP-9. WP-1–WP-3 remain frozen.
 
 Evidence: [relations API](../../backend/app/routers/relations.py),
 [relations panel](../../frontend/src/features/objects/panels/RelationsPanel.tsx),

@@ -6,6 +6,36 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Extended the planned 0.7 design and delivery documentation after plan review: WP-1–WP-3 remain
+  frozen; later packages specify bounded view-based mapping reads, stable retained relation identities,
+  typed attributes, direction-aware constraints and atomic whole-candidate draft compatibility.
+  Mapping UI is split into WP-8A coverage and WP-8B actions; WP-9 expands integration/a11y/visual
+  evidence, with conditional WP-10 for confirmed foundation gaps. This is documentation work, not
+  implementation delivery or release acceptance evidence.
+
+### Added
+
+- Schema 0.6 `mappingGrid` view contract (Build 0.7 WP-2). The model language now accepts
+  `schemaVersion: "0.6"` alongside `"0.5"`. `MappingGridViewDefinition` joins `TableViewDefinition`
+  in a Pydantic discriminated union on `ViewDefinition.type`. Backend validation checks relation
+  binding existence, rejects containment (`parentOf`) and required-ownership bindings, validates
+  source/target columns against attached attributes, and verifies candidate search fields are
+  searchable target-type attributes. The starter model advances to schema 0.6 / content release 0.7.0
+  with two mapping grid views: `system-to-master-mapping` (outgoing) in RDM Systems and
+  `master-to-system-mapping` (incoming) in RDM Master. Frontend `ViewDefinition` is a TypeScript
+  discriminated union with type-safe narrowing; the view registry dispatches `mappingGrid` to a styled
+  placeholder renderer pending WP-8A/WP-8B. 11 new backend tests cover parse, activation, backward
+  compatibility and all validation rejection paths.
+
+- UI-07 automated accessibility and visual-regression gates (WP-1). `npm run test:a11y` runs
+  axe-core WCAG 2.1 AA checks on 9 core page types across two object types; `npm run test:visual`
+  compares viewport screenshots against committed baselines using pixelmatch. ~16 color-contrast
+  violations fixed, definition-list structure corrected, sidebar landmark added. Two known violations
+  allowlisted with tracked references. Light-theme baselines committed; dark-theme baselines deferred
+  until a dark theme exists.
+
 ## [0.6.0] - 2026-09-11
 
 ### Changed

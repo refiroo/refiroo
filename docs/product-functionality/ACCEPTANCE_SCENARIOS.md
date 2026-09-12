@@ -144,6 +144,15 @@ cancelling creation leaves the existing mapping intact.
 
 Repeat with another relationship configuration, including different direction and labels.
 
+**0.7 composed evidence (WP-4/WP-5/WP-8A/WP-8B/WP-9):** repeat with an independent binding,
+not only the reverse view of the same binding. Find candidates beyond page one and inspect a large
+ambiguous set through bounded previews with exact counts and continuation. Retaining an existing
+chosen target retains its relation identity and typed attributes unless explicitly edited. Exercise
+both directions, constrained candidates and refused clearing. A generic relation edit racing with
+mapping save and a live same-set edit before draft activation must conflict without losing attempted
+input or unrelated live work. New selectors, conflict controls and target creation require keyboard,
+accessibility and visual evidence. Confirmed foundation gaps belong to conditional WP-10.
+
 **Simplicity check:** the user selects a business target, not individual links to delete and recreate.
 
 ## SC-08 — Understand history without accidentally promising rollback
@@ -294,6 +303,14 @@ reviewed conversion and loss preview of 0.10 is required, and declining changes 
 Selecting an unavailable, corrupt or unsupported definition is refused with the reason, and leaves live
 data, the other draft, history and every other workspace untouched. No model change reaches live data
 merely because a draft selected it.
+
+**0.7 composed evidence (WP-6/WP-7/WP-9):** use two releases on the same schema with visibly
+different fields, rules and views. Check the complete candidate graph, including inherited content,
+on creation and version change. Incompatible creation leaves no draft; incompatible or stale version
+change leaves content, pin and version unchanged. Test concurrent edits and externally changed pins,
+removed-view recovery, obsolete cursor reset and dirty-input protection. A retained older pin stays
+readable/editable and is described neutrally. Live, history, other drafts and other workspaces remain
+unchanged. Version-selection controls and diagnostics require accessibility and visual evidence.
 
 **Simplicity check:** a steward can see which definition each draft is working under without reading
 deployment mechanics, and discarding a draft is always available and never requires model agreement.

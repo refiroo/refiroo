@@ -1,20 +1,35 @@
 # Project TODO
 
-This file is the prioritized delivery queue. The roadmap owns sequencing and outcomes; the Base 0.6
+This file is the prioritized delivery queue. The roadmap owns sequencing and outcomes; the active release
 implementation plan owns detailed contracts and work packages. Keep completed historical work in its
 release plan and changelog rather than accumulating it here.
 
 ## Now — Product 0.7 core mapping
 
-Base 0.6 is released (2026-09-11). UI-07 is carried from 0.6 into 0.7.
+Base 0.6 is released (2026-09-11). WP-1 delivered (2026-09-12). WP-2 delivered (2026-09-12).
 
-- [ ] UI-07 (carried from 0.6): automated accessibility and visual-regression gates using the existing
-  Playwright harness with `@axe-core/playwright` and visual comparison baselines.
-- [ ] Product 0.7/schema 0.6: typed `mappingGrid`, cursor-paged coverage and candidate lookup.
+- [x] UI-07 (carried from 0.6): automated accessibility and visual-regression gates using the existing
+  Playwright harness with `@axe-core/playwright` and visual comparison baselines. Delivered 2026-09-12;
+  light-theme baselines only (dark theme does not exist yet).
+- [x] Schema 0.6 `mappingGrid` view contract (WP-2). `MappingGridViewConfig` and discriminated
+  `ViewDefinition` union, full validation rules (relation binding, containment/required-ownership
+  rejection, column/search-field checks), starter model 0.7.0 with two mapping grid views, frontend
+  type-safe narrowing and placeholder renderer. Delivered 2026-09-12.
+- [ ] Product 0.7: cursor-paged mapping coverage API and candidate lookup (WP-4).
 - [ ] ADR-022: exact-binding relation-set versions and atomic mapping replacement in live and
   optional-draft contexts; generic relation writes participate in the same protection.
 - [ ] ADR-028: let a workspace draft work under a version the user chooses, so one draft prepares the
   schema 0.6 release while another stays on the version serving live data.
+
+- [ ] WP-4/WP-5: view-specific reads, bounded ambiguous targets, retained relation identities,
+  typed attribute semantics and direction-aware replacement/clear validation.
+- [ ] WP-6/WP-7: complete-candidate compatibility on creation/version change, atomic pin changes,
+  snapshot isolation and complete browser model-context refresh.
+- [ ] WP-8A: read-only mapping coverage; WP-8B: selection, conflicts, clearing and contextual creation.
+- [ ] WP-9: independent binding fixtures, same-schema differing releases, new-control a11y/visual
+  coverage, generic-write races and draft activation/live same-set conflicts.
+- [ ] Conditional WP-10: only confirmed missing foundation capabilities; required slices block 0.7
+  acceptance. WP-1–WP-3 remain frozen and their implementation reviews stay separate.
 
 See `ROADMAP.md` for the 0.7 delivery scope, exit gate and full milestone sequence.
 

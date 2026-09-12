@@ -239,3 +239,14 @@ Technical documents/plans requiring reconciliation:
 A planned story cannot become accepted from a document review. A service-only pass cannot close a
 browser story. Record observed usability measures from the scenarios rather than claiming “simple”
 from an implementation's size or component count.
+
+## 0.7 follow-up validation
+
+Use SC-07 and SC-15 with the [0.7 plan](../BASE_0_7_IMPLEMENTATION_PLAN.md). WP-9 adds independent
+binding fixtures, candidates beyond page one, large ambiguous sets, typed attributes, direction-aware
+clearing, generic-write/mapping races and draft activation/live same-set conflicts. Version selection
+uses differing content releases on one schema, complete inherited candidate checks, atomic refusal,
+external pin changes and model-dependent route/form/cursor recovery. WP-7/WP-8A/WP-8B extend gate
+scenarios to new controls; existing core-page passes alone do not cover them. Reuse unchanged passing
+package gates and execute composed evidence separately. WP-1–WP-3 are frozen; confirmed missing
+capabilities trigger bounded WP-10 work before release acceptance. No new pass evidence is recorded here.
