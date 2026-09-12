@@ -489,7 +489,7 @@ def test_0_unsupported_pinned_draft_model_is_explicit_and_never_uses_active_mode
             "details": {
                 "modelReleaseId": body["error"]["details"]["modelReleaseId"],
                 "schemaVersion": "0.4",
-                "supportedSchemaVersions": ["0.5"],
+                "supportedSchemaVersions": ["0.5", "0.6"],
             },
         }
         historical = client.get(

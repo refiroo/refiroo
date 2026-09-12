@@ -13,13 +13,13 @@ import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
 import { Pagination } from "@/ui/Pagination";
 import { ObjectToolbar } from "@/features/objects/ObjectToolbar";
 import { useCursorPages } from "@/lib/hooks/useCursorPages";
-import type { ObjectItem } from "@/types";
+import type { ObjectItem, TableViewDefinition } from "@/types";
 import type { ViewComponentProps } from "./views/types";
 
 export function ObjectCollectionView({
   model,
   application,
-  view,
+  view: rawView,
   workspaceKey,
   query,
   onQueryChange,
@@ -29,6 +29,7 @@ export function ObjectCollectionView({
   refreshToken = 0,
   selectedId,
 }: ViewComponentProps) {
+  const view = rawView as TableViewDefinition;
   const api = useDataApi();
   const [creating, setCreating] = useState(false);
   const root = useRef<HTMLDivElement>(null);

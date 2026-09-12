@@ -145,7 +145,8 @@ function AppContent({
       return;
     }
     const matchingView = application.views.find(
-      (view) => activeRoute.kind === "detail" && view.objectTypeKey === activeRoute.objectTypeKey,
+      (view) =>
+        activeRoute.kind === "detail" && view.type === "table" && view.objectTypeKey === activeRoute.objectTypeKey,
     );
     navigate({
       ...viewRoute(application, matchingView?.key ?? application.defaultView, activeRoute.workspaceKey),
@@ -168,7 +169,9 @@ function AppContent({
     if (activeRoute.kind === "models") return;
     let changed: boolean;
     if (activeRoute.kind === "detail") {
-      const matchingView = application.views.find((view) => view.objectTypeKey === activeRoute.objectTypeKey);
+      const matchingView = application.views.find(
+        (view) => view.type === "table" && view.objectTypeKey === activeRoute.objectTypeKey,
+      );
       const remembered = lastCollection(application.key);
       changed = navigate(
         remembered && remembered.viewKey === matchingView?.key

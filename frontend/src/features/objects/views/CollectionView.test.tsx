@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { CollectionQueryState } from "@/types";
+import type { CollectionQueryState, TableViewDefinition } from "@/types";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
@@ -138,10 +138,11 @@ it.each(["domain", "codelist"])("preserves typed filters and query/display owner
     { key: "count", name: "Count", valueType: "integer", features: {}, validation: {}, ui: {} },
     { key: "date", name: "Date", valueType: "date", features: {}, validation: {}, ui: {} },
   );
+  const baseView = model.applications[0].views[0] as TableViewDefinition;
   const view = {
-    ...model.applications[0].views[0],
+    ...baseView,
     objectTypeKey,
-    config: { ...model.applications[0].views[0].config, filterFields: ["code", "active", "count", "date"] },
+    config: { ...baseView.config, filterFields: ["code", "active", "count", "date"] },
   };
   let latest: CollectionQueryState;
   function Harness() {

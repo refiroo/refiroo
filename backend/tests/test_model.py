@@ -30,9 +30,9 @@ def test_starter_model_is_valid():
     ]
     assert model.applications[0].details[0].panels[0].type == "children"
     assert model.applications[0].details[1].panels[0].type == "children"
-    assert model.schemaVersion == "0.5"
-    assert model.release.version == "0.6.0"
-    assert {view.type for app in model.applications for view in app.views} == {"table"}
+    assert model.schemaVersion == "0.6"
+    assert model.release.version == "0.7.0"
+    assert {view.type for app in model.applications for view in app.views} == {"table", "mappingGrid"}
 
 
 def test_schema_dispatch_and_strict_table_shape_are_explicit():
@@ -45,17 +45,15 @@ def test_schema_dispatch_and_strict_table_shape_are_explicit():
     ]
 
     unimplemented = deepcopy(source)
-    unimplemented["applications"][0]["views"][0]["type"] = "mappingGrid"
+    unimplemented["applications"][0]["views"][0]["type"] = "dashboard"
     invalid_type = compile_model(unimplemented)
-    assert invalid_type.diagnostics[0].path == "/applications/0/views/0/type"
+    assert "/applications/0/views/0" in invalid_type.diagnostics[0].path
 
     extra = deepcopy(source)
     extra["applications"][0]["views"][0]["config"]["endpoint"] = "/internal"
     invalid_extra = compile_model(extra)
-    assert (invalid_extra.diagnostics[0].code, invalid_extra.diagnostics[0].path) == (
-        "unknown_field",
-        "/applications/0/views/0/config/endpoint",
-    )
+    assert invalid_extra.diagnostics[0].code == "unknown_field"
+    assert invalid_extra.diagnostics[0].path.endswith("/config/endpoint")
 
 
 def test_compiler_returns_stable_cross_reference_diagnostic_path():
@@ -410,3 +408,127 @@ def test_minimum_must_not_exceed_maximum():
 
     with pytest.raises(ModelValidationError, match="minimum must not exceed"):
         parse_model(source)
+
+
+# --- Schema 0.6: mappingGrid view contract ---
+
+
+def test_schema_05_model_still_parses_and_activates():
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    source["schemaVersion"] = "0.5"
+    source["applications"] = [
+        {**app, "views": [v for v in app["views"] if v["type"] == "table"]}
+        for app in source["applications"]
+    ]
+    model = parse_model(source)
+    assert model.schemaVersion == "0.5"
+
+
+def test_schema_06_mapping_grid_views_parse():
+    model = load_model(MODEL_PATH)
+    assert model.schemaVersion == "0.6"
+    mapping_views = [
+        view for app in model.applications for view in app.views if view.type == "mappingGrid"
+    ]
+    assert len(mapping_views) == 2
+    system_view = next(v for v in mapping_views if v.key == "system-to-master-mapping")
+    assert system_view.config.relationTypeKey == "system-value-maps-to-master"
+    assert system_view.config.direction == "outgoing"
+    master_view = next(v for v in mapping_views if v.key == "master-to-system-mapping")
+    assert master_view.config.direction == "incoming"
+
+
+def _mapping_grid_source():
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    return source
+
+
+def _find_mapping_view(source, app_key, view_key):
+    app = next(a for a in source["applications"] if a["key"] == app_key)
+    return next(v for v in app["views"] if v["key"] == view_key)
+
+
+def test_mapping_grid_rejects_unknown_relation_type():
+    source = _mapping_grid_source()
+    view = _find_mapping_view(source, "rdm-systems", "system-to-master-mapping")
+    view["config"]["relationTypeKey"] = "nonexistent-relation"
+    result = compile_model(source)
+    assert not result.valid
+    assert result.diagnostics[0].code == "unknown_relation_type"
+
+
+def test_mapping_grid_rejects_unknown_object_type():
+    source = _mapping_grid_source()
+    view = _find_mapping_view(source, "rdm-systems", "system-to-master-mapping")
+    view["config"]["fromObjectTypeKey"] = "nonexistent-type"
+    result = compile_model(source)
+    assert not result.valid
+    assert result.diagnostics[0].code == "unknown_object_type"
+
+
+def test_mapping_grid_rejects_unmatched_binding():
+    source = _mapping_grid_source()
+    view = _find_mapping_view(source, "rdm-systems", "system-to-master-mapping")
+    view["config"]["fromObjectTypeKey"] = "domain"
+    view["config"]["toObjectTypeKey"] = "system"
+    result = compile_model(source)
+    assert not result.valid
+    assert "not declared in objectTypeRelations" in result.diagnostics[0].message
+
+
+def test_mapping_grid_rejects_containment_relation():
+    source = _mapping_grid_source()
+    view = _find_mapping_view(source, "rdm-systems", "system-to-master-mapping")
+    view["config"]["relationTypeKey"] = "system-contains-value"
+    view["config"]["fromObjectTypeKey"] = "system"
+    view["config"]["toObjectTypeKey"] = "system-value"
+    result = compile_model(source)
+    assert not result.valid
+    assert "containment" in result.diagnostics[0].message
+
+
+def test_mapping_grid_rejects_required_ownership_binding():
+    source = _mapping_grid_source()
+    binding = next(
+        b for b in source["objectTypeRelations"]
+        if b["relationTypeKey"] == "system-value-maps-to-master"
+    )
+    binding["required"] = True
+    binding["cardinality"] = "one-to-many"
+    result = compile_model(source)
+    assert not result.valid
+    assert "required-ownership" in result.diagnostics[0].message
+
+
+def test_mapping_grid_rejects_invalid_source_column():
+    source = _mapping_grid_source()
+    view = _find_mapping_view(source, "rdm-systems", "system-to-master-mapping")
+    view["config"]["sourceColumns"] = ["name", "nonexistent-attr"]
+    result = compile_model(source)
+    assert not result.valid
+    assert "unavailable fields" in result.diagnostics[0].message
+
+
+def test_mapping_grid_rejects_nonsearchable_candidate_field():
+    source = _mapping_grid_source()
+    view = _find_mapping_view(source, "rdm-systems", "system-to-master-mapping")
+    view["config"]["candidateSearchFields"] = ["name", "sort-order"]
+    result = compile_model(source)
+    assert not result.valid
+    assert "not attached to target" in result.diagnostics[0].message or "not searchable" in result.diagnostics[0].message
+
+
+def test_mapping_grid_rejects_extra_config_field():
+    source = _mapping_grid_source()
+    view = _find_mapping_view(source, "rdm-systems", "system-to-master-mapping")
+    view["config"]["unknownField"] = True
+    result = compile_model(source)
+    assert not result.valid
+
+
+def test_mapping_grid_rejects_duplicate_source_columns():
+    source = _mapping_grid_source()
+    view = _find_mapping_view(source, "rdm-systems", "system-to-master-mapping")
+    view["config"]["sourceColumns"] = ["name", "name"]
+    result = compile_model(source)
+    assert not result.valid

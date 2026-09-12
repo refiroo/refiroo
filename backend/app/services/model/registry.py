@@ -16,6 +16,8 @@ from .compiler import parse_model
 from .diagnostics import ModelValidationError
 from .runtime import require_runtime_state
 
+_SUPPORTED_SCHEMA_VERSIONS = {"0.5", "0.6"}
+
 
 @dataclass(frozen=True)
 class ModelSnapshot:
@@ -65,7 +67,7 @@ class ModelRegistry:
                 "The model pinned by this historical context is unavailable",
                 {"modelReleaseDbId": release_id},
             )
-        if release.schema_version != "0.5":
+        if release.schema_version not in _SUPPORTED_SCHEMA_VERSIONS:
             raise api_error(
                 409,
                 "unsupported_pinned_model_schema",
@@ -73,7 +75,7 @@ class ModelRegistry:
                 {
                     "modelReleaseId": release.public_id,
                     "schemaVersion": release.schema_version,
-                    "supportedSchemaVersions": ["0.5"],
+                    "supportedSchemaVersions": sorted(_SUPPORTED_SCHEMA_VERSIONS),
                 },
             )
         cache_key = (release.public_id, release.model_hash)
@@ -102,7 +104,7 @@ class ModelRegistry:
 
     def _load_active(self, session: Session) -> ModelSnapshot:
         _runtime_state, release = require_runtime_state(session)
-        if release.schema_version != "0.5":
+        if release.schema_version not in _SUPPORTED_SCHEMA_VERSIONS:
             raise UnsupportedSelectedModelSchema(release.schema_version)
         cache_key = (release.public_id, release.model_hash)
         with self._condition:

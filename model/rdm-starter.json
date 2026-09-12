@@ -1,9 +1,9 @@
 {
-  "schemaVersion": "0.5",
+  "schemaVersion": "0.6",
   "release": {
     "key": "rdm-starter",
     "name": "RDM Starter Model",
-    "version": "0.6.0"
+    "version": "0.7.0"
   },
   "product": {
     "name": "RDM Engine",
@@ -404,7 +404,8 @@
       "views": [
         { "key": "domains", "name": "Domains", "type": "table", "objectTypeKey": "domain", "config": { "columns": ["name", "domain-code", "description", "active"], "filterFields": ["domain-code", "description", "active"], "sortFields": ["name", "domain-code", "description"], "defaultSort": "domain-code", "pageSize": 20 } },
         { "key": "codelists", "name": "Codelists", "type": "table", "objectTypeKey": "codelist", "config": { "columns": ["name", "codelist-code", "hierarchical", "translations-enabled", "active"], "filterFields": ["codelist-code", "active"], "sortFields": ["name", "codelist-code"], "defaultSort": "name", "pageSize": 20 } },
-        { "key": "master-values", "name": "Master values", "type": "table", "objectTypeKey": "master-value", "config": { "columns": ["name", "master-id", "value-code", "value-name", "active"], "filterFields": ["value-code", "sort-order", "valid-from", "active"], "sortFields": ["name", "value-code", "sort-order", "valid-from"], "defaultSort": "name", "pageSize": 20 } }
+        { "key": "master-values", "name": "Master values", "type": "table", "objectTypeKey": "master-value", "config": { "columns": ["name", "master-id", "value-code", "value-name", "active"], "filterFields": ["value-code", "sort-order", "valid-from", "active"], "sortFields": ["name", "value-code", "sort-order", "valid-from"], "defaultSort": "name", "pageSize": 20 } },
+        { "key": "master-to-system-mapping", "name": "Master ← System mapping", "type": "mappingGrid", "config": { "relationTypeKey": "system-value-maps-to-master", "fromObjectTypeKey": "system-value", "toObjectTypeKey": "master-value", "direction": "incoming", "sourceColumns": ["name", "master-id", "value-code", "value-name"], "targetDisplayColumns": ["name", "value-code", "value-name"], "candidateSearchFields": ["name", "value-code", "value-name"], "pageSize": 20 } }
       ],
       "details": [
         {
@@ -456,7 +457,8 @@
       "settings": { "importEnabled": true, "exportEnabled": true },
       "views": [
         { "key": "systems", "name": "Systems", "type": "table", "objectTypeKey": "system", "config": { "columns": ["name", "system-code", "system-type", "description", "active"], "filterFields": ["system-type", "active"], "sortFields": ["name", "system-code"], "defaultSort": "name", "pageSize": 20 } },
-        { "key": "system-values", "name": "System values", "type": "table", "objectTypeKey": "system-value", "config": { "columns": ["name", "value-code", "value-name", "external-id", "active"], "filterFields": ["value-code", "active"], "sortFields": ["name", "value-code"], "defaultSort": "name", "pageSize": 20 } }
+        { "key": "system-values", "name": "System values", "type": "table", "objectTypeKey": "system-value", "config": { "columns": ["name", "value-code", "value-name", "external-id", "active"], "filterFields": ["value-code", "active"], "sortFields": ["name", "value-code"], "defaultSort": "name", "pageSize": 20 } },
+        { "key": "system-to-master-mapping", "name": "System → Master mapping", "type": "mappingGrid", "config": { "relationTypeKey": "system-value-maps-to-master", "fromObjectTypeKey": "system-value", "toObjectTypeKey": "master-value", "direction": "outgoing", "sourceColumns": ["name", "value-code", "value-name"], "targetDisplayColumns": ["name", "value-code", "value-name"], "candidateSearchFields": ["name", "value-code", "value-name"], "pageSize": 20 } }
       ],
       "details": [
         {

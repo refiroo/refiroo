@@ -1,7 +1,14 @@
 """Rules for applications and the views they expose."""
 
 from ....common.json_pointer import pointer_segment
-from ....models.schema import BUILT_IN_COLUMNS, ApplicationDefinition, EngineModel, ViewDefinition
+from ....models.schema import (
+    BUILT_IN_COLUMNS,
+    ApplicationDefinition,
+    EngineModel,
+    MappingGridViewDefinition,
+    TableViewDefinition,
+    ViewDefinition,
+)
 from ..diagnostics import ModelReferenceError
 from .detail_view_rules import check_details
 from .fields import check_fields
@@ -21,7 +28,11 @@ def check(model: EngineModel, index: ModelIndex) -> None:
                 f"'{application.defaultView}'",
             )
         for view in application.views:
-            _check_view(application, view, application_path, index)
+            view_path = f"{application_path}/views/{pointer_segment(view.key)}"
+            if isinstance(view, TableViewDefinition):
+                _check_table_view(application, view, view_path, index)
+            elif isinstance(view, MappingGridViewDefinition):
+                _check_mapping_grid_view(application, view, view_path, model, index)
         check_details(model, application, application_path, index)
 
 
@@ -55,13 +66,12 @@ def _view_map(
     return result
 
 
-def _check_view(
+def _check_table_view(
     application: ApplicationDefinition,
-    view: ViewDefinition,
-    application_path: str,
+    view: TableViewDefinition,
+    view_path: str,
     index: ModelIndex,
 ) -> None:
-    view_path = f"{application_path}/views/{pointer_segment(view.key)}"
     if view.objectTypeKey not in index.object_types:
         raise ModelReferenceError(
             "unknown_object_type",
@@ -116,12 +126,12 @@ def _check_unique_fields(fields: tuple[str, ...], view_path: str, name: str) -> 
         raise ModelReferenceError(
             "duplicate_key",
             f"{view_path}/config/{name}",
-            f"Table {name} must contain unique fields",
+            f"View {name} must contain unique fields",
         )
 
 
 def _check_query_capability(
-    view: ViewDefinition,
+    view: TableViewDefinition,
     field: str,
     purpose: str,
     view_path: str,
@@ -145,3 +155,129 @@ def _check_query_capability(
             f"{view_path}/config/{purpose}Fields",
             f"Attribute '{field}' is not {capability}",
         )
+
+
+def _check_mapping_grid_view(
+    application: ApplicationDefinition,
+    view: MappingGridViewDefinition,
+    view_path: str,
+    model: EngineModel,
+    index: ModelIndex,
+) -> None:
+    config = view.config
+    config_path = f"{view_path}/config"
+
+    if config.relationTypeKey not in index.relation_types:
+        raise ModelReferenceError(
+            "unknown_relation_type",
+            f"{config_path}/relationTypeKey",
+            f"Mapping grid '{application.key}.{view.key}' references unknown relation type "
+            f"'{config.relationTypeKey}'",
+        )
+
+    if config.fromObjectTypeKey not in index.object_types:
+        raise ModelReferenceError(
+            "unknown_object_type",
+            f"{config_path}/fromObjectTypeKey",
+            f"Mapping grid '{application.key}.{view.key}' references unknown object type "
+            f"'{config.fromObjectTypeKey}'",
+        )
+    if config.toObjectTypeKey not in index.object_types:
+        raise ModelReferenceError(
+            "unknown_object_type",
+            f"{config_path}/toObjectTypeKey",
+            f"Mapping grid '{application.key}.{view.key}' references unknown object type "
+            f"'{config.toObjectTypeKey}'",
+        )
+
+    matching_triple = None
+    for allowed in model.objectTypeRelations:
+        if (
+            allowed.relationTypeKey == config.relationTypeKey
+            and allowed.fromObjectTypeKey == config.fromObjectTypeKey
+            and allowed.toObjectTypeKey == config.toObjectTypeKey
+        ):
+            matching_triple = allowed
+            break
+    if matching_triple is None:
+        raise ModelReferenceError(
+            "invalid_reference",
+            config_path,
+            f"Mapping grid '{application.key}.{view.key}' references a relation binding "
+            f"({config.relationTypeKey}, {config.fromObjectTypeKey} → {config.toObjectTypeKey}) "
+            f"that is not declared in objectTypeRelations",
+        )
+
+    relation_type = index.relation_types[config.relationTypeKey]
+    if relation_type.features.get("parentOf"):
+        raise ModelReferenceError(
+            "invalid_model",
+            f"{config_path}/relationTypeKey",
+            f"Mapping grid '{application.key}.{view.key}' cannot use containment relation type "
+            f"'{config.relationTypeKey}'",
+        )
+
+    if matching_triple.required and matching_triple.cardinality in (
+        "one-to-one",
+        "one-to-many",
+    ):
+        raise ModelReferenceError(
+            "invalid_model",
+            config_path,
+            f"Mapping grid '{application.key}.{view.key}' cannot use a required-ownership binding "
+            f"({config.relationTypeKey}, {config.fromObjectTypeKey} → {config.toObjectTypeKey})",
+        )
+
+    source_type_key = (
+        config.fromObjectTypeKey
+        if config.direction == "outgoing"
+        else config.toObjectTypeKey
+    )
+    source_type = index.object_types[source_type_key]
+    check_fields(
+        config.sourceColumns,
+        [source_type],
+        index.object_types,
+        label=f"Mapping grid '{application.key}.{view.key}' sourceColumns",
+        path=f"{config_path}/sourceColumns",
+    )
+    _check_unique_fields(config.sourceColumns, config_path, "sourceColumns")
+
+    target_type_key = (
+        config.toObjectTypeKey
+        if config.direction == "outgoing"
+        else config.fromObjectTypeKey
+    )
+    target_type = index.object_types[target_type_key]
+    check_fields(
+        config.targetDisplayColumns,
+        [target_type],
+        index.object_types,
+        label=f"Mapping grid '{application.key}.{view.key}' targetDisplayColumns",
+        path=f"{config_path}/targetDisplayColumns",
+    )
+    _check_unique_fields(config.targetDisplayColumns, config_path, "targetDisplayColumns")
+
+    target_attached = {
+        binding.attributeTypeKey for binding in target_type.attributes
+    }
+    candidate_built_in = {"name"}
+    for field in config.candidateSearchFields:
+        if field in candidate_built_in:
+            continue
+        if field not in target_attached:
+            raise ModelReferenceError(
+                "invalid_model",
+                f"{config_path}/candidateSearchFields",
+                f"Mapping grid '{application.key}.{view.key}' candidateSearchFields references "
+                f"'{field}' which is not attached to target type '{target_type_key}'",
+            )
+        attribute = index.attribute_types[field]
+        if not attribute.features.get("searchable"):
+            raise ModelReferenceError(
+                "invalid_model",
+                f"{config_path}/candidateSearchFields",
+                f"Mapping grid '{application.key}.{view.key}' candidateSearchFields references "
+                f"'{field}' which is not searchable",
+            )
+    _check_unique_fields(config.candidateSearchFields, config_path, "candidateSearchFields")

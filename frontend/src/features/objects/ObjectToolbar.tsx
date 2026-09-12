@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { attributeName } from "@/model/fields";
-import type { CollectionQueryState, EngineModel, ValueType, ViewDefinition } from "@/types";
+import type { CollectionQueryState, EngineModel, TableViewDefinition, ValueType } from "@/types";
 import { Icon } from "@/ui/Icon";
 import { SelectField } from "@/ui/Selection";
 import { ControlPopover } from "@/ui/ControlPopover";
@@ -27,7 +27,7 @@ export function ObjectToolbar({
 }: {
   display: ReactNode;
   model: EngineModel;
-  view: ViewDefinition;
+  view: TableViewDefinition;
   query: CollectionQueryState;
   placeholder: string;
   onChange: (query: CollectionQueryState) => void;

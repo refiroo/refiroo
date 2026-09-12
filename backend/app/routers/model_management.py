@@ -96,7 +96,7 @@ def activate_release(
                 f"Schema version '{exc.schema_version}' cannot be activated",
                 {
                     "schemaVersion": exc.schema_version,
-                    "supportedSchemaVersions": ["0.5"],
+                    "supportedSchemaVersions": ["0.5", "0.6"],
                 },
             ) from exc
         except ModelMigrationRequired as exc:

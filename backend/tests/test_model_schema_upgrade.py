@@ -24,6 +24,20 @@ from app.services.model.registry import (
 MODEL_PATH = Path(__file__).resolve().parents[2] / "model" / "rdm-starter.json"
 
 
+def _schema_05_model_path(tmp_path: Path) -> Path:
+    """Create a schema 0.5 model file from the current starter for transition testing."""
+    source = json.loads(MODEL_PATH.read_text())
+    source["schemaVersion"] = "0.5"
+    source["release"]["version"] = "0.6.0"
+    source["applications"] = [
+        {**app, "views": [v for v in app["views"] if v["type"] == "table"]}
+        for app in source["applications"]
+    ]
+    path = tmp_path / "rdm-starter-05.json"
+    path.write_text(json.dumps(source))
+    return path
+
+
 def _legacy_database(database_path: Path) -> str:
     config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
@@ -52,6 +66,7 @@ def _legacy_database(database_path: Path) -> str:
 def test_offline_schema_upgrade_installs_checks_and_atomically_selects_candidate(tmp_path, monkeypatch):
     database_path = tmp_path / "upgrade.db"
     old_release_id = _legacy_database(database_path)
+    model_05 = _schema_05_model_path(tmp_path)
     engine = create_engine(f"sqlite:///{database_path}")
     with Session(engine) as session, pytest.raises(
         UnsupportedSelectedModelSchema
@@ -61,7 +76,7 @@ def test_offline_schema_upgrade_installs_checks_and_atomically_selects_candidate
     with monkeypatch.context() as patch:
         patch.setenv("DATABASE_URL", f"sqlite:///{database_path}")
         reload_settings()
-        selected_id = transition(MODEL_PATH)
+        selected_id = transition(model_05)
     reload_settings()
 
     with Session(engine) as session:
@@ -76,6 +91,7 @@ def test_offline_schema_upgrade_installs_checks_and_atomically_selects_candidate
 def test_offline_schema_upgrade_rolls_back_installation_when_compatibility_fails(tmp_path, monkeypatch):
     database_path = tmp_path / "blocked.db"
     old_release_id = _legacy_database(database_path)
+    model_05 = _schema_05_model_path(tmp_path)
     diagnostic = ModelDiagnostic(
         severity="error",
         code="migration_needed",
@@ -91,7 +107,7 @@ def test_offline_schema_upgrade_rolls_back_installation_when_compatibility_fails
         )
         reload_settings()
         with pytest.raises(RuntimeError, match="requires runtime-data migration"):
-            transition(MODEL_PATH)
+            transition(model_05)
     reload_settings()
 
     engine = create_engine(f"sqlite:///{database_path}")
@@ -106,15 +122,16 @@ def test_offline_schema_upgrade_rolls_back_installation_when_compatibility_fails
 def test_offline_schema_upgrade_rejects_a_selected_schema_05_release(tmp_path, monkeypatch):
     database_path = tmp_path / "already-upgraded.db"
     _legacy_database(database_path)
+    model_05 = _schema_05_model_path(tmp_path)
     with monkeypatch.context() as patch:
         patch.setenv("DATABASE_URL", f"sqlite:///{database_path}")
         reload_settings()
-        selected_id = transition(MODEL_PATH)
+        selected_id = transition(model_05)
         with pytest.raises(
             RuntimeError,
             match="requires a selected schema 0.4 release; found schema 0.5",
         ):
-            transition(MODEL_PATH)
+            transition(model_05)
     reload_settings()
 
     engine = create_engine(f"sqlite:///{database_path}")

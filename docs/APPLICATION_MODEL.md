@@ -10,7 +10,7 @@ control presentation.
 
 ```json
 {
-  "schemaVersion": "0.5",
+  "schemaVersion": "0.6",
   "release": {},
   "product": {},
   "attributeTypes": [],
@@ -197,11 +197,53 @@ context; activation revalidates staged changes with current live content (ADR-02
 An application selects object types and exposes model-defined views. Object types may be shared across
 applications. Applications use immutable keys; names are presentation labels and are not API filters.
 
-Schema 0.5 deliberately supports only the strict `table` contract. Its extra-forbidden configuration
-requires non-empty unique `columns`, `filterFields`, `sortFields`, a `defaultSort` selected from the
-declared sort fields and a `pageSize` from 1 to 100. Later schemas add a type only together with its
-validated contract and renderer. Configuration refers to stable object, attribute and relation
-keys—never backend URLs or database IDs.
+Schema 0.5 supports the strict `table` contract. Schema 0.6 adds the `mappingGrid` contract for
+mapping coverage views. Each view type has an extra-forbidden configuration that rejects unknown
+properties. Configuration refers to stable object, attribute and relation keys—never backend URLs or
+database IDs.
+
+### Table view (`type: "table"`)
+
+Requires non-empty unique `columns`, `filterFields`, `sortFields`, a `defaultSort` selected from the
+declared sort fields and a `pageSize` from 1 to 100.
+
+### Mapping grid view (`type: "mappingGrid"`, schema 0.6)
+
+A mapping grid displays coverage for a configured relation binding and supports atomic mapping
+replacement. Configuration:
+
+```json
+{
+  "key": "system-to-master-mapping",
+  "name": "System → Master mapping",
+  "type": "mappingGrid",
+  "config": {
+    "relationTypeKey": "system-value-maps-to-master",
+    "fromObjectTypeKey": "system-value",
+    "toObjectTypeKey": "master-value",
+    "direction": "outgoing",
+    "sourceColumns": ["name", "value-code", "value-name"],
+    "targetDisplayColumns": ["name", "value-code", "value-name"],
+    "candidateSearchFields": ["name", "value-code", "value-name"],
+    "pageSize": 20
+  }
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `relationTypeKey` | Must reference a declared relation type |
+| `fromObjectTypeKey` | Must match a declared `objectTypeRelations` triple with the relation type |
+| `toObjectTypeKey` | Must match the same triple |
+| `direction` | `outgoing` or `incoming` — determines which side is the source (grid rows) |
+| `sourceColumns` | Built-in or attached fields on the source object type; must be non-empty and unique |
+| `targetDisplayColumns` | Built-in or attached fields on the target object type; must be non-empty and unique |
+| `candidateSearchFields` | `name` or searchable attached attributes on the target type; must be non-empty and unique |
+| `pageSize` | 1–100 |
+
+Validation rejects containment relations (`parentOf: true`) and required-ownership bindings
+(`required: true` with `one-to-one` or `one-to-many` cardinality), since mapping replacement is
+designed for voluntary association relations.
 
 ## Detail composition
 
@@ -266,10 +308,11 @@ stable model keys and presentation semantics; the React API adapter owns all bac
 
 ## Versioning
 
-`schemaVersion` versions the model language; the starter content release `0.6.0` uses schema `0.5`.
+`schemaVersion` versions the model language; the starter content release `0.7.0` uses schema `0.6`.
 Schema 0.4 added object-level cross-field validation, required initial relationships and scoped
 relationship uniqueness to the 0.3 detail-composition contract. Schema 0.5 adds strict typed table
-views. `release.version` versions one model package. Each distinct
+views. Schema 0.6 adds the `mappingGrid` view type. `release.version` versions one model package.
+Each distinct
 validated model is installed as an immutable database release identified by its content hash.
 
 Workspace snapshots, data drafts and record versions are separate from model-language and model-release
@@ -284,11 +327,12 @@ current record versions without pretending that the last publication contains re
 Historical schema replacement with reviewed potential loss is an explicit 0.10 migration and model
 selection operation under ADR-027; it does not mutate an immutable model release or bypass validation.
 
-ADR-021 reserves schema 0.5 for a strict `table` definition. Base 0.6 does not run schema 0.4 models or
-accept declarations for the still-unimplemented `mappingGrid`, `form`, `dashboard` and `tree` view
-types. Stored schema 0.4 releases remain historical immutable JSON. Product 0.7 adds `mappingGrid` in
-schema 0.6. A future workspace-scoped release assignment may stage model and data migrations, but
-mixed schema-language operation requires explicit support for every concurrently served version.
+ADR-021 reserves schema 0.5 for a strict `table` definition. Product 0.7 adds `mappingGrid` in
+schema 0.6; a schema 0.5 model remains valid and activatable under schema 0.6 (the `mappingGrid` view
+type is an addition, not a replacement). Stored schema 0.4 releases remain historical immutable JSON
+but cannot be activated. `form`, `dashboard` and `tree` view types remain unimplemented. A future
+workspace-scoped release assignment may stage model and data migrations, but mixed schema-language
+operation requires explicit support for every concurrently served version.
 
 Development databases can reset and bootstrap the schema 0.5 starter. To preserve compatible runtime
 data, stop traffic and run from `backend/`:

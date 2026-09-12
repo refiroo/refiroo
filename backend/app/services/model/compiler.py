@@ -33,7 +33,8 @@ class CompilationResult:
 
 def compile_model(source: Any) -> CompilationResult:
     """Validate shape, then references, then canonicalize."""
-    if isinstance(source, dict) and source.get("schemaVersion") not in {None, "0.5"}:
+    SUPPORTED_VERSIONS = {"0.5", "0.6"}
+    if isinstance(source, dict) and source.get("schemaVersion") not in {None, *SUPPORTED_VERSIONS}:
         supplied = source.get("schemaVersion")
         return _invalid(
             (
@@ -41,7 +42,7 @@ def compile_model(source: Any) -> CompilationResult:
                     severity="error",
                     code="unsupported_schema_version",
                     path="/schemaVersion",
-                    message=f"Schema version '{supplied}' is unsupported; supported versions: ['0.5']",
+                    message=f"Schema version '{supplied}' is unsupported; supported versions: {sorted(SUPPORTED_VERSIONS)}",
                 ),
             )
         )

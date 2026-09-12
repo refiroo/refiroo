@@ -885,7 +885,7 @@ def test_activation_rejects_a_historical_schema_release_without_mutation(monkeyp
             "message": "Schema version '0.4' cannot be activated",
             "details": {
                 "schemaVersion": "0.4",
-                "supportedSchemaVersions": ["0.5"],
+                "supportedSchemaVersions": ["0.5", "0.6"],
             },
         }
         assert client.get("/api/v1/model").headers["X-Model-Release-Id"] == active_release_id

@@ -123,7 +123,35 @@ class TableViewDefinition(ModelDefinition):
     config: TableViewConfig
 
 
-ViewDefinition = TableViewDefinition
+MappingDirection = Literal["outgoing", "incoming"]
+
+
+class MappingGridViewConfig(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
+
+    relationTypeKey: str
+    fromObjectTypeKey: str
+    toObjectTypeKey: str
+    direction: MappingDirection
+    sourceColumns: tuple[str, ...] = Field(min_length=1)
+    targetDisplayColumns: tuple[str, ...] = Field(min_length=1)
+    candidateSearchFields: tuple[str, ...] = Field(min_length=1)
+    pageSize: int = Field(ge=1, le=100)
+
+
+class MappingGridViewDefinition(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    name: str
+    type: Literal["mappingGrid"]
+    config: MappingGridViewConfig
+
+
+ViewDefinition = Annotated[
+    TableViewDefinition | MappingGridViewDefinition,
+    Field(discriminator="type"),
+]
 
 
 class BreadcrumbDefinition(ModelDefinition):
@@ -265,7 +293,7 @@ class ModelReleaseDefinition(ModelDefinition):
 class EngineModel(ModelDefinition):
     model_config = ConfigDict(extra="forbid")
 
-    schemaVersion: Literal["0.5"]
+    schemaVersion: Literal["0.5", "0.6"]
     release: ModelReleaseDefinition
     product: ProductDefinition
     attributeTypes: tuple[AttributeTypeDefinition, ...]

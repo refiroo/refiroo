@@ -97,7 +97,7 @@ def activate_model_release(
     ):
         raise ActivationConflict(active_release.public_id, runtime_state.version)
 
-    if candidate_release.schema_version != "0.5":
+    if candidate_release.schema_version not in {"0.5", "0.6"}:
         raise UnsupportedModelSchema(candidate_release.schema_version)
 
     active_compilation = compile_model(active_release.model_json)

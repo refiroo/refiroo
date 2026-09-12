@@ -73,7 +73,23 @@ export interface TableViewDefinition {
   };
 }
 
-export type ViewDefinition = TableViewDefinition;
+export interface MappingGridViewDefinition {
+  key: string;
+  name: string;
+  type: "mappingGrid";
+  config: {
+    relationTypeKey: string;
+    fromObjectTypeKey: string;
+    toObjectTypeKey: string;
+    direction: "outgoing" | "incoming";
+    sourceColumns: string[];
+    targetDisplayColumns: string[];
+    candidateSearchFields: string[];
+    pageSize: number;
+  };
+}
+
+export type ViewDefinition = TableViewDefinition | MappingGridViewDefinition;
 
 export interface BreadcrumbDefinition {
   showApplication: boolean;

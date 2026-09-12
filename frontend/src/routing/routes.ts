@@ -11,7 +11,7 @@ import { applicationFor } from "@/model/lookup";
 function viewDefaults(view: ViewDefinition | undefined) {
   return {
     ...DEFAULT_COLLECTION_QUERY,
-    sort: view?.config.defaultSort ?? DEFAULT_COLLECTION_QUERY.sort,
+    sort: (view?.type === "table" ? view.config.defaultSort : undefined) ?? DEFAULT_COLLECTION_QUERY.sort,
     pageSize: view?.config.pageSize ?? DEFAULT_COLLECTION_QUERY.pageSize,
   };
 }
@@ -55,14 +55,17 @@ export function parseRoute(
     if (view) {
       const candidateSort = query.get("sort");
       const requestedPageSize = Number(query.get("pageSize"));
-      const allowedSorts = new Set(view.config.sortFields.flatMap((field) => [field, `-${field}`]));
+      const tableConfig = view.type === "table" ? view.config : undefined;
+      const allowedSorts = new Set((tableConfig?.sortFields ?? []).flatMap((field) => [field, `-${field}`]));
       const filters = Array.from(query.entries())
         .filter(([key]) => key.startsWith("filter."))
         .flatMap(([key, value]) => {
           const separator = key.lastIndexOf(".");
           const field = key.slice("filter.".length, separator);
           const operator = key.slice(separator + 1);
-          return field && operator && view.config.filterFields.includes(field) ? [{ field, operator, value }] : [];
+          return field && operator && (tableConfig?.filterFields ?? []).includes(field)
+            ? [{ field, operator, value }]
+            : [];
         });
       return {
         kind: "list",
@@ -72,7 +75,10 @@ export function parseRoute(
         ...(workspaceDraftId ? { workspaceDraftId } : {}),
         ...(workspaceRevisionId ? { workspaceRevisionId } : {}),
         search: query.get("search") ?? "",
-        sort: candidateSort && allowedSorts.has(candidateSort) ? candidateSort : view.config.defaultSort,
+        sort:
+          candidateSort && allowedSorts.has(candidateSort)
+            ? candidateSort
+            : (tableConfig?.defaultSort ?? DEFAULT_COLLECTION_QUERY.sort),
         pageSize:
           Number.isInteger(requestedPageSize) && requestedPageSize >= 1 && requestedPageSize <= 100
             ? requestedPageSize

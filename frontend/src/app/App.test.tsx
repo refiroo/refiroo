@@ -80,7 +80,8 @@ describe("App", () => {
     "keeps $objectTypeKey collection mounted through inspect/expand, refreshes saves and leaves a usable page after deletion",
     async (original) => {
       const model = structuredClone(testModel);
-      model.applications[0].views[0].objectTypeKey = original.objectTypeKey;
+      const tableView = model.applications[0].views[0] as import("@/types").TableViewDefinition;
+      tableView.objectTypeKey = original.objectTypeKey;
       vi.mocked(api.model).mockResolvedValue(model);
       let object = { ...original, parentObjectId: original.path.at(-2)?.id ?? null };
       let deleted = false;
@@ -358,7 +359,7 @@ describe("App", () => {
     "restores page two after $objectTypeKey detail and parent navigation",
     async (object) => {
       const model = structuredClone(testModel);
-      const view = model.applications[0].views[0];
+      const view = model.applications[0].views[0] as import("@/types").TableViewDefinition;
       view.objectTypeKey = object.objectTypeKey;
       view.config.filterFields.push("createdAt");
       const row = { ...object, workspaceKey: "west" };
