@@ -3,6 +3,7 @@ import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { allowNavigation } from "@/routing/navigationGuard";
 import type { WorkspaceDraft, WorkspaceDraftValidation } from "@/types";
 import { Notice } from "@/ui/Notice";
 import { InlineError } from "@/ui/InlineError";
@@ -44,6 +45,9 @@ export function WorkspaceDrafts({
               <span className="context-status">Draft</span>
               <h2>{draft.name || "Untitled draft"}</h2>
               <p>{draftSource(draft)}</p>
+              <p className="draft-model-release">
+                Model: {draft.modelReleaseKey} {draft.modelReleaseVersion}
+              </p>
             </div>
             <div className="draft-card-actions">
               <span>Version {draft.version}</span>
@@ -78,6 +82,8 @@ function CreateDraft({
   onCreated: (id: string) => void;
 }) {
   const [name, setName] = useState("");
+  const [selectedRelease, setSelectedRelease] = useState("");
+  const releases = useCursorFeed((cursor) => api.modelReleases({ cursor }), []);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   async function create(event: FormEvent) {
@@ -85,14 +91,20 @@ function CreateDraft({
     setPending(true);
     setError("");
     try {
-      onCreated((await api.createWorkspaceDraft(workspaceKey, name.trim())).id);
+      onCreated((await api.createWorkspaceDraft(workspaceKey, name.trim(), selectedRelease || undefined)).id);
     } catch (cause) {
       setError(errorMessage(cause));
       setPending(false);
     }
   }
+  const activeRelease = releases.items.find((r) => r.active);
   return (
-    <Modal title="Start from current live data" busy={pending} dirty={Boolean(name)} onClose={onClose}>
+    <Modal
+      title="Start from current live data"
+      busy={pending}
+      dirty={Boolean(name) || Boolean(selectedRelease)}
+      onClose={onClose}
+    >
       <form onSubmit={create}>
         <p>
           Copies today's live records and relationships, including changes since the last publication. Live data stays
@@ -102,13 +114,36 @@ function CreateDraft({
           Draft name
           <input autoFocus value={name} maxLength={300} onChange={(event) => setName(event.target.value)} />
         </label>
+        {(releases.items.length > 1 || releases.hasMore) && (
+          <label>
+            Model version
+            <select value={selectedRelease} onChange={(event) => setSelectedRelease(event.target.value)}>
+              <option value="">
+                {activeRelease ? `${activeRelease.key} ${activeRelease.version} (active)` : "Active release"}
+              </option>
+              {releases.items
+                .filter((r) => !r.active)
+                .map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.key} {r.version}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
+        {releases.hasMore && (
+          <button type="button" className="secondary" disabled={releases.loading} onClick={releases.loadMore}>
+            Load more model releases
+          </button>
+        )}
+        {releases.error && <InlineError message={releases.error} onRetry={releases.retry} />}
         {error && <Notice tone="error">{error}</Notice>}
         <div className="dialog-actions">
           <button
             type="button"
             className="secondary"
             disabled={pending}
-            onClick={() => (!name || window.confirm("Discard your unsaved changes?")) && onClose()}
+            onClick={() => (!(name || selectedRelease) || window.confirm("Discard your unsaved changes?")) && onClose()}
           >
             Cancel
           </button>
@@ -149,7 +184,15 @@ export function DraftDiagnostics({ items }: { items: Array<Record<string, unknow
   );
 }
 
-export function DraftActions({ readOnly, onExit }: { readOnly: boolean; onExit: (message: string) => void }) {
+export function DraftActions({
+  readOnly,
+  onExit,
+  onModelChanged,
+}: {
+  readOnly: boolean;
+  onExit: (message: string) => void;
+  onModelChanged: () => Promise<void>;
+}) {
   const { draft, activeModelReleaseId, warning, refresh } = useWorkspaceData();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -160,9 +203,18 @@ export function DraftActions({ readOnly, onExit }: { readOnly: boolean; onExit: 
     activeRevisionId: string | null;
   }>();
   const [confirm, setConfirm] = useState<"activate" | "discard">();
+  const [changingVersion, setChangingVersion] = useState(false);
+  const releases = useCursorFeed(
+    (cursor) => (changingVersion ? api.modelReleases({ cursor }) : Promise.resolve({ items: [], nextCursor: null })),
+    [changingVersion],
+  );
+  const [selectedRelease, setSelectedRelease] = useState("");
+  const [versionChangeError, setVersionChangeError] = useState("");
+  const [versionChangeDiagnostics, setVersionChangeDiagnostics] = useState<Array<Record<string, unknown>>>([]);
   if (!draft || !refresh) return null;
   const current = draft;
   const reload = refresh;
+  const modelMismatch = Boolean(activeModelReleaseId && activeModelReleaseId !== current.modelReleaseId);
   async function check() {
     setPending(true);
     setError("");
@@ -218,6 +270,44 @@ export function DraftActions({ readOnly, onExit }: { readOnly: boolean; onExit: 
       setPending(false);
     }
   }
+  async function openVersionChange() {
+    setChangingVersion(true);
+    setVersionChangeError("");
+    setVersionChangeDiagnostics([]);
+    setSelectedRelease("");
+  }
+  async function applyVersionChange() {
+    if (!selectedRelease) return;
+    if (!allowNavigation()) return;
+    setPending(true);
+    setVersionChangeError("");
+    setVersionChangeDiagnostics([]);
+    setValidation(undefined);
+    let changed = false;
+    try {
+      await api.changeWorkspaceDraftModelRelease(current.workspaceKey, current.id, selectedRelease, current.version);
+      changed = true;
+      await onModelChanged();
+      setChangingVersion(false);
+    } catch (cause) {
+      setVersionChangeError(
+        changed
+          ? `Model version changed, but the interface could not refresh. ${errorMessage(cause)} Retry the draft refresh before editing.`
+          : errorMessage(cause),
+      );
+      if (isApiError(cause) && cause.details && typeof cause.details === "object") {
+        const details = cause.details as Record<string, unknown>;
+        if (Array.isArray(details.diagnostics)) setVersionChangeDiagnostics(details.diagnostics);
+      }
+      try {
+        await reload();
+      } catch {
+        // Draft refresh failure after version-change refusal is non-critical.
+      }
+    } finally {
+      setPending(false);
+    }
+  }
   return (
     <section className="surface panel" aria-label="Draft publication">
       <div className="draft-publication-heading">
@@ -227,12 +317,15 @@ export function DraftActions({ readOnly, onExit }: { readOnly: boolean; onExit: 
         </div>
         <strong>Version {current.version}</strong>
       </div>
-      <p>Source: {draftSource(current)}. Changes here remain private to this draft until activation.</p>
-      {activeModelReleaseId && activeModelReleaseId !== current.modelReleaseId && (
-        <Notice tone="warning" title="Draft model differs from the current model">
-          This draft uses pinned model {current.modelReleaseId}; the current model is {activeModelReleaseId}. Your draft
-          and entered values are preserved. Base 0.6 cannot replace the workspace model from here; a supported model
-          migration is required before activation.
+      <p>
+        Source: {draftSource(current)}. Model: {current.modelReleaseKey} {current.modelReleaseVersion}. Changes here
+        remain private to this draft until activation.
+      </p>
+      {modelMismatch && (
+        <Notice tone="info" title="This draft uses a different model version">
+          This draft works under {current.modelReleaseKey} {current.modelReleaseVersion}; live data uses the active
+          model ({activeModelReleaseId}). Activation requires these versions to match. You can change the draft's model
+          version if the content fits, or discard the draft.
         </Notice>
       )}
       {warning && (
@@ -259,11 +352,20 @@ export function DraftActions({ readOnly, onExit }: { readOnly: boolean; onExit: 
             <span aria-hidden="true">2</span>
             <div>
               <strong>Publish reviewed changes</strong>
-              <small>Activation is available after a successful validation.</small>
+              <small>
+                {modelMismatch
+                  ? "Activation requires this draft's model version to match the active release."
+                  : "Activation is available after a successful validation."}
+              </small>
             </div>
             <button
               className="primary"
-              disabled={pending || !validation?.result.valid || validation.version !== current.version}
+              disabled={pending || modelMismatch || !validation?.result.valid || validation.version !== current.version}
+              title={
+                modelMismatch
+                  ? "Draft model version differs from the active release. Change the version or wait until this release is activated."
+                  : undefined
+              }
               onClick={() => setConfirm("activate")}
             >
               Activate draft
@@ -271,10 +373,53 @@ export function DraftActions({ readOnly, onExit }: { readOnly: boolean; onExit: 
           </div>
           <details className="draft-secondary-actions">
             <summary>More draft actions</summary>
+            <button className="secondary" disabled={pending} onClick={openVersionChange}>
+              Change model version
+            </button>
             <button className="text-danger" disabled={pending} onClick={() => setConfirm("discard")}>
               Discard draft
             </button>
           </details>
+        </div>
+      )}
+      {changingVersion && (
+        <div className="draft-version-change">
+          <strong>Change model version</strong>
+          <p>Select a different installed model release. The draft content must already satisfy the target model.</p>
+          <label>
+            Target release
+            <select value={selectedRelease} onChange={(event) => setSelectedRelease(event.target.value)}>
+              <option value="">Select a release…</option>
+              {releases.items
+                .filter((r) => r.id !== current.modelReleaseId)
+                .map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.key} {r.version}
+                    {r.active ? " (active)" : ""}
+                  </option>
+                ))}
+            </select>
+          </label>
+          {releases.hasMore && (
+            <button className="secondary" disabled={releases.loading} onClick={releases.loadMore}>
+              Load more model releases
+            </button>
+          )}
+          {releases.error && <InlineError message={releases.error} onRetry={releases.retry} />}
+          {versionChangeError && (
+            <Notice tone="error" title="Version change failed">
+              {versionChangeError}
+              {versionChangeDiagnostics.length > 0 && <DraftDiagnostics items={versionChangeDiagnostics} />}
+            </Notice>
+          )}
+          <div className="dialog-actions">
+            <button className="secondary" disabled={pending} onClick={() => setChangingVersion(false)}>
+              Cancel
+            </button>
+            <button className="primary" disabled={pending || !selectedRelease} onClick={applyVersionChange}>
+              Apply version change
+            </button>
+          </div>
         </div>
       )}
       {validation && (

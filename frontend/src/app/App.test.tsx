@@ -12,6 +12,8 @@ vi.mock("@/api/client", () => ({
     workspaceRevision: vi.fn(),
     workspaceRevisions: vi.fn(),
     modelRelease: vi.fn(),
+    modelReleases: vi.fn(),
+    changeWorkspaceDraftModelRelease: vi.fn(),
     modelRuntimeState: vi.fn(),
     workspaceRuntimeState: vi.fn(),
     workspace: vi.fn(),
@@ -449,6 +451,8 @@ describe("App", () => {
       workspaceKey: "west",
       name: "Review",
       modelReleaseId: "pin",
+      modelReleaseKey: "rdm-starter",
+      modelReleaseVersion: "0.7.0",
       source: "currentLive" as const,
       derivedFromRevisionId: null,
       version: 8,
@@ -489,6 +493,64 @@ describe("App", () => {
       }),
     );
     await waitFor(() => expect(window.location.search).not.toContain("workspaceDraftId"));
+  });
+
+  it("recovers a removed draft view after changing the pinned model and drops old cursors", async () => {
+    const draft = {
+      id: "draft-1",
+      workspaceKey: "west",
+      name: "Review",
+      modelReleaseId: "pin",
+      modelReleaseKey: "test",
+      modelReleaseVersion: "1",
+      source: "currentLive" as const,
+      derivedFromRevisionId: null,
+      version: 8,
+      createdAt: "",
+      updatedAt: "",
+    };
+    const nextModel = {
+      ...testModel,
+      applications: testModel.applications.map((app) => ({
+        ...app,
+        defaultView: "next-view",
+        views: app.views.map((view, i) => (i === 0 ? { ...view, key: "next-view" } : view)),
+      })),
+    };
+    const release = {
+      id: "next",
+      key: "test",
+      name: "Next",
+      version: "2",
+      schemaVersion: testModel.schemaVersion,
+      modelHash: "hash",
+      installedAt: "",
+      active: false,
+    };
+    vi.mocked(api.workspaceDraft).mockResolvedValue(draft);
+    vi.mocked(api.modelRelease).mockImplementation(async (id) => ({
+      ...release,
+      id,
+      model: (id === "next" ? nextModel : testModel) as unknown as Record<string, unknown>,
+    }));
+    vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
+    vi.mocked(api.changeWorkspaceDraftModelRelease).mockImplementation(async () => {
+      const changed = { ...draft, modelReleaseId: "next", version: 9 };
+      vi.mocked(api.workspaceDraft).mockResolvedValue(changed);
+      return changed;
+    });
+    vi.mocked(api.objects).mockResolvedValue({ items: [], nextCursor: null });
+    visit("/apps/test-app/views/domains?workspaceKey=west&workspaceDraftId=draft-1&cursor=old-page");
+    render(<App />);
+    fireEvent.click(await screen.findByText("More draft actions"));
+    fireEvent.click(screen.getByRole("button", { name: "Change model version" }));
+    await screen.findByRole("option", { name: "test 2" });
+    fireEvent.change(screen.getByRole("combobox", { name: "Target release" }), { target: { value: "next" } });
+    fireEvent.click(screen.getByRole("button", { name: "Apply version change" }));
+    await waitFor(() => expect(window.location.pathname).toContain("/views/next-view"));
+    expect(window.location.search).toContain("workspaceDraftId=draft-1");
+    expect(window.location.search).not.toContain("cursor");
+    expect(screen.queryByText(/could not refresh/)).not.toBeInTheDocument();
   });
 
   it("opens immutable history with its pinned model and keeps revision context through detail and return", async () => {

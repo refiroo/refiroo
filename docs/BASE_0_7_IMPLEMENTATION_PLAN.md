@@ -1,9 +1,10 @@
 # Base 0.7 implementation plan
 
-**Status:** In progress. WP-1–WP-6 delivered; WP-4 implementation review and the bounded WP-10A
+**Status:** In progress. WP-1–WP-7 delivered; WP-4 implementation review and the bounded WP-10A
 cascade-deletion version fix are complete. WP-5 acceptance follow-up and WP-10B activation hardening
 are delivered. The earlier WP-1–WP-3 review boundary remains separate;
-WP-1–WP-3 scopes are frozen. WP-6 backend is delivered; WP-7–WP-9 and composed 0.7 acceptance remain pending.
+WP-1–WP-3 scopes are frozen. WP-6 backend and WP-7 frontend are delivered.
+WP-8A/WP-8B, the scheduled WP-11 follow-up and WP-9 composed 0.7 acceptance remain pending.
 
 **Target:** Product 0.7.0, schema language 0.6. The starter model content advances to a version on
 schema 0.6; that number alone does not mean the product release is accepted.
@@ -535,7 +536,31 @@ rules and views so model-context selection is observable.
 
 ---
 
-#### WP-7: ADR-028 draft version selection — frontend
+#### WP-7: ADR-028 draft version selection — frontend ✓
+
+**Status:** Delivered 2026-09-14.
+
+**Delivery notes:** Model-release selector in draft creation (default active release, optional
+non-active selection from installed releases); model release key and version displayed on draft list
+cards and draft detail header; informational banner and disabled activation with tooltip when the
+draft's model version differs from the active release; "Change model version" action in secondary
+draft actions with available releases, incompatibility diagnostics from the server, and dirty-input
+protection via `allowNavigation()`; model-context refresh after successful pin change reloads the
+draft, pinned model and active release state and triggers a view refresh with existing `views[0]`
+fallback. The review follow-up below replaces the initial external-pin refresh implementation. Frontend
+type `WorkspaceDraft` extended with `modelReleaseKey` and `modelReleaseVersion`. API client extended
+with optional `modelReleaseId` on `createWorkspaceDraft` and new `changeWorkspaceDraftModelRelease`
+method. 169 frontend tests (5 new covering creation selector, non-active draft creation, single-release
+omission, draft card display and incompatibility error), zero lint errors, 12 existing warnings,
+production build passes, `git diff --check` clean.
+
+**Implementation review follow-up (2026-09-14):** Release selectors now use cursor feeds with
+continuation and retry rather than silently stopping at page one. Refresh validates and loads a changed
+pin before publishing its aggregate token, blocks writes after failed/refused refresh, and protects dirty
+input. Model changes reset the route to a model-declared default, clear obsolete cursors and remount
+model-dependent record/collection components. A committed pin change followed by refresh failure is
+reported visibly and truthfully. Focused component/API-adapter/application regressions cover these paths;
+comprehensive suites remain WP-9, and visual integration remains scheduled in WP-11.
 
 **Scope:**
 
@@ -658,6 +683,128 @@ Keyboard navigation works. Two object types are exercised.
 
 ---
 
+### Model-administration follow-up — after WP-7, before composed acceptance
+
+#### WP-11: Historical release refusals, actionable API errors and draft UI consistency
+
+**Status:** Scheduled after WP-7; required for Base 0.7 acceptance. This is a separate ownership
+unit and does not expand the WP-7 implementation scope or conditional WP-10 foundation work.
+
+**Observed defect (2026-09-14):** Opening inactive release
+`3a61b675-5674-4192-b9fb-7719b273c7aa` (content 0.5.0, schema 0.4) automatically requests a diff
+against `d93e0114-6189-4b74-99c9-312b8f6671d5`. The compiler diagnoses an unsupported schema,
+but the release-diff router converts all compilation failures into `500 invalid_installed_model`.
+The browser displays only “An installed model release failed validation”. An unsupported installed
+draft baseline has the same classification gap during model-draft compilation. These findings are
+source-traced; the reported request has not been independently replayed against the development DB.
+
+**Additional observed workspace error (2026-09-14):** Opening a data draft pinned to schema 0.5
+shows “This draft's pinned model schema 0.5 is unsupported” outside the application layout, with
+Retry and a plain Return to Live link. Source inspection confirms the loader checks equality with
+the active model schema, rather than runtime support (the backend compiler supports 0.5 and 0.6).
+The provider replaces `AppContent`, including its shell, with a bare wrapper on loading/refusal.
+The reported Vite HTML has not been traced to a specific request; the shared API client does preserve
+non-JSON error bodies as display messages, so HTML disclosure is a confirmed boundary weakness.
+
+**Scope:**
+
+1. Distinguish expected unsupported-schema refusals from corrupt installed JSON in release diff
+   (both candidate and baseline), model-draft compilation baselines and activation. Use the existing
+   structured error envelope and `422 unsupported_schema_version` for unsupported installed release
+   operations. Include the affected release ID, schema version, supported versions, operation and
+   actionable explanation. Preserve established pinned-workspace `409` contracts.
+2. Keep historical release metadata and raw JSON inspection/export available. Show an informational
+   unsupported-release state in the model workbench, explain why semantic comparison/activation is
+   unavailable, and keep activation unavailable. Handle the structured API refusal even when browser
+   metadata checks avoid an unnecessary diff request. Do not interpret old releases using the active
+   model or introduce legacy schema parsers, migration or automatic repair.
+3. Preserve truthful 5xx statuses for actual internal failures. Improve the shared unexpected-error
+   boundary and model-administration internal-error messages with a safe operation-specific explanation,
+   resulting service state when known, recovery guidance and a correlation identifier. Retain the
+   underlying cause in controlled diagnostics linked by that identifier; normal logs and responses
+   must remain concise and must not expose tracebacks or sensitive data. Never invent a cause or claim
+   that a failed mutation left state unchanged unless the execution boundary establishes it.
+4. Update API response documentation, examples and relevant generated contract inventory, frontend
+   scenarios and delivery records to match the changed behavior. No domain-specific branches.
+5. Correct the WP-7 workspace draft version-change UI using the existing `ui/Modal`, dialog form
+   layout, typography, spacing, control styles and action hierarchy. Replace the unstyled inline
+   `draft-version-change` block with the established dialog pattern; reuse the existing diagnostics
+   component for compatibility refusals. Keep release labels consistent across creation and change
+   dialogs, clearly distinguishing active and installed inactive releases. Preserve dirty-input
+   protection, pending/error states and all existing version-selection behavior. This is UI integration
+   work only: selection remains limited to installed immutable releases; direct mutable model-draft
+   selection and model-preview workflows are outside this package.
+6. Correct pinned-model loading and refresh support checks for workspace drafts and historical reads:
+   differing from the active schema is not itself unsupported. Establish actual parser/renderer
+   support, load the exact pinned model for supported releases, and keep genuinely unsupported or
+   corrupt pins refused without substituting the active model. Cover both initial loading and the
+   changed-pin refresh path introduced in WP-7; preserve draft/history data and active selection.
+7. Keep workspace loading and failure states within the established application shell and styled
+   content surface, preserving workspace/application context and usable navigation. Replace the bare
+   wrapper and standalone Return to Live anchor with the existing notice/action patterns and guarded
+   router navigation to the appropriate live destination. Show operation-specific explanations and
+   distinguish transient retryable failures from limitations that Retry cannot resolve.
+8. Harden the shared API response boundary against HTML/non-JSON error bodies and unexpected
+   successful HTML responses. Never render document markup or framework pages as user-facing errors.
+   Report the failed operation, safe recovery and available status/correlation information concisely;
+   retain underlying response evidence only in controlled diagnostics. Trace the reported Vite page
+   to its request before attributing a routing/proxy cause or changing deployment configuration.
+
+**Primary areas:** `backend/app/routers/model_releases.py`,
+`backend/app/routers/model_management.py`, `backend/app/errors.py`, the compiler's diagnostic
+contract, `frontend/src/features/model-admin/ModelReleaseDetail.tsx`, API error consumers and
+focused backend/frontend regression tests; `frontend/src/features/workspaces/WorkspaceDrafts.tsx`,
+`frontend/src/ui/Modal.tsx`, `frontend/src/features/workspaces/WorkspaceDataContext.tsx`,
+`frontend/src/app/App.tsx`, `frontend/src/api/client.ts`, shared notice/action components and existing
+dialog/form styles (reuse before extending).
+
+**Prerequisites:** WP-7 completed; existing immutable-release/compiler contracts. Deliver before WP-9.
+
+**Acceptance criteria:**
+
+- Open a workspace data draft, expand **More draft actions** and select **Change model version**:
+  the action opens the established modal with **Target release**, **Cancel** and **Apply version
+  change** controls. The dialog matches existing forms in font sizes, alignment, spacing and control
+  sizing, without unstyled inline controls or a separate visual system.
+- Inspect creation and version-change dialogs at normal and narrow widths, including pending and
+  compatibility-error states. Verify keyboard operation, focus trap/restore and dirty-input protection;
+  keep diagnostics readable and actions usable with two model configurations. Record focused visual
+  and interaction evidence; comprehensive accessibility/visual runners remain WP-9 requirements.
+- Open a schema 0.5 data draft while live uses supported schema 0.6: the exact pinned model loads,
+  its fields/views remain authoritative, and the draft can be read/edited. Repeat supported-schema
+  transitions on refresh and a pinned historical read. Unsupported/corrupt pins remain refused,
+  preserving data and blocking writes; never fall back to the active model.
+- Exercise initial loading, failed loading and retry from workspace draft navigation: application
+  framing, workspace context, typography and action alignment match existing pages at normal/narrow
+  widths. Return to Live uses guarded navigation and retains the correct workspace/application;
+  transient retry recovers, while unsupported-version recovery is explained without a futile Retry loop.
+- Focused shared-client and rendered-consumer regressions cover HTML 4xx/5xx responses, other non-JSON
+  failures and unexpected HTTP 200 HTML. No raw markup, Vite document or JSON parsing traceback reaches
+  the UI. Record the affected request if the development-page response is reproduced; do not claim
+  a confirmed proxy diagnosis without evidence. Extend affected accessibility/visual scenarios for WP-9.
+- Real HTTP regressions reproduce schema 0.4 on either diff participant and on an installed
+  model-draft compilation baseline. Each expected refusal returns the documented structured 422,
+  identifies the affected release and creates no internal-error log or traceback. Missing releases
+  retain 404; supported comparisons remain successful; activation retains its unsupported-schema refusal.
+- Corrupt supported-schema JSON remains distinct from unsupported schema, preserves diagnostics and
+  produces an informative response with a traceable identifier for an actual internal failure.
+- Exercise the shared unexpected-exception boundary through a real request: a safe response and concise
+  log explain the failed operation and safe next step, with the same identifier in controlled cause
+  diagnostics. Do not replace actual server failures with success responses or expected-refusal codes.
+- Browser coverage shows the historical-release information state, successful JSON export and blocked
+  activation, plus successful supported comparison. Exercise keyboard operation and semantics with two
+  model configurations/object types; update affected accessibility scenarios and inspect changed surfaces.
+- Refused read/compile/activation operations preserve immutable releases and active runtime selection.
+  Focused API/consumer regressions, applicable contract checks, Ruff and frontend format/lint/build pass.
+  Comprehensive suites and accessibility/visual gates remain owned by WP-9.
+
+**Exit:** The reported expected limitation no longer generates HTTP 500, useful diagnostics reach the
+user and operator, the workspace version-change controls match the existing UI patterns, and focused
+evidence is recorded. This package does not claim production-wide
+observability or release acceptance.
+
+---
+
 ### Tier 5 — Composed validation (depends on all above)
 
 #### WP-9: Composed product validation — SC-07 and SC-15
@@ -690,12 +837,14 @@ Keyboard navigation works. Two object types are exercised.
    page one, large ambiguous target sets and typed relation attributes. Include generic-write versus
    mapping races, draft aggregate conflicts and live mapping changes before draft activation,
    including changes to a different edge in the same touched set. Untouched live work must survive.
-8. Missing foundation behavior activates WP-10; do not treat a failing integration check as evidence
+8. Include WP-11 composed browser/API evidence for unsupported historical release inspection/export,
+   truthful diff/compile refusals and actionable internal-error diagnostics.
+9. Missing foundation behavior activates WP-10; do not treat a failing integration check as evidence
    that frozen implementation has already been reviewed or silently waive the release criterion.
 
 **Primary areas:** test data, e2e tests, documentation.
 
-**Prerequisites:** WP-1–WP-7, WP-8A and WP-8B; any triggered WP-10 slices must close before
+**Prerequisites:** WP-1–WP-7, WP-8A, WP-8B and WP-11; any triggered WP-10 slices must close before
 release acceptance.
 
 **Decisions needed:** None.
@@ -791,13 +940,15 @@ WP-8B (Mapping actions)              — depends on WP-8A, WP-5
                                      — non-active-draft acceptance of both requires WP-7
 WP-10 (Conditional hardening)        — triggered by integration evidence; blocks acceptance if needed
 
+WP-11 (Release refusals/errors)      — scheduled after WP-7; required before WP-9
+
 WP-9 (Composed validation)           — depends on all
 ```
 
 Parallelizable tracks:
 
 - **Track 1 (mapping):** WP-2 → WP-3 → WP-4 + WP-5 → WP-8A → WP-8B
-- **Track 2 (draft version):** WP-6 → WP-7
+- **Track 2 (draft version and release follow-up):** WP-6 → WP-7 → WP-11
 - **Track 3 (accessibility):** WP-1 (any time)
 - **Final:** WP-9
 

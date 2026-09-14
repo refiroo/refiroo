@@ -51,6 +51,8 @@ describe("workspace publication history", () => {
       workspaceKey: "west",
       name: "Review history",
       modelReleaseId: current.modelReleaseId,
+      modelReleaseKey: "rdm-starter",
+      modelReleaseVersion: "0.7.0",
       source: "revision",
       derivedFromRevisionId: current.id,
       version: 1,

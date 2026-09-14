@@ -96,6 +96,7 @@ navigating low-level relation screens.
 8. Let a workspace draft work under a version the user chooses, so one draft prepares the schema 0.6
    release while another stays on the version serving live data. Draft reads, writes and validation
    use the version chosen for that draft instead of the global selection (ADR-028; US-W09, SC-15).
+   **(WP-6 backend delivered 2026-09-14; WP-7 browser delivered 2026-09-14.)**
 9. Keep ordinary activation unchanged: a draft activates only once its version matches the active
    release, which the existing guarded release-activation path already establishes. Nothing activates
    or moves a draft onto another version while that version differs from the active release. Once the

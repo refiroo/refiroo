@@ -9,6 +9,8 @@ const draft: WorkspaceDraft = {
   workspaceKey: "west",
   name: "Review",
   modelReleaseId: "model",
+  modelReleaseKey: "rdm-starter",
+  modelReleaseVersion: "0.7.0",
   source: "currentLive",
   derivedFromRevisionId: null,
   version: 4,

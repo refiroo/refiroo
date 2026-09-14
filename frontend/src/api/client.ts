@@ -128,10 +128,10 @@ export const api = {
     return request<WorkspaceDraftPage>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/drafts?${query}`);
   },
   workspaceDraft: (id: string) => request<WorkspaceDraft>(`/api/v1/workspace-drafts/${encodeURIComponent(id)}`),
-  createWorkspaceDraft: (workspaceKey: string, name: string) =>
+  createWorkspaceDraft: (workspaceKey: string, name: string, modelReleaseId?: string) =>
     request<WorkspaceDraft>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/drafts`, {
       method: "POST",
-      body: JSON.stringify({ name, source: "currentLive" }),
+      body: JSON.stringify({ name, source: "currentLive", ...(modelReleaseId ? { modelReleaseId } : {}) }),
     }),
   createHistoricalWorkspaceDraft: (workspaceKey: string, name: string, revisionId: string) =>
     request<WorkspaceDraft>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/drafts`, {
@@ -151,6 +151,16 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ expectedDraftVersion, expectedActiveRevisionId }),
     }),
+  changeWorkspaceDraftModelRelease: (
+    workspaceKey: string,
+    draftId: string,
+    modelReleaseId: string,
+    expectedDraftVersion: number,
+  ) =>
+    request<WorkspaceDraft>(
+      `/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/drafts/${encodeURIComponent(draftId)}/model-release`,
+      { method: "PATCH", body: JSON.stringify({ modelReleaseId, expectedDraftVersion }) },
+    ),
   latestWorkspaceRevision: (workspaceKey: string) =>
     request<{ items: WorkspaceRevision[]; nextCursor: string | null }>(
       `/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/revisions?pageSize=1`,

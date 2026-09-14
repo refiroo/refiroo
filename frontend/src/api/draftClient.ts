@@ -5,15 +5,16 @@ import type { WorkspaceDraft } from "@/types";
 /** One mounted draft owns its aggregate token. Record versions remain the forms' responsibility. */
 export function createDraftClient(
   initial: WorkspaceDraft,
-  changed: (draft: WorkspaceDraft) => void,
+  changed: (draft: WorkspaceDraft) => void | Promise<void>,
   warning: (message: string) => void,
 ) {
   let draft: WorkspaceDraft | undefined = initial;
   let pending = false;
   async function refresh() {
+    draft = undefined;
     const current = await api.workspaceDraft(initial.id);
+    await changed(current);
     draft = current;
-    changed(current);
     warning("");
     return current;
   }

@@ -8,7 +8,7 @@ release plan and changelog rather than accumulating it here.
 
 Base 0.6 is released (2026-09-11). WP-1 delivered (2026-09-12). WP-2 delivered (2026-09-12).
 WP-3 delivered (2026-09-12); its pending participation changes committed 2026-09-14.
-WP-4 and its WP-10A review fix delivered (2026-09-14). WP-5 delivered (2026-09-14).
+WP-4 and its WP-10A review fix delivered (2026-09-14). WP-5 delivered (2026-09-14). WP-7 delivered (2026-09-14).
 
 - [x] UI-07 (carried from 0.6): automated accessibility and visual-regression gates using the existing
   Playwright harness with `@axe-core/playwright` and visual comparison baselines. Delivered 2026-09-12;
@@ -32,7 +32,18 @@ WP-4 and its WP-10A review fix delivered (2026-09-14). WP-5 delivered (2026-09-1
   schema 0.6 release while another stays on the version serving live data.
 - [x] WP-6: backend selected-release creation, complete-candidate compatibility, atomic audited pin
   changes, snapshot isolation and pinned model/metadata reads (2026-09-14).
-- [ ] WP-7: browser version selection and complete model-context refresh.
+- [x] WP-7: browser version selection and complete model-context refresh. Delivered 2026-09-14:
+  model-release selector in draft creation, model release display on draft cards and detail,
+  informational banner and activation refusal when versions differ, version-change action with
+  incompatibility diagnostics, model-context refresh after pin change, and dirty-input protection
+  via navigation guards. 169 frontend tests (5 new), zero lint errors, production build passes.
+- [ ] WP-11 (after WP-7, before WP-9): historical release diff/compile unsupported-schema refusals,
+  informative frontend states, actionable internal-error diagnostics and WP-7 draft UI consistency
+  using the existing modal/form styles and diagnostics; supported pinned-schema loading, shell-aligned
+  workspace loading/error recovery and safe handling of HTML/non-JSON API responses.
+  Installed-release selection remains unchanged.
+  Separate scheduled package;
+  see acceptance criteria in [the 0.7 implementation plan](BASE_0_7_IMPLEMENTATION_PLAN.md).
 - [ ] WP-8A: read-only mapping coverage; WP-8B: selection, conflicts, clearing and contextual creation.
 - [ ] WP-9: independent binding fixtures, same-schema differing releases, new-control a11y/visual
   coverage, generic-write races and draft activation/live same-set conflicts.

@@ -6,7 +6,8 @@ Base 0.5 is the completed operational/model-release foundation. Base 0.6 is rele
 model is content release 0.7.0 on schema language 0.6. Next development targets product 0.7 (core
 mapping, schema 0.6, draft version selection). WP-1 (accessibility gates), WP-2 (schema 0.6
 `mappingGrid` view contract), WP-3 (relation-set version persistence), WP-4 (mapping query APIs),
-WP-5 (atomic mapping replacement) and WP-6 (backend draft version selection) are delivered.
+WP-5 (atomic mapping replacement), WP-6 (backend draft version selection) and WP-7 (browser draft
+version selection) are delivered.
 Bounded WP-10A cascade invalidation and WP-10B draft-activation mapping-set conflict fixes are delivered.
 
 The generic model defines applications, object types, reusable fields, allowed relationships and views.
@@ -53,7 +54,13 @@ in code does not establish that a browser user can complete its story.
    replacement is delivered in WP-5.
 3. **ADR-028 draft version selection:** WP-6 backend delivered 2026-09-14: installed-release
    creation, whole-candidate compatibility, atomic audited pin changes and pinned model/metadata
-   reads. Browser version selection and context refresh remain WP-7.
+   reads. WP-7 browser version selection and model-context refresh delivered 2026-09-14:
+   model-release selector in draft creation, release display on draft cards and detail, informational
+   banner and activation refusal when versions differ, version-change action with incompatibility
+   diagnostics, model-context refresh after pin change, and dirty-input protection via navigation
+   guards. Scheduled WP-11 follows WP-7 before composed WP-9 acceptance: correct unsupported historical
+   release diff/compile refusals, informative frontend states and actionable internal-error diagnostics.
+   See its bounded scope and acceptance criteria in the implementation plan.
 4. **UI-07 (carried from 0.6, delivered 2026-09-12):** automated accessibility and visual-regression
    gates using the existing Playwright harness with `@axe-core/playwright` and visual comparison
    baselines. Light-theme baselines committed; dark-theme baselines deferred until a dark theme exists.
@@ -71,7 +78,7 @@ WP-1/WP-2 fixes were subsequently committed in `3de2f88`; WP-3 participation and
 query review evidence follows below. The plan review established later-package requirements, not foundation
 defects or new runtime pass evidence. WP-4/WP-5 add view-specific bounded reads, retained relation
 identities and direction-aware mapping validation. WP-6/WP-7 add atomic complete-candidate compatibility
-and browser model-context refresh. WP-8A delivers coverage; WP-8B adds mapping actions. WP-9 extends
+and browser model-context refresh; both are delivered. WP-8A delivers coverage; WP-8B adds mapping actions. WP-9 extends
 new-control accessibility/visual evidence and checks independent bindings, differing same-schema
 releases, generic-write races and activation/live set conflicts. Confirmed missing foundation behavior
 triggers bounded WP-10 work before acceptance. Dark baselines stay deferred until dark mode exists.
@@ -251,7 +258,7 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
   a draft onto a version its content does not fit, and confirmed potential-loss historical model
   changes require 0.10 and supported parser/runtime versions; letting a draft work under a version the
   user chooses is 0.7 work (ADR-028). Backend clients can choose compatible draft versions (WP-6);
-  browser selection remains WP-7. A draft on a replaced version can be read, edited and discarded,
+  browser selection is delivered (WP-7). A draft on a replaced version can be read, edited and discarded,
   but activation still requires agreement with the active model.
 - The starter remains representative rather than a one-to-one reproduction of the source export.
 
@@ -280,9 +287,9 @@ do not rebuild rejected object lifecycle.
 Read `AGENTS.md`, the product stories/scenarios, ADR-027, `ROADMAP.md`, `API.md` and `TODO.md`.
 Base 0.6 is released; next work targets product 0.7 (core mapping, schema 0.6, draft version
 selection). WP-1 (UI-07 accessibility gates), WP-2 (schema 0.6 `mappingGrid` view contract) and
-WP-3 (relation-set version persistence), WP-4 reads, WP-5 replacement, WP-6 draft version selection
-and WP-10A/WP-10B hardening are delivered. Continue with WP-7 browser draft version selection and WP-8A/WP-8B mapping browser
-delivery; WP-9 records composed acceptance.
+WP-3 (relation-set version persistence), WP-4 reads, WP-5 replacement, WP-6 backend draft version selection, WP-7 browser draft version selection
+and WP-10A/WP-10B hardening are delivered. Continue with WP-8A/WP-8B mapping browser
+delivery; WP-11 follows WP-7 before WP-9 composed acceptance.
 Use one implementation owner per slice, focused verification and appropriate review. Do not commit
 unless explicitly requested. Summarize each completed batch while work continues so scope can be
 corrected before the entire task finishes.

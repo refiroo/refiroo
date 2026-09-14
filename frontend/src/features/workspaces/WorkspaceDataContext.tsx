@@ -4,6 +4,7 @@ import { createDraftClient } from "@/api/draftClient";
 import { createHistoryClient } from "@/api/historyClient";
 import { errorMessage } from "@/api/errors";
 import type { EngineModel, WorkspaceDraft, WorkspaceRevision } from "@/types";
+import { allowNavigation } from "@/routing/navigationGuard";
 import { InlineError } from "@/ui/InlineError";
 
 interface DataContext {
@@ -14,6 +15,7 @@ interface DataContext {
   activeModelReleaseId?: string;
   warning: string;
   refresh?: () => Promise<WorkspaceDraft>;
+  reloadDraftModel?: () => Promise<void>;
 }
 const Context = createContext<DataContext>({ api, warning: "" });
 export const useWorkspaceData = () => useContext(Context);
@@ -107,8 +109,8 @@ export function WorkspaceDataProvider({
 
 function LoadedDraft({
   initial,
-  model,
-  activeModelReleaseId,
+  model: initialModel,
+  activeModelReleaseId: initialActiveId,
   children,
 }: {
   initial: WorkspaceDraft;
@@ -117,11 +119,60 @@ function LoadedDraft({
   children: ReactNode;
 }) {
   const [draft, setDraft] = useState(initial);
+  const [model, setModel] = useState(initialModel);
+  const [activeModelReleaseId, setActiveModelReleaseId] = useState(initialActiveId);
   const [warning, setWarning] = useState("");
-  const [controller] = useState(() => createDraftClient(initial, setDraft, setWarning));
+  const [controller] = useState(() => {
+    let loadedReleaseId = initial.modelReleaseId;
+    return createDraftClient(
+      initial,
+      async (refreshed) => {
+        let nextModel: EngineModel | undefined;
+        if (refreshed.modelReleaseId !== loadedReleaseId) {
+          if (!allowNavigation())
+            throw new Error(
+              "The draft's model changed. Your input is preserved; saving is blocked until you accept a model refresh.",
+            );
+          const release = await api.modelRelease(refreshed.modelReleaseId, true);
+          if (!release.model || release.schemaVersion !== initialModel.schemaVersion)
+            throw new Error(
+              "The draft's pinned model could not be loaded or is unsupported. Saving is blocked; retry the refresh or return to Live.",
+            );
+          nextModel = release.model as unknown as EngineModel;
+        }
+        const runtime = await api.modelRuntimeState();
+        if (nextModel) {
+          setModel(nextModel);
+          loadedReleaseId = refreshed.modelReleaseId;
+        }
+        setActiveModelReleaseId(runtime.activeReleaseId);
+        setDraft(refreshed);
+      },
+      setWarning,
+    );
+  });
+  async function refresh() {
+    try {
+      return await controller.refresh();
+    } catch (cause) {
+      setWarning(errorMessage(cause));
+      throw cause;
+    }
+  }
+  async function reloadDraftModel() {
+    await refresh();
+  }
   return (
     <Context.Provider
-      value={{ api: controller.client, draft, model, activeModelReleaseId, warning, refresh: controller.refresh }}
+      value={{
+        api: controller.client,
+        draft,
+        model,
+        activeModelReleaseId,
+        warning,
+        refresh,
+        reloadDraftModel,
+      }}
     >
       {children}
     </Context.Provider>

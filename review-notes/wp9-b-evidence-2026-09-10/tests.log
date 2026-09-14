@@ -1,0 +1,13 @@
+
+> rdm-engine-ui@0.3.0 test
+> vitest run
+
+
+ RUN  v4.1.11 /Users/krisztian/Documents/Projects/rdm-engine/frontend
+
+
+ Test Files  23 passed (23)
+      Tests  108 passed (108)
+   Start at  09:22:11
+   Duration  6.75s (transform 2.93s, setup 4.23s, import 14.85s, tests 9.74s, environment 24.78s)
+

@@ -1,0 +1,15 @@
+{
+  "browser": "152.0.7977.83",
+  "viewports": [
+    "1440x1000",
+    "390x844"
+  ],
+  "checks": [
+    "Child panel paging/retry, independent relationship retry and empty translation state, cross-application and two containment paths",
+    "domain: typed filter, later page failure/retry, reload, detail failure/retry, audit, return, browser Back, workspace switch",
+    "system: typed filter, later page failure/retry, reload, detail failure/retry, audit, return, browser Back, workspace switch",
+    "390x844 keyboard-operated navigation toggle"
+  ],
+  "pageErrors": [],
+  "isolatedDatabase": "/var/folders/dg/lftfjtjn4yzfdj4gf3751np00000gp/T/rdm-wp9-navigation-zGyC5m/database.sqlite"
+}

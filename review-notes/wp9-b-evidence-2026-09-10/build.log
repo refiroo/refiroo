@@ -1,0 +1,14 @@
+
+> rdm-engine-ui@0.3.0 build
+> tsc -b && vite build
+
+vite v8.2.2 building client environment for production...
+transforming...
+✓ 3181 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                   0.44 kB │ gzip:   0.28 kB
+dist/assets/index-Z9Wby9YU.css   26.38 kB │ gzip:   6.26 kB
+dist/assets/index-BWtvIwVx.js   492.57 kB │ gzip: 147.35 kB
+
+✓ built in 624ms

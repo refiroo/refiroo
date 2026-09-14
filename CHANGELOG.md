@@ -45,6 +45,18 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Build 0.7 WP-7 browser draft version selection (ADR-028 frontend). Draft creation offers an
+  optional model-release selector when multiple releases are installed; default is the active release.
+  Draft list cards and detail header show each draft's model release key and version. An informational
+  banner explains the state when a draft's version differs from the active release, and activation is
+  disabled with a tooltip. A "Change model version" action in secondary draft actions loads available
+  releases, attempts the pin change via the WP-6 PATCH endpoint, shows incompatibility diagnostics
+  on failure and reloads the model context on success. Dirty-input protection via the existing
+  `allowNavigation()` guard before applying version changes. Model-context refresh after pin change
+  reloads the draft, pinned model and active release state; external pin change detection via
+  `useEffect` + `useRef` in `LoadedDraft`. `WorkspaceDraft` type extended with `modelReleaseKey` and
+  `modelReleaseVersion`. 169 frontend tests (5 new), zero lint errors, production build passes.
+
 - Build 0.7 WP-5 atomic mapping replacement API: `PUT /api/v1/workspaces/{workspaceKey}/mappings`
   atomically creates, replaces or removes a mapping for one source in a configured relation binding.
   Supports live and draft contexts with optimistic concurrency via `expectedMappingVersion` and

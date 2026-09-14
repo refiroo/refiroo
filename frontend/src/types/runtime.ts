@@ -130,6 +130,8 @@ export interface WorkspaceDraft {
   workspaceKey: string;
   name: string | null;
   modelReleaseId: string;
+  modelReleaseKey: string;
+  modelReleaseVersion: string;
   source: "currentLive" | "revision" | "empty";
   derivedFromRevisionId: string | null;
   version: number;
