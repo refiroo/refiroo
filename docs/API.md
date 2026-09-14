@@ -1087,6 +1087,9 @@ WP-5; composed acceptance remains in WP-9. WP-1–WP-3 scopes remain frozen.
   It returns `{mappingVersion, targetCount, items, nextCursor}`. An observed-version mismatch returns
   `409 mapping_version_conflict` with an instruction to refresh coverage and the current version in
   `error.details.mappingVersion`. A cursor for another version, anchor or context is `422 invalid_cursor`.
+  Confirmed live/draft object cascade deletion advances both directional set versions for every
+  removed edge, so existing continuations also require refresh after a cascade. Preview, refused
+  and stale-delete requests leave set versions unchanged.
 
 Coverage and candidates use the view's configured page size by default (an explicit `pageSize` must
 be 1–100). Search is a literal, case-insensitive substring, limited to 500 characters. Coverage searches

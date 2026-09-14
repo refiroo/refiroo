@@ -8,6 +8,11 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+- Build 0.7 WP-10A, found in WP-4 review: confirmed live/draft object cascades now advance both
+  directional relation-set versions for removed edges. Stale mapping target continuations return
+  `409 mapping_version_conflict` with refresh guidance; previews and rejected deletes leave versions
+  unchanged. Regression coverage exercises both directions and contexts.
+
 - Build 0.7 WP-1/WP-2 review fixes: scope accessibility exceptions to known targets and node counts,
   fail visual comparisons on missing baselines outside explicit update mode, reject `mappingGrid`
   under schema 0.5, and allow the documented offline schema 0.4 recovery to select a compatible
@@ -25,6 +30,14 @@ All notable changes to this project are documented in this file. The format foll
   implementation delivery or release acceptance evidence.
 
 ### Added
+
+- Build 0.7 WP-4 mapping query APIs: workspace-scoped coverage, candidate search and version-bound
+  target details resolve the selected `mappingGrid` view under the live or draft-pinned model.
+  SQL pagination and batched reads return typed projections, mapped/unmapped/ambiguous states,
+  exact counts and at most 20 target summaries with explicit continuation. Cursors bind workspace,
+  context, model release, view, direction and query configuration. Atomic replacement and the mapping
+  browser workflow remain pending. The final reviewed backend suite passed 401 tests on SQLite;
+  this does not establish composed product 0.7 or browser acceptance.
 
 - Schema 0.6 `mappingGrid` view contract (Build 0.7 WP-2). The model language now accepts
   `schemaVersion: "0.6"` alongside `"0.5"`. `MappingGridViewDefinition` joins `TableViewDefinition`

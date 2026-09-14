@@ -51,7 +51,7 @@ preloaded demonstration data.
 | Work in several domains | Use the configured terminology, fields and views through familiar controls | Model-driven foundation exists | US-D13, US-P06 |
 | Prepare a coordinated change | Work in an optional draft, check it and apply its changes together while preserving unrelated live work | Current-live/history API available; browser gaps remain | US-W01–W08 |
 | Maintain translations | Enter a target, language and translated content together; prevent conflicting active translations | Basic service available; browser completion 0.6, coverage view 0.8 | US-L01–L04 |
-| Manage system equivalences | See missing or conflicting mappings and choose, replace or clear a target in one action | Specialist workflow planned for 0.7 | US-M01–M04 |
+| Manage system equivalences | See missing or conflicting mappings and choose, replace or clear a target in one action | WP-4 coverage/target-detail/candidate APIs available; replacement and browser workflow planned for 0.7 | US-M01–M04 |
 | Navigate a deep hierarchy | Expand the relevant branch, add a child or move a record without losing context | Specialist workflow planned for 0.8 | US-H01–H02 |
 | Exchange larger datasets | Import with a preview, export a chosen scope, track results and resume synchronization | Basic reading available; bulk exchange and feeds planned for 0.9 | US-I01–I09 |
 | Manage working areas | Create and label a workspace, select the default and retain read-only access to retired areas | Service available; no complete administration screen | US-A01–A03 |

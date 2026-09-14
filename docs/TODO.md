@@ -7,7 +7,8 @@ release plan and changelog rather than accumulating it here.
 ## Now — Product 0.7 core mapping
 
 Base 0.6 is released (2026-09-11). WP-1 delivered (2026-09-12). WP-2 delivered (2026-09-12).
-WP-3 delivered (2026-09-12).
+WP-3 delivered (2026-09-12); its pending participation changes committed 2026-09-14.
+WP-4 and its WP-10A review fix delivered (2026-09-14).
 
 - [x] UI-07 (carried from 0.6): automated accessibility and visual-regression gates using the existing
   Playwright harness with `@axe-core/playwright` and visual comparison baselines. Delivered 2026-09-12;
@@ -32,7 +33,9 @@ WP-3 delivered (2026-09-12).
 - [ ] WP-8A: read-only mapping coverage; WP-8B: selection, conflicts, clearing and contextual creation.
 - [ ] WP-9: independent binding fixtures, same-schema differing releases, new-control a11y/visual
   coverage, generic-write races and draft activation/live same-set conflicts.
-- [ ] Conditional WP-10: only confirmed missing foundation capabilities; required slices block 0.7
+- [x] WP-10A: live/draft cascade deletion advances affected mapping-set versions atomically; stale
+  target continuations require refresh. Delivered with WP-4 review, 2026-09-14.
+- [ ] Further conditional WP-10 slices: only confirmed missing foundation capabilities; required slices block 0.7
   acceptance. WP-1–WP-3 are delivered and frozen; their implementation reviews stay separate.
 
 See `ROADMAP.md` for the 0.7 delivery scope, exit gate and full milestone sequence.

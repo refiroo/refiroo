@@ -78,8 +78,9 @@ navigating low-level relation screens.
 
 1. Introduce schema 0.6 with a strict `mappingGrid` branch; reject containment and required ownership
    bindings as independently mutable mappings. **(WP-2, delivered 2026-09-12.)**
-2. Add cursor-paged batched mapping rows with mapped, unmapped and ambiguous states and server-side
-   candidate search.
+2. Cursor-paged batched mapping rows with mapped, unmapped and ambiguous states, exact target counts,
+   bounded version-bound target details and view-specific candidate search in live/draft contexts.
+   **(WP-4, delivered 2026-09-14.)**
 3. Implement ADR-022 exact-binding relation-set versions across mapping and generic relation writes.
    **(WP-3, delivered 2026-09-12.)**
 4. Provide atomic replacement with zero or one target where the binding permits it, directly live

@@ -173,12 +173,17 @@ cascades them, and activation merges draft mutation counts into the live version
 state atomically, protecting unmapped and ambiguous rows without allowing another binding of the same
 relation type to be replaced accidentally.
 
-The 0.7 plan freezes WP-1–WP-3 (all delivered). Later mapping reads resolve the existing view configuration under
-an explicit live/draft model context and return bounded target previews with exact counts and
-version-bound continuation. Replacement preserves an existing selected relation identity and validates
-cardinality in the actual direction. Draft version selection validates the complete effective graph
-and changes its pin atomically, keeping the captured active snapshot identity separate. Browser model
-transitions refresh all dependent state. These are planned requirements in
+The 0.7 plan freezes WP-1–WP-3 (all delivered). WP-4 mapping reads resolve the existing view
+configuration under an explicit live/draft model context. They page effective membership in SQL and
+batch exact counts with at most 20 target previews per row. Model selection, fields, edges and tokens
+share one database snapshot; version-bound target continuation requires refresh after an edge change.
+WP-10A makes confirmed live/draft cascade deletion increment both affected directional versions in
+the deletion transaction; previews and rejected deletes do not advance them.
+
+Planned replacement preserves an existing selected relation identity and validates cardinality in the
+actual direction. Planned draft version selection validates the complete effective graph and changes
+its pin atomically, keeping the captured active snapshot identity separate. Browser model transitions
+must refresh all dependent state. These remaining requirements are described in
 [the 0.7 plan](BASE_0_7_IMPLEMENTATION_PLAN.md) and [API.md](API.md); confirmed foundation gaps
 belong to conditional WP-10 before acceptance, rather than amendments to frozen package scope.
 

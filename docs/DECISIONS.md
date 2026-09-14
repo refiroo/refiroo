@@ -403,8 +403,9 @@ migration, protected administration and a bounded supported-version window.
 ## ADR-022 — Version complete relation sets for atomic mapping
 
 **Status:** Accepted for product 0.7; live/draft scope consolidated by ADR-026 and ADR-027.
-Relation-set version persistence delivered in WP-3 (2026-09-12); mapping replacement API planned for
-WP-5.
+Relation-set version persistence delivered in WP-3 (2026-09-12); mapping query APIs delivered in
+WP-4 and cascade-deletion participation in WP-10A (2026-09-14). Mapping replacement remains planned
+for WP-5.
 
 Mapping concurrency belongs to the complete directional relation set, not to an object or one relation
 instance. A source object may currently have zero, one or several matching edges, so neither an object
@@ -418,6 +419,8 @@ workspace and explicit live/draft context, relation type, `fromObjectTypeKey`, `
 or `incoming` direction. Including both endpoint types prevents two allowed bindings of the same
 relation type from sharing and replacing each other's set. Every generic relation create, attribute
 update or delete atomically increments the outgoing and incoming sets for that exact binding.
+WP-10A also advances both sets for each incident edge removed by confirmed live/draft object cascades;
+preview and rejected deletions leave versions unchanged.
 Mapping-grid rows return this value as `mappingVersion`; a previously untouched set has version zero,
 claimed safely under the scope's database uniqueness constraint.
 
@@ -431,7 +434,8 @@ and draft status when a draft is selected, candidate endpoint records, endpoint 
 cardinality and typed relation attributes. Mapping views reject containment and required ownership
 bindings because the record operation owns those relationships. The former draft-nested PUT proposal
 is superseded; freeze the canonical live/optional-draft route and request contract in the 0.7 package
-before implementation. No mapping endpoint is delivered by this decision.
+before implementation. The replacement endpoint remains planned; WP-4 query contracts are documented
+in [API.md](API.md#product-07-mapping-api-wp-4-delivered-wp-5-planned).
 
 The transaction conditionally claims the relation-set version, deletes obsolete edges, preserves or
 updates the selected edge or creates it when absent, increments the set version and commits. A stale
@@ -456,7 +460,8 @@ omitted attributes preserve its values, while an explicit object replaces the se
 validation. One selected target is the operation rule, separate from direction-aware cardinality.
 Later integration acceptance checks generic-write races, both directional sets and draft activation
 against live same-set changes. Confirmed foundation gaps belong to conditional WP-10, not frozen WP-3.
-See the planned mapping API section in [API.md](API.md) and [0.7 plan](BASE_0_7_IMPLEMENTATION_PLAN.md).
+WP-4 reads and WP-10A cascade invalidation are delivered; replacement and composed acceptance remain
+planned. See the mapping API section in [API.md](API.md) and [0.7 plan](BASE_0_7_IMPLEMENTATION_PLAN.md).
 
 ## ADR-023 — Build RDM UI components on React Aria behavior
 

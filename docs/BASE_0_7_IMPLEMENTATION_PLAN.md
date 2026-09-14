@@ -1,7 +1,8 @@
 # Base 0.7 implementation plan
 
-**Status:** In progress. WP-1, WP-2 and WP-3 delivered; their implementation review is pending and
-separate from this plan review. WP-1–WP-3 scopes are frozen.
+**Status:** In progress. WP-1–WP-4 delivered; WP-4 implementation review and the bounded WP-10A
+cascade-deletion version fix are complete. The earlier WP-1–WP-3 review boundary remains separate;
+WP-1–WP-3 scopes are frozen. WP-5–WP-9 and composed 0.7 acceptance remain pending.
 
 **Target:** Product 0.7.0, schema language 0.6. The starter model content advances to a version on
 schema 0.6; that number alone does not mean the product release is accepted.
@@ -324,12 +325,9 @@ draft-pinned differing releases, concurrent reads and query counts independent o
 **Prerequisites:** WP-2 (schema 0.6 with mapping-grid config to validate against), WP-3 (relation-set
 versions to return as `mappingVersion`).
 
-**Decisions needed:**
-
-- **D5: Coverage endpoint location.** Should this be a new `/mapping-coverage` router or an extension
-  of the existing workspace/relations API? _Recommendation:_ new dedicated router
-  (`backend/app/routers/mapping.py`) — the mapping coverage query is a distinct business view, not a
-  generic relation list.
+**Decision resolved:** D5 uses the dedicated `backend/app/routers/mapping.py` router. Coverage,
+`mapping-candidates` and `mapping-targets` share view/context resolution; response fields and target
+continuation parameters are frozen in [API.md](API.md#product-07-mapping-api-wp-4-delivered-wp-5-planned).
 
 **Exit:** Coverage returns correct mapped/unmapped/ambiguous states with set versions. Candidate
 search returns bounded, searchable results. Both endpoints page correctly and validate against the

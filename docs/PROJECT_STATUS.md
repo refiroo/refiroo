@@ -5,7 +5,8 @@
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released. The starter
 model is content release 0.7.0 on schema language 0.6. Next development targets product 0.7 (core
 mapping, schema 0.6, draft version selection). WP-1 (accessibility gates), WP-2 (schema 0.6
-`mappingGrid` view contract) and WP-3 (relation-set version persistence) are delivered.
+`mappingGrid` view contract), WP-3 (relation-set version persistence) and WP-4 (mapping query APIs)
+are delivered. WP-4 review also delivered the bounded WP-10A cascade-deletion version fix.
 
 The generic model defines applications, object types, reusable fields, allowed relationships and views.
 Master, Systems and Translations are configurable starter examples; runtime code must remain unaware
@@ -25,7 +26,7 @@ GAP-01–GAP-08 answers and distinguishes accepted targets from implementation e
 | Publication retirement | Complete: truthful browser confirmation removes only the designation while retaining live data/history | — |
 | Model administration | Complete: immutable releases, JSON drafts, validation/diff/install/activation workbench | Browser administration acceptance (0.7+) |
 | UI foundation | Complete: catalogue selection, typed tables, generic panels, redesigned navigation/collections/inspector/inline editing, automated accessibility and visual-regression gates (UI-07) | — |
-| Specialist workflows | Schema 0.6 `mappingGrid` view contract delivered; placeholder frontend renderer | Mapping API/UI 0.7, translation/hierarchy 0.8, integration 0.9 |
+| Specialist workflows | Schema 0.6 `mappingGrid` contract and live/draft coverage, target-detail and candidate APIs delivered; placeholder frontend renderer | Atomic mapping replacement and UI 0.7, translation/hierarchy 0.8, integration 0.9 |
 | Production and model migration | Basic readiness and actionable startup refusal | Authenticated production, staged assignments and reviewed historical model migration 0.10; draft version selection 0.7 |
 
 Ordinary live saves create neither a draft nor a revision. Draft activation applies authored changes
@@ -70,6 +71,18 @@ and browser model-context refresh. WP-8A delivers coverage; WP-8B adds mapping a
 new-control accessibility/visual evidence and checks independent bindings, differing same-schema
 releases, generic-write races and activation/live set conflicts. Confirmed missing foundation behavior
 triggers bounded WP-10 work before acceptance. Dark baselines stay deferred until dark mode exists.
+
+### WP-4 delivery and review — 2026-09-14
+
+WP-4 mapping queries and the WP-10A cascade-deletion version fix are committed in `0c459ef`.
+Pending WP-3 relation-write participation, draft cleanup/activation and migration test expectations
+were committed separately in `022abec`. Both commits together contain the code covered by the final
+401-test backend run on SQLite; Ruff passed. WP-4 integration checks cover paging, bounded ambiguous
+sets, view-specific projections, draft pins, concurrent reads and stale continuation rejection after
+live/draft cascades in both directions. The review found no further confirmed issues.
+
+This is backend query evidence. Atomic replacement (WP-5), the mapping browser workflow
+(WP-8A/WP-8B) and composed product 0.7 acceptance (WP-9) remain pending.
 
 ## Evidence boundary
 

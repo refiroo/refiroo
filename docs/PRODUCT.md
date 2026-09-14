@@ -43,7 +43,8 @@ across systems. Starter applications are examples of configuration, never specia
 
 “API available” does not mean a complete browser task. Current top-level views support strict tables;
 a form used for record editing is not an implemented configurable top-level `form` view. Schema 0.6
-mapping-grid configuration is delivered, with a placeholder renderer; its complete workflow remains
+mapping-grid configuration and its live/draft coverage, target-detail and candidate APIs are delivered
+(WP-4), with a placeholder renderer. Atomic replacement and its complete browser workflow remain
 0.7 work. Trees and other specialist declarations require their own validated contract and renderer. Dashboards
 have no scheduled user outcome. The [functionality catalogue](product-functionality/CURRENT_FUNCTIONALITY.md)
 records channel limitations; no browser acceptance is implied by the presence of a component.

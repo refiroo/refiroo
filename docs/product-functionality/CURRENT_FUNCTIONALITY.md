@@ -1,7 +1,8 @@
 # Current functionality catalogue
 
 This catalogue retains the 2026-09-07 assessment with targeted source-review corrections on
-2026-09-08. “Browser” and “API” are kept separate so that backend coverage is not mistaken for a
+2026-09-08, plus a targeted WP-4 mapping API status update on 2026-09-14. Other historical assessments
+retain their original evidence boundary. “Browser” and “API” are kept separate so that backend coverage is not mistaken for a
 complete user experience. No application tests were executed for this documentation update; see the
 [review boundary](PLANNING_HANDOFF.md#authority-and-review-boundary).
 
@@ -16,7 +17,7 @@ complete user experience. No application tests were executed for this documentat
 | F05 | Maintain live records                                     | Temporarily unwired | Available      | WP9 must enable browser editing  |
 | F06 | Maintain typed field values                               | Components present  | Available      | Browser completion is WP9        |
 | F07 | Maintain containment and hierarchy                        | Components present  | Available      | Specialist tree is roadmap       |
-| F08 | Maintain ordinary relationships                           | Components present  | Available      | Dedicated mapping is roadmap     |
+| F08 | Maintain ordinary relationships                           | Components present  | Available      | Mapping API available; UI planned |
 | F09 | Maintain translations                                     | Components present  | Available      | Translation workspace is roadmap |
 | F10 | Preview and confirm dependent deletion                    | Components present  | Available      | Browser completion is WP9        |
 | F11 | Inspect record history                                    | Default only        | Available      | Non-default context is dropped   |
@@ -217,14 +218,16 @@ Generic browser components support related-record lookup, creation, edit, delete
 a linked record. They are temporarily disabled by the incomplete detail-page wiring, not by the product
 contract.
 
-This function is not the dedicated mapping product. Today a generic relationship can represent a
-mapping, but coverage states, atomic replacement, candidate workflow and mapping-specific concurrency
-arrive in product 0.7. Schema 0.6 mapping-grid configuration and a placeholder renderer are delivered;
-this does not establish a completed mapping journey. The [0.7 plan](../BASE_0_7_IMPLEMENTATION_PLAN.md)
-places coverage in WP-8A and actions in WP-8B, with bounded target inspection, retained relation
-identities and integration acceptance in WP-9. WP-1–WP-3 remain frozen.
+WP-4 delivers model-configured live/draft mapping coverage with mapped, unmapped and ambiguous
+states, exact counts, bounded target previews, version-bound target details and paged candidate search.
+WP-10A ensures that cascade object deletion invalidates affected mapping continuations. These are API
+capabilities; the mapping renderer remains a placeholder. Atomic replacement (WP-5), browser coverage
+(WP-8A), actions (WP-8B) and composed integration acceptance (WP-9) remain pending. See the
+[mapping API contract](../API.md#product-07-mapping-api-wp-4-delivered-wp-5-planned) and
+[0.7 plan](../BASE_0_7_IMPLEMENTATION_PLAN.md). WP-1–WP-3 remain frozen.
 
-Evidence: [relations API](../../backend/app/routers/relations.py),
+Evidence: [mapping query API](../../backend/app/routers/mapping.py),
+[relations API](../../backend/app/routers/relations.py),
 [relations panel](../../frontend/src/features/objects/panels/RelationsPanel.tsx),
 [ADR-011](../DECISIONS.md#adr-011--relation-instance-crud-mutates-only-non-parent-edges).
 
