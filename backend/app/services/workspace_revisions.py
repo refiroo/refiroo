@@ -42,7 +42,11 @@ from .attributes import (
 )
 from .audit import record_audit_event
 from .model.compiler import parse_model
-from .relation_set_versions import increment_set_versions
+from .relation_set_versions import (
+    delete_draft_set_versions,
+    increment_set_versions,
+    merge_draft_set_versions_to_live,
+)
 from .relations import validate_relation_attributes
 from .workspace_audit import (
     record_draft_created,
@@ -407,6 +411,7 @@ def discard_draft(session: Session, draft_id: str, expected_version: int) -> Non
 def _delete_draft_and_base(session: Session, draft: WorkspaceDraft) -> None:
     """Remove a private base explicitly because SQLite does not enable FK cascades by default."""
     base_id = draft.base_id
+    delete_draft_set_versions(session, draft.id)
     session.delete(draft)
     session.flush()
     if base_id is None:
@@ -1166,6 +1171,29 @@ def _sync_draft_parent_relation(
         )
 
 
+def _increment_draft_relation_set_versions(
+    session: Session,
+    draft: WorkspaceDraft,
+    membership: EffectiveDraftMembership,
+    row: WorkspaceDraftRelation,
+) -> None:
+    objects = {item.object_id: item for item in membership.objects}
+    from_obj = objects.get(row.from_object_id)
+    to_obj = objects.get(row.to_object_id)
+    if from_obj is None or to_obj is None:
+        return
+    increment_set_versions(
+        session,
+        workspace_key=draft.workspace_key,
+        workspace_draft_id=draft.id,
+        relation_type_key=row.relation_type_key,
+        from_object_type_key=from_obj.object_type_key,
+        to_object_type_key=to_obj.object_type_key,
+        from_object_id=row.from_object_id,
+        to_object_id=row.to_object_id,
+    )
+
+
 def put_draft_relation(session: Session, draft_id: str, payload: Any) -> WorkspaceDraftRelation:
     draft = _draft(session, draft_id, for_update=True)
     model = _draft_model(session, draft)
@@ -1214,6 +1242,7 @@ def put_draft_relation(session: Session, draft_id: str, payload: Any) -> Workspa
         changes={"attributes": attributes, "workspaceDraftId": draft.id},
         object_ids=[row.from_object_id, row.to_object_id],
     )
+    _increment_draft_relation_set_versions(session, draft, membership, row)
     session.commit()
     return row
 
@@ -1282,6 +1311,7 @@ def update_draft_relation(
         changes={"attributes": attrs, "workspaceDraftId": draft.id},
         object_ids=[row.from_object_id, row.to_object_id],
     )
+    _increment_draft_relation_set_versions(session, draft, membership, row)
     session.commit()
     return row
 
@@ -1358,6 +1388,7 @@ def delete_draft_relation(
     _claim_draft(session, draft, expected_draft_version)
     row.version += 1
     row.is_deleted = True
+    _increment_draft_relation_set_versions(session, draft, membership, row)
     session.commit()
 
 
@@ -2353,6 +2384,7 @@ def activate_draft(
         old.retired_at = datetime.now(UTC)
     revision.activated_at = datetime.now(UTC)
     workspace.active_revision_id = revision.id
+    merge_draft_set_versions_to_live(session, draft.id, draft.workspace_key)
     _delete_draft_and_base(session, draft)
     session.commit()
     return revision

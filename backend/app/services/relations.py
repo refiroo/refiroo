@@ -11,6 +11,7 @@ from ..models.database import ObjectRelation, RdmObject
 from ..models.schema import EngineModel, ObjectTypeRelationDefinition
 from .attributes import current_attribute_values, normalize_value
 from .audit import record_audit_event
+from .relation_set_versions import increment_set_versions
 
 
 def find_allowed_relation(model: EngineModel, relation_type_key: str, from_type: str, to_type: str):
@@ -311,7 +312,23 @@ def create_live_relation(
     session: Session, model: EngineModel, payload: RelationCreate
 ) -> ObjectRelation:
     """Create a relation in the live object store and commit the transaction."""
-    relation = create_relation_instance(session, model, payload)
+    from .objects import load_object
+
+    from_object = load_object(session, str(payload.fromObjectId))
+    to_object = load_object(session, str(payload.toObjectId))
+    relation = create_relation_instance(
+        session, model, payload, from_object=from_object, to_object=to_object
+    )
+    increment_set_versions(
+        session,
+        workspace_key=from_object.workspace_key,
+        workspace_draft_id=None,
+        relation_type_key=payload.relationTypeKey,
+        from_object_type_key=from_object.object_type_key,
+        to_object_type_key=to_object.object_type_key,
+        from_object_id=from_object.id,
+        to_object_id=to_object.id,
+    )
     session.commit()
     return relation
 
@@ -350,6 +367,16 @@ def update_live_relation(
         changes={"attributes": attributes},
         object_ids=[relation.from_object_id, relation.to_object_id],
     )
+    increment_set_versions(
+        session,
+        workspace_key=from_object.workspace_key,
+        workspace_draft_id=None,
+        relation_type_key=relation.relation_type_key,
+        from_object_type_key=from_object.object_type_key,
+        to_object_type_key=to_object.object_type_key,
+        from_object_id=relation.from_object_id,
+        to_object_id=relation.to_object_id,
+    )
     session.commit()
     return relation
 
@@ -386,6 +413,16 @@ def delete_live_relation(
             "toObjectId": relation.to_object_id,
         },
         object_ids=[relation.from_object_id, relation.to_object_id],
+    )
+    increment_set_versions(
+        session,
+        workspace_key=from_object.workspace_key,
+        workspace_draft_id=None,
+        relation_type_key=relation.relation_type_key,
+        from_object_type_key=from_object.object_type_key,
+        to_object_type_key=to_object.object_type_key,
+        from_object_id=relation.from_object_id,
+        to_object_id=relation.to_object_id,
     )
     session.delete(relation)
     session.commit()
