@@ -88,6 +88,54 @@ def _increment_one(
         session.flush()
 
 
+def increment_single_set_version(
+    session: Session,
+    *,
+    workspace_key: str,
+    workspace_draft_id: str | None,
+    relation_type_key: str,
+    from_object_type_key: str,
+    to_object_type_key: str,
+    anchor_object_id: str,
+    direction: str,
+) -> None:
+    """Increment one directional set version without touching the opposite direction.
+
+    Used by the mapping replacement endpoint to avoid double-incrementing the source
+    anchor when multiple edges change in a single atomic operation.
+    """
+    _increment_one(
+        session,
+        workspace_key=workspace_key,
+        workspace_draft_id=workspace_draft_id,
+        relation_type_key=relation_type_key,
+        from_object_type_key=from_object_type_key,
+        to_object_type_key=to_object_type_key,
+        anchor_object_id=anchor_object_id,
+        direction=direction,
+    )
+
+
+def claim_set_version(session: Session, *, expected: int, **binding: object) -> bool:
+    """Conditionally advance an exact set, including its initially absent version-zero row."""
+    from sqlalchemy.dialects.postgresql import insert as pg_insert
+    from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+
+    clauses = [getattr(RelationSetVersion, key) == value for key, value in binding.items()]
+    if expected == 0:
+        insert = sqlite_insert if session.get_bind().dialect.name == "sqlite" else pg_insert
+        session.execute(
+            insert(RelationSetVersion).values(**binding, version=0).on_conflict_do_nothing()
+        )
+    result = session.execute(
+        update(RelationSetVersion)
+        .where(*clauses, RelationSetVersion.version == expected)
+        .values(version=expected + 1, updated_at=datetime.now(UTC))
+        .execution_options(synchronize_session=False)
+    )
+    return result.rowcount == 1
+
+
 def delete_draft_set_versions(session: Session, draft_id: str) -> None:
     """Remove all set-version rows scoped to a discarded or activated draft."""
     session.execute(
@@ -108,9 +156,7 @@ def merge_draft_set_versions_to_live(
     """
     draft_rows = list(
         session.scalars(
-            select(RelationSetVersion).where(
-                RelationSetVersion.workspace_draft_id == draft_id
-            )
+            select(RelationSetVersion).where(RelationSetVersion.workspace_draft_id == draft_id)
         )
     )
     now = datetime.now(UTC)

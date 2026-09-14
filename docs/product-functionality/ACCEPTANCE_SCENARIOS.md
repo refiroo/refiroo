@@ -153,6 +153,14 @@ mapping save and a live same-set edit before draft activation must conflict with
 input or unrelated live work. New selectors, conflict controls and target creation require keyboard,
 accessibility and visual evidence. Confirmed foundation gaps belong to conditional WP-10.
 
+**Backend evidence — 2026-09-14:** WP-5/WP-10B exercise independent binding isolation, both
+directions, forbidden clearing/ownership replacement, overlapping generic writes and divergent
+live mapping sets before activation. The final gate passes 486 backend and 164 frontend tests on
+SQLite. Source/live comparison also accepts a restored graph with identical edge identities and
+surviving versions after a temporary live add/delete. The browser story, attempted-input retention,
+contextual creation and new-control accessibility/visual acceptance remain WP-8A/WP-8B/WP-9;
+PostgreSQL concurrency was not exercised.
+
 **Simplicity check:** the user selects a business target, not individual links to delete and recreate.
 
 ## SC-08 — Understand history without accidentally promising rollback

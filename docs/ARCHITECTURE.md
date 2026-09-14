@@ -169,7 +169,7 @@ corresponding typed parent relation together.
 workspace, relation type and endpoint-type binding. Rows are created lazily on first touch; untouched
 sets have implicit version 0. Draft-scoped and live-scoped versions are independent; draft deletion
 cascades them, and activation merges draft mutation counts into the live version. A mapping replacement
-(WP-5, planned) claims one anchor/direction/binding set and changes its complete zero/one/many edge
+(WP-5, delivered) claims one anchor/direction/binding set and changes its complete zero/one/many edge
 state atomically, protecting unmapped and ambiguous rows without allowing another binding of the same
 relation type to be replaced accidentally.
 
@@ -178,7 +178,11 @@ configuration under an explicit live/draft model context. They page effective me
 batch exact counts with at most 20 target previews per row. Model selection, fields, edges and tokens
 share one database snapshot; version-bound target continuation requires refresh after an edge change.
 WP-10A makes confirmed live/draft cascade deletion increment both affected directional versions in
-the deletion transaction; previews and rejected deletes do not advance them.
+the deletion transaction; previews and rejected deletes do not advance them. WP-10B compares complete
+immutable-source/live relation identities and versions in touched mutable directional binding sets
+before activation applies its delta. Divergence is an actionable `409 version_conflict`; unrelated
+live sets survive. Restored source identities and surviving versions count as the same graph even
+when a temporary live edge advanced the set counter.
 
 Planned replacement preserves an existing selected relation identity and validates cardinality in the
 actual direction. Planned draft version selection validates the complete effective graph and changes
@@ -266,11 +270,13 @@ that never address individual records.
   error codes and counts), never graph payloads.
 - **Atomic activation is a delta-merge.** Activation claims the draft version and the expected active
   revision, computes the draft's delta over its actual base, applies only the created/updated/tombstoned rows onto the **current live** projection
-  with per-record version conflict detection, and preserves live-only objects the draft never touched.
+  with per-record and touched mutable relation-set conflict detection, and preserves live-only objects
+  and unrelated sets the draft never touched.
   It then re-validates the merged graph, writes one immutable workspace revision snapshot of the merged
   content, retires the previously active revision, deletes the draft and commits in one transaction. Any
   conflict (`409 version_conflict` with per-record `details.conflicts`, including `id_collision` and
-  `duplicate_edge`) or validation failure (`422 workspace_graph_invalid`) publishes nothing and preserves
+  `duplicate_edge`, plus bounded `mapping_set_changed` diagnostics identifying binding/anchor/direction)
+  or validation failure (`422 workspace_graph_invalid`) publishes nothing and preserves
   both the draft and the live content.
 - **Immutable revisions and history.** Revisions are immutable snapshots. `GET
   /api/v1/workspaces/{workspaceKey}/revisions` and `GET /api/v1/workspace-revisions/{revisionId}`

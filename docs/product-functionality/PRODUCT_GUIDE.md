@@ -46,12 +46,12 @@ preloaded demonstration data.
 | User goal | What the product should let the user do | Development position | Stories |
 | --- | --- | --- | --- |
 | Find the right information | Choose a named workspace, search and filter a list, inspect a record and return to the same place | Browser read flows exist; non-default detail context needs repair | US-D01–D05 |
-| Keep a shared list accurate | Add, correct or remove a value and its fields, with clear validation and change history | Service available; browser authoring remains 0.6 work | US-D06–D08, US-D11–D12, US-D14 |
-| Organize and connect data | Choose a valid parent, connect related records and understand deletion impact | Service available; browser authoring remains 0.6 work | US-D09–D11 |
+| Keep a shared list accurate | Add, correct or remove a value and its fields, with clear validation and change history | Service and Base 0.6 browser authoring available; see the functionality catalogue for context limitations | US-D06–D08, US-D11–D12, US-D14 |
+| Organize and connect data | Choose a valid parent, connect related records and understand deletion impact | Service and Base 0.6 browser authoring available; see the functionality catalogue for context limitations | US-D09–D11 |
 | Work in several domains | Use the configured terminology, fields and views through familiar controls | Model-driven foundation exists | US-D13, US-P06 |
 | Prepare a coordinated change | Work in an optional draft, check it and apply its changes together while preserving unrelated live work | Current-live/history API available; browser gaps remain | US-W01–W08 |
-| Maintain translations | Enter a target, language and translated content together; prevent conflicting active translations | Basic service available; browser completion 0.6, coverage view 0.8 | US-L01–L04 |
-| Manage system equivalences | See missing or conflicting mappings and choose, replace or clear a target in one action | WP-4 coverage/target-detail/candidate APIs available; replacement and browser workflow planned for 0.7 | US-M01–M04 |
+| Maintain translations | Enter a target, language and translated content together; prevent conflicting active translations | Basic API and Base 0.6 browser flows available; specialist coverage view remains 0.8 | US-L01–L04 |
+| Manage system equivalences | See missing or conflicting mappings and choose, replace or clear a target in one action | WP-4 query and WP-5 atomic replacement APIs delivered; WP-10B protects activation against divergent live mapping sets. Browser workflow remains WP-8A/WP-8B; composed acceptance WP-9 | US-M01–M04 |
 | Navigate a deep hierarchy | Expand the relevant branch, add a child or move a record without losing context | Specialist workflow planned for 0.8 | US-H01–H02 |
 | Exchange larger datasets | Import with a preview, export a chosen scope, track results and resume synchronization | Basic reading available; bulk exchange and feeds planned for 0.9 | US-I01–I09 |
 | Manage working areas | Create and label a workspace, select the default and retain read-only access to retired areas | Service available; no complete administration screen | US-A01–A03 |

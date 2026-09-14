@@ -7,7 +7,7 @@ from app.main import app, create_app
 def test_base_0_6_wp7_openapi_document_is_locked():
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "05e3ddf80e9e7257194312ee38b0b9c36ed3a971f7236ee2c993341d924459ee"
+        "e66e9545103188e1031428029057f6bbb4ee2c3818ac9d1f6d6dce98f3f807ee"
     )
 
 
@@ -28,7 +28,15 @@ def test_wp6_openapi_removes_rejected_object_lifecycle_and_direct_writes():
     assert set(paths["/api/v1/relations"]) == {"get", "post"}
     assert set(paths["/api/v1/relations/{relation_id}"]) == {"get", "patch", "delete"}
     schemas = set(app.openapi()["components"]["schemas"])
-    assert not {"ObjectDraftCreate", "ObjectDraftResponse", "ObjectRevisionResponse", "ObjectRetirementRequest"} & schemas
+    assert (
+        not {
+            "ObjectDraftCreate",
+            "ObjectDraftResponse",
+            "ObjectRevisionResponse",
+            "ObjectRetirementRequest",
+        }
+        & schemas
+    )
     assert {"RelationCreate", "RelationResponse"} <= schemas
 
 
@@ -60,15 +68,18 @@ def test_wp8_openapi_inventory_locks_workspace_lifecycle_and_record_crud():
 
     # Records are not nested inside a draft/revision resource, and object-level lifecycle resources
     # were rejected: no workspace-draft child CRUD and no object-draft/object-revision routes.
-    assert not (set(paths) & {
-        "/api/v1/object-drafts",
-        "/api/v1/object-drafts/{draft_id}",
-        "/api/v1/object-drafts/{draft_id}/activation",
-        "/api/v1/object-revisions/{revision_id}",
-        "/api/v1/workspace-drafts/{draft_id}/objects",
-        "/api/v1/workspace-drafts/{draft_id}/relations",
-        "/api/v1/workspace-drafts/{draft_id}/attributes/{attribute_type_key}",
-    })
+    assert not (
+        set(paths)
+        & {
+            "/api/v1/object-drafts",
+            "/api/v1/object-drafts/{draft_id}",
+            "/api/v1/object-drafts/{draft_id}/activation",
+            "/api/v1/object-revisions/{revision_id}",
+            "/api/v1/workspace-drafts/{draft_id}/objects",
+            "/api/v1/workspace-drafts/{draft_id}/relations",
+            "/api/v1/workspace-drafts/{draft_id}/attributes/{attribute_type_key}",
+        }
+    )
 
 
 def test_wp6_openapi_keeps_bounded_active_object_reads_and_structured_errors():
@@ -79,7 +90,11 @@ def test_wp6_openapi_keeps_bounded_active_object_reads_and_structured_errors():
     }
     error_content = response["default"]["content"]["application/json"]
     assert error_content["schema"] == {"$ref": "#/components/schemas/ApiErrorResponse"}
-    assert set(error_content["examples"]) == {"invalidCursor", "requestValidation", "versionConflict"}
+    assert set(error_content["examples"]) == {
+        "invalidCursor",
+        "requestValidation",
+        "versionConflict",
+    }
     parameters = schema["paths"]["/api/v1/objects/{object_type_key}"]["get"]["parameters"]
     assert any(item["name"] == "filter.<field>.<operator>" for item in parameters)
 
@@ -113,7 +128,8 @@ def test_wp4_mapping_query_inventory_and_required_context():
             "$ref": f"#/components/schemas/{response}"
         }
         parameters = {row["name"]: row for row in operation["parameters"]}
-        assert parameters["applicationKey"]["required"] and parameters["viewKey"]["required"]
+        assert parameters["applicationKey"]["required"] == (name != "targets")
+        assert parameters["viewKey"]["required"] == (name != "targets")
         assert "workspaceDraftId" in parameters and "cursor" in parameters
         size = parameters["pageSize"]["schema"]
         bounds = next((row for row in size.get("anyOf", []) if row.get("type") == "integer"), size)
@@ -130,3 +146,21 @@ def test_wp4_mapping_query_inventory_and_required_context():
                 parameters["sourceObjectId"]["required"]
                 and parameters["mappingVersion"]["required"]
             )
+
+    mappings_path = "/api/v1/workspaces/{workspace_key}/mappings"
+    assert "get" in paths[mappings_path]
+    list_op = paths[mappings_path]["get"]
+    assert list_op["responses"]["200"]["content"]["application/json"]["schema"] == {
+        "$ref": "#/components/schemas/MappingListPage"
+    }
+    list_params = {row["name"]: row for row in list_op["parameters"]}
+    for key in (
+        "applicationKey",
+        "viewKey",
+        "relationTypeKey",
+        "fromObjectTypeKey",
+        "toObjectTypeKey",
+        "direction",
+    ):
+        assert key in list_params
+        assert not list_params[key].get("required", False)

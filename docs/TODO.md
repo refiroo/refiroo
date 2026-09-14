@@ -8,7 +8,7 @@ release plan and changelog rather than accumulating it here.
 
 Base 0.6 is released (2026-09-11). WP-1 delivered (2026-09-12). WP-2 delivered (2026-09-12).
 WP-3 delivered (2026-09-12); its pending participation changes committed 2026-09-14.
-WP-4 and its WP-10A review fix delivered (2026-09-14).
+WP-4 and its WP-10A review fix delivered (2026-09-14). WP-5 delivered (2026-09-14).
 
 - [x] UI-07 (carried from 0.6): automated accessibility and visual-regression gates using the existing
   Playwright harness with `@axe-core/playwright` and visual comparison baselines. Delivered 2026-09-12;
@@ -22,12 +22,14 @@ WP-4 and its WP-10A review fix delivered (2026-09-14).
   and activation merge. Delivered 2026-09-12.
 - [x] Product 0.7: cursor-paged mapping coverage, version-bound target details and candidate lookup
   (WP-4). View-specific typed projections and batched live/draft SQL reads. Delivered 2026-09-14.
-- [ ] ADR-022: atomic mapping replacement in live and optional-draft contexts (WP-5).
+- [x] ADR-022: atomic mapping replacement in live and optional-draft contexts (WP-5). Delivered
+  2026-09-14: retained relation identities, typed relation-attribute semantics and direction-aware
+  replacement/clear validation with single-direction set version increments.
+- [x] WP-5 acceptance follow-up and WP-10B activation hardening: independent bindings, forbidden
+  ownership/clearing, overlapping generic writes, and complete touched-set source/live comparison
+  with actionable activation refusal. See the 0.7 implementation plan for validation boundaries.
 - [ ] ADR-028: let a workspace draft work under a version the user chooses, so one draft prepares the
   schema 0.6 release while another stays on the version serving live data.
-
-- [ ] WP-5: retained relation identities, typed relation-attribute semantics and direction-aware
-  replacement/clear validation. WP-4 view-specific reads and bounded ambiguous targets are delivered.
 - [ ] WP-6/WP-7: complete-candidate compatibility on creation/version change, atomic pin changes,
   snapshot isolation and complete browser model-context refresh.
 - [ ] WP-8A: read-only mapping coverage; WP-8B: selection, conflicts, clearing and contextual creation.
@@ -37,6 +39,18 @@ WP-4 and its WP-10A review fix delivered (2026-09-14).
   target continuations require refresh. Delivered with WP-4 review, 2026-09-14.
 - [ ] Further conditional WP-10 slices: only confirmed missing foundation capabilities; required slices block 0.7
   acceptance. WP-1–WP-3 are delivered and frozen; their implementation reviews stay separate.
+
+## Open decisions
+
+- **Offset/limit pagination alongside cursors.** All collection endpoints currently use cursor-based
+  pagination (sequential-only). Frontend table UIs need random-access page jumps (e.g. "go to page 8
+  of 10") which cursors cannot provide. Proposed change: accept `offset`+`limit` as an alternative to
+  `cursor` on list endpoints — when `offset` is supplied the endpoint uses `OFFSET/LIMIT` instead of
+  keyset pagination. Cursor mode remains the default and the recommended path for M2M consumers and
+  data streaming. The tradeoff is that offset pagination can skip or duplicate rows when data changes
+  between page fetches and degrades on very large result sets (`OFFSET N` scans and discards N rows).
+  Decision needed: apply to all list endpoints or only `GET /mappings`; whether to add `totalCount` to
+  every page response or only when offset mode is used.
 
 See `ROADMAP.md` for the 0.7 delivery scope, exit gate and full milestone sequence.
 

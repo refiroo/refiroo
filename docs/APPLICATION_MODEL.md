@@ -250,8 +250,9 @@ designed for voluntary association relations.
 WP-4 identifies `applicationKey`/`viewKey` under the effective live or draft-pinned model to resolve
 columns and candidate search fields; supplied binding keys must match. Incoming direction anchors rows
 on the physical `to` type and searches candidates on the physical `from` type. This requires no new
-schema fields. WP-5 preserves selected relation identities and validates direction-aware cardinality;
-its one-selected-target operation does not redefine the underlying binding. WP-8A/WP-8B add bounded
+schema fields. WP-4/WP-5 APIs are delivered; WP-5 preserves selected relation identities and validates direction-aware cardinality;
+its one-selected-target operation does not redefine the underlying binding. WP-10B adds source/live
+identity/version comparison for touched mutable sets at activation without extending schema 0.6. WP-8A/WP-8B add bounded
 coverage and generic actions; WP-9 exercises an independent binding beyond the starter's two views of
 one binding. Any required future schema extension is a separate conditional WP-10 model-contract slice.
 The schema contract delivered in WP-2 remains frozen. See [0.7 plan](BASE_0_7_IMPLEMENTATION_PLAN.md)

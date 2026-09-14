@@ -85,10 +85,14 @@ navigating low-level relation screens.
    **(WP-3, delivered 2026-09-12.)**
 4. Provide atomic replacement with zero or one target where the binding permits it, directly live
    or in an explicitly selected design draft, with recoverable conflict context.
+   **(WP-5, delivered and reviewed 2026-09-14.)** Atomic source-set claims and draft aggregate
+   tokens protect saves; WP-10B refuses divergent touched live mapping sets before draft activation.
 5. Reuse ordinary record creation in the selected context when target creation is allowed; target
    creation must not silently change the mapping, and draft activation remains explicit.
-6. Audit mapping transitions and underlying relation changes.
+6. Audit mapping transitions and underlying relation changes. **(WP-5, delivered 2026-09-14.)**
 7. Prove the contract and renderer with two relation bindings whose types, direction and labels differ.
+   **Backend independent-binding isolation and overlapping generic writes are covered by WP-5;
+   renderer and composed browser evidence remain WP-8A/WP-8B/WP-9.**
 8. Let a workspace draft work under a version the user chooses, so one draft prepares the schema 0.6
    release while another stays on the version serving live data. Draft reads, writes and validation
    use the version chosen for that draft instead of the global selection (ADR-028; US-W09, SC-15).
@@ -105,7 +109,9 @@ navigating low-level relation screens.
     identities, direction-aware constraints and atomic whole-candidate draft compatibility checks.
 12. Deliver mapping coverage in WP-8A and actions in WP-8B. Extend new-control accessibility/visual
     evidence and composed race/isolation scenarios in WP-9. Confirmed foundation gaps trigger bounded
-    WP-10 slices before release acceptance; no speculative foundation changes are scheduled.
+    WP-10 slices before release acceptance; no speculative foundation changes are scheduled. WP-10A
+    cascade invalidation and WP-10B activation set-conflict hardening are delivered on SQLite.
+    PostgreSQL concurrency and the mapping browser journeys remain outside this backend evidence.
 
 The [0.7 implementation plan](BASE_0_7_IMPLEMENTATION_PLAN.md) owns detailed follow-up acceptance
 criteria; [API.md](API.md) distinguishes these planned contracts from delivered endpoints.
@@ -182,6 +188,9 @@ than UI endpoints or undocumented limits.
 4. Asynchronous import/export with validation previews and resumable job status.
 5. Ordered change feed and retryable webhooks.
 6. Bounded bulk relation/mapping operations with explicit concurrency semantics.
+7. Optional offset/limit pagination mode alongside cursor pagination, so frontend table UIs can
+   support random-access page navigation. Open decision: scope (all list endpoints vs. mapping-only)
+   and whether `totalCount` is always returned or only in offset mode.
 
 ### Exit gate
 

@@ -588,3 +588,41 @@ class MappingTargetPage(BaseModel):
 class MappingCandidatePage(BaseModel):
     items: list[MappingObjectSummary]
     nextCursor: str | None
+
+
+class MappingListRow(BaseModel):
+    relationId: str
+    relationTypeKey: str
+    direction: Literal["outgoing", "incoming"]
+    source: MappingObjectSummary
+    target: MappingObjectSummary
+    attributes: dict[str, Any]
+    mappingVersion: int
+
+
+class MappingListPage(BaseModel):
+    items: list[MappingListRow]
+    nextCursor: str | None
+
+
+class MappingReplacementRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    relationTypeKey: str
+    fromObjectTypeKey: str
+    toObjectTypeKey: str
+    direction: Literal["outgoing", "incoming"]
+    sourceObjectId: UUID4
+    targetObjectId: UUID4 | None = None
+    expectedMappingVersion: int = Field(ge=0)
+    attributes: dict[str, Any] | None = None
+    workspaceDraftId: UUID4 | None = None
+    expectedWorkspaceDraftVersion: int | None = Field(default=None, ge=1)
+
+
+class MappingReplacementResponse(BaseModel):
+    sourceObjectId: str
+    mappingVersion: int
+    state: Literal["mapped", "unmapped"]
+    relationId: str | None = None
+    workspaceDraftVersion: int | None = None

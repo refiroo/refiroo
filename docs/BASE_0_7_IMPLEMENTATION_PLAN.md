@@ -1,8 +1,9 @@
 # Base 0.7 implementation plan
 
-**Status:** In progress. WP-1–WP-4 delivered; WP-4 implementation review and the bounded WP-10A
-cascade-deletion version fix are complete. The earlier WP-1–WP-3 review boundary remains separate;
-WP-1–WP-3 scopes are frozen. WP-5–WP-9 and composed 0.7 acceptance remain pending.
+**Status:** In progress. WP-1–WP-5 delivered; WP-4 implementation review and the bounded WP-10A
+cascade-deletion version fix are complete. WP-5 acceptance follow-up and WP-10B activation hardening
+are delivered. The earlier WP-1–WP-3 review boundary remains separate;
+WP-1–WP-3 scopes are frozen. WP-6–WP-9 and composed 0.7 acceptance remain pending.
 
 **Target:** Product 0.7.0, schema language 0.6. The starter model content advances to a version on
 schema 0.6; that number alone does not mean the product release is accepted.
@@ -327,7 +328,7 @@ versions to return as `mappingVersion`).
 
 **Decision resolved:** D5 uses the dedicated `backend/app/routers/mapping.py` router. Coverage,
 `mapping-candidates` and `mapping-targets` share view/context resolution; response fields and target
-continuation parameters are frozen in [API.md](API.md#product-07-mapping-api-wp-4-delivered-wp-5-planned).
+continuation parameters are frozen in [API.md](API.md#product-07-mapping-api-wp-4-and-wp-5-delivered).
 
 **Exit:** Coverage returns correct mapped/unmapped/ambiguous states with set versions. Candidate
 search returns bounded, searchable results. Both endpoints page correctly and validate against the
@@ -339,6 +340,51 @@ integration checks, not amendments to WP-2/WP-3.
 ---
 
 #### WP-5: Atomic mapping replacement API
+
+**Delivered 2026-09-14.** `PUT /api/v1/workspaces/{workspaceKey}/mappings` with live and draft
+paths, direction-aware cross-cardinality enforcement, retained relation identity, typed attribute
+semantics (omitted/explicit/empty), single-direction set version increments without double counting,
+idempotent no-ops, bounded conflict responses and mapping-transition audit events. Decisions D6
+(PUT method), D7 (one target per operation) and D13 (retained identity + attribute omission) are
+resolved. The response and attribute contracts are documented in `docs/API.md`. After follow-up
+review and acceptance follow-up, 73 replacement/activation integration tests pass; the full backend
+suite passes 486 tests on SQLite.
+
+**Review fixes (2026-09-14):** Conflict target summaries were direction-unaware — incoming conflicts
+could return the source object instead of the target. Fixed to use the same direction-aware extraction
+as the rest of the replacement path. Draft no-op paths (clear-when-already-unmapped and
+same-target-with-same-attributes) incorrectly incremented the draft aggregate version; claim is now
+deferred until after no-op detection. Three regression tests added. Unused test imports cleaned up.
+
+**Final documentation/review follow-up (2026-09-14):** Twelve new HTTP regression cases reproduced
+ancestor-scope bypasses, an orientation-dependent required-ownership rejection and empty supplied
+view identities selecting unconfigured reads. Replacement now reuses canonical live/draft relation
+validation against the final graph; obsolete and retained edges are excluded while checking the
+proposed edge. Generic draft writes also refuse a missing required ancestor, matching live writes.
+Required-ownership rejection is independent of orientation. Supplied view keys are checked by
+presence rather than truthiness. Valid outgoing replacement within one ancestor scope still succeeds;
+refusals preserve graph and aggregate/set versions. Documentation across build, product, roadmap,
+catalogue and acceptance records separates this backend delivery from pending WP-8A/WP-8B/WP-9.
+
+**Earlier implementation review snapshot (2026-09-14, before WP-10B):** Replacement now conditionally claims the exact
+set version before graph writes, including the initially absent row, and holds the workspace active
+status through the transaction. Draft no-ops reject stale aggregate tokens without increments.
+Draft deletions/attribute updates preserve underlying relation audit events and mapping transitions
+identify their draft context. Large conflict previews provide version-bound continuation, with a
+binding-only target projection when no mapping view exists. Regression evidence includes concurrent
+HTTP replacements, conditional-claim refusal, both draft no-op states, relation audits and live/draft
+continuation with and without mapping views. Final validation: Ruff and 446 backend tests passed;
+frontend format, lint (zero errors, 12 existing warnings), 162 tests and build passed. PostgreSQL
+concurrency and the future mapping browser workflow were not exercised.
+
+**Mapping list API (initial delivery snapshot, 2026-09-14):** `GET /api/v1/workspaces/{workspaceKey}/mappings` delivered with
+all-optional parameters. No filters returns every edge twice (outgoing + incoming); `direction` filter
+yields single-orientation rows. Optional `relationTypeKey`, `fromObjectTypeKey`, `toObjectTypeKey`
+narrow the result. Optional `applicationKey` + `viewKey` control column projection only (enriched
+`fields` dict); without a view, default projection returns id/name/objectTypeKey with empty fields.
+Each row includes `direction` in the response. Six new integration tests added (28 total mapping
+tests); the earlier delivery gate passed 437 tests on SQLite. The later WP-5/WP-10B final gate
+and current totals are recorded below.
 
 **Scope:**
 
@@ -381,16 +427,10 @@ integration checks, not amendments to WP-2/WP-3.
 **Prerequisites:** WP-3 (relation-set versions), WP-2 (model validation of mapping bindings),
 and WP-4 response-contract freeze for bounded conflict target summaries.
 
-**Decisions needed:**
-
-- **D6: HTTP method for mapping replacement.** ADR-022 describes a replacement operation on a
-  complete set. `PUT` is semantically correct (idempotent replacement of the complete mapping set for
-  one source). _Recommendation:_ `PUT` on a resource identified by the binding + source.
-- **D7: Cardinality enforcement.** For `many-to-many` bindings, replacement sets exactly one target.
-  Underlying cardinality constraints are checked separately and depend on direction.
-  Should `many-to-many` mapping replacement be limited to one target per operation, or should it
-  accept a list? _Recommendation:_ one target per operation for 0.7; a multi-target variant can be
-  added in 0.9 bulk operations if needed. This keeps the conflict model simple.
+**Decisions (resolved):** D6 uses PUT for complete-set replacement; D7 selects zero or one target
+per operation while validating the declared cardinality separately; D13 preserves selected relation
+identity and uses omission/explicit-object attribute semantics. Multi-target operations remain later
+bulk work.
 
 **Exit:** Mapping replacement creates, replaces and removes mappings atomically. Concurrent
 replacement conflicts with the current version. Idempotent re-save does not increment the version.
@@ -555,6 +595,24 @@ No mapping mutations are required to accept this slice.
    requirement in roadmap item 7).
 8. Narrow-screen responsive behavior: the grid stacks or scrolls horizontally as appropriate.
 
+**WP-5/WP-10B consumer handoff:**
+
+- Preserve the attempted target and typed attributes on both conflict codes. A mapping conflict's
+  returned state/version is for review; retry requires an explicit save with refreshed tokens.
+- Conflict target continuation includes its own `applicationKey`/`viewKey`. Use those identities
+  with the cursor, binding, anchor, returned mapping version and the same workspace/draft context,
+  or start a fresh detail query under the user's selected view. Never reuse a cursor under a
+  different view. If both returned view keys are null, omit them for binding-only name projection.
+- Target-only saves omit relation attributes to retain existing values. Explicit `{}` requests
+  replacement with an empty attribute set. Refresh the draft aggregate token after successful target
+  creation/mapping writes and on aggregate conflict, without discarding unsaved choices.
+- Draft activation can return mapping-set diagnostics under `version_conflict`; show the server's
+  actionable message and anchor identity. A validation retry alone does not reconcile a divergent
+  source/live set. Preserve the existing draft for review and guide explicit reapplication under
+  a fresh current-live draft. No automatic overwrite, repinning or discard is permitted.
+- US-M01 is completed by WP-8A coverage, US-M02/M03 by WP-8B save/conflict controls, and US-M04 by
+  WP-8B contextual creation. WP-9 records composed browser/API acceptance for all four stories.
+
 **Primary areas:** `frontend/src/features/objects/views/`, `frontend/src/features/objects/panels/`
 (if mapping is also a panel type), `frontend/src/api/`, `frontend/src/types/model.ts`, tests.
 
@@ -563,20 +621,14 @@ Extend accessibility/visual scenarios to candidate search, conflict recovery, cl
 creation. Target creation reuses generic fields, parent/ownership selection and validation under the
 selected draft model, with refreshed draft tokens and no mapping change until explicit save.
 
-**Decisions needed:**
+**Decisions (resolved for this handoff):**
 
-- **D9: Mapping as view only, or also as panel?** The roadmap specifies a mapping _view_ (full-page
-  grid). Should mapping also be available as a _panel_ on an object's detail page (showing "this
-  object's mappings for binding X")? _Recommendation:_ view only for 0.7. A panel variant can be
-  added later without API changes, as the coverage and replacement endpoints accept any valid
-  binding. Adding both in one session risks scope creep.
-- **D10: Target creation in context (US-M04).** The story requires creating a missing target while
-  mapping. The existing record-creation flow can be reused. _Decision:_ should target creation open
-  in a modal (preserving the mapping grid context) or navigate to the standard creation page (losing
-  grid context)? _Recommendation:_ modal, to satisfy the "do not abandon the task" acceptance
-  criterion. The modal reuses the generic create-object form. On success, the new target appears in
-  candidates but is not automatically selected as the mapping target (per the requirement: "creating
-  a target does not silently change the mapping").
+- **D9:** Mapping is a full-page view for 0.7. A detail-panel variant remains later work and is not
+  needed for US-M01–M04 acceptance.
+- **D10:** Contextual target creation uses `ui/Modal` and the generic create-object form. This keeps
+  the mapping workspace/draft/view and unsaved choice available. On success, refresh candidates
+  and the draft token; creating the object leaves the mapping unchanged until explicit save.
+
 
 **Exit:** The mapping grid renders for two differently configured relation bindings. Mapped, unmapped
 and ambiguous states are visually distinct. Replacement, clearing and conflict recovery work.
@@ -632,7 +684,7 @@ documentation reflects the delivered state. Any gaps or simplifications are expl
 
 #### WP-10: Conditional 0.7 foundation hardening
 
-**Status:** WP-10A delivered after WP-4 implementation review (2026-09-14). Other slices remain conditional.
+**Status:** WP-10A and WP-10B delivered after WP-4/WP-5 review (2026-09-14). Other slices remain conditional.
 
 **WP-10A — Cascade-deletion relation-set participation:** HTTP reproduction in both live and
 current-live draft contexts: deleting a mapped system value reduced incoming coverage from 21
@@ -648,6 +700,40 @@ context remain unchanged.
 Validation: all 20 focused mapping/cascade tests and the final 401-test backend suite passed on SQLite;
 Ruff and diff whitespace checks passed. Independent patch review found no further issues. The API
 contract and frontend are unchanged by this fix; composed WP-9 acceptance remains separate.
+
+**WP-10B — Mapping-set conflicts during draft activation (delivered 2026-09-14):**
+HTTP regression in both directions confirms that a draft clears an existing mapping, a generic live
+write adds a different edge in that same set, and activation incorrectly returns 200. Per-relation
+comparison misses the new identity. This slice owns the activation merge in
+`services/workspace_revisions.py` and HTTP regressions in `tests/test_mapping_replacement.py`.
+No schema extension is required: use the draft's immutable source graph and the exact directional
+sets already marked by WP-3. Before applying the draft, compare complete relation identities and
+versions in each touched mutable, non-ownership binding set with current live data. Containment
+continues to use its existing object/graph merge rules. A divergence returns `409 version_conflict`
+with bounded binding/anchor/direction diagnostics and recovery instructions, preserving the draft,
+all live rows and the active revision. Check newly mapped sets, both directions, new/deleted/updated
+live edges, independent bindings and unrelated live work. A changed live set whose complete current
+state and relation versions match the source again is not a divergent graph under this check.
+
+**WP-5 acceptance follow-up (delivered 2026-09-14):** Add independent-binding isolation in live/draft
+contexts, required-ownership rejection, forbidden clearing, and overlapping real HTTP generic
+create/update/delete versus replacement. Verify error codes, graph preservation, directional tokens
+and relation identity. Do not equate sequential stale-token checks with concurrent-write evidence.
+
+**Delivery and handoff:** Implement WP-5 tests, then WP-10B merge refusal, reconcile ADR-022 request
+names and document binding-only continuation in WP-8B. Run focused regression tests and one final
+backend Ruff/full-pytest and frontend format/lint/test/build gate for the changed public error
+contract. Existing unrelated worktree edits and review notes remain intact. WP-8A/WP-8B continue
+as independently deliverable UI packages; WP-9 owns their composed US-M01–M04/SC-07 acceptance.
+
+**WP-5/WP-10B final validation (2026-09-14):** 486 backend tests passed, including 73
+replacement/activation cases; Ruff passed. Frontend format, lint (zero errors, 12 existing warnings),
+164 tests and production build passed. Two frontend diagnostics cases verify the recovery message and
+anchor identity. The preceding independent WP-10B review identified a missing
+restored-source-graph case; that HTTP regression now passes in both directions and is included in
+the final backend gate. Diff whitespace checks passed. PostgreSQL concurrency and composed mapping
+browser journeys were not exercised. No migration or production UI structure changed, so additional
+migration smoke, accessibility and visual-baseline gates were not required for this follow-up.
 
 **Trigger:** WP-4/WP-5/WP-9 integration evidence identifies a missing WP-1/WP-2/WP-3 capability
 needed for SC-07/SC-15. Before editing, record the reproduced failure, affected contract, bounded

@@ -270,3 +270,14 @@ WP-6/WP-7 require whole-candidate compatibility, atomic pin changes and safe mod
 WP-9 proves independent bindings, same-schema differing releases, race/isolation behavior and the new
 controls' accessibility/visual behavior. Conditional WP-10 addresses only confirmed foundation gaps.
 See [the 0.7 plan](../BASE_0_7_IMPLEMENTATION_PLAN.md); these refinements add no delivery evidence.
+
+
+## 0.7 mapping backend delivery and remaining story acceptance — 2026-09-14
+
+WP-4 query and WP-5 replacement contracts are delivered. WP-5 acceptance includes an independent
+binding and overlapping generic writes; WP-10A makes cascades invalidate continuations, and WP-10B
+refuses divergent touched live mapping sets at draft activation. Source/live identity/version
+comparison preserves unrelated live work and permits a restored source graph. Validation: 486
+backend tests, Ruff, frontend format/lint (zero errors, 12 existing warnings), 164 tests and build.
+US-M01–M04 still require WP-8A/WP-8B browser delivery and WP-9 composed evidence. This API/component
+evidence does not establish PostgreSQL concurrency or close SC-07 browser acceptance.

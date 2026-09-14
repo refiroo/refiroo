@@ -33,8 +33,8 @@ across systems. Starter applications are examples of configuration, never specia
 | Capability | Current development position | Product coverage |
 | --- | --- | --- |
 | Model-defined navigation, tables, search and record inspection | Browser foundation present; non-default workspace detail context needs repair | F01–F04, US-D01–D05, US-D13 |
-| Live record, field, parent, relationship and basic translation maintenance | API available; complete browser authoring remains Base 0.6 work | F05–F11, US-D06–D14, US-L01–L02 |
-| Optional coordinated data changes | Current-live and historical draft sources plus merge services available through the API; composed browser acceptance remains | F12–F14, US-W01–W08 |
+| Live record, field, parent, relationship and basic translation maintenance | API and Base 0.6 browser authoring available; context limitations tracked in the functionality catalogue | F05–F11, US-D06–D14, US-L01–L02 |
+| Optional coordinated data changes | Current-live/history draft sources and delta merge available; mapping browser acceptance remains 0.7 work | F12–F14, US-W01–W08 |
 | Inspect, check, install and activate application definitions | JSON workbench and release APIs present; installation and activation are separate | F15, US-P01–P04, US-P06 |
 | Stable paged integration reads | Available; larger exchange and advanced query planned for 0.9 | F16, US-I01–I09 |
 | Dedicated mapping, translation coverage and hierarchy views | Mapping 0.7; translation and hierarchy 0.8 | US-M01–M04, US-L03–L04, US-H01–H02 |
@@ -43,9 +43,11 @@ across systems. Starter applications are examples of configuration, never specia
 
 “API available” does not mean a complete browser task. Current top-level views support strict tables;
 a form used for record editing is not an implemented configurable top-level `form` view. Schema 0.6
-mapping-grid configuration and its live/draft coverage, target-detail and candidate APIs are delivered
-(WP-4), with a placeholder renderer. Atomic replacement and its complete browser workflow remain
-0.7 work. Trees and other specialist declarations require their own validated contract and renderer. Dashboards
+mapping-grid configuration, live/draft coverage, target-detail, candidate APIs (WP-4) and atomic
+mapping replacement (WP-5) are delivered, with a placeholder renderer. The complete browser workflow
+remains WP-8A/WP-8B work, with composed story acceptance in WP-9. Cascade deletions advance mapping
+tokens (WP-10A), and draft activation refuses divergent live sets touched by staged mutable relations
+(WP-10B), preserving the draft and all live content. Trees and other specialist declarations require their own validated contract and renderer. Dashboards
 have no scheduled user outcome. The [functionality catalogue](product-functionality/CURRENT_FUNCTIONALITY.md)
 records channel limitations; no browser acceptance is implied by the presence of a component.
 

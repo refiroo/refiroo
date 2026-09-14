@@ -17,7 +17,7 @@ complete user experience. No application tests were executed for this documentat
 | F05 | Maintain live records                                     | Temporarily unwired | Available      | WP9 must enable browser editing  |
 | F06 | Maintain typed field values                               | Components present  | Available      | Browser completion is WP9        |
 | F07 | Maintain containment and hierarchy                        | Components present  | Available      | Specialist tree is roadmap       |
-| F08 | Maintain ordinary relationships                           | Components present  | Available      | Mapping API available; UI planned |
+| F08 | Maintain ordinary relationships                           | Components present  | Available      | Mapping query+replacement API delivered; UI planned |
 | F09 | Maintain translations                                     | Components present  | Available      | Translation workspace is roadmap |
 | F10 | Preview and confirm dependent deletion                    | Components present  | Available      | Browser completion is WP9        |
 | F11 | Inspect record history                                    | Default only        | Available      | Non-default context is dropped   |
@@ -220,10 +220,16 @@ contract.
 
 WP-4 delivers model-configured live/draft mapping coverage with mapped, unmapped and ambiguous
 states, exact counts, bounded target previews, version-bound target details and paged candidate search.
-WP-10A ensures that cascade object deletion invalidates affected mapping continuations. These are API
-capabilities; the mapping renderer remains a placeholder. Atomic replacement (WP-5), browser coverage
+WP-5 delivers atomic mapping replacement: `PUT /mappings` creates, replaces or removes a mapping for
+one source with retained relation identity, typed attribute semantics, direction-aware cross-cardinality
+enforcement, idempotent no-ops, bounded conflict responses and mapping-transition audit events in both
+live and draft contexts. WP-10A ensures that cascade object deletion invalidates affected mapping
+continuations. WP-10B refuses divergent live sets touched by staged mutable relations before draft
+activation, with bounded binding/anchor/direction diagnostics; unrelated live work survives. The
+source/live fingerprint uses edge identities and surviving edge versions. The current gate has
+486 backend and 164 frontend tests; PostgreSQL concurrency is unverified. These are API capabilities; the mapping renderer remains a placeholder. Browser coverage
 (WP-8A), actions (WP-8B) and composed integration acceptance (WP-9) remain pending. See the
-[mapping API contract](../API.md#product-07-mapping-api-wp-4-delivered-wp-5-planned) and
+[mapping API contract](../API.md#product-07-mapping-api-wp-4-and-wp-5-delivered) and
 [0.7 plan](../BASE_0_7_IMPLEMENTATION_PLAN.md). WP-1–WP-3 remain frozen.
 
 Evidence: [mapping query API](../../backend/app/routers/mapping.py),

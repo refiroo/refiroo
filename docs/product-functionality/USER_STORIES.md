@@ -334,7 +334,8 @@ targets. Large conflicting sets have an exact count and a way to inspect remaini
 an unlimited response. I can find candidates beyond the visible rows, using the configured relationship names and
 direction, without opening each source individually.
 
-**Coverage:** Planned mapping grid. **Status:** Roadmap 0.7.
+**Coverage:** Coverage/candidate/target APIs delivered (WP-4); mapping browser grid remains WP-8A.
+**Status:** Roadmap 0.7; composed browser acceptance pending.
 
 ### US-M02 — Replace one mapping atomically
 
@@ -345,7 +346,8 @@ that users never observe a delete-then-create gap.
 leaving the mapping empty is allowed. If another person changed the mapping, I can inspect their current choice before
 retrying; my attempted replacement changes nothing until then.
 
-**Coverage:** Planned mapping operation. **Status:** Roadmap 0.7.
+**Coverage:** Atomic replacement API delivered (WP-5); browser actions/conflict recovery remain WP-8B.
+**Status:** Roadmap 0.7; composed browser acceptance pending.
 
 ### US-M03 — Resolve an ambiguous mapping safely
 
@@ -356,7 +358,8 @@ result is protected by the same concurrency rule as an existing or missing mappi
 newer work as choosing a first target. Connections with another business meaning remain unchanged. Retaining an existing selected target
 preserves its relation identity and declared attributes unless I explicitly change them.
 
-**Coverage:** Planned mapping operation. **Status:** Roadmap 0.7.
+**Coverage:** Atomic replacement API delivered (WP-5); browser actions/conflict recovery remain WP-8B.
+**Status:** Roadmap 0.7; composed browser acceptance pending.
 
 ### US-M04 — Create a missing mapping target in context
 

@@ -597,7 +597,17 @@ revision preserves newer live records it never touched (ADR-026). Conflicts are
 `version_conflict` — activation reports every per-record merge divergence under `409 version_conflict`
 with `details.conflicts` (`kind`, `id`, `code` `version_mismatch`/`id_collision`/`duplicate_edge`,
 expected/actual version) — plus `422 workspace_graph_invalid` when the merged graph fails whole-graph
-validation. Draft and historical collection cursors bind their selected context identity and query
+validation. Activation also compares complete source/live relation identities and versions for
+exact directional mutable binding sets touched by the draft. A divergent set adds a diagnostic with
+`kind: "mapping-set"`, `code: "mapping_set_changed"`, `id`/`anchorObjectId`, physical binding type keys,
+`direction`, expected/actual target counts and a recovery message. At most 20 mapping-set diagnostics
+are returned; `details.mappingSetConflictCount` gives the exact total and
+`details.mappingSetConflictsTruncated` indicates omitted mapping-set diagnostics. No graph is applied,
+no revision is created, and the draft remains available. Review current live mappings and reapply
+intended changes in a new current-live draft before activation; validating the unchanged conflicting
+draft does not resolve the conflict. Containment/ownership use their existing merge rules. Identical
+source/live edge identities and surviving edge versions count as the same graph, even if an intervening
+addition was later removed. Draft and historical collection cursors bind their selected context identity and query
 filters; malformed/mismatched tokens return `422 invalid_cursor`. Live collection cursors bind the
 effective live workspace and query filters. Current cursor
 tokens do not bind a model or revision ID unless that context is itself selected.
@@ -1060,10 +1070,10 @@ identity, type and workspace; mismatches return `422 invalid_cursor`.
 There will be no equivalent of enumerating numeric attribute IDs `1..1000` or using `take: 0` for a full
 extract.
 
-## Product 0.7 mapping API (WP-4 delivered; WP-5 planned)
+## Product 0.7 mapping API (WP-4 and WP-5 delivered)
 
-WP-4 delivers the three mapping query endpoints below. Atomic replacement remains planned in
-WP-5; composed acceptance remains in WP-9. WP-1–WP-3 scopes remain frozen.
+WP-4 delivers the mapping query endpoints below. WP-5 delivers the atomic replacement
+endpoint. Composed acceptance remains in WP-9. WP-1–WP-3 scopes remain frozen.
 
 - `GET /api/v1/workspaces/{workspaceKey}/mapping-coverage` takes `applicationKey`, `viewKey`,
   explicit `relationTypeKey`, `fromObjectTypeKey`, `toObjectTypeKey`, `direction`, bounded `pageSize`,
@@ -1081,8 +1091,8 @@ WP-5; composed acceptance remains in WP-9. WP-1–WP-3 scopes remain frozen.
 - Cursors bind workspace, live/draft context, effective model release, view, direction and query
   configuration. Unknown view/binding is `404`; mismatched configuration and cursors are explicit
   validation errors. The frozen detail route is
-  `GET /api/v1/workspaces/{workspaceKey}/mapping-targets`, with the same required view and explicit
-  binding parameters as coverage, plus `sourceObjectId`, required nonnegative `mappingVersion`,
+  `GET /api/v1/workspaces/{workspaceKey}/mapping-targets`, with the same explicit binding parameters as coverage
+  and optional paired `applicationKey`/`viewKey` for view-specific projection, plus `sourceObjectId`, required nonnegative `mappingVersion`,
   optional `cursor`, `pageSize` (1–100; default 20), and optional `workspaceDraftId`.
   It returns `{mappingVersion, targetCount, items, nextCursor}`. An observed-version mismatch returns
   `409 mapping_version_conflict` with an instruction to refresh coverage and the current version in
@@ -1127,27 +1137,91 @@ An ambiguous row reports the complete `targetCount`, up to 20 targets and `targe
 Pass that cursor to `mapping-targets` with the row's source ID and mapping version to continue beyond
 the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
 
-### Planned atomic replacement (WP-5)
+### Mapping list
 
-- `PUT /api/v1/workspaces/{workspaceKey}/mappings` accepts explicit physical endpoint type keys,
-  relation type, direction, `sourceObjectId` (the row anchor), nullable `targetObjectId`,
-  `expectedMappingVersion`, optional relation `attributes` and optional draft context with
-  `expectedWorkspaceDraftVersion`. Incoming direction reverses row/target roles, not physical keys.
-  Null removes only the exact selected set. Non-null replaces it with one selected target.
-- Validate status, endpoint identities and the effective model; reject containment/required ownership.
-  Clearing is allowed only where empty is valid. The operation's one-target rule does not change the
-  binding's direction-aware cardinality or broaden validation to overwrite another source's mapping.
-- Claim tokens before no-op detection. A stale mapping token returns `409 mapping_version_conflict`
-  with current version/count/preview/continuation and no changes. Draft aggregate conflicts remain
-  distinct. Preserve the selected existing relation identity, remove obsolete edges, update selected
-  attributes or create an absent edge, and maintain all affected outgoing/incoming versions through
-  the foundation service atomically without double increments.
-- Omitted attributes preserve a retained edge's values; for a new edge they supply no explicit values
-  and normal defaults/validation apply. An explicit attribute object replaces the complete set;
-  `{}` clears only where valid. Null target requires omitted or empty attributes. Typed writes use
-  the canonical validation boundary. An identical complete state with valid tokens is a no-op with
-  no version increment or audit. Changes retain underlying relation audit and add one transition
-  event with old/new target and relation identities, including attribute-only changes.
+- `GET /api/v1/workspaces/{workspaceKey}/mappings` returns a flat, cursor-paged list of mapping edges.
+  All filter parameters are optional:
+  - `relationTypeKey` — filter to one relation type.
+  - `fromObjectTypeKey`, `toObjectTypeKey` — filter to a specific object-type pair.
+  - `direction` (`outgoing` | `incoming`) — when omitted, each edge appears **twice** (once per
+    direction with swapped source/target), so consumers see the full picture without prior knowledge
+    of direction semantics. When supplied, each edge appears once in the requested orientation.
+  - `applicationKey` + `viewKey` — both required together; controls column projection only (the view's
+    source/target display columns enrich the `fields` dict). Without a view, default projection returns
+    `id`, `objectTypeKey`, `name` and an empty `fields` dict.
+  - `workspaceDraftId` — read from a draft snapshot instead of live data.
+  - `search` — case-insensitive substring on source or target name (max 500 characters).
+  - `cursor`, `pageSize` (1–100; defaults to 20 without a view, or the view's configured page size).
+- Returns `{items, nextCursor}`. Each item contains `relationId`, `relationTypeKey`, `direction`
+  (`"outgoing"` or `"incoming"`), `source` and `target` object summaries, the stored relation
+  `attributes` and the source anchor's `mappingVersion`.
+- Pagination is currently cursor-based (sequential forward traversal only). Random-access page
+  navigation (offset/limit) is under consideration — see the open decision in `TODO.md`.
+- Unlike coverage, the list shows only existing edges — unmapped sources do not appear. This is useful
+  for export, integration, flat-list views, and ad-hoc exploration where the source-anchored grouping
+  of coverage is not needed and parameters may not be known upfront.
+
+```json
+{
+  "items": [{
+    "relationId": "relation-public-id",
+    "relationTypeKey": "system-value-maps-to-master",
+    "direction": "outgoing",
+    "source": {"id": "source-id", "objectTypeKey": "system-value", "name": "SV-1", "fields": {}},
+    "target": {"id": "target-id", "objectTypeKey": "master-value", "name": "MV-1", "fields": {}},
+    "attributes": {},
+    "mappingVersion": 2
+  }, {
+    "relationId": "relation-public-id",
+    "relationTypeKey": "system-value-maps-to-master",
+    "direction": "incoming",
+    "source": {"id": "target-id", "objectTypeKey": "master-value", "name": "MV-1", "fields": {}},
+    "target": {"id": "source-id", "objectTypeKey": "system-value", "name": "SV-1", "fields": {}},
+    "attributes": {},
+    "mappingVersion": 1
+  }],
+  "nextCursor": null
+}
+```
+
+### Atomic replacement (WP-5 delivered)
+
+- `PUT /api/v1/workspaces/{workspaceKey}/mappings` accepts `relationTypeKey`, `fromObjectTypeKey`,
+  `toObjectTypeKey`, `direction` (outgoing/incoming), `sourceObjectId` (the row anchor), nullable
+  `targetObjectId`, `expectedMappingVersion` (≥0), optional relation `attributes` dict and optional
+  `workspaceDraftId` with `expectedWorkspaceDraftVersion`. Incoming direction reverses source/target
+  roles, not the physical type keys. Null target removes the exact selected set; non-null replaces it
+  with one selected target.
+- Returns `{sourceObjectId, mappingVersion, state, relationId?, workspaceDraftVersion?}`. State is
+  `"mapped"` or `"unmapped"`.
+- Validates workspace status, endpoint identities and the effective model. Rejects containment
+  bindings (`422 immutable_relation`) and required-ownership bindings
+  (`422 required_ownership_binding`). Clearing a required relation is `422 required_relation`.
+- Direction-aware cross-cardinality is enforced: one-to-one always; one-to-many on outgoing
+  direction only. Violations return `409 cardinality_violation`. Ancestor-scoped uniqueness is
+  validated against the final graph, excluding edges being replaced. Duplicate scopes return
+  `409 duplicate_relation_scope`; a missing required ancestor returns `422 relation_ancestor_required`
+  in both mapping and generic relation writes, live or draft.
+- Tokens are checked before no-op detection. A stale mapping token returns `409 mapping_version_conflict`
+  with `{mappingVersion, targetCount, targets (≤20), targetsNextCursor}` in error details and no
+  changes. Draft aggregate conflicts remain distinct (`409 workspace_draft_version_conflict`).
+  Large conflict sets include a signed continuation cursor and the selected `applicationKey`/`viewKey`;
+  pass these with the binding, source and returned version to `GET /mapping-targets`. When no mapping
+  view exists, omit both view keys for a binding-only name projection. Coverage and candidate reads
+  still require a declared view. Supplying only one view key is rejected. Explicit empty view keys
+  are supplied identities and fail lookup; they never select the binding-only fallback.
+  Draft context requires `expectedWorkspaceDraftVersion` (`409 workspace_draft_required` if omitted).
+- Preserves the selected existing relation identity when the target is retained, removes obsolete
+  edges, updates selected attributes or creates a new edge. Maintains all affected outgoing/incoming
+  set versions atomically without double increments: the source anchor is incremented once per
+  direction, each affected target is incremented once in the opposite direction.
+- Omitted `attributes` preserve a retained edge's values; for a new edge they supply no explicit
+  values and normal defaults/validation apply. An explicit attribute object replaces the complete set;
+  `{}` clears. Null target with non-empty attributes is `422 invalid_clear_attributes`. Typed writes
+  use the canonical validation boundary. An identical complete state with valid tokens is a no-op
+  with no version increment or audit event.
+- Changes record underlying per-relation audit events (created/updated/deleted) and one mapping
+  `transition` event with old/new targets, relation identities and attributes.
 
 WP-9 verifies generic-write/mapping races, both directional sets, independent bindings and draft
 activation versus live same-set changes. Confirmed missing foundation capabilities trigger a bounded

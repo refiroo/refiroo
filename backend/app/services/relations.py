@@ -113,7 +113,7 @@ def create_relation_instance(
     )
     ensure_relation_mutable(model, payload.relationTypeKey, to_object.object_type_key)
     validate_cardinality(session, allowed, payload)
-    _validate_unique_to_ancestor(session, allowed, payload, to_object)
+    validate_unique_to_ancestor(session, allowed, payload, to_object)
     attributes = validate_relation_attributes(model, allowed, payload.attributes)
     relation = ObjectRelation(
         relation_type_key=payload.relationTypeKey,
@@ -138,8 +138,14 @@ def create_relation_instance(
     return relation
 
 
-def _validate_unique_to_ancestor(
-    session, allowed, payload, to_object: RdmObject, *, exclude_relation_id: str | None = None
+def validate_unique_to_ancestor(
+    session: Session,
+    allowed: ObjectTypeRelationDefinition,
+    payload: RelationCreate,
+    to_object: RdmObject,
+    *,
+    exclude_relation_id: str | None = None,
+    exclude_relation_ids: set[str] | None = None,
 ) -> None:
     ancestor_type_key = allowed.features.get("uniqueToAncestorTypeKey")
     if not ancestor_type_key:
@@ -159,6 +165,8 @@ def _validate_unique_to_ancestor(
     )
     if exclude_relation_id is not None:
         statement = statement.where(ObjectRelation.id != exclude_relation_id)
+    if exclude_relation_ids:
+        statement = statement.where(ObjectRelation.id.not_in(exclude_relation_ids))
     existing_target_ids = list(session.scalars(statement))
     if not existing_target_ids:
         return
@@ -218,7 +226,7 @@ def validate_scoped_relations_for_subtree(
             from_object.object_type_key,
             to_object.object_type_key,
         )
-        _validate_unique_to_ancestor(
+        validate_unique_to_ancestor(
             session,
             allowed,
             RelationCreate(

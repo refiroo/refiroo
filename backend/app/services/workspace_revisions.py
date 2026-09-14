@@ -22,6 +22,7 @@ from ..models.database import (
     ModelRuntimeState,
     ObjectRelation,
     RdmObject,
+    RelationSetVersion,
     Workspace,
     WorkspaceDraft,
     WorkspaceDraftBase,
@@ -172,6 +173,11 @@ def _draft(session: Session, draft_id: str, *, for_update: bool = False) -> Work
 def ensure_draft_writable(session: Session, draft_id: str) -> WorkspaceDraft:
     """Resolve a draft and reject mutations against a retired workspace."""
     return _draft(session, draft_id, for_update=True)
+
+
+def claim_draft_version(session: Session, draft: WorkspaceDraft, expected: int) -> None:
+    """Claim the draft aggregate version for an external write operation."""
+    _claim_draft(session, draft, expected)
 
 
 def _claim_draft(
@@ -503,7 +509,7 @@ def _normalize_relation(
     return validate_relation_attributes(model, allowed, attributes)
 
 
-def _validate_draft_relation(
+def validate_draft_relation(
     model: Any,
     membership: EffectiveDraftMembership,
     relation_type_key: str,
@@ -512,6 +518,7 @@ def _validate_draft_relation(
     attributes: dict[str, Any],
     *,
     exclude_id: str | None = None,
+    exclude_ids: set[str] | None = None,
 ) -> dict[str, Any]:
     objects = {item.object_id: item for item in membership.objects}
     source, target = objects.get(from_id), objects.get(to_id)
@@ -543,7 +550,9 @@ def _validate_draft_relation(
     existing = [
         row
         for row in membership.relations
-        if row.relation_id != exclude_id and row.relation_type_key == relation_type_key
+        if row.relation_id != exclude_id
+        and row.relation_id not in (exclude_ids or set())
+        and row.relation_type_key == relation_type_key
     ]
     if allowed.cardinality == "one-to-one" and any(
         row.from_object_id == from_id or row.to_object_id == to_id for row in existing
@@ -570,7 +579,13 @@ def _validate_draft_relation(
             return None
 
         target_ancestor = ancestor(target)
-        if target_ancestor and any(
+        if target_ancestor is None:
+            raise api_error(
+                422,
+                "relation_ancestor_required",
+                f"Related object must belong to an ancestor of type '{ancestor_type}'",
+            )
+        if any(
             row.from_object_id == from_id
             and ancestor(objects.get(row.to_object_id)) == target_ancestor
             and (
@@ -662,7 +677,7 @@ def put_draft_object(session: Session, draft_id: str, payload: Any) -> Workspace
             candidate = EffectiveDraftMembership(
                 draft, tuple(objects.values()), tuple(candidate_relations)
             )
-            attrs = _validate_draft_relation(
+            attrs = validate_draft_relation(
                 model, candidate, initial.relationTypeKey, from_id, to_id, initial.attributes
             )
             relation = WorkspaceDraftRelation(
@@ -778,7 +793,7 @@ def update_draft_object(
             )
             if relation.relation_type_key in parent_keys:
                 continue
-            _validate_draft_relation(
+            validate_draft_relation(
                 model,
                 candidate,
                 relation.relation_type_key,
@@ -1205,7 +1220,7 @@ def put_draft_relation(session: Session, draft_id: str, payload: Any) -> Workspa
             WorkspaceDraftRelation.relation_id == relation_id,
         )
     )
-    attributes = _validate_draft_relation(
+    attributes = validate_draft_relation(
         model,
         membership,
         payload.relationTypeKey,
@@ -1290,7 +1305,7 @@ def update_draft_relation(
     attrs = row.attributes or {}
     if payload.attributes is not None:
         attrs = payload.attributes
-    attrs = _validate_draft_relation(
+    attrs = validate_draft_relation(
         model, membership, relation_type, from_id, to_id, attrs, exclude_id=relation_id
     )
     _claim_draft(session, draft, payload.expectedDraftVersion)
@@ -1703,7 +1718,7 @@ def _diagnostics(membership: EffectiveDraftMembership, model: Any) -> list[dict[
                 )
     # Ancestor-scoped uniqueness (language/target uniqueness for translations): a scoped relation may
     # appear once per source object per ancestor scope while the optional target-attribute condition
-    # holds. Mirrors the draft write path in _validate_draft_relation.
+    # holds. Mirrors the draft write path in validate_draft_relation.
     for relation, allowed in valid_relations:
         ancestor_type_key = allowed.features.get("uniqueToAncestorTypeKey")
         if not ancestor_type_key:
@@ -1949,11 +1964,93 @@ def _merge_version_conflict(
     }
 
 
+def _mapping_set_merge_conflicts(
+    session: Session,
+    draft: WorkspaceDraft,
+    model: Any,
+    base_objects: dict[str, Any],
+    base_relations: dict[str, Any],
+    live_objects: dict[str, RdmObject],
+    live_relations: dict[str, ObjectRelation],
+) -> list[dict[str, Any]]:
+    """Compare the complete source/live sets touched by staged mutable relation writes.
+
+    Edge identities and edge versions are the immutable source's fingerprint. This catches
+    additions/removals elsewhere in a touched set, which individual COW-row checks miss.
+    Containment/ownership retain the existing record and complete-graph merge semantics.
+    """
+    mutable_bindings = {
+        (pair.relationTypeKey, pair.fromObjectTypeKey, pair.toObjectTypeKey)
+        for pair in model.objectTypeRelations
+        if not _is_parent_pair(model, pair)
+        and not (pair.required and pair.cardinality in {"one-to-one", "one-to-many"})
+    }
+    touched = {
+        (
+            row.relation_type_key,
+            row.from_object_type_key,
+            row.to_object_type_key,
+            row.anchor_object_id,
+            row.direction,
+        )
+        for row in session.scalars(
+            select(RelationSetVersion).where(
+                RelationSetVersion.workspace_key == draft.workspace_key,
+                RelationSetVersion.workspace_draft_id == draft.id,
+            )
+        )
+        if (row.relation_type_key, row.from_object_type_key, row.to_object_type_key)
+        in mutable_bindings
+    }
+    if not touched:
+        return []
+
+    def fingerprints(objects, relations):
+        result = {key: {} for key in touched}
+        for relation_id, edge in relations.items():
+            source, target = objects.get(edge.from_object_id), objects.get(edge.to_object_id)
+            if source is None or target is None:
+                continue
+            binding = (edge.relation_type_key, source.object_type_key, target.object_type_key)
+            for anchor, direction in (
+                (edge.from_object_id, "outgoing"),
+                (edge.to_object_id, "incoming"),
+            ):
+                key = (*binding, anchor, direction)
+                if key in result:
+                    result[key][relation_id] = edge.version
+        return result
+
+    expected = fingerprints(base_objects, base_relations)
+    actual = fingerprints(live_objects, live_relations)
+    return [
+        {
+            "kind": "mapping-set",
+            "id": anchor,
+            "anchorObjectId": anchor,
+            "relationTypeKey": relation_type,
+            "fromObjectTypeKey": from_type,
+            "toObjectTypeKey": to_type,
+            "direction": direction,
+            "code": "mapping_set_changed",
+            "expectedTargetCount": len(expected[key]),
+            "actualTargetCount": len(actual[key]),
+            "message": "Mapping relationships changed live since this draft's source. "
+            "Review live mappings and reapply the intended changes in a draft created "
+            "from current live data before retrying activation.",
+        }
+        for key in sorted(touched)
+        for relation_type, from_type, to_type, anchor, direction in [key]
+        if expected[key] != actual[key]
+    ]
+
+
 def _merge_draft_over_live(
     session: Session,
     draft: WorkspaceDraft,
     base_objects: dict[str, WorkspaceRevisionObject | WorkspaceDraftBaseObject],
     base_relations: dict[str, WorkspaceRevisionRelation | WorkspaceDraftBaseRelation],
+    model: Any,
 ) -> _LiveMerge:
     """Compute the live content that would result from applying the draft's delta.
 
@@ -2010,7 +2107,10 @@ def _merge_draft_over_live(
         for relation_id, relation in live_relations.items()
     }
 
-    conflicts: list[dict[str, Any]] = []
+    mapping_conflicts = _mapping_set_merge_conflicts(
+        session, draft, model, base_objects, base_relations, live_objects, live_relations
+    )
+    conflicts: list[dict[str, Any]] = mapping_conflicts[:20]
     authored_object_ids: set[str] = set()
     draft_objects = {
         item.object_id: item
@@ -2163,7 +2263,11 @@ def _merge_draft_over_live(
             409,
             "version_conflict",
             "Workspace draft conflicts with the live active data",
-            {"conflicts": conflicts},
+            {
+                "conflicts": conflicts,
+                "mappingSetConflictCount": len(mapping_conflicts),
+                "mappingSetConflictsTruncated": len(mapping_conflicts) > 20,
+            },
         )
     membership = EffectiveDraftMembership(
         draft=draft,
@@ -2212,6 +2316,7 @@ def activate_draft(
         session,
         draft,
         *_revision_snapshot_maps(session, draft),
+        model,
     )
     diagnostics = _diagnostics(merged.membership, model)
     if diagnostics:

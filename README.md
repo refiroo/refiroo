@@ -58,8 +58,11 @@ relationships and translations without a draft; use optional workspace drafts fo
 with delta-merge activation; browse newest-first immutable history; and retire publications truthfully.
 Automated accessibility and visual-regression tooling (UI-07), the schema 0.6 mapping-grid contract,
 and live/draft mapping coverage, version-bound target details and candidate search APIs (WP-4) are
-delivered. Cascade deletion invalidates affected mapping tokens. The mapping renderer is currently
-a placeholder; see the [mapping API contract](docs/API.md#product-07-mapping-api-wp-4-delivered-wp-5-planned). The full workflow and draft
+delivered. Atomic replacement (WP-5) retains relation identities and typed attributes and checks
+mapping/draft concurrency tokens. Cascade deletion invalidates affected mapping tokens (WP-10A);
+draft activation refuses divergent touched mapping sets before applying changes (WP-10B). The
+mapping renderer is currently a placeholder; see the
+[mapping API contract](docs/API.md#product-07-mapping-api-wp-4-and-wp-5-delivered). The full workflow and draft
 model-version selection remain planned 0.7 work, with translation and hierarchy interactions in 0.8.
 The [0.7 plan](docs/BASE_0_7_IMPLEMENTATION_PLAN.md) freezes WP1–WP3, splits mapping coverage/actions
 into WP8A/WP8B and assigns integration acceptance to WP9, with conditional WP10 for confirmed gaps.

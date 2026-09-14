@@ -106,6 +106,17 @@ browser model refresh to WP-6/WP-7, coverage/actions to WP-8A/WP-8B and expanded
 WP-9. Confirmed foundation gaps trigger bounded WP-10 work before acceptance. These are planning
 requirements, not findings from the pending implementation reviews or new delivered capabilities.
 
+## 0.7 delivered mapping backend follow-up — 2026-09-14
+
+WP-3–WP-5 are delivered. WP-5 review/acceptance covers retained identities, typed attributes,
+independent bindings, ownership/clearing refusals, and overlapping generic relation writes.
+WP-10A closes cascade token invalidation; WP-10B closes divergent touched-set activation by comparing
+complete source/live edge identities and versions. The SQLite gate passes 486 backend tests and
+164 frontend tests; this does not complete US-M01–M04 in the browser. WP-8A delivers coverage,
+WP-8B actions/conflict recovery/contextual target creation, and WP-9 composed acceptance.
+View-only mapping and modal target creation are resolved in the WP-8B handoff. WP-6/WP-7 remain
+responsible for non-active draft model selection. Earlier plan-review evidence remains historical.
+
 ## Technical documentation update method
 
 1. Reconcile GAP-01–GAP-08 with the current source and record each resolution or explicit deferral.

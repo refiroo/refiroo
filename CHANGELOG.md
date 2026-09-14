@@ -8,6 +8,20 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+- Build 0.7 WP-5 review: enforce ancestor-scoped constraints against the final replacement graph,
+  and reject missing required ancestors in generic draft relation writes as in live writes. Reject
+  required-ownership replacement irrespective of relation orientation. Explicit empty application/view
+  keys fail validation instead of selecting unconfigured reads. Twelve HTTP regressions cover these
+  boundaries, preserved tokens and valid replacements within one ancestor scope.
+
+- Build 0.7 WP-10B: draft activation now refuses new, removed or updated live relations in exact
+  mutable binding sets the draft touched, including previously unmapped sets. It compares the
+  immutable source/live edge identities and versions before applying any rows. Refusals preserve
+  the draft, live data and revision designation and include bounded mapping-set diagnostics with
+  recovery instructions. Unrelated live mapping work and existing containment/ownership merge
+  behavior remain covered. WP-5 acceptance adds independent-binding isolation, required-ownership
+  and clearing refusals, and overlapping generic create/update/delete versus mapping saves.
+
 - Build 0.7 WP-10A, found in WP-4 review: confirmed live/draft object cascades now advance both
   directional relation-set versions for removed edges. Stale mapping target continuations return
   `409 mapping_version_conflict` with refresh guidance; previews and rejected deletes leave versions
@@ -31,12 +45,31 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Build 0.7 WP-5 atomic mapping replacement API: `PUT /api/v1/workspaces/{workspaceKey}/mappings`
+  atomically creates, replaces or removes a mapping for one source in a configured relation binding.
+  Supports live and draft contexts with optimistic concurrency via `expectedMappingVersion` and
+  `expectedWorkspaceDraftVersion`. Direction-aware cross-cardinality enforcement (one-to-one always,
+  one-to-many outgoing only). Retained relation identity when resolving ambiguous→mapped. Typed
+  attribute semantics: omitted preserves retained edge values, explicit replaces, `{}` clears. Null
+  target with non-empty attributes rejected. Idempotent no-ops with valid tokens produce no version
+  increment or audit event. Stale tokens return `409 mapping_version_conflict` with bounded preview.
+  Single-direction set version increments avoid double counting. Containment and required-ownership
+  bindings rejected. Mapping-transition audit events with old/new targets and relation identities.
+  After acceptance follow-up: 73 replacement/activation integration tests; 486 backend tests pass
+  on SQLite.
+
+- Build 0.7 mapping list API: `GET /api/v1/workspaces/{workspaceKey}/mappings` returns cursor-paged
+  live/draft edges with optional binding, direction and name filters, directional set tokens, stored
+  typed relation attributes and optional view-specific projections. Omitting direction returns both
+  orientations of each edge; this supplements source-grouped coverage for integration reads.
+
 - Build 0.7 WP-4 mapping query APIs: workspace-scoped coverage, candidate search and version-bound
   target details resolve the selected `mappingGrid` view under the live or draft-pinned model.
   SQL pagination and batched reads return typed projections, mapped/unmapped/ambiguous states,
   exact counts and at most 20 target summaries with explicit continuation. Cursors bind workspace,
-  context, model release, view, direction and query configuration. Atomic replacement and the mapping
-  browser workflow remain pending. The final reviewed backend suite passed 401 tests on SQLite;
+  context, model release, view, direction and query configuration. The mapping
+  browser workflow remains pending; replacement was subsequently delivered in WP-5. The WP-4
+  reviewed backend suite passed 401 tests on SQLite;
   this does not establish composed product 0.7 or browser acceptance.
 
 - Schema 0.6 `mappingGrid` view contract (Build 0.7 WP-2). The model language now accepts

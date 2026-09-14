@@ -404,8 +404,8 @@ migration, protected administration and a bounded supported-version window.
 
 **Status:** Accepted for product 0.7; live/draft scope consolidated by ADR-026 and ADR-027.
 Relation-set version persistence delivered in WP-3 (2026-09-12); mapping query APIs delivered in
-WP-4 and cascade-deletion participation in WP-10A (2026-09-14). Mapping replacement remains planned
-for WP-5.
+WP-4 and cascade-deletion participation in WP-10A (2026-09-14). Atomic mapping replacement delivered
+in WP-5 (2026-09-14).
 
 Mapping concurrency belongs to the complete directional relation set, not to an object or one relation
 instance. A source object may currently have zero, one or several matching edges, so neither an object
@@ -425,17 +425,17 @@ Mapping-grid rows return this value as `mappingVersion`; a previously untouched 
 claimed safely under the scope's database uniqueness constraint.
 
 The product 0.7 mapping operation accepts explicit content context and direction,
-`sourceObjectTypeKey`, `targetObjectTypeKey`, `expectedMappingVersion`, a nullable `targetObjectId` and
+`relationTypeKey`, physical `fromObjectTypeKey`/`toObjectTypeKey`, the row anchor
+`sourceObjectId`, `expectedMappingVersion`, a nullable `targetObjectId` and
 relation attributes. Endpoint type keys remain required when the target is null so removal cannot
-broaden its scope. A null target removes the complete selected-target set and requires empty
+broaden its scope. A null target removes the complete selected-target set and permits omitted or empty
 attributes. A non-null target replaces the complete set with exactly that target, allowing one
 operation to create, replace or resolve an ambiguous mapping. The service validates workspace status
 and draft status when a draft is selected, candidate endpoint records, endpoint types, direction, the exact allowed relation binding,
 cardinality and typed relation attributes. Mapping views reject containment and required ownership
 bindings because the record operation owns those relationships. The former draft-nested PUT proposal
-is superseded; freeze the canonical live/optional-draft route and request contract in the 0.7 package
-before implementation. The replacement endpoint remains planned; WP-4 query contracts are documented
-in [API.md](API.md#product-07-mapping-api-wp-4-delivered-wp-5-planned).
+is superseded; the canonical live/optional-draft route and request contract are delivered and documented
+in [API.md](API.md#product-07-mapping-api-wp-4-and-wp-5-delivered).
 
 The transaction conditionally claims the relation-set version, deletes obsolete edges, preserves or
 updates the selected edge or creates it when absent, increments the set version and commits. A stale
@@ -448,20 +448,28 @@ underlying relation audit remains available. Live and draft generic relation mut
 in the same set-version maintenance and therefore cannot bypass mapping concurrency. A retired
 workspace, closed draft or endpoint absent from the candidate graph cannot be mutated through the
 mapping operation. Draft application must also preserve live mapping-set conflict protection; live
-replacement must not require workspace activation.
+replacement must not require workspace activation. WP-10B compares complete source/live relation
+identities and versions in the exact directional mutable binding sets the draft touched. New,
+removed or updated live edges in those sets refuse activation under `409 version_conflict` with
+`mapping_set_changed` diagnostics. Containment and required ownership retain existing graph/record
+merge rules. Unrelated live sets survive. An intervening add/remove cycle that leaves the complete
+source graph and all surviving relation versions identical is not a divergence under this check.
 
 ### 0.7 implementation detail — later packages, 2026-09-12
 
 WP-1–WP-3 are frozen; this clarification governs WP-4 onward and does not review their implementation.
-Mapping reads identify the application/view supplying the existing configuration. Coverage and conflict
+Coverage and candidate reads identify the application/view supplying the existing configuration.
+Target details may omit both view keys for binding-only name projection; conflict continuation carries
+the selected view identity, or null view identities for the binding-only projection. Coverage and conflict
 responses carry exact target counts with bounded previews and cursor-paged continuation, and coverage
 state and version describe a consistent read. Replacement retains the selected existing relation;
 omitted attributes preserve its values, while an explicit object replaces the set under typed
 validation. One selected target is the operation rule, separate from direction-aware cardinality.
 Later integration acceptance checks generic-write races, both directional sets and draft activation
 against live same-set changes. Confirmed foundation gaps belong to conditional WP-10, not frozen WP-3.
-WP-4 reads and WP-10A cascade invalidation are delivered; replacement and composed acceptance remain
-planned. See the mapping API section in [API.md](API.md) and [0.7 plan](BASE_0_7_IMPLEMENTATION_PLAN.md).
+WP-4 reads, WP-5 replacement, WP-10A cascade invalidation and WP-10B activation set-conflict
+checks are delivered; composed acceptance
+remains planned. See the mapping API section in [API.md](API.md) and [0.7 plan](BASE_0_7_IMPLEMENTATION_PLAN.md).
 
 ## ADR-023 — Build RDM UI components on React Aria behavior
 
