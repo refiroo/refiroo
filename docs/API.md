@@ -1060,10 +1060,10 @@ identity, type and workspace; mismatches return `422 invalid_cursor`.
 There will be no equivalent of enumerating numeric attribute IDs `1..1000` or using `take: 0` for a full
 extract.
 
-## Target — product 0.7 mapping API (WP-4/WP-5, not delivered)
+## Product 0.7 mapping API (WP-4 delivered; WP-5 planned)
 
-WP-1–WP-3 scopes remain frozen. These contracts belong to later packages and their composed
-acceptance, not to the pending foundation implementation reviews.
+WP-4 delivers the three mapping query endpoints below. Atomic replacement remains planned in
+WP-5; composed acceptance remains in WP-9. WP-1–WP-3 scopes remain frozen.
 
 - `GET /api/v1/workspaces/{workspaceKey}/mapping-coverage` takes `applicationKey`, `viewKey`,
   explicit `relationTypeKey`, `fromObjectTypeKey`, `toObjectTypeKey`, `direction`, bounded `pageSize`,
@@ -1080,8 +1080,52 @@ acceptance, not to the pending foundation implementation reviews.
   convention. Coverage fields and version describe one consistent read.
 - Cursors bind workspace, live/draft context, effective model release, view, direction and query
   configuration. Unknown view/binding is `404`; mismatched configuration and cursors are explicit
-  validation errors. Exact target-detail route and response field names are frozen in WP-4 before
-  implementation, with contract examples and pagination tests.
+  validation errors. The frozen detail route is
+  `GET /api/v1/workspaces/{workspaceKey}/mapping-targets`, with the same required view and explicit
+  binding parameters as coverage, plus `sourceObjectId`, required nonnegative `mappingVersion`,
+  optional `cursor`, `pageSize` (1–100; default 20), and optional `workspaceDraftId`.
+  It returns `{mappingVersion, targetCount, items, nextCursor}`. An observed-version mismatch returns
+  `409 mapping_version_conflict` with an instruction to refresh coverage and the current version in
+  `error.details.mappingVersion`. A cursor for another version, anchor or context is `422 invalid_cursor`.
+
+Coverage and candidates use the view's configured page size by default (an explicit `pageSize` must
+be 1–100). Search is a literal, case-insensitive substring, limited to 500 characters. Coverage searches
+name and attached attributes selected by `sourceColumns`; candidates search only `candidateSearchFields`.
+Views select the returned fields independently of the physical binding. Candidate lookup removes
+occupied target-side objects for one-to-one bindings and outgoing one-to-many views; source-dependent
+ancestor/graph constraints and final cardinality checks remain the save operation's responsibility.
+The mapping queries read effective draft overlays and tombstones in SQL, page before projection, and
+batch bounded target previews and exact counts within the same transaction as model and version reads.
+
+Object summaries contain `id`, `objectTypeKey`, `name` and a `fields` dictionary keyed by the declared
+columns. Attributes retain JSON types (including numeric decimals, integers and booleans); missing
+values are `null`. Built-in fields include `id`, `name`, the model's `objectType` label, `path` as a
+slash-separated name path, `ancestor:<type>` as the ancestor name, and timestamps. Draft snapshots do
+not store object timestamps, so draft timestamp fields are `null`. Each target summary also preserves
+`relationId` and the stored relation `attributes` for future replacement operations.
+
+For example, a coverage page has this shape (cursor strings are opaque):
+
+```json
+{
+  "items": [{
+    "source": {"id": "source-public-id", "objectTypeKey": "source-type", "name": "Source", "fields": {"name": "Source"}},
+    "state": "mapped",
+    "mappingVersion": 2,
+    "targetCount": 1,
+    "targets": [{"relationId": "relation-public-id", "attributes": {}, "object": {"id": "target-public-id", "objectTypeKey": "target-type", "name": "Target", "fields": {"name": "Target"}}}],
+    "targetsNextCursor": null
+  }],
+  "nextCursor": null
+}
+```
+
+An ambiguous row reports the complete `targetCount`, up to 20 targets and `targetsNextCursor`.
+Pass that cursor to `mapping-targets` with the row's source ID and mapping version to continue beyond
+the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
+
+### Planned atomic replacement (WP-5)
+
 - `PUT /api/v1/workspaces/{workspaceKey}/mappings` accepts explicit physical endpoint type keys,
   relation type, direction, `sourceObjectId` (the row anchor), nullable `targetObjectId`,
   `expectedMappingVersion`, optional relation `attributes` and optional draft context with

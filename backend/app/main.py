@@ -21,6 +21,7 @@ from .errors import (
 from .models.api import ApiErrorResponse
 from .routers import (
     attributes,
+    mapping,
     model,
     model_management,
     model_releases,
@@ -159,6 +160,7 @@ def create_app() -> FastAPI:
     application.include_router(objects.router)
     application.include_router(attributes.router)
     application.include_router(relations.router)
+    application.include_router(mapping.router)
     return application
 
 

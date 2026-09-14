@@ -549,3 +549,42 @@ class AuditEventResponse(BaseModel):
 class AuditEventPage(BaseModel):
     items: list[AuditEventResponse]
     nextCursor: str | None
+
+
+class MappingObjectSummary(BaseModel):
+    id: str
+    objectTypeKey: str
+    name: str
+    fields: dict[str, Any]
+
+
+class MappingTargetSummary(BaseModel):
+    relationId: str
+    attributes: dict[str, Any]
+    object: MappingObjectSummary
+
+
+class MappingCoverageRow(BaseModel):
+    source: MappingObjectSummary
+    state: Literal["mapped", "unmapped", "ambiguous"]
+    mappingVersion: int
+    targetCount: int
+    targets: list[MappingTargetSummary]
+    targetsNextCursor: str | None
+
+
+class MappingCoveragePage(BaseModel):
+    items: list[MappingCoverageRow]
+    nextCursor: str | None
+
+
+class MappingTargetPage(BaseModel):
+    mappingVersion: int
+    targetCount: int
+    items: list[MappingTargetSummary]
+    nextCursor: str | None
+
+
+class MappingCandidatePage(BaseModel):
+    items: list[MappingObjectSummary]
+    nextCursor: str | None

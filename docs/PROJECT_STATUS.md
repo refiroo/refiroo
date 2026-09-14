@@ -42,8 +42,9 @@ in code does not establish that a browser user can complete its story.
 
 1. **Typed `mappingGrid` (WP-2, delivered 2026-09-12):** schema 0.6 with a strict `mappingGrid` view
    contract, discriminated union dispatch, full validation rules and a frontend placeholder renderer.
-   Cursor-paged batched mapping rows with mapped, unmapped and ambiguous states and server-side
-   candidate search follow in WP-4/WP-5/WP-8A/WP-8B.
+   WP-4 delivered 2026-09-14: cursor-paged batched mapping coverage, exact counts with bounded
+   version-bound target details, view-specific typed projections and candidate search in live/draft
+   contexts. Atomic replacement and mapping UI follow in WP-5/WP-8A/WP-8B.
 2. **ADR-022 relation-set versions (WP-3, delivered 2026-09-12):** exact-binding relation-set versions
    integrated into all generic relation writes in live and optional-draft contexts. Atomic mapping
    replacement follows in WP-5.
@@ -199,8 +200,9 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
   Visual baselines cover light theme only (no dark theme exists yet).
 - Schema 0.6 supports strict table views and the `mappingGrid` view contract (validated model,
   placeholder frontend renderer). Exact-binding relation-set versions are integrated into all generic
-  relation writes; the mapping coverage API (WP-4), replacement API (WP-5) and full mapping grid UI
-  (WP-8A/WP-8B) are next. Top-level `form`, `dashboard` and `tree` are not implemented renderers.
+  relation writes. WP-4 mapping coverage, target details and candidate search are delivered;
+  replacement (WP-5) and full mapping grid UI (WP-8A/WP-8B) are next. Top-level `form`, `dashboard`
+  and `tree` are not implemented renderers.
   Specialist tree/translation coverage follow the roadmap.
 - Advanced queries, effective-date/as-of semantics, bulk upsert, imports/exports, change feeds and
   webhooks remain planned; no synchronous collection has an undocumented unlimited mode.

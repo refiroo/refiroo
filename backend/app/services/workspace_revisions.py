@@ -42,6 +42,7 @@ from .attributes import (
 )
 from .audit import record_audit_event
 from .model.compiler import parse_model
+from .relation_set_versions import increment_set_versions
 from .relations import validate_relation_attributes
 from .workspace_audit import (
     record_draft_created,
@@ -1024,6 +1025,16 @@ def delete_draft_object(
         else:
             row.version += 1
             row.is_deleted = True
+        increment_set_versions(
+            session,
+            workspace_key=draft.workspace_key,
+            workspace_draft_id=draft.id,
+            relation_type_key=relation.relation_type_key,
+            from_object_type_key=objects[relation.from_object_id].object_type_key,
+            to_object_type_key=objects[relation.to_object_id].object_type_key,
+            from_object_id=relation.from_object_id,
+            to_object_id=relation.to_object_id,
+        )
     session.commit()
 
 

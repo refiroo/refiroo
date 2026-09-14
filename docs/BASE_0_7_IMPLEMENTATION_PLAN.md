@@ -280,6 +280,13 @@ Existing relation tests still pass (set versions are transparent).
 
 #### WP-4: Mapping coverage API
 
+**Delivered 2026-09-14.** Dedicated mapping router; live and draft SQL projections, batched exact
+counts and 20-target previews, version-bound `/mapping-targets` continuation, configured typed
+fields and candidate search. The response and detail-query contracts are frozen in `docs/API.md`.
+Integration coverage includes both directions, all states, shared-binding views, candidate and
+coverage pagination, large ambiguous live/draft sets, overlays/tombstones, cursor mismatches,
+draft-pinned differing releases, concurrent reads and query counts independent of page row count.
+
 **Scope:**
 
 1. Add a mapping coverage query endpoint:
@@ -627,7 +634,22 @@ documentation reflects the delivered state. Any gaps or simplifications are expl
 
 #### WP-10: Conditional 0.7 foundation hardening
 
-**Status:** Conditional; no defect has been established by this plan review.
+**Status:** WP-10A delivered after WP-4 implementation review (2026-09-14). Other slices remain conditional.
+
+**WP-10A — Cascade-deletion relation-set participation:** HTTP reproduction in both live and
+current-live draft contexts: deleting a mapped system value reduced incoming coverage from 21
+edges to 20 while `mappingVersion` stayed at 21 (live) or 0 (draft). The previous target continuation
+returned 200. This violates ADR-022 set-version maintenance and WP-4's required refresh after set
+changes. Ownership is bounded to `services/deletion.py`, the incident-relation tombstone loop in
+`services/workspace_revisions.py`, and mapping HTTP regression tests. No schema extension is needed.
+Acceptance: confirmed cascades increment both exact directional sets for each removed edge atomically;
+preview/refused/stale deletes leave tokens unchanged; old target continuations return
+`409 mapping_version_conflict` with refresh guidance; unrelated bindings and the other live/draft
+context remain unchanged.
+
+Validation: all 20 focused mapping/cascade tests and the final 401-test backend suite passed on SQLite;
+Ruff and diff whitespace checks passed. Independent patch review found no further issues. The API
+contract and frontend are unchanged by this fix; composed WP-9 acceptance remains separate.
 
 **Trigger:** WP-4/WP-5/WP-9 integration evidence identifies a missing WP-1/WP-2/WP-3 capability
 needed for SC-07/SC-15. Before editing, record the reproduced failure, affected contract, bounded

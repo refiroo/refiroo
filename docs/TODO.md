@@ -19,13 +19,14 @@ WP-3 delivered (2026-09-12).
 - [x] ADR-022 relation-set versions (WP-3). `relation_set_versions` table with lazy row creation,
   integrated into all six generic relation mutation paths (live and draft), draft deletion cascade
   and activation merge. Delivered 2026-09-12.
-- [ ] Product 0.7: cursor-paged mapping coverage API and candidate lookup (WP-4).
+- [x] Product 0.7: cursor-paged mapping coverage, version-bound target details and candidate lookup
+  (WP-4). View-specific typed projections and batched live/draft SQL reads. Delivered 2026-09-14.
 - [ ] ADR-022: atomic mapping replacement in live and optional-draft contexts (WP-5).
 - [ ] ADR-028: let a workspace draft work under a version the user chooses, so one draft prepares the
   schema 0.6 release while another stays on the version serving live data.
 
-- [ ] WP-4/WP-5: view-specific reads, bounded ambiguous targets, retained relation identities,
-  typed attribute semantics and direction-aware replacement/clear validation.
+- [ ] WP-5: retained relation identities, typed relation-attribute semantics and direction-aware
+  replacement/clear validation. WP-4 view-specific reads and bounded ambiguous targets are delivered.
 - [ ] WP-6/WP-7: complete-candidate compatibility on creation/version change, atomic pin changes,
   snapshot isolation and complete browser model-context refresh.
 - [ ] WP-8A: read-only mapping coverage; WP-8B: selection, conflicts, clearing and contextual creation.

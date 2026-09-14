@@ -7,7 +7,7 @@ from app.main import app, create_app
 def test_base_0_6_wp7_openapi_document_is_locked():
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "46d6b98ddabb9087f27edfbeec32c0dcbf3318ab4947fac5929caad5496d81d7"
+        "05e3ddf80e9e7257194312ee38b0b9c36ed3a971f7236ee2c993341d924459ee"
     )
 
 
@@ -97,3 +97,36 @@ def test_base_0_5_enabled_openapi_exposes_guarded_activation(monkeypatch):
         "/api/v1/model-drafts/{draft_id}/compile": frozenset({"post"}),
         "/api/v1/model-drafts/{draft_id}/installation": frozenset({"post"}),
     }
+
+
+def test_wp4_mapping_query_inventory_and_required_context():
+    paths = app.openapi()["paths"]
+    base = "/api/v1/workspaces/{workspace_key}/mapping-"
+    for name, response in (
+        ("coverage", "MappingCoveragePage"),
+        ("candidates", "MappingCandidatePage"),
+        ("targets", "MappingTargetPage"),
+    ):
+        assert set(paths[base + name]) == {"get"}
+        operation = paths[base + name]["get"]
+        assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
+            "$ref": f"#/components/schemas/{response}"
+        }
+        parameters = {row["name"]: row for row in operation["parameters"]}
+        assert parameters["applicationKey"]["required"] and parameters["viewKey"]["required"]
+        assert "workspaceDraftId" in parameters and "cursor" in parameters
+        size = parameters["pageSize"]["schema"]
+        bounds = next((row for row in size.get("anyOf", []) if row.get("type") == "integer"), size)
+        assert bounds["minimum"] == 1 and bounds["maximum"] == 100
+        if name != "candidates":
+            assert all(
+                parameters[key]["required"]
+                for key in ("relationTypeKey", "fromObjectTypeKey", "toObjectTypeKey", "direction")
+            )
+        else:
+            assert parameters["objectTypeKey"]["required"]
+        if name == "targets":
+            assert (
+                parameters["sourceObjectId"]["required"]
+                and parameters["mappingVersion"]["required"]
+            )
