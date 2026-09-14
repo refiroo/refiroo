@@ -28,7 +28,7 @@ from ..services.model.metadata import (
     build_object_type_responses,
     build_relation_type_responses,
 )
-from ..services.model.registry import ActiveModelSnapshot
+from ..services.model.registry import RequestModelSnapshot
 from ..services.model.runtime import load_runtime_state
 from ..services.objects import get_application, get_object_type
 from ..services.pagination import paginate_sequence
@@ -70,7 +70,7 @@ def get_capabilities(request: Request) -> CapabilitiesResponse:
         }
     },
 )
-def get_model(response: Response, snapshot: ActiveModelSnapshot) -> dict[str, Any]:
+def get_model(response: Response, snapshot: RequestModelSnapshot) -> dict[str, Any]:
     response.headers["ETag"] = f'"{snapshot.model_hash}"'
     response.headers["X-Model-Release-Id"] = snapshot.release_id
     return snapshot.model.model_dump(mode="json")
@@ -103,7 +103,7 @@ def validate_model(payload: ModelDocumentRequest) -> ModelValidationResponse:
 @router.get("/applications", response_model=MetadataPage[ApplicationResponse])
 def get_applications(
     session: DbSession,
-    snapshot: ActiveModelSnapshot,
+    snapshot: RequestModelSnapshot,
     cursor: str | None = None,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> MetadataPage[ApplicationResponse]:
@@ -111,6 +111,7 @@ def get_applications(
         snapshot.model.applications,
         lambda item: (item.key,),
         scope="applications",
+        filters={"modelReleaseId": snapshot.release_id},
         cursor=cursor,
         page_size=page_size,
         message=METADATA_CURSOR_MESSAGE,
@@ -122,7 +123,7 @@ def get_applications(
 
 @router.get("/applications/{application_key}", response_model=ApplicationResponse)
 def get_application_detail(
-    application_key: str, session: DbSession, snapshot: ActiveModelSnapshot
+    application_key: str, session: DbSession, snapshot: RequestModelSnapshot
 ) -> ApplicationResponse:
     application = get_application(snapshot.model, application_key)
     return build_application_responses(session, snapshot, [application])[0]
@@ -131,7 +132,7 @@ def get_application_detail(
 @router.get("/attribute-types", response_model=MetadataPage[AttributeTypeResponse])
 def list_attribute_types(
     session: DbSession,
-    snapshot: ActiveModelSnapshot,
+    snapshot: RequestModelSnapshot,
     cursor: str | None = None,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> MetadataPage[AttributeTypeResponse]:
@@ -139,6 +140,7 @@ def list_attribute_types(
         snapshot.model.attributeTypes,
         lambda item: (item.key,),
         scope="attribute-types",
+        filters={"modelReleaseId": snapshot.release_id},
         cursor=cursor,
         page_size=page_size,
         message=METADATA_CURSOR_MESSAGE,
@@ -150,7 +152,7 @@ def list_attribute_types(
 
 @router.get("/attribute-types/{attribute_type_key}", response_model=AttributeTypeResponse)
 def get_attribute_type(
-    attribute_type_key: str, session: DbSession, snapshot: ActiveModelSnapshot
+    attribute_type_key: str, session: DbSession, snapshot: RequestModelSnapshot
 ) -> AttributeTypeResponse:
     definition = snapshot.model.attribute_type(attribute_type_key)
     if not definition:
@@ -163,7 +165,7 @@ def get_attribute_type(
 @router.get("/object-types", response_model=MetadataPage[ObjectTypeResponse])
 def list_object_types(
     session: DbSession,
-    snapshot: ActiveModelSnapshot,
+    snapshot: RequestModelSnapshot,
     cursor: str | None = None,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> MetadataPage[ObjectTypeResponse]:
@@ -171,6 +173,7 @@ def list_object_types(
         snapshot.model.objectTypes,
         lambda item: (item.key,),
         scope="object-types",
+        filters={"modelReleaseId": snapshot.release_id},
         cursor=cursor,
         page_size=page_size,
         message=METADATA_CURSOR_MESSAGE,
@@ -182,7 +185,7 @@ def list_object_types(
 
 @router.get("/object-types/{object_type_key}", response_model=ObjectTypeResponse)
 def get_object_type_detail(
-    object_type_key: str, session: DbSession, snapshot: ActiveModelSnapshot
+    object_type_key: str, session: DbSession, snapshot: RequestModelSnapshot
 ) -> ObjectTypeResponse:
     object_type = get_object_type(snapshot.model, object_type_key)
     return build_object_type_responses(session, snapshot, [object_type])[0]
@@ -191,7 +194,7 @@ def get_object_type_detail(
 @router.get("/relation-types", response_model=MetadataPage[RelationTypeResponse])
 def list_relation_types(
     session: DbSession,
-    snapshot: ActiveModelSnapshot,
+    snapshot: RequestModelSnapshot,
     cursor: str | None = None,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> MetadataPage[RelationTypeResponse]:
@@ -199,6 +202,7 @@ def list_relation_types(
         snapshot.model.relationTypes,
         lambda item: (item.key,),
         scope="relation-types",
+        filters={"modelReleaseId": snapshot.release_id},
         cursor=cursor,
         page_size=page_size,
         message=METADATA_CURSOR_MESSAGE,
@@ -210,7 +214,7 @@ def list_relation_types(
 
 @router.get("/relation-types/{relation_type_key}", response_model=RelationTypeResponse)
 def get_relation_type(
-    relation_type_key: str, session: DbSession, snapshot: ActiveModelSnapshot
+    relation_type_key: str, session: DbSession, snapshot: RequestModelSnapshot
 ) -> RelationTypeResponse:
     definition = snapshot.model.relation_type(relation_type_key)
     if not definition:
@@ -223,7 +227,7 @@ def get_relation_type(
 @router.get("/object-type-relations", response_model=MetadataPage[ObjectTypeRelationResponse])
 def get_object_type_relations(
     session: DbSession,
-    snapshot: ActiveModelSnapshot,
+    snapshot: RequestModelSnapshot,
     from_object_type: str | None = Query(default=None, alias="fromObjectType"),
     to_object_type: str | None = Query(default=None, alias="toObjectType"),
     cursor: str | None = None,
@@ -244,6 +248,7 @@ def get_object_type_relations(
         scope="object-type-relations",
         sort=("relationTypeKey", "fromObjectTypeKey", "toObjectTypeKey"),
         filters={
+            "modelReleaseId": snapshot.release_id,
             "fromObjectType": from_object_type,
             "toObjectType": to_object_type,
         },

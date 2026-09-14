@@ -5,9 +5,9 @@
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released. The starter
 model is content release 0.7.0 on schema language 0.6. Next development targets product 0.7 (core
 mapping, schema 0.6, draft version selection). WP-1 (accessibility gates), WP-2 (schema 0.6
-`mappingGrid` view contract), WP-3 (relation-set version persistence), WP-4 (mapping query APIs)
-and WP-5 (atomic mapping replacement) are delivered and reviewed. Bounded WP-10A cascade
-invalidation and WP-10B draft-activation mapping-set conflict fixes are delivered.
+`mappingGrid` view contract), WP-3 (relation-set version persistence), WP-4 (mapping query APIs),
+WP-5 (atomic mapping replacement) and WP-6 (backend draft version selection) are delivered.
+Bounded WP-10A cascade invalidation and WP-10B draft-activation mapping-set conflict fixes are delivered.
 
 The generic model defines applications, object types, reusable fields, allowed relationships and views.
 Master, Systems and Translations are configurable starter examples; runtime code must remain unaware
@@ -51,8 +51,9 @@ in code does not establish that a browser user can complete its story.
 2. **ADR-022 relation-set versions (WP-3, delivered 2026-09-12):** exact-binding relation-set versions
    integrated into all generic relation writes in live and optional-draft contexts. Atomic mapping
    replacement is delivered in WP-5.
-3. **ADR-028 draft version selection:** let a workspace draft work under a version the user chooses, so
-   one draft prepares the schema 0.6 release while another stays on the version serving live data.
+3. **ADR-028 draft version selection:** WP-6 backend delivered 2026-09-14: installed-release
+   creation, whole-candidate compatibility, atomic audited pin changes and pinned model/metadata
+   reads. Browser version selection and context refresh remain WP-7.
 4. **UI-07 (carried from 0.6, delivered 2026-09-12):** automated accessibility and visual-regression
    gates using the existing Playwright harness with `@axe-core/playwright` and visual comparison
    baselines. Light-theme baselines committed; dark-theme baselines deferred until a dark theme exists.
@@ -249,9 +250,9 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 - The version serving live data is chosen globally today. Per-workspace migration/assignment, moving
   a draft onto a version its content does not fit, and confirmed potential-loss historical model
   changes require 0.10 and supported parser/runtime versions; letting a draft work under a version the
-  user chooses is scheduled for 0.7 (ADR-028). No client can choose a draft's version today, and a
-  draft on a version that has since been replaced can be read, edited and thrown away, but not
-  activated or promoted.
+  user chooses is 0.7 work (ADR-028). Backend clients can choose compatible draft versions (WP-6);
+  browser selection remains WP-7. A draft on a replaced version can be read, edited and discarded,
+  but activation still requires agreement with the active model.
 - The starter remains representative rather than a one-to-one reproduction of the source export.
 
 ## Historical delivery record
@@ -279,8 +280,8 @@ do not rebuild rejected object lifecycle.
 Read `AGENTS.md`, the product stories/scenarios, ADR-027, `ROADMAP.md`, `API.md` and `TODO.md`.
 Base 0.6 is released; next work targets product 0.7 (core mapping, schema 0.6, draft version
 selection). WP-1 (UI-07 accessibility gates), WP-2 (schema 0.6 `mappingGrid` view contract) and
-WP-3 (relation-set version persistence), WP-4 reads, WP-5 replacement and WP-10A/WP-10B hardening
-are delivered. Continue with WP-6/WP-7 draft version selection and WP-8A/WP-8B mapping browser
+WP-3 (relation-set version persistence), WP-4 reads, WP-5 replacement, WP-6 draft version selection
+and WP-10A/WP-10B hardening are delivered. Continue with WP-7 browser draft version selection and WP-8A/WP-8B mapping browser
 delivery; WP-9 records composed acceptance.
 Use one implementation owner per slice, focused verification and appropriate review. Do not commit
 unless explicitly requested. Summarize each completed batch while work continues so scope can be

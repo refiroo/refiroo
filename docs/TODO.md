@@ -30,8 +30,9 @@ WP-4 and its WP-10A review fix delivered (2026-09-14). WP-5 delivered (2026-09-1
   with actionable activation refusal. See the 0.7 implementation plan for validation boundaries.
 - [ ] ADR-028: let a workspace draft work under a version the user chooses, so one draft prepares the
   schema 0.6 release while another stays on the version serving live data.
-- [ ] WP-6/WP-7: complete-candidate compatibility on creation/version change, atomic pin changes,
-  snapshot isolation and complete browser model-context refresh.
+- [x] WP-6: backend selected-release creation, complete-candidate compatibility, atomic audited pin
+  changes, snapshot isolation and pinned model/metadata reads (2026-09-14).
+- [ ] WP-7: browser version selection and complete model-context refresh.
 - [ ] WP-8A: read-only mapping coverage; WP-8B: selection, conflicts, clearing and contextual creation.
 - [ ] WP-9: independent binding fixtures, same-schema differing releases, new-control a11y/visual
   coverage, generic-write races and draft activation/live same-set conflicts.

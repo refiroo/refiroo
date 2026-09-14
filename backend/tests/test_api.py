@@ -10,10 +10,12 @@ class DraftTestClient(TestClient):
 
     draft_id: str
     draft_version: int
+    model_release_id: str | None = None
 
     def __enter__(self):
         client = super().__enter__()
-        draft = super().request("POST", "/api/v1/workspaces/default/drafts", json={})
+        payload = {"modelReleaseId": self.model_release_id} if self.model_release_id else {}
+        draft = super().request("POST", "/api/v1/workspaces/default/drafts", json=payload)
         assert draft.status_code == 201, draft.text
         self.draft_id = draft.json()["id"]
         self.draft_version = draft.json()["version"]

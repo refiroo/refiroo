@@ -7,7 +7,7 @@ from app.main import app, create_app
 def test_base_0_6_wp7_openapi_document_is_locked():
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "e66e9545103188e1031428029057f6bbb4ee2c3818ac9d1f6d6dce98f3f807ee"
+        "28b79cf0b499ffc12685e87322a18b078990ddb6e641d8aaa3dbf1b2d6ea2046"
     )
 
 
@@ -164,3 +164,21 @@ def test_wp4_mapping_query_inventory_and_required_context():
     ):
         assert key in list_params
         assert not list_params[key].get("required", False)
+
+
+def test_build07_wp6_openapi_selected_model_contract():
+    schema = app.openapi()
+    endpoint = schema["paths"]["/api/v1/workspaces/{workspace_key}/drafts/{draft_id}/model-release"]
+    assert set(endpoint) == {"patch"}
+    models = schema["components"]["schemas"]
+    assert set(models["WorkspaceDraftModelReleaseUpdate"]["required"]) == {
+        "modelReleaseId",
+        "expectedDraftVersion",
+    }
+    assert "modelReleaseId" in models["WorkspaceDraftCreate"]["properties"]
+    assert {"modelReleaseId", "modelReleaseKey", "modelReleaseVersion"} <= set(
+        models["WorkspaceDraftResponse"]["required"]
+    )
+    for path in ("/api/v1/model", "/api/v1/applications", "/api/v1/attribute-types"):
+        names = {item["name"] for item in schema["paths"][path]["get"]["parameters"]}
+        assert {"workspaceDraftId", "workspaceRevisionId"} <= names

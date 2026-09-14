@@ -185,6 +185,15 @@ This captures new baselines. Review the updated PNGs in `e2e/baselines/`, then c
 Dark theme baselines are deferred until the application implements a dark mode. When dark mode
 lands, add `*-dark` baseline variants to the visual regression gate.
 
+## When to run comprehensive gates
+
+Run the complete accessibility and visual gates at build acceptance (WP-9 for Base 0.7).
+During implementation packages, add scenarios for new controls and use focused interaction,
+accessibility and screenshot checks on changed surfaces. Do not rerun every core page after each
+edit or package. Review intentional baseline changes and record which scenarios were exercised;
+comprehensive coverage remains pending until the build gates run. Follow
+[AGENTS.md](../../AGENTS.md#work-package-validation) for validation scope and reruns.
+
 ## Planned 0.7 scenario extensions
 
 WP-1–WP-3 scopes are frozen. WP-7/WP-8A/WP-8B extend the existing accessibility and visual gates to

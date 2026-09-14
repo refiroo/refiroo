@@ -1,14 +1,13 @@
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
+from fastapi.testclient import TestClient as HttpTestClient
 from test_api import DraftTestClient
 
 from app.db import SessionLocal
 from app.main import app
-from app.models.database import ModelRelease
 from app.services.model.loader import load_bootstrap_model
-from app.services.model.registry import ModelSnapshot, resolve_model_snapshot
+from app.services.model.releases import install_model_release
 
 TestClient = DraftTestClient
 
@@ -26,7 +25,7 @@ def _relation_path(relation_id: str) -> str:
 
 
 @pytest.fixture
-def mapping_relation_attributes():
+def mapping_relation_attributes(monkeypatch):
     model = load_bootstrap_model()
     object_type_relations = tuple(
         item.model_copy(update={"attributeTypeKeys": ("sort-order",)})
@@ -34,29 +33,18 @@ def mapping_relation_attributes():
         else item
         for item in model.objectTypeRelations
     )
-    model = model.model_copy(update={"objectTypeRelations": object_type_relations})
-    with SessionLocal() as session:
-        release = session.scalar(select(ModelRelease).where(ModelRelease.is_active.is_(True)))
-        assert release is not None
-        original_json = release.model_json
-        release.model_json = model.model_dump(mode="json")
-        session.commit()
-        release_db_id, release_id, model_hash = release.id, release.public_id, release.model_hash
-    app.dependency_overrides[resolve_model_snapshot] = lambda: ModelSnapshot(
-        release_db_id=release_db_id,
-        release_id=release_id,
-        model_hash=model_hash,
-        model=model,
+    model = model.model_copy(
+        update={
+            "objectTypeRelations": object_type_relations,
+            "release": model.release.model_copy(update={"version": f"relation-attrs-{_suffix()}"}),
+        }
     )
-    try:
-        yield
-    finally:
-        app.dependency_overrides.pop(resolve_model_snapshot, None)
-        with SessionLocal() as session:
-            release = session.get(ModelRelease, release_db_id)
-            assert release is not None
-            release.model_json = original_json
-            session.commit()
+    # Install an immutable fixture release so active and pinned resolution share its real hash.
+    with HttpTestClient(app), SessionLocal() as session:
+        release, _created = install_model_release(session, model)
+        session.commit()
+        release_id = release.public_id
+    monkeypatch.setattr(DraftTestClient, "model_release_id", release_id)
 
 
 def _create_domain(client, suffix):

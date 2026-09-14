@@ -760,7 +760,8 @@ validation guide. No component-only pass establishes a complete browser journey.
 
 ## ADR-028 — One draft may prepare the next model version while live keeps the current one
 
-**Status:** Accepted product direction, 2026-09-10. Not implemented. The work splits across two
+**Status:** Accepted product direction, 2026-09-10. Backend version selection delivered in WP-6
+(2026-09-14); browser selection remains WP-7. The work splits across two
 releases: letting a draft work under a version the user chooses is **product 0.7 work**, and moving a
 draft onto a version its content does not already fit is **product 0.10 work**, reusing the conversion
 machinery ADR-027 already places there.
@@ -819,4 +820,5 @@ from the chosen pin. Historical-source creation retains its source model; anothe
 Browser context transitions reload the pinned model and all dependent routes, views, forms, lookups and
 cursors, protecting dirty input and detecting external pin changes. A differing pin may be an older
 release, so explanations name pinned and active versions neutrally. No conversion or activation bypass
-is added. These are planned later-package requirements, not foundation implementation amendments.
+is added. WP-6 implements the backend boundaries; browser context transitions remain WP-7. These are
+later-package requirements, not foundation implementation amendments.

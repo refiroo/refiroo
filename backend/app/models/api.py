@@ -103,6 +103,7 @@ class WorkspaceDraftCreate(BaseModel):
     name: str | None = Field(default=None, max_length=300)
     source: Literal["currentLive", "revision"] | None = None
     derivedFromRevisionId: UUID4 | None = None
+    modelReleaseId: UUID4 | None = None
 
     @model_validator(mode="after")
     def validate_source(self) -> WorkspaceDraftCreate:
@@ -110,7 +111,17 @@ class WorkspaceDraftCreate(BaseModel):
             raise ValueError("derivedFromRevisionId is required when source is revision")
         if self.source == "currentLive" and self.derivedFromRevisionId is not None:
             raise ValueError("derivedFromRevisionId cannot be combined with source currentLive")
+        if self.derivedFromRevisionId is not None and self.modelReleaseId is not None:
+            raise ValueError(
+                "Historical creation retains its source model; change version afterward"
+            )
         return self
+
+
+class WorkspaceDraftModelReleaseUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    modelReleaseId: UUID4
+    expectedDraftVersion: int = Field(ge=1)
 
 
 class WorkspaceDraftUpdate(BaseModel):
@@ -124,6 +135,8 @@ class WorkspaceDraftResponse(BaseModel):
     workspaceKey: str
     name: str | None
     modelReleaseId: str
+    modelReleaseKey: str
+    modelReleaseVersion: str
     source: Literal["currentLive", "revision", "empty"]
     derivedFromRevisionId: str | None
     version: int

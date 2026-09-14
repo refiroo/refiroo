@@ -8,6 +8,15 @@ checked source and document consistency only. Existing evidence descriptions bel
 coverage identified in the prior catalogue, not new pass results. Use the concrete
 [acceptance scenarios](ACCEPTANCE_SCENARIOS.md) when executing these journeys.
 
+## Execution scope
+
+At work-package completion, use focused checks for changed acceptance behavior and its real
+execution boundaries, following [AGENTS.md](../../AGENTS.md#work-package-validation).
+Prepare new journey, accessibility and visual scenarios as their features are implemented.
+Run comprehensive suites and composed release journeys at build acceptance (WP-9 for Base 0.7).
+Retain focused startup/migration, concurrency and security checks within the affected package.
+Report deferred checks explicitly; package evidence and release acceptance are distinct.
+
 ## Evidence levels
 
 | Level | Evidence                                                            | What it proves                                                |
@@ -247,6 +256,7 @@ binding fixtures, candidates beyond page one, large ambiguous sets, typed attrib
 clearing, generic-write/mapping races and draft activation/live same-set conflicts. Version selection
 uses differing content releases on one schema, complete inherited candidate checks, atomic refusal,
 external pin changes and model-dependent route/form/cursor recovery. WP-7/WP-8A/WP-8B extend gate
-scenarios to new controls; existing core-page passes alone do not cover them. Reuse unchanged passing
-package gates and execute composed evidence separately. WP-1–WP-3 are frozen; confirmed missing
+scenarios to new controls and perform focused checks of changed surfaces; existing core-page passes
+alone do not cover them. WP-9 runs the comprehensive suites, accessibility/visual gates and composed
+journeys. Reuse unchanged passing static and focused boundary checks. WP-1–WP-3 are frozen; confirmed missing
 capabilities trigger bounded WP-10 work before release acceptance. No new pass evidence is recorded here.

@@ -567,6 +567,28 @@ implemented by this documentation update.
   `/api/v1/workspace-drafts/{draftId}/relations` are explicitly not public resources. Canonical draft record
   updates/deletes use `expectedVersion` and `expectedWorkspaceDraftVersion`; internal service models
   use different names and are not a second client contract. Live writes never mutate a revision snapshot.
+- Draft creation accepts optional `modelReleaseId` (installed public UUID). Current-live creation
+  captures the active data and versions while pinning the chosen release; the complete copied graph
+  must fit before creation commits. Historical creation retains its source revision's pin and refuses
+  a simultaneous release selection. Draft responses include `modelReleaseId`, `modelReleaseKey`
+  and `modelReleaseVersion`.
+- `PATCH /api/v1/workspaces/{workspaceKey}/drafts/{draftId}/model-release` accepts
+  `modelReleaseId` and `expectedDraftVersion`. It claims the draft token, checks the complete effective
+  graph (base plus authored content minus tombstones) under the target, then changes only that pin.
+  Success increments the draft version and audits old/new public release identities. A valid request
+  selecting the current pin is a no-op. Stale claims return `409 workspace_draft_version_conflict`.
+  Declared attribute type changes for stored effective object/relation values require conversion,
+  even if a target normalizer could accept the old value. Populated containment also retains its
+  source model semantics; changing those requires conversion. Missing required fields are not defaulted
+  during compatibility checks. Incompatible content returns `409 draft_content_incompatible` with `details.diagnostics` (at most
+  20), `diagnosticCount` and `diagnosticsTruncated`; refusal leaves content, pin and version unchanged.
+  Uniqueness conflict ID previews are also bounded to 20 with exact count/truncation metadata.
+  No conversion is performed. Missing, unsupported and invalid targets use `pinned_model_unavailable`,
+  `unsupported_pinned_model_schema` and `pinned_model_invalid` respectively.
+- `/model` and model metadata reads accept `workspaceDraftId` or `workspaceRevisionId` and resolve
+  that context's installed model. Metadata cursors are bound to the release identity. Draft record
+  reads, writes and graph validation use the draft pin even when it differs from active; activation
+  agreement remains a separate requirement. Discard does not require model agreement.
 - `POST /api/v1/workspace-drafts/{draftId}/validation` validates the complete effective graph without
   publication. `POST /api/v1/workspace-drafts/{draftId}/activation` requires
   `expectedDraftVersion` and nullable `expectedActiveRevisionId`.
@@ -615,8 +637,9 @@ tokens do not bind a model or revision ID unless that context is itself selected
 Current-live snapshot capture is implemented and validated for SQLite. PostgreSQL and other dialects
 currently return `409 workspace_draft_snapshot_unsupported` for this operation. The
 service starts an explicit `BEGIN IMMEDIATE` transaction before reading the graph, which excludes
-independent SQLite live/model writers through the base commit. It compares the request's selected model
-release with `model_runtime_state` under that reservation; a lock conflict or changed selection returns
+independent SQLite live/model writers through the base commit. It compares the request's captured active
+release with `model_runtime_state` under that reservation, separately from the selected draft pin;
+a lock conflict or changed active selection returns
 `409 workspace_draft_snapshot_retry` with an actionable retry message. Other database dialects return
 `409 workspace_draft_snapshot_unsupported` rather than silently offering a weaker, potentially mixed
 snapshot. The private base is deleted with its draft on discard or activation and is never a public
@@ -645,7 +668,7 @@ A missing pinned release is `409` with code `pinned_model_unavailable`; an inval
 > only the selected workspace model assignment atomically. Model drafts and data drafts remain separate;
 > target validity, conflict checks and parser support still apply. Nothing today overrides them.
 >
-> **Target — product 0.7 draft version selection (ADR-028).** A workspace draft may be created against,
+> **Product 0.7 draft version selection (ADR-028; backend delivered in WP-6).** A workspace draft may be created against,
 > or explicitly moved onto, any installed release the deployment supports, so one draft prepares a
 > candidate release while another continues on the release serving live data. The target must be
 > installed, parseable and supported; refusal reuses the existing pinned-model envelope
@@ -657,7 +680,8 @@ A missing pinned release is `409` with code `pinned_model_unavailable`; an inval
 > still on the replaced release remains readable and editable under its own version and must be
 > explicitly moved or discarded before it can activate.
 >
-> **0.7 compatibility and atomicity detail (WP-6/WP-7, planned).** Current-live draft creation
+> **0.7 compatibility and atomicity detail (WP-6 backend delivered; WP-7 browser pending).**
+> Current-live draft creation
 > against a selected release and explicit pin changes validate the complete effective candidate graph,
 > including inherited content and tombstones, under that release. Incompatible content returns
 > `409 draft_content_incompatible` with bounded diagnostics; creation leaves no draft/base, and failed
@@ -665,8 +689,8 @@ A missing pinned release is `409` with code `pinned_model_unavailable`; an inval
 > version, validates and updates the pin, increments its version and audits old/new release identities.
 > The snapshot's captured active release/runtime token is separate from the chosen draft pin.
 > Historical-source creation retains its source pin; another selection is a subsequent explicit change.
-> The browser reloads all model-dependent navigation, forms, lookups and caches, resets obsolete cursors
-> and protects dirty input on local or externally detected pin changes.
+> WP-7 will reload model-dependent browser navigation, forms, lookups and caches, reset obsolete
+> cursors and protect dirty input on local or externally detected pin changes.
 >
 > **Target — product 0.10 moving a draft onto an incompatible release (ADR-028).** Moving a draft onto
 > a release whose rules its stored content does not already satisfy requires the conversion machinery

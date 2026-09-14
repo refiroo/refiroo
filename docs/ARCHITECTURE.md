@@ -184,9 +184,9 @@ before activation applies its delta. Divergence is an actionable `409 version_co
 live sets survive. Restored source identities and surviving versions count as the same graph even
 when a temporary live edge advanced the set counter.
 
-Planned replacement preserves an existing selected relation identity and validates cardinality in the
-actual direction. Planned draft version selection validates the complete effective graph and changes
-its pin atomically, keeping the captured active snapshot identity separate. Browser model transitions
+Atomic replacement preserves an existing selected relation identity and validates cardinality in the
+actual direction (WP-5). Backend draft version selection validates the complete effective graph and
+changes its pin atomically (WP-6), keeping the captured active snapshot identity separate. Browser model transitions
 must refresh all dependent state. These remaining requirements are described in
 [the 0.7 plan](BASE_0_7_IMPLEMENTATION_PLAN.md) and [API.md](API.md); confirmed foundation gaps
 belong to conditional WP-10 before acceptance, rather than amendments to frozen package scope.
@@ -228,7 +228,8 @@ semantics for compatibility.
 This capture is implemented and validated on SQLite. PostgreSQL and other dialects return an explicit
 unsupported refusal until an equivalent protocol exists. The service restarts its SQLite request transaction as `BEGIN
 IMMEDIATE`, so all independent SQLite live/model writers are excluded until the base commits, then
-checks the request-selected model release against the runtime state under that reservation. A busy
+checks the captured active release against the runtime state under that reservation. A chosen draft
+pin is separate from this active identity; its complete copied graph must already fit that pin. A busy
 database or selection change returns an actionable retry; unsupported dialects are explicitly refused
 until an equivalent capture protocol exists. Base rows are removed atomically with draft discard or
 activation, while existing nullable-base drafts retain their original source and IDs through upgrade.

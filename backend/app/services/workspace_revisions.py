@@ -42,7 +42,7 @@ from .attributes import (
     validate_object_attribute_rules,
 )
 from .audit import record_audit_event
-from .model.compiler import parse_model
+from .model.registry import resolve_pinned_release
 from .relation_set_versions import (
     delete_draft_set_versions,
     increment_set_versions,
@@ -212,6 +212,7 @@ def create_draft(
     source_revision_id: str | None = None,
     source: str | None = None,
     expected_model_runtime_release_id: int | None = None,
+    validate_selected_model: bool = False,
 ) -> WorkspaceDraft:
     if source not in (None, "currentLive", "revision"):
         raise api_error(422, "workspace_draft_source_invalid", "Workspace draft source is invalid")
@@ -234,6 +235,7 @@ def create_draft(
             model_release_id,
             name=name,
             expected_model_runtime_release_id=expected_model_runtime_release_id,
+            validate_selected_model=validate_selected_model,
         )
     workspace = session.get(Workspace, workspace_key)
     if workspace is None:
@@ -257,6 +259,8 @@ def create_draft(
     )
     session.add(draft)
     session.flush()
+    if validate_selected_model:
+        require_draft_compatible(session, draft, _draft_model(session, draft))
     if source_revision_id is not None:
         record_draft_derived(session, draft=draft)
     else:
@@ -273,6 +277,7 @@ def _create_current_live_draft(
     *,
     name: str | None,
     expected_model_runtime_release_id: int | None,
+    validate_selected_model: bool,
 ) -> WorkspaceDraft:
     """Capture one private base under SQLite's database-wide writer reservation.
 
@@ -308,7 +313,10 @@ def _create_current_live_draft(
         state = session.get(ModelRuntimeState, 1)
         if (
             state is None
-            or state.active_model_release_id != model_release_id
+            or (
+                expected_model_runtime_release_id is None
+                and state.active_model_release_id != model_release_id
+            )
             or (
                 expected_model_runtime_release_id is not None
                 and state.active_model_release_id != expected_model_runtime_release_id
@@ -321,7 +329,7 @@ def _create_current_live_draft(
             )
         base = WorkspaceDraftBase(
             workspace_key=workspace_key,
-            model_release_id=model_release_id,
+            model_release_id=state.active_model_release_id,
             model_runtime_version=state.version,
         )
         session.add(base)
@@ -362,6 +370,13 @@ def _create_current_live_draft(
         )
         session.add(draft)
         session.flush()
+        if validate_selected_model:
+            require_draft_compatible(
+                session,
+                draft,
+                _draft_model(session, draft),
+                source_release_id=base.model_release_id,
+            )
         record_draft_created(session, draft=draft)
         session.commit()
         session.refresh(draft)
@@ -437,17 +452,7 @@ def _record_conflict(expected: int | None, actual: int, label: str) -> None:
 
 
 def _draft_model(session: Session, draft: WorkspaceDraft) -> Any:
-    release = session.get(ModelRelease, draft.model_release_id)
-    if release is None:
-        raise api_error(
-            409, "workspace_draft_model_release_conflict", "Pinned model release is unavailable"
-        )
-    try:
-        return parse_model(release.model_json)
-    except Exception as exc:  # controlled public error; preserve cause for diagnostics
-        raise api_error(
-            409, "workspace_draft_model_release_conflict", "Pinned model release cannot be compiled"
-        ) from exc
+    return resolve_pinned_release(session, draft.model_release_id, require_ready=False).model
 
 
 def _normalize_object_attributes(
@@ -1529,7 +1534,9 @@ def delete_draft_attribute(
     return row
 
 
-def _diagnostics(membership: EffectiveDraftMembership, model: Any) -> list[dict[str, Any]]:
+def _diagnostics(
+    membership: EffectiveDraftMembership, model: Any, *, apply_defaults: bool = True
+) -> list[dict[str, Any]]:
     errors: list[dict[str, Any]] = []
     objects = {item.object_id: item for item in membership.objects}
     relation_rows = list(membership.relations)
@@ -1577,6 +1584,7 @@ def _diagnostics(membership: EffectiveDraftMembership, model: Any) -> list[dict[
                     dict(item.attributes or {}),
                     partial=False,
                     allow_read_only=True,
+                    apply_defaults=apply_defaults,
                 )
                 validate_object_attribute_rules(object_type, attrs)
             except ApiError as exc:
@@ -1836,35 +1844,178 @@ def _ancestor_object_id(objects: dict[str, Any], item: Any, object_type_key: str
     return None
 
 
-def validate_draft(
-    session: Session, draft_id: str, model: Any, active_release_id: int
-) -> list[dict[str, Any]]:
-    draft = _draft(session, draft_id)
-    if draft.model_release_id != active_release_id:
-        return [
-            {
-                "code": "workspace_draft_model_release_conflict",
-                "message": "Draft is pinned to a different application-model release",
-            }
-        ]
+def validate_draft(session: Session, draft_id: str, model: Any) -> list[dict[str, Any]]:
     return _diagnostics(effective_draft_membership(session, draft_id), model)
+
+
+def selected_draft_release(session: Session, public_id: str) -> ModelRelease:
+    """Resolve an installed public release identity using pinned-model errors."""
+    release = session.scalar(select(ModelRelease).where(ModelRelease.public_id == public_id))
+    if release is None:
+        raise api_error(
+            409,
+            "pinned_model_unavailable",
+            "The selected model release is not installed",
+            {"modelReleaseId": public_id},
+        )
+    resolve_pinned_release(session, release.id, require_ready=False)
+    return release
+
+
+def require_draft_compatible(
+    session: Session, draft: WorkspaceDraft, model: Any, *, source_release_id: int | None = None
+) -> None:
+    """Check complete effective membership, without conversion or live-table analysis."""
+    membership = effective_draft_membership(session, draft.id)
+    source_model = resolve_pinned_release(
+        session,
+        source_release_id if source_release_id is not None else draft.model_release_id,
+        require_ready=False,
+    ).model
+    diagnostics = _diagnostics(membership, model, apply_defaults=False)
+    # Match the existing model-compatibility type-change rule over effective membership. Target
+    # normalizers can accept a value under another declared type, which would be conversion.
+    for old_definition in source_model.attributeTypes:
+        target_definition = model.attribute_type(old_definition.key)
+        if target_definition is None or old_definition.valueType == target_definition.valueType:
+            continue
+        for rows, code, count_key in (
+            (membership.objects, "attribute_value_type_changed", "objectCount"),
+            (membership.relations, "relation_attribute_value_type_changed", "relationCount"),
+        ):
+            count = sum(old_definition.key in (row.attributes or {}) for row in rows)
+            if count:
+                diagnostics.append(
+                    {
+                        "code": code,
+                        "message": "The selected release changes the declared type of stored values; conversion is required",
+                        "details": {
+                            "attributeTypeKey": old_definition.key,
+                            "sourceValueType": old_definition.valueType,
+                            "targetValueType": target_definition.valueType,
+                            count_key: count,
+                        },
+                    }
+                )
+    # Preserve the source model's containment interpretation, matching model compatibility.
+    objects = {row.object_id: row for row in membership.objects}
+    target_pairs = {
+        (pair.relationTypeKey, pair.fromObjectTypeKey, pair.toObjectTypeKey)
+        for pair in model.objectTypeRelations
+    }
+    for pair in source_model.objectTypeRelations:
+        if not _is_parent_pair(source_model, pair):
+            continue
+        source_relation = source_model.relation_type(pair.relationTypeKey)
+        target_relation = model.relation_type(pair.relationTypeKey)
+        identity = (pair.relationTypeKey, pair.fromObjectTypeKey, pair.toObjectTypeKey)
+        if (
+            identity in target_pairs
+            and _is_parent_pair(model, pair)
+            and target_relation is not None
+            and all(
+                bool(source_relation.features.get(key)) == bool(target_relation.features.get(key))
+                for key in ("parentOf", "hierarchical")
+            )
+        ):
+            continue
+        count = sum(
+            row.relation_type_key == pair.relationTypeKey
+            and row.from_object_id in objects
+            and row.to_object_id in objects
+            and objects[row.from_object_id].object_type_key == pair.fromObjectTypeKey
+            and objects[row.to_object_id].object_type_key == pair.toObjectTypeKey
+            for row in membership.relations
+        )
+        if count:
+            diagnostics.append(
+                {
+                    "code": "parent_relation_semantics_changed",
+                    "message": "Stored containment uses source model semantics; changing them requires conversion",
+                    "details": {
+                        "relationTypeKey": pair.relationTypeKey,
+                        "fromObjectTypeKey": pair.fromObjectTypeKey,
+                        "toObjectTypeKey": pair.toObjectTypeKey,
+                        "relationCount": count,
+                    },
+                }
+            )
+    if diagnostics:
+        bounded = []
+        for diagnostic in diagnostics[:20]:
+            details = dict(diagnostic.get("details") or {})
+            conflicting_ids = details.get("conflictingObjectIds")
+            if conflicting_ids is not None and len(conflicting_ids) > 20:
+                details.update(
+                    conflictingObjectIds=conflicting_ids[:20],
+                    conflictingObjectCount=len(conflicting_ids),
+                    conflictingObjectsTruncated=True,
+                )
+            bounded.append({**diagnostic, **({"details": details} if details else {})})
+        raise api_error(
+            409,
+            "draft_content_incompatible",
+            "Draft content does not fit the selected model. Keep its current version or choose a compatible release; conversion requires the migration workflow.",
+            {
+                "diagnostics": bounded,
+                "diagnosticCount": len(diagnostics),
+                "diagnosticsTruncated": len(diagnostics) > 20,
+            },
+        )
+
+
+def change_draft_model_release(
+    session: Session, workspace_key: str, draft_id: str, public_id: str, expected_version: int
+) -> WorkspaceDraft:
+    """Claim, validate and change a single draft pin in one transaction."""
+    try:
+        draft = _draft(session, draft_id, for_update=True)
+        if draft.workspace_key != workspace_key:
+            raise api_error(404, "workspace_draft_not_found", "Workspace draft not found")
+        release = selected_draft_release(session, public_id)
+        if draft.version != expected_version:
+            raise api_error(
+                409, "workspace_draft_version_conflict", "Workspace draft version has changed"
+            )
+        # Claim even a no-op to serialize against edits, then roll it back without an audit/version bump.
+        _claim_draft(session, draft, expected_version)
+        if draft.model_release_id == release.id:
+            session.rollback()
+            return _draft(session, draft_id)
+        old_release = session.get(ModelRelease, draft.model_release_id)
+        require_draft_compatible(
+            session, draft, resolve_pinned_release(session, release.id, require_ready=False).model
+        )
+        draft.model_release_id = release.id
+
+        def identity(item: ModelRelease) -> dict[str, str]:
+            return {"id": item.public_id, "key": item.release_key, "version": item.release_version}
+
+        record_audit_event(
+            session,
+            aggregate_type="workspace-draft",
+            aggregate_id=draft.id,
+            action="model-release-changed",
+            version=draft.version,
+            changes={
+                "modelRelease": {
+                    "from": identity(old_release) if old_release else None,
+                    "to": identity(release),
+                }
+            },
+            object_ids=(),
+        )
+        session.commit()
+        session.refresh(draft)
+        return draft
+    except Exception:
+        session.rollback()
+        raise
 
 
 def pinned_model(session: Session, draft_id: str) -> tuple[WorkspaceDraft, Any]:
     draft = _draft(session, draft_id)
-    release = session.get(ModelRelease, draft.model_release_id)
-    if release is None:
-        raise api_error(
-            409,
-            "workspace_draft_model_release_conflict",
-            "Draft model release is no longer installed",
-        )
-    try:
-        return draft, parse_model(release.model_json)
-    except Exception as exc:
-        raise api_error(
-            409, "workspace_draft_model_release_conflict", "Draft model release cannot be compiled"
-        ) from exc
+    return draft, _draft_model(session, draft)
 
 
 @dataclass(frozen=True)

@@ -674,7 +674,7 @@ def test_object_and_relation_identity_collision_is_a_graph_diagnostic():
 # --------------------------------------------------------------------------- pinned model release
 
 
-def test_pinned_model_release_conflict_is_a_graph_diagnostic():
+def test_non_active_pin_validates_its_graph_without_activation_agreement():
     with TestClient(app) as client:
         workspace_key = unique_key("modelconflict")
         create_workspace(client, workspace_key)
@@ -683,9 +683,8 @@ def test_pinned_model_release_conflict_is_a_graph_diagnostic():
         rewire_draft_to_release(draft["id"], twin)
 
         result = validate_draft(client, draft["id"])
-        assert result["valid"] is False
-        diagnostic = _diag_by_code(result, "workspace_draft_model_release_conflict")
-        assert "message" in diagnostic
+        assert result["valid"] is True
+        assert result["diagnostics"] == []
 
         detail = client.get(f"/api/v1/workspace-drafts/{draft['id']}").json()
         assert detail["version"] == draft["version"]

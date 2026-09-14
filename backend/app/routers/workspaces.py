@@ -9,6 +9,7 @@ from ..models.api import (
     WorkspaceCreate,
     WorkspaceDraftActivation,
     WorkspaceDraftCreate,
+    WorkspaceDraftModelReleaseUpdate,
     WorkspaceDraftPage,
     WorkspaceDraftResponse,
     WorkspaceDraftUpdate,
@@ -23,16 +24,19 @@ from ..models.api import (
     WorkspaceUpdate,
 )
 from ..models.database import ModelRelease, Workspace, WorkspaceDraft, WorkspaceRevision
-from ..services.model.registry import ActiveModelSnapshot
+from ..services.model.registry import ActiveModelSnapshot, resolve_model_snapshot
+from ..services.model.runtime import load_runtime_state
 from ..services.pagination import integer_key, paginate_sequence, paginate_statement, text_key
 from ..services.workspace_audit import record_draft_validated
 from ..services.workspace_revisions import (
     activate_draft,
+    change_draft_model_release,
     create_draft,
     discard_draft,
     effective_draft_membership,
     pinned_model,
     retire_publication,
+    selected_draft_release,
     update_draft,
     validate_draft,
 )
@@ -120,6 +124,8 @@ def _draft_response(session, item: WorkspaceDraft) -> WorkspaceDraftResponse:
         workspaceKey=item.workspace_key,
         name=item.name,
         modelReleaseId=release.public_id if release else str(item.model_release_id),
+        modelReleaseKey=release.release_key if release else "unavailable",
+        modelReleaseVersion=release.release_version if release else "unavailable",
         source=source,
         derivedFromRevisionId=item.derived_from_revision_id,
         version=item.version,
@@ -179,20 +185,30 @@ def post_workspace_draft(
     workspace_key: str,
     payload: WorkspaceDraftCreate,
     session: DbSession,
-    snapshot: ActiveModelSnapshot,
 ) -> WorkspaceDraftResponse:
+    selected = (
+        selected_draft_release(session, str(payload.modelReleaseId))
+        if payload.modelReleaseId
+        else None
+    )
+    active_release_id = (
+        load_runtime_state(session)[1].id
+        if selected
+        else resolve_model_snapshot(session).release_db_id
+    )
     return _draft_response(
         session,
         create_draft(
             session,
             workspace_key,
-            snapshot.release_db_id,
+            selected.id if selected else active_release_id,
             name=payload.name,
             source_revision_id=str(payload.derivedFromRevisionId)
             if payload.derivedFromRevisionId
             else None,
             source=payload.source,
-            expected_model_runtime_release_id=snapshot.release_db_id,
+            expected_model_runtime_release_id=active_release_id,
+            validate_selected_model=selected is not None,
         ),
     )
 
@@ -216,6 +232,25 @@ def patch_workspace_draft(
     )
 
 
+@admin_router.patch(
+    "/workspaces/{workspace_key}/drafts/{draft_id}/model-release",
+    response_model=WorkspaceDraftResponse,
+)
+def patch_workspace_draft_model_release(
+    workspace_key: str, draft_id: str, payload: WorkspaceDraftModelReleaseUpdate, session: DbSession
+) -> WorkspaceDraftResponse:
+    return _draft_response(
+        session,
+        change_draft_model_release(
+            session,
+            workspace_key,
+            draft_id,
+            str(payload.modelReleaseId),
+            payload.expectedDraftVersion,
+        ),
+    )
+
+
 @admin_router.delete("/workspace-drafts/{draft_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_workspace_draft(
     draft_id: str, session: DbSession, expected_version: int = Query(alias="expectedVersion", ge=1)
@@ -226,11 +261,9 @@ def delete_workspace_draft(
 @admin_router.post(
     "/workspace-drafts/{draft_id}/validation", response_model=WorkspaceDraftValidation
 )
-def validate_workspace_draft(
-    draft_id: str, session: DbSession, snapshot: ActiveModelSnapshot
-) -> WorkspaceDraftValidation:
+def validate_workspace_draft(draft_id: str, session: DbSession) -> WorkspaceDraftValidation:
     draft, draft_model = pinned_model(session, draft_id)
-    diagnostics = validate_draft(session, draft_id, draft_model, snapshot.release_db_id)
+    diagnostics = validate_draft(session, draft_id, draft_model)
     # A validation never mutates the draft graph or bumps its version; the audit record is its only
     # side effect and is bounded to identity metadata plus counts (see D3a).  The conflict
     # short-circuit can leave a corrupt base unresolved, so fall back to zero counts instead of
@@ -287,7 +320,10 @@ def list_workspace_revisions(
         select(WorkspaceRevision).where(WorkspaceRevision.workspace_key == workspace_key),
         keys=(
             integer_key(
-                "revisionNumber", WorkspaceRevision.revision_number, "revision_number", descending=True
+                "revisionNumber",
+                WorkspaceRevision.revision_number,
+                "revision_number",
+                descending=True,
             ),
             text_key("id", WorkspaceRevision.id, "id", descending=True),
         ),

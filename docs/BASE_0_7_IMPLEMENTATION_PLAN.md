@@ -1,15 +1,25 @@
 # Base 0.7 implementation plan
 
-**Status:** In progress. WP-1–WP-5 delivered; WP-4 implementation review and the bounded WP-10A
+**Status:** In progress. WP-1–WP-6 delivered; WP-4 implementation review and the bounded WP-10A
 cascade-deletion version fix are complete. WP-5 acceptance follow-up and WP-10B activation hardening
 are delivered. The earlier WP-1–WP-3 review boundary remains separate;
-WP-1–WP-3 scopes are frozen. WP-6–WP-9 and composed 0.7 acceptance remain pending.
+WP-1–WP-3 scopes are frozen. WP-6 backend is delivered; WP-7–WP-9 and composed 0.7 acceptance remain pending.
 
 **Target:** Product 0.7.0, schema language 0.6. The starter model content advances to a version on
 schema 0.6; that number alone does not mean the product release is accepted.
 
 **Depends on:** Base 0.6 released (2026-09-11); retained generic CRUD, typed tables, workspace
 lifecycle, optional drafts, immutable history, delta-merge activation and the frontend redesign.
+
+## Validation ownership
+
+Each implementation package uses focused changed-behavior and regression checks under
+[AGENTS.md](../AGENTS.md#work-package-validation). Full backend/frontend suites, composed journeys
+and comprehensive accessibility/visual gates belong to WP-9 after implementation is complete.
+WP-7/WP-8A/WP-8B still add scenarios for their new controls and check the changed surfaces locally.
+Focused migration/startup, concurrency and other high-risk boundary checks remain package requirements.
+Record deferred build checks explicitly; package delivery does not establish release acceptance.
+Historical validation evidence below remains a record of what was actually run.
 
 ## Product outcome
 
@@ -445,6 +455,17 @@ candidate targets, rejected clearing, generic-write versus replacement races and
 
 #### WP-6: ADR-028 draft version selection — backend
 
+**Status:** Delivered 2026-09-14. Selected-release creation, complete effective-graph compatibility,
+atomic audited pin changes and context-aware model/metadata reads are implemented. Backend and
+HTTP regression coverage is in `backend/tests/test_build07_wp6.py`; browser selectors and context
+refresh remain WP-7. No activation bypass or conversion is included.
+
+**Validation:** Backend Ruff and all 507 tests passed on SQLite, including 20 WP-6 regressions.
+Frontend formatting, lint (zero errors, 12 existing warnings), all 164 tests and production build
+passed. Frontend tests used `--maxWorkers=1 --testTimeout=30000` after the default parallel run
+hit timing failures on the busy machine. Independent backend review found no remaining defects.
+This is backend/API evidence; WP-7 browser delivery and WP-9 composed acceptance remain pending.
+
 **Scope:**
 
 1. The `WorkspaceDraft` table already has `model_release_id`. Extend draft creation to accept an
@@ -655,10 +676,12 @@ Keyboard navigation works. Two object types are exercised.
 4. Verify cross-cutting concerns: keyboard navigation, narrow-screen layout, empty/error/retry
    states, dirty-input preservation and workspace context retention across all mapping and version-
    selection flows.
-5. Run the full validation matrix: backend Ruff + pytest, frontend lint + format + test + build,
-   migration/bootstrap checks, extended accessibility and visual-regression scenarios, and
-   `git diff --check`. Reuse passing final package gates when relevant code has not changed; run
-   composed scenarios here and rerun other gates only for relevant changes or unexplained failures.
+5. Own comprehensive build acceptance: run the full backend pytest and frontend test suites once
+   after implementation packages are complete, plus backend Ruff, frontend lint + format + build,
+   extended accessibility and visual-regression scenarios, and `git diff --check`. Reuse unchanged
+   passing static checks and focused migration/bootstrap evidence. Execute composed scenarios here;
+   rerun failures and affected boundaries after fixes, expanding to full-suite reruns only for broad
+   impact or unexplained failures. Focused package evidence does not replace the full build suites.
 6. Update `PROJECT_STATUS.md`, `ROADMAP.md`, `TODO.md`, `CHANGELOG.md` and this plan with delivery
    evidence and any remaining gaps.
 

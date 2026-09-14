@@ -129,30 +129,61 @@ application or object-type key.
 For startup or migration changes, completion additionally requires the startup and interrupted-
 migration checks in the error-handling section above; a green unit suite alone is not sufficient.
 
-Use this validation matrix:
+### Work-package validation
 
-- Backend code: run focused tests while iterating, then `ruff check app/ tests/` and the full
-  `pytest` suite once after the final backend change.
-- Frontend code: run focused tests while iterating, then `npm run format`, `npm run lint`,
-  `npm run test` and `npm run build` once after the final frontend change. Lint must report zero
-  errors; justified warnings are listed in `eslint.config.js`.
-- Cross-stack behavior or a public contract: run both backend and frontend final gates.
-- Startup or migration code: also run the focused bootstrap, upgrade, restart, interrupted-
-  migration, lifespan and final smoke checks required above.
+Keep validation proportional to the changed behavior. Choose the smallest existing tests that
+exercise the acceptance criteria and affected execution paths; add meaningful regression coverage
+for defects. Finish implementation and review the final diff before running final package checks.
+
+- Backend code: run focused tests while iterating, then the affected test files or cases and
+  `ruff check app/ tests/` after the final backend change. Do not run the full `pytest` suite
+  for each work package.
+- Frontend code: run focused tests for changed behavior, then `npm run format`, `npm run lint`
+  and `npm run build` after the final frontend change. Do not run the full `npm run test` suite
+  for each work package. Lint must report zero errors; justified warnings are listed in
+  `eslint.config.js`.
+- Cross-stack behavior or a public contract: exercise the changed API boundary, relevant contract
+  checks and affected consumer behavior. A contract change alone does not require both full suites.
+- UI changes: exercise changed interactions, keyboard operation and semantics with at least two
+  object types. Add or update relevant accessibility scenarios and visual baselines, and inspect
+  changed surfaces. Reserve the comprehensive accessibility and visual runners for build acceptance.
+- Startup or migration code: retain the focused bootstrap, upgrade, restart, interrupted-migration,
+  lifespan and final smoke checks required above. Concurrency and security changes likewise require
+  focused checks at the real affected boundary; do not defer these checks to the end of the build.
 - Documentation or agent configuration only: validate syntax, links or configuration as relevant;
   application test suites are not required.
-- Accessibility gate: run `npm run test:a11y` after UI changes that affect page structure, ARIA
-  attributes or interactive controls. The gate runs axe-core on core page types (collection tables,
-  record details, draft editing, history, model workbench) with two object types and fails on
-  unexpected violations. Known violations are allowlisted in `e2e/accessibility-gate.mjs` with
-  tracked issue references.
-- Visual regression gate: run `npm run test:visual` after CSS, layout or component changes. The
-  gate compares screenshots against committed baselines in `e2e/baselines/`. To accept intentional
-  visual changes, run `npm run test:visual:update`, review the updated baselines, and commit them.
-  Dark theme baselines are deferred until a dark mode is implemented.
 
-Do not rerun a passing gate unless relevant code changed afterward or a failure remains unexplained.
-Never run multiple backend `pytest` processes concurrently because they share a test database.
+Package completion requires its focused checks to pass. Record the checks actually exercised and
+identify comprehensive checks deferred to build acceptance; do not claim release acceptance from
+package evidence. These rules govern package delivery even when an older plan or workflow refers
+loosely to the “full validation matrix”.
+
+### Build acceptance
+
+After the build's implementation packages are complete, run the full backend `pytest` suite and
+frontend `npm run test`, plus Ruff, frontend format/lint/build and composed acceptance journeys
+for the affected layers. Run `npm run test:a11y` and `npm run test:visual` for builds with UI changes.
+For Base 0.7, WP-9 owns this comprehensive acceptance. Reuse unchanged passing static checks and
+focused startup/migration evidence; focused package tests do not replace the full build suites.
+
+Accessibility scenarios must include the changed controls and two object types. Unexpected
+violations fail the gate; known violations require tracked references in
+`e2e/accessibility-gate.mjs`. Visual checks compare against committed `e2e/baselines/`; review
+intentional baseline updates before including them in the change. Dark baselines remain deferred
+until dark mode exists. Do not update baselines merely to hide an unexplained failure.
+
+### Execution discipline
+
+- Run comprehensive suites once at build acceptance, rather than after every package or edit.
+  Broaden a package check only for a concrete uncovered risk or an explicit user request; state
+  the reason before running the broader check.
+- After a failure and fix, rerun the failing cases and affected adjacent boundary. Rerun a full
+  acceptance suite only when the fix has broad impact or the failure remains unexplained.
+- Reuse passing checks while their relevant code remains unchanged. A change elsewhere does not
+  invalidate all previous evidence. Do not repeat equivalent checks for the same behavior.
+- Keep test output bounded and report concise results. While a test runs, wait for completion
+  rather than repeatedly polling, reanalysing unchanged code or launching overlapping checks.
+- Never run multiple backend `pytest` processes concurrently because they share a test database.
 
 ## Agent orchestration
 
