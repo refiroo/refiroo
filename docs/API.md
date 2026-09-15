@@ -196,7 +196,9 @@ removals. A present `before` or `after` may contain JSON `null`; omission and a 
 distinct. Set-like key memberships such as application object types and allowed relation attributes
 are compared by stable key rather than array position. Compatibility always assesses activation
 against current runtime data and identifies the active release used for that assessment; it is
-independent of a non-active structural diff baseline.
+independent of a non-active structural diff baseline. If either the candidate or baseline release uses
+an unsupported schema, diff returns `422 unsupported_schema_version` with details identifying the
+affected release. Missing releases return `404 model_release_not_found`.
 
 Activation accepts both concurrency tokens:
 
@@ -328,11 +330,14 @@ are not mutation-gated. Lifecycle errors use:
 - `409 version_conflict` for a stale draft version;
 - `409 release_identity_conflict` for the same release key/version with different content;
 - `422 invalid_model` when installation recompilation fails;
-- `422 unsupported_schema_version` when activation targets a historical release whose schema is not
-  supported by the runtime;
+- `422 unsupported_schema_version` when diff, compilation or activation involves a release whose schema
+  is not supported by the runtime (details include `releaseId`, `schemaVersion`,
+  `supportedSchemaVersions` and `operation`; the schema value comes from the stored model document
+  when compilation detects a metadata/document mismatch);
 - `409 activation_conflict` for stale runtime-state tokens; and
 - `409 model_migration_required` when stored data prevents activation;
-- `500 invalid_installed_model` when persisted release JSON cannot be reparsed for diff or activation;
+- `500 invalid_installed_model` when persisted release JSON with a supported schema cannot be reparsed
+  for diff or activation (distinguished from unsupported schema, which returns 422);
 - `503 model_runtime_state_unavailable` when no authoritative active selection can be read;
 - `503 model_registry_refresh_failed` when activation committed but the process could not publish the
   new selection; and
@@ -1002,13 +1007,26 @@ complete resulting attribute set. Stale `expectedVersion` values return `409 ver
 
 All API errors, including request validation and unmatched routes, return a unified JSON envelope
 with a machine-readable `code` and a human-readable `message`. Validation errors additionally include
-a `details` array.
+a `details` array. Unexpected internal errors use code `internal_error` and include a
+`correlationId` in `details`; the same identifier appears in server logs for operator diagnosis.
 
 ```json
 {
   "error": {
     "code": "object_already_exists",
     "message": "An object with ID 'c5588b49-...' already exists"
+  }
+}
+```
+
+Internal error example:
+
+```json
+{
+  "error": {
+    "code": "internal_error",
+    "message": "The GET /api/v1/model-releases operation failed unexpectedly. Retry or contact support with reference a1b2c3d4e5f6.",
+    "details": { "correlationId": "a1b2c3d4e5f6" }
   }
 }
 ```

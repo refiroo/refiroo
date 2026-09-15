@@ -47,6 +47,14 @@ function AppContent({
   const data = useWorkspaceData();
   const model = data.model ?? currentModel;
   const [refreshToken, setRefreshToken] = useState(0);
+  const contextLoading =
+    !data.model &&
+    !data.loadingError &&
+    !!(
+      route &&
+      (route.kind === "list" || route.kind === "detail") &&
+      (route.workspaceDraftId || route.workspaceRevisionId)
+    );
   const [workspace, setWorkspace] = useState<Workspace>();
   const actionSequence = useRef(0);
   const inspectorWidth = useLocalNumberPreference(
@@ -242,128 +250,179 @@ function AppContent({
       onOpenObject={(item) => openObject(item, undefined, "hierarchy")}
     >
       {message && <Notice tone="success">{message}</Notice>}
-      {data.draft && (
-        <DraftActions
-          readOnly={readOnly}
-          onExit={(result) => {
-            setMessage(result);
-            navigate({ ...viewRoute(application, application.defaultView, data.draft!.workspaceKey) });
-            setRefreshToken((value) => value + 1);
-          }}
-          onModelChanged={async () => {
-            if (data.reloadDraftModel) {
-              await data.reloadDraftModel();
-              setRefreshToken((value) => value + 1);
+      {data.loadingError ? (
+        <div className="surface panel">
+          <Notice
+            tone="error"
+            title="Could not load this content"
+            actions={
+              <>
+                {data.retryLoading && (
+                  <button type="button" className="secondary" onClick={data.retryLoading}>
+                    Retry
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() =>
+                    navigate({
+                      ...viewRoute(
+                        application,
+                        application.defaultView,
+                        activeRoute.kind === "models" ? "default" : activeRoute.workspaceKey,
+                      ),
+                    })
+                  }
+                >
+                  Return to Live
+                </button>
+              </>
             }
-          }}
-        />
-      )}
-      {data.revision && (
-        <HistoricalRevisionBanner
-          onExit={() =>
-            navigate({ kind: "history", applicationKey: application.key, workspaceKey: data.revision!.workspaceKey })
-          }
-        />
-      )}
-      {activeRoute.kind === "models" ? (
-        <ModelWorkbench
-          route={activeRoute}
-          onRouteChange={(next) => navigate(next)}
-          onActiveModelChange={reloadModel}
-        />
-      ) : activeRoute.kind === "drafts" ? (
-        <WorkspaceDrafts
-          workspaceKey={activeRoute.workspaceKey}
-          readOnly={readOnly}
-          onOpen={(id) =>
-            navigate({
-              ...viewRoute(application, application.defaultView, activeRoute.workspaceKey),
-              workspaceDraftId: id,
-            })
-          }
-        />
-      ) : activeRoute.kind === "history" ? (
-        <WorkspaceHistory
-          workspaceKey={activeRoute.workspaceKey}
-          readOnly={readOnly}
-          onOpen={(id) =>
-            navigate({
-              ...viewRoute(application, application.defaultView, activeRoute.workspaceKey),
-              workspaceRevisionId: id,
-            })
-          }
-          onDraftCreated={(id) =>
-            navigate({
-              ...viewRoute(application, application.defaultView, activeRoute.workspaceKey),
-              workspaceDraftId: id,
-            })
-          }
-        />
+          >
+            {data.loadingError}
+          </Notice>
+        </div>
+      ) : contextLoading ? (
+        <div className="surface panel">
+          <p>
+            Loading{" "}
+            {route && (route.kind === "list" || route.kind === "detail") && route.workspaceDraftId
+              ? "draft"
+              : "historical revision"}
+            …
+          </p>
+        </div>
       ) : (
-        <div
-          className={`record-workspace${inspector ? " has-inspector" : ""}${hasDetail ? " has-record" : ""}`}
-          style={{ "--inspector-width": `${inspectorWidth.value}px` } as CSSProperties}
-        >
-          {collection && collectionApplication && (
-            <div className="record-collection" hidden={hasDetail && !inspector}>
-              <CollectionView
-                key={`${collection.applicationKey}:${collection.viewKey}:${collection.workspaceKey}:${workspaceDraftId ?? workspaceRevisionId ?? "live"}:${data.draft?.modelReleaseId ?? ""}`}
-                model={model}
-                application={collectionApplication}
-                view={
-                  collectionApplication.views.find((view) => view.key === collection.viewKey) ??
-                  collectionApplication.views[0]
+        <>
+          {data.draft && (
+            <DraftActions
+              readOnly={readOnly}
+              onExit={(result) => {
+                setMessage(result);
+                navigate({ ...viewRoute(application, application.defaultView, data.draft!.workspaceKey) });
+                setRefreshToken((value) => value + 1);
+              }}
+              onModelChanged={async () => {
+                if (data.reloadDraftModel) {
+                  await data.reloadDraftModel();
+                  setRefreshToken((value) => value + 1);
                 }
-                workspaceKey={collection.workspaceKey}
-                readOnly={readOnly}
-                refreshToken={refreshToken}
-                selectedId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
-                onChanged={() => setRefreshToken((value) => value + 1)}
-                query={collection}
-                onQueryChange={(query: CollectionQueryState) =>
-                  navigate(
-                    activeRoute.kind === "detail"
-                      ? { ...activeRoute, collectionOrigin: { ...collection, ...query } }
-                      : { ...collection, ...query },
-                  )
-                }
-                onOpen={openObject}
-              />
+              }}
+            />
+          )}
+          {data.revision && (
+            <HistoricalRevisionBanner
+              onExit={() =>
+                navigate({
+                  kind: "history",
+                  applicationKey: application.key,
+                  workspaceKey: data.revision!.workspaceKey,
+                })
+              }
+            />
+          )}
+          {activeRoute.kind === "models" ? (
+            <ModelWorkbench
+              route={activeRoute}
+              onRouteChange={(next) => navigate(next)}
+              onActiveModelChange={reloadModel}
+            />
+          ) : activeRoute.kind === "drafts" ? (
+            <WorkspaceDrafts
+              workspaceKey={activeRoute.workspaceKey}
+              readOnly={readOnly}
+              onOpen={(id) =>
+                navigate({
+                  ...viewRoute(application, application.defaultView, activeRoute.workspaceKey),
+                  workspaceDraftId: id,
+                })
+              }
+            />
+          ) : activeRoute.kind === "history" ? (
+            <WorkspaceHistory
+              workspaceKey={activeRoute.workspaceKey}
+              readOnly={readOnly}
+              onOpen={(id) =>
+                navigate({
+                  ...viewRoute(application, application.defaultView, activeRoute.workspaceKey),
+                  workspaceRevisionId: id,
+                })
+              }
+              onDraftCreated={(id) =>
+                navigate({
+                  ...viewRoute(application, application.defaultView, activeRoute.workspaceKey),
+                  workspaceDraftId: id,
+                })
+              }
+            />
+          ) : (
+            <div
+              className={`record-workspace${inspector ? " has-inspector" : ""}${hasDetail ? " has-record" : ""}`}
+              style={{ "--inspector-width": `${inspectorWidth.value}px` } as CSSProperties}
+            >
+              {collection && collectionApplication && (
+                <div className="record-collection" hidden={hasDetail && !inspector}>
+                  <CollectionView
+                    key={`${collection.applicationKey}:${collection.viewKey}:${collection.workspaceKey}:${workspaceDraftId ?? workspaceRevisionId ?? "live"}:${data.draft?.modelReleaseId ?? ""}`}
+                    model={model}
+                    application={collectionApplication}
+                    view={
+                      collectionApplication.views.find((view) => view.key === collection.viewKey) ??
+                      collectionApplication.views[0]
+                    }
+                    workspaceKey={collection.workspaceKey}
+                    readOnly={readOnly}
+                    refreshToken={refreshToken}
+                    selectedId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
+                    onChanged={() => setRefreshToken((value) => value + 1)}
+                    query={collection}
+                    onQueryChange={(query: CollectionQueryState) =>
+                      navigate(
+                        activeRoute.kind === "detail"
+                          ? { ...activeRoute, collectionOrigin: { ...collection, ...query } }
+                          : { ...collection, ...query },
+                      )
+                    }
+                    onOpen={openObject}
+                  />
+                </div>
+              )}
+              {activeRoute.kind === "detail" && (
+                <>
+                  {inspector && (
+                    <ResizeHandle
+                      className="inspector-resizer"
+                      label="Resize record inspector"
+                      value={inspectorWidth.value}
+                      min={360}
+                      max={720}
+                      direction={-1}
+                      onChange={inspectorWidth.change}
+                      onReset={inspectorWidth.reset}
+                    />
+                  )}
+                  <ObjectDetail
+                    key={`${application.key}:${activeRoute.objectTypeKey}:${activeRoute.objectId}:${activeRoute.workspaceKey}:${activeRoute.actionRequest?.key ?? 0}:${data.draft?.modelReleaseId ?? ""}`}
+                    model={model}
+                    application={application}
+                    objectTypeKey={activeRoute.objectTypeKey}
+                    objectId={activeRoute.objectId}
+                    workspaceKey={activeRoute.workspaceKey}
+                    inspector={inspector}
+                    initialAction={activeRoute.actionRequest?.action}
+                    onExpand={inspector ? () => navigate({ ...activeRoute, fullPage: true }) : undefined}
+                    readOnly={readOnly}
+                    onChanged={() => setRefreshToken((value) => value + 1)}
+                    onOpen={openObjectById}
+                    showBackToList={activeRoute.collectionOrigin !== null}
+                    onBack={backToCollection}
+                  />
+                </>
+              )}
             </div>
           )}
-          {activeRoute.kind === "detail" && (
-            <>
-              {inspector && (
-                <ResizeHandle
-                  className="inspector-resizer"
-                  label="Resize record inspector"
-                  value={inspectorWidth.value}
-                  min={360}
-                  max={720}
-                  direction={-1}
-                  onChange={inspectorWidth.change}
-                  onReset={inspectorWidth.reset}
-                />
-              )}
-              <ObjectDetail
-                key={`${application.key}:${activeRoute.objectTypeKey}:${activeRoute.objectId}:${activeRoute.workspaceKey}:${activeRoute.actionRequest?.key ?? 0}:${data.draft?.modelReleaseId ?? ""}`}
-                model={model}
-                application={application}
-                objectTypeKey={activeRoute.objectTypeKey}
-                objectId={activeRoute.objectId}
-                workspaceKey={activeRoute.workspaceKey}
-                inspector={inspector}
-                initialAction={activeRoute.actionRequest?.action}
-                onExpand={inspector ? () => navigate({ ...activeRoute, fullPage: true }) : undefined}
-                readOnly={readOnly}
-                onChanged={() => setRefreshToken((value) => value + 1)}
-                onOpen={openObjectById}
-                showBackToList={activeRoute.collectionOrigin !== null}
-                onBack={backToCollection}
-              />
-            </>
-          )}
-        </div>
+        </>
       )}
     </AppShell>
   );

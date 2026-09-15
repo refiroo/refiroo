@@ -37,14 +37,29 @@ WP-4 and its WP-10A review fix delivered (2026-09-14). WP-5 delivered (2026-09-1
   informational banner and activation refusal when versions differ, version-change action with
   incompatibility diagnostics, model-context refresh after pin change, and dirty-input protection
   via navigation guards. 169 frontend tests (5 new), zero lint errors, production build passes.
-- [ ] WP-11 (after WP-7, before WP-9): historical release diff/compile unsupported-schema refusals,
+- [x] WP-11 (after WP-7, before WP-9): historical release diff/compile unsupported-schema refusals,
   informative frontend states, actionable internal-error diagnostics and WP-7 draft UI consistency
   using the existing modal/form styles and diagnostics; supported pinned-schema loading, shell-aligned
-  workspace loading/error recovery and safe handling of HTML/non-JSON API responses.
-  Installed-release selection remains unchanged.
-  Separate scheduled package;
-  see acceptance criteria in [the 0.7 implementation plan](BASE_0_7_IMPLEMENTATION_PLAN.md).
+  workspace loading/error recovery and safe handling of HTML/non-JSON API responses. Delivered
+  2026-09-15: 422 unsupported_schema_version with structured details for diff/compile/activation, correlation-ID
+  error boundary, API client HTML hardening, Modal version-change dialog, supported-schema pinned-model
+  loading, retry-aware shell-aligned error recovery and historical-release informational state. Final
+  review passed 155 affected backend and 55 focused frontend tests, static/build gates and a five-check
+  desktop/narrow real-browser journey. Comprehensive suites and gates remain WP-9.
+- [ ] WP-12 (after WP-11, before WP-9): Models release **Technical details** with explained,
+  copyable public release UUID and canonical content hash; keep human-readable release information
+  prominent. Correct semantic-change baselines to earlier release → selected release, including active
+  release inspection, with explicit baseline selection and truthful unsupported/first-release states.
+  Preserve separate activation compatibility checks; correlation-ID behavior remains unchanged.
 - [ ] WP-8A: read-only mapping coverage; WP-8B: selection, conflicts, clearing and contextual creation.
+- [ ] WP-13A: derive a product-wide risk-ranked contract inventory from invariants, acceptance, ADR,
+  API and model contracts; map existing evidence, fill confirmed gaps and consolidate only with
+  surviving protection recorded. Recent defects are regression inputs, not the audit structure.
+- [ ] WP-13B: measure runtime/setup costs and implement maintained contract/risk-group commands with
+  explicit shared-boundary expansion; after WP-13A.
+- [ ] WP-13C: inventory the applicable states of every materially changed 0.7 UI surface, then add
+  risk-selected browser journeys and reviewed normal/narrow screenshots against existing UI patterns;
+  close after mapping UI and WP-12, before WP-9.
 - [ ] WP-9: independent binding fixtures, same-schema differing releases, new-control a11y/visual
   coverage, generic-write races and draft activation/live same-set conflicts.
 - [x] WP-10A: live/draft cascade deletion advances affected mapping-set versions atomically; stale

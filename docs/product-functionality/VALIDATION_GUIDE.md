@@ -255,8 +255,9 @@ Use SC-07 and SC-15 with the [0.7 plan](../BASE_0_7_IMPLEMENTATION_PLAN.md). WP-
 binding fixtures, candidates beyond page one, large ambiguous sets, typed attributes, direction-aware
 clearing, generic-write/mapping races and draft activation/live same-set conflicts. Version selection
 uses differing content releases on one schema, complete inherited candidate checks, atomic refusal,
-external pin changes and model-dependent route/form/cursor recovery. WP-7/WP-8A/WP-8B extend gate
-scenarios to new controls and perform focused checks of changed surfaces; existing core-page passes
+external pin changes and model-dependent route/form/cursor recovery. WP-11 adds focused real-browser
+dialog evidence plus HTTP/component refusal coverage. WP-8A/WP-8B extend gate scenarios to new controls
+and perform focused checks of changed surfaces; existing core-page passes
 alone do not cover them. WP-9 runs the comprehensive suites, accessibility/visual gates and composed
 journeys. Reuse unchanged passing static and focused boundary checks. WP-1–WP-3 are frozen; confirmed missing
 capabilities trigger bounded WP-10 work before release acceptance. No new pass evidence is recorded here.

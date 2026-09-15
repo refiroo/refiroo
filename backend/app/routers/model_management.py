@@ -20,7 +20,7 @@ from ..models.api import (
 from ..models.database import AuditEvent, ModelDraft, ModelRelease
 from ..services.cursors import METADATA_CURSOR_MESSAGE
 from ..services.model.compatibility import analyze_compatibility
-from ..services.model.compiler import compile_model
+from ..services.model.compiler import SUPPORTED_SCHEMA_VERSIONS, compile_model
 from ..services.model.diff import semantic_diff
 from ..services.model.drafts import (
     base_release_public_id,
@@ -95,8 +95,10 @@ def activate_release(
                 "unsupported_schema_version",
                 f"Schema version '{exc.schema_version}' cannot be activated",
                 {
+                    "releaseId": exc.release_id,
                     "schemaVersion": exc.schema_version,
-                    "supportedSchemaVersions": ["0.5", "0.6"],
+                    "supportedSchemaVersions": sorted(SUPPORTED_SCHEMA_VERSIONS),
+                    "operation": "activation",
                 },
             ) from exc
         except ModelMigrationRequired as exc:
@@ -248,6 +250,19 @@ def compile_model_draft(
         )
     baseline = compile_model(baseline_release.model_json)
     if not baseline.valid or baseline.canonical_model is None:
+        if baseline.unsupported_schema_version is not None:
+            raise api_error(
+                422,
+                "unsupported_schema_version",
+                f"Baseline release '{baseline_release.public_id}' uses schema version"
+                f" '{baseline.unsupported_schema_version}' which this deployment cannot interpret",
+                {
+                    "releaseId": baseline_release.public_id,
+                    "schemaVersion": baseline.unsupported_schema_version,
+                    "supportedSchemaVersions": sorted(SUPPORTED_SCHEMA_VERSIONS),
+                    "operation": "compile",
+                },
+            )
         raise api_error(
             500, "invalid_installed_model", "An installed model release failed validation"
         )

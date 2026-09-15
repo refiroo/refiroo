@@ -13,7 +13,7 @@ from ..models.api import (
 from ..models.database import ModelRelease
 from ..services.cursors import METADATA_CURSOR_MESSAGE
 from ..services.model.compatibility import analyze_compatibility
-from ..services.model.compiler import compile_model
+from ..services.model.compiler import SUPPORTED_SCHEMA_VERSIONS, compile_model
 from ..services.model.diff import semantic_diff
 from ..services.model.registry import ActiveModelSnapshot
 from ..services.pagination import datetime_key, paginate_statement, text_key
@@ -107,14 +107,31 @@ def diff_model_release(
 
     candidate = compile_model(candidate_release.model_json)
     baseline = compile_model(baseline_release.model_json)
-    invalid = candidate if not candidate.valid else baseline
-    if not invalid.valid:
-        raise api_error(
-            500,
-            "invalid_installed_model",
-            "An installed model release failed validation",
-            diagnostic_details(invalid.diagnostics),
-        )
+    for compilation, release in (
+        (candidate, candidate_release),
+        (baseline, baseline_release),
+    ):
+        if not compilation.valid:
+            if compilation.unsupported_schema_version is not None:
+                raise api_error(
+                    422,
+                    "unsupported_schema_version",
+                    f"Release '{release.public_id}' uses schema version"
+                    f" '{compilation.unsupported_schema_version}'"
+                    " which this deployment cannot interpret for comparison",
+                    {
+                        "releaseId": release.public_id,
+                        "schemaVersion": compilation.unsupported_schema_version,
+                        "supportedSchemaVersions": sorted(SUPPORTED_SCHEMA_VERSIONS),
+                        "operation": "diff",
+                    },
+                )
+            raise api_error(
+                500,
+                "invalid_installed_model",
+                "An installed model release failed validation",
+                diagnostic_details(compilation.diagnostics),
+            )
     if (
         candidate.model is None
         or candidate.canonical_model is None

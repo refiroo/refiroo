@@ -383,44 +383,57 @@ export function DraftActions({
         </div>
       )}
       {changingVersion && (
-        <div className="draft-version-change">
-          <strong>Change model version</strong>
-          <p>Select a different installed model release. The draft content must already satisfy the target model.</p>
-          <label>
-            Target release
-            <select value={selectedRelease} onChange={(event) => setSelectedRelease(event.target.value)}>
-              <option value="">Select a release…</option>
-              {releases.items
-                .filter((r) => r.id !== current.modelReleaseId)
-                .map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.key} {r.version}
-                    {r.active ? " (active)" : ""}
-                  </option>
-                ))}
-            </select>
-          </label>
-          {releases.hasMore && (
-            <button className="secondary" disabled={releases.loading} onClick={releases.loadMore}>
-              Load more model releases
-            </button>
-          )}
-          {releases.error && <InlineError message={releases.error} onRetry={releases.retry} />}
-          {versionChangeError && (
-            <Notice tone="error" title="Version change failed">
-              {versionChangeError}
-              {versionChangeDiagnostics.length > 0 && <DraftDiagnostics items={versionChangeDiagnostics} />}
-            </Notice>
-          )}
-          <div className="dialog-actions">
-            <button className="secondary" disabled={pending} onClick={() => setChangingVersion(false)}>
-              Cancel
-            </button>
-            <button className="primary" disabled={pending || !selectedRelease} onClick={applyVersionChange}>
-              Apply version change
-            </button>
-          </div>
-        </div>
+        <Modal
+          title="Change model version"
+          eyebrow="Draft action"
+          size="compact"
+          busy={pending}
+          dirty={Boolean(selectedRelease)}
+          onClose={() => setChangingVersion(false)}
+        >
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void applyVersionChange();
+            }}
+          >
+            <p>Select a different installed model release. The draft content must already satisfy the target model.</p>
+            <label>
+              Target release
+              <select value={selectedRelease} onChange={(event) => setSelectedRelease(event.target.value)}>
+                <option value="">Select a release…</option>
+                {releases.items
+                  .filter((r) => r.id !== current.modelReleaseId)
+                  .map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.key} {r.version}
+                      {r.active ? " (active)" : ""}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            {releases.hasMore && (
+              <button type="button" className="secondary" disabled={releases.loading} onClick={releases.loadMore}>
+                Load more model releases
+              </button>
+            )}
+            {releases.error && <InlineError message={releases.error} onRetry={releases.retry} />}
+            {versionChangeError && (
+              <Notice tone="error" title="Version change failed">
+                {versionChangeError}
+                {versionChangeDiagnostics.length > 0 && <DraftDiagnostics items={versionChangeDiagnostics} />}
+              </Notice>
+            )}
+            <div className="dialog-actions">
+              <button type="button" className="secondary" disabled={pending} onClick={() => setChangingVersion(false)}>
+                Cancel
+              </button>
+              <button type="submit" className="primary" disabled={pending || !selectedRelease}>
+                Apply version change
+              </button>
+            </div>
+          </form>
+        </Modal>
       )}
       {validation && (
         <Notice

@@ -113,10 +113,22 @@ navigating low-level relation screens.
     WP-10 slices before release acceptance; no speculative foundation changes are scheduled. WP-10A
     cascade invalidation and WP-10B activation set-conflict hardening are delivered on SQLite.
     PostgreSQL concurrency and the mapping browser journeys remain outside this backend evidence.
+13. WP-11 (delivered 2026-09-15): distinguish unsupported-schema refusals from corrupt JSON in release
+    diff/compile/activation (structured 422), correlation-ID error boundary, API client HTML/non-JSON
+    hardening, compact Modal version-change dialog, supported-schema pinned-model loading, retry-aware
+    shell-aligned workspace errors and historical-release informational state. WP-12 follows with
+    release identity UI.
 
 The [0.7 implementation plan](BASE_0_7_IMPLEMENTATION_PLAN.md) owns detailed follow-up acceptance
 criteria; [API.md](API.md) distinguishes these planned contracts from delivered endpoints.
 
+
+### Validation improvement within 0.7
+
+WP-13 delivers a prioritised contract-coverage map, measured affected-area test commands and focused
+UI/browser acceptance using the existing design patterns. It preserves distinct regression protection
+while reducing redundant execution. All slices close before WP-9; comprehensive suites remain build
+acceptance gates rather than per-package requirements. See the [implementation plan](BASE_0_7_IMPLEMENTATION_PLAN.md).
 
 ### Exit gate
 

@@ -46,21 +46,33 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     const body = await response.text();
-    let message = body || `Request failed with ${response.status}`;
+    let message = failedResponseMessage(path, response.status);
     let code = "http_error";
     let details: unknown;
     try {
       const parsed = JSON.parse(body);
-      message = parsed.error?.message ?? parsed.detail ?? body;
+      message = parsed.error?.message ?? parsed.detail ?? message;
       code = parsed.error?.code ?? code;
       details = parsed.error?.details;
     } catch {
-      // Keep a non-JSON error body intact.
+      // Non-JSON response evidence belongs in controlled server diagnostics, not the rendered UI.
     }
     throw new ApiError(response.status, code, message, details);
   }
   if (response.status === 204) return undefined as T;
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) {
+    throw new ApiError(
+      response.status,
+      "unexpected_response",
+      `The request to ${path} returned ${contentType || "an unknown content type"} instead of JSON. Retry or contact support if the problem continues.`,
+    );
+  }
   return response.json() as Promise<T>;
+}
+
+function failedResponseMessage(path: string, status: number): string {
+  return `The request to ${path} failed with status ${status}. Retry or contact support if the problem continues.`;
 }
 
 export interface DraftWriteContext {
@@ -103,7 +115,14 @@ function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
 }
 
 export const api = {
-  model: () => request<EngineModel>("/api/v1/model"),
+  model: (context: { workspaceKey?: string; workspaceDraftId?: string; workspaceRevisionId?: string } = {}) => {
+    const params = new URLSearchParams();
+    if (context.workspaceKey) params.set("workspaceKey", context.workspaceKey);
+    if (context.workspaceDraftId) params.set("workspaceDraftId", context.workspaceDraftId);
+    if (context.workspaceRevisionId) params.set("workspaceRevisionId", context.workspaceRevisionId);
+    const query = params.toString();
+    return request<EngineModel>(`/api/v1/model${query ? `?${query}` : ""}`);
+  },
   capabilities: () => request<CapabilitiesResponse>("/api/v1/capabilities"),
   workspaces: (
     options: {

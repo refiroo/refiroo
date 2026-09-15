@@ -12,7 +12,10 @@ from ...models.schema import EngineModel
 from .diagnostics import ModelDiagnostic, ModelValidationError
 from .validation import validate_references
 
+SUPPORTED_SCHEMA_VERSIONS: frozenset[str] = frozenset({"0.5", "0.6"})
+
 __all__ = [
+    "SUPPORTED_SCHEMA_VERSIONS",
     "CompilationResult",
     "ModelDiagnostic",
     "ModelValidationError",
@@ -29,12 +32,12 @@ class CompilationResult:
     canonical_model: dict[str, Any] | None
     model_hash: str | None
     diagnostics: tuple[ModelDiagnostic, ...]
+    unsupported_schema_version: str | None = None
 
 
 def compile_model(source: Any) -> CompilationResult:
     """Validate shape, then references, then canonicalize."""
-    SUPPORTED_VERSIONS = {"0.5", "0.6"}
-    if isinstance(source, dict) and source.get("schemaVersion") not in {None, *SUPPORTED_VERSIONS}:
+    if isinstance(source, dict) and source.get("schemaVersion") not in {None, *SUPPORTED_SCHEMA_VERSIONS}:
         supplied = source.get("schemaVersion")
         return _invalid(
             (
@@ -42,9 +45,10 @@ def compile_model(source: Any) -> CompilationResult:
                     severity="error",
                     code="unsupported_schema_version",
                     path="/schemaVersion",
-                    message=f"Schema version '{supplied}' is unsupported; supported versions: {sorted(SUPPORTED_VERSIONS)}",
+                    message=f"Schema version '{supplied}' is unsupported; supported versions: {sorted(SUPPORTED_SCHEMA_VERSIONS)}",
                 ),
-            )
+            ),
+            unsupported_schema_version=str(supplied),
         )
     try:
         model = EngineModel.model_validate(source)
@@ -84,13 +88,18 @@ def canonical_model(model: EngineModel) -> tuple[dict[str, Any], str]:
     return model_json, hashlib.sha256(canonical.encode()).hexdigest()
 
 
-def _invalid(diagnostics: tuple[ModelDiagnostic, ...]) -> CompilationResult:
+def _invalid(
+    diagnostics: tuple[ModelDiagnostic, ...],
+    *,
+    unsupported_schema_version: str | None = None,
+) -> CompilationResult:
     return CompilationResult(
         valid=False,
         model=None,
         canonical_model=None,
         model_hash=None,
         diagnostics=diagnostics,
+        unsupported_schema_version=unsupported_schema_version,
     )
 
 

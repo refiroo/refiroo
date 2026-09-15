@@ -2,10 +2,18 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from "
 import { api } from "@/api/client";
 import { createDraftClient } from "@/api/draftClient";
 import { createHistoryClient } from "@/api/historyClient";
-import { errorMessage } from "@/api/errors";
+import { errorMessage, isApiError } from "@/api/errors";
 import type { EngineModel, WorkspaceDraft, WorkspaceRevision } from "@/types";
 import { allowNavigation } from "@/routing/navigationGuard";
-import { InlineError } from "@/ui/InlineError";
+
+class WorkspaceContextError extends Error {
+  constructor(
+    message: string,
+    readonly retryable: boolean,
+  ) {
+    super(message);
+  }
+}
 
 interface DataContext {
   api: typeof api;
@@ -14,6 +22,10 @@ interface DataContext {
   model?: EngineModel;
   activeModelReleaseId?: string;
   warning: string;
+  /** Set when the workspace context could not be loaded at all. */
+  loadingError?: string;
+  /** Retry loading after a transient failure. */
+  retryLoading?: () => void;
   refresh?: () => Promise<WorkspaceDraft>;
   reloadDraftModel?: () => Promise<void>;
 }
@@ -40,7 +52,7 @@ export function WorkspaceDataProvider({
     model: EngineModel;
     activeModelReleaseId?: string;
   }>();
-  const [error, setError] = useState("");
+  const [error, setError] = useState<{ message: string; retryable: boolean }>();
   const [retry, setRetry] = useState(0);
   useEffect(() => {
     if (!draftId && !revisionId) return;
@@ -52,22 +64,24 @@ export function WorkspaceDataProvider({
       ]);
       const label = draftId ? "draft" : "revision";
       if (context.workspaceKey !== workspaceKey)
-        throw new Error(`This ${label} belongs to another workspace. Return to Live and select its workspace.`);
-      const release = await api.modelRelease(context.modelReleaseId, true);
-      if (!release.model || release.schemaVersion !== model.schemaVersion)
-        throw new Error(
-          `This ${label}'s pinned model schema ${release.schemaVersion} is unsupported. The ${label} is preserved and has not been interpreted with the current model.`,
+        throw new WorkspaceContextError(
+          `This ${label} belongs to another workspace. Return to Live and select its workspace.`,
+          false,
         );
+      const pinnedModel = await api.model({
+        workspaceKey,
+        ...(draftId ? { workspaceDraftId: draftId } : { workspaceRevisionId: revisionId }),
+      });
       if (active) {
         setLoaded({
           ...(draftId ? { draft: context as WorkspaceDraft } : { revision: context as WorkspaceRevision }),
-          model: release.model as unknown as EngineModel,
+          model: pinnedModel,
           activeModelReleaseId: runtime?.activeReleaseId,
         });
-        setError("");
+        setError(undefined);
       }
     }
-    load().catch((cause) => active && setError(errorMessage(cause)));
+    load().catch((cause) => active && setError(contextLoadError(cause, draftId ? "draft" : "revision")));
     return () => {
       active = false;
     };
@@ -75,18 +89,16 @@ export function WorkspaceDataProvider({
   if (!draftId && !revisionId) return children;
   if (!loaded)
     return (
-      <div>
-        {error ? (
-          <InlineError message={error} onRetry={() => setRetry((value) => value + 1)} />
-        ) : (
-          <p>Loading {draftId ? "draft" : "historical revision"}…</p>
-        )}
-        <a
-          href={`/apps/${encodeURIComponent(model.applications[0].key)}/views/${encodeURIComponent(model.applications[0].defaultView)}?workspaceKey=${encodeURIComponent(workspaceKey)}`}
-        >
-          Return to Live
-        </a>
-      </div>
+      <Context.Provider
+        value={{
+          api,
+          warning: "",
+          loadingError: error?.message,
+          retryLoading: error?.retryable ? () => setRetry((value) => value + 1) : undefined,
+        }}
+      >
+        {children}
+      </Context.Provider>
     );
   return loaded.draft ? (
     <LoadedDraft initial={loaded.draft} model={loaded.model} activeModelReleaseId={loaded.activeModelReleaseId}>
@@ -133,12 +145,10 @@ function LoadedDraft({
             throw new Error(
               "The draft's model changed. Your input is preserved; saving is blocked until you accept a model refresh.",
             );
-          const release = await api.modelRelease(refreshed.modelReleaseId, true);
-          if (!release.model || release.schemaVersion !== initialModel.schemaVersion)
-            throw new Error(
-              "The draft's pinned model could not be loaded or is unsupported. Saving is blocked; retry the refresh or return to Live.",
-            );
-          nextModel = release.model as unknown as EngineModel;
+          nextModel = await api.model({
+            workspaceKey: refreshed.workspaceKey,
+            workspaceDraftId: refreshed.id,
+          });
         }
         const runtime = await api.modelRuntimeState();
         if (nextModel) {
@@ -177,4 +187,28 @@ function LoadedDraft({
       {children}
     </Context.Provider>
   );
+}
+
+function contextLoadError(cause: unknown, label: "draft" | "revision") {
+  if (cause instanceof WorkspaceContextError) {
+    return { message: cause.message, retryable: cause.retryable };
+  }
+  if (isApiError(cause, "unsupported_pinned_model_schema")) {
+    const details = cause.details as { schemaVersion?: string } | undefined;
+    return {
+      message: `This ${label}'s pinned model uses schema ${details?.schemaVersion ?? "an unsupported version"}. The ${label} is preserved and was not interpreted; return to Live.`,
+      retryable: false,
+    };
+  }
+  if (
+    isApiError(cause, "pinned_model_invalid") ||
+    isApiError(cause, "pinned_model_unavailable") ||
+    isApiError(cause, "workspace_context_mismatch")
+  ) {
+    return {
+      message: `${errorMessage(cause)} The ${label} was not interpreted; return to Live.`,
+      retryable: false,
+    };
+  }
+  return { message: errorMessage(cause), retryable: true };
 }

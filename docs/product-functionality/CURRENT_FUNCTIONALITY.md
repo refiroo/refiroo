@@ -299,8 +299,10 @@ base together with its changes. Starting from history is not a full rollback: on
 draft changes are applied at activation, while untouched newer live data is preserved.
 
 Draft edits use both record versions and a draft-wide version. Drafts pin the application-model release
-against which they are validated. Current-live capture is implemented for SQLite and explicitly refused
-on unsupported database dialects. The browser has no workspace draft destination or editor yet.
+against which they are validated. The browser can create, open, edit, validate, activate and discard a
+draft, and can move it to a compatible installed release. Supported older pins load their exact model;
+unsupported or corrupt pins block interpretation and writes without substituting the active model.
+Current-live capture is implemented for SQLite and explicitly refused on unsupported database dialects.
 
 Evidence: [workspace routes](../../backend/app/routers/workspaces.py),
 [workspace revision service](../../backend/app/services/workspace_revisions.py).
@@ -358,10 +360,14 @@ and activate a compatible release with fresh runtime-state claims.
 
 Installation never activates automatically. A historical release remains immutable. Mutating controls
 are absent unless the deployment enables them; the setting is a safety gate, not authorization.
+Unsupported historical schemas retain metadata/raw JSON inspection and export while semantic comparison
+and activation are unavailable. Expected schema refusals are distinct from corrupt installed JSON, and
+unexpected failures provide a correlation reference without exposing framework/HTML responses in the UI.
 Administration mutations currently require a single API process.
 
 Evidence: [model workbench](../../frontend/src/features/model-admin/ModelWorkbench.tsx),
 [model draft editor](../../frontend/src/features/model-admin/ModelDraftEditor.tsx),
+[WP-11 API regressions](../../backend/tests/test_build07_wp11.py),
 [ADR-016](../DECISIONS.md#adr-016--separate-mutable-drafts-immutable-installation-and-activation).
 
 ## F16 — Consume stable, bounded APIs

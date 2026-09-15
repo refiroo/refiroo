@@ -114,8 +114,10 @@ WP-10A closes cascade token invalidation; WP-10B closes divergent touched-set ac
 complete source/live edge identities and versions. The SQLite gate passes 486 backend tests and
 164 frontend tests; this does not complete US-M01–M04 in the browser. WP-8A delivers coverage,
 WP-8B actions/conflict recovery/contextual target creation, and WP-9 composed acceptance.
-View-only mapping and modal target creation are resolved in the WP-8B handoff. WP-6/WP-7 remain
-responsible for non-active draft model selection. Earlier plan-review evidence remains historical.
+View-only mapping and modal target creation are resolved in the WP-8B handoff. WP-6/WP-7 deliver
+non-active draft model selection; WP-11 delivers historical-schema refusal, pinned-model loading,
+retry-aware shell errors and the established version-dialog presentation. Composed SC-15 acceptance
+remains WP-9. Earlier plan-review evidence remains historical.
 
 ## Technical documentation update method
 

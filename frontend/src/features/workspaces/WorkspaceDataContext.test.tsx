@@ -45,16 +45,9 @@ it.each(["unavailable model", "dirty input"])("blocks writes and retries a pin r
   vi.spyOn(api, "modelRuntimeState").mockResolvedValue({ activeReleaseId: "old" } as Awaited<
     ReturnType<typeof api.modelRuntimeState>
   >);
-  const release = vi
-    .spyOn(api, "modelRelease")
-    .mockResolvedValueOnce({ schemaVersion: testModel.schemaVersion, model: testModel } as unknown as Awaited<
-      ReturnType<typeof api.modelRelease>
-    >);
-  if (failure === "unavailable model") release.mockRejectedValueOnce(new Error("Model unavailable"));
-  release.mockResolvedValue({
-    schemaVersion: testModel.schemaVersion,
-    model: { ...testModel, release: { ...testModel.release, version: "new" } },
-  } as unknown as Awaited<ReturnType<typeof api.modelRelease>>);
+  const loadModel = vi.spyOn(api, "model").mockResolvedValueOnce(testModel);
+  if (failure === "unavailable model") loadModel.mockRejectedValueOnce(new Error("Model unavailable"));
+  loadModel.mockResolvedValue({ ...testModel, release: { ...testModel.release, version: "new" } });
   const save = vi.spyOn(api, "updateObject").mockResolvedValue(domainObject);
   render(
     <WorkspaceDataProvider draftId="draft" workspaceKey="west" model={testModel}>
@@ -77,5 +70,5 @@ it.each(["unavailable model", "dirty input"])("blocks writes and retries a pin r
   await waitFor(() =>
     expect(save).toHaveBeenCalledWith("domain", "id", expect.objectContaining({ expectedWorkspaceDraftVersion: 2 })),
   );
-  expect(release).toHaveBeenCalledTimes(failure === "dirty input" ? 2 : 3);
+  expect(loadModel).toHaveBeenCalledTimes(failure === "dirty input" ? 2 : 3);
 });

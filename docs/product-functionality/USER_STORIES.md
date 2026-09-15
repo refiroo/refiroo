@@ -273,8 +273,9 @@ version changes require the complete candidate, including inherited content, to 
 leaves existing content and model selection unchanged; the browser refreshes all model-dependent
 navigation/forms safely, preserving unsaved input when a version change is declined or fails.
 
-**Coverage:** F12, F15, F17. **Status:** Roadmap 0.7 with the schema 0.6 release (ADR-028). Moving a
-draft onto a version its content does not already satisfy is reviewed 0.10 migration work.
+**Coverage:** F12, F15, F17. **Status:** WP-6/WP-7 selection and WP-11 refusal/UI hardening delivered;
+composed SC-15 acceptance remains WP-9 (ADR-028). Moving a draft onto a version its content does not
+already satisfy is reviewed 0.10 migration work.
 **Example:** SC-15.
 
 ## Localization steward

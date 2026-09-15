@@ -187,7 +187,8 @@ when a temporary live edge advanced the set counter.
 Atomic replacement preserves an existing selected relation identity and validates cardinality in the
 actual direction (WP-5). Backend draft version selection validates the complete effective graph and
 changes its pin atomically (WP-6), keeping the captured active snapshot identity separate. Browser model transitions
-must refresh all dependent state. These remaining requirements are described in
+refresh all dependent state under the exact supported pinned model (WP-7/WP-11); unsupported or corrupt
+pins block interpretation and writes without substituting the active model. Remaining requirements are described in
 [the 0.7 plan](BASE_0_7_IMPLEMENTATION_PLAN.md) and [API.md](API.md); confirmed foundation gaps
 belong to conditional WP-10 before acceptance, rather than amendments to frozen package scope.
 

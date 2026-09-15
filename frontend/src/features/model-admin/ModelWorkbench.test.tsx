@@ -62,6 +62,33 @@ describe("ModelWorkbench", () => {
     expect(screen.queryByRole("button", { name: /new draft/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /create draft from release/i })).not.toBeInTheDocument();
   });
+
+  it("keeps unsupported historical releases inspectable while blocking activation", async () => {
+    const historical = { ...release, id: "historical", active: false };
+    vi.mocked(api.capabilities).mockResolvedValue({
+      modelAdmin: { readReleases: true, manageDrafts: true, install: true, activate: true },
+      workspaceAdmin: { manageWorkspaces: true },
+    });
+    vi.mocked(api.modelReleases).mockResolvedValue({ items: [release, historical], nextCursor: null });
+    vi.mocked(api.modelDrafts).mockResolvedValue({ items: [], nextCursor: null });
+    vi.mocked(api.modelRuntimeState).mockResolvedValue({
+      activeReleaseId: "r1",
+      activeModelHash: "abc",
+      version: 1,
+      updatedAt: release.installedAt,
+    });
+    vi.mocked(api.modelRelease).mockResolvedValue({ ...historical, model });
+    vi.mocked(api.modelReleaseDiff).mockRejectedValue(
+      new ApiError(422, "unsupported_schema_version", "Unsupported historical schema"),
+    );
+
+    render(<ModelWorkbench route={{ kind: "models", releaseId: historical.id }} onRouteChange={vi.fn()} />);
+
+    expect(await screen.findByText("Historical release")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Export JSON" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: /Activate/ })).not.toBeInTheDocument();
+    expect(screen.getByText(/raw JSON remain available/)).toBeInTheDocument();
+  });
 });
 
 describe("ModelDraftEditor", () => {

@@ -1,10 +1,10 @@
 # Base 0.7 implementation plan
 
-**Status:** In progress. WP-1–WP-7 delivered; WP-4 implementation review and the bounded WP-10A
-cascade-deletion version fix are complete. WP-5 acceptance follow-up and WP-10B activation hardening
-are delivered. The earlier WP-1–WP-3 review boundary remains separate;
-WP-1–WP-3 scopes are frozen. WP-6 backend and WP-7 frontend are delivered.
-WP-8A/WP-8B, the scheduled WP-11 follow-up and WP-9 composed 0.7 acceptance remain pending.
+**Status:** In progress. WP-1–WP-7 and WP-11 delivered; WP-4 implementation review and the bounded
+WP-10A cascade-deletion version fix are complete. WP-5 acceptance follow-up and WP-10B activation
+hardening are delivered. The earlier WP-1–WP-3 review boundary remains separate;
+WP-1–WP-3 scopes are frozen. WP-6 backend, WP-7 frontend and WP-11 follow-up are delivered.
+WP-8A/WP-8B, scheduled WP-12/WP-13 follow-ups and WP-9 composed 0.7 acceptance remain pending.
 
 **Target:** Product 0.7.0, schema language 0.6. The starter model content advances to a version on
 schema 0.6; that number alone does not mean the product release is accepted.
@@ -20,6 +20,8 @@ and comprehensive accessibility/visual gates belong to WP-9 after implementation
 WP-7/WP-8A/WP-8B still add scenarios for their new controls and check the changed surfaces locally.
 Focused migration/startup, concurrency and other high-risk boundary checks remain package requirements.
 Record deferred build checks explicitly; package delivery does not establish release acceptance.
+WP-13 audits priority coverage, implements efficient affected-area commands and establishes explicit
+UI acceptance. Its slices use focused checks; WP-9 owns the comprehensive execution.
 Historical validation evidence below remains a record of what was actually run.
 
 ## Product outcome
@@ -560,7 +562,7 @@ pin before publishing its aggregate token, blocks writes after failed/refused re
 input. Model changes reset the route to a model-declared default, clear obsolete cursors and remount
 model-dependent record/collection components. A committed pin change followed by refresh failure is
 reported visibly and truthfully. Focused component/API-adapter/application regressions cover these paths;
-comprehensive suites remain WP-9, and visual integration remains scheduled in WP-11.
+comprehensive suites remain WP-9, and visual integration was delivered in WP-11.
 
 **Scope:**
 
@@ -687,8 +689,23 @@ Keyboard navigation works. Two object types are exercised.
 
 #### WP-11: Historical release refusals, actionable API errors and draft UI consistency
 
-**Status:** Scheduled after WP-7; required for Base 0.7 acceptance. This is a separate ownership
-unit and does not expand the WP-7 implementation scope or conditional WP-10 foundation work.
+**Status:** Delivered 2026-09-15. All eight scope items implemented and verified:
+unsupported-schema diff/compile/activation refusals (422 with structured details), correlation-ID error boundary,
+API client HTML/non-JSON hardening, Modal version-change dialog, supported-schema pinned-model loading,
+shell-aligned workspace loading/error recovery, and historical-release informational state in the
+model workbench. Final review exercised 155 affected backend tests and 55 focused frontend tests,
+Ruff, format, lint and production build. A focused real-browser journey passed five interaction/layout
+checks at 1440x900 and 390x844 with two compatible releases; comprehensive suites and gates remain WP-9.
+
+**Implementation review (2026-09-15):** Consolidated the hardcoded supported-schema-version list
+(`["0.5", "0.6"]`) from five independent locations (two routers, activation service, registry and
+compiler) into a single canonical `SUPPORTED_SCHEMA_VERSIONS` frozenset in `compiler.py`, imported
+by all backend consumers. Unsupported-schema responses now use the version actually found in stored
+JSON and activation includes release/operation details even when persisted metadata disagrees. Removed
+the false "previous state is unchanged" claim from the unexpected-error handler and separated concise
+error logging from debug cause diagnostics. Non-retryable pinned-schema limitations no longer offer a
+futile Retry. Visual inspection found the version dialog was not using form styles; the final dialog
+uses the compact Modal form layout and passed the focused wide/narrow browser journey.
 
 **Observed defect (2026-09-14):** Opening inactive release
 `3a61b675-5674-4192-b9fb-7719b273c7aa` (content 0.5.0, schema 0.4) automatically requests a diff
@@ -805,6 +822,199 @@ observability or release acceptance.
 
 ---
 
+#### WP-12: Model release identity, technical details and comparison baseline
+
+**Status:** Scheduled after WP-11, before WP-9. Separate frontend presentation follow-up;
+WP-11's scope and correlation-ID behavior remain unchanged.
+
+**Observed comparison defect (2026-09-14):** Release inspection compares every inactive selected
+release against the globally active release, treating active as Before and selected as After. Thus
+selected content 0.6.0/schema 0.5 shows removals relative to active content 0.7.0/schema 0.6. Active
+release inspection skips the comparison entirely. This is a current-to-selected activation comparison,
+not a view of what changed when the selected release was introduced; the UI does not explain that
+purpose. Both behaviors are confirmed in `ModelReleaseDetail.tsx`.
+
+**Scope:**
+
+1. Keep model release name, version, schema and status prominent in the Models release details.
+2. Move the canonical hash into an expandable **Technical details** area and display the release's
+   public UUID there as **Release ID**. Provide copy actions for both values with accessible feedback.
+3. Explain briefly: Release ID identifies an installed release for API/support use; the content hash
+   verifies identical normalized model content across installations. These are inspection aids,
+   not fields the user edits. Use existing styles and controls; do not change hashing, release
+   identity, installation, activation or API contracts.
+4. Make release inspection compare an earlier baseline (**Before**) to the selected release
+   (**After**), including inspection of the currently active/latest release. Default to the recorded
+   preceding active release for the selected release when that history is available. Where no such
+   history exists, use a clearly labelled preceding installed release of the same model key, or an
+   explicit baseline choice; do not imply installation order establishes activation history or infer
+   ancestry from version strings. Read all required release pages rather than stopping at page one.
+5. Show both compared releases and direction, and provide an explicit **Compare with** baseline
+   selector using existing form styles. No predecessor means an explained first-release state;
+   identical models mean a truthful no-semantic-changes state. If a schema 0.4 baseline is unsupported,
+   use WP-11's actionable comparison refusal, retaining metadata/export; do not silently switch to a
+   newer baseline, add legacy parsing or present a blank section.
+6. Keep release-history comparison separate from activation compatibility: activation must still
+   check the selected candidate against the current active model and live data. Label compatibility
+   results by their comparison context, so a historical diff is never represented as activation
+   readiness. Reuse the existing diff API's explicit baseline parameter; any missing activation-history
+   access needed for the default must be identified and scoped before implementation.
+
+**Primary areas:** `frontend/src/features/model-admin/ModelReleaseDetail.tsx`, existing disclosure,
+clipboard and feedback patterns, release catalogue/activation-history reads, existing semantic-diff
+API consumers, focused component tests and model-workbench documentation.
+
+**Prerequisites:** WP-11 completed.
+
+**Acceptance criteria:**
+
+- Open **Models**, select an installed release and expand **Technical details**: the exact public
+  release UUID and canonical hash are visible, explained and individually copyable.
+- The default view prioritizes human-readable release information. Keyboard operation, copy success
+  and clipboard failure feedback are usable; formatting, lint, build and focused tests pass.
+- Inspect installed content 0.6.0 with 0.5.0 as predecessor, then latest/active 0.7.0 with 0.6.0
+  as predecessor: Before/After run earlier to selected, and active inspection is not skipped.
+  Unsupported predecessor schemas show the WP-11 refusal, rather than a backwards comparison or
+  empty section. Cover first release, explicit baseline choice, later release pages and identical content.
+- Activation checks remain current-active to candidate regardless of the inspection baseline;
+  displayed compatibility clearly identifies its context. Correlation-ID handling remains unchanged.
+- Inspect the changed surface at normal
+  and narrow widths; comprehensive accessibility/visual gates remain WP-9 requirements.
+
+**Exit:** Administrators can locate and copy both identifiers and understand their purpose without
+technical metadata dominating the release page.
+
+---
+
+#### WP-13: Coverage, efficient test execution and UI acceptance
+
+**Status:** Scheduled for Base 0.7; all three slices close before WP-9. This package changes the
+validation system, not the product scope. Deliver sequentially with one implementation owner.
+
+**Outcome:** A package runs a small, justified set of checks that protects its actual user behavior,
+including refusals and recovery. Build acceptance retains comprehensive coverage. New UI is reviewed
+in the existing application layout before delivery; test count is not a quality measure.
+
+**Method:** Derive coverage from product invariants, public contracts, state transitions and user jobs,
+then connect existing tests to that inventory. Do not derive the inventory from recent defects or the
+current test-file structure. Reported defects are useful regression evidence, but they are not the
+organising principle and do not receive special status once their contract is represented. Use
+risk-based combinations rather than an exhaustive Cartesian product. Record unaudited areas and
+residual risk explicitly. Newly found product defects need a bounded follow-up (WP-10 where applicable);
+they do not silently expand this package. No target test count, arbitrary coverage percentage, new
+testing platform or speculative abstraction.
+
+**External basis:** Apply the established guidance that tests should exercise user-visible behavior
+and avoid implementation details ([Playwright best practices](https://playwright.dev/docs/best-practices),
+[Testing Library principles](https://testing-library.com/docs/)). Use pytest node IDs and explicit
+markers for transparent selection ([pytest markers](https://docs.pytest.org/en/stable/example/markers.html)).
+These sources guide mechanics; RDM's product contracts and risk assessment determine what must be tested.
+
+##### WP-13A — Contract coverage and confirmed gaps
+
+**Prerequisites:** WP-11 complete. Prefer delivery before further mapping UI implementation.
+
+**Scope:**
+
+1. Build a product contract inventory from `AGENTS.md`, acceptance scenarios, ADRs, the API and model
+   contracts. For every capability record: user/consumer job, operation, authority/context, relevant
+   state transition, input/state partitions, promised success/refusal/failure behavior, data effects
+   and the lowest real boundary that can prove it. Include reads as well as mutations and include
+   lifecycle, pagination, concurrency, startup/migration and generic model-driven behavior.
+2. Inventory test files, fixtures and browser scenarios through collection/source inspection, without
+   running full suites. Create `docs/testing/COVERAGE_MAP.md` linking each product contract to evidence,
+   execution boundary, meaningful input/state partitions, missing evidence, audit status and cost tier.
+   A line or branch coverage percentage is supporting diagnostic data, never proof of behavior.
+3. Rank gaps using documented impact, likelihood, change frequency, boundary complexity and existing
+   evidence. Audit the highest-risk contracts across normal, boundary, invalid, unavailable,
+   conflicting and unexpected-dependency outcomes where applicable. Use equivalence partitions,
+   boundary values and pairwise/risk-selected combinations; explain omissions instead of mechanically
+   crossing every state with every endpoint. Distinguish expected refusals from internal errors and
+   claim state preservation only where the transaction boundary proves it.
+4. Fill confirmed gaps through real API requests or rendered consumers as appropriate. Reuse
+   contract fixtures/helpers only where actual duplication supports them; assert status, machine code,
+   actionable user response and relevant data effects. Keep pure validation tests database-independent.
+5. Identify redundant coverage with explicit references. Consolidate only when distinct assertions
+   remain protected; similarity or parameterization alone does not justify removing a case.
+6. Remove a test only when it protects no product contract, duplicates evidence at equal or stronger
+   boundary, or asserts an implementation detail with no user/contract value. Record the surviving
+   protection and retain the deletion in normal code review.
+
+**Acceptance:** Every documented 0.7 capability and cross-cutting product invariant is present in the
+inventory. Highest-risk contracts have linked, meaningful evidence or named gaps; recent incidents map
+to the same taxonomy as any other defect. Missing coverage is not labelled “covered”. Each consolidation
+states where its distinct protection survives. Remaining audit work and its risk are explicit.
+
+##### WP-13B — Affected-area commands and measured execution cost
+
+**Prerequisites:** WP-13A.
+
+**Scope:**
+
+1. Profile a fixed representative selection of backend, frontend and browser checks once, recording
+   commands, environment, case counts and elapsed time. Separate test cost from database/bootstrap,
+   server/browser startup and fixture setup where measurable. Use existing timings for broader suites;
+   record unavailable measurements rather than launching full suites just to populate a report.
+2. Create `docs/testing/EXECUTION_GUIDE.md` and small runnable scripts/configuration only as needed.
+   Give stable contract/risk groups explicit pytest markers, Vitest projects or maintained manifests;
+   document exact node/file selections where grouping adds no value. Map changed production boundaries
+   to their direct group and shared-boundary expansion rules, plus targeted failure reruns and the WP-9
+   comprehensive command set. Keep selection transparent and detect unclassified new tests in CI or a
+   cheap metadata check; do not promise perfect automatic impact detection.
+3. Remove demonstrated repeated setup/duplicate execution in the sampled paths while preserving
+   isolation, real request/transaction coverage and bootstrap/recovery tests. Backend pytest remains
+   serial with the shared test database; parallelisation requires separate isolation work.
+4. Measure changed commands against the same selection/environment. Record before/after timing and
+   case counts, optimisations made and remaining bottlenecks in `docs/testing/EXECUTION_GUIDE.md`.
+
+**Acceptance:** Each high-risk contract group has a working focused command and justified shared-layer
+expansion. A representative change in each affected layer can be traced from changed boundary to selected
+checks. Show the reduction in executed scope versus a blanket suite, and measured runtime/setup
+improvements where achieved; do not invent a percentage target or claim unmeasured gains. No meaningful
+cases are skipped to manufacture speed. Full suites run at WP-9, not per slice.
+
+##### WP-13C — UI patterns, changed-state browser checks and visual review
+
+**Prerequisites:** WP-13B; complete final scenario coverage after WP-8A/WP-8B and WP-12.
+Establish the pattern/checklist first so those packages can use it during implementation.
+
+**Scope:**
+
+1. Create `docs/testing/UI_ACCEPTANCE.md` with named existing 0.6 reference screens/components for
+   dialogs, fields, actions, page/error surfaces and disclosures. Require reuse of their structure,
+   styles and tokens. Introduce shared field/layout components only for demonstrated repeated gaps;
+   do not redesign the application or create a second design system.
+2. Inventory every user-visible surface added or materially changed in 0.7. For each, record exact
+   navigation, reference pattern and applicable states: initial/loading, populated/empty, pending,
+   success, invalid/refused, conflict, dependency failure, retry/recovery and narrow layout. Mark states
+   inapplicable with a reason. Select focused browser checks for the user-critical states, using a real
+   temporary backend where integration matters and two applicable model configurations/object types.
+   Component tests cover isolated rules; they do not substitute for browser evidence of page context.
+3. Verify shell/context retention, navigation, preserved input, error actions, keyboard/focus behavior
+   and overflow. Inspect screenshots of changed surfaces at normal and narrow widths against the
+   named reference. Accessibility checks and screenshot equality supplement design review; neither
+   establishes that a layout is good. Review intentional baselines before acceptance.
+4. Update `AGENTS.md`, the validation guide and package-completion guidance: exact user flow,
+   affected failure boundaries, named UI reference, focused command selection and separate reports
+   for functional, accessibility and visual evidence. An uninspected appearance remains unverified.
+
+**Acceptance:** Every materially changed 0.7 surface has a completed state inventory. User-critical
+workflows have runnable focused browser scenarios and reviewed changed-state screenshots selected by
+risk, rather than by previously reported defects. New UI fits the established patterns and remains
+usable at narrow widths/by keyboard. Missing browser prerequisites or incomplete inspection are reported
+as limitations, not passes. Remaining visual product fixes are separately scoped.
+
+**Package validation:** Run only affected checks for each slice, plus applicable Ruff or frontend
+format/lint/build and documentation/link checks. Do not repeat passing gates without relevant changes.
+Validate modified runners with their selected scenarios; comprehensive backend/frontend, accessibility
+and visual gates remain WP-9. Do not run concurrent backend pytest processes.
+
+**Exit:** Coverage map, runnable execution guide, runtime evidence and UI acceptance references are
+implemented and used for the named areas. Residual risks have explicit follow-ups. WP-9 executes the
+comprehensive command set once against the finished build; no slice claims release acceptance.
+
+---
+
 ### Tier 5 — Composed validation (depends on all above)
 
 #### WP-9: Composed product validation — SC-07 and SC-15
@@ -839,12 +1049,14 @@ observability or release acceptance.
    including changes to a different edge in the same touched set. Untouched live work must survive.
 8. Include WP-11 composed browser/API evidence for unsupported historical release inspection/export,
    truthful diff/compile refusals and actionable internal-error diagnostics.
-9. Missing foundation behavior activates WP-10; do not treat a failing integration check as evidence
+9. Use WP-13’s coverage map and execution guide, exercise its final workflow scenarios and record
+   residual gaps. Do not substitute a passing case count for contract or visual acceptance.
+10. Missing foundation behavior activates WP-10; do not treat a failing integration check as evidence
    that frozen implementation has already been reviewed or silently waive the release criterion.
 
 **Primary areas:** test data, e2e tests, documentation.
 
-**Prerequisites:** WP-1–WP-7, WP-8A, WP-8B and WP-11; any triggered WP-10 slices must close before
+**Prerequisites:** WP-1–WP-7, WP-8A, WP-8B, WP-11, WP-12 and WP-13A/B/C; any triggered WP-10 slices must close before
 release acceptance.
 
 **Decisions needed:** None.
@@ -940,7 +1152,11 @@ WP-8B (Mapping actions)              — depends on WP-8A, WP-5
                                      — non-active-draft acceptance of both requires WP-7
 WP-10 (Conditional hardening)        — triggered by integration evidence; blocks acceptance if needed
 
-WP-11 (Release refusals/errors)      — scheduled after WP-7; required before WP-9
+WP-11 (Release refusals/errors)      — delivered 2026-09-15; required before WP-9
+WP-12 (Release identity UI)          — scheduled after WP-11; required before WP-9
+
+WP-13A/B (Coverage/execution)        — after WP-11 (delivered); prefer before mapping UI delivery
+WP-13C (UI acceptance)              — establish patterns early; close after WP-8A/WP-8B, WP-12
 
 WP-9 (Composed validation)           — depends on all
 ```
@@ -948,8 +1164,9 @@ WP-9 (Composed validation)           — depends on all
 Parallelizable tracks:
 
 - **Track 1 (mapping):** WP-2 → WP-3 → WP-4 + WP-5 → WP-8A → WP-8B
-- **Track 2 (draft version and release follow-up):** WP-6 → WP-7 → WP-11
+- **Track 2 (draft version and release follow-up):** WP-6 → WP-7 → WP-11 → WP-12
 - **Track 3 (accessibility):** WP-1 (any time)
+- **Validation improvement:** WP-11 → WP-13A → WP-13B → WP-13C (final coverage after mapping/WP-12)
 - **Final:** WP-9
 
 WP-1, WP-2, WP-3 and WP-6 have no cross-dependencies and can proceed in any order.

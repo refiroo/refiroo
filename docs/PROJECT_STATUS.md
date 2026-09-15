@@ -58,9 +58,11 @@ in code does not establish that a browser user can complete its story.
    model-release selector in draft creation, release display on draft cards and detail, informational
    banner and activation refusal when versions differ, version-change action with incompatibility
    diagnostics, model-context refresh after pin change, and dirty-input protection via navigation
-   guards. Scheduled WP-11 follows WP-7 before composed WP-9 acceptance: correct unsupported historical
-   release diff/compile refusals, informative frontend states and actionable internal-error diagnostics.
-   See its bounded scope and acceptance criteria in the implementation plan.
+   guards. WP-11 delivered 2026-09-15: unsupported-schema diff/compile/activation refusals return structured 422,
+   correlation-ID error boundary, API client HTML/non-JSON hardening, compact Modal version-change dialog,
+   supported-schema pinned-model loading, shell-aligned workspace error recovery and historical-release
+   informational state. Non-retryable pinned-schema limitations do not offer Retry. Focused wide/narrow
+   browser evidence is recorded; WP-12 follows WP-11 before composed WP-9 acceptance.
 4. **UI-07 (carried from 0.6, delivered 2026-09-12):** automated accessibility and visual-regression
    gates using the existing Playwright harness with `@axe-core/playwright` and visual comparison
    baselines. Light-theme baselines committed; dark-theme baselines deferred until a dark theme exists.
@@ -287,13 +289,15 @@ do not rebuild rejected object lifecycle.
 Read `AGENTS.md`, the product stories/scenarios, ADR-027, `ROADMAP.md`, `API.md` and `TODO.md`.
 Base 0.6 is released; next work targets product 0.7 (core mapping, schema 0.6, draft version
 selection). WP-1 (UI-07 accessibility gates), WP-2 (schema 0.6 `mappingGrid` view contract) and
-WP-3 (relation-set version persistence), WP-4 reads, WP-5 replacement, WP-6 backend draft version selection, WP-7 browser draft version selection
-and WP-10A/WP-10B hardening are delivered. Continue with WP-8A/WP-8B mapping browser
-delivery; WP-11 follows WP-7 before WP-9 composed acceptance.
+WP-3 (relation-set version persistence), WP-4 reads, WP-5 replacement, WP-6 backend draft version selection, WP-7 browser draft version selection,
+WP-10A/WP-10B hardening and WP-11 release refusals/errors are delivered. Continue with WP-8A/WP-8B mapping browser
+delivery; WP-12 follows WP-11. WP-13A/B audit priority coverage and implement efficient commands;
+WP-13C establishes UI acceptance and closes after mapping/WP-12, before WP-9 composed acceptance.
 Use one implementation owner per slice, focused verification and appropriate review. Do not commit
 unless explicitly requested. Summarize each completed batch while work continues so scope can be
 corrected before the entire task finishes.
 
-For implementation run backend Ruff/tests, frontend lint/format/tests/build and `git diff --check`.
-Also execute the named browser, migration/startup and wheel gates on Python 3.14. Report evidence
-and limits; no documentation change counts as a runtime fix.
+Use the focused work-package checks in `AGENTS.md`; expand for actual shared-boundary risk.
+Run startup/migration and other named boundary checks only where relevant; comprehensive suites
+and browser gates belong to WP-9. WP-13 supplies audited selections and UI acceptance guidance.
+Report evidence and limits; no documentation change counts as a runtime fix.

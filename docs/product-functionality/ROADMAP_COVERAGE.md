@@ -99,8 +99,9 @@ managing low-level relationship records.
 - one concurrency version for the complete mapping set, including currently empty or ambiguous sets;
 - conflict responses with bounded current-target context;
 - creation of a missing target through normal workspace record creation where configuration permits;
-- draft model-version selection, so one draft prepares under a candidate release while live data and
-  other drafts keep the release in use (US-W09, ADR-028); and
+- draft model-version selection, delivered in WP-6/WP-7 with WP-11 refusal/UI hardening, so one draft
+  prepares under a candidate release while live data and other drafts keep the release in use
+  (US-W09, ADR-028; composed acceptance remains WP-9); and
 - mapping-transition audit in addition to underlying relationship history.
 
 ### Validation guardrails

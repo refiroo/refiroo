@@ -3,7 +3,23 @@ import { api } from "@/api/client";
 
 afterEach(() => vi.unstubAllGlobals());
 
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+}
+
 describe("API client", () => {
+  it("requests the exact model for a workspace context", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.model({ workspaceKey: "West & East", workspaceRevisionId: "revision/id" });
+
+    const url = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(url.pathname).toBe("/api/v1/model");
+    expect(url.searchParams.get("workspaceKey")).toBe("West & East");
+    expect(url.searchParams.get("workspaceRevisionId")).toBe("revision/id");
+  });
+
   it("preserves structured errors", async () => {
     vi.stubGlobal(
       "fetch",
@@ -27,9 +43,7 @@ describe("API client", () => {
   });
 
   it("omits application filtering for cross-application lookup and encodes the query", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }));
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ items: [], nextCursor: null }));
     vi.stubGlobal("fetch", fetchMock);
     await api.objects("external value", { workspaceKey: "west", search: "A&B", pageSize: 12 });
     const url = String(fetchMock.mock.calls[0][0]);
@@ -40,7 +54,7 @@ describe("API client", () => {
   });
 
   it("encodes workspace context on record and relationship reads", async () => {
-    const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({}), { status: 200 }));
+    const fetchMock = vi.fn().mockImplementation(async () => jsonResponse({}));
     vi.stubGlobal("fetch", fetchMock);
     await api.object("external value", "object/id", "West & East");
     await api.relations("object/id", { workspaceKey: "West & East", cursor: "next token" });
@@ -53,9 +67,7 @@ describe("API client", () => {
   });
 
   it("encodes built-in sorting", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }));
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ items: [], nextCursor: null }));
     vi.stubGlobal("fetch", fetchMock);
     await api.objects("domain", { workspaceKey: "west", sort: "-updatedAt", pageSize: 50 });
     const url = new URL(String(fetchMock.mock.calls[0][0]));
@@ -63,9 +75,7 @@ describe("API client", () => {
   });
 
   it("encodes repeatable typed table filters", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }));
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ items: [], nextCursor: null }));
     vi.stubGlobal("fetch", fetchMock);
     await api.objects("domain", {
       filters: [
@@ -80,9 +90,7 @@ describe("API client", () => {
   });
 
   it("searches the bounded workspace catalogue", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }));
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ items: [], nextCursor: null }));
     vi.stubGlobal("fetch", fetchMock);
     await api.workspaces({ search: "Central & East", status: "all", pageSize: 25 });
     const url = new URL(String(fetchMock.mock.calls[0][0]));
@@ -93,9 +101,7 @@ describe("API client", () => {
   });
 
   it("requests a bounded object history page", async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(new Response(JSON.stringify({ items: [], nextCursor: null }), { status: 200 }));
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ items: [], nextCursor: null }));
     vi.stubGlobal("fetch", fetchMock);
     await api.objectHistory("external value", "object/id", { cursor: "next token", pageSize: 10 });
     expect(fetchMock.mock.calls[0][0]).toContain("/objects/external%20value/object%2Fid/history?");
@@ -129,9 +135,7 @@ describe("API client", () => {
 
   it("creates direction-ready relationship payloads without changing them", async () => {
     const payload = { relationTypeKey: "links", fromObjectId: "from", toObjectId: "to", attributes: { score: 0 } };
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(new Response(JSON.stringify({ id: "r1", ...payload, version: 1 }), { status: 201 }));
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ id: "r1", ...payload, version: 1 }, 201));
     vi.stubGlobal("fetch", fetchMock);
     await api.createRelation(payload);
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual(payload);
@@ -141,26 +145,20 @@ describe("API client", () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            valid: true,
-            diagnostics: [],
-            compatibility: { classification: "compatible", activeReleaseId: "active", diagnostics: [] },
-            changes: [],
-          }),
-          { status: 200 },
-        ),
+        jsonResponse({
+          valid: true,
+          diagnostics: [],
+          compatibility: { classification: "compatible", activeReleaseId: "active", diagnostics: [] },
+          changes: [],
+        }),
       )
       .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            activeReleaseId: "active",
-            activeModelHash: "hash",
-            version: 4,
-            updatedAt: "2026-09-05T00:00:00Z",
-          }),
-          { status: 200 },
-        ),
+        jsonResponse({
+          activeReleaseId: "active",
+          activeModelHash: "hash",
+          version: 4,
+          updatedAt: "2026-09-05T00:00:00Z",
+        }),
       );
     vi.stubGlobal("fetch", fetchMock);
     await api.compileModelDraft("draft/id", 7);
@@ -180,7 +178,7 @@ describe("API client", () => {
 });
 
 it("encodes canonical draft reads, mutations and explicit current-live lifecycle requests", async () => {
-  const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({}), { status: 200 }));
+  const fetchMock = vi.fn().mockImplementation(async () => jsonResponse({}));
   vi.stubGlobal("fetch", fetchMock);
   const context = { workspaceDraftId: "draft/id", expectedWorkspaceDraftVersion: 7 };
   await api.object("type", "id", "west", context.workspaceDraftId);
@@ -204,8 +202,87 @@ it("encodes canonical draft reads, mutations and explicit current-live lifecycle
   });
 });
 
+describe("HTML and non-JSON response hardening", () => {
+  it("does not expose HTML error bodies as messages", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("<!DOCTYPE html><html><body>Vite dev page</body></html>", {
+          status: 502,
+          headers: { "content-type": "text/html" },
+        }),
+      ),
+    );
+    const request = api.model();
+    await expect(request).rejects.toEqual(
+      expect.objectContaining({
+        status: 502,
+        code: "http_error",
+        message: expect.not.stringContaining("<!DOCTYPE"),
+      }),
+    );
+  });
+
+  it("rejects unexpected HTML 200 responses", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("<html><body>OK</body></html>", {
+          status: 200,
+          headers: { "content-type": "text/html" },
+        }),
+      ),
+    );
+    await expect(api.model()).rejects.toEqual(
+      expect.objectContaining({
+        status: 200,
+        code: "unexpected_response",
+      }),
+    );
+  });
+
+  it("does not expose plain-text non-JSON error bodies", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response("Service unavailable", { status: 503, headers: { "content-type": "text/plain" } }),
+        ),
+    );
+    const request = api.model();
+    await expect(request).rejects.toEqual(
+      expect.objectContaining({
+        status: 503,
+        message: expect.stringMatching(/\/api\/v1\/model.*503.*Retry/),
+      }),
+    );
+    await expect(request).rejects.toEqual(
+      expect.objectContaining({ message: expect.not.stringContaining("Service unavailable") }),
+    );
+  });
+
+  it("does not expose an HTML fragment that omits document tags", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response("<body>upstream failure</body>", {
+          status: 500,
+          headers: { "content-type": "text/plain" },
+        }),
+      ),
+    );
+    await expect(api.model()).rejects.toEqual(
+      expect.objectContaining({
+        status: 500,
+        message: expect.not.stringContaining("<body>"),
+      }),
+    );
+  });
+});
+
 it("encodes immutable history reads, historical derivation and publication retirement", async () => {
-  const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({}), { status: 200 }));
+  const fetchMock = vi.fn().mockImplementation(async () => jsonResponse({}));
   vi.stubGlobal("fetch", fetchMock);
   await api.workspaceRevisions("west", "older token");
   await api.workspaceRevision("revision/id");

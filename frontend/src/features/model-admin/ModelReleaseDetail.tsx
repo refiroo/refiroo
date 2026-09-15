@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { api } from "@/api/client";
-import { errorMessage } from "@/api/errors";
+import { errorMessage, isApiError } from "@/api/errors";
 import type { ModelRelease, ModelReleaseDiff, ModelRuntimeState } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { ModelDiff } from "@/features/model-admin/ModelDiff";
 import { downloadJson } from "@/lib/download";
 import { ModelSummary } from "@/features/model-admin/ModelSummary";
+import { Notice } from "@/ui/Notice";
 
 export function ModelReleaseDetail({
   releaseId,
@@ -25,6 +26,7 @@ export function ModelReleaseDetail({
   const [release, setRelease] = useState<ModelRelease>();
   const [diff, setDiff] = useState<ModelReleaseDiff>();
   const [error, setError] = useState("");
+  const [unsupportedSchema, setUnsupportedSchema] = useState(false);
   const [confirm, setConfirm] = useState(false);
   const [pending, setPending] = useState(false);
 
@@ -33,6 +35,7 @@ export function ModelReleaseDetail({
     setRelease(undefined);
     setDiff(undefined);
     setError("");
+    setUnsupportedSchema(false);
     api
       .modelRelease(releaseId, true)
       .then((loaded) => {
@@ -45,7 +48,12 @@ export function ModelReleaseDetail({
               if (!cancelled) setDiff(result);
             })
             .catch((cause) => {
-              if (!cancelled) setError(errorMessage(cause));
+              if (cancelled) return;
+              if (isApiError(cause, "unsupported_schema_version")) {
+                setUnsupportedSchema(true);
+              } else {
+                setError(errorMessage(cause));
+              }
             });
       })
       .catch((cause) => {
@@ -124,7 +132,7 @@ export function ModelReleaseDetail({
             Create draft from release
           </button>
         )}
-        {canActivate && !release.active && (
+        {canActivate && !release.active && !unsupportedSchema && (
           <button
             className="primary"
             disabled={!diff || diff.compatibility.classification !== "compatible"}
@@ -134,7 +142,15 @@ export function ModelReleaseDetail({
           </button>
         )}
       </div>
-      {!release.active && !diff && !error && <div className="panel-state">Comparing with the active release…</div>}
+      {unsupportedSchema && (
+        <Notice tone="info" title="Historical release">
+          This release uses schema {release.schemaVersion}, which this deployment cannot interpret for semantic
+          comparison or activation. The release metadata and raw JSON remain available for inspection and export.
+        </Notice>
+      )}
+      {!release.active && !diff && !error && !unsupportedSchema && (
+        <div className="panel-state">Comparing with the active release…</div>
+      )}
       {diff && <ModelDiff changes={diff.changes} compatibility={diff.compatibility} />}
       {diff?.compatibility.classification === "migration_required" && (
         <p className="notice">Activation is blocked because stored runtime data requires migration.</p>

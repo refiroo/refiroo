@@ -293,8 +293,9 @@ the interface or integration rather than copied manually during ordinary steward
 
 ## SC-15 — Prepare for the next model version in one draft while live keeps the current one
 
-**Stories:** US-W01, US-W03, US-W08, US-W09, US-P03. **Target:** model selection is global today;
-draft version selection is a 0.7 plan with the schema 0.6 release (ADR-028).
+**Stories:** US-W01, US-W03, US-W08, US-W09, US-P03. **Target:** model selection remains global;
+draft version selection is delivered in WP-6/WP-7 with WP-11 refusal and UI hardening. Composed
+scenario acceptance remains WP-9 (ADR-028).
 
 A model administrator installs a candidate definition without activating it. Retail has two drafts:
 draft1 works under the definition that serves live data, and draft2 is created against the candidate.
@@ -312,7 +313,7 @@ Selecting an unavailable, corrupt or unsupported definition is refused with the 
 data, the other draft, history and every other workspace untouched. No model change reaches live data
 merely because a draft selected it.
 
-**0.7 composed evidence (WP-6/WP-7/WP-9):** use two releases on the same schema with visibly
+**0.7 composed evidence (WP-6/WP-7/WP-11/WP-9):** use two releases on the same schema with visibly
 different fields, rules and views. Check the complete candidate graph, including inherited content,
 on creation and version change. Incompatible creation leaves no draft; incompatible or stale version
 change leaves content, pin and version unchanged. Test concurrent edits and externally changed pins,

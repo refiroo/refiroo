@@ -1,4 +1,5 @@
 import logging
+import uuid
 from typing import Any
 
 from fastapi import Request
@@ -62,10 +63,29 @@ async def http_error_handler(_request: Request, exc: StarletteHTTPException) -> 
 
 
 async def unexpected_error_handler(request: Request, exc: Exception) -> JSONResponse:
-    logger.exception(
-        "Unhandled API error for %s %s", request.method, request.url.path, exc_info=exc
+    correlation_id = uuid.uuid4().hex[:12]
+    logger.error(
+        "Unhandled API error [%s] for %s %s",
+        correlation_id,
+        request.method,
+        request.url.path,
+    )
+    logger.debug(
+        "Unhandled API cause [%s]",
+        correlation_id,
+        exc_info=(type(exc), exc, exc.__traceback__),
     )
     return JSONResponse(
         status_code=500,
-        content={"error": {"code": "internal_error", "message": "Internal server error"}},
+        content={
+            "error": {
+                "code": "internal_error",
+                "message": (
+                    f"The {request.method} {request.url.path} operation failed unexpectedly."
+                    " Retry or contact support with"
+                    f" reference {correlation_id}."
+                ),
+                "details": {"correlationId": correlation_id},
+            }
+        },
     )

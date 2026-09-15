@@ -15,6 +15,18 @@ To use an existing browser instead of downloading Chromium, set
 PLAYWRIGHT_EXECUTABLE_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' npm --prefix frontend run test:browser
 ```
 
+WP-11 has a focused model-version-dialog journey:
+
+```bash
+PLAYWRIGHT_EXECUTABLE_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' npm --prefix frontend run test:browser:wp11
+```
+
+It installs a second compatible model release in an isolated database, opens the workspace draft
+version-change dialog at normal and narrow widths, checks focus containment and dirty-input refusal,
+applies the release, and writes screenshots plus `report.json` to its printed temporary directory.
+Historical unsupported-release rendering remains covered by the focused component and real HTTP
+regressions; comprehensive accessibility and visual-baseline gates remain WP-9 acceptance work.
+
 The runner starts local Vite and FastAPI servers on temporary ports, creates a
 fresh SQLite database and a starter-model variant in the system temporary folder,
 and seeds all records through real APIs. It does not use the development database.

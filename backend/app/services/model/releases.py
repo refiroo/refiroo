@@ -20,7 +20,7 @@ from ...models.database import (
 )
 from ...models.schema import EngineModel
 from .compatibility import CompatibilityResult, analyze_compatibility
-from .compiler import ModelDiagnostic, canonical_model, compile_model
+from .compiler import SUPPORTED_SCHEMA_VERSIONS, ModelDiagnostic, canonical_model, compile_model
 from .validation import require_valid_references
 
 model_installation_lock = Lock()
@@ -46,6 +46,7 @@ class ModelReleaseNotFound(Exception):
 
 @dataclass(frozen=True)
 class UnsupportedModelSchema(Exception):
+    release_id: str
     schema_version: str
 
 
@@ -97,8 +98,10 @@ def activate_model_release(
     ):
         raise ActivationConflict(active_release.public_id, runtime_state.version)
 
-    if candidate_release.schema_version not in {"0.5", "0.6"}:
-        raise UnsupportedModelSchema(candidate_release.schema_version)
+    if candidate_release.schema_version not in SUPPORTED_SCHEMA_VERSIONS:
+        raise UnsupportedModelSchema(
+            candidate_release.public_id, candidate_release.schema_version
+        )
 
     active_compilation = compile_model(active_release.model_json)
     candidate_compilation = compile_model(candidate_release.model_json)
@@ -108,9 +111,16 @@ def activate_model_release(
         or not candidate_compilation.valid
         or candidate_compilation.model is None
     ):
-        invalid_compilation = (
-            active_compilation if not active_compilation.valid else candidate_compilation
+        invalid_compilation, invalid_release = (
+            (active_compilation, active_release)
+            if not active_compilation.valid
+            else (candidate_compilation, candidate_release)
         )
+        if invalid_compilation.unsupported_schema_version is not None:
+            raise UnsupportedModelSchema(
+                invalid_release.public_id,
+                invalid_compilation.unsupported_schema_version,
+            )
         raise InvalidInstalledModel(tuple(invalid_compilation.diagnostics))
 
     compatibility = analyze_compatibility(

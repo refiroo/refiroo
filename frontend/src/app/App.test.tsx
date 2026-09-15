@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
+import { ApiError } from "@/api/errors";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import type { ApplicationDefinition } from "@/types";
 import App from "./App";
@@ -476,7 +477,7 @@ describe("App", () => {
     visit(`/apps/test-app/objects/domain/${domainObject.id}?workspaceKey=west&workspaceDraftId=draft-1`);
     render(<App />);
     expect(await screen.findByRole("heading", { name: domainObject.name, level: 1 })).toBeInTheDocument();
-    expect(api.modelRelease).toHaveBeenCalledWith("pin", true);
+    expect(api.model).toHaveBeenCalledWith({ workspaceKey: "west", workspaceDraftId: "draft-1" });
     expect(api.object).toHaveBeenCalledWith("domain", domainObject.id, "west", "draft-1");
     expect(screen.getByRole("group", { name: "Current context" })).toHaveTextContent("Draft · Review");
     expect(
@@ -486,7 +487,9 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Back to list" }));
     await waitFor(() => expect(window.location.pathname).toContain("/views/domains"));
     expect(window.location.search).toContain("workspaceDraftId=draft-1");
-    expect(vi.mocked(api.objects).mock.calls.every(([, query]) => query.workspaceDraftId === "draft-1")).toBe(true);
+    const collectionCalls = vi.mocked(api.objects).mock.calls.filter(([, query]) => query.pageSize !== 30);
+    expect(collectionCalls.length).toBeGreaterThan(0);
+    expect(collectionCalls.every(([, query]) => query.workspaceDraftId === "draft-1")).toBe(true);
     fireEvent.click(
       within(screen.getByRole("navigation", { name: "Workspace data context" })).getByRole("button", {
         name: "Live",
@@ -528,11 +531,7 @@ describe("App", () => {
       active: false,
     };
     vi.mocked(api.workspaceDraft).mockResolvedValue(draft);
-    vi.mocked(api.modelRelease).mockImplementation(async (id) => ({
-      ...release,
-      id,
-      model: (id === "next" ? nextModel : testModel) as unknown as Record<string, unknown>,
-    }));
+    vi.mocked(api.model).mockResolvedValueOnce(testModel).mockResolvedValueOnce(testModel).mockResolvedValue(nextModel);
     vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
     vi.mocked(api.changeWorkspaceDraftModelRelease).mockImplementation(async () => {
       const changed = { ...draft, modelReleaseId: "next", version: 9 };
@@ -554,6 +553,9 @@ describe("App", () => {
   });
 
   it("opens immutable history with its pinned model and keeps revision context through detail and return", async () => {
+    vi.mocked(api.model)
+      .mockResolvedValueOnce({ ...testModel, schemaVersion: "0.6" })
+      .mockResolvedValue(testModel);
     const revision = {
       id: "revision-2",
       workspaceKey: "west",
@@ -600,6 +602,42 @@ describe("App", () => {
     await waitFor(() => expect(window.location.pathname).toBe("/apps/test-app/history"));
   });
 
+  it("keeps transient context failures in the shell and recovers on retry", async () => {
+    const revision = {
+      id: "revision-2",
+      workspaceKey: "west",
+      modelReleaseId: "historical-model",
+      revisionNumber: 2,
+      status: "retired" as const,
+      derivedFromRevisionId: null,
+      supersedesRevisionId: null,
+      createdAt: "",
+      activatedAt: "",
+      retiredAt: "",
+    };
+    vi.mocked(api.workspaceRevision)
+      .mockRejectedValueOnce(new Error("History service unavailable"))
+      .mockResolvedValue(revision);
+    vi.mocked(api.modelRelease).mockResolvedValue({
+      id: "historical-model",
+      key: "historical-model",
+      name: "Historical model",
+      version: "0.5-old",
+      schemaVersion: testModel.schemaVersion,
+      modelHash: "old-hash",
+      installedAt: "",
+      active: false,
+      model: testModel as unknown as Record<string, unknown>,
+    });
+    visit("/apps/test-app/views/domains?workspaceKey=west&workspaceRevisionId=revision-2");
+    render(<App />);
+
+    expect(await screen.findByText("History service unavailable")).toBeInTheDocument();
+    expect(screen.getByRole("complementary", { name: "Workspace navigation" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("Immutable revision 2")).toBeInTheDocument();
+  });
+
   it("refuses an unsupported historical schema without rendering it under the current model", async () => {
     vi.mocked(api.workspaceRevision).mockResolvedValue({
       id: "unsupported-revision",
@@ -613,24 +651,20 @@ describe("App", () => {
       activatedAt: "",
       retiredAt: "",
     });
-    vi.mocked(api.modelRelease).mockResolvedValue({
-      id: "unsupported-model",
-      key: "unsupported-model",
-      name: "Unsupported model",
-      version: "old",
-      schemaVersion: "0.4",
-      modelHash: "old-hash",
-      installedAt: "",
-      active: false,
-      model: testModel as unknown as Record<string, unknown>,
-    });
+    vi.mocked(api.model)
+      .mockResolvedValueOnce(testModel)
+      .mockRejectedValueOnce(
+        new ApiError(409, "unsupported_pinned_model_schema", "Unsupported pinned schema", {
+          schemaVersion: "0.4",
+        }),
+      );
     visit("/apps/test-app/views/domains?workspaceKey=west&workspaceRevisionId=unsupported-revision");
     render(<App />);
 
-    expect(await screen.findByText(/pinned model schema 0.4 is unsupported/)).toBeInTheDocument();
-    expect(screen.getByText(/has not been interpreted with the current model/)).toBeInTheDocument();
-    expect(api.objects).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Return to Live" })).toBeInTheDocument();
+    expect(await screen.findByText(/pinned model uses schema 0.4/)).toBeInTheDocument();
+    expect(screen.getByText(/preserved and was not interpreted; return to Live/)).toBeInTheDocument();
+    expect(vi.mocked(api.objects).mock.calls.every(([, query]) => !query.workspaceRevisionId)).toBe(true);
+    expect(screen.queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Return to Live" })).toBeInTheDocument();
   });
 });
