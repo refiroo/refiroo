@@ -53,6 +53,38 @@ describe("routes", () => {
     expect(parseRoute(testModel)).toEqual(route);
   });
 
+  it("round-trips contextual scope and mapping status", () => {
+    const model = structuredClone(testModel);
+    model.applications[0].views.push({
+      key: "coverage",
+      name: "Coverage",
+      type: "mappingGrid",
+      config: {
+        relationTypeKey: "domain-contains-codelist",
+        fromObjectTypeKey: "domain",
+        toObjectTypeKey: "codelist",
+        direction: "outgoing",
+        sourceColumns: ["name"],
+        targetDisplayColumns: ["name"],
+        candidateSearchFields: ["name"],
+        pageSize: 20,
+      },
+    });
+    window.history.replaceState(
+      {},
+      "",
+      "/apps/test-app/views/coverage?workspaceKey=west&parentObjectId=p1&parentObjectTypeKey=domain&mappingState=unmapped",
+    );
+    const route = parseRoute(model);
+    expect(route).toMatchObject({
+      parentObjectId: "p1",
+      parentObjectTypeKey: "domain",
+      mappingState: "unmapped",
+    });
+    window.history.replaceState({}, "", routePath(route));
+    expect(parseRoute(model)).toEqual(route);
+  });
+
   it("restores supported collection controls and drops legacy object-state filters", () => {
     window.history.pushState(
       {},

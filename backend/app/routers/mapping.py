@@ -35,8 +35,22 @@ def mapping_read(
     application_key: str = Query(alias="applicationKey"),
     view_key: str = Query(alias="viewKey"),
     workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
+    workspace_revision_id: str | None = Query(default=None, alias="workspaceRevisionId"),
 ) -> MappingRead:
-    return open_mapping_read(session, workspace_key, application_key, view_key, workspace_draft_id)
+    if workspace_draft_id and workspace_revision_id:
+        raise api_error(
+            422,
+            "mutually_exclusive_context",
+            "workspaceDraftId and workspaceRevisionId cannot be combined",
+        )
+    return open_mapping_read(
+        session,
+        workspace_key,
+        application_key,
+        view_key,
+        workspace_draft_id,
+        revision_id=workspace_revision_id,
+    )
 
 
 Read = Annotated[MappingRead, Depends(mapping_read)]
@@ -60,10 +74,12 @@ BindingRead = Annotated[MappingRead, Depends(binding_read)]
 def mapping_coverage(
     read: BindingRead,
     search: str | None = Query(default=None, max_length=500),
+    parent_object_id: str | None = Query(default=None, alias="parentObjectId"),
+    state: Literal["mapped", "unmapped", "ambiguous"] | None = Query(default=None),
     cursor: str | None = None,
     page_size: int | None = Query(default=None, ge=1, le=100, alias="pageSize"),
 ) -> MappingCoveragePage:
-    return coverage(read, search, cursor, page_size)
+    return coverage(read, search, cursor, page_size, parent_object_id, state)
 
 
 @router.get("/mappings", response_model=MappingListPage)
@@ -118,7 +134,10 @@ def target_binding_read(
     application_key: str | None = Query(default=None, alias="applicationKey"),
     view_key: str | None = Query(default=None, alias="viewKey"),
     draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
+    revision_id: str | None = Query(default=None, alias="workspaceRevisionId"),
 ) -> MappingRead:
+    if draft_id and revision_id:
+        raise api_error(422, "mutually_exclusive_context", "Workspace contexts cannot be combined")
     if (application_key is None) != (view_key is None):
         raise api_error(422, "mapping_view_required", "Supply applicationKey and viewKey together")
     config = (
@@ -136,7 +155,13 @@ def target_binding_read(
         )
     )
     read = open_mapping_read(
-        session, workspace_key, application_key, view_key, draft_id, binding_config=config
+        session,
+        workspace_key,
+        application_key,
+        view_key,
+        draft_id,
+        revision_id=revision_id,
+        binding_config=config,
     )
     validate_binding(read, relation_type_key, from_type, to_type, direction)
     return read

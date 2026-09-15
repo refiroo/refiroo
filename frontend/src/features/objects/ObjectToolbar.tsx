@@ -52,23 +52,22 @@ export function ObjectToolbar({
           placeholder={placeholder}
           onApply={(search) => onChange({ ...query, search })}
         />
-        <ControlPopover label="Filter">
-          {view.config.filterFields.map((field) => {
-            const type = valueType(model, field);
-            const current = query.filters.find((filter) => filter.field === field);
-            return (
+        {view.config.filterFields.map((field) => {
+          const type = valueType(model, field);
+          const current = query.filters.find((filter) => filter.field === field);
+          const name = attributeName(model, field);
+          return (
+            <ControlPopover key={field} label={`Filter: ${name}${current?.value ? `: ${current.value}` : ""}`}>
               <FilterControl
-                key={field}
-                label={attributeName(model, field)}
+                label={name}
                 type={type}
                 attribute={!isBuiltIn(field)}
                 initial={current ?? { operator: defaultOperator(type), value: "" }}
                 onApply={(input) => applyFilter(field, input)}
               />
-            );
-          })}
-          {view.config.filterFields.length === 0 && <p>No filters configured for this view.</p>}
-        </ControlPopover>
+            </ControlPopover>
+          );
+        })}
         <ControlPopover label="Sort">
           <SelectField
             className="toolbar-field"

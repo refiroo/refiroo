@@ -34,7 +34,7 @@ from ..models.database import (
 from ..models.schema import EngineModel, MappingGridViewConfig, MappingGridViewDefinition
 from .attributes import VALUE_COLUMNS, load_attribute_values
 from .audit import record_audit_event
-from .mapping_projection import draft_mapping_projection
+from .mapping_projection import draft_mapping_projection, revision_mapping_projection
 from .model.registry import ModelSnapshot, resolve_request_model
 from .pagination import paginate_sequence, paginate_statement, text_key
 from .relation_set_versions import claim_set_version, increment_single_set_version
@@ -59,6 +59,7 @@ class MappingRead:
     session: Session
     workspace_key: str
     draft_id: str | None
+    revision_id: str | None
     snapshot: ModelSnapshot
     config: MappingGridViewConfig
     filters: dict[str, Any]
@@ -126,7 +127,7 @@ class MappingRead:
     def summary(
         self, objects: list[Any], columns: tuple[str, ...]
     ) -> dict[str, MappingObjectSummary]:
-        if self.draft_id:
+        if self.draft_id or self.revision_id:
             attrs = {row.id: row.attributes or {} for row in objects}
         else:
             values = load_attribute_values(self.session, [row.id for row in objects])
@@ -188,6 +189,10 @@ class MappingRead:
         )
 
     def versions(self, ids: list[str]) -> dict[str, int]:
+        if self.revision_id:
+            # Revisions are immutable and do not need a mutable-set concurrency token.
+            # Zero is stable within the revision-bound continuation context.
+            return {object_id: 0 for object_id in ids}
         rows = self.session.scalars(
             select(RelationSetVersion).where(
                 RelationSetVersion.workspace_key == self.workspace_key,
@@ -239,6 +244,7 @@ def open_mapping_read(
     view_key: str | None,
     draft_id: str | None,
     *,
+    revision_id: str | None = None,
     binding_config: MappingGridViewConfig | None = None,
 ) -> MappingRead:
     # sqlite's legacy transaction mode does not BEGIN on SELECT. Begin before
@@ -250,15 +256,28 @@ def open_mapping_read(
     elif connection.dialect.name == "postgresql":
         connection.exec_driver_sql("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
     return _mapping_read_in_transaction(
-        session, workspace_key, application_key, view_key, draft_id, binding_config=binding_config
+        session,
+        workspace_key,
+        application_key,
+        view_key,
+        draft_id,
+        revision_id=revision_id,
+        binding_config=binding_config,
     )
 
 
 def _mapping_read_in_transaction(
-    session, workspace_key, application_key, view_key, draft_id, *, binding_config=None
+    session,
+    workspace_key,
+    application_key,
+    view_key,
+    draft_id,
+    *,
+    revision_id=None,
+    binding_config=None,
 ):
     resolve_workspace(session, workspace_key)
-    snapshot = resolve_request_model(session, workspace_key, draft_id, None)
+    snapshot = resolve_request_model(session, workspace_key, draft_id, revision_id)
     application = next(
         (row for row in snapshot.model.applications if row.key == application_key), None
     )
@@ -273,6 +292,8 @@ def _mapping_read_in_transaction(
         )
     if draft_id:
         objects, relations = draft_mapping_projection(session, draft_id)
+    elif revision_id:
+        objects, relations = revision_mapping_projection(session, revision_id)
     else:
         objects = (
             select(
@@ -300,11 +321,13 @@ def _mapping_read_in_transaction(
         session,
         workspace_key,
         draft_id,
+        revision_id,
         snapshot,
         config,
         {
             "workspaceKey": workspace_key,
             "workspaceDraftId": draft_id,
+            "workspaceRevisionId": revision_id,
             "modelReleaseId": snapshot.release_id,
             "modelHash": snapshot.model_hash,
             "applicationKey": application_key,
@@ -339,6 +362,38 @@ def validate_binding(
         )
 
 
+def validate_parent_scope(read: MappingRead, parent_object_id: str | None) -> None:
+    """Require a real, model-authorized direct parent for contextual coverage."""
+    if parent_object_id is None:
+        return
+    parent = read.session.execute(
+        select(read.objects.c.id, read.objects.c.object_type_key).where(
+            read.objects.c.id == parent_object_id
+        )
+    ).one_or_none()
+    if parent is None:
+        raise api_error(
+            404,
+            "mapping_parent_not_found",
+            "Parent object not found in the selected context",
+        )
+    source = read.snapshot.model.object_type(read.source_type)
+    parent_relations = set(source.behavior.get("parentRelationTypeKeys", ())) if source else set()
+    compatible = any(
+        binding.fromObjectTypeKey == parent.object_type_key
+        and binding.toObjectTypeKey == read.source_type
+        and binding.relationTypeKey in parent_relations
+        and bool(read.snapshot.model.relation_type(binding.relationTypeKey).features.get("parentOf"))
+        for binding in read.snapshot.model.objectTypeRelations
+    )
+    if not compatible:
+        raise api_error(
+            422,
+            "mapping_parent_scope_mismatch",
+            "Parent object type cannot contain sources for the selected mapping view",
+        )
+
+
 def object_page(
     read: MappingRead,
     object_type: str,
@@ -348,6 +403,8 @@ def object_page(
     page_size: int,
     *,
     candidates: bool = False,
+    parent_object_id: str | None = None,
+    mapping_state: str | None = None,
 ) -> tuple[list[Any], str | None]:
     fields = tuple(
         field
@@ -356,7 +413,14 @@ def object_page(
     )
     if not candidates and "name" not in fields:
         fields = ("name", *fields)
-    filters = {**read.filters, "objectTypeKey": object_type, "search": search, "fields": fields}
+    filters = {
+        **read.filters,
+        "objectTypeKey": object_type,
+        "search": search,
+        "fields": fields,
+        "parentObjectId": parent_object_id,
+        "state": mapping_state,
+    }
     allowed = next(
         row
         for row in read.snapshot.model.objectTypeRelations
@@ -367,6 +431,32 @@ def object_page(
     statement = select(projection_bundle(read.objects)).where(
         read.objects.c.object_type_key == object_type
     )
+    if not candidates:
+        statement = statement.where(
+            read.objects.c.application_key == read.filters["applicationKey"]
+        )
+    if parent_object_id is not None:
+        statement = statement.where(read.objects.c.parent_object_id == parent_object_id)
+    if mapping_state is not None:
+        state_edges = read.edge_statement().subquery("mapping_state_edges")
+        state_anchor = (
+            state_edges.c.from_object_id
+            if read.config.direction == "outgoing"
+            else state_edges.c.to_object_id
+        )
+        target_count = (
+            select(func.count())
+            .select_from(state_edges)
+            .where(state_anchor == read.objects.c.id)
+            .correlate(read.objects)
+            .scalar_subquery()
+        )
+        if mapping_state == "unmapped":
+            statement = statement.where(target_count == 0)
+        elif mapping_state == "mapped":
+            statement = statement.where(target_count == 1)
+        else:
+            statement = statement.where(target_count > 1)
     exclusive_target = candidates and (
         allowed.cardinality == "one-to-one"
         or (allowed.cardinality == "one-to-many" and read.config.direction == "outgoing")
@@ -382,7 +472,7 @@ def object_page(
         for field in fields:
             if field == "name":
                 clauses.append(read.objects.c.name.icontains(search, autoescape=True))
-            elif read.draft_id:
+            elif read.draft_id or read.revision_id:
                 clauses.append(
                     cast(read.objects.c.attributes[field].as_string(), String).icontains(
                         search, autoescape=True
@@ -413,8 +503,14 @@ def object_page(
 
 
 def coverage(
-    read: MappingRead, search: str | None, cursor: str | None, page_size: int | None
+    read: MappingRead,
+    search: str | None,
+    cursor: str | None,
+    page_size: int | None,
+    parent_object_id: str | None = None,
+    mapping_state: str | None = None,
 ) -> MappingCoveragePage:
+    validate_parent_scope(read, parent_object_id)
     objects, next_cursor = object_page(
         read,
         read.source_type,
@@ -422,6 +518,8 @@ def coverage(
         search,
         cursor,
         page_size or read.config.pageSize,
+        parent_object_id=parent_object_id,
+        mapping_state=mapping_state,
     )
     ids = [row.id for row in objects]
     sources = read.summary(objects, read.config.sourceColumns)
@@ -670,6 +768,7 @@ def list_mappings(
             session,
             workspace_key,
             draft_id,
+            None,
             snapshot,
             config,
             {},

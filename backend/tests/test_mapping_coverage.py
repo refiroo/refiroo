@@ -49,6 +49,10 @@ def client(tmp_path, monkeypatch, request):
     master = next(row for row in model["objectTypes"] if row["key"] == "master-value")
     master["attributes"].append({"attributeTypeKey": "rank"})
     for application in model["applications"]:
+        if application["key"] == "rdm-master":
+            # Exercise globally reusable object types without letting one application's lens
+            # surface another application's records.
+            application["objectTypeKeys"].extend(["system", "system-value"])
         if application["key"] == "rdm-systems":
             view = next(row for row in application["views"] if row["type"] == "mappingGrid")
             view["config"]["targetDisplayColumns"].append("rank")
@@ -251,6 +255,48 @@ def test_coverage_pagination_and_cursor_scope_validation(client):
     assert r.status_code == 422 and r.json()["error"]["code"] == "mapping_candidate_type_mismatch"
 
 
+def test_coverage_parent_and_state_filters_apply_before_pagination(client):
+    targets = masters(client, 2)
+    sources = [_create_system_value(client, _suffix()) for _ in range(4)]
+    relation(client, sources[0], targets[0])
+    relation(client, sources[1], targets[0])
+    relation(client, sources[1], targets[1])
+
+    assert [
+        row["source"]["id"]
+        for row in get(client, "/mapping-coverage", dict(OUT, state="mapped"))["items"]
+    ] == [sources[0]["id"]]
+    assert [
+        row["source"]["id"]
+        for row in get(client, "/mapping-coverage", dict(OUT, state="ambiguous"))["items"]
+    ] == [sources[1]["id"]]
+    assert [
+        row["source"]["id"]
+        for row in get(client, "/mapping-coverage", dict(IN, state="mapped"))["items"]
+    ] == [targets[1]["id"]]
+    unmapped = get(client, "/mapping-coverage", dict(OUT, state="unmapped", pageSize=1))
+    assert len(unmapped["items"]) == 1 and unmapped["nextCursor"] is not None
+
+    parent_id = sources[2]["parentObjectId"]
+    scoped = get(client, "/mapping-coverage", dict(OUT, parentObjectId=parent_id))["items"]
+    assert [row["source"]["id"] for row in scoped] == [sources[2]["id"]]
+    r = client.get(
+        BASE + "/mapping-coverage",
+        params=dict(OUT, state="mapped", cursor=unmapped["nextCursor"]),
+    )
+    assert r.status_code == 422 and r.json()["error"]["code"] == "invalid_cursor"
+
+    mismatch = client.get(
+        BASE + "/mapping-coverage",
+        params=dict(OUT, parentObjectId=targets[0]["parentObjectId"]),
+    )
+    assert mismatch.status_code == 422
+    assert mismatch.json()["error"]["code"] == "mapping_parent_scope_mismatch"
+    missing = client.get(BASE + "/mapping-coverage", params=dict(OUT, parentObjectId="missing"))
+    assert missing.status_code == 404
+    assert missing.json()["error"]["code"] == "mapping_parent_not_found"
+
+
 def test_draft_coverage_versions_and_context_bound_cursors(client):
     master = masters(client, 1)[0]
     sources = [_create_system_value(client, _suffix()) for _ in range(3)]
@@ -293,6 +339,136 @@ def test_draft_coverage_versions_and_context_bound_cursors(client):
         dict(OUT, workspaceDraftId=draft["id"], sourceObjectId=sources[0]["id"], mappingVersion=1),
     )
     assert detail["targetCount"] == 1
+
+
+def test_draft_coverage_parent_scope_uses_effective_objects(client):
+    source = _create_system_value(client, _suffix())
+    draft = client.post(BASE + "/drafts", json={"source": "currentLive"}).json()
+    rows = get(
+        client,
+        "/mapping-coverage",
+        dict(OUT, workspaceDraftId=draft["id"], parentObjectId=source["parentObjectId"]),
+    )["items"]
+    assert [row["source"]["id"] for row in rows] == [source["id"]]
+
+
+def test_coverage_sources_are_scoped_to_the_declaring_application(client):
+    suffix = _suffix()
+    own = _create_system_value(client, suffix)
+    foreign_system = client.post(
+        "/api/v1/objects",
+        json={
+            "applicationKey": "rdm-master",
+            "workspaceKey": "default",
+            "objectTypeKey": "system",
+            "name": f"Foreign system {suffix}",
+            "attributes": [_attr("system-code", f"FOREIGN_{suffix}")],
+        },
+    )
+    assert foreign_system.status_code == 201, foreign_system.text
+    foreign = client.post(
+        "/api/v1/objects",
+        json={
+            "applicationKey": "rdm-master",
+            "workspaceKey": "default",
+            "objectTypeKey": "system-value",
+            "name": f"Foreign value {suffix}",
+            "parentObjectId": foreign_system.json()["id"],
+            "attributes": [
+                _attr("value-code", f"FOREIGN_VALUE_{suffix}"),
+                _attr("value-name", f"Foreign value {suffix}"),
+            ],
+        },
+    )
+    assert foreign.status_code == 201, foreign.text
+
+    rows = get(client, "/mapping-coverage", dict(OUT, search=suffix))["items"]
+    assert own["id"] in {row["source"]["id"] for row in rows}
+    assert foreign.json()["id"] not in {row["source"]["id"] for row in rows}
+
+
+def test_revision_coverage_is_immutable_scoped_and_version_bound(client):
+    master = masters(client, 1)[0]
+    source = _create_system_value(client, _suffix())
+    draft = client.post(BASE + "/drafts", json={"source": "currentLive"}).json()
+    activation = client.post(
+        f"/api/v1/workspace-drafts/{draft['id']}/activation",
+        json={"expectedDraftVersion": draft["version"], "expectedActiveRevisionId": None},
+    )
+    assert activation.status_code == 200, activation.text
+    revision_id = activation.json()["id"]
+
+    old_code = next(
+        item["value"] for item in source["attributes"] if item["attributeTypeKey"] == "value-code"
+    )
+    new_code = f"LIVE_ONLY_{_suffix()}"
+    changed = client.patch(
+        f"/api/v1/objects/system-value/{source['id']}",
+        json={
+            "expectedVersion": source["version"],
+            "attributes": [
+                _attr("value-code", new_code),
+                _attr("value-name", source["name"]),
+            ],
+        },
+    )
+    assert changed.status_code == 200, changed.text
+    assert [
+        row["source"]["id"]
+        for row in get(
+            client,
+            "/mapping-coverage",
+            dict(OUT, workspaceRevisionId=revision_id, search=old_code),
+        )["items"]
+    ] == [source["id"]]
+    assert (
+        get(
+            client,
+            "/mapping-coverage",
+            dict(OUT, workspaceRevisionId=revision_id, search=new_code),
+        )["items"]
+        == []
+    )
+    assert [
+        row["source"]["id"]
+        for row in get(client, "/mapping-coverage", dict(OUT, search=new_code))["items"]
+    ] == [source["id"]]
+
+    relation(client, source, master)
+    assert get(client, "/mapping-coverage", dict(OUT, search=source["name"]))["items"][0][
+        "state"
+    ] == "mapped"
+    historical = get(
+        client,
+        "/mapping-coverage",
+        dict(
+            OUT,
+            workspaceRevisionId=revision_id,
+            parentObjectId=source["parentObjectId"],
+            state="unmapped",
+        ),
+    )["items"]
+    assert len(historical) == 1
+    assert historical[0]["source"]["id"] == source["id"]
+    assert historical[0]["mappingVersion"] == 0
+    detail = get(
+        client,
+        "/mapping-targets",
+        dict(
+            OUT,
+            workspaceRevisionId=revision_id,
+            sourceObjectId=source["id"],
+            mappingVersion=0,
+        ),
+    )
+    assert detail["targetCount"] == 0
+
+    invalid = client.get(
+        BASE + "/mapping-coverage",
+        params=dict(OUT, workspaceDraftId="draft", workspaceRevisionId=revision_id),
+    )
+    assert invalid.status_code == 422
+    assert invalid.json()["error"]["code"] == "mutually_exclusive_context"
 
 
 def test_concurrent_coverage_keeps_edges_fields_and_versions_in_one_snapshot(client, monkeypatch):

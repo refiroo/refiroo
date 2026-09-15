@@ -1,7 +1,7 @@
 /**
  * The application frame: product mark, application navigation, workspace selector, and the view
- * navigation and explorer sidebar. Everything it shows comes from the model — the applications, the
- * views each one declares and the product name — so the frame carries no knowledge of any
+ * unified collection/hierarchy browser. Everything it shows comes from the model — the applications,
+ * view declarations and the product name — so the frame carries no knowledge of any
  * particular application.
  *
  * Model administration has a separate secondary entry and omits workspace controls.
@@ -49,21 +49,6 @@ export function AppShell({
 }) {
   const { draft } = useWorkspaceData();
   const rail = useLocalNumberPreference("rdm:layout:navigation-width:v1", 248, 210, 380);
-  const [hierarchy, setHierarchy] = useState(() => {
-    try {
-      return window.localStorage.getItem("rdm:navigation-mode:v1") !== "views";
-    } catch {
-      return true;
-    }
-  });
-  function selectNavigationMode(nextHierarchy: boolean) {
-    setHierarchy(nextHierarchy);
-    try {
-      window.localStorage.setItem("rdm:navigation-mode:v1", nextHierarchy ? "hierarchy" : "views");
-    } catch {
-      // Keep navigation usable when browser storage is unavailable.
-    }
-  }
   const [navigationOpen, setNavigationOpen] = useState(false);
   const workspaceDraftId =
     activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.workspaceDraftId : undefined;
@@ -124,49 +109,28 @@ export function AppShell({
             </details>
           </nav>
           {activeRoute.kind !== "models" && (
-            <>
-              <div className="navigation-mode" role="group" aria-label="Navigation mode">
-                <button aria-pressed={hierarchy} onClick={() => selectNavigationMode(true)}>
-                  Browse hierarchy
-                </button>
-                <button aria-pressed={!hierarchy} onClick={() => selectNavigationMode(false)}>
-                  Views
-                </button>
-              </div>
-              <nav className="view-nav" aria-label={`${application.name} views`} hidden={hierarchy}>
-                {application.views.map((view) => (
-                  <button
-                    key={view.key}
-                    className={activeRoute.kind === "list" && activeRoute.viewKey === view.key ? "active" : ""}
-                    aria-current={activeRoute.kind === "list" && activeRoute.viewKey === view.key ? "page" : undefined}
-                    onClick={() => {
-                      setNavigationOpen(false);
-                      onNavigate({
-                        ...viewRoute(application, view.key, activeRoute.workspaceKey),
-                        workspaceDraftId,
-                        workspaceRevisionId,
-                      });
-                    }}
-                  >
-                    <span>{view.name}</span>
-                  </button>
-                ))}
-              </nav>
-              <div hidden={!hierarchy}>
-                <Explorer
-                  key={`${application.key}:${activeRoute.workspaceKey}`}
-                  model={model}
-                  application={application}
-                  workspaceKey={activeRoute.workspaceKey}
-                  activeObjectId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
-                  refreshToken={refreshToken}
-                  onOpen={(item) => {
-                    onOpenObject(item);
-                    setNavigationOpen(false);
-                  }}
-                />
-              </div>
-            </>
+            <Explorer
+              key={`${application.key}:${activeRoute.workspaceKey}`}
+              model={model}
+              application={application}
+              workspaceKey={activeRoute.workspaceKey}
+              activeObjectId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
+              activeViewKey={activeRoute.kind === "list" ? activeRoute.viewKey : undefined}
+              refreshToken={refreshToken}
+              onOpen={(item) => {
+                onOpenObject(item);
+                setNavigationOpen(false);
+              }}
+              onOpenCollection={(viewKey, parent) => {
+                onNavigate({
+                  ...viewRoute(application, viewKey, activeRoute.workspaceKey),
+                  workspaceDraftId,
+                  workspaceRevisionId,
+                  ...(parent ? { parentObjectId: parent.id, parentObjectTypeKey: parent.objectTypeKey } : {}),
+                });
+                setNavigationOpen(false);
+              }}
+            />
           )}
           <nav className="secondary-navigation" aria-label="Administration">
             <button

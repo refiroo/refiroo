@@ -131,39 +131,48 @@ try {
     await shown(page.getByRole("button", { name: "Record 00", exact: true }));
     await page.getByRole("button", { name: "Next page", exact: true }).click();
     await shown(page.getByRole("button", { name: "Record 10", exact: true }));
-    await page.getByRole("button", { name: "Filter", exact: true }).click();
-    const filters = page.getByRole("dialog", { name: "Filter", exact: true });
-    await filters.getByLabel("Count operator").selectOption("eq");
-    await filters.getByLabel("Count value").fill("0");
-    await filters.getByLabel("Count value").press("Enter");
-    await filters.getByLabel("Date operator").selectOption("gte");
-    await filters.getByLabel("Date value").fill("2026-01-01");
-    await filters.getByLabel("Date value").press("Enter");
+    await page.getByRole("button", { name: /^Filter: Count/ }).click();
+    let facet = page.getByRole("dialog", { name: /^Filter: Count/ });
+    await facet.getByLabel("Count operator").selectOption("eq");
+    await facet.getByLabel("Count value").fill("0");
+    await facet.getByLabel("Count value").press("Enter");
+    await facet.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("button", { name: /^Filter: Date/ }).click();
+    facet = page.getByRole("dialog", { name: /^Filter: Date/ });
+    await facet.getByLabel("Date operator").selectOption("gte");
+    await facet.getByLabel("Date value").fill("2026-01-01");
+    await facet.getByLabel("Date value").press("Enter");
+    await facet.getByRole("button", { name: "Done" }).click();
     // False and availability operations remain distinct through URL serialization and real reads.
-    await filters.getByLabel("Active value").selectOption("false");
-    await filters.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("button", { name: /^Filter: Active/ }).click();
+    facet = page.getByRole("dialog", { name: /^Filter: Active/ });
+    await facet.getByLabel("Active value").selectOption("false");
+    await facet.getByRole("button", { name: "Done" }).click();
     await shown(page.getByText("No results match these filters", { exact: true }));
     assert.equal(new URL(page.url()).searchParams.get("filter.active.eq"), "false");
     await page.getByRole("button", { name: "Remove Active is false", exact: true }).click();
-    await page.getByRole("button", { name: "Filter", exact: true }).click();
-    await filters.getByLabel("Count operator").selectOption("isUnset");
-    await filters.getByLabel("Count value").selectOption("true");
-    await filters.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("button", { name: /^Filter: Count/ }).click();
+    facet = page.getByRole("dialog", { name: /^Filter: Count/ });
+    await facet.getByLabel("Count operator").selectOption("isUnset");
+    await facet.getByLabel("Count value").selectOption("true");
+    await facet.getByRole("button", { name: "Done" }).click();
     await shown(page.getByText("No results match these filters", { exact: true }));
     assert.equal(new URL(page.url()).searchParams.get("filter.qa-count.isUnset"), "true");
-    await page.getByRole("button", { name: "Filter", exact: true }).click();
-    await filters.getByLabel("Count operator").selectOption("isNull");
-    await filters.getByLabel("Count value").selectOption("false");
-    await filters.getByRole("button", { name: "Done" }).click();
+    await page.getByRole("button", { name: /^Filter: Count/ }).click();
+    facet = page.getByRole("dialog", { name: /^Filter: Count/ });
+    await facet.getByLabel("Count operator").selectOption("isNull");
+    await facet.getByLabel("Count value").selectOption("false");
+    await facet.getByRole("button", { name: "Done" }).click();
     await shown(page.getByRole("button", { name: "Record 00", exact: true }));
     assert.equal(new URL(page.url()).searchParams.get("filter.qa-count.isNull"), "false");
-    await page.getByRole("button", { name: "Filter", exact: true }).click();
-    await filters.getByLabel("Count operator").selectOption("eq");
-    await filters.getByLabel("Count value").fill("0");
-    await filters.getByLabel("Count value").press("Enter");
+    await page.getByRole("button", { name: /^Filter: Count/ }).click();
+    facet = page.getByRole("dialog", { name: /^Filter: Count/ });
+    await facet.getByLabel("Count operator").selectOption("eq");
+    await facet.getByLabel("Count value").fill("0");
+    await facet.getByLabel("Count value").press("Enter");
     await page.screenshot({ path: resolve(output, `ui02-${type}-filters.png`), fullPage: true });
     await page.keyboard.press("Escape");
-    await page.waitForFunction(() => document.activeElement?.textContent === "Filter");
+    await page.waitForFunction(() => document.activeElement?.textContent?.startsWith("Filter: Count"));
     await shown(page.getByRole("button", { name: "Record 00", exact: true }));
     assert.equal(new URL(page.url()).searchParams.getAll("cursor").length, 0);
     await page.getByRole("button", { name: "Remove Count is 0", exact: true }).click();
@@ -189,20 +198,22 @@ try {
     await page.screenshot({ path: resolve(output, `ui02-${type}-desktop.png`), fullPage: true });
     await page.reload();
     await shown(page.getByText("20 on this page", { exact: true }));
-    await shown(collection.getByRole("columnheader", { name: "Count", exact: true }));
+    assert.equal(await collection.getByRole("columnheader", { name: "Count", exact: true }).count(), 0);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole("button", { name: /Show all .* columns/ }).tap();
     for (const column of model.applications.find((item) => item.key === app).views.find((item) => item.key === view).config.columns) {
+      if (column === "qa-count") continue;
       const label = ["name", "id"].includes(column) ? column === "name" ? "Name" : "ID" : model.attributeTypes.find((item) => item.key === column)?.name;
       if (label) await shown(collection.getByRole("columnheader", { name: label, exact: true }));
     }
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-    await page.getByRole("button", { name: "Filter", exact: true }).tap();
-    await shown(filters);
-    await filters.getByRole("button", { name: "Done" }).tap();
+    await page.getByRole("button", { name: /^Filter: Count/ }).tap();
+    facet = page.getByRole("dialog", { name: /^Filter: Count/ });
+    await shown(facet);
+    await facet.getByRole("button", { name: "Done" }).tap();
     await page.screenshot({ path: resolve(output, `ui02-${type}-mobile.png`), fullPage: true });
     await page.setViewportSize({ width: 1440, height: 1000 });
-    checks.push(`UI-02 ${type}: typed filter controls/chip isolation, cursor reset, heading/menu sort, display ownership, reload and mobile columns/focus`);
+    checks.push(`UI-02 ${type}: typed filter controls/chip isolation, cursor reset, heading/menu sort, display preference persistence and mobile columns/focus`);
     await page.goto(`${uiUrl}${listPath}`);
     const table = page.getByRole("region", { name: `${type === "domain" ? "Domains" : "Systems"} table` });
     await shown(table.getByRole("button", { name: "Record 00", exact: true }));
@@ -216,28 +227,20 @@ try {
     assert(requests.filter((url) => url === failedPage.seen[0]).length >= failedPage.seen.length + 1);
     const pageTwo = page.url();
     assert.equal(new URL(pageTwo).searchParams.getAll("cursor").length, 1);
-    await page.getByRole("button", { name: "Browse hierarchy", exact: true }).click();
     const explorer = page.getByRole("region", { name: `${model.applications.find((item) => item.key === app).name} explorer` });
     await explorer.getByRole("button", { name: "Load more objects", exact: true }).click();
     await shown(explorer.getByRole("button", { name: /Record 31/ }));
-    await page.getByRole("button", { name: "Views", exact: true }).click();
-    await page.getByRole("button", { name: "Browse hierarchy", exact: true }).click();
     await shown(explorer.getByRole("button", { name: /Record 31/ }));
-    await page.getByRole("button", { name: "Views", exact: true }).click();
     assert.equal(page.url(), pageTwo);
     await shown(table.getByRole("button", { name: "Record 10", exact: true }));
-    const views = page.getByRole("navigation", { name: `${model.applications.find((item) => item.key === app).name} views` });
-    for (const configured of model.applications.find((item) => item.key === app).views) {
-      await shown(views.getByRole("button", { name: configured.name, exact: true }));
-    }
-    assert(await views.evaluate((node) => node.scrollWidth <= node.clientWidth));
+    const collections = page.getByRole("navigation", { name: `${model.applications.find((item) => item.key === app).name} collections` });
+    await shown(collections);
+    assert(await collections.evaluate((node) => node.scrollWidth <= node.clientWidth));
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole("button", { name: "Browse application", exact: true }).tap();
     const mobileDrawer = page.getByRole("dialog", { name: "Application navigation" });
     await shown(mobileDrawer);
-    for (const configured of model.applications.find((item) => item.key === app).views) {
-      await shown(mobileDrawer.getByRole("button", { name: configured.name, exact: true }));
-    }
+    await shown(mobileDrawer.getByRole("navigation", { name: `${model.applications.find((item) => item.key === app).name} collections` }));
     await mobileDrawer.getByRole("button", { name: "Close", exact: true }).tap();
     assert.equal(page.url(), pageTwo);
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
@@ -338,7 +341,6 @@ try {
   await page.keyboard.press("Enter");
   const drawer = page.getByRole("dialog", { name: "Application navigation" });
   await shown(drawer);
-  await drawer.getByRole("button", { name: "Browse hierarchy", exact: true }).click();
   const explorerSearch = drawer.getByRole("textbox", { name: "Search this explorer" });
   await explorerSearch.fill("Record 10");
   await shown(drawer.getByRole("button", { name: /^Record 10/ }));
@@ -349,13 +351,11 @@ try {
   await page.getByRole("button", { name: "Browse application", exact: true }).click();
   await shown(drawer);
   assert.equal(await explorerSearch.inputValue(), "Record 10");
-  await drawer.getByRole("button", { name: "Views", exact: true }).click();
-  await drawer.getByRole("button", { name: "Browse hierarchy", exact: true }).click();
   assert.equal(await explorerSearch.inputValue(), "Record 10");
   await drawer.getByRole("button", { name: "Close", exact: true }).click();
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await page.screenshot({ path: resolve(output, "mobile-system.png"), fullPage: true });
-  checks.push("390x844 drawer opens by keyboard and touch, Escape/Close restore focus, hidden hierarchy search survives drawer and mode changes; no page overflow");
+  checks.push("390x844 drawer opens by keyboard and touch, Escape/Close restore focus, and application-browser search survives drawer changes; no page overflow");
 
   // Existing drafts use the same navigation and retain their write context across applications.
   for (const workspaceKey of ["warehouse", "retail"]) {
@@ -404,7 +404,7 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await page.screenshot({ path: resolve(output, "mobile-models.png"), fullPage: true });
-  checks.push("Hierarchy continuation survives mode changes without changing the later-page collection URL; all configured Master/System views fit vertically; model administration remains reachable at desktop/mobile");
+  checks.push("Hierarchy continuation coexists with model-derived collection groups without changing the later-page URL; model administration remains reachable at desktop/mobile");
   await checkInspectorDeletion({ page, api, uiUrl, output, checks });
   await checkHierarchySelection({ page, api, uiUrl, output, checks });
   assert.deepEqual(failures, []);

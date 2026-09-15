@@ -27,8 +27,10 @@ APIs without writing application-specific code.
 ## Product capabilities and delivery channels
 
 The product provides a reusable definition of applications, record types, typed fields, relationships
-and views. Data owners use that definition to organize codes, maintain translations and connect values
-across systems. Starter applications are examples of configuration, never special runtime modules.
+and views. Data owners use that definition to organize codes, maintain representations and connect
+values according to the selected model. Starter applications are examples of configuration, never
+special runtime modules. The browser composes a model-defined application from contextual collections
+and supported task lenses; it does not reserve navigation or renderer branches for the starter model.
 
 | Capability | Current development position | Product coverage |
 | --- | --- | --- |
@@ -37,17 +39,21 @@ across systems. Starter applications are examples of configuration, never specia
 | Optional coordinated data changes | Current-live/history draft sources and delta merge available; mapping browser acceptance remains 0.7 work | F12–F14, US-W01–W08 |
 | Inspect, check, install and activate application definitions | JSON workbench and release APIs present; installation and activation are separate | F15, US-P01–P04, US-P06 |
 | Stable paged integration reads | Available; larger exchange and advanced query planned for 0.9 | F16, US-I01–I09 |
-| Dedicated mapping, translation coverage and hierarchy views | Mapping 0.7; translation and hierarchy 0.8 | US-M01–M04, US-L03–L04, US-H01–H02 |
+| Contextual collections and specialist lenses | Unified application browser and mapping lens 0.7; translation and hierarchy lenses 0.8 | US-D01–D05, US-M01–M04, US-L03–L04, US-H01–H02 |
 | Authenticated shared production operation | Production hardening and staged model rollout planned for 0.10 | US-S01, US-O03–O06, US-P07 |
 | Structured model authoring and reusable definitions | Planned for 1.0, retaining existing validation and release protections | US-P05, US-P08 |
 
 “API available” does not mean a complete browser task. Current top-level views support strict tables;
 a form used for record editing is not an implemented configurable top-level `form` view. Schema 0.6
 mapping-grid configuration, live/draft coverage, target-detail, candidate APIs (WP-4) and atomic
-mapping replacement (WP-5) are delivered, with a placeholder renderer. The complete browser workflow
-remains WP-8A/WP-8B work, with composed story acceptance in WP-9. Cascade deletions advance mapping
+mapping replacement (WP-5) are delivered. WP-8A/WP-8B and WP-14 implement the contextual mapping
+lens and unified browser in the current uncommitted worktree; composed story acceptance remains WP-9.
+Cascade deletions advance mapping
 tokens (WP-10A), and draft activation refuses divergent live sets touched by staged mutable relations
-(WP-10B), preserving the draft and all live content. Trees and other specialist declarations require their own validated contract and renderer. Dashboards
+(WP-10B), preserving the draft and all live content. Schema 0.6 table and mapping declarations are
+composed as lenses over their configured source object type; mapping keeps its dedicated semantics
+without multiplying primary navigation destinations. Trees and other specialist declarations require
+their own validated contract and renderer. Dashboards
 have no scheduled user outcome. The [functionality catalogue](product-functionality/CURRENT_FUNCTIONALITY.md)
 records channel limitations; no browser acceptance is implied by the presence of a component.
 
@@ -80,7 +86,9 @@ An administrator can define and release another reference-data application witho
 or TypeScript. A steward can then select its workspace, find a record, create or correct it with its
 required fields and connections, and see the live result through the same generic controls. A normal
 correction takes one coherent edit and save, with no release ceremony. The same journeys work for at
-least two differently configured record types.
+least two differently configured record types. Containment context, model-declared filters and
+applicable semantic lenses remain visible so a global object-type projection is never the only way to
+understand a governed collection.
 
 Acceptance is assessed through [user stories](product-functionality/USER_STORIES.md) and
 [realistic scenarios](product-functionality/ACCEPTANCE_SCENARIOS.md), not merely by whether a route,

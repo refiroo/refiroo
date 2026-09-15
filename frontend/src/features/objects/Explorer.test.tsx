@@ -17,6 +17,39 @@ afterEach(() => {
 });
 
 describe("Explorer", () => {
+  it("combines root collections and contextual child collections with the hierarchy", async () => {
+    const model = structuredClone(testModel);
+    model.relationTypes[0].features.parentOf = true;
+    const sourceView = model.applications[0].views[0];
+    if (sourceView.type !== "table") throw new Error("Expected table fixture");
+    model.applications[0].views.push({
+      ...sourceView,
+      key: "codelists",
+      name: "Codelists",
+      objectTypeKey: "codelist",
+    });
+    const child = { ...codelistObject, parentObjectId: domainObject.id };
+    vi.spyOn(api, "objects").mockImplementation(async (key) => ({
+      items: key === "domain" ? [domainObject] : [child],
+      nextCursor: null,
+    }));
+    const onOpenCollection = vi.fn();
+    render(
+      <Explorer
+        model={model}
+        application={model.applications[0]}
+        workspaceKey="west"
+        refreshToken={0}
+        onOpen={vi.fn()}
+        onOpenCollection={onOpenCollection}
+      />,
+    );
+
+    expect(await screen.findByRole("navigation", { name: "Test App collections" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Codelists collection within Connections" }));
+    expect(onOpenCollection).toHaveBeenCalledWith("codelists", domainObject);
+  });
+
   it("remembers independent nested branches across remounts and scopes them by workspace and application", async () => {
     const child = { ...codelistObject, parentObjectId: domainObject.id };
     const leaf = { ...codelistObject, id: "leaf", name: "Leaf", parentObjectId: child.id };

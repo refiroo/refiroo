@@ -1,0 +1,50 @@
+import type { ApplicationDefinition, EngineModel, ViewDefinition } from "@/types";
+
+export interface CollectionGroup {
+  objectTypeKey: string;
+  views: ViewDefinition[];
+  defaultView: ViewDefinition;
+}
+
+export function viewSourceObjectTypeKey(view: ViewDefinition): string {
+  if (view.type === "table") return view.objectTypeKey;
+  return view.config.direction === "outgoing" ? view.config.fromObjectTypeKey : view.config.toObjectTypeKey;
+}
+
+export function collectionGroups(application: ApplicationDefinition): CollectionGroup[] {
+  const grouped = new Map<string, ViewDefinition[]>();
+  for (const view of application.views) {
+    const key = viewSourceObjectTypeKey(view);
+    grouped.set(key, [...(grouped.get(key) ?? []), view]);
+  }
+  return [...grouped].map(([objectTypeKey, views]) => ({
+    objectTypeKey,
+    views,
+    defaultView:
+      views.find((view) => view.key === application.defaultView) ??
+      views.find((view) => view.type === "table") ??
+      views[0],
+  }));
+}
+
+export function childCollectionGroups(
+  model: EngineModel,
+  application: ApplicationDefinition,
+  parentObjectTypeKey: string,
+): CollectionGroup[] {
+  const childTypes = new Set(
+    model.objectTypeRelations.flatMap((binding) => {
+      const relation = model.relationTypes.find((item) => item.key === binding.relationTypeKey);
+      const child = model.objectTypes.find((item) => item.key === binding.toObjectTypeKey);
+      const parentRelations = Array.isArray(child?.behavior.parentRelationTypeKeys)
+        ? child.behavior.parentRelationTypeKeys
+        : [];
+      return binding.fromObjectTypeKey === parentObjectTypeKey &&
+        relation?.features.parentOf === true &&
+        parentRelations.includes(binding.relationTypeKey)
+        ? [binding.toObjectTypeKey]
+        : [];
+    }),
+  );
+  return collectionGroups(application).filter((group) => childTypes.has(group.objectTypeKey));
+}

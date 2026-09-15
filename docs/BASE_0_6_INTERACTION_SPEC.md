@@ -7,6 +7,10 @@ composed-browser validation remain WP8.1/WP9/WP10 work.
 Existing `frontend/src/test/base06AcceptanceFixtures.ts` must be extended to this behavior during
 implementation; it is not proof that these revised journeys already work.
 
+> Historical note: this document records the released Base 0.6 interaction contract. ADR-029 and
+> Base 0.7 WP-14 supersede its separate Browse hierarchy / Views navigation modes with one
+> model-driven application browser; the record-origin rules below remain applicable.
+
 ## Context and write rules
 
 The trail is `Workspace / Application / View`, with **Live**, a named **Draft**, or a selected

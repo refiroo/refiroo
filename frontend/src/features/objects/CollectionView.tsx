@@ -12,6 +12,7 @@ import { ObjectTable } from "@/ui/ObjectTable";
 import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
 import { Pagination } from "@/ui/Pagination";
 import { ObjectToolbar } from "@/features/objects/ObjectToolbar";
+import { CollectionScope } from "@/features/objects/CollectionScope";
 import { useCursorPages } from "@/lib/hooks/useCursorPages";
 import type { ObjectItem, TableViewDefinition } from "@/types";
 import type { ViewComponentProps } from "./views/types";
@@ -55,11 +56,21 @@ export function ObjectCollectionView({
             search: query.search,
             sort: query.sort,
             filters: query.filters,
+            parentObjectId: query.parentObjectId,
             cursor,
             pageSize: query.pageSize,
           })
       : null,
-    [application.key, view.key, workspaceKey, query.search, query.sort, query.pageSize, query.filters],
+    [
+      application.key,
+      view.key,
+      workspaceKey,
+      query.search,
+      query.sort,
+      query.pageSize,
+      query.filters,
+      query.parentObjectId,
+    ],
     { cursors: query.cursors ?? [], onChange: (cursors) => onQueryChange({ ...query, cursors }) },
     refreshToken,
   );
@@ -94,13 +105,36 @@ export function ObjectCollectionView({
       <header className="page-header collection-header">
         <div>
           <h1 tabIndex={-1}>{view.name}</h1>
+          <CollectionScope
+            model={model}
+            workspaceKey={workspaceKey}
+            parentObjectId={query.parentObjectId}
+            parentObjectTypeKey={query.parentObjectTypeKey}
+          />
           <p>{objectType.description ?? application.description}</p>
         </div>
-        {!readOnly && (
-          <button className="primary" onClick={() => setCreating(true)}>
-            Add {objectType.name}
-          </button>
-        )}
+        <div className="collection-header-actions">
+          {query.parentObjectId && (
+            <button
+              className="secondary"
+              onClick={() =>
+                onQueryChange({
+                  ...query,
+                  parentObjectId: undefined,
+                  parentObjectTypeKey: undefined,
+                  cursors: undefined,
+                })
+              }
+            >
+              Show all {objectType.pluralName.toLowerCase()}
+            </button>
+          )}
+          {!readOnly && (
+            <button className="primary" onClick={() => setCreating(true)}>
+              Add {objectType.name}
+            </button>
+          )}
+        </div>
       </header>
       <section className="surface collection-surface">
         <ObjectToolbar
@@ -181,6 +215,7 @@ export function ObjectCollectionView({
           applicationKey={application.key}
           workspaceKey={workspaceKey}
           objectType={objectType}
+          parentObjectId={query.parentObjectId}
           onClose={() => setCreating(false)}
           onSaved={(item) => {
             setCreating(false);

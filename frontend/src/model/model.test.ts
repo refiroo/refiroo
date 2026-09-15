@@ -3,11 +3,54 @@ import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import { fallbackDetail } from "@/model/defaults";
 import { attributeName, fieldValue } from "@/model/fields";
 import { isManagedRelation, objectTypeFor, relationChoices } from "@/model/lookup";
+import { childCollectionGroups, collectionGroups, viewSourceObjectTypeKey } from "@/model/collections";
 
 describe("objectTypeFor", () => {
   it("resolves a known object type and returns undefined for an unknown key", () => {
     expect(objectTypeFor(testModel, "domain")?.name).toBe("Domain");
     expect(objectTypeFor(testModel, "missing")).toBeUndefined();
+  });
+});
+
+describe("collection lens helpers", () => {
+  it("groups arbitrary renderer definitions by model-derived source type", () => {
+    const application = structuredClone(testModel.applications[0]);
+    application.views.push({
+      key: "domain-links",
+      name: "Domain links",
+      type: "mappingGrid",
+      config: {
+        relationTypeKey: "domain-contains-codelist",
+        fromObjectTypeKey: "domain",
+        toObjectTypeKey: "codelist",
+        direction: "outgoing",
+        sourceColumns: ["name"],
+        targetDisplayColumns: ["name"],
+        candidateSearchFields: ["name"],
+        pageSize: 20,
+      },
+    });
+    const groups = collectionGroups(application);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].views.map((view) => view.key)).toEqual(["domains", "domain-links"]);
+    expect(viewSourceObjectTypeKey(groups[0].views[1])).toBe("domain");
+  });
+
+  it("derives contextual child collections only from configured containment", () => {
+    const model = structuredClone(testModel);
+    model.relationTypes[0].features.parentOf = true;
+    const sourceView = model.applications[0].views[0];
+    if (sourceView.type !== "table") throw new Error("Expected table fixture");
+    model.applications[0].views.push({
+      ...sourceView,
+      key: "codelists",
+      name: "Codelists",
+      objectTypeKey: "codelist",
+    });
+    expect(childCollectionGroups(model, model.applications[0], "domain").map((group) => group.objectTypeKey)).toEqual([
+      "codelist",
+    ]);
+    expect(childCollectionGroups(model, model.applications[0], "codelist")).toEqual([]);
   });
 });
 

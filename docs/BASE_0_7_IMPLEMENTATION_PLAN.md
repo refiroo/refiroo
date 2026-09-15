@@ -4,7 +4,9 @@
 WP-10A cascade-deletion version fix are complete. WP-5 acceptance follow-up and WP-10B activation
 hardening are delivered. The earlier WP-1–WP-3 review boundary remains separate;
 WP-1–WP-3 scopes are frozen. WP-6 backend, WP-7 frontend and WP-11 follow-up are delivered.
-WP-8A/WP-8B, scheduled WP-12/WP-13 follow-ups and WP-9 composed 0.7 acceptance remain pending.
+WP-8A/WP-8B have an uncommitted component implementation but are not reviewed or accepted.
+ADR-029 extends 0.7 with WP-14 contextual collection composition. Scheduled WP-12/WP-13 follow-ups
+and WP-9 composed 0.7 acceptance remain pending.
 
 **Target:** Product 0.7.0, schema language 0.6. The starter model content advances to a version on
 schema 0.6; that number alone does not mean the product release is accepted.
@@ -186,8 +188,9 @@ binding, missing columns) is rejected with precise JSON-path errors. Tests cover
   `system-to-master-mapping` (outgoing, system-value → master-value in RDM Systems) and
   `master-to-system-mapping` (incoming, master-value ← system-value in RDM Master).
 - Frontend `ViewDefinition` is a TypeScript discriminated union. Type-safe narrowing in App.tsx,
-  routes.ts, CollectionView.tsx and ObjectToolbar.tsx. The view registry dispatches `mappingGrid` to a
-  styled placeholder renderer; the full mapping grid UI ships in WP-8.
+  routes.ts, CollectionView.tsx and ObjectToolbar.tsx. At this package boundary the view registry
+  dispatched `mappingGrid` to a styled placeholder; WP-8/WP-14 subsequently replaced it with the
+  contextual mapping lens.
 - 11 new backend tests covering parse, activation, backward compatibility and all validation rejection
   paths. Schema upgrade tests generate a schema 0.5 fixture at test time to isolate from the 0.6
   starter model. Initial validation recorded 370 backend passes and 161/162 frontend passes.
@@ -671,8 +674,9 @@ selected draft model, with refreshed draft tokens and no mapping change until ex
 
 **Decisions (resolved for this handoff):**
 
-- **D9:** Mapping is a full-page view for 0.7. A detail-panel variant remains later work and is not
-  needed for US-M01–M04 acceptance.
+- **D9:** Mapping remains a full-page renderer for 0.7, but ADR-029 composes it as a lens of its
+  source collection instead of a separate primary navigation destination. A detail-panel variant
+  remains later work and is not needed for US-M01–M04 acceptance.
 - **D10:** Contextual target creation uses `ui/Modal` and the generic create-object form. This keeps
   the mapping workspace/draft/view and unsaved choice available. On success, refresh candidates
   and the draft token; creating the object leaves the mapping unchanged until explicit save.
@@ -1015,6 +1019,88 @@ comprehensive command set once against the finished build; no slice claims relea
 
 ---
 
+#### WP-14: Contextual collections and model-driven application browser
+
+**Status:** Implemented and locally reviewed 2026-09-15; not committed. This package started from the
+uncommitted WP-8A/WP-8B frontend implementation, preserved its mapping API and atomic-action work, and
+replaced the original standalone-grid presentation with contextual collection composition.
+
+**Outcome:** A steward navigates one arbitrary model-defined application browser, selects an unscoped
+or direct-parent-scoped collection, and chooses among the configured semantic lenses for that source
+type. Mapping coverage is a collection lens rather than an additional primary global table. The three
+starter applications remain examples only.
+
+**WP-14A — Decision and design documentation**
+
+1. Record ADR-029's context/collection/lens/query/detail terminology and schema 0.5/0.6 compatibility.
+2. Reconcile `PRODUCT.md`, `UI_MODEL.md`, `ARCHITECTURE.md`, `APPLICATION_MODEL.md`, roadmap, stories
+   and acceptance documentation. Do not claim runtime delivery from this slice.
+3. Preserve 0.8 ownership of lazy arbitrary-depth hierarchy traversal and mutation. Do not add a new
+   schema version without a demonstrated composition ambiguity.
+
+**WP-14B — Bounded contextual mapping queries**
+
+1. Extend mapping coverage with optional `parentObjectId` and `state=mapped|unmapped|ambiguous`.
+   Parent scope selects direct children of the configured source type. Both values participate in
+   cursor fingerprints and work identically in live and draft projections.
+2. Filter before pagination so every returned page and continuation satisfies the selected state;
+   never client-filter a page or calculate state after an incompatible page boundary.
+3. Return explicit validation for an unknown, cross-workspace, wrong-context or incompatible parent;
+   an empty valid scope is a successful empty page.
+4. Update API/OpenAPI contracts and focused integration coverage for all states, scope/state changes,
+   stale cursor rejection and both directions.
+
+**WP-14C — Unified application browser and collection lenses**
+
+1. Remove the mutually exclusive Browse hierarchy/Views switch. Present virtual collection groups and
+   bounded runtime containment records in one application browser. A flat application still exposes
+   its collections.
+2. Derive a view's source type generically. Group all views for that source type and render their
+   configured names as lenses inside one collection workspace. Do not add starter-key branches.
+3. Selecting a compatible child collection from a runtime parent opens it with visible
+   `parentObjectId` scope. Scope, search and compatible query state are URL-backed and retained through
+   detail/return and lens navigation; scoped collection reads work correctly in Live, Draft and
+   History contexts.
+4. Replace the single hidden table-filter entry point with visible model-labelled facet triggers and
+   applied values. Mapping adds a visible coverage-state facet. Use existing semantic controls and
+   responsive wrapping; no second design system.
+5. Correct the WP-8 baseline: configured `name` is rendered once, conflict recovery presents the
+   returned current mapping for review before explicit retry, candidate/target context remains bounded,
+   target-only replacement preserves relation attributes and historical contexts expose no mutations.
+
+**WP-14D — Review, focused acceptance and documentation reconciliation**
+
+1. Review the complete WP-8/WP-14 diff against ADR-029, mapping concurrency, model-context and generic
+   renderer invariants. Resolve confirmed defects before final gates.
+2. Exercise one contained and one flat/mixed model configuration, two mapping bindings/directions,
+   unscoped and parent-scoped collections, all coverage states, detail return, Live/Draft/History,
+   keyboard operation and narrow layout. Component evidence does not replace the real API/browser path.
+3. Run affected backend tests and Ruff; frontend focused tests, format, lint and build; public contract
+   checks and `git diff --check`. WP-9 still owns comprehensive suites, accessibility/visual gates and
+   release acceptance.
+4. Update current status, roadmap, TODO, API/model/UI documentation and changelog only to the behavior
+   actually exercised. Record remaining 0.8 hierarchy and later explicit model-composition work.
+
+**Primary areas:** `backend/app/routers/mapping.py`, `backend/app/services/mapping.py`, mapping/OpenAPI
+tests, `frontend/src/app/AppShell.tsx`, `features/objects/Explorer.tsx`, collection view host/renderers,
+routing/query state, styles, focused component/browser tests and product/architecture documentation.
+
+**Prerequisites:** WP-4/WP-5/WP-7/WP-10A/WP-10B/WP-11 delivered; the existing WP-8A/WP-8B dirty-tree
+implementation is the preserved starting point.
+
+**Exit:** The application browser no longer separates hierarchy from views; mapping does not add a
+duplicate primary destination; visible scope and semantic facets issue bounded server-side queries;
+existing schema 0.5/0.6 models remain usable; and focused evidence covers generic contained, flat and
+mapping configurations. WP-9 remains pending until its comprehensive gate runs.
+
+**Delivery evidence (2026-09-15):** 39 focused backend mapping/OpenAPI tests and 95 focused frontend
+tests pass. Ruff, frontend format, lint (zero errors, 12 configured warnings) and production build
+pass. A six-check real-backend/browser journey includes both configured directions, wide/narrow
+screenshots and an axe check of the composed mapping lens. This evidence does not replace WP-9
+comprehensive suites or visual-baseline acceptance.
+
+---
+
 ### Tier 5 — Composed validation (depends on all above)
 
 #### WP-9: Composed product validation — SC-07 and SC-15
@@ -1056,7 +1142,7 @@ comprehensive command set once against the finished build; no slice claims relea
 
 **Primary areas:** test data, e2e tests, documentation.
 
-**Prerequisites:** WP-1–WP-7, WP-8A, WP-8B, WP-11, WP-12 and WP-13A/B/C; any triggered WP-10 slices must close before
+**Prerequisites:** WP-1–WP-7, WP-8A, WP-8B, WP-11, WP-12, WP-13A/B/C and WP-14; any triggered WP-10 slices must close before
 release acceptance.
 
 **Decisions needed:** None.
@@ -1183,7 +1269,7 @@ WP-1, WP-2, WP-3 and WP-6 have no cross-dependencies and can proceed in any orde
 | D6 | HTTP method for mapping replacement? | PUT (idempotent set replacement) | WP-5 |
 | D7 | Replacement target count? | One target; separate direction-aware cardinality checks | WP-5 |
 | D8 | Creation/version-change compatibility? | Complete effective graph must already fit; atomic refusal | WP-6 |
-| D9 | Mapping as view only, or also as panel? | View only for 0.7 | WP-8B |
+| D9 | Mapping as view only, or also as panel? | Full-page collection lens only for 0.7 | WP-8B/WP-14 |
 | D10 | Target creation: modal or navigation? | Modal (preserves context) | WP-8B |
 | D11 | View configuration for mapping reads? | Required application/view identity; binding must match | WP-4 |
 | D12 | Ambiguous target response bounds? | Exact count, 20-item preview, version-bound continuation | WP-4/WP-5 |

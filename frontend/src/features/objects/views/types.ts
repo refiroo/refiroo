@@ -16,5 +16,6 @@ export interface ViewComponentProps {
   selectedId?: string;
   query: CollectionQueryState;
   onQueryChange: (query: CollectionQueryState) => void;
+  onViewChange?: (viewKey: string) => void;
   onOpen: (item: ObjectItem, action?: "edit" | "delete") => void;
 }

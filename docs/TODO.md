@@ -51,7 +51,18 @@ WP-4 and its WP-10A review fix delivered (2026-09-14). WP-5 delivered (2026-09-1
   prominent. Correct semantic-change baselines to earlier release → selected release, including active
   release inspection, with explicit baseline selection and truthful unsupported/first-release states.
   Preserve separate activation compatibility checks; correlation-ID behavior remains unchanged.
-- [ ] WP-8A: read-only mapping coverage; WP-8B: selection, conflicts, clearing and contextual creation.
+- [x] WP-8A/WP-8B review: preserved the bounded reads and atomic actions; corrected conflict review,
+  duplicated configured identity fields and missing coverage filters through WP-14. Reviewed locally
+  with focused component and real-browser evidence on 2026-09-15; not committed.
+- [x] WP-14A: record ADR-029 and reconcile product, UI, architecture, model and roadmap documentation.
+- [x] WP-14B: add cursor-bound `parentObjectId` and mapping coverage-state filters with live/draft/revision
+  integration coverage and public-contract updates.
+- [x] WP-14C: replace the Browse hierarchy/Views switch with one generic application browser; group
+  table/mapping declarations by source object type as collection lenses; provide visible scope, typed
+  and coverage facets; retain Live/Draft/History, detail-origin and narrow/keyboard behavior.
+- [x] WP-14D: review the composed WP-8/WP-14 implementation, run focused backend/frontend and
+  real-browser evidence for generic collections and two mapping directions, then reconcile status
+  documentation. Comprehensive suites and a11y/visual baselines remain WP-9 build acceptance.
 - [ ] WP-13A: derive a product-wide risk-ranked contract inventory from invariants, acceptance, ADR,
   API and model contracts; map existing evidence, fill confirmed gaps and consolidate only with
   surviving protection recorded. Recent defects are regression inputs, not the audit structure.

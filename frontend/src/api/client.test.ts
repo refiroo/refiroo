@@ -303,3 +303,24 @@ it("encodes immutable history reads, historical derivation and publication retir
   });
   expect(JSON.parse(fetchMock.mock.calls[6][1].body)).toEqual({ expectedActiveRevisionId: "revision/id" });
 });
+
+it("encodes contextual mapping coverage filters", async () => {
+  const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ items: [], nextCursor: null }));
+  vi.stubGlobal("fetch", fetchMock);
+  await api.mappingCoverage({
+    workspaceKey: "west",
+    applicationKey: "app",
+    viewKey: "coverage",
+    relationTypeKey: "maps-to",
+    fromObjectTypeKey: "source",
+    toObjectTypeKey: "target",
+    direction: "outgoing",
+    workspaceRevisionId: "revision/id",
+    parentObjectId: "parent/id",
+    state: "unmapped",
+  });
+  const url = new URL(fetchMock.mock.calls[0][0]);
+  expect(url.searchParams.get("parentObjectId")).toBe("parent/id");
+  expect(url.searchParams.get("state")).toBe("unmapped");
+  expect(url.searchParams.get("workspaceRevisionId")).toBe("revision/id");
+});

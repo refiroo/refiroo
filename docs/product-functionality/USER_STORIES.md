@@ -163,6 +163,21 @@ with deleting a record, retiring a workspace or withdrawing a publication.
 **Coverage:** F05, F06, F11. **Status:** API field behavior available; browser completion 0.6.
 **Example:** SC-02.
 
+### US-D15 — Maintain a collection in its governing context
+
+**Story:** As a data steward, I want one application browser to open an unscoped or contained
+collection and its applicable model-defined tasks so that I can identify what every row belongs to
+without switching between unrelated navigation systems.
+
+**Accepted when:** containment records and collection entries share one model-driven browser; the
+selected parent scope is visible and URL-backed; configured views over the same source object type are
+available as labelled lenses of one collection; and applications with different or no containment and
+mapping configurations receive no hidden starter-specific behavior. Search, compatible filters,
+detail return and Live/Draft/History retain the selected scope.
+
+**Coverage:** ADR-029; implemented Base 0.7 WP-14 with focused evidence; composed acceptance remains
+SC-16/WP-9.
+
 ## Coordinated design and publication
 
 The live starting-point limitation is tracked in [GAP-02](PLANNING_HANDOFF.md). A design draft
@@ -330,10 +345,12 @@ explicitly selected draft changes remain staged. Failed input is retained.
 **Story:** As a mapping steward, I want to see mapped, unmapped and ambiguous source values together so
 that I can prioritize work and understand data quality.
 
-**Accepted when:** The list distinguishes a missing mapping, one selected target and several conflicting
+**Accepted when:** The collection lens distinguishes a missing mapping, one selected target and several conflicting
 targets. Large conflicting sets have an exact count and a way to inspect remaining targets without
 an unlimited response. I can find candidates beyond the visible rows, using the configured relationship names and
-direction, without opening each source individually.
+direction, without opening each source individually. Parent scope and mapped/unmapped/ambiguous state
+are visible server-side filters; another mapping declaration does not require another primary
+navigation destination.
 
 **Coverage:** Coverage/candidate/target APIs delivered (WP-4); mapping browser grid remains WP-8A.
 **Status:** Roadmap 0.7; composed browser acceptance pending.

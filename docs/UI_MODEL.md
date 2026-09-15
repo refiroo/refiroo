@@ -48,7 +48,7 @@ The CSS token contract is defined in `frontend/src/styles/base.css` and grouped 
 - `--radius-*`, `--focus-ring` and `--shadow-overlay` define shape, keyboard focus and elevation.
 
 Plain component CSS consumes those tokens; the application model never contains a CSS token or
-primitive-library name. The shell exposes product, workspace, application, view and object-type
+primitive-library name. The shell exposes product, workspace, application, collection/lens and object
 context separately, includes a skip link and exposes the context trail as a labelled ordered list,
 then collapses application navigation behind a labelled control at narrow widths. Tables retain native
 table semantics inside a labelled horizontal-scroll region. Contextual row actions use a
@@ -88,9 +88,35 @@ imports, markup or API URLs.
 Field types map to suitable editors. Model-provided `ui` hints may refine widgets, grouping, width,
 help text and visibility. The renderer supplies accessible defaults when hints are absent.
 
+## Contextual collection workspace
+
+ADR-029 makes the model-driven application browser the single data-navigation surface. It combines
+virtual collection entries with runtime containment records instead of asking users to switch between
+`Browse hierarchy` and `Views`. The browser works for contained, recursive and flat application
+models; the starter applications supply examples, not reserved navigation sections.
+
+The main workspace distinguishes:
+
+- **context:** workspace, application, Live/Draft/History and optional containing object;
+- **collection:** the row/source object type;
+- **lens:** one configured semantic view over that source type;
+- **query:** scope, search, filters, sort and cursor trail; and
+- **detail:** one object's application-defined composition.
+
+For schema 0.5/0.6 the view source type groups lenses without changing the model contract. A table and
+one or more mapping declarations over the same source type therefore share one collection destination.
+Lens controls use the configured names. An application with no mapping declaration receives no mapping
+control, and a flat application still exposes its root collections.
+
+Filters are visible model-labelled facets. Direct-parent scope is a removable contextual facet;
+declared table filters use typed controls; mapping lenses add a coverage-state facet. Search remains
+server-side. Query changes reset cursor continuation, and compatible scope/search survive lens and
+detail navigation. An unscoped collection remains explicit and should include configured path or
+ancestor fields when its rows otherwise lack administrative identity.
+
 ## Interaction priorities
 
-- Workspace, application, view and object context have distinct navigation roles.
+- Workspace, application, containing-object scope, collection/lens and object detail have distinct roles.
 - Creation is available in the context where the new value will be used.
 - Create and edit present all mutable parts of one object coherently: core fields, parent, typed
   attributes and required relationships.
@@ -110,10 +136,10 @@ restore/reuse these controls for normal live writes and explicitly selected opti
 ADR-026/027. Current disconnected controls and lost non-default detail context are implementation
 gaps, not read-only product rules.
 
-The UI renders all application and view navigation from the model and keeps stable routes for
-application views and objects. Its searchable explorer combines configured object types, parent
-semantics and server-returned runtime paths. Collection views use server-side search and cursor
-pagination.
+The UI renders one application browser from the model and keeps stable routes for configured lenses
+and objects. Its searchable explorer combines virtual collection groups, configured source types,
+parent semantics and server-returned runtime paths. Collection lenses use server-side scope/search/
+filter queries and cursor pagination.
 
 Generic detail pages render configured breadcrumbs, headers, main panels and optional side panels via
 the panel registry. Attribute, child, relation, table and hierarchy panels are reusable across object
@@ -148,9 +174,10 @@ column, and `ancestor:<objectTypeKey>` columns expose model-labelled containment
 System owning a related System Value.
 
 When an object type has no explicit detail entry, the engine derives a minimal attribute-and-hierarchy
-composition from its bindings. Explicit details are preferred for task-oriented screens. Dedicated
-mapping-grid and tree interactions remain future components; schema 0.5 rejects those view types
-instead of resolving them to a misleading generic collection renderer.
+composition from its bindings. Explicit details are preferred for task-oriented screens. Schema 0.6
+mapping grids are implemented as contextual collection lenses. Dedicated tree interactions remain a
+future renderer; schema 0.5 rejects unsupported view types instead of resolving them to a misleading
+generic collection renderer.
 
 The model itself is an immutable installed release. Editing object-type, attribute-type and relation-
 type definitions is model administration and is not part of runtime CRUD.

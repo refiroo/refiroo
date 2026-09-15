@@ -18,6 +18,11 @@ export interface CollectionQueryState {
   sort: ObjectSort;
   pageSize: number;
   filters: CollectionFilter[];
+  /** Optional direct-parent collection scope, kept in the URL across compatible lenses. */
+  parentObjectId?: string;
+  parentObjectTypeKey?: string;
+  /** Mapping-only coverage state; ignored by other renderer types. */
+  mappingState?: "mapped" | "unmapped" | "ambiguous";
   /** Cursor trail maintained by useCursorPages; omitted on the first page. */
   cursors?: string[];
 }

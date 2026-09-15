@@ -29,6 +29,11 @@ import type {
   Workspace,
   WorkspacePage,
   WorkspaceRuntimeState,
+  MappingCoveragePage,
+  MappingTargetPage,
+  MappingCandidatePage,
+  MappingReplacementRequest,
+  MappingReplacementResponse,
 } from "@/types";
 
 import { ApiError } from "@/api/errors";
@@ -98,6 +103,51 @@ export interface ObjectDeleteOptions {
   deletionPreviewToken?: string;
   workspaceDraftId?: string;
   expectedWorkspaceDraftVersion?: number;
+}
+
+export interface MappingCoverageQuery {
+  workspaceKey: string;
+  applicationKey: string;
+  viewKey: string;
+  relationTypeKey: string;
+  fromObjectTypeKey: string;
+  toObjectTypeKey: string;
+  direction: "outgoing" | "incoming";
+  workspaceDraftId?: string;
+  workspaceRevisionId?: string;
+  search?: string;
+  cursor?: string;
+  pageSize?: number;
+  parentObjectId?: string;
+  state?: "mapped" | "unmapped" | "ambiguous";
+}
+
+export interface MappingTargetQuery {
+  workspaceKey: string;
+  relationTypeKey: string;
+  fromObjectTypeKey: string;
+  toObjectTypeKey: string;
+  direction: "outgoing" | "incoming";
+  applicationKey?: string;
+  viewKey?: string;
+  workspaceDraftId?: string;
+  workspaceRevisionId?: string;
+  sourceObjectId: string;
+  mappingVersion: number;
+  cursor?: string;
+  pageSize?: number;
+}
+
+export interface MappingCandidateQuery {
+  workspaceKey: string;
+  applicationKey: string;
+  viewKey: string;
+  objectTypeKey: string;
+  workspaceDraftId?: string;
+  workspaceRevisionId?: string;
+  search?: string;
+  cursor?: string;
+  pageSize?: number;
 }
 
 function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
@@ -408,6 +458,65 @@ export const api = {
     if (options.cursor) params.set("cursor", options.cursor);
     return request<AuditEventPage>(
       `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}/history?${params}`,
+    );
+  },
+  mappingCoverage: (query: MappingCoverageQuery) => {
+    const params = new URLSearchParams({
+      applicationKey: query.applicationKey,
+      viewKey: query.viewKey,
+      relationTypeKey: query.relationTypeKey,
+      fromObjectTypeKey: query.fromObjectTypeKey,
+      toObjectTypeKey: query.toObjectTypeKey,
+      direction: query.direction,
+    });
+    if (query.workspaceDraftId) params.set("workspaceDraftId", query.workspaceDraftId);
+    if (query.workspaceRevisionId) params.set("workspaceRevisionId", query.workspaceRevisionId);
+    if (query.search) params.set("search", query.search);
+    if (query.parentObjectId) params.set("parentObjectId", query.parentObjectId);
+    if (query.state) params.set("state", query.state);
+    if (query.cursor) params.set("cursor", query.cursor);
+    if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
+    return request<MappingCoveragePage>(
+      `/api/v1/workspaces/${encodeURIComponent(query.workspaceKey)}/mapping-coverage?${params}`,
+    );
+  },
+  mappingCandidates: (query: MappingCandidateQuery) => {
+    const params = new URLSearchParams({
+      applicationKey: query.applicationKey,
+      viewKey: query.viewKey,
+      objectTypeKey: query.objectTypeKey,
+    });
+    if (query.workspaceDraftId) params.set("workspaceDraftId", query.workspaceDraftId);
+    if (query.workspaceRevisionId) params.set("workspaceRevisionId", query.workspaceRevisionId);
+    if (query.search) params.set("search", query.search);
+    if (query.cursor) params.set("cursor", query.cursor);
+    if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
+    return request<MappingCandidatePage>(
+      `/api/v1/workspaces/${encodeURIComponent(query.workspaceKey)}/mapping-candidates?${params}`,
+    );
+  },
+  replaceMapping: (workspaceKey: string, body: MappingReplacementRequest) =>
+    request<MappingReplacementResponse>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/mappings`, {
+      method: "PUT",
+      body: JSON.stringify(body),
+    }),
+  mappingTargets: (query: MappingTargetQuery) => {
+    const params = new URLSearchParams({
+      relationTypeKey: query.relationTypeKey,
+      fromObjectTypeKey: query.fromObjectTypeKey,
+      toObjectTypeKey: query.toObjectTypeKey,
+      direction: query.direction,
+      sourceObjectId: query.sourceObjectId,
+      mappingVersion: String(query.mappingVersion),
+    });
+    if (query.applicationKey) params.set("applicationKey", query.applicationKey);
+    if (query.viewKey) params.set("viewKey", query.viewKey);
+    if (query.workspaceDraftId) params.set("workspaceDraftId", query.workspaceDraftId);
+    if (query.workspaceRevisionId) params.set("workspaceRevisionId", query.workspaceRevisionId);
+    if (query.cursor) params.set("cursor", query.cursor);
+    if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
+    return request<MappingTargetPage>(
+      `/api/v1/workspaces/${encodeURIComponent(query.workspaceKey)}/mapping-targets?${params}`,
     );
   },
 };

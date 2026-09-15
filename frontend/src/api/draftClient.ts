@@ -60,6 +60,11 @@ export function createDraftClient(
     attribute: (type, id, key) => api.attribute(type, id, key, initial.id),
     relations: (id, options) => api.relations(id, { ...options, workspaceDraftId: initial.id }),
     relation: (id, workspace) => api.relation(id, workspace, initial.id),
+    mappingCoverage: (query) => api.mappingCoverage({ ...query, workspaceDraftId: initial.id }),
+    mappingTargets: (query) => api.mappingTargets({ ...query, workspaceDraftId: initial.id }),
+    mappingCandidates: (query) => api.mappingCandidates({ ...query, workspaceDraftId: initial.id }),
+    replaceMapping: (workspaceKey, body) =>
+      write((context) => api.replaceMapping(workspaceKey, { ...body, ...context })),
     createObject: (type, payload) => write((context) => api.createObject(type, { ...payload, ...context })),
     updateObject: (type, id, payload) => write((context) => api.updateObject(type, id, { ...payload, ...context })),
     deleteObject: (type, id, version, options) =>

@@ -16,6 +16,7 @@
     "test:browser:drafts": "node e2e/wp9-drafts.mjs",
     "test:browser:history": "node e2e/wp9-history.mjs",
     "test:browser:wp11": "node e2e/wp11-model-admin.mjs",
+    "test:browser:wp14": "node e2e/wp14-contextual-browser.mjs",
     "test:gate-helpers": "node --test e2e/helpers/*.node-test.mjs",
     "test:a11y": "node e2e/accessibility-gate.mjs",
     "test:visual": "node e2e/visual-regression-gate.mjs",

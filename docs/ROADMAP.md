@@ -67,12 +67,14 @@ sources and truthful publication retirement. WP10 validated the composed product
 (UI-01–UI-06) delivered compact navigation, focused collections, record inspector, inline field editing,
 resizable panels and refined draft presentation.
 
-## Product release 0.7 — Core mapping
+## Product release 0.7 — Core mapping and contextual collection workspace
 
 ### Product outcome
 
-A steward can review mapping coverage and safely create, remove or replace one mapping without
-navigating low-level relation screens.
+A steward can enter a model-defined application through one browser, establish the collection's
+governing context and review or maintain records through applicable configured lenses. Mapping
+coverage and atomic replacement are available as a lens without multiplying global table destinations
+or navigating low-level relation screens.
 
 ### Delivery scope
 
@@ -118,6 +120,12 @@ navigating low-level relation screens.
     hardening, compact Modal version-change dialog, supported-schema pinned-model loading, retry-aware
     shell-aligned workspace errors and historical-release informational state. WP-12 follows with
     release identity UI.
+14. WP-14, implemented and locally reviewed 2026-09-15 but not committed, normalizes the
+    administrative UI after review of the WP-8A/WP-8B renderer:
+    replace the hierarchy/views navigation switch with one application browser, group existing schema
+    0.5/0.6 views by source object type as collection lenses, expose visible typed/scope/state facets,
+    and add cursor-bound parent/state filtering to mapping coverage. Preserve existing model releases
+    and generic renderer semantics; arbitrary-depth hierarchy work remains 0.8.
 
 The [0.7 implementation plan](BASE_0_7_IMPLEMENTATION_PLAN.md) owns detailed follow-up acceptance
 criteria; [API.md](API.md) distinguishes these planned contracts from delivered endpoints.
@@ -146,6 +154,11 @@ acceptance gates rather than per-package requirements. See the [implementation p
 - Choosing a version changes only that draft. Live data, immutable history, other drafts and other
   workspaces are unchanged, and nothing activates a draft whose version differs from the active
   release.
+- One application browser exposes contextual collections and records for arbitrary configured
+  applications. Table and mapping declarations over one source type are lenses of one collection,
+  not duplicate primary navigation destinations.
+- Direct-parent scope, declared typed filters and mapping coverage state are visible and server-side;
+  their cursor continuations cannot be reused under another query context.
 
 ## Product release 0.8 — Translation and hierarchy workspaces
 

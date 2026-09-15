@@ -166,3 +166,63 @@ export interface WorkspaceDraftValidation {
   valid: boolean;
   diagnostics: Array<Record<string, unknown>>;
 }
+
+export interface MappingObjectSummary {
+  id: string;
+  objectTypeKey: string;
+  name: string;
+  fields: Record<string, unknown>;
+}
+
+export interface MappingTargetSummary {
+  relationId: string;
+  attributes: Record<string, unknown>;
+  object: MappingObjectSummary;
+}
+
+export interface MappingCoverageRow {
+  source: MappingObjectSummary;
+  state: "mapped" | "unmapped" | "ambiguous";
+  mappingVersion: number;
+  targetCount: number;
+  targets: MappingTargetSummary[];
+  targetsNextCursor: string | null;
+}
+
+export interface MappingCoveragePage {
+  items: MappingCoverageRow[];
+  nextCursor: string | null;
+}
+
+export interface MappingTargetPage {
+  mappingVersion: number;
+  targetCount: number;
+  items: MappingTargetSummary[];
+  nextCursor: string | null;
+}
+
+export interface MappingCandidatePage {
+  items: MappingObjectSummary[];
+  nextCursor: string | null;
+}
+
+export interface MappingReplacementRequest {
+  relationTypeKey: string;
+  fromObjectTypeKey: string;
+  toObjectTypeKey: string;
+  direction: "outgoing" | "incoming";
+  sourceObjectId: string;
+  targetObjectId: string | null;
+  expectedMappingVersion: number;
+  attributes?: Record<string, unknown>;
+  workspaceDraftId?: string;
+  expectedWorkspaceDraftVersion?: number;
+}
+
+export interface MappingReplacementResponse {
+  sourceObjectId: string;
+  mappingVersion: number;
+  state: "mapped" | "unmapped";
+  relationId: string | null;
+  workspaceDraftVersion: number | null;
+}

@@ -4,10 +4,10 @@ import json
 from app.main import app, create_app
 
 
-def test_base_0_6_wp7_openapi_document_is_locked():
+def test_base_0_7_wp14_openapi_document_is_locked():
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "28b79cf0b499ffc12685e87322a18b078990ddb6e641d8aaa3dbf1b2d6ea2046"
+        "e8cdad7dbedc4f7233b257cbe333191bfc854f4cbe91c980c7f37a7c8cf665d2"
     )
 
 
@@ -130,7 +130,7 @@ def test_wp4_mapping_query_inventory_and_required_context():
         parameters = {row["name"]: row for row in operation["parameters"]}
         assert parameters["applicationKey"]["required"] == (name != "targets")
         assert parameters["viewKey"]["required"] == (name != "targets")
-        assert "workspaceDraftId" in parameters and "cursor" in parameters
+        assert "workspaceDraftId" in parameters and "workspaceRevisionId" in parameters and "cursor" in parameters
         size = parameters["pageSize"]["schema"]
         bounds = next((row for row in size.get("anyOf", []) if row.get("type") == "integer"), size)
         assert bounds["minimum"] == 1 and bounds["maximum"] == 100
@@ -141,6 +141,11 @@ def test_wp4_mapping_query_inventory_and_required_context():
             )
         else:
             assert parameters["objectTypeKey"]["required"]
+        if name == "coverage":
+            assert "parentObjectId" in parameters
+            state_schema = parameters["state"]["schema"]
+            state_values = next(row["enum"] for row in state_schema["anyOf"] if "enum" in row)
+            assert state_values == ["mapped", "unmapped", "ambiguous"]
         if name == "targets":
             assert (
                 parameters["sourceObjectId"]["required"]

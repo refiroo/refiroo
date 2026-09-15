@@ -123,7 +123,7 @@
   overflow-wrap: anywhere;
 }
 .application-nav button,
-.view-nav button,
+.collection-tree button,
 .secondary-navigation button {
   display: block;
   width: 100%;
@@ -137,36 +137,12 @@
   overflow-wrap: anywhere;
 }
 .application-nav button:hover,
-.view-nav button:hover,
+.collection-tree button:hover,
 .secondary-navigation button:hover {
   background: #e9eeeb;
 }
 [aria-current="page"] {
   font-weight: 700;
-}
-.view-nav button.active {
-  background: var(--accent-soft);
-  color: var(--accent);
-  box-shadow: inset 3px 0 var(--accent);
-}
-.navigation-mode {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 12px;
-}
-.navigation-mode button {
-  flex: 1;
-  padding: 8px 4px;
-  border: 1px solid transparent;
-  border-radius: 5px;
-  background: transparent;
-  color: var(--muted);
-  font-size: 12px;
-}
-.navigation-mode button[aria-pressed="true"] {
-  background: #fff;
-  border-color: var(--line);
-  color: var(--ink);
 }
 .secondary-navigation {
   border-top: 1px solid var(--line);
@@ -182,6 +158,24 @@
 }
 .explorer {
   padding: 0;
+}
+.collection-tree {
+  margin: 12px 0 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.collection-tree button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.collection-tree button.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: inset 3px 0 var(--accent);
+}
+.collection-tree-row {
+  opacity: 0.9;
 }
 .explorer .search-box {
   width: 100%;

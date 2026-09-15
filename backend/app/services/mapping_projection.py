@@ -100,3 +100,28 @@ def draft_mapping_projection(session: Session, draft_id: str) -> tuple[Subquery,
             ),
         ).subquery("mapping_relations"),
     )
+
+
+def revision_mapping_projection(session: Session, revision_id: str) -> tuple[Subquery, Subquery]:
+    """Project one immutable workspace revision into the shared mapping query shape."""
+    revision = session.scalar(select(WorkspaceRevision).where(WorkspaceRevision.id == revision_id))
+    if revision is None:
+        raise api_error(404, "workspace_revision_not_found", "Workspace revision not found")
+    objects = select(
+        WorkspaceRevisionObject.object_id.label("id"),
+        WorkspaceRevisionObject.application_key,
+        WorkspaceRevisionObject.object_type_key,
+        WorkspaceRevisionObject.name,
+        WorkspaceRevisionObject.parent_object_id,
+        WorkspaceRevisionObject.attributes,
+        literal(None).label("created_at"),
+        literal(None).label("updated_at"),
+    ).where(WorkspaceRevisionObject.revision_id == revision_id)
+    relations = select(
+        WorkspaceRevisionRelation.relation_id.label("id"),
+        WorkspaceRevisionRelation.relation_type_key,
+        WorkspaceRevisionRelation.from_object_id,
+        WorkspaceRevisionRelation.to_object_id,
+        WorkspaceRevisionRelation.attributes,
+    ).where(WorkspaceRevisionRelation.revision_id == revision_id)
+    return objects.subquery("mapping_objects"), relations.subquery("mapping_relations")

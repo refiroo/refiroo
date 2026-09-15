@@ -1,23 +1,25 @@
 # Current functionality catalogue
 
 This catalogue retains the 2026-09-07 assessment with targeted source-review corrections on
-2026-09-08, plus a targeted WP-4 mapping API status update on 2026-09-14. Other historical assessments
-retain their original evidence boundary. “Browser” and “API” are kept separate so that backend coverage is not mistaken for a
-complete user experience. No application tests were executed for this documentation update; see the
+2026-09-08, a WP-4 mapping API update on 2026-09-14 and the focused WP-8/WP-14 browser review on
+2026-09-15. Other historical assessments
+retain their original evidence boundary. “Browser” and “API” are kept separate so that backend coverage
+is not mistaken for a complete user experience. The 2026-09-15 update includes focused backend,
+frontend and real-browser package evidence; it is not WP-9 release acceptance. See the
 [review boundary](PLANNING_HANDOFF.md#authority-and-review-boundary).
 
 ## Summary
 
 | ID  | Function                                                  | Browser             | API            | Current assessment               |
 | --- | --------------------------------------------------------- | ------------------- | -------------- | -------------------------------- |
-| F01 | Model-defined applications                                | Implemented         | Available      | Browser validation pending       |
+| F01 | Model-defined applications                                | Implemented         | Available      | Contextual browser focused proof |
 | F02 | Workspace discovery and selection                         | Implemented         | Available      | Non-default detail gap           |
-| F03 | Find, filter, sort and page through records               | Implemented         | Available      | Browser validation pending       |
+| F03 | Find, filter, sort and page through records               | Implemented         | Available      | Visible facets; WP9 full gate pending |
 | F04 | Inspect a record and its context                          | Default only        | Available      | Non-default context is dropped   |
 | F05 | Maintain live records                                     | Temporarily unwired | Available      | WP9 must enable browser editing  |
 | F06 | Maintain typed field values                               | Components present  | Available      | Browser completion is WP9        |
 | F07 | Maintain containment and hierarchy                        | Components present  | Available      | Specialist tree is roadmap       |
-| F08 | Maintain ordinary relationships                           | Components present  | Available      | Mapping query+replacement API delivered; UI planned |
+| F08 | Maintain ordinary relationships                           | Implemented         | Available      | Mapping lens focused proof; WP9 pending |
 | F09 | Maintain translations                                     | Components present  | Available      | Translation workspace is roadmap |
 | F10 | Preview and confirm dependent deletion                    | Components present  | Available      | Browser completion is WP9        |
 | F11 | Inspect record history                                    | Default only        | Available      | Non-default context is dropped   |
@@ -35,23 +37,24 @@ complete user experience. No application tests were executed for this documentat
 **User outcome:** A team can offer different reference-data applications without developing a new
 backend and frontend for each domain.
 
-Users can move between model-defined applications and views. The starter currently demonstrates Master,
-Systems and Translations. Navigation, record types, fields, relationships, tables and detail layouts are
+Users move between model-defined applications and contextual collections in one browser. The starter
+currently demonstrates Master, Systems and Translations. Navigation, record types, fields,
+relationships, collection lenses and detail layouts are
 read from the installed application model. The runtime is not supposed to recognize starter names as
 special cases.
 
 What users experience:
 
-- application and view navigation generated from the active model;
+- one application browser containing collection entry points and bounded hierarchy records;
+- views grouped as named semantic lenses by their model-derived source type;
 - labels and fields appropriate to the selected record type;
 - configured detail panels for attributes, children, relationships, tables and hierarchy; and
 - a safe fallback detail composition when no tailored detail layout is supplied.
 
 Limits:
 
-- only a strict table is currently supported as a top-level view;
-- mapping grids, dedicated forms, dashboards and tree views are rejected until honest implementations
-  exist; and
+- strict tables and mapping grids are current top-level renderers; dedicated forms, dashboards and
+  tree views remain unsupported until honest implementations exist; and
 - structured self-service model design is a later roadmap capability.
 
 Evidence: [application shell](../../frontend/src/app/AppShell.tsx),
@@ -96,7 +99,7 @@ searching only what the browser has already loaded.
 The browser provides model-defined collection tables with:
 
 - free-text search across names and configured searchable fields;
-- typed filters selected by the table definition;
+- visible, model-labelled typed filter facets selected by the table definition;
 - one configured sort at a time, including descending order;
 - a declared page size and forward/backward cursor navigation;
 - empty and retryable error states; and
@@ -218,7 +221,7 @@ Generic browser components support related-record lookup, creation, edit, delete
 a linked record. They are temporarily disabled by the incomplete detail-page wiring, not by the product
 contract.
 
-WP-4 delivers model-configured live/draft mapping coverage with mapped, unmapped and ambiguous
+WP-4/WP-14 deliver model-configured live/draft/revision mapping coverage with mapped, unmapped and ambiguous
 states, exact counts, bounded target previews, version-bound target details and paged candidate search.
 WP-5 delivers atomic mapping replacement: `PUT /mappings` creates, replaces or removes a mapping for
 one source with retained relation identity, typed attribute semantics, direction-aware cross-cardinality
@@ -226,9 +229,12 @@ enforcement, idempotent no-ops, bounded conflict responses and mapping-transitio
 live and draft contexts. WP-10A ensures that cascade object deletion invalidates affected mapping
 continuations. WP-10B refuses divergent live sets touched by staged mutable relations before draft
 activation, with bounded binding/anchor/direction diagnostics; unrelated live work survives. The
-source/live fingerprint uses edge identities and surviving edge versions. The current gate has
-486 backend and 164 frontend tests; PostgreSQL concurrency is unverified. These are API capabilities; the mapping renderer remains a placeholder. Browser coverage
-(WP-8A), actions (WP-8B) and composed integration acceptance (WP-9) remain pending. See the
+source/live fingerprint uses edge identities and surviving edge versions. WP-8A/WP-8B now provide
+the generic coverage and action renderer; WP-14 composes it as a source-collection lens, adds visible
+state and direct-parent scope filters, and prevents conflict retry until the returned current mapping
+has been reviewed. Focused real-browser proof covers both configured directions and live replacement.
+Comprehensive accessibility, visual and composed integration acceptance remain WP-9. PostgreSQL
+concurrency remains unverified. See the
 [mapping API contract](../API.md#product-07-mapping-api-wp-4-and-wp-5-delivered) and
 [0.7 plan](../BASE_0_7_IMPLEMENTATION_PLAN.md). WP-1–WP-3 remain frozen.
 

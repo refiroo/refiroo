@@ -168,26 +168,18 @@ describe("App", () => {
     );
   });
 
-  it("orders hierarchy first and restores the selected navigation mode on reload without changing the route", async () => {
+  it("shows collections and records in one application browser without changing the route on reload", async () => {
     visit("/apps/test-app/views/domains?workspaceKey=default&search=Connections");
     const first = render(<App />);
-    const group = await screen.findByRole("group", { name: "Navigation mode" });
-    expect(
-      within(group)
-        .getAllByRole("button")
-        .map((button) => button.textContent),
-    ).toEqual(["Browse hierarchy", "Views"]);
-    expect(within(group).getByRole("button", { name: "Browse hierarchy" })).toHaveAttribute("aria-pressed", "true");
+    const explorer = await screen.findByRole("region", { name: "Test App explorer" });
+    expect(within(explorer).getByRole("navigation", { name: "Test App collections" })).toBeInTheDocument();
+    expect(within(explorer).getByRole("button", { name: `${domainObject.name}Domain` })).toBeInTheDocument();
+    expect(within(explorer).queryByRole("group", { name: "Navigation mode" })).not.toBeInTheDocument();
     const location = window.location.href;
-    fireEvent.click(within(group).getByRole("button", { name: "Views" }));
     first.unmount();
-    const second = render(<App />);
-    expect(await screen.findByRole("button", { name: "Views" })).toHaveAttribute("aria-pressed", "true");
-    expect(window.location.href).toBe(location);
-    fireEvent.click(screen.getByRole("button", { name: "Browse hierarchy" }));
-    second.unmount();
     render(<App />);
-    expect(await screen.findByRole("button", { name: "Browse hierarchy" })).toHaveAttribute("aria-pressed", "true");
+    expect(await screen.findByRole("navigation", { name: "Test App collections" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: `${domainObject.name}Domain` })).toBeInTheDocument();
     expect(window.location.href).toBe(location);
   });
 
@@ -203,7 +195,6 @@ describe("App", () => {
     const table = await screen.findByRole("region", { name: "Domains table" });
     fireEvent.click(await within(table).findByRole("button", { name: domainObject.name }));
     expect(await screen.findByRole("article", { name: "Record details" })).not.toHaveClass("record-inspector");
-    expect(screen.getByRole("button", { name: "Browse hierarchy" })).toHaveAttribute("aria-pressed", "true");
     const explorer = await screen.findByRole("region", { name: "Test App explorer" });
     fireEvent.click(await within(explorer).findByRole("button", { name: /Timetable types/ }));
     await screen.findByRole("heading", { name: codelistObject.name, level: 1 });

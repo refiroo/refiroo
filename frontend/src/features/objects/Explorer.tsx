@@ -3,6 +3,7 @@ import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { errorMessage } from "@/api/errors";
 import { objectTypeFor } from "@/model/lookup";
+import { childCollectionGroups, collectionGroups } from "@/model/collections";
 import type { ApplicationDefinition, EngineModel, ObjectItem, ObjectPage } from "@/types";
 import { InlineError } from "@/ui/InlineError";
 import { Icon } from "@/ui/Icon";
@@ -16,15 +17,19 @@ export function Explorer({
   application,
   workspaceKey,
   activeObjectId,
+  activeViewKey,
   refreshToken,
   onOpen,
+  onOpenCollection,
 }: {
   model: EngineModel;
   application: ApplicationDefinition;
   workspaceKey: string;
   activeObjectId?: string;
+  activeViewKey?: string;
   refreshToken: number;
   onOpen: (item: ObjectItem) => void;
+  onOpenCollection?: (viewKey: string, parent?: ObjectItem) => void;
 }) {
   const api = useDataApi();
   const storageKey = `rdm:hierarchy:v1:${JSON.stringify([workspaceKey, application.key])}`;
@@ -99,6 +104,7 @@ export function Explorer({
   }
   for (const values of children.values()) values.sort(comparePaths);
   const canLoadMore = loadedSearch === search && Object.values(pages).some((page) => page.nextCursor);
+  const groups = collectionGroups(application);
 
   async function loadMore() {
     if (loading || !canLoadMore) return;
@@ -131,10 +137,11 @@ export function Explorer({
   }
 
   function node(item: ObjectItem, depth: number): React.ReactNode {
-    const hasChildren = Boolean(children.get(item.id)?.length);
+    const scopedGroups = childCollectionGroups(model, application, item.objectTypeKey);
+    const hasChildren = Boolean(children.get(item.id)?.length || scopedGroups.length);
     const expanded = !branchState.collapsed.has(item.id);
     return (
-      <li key={item.id}>
+      <li key={`${item.objectTypeKey}:${item.id}`}>
         <div className="tree-row" style={{ paddingLeft: `${12 + depth * 17}px` }}>
           {hasChildren ? (
             <button
@@ -157,7 +164,27 @@ export function Explorer({
             <span className="type-tag">{objectTypeFor(model, item.objectTypeKey)?.name}</span>
           </button>
         </div>
-        {hasChildren && expanded ? <ul>{children.get(item.id)!.map((child) => node(child, depth + 1))}</ul> : null}
+        {hasChildren && expanded ? (
+          <ul>
+            {scopedGroups.map((group) => (
+              <li key={`collection:${item.id}:${group.objectTypeKey}`}>
+                <div className="tree-row collection-tree-row" style={{ paddingLeft: `${29 + depth * 17}px` }}>
+                  <span className="tree-branch" />
+                  <button
+                    aria-label={`${objectTypeFor(model, group.objectTypeKey)?.pluralName ?? group.objectTypeKey} collection within ${item.name}`}
+                    onClick={() => onOpenCollection?.(group.defaultView.key, item)}
+                  >
+                    <span className="tree-name">
+                      {objectTypeFor(model, group.objectTypeKey)?.pluralName ?? group.objectTypeKey}
+                    </span>
+                    <span className="type-tag">collection</span>
+                  </button>
+                </div>
+              </li>
+            ))}
+            {(children.get(item.id) ?? []).map((child) => node(child, depth + 1))}
+          </ul>
+        ) : null}
       </li>
     );
   }
@@ -173,6 +200,22 @@ export function Explorer({
           placeholder="Search this explorer"
         />
       </label>
+      {!search && groups.length > 0 && (
+        <nav className="collection-tree" aria-label={`${application.name} collections`}>
+          <p className="nav-label">Collections</p>
+          {groups.map((group) => (
+            <button
+              key={group.objectTypeKey}
+              className={group.views.some((view) => view.key === activeViewKey) ? "active" : ""}
+              aria-current={group.views.some((view) => view.key === activeViewKey) ? "page" : undefined}
+              onClick={() => onOpenCollection?.(group.defaultView.key)}
+            >
+              <span>{objectTypeFor(model, group.objectTypeKey)?.pluralName ?? group.objectTypeKey}</span>
+              {group.views.length > 1 && <span className="type-tag">{group.views.length} lenses</span>}
+            </button>
+          ))}
+        </nav>
+      )}
       {error && (
         <InlineError message={error} onRetry={failedMore ? loadMore : () => setRetryToken((value) => value + 1)} />
       )}

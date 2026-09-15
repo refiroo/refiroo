@@ -327,6 +327,48 @@ behavior. Native HTML remains the first choice for simple controls, and Lucide i
 accessible wrapper. This boundary permits a future behavior-provider change without altering the
 application model or feature contracts.
 
+### Contextual collection composition
+
+ADR-029 separates presentation into context, collection, lens, query and object detail. The application
+browser is the navigation spine for arbitrary model-defined applications. It combines virtual
+collection entries with the bounded runtime containment records currently available; it is not a
+hardcoded Master/System/Translation tree and is not itself a data contract.
+
+For schema 0.5/0.6, a view's source object type defines its collection group. A `table` uses
+`objectTypeKey`; a `mappingGrid` uses `fromObjectTypeKey` for outgoing direction and `toObjectTypeKey`
+for incoming direction. The frontend groups views with the same source type as lenses and dispatches
+each selected lens through the existing typed component registry. This preserves the semantic boundary:
+the shared collection workspace owns scope, lens selection and query continuity, while each renderer
+owns its data shape, mutations and recovery rules.
+
+```mermaid
+flowchart LR
+    A["Model-defined application"] --> B["Application browser"]
+    B --> C["Collection group by source type"]
+    B --> D["Runtime containment record"]
+    D --> C
+    C --> E["Table lens"]
+    C --> F["Mapping lens"]
+    C --> G["Future typed lens"]
+    E --> H["Object detail composition"]
+    F --> H
+```
+
+Collection query state remains browser-owned and URL-backed. It includes search, typed field filters,
+sort where supported, cursor trail and optional containing-object identity. Mapping coverage adds its
+configured zero/one/many state filter. The API binds scope and state into opaque cursor semantics, so a
+continuation cannot silently traverse another administrative context.
+
+Schema 0.6 does not declare explicit lens groups. The source-type rule is deterministic and backwards
+compatible; the engine will add model-language configuration only after real models establish a case
+where source type is insufficient. It must not infer workflow meaning from application, object or
+relation keys.
+
+The 0.7 browser uses direct-parent scope because that contract already exists for object collections.
+Lazy arbitrary-depth traversal, bounded child queries and hierarchy mutation remain the typed product
+0.8 hierarchy workspace. Presentation must state direct scope honestly and must not client-filter a
+partial tree as though it were complete.
+
 ## Scale direction
 
 - Model-derived indexes for searchable and unique attribute types

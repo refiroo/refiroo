@@ -324,6 +324,30 @@ unchanged. Version-selection controls and diagnostics require accessibility and 
 **Simplicity check:** a steward can see which definition each draft is working under without reading
 deployment mechanics, and discarding a draft is always available and never requires model agreement.
 
+## SC-16 — Work from one model-driven application browser
+
+**Stories:** US-D01–D05, US-D13, US-D15, US-M01–M04. **Target:** Base 0.7 WP-14; composed release
+acceptance remains WP-9.
+
+Use one model with containment and one application/model configuration without containment. The
+browser exposes each configured source collection once, alongside runtime records, without a
+Browse-hierarchy/Views mode switch. Selecting a parent opens a compatible direct-child collection and
+shows the selected parent as removable scope. Opening a record and returning preserves that scope,
+search, compatible filters and lens in Live, an explicitly selected Draft and read-only History.
+
+For a source type with a table and two differently configured mapping declarations, the main workspace
+offers their model labels as lenses of that one collection. The sidebar does not add one primary entry
+per mapping. Mapping state is filtered on the server before pagination; changing parent or state rejects
+an old cursor. Mapped, unmapped and ambiguous rows remain distinguishable, and atomic replacement plus
+conflict review preserve the existing SC-07 guarantees.
+
+Repeat with an application that has no mapping declaration: it shows no mapping control. Labels and
+available lenses come entirely from the selected model. No route, renderer, fixture assertion or CSS
+selector depends on the three starter applications or their object/relation keys.
+
+**Simplicity check:** choose application and governing parent once; do not switch navigation modes or
+reconstruct context to move between record and mapping work.
+
 ## Repeated usability measurements
 
 For a first walkthrough, record a baseline rather than inventing completion-time promises. On later

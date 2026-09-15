@@ -29,12 +29,36 @@ describe("historical record context", () => {
       createdAt: "",
       updatedAt: "",
     });
+    const coverage = vi.spyOn(api, "mappingCoverage").mockResolvedValue({ items: [], nextCursor: null });
+    const targets = vi
+      .spyOn(api, "mappingTargets")
+      .mockResolvedValue({ mappingVersion: 0, targetCount: 0, items: [], nextCursor: null });
 
     await client.objects("domain", { workspaceKey: "west", workspaceDraftId: "ignored" });
     await client.object("domain", domainObject.id, "west", "ignored");
     await client.attribute("domain", domainObject.id, "code", "ignored");
     await client.relations(domainObject.id, { workspaceKey: "west", workspaceDraftId: "ignored" });
     await client.relation("relation", "west", "ignored");
+    await client.mappingCoverage({
+      workspaceKey: "west",
+      applicationKey: "app",
+      viewKey: "coverage",
+      relationTypeKey: "maps",
+      fromObjectTypeKey: "source",
+      toObjectTypeKey: "target",
+      direction: "outgoing",
+      workspaceDraftId: "ignored",
+    });
+    await client.mappingTargets({
+      workspaceKey: "west",
+      relationTypeKey: "maps",
+      fromObjectTypeKey: "source",
+      toObjectTypeKey: "target",
+      direction: "outgoing",
+      sourceObjectId: "source-1",
+      mappingVersion: 0,
+      workspaceDraftId: "ignored",
+    });
 
     expect(objects).toHaveBeenCalledWith("domain", {
       workspaceKey: "west",
@@ -49,5 +73,11 @@ describe("historical record context", () => {
       workspaceRevisionId: "revision/id",
     });
     expect(relation).toHaveBeenCalledWith("relation", "west", undefined, "revision/id");
+    expect(coverage).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceDraftId: undefined, workspaceRevisionId: "revision/id" }),
+    );
+    expect(targets).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceDraftId: undefined, workspaceRevisionId: "revision/id" }),
+    );
   });
 });

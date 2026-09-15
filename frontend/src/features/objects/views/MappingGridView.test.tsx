@@ -1,0 +1,537 @@
+import { ApiError } from "@/api/errors";
+import type {
+  MappingCandidatePage,
+  MappingCoveragePage,
+  MappingGridViewDefinition,
+  MappingReplacementResponse,
+  MappingTargetPage,
+} from "@/types";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "@/api/client";
+import { domainObject, testModel } from "@/test/fixtures";
+import { CollectionView } from "@/features/objects/views/CollectionViewHost";
+
+vi.mock("@/api/client", () => ({
+  ApiError: class ApiError extends Error {
+    constructor(
+      public status: number,
+      public code: string,
+      message: string,
+      public details?: unknown,
+    ) {
+      super(message);
+    }
+  },
+  api: {
+    objects: vi.fn(),
+    object: vi.fn(),
+    mappingCoverage: vi.fn(),
+    mappingTargets: vi.fn(),
+    mappingCandidates: vi.fn(),
+    replaceMapping: vi.fn(),
+    createObject: vi.fn(),
+  },
+}));
+
+const mappingModel = structuredClone(testModel);
+mappingModel.schemaVersion = "0.6";
+mappingModel.relationTypes.push({
+  key: "maps-to",
+  reverseKey: "mapped-from",
+  name: "Maps to",
+  reverseName: "Mapped from",
+  isOriented: true,
+  features: {},
+});
+mappingModel.objectTypeRelations.push({
+  relationTypeKey: "maps-to",
+  fromObjectTypeKey: "domain",
+  toObjectTypeKey: "codelist",
+  cardinality: "many-to-many",
+});
+const mappingView: MappingGridViewDefinition = {
+  key: "domain-to-codelist-mapping",
+  name: "Domain to Codelist Mapping",
+  type: "mappingGrid",
+  config: {
+    relationTypeKey: "maps-to",
+    fromObjectTypeKey: "domain",
+    toObjectTypeKey: "codelist",
+    direction: "outgoing",
+    sourceColumns: ["code"],
+    targetDisplayColumns: ["code"],
+    candidateSearchFields: ["code"],
+    pageSize: 20,
+  },
+};
+mappingModel.applications[0].views.push(mappingView);
+
+const incomingView: MappingGridViewDefinition = {
+  key: "codelist-from-domain-mapping",
+  name: "Codelist from Domain Mapping",
+  type: "mappingGrid",
+  config: {
+    relationTypeKey: "maps-to",
+    fromObjectTypeKey: "domain",
+    toObjectTypeKey: "codelist",
+    direction: "incoming",
+    sourceColumns: [],
+    targetDisplayColumns: [],
+    candidateSearchFields: [],
+    pageSize: 20,
+  },
+};
+
+const coveragePage: MappingCoveragePage = {
+  items: [
+    {
+      source: { id: "s1", objectTypeKey: "domain", name: "Connections", fields: { code: "CLI" } },
+      state: "mapped",
+      mappingVersion: 3,
+      targetCount: 1,
+      targets: [
+        {
+          relationId: "r1",
+          attributes: {},
+          object: { id: "t1", objectTypeKey: "codelist", name: "Timetable types", fields: { code: "MOT" } },
+        },
+      ],
+      targetsNextCursor: null,
+    },
+    {
+      source: { id: "s2", objectTypeKey: "domain", name: "Financial", fields: { code: "FIN" } },
+      state: "unmapped",
+      mappingVersion: 0,
+      targetCount: 0,
+      targets: [],
+      targetsNextCursor: null,
+    },
+    {
+      source: { id: "s3", objectTypeKey: "domain", name: "Admin", fields: { code: "ADM" } },
+      state: "ambiguous",
+      mappingVersion: 5,
+      targetCount: 4,
+      targets: [
+        {
+          relationId: "r2",
+          attributes: {},
+          object: { id: "t2", objectTypeKey: "codelist", name: "Target A", fields: { code: "TA" } },
+        },
+        {
+          relationId: "r3",
+          attributes: {},
+          object: { id: "t3", objectTypeKey: "codelist", name: "Target B", fields: { code: "TB" } },
+        },
+      ],
+      targetsNextCursor: "cont-cursor",
+    },
+  ],
+  nextCursor: null,
+};
+
+const candidatePage: MappingCandidatePage = {
+  items: [
+    { id: "c1", objectTypeKey: "codelist", name: "Candidate X", fields: { code: "CX" } },
+    { id: "c2", objectTypeKey: "codelist", name: "Candidate Y", fields: { code: "CY" } },
+  ],
+  nextCursor: null,
+};
+
+const replacementResponse: MappingReplacementResponse = {
+  sourceObjectId: "s2",
+  mappingVersion: 1,
+  state: "mapped",
+  relationId: "r-new",
+  workspaceDraftVersion: null,
+};
+
+const defaultQuery = { search: "", sort: "", pageSize: 20, filters: [] };
+
+function renderGrid(props?: Partial<Parameters<typeof CollectionView>[0]>) {
+  return render(
+    <CollectionView
+      model={mappingModel}
+      application={mappingModel.applications[0]}
+      view={mappingView}
+      workspaceKey="west"
+      query={defaultQuery}
+      onQueryChange={vi.fn()}
+      onOpen={vi.fn()}
+      {...props}
+    />,
+  );
+}
+
+describe("MappingGridView", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.mappingCoverage).mockResolvedValue(coveragePage);
+    vi.mocked(api.object).mockResolvedValue(domainObject);
+    vi.mocked(api.mappingCandidates).mockResolvedValue(candidatePage);
+    vi.mocked(api.replaceMapping).mockResolvedValue(replacementResponse);
+  });
+
+  it("renders coverage rows with mapped, unmapped and ambiguous states", async () => {
+    renderGrid();
+
+    await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
+
+    expect(screen.getByText("Connections")).toBeInTheDocument();
+    expect(screen.getByText("Mapped")).toBeInTheDocument();
+    expect(screen.getByText("Timetable types")).toBeInTheDocument();
+
+    expect(screen.getByText("Financial")).toBeInTheDocument();
+    expect(screen.getByText("Unmapped")).toBeInTheDocument();
+
+    expect(screen.getByText("Admin")).toBeInTheDocument();
+    expect(screen.getByText(/Ambiguous/)).toBeInTheDocument();
+    expect(screen.getByText(/\(4\)/)).toBeInTheDocument();
+  });
+
+  it("passes the correct binding parameters to the coverage API", async () => {
+    renderGrid({ query: { ...defaultQuery, search: "cli" } });
+
+    await waitFor(() =>
+      expect(api.mappingCoverage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          workspaceKey: "west",
+          applicationKey: "test-app",
+          viewKey: "domain-to-codelist-mapping",
+          relationTypeKey: "maps-to",
+          fromObjectTypeKey: "domain",
+          toObjectTypeKey: "codelist",
+          direction: "outgoing",
+          search: "cli",
+          pageSize: 20,
+        }),
+      ),
+    );
+  });
+
+  it("keeps parent scope and mapping status visible and server-backed", async () => {
+    const onQueryChange = vi.fn();
+    renderGrid({
+      query: {
+        ...defaultQuery,
+        parentObjectId: "parent-1",
+        parentObjectTypeKey: "domain",
+        mappingState: "unmapped",
+      },
+      onQueryChange,
+    });
+
+    await waitFor(() =>
+      expect(api.mappingCoverage).toHaveBeenCalledWith(
+        expect.objectContaining({ parentObjectId: "parent-1", state: "unmapped" }),
+      ),
+    );
+    expect(screen.getByRole("button", { name: /Show all domains/i })).toBeVisible();
+    expect(await screen.findByText(/Within Domain: Connections/)).toBeVisible();
+    fireEvent.change(screen.getByRole("combobox", { name: "Mapping status" }), { target: { value: "mapped" } });
+    expect(onQueryChange).toHaveBeenCalledWith(expect.objectContaining({ mappingState: "mapped", cursors: undefined }));
+  });
+
+  it("presents table and mapping renderers as lenses of one source collection", async () => {
+    const onViewChange = vi.fn();
+    renderGrid({ onViewChange });
+
+    const lenses = screen.getByRole("navigation", { name: "Collection lenses" });
+    expect(lenses).toHaveTextContent("Domains");
+    expect(lenses).toHaveTextContent("Domain to Codelist Mapping");
+    fireEvent.click(screen.getByRole("button", { name: "Domains" }));
+    expect(onViewChange).toHaveBeenCalledWith("domains");
+  });
+
+  it("does not duplicate identity when name is also configured as a display field", async () => {
+    renderGrid({
+      view: {
+        ...mappingView,
+        config: { ...mappingView.config, sourceColumns: ["name", "code"], targetDisplayColumns: ["name", "code"] },
+      },
+    });
+    await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
+    expect(screen.getAllByText("Connections")).toHaveLength(1);
+    expect(screen.getAllByText("Timetable types")).toHaveLength(1);
+  });
+
+  it("shows source columns from the view config", async () => {
+    renderGrid();
+
+    await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
+    expect(screen.getByRole("columnheader", { name: "Code" })).toBeInTheDocument();
+    expect(screen.getByText("CLI")).toBeInTheDocument();
+    expect(screen.getByText("MOT")).toBeInTheDocument();
+  });
+
+  it("renders the direction label from the relation type", async () => {
+    renderGrid();
+
+    await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
+    expect(screen.getByText(/Maps to/)).toBeInTheDocument();
+  });
+
+  it("handles error state with retry", async () => {
+    vi.mocked(api.mappingCoverage)
+      .mockRejectedValueOnce(new Error("Network error"))
+      .mockResolvedValueOnce(coveragePage);
+
+    renderGrid();
+
+    await screen.findByRole("button", { name: "Retry" });
+    expect(screen.getByText("Coverage unavailable")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(screen.getByText("Connections")).toBeInTheDocument());
+  });
+
+  it("renders incoming direction with reversed source/target types", async () => {
+    mappingModel.applications[0].views.push(incomingView);
+
+    renderGrid({ view: incomingView });
+
+    await waitFor(() =>
+      expect(api.mappingCoverage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          direction: "incoming",
+          viewKey: "codelist-from-domain-mapping",
+        }),
+      ),
+    );
+
+    expect(screen.getByRole("columnheader", { name: "Codelist" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Domain" })).toBeInTheDocument();
+  });
+
+  it("renders empty state when no sources exist", async () => {
+    vi.mocked(api.mappingCoverage).mockResolvedValue({ items: [], nextCursor: null });
+
+    renderGrid();
+
+    await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
+    expect(screen.getByText(/No domains in this workspace yet/)).toBeInTheDocument();
+  });
+
+  it("renders search empty state", async () => {
+    vi.mocked(api.mappingCoverage).mockResolvedValue({ items: [], nextCursor: null });
+
+    renderGrid({ query: { ...defaultQuery, search: "xyz" } });
+
+    await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
+    expect(screen.getByText("No results match this search")).toBeInTheDocument();
+  });
+
+  it("shows expand button for ambiguous rows and loads continuation targets", async () => {
+    const targetPage: MappingTargetPage = {
+      mappingVersion: 5,
+      targetCount: 4,
+      items: [
+        {
+          relationId: "r4",
+          attributes: {},
+          object: { id: "t4", objectTypeKey: "codelist", name: "Target C", fields: { code: "TC" } },
+        },
+        {
+          relationId: "r5",
+          attributes: {},
+          object: { id: "t5", objectTypeKey: "codelist", name: "Target D", fields: { code: "TD" } },
+        },
+      ],
+      nextCursor: null,
+    };
+    vi.mocked(api.mappingTargets).mockResolvedValue(targetPage);
+
+    renderGrid();
+
+    await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
+
+    expect(screen.getByText("Target A")).toBeInTheDocument();
+    expect(screen.getByText("Target B")).toBeInTheDocument();
+
+    const expandButton = screen.getByRole("button", { name: /Show all 4/ });
+    expect(expandButton).toBeInTheDocument();
+
+    fireEvent.click(expandButton);
+
+    const loadMoreButton = await screen.findByRole("button", { name: /Load more/ });
+    fireEvent.click(loadMoreButton);
+
+    await waitFor(() => expect(screen.getByText("Target C")).toBeInTheDocument());
+    expect(screen.getByText("Target D")).toBeInTheDocument();
+
+    expect(api.mappingTargets).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceObjectId: "s3",
+        mappingVersion: 5,
+        cursor: "cont-cursor",
+      }),
+    );
+  });
+});
+
+describe("MappingGridView — mapping actions (WP-8B)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.mappingCoverage).mockResolvedValue(coveragePage);
+    vi.mocked(api.mappingCandidates).mockResolvedValue(candidatePage);
+    vi.mocked(api.replaceMapping).mockResolvedValue(replacementResponse);
+  });
+
+  it("shows Change button on each row", async () => {
+    renderGrid();
+
+    await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
+    const changeButtons = screen.getAllByRole("button", { name: /Change mapping for/ });
+    expect(changeButtons).toHaveLength(3);
+  });
+
+  it("hides Change buttons in readOnly mode", async () => {
+    renderGrid({ readOnly: true });
+
+    await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: /Change mapping for/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "Action" })).not.toBeInTheDocument();
+  });
+
+  it("opens mapping dialog with candidate search when Change is clicked", async () => {
+    renderGrid();
+
+    await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: /Change mapping for Financial/ }));
+
+    await waitFor(() => expect(screen.getByText(/Change mapping — Financial/)).toBeInTheDocument());
+    await waitFor(() => expect(api.mappingCandidates).toHaveBeenCalled());
+
+    expect(screen.getByRole("option", { name: /Candidate X/ })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: /Candidate Y/ })).toBeInTheDocument();
+  });
+
+  it("saves a mapping replacement and refreshes coverage", async () => {
+    const onChanged = vi.fn();
+    renderGrid({ onChanged });
+
+    await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: /Change mapping for Financial/ }));
+
+    await waitFor(() => expect(api.mappingCandidates).toHaveBeenCalled());
+
+    const select = screen.getByRole("combobox", { name: /select codelist/i });
+    fireEvent.change(select, { target: { value: "c1" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /Save mapping/i }));
+
+    await waitFor(() =>
+      expect(api.replaceMapping).toHaveBeenCalledWith(
+        "west",
+        expect.objectContaining({
+          relationTypeKey: "maps-to",
+          fromObjectTypeKey: "domain",
+          toObjectTypeKey: "codelist",
+          direction: "outgoing",
+          sourceObjectId: "s2",
+          targetObjectId: "c1",
+          expectedMappingVersion: 0,
+        }),
+      ),
+    );
+
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
+  });
+
+  it("clears a mapping when no target is selected", async () => {
+    renderGrid();
+
+    await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: /Change mapping for Connections/ }));
+
+    await waitFor(() => expect(api.mappingCandidates).toHaveBeenCalled());
+
+    const select = screen.getByRole("combobox", { name: /select codelist/i });
+    fireEvent.change(select, { target: { value: "" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /Clear mapping/i }));
+
+    await waitFor(() =>
+      expect(api.replaceMapping).toHaveBeenCalledWith(
+        "west",
+        expect.objectContaining({
+          sourceObjectId: "s1",
+          targetObjectId: null,
+          expectedMappingVersion: 3,
+        }),
+      ),
+    );
+  });
+
+  it("handles mapping version conflict and allows retry", async () => {
+    const conflictError = new ApiError(409, "mapping_version_conflict", "Mapping changed", {
+      mappingVersion: 7,
+      targetCount: 1,
+      targets: [coveragePage.items[0].targets[0]],
+    });
+    vi.mocked(api.replaceMapping).mockRejectedValueOnce(conflictError).mockResolvedValueOnce(replacementResponse);
+
+    renderGrid();
+
+    await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: /Change mapping for Financial/ }));
+
+    await waitFor(() => expect(api.mappingCandidates).toHaveBeenCalled());
+
+    const select = screen.getByRole("combobox", { name: /select codelist/i });
+    fireEvent.change(select, { target: { value: "c1" } });
+    fireEvent.click(screen.getByRole("button", { name: /Save mapping/i }));
+
+    await waitFor(() => expect(screen.getByText(/Mapping conflict/)).toBeInTheDocument());
+    expect(screen.getByText(/changed by another operation/)).toBeInTheDocument();
+
+    expect(screen.getByRole("button", { name: /Save mapping/i })).toBeDisabled();
+    expect(screen.getByText(/Current mapping:/)).toHaveTextContent("Timetable types");
+    fireEvent.click(screen.getByRole("button", { name: /Continue with my selection/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Save mapping/i }));
+
+    await waitFor(() =>
+      expect(api.replaceMapping).toHaveBeenLastCalledWith(
+        "west",
+        expect.objectContaining({
+          expectedMappingVersion: 7,
+        }),
+      ),
+    );
+  });
+
+  it("shows Action column header", async () => {
+    renderGrid();
+
+    await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
+    expect(screen.getByRole("columnheader", { name: "Action" })).toBeInTheDocument();
+  });
+
+  it("shows create target button in the mapping dialog", async () => {
+    renderGrid();
+
+    await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: /Change mapping for Financial/ }));
+
+    await waitFor(() => expect(api.mappingCandidates).toHaveBeenCalled());
+
+    expect(screen.getByRole("button", { name: /Create new codelist/i })).toBeInTheDocument();
+  });
+
+  it("works with incoming direction view", async () => {
+    renderGrid({ view: incomingView });
+
+    await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
+
+    fireEvent.click(screen.getAllByRole("button", { name: /Change mapping for/ })[0]);
+
+    await waitFor(() =>
+      expect(api.mappingCandidates).toHaveBeenCalledWith(
+        expect.objectContaining({
+          viewKey: "codelist-from-domain-mapping",
+          objectTypeKey: "domain",
+        }),
+      ),
+    );
+  });
+});

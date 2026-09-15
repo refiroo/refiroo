@@ -36,6 +36,21 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Build 0.7 WP-14 composes model-defined table and mapping views as lenses of one contextual
+  collection. One application browser now presents virtual collection groups alongside runtime
+  hierarchy records, replacing the separate Browse hierarchy / Views modes. Direct-parent scope,
+  typed field facets and mapping coverage state are visible and URL-backed. Mapping coverage applies
+  parent/state filters before cursor pagination in live, draft and immutable-revision contexts, and
+  cursor fingerprints bind both values. This remains generic over configured applications, object
+  types, relations and renderers; Master, Systems and Translations remain starter examples.
+
+- The WP-8A/WP-8B review retained atomic mapping actions while removing duplicate configured name
+  columns and requiring explicit review before retrying after a mapping-version conflict. Historical
+  mapping reads now use revision projections and expose no mutation controls. Focused package evidence
+  covers both configured mapping directions, direct-parent scope, visible mapping-state filtering,
+  live replacement, narrow layout and the composed page's accessibility. WP-9 still owns comprehensive
+  suites and visual-baseline release acceptance.
+
 - Extended the planned 0.7 design and delivery documentation after plan review: WP-1–WP-3 remain
   frozen; later packages specify bounded view-based mapping reads, stable retained relation identities,
   typed attributes, direction-aware constraints and atomic whole-candidate draft compatibility.
@@ -92,9 +107,9 @@ All notable changes to this project are documented in this file. The format foll
   searchable target-type attributes. The starter model advances to schema 0.6 / content release 0.7.0
   with two mapping grid views: `system-to-master-mapping` (outgoing) in RDM Systems and
   `master-to-system-mapping` (incoming) in RDM Master. Frontend `ViewDefinition` is a TypeScript
-  discriminated union with type-safe narrowing; the view registry dispatches `mappingGrid` to a styled
-  placeholder renderer pending WP-8A/WP-8B. 11 new backend tests cover parse, activation, backward
-  compatibility and all validation rejection paths.
+  discriminated union with type-safe narrowing; its initial placeholder was subsequently replaced by
+  the WP-8/WP-14 contextual lens. 11 new backend tests cover parse, activation, backward compatibility
+  and all validation rejection paths.
 
 - Relation-set version persistence and generic participation (Build 0.7 WP-3). Every generic relation
   write (create, update, delete) now atomically maintains exact-binding set versions in both the

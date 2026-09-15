@@ -5,7 +5,6 @@ export async function checkHierarchySelection({ page, api, uiUrl, output, checks
   const domain = await api("/objects", { objectTypeKey: "domain", applicationKey: "rdm-master", workspaceKey: "warehouse", name: "Hierarchy domain", attributes: [{ attributeTypeKey: "domain-code", value: "UI03-HIERARCHY" }] });
   const codelist = await api("/objects", { objectTypeKey: "codelist", applicationKey: "rdm-master", workspaceKey: "warehouse", name: "Hierarchy list", parentObjectId: domain.id, attributes: [{ attributeTypeKey: "codelist-code", value: "UI03-HIERARCHY" }] });
   const value = await api("/objects", { objectTypeKey: "master-value", applicationKey: "rdm-master", workspaceKey: "warehouse", name: "Hierarchy value", parentObjectId: codelist.id, attributes: [{ attributeTypeKey: "master-id", value: "UI03-ID" }, { attributeTypeKey: "value-code", value: "UI03-VALUE" }, { attributeTypeKey: "value-name", value: "Hierarchy value" }] });
-  await page.evaluate(() => localStorage.removeItem("rdm:navigation-mode:v1"));
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
     await page.goto(`${uiUrl}/apps/rdm-master/views/codelists?workspaceKey=warehouse`);
@@ -13,20 +12,8 @@ export async function checkHierarchySelection({ page, api, uiUrl, output, checks
     await collection.getByRole("button", { name: codelist.name, exact: true }).click();
     await page.getByRole("heading", { name: codelist.name, level: 1, exact: true }).waitFor();
     if (width === 390) await page.getByRole("button", { name: "Browse application", exact: true }).click();
-    assert.equal(await page.getByRole("button", { name: "Browse hierarchy", exact: true }).getAttribute("aria-pressed"), "true");
-    const navigationMode = page.getByRole("group", { name: "Navigation mode" });
-    assert.deepEqual(await navigationMode.getByRole("button").allTextContents(), ["Browse hierarchy", "Views"]);
-    const selectedRecordUrl = page.url();
-    await navigationMode.getByRole("button", { name: "Views", exact: true }).click();
-    await page.reload();
-    if (width === 390) await page.getByRole("button", { name: "Browse application", exact: true }).click();
-    assert.equal(await navigationMode.getByRole("button", { name: "Views", exact: true }).getAttribute("aria-pressed"), "true");
-    assert.equal(page.url(), selectedRecordUrl);
-    await navigationMode.getByRole("button", { name: "Browse hierarchy", exact: true }).click();
-    await page.reload();
-    if (width === 390) await page.getByRole("button", { name: "Browse application", exact: true }).click();
-    assert.equal(await navigationMode.getByRole("button", { name: "Browse hierarchy", exact: true }).getAttribute("aria-pressed"), "true");
-    assert.equal(page.url(), selectedRecordUrl);
+    assert.equal(await page.getByRole("group", { name: "Navigation mode" }).count(), 0);
+    await page.getByRole("navigation", { name: "RDM Master collections" }).waitFor();
     const explorer = page.getByRole("region", { name: "RDM Master explorer" });
     await explorer.getByRole("textbox", { name: "Search this explorer", exact: true }).fill("Hierarchy");
     const recordUrl = page.url();
@@ -62,5 +49,5 @@ export async function checkHierarchySelection({ page, api, uiUrl, output, checks
     assert.equal(await page.getByRole("button", { name: "Back to list", exact: true }).count(), 0);
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   }
-  checks.push("Hierarchy preferences: hierarchy first; first-visit default and saved Views/hierarchy selection restored across reload without changing record URL; independent collapse without record navigation, collapsed and expanded state restored across reload, keyboard expansion at desktop/mobile. UI-03B hierarchy regression: select a master value from Browse hierarchy while a codelist inspector is open; discard the unrelated collection, restore the full record view with Value details, retain the behavior after reload at 1440px and 390px");
+  checks.push("Unified browser: collections and hierarchy coexist without a mode switch; independent collapse does not navigate, collapsed and expanded state survives reload, and keyboard expansion works at desktop/mobile. UI-03B hierarchy regression: select a master value from the browser while a codelist inspector is open; discard the unrelated collection, restore the full record view with Value details, and retain it after reload at 1440px and 390px");
 }

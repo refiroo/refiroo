@@ -102,6 +102,10 @@ function AppContent({
     const workspaceKey =
       activeRoute.kind === "models" ? (lastCollection()?.workspaceKey ?? "default") : activeRoute.workspaceKey;
     const remembered = lastCollection(selected.key);
+    const sameContext =
+      remembered?.workspaceKey === workspaceKey &&
+      remembered?.workspaceDraftId === workspaceDraftId &&
+      remembered?.workspaceRevisionId === workspaceRevisionId;
     navigate(
       remembered
         ? {
@@ -109,12 +113,9 @@ function AppContent({
             workspaceKey,
             workspaceDraftId,
             workspaceRevisionId,
-            cursors:
-              remembered.workspaceKey === workspaceKey &&
-              remembered.workspaceDraftId === workspaceDraftId &&
-              remembered.workspaceRevisionId === workspaceRevisionId
-                ? remembered.cursors
-                : undefined,
+            cursors: sameContext ? remembered.cursors : undefined,
+            parentObjectId: sameContext ? remembered.parentObjectId : undefined,
+            parentObjectTypeKey: sameContext ? remembered.parentObjectTypeKey : undefined,
           }
         : { ...viewRoute(selected, selected.defaultView, workspaceKey), workspaceDraftId, workspaceRevisionId },
     );
@@ -206,6 +207,8 @@ function AppContent({
               workspaceDraftId: undefined,
               workspaceRevisionId: undefined,
               cursors: undefined,
+              parentObjectId: undefined,
+              parentObjectTypeKey: undefined,
             }
           : viewRoute(application, matchingView?.key ?? application.defaultView, workspaceKey),
       );
@@ -218,6 +221,8 @@ function AppContent({
         workspaceDraftId: undefined,
         workspaceRevisionId: undefined,
         cursors: undefined,
+        parentObjectId: undefined,
+        parentObjectTypeKey: undefined,
       });
     }
     if (changed) {
@@ -384,6 +389,17 @@ function AppContent({
                           : { ...collection, ...query },
                       )
                     }
+                    onViewChange={(viewKey) => {
+                      const next = viewRoute(collectionApplication, viewKey, collection.workspaceKey);
+                      navigate({
+                        ...next,
+                        workspaceDraftId: collection.workspaceDraftId,
+                        workspaceRevisionId: collection.workspaceRevisionId,
+                        search: collection.search,
+                        parentObjectId: collection.parentObjectId,
+                        parentObjectTypeKey: collection.parentObjectTypeKey,
+                      });
+                    }}
                     onOpen={openObject}
                   />
                 </div>

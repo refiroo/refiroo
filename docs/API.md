@@ -1119,7 +1119,10 @@ endpoint. Composed acceptance remains in WP-9. WP-1–WP-3 scopes remain frozen.
 
 - `GET /api/v1/workspaces/{workspaceKey}/mapping-coverage` takes `applicationKey`, `viewKey`,
   explicit `relationTypeKey`, `fromObjectTypeKey`, `toObjectTypeKey`, `direction`, bounded `pageSize`,
-  `cursor`, optional source search and optional `workspaceDraftId`. The effective model resolves the
+  `cursor`, optional source search, optional direct `parentObjectId` scope, optional
+  `state=mapped|unmapped|ambiguous` and one optional `workspaceDraftId` or `workspaceRevisionId`.
+  Parent and state filtering happen
+  before pagination. The effective model resolves the
   configured `mappingGrid`; supplied binding fields must match. Display fields and candidate search
   fields come from that view, so views sharing a binding can differ without a schema extension.
 - `GET /api/v1/workspaces/{workspaceKey}/mapping-candidates` takes the same view/context identity,
@@ -1130,12 +1133,15 @@ endpoint. Composed acceptance remains in WP-9. WP-1–WP-3 scopes remain frozen.
   the complete count. A cursor-paged target-detail query identifies the same view/binding/anchor and
   observed version; changed versions require refresh. Conflict responses use the same bounded preview
   convention. Coverage fields and version describe one consistent read.
-- Cursors bind workspace, live/draft context, effective model release, view, direction and query
-  configuration. Unknown view/binding is `404`; mismatched configuration and cursors are explicit
-  validation errors. The frozen detail route is
+- Cursors bind workspace, live/draft/revision context, effective model release, view, direction, parent scope,
+  mapping state and query
+  configuration. Unknown view/binding or parent is `404`; a parent whose model-defined containment
+  cannot hold the view's source type and mismatched configuration/cursors are explicit validation
+  errors. A valid parent with no matching direct children returns an empty page. The frozen detail route is
   `GET /api/v1/workspaces/{workspaceKey}/mapping-targets`, with the same explicit binding parameters as coverage
   and optional paired `applicationKey`/`viewKey` for view-specific projection, plus `sourceObjectId`, required nonnegative `mappingVersion`,
-  optional `cursor`, `pageSize` (1–100; default 20), and optional `workspaceDraftId`.
+  optional `cursor`, `pageSize` (1–100; default 20), and one optional `workspaceDraftId` or
+  `workspaceRevisionId`.
   It returns `{mappingVersion, targetCount, items, nextCursor}`. An observed-version mismatch returns
   `409 mapping_version_conflict` with an instruction to refresh coverage and the current version in
   `error.details.mappingVersion`. A cursor for another version, anchor or context is `422 invalid_cursor`.
@@ -1146,10 +1152,12 @@ endpoint. Composed acceptance remains in WP-9. WP-1–WP-3 scopes remain frozen.
 Coverage and candidates use the view's configured page size by default (an explicit `pageSize` must
 be 1–100). Search is a literal, case-insensitive substring, limited to 500 characters. Coverage searches
 name and attached attributes selected by `sourceColumns`; candidates search only `candidateSearchFields`.
-Views select the returned fields independently of the physical binding. Candidate lookup removes
+Coverage-state filters use the complete effective relation set, in both directions, before selecting
+the requested source page. Views select the returned fields independently of the physical binding. Candidate lookup removes
 occupied target-side objects for one-to-one bindings and outgoing one-to-many views; source-dependent
 ancestor/graph constraints and final cardinality checks remain the save operation's responsibility.
-The mapping queries read effective draft overlays and tombstones in SQL, page before projection, and
+The mapping queries read effective draft overlays/tombstones or immutable revision snapshots in SQL,
+page before projection, and
 batch bounded target previews and exact counts within the same transaction as model and version reads.
 
 Object summaries contain `id`, `objectTypeKey`, `name` and a `fields` dictionary keyed by the declared

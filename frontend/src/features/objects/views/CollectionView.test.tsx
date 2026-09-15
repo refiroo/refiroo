@@ -15,6 +15,7 @@ describe("CollectionView", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.mocked(api.objects).mockResolvedValue({ items: [domainObject], nextCursor: null });
+    vi.mocked(api.object).mockResolvedValue(domainObject);
   });
 
   it("uses one generic component with workspace and URL-derived query state", async () => {
@@ -65,10 +66,12 @@ describe("CollectionView", () => {
         onOpen={vi.fn()}
       />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Filter" }));
-    await screen.findByRole("dialog", { name: "Filter" });
+    expect(screen.getByRole("button", { name: "Filter: Code" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Filter: Active" })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Filter: Code" }));
+    await screen.findByRole("dialog", { name: "Filter: Code" });
     expect(screen.getByRole("combobox", { name: "Code operator" })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Active value" })).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Active value" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText("States")).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole("combobox", { name: "Code operator" }), {
       target: { value: "startsWith" },
@@ -130,6 +133,45 @@ describe("CollectionView", () => {
     expect(await screen.findByText("Connections")).toBeInTheDocument();
     expect(api.objects).toHaveBeenCalledTimes(2);
   });
+
+  it("applies and visibly identifies direct-parent collection scope", async () => {
+    const view = {
+      ...(testModel.applications[0].views[0] as TableViewDefinition),
+      key: "codelists",
+      name: "Codelists",
+      objectTypeKey: "codelist",
+    };
+    const onQueryChange = vi.fn();
+    render(
+      <CollectionView
+        model={testModel}
+        application={testModel.applications[0]}
+        view={view}
+        workspaceKey="west"
+        query={{
+          search: "",
+          sort: "name",
+          pageSize: 20,
+          filters: [],
+          parentObjectId: domainObject.id,
+          parentObjectTypeKey: "domain",
+        }}
+        onQueryChange={onQueryChange}
+        onOpen={vi.fn()}
+      />,
+    );
+    await waitFor(() =>
+      expect(api.objects).toHaveBeenCalledWith(
+        "codelist",
+        expect.objectContaining({ parentObjectId: domainObject.id }),
+      ),
+    );
+    expect(await screen.findByText("Within Domain: Connections")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Show all codelists" }));
+    expect(onQueryChange).toHaveBeenCalledWith(
+      expect.objectContaining({ parentObjectId: undefined, parentObjectTypeKey: undefined }),
+    );
+  });
 });
 
 it.each(["domain", "codelist"])("preserves typed filters and query/display ownership for %s", async (objectTypeKey) => {
@@ -169,14 +211,20 @@ it.each(["domain", "codelist"])("preserves typed filters and query/display owner
   render(<Harness />);
   await screen.findByRole("button", { name: "Connections" });
   expect(screen.queryByLabelText("Count value")).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Filter" }));
-  await screen.findByRole("dialog", { name: "Filter" });
+  fireEvent.click(screen.getByRole("button", { name: "Filter: Count" }));
+  await screen.findByRole("dialog", { name: "Filter: Count" });
   fireEvent.change(screen.getByLabelText("Count value"), { target: { value: "0" } });
   fireEvent.keyDown(screen.getByLabelText("Count value"), { key: "Enter" });
+  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  fireEvent.click(screen.getByRole("button", { name: "Filter: Active" }));
   fireEvent.change(screen.getByLabelText("Active value"), { target: { value: "false" } });
+  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  fireEvent.click(screen.getByRole("button", { name: "Filter: Date" }));
   fireEvent.change(screen.getByLabelText("Date operator"), { target: { value: "gte" } });
   fireEvent.change(screen.getByLabelText("Date value"), { target: { value: "2026-01-01" } });
   fireEvent.blur(screen.getByLabelText("Date value"));
+  fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  fireEvent.click(screen.getByRole("button", { name: "Filter: Code" }));
   fireEvent.change(screen.getByLabelText("Code operator"), { target: { value: "isUnset" } });
   fireEvent.change(screen.getByLabelText("Code value"), { target: { value: "true" } });
   expect(latest!.filters).toEqual([

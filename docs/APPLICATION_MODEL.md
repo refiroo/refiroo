@@ -197,6 +197,19 @@ context; activation revalidates staged changes with current live content (ADR-02
 An application selects object types and exposes model-defined views. Object types may be shared across
 applications. Applications use immutable keys; names are presentation labels and are not API filters.
 
+ADR-029 distinguishes a declaration from its navigation placement. In schema 0.5/0.6, the frontend
+groups views by their source object type and presents them as lenses of one contextual collection:
+
+- `table.objectTypeKey` is the source type;
+- an outgoing `mappingGrid` uses `fromObjectTypeKey`;
+- an incoming `mappingGrid` uses `toObjectTypeKey`.
+
+This is a backwards-compatible presentation rule, not a new model field. It lets an arbitrary
+application expose several configured tasks for one collection without multiplying primary navigation.
+The engine does not infer a translation, mapping or other domain workflow from keys. A genuinely new
+interaction still requires a typed generic view contract and renderer. Explicit collection/lens
+composition is deferred until real models show that source-type grouping is insufficient.
+
 Schema 0.5 supports the strict `table` contract. Schema 0.6 adds the `mappingGrid` contract for
 mapping coverage views. Each view type has an extra-forbidden configuration that rejects unknown
 properties. Configuration refers to stable object, attribute and relation keys—never backend URLs or
@@ -240,6 +253,11 @@ replacement. Configuration:
 | `targetDisplayColumns` | Built-in or attached fields on the target object type; must be non-empty and unique |
 | `candidateSearchFields` | `name` or searchable attached attributes on the target type; must be non-empty and unique |
 | `pageSize` | 1–100 |
+
+The mapping coverage query may additionally apply a browser-selected direct-parent scope and one of
+the semantic coverage states (`mapped`, `unmapped`, `ambiguous`). These are runtime query values, not
+model configuration. They are valid only for a configured mapping view and are included in cursor
+binding.
 
 Validation rejects containment relations (`parentOf: true`) and required-ownership bindings
 (`required: true` with `one-to-one` or `one-to-many` cardinality), since mapping replacement is

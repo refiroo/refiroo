@@ -122,8 +122,8 @@ distinctions, cursor reset, heading and menu sorting, column visibility, density
 size/reload, mobile column access and popover focus for Domain and System collections. The embedded
 Codelist collection exercises display/page-size controls at desktop and 390px, alongside its existing
 failed-page preservation/retry checks. Successful requests use the isolated real backend. Screenshots
-and `report.json` are recorded with the navigation evidence. This does not supply UI-07 automated
-accessibility/visual baselines or UI-05 preference persistence.
+and `report.json` are recorded with the navigation evidence. Display preference persistence is
+exercised; this does not supply UI-07 automated accessibility/visual baselines.
 
 ## UI-03A navigation preservation
 
@@ -142,20 +142,35 @@ The navigation runner now checks the full-width collection-record default, reloa
 canonical Copy link, all configured panel headings, mobile single-screen layout, real save refresh,
 right-click and keyboard row menus, and last-row deletion with filter-preserving page recovery.
 Domain and System are covered in Live and Draft at 1440px and 390px. The hierarchy regression starts
-in a codelist record and selects a master value from Browse hierarchy: the unrelated collection
+in a codelist record and selects a master value from the application browser: the unrelated collection
 must disappear, Value details must be available in the full record view, and reload must preserve it.
 
 The live-authoring, draft and history runners use the visible Record actions menu and retain their
 mutation, conflict, signed-deletion and read-only assertions. UI-07 gates are documented below; these screenshots
 and interaction checks do not establish an accessibility audit or automated visual baselines.
 
-### Hierarchy preferences correction
+### Unified application browser correction
 
-The navigation runner also verifies Browse hierarchy first and selected on the first visit, saved
-Views/hierarchy selection across reloads without changing the selected record URL, separate branch toggles that
-retain the selected record, collapsed and expanded state restored across real reloads, and keyboard
-expansion at desktop/mobile widths. Preferences are browser-local per workspace/application.
-See [correction evidence](../../review-notes/frontend-redesign-2026-09-10/hierarchy-preferences-evidence/README.md).
+The navigation runner verifies that model-defined collections and runtime records coexist in one
+application browser without a navigation-mode switch. Separate branch toggles retain the selected
+record, collapsed and expanded state is restored across real reloads, and keyboard expansion works at
+desktop/mobile widths. Branch preferences remain browser-local per workspace/application. The linked
+Base 0.6 evidence is historical and predates ADR-029's Base 0.7 composition.
+See [historical correction evidence](../../review-notes/frontend-redesign-2026-09-10/hierarchy-preferences-evidence/README.md).
+
+## WP-14 contextual collection browser
+
+```sh
+npm --prefix frontend run test:browser:wp14
+```
+
+Runs a focused real-backend/browser journey for the unified application browser. It opens a
+direct-parent-scoped collection, switches between table and mapping lenses without losing scope,
+applies the server-backed mapping-status facet, performs a real live mapping replacement, and checks
+the inverse configured direction on a second source type. It also checks a narrow drawer without the
+former mode switch, runs axe against the composed mapping page and records wide/narrow screenshots.
+This is package evidence; the comprehensive accessibility and visual-baseline gates remain WP-9 build
+acceptance.
 
 
 ## UI-07 accessibility gate

@@ -51,7 +51,7 @@ preloaded demonstration data.
 | Work in several domains | Use the configured terminology, fields and views through familiar controls | Model-driven foundation exists | US-D13, US-P06 |
 | Prepare a coordinated change | Work in an optional draft, check it and apply its changes together while preserving unrelated live work | Current-live/history API available; browser gaps remain | US-W01–W08 |
 | Maintain translations | Enter a target, language and translated content together; prevent conflicting active translations | Basic API and Base 0.6 browser flows available; specialist coverage view remains 0.8 | US-L01–L04 |
-| Manage system equivalences | See missing or conflicting mappings and choose, replace or clear a target in one action | WP-4 query and WP-5 atomic replacement APIs delivered; WP-10B protects activation against divergent live mapping sets. Browser workflow remains WP-8A/WP-8B; composed acceptance WP-9 | US-M01–M04 |
+| Manage system equivalences | See missing or conflicting mappings and choose, replace or clear a target in one action | WP-8/WP-14 browser lens and APIs implemented with focused proof; composed WP-9 acceptance remains | US-M01–M04 |
 | Navigate a deep hierarchy | Expand the relevant branch, add a child or move a record without losing context | Specialist workflow planned for 0.8 | US-H01–H02 |
 | Exchange larger datasets | Import with a preview, export a chosen scope, track results and resume synchronization | Basic reading available; bulk exchange and feeds planned for 0.9 | US-I01–I09 |
 | Manage working areas | Create and label a workspace, select the default and retain read-only access to retired areas | Service available; no complete administration screen | US-A01–A03 |
@@ -135,16 +135,17 @@ approval processes, localized interface labels and copy/duplicate shortcuts rema
 they have no assigned delivery commitment here.
 
 Model-driven does not mean every conceivable screen can already be configured. Current top-level
-views are tables. Mapping, translation and tree experiences follow the roadmap; a configured but
-unsupported view must not be advertised as delivered. General dashboards have no scheduled outcome.
+renderers are tables and mapping grids, composed as collection lenses. Translation coverage and
+specialist tree experiences follow the roadmap; a configured but unsupported renderer must not be
+advertised as delivered. General dashboards have no scheduled outcome.
 
 Read next: [user stories](USER_STORIES.md), [product roadmap](ROADMAP_COVERAGE.md),
 [planning handoff](PLANNING_HANDOFF.md).
 
 ## Planned 0.7 refinement
 
-The [0.7 plan](../BASE_0_7_IMPLEMENTATION_PLAN.md) separates mapping coverage (WP-8A) from actions
-(WP-8B). Large ambiguous mappings remain inspectable through bounded pages; keeping a selected target
+The [0.7 plan](../BASE_0_7_IMPLEMENTATION_PLAN.md) separates mapping coverage (WP-8A), actions
+(WP-8B) and contextual composition (WP-14). Large ambiguous mappings remain inspectable through bounded pages; keeping a selected target
 preserves its relationship identity and attributes. A draft's chosen definition must already accept
 its complete content. Failed choices change nothing; successful choices refresh the browser's fields,
 rules and views safely. SC-07/SC-15 remain release acceptance requirements, not delivered evidence.

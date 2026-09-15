@@ -78,7 +78,7 @@ an explicit alternative, not a prerequisite.**
 - physical deletion of immutable history; and
 - any individual record draft, revision, activation or retirement lifecycle.
 
-## Product 0.7 — Core mapping
+## Product 0.7 — Core mapping and contextual collections
 
 **Why next:** mapping is a central RDM task that generic relationship editing does not make simple.
 **Depends on:** usable live record/relationship maintenance, optional draft context and two proven
@@ -87,12 +87,14 @@ draft model-version selection (ADR-028).
 
 ### User outcome
 
-A mapping steward can see coverage and safely create, clear, replace or resolve one mapping without
+A steward selects an unscoped or direct-parent collection from one application browser, changes its
+semantic lens, and can see coverage and safely create, clear, replace or resolve one mapping without
 managing low-level relationship records.
 
 ### Planned functions
 
-- a model-defined mapping grid with different relationship labels and directions;
+- model-defined table and mapping renderers grouped as lenses of their source collection;
+- one browser for virtual collection entries and bounded containment records;
 - bounded rows showing mapped, unmapped and ambiguous states;
 - server-side target search;
 - one atomic replacement operation for zero or one chosen target;

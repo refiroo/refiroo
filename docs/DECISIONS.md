@@ -822,3 +822,85 @@ cursors, protecting dirty input and detecting external pin changes. A differing 
 release, so explanations name pinned and active versions neutrally. No conversion or activation bypass
 is added. WP-6 implements the backend boundaries; browser context transitions remain WP-7. These are
 later-package requirements, not foundation implementation amendments.
+
+## ADR-029 — Compose model-defined views as contextual collection lenses
+
+**Status:** Accepted product direction, 2026-09-15; delivery belongs to Base 0.7 WP-14.
+
+### Motivation
+
+The initial browser exposed configured views and runtime containment as two mutually exclusive
+navigation modes. Top-level tables consequently flattened contained records across their governing
+parents, while each `mappingGrid` declaration added another visually similar global table. Although
+the projections were technically model-driven, a steward could not reliably answer which governed
+collection a row belonged to or what scope a change affected. Adding more relation bindings would
+multiply that usability failure.
+
+The three starter applications are model content for one RDM use case, not engine modules. Navigation
+and filtering must therefore derive from arbitrary applications, object types, containment relations,
+view definitions and supported semantic renderer types. Runtime code must not recognize Master,
+Systems, Translations or any of their keys.
+
+### Decision
+
+The application-facing UI has five distinct concepts:
+
+1. **Context** identifies workspace, application, Live/Draft/History and an optional containing object.
+2. **Collection** identifies the view's row/source object type.
+3. **Lens** is one model-declared presentation or task over that collection, such as `table` or
+   `mappingGrid`.
+4. **Query** is the URL-backed search, typed filters, scope, sort and cursor trail supported by the
+   selected lens.
+5. **Detail composition** remains the application-defined presentation of one object.
+
+The sidebar exposes one model-driven application browser rather than a `Browse hierarchy` / `Views`
+switch. It contains virtual collection entries and runtime containment records. Selecting a containing
+record may open a compatible direct-child collection with that parent as visible scope; selecting a
+record still opens its configured detail. Applications without containment remain usable through
+their root collection entries.
+
+Schema 0.5/0.6 view declarations remain valid and independently addressable. For these schemas the UI
+groups them deterministically by source object type: `table.objectTypeKey`, or the physical source side
+selected by a `mappingGrid` direction. Views in one group are lenses within one collection workspace.
+Mapping therefore retains its dedicated query, bounded coverage, target selection and relation-set
+concurrency semantics without requiring a duplicate primary navigation destination. Existing view URLs
+remain canonical and shareable.
+
+Filters are model-aware and predictable, not personalized. The current containing-object scope and
+the model-declared filter fields remain visible; controls use declared value types. A configured
+mapping lens additionally exposes its defined zero/one/many coverage states. All filtering is
+server-side, cursor-bound and bounded. An explicit unscoped collection remains available, but it must
+not be confused with a scoped collection; model-configured ancestor/path columns provide context where
+needed.
+
+No arbitrary relation is silently promoted to mapping. `mapped`, `unmapped` and `ambiguous` are valid
+only for a configured mapping lens whose one-selected-target operation gives zero/one/many that task
+meaning. If several mapping declarations share a source type, their model labels distinguish the
+lenses. Opposite directions do not require duplicate sidebar entries.
+
+### Compatibility and extension
+
+This decision does not change schema 0.6. Grouping is a presentation rule over fields that already
+identify the source type. A later schema may declare collection/lens composition explicitly after at
+least two real models demonstrate ambiguity that cannot be represented honestly by this rule.
+
+A different domain using the same table, relation-coverage or hierarchy interaction requires model
+configuration only. A fundamentally different interaction shape requires a new typed generic
+view/lens contract and renderer in the engine registry, never an application-key branch.
+
+Base 0.7 uses existing direct-parent object filtering and adds the same optional parent scope plus
+coverage-state filtering to mapping coverage. Arbitrary-depth lazy traversal, path-revealing hierarchy
+search and hierarchy restructuring remain product 0.8; the 0.7 application browser must not imply that
+its currently loaded runtime tree is an unbounded hierarchy query.
+
+### Acceptance
+
+- One application browser exposes collections and containment records without a navigation-mode toggle.
+- Two views with the same source type appear as lenses in one collection workspace.
+- A configured mapping remains generic across different bindings and directions.
+- Parent scope, mapping state, typed filters, search and cursor state remain URL-backed and survive
+  compatible lens/detail navigation.
+- An application with no mapping view shows no mapping affordance; an application without containment
+  still exposes its collections.
+- Live, Draft and History retain the same visible scope, with all history mutations absent.
+- No frontend or backend branch names a starter application, object type or relation key.
