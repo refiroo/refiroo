@@ -176,9 +176,7 @@ try {
   await page.locator("main table").getByRole("button", { name: "Published old domain", exact: true }).click();
   await page.getByRole("heading", { name: "Published old domain", exact: true }).waitFor();
   assert.match(await page.locator("main").innerText(), /History count\s*7/i);
-  await page.getByText("Information", { exact: true }).click();
-  await page.getByText(`Model version ${oldModelVersion}`, { exact: true }).waitFor();
-  await page.getByText("Information", { exact: true }).click();
+  await page.locator(".model-version").getByText(new RegExp(`^Model ${oldModelVersion.replaceAll(".", "\\.")} ·`)).waitFor();
   await page.getByRole("button", { name: "Record actions", exact: true }).click();
   assert.equal(await page.getByRole("menuitem", { name: "Edit all fields", exact: true }).count(), 0);
   await page.keyboard.press("Escape");
@@ -191,10 +189,10 @@ try {
   await sourceCard.getByRole("button", { name: "Start a draft from this revision" }).click();
   await page.getByRole("dialog").getByLabel("Draft name").fill("Historical review");
   await page.getByRole("dialog").getByRole("button", { name: "Create draft" }).click();
-  await page.getByRole("heading", { name: /Historical review · Draft v/ }).waitFor();
+  await page.getByRole("region", { name: "Draft publication" }).getByRole("heading", { name: "Historical review", exact: true }).waitFor();
   const draftText = await page.locator("main").innerText();
-  assert.match(draftText, new RegExp(`Source: Historical revision ${oldRevision.id}`));
-  assert.match(draftText, /Draft model differs from the current model/);
+  assert.match(draftText, new RegExp(`Historical revision ${oldRevision.id}`));
+  assert.match(draftText, /This draft uses a different model version/);
   checks.push("Historical derivation is explicitly labelled, keeps the old model pin and explains that Base 0.6 requires migration instead of promising restore or implicit override");
 
   await page.goto(`${uiUrl}/apps/rdm-master/history?workspaceKey=${workspaceKey}`);

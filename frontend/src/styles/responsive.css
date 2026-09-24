@@ -2,13 +2,13 @@
 
 @media (max-width: 1080px) {
   .workspace-main {
-    padding: 28px 24px 40px;
+    padding: 20px 20px 40px;
   }
-  .detail-grid.with-side {
-    grid-template-columns: 1fr;
+  .model-version {
+    display: none;
   }
   .model-workbench-grid {
-    grid-template-columns: 230px minmax(0, 1fr);
+    grid-template-columns: 240px minmax(0, 1fr);
   }
   .model-summary {
     grid-template-columns: repeat(3, 1fr);
@@ -16,9 +16,35 @@
   .model-summary div:nth-child(3) {
     border-right: 0;
   }
+  .record-workspace.has-inspector {
+    display: block;
+  }
+  .inspector-resizer,
+  .properties-resizer,
+  .expand-record {
+    display: none;
+  }
+  .record-workspace.has-record > .record-collection {
+    display: none;
+  }
+  .record-inspector {
+    position: static;
+    max-height: none;
+    overflow: visible;
+    padding-left: 0;
+    border-left: 0;
+  }
+  .record-detail:not(.record-inspector) .detail-grid.with-side {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .record-detail:not(.record-inspector) .detail-grid.with-side > .main-panels,
+  .record-detail:not(.record-inspector) .detail-grid.with-side > .side-panels {
+    grid-column: auto;
+    grid-row: auto;
+  }
   .side-panels {
     position: static;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   }
 }
 
@@ -31,45 +57,111 @@
     display: none;
   }
   .global-header {
-    padding: 10px 16px;
+    position: static;
+    height: auto;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0;
+    padding: 0 12px;
   }
   .product-mark {
-    min-width: 0;
+    min-height: 48px;
   }
-  .product-mark strong {
-    font-size: 13px;
+  .header-end {
+    margin-left: auto;
+  }
+  .application-nav {
+    order: 3;
+    flex: 1 0 100%;
+    margin: 0 -12px;
+    padding: 0 4px;
+    border-top: 1px solid var(--soft-line);
+  }
+  .application-tab {
+    min-height: 44px;
   }
   .navigation-toggle {
     display: flex;
     align-items: center;
     gap: 8px;
-    padding: 12px 16px;
     width: 100%;
+    min-height: 44px;
+    padding: 0 16px;
     border: 0;
     border-bottom: 1px solid var(--line);
-    background: #f5f6f5;
+    background: var(--sidebar-bg);
     color: var(--ink);
+    font-weight: 550;
     text-align: left;
   }
   .workspace-main {
     padding: 16px 16px 32px;
   }
-  .shell-context {
-    font-size: 12px;
+  .context-bar {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 10px;
   }
+  .page-header,
   .collection-header {
     align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  .page-icon {
+    display: none;
   }
   .collection-toolbar,
+  .object-toolbar,
   .embedded-toolbar {
-    align-items: stretch;
-    flex-direction: column;
+    flex-wrap: wrap;
+    gap: 8px;
   }
+  .object-toolbar .search-box,
+  .embedded-toolbar .search-box,
   .search-box {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: none;
+  }
+  .segmented {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
   }
+  .segmented button {
+    justify-content: center;
+    min-height: 36px;
+  }
   .attribute-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mobile-columns-toggle {
+    display: block;
+    margin: 8px 12px;
+  }
+  .object-table:not(.show-all-columns) .mobile-secondary-column,
+  .mapping-table .mobile-secondary-column {
+    display: none;
+  }
+  .object-table td {
+    max-width: 180px;
+  }
+  .object-table .cell-link {
+    max-width: 160px;
+    min-height: 32px;
+  }
+  .column-sort {
+    min-height: 32px;
+  }
+  .display-columns label {
+    min-height: 44px;
+  }
+  .mapping-table table {
+    min-width: 0;
+  }
+  .detail-actions {
+    margin-left: 0;
   }
   .dialog-backdrop {
     align-items: end;
@@ -98,7 +190,10 @@
     bottom: 0;
     margin-top: auto;
     padding: 12px 0 0;
-    background: var(--color-surface);
+    background: var(--surface);
+  }
+  .dialog-actions-spacer {
+    display: none;
   }
   .model-workbench-grid {
     grid-template-columns: 1fr;
@@ -116,51 +211,8 @@
   .model-summary div:nth-child(even) {
     border-right: 0;
   }
-}
-
-@media (max-width: 760px) {
-  .navigation-dialog {
-    width: min(340px, 100%);
-  }
-  .page-header {
-    flex-wrap: wrap;
-    gap: 12px;
-  }
-  .detail-actions {
-    flex-wrap: wrap;
-  }
-}
-
-@media (max-width: 760px) {
-  .object-toolbar,
-  .embedded-toolbar {
-    flex-direction: row;
-    flex-wrap: wrap;
-    gap: 8px;
-  }
-  .object-toolbar .search-box,
-  .embedded-toolbar .search-box {
-    flex: 1 1 100%;
-  }
-  .mobile-columns-toggle {
-    display: block;
-    margin: 8px 16px;
-  }
-  .object-table:not(.show-all-columns) .mobile-secondary-column {
-    display: none;
-  }
-  .object-table td {
-    max-width: 180px;
-  }
-  .object-table .cell-link {
-    max-width: 160px;
-    min-height: 32px;
-  }
-  .column-sort {
-    min-height: 32px;
-  }
-  .display-columns label {
-    min-height: 44px;
+  .release-metadata {
+    grid-template-columns: 1fr;
   }
   .draft-card,
   .draft-publication-heading,
@@ -175,44 +227,18 @@
   .draft-workflow-step > span {
     display: none;
   }
-  .draft-secondary-actions {
-    justify-self: stretch;
-  }
 }
 
-@media (max-width: 1080px) {
-  .record-workspace.has-inspector {
-    display: block;
+@media (max-width: 600px) {
+  .attribute-grid .row-actions button,
+  .inline-attribute-editor button {
+    min-height: 40px;
   }
-  .inspector-resizer,
-  .properties-resizer {
-    display: none;
-  }
-  .record-workspace.has-record > .record-collection {
-    display: none;
-  }
-  .record-inspector {
-    border-left: 0;
-    padding-left: 0;
-  }
-  .expand-record {
-    display: none;
-  }
-}
-@media (max-width: 1080px) {
-  .record-inspector {
+  .attribute-grid .row-actions {
     position: static;
-    max-height: none;
-    overflow: visible;
+    margin: 4px 0 0 -7px;
   }
-}
-@media (max-width: 1080px) {
-  .record-detail:not(.record-inspector) .detail-grid.with-side {
-    grid-template-columns: 1fr;
-  }
-  .record-detail:not(.record-inspector) .detail-grid.with-side > .main-panels,
-  .record-detail:not(.record-inspector) .detail-grid.with-side > .side-panels {
-    grid-column: auto;
-    grid-row: auto;
+  .attribute-grid dt {
+    padding-right: 0;
   }
 }

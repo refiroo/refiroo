@@ -46,11 +46,12 @@ describe("Explorer", () => {
     );
 
     expect(await screen.findByRole("navigation", { name: "Test App collections" })).toBeVisible();
+    fireEvent.click(await screen.findByRole("button", { name: "Expand Connections" }));
     fireEvent.click(screen.getByRole("button", { name: "Codelists collection within Connections" }));
     expect(onOpenCollection).toHaveBeenCalledWith("codelists", domainObject);
   });
 
-  it("remembers independent nested branches across remounts and scopes them by workspace and application", async () => {
+  it("starts collapsed and remembers explicit branch choices per workspace and application", async () => {
     const child = { ...codelistObject, parentObjectId: domainObject.id };
     const leaf = { ...codelistObject, id: "leaf", name: "Leaf", parentObjectId: child.id };
     vi.spyOn(api, "objects").mockImplementation(async (key) => ({
@@ -68,34 +69,59 @@ describe("Explorer", () => {
       />
     );
     const first = render(explorer());
-    fireEvent.click(await screen.findByRole("button", { name: `Collapse ${child.name}` }));
+    fireEvent.click(await screen.findByRole("button", { name: `Expand ${domainObject.name}` }));
+    fireEvent.click(screen.getByRole("button", { name: `Expand ${child.name}` }));
+    expect(screen.getByRole("button", { name: /Leaf/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: `Collapse ${child.name}` }));
     expect(screen.queryByRole("button", { name: /Leaf/ })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: `Collapse ${domainObject.name}` }));
     expect(onOpen).not.toHaveBeenCalled();
     first.unmount();
     const second = render(explorer());
-    fireEvent.click(await screen.findByRole("button", { name: `Expand ${domainObject.name}` }));
+    expect(await screen.findByRole("button", { name: `Collapse ${domainObject.name}` })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
     expect(screen.getByRole("button", { name: `Expand ${child.name}` })).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(screen.getByRole("button", { name: `Expand ${child.name}` }));
-    expect(screen.getByRole("button", { name: /Leaf/ })).toBeInTheDocument();
     second.unmount();
     const third = render(explorer());
     expect(await screen.findByRole("button", { name: /Leaf/ })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: `Collapse ${domainObject.name}` }));
     third.rerender(explorer("east"));
-    expect(await screen.findByRole("button", { name: `Collapse ${domainObject.name}` })).toHaveAttribute(
+    expect(await screen.findByRole("button", { name: `Expand ${domainObject.name}` })).toHaveAttribute(
       "aria-expanded",
-      "true",
+      "false",
     );
     third.rerender(explorer("west", "another-app"));
-    expect(await screen.findByRole("button", { name: `Collapse ${domainObject.name}` })).toHaveAttribute(
+    expect(await screen.findByRole("button", { name: `Expand ${domainObject.name}` })).toHaveAttribute(
       "aria-expanded",
-      "true",
+      "false",
     );
   });
 
+  it("opens the branches that lead to the active record", async () => {
+    const child = { ...codelistObject, parentObjectId: domainObject.id };
+    const leaf = { ...codelistObject, id: "leaf", name: "Leaf", parentObjectId: child.id };
+    vi.spyOn(api, "objects").mockImplementation(async (key) => ({
+      items: key === "domain" ? [domainObject] : [child, leaf],
+      nextCursor: null,
+    }));
+    render(
+      <Explorer
+        model={testModel}
+        application={{ ...testModel.applications[0], key: "test", objectTypeKeys: ["domain", "codelist"] }}
+        workspaceKey="west"
+        activeObjectId="leaf"
+        refreshToken={0}
+        onOpen={vi.fn()}
+      />,
+    );
+    expect(await screen.findByRole("button", { name: /Leaf/ })).toHaveAttribute("aria-current", "page");
+    fireEvent.click(screen.getByRole("button", { name: `Collapse ${domainObject.name}` }));
+    expect(screen.queryByRole("button", { name: /Leaf/ })).not.toBeInTheDocument();
+  });
+
   it("keeps branch navigation usable when saved preferences are malformed or storage is blocked", async () => {
-    window.localStorage.setItem('rdm:hierarchy:v1:["west","test"]', "{broken");
+    window.localStorage.setItem('rdm:hierarchy:v2:["west","test"]', "{broken");
     vi.spyOn(api, "objects").mockResolvedValue({
       items: [domainObject, { ...codelistObject, parentObjectId: domainObject.id }],
       nextCursor: null,
@@ -112,10 +138,10 @@ describe("Explorer", () => {
         onOpen={vi.fn()}
       />,
     );
-    fireEvent.click(await screen.findByRole("button", { name: `Collapse ${domainObject.name}` }));
-    expect(screen.getByRole("button", { name: `Expand ${domainObject.name}` })).toHaveAttribute(
+    fireEvent.click(await screen.findByRole("button", { name: `Expand ${domainObject.name}` }));
+    expect(screen.getByRole("button", { name: `Collapse ${domainObject.name}` })).toHaveAttribute(
       "aria-expanded",
-      "false",
+      "true",
     );
   });
 

@@ -123,7 +123,14 @@ export function ObjectTable({
               objects.map((item) => (
                 <tr
                   key={item.id}
-                  className={selectedId === item.id ? "selected-record" : undefined}
+                  className={`clickable-row${selectedId === item.id ? " selected-record" : ""}`}
+                  onClick={(event) => {
+                    // The identity button is the keyboard path; the row is a larger pointer target.
+                    const target = event.target as HTMLElement;
+                    if (target.closest("button, a, input, select, textarea, [role='menu']")) return;
+                    if (window.getSelection()?.toString()) return;
+                    onOpen(item);
+                  }}
                   onContextMenu={
                     renderActions
                       ? (event) => {

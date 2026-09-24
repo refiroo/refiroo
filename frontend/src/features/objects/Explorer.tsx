@@ -6,7 +6,7 @@ import { objectTypeFor } from "@/model/lookup";
 import { childCollectionGroups, collectionGroups } from "@/model/collections";
 import type { ApplicationDefinition, EngineModel, ObjectItem, ObjectPage } from "@/types";
 import { InlineError } from "@/ui/InlineError";
-import { Icon } from "@/ui/Icon";
+import { Icon, ModelIcon } from "@/ui/Icon";
 
 interface LoadedPage extends ObjectPage {
   loaded: ObjectItem[];
@@ -32,22 +32,10 @@ export function Explorer({
   onOpenCollection?: (viewKey: string, parent?: ObjectItem) => void;
 }) {
   const api = useDataApi();
-  const storageKey = `rdm:hierarchy:v1:${JSON.stringify([workspaceKey, application.key])}`;
-  const [branchState, setBranchState] = useState(() => ({ key: storageKey, collapsed: readCollapsed(storageKey) }));
+  const storageKey = `rdm:hierarchy:v2:${JSON.stringify([workspaceKey, application.key])}`;
+  const [branchState, setBranchState] = useState(() => ({ key: storageKey, choices: readChoices(storageKey) }));
   if (branchState.key !== storageKey) {
-    setBranchState({ key: storageKey, collapsed: readCollapsed(storageKey) });
-  }
-
-  function toggleBranch(id: string) {
-    const collapsed = new Set(branchState.collapsed);
-    if (collapsed.has(id)) collapsed.delete(id);
-    else collapsed.add(id);
-    setBranchState({ key: storageKey, collapsed });
-    try {
-      window.localStorage.setItem(storageKey, JSON.stringify([...collapsed]));
-    } catch {
-      // Storage may be unavailable; keep this session's navigation usable.
-    }
+    setBranchState({ key: storageKey, choices: readChoices(storageKey) });
   }
 
   const [searchInput, setSearchInput] = useState("");
@@ -94,6 +82,32 @@ export function Explorer({
     [pages, loadedSearch, search],
   );
   const objectIds = new Set(objects.map((item) => item.id));
+  const byId = new Map(objects.map((item) => [item.id, item]));
+  const activeAncestors = new Set<string>();
+  for (let cursor = activeObjectId ? byId.get(activeObjectId)?.parentObjectId : undefined; cursor;) {
+    if (activeAncestors.has(cursor)) break;
+    activeAncestors.add(cursor);
+    cursor = byId.get(cursor)?.parentObjectId ?? undefined;
+  }
+
+  /**
+   * Branches start collapsed so a large hierarchy stays scannable. The active record's ancestors
+   * and search results open by default; an explicit choice always wins and persists per browser.
+   */
+  function isExpanded(id: string) {
+    return branchState.choices.get(id) ?? (Boolean(search) || activeAncestors.has(id));
+  }
+
+  function toggleBranch(id: string) {
+    const choices = new Map(branchState.choices);
+    choices.set(id, !isExpanded(id));
+    setBranchState({ key: storageKey, choices });
+    try {
+      window.localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(choices)));
+    } catch {
+      // Storage may be unavailable; keep this session's navigation usable.
+    }
+  }
   const roots = objects
     .filter((item) => !item.parentObjectId || !objectIds.has(item.parentObjectId))
     .sort(comparePaths);
@@ -139,10 +153,11 @@ export function Explorer({
   function node(item: ObjectItem, depth: number): React.ReactNode {
     const scopedGroups = childCollectionGroups(model, application, item.objectTypeKey);
     const hasChildren = Boolean(children.get(item.id)?.length || scopedGroups.length);
-    const expanded = !branchState.collapsed.has(item.id);
+    const expanded = isExpanded(item.id);
+    const type = objectTypeFor(model, item.objectTypeKey);
     return (
       <li key={`${item.objectTypeKey}:${item.id}`}>
-        <div className="tree-row" style={{ paddingLeft: `${12 + depth * 17}px` }}>
+        <div className="tree-row" style={{ paddingLeft: `${4 + depth * 14}px` }}>
           {hasChildren ? (
             <button
               className="tree-toggle"
@@ -156,32 +171,40 @@ export function Explorer({
             <span className="tree-branch" />
           )}
           <button
-            className={item.id === activeObjectId ? "active" : ""}
+            className={`tree-node${item.id === activeObjectId ? " active" : ""}`}
             aria-current={item.id === activeObjectId ? "page" : undefined}
+            title={`${item.name} · ${type?.name ?? item.objectTypeKey}`}
             onClick={() => onOpen(item)}
           >
+            <span className="tree-icon">
+              <ModelIcon name={type?.icon} size={14} />
+            </span>
             <span className="tree-name">{item.name}</span>
-            <span className="type-tag">{objectTypeFor(model, item.objectTypeKey)?.name}</span>
+            <span className="visually-hidden"> {type?.name}</span>
           </button>
         </div>
         {hasChildren && expanded ? (
           <ul>
-            {scopedGroups.map((group) => (
-              <li key={`collection:${item.id}:${group.objectTypeKey}`}>
-                <div className="tree-row collection-tree-row" style={{ paddingLeft: `${29 + depth * 17}px` }}>
-                  <span className="tree-branch" />
-                  <button
-                    aria-label={`${objectTypeFor(model, group.objectTypeKey)?.pluralName ?? group.objectTypeKey} collection within ${item.name}`}
-                    onClick={() => onOpenCollection?.(group.defaultView.key, item)}
-                  >
-                    <span className="tree-name">
-                      {objectTypeFor(model, group.objectTypeKey)?.pluralName ?? group.objectTypeKey}
-                    </span>
-                    <span className="type-tag">collection</span>
-                  </button>
-                </div>
-              </li>
-            ))}
+            {scopedGroups.map((group) => {
+              const pluralName = objectTypeFor(model, group.objectTypeKey)?.pluralName ?? group.objectTypeKey;
+              return (
+                <li key={`collection:${item.id}:${group.objectTypeKey}`}>
+                  <div className="tree-row" style={{ paddingLeft: `${4 + (depth + 1) * 14}px` }}>
+                    <span className="tree-branch" />
+                    <button
+                      className="tree-node tree-collection"
+                      aria-label={`${pluralName} collection within ${item.name}`}
+                      onClick={() => onOpenCollection?.(group.defaultView.key, item)}
+                    >
+                      <span className="tree-icon">
+                        <Icon name="list" size={14} />
+                      </span>
+                      <span className="tree-name">All {pluralName.toLowerCase()}</span>
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
             {(children.get(item.id) ?? []).map((child) => node(child, depth + 1))}
           </ul>
         ) : null}
@@ -191,63 +214,87 @@ export function Explorer({
 
   return (
     <section className="explorer" aria-label={`${application.name} explorer`}>
-      <label className="search-box compact">
-        <Icon name="search" />
-        <input
-          value={searchInput}
-          onChange={(event) => setSearchInput(event.target.value)}
-          aria-label="Search this explorer"
-          placeholder="Search this explorer"
-        />
-      </label>
-      {!search && groups.length > 0 && (
+      {groups.length > 0 && (
         <nav className="collection-tree" aria-label={`${application.name} collections`}>
           <p className="nav-label">Collections</p>
-          {groups.map((group) => (
-            <button
-              key={group.objectTypeKey}
-              className={group.views.some((view) => view.key === activeViewKey) ? "active" : ""}
-              aria-current={group.views.some((view) => view.key === activeViewKey) ? "page" : undefined}
-              onClick={() => onOpenCollection?.(group.defaultView.key)}
-            >
-              <span>{objectTypeFor(model, group.objectTypeKey)?.pluralName ?? group.objectTypeKey}</span>
-              {group.views.length > 1 && <span className="type-tag">{group.views.length} lenses</span>}
-            </button>
-          ))}
+          {groups.map((group) => {
+            const type = objectTypeFor(model, group.objectTypeKey);
+            const active = group.views.some((view) => view.key === activeViewKey);
+            return (
+              <button
+                key={group.objectTypeKey}
+                className={active ? "active" : ""}
+                aria-current={active ? "page" : undefined}
+                onClick={() => onOpenCollection?.(group.defaultView.key)}
+              >
+                <ModelIcon name={type?.icon} />
+                <span>{type?.pluralName ?? group.objectTypeKey}</span>
+                {group.views.some((view) => view.type === "mappingGrid") && (
+                  <span className="collection-hint" title="Includes a mapping view">
+                    <Icon name="mapping" size={13} label="Includes a mapping view" />
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
       )}
-      {error && (
-        <InlineError message={error} onRetry={failedMore ? loadMore : () => setRetryToken((value) => value + 1)} />
-      )}
-      {roots.length ? (
-        <ul className="tree">{roots.map((item) => node(item, search ? Math.max(0, item.path.length - 1) : 0))}</ul>
-      ) : loading ? (
-        <div className="explorer-empty">Loading objects…</div>
-      ) : !error ? (
-        <div className="explorer-empty">{search ? "No matching objects." : "No objects in this application yet."}</div>
-      ) : null}
-      {canLoadMore && !error && (
-        <button className="load-more" disabled={loading} onClick={loadMore}>
-          {loading ? "Loading…" : "Load more objects"}
-        </button>
-      )}
+      <div className="browse-section">
+        <p className="nav-label" id={`${application.key}-browse-label`}>
+          Browse records
+        </p>
+        <label className="search-box compact">
+          <Icon name="search" />
+          <input
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            aria-label="Search this explorer"
+            placeholder="Find a record"
+          />
+        </label>
+        {error && (
+          <InlineError message={error} onRetry={failedMore ? loadMore : () => setRetryToken((value) => value + 1)} />
+        )}
+        {roots.length ? (
+          <ul className="tree" aria-labelledby={`${application.key}-browse-label`}>
+            {roots.map((item) => node(item, search ? Math.max(0, item.path.length - 1) : 0))}
+          </ul>
+        ) : loading ? (
+          <div className="explorer-empty">Loading records…</div>
+        ) : !error ? (
+          <div className="explorer-empty">
+            {search ? "No matching records." : "No records in this application yet."}
+          </div>
+        ) : null}
+        {canLoadMore && !error && (
+          <button className="load-more" disabled={loading} onClick={loadMore}>
+            {loading ? "Loading…" : "Load more objects"}
+          </button>
+        )}
+      </div>
     </section>
   );
 }
 
 function comparePaths(left: ObjectItem, right: ObjectItem) {
-  return left.path
-    .map((part) => part.name)
-    .join("/")
-    .localeCompare(right.path.map((part) => part.name).join("/"));
+  return (
+    left.path
+      .map((part) => part.name)
+      .join("/")
+      .localeCompare(right.path.map((part) => part.name).join("/")) || left.name.localeCompare(right.name)
+  );
 }
 
-function readCollapsed(key: string): Set<string> {
+function readChoices(key: string): Map<string, boolean> {
   try {
-    const value: unknown = JSON.parse(window.localStorage.getItem(key) ?? "[]");
-    if (Array.isArray(value) && value.every((id) => typeof id === "string")) return new Set(value);
+    const value: unknown = JSON.parse(window.localStorage.getItem(key) ?? "{}");
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+      return new Map(
+        Object.entries(value).filter((entry): entry is [string, boolean] => typeof entry[1] === "boolean"),
+      );
+    }
   } catch {
-    // Invalid or unavailable storage falls back to the initial expanded hierarchy.
+    // Invalid or unavailable storage falls back to the default branch state.
   }
-  return new Set();
+  return new Map();
 }

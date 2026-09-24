@@ -3,6 +3,7 @@
  * renderer needs, so adding a view type does not widen this contract.
  */
 
+import type { ReactNode } from "react";
 import type { ApplicationDefinition, CollectionQueryState, EngineModel, ObjectItem, ViewDefinition } from "@/types";
 
 export interface ViewComponentProps {
@@ -17,5 +18,7 @@ export interface ViewComponentProps {
   query: CollectionQueryState;
   onQueryChange: (query: CollectionQueryState) => void;
   onViewChange?: (viewKey: string) => void;
+  /** Sibling lenses of the same source collection, placed by the renderer below its heading. */
+  lenses?: ReactNode;
   onOpen: (item: ObjectItem, action?: "edit" | "delete") => void;
 }

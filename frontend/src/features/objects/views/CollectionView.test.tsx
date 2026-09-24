@@ -66,12 +66,10 @@ describe("CollectionView", () => {
         onOpen={vi.fn()}
       />,
     );
-    expect(screen.getByRole("button", { name: "Filter: Code" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Filter: Active" })).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: "Filter: Code" }));
-    await screen.findByRole("dialog", { name: "Filter: Code" });
-    expect(screen.getByRole("combobox", { name: "Code operator" })).toBeInTheDocument();
-    expect(screen.queryByRole("combobox", { name: "Active value" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Filter" }));
+    const filters = await screen.findByRole("dialog", { name: "Filter" });
+    expect(within(filters).getByRole("combobox", { name: "Code operator" })).toBeInTheDocument();
+    expect(within(filters).getByRole("combobox", { name: "Active value" })).toBeInTheDocument();
     expect(screen.queryByLabelText("States")).not.toBeInTheDocument();
     fireEvent.change(screen.getByRole("combobox", { name: "Code operator" }), {
       target: { value: "startsWith" },
@@ -211,20 +209,14 @@ it.each(["domain", "codelist"])("preserves typed filters and query/display owner
   render(<Harness />);
   await screen.findByRole("button", { name: "Connections" });
   expect(screen.queryByLabelText("Count value")).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: "Filter: Count" }));
-  await screen.findByRole("dialog", { name: "Filter: Count" });
+  fireEvent.click(screen.getByRole("button", { name: "Filter" }));
+  await screen.findByRole("dialog", { name: "Filter" });
   fireEvent.change(screen.getByLabelText("Count value"), { target: { value: "0" } });
   fireEvent.keyDown(screen.getByLabelText("Count value"), { key: "Enter" });
-  fireEvent.click(screen.getByRole("button", { name: "Done" }));
-  fireEvent.click(screen.getByRole("button", { name: "Filter: Active" }));
   fireEvent.change(screen.getByLabelText("Active value"), { target: { value: "false" } });
-  fireEvent.click(screen.getByRole("button", { name: "Done" }));
-  fireEvent.click(screen.getByRole("button", { name: "Filter: Date" }));
   fireEvent.change(screen.getByLabelText("Date operator"), { target: { value: "gte" } });
   fireEvent.change(screen.getByLabelText("Date value"), { target: { value: "2026-01-01" } });
   fireEvent.blur(screen.getByLabelText("Date value"));
-  fireEvent.click(screen.getByRole("button", { name: "Done" }));
-  fireEvent.click(screen.getByRole("button", { name: "Filter: Code" }));
   fireEvent.change(screen.getByLabelText("Code operator"), { target: { value: "isUnset" } });
   fireEvent.change(screen.getByLabelText("Code value"), { target: { value: "true" } });
   expect(latest!.filters).toEqual([
@@ -238,6 +230,7 @@ it.each(["domain", "codelist"])("preserves typed filters and query/display owner
   fireEvent.change(screen.getByLabelText("Code value"), { target: { value: "false" } });
   expect(latest!.filters.at(-1)).toEqual({ field: "code", operator: "isNull", value: "false" });
   fireEvent.click(screen.getByRole("button", { name: "Done" }));
+  expect(screen.getByRole("button", { name: "Filter, 4 applied" })).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "Remove Count is 0" }));
   expect(latest!.filters.map((filter) => filter.field)).toEqual(["active", "date", "code"]);
   fireEvent.click(screen.getByRole("button", { name: "Display" }));

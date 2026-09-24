@@ -79,7 +79,7 @@ export function TableDisplay({
   urlBacked?: boolean;
 }) {
   return (
-    <ControlPopover label="Display">
+    <ControlPopover label="Display" icon="sliders">
       <fieldset className="display-columns">
         <legend>Columns</legend>
         {columns.map((column) => (

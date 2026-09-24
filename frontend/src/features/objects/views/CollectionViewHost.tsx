@@ -1,33 +1,32 @@
 /**
- * Dispatches a configured view to its renderer.
+ * Dispatches a configured view to its renderer. Views that share a source object type are lenses
+ * of one collection; the host builds the lens switch and the renderer places it under its heading.
  */
 
 import { viewComponentRegistry } from "./registry";
 import type { ViewComponentProps } from "./types";
 import { collectionGroups, viewSourceObjectTypeKey } from "@/model/collections";
+import { Icon } from "@/ui/Icon";
 
 export function CollectionView(props: ViewComponentProps) {
   const Component = viewComponentRegistry[props.view.type];
   const group = collectionGroups(props.application).find(
     (candidate) => candidate.objectTypeKey === viewSourceObjectTypeKey(props.view),
   );
-  return (
-    <>
-      {group && group.views.length > 1 && (
-        <nav className="collection-lenses" aria-label="Collection lenses">
-          <span>Lens</span>
-          {group.views.map((view) => (
-            <button
-              key={view.key}
-              aria-current={view.key === props.view.key ? "page" : undefined}
-              onClick={() => props.onViewChange?.(view.key)}
-            >
-              {view.name}
-            </button>
-          ))}
-        </nav>
-      )}
-      <Component {...props} />
-    </>
-  );
+  const lenses =
+    group && group.views.length > 1 ? (
+      <nav className="collection-lenses" aria-label="Collection lenses">
+        {group.views.map((view) => (
+          <button
+            key={view.key}
+            aria-current={view.key === props.view.key ? "page" : undefined}
+            onClick={() => props.onViewChange?.(view.key)}
+          >
+            <Icon name={view.type === "mappingGrid" ? "mapping" : "table"} size={15} />
+            {view.name}
+          </button>
+        ))}
+      </nav>
+    ) : undefined;
+  return <Component {...props} lenses={lenses} />;
 }

@@ -8,6 +8,7 @@ import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { objectTypeFor } from "@/model/lookup";
 import { InlineError } from "@/ui/InlineError";
+import { Icon, ModelIcon } from "@/ui/Icon";
 import { ObjectTable } from "@/ui/ObjectTable";
 import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
 import { Pagination } from "@/ui/Pagination";
@@ -29,6 +30,7 @@ export function ObjectCollectionView({
   onChanged,
   refreshToken = 0,
   selectedId,
+  lenses,
 }: ViewComponentProps) {
   const view = rawView as TableViewDefinition;
   const api = useDataApi();
@@ -103,39 +105,47 @@ export function ObjectCollectionView({
       }}
     >
       <header className="page-header collection-header">
-        <div>
-          <h1 tabIndex={-1}>{view.name}</h1>
+        <div className="page-title">
+          <span className="page-icon" aria-hidden="true">
+            <ModelIcon name={objectType.icon} size={20} />
+          </span>
+          <div>
+            <h1 tabIndex={-1}>{view.name}</h1>
+            <p>{objectType.description ?? application.description}</p>
+          </div>
+        </div>
+        {!readOnly && (
+          <div className="collection-header-actions">
+            <button className="primary" onClick={() => setCreating(true)}>
+              <Icon name="plus" /> Add {objectType.name}
+            </button>
+          </div>
+        )}
+      </header>
+      {query.parentObjectId && (
+        <div className="scope-banner">
           <CollectionScope
             model={model}
             workspaceKey={workspaceKey}
             parentObjectId={query.parentObjectId}
             parentObjectTypeKey={query.parentObjectTypeKey}
           />
-          <p>{objectType.description ?? application.description}</p>
+          <button
+            className="ghost"
+            onClick={() =>
+              onQueryChange({
+                ...query,
+                parentObjectId: undefined,
+                parentObjectTypeKey: undefined,
+                cursors: undefined,
+              })
+            }
+          >
+            Show all {objectType.pluralName.toLowerCase()}
+          </button>
         </div>
-        <div className="collection-header-actions">
-          {query.parentObjectId && (
-            <button
-              className="secondary"
-              onClick={() =>
-                onQueryChange({
-                  ...query,
-                  parentObjectId: undefined,
-                  parentObjectTypeKey: undefined,
-                  cursors: undefined,
-                })
-              }
-            >
-              Show all {objectType.pluralName.toLowerCase()}
-            </button>
-          )}
-          {!readOnly && (
-            <button className="primary" onClick={() => setCreating(true)}>
-              Add {objectType.name}
-            </button>
-          )}
-        </div>
-      </header>
+      )}
+      {lenses}
       <section className="surface collection-surface">
         <ObjectToolbar
           display={
@@ -155,17 +165,6 @@ export function ObjectCollectionView({
           onChange={(next) => onQueryChange({ ...next, cursors: undefined })}
           placeholder={`Search ${objectType.pluralName.toLowerCase()}`}
         />
-        <div className="collection-meta">
-          <span role="status">
-            {loading
-              ? "Loading records…"
-              : !error
-                ? `${pages.items.length} on this page`
-                : pages.items.length > 0
-                  ? "Showing previously loaded records"
-                  : "Records unavailable"}
-          </span>
-        </div>
         {error && <InlineError message={error} onRetry={pages.retry} />}
         {(!error || pages.items.length > 0) && (
           <ObjectTable
@@ -199,15 +198,26 @@ export function ObjectCollectionView({
             }
           />
         )}
-        {!error && (
-          <Pagination
-            disabled={loading}
-            page={pages.pageNumber}
-            hasNext={pages.hasNext}
-            onPrevious={pages.previous}
-            onNext={pages.next}
-          />
-        )}
+        <footer className="collection-footer">
+          <span role="status">
+            {loading
+              ? "Loading records…"
+              : !error
+                ? `${pages.items.length} ${pages.items.length === 1 ? "record" : "records"} on this page`
+                : pages.items.length > 0
+                  ? "Showing previously loaded records"
+                  : "Records unavailable"}
+          </span>
+          {!error && (
+            <Pagination
+              disabled={loading}
+              page={pages.pageNumber}
+              hasNext={pages.hasNext}
+              onPrevious={pages.previous}
+              onNext={pages.next}
+            />
+          )}
+        </footer>
       </section>
       {creating && !readOnly && (
         <ObjectFormDialog

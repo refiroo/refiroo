@@ -128,6 +128,41 @@ ancestor fields when its rows otherwise lack administrative identity.
 - Model lifecycle presentation distinguishes draft save, validation, immutable installation and
   activation.
 
+## Base 0.7 presentation
+
+The 0.7 UX pass (2026-09-24) keeps every route, data context and renderer contract, and changes only
+how the shell and generic renderers present them. All labels, icons and colours come from the model;
+no renderer branches on an application or object-type key.
+
+- **Global header:** model-declared applications are peer tabs with their model `icon`/`color`. The
+  active model and schema versions are shown as plain text; Models is a separate header entry and its
+  page has no application browser.
+- **Context bar:** workspace and application with a Live, named Draft or Historical snapshot status,
+  and one segmented Live / Drafts / History control that always shows the active context.
+- **Application browser:** Collections list (with the model object-type icon and a mapping-lens hint)
+  above Browse records. Record branches start collapsed; the active record's ancestors and search
+  results open by default, and an explicit expand/collapse choice persists per workspace and
+  application. A containment collection appears inside an expanded branch as “All ⟨plural⟩”.
+- **Collections:** page header with the source-type icon and primary create action; direct-parent
+  scope as a removable banner; lenses as tabs below the heading. One Filter popover holds every
+  declared typed filter and shows how many are applied; applied filters remain removable chips. The
+  loaded-page count sits beside pagination. Rows are pointer targets; the identity button remains the
+  keyboard path.
+- **Records:** Back to list and the configured breadcrumb share one line; the header shows the type,
+  title, version and a visible Edit record action beside the record menu. Field actions sit beside
+  their label; unset values are visibly distinct. Record activity uses model field names and relative
+  times and omits identifiers and concurrency tokens.
+- **Mapping lenses:** coverage state is a segmented filter (All, Unmapped, Mapped, Ambiguous). A row,
+  or its Map/Change button, opens a dialog that shows the current mapping, searchable candidates as
+  a radio list, create-new, and **Save and next** to continue with the following row. Clearing a
+  mapping is only the explicit **Remove mapping** action; saving is disabled until a different
+  target is selected. Conflict review is unchanged.
+- **Inside a draft:** a compact draft bar replaces the stacked workflow panel and keeps Validate,
+  Activate and More draft actions in one row.
+
+Records opened from a collection keep the full-width presentation chosen in UI-03; the inspector
+split view remains available in code but is not the default.
+
 ## Established CRUD UI contract and WP9 recovery target
 
 The behaviors in this section existed before the WP5/WP6 transition. They are the required generic UI

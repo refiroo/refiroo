@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { formatServerTime } from "@/lib/dates";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
@@ -46,15 +47,24 @@ export function WorkspaceHistory({
   }
 
   return (
-    <section className="surface panel">
-      <h1>Publication history</h1>
-      <p>Immutable snapshots are newest first. Opening or using one as a draft source does not restore live data.</p>
+    <section className="context-page">
+      <header className="page-header">
+        <div className="page-title">
+          <div>
+            <h1>Publication history</h1>
+            <p>
+              Immutable snapshots are newest first. Opening or using one as a draft source does not restore live data.
+            </p>
+          </div>
+        </div>
+      </header>
       {message && <Notice tone="success">{message}</Notice>}
       {feed.items.map((revision) => (
-        <article key={revision.id} className="history-card">
+        <article key={revision.id} className="surface history-card">
           <h2>
             Revision {revision.revisionNumber} ·{" "}
             {revision.status === "active" ? "Current publication" : "Historical snapshot"}
+            {revision.status === "active" && <span className="pill active-pill">Active</span>}
           </h2>
           <dl className="attribute-grid">
             <div>
@@ -63,7 +73,7 @@ export function WorkspaceHistory({
             </div>
             <div>
               <dt>Published</dt>
-              <dd>{formatTime(revision.activatedAt)}</dd>
+              <dd>{formatServerTime(revision.activatedAt)}</dd>
             </div>
             <div>
               <dt>Model release</dt>
@@ -82,7 +92,7 @@ export function WorkspaceHistory({
               </dd>
             </div>
           </dl>
-          <div className="detail-actions">
+          <div className="card-actions">
             <button className="secondary" onClick={() => onOpen(revision.id)}>
               Inspect snapshot
             </button>
@@ -92,7 +102,7 @@ export function WorkspaceHistory({
               </button>
             )}
             {!readOnly && revision.status === "active" && (
-              <button className="text-danger" onClick={() => setRetiring(revision)}>
+              <button className="danger-ghost" onClick={() => setRetiring(revision)}>
                 Retire publication
               </button>
             )}
@@ -101,9 +111,14 @@ export function WorkspaceHistory({
       ))}
       {feed.loading && feed.items.length === 0 && <p>Loading publication history…</p>}
       {feed.error && <InlineError message={feed.error} onRetry={feed.retry} />}
-      {!feed.loading && !feed.error && !feed.items.length && <p>No publications yet. Live records remain available.</p>}
+      {!feed.loading && !feed.error && !feed.items.length && (
+        <div className="surface empty-panel">
+          <strong>No publications yet</strong>
+          <p>Publishing a draft creates an immutable snapshot here. Live records remain available.</p>
+        </div>
+      )}
       {feed.hasMore && !feed.error && (
-        <button disabled={feed.loading} onClick={feed.loadMore}>
+        <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
           Load older revisions
         </button>
       )}
@@ -212,9 +227,4 @@ export function HistoricalRevisionBanner({ onExit }: { onExit: () => void }) {
       </button>
     </Notice>
   );
-}
-
-function formatTime(value: string) {
-  const date = new Date(value);
-  return Number.isNaN(date.valueOf()) ? value : date.toLocaleString();
 }

@@ -52,23 +52,32 @@ export function ObjectToolbar({
           placeholder={placeholder}
           onApply={(search) => onChange({ ...query, search })}
         />
-        {view.config.filterFields.map((field) => {
-          const type = valueType(model, field);
-          const current = query.filters.find((filter) => filter.field === field);
-          const name = attributeName(model, field);
-          return (
-            <ControlPopover key={field} label={`Filter: ${name}${current?.value ? `: ${current.value}` : ""}`}>
-              <FilterControl
-                label={name}
-                type={type}
-                attribute={!isBuiltIn(field)}
-                initial={current ?? { operator: defaultOperator(type), value: "" }}
-                onApply={(input) => applyFilter(field, input)}
-              />
-            </ControlPopover>
-          );
-        })}
-        <ControlPopover label="Sort">
+        {view.config.filterFields.length > 0 && (
+          <ControlPopover label="Filter" icon="filter" count={query.filters.length}>
+            <div className="filter-fields">
+              {view.config.filterFields.map((field) => {
+                const type = valueType(model, field);
+                const current = query.filters.find((filter) => filter.field === field);
+                return (
+                  <FilterControl
+                    key={field}
+                    label={attributeName(model, field)}
+                    type={type}
+                    attribute={!isBuiltIn(field)}
+                    initial={current ?? { operator: defaultOperator(type), value: "" }}
+                    onApply={(input) => applyFilter(field, input)}
+                  />
+                );
+              })}
+            </div>
+            {query.filters.length > 0 && (
+              <button type="button" className="ghost" onClick={() => onChange({ ...query, filters: [] })}>
+                Clear all filters
+              </button>
+            )}
+          </ControlPopover>
+        )}
+        <ControlPopover label="Sort" icon="sort">
           <SelectField
             className="toolbar-field"
             label="Sort"
@@ -82,17 +91,20 @@ export function ObjectToolbar({
       <div className="filter-chips" aria-label="Applied filters">
         {query.filters.map((filter, index) => (
           <button
-            className="secondary filter-chip"
+            className="filter-chip"
             key={`${filter.field}:${filter.operator}:${index}`}
             aria-label={`Remove ${attributeName(model, filter.field)} ${OPERATOR_LABELS[filter.operator] ?? filter.operator} ${filter.value}`}
             onClick={() => onChange({ ...query, filters: query.filters.filter((_, position) => position !== index) })}
           >
-            {attributeName(model, filter.field)} {OPERATOR_LABELS[filter.operator] ?? filter.operator} {filter.value}{" "}
-            <span aria-hidden="true">×</span>
+            <span>
+              {attributeName(model, filter.field)} <em>{OPERATOR_LABELS[filter.operator] ?? filter.operator}</em>{" "}
+              {filter.value}
+            </span>
+            <Icon name="close" size={13} />
           </button>
         ))}
         {(query.search !== "" || query.filters.length > 0) && (
-          <button className="secondary" onClick={() => onChange({ ...query, search: "", filters: [] })}>
+          <button className="ghost" onClick={() => onChange({ ...query, search: "", filters: [] })}>
             Clear filters
           </button>
         )}

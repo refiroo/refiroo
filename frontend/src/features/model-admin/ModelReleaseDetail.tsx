@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { formatServerTime } from "@/lib/dates";
 import { api } from "@/api/client";
 import { errorMessage, isApiError } from "@/api/errors";
 import type { ModelRelease, ModelReleaseDiff, ModelRuntimeState } from "@/types";
@@ -96,12 +97,12 @@ export function ModelReleaseDetail({
             {release.key} · {release.version} · schema {release.schemaVersion}
           </p>
         </div>
-        {release.active && <span className="compatibility compatible">active</span>}
+        {release.active && <span className="compatibility compatible">Active</span>}
       </header>
       <dl className="release-metadata">
         <div>
           <dt>Installed</dt>
-          <dd>{new Date(release.installedAt).toLocaleString()}</dd>
+          <dd>{formatServerTime(release.installedAt)}</dd>
         </div>
         <div>
           <dt>Canonical hash</dt>

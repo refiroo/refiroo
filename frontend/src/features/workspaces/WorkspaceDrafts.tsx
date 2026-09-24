@@ -9,6 +9,7 @@ import { Notice } from "@/ui/Notice";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
+import { Icon } from "@/ui/Icon";
 
 export function draftSource(draft: WorkspaceDraft) {
   return draft.source === "currentLive"
@@ -30,41 +31,54 @@ export function WorkspaceDrafts({
   const feed = useCursorFeed((cursor) => api.workspaceDrafts(workspaceKey, cursor), [workspaceKey]);
   const [creating, setCreating] = useState(false);
   return (
-    <section className="surface panel">
-      <h1>Workspace drafts</h1>
-      <p>Coordinate changes in an optional draft. Ordinary maintenance remains available in Live.</p>
-      {!readOnly && (
-        <button className="primary" onClick={() => setCreating(true)}>
-          Start from current live data
-        </button>
+    <section className="context-page">
+      <header className="page-header collection-header">
+        <div className="page-title">
+          <div>
+            <h1>Workspace drafts</h1>
+            <p>Coordinate changes in an optional draft. Ordinary maintenance remains available in Live.</p>
+          </div>
+        </div>
+        {!readOnly && (
+          <div className="collection-header-actions">
+            <button className="primary" onClick={() => setCreating(true)}>
+              <Icon name="plus" /> Start from current live data
+            </button>
+          </div>
+        )}
+      </header>
+      {feed.items.length > 0 && (
+        <div className="draft-list">
+          {feed.items.map((draft) => (
+            <article className="surface draft-card" key={draft.id}>
+              <div>
+                <span className="context-status status-draft">Draft</span>
+                <h2>{draft.name || "Untitled draft"}</h2>
+                <p>{draftSource(draft)}</p>
+                <p className="draft-model-release">
+                  Model: {draft.modelReleaseKey} {draft.modelReleaseVersion}
+                </p>
+              </div>
+              <div className="draft-card-actions">
+                <span className="muted-text">Version {draft.version}</span>
+                <button className="secondary" onClick={() => onOpen(draft.id)}>
+                  Open draft
+                </button>
+              </div>
+            </article>
+          ))}
+        </div>
       )}
-      <div className="draft-list">
-        {feed.items.map((draft) => (
-          <article className="draft-card" key={draft.id}>
-            <div>
-              <span className="context-status">Draft</span>
-              <h2>{draft.name || "Untitled draft"}</h2>
-              <p>{draftSource(draft)}</p>
-              <p className="draft-model-release">
-                Model: {draft.modelReleaseKey} {draft.modelReleaseVersion}
-              </p>
-            </div>
-            <div className="draft-card-actions">
-              <span>Version {draft.version}</span>
-              <button className="secondary" onClick={() => onOpen(draft.id)}>
-                Open draft
-              </button>
-            </div>
-          </article>
-        ))}
-      </div>
-      {feed.loading && <p>Loading drafts…</p>}
+      {feed.loading && <p className="muted-text">Loading drafts…</p>}
       {feed.error && <InlineError message={feed.error} onRetry={feed.retry} />}
       {!feed.loading && !feed.error && !feed.items.length && (
-        <p>No drafts. You can continue editing Live or start a draft.</p>
+        <div className="surface empty-panel">
+          <strong>No drafts</strong>
+          <p>You can continue editing Live, or start a draft to prepare coordinated changes.</p>
+        </div>
       )}
       {feed.hasMore && !feed.error && (
-        <button disabled={feed.loading} onClick={feed.loadMore}>
+        <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
           Load more drafts
         </button>
       )}
@@ -309,18 +323,56 @@ export function DraftActions({
     }
   }
   return (
-    <section className="surface panel" aria-label="Draft publication">
-      <div className="draft-publication-heading">
-        <div>
-          <span className="context-status">Named draft</span>
+    <section className="surface draft-bar" aria-label="Draft publication">
+      <div className="draft-bar-row">
+        <div className="draft-bar-main">
+          <span className="context-status status-draft">Named draft</span>
           <h2>{current.name || "Untitled draft"}</h2>
+          <span className="draft-bar-meta">
+            <span>Version {current.version}</span>
+            <span>{draftSource(current)}</span>
+            <span>
+              Model {current.modelReleaseKey} {current.modelReleaseVersion}
+            </span>
+          </span>
         </div>
-        <strong>Version {current.version}</strong>
+        {!readOnly && (
+          <div className="draft-bar-actions">
+            <button
+              className="secondary"
+              disabled={pending}
+              onClick={check}
+              title="Check the full draft graph against the current publication"
+            >
+              Validate draft
+            </button>
+            <button
+              className="primary"
+              disabled={pending || modelMismatch || !validation?.result.valid || validation.version !== current.version}
+              title={
+                modelMismatch
+                  ? "Draft model version differs from the active release. Change the version or wait until this release is activated."
+                  : "Activation is available after a successful validation."
+              }
+              onClick={() => setConfirm("activate")}
+            >
+              Activate draft
+            </button>
+            <details className="draft-secondary-actions">
+              <summary>More draft actions</summary>
+              <div className="draft-secondary-menu">
+                <button className="secondary" disabled={pending} onClick={openVersionChange}>
+                  Change model version
+                </button>
+                <button className="danger-ghost" disabled={pending} onClick={() => setConfirm("discard")}>
+                  Discard draft
+                </button>
+              </div>
+            </details>
+          </div>
+        )}
       </div>
-      <p>
-        Source: {draftSource(current)}. Model: {current.modelReleaseKey} {current.modelReleaseVersion}. Changes here
-        remain private to this draft until activation.
-      </p>
+      <p className="draft-bar-note">Changes here remain private to this draft until activation.</p>
       {modelMismatch && (
         <Notice tone="info" title="This draft uses a different model version">
           This draft works under {current.modelReleaseKey} {current.modelReleaseVersion}; live data uses the active
@@ -335,52 +387,6 @@ export function DraftActions({
             reload().catch((cause) => setError(errorMessage(cause)));
           }}
         />
-      )}
-      {!readOnly && (
-        <div className="draft-workflow">
-          <div className="draft-workflow-step">
-            <span aria-hidden="true">1</span>
-            <div>
-              <strong>Review readiness</strong>
-              <small>Check the full draft graph and current publication.</small>
-            </div>
-            <button className="secondary" disabled={pending} onClick={check}>
-              Validate draft
-            </button>
-          </div>
-          <div className="draft-workflow-step">
-            <span aria-hidden="true">2</span>
-            <div>
-              <strong>Publish reviewed changes</strong>
-              <small>
-                {modelMismatch
-                  ? "Activation requires this draft's model version to match the active release."
-                  : "Activation is available after a successful validation."}
-              </small>
-            </div>
-            <button
-              className="primary"
-              disabled={pending || modelMismatch || !validation?.result.valid || validation.version !== current.version}
-              title={
-                modelMismatch
-                  ? "Draft model version differs from the active release. Change the version or wait until this release is activated."
-                  : undefined
-              }
-              onClick={() => setConfirm("activate")}
-            >
-              Activate draft
-            </button>
-          </div>
-          <details className="draft-secondary-actions">
-            <summary>More draft actions</summary>
-            <button className="secondary" disabled={pending} onClick={openVersionChange}>
-              Change model version
-            </button>
-            <button className="text-danger" disabled={pending} onClick={() => setConfirm("discard")}>
-              Discard draft
-            </button>
-          </details>
-        </div>
       )}
       {changingVersion && (
         <Modal

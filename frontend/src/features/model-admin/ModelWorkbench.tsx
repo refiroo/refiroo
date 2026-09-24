@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { formatServerTime } from "@/lib/dates";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import type {
@@ -213,7 +214,7 @@ export function ModelWorkbench({
                   >
                     <strong>{draft.name}</strong>
                     <small>
-                      Version {draft.version} · {new Date(draft.updatedAt).toLocaleString()}
+                      Version {draft.version} · {formatServerTime(draft.updatedAt)}
                     </small>
                   </button>
                 ))

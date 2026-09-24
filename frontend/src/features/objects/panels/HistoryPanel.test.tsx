@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
-import { domainObject } from "@/test/fixtures";
+import { domainObject, testModel } from "@/test/fixtures";
 import { HistoryPanel } from "@/features/objects/panels/HistoryPanel";
 
 vi.mock("@/api/client", () => ({ api: { objectHistory: vi.fn() } }));
@@ -40,9 +40,11 @@ describe("HistoryPanel", () => {
         nextCursor: null,
       });
     render(<HistoryPanel objectTypeKey="domain" objectId={domainObject.id} />);
-    expect(await screen.findByText("Object updated")).toBeInTheDocument();
+    expect(await screen.findByText("Record updated")).toBeInTheDocument();
+    expect(screen.getByText("Changed name")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Load older history" }));
-    expect(await screen.findByText("Attribute created")).toBeInTheDocument();
+    expect(await screen.findByText("Field value added")).toBeInTheDocument();
+    expect(screen.getByText("Changed code")).toBeInTheDocument();
     await waitFor(() =>
       expect(api.objectHistory).toHaveBeenLastCalledWith("domain", domainObject.id, { cursor: "older", pageSize: 20 }),
     );
@@ -84,7 +86,40 @@ describe("HistoryPanel", () => {
     render(<HistoryPanel objectTypeKey="domain" objectId={domainObject.id} />);
     fireEvent.click(await screen.findByRole("button", { name: "Load older history" }));
     fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
-    expect(await screen.findByText("Object created")).toBeInTheDocument();
+    expect(await screen.findByText("Record created")).toBeInTheDocument();
     expect(api.objectHistory).toHaveBeenLastCalledWith("domain", domainObject.id, { cursor: "older", pageSize: 20 });
+  });
+
+  it("describes changes in model terms without exposing identifiers or concurrency tokens", async () => {
+    vi.mocked(api.objectHistory).mockResolvedValueOnce({
+      items: [
+        {
+          id: "event-3",
+          aggregateType: "relation",
+          aggregateId: "relation-id",
+          action: "created",
+          version: 1,
+          changedFields: ["expectedWorkspaceDraftVersion", "fromObjectId", "relationTypeKey", "workspaceDraftId"],
+          attributeTypeKeys: [],
+          occurredAt: "2026-09-05T10:00:00Z",
+        },
+        {
+          id: "event-4",
+          aggregateType: "object",
+          aggregateId: domainObject.id,
+          action: "created",
+          version: 1,
+          changedFields: ["initialRelations", "objectTypeKey", "attributes"],
+          attributeTypeKeys: ["code"],
+          occurredAt: "2026-09-04T10:00:00Z",
+        },
+      ],
+      nextCursor: null,
+    });
+    render(<HistoryPanel model={testModel} objectTypeKey="domain" objectId={domainObject.id} />);
+    expect(await screen.findByText("Relationship created")).toBeInTheDocument();
+    expect(screen.getByText("Record created")).toBeInTheDocument();
+    expect(screen.getByText("Changed Code")).toBeInTheDocument();
+    expect(screen.queryByText(/expectedWorkspaceDraftVersion|fromObjectId|initialRelations|objectTypeKey/)).toBeNull();
   });
 });

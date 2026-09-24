@@ -99,7 +99,7 @@ export function AttributesPanel({
           // when the object type binds it and the model still declares the attribute type.
           const editable = binding && attribute && !binding.readOnly ? { binding, attribute } : undefined;
           return (
-            <div key={field}>
+            <div key={field} className={editing?.attribute.key === field ? "attribute-row editing" : "attribute-row"}>
               <dt>{attributeName(model, field)}</dt>
               <dd>
                 {editing?.attribute.key === field ? (
@@ -116,15 +116,19 @@ export function AttributesPanel({
                   />
                 ) : (
                   <>
-                    {attribute
-                      ? !stored
-                        ? "Not set"
-                        : stored.value === null
-                          ? "Null"
-                          : stored.value === ""
-                            ? "Empty text"
-                            : formatValue(stored.value)
-                      : formatValue(fieldValue(object, field, model))}
+                    {attribute ? (
+                      !stored ? (
+                        <span className="unset-value">Not set</span>
+                      ) : stored.value === null ? (
+                        <span className="unset-value">Null</span>
+                      ) : stored.value === "" ? (
+                        <span className="unset-value">Empty text</span>
+                      ) : (
+                        <span className="attribute-value">{formatValue(stored.value)}</span>
+                      )
+                    ) : (
+                      <span className="attribute-value">{formatValue(fieldValue(object, field, model))}</span>
+                    )}
                     {savedField === field && (
                       <p role="status" className="inline-save-status">
                         {warning || (draft ? `Saved to draft “${draft.name}”` : "Saved to Live")}

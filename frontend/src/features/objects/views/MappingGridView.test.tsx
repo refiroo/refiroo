@@ -6,7 +6,7 @@ import type {
   MappingReplacementResponse,
   MappingTargetPage,
 } from "@/types";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { domainObject, testModel } from "@/test/fixtures";
@@ -176,17 +176,18 @@ describe("MappingGridView", () => {
     renderGrid();
 
     await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
+    const grid = await screen.findByRole("region", { name: /mapping grid/ });
 
-    expect(screen.getByText("Connections")).toBeInTheDocument();
-    expect(screen.getByText("Mapped")).toBeInTheDocument();
-    expect(screen.getByText("Timetable types")).toBeInTheDocument();
+    expect(within(grid).getByText("Connections")).toBeInTheDocument();
+    expect(within(grid).getByText("Mapped")).toBeInTheDocument();
+    expect(within(grid).getByText("Timetable types")).toBeInTheDocument();
 
-    expect(screen.getByText("Financial")).toBeInTheDocument();
-    expect(screen.getByText("Unmapped")).toBeInTheDocument();
+    expect(within(grid).getByText("Financial")).toBeInTheDocument();
+    expect(within(grid).getByText("Unmapped")).toBeInTheDocument();
 
-    expect(screen.getByText("Admin")).toBeInTheDocument();
-    expect(screen.getByText(/Ambiguous/)).toBeInTheDocument();
-    expect(screen.getByText(/\(4\)/)).toBeInTheDocument();
+    expect(within(grid).getByText("Admin")).toBeInTheDocument();
+    expect(within(grid).getByText(/Ambiguous/)).toBeInTheDocument();
+    expect(within(grid).getByText(/\(4\)/)).toBeInTheDocument();
   });
 
   it("passes the correct binding parameters to the coverage API", async () => {
@@ -228,7 +229,9 @@ describe("MappingGridView", () => {
     );
     expect(screen.getByRole("button", { name: /Show all domains/i })).toBeVisible();
     expect(await screen.findByText(/Within Domain: Connections/)).toBeVisible();
-    fireEvent.change(screen.getByRole("combobox", { name: "Mapping status" }), { target: { value: "mapped" } });
+    const status = screen.getByRole("group", { name: "Mapping status" });
+    expect(within(status).getByRole("button", { name: "Unmapped" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(within(status).getByRole("button", { name: "Mapped" }));
     expect(onQueryChange).toHaveBeenCalledWith(expect.objectContaining({ mappingState: "mapped", cursors: undefined }));
   });
 
@@ -402,8 +405,11 @@ describe("MappingGridView — mapping actions (WP-8B)", () => {
     await waitFor(() => expect(screen.getByText(/Change mapping — Financial/)).toBeInTheDocument());
     await waitFor(() => expect(api.mappingCandidates).toHaveBeenCalled());
 
-    expect(screen.getByRole("option", { name: /Candidate X/ })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: /Candidate Y/ })).toBeInTheDocument();
+    expect(await screen.findByRole("radio", { name: /Candidate X/ })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Candidate Y/ })).toBeInTheDocument();
+    expect(screen.getByText("Not mapped")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Save mapping" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Remove mapping" })).not.toBeInTheDocument();
   });
 
   it("saves a mapping replacement and refreshes coverage", async () => {
@@ -415,8 +421,7 @@ describe("MappingGridView — mapping actions (WP-8B)", () => {
 
     await waitFor(() => expect(api.mappingCandidates).toHaveBeenCalled());
 
-    const select = screen.getByRole("combobox", { name: /select codelist/i });
-    fireEvent.change(select, { target: { value: "c1" } });
+    fireEvent.click(await screen.findByRole("radio", { name: /Candidate X/ }));
 
     fireEvent.click(screen.getByRole("button", { name: /Save mapping/i }));
 
@@ -438,18 +443,16 @@ describe("MappingGridView — mapping actions (WP-8B)", () => {
     await waitFor(() => expect(onChanged).toHaveBeenCalled());
   });
 
-  it("clears a mapping when no target is selected", async () => {
+  it("removes a mapping only through the explicit remove action", async () => {
     renderGrid();
 
     await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: /Change mapping for Connections/ }));
 
     await waitFor(() => expect(api.mappingCandidates).toHaveBeenCalled());
+    expect(screen.getByRole("button", { name: "Save mapping" })).toBeDisabled();
 
-    const select = screen.getByRole("combobox", { name: /select codelist/i });
-    fireEvent.change(select, { target: { value: "" } });
-
-    fireEvent.click(screen.getByRole("button", { name: /Clear mapping/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove mapping" }));
 
     await waitFor(() =>
       expect(api.replaceMapping).toHaveBeenCalledWith(
@@ -478,8 +481,7 @@ describe("MappingGridView — mapping actions (WP-8B)", () => {
 
     await waitFor(() => expect(api.mappingCandidates).toHaveBeenCalled());
 
-    const select = screen.getByRole("combobox", { name: /select codelist/i });
-    fireEvent.change(select, { target: { value: "c1" } });
+    fireEvent.click(await screen.findByRole("radio", { name: /Candidate X/ }));
     fireEvent.click(screen.getByRole("button", { name: /Save mapping/i }));
 
     await waitFor(() => expect(screen.getByText(/Mapping conflict/)).toBeInTheDocument());
@@ -498,6 +500,25 @@ describe("MappingGridView — mapping actions (WP-8B)", () => {
         }),
       ),
     );
+  });
+
+  it("opens the mapping dialog from anywhere on a row and continues to the next row", async () => {
+    const onChanged = vi.fn();
+    renderGrid({ onChanged });
+
+    fireEvent.click(await screen.findByText("Financial"));
+    expect(await screen.findByText(/Change mapping — Financial/)).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("radio", { name: /Candidate Y/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Save and next" }));
+
+    await waitFor(() =>
+      expect(api.replaceMapping).toHaveBeenCalledWith(
+        "west",
+        expect.objectContaining({ sourceObjectId: "s2", targetObjectId: "c2" }),
+      ),
+    );
+    expect(await screen.findByText(/Change mapping — Admin/)).toBeInTheDocument();
+    expect(onChanged).toHaveBeenCalled();
   });
 
   it("shows Action column header", async () => {

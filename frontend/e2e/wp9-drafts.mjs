@@ -111,13 +111,17 @@ try {
     await page.goto(`${uiUrl}/apps/${object.applicationKey}/objects/${object.objectTypeKey}/${object.id}?workspaceKey=${workspaceKey}${draftId ? `&workspaceDraftId=${draftId}` : ""}`);
     await shown(page.getByRole("button", { name: "Record actions", exact: true }));
   }
+  async function openDraftMenu() {
+    const menu = page.locator("details.draft-secondary-actions");
+    if (!(await menu.evaluate((element) => element.open))) await menu.locator("summary").click();
+  }
   async function startDraft(name) {
     await page.getByRole("navigation", { name: "Workspace data context" }).getByRole("button", { name: "Drafts", exact: true }).click();
     await page.getByRole("button", { name: "Start from current live data", exact: true }).click();
     await dialog().getByLabel("Draft name").fill(name);
     await dialog().getByRole("button", { name: "Create draft", exact: true }).click();
-    await shown(page.getByRole("heading", { name: new RegExp(`${name} · Draft v`) }));
-    assert.match(await page.locator("main").innerText(), /Source: Current live data at draft creation/);
+    await shown(page.getByRole("region", { name: "Draft publication" }).getByRole("heading", { name, exact: true }));
+    assert.match(await page.locator("main").innerText(), /Current live data at draft creation/);
     return new URL(page.url()).searchParams.get("workspaceDraftId");
   }
   async function edit(object, draftId, fields) {
@@ -194,7 +198,6 @@ try {
   assert(draftRelations.items.some((item) => item.relation.toObjectId === systemValue.id));
   assert(!(await api(`/relations?objectId=${domain.id}&workspaceKey=${workspaceKey}`)).items.some((item) => item.relation.toObjectId === systemValue.id));
   // In-app navigation and reload retain draft identity across applications and back to the collection.
-  await page.locator(".application-nav summary").click();
   await page.getByRole("navigation", { name: "Applications" }).getByRole("button", { name: model.applications.find((app) => app.key === "rdm-systems").name, exact: true }).click();
   assert.equal(new URL(page.url()).searchParams.get("workspaceDraftId"), first);
   await page.reload();
@@ -244,9 +247,11 @@ try {
   assert.equal((await get(domain, second)).name, "My preserved input");
   assert.equal((await api(`/workspaces/${workspaceKey}/revisions`)).items.length, 1);
   checks.push("SC-05 post-publication additions and edits copied; record/aggregate conflict retains form input with explicit retry; SC-06 touched-record activation conflict names identity, preserves draft and publishes no other changes");
+  await openDraftMenu();
   await page.getByRole("button", { name: "Discard draft", exact: true }).click();
   await confirm().getByRole("button", { name: "Cancel", exact: true }).click();
   await api(`/workspace-drafts/${second}`);
+  await openDraftMenu();
   await page.getByRole("button", { name: "Discard draft", exact: true }).click();
   await confirm().getByRole("button", { name: "Discard draft", exact: true }).click();
   await shown(page.getByText("Draft discarded. Live data is unchanged.", { exact: true }));
@@ -298,6 +303,7 @@ try {
   await confirm().waitFor({ state: "hidden" });
   await get(system); await get(systemValue);
   await page.setViewportSize({ width: 390, height: 844 });
+  await openDraftMenu();
   await page.getByRole("button", { name: "Discard draft", exact: true }).click();
   await page.keyboard.press("Escape");
   await confirm().waitFor({ state: "hidden" });

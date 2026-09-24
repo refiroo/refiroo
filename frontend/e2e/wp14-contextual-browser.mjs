@@ -34,6 +34,7 @@ try {
 
   await page.goto(`${uiUrl}/apps/rdm-systems/views/systems?workspaceKey=default`);
   const browser = page.getByRole("region", { name: "RDM Systems explorer" });
+  await browser.getByRole("button", { name: "Expand System 00", exact: true }).click();
   await browser.getByRole("button", { name: "System values collection within System 00" }).click();
   await page.getByRole("heading", { name: "System values", level: 1 }).waitFor();
   await page.getByText("Within System: System 00", { exact: true }).waitFor();
@@ -46,19 +47,19 @@ try {
   await page.getByRole("heading", { name: "System → Master mapping", level: 1 }).waitFor();
   assert.equal(new URL(page.url()).searchParams.get("parentObjectId"), harness.records.system[0].id);
 
-  const state = page.getByRole("combobox", { name: "Mapping status" });
-  await state.selectOption("unmapped");
-  await page.getByText("Unmapped", { exact: true }).waitFor();
+  const state = page.getByRole("group", { name: "Mapping status" });
+  const grid = page.getByRole("region", { name: /mapping grid$/ });
+  await state.getByRole("button", { name: "Unmapped", exact: true }).click();
+  await grid.getByText("Unmapped", { exact: true }).waitFor();
   assert.equal(new URL(page.url()).searchParams.get("mappingState"), "unmapped");
   checks.push("table and mapping renderers switch as lenses while retaining scope; mapping state is a visible server filter");
 
   await page.getByRole("button", { name: "Change mapping for Value Alpha" }).click();
-  const selector = page.getByRole("combobox", { name: "Select master value" });
-  await selector.selectOption(master.id);
+  await page.getByRole("radio", { name: /^Master Alpha/ }).check();
   await page.getByRole("button", { name: "Save mapping", exact: true }).click();
   await page.getByRole("dialog").waitFor({ state: "detached" });
-  await state.selectOption("mapped");
-  await page.getByText("Mapped", { exact: true }).waitFor();
+  await state.getByRole("button", { name: "Mapped", exact: true }).click();
+  await grid.getByText("Mapped", { exact: true }).waitFor();
   checks.push("real live mapping candidate selection and replacement refresh the composed collection");
 
   await page.goto(
@@ -66,7 +67,7 @@ try {
   );
   await page.getByRole("heading", { name: "Master ← System mapping", level: 1 }).waitFor();
   await page.getByText("Within Codelist: Codelist Alpha", { exact: true }).waitFor();
-  await page.getByText("Mapped", { exact: true }).waitFor();
+  await grid.getByText("Mapped", { exact: true }).waitFor();
   const mappingAccessibility = await runAxe(
     page,
     KNOWN_ACCESSIBILITY_EXCEPTIONS,

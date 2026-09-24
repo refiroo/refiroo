@@ -1,13 +1,18 @@
 import { api } from "@/api/client";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
-import type { AuditEventItem } from "@/types";
+import { formatServerTime, parseServerTime } from "@/lib/dates";
+import { attributeName } from "@/model/fields";
+import type { AuditEventItem, EngineModel } from "@/types";
 import { InlineError } from "@/ui/InlineError";
 
 export function HistoryPanel({
+  model,
   objectTypeKey,
   objectId,
   refreshToken = 0,
 }: {
+  /** Resolves attribute keys to their model names; keys are shown when absent. */
+  model?: EngineModel;
   objectTypeKey: string;
   objectId: string;
   refreshToken?: number;
@@ -32,10 +37,12 @@ export function HistoryPanel({
               <span className="history-marker" />
               <div>
                 <strong>{historyTitle(item)}</strong>
-                <p>{historySummary(item)}</p>
+                {historySummary(item, model) && <p>{historySummary(item, model)}</p>}
                 <small>
-                  <time dateTime={item.occurredAt}>{new Date(item.occurredAt).toLocaleString()}</time> · aggregate v
-                  {item.version}
+                  <time dateTime={item.occurredAt} title={formatServerTime(item.occurredAt)}>
+                    {relativeTime(item.occurredAt)}
+                  </time>{" "}
+                  · version {item.version}
                 </small>
               </div>
             </li>
@@ -51,14 +58,37 @@ export function HistoryPanel({
   );
 }
 
+const SUBJECTS: Record<string, string> = { object: "Record", relation: "Relationship", attribute: "Field value" };
+const ACTIONS: Record<string, string> = { created: "added", deleted: "removed" };
+
 function historyTitle(item: AuditEventItem) {
-  const subject =
-    item.aggregateType === "relation" ? "Relationship" : item.aggregateType === "attribute" ? "Attribute" : "Object";
-  return `${subject} ${item.action.replaceAll("_", " ")}`;
+  const subject = SUBJECTS[item.aggregateType] ?? "Record";
+  const action = item.action.replaceAll("_", " ");
+  return `${subject} ${item.aggregateType === "attribute" ? (ACTIONS[action] ?? action) : action}`;
 }
 
-function historySummary(item: AuditEventItem) {
-  const fields = item.changedFields.filter((field) => field !== "attributes");
-  const parts = [...fields, ...item.attributeTypeKeys.map((key) => `attribute: ${key}`)];
-  return parts.length ? `Changed ${parts.join(", ")}` : "No field details recorded.";
+/** Fields a person recognises. Identifiers and concurrency tokens stay in the audit record. */
+const READABLE_FIELDS: Record<string, string> = { name: "name", parentObjectId: "parent" };
+
+function historySummary(item: AuditEventItem, model?: EngineModel) {
+  const fields = item.changedFields.flatMap((field) => (READABLE_FIELDS[field] ? [READABLE_FIELDS[field]] : []));
+  const attributes = item.attributeTypeKeys.map((key) => (model ? attributeName(model, key) : key));
+  const parts = [...fields, ...attributes];
+  return parts.length ? `Changed ${parts.join(", ")}` : "";
+}
+
+const relative = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ["day", 86_400_000],
+  ["hour", 3_600_000],
+  ["minute", 60_000],
+];
+
+function relativeTime(iso: string) {
+  const elapsed = parseServerTime(iso).getTime() - Date.now();
+  if (Number.isNaN(elapsed) || Math.abs(elapsed) > 7 * 86_400_000) return formatServerTime(iso);
+  for (const [unit, size] of UNITS) {
+    if (Math.abs(elapsed) >= size) return relative.format(Math.round(elapsed / size), unit);
+  }
+  return "just now";
 }

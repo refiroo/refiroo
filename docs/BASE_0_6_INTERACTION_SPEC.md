@@ -10,6 +10,10 @@ implementation; it is not proof that these revised journeys already work.
 > Historical note: this document records the released Base 0.6 interaction contract. ADR-029 and
 > Base 0.7 WP-14 supersede its separate Browse hierarchy / Views navigation modes with one
 > model-driven application browser; the record-origin rules below remain applicable.
+> The Base 0.7 presentation pass further supersedes the navigation presentation below: applications
+> are header tabs rather than a vertical list, versions replace the Information disclosure, record
+> branches start collapsed, and typed filters share one Filter popover. See
+> [UI model — Base 0.7 presentation](UI_MODEL.md#base-07-presentation).
 
 ## Context and write rules
 

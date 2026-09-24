@@ -6,6 +6,19 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Changed
+
+- Base 0.7 UX pass over the generic frontend, with routes, data contexts and API contracts unchanged:
+  applications as header tabs with model icons; a segmented Live / Drafts / History control;
+  collection list plus a collapsed-by-default record tree that opens toward the active record;
+  one Filter popover with an applied count; lens tabs, scope banner and page count beside
+  pagination; whole-row open; a record header with one breadcrumb line and a visible Edit record
+  action; readable record activity without identifiers or concurrency tokens; a compact draft bar;
+  and a rewritten design-token stylesheet with a 12–14px minimum text scale.
+- Mapping lenses: segmented coverage filter, row-click to map, a searchable radio list of
+  candidates, **Save and next**, and an explicit **Remove mapping** action. Selecting nothing no
+  longer turns the primary button into a clear operation.
+
 ### Fixed
 
 - Build 0.7 WP-5 review: enforce ancestor-scoped constraints against the final replacement graph,

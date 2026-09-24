@@ -11,6 +11,7 @@ import type { ApplicationDefinition, EngineModel, ObjectItem, PanelDefinition } 
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { ObjectDeleteDialog } from "@/features/objects/ObjectDeleteDialog";
 import { HistoryPanel } from "./panels/HistoryPanel";
+import { Icon, ModelIcon } from "@/ui/Icon";
 import { panelComponentRegistry } from "./panels/registry";
 import type { PanelProps } from "./panels/types";
 
@@ -171,20 +172,30 @@ export function ObjectDetail({
 
   return (
     <article className={`record-detail${inspector ? " record-inspector" : ""}`} aria-label="Record details">
-      <nav className="breadcrumbs" aria-label="Breadcrumb">
-        {detail.breadcrumbs.showApplication && <button onClick={onBack}>{application.name}</button>}
-        {detail.breadcrumbs.showAncestors &&
-          object.path.slice(0, -1).map((part) => (
-            <span key={part.id}>
-              /<button onClick={() => onOpen(part.objectTypeKey, part.id)}>{part.name}</button>
-            </span>
-          ))}
-        {detail.breadcrumbs.showObjectType && (
-          <span>
-            /<span>{objectType.name}</span>
-          </span>
+      <div className="record-topline">
+        {showBackToList && (
+          <button className="ghost back-link" onClick={onBack}>
+            <Icon name="arrow-left" size={15} />
+            Back to list
+          </button>
         )}
-      </nav>
+        <nav className="breadcrumbs" aria-label="Breadcrumb">
+          <ol>
+            {detail.breadcrumbs.showApplication && (
+              <li>
+                <button onClick={onBack}>{application.name}</button>
+              </li>
+            )}
+            {detail.breadcrumbs.showAncestors &&
+              object.path.slice(0, -1).map((part) => (
+                <li key={part.id}>
+                  <button onClick={() => onOpen(part.objectTypeKey, part.id)}>{part.name}</button>
+                </li>
+              ))}
+            {detail.breadcrumbs.showObjectType && <li aria-current="location">{objectType.name}</li>}
+          </ol>
+        </nav>
+      </div>
       <header
         className="page-header detail-header"
         onContextMenu={(event) => {
@@ -192,9 +203,9 @@ export function ObjectDetail({
           setMenuOpen(true);
         }}
       >
-        <div className="object-icon" style={{ background: application.color }}>
-          {iconLetters(objectType.icon ?? objectType.name)}
-        </div>
+        <span className="page-icon" aria-hidden="true" style={{ color: application.color }}>
+          <ModelIcon name={objectType.icon} size={20} />
+        </span>
         <div className="detail-title">
           {detail.header.showObjectType && <p className="eyebrow">{objectType.name}</p>}
           <h1 ref={titleRef} tabIndex={-1}>
@@ -203,6 +214,19 @@ export function ObjectDetail({
           {subtitle !== undefined && subtitle !== null && subtitle !== "" && <p>{String(subtitle)}</p>}
         </div>
         <div className="detail-actions">
+          <span className="version" title="Record version, used to detect concurrent changes">
+            v{object.version}
+          </span>
+          {!readOnly && (
+            <button className="secondary" onClick={() => setEditing(true)}>
+              Edit record
+            </button>
+          )}
+          {onExpand && (
+            <button className="secondary expand-record" onClick={onExpand}>
+              Expand to full page
+            </button>
+          )}
           <RecordActionMenu
             object={object}
             readOnly={readOnly}
@@ -212,17 +236,6 @@ export function ObjectDetail({
             onEdit={() => setEditing(true)}
             onDelete={() => setDeleting(true)}
           />
-          {onExpand && (
-            <button className="secondary expand-record" onClick={onExpand}>
-              Expand to full page
-            </button>
-          )}
-          {showBackToList && (
-            <button className="secondary" onClick={onBack}>
-              Back to list
-            </button>
-          )}
-          <span className="version">v{object.version}</span>
         </div>
       </header>
       <div
@@ -246,7 +259,12 @@ export function ObjectDetail({
         <div className="panel-column main-panels">
           {mainPanels.map(renderPanel)}
           {!draft && !revision && (
-            <HistoryPanel objectTypeKey={objectTypeKey} objectId={objectId} refreshToken={historyRefresh} />
+            <HistoryPanel
+              model={model}
+              objectTypeKey={objectTypeKey}
+              objectId={objectId}
+              refreshToken={historyRefresh}
+            />
           )}
         </div>
       </div>
@@ -280,13 +298,4 @@ export function ObjectDetail({
       )}
     </article>
   );
-}
-
-function iconLetters(icon: string) {
-  return icon
-    .split(/[-\s]/)
-    .map((part) => part[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
 }

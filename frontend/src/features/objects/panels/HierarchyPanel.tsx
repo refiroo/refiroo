@@ -22,15 +22,23 @@ export function HierarchyPanel({ model, object, panel, onOpen }: PanelProps) {
           )}
         </div>
       )}
-      <ol>
-        {visiblePath.map((part, index) => (
-          <li key={part.id}>
-            <button onClick={() => onOpen(part.objectTypeKey, part.id)}>{part.name}</button>
-            <small>{objectTypeFor(model, part.objectTypeKey)?.name}</small>
-            {index < visiblePath.length - 1 && <span>›</span>}
-          </li>
-        ))}
-      </ol>
+      {object.path.length <= 1 && !definition.config.showParent ? (
+        <p className="hierarchy-note">Top-level record with no parent.</p>
+      ) : (
+        <ol>
+          {visiblePath.map((part, index) => (
+            <li key={part.id}>
+              {part.id === object.id ? (
+                <strong aria-current="location">{part.name}</strong>
+              ) : (
+                <button onClick={() => onOpen(part.objectTypeKey, part.id)}>{part.name}</button>
+              )}
+              <small>{objectTypeFor(model, part.objectTypeKey)?.name}</small>
+              {index < visiblePath.length - 1 && <span>›</span>}
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
   );
 }
