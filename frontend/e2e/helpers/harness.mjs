@@ -30,6 +30,10 @@ async function freePort() {
  */
 export async function bootHarness(options = {}) {
   const { modelAdmin = true, workspaceAdmin = true } = options;
+  const started = performance.now();
+  // Setup phase durations in milliseconds, separated from the runner's own checks (WP-13B).
+  const timings = {};
+  const mark = (phase, since) => { timings[phase] = Math.round(performance.now() - since); return performance.now(); };
   const output = await mkdtemp(resolve(tmpdir(), "rdm-ui07-gate-"));
   const processes = [];
   let log = "";
@@ -86,6 +90,7 @@ export async function bootHarness(options = {}) {
     },
   );
   await ready(`${apiUrl}/health`, backend);
+  let phase = mark("backendReady", started);
 
   const ui = start(
     process.execPath,
@@ -94,6 +99,7 @@ export async function bootHarness(options = {}) {
     { VITE_API_URL: apiUrl },
   );
   await ready(uiUrl, ui);
+  phase = mark("viteReady", phase);
 
   // Seed: use the auto-created default workspace; create a test workspace if it doesn't exist.
   try { await api("/workspaces", { key: "default", label: "Default" }); } catch { /* already exists */ }
@@ -126,6 +132,7 @@ export async function bootHarness(options = {}) {
     fromObjectId: records.domain[0].id, toObjectId: sysChild.id,
   });
 
+  phase = mark("seed", phase);
   const browser = await chromium.launch({
     headless: true,
     ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}),
@@ -134,13 +141,18 @@ export async function bootHarness(options = {}) {
   const context = await browser.newContext({ hasTouch: true, viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
   page.setDefaultTimeout(10000);
+  mark("browserLaunch", phase);
+  timings.setupTotal = Math.round(performance.now() - started);
 
   function cleanup() {
+    timings.total = Math.round(performance.now() - started);
+    timings.checks = timings.total - timings.setupTotal;
+    console.error(`harness timings (ms): ${JSON.stringify(timings)}`);
     try { browser?.close(); } catch { /* ignore */ }
     for (const child of processes) {
       try { child.kill(); } catch { /* ignore */ }
     }
   }
 
-  return { page, browser, apiUrl, uiUrl, output, records, api, log: () => log, cleanup };
+  return { page, browser, apiUrl, uiUrl, output, records, api, timings, log: () => log, cleanup };
 }

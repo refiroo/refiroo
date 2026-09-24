@@ -77,3 +77,12 @@ test("a duplicate landmark exception cannot hide a new related node", () => {
   const added = { ...existing, any: [{ relatedNodes: [node(".known-duplicate"), node(".new-duplicate")] }] };
   assert.equal(partitionViolations([{ id: "landmark-unique", nodes: [added] }], [exception]).violations.length, 1);
 });
+
+test("every browser runner and scenario module is classified in the execution guide", async () => {
+  const { readdir } = await import("node:fs/promises");
+  const e2e = resolve(import.meta.dirname, "..");
+  const guide = await readFile(resolve(e2e, "../../docs/testing/EXECUTION_GUIDE.md"), "utf8");
+  const scripts = (await readdir(e2e)).filter((name) => name.endsWith(".mjs"));
+  const unclassified = scripts.filter((name) => !guide.includes(`e2e/${name}`));
+  assert.deepEqual(unclassified, [], "add each browser module to docs/testing/EXECUTION_GUIDE.md");
+});

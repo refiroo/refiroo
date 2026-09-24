@@ -8,6 +8,14 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.7 WP-13B: `docs/testing/EXECUTION_GUIDE.md` maps each changed production boundary to its
+  focused checks and shared-boundary expansion, lists the WP-9 comprehensive command set and records
+  measured before/after costs. Backend tests carry contract-group markers (`pytest -m mapping`, …) from
+  one manifest in `conftest.py`; an unclassified test module or unknown marker fails collection.
+  Vitest runs pure `.test.ts` files in a `unit` project without jsdom and components in `dom`. The
+  gate-helper check (now in CI) refuses an unlisted browser runner, and the browser harness prints
+  its setup phase timings.
+
 - Base 0.7 WP-13A: `docs/testing/COVERAGE_MAP.md` links product invariants and capability contracts
   to their test evidence, boundary and cost tier, ranks risk and records audit status, residual risk
   and consolidation decisions. New regression evidence: mapping replacement refuses foreign-workspace
@@ -35,6 +43,11 @@ All notable changes to this project are documented in this file. The format foll
 - Dark accessibility scenarios (core pages and the settings menu) and four dark visual baselines.
 
 ### Changed
+
+- Backend tests that need a private database copy a once-migrated template instead of running every
+  Alembic migration per test; startup and migration tests still migrate for real. The sampled backend
+  selection runs in 22.7 s instead of 46.8 s with the same cases. A pagination test that failed when run
+  alone now owns its database.
 
 - Models page aligned with the rest of the UI: the release/draft catalogue is now sidebar
   navigation, and the main column uses the shared context bar, page header and surfaces.

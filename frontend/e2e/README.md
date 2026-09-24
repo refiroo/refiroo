@@ -233,7 +233,12 @@ and isolation checks. Existing baseline pages alone do not establish coverage of
 No new scenario pass is claimed here. See [the 0.7 plan](../../docs/BASE_0_7_IMPLEMENTATION_PLAN.md).
 Reuse passing light and dark gates unless relevant code or theme tokens change.
 
-Run gate-helper regressions (including missing baseline refusal and scoped accessibility exceptions):
+Harness-based runners print `harness timings (ms)` on exit, separating backend, Vite, seed and
+Chrome setup from the runner's own checks. Choose runners per changed surface with
+[the execution guide](../../docs/testing/EXECUTION_GUIDE.md); every `e2e/*.mjs` module must be listed there.
+
+Run gate-helper regressions (including missing baseline refusal, scoped accessibility exceptions and
+browser-runner classification):
 
 ```sh
 npm --prefix frontend run test:gate-helpers

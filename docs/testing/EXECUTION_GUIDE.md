@@ -1,0 +1,254 @@
+# Test execution guide
+
+**Package:** Base 0.7 WP-13B, 2026-09-24. **Inputs:** the [coverage map](COVERAGE_MAP.md) (contract
+IDs, tiers T0–T5, risk). **Consumers:** every work package choosing focused checks, WP-13C and WP-9.
+
+This guide answers one question: *I changed this production boundary — which checks do I run?* Pick the
+direct group for the boundary you changed, apply the listed shared-boundary expansion, and run
+nothing broader unless a concrete uncovered risk says so ([AGENTS.md](../../AGENTS.md#work-package-validation)).
+Selection is transparent and manual. No tool here promises perfect impact detection; `vitest related`
+follows imports only, and the backend groups are declared, not inferred.
+
+Commands assume the repository root. Backend commands use `backend/.venv/bin/python` (written `py`
+below) from `backend/`; frontend commands run from `frontend/`.
+
+## 1. Selection mechanics
+
+### Backend: pytest markers from one manifest
+
+`backend/tests/conftest.py` holds `TEST_GROUPS`, mapping every test module to the contract groups
+it is evidence for, and applies them as markers. Select a group with `-m`:
+
+```sh
+cd backend && .venv/bin/python -m pytest -m mapping -q
+.venv/bin/python -m pytest -m "drafts and not mapping" -q   # boolean expressions work
+```
+
+| Marker | Contracts (coverage map) | Modules | Cases |
+| --- | --- | --- | --- |
+| `model` | INV-01/02/03/04/06, compatibility classes | `test_model`, `test_model_diagnostics`, `test_model_independence`, `test_model_compatibility` | 109 |
+| `model_admin` | C-MOD-*, C-DR-PIN, C-MOD-ACT | `test_model_lifecycle`, `test_build07_wp11`, `test_build07_wp6`, `test_model_compatibility`, `test_model_schema_upgrade`, `test_wp81a_context` | 92 |
+| `startup` | C-BOOT, C-MIG, C-SCHEMA-UP, INV-15 (startup) | `test_startup`, `test_migrations`, `test_wp8_audit_migration`, `test_model_schema_upgrade` | 24 |
+| `records` | C-OBJ-*, C-ATTR, C-REL, C-DEL, C-TR, C-HIST-OBJ, INV-05/10/12 (live) | `test_api`, `test_attributes`, `test_relations`, `test_translations`, `test_cascade_delete`, `test_query_foundations`, `test_wp8_review_regressions`, `test_relation_set_versions` | 113 |
+| `queries` | C-Q-FILTER, C-Q-SCOPE, INV-07/08/11 | `test_pagination`, `test_typed_table_queries`, `test_query_foundations` | 25 |
+| `workspaces` | C-WS-*, C-PUB-RET, INV-14/16 | `test_workspaces`, `test_wp81a_context`, `test_request_scope`, `test_wp8_retirement` | 30 |
+| `drafts` | C-DR-*, C-REV, C-PUB-RET | `test_workspace_revisions`, `test_wp7_canonical_crud`, `test_wp8_*` (except audit migration), `test_wp81b_current_live_bases`, `test_build07_wp6`, `test_typed_table_queries`, `test_mapping_replacement`, `test_wp8_retirement` | 201 |
+| `mapping` | C-MAP-R, C-MAP-W, C-MAP-SET | `test_mapping_coverage`, `test_mapping_replacement`, `test_relation_set_versions` | 115 |
+| `contract` | OpenAPI lock and route inventories | `test_openapi_contract` | 7 |
+
+Counts are collected cases on 2026-09-24 (532 in total). A module carries several markers when it is
+evidence for several groups, so groups overlap and their counts do not add up to the total.
+
+**Unclassified tests are refused.** A module missing from `TEST_GROUPS` fails collection with exit
+code 4 and names the module, in every run including CI. Markers are registered from the manifest and
+`--strict-markers` is on, so a mistyped marker also fails. Add a new module to the manifest and to
+the table above in the same change.
+
+**Node selection** is still the sharpest tool when a group is broader than the risk. Use it for
+single contracts, e.g. INV-02 alone: `py -m pytest tests/test_model_independence.py`; activation
+failure atomicity: `py -m pytest "tests/test_wp8_activation.py::test_no_partial_publication_after_every_failure_class"`.
+
+### Frontend: Vitest projects plus `vitest related`
+
+`frontend/vite.config.ts` declares two projects:
+
+| Project | Files | Environment | Purpose |
+| --- | --- | --- | --- |
+| `unit` | `src/**/*.test.ts` | node (per-file `// @vitest-environment jsdom` opt-in) | API clients, routing, model reads, dates, fixtures |
+| `dom` | `src/**/*.test.tsx` | jsdom with `src/test/setup.ts` | rendered components and hooks |
+
+Every test file matches exactly one project by extension, so none is unclassified. Selection:
+
+```sh
+npx vitest run --project unit                         # all pure tests, < 1 s
+npx vitest run src/features/objects/views             # a directory
+npx vitest related src/lib/hooks/useCursorPages.ts --run   # tests importing a changed file
+```
+
+`vitest related` follows the static import graph. It is the right tool for a changed shared module;
+it cannot see behavior reached through props, context or the API contract, so pair it with the
+consumer rules in section 2.
+
+### Browser: named runners
+
+Each runner starts its own isolated backend (fresh SQLite, real Alembic migration), Vite and
+Chrome. Setup costs ~2.8 s per runner (section 4). Pick by surface:
+
+| Runner | Surfaces / contracts |
+| --- | --- |
+| `e2e/wp9-navigation.mjs` (`test:browser`) | C-UI-NAV, C-Q-FILTER UI, UI-01/02/03 shell, collection controls, inspector; imports `e2e/ui03a-navigation.mjs`, `e2e/ui03b-deletion.mjs`, `e2e/ui03b-hierarchy.mjs`, `e2e/record-actions.mjs` |
+| `e2e/wp9-authoring.mjs` (`test:browser:authoring`) | C-OBJ-C/U, C-REL, C-TR, C-DEL live, conflict reconciliation |
+| `e2e/wp9-drafts.mjs` (`test:browser:drafts`) | C-DR-SRC/EDIT/ACT, draft C-DEL |
+| `e2e/wp9-history.mjs` (`test:browser:history`) | C-REV, historical sources, C-PUB-RET, C-WS-RET |
+| `e2e/wp11-model-admin.mjs` (`test:browser:wp11`) | C-DR-PIN version-change dialog |
+| `e2e/wp12-release-identity.mjs` (`test:browser:wp12`) | C-MOD-DIFF release identity and history comparison |
+| `e2e/wp14-contextual-browser.mjs` (`test:browser:wp14`) | C-Q-SCOPE, C-MAP-UI, contextual collections |
+| `e2e/accessibility-gate.mjs` (`test:a11y`) | C-UI-A11Y, T5 build gate |
+| `e2e/visual-regression-gate.mjs` (`test:visual`) | C-UI-A11Y visual stability, T5 build gate |
+
+Set `PLAYWRIGHT_EXECUTABLE_PATH` to use an installed Chrome ([e2e README](../../frontend/e2e/README.md)).
+`npm run test:gate-helpers` fails when an `e2e/*.mjs` module is not named in this table.
+
+## 2. Changed boundary → selected checks
+
+"Direct" is the group that owns the boundary. "Expand" lists groups that call the boundary through a
+shared path and would break silently if it changed meaning. Run direct plus expansion, then Ruff or
+frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
+
+### Backend
+
+| Changed boundary | Direct | Expand when | Expansion |
+| --- | --- | --- | --- |
+| `models/schema.py`, `services/model/validation/*`, `compiler.py`, `loader.py` | `model` | a model field is consumed at runtime | the consuming group; `contract` if the `/model` shape changes |
+| `services/model/{releases,registry,runtime,metadata,drafts,diff,compatibility}.py`, `routers/model_*.py` | `model_admin` | activation or registry resolution changes | `workspaces` (pinned contexts), `startup` (registry at lifespan) |
+| `db.py`, `migrations/**`, `main.py` lifespan, `services/model/bootstrap.py`, `cli/*` | `startup` | always for migrations | AGENTS.md startup rules: bootstrap, upgrade, restart, interrupted migration, lifespan, smoke start |
+| `models/database.py` | the owning service group | a column or table changes | `startup` (`test_migrations::test_fresh_migration_provisions_the_complete_current_schema` compares head with metadata) |
+| `services/objects.py`, `attributes.py`, `routers/objects.py`, `routers/attributes.py` | `records` | typed conversion or version claims change | `queries` (typed filters), `drafts` (draft writes use the same apply path) |
+| `services/relations.py`, `relation_set_versions.py`, `routers/relations.py` | `records` + `mapping` | always | `drafts` (draft relation writes, activation merge) |
+| `services/deletion.py` | `records` | cascade or preview token changes | `mapping` (continuation invalidation), `drafts` (draft deletion) |
+| `services/pagination.py`, `cursors.py` | `queries` | always | every group with a collection endpoint: `-m "queries or mapping or model_admin or workspaces"` |
+| `services/workspaces.py`, `routers/workspaces.py` | `workspaces` | scope resolution changes | `mapping` (C-MAP-W authority), `drafts` |
+| `services/workspace_revisions.py`, `workspace_audit.py`, `audit.py` | `drafts` | overlay, activation or audit projection changes | `mapping` (draft coverage and replacement), `records` (history) |
+| `services/mapping.py`, `mapping_projection.py`, `routers/mapping.py` | `mapping` | never by default | `drafts` only if activation or draft overlay is touched |
+| `errors.py`, `routers/presenters.py` | the group of the changed error | error envelope shape changes | `contract`; `model_admin` (`test_build07_wp11` correlation IDs) |
+| Any router signature, parameter or response model | the router's group | always | `contract` (re-baseline the OpenAPI lock only for intended changes) |
+
+### Frontend
+
+| Changed boundary | Direct | Expansion |
+| --- | --- | --- |
+| `src/api/*` | `npx vitest related <file> --run` (a change to `client.ts` selects 24 of 36 files) | the browser runner covering the consuming surface if request shape or error handling changes |
+| `src/routing/*`, `src/app/useRouter*` | `src/routing`, `src/app` | `wp9-navigation.mjs` for URL or history behavior |
+| `src/lib/hooks/useCursor*` | `vitest related` (6 files) | none by default |
+| `src/model/*` | `--project unit`, `src/model` | `vitest related` when a read's result shape changes |
+| `src/ui/*` shared components | `vitest related` | `test:a11y`/`test:visual` scenario for the changed control only when focus, semantics or tokens change; full gates at WP-9 |
+| `src/features/objects/views/MappingGridView.tsx` | `vitest related` (3 files) | `wp14-contextual-browser.mjs` |
+| `src/features/objects/**` other | the file's test and `vitest related` | the runner for the surface (section 1 table) |
+| `src/features/workspaces/**` | `src/features/workspaces` | `wp9-drafts.mjs` or `wp9-history.mjs`; `wp11-model-admin.mjs` for version selection |
+| `src/features/model-admin/**` | `src/features/model-admin` | `wp12-release-identity.mjs`, `wp11-model-admin.mjs` |
+| `src/styles*`, theme tokens | none at T1 | focused a11y/visual scenarios for affected pages, plus dark variants |
+
+### Worked traces (representative change per layer)
+
+| Layer | Change | Selected | Cases vs blanket |
+| --- | --- | --- | --- |
+| Backend service | Mapping replacement validation in `services/mapping.py` | `py -m pytest -m mapping` | 115 of 532 (22%) |
+| Backend shared | Keyset predicate in `services/pagination.py` | `-m "queries or mapping or model_admin or workspaces"` | 252 of 532 (47%) |
+| Backend model | A new validation rule in `validation/relation_rules.py` | `-m model` (T0, no database) | 109 of 532 (20%) |
+| Startup | New Alembic revision | `-m startup` plus the AGENTS.md smoke start | 24 of 532 (5%) |
+| Frontend leaf | `MappingGridView.tsx` | `npx vitest related … --run` and `test:browser:wp14` | 3 of 36 files, 50 tests; one runner of 7 |
+| Frontend shared | `src/api/client.ts` | `vitest related` | 24 of 36 files |
+| Browser surface | Draft activation dialog | `WorkspaceDrafts.test.tsx` and `test:browser:drafts` | one runner of 7 |
+
+### Targeted failure reruns
+
+- Backend: rerun the failing node IDs, then the direct group of the boundary you fixed.
+  `py -m pytest --lf` needs the cache provider, so do not pass `-p no:cacheprovider` if you want it.
+- Frontend: `npx vitest run <file> -t "<test name>"`, then `vitest related` for the fixed file.
+- Browser: rerun only the failed runner; its evidence directory is printed on exit.
+- A second failure at the same boundary after a fix, or an unexplained failure, justifies the
+  broader group or suite. State the reason before running it.
+
+## 3. WP-9 comprehensive command set
+
+Run once, against the finished build, after all implementation packages close. Never run two
+pytest processes at once: they share `backend/tests/test-rdm-engine.db`.
+
+```sh
+(cd backend && .venv/bin/python -m ruff check app/ tests/)
+(cd backend && .venv/bin/python -m pytest -q)
+(cd frontend && npm run format:check && npm run lint && npm run build)
+(cd frontend && npm run test && npm run test:gate-helpers)
+(cd frontend && npm run test:browser && npm run test:browser:authoring && npm run test:browser:drafts \
+  && npm run test:browser:history && npm run test:browser:wp11 && npm run test:browser:wp12 \
+  && npm run test:browser:wp14)
+(cd frontend && npm run test:a11y && npm run test:visual)
+```
+
+Plus the AGENTS.md startup/migration smoke start against an isolated copy of the development database,
+and the composed acceptance journeys WP-9 defines.
+
+## 4. Measured execution cost
+
+**Environment:** Apple M1 Pro (10 cores), macOS 15 (Darwin 24.6.0), Python 3.14.7, pytest 8.4.2,
+SQLite, Node 22, Vitest 4, installed Google Chrome via `PLAYWRIGHT_EXECUTABLE_PATH`. Single runs on a
+developer machine; expect ±10% noise. Measured 2026-09-24.
+
+### Fixed representative selection
+
+| Layer | Selection |
+| --- | --- |
+| Backend T0 | `test_model.py test_model_diagnostics.py test_pagination.py test_model_independence.py` |
+| Backend T2 | `test_api.py test_mapping_replacement.py test_mapping_coverage.py test_wp8_activation.py test_typed_table_queries.py` |
+| Backend T3 | `test_startup.py test_migrations.py` |
+| Frontend T1 | `MappingGridView.test.tsx CollectionView.test.tsx App.test.tsx client.test.ts Modal.test.tsx`; separately all seven `*.test.ts` files |
+| Browser T4 | `wp14-contextual-browser.mjs` |
+
+Backend setup was attributed with a throwaway profiling plugin wrapping the lifespan steps
+(`load_bootstrap_model`, `create_database`, `bootstrap_model`, `model_registry.resolve_active`);
+it is not committed.
+
+### Before and after
+
+| Measurement | Before | After | Change |
+| --- | --- | --- | --- |
+| Backend selection, cases | 262 passed, 1 xfailed | 262 passed, 1 xfailed | identical |
+| Backend selection, pytest time | 46.75 s | 22.71 s | −51% |
+| … of which Alembic in lifespan (153 calls) | 22.70 s | 1.14 s | template copy replaces per-test migration |
+| … bootstrap release install (152 calls) | 2.28 s | 2.13 s | unchanged (kept) |
+| … model load (153 calls) | 0.72 s | 0.44 s | unchanged (kept) |
+| Frontend `*.test.ts` (7 files, 48 tests), wall | 1.48 s | 0.82 s | node environment |
+| … cumulative jsdom environment setup | 7.06 s | 0.62 s | only `routes.test.ts` keeps jsdom |
+| Frontend mixed selection (5 files, 80 tests), wall | 4.92 s | 4.38 s | `client.test.ts` moved to node |
+| Browser `wp14`, total | 4.96 s | not changed | setup 2.78 s: backend ready 1.06 s, Vite 0.33 s, seed 0.18 s, Chrome 1.22 s; checks 2.17 s |
+
+Full backend suite **after** the change (run once because `conftest.py` and `--strict-markers` touch
+every module): 531 passed, 1 xfailed (WP-10E strict reproduction) in 58.94 s; part of the run
+overlapped Vitest runs, so treat the time as an upper bound. Lifespan attribution over 404 lifespans:
+Alembic 3.50 s, bootstrap release 4.15 s, model load 1.48 s. No full-suite *before* measurement was
+taken; the selection above is the like-for-like comparison.
+
+Earlier recorded full-suite timings (historical, fewer tests): 359 backend tests in 25–26 s and 103
+frontend tests in 6.1 s on 2026-09-10 ([WP-10 composed validation](../../review-notes/wp10-composed-release-validation-2026-09-10.md)).
+The full frontend suite and the other browser runners were not rerun for this package.
+
+### What was optimised, and why isolation is preserved
+
+1. **Migrated template database (backend).** The mapping, typed-query and review-regression
+   fixtures created an empty SQLite file per test and ran the whole Alembic chain (~0.2 s per
+   test). The session fixture `_migrated_template` now migrates one empty database once;
+   `migrated_database()` copies it into the test's own `tmp_path`. Every test still owns its file,
+   and the real lifespan still runs its Alembic head check, model bootstrap and registry
+   resolution, so request and transaction coverage is unchanged. **Not used** by `startup` tests or
+   any test proving migration from an empty, older or partial database; those keep real migrations.
+2. **Node environment for pure unit files (frontend).** jsdom cost ~1 s per file against ~10 ms of
+   test time. Six files pass unchanged under node; `routes.test.ts` reads `window` and opts back in.
+3. **Order-independent pagination test.** `test_pagination::test_statement_paginator_accepts_the_historical_draft_cursor_identity`
+   failed when run alone (no schema) — the coverage map's residual-risk item. It now owns a migrated
+   database, so the `queries` group and node selection work in any order.
+4. **Harness phase timings (browser).** `bootHarness` records backend, Vite, seed and Chrome phases and
+   prints them on cleanup, separating setup from checks for every harness-based runner.
+
+### Remaining bottlenecks (measured, not optimised)
+
+- **Lifespan per `TestClient`**: ~9 s of the full suite across 404 lifespans (bootstrap release
+  ~10 ms, Alembic head check ~5 ms at median, model load ~4 ms per lifespan).
+  Kept: it is the real startup path, and caching it would reduce what every test proves.
+- **`resolve_active`** is called ~2,000 times in the selection (lifespan and requests), 1.5 s total;
+  a production-path cost, not a test artefact.
+- **Heaviest individual cases** are the mapping conflict and activation tests (0.3–0.4 s each), which
+  do real multi-request work. No duplicate execution was found in them.
+- **Browser setup** is ~2.8 s per runner, dominated by Chrome launch and uvicorn import. Runners are
+  separate processes by design; sharing a server would couple their databases.
+- **Frontend `dom` project**: import (3.7 s cumulative) and jsdom (2.1 s) dominate the mixed selection;
+  replacing jsdom would be a new testing platform, which WP-13 excludes.
+- **Unexplained transient failure:** one `dom` test failed once in `npx vitest related src/ui/Modal.tsx --run`
+  while the backend suite ran concurrently (CPU contention); its name was not captured and three idle
+  reruns passed (14 files). Likely a timing-sensitive component test; if it recurs, capture the name
+  and treat it as a defect rather than rerunning until green.
+- **Backend parallelism** is out of scope: the shared test database requires serial pytest.
+
+### Not measured
+
+Full frontend Vitest suite, the six other browser runners and the a11y/visual gates after this
+change (their code paths only gained harness timing output). These belong to WP-9.

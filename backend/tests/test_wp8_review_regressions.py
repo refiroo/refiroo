@@ -25,7 +25,7 @@ from app.services.model.registry import model_registry
 
 
 @pytest.fixture
-def review_client(tmp_path, monkeypatch, request):
+def review_client(tmp_path, monkeypatch, migrated_database, request):
     model = json.loads((Path(__file__).parents[2] / "model/rdm-starter.json").read_text())
     oriented, required = getattr(request, "param", (True, False))
     model["relationTypes"].append(
@@ -64,7 +64,7 @@ def review_client(tmp_path, monkeypatch, request):
     path.write_text(json.dumps(model))
     try:
         with monkeypatch.context() as patch:
-            patch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'review.db'}")
+            patch.setenv("DATABASE_URL", migrated_database("review.db"))
             patch.setenv("RDM_MODEL_PATH", str(path))
             model_registry.clear()
             with TestClient(create_app()) as client:

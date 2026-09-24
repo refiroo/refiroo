@@ -134,6 +134,9 @@ migration checks in the error-handling section above; a green unit suite alone i
 Keep validation proportional to the changed behavior. Choose the smallest existing tests that
 exercise the acceptance criteria and affected execution paths; add meaningful regression coverage
 for defects. Finish implementation and review the final diff before running final package checks.
+Select them from the changed boundary with [the execution guide](docs/testing/EXECUTION_GUIDE.md)
+(pytest group markers, Vitest projects, browser runners); register a new backend test module in
+`TEST_GROUPS` in `backend/tests/conftest.py` and a new browser runner in that guide.
 
 - Backend code: run focused tests while iterating, then the affected test files or cases and
   `ruff check app/ tests/` after the final backend change. Do not run the full `pytest` suite

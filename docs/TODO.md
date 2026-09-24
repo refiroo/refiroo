@@ -70,8 +70,9 @@ WP-4 and its WP-10A review fix delivered (2026-09-14). WP-5 delivered (2026-09-1
 - [x] WP-13A: risk-ranked contract inventory in `docs/testing/COVERAGE_MAP.md`; filled mapping-write
   authority, draft relation-set, starter-key, date-value and conflict-retry gaps; removed one duplicate
   with surviving protection recorded; reproduced WP-10C/WP-10D as strict xfail tests. 2026-09-24.
-- [ ] WP-13B: measure runtime/setup costs and implement maintained contract/risk-group commands with
-  explicit shared-boundary expansion; after WP-13A.
+- [x] WP-13B: `docs/testing/EXECUTION_GUIDE.md` with measured costs, pytest contract-group markers
+  (unclassified modules refused), `unit`/`dom` Vitest projects, boundary-to-check expansion and the
+  WP-9 command set; migrated-template databases halve the sampled backend time. 2026-09-24.
 - [ ] WP-13C: inventory the applicable states of every materially changed 0.7 UI surface, then add
   risk-selected browser journeys and reviewed normal/narrow screenshots against existing UI patterns;
   close after mapping UI and WP-12, before WP-9.

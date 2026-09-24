@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import { domainObject, testModel } from "@/test/fixtures";
 import { defaultRoute, parseRoute, routePath } from "@/routing/routes";

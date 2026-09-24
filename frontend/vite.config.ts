@@ -9,7 +9,23 @@ export default defineConfig({
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   test: {
-    environment: "jsdom",
-    setupFiles: "./src/test/setup.ts",
+    // Selection groups (docs/testing/EXECUTION_GUIDE.md). `unit` runs pure `.test.ts` files
+    // without a DOM: jsdom setup cost ~1 s per file against ~10 ms of test time. A `.test.ts`
+    // file that needs browser globals declares `// @vitest-environment jsdom`.
+    projects: [
+      {
+        extends: true,
+        test: { name: "unit", environment: "node", include: ["src/**/*.test.ts"] },
+      },
+      {
+        extends: true,
+        test: {
+          name: "dom",
+          environment: "jsdom",
+          include: ["src/**/*.test.tsx"],
+          setupFiles: "./src/test/setup.ts",
+        },
+      },
+    ],
   },
 });

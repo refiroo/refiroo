@@ -70,6 +70,7 @@ def _replacement_body(
 def _make_model(
     tmp_path,
     monkeypatch,
+    database_url,
     *,
     cardinality="many-to-many",
     attr_key=None,
@@ -128,16 +129,16 @@ def _make_model(
         binding["attributeTypeKeys"] = [attr_key]
     model_path = tmp_path / "model.json"
     model_path.write_text(json.dumps(model))
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'test.db'}")
+    monkeypatch.setenv("DATABASE_URL", database_url)
     monkeypatch.setenv("RDM_MODEL_PATH", str(model_path))
     model_registry.clear()
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch, request):
+def client(tmp_path, monkeypatch, migrated_database, request):
     options = getattr(request, "param", False)
     options = options if isinstance(options, dict) else {"no_mapping_views": options}
-    _make_model(tmp_path, monkeypatch, **options)
+    _make_model(tmp_path, monkeypatch, migrated_database(), **options)
     with TestClient(create_app()) as c:
         with get_engine().connect() as conn:
             conn.exec_driver_sql("PRAGMA journal_mode=WAL")
@@ -149,8 +150,8 @@ def client(tmp_path, monkeypatch, request):
 
 
 @pytest.fixture
-def attr_client(tmp_path, monkeypatch):
-    _make_model(tmp_path, monkeypatch, attr_key="rank")
+def attr_client(tmp_path, monkeypatch, migrated_database):
+    _make_model(tmp_path, monkeypatch, migrated_database(), attr_key="rank")
     with TestClient(create_app()) as c:
         with get_engine().connect() as conn:
             conn.exec_driver_sql("PRAGMA journal_mode=WAL")
@@ -162,8 +163,8 @@ def attr_client(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def oto_client(tmp_path, monkeypatch):
-    _make_model(tmp_path, monkeypatch, cardinality="one-to-one")
+def oto_client(tmp_path, monkeypatch, migrated_database):
+    _make_model(tmp_path, monkeypatch, migrated_database(), cardinality="one-to-one")
     with TestClient(create_app()) as c:
         with get_engine().connect() as conn:
             conn.exec_driver_sql("PRAGMA journal_mode=WAL")
@@ -175,8 +176,8 @@ def oto_client(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def otm_client(tmp_path, monkeypatch):
-    _make_model(tmp_path, monkeypatch, cardinality="one-to-many")
+def otm_client(tmp_path, monkeypatch, migrated_database):
+    _make_model(tmp_path, monkeypatch, migrated_database(), cardinality="one-to-many")
     with TestClient(create_app()) as c:
         with get_engine().connect() as conn:
             conn.exec_driver_sql("PRAGMA journal_mode=WAL")

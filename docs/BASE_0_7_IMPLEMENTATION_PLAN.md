@@ -5,8 +5,8 @@ WP-10A cascade-deletion version fix are complete. WP-5 acceptance follow-up and 
 hardening are delivered. The earlier WP-1–WP-3 review boundary remains separate;
 WP-1–WP-3 scopes are frozen. WP-6 backend, WP-7 frontend and WP-11 follow-up are delivered.
 WP-8A/WP-8B have an uncommitted component implementation but are not reviewed or accepted.
-ADR-029 extends 0.7 with WP-14 contextual collection composition. WP-12 and WP-13A are delivered;
-WP-13A triggered WP-10C/WP-10D (delivered) and WP-10E (open). WP-13B/C and WP-9 composed 0.7
+ADR-029 extends 0.7 with WP-14 contextual collection composition. WP-12, WP-13A and WP-13B are
+delivered; WP-13A triggered WP-10C/WP-10D (delivered) and WP-10E (open). WP-13C and WP-9 composed 0.7
 acceptance remain pending.
 
 **Target:** Product 0.7.0, schema language 0.6. The starter model content advances to a version on
@@ -962,6 +962,14 @@ states where its distinct protection survives. Remaining audit work and its risk
 ##### WP-13B — Affected-area commands and measured execution cost
 
 **Prerequisites:** WP-13A.
+
+**Delivered 2026-09-24:** [execution guide](testing/EXECUTION_GUIDE.md) with a fixed profiled selection,
+nine pytest contract-group markers from one manifest (unclassified modules fail collection), `unit`
+(node) and `dom` (jsdom) Vitest projects, a browser-runner classification check, boundary-to-check
+expansion with worked traces and the WP-9 command set. A migrated template database replaces per-test
+Alembic runs (sampled backend selection 46.75 s → 22.71 s, same 262 cases); pure frontend unit files
+leave jsdom (1.48 s → 0.82 s). The order-dependent pagination test owns its database. Focused evidence
+plus one full backend run justified by the shared `conftest.py` change.
 
 **Scope:**
 

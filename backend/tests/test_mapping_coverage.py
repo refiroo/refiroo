@@ -41,7 +41,7 @@ BASE = "/api/v1/workspaces/default"
 
 
 @pytest.fixture
-def client(tmp_path, monkeypatch, request):
+def client(tmp_path, monkeypatch, migrated_database, request):
     model = json.loads((Path(__file__).resolve().parents[2] / "model/rdm-starter.json").read_text())
     model["attributeTypes"].append(
         {"key": "rank", "name": "Rank", "valueType": "integer", "features": {"searchable": True}}
@@ -81,7 +81,7 @@ def client(tmp_path, monkeypatch, request):
     binding["cardinality"] = getattr(request, "param", "many-to-many")
     model_path = tmp_path / "model.json"
     model_path.write_text(json.dumps(model))
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'mapping.db'}")
+    monkeypatch.setenv("DATABASE_URL", migrated_database("mapping.db"))
     monkeypatch.setenv("RDM_MODEL_PATH", str(model_path))
     model_registry.clear()
     with TestClient(create_app()) as value:

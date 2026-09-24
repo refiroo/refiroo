@@ -6,7 +6,8 @@ from decimal import Decimal
 import pytest
 from sqlalchemy import select
 
-from app.db import SessionLocal
+from app.config import reload_settings
+from app.db import SessionLocal, get_engine
 from app.errors import ApiError
 from app.models.database import ModelDraft
 from app.services.cursors import encode_cursor
@@ -117,7 +118,12 @@ def test_paginate_statement_rejects_an_unparseable_cursor_before_querying():
     assert excinfo.value.message == "Metadata cursor is invalid"
 
 
-def test_statement_paginator_accepts_the_historical_draft_cursor_identity():
+def test_statement_paginator_accepts_the_historical_draft_cursor_identity(
+    migrated_database, monkeypatch
+):
+    # Owns a migrated database so the result does not depend on an earlier test's bootstrap.
+    monkeypatch.setenv("DATABASE_URL", migrated_database())
+    reload_settings()
     legacy_cursor = encode_cursor(
         (datetime(2026, 9, 5, tzinfo=UTC).isoformat(), "draft-id"),
         scope="model-drafts",
@@ -136,6 +142,9 @@ def test_statement_paginator_accepts_the_historical_draft_cursor_identity():
             cursor_sort_tokens=("updatedAt", "publicId"),
             message="Metadata cursor is invalid",
         )
+    get_engine().dispose()
+    monkeypatch.undo()
+    reload_settings()
 
 
 def test_paginate_statement_requires_at_least_one_key():

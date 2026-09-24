@@ -278,7 +278,7 @@ def test_date_values_keep_their_type_through_write_filter_and_sort(context):
 
 
 @pytest.fixture
-def typed_model_client(tmp_path, monkeypatch):
+def typed_model_client(tmp_path, monkeypatch, migrated_database):
     """Starter model plus decimal and dateTime fields on domains, which the starter lacks."""
     model = json.loads((Path(__file__).resolve().parents[2] / "model/rdm-starter.json").read_text())
     queryable = {"filterable": True, "sortable": True}
@@ -294,7 +294,7 @@ def typed_model_client(tmp_path, monkeypatch):
     ]
     model_path = tmp_path / "model.json"
     model_path.write_text(json.dumps(model))
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'typed.db'}")
+    monkeypatch.setenv("DATABASE_URL", migrated_database("typed.db"))
     monkeypatch.setenv("RDM_MODEL_PATH", str(model_path))
     reload_settings()
     model_registry.clear()

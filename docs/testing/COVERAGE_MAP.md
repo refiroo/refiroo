@@ -234,13 +234,13 @@ integer draft paging in both sort directions in `::numeric_ranges_and_capability
 - **Draft built-in timestamps:** draft-local records carry no `createdAt`/`updatedAt`, so those
   filters match none of them in a draft list (pre-existing; not changed by WP-10C, which only stopped
   mixed naive/aware comparisons from failing). Decide the intended draft semantics before 0.7 acceptance.
-- **Order-dependent test:** `pagination::statement_paginator_accepts_the_historical_draft_cursor_identity`
-  fails when run alone (no schema yet) and passes after any test that boots the app. WP-13B should
-  give it its own schema setup before selecting it in a focused group.
+- **Order-dependent test (resolved in WP-13B):** `pagination::statement_paginator_accepts_the_historical_draft_cursor_identity`
+  failed when run alone (no schema yet); it now owns a migrated database.
 - **Concurrency** is proven on SQLite only; PostgreSQL locking behavior is not exercised (WP-9 or
   production milestone).
 - **Frontend mapping controls** (contextual target creation, keyboard operation, narrow layout)
   and every materially changed 0.7 surface's state inventory belong to WP-13C.
-- **Timing and command grouping** are WP-13B; this map assigns tiers but records no durations.
+- **Timing and command grouping** are delivered in the [execution guide](EXECUTION_GUIDE.md) (WP-13B):
+  pytest group markers, Vitest projects, boundary-to-check expansion and measured costs.
 - **Planned capabilities** (integration, business dates, authentication, staged migration, 0.8
   specialist views) have no evidence by design.

@@ -31,5 +31,7 @@ jobs:
         working-directory: frontend
       - run: npm test
         working-directory: frontend
+      - run: npm run test:gate-helpers
+        working-directory: frontend
       - run: npm run build
         working-directory: frontend
