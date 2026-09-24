@@ -271,6 +271,7 @@ export function ModelWorkbench({
           />
         ) : route.releaseId && activeReleaseId ? (
           <ModelReleaseDetail
+            key={route.releaseId}
             releaseId={route.releaseId}
             activeReleaseId={activeReleaseId}
             canManageDrafts={!!capabilities?.modelAdmin.manageDrafts}

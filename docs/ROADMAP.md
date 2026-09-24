@@ -118,8 +118,8 @@ or navigating low-level relation screens.
 13. WP-11 (delivered 2026-09-15): distinguish unsupported-schema refusals from corrupt JSON in release
     diff/compile/activation (structured 422), correlation-ID error boundary, API client HTML/non-JSON
     hardening, compact Modal version-change dialog, supported-schema pinned-model loading, retry-aware
-    shell-aligned workspace errors and historical-release informational state. WP-12 follows with
-    release identity UI.
+    shell-aligned workspace errors and historical-release informational state. WP-12 (delivered
+    2026-09-24) adds release identity details and earlier-to-selected release history comparison.
 14. WP-14, implemented and locally reviewed 2026-09-15 but not committed, normalizes the
     administrative UI after review of the WP-8A/WP-8B renderer:
     replace the hierarchy/views navigation switch with one application browser, group existing schema

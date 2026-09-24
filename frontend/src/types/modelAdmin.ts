@@ -58,6 +58,20 @@ export interface ModelReleasePage {
   nextCursor: string | null;
 }
 
+/** One recorded selection of a release as the active model, with the release it replaced. */
+export interface ModelReleaseActivation {
+  eventId: string;
+  kind: "activated" | "schemaUpgraded";
+  previousReleaseId: string;
+  runtimeVersion: number;
+  occurredAt: string;
+}
+
+export interface ModelReleaseActivationPage {
+  items: ModelReleaseActivation[];
+  nextCursor: string | null;
+}
+
 export interface ModelDraft {
   id: string;
   name: string;

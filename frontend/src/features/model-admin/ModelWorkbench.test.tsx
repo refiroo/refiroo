@@ -40,7 +40,10 @@ const draft: ModelDraft = {
   updatedAt: "2026-09-05T00:00:00Z",
 };
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => {
+  vi.clearAllMocks();
+  vi.mocked(api.modelReleaseActivations).mockResolvedValue({ items: [], nextCursor: null });
+});
 
 describe("ModelWorkbench", () => {
   it("keeps release inspection visible while hiding mutation actions", async () => {

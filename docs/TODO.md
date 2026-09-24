@@ -46,11 +46,15 @@ WP-4 and its WP-10A review fix delivered (2026-09-14). WP-5 delivered (2026-09-1
   loading, retry-aware shell-aligned error recovery and historical-release informational state. Final
   review passed 155 affected backend and 55 focused frontend tests, static/build gates and a five-check
   desktop/narrow real-browser journey. Comprehensive suites and gates remain WP-9.
-- [ ] WP-12 (after WP-11, before WP-9): Models release **Technical details** with explained,
+- [x] WP-12 (after WP-11, before WP-9): Models release **Technical details** with explained,
   copyable public release UUID and canonical content hash; keep human-readable release information
   prominent. Correct semantic-change baselines to earlier release → selected release, including active
   release inspection, with explicit baseline selection and truthful unsupported/first-release states.
   Preserve separate activation compatibility checks; correlation-ID behavior remains unchanged.
+  Delivered 2026-09-24 with an additive read-only `GET /model-releases/{id}/activations` over the
+  existing audit trail for the recorded-predecessor default. Focused evidence: backend activation-
+  history and OpenAPI tests, 15 model-admin component tests, `npm run test:browser:wp12` (seven
+  wide/narrow checks); comprehensive suites and a11y/visual gates remain WP-9.
 - [x] WP-8A/WP-8B review: preserved the bounded reads and atomic actions; corrected conflict review,
   duplicated configured identity fields and missing coverage filters through WP-14. Reviewed locally
   with focused component and real-browser evidence on 2026-09-15; not committed.

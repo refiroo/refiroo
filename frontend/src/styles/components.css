@@ -1789,6 +1789,103 @@ tbody tr:hover {
   font-size: 13.5px;
   overflow-wrap: anywhere;
 }
+.release-technical {
+  margin: 0 20px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.release-technical > summary {
+  padding: 10px 14px;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 550;
+  cursor: pointer;
+}
+.release-technical[open] > summary {
+  border-bottom: 1px solid var(--soft-line);
+}
+.release-technical-body {
+  display: grid;
+  gap: 12px;
+  padding: 12px 14px;
+}
+.release-technical-body p,
+.release-technical-body .release-technical-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.release-technical-body dl {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+.release-technical-body dt {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 550;
+}
+.release-technical-body dd {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 3px 0 0;
+  min-width: 0;
+}
+.release-technical-body code {
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+.release-technical-feedback:not(:empty) {
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
+.release-comparison-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 12px 14px;
+}
+.release-comparison-body:empty {
+  display: none;
+}
+.release-baseline-field {
+  display: grid;
+  gap: 6px;
+  max-width: 360px;
+  min-width: 0;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 550;
+}
+.release-comparison-direction {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin: 0;
+  font-size: 13.5px;
+  overflow-wrap: anywhere;
+}
+.release-baseline-field select {
+  width: 100%;
+  min-width: 0;
+}
+.release-comparison-direction small {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.release-check-note {
+  margin: 0;
+  padding: 12px 14px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.release-comparison-body + .model-diff {
+  border-top: 1px solid var(--soft-line);
+}
 
 /* Mapping workbench */
 .mapping-direction {

@@ -1,0 +1,121 @@
+// Focused WP-12 browser evidence for release identity, history comparison and activation context.
+import { writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
+import { bootHarness } from "./helpers/harness.mjs";
+
+let harness;
+const checks = [];
+const failures = [];
+
+function expect(condition, message) {
+  if (!condition) failures.push(message);
+}
+
+try {
+  harness = await bootHarness({ modelAdmin: true, workspaceAdmin: true });
+  const { page, browser, uiUrl, api, output } = harness;
+  page.on("pageerror", (error) => failures.push(error.message));
+
+  const original = await api("/model-runtime-state");
+  const model = await api("/model");
+  async function install(suffix) {
+    const source = { ...model, release: { ...model.release, version: `${model.release.version}-${suffix}` } };
+    const draft = await api("/model-drafts", { name: `WP-12 ${suffix}`, model: source });
+    return api(`/model-drafts/${draft.id}/installation`, { expectedVersion: draft.version });
+  }
+  const introduced = await install("wp12-introduced");
+  const pending = await install("wp12-pending");
+  await api(`/model-releases/${introduced.id}/activation`, {
+    expectedRuntimeVersion: original.version,
+    expectedActiveReleaseId: original.activeReleaseId,
+  });
+  console.log("WP-12 browser: fixtures ready");
+
+  // Active release: Before is the release it replaced on activation; no activation check.
+  await page.goto(`${uiUrl}/models?releaseId=${introduced.id}`);
+  const direction = page.locator(".release-comparison-direction");
+  await direction.waitFor();
+  const activeText = await direction.innerText();
+  expect(activeText.includes(`Before: ${model.release.key} ${model.release.version}`), `active before: ${activeText}`);
+  expect(activeText.includes("first activated"), `active baseline source: ${activeText}`);
+  await page.getByText("Semantic changes").waitFor();
+  expect((await page.getByRole("region", { name: /^Current active release/ }).count()) === 0, "active shows check");
+  checks.push("active release compares its recorded predecessor to itself without an activation check");
+
+  // Keyboard: open Technical details and copy the Release ID.
+  const summary = page.getByText("Technical details");
+  await summary.focus();
+  await page.keyboard.press("Enter");
+  expect(await page.locator("details.release-technical").evaluate((node) => node.open), "Enter did not expand");
+  await page.getByText(introduced.id, { exact: true }).waitFor();
+  await page.getByText(introduced.modelHash, { exact: true }).waitFor();
+  await page.getByRole("button", { name: "Copy release ID" }).focus();
+  await page.keyboard.press("Enter");
+  const feedback = await page.locator(".release-technical-feedback").innerText();
+  expect(/Release ID copied\.|Could not copy the release ID/.test(feedback), `copy feedback: ${feedback}`);
+  await page.screenshot({ path: resolve(output, "wp12-active-wide.png"), fullPage: true });
+  checks.push(`keyboard expands Technical details and copy reports: ${feedback}`);
+
+  // Inactive release without activation history: installation-order fallback plus activation check.
+  await page.goto(`${uiUrl}/models?releaseId=${pending.id}`);
+  await page.getByText("Semantic changes").waitFor();
+  const pendingText = await direction.innerText();
+  expect(pendingText.includes("installation order only"), `fallback label: ${pendingText}`);
+  expect(pendingText.includes(`${model.release.version}-wp12-introduced`), `fallback before: ${pendingText}`);
+  const check = page.getByRole("region", { name: /^Current active release .*wp12-introduced → this release/ });
+  await check.getByText("compatible", { exact: true }).waitFor();
+  checks.push("inactive release uses labelled installation-order baseline; activation check names current active");
+
+  // Explicit baseline choice leaves the activation check context unchanged.
+  await page.getByRole("combobox", { name: "Compare with" }).selectOption(original.activeReleaseId);
+  await page.getByText("Chosen baseline.").waitFor();
+  await check.getByText("compatible", { exact: true }).waitFor();
+  expect(await page.getByRole("button", { name: "Activate…" }).isEnabled(), "activation disabled after choice");
+  checks.push("explicit baseline choice re-compares history; activation readiness unchanged");
+
+  // Bootstrap release: first release of its key, no recorded predecessor.
+  await page.goto(`${uiUrl}/models?releaseId=${original.activeReleaseId}`);
+  await page.getByText(/No earlier release to compare with/).waitFor();
+  checks.push("first installed release shows an explained no-predecessor state");
+
+  await page.goto(`${uiUrl}/models?releaseId=${pending.id}`);
+  await page.getByText("Semantic changes").waitFor();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByText("Technical details").click();
+  await page.screenshot({ path: resolve(output, "wp12-inactive-narrow.png"), fullPage: true });
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow <= 0, `narrow page scrolls horizontally by ${overflow}px`);
+  checks.push("narrow layout keeps identifiers, baseline selector and checks within the viewport");
+
+  // Activating the inspected release keeps its route; status, actions and history must follow.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.getByRole("button", { name: "Activate…" }).click();
+  await page.getByRole("button", { name: "Activate release" }).click();
+  await page.locator(".model-detail-header .compatibility.compatible", { hasText: "Active" }).waitFor();
+  await page.getByText("Default: the active release this one replaced when it was first activated.").waitFor();
+  expect((await page.getByRole("button", { name: "Activate…" }).count()) === 0, "Activate offered after activation");
+  expect((await page.locator(".model-detail-header .pill").count()) === 0, "Inactive shown after activation");
+  expect((await page.getByRole("region", { name: /^Current active release/ }).count()) === 0, "stale check");
+  checks.push("activating the inspected release updates status, actions and recorded-predecessor baseline");
+
+  const report = {
+    browser: browser.version(),
+    viewports: ["1440x900", "390x844"],
+    releases: [original.activeReleaseId, introduced.id, pending.id],
+    checks,
+    failures,
+    passed: failures.length === 0,
+  };
+  await writeFile(resolve(output, "report.json"), JSON.stringify(report, null, 2));
+  console.log(`WP-12 browser evidence: ${output}`);
+  console.log(`Checks: ${checks.length}`);
+  if (failures.length) {
+    for (const failure of failures) console.error(failure);
+    process.exitCode = 1;
+  }
+} catch (error) {
+  console.error("WP-12 browser evidence failed:", error);
+  process.exitCode = 1;
+} finally {
+  harness?.cleanup();
+}

@@ -828,8 +828,10 @@ observability or release acceptance.
 
 #### WP-12: Model release identity, technical details and comparison baseline
 
-**Status:** Scheduled after WP-11, before WP-9. Separate frontend presentation follow-up;
-WP-11's scope and correlation-ID behavior remain unchanged.
+**Status:** Delivered 2026-09-24. Scope item 6's missing activation-history access was scoped as an
+additive read-only `GET /api/v1/model-releases/{releaseId}/activations` over the existing
+`activated`/`schema_upgraded` audit events; no existing hashing, identity, installation, activation
+or API contract changed. WP-11's scope and correlation-ID behavior remain unchanged.
 
 **Observed comparison defect (2026-09-14):** Release inspection compares every inactive selected
 release against the globally active release, treating active as Before and selected as After. Thus

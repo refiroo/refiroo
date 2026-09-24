@@ -22,6 +22,7 @@ import type {
   ModelDraft,
   ModelDraftPage,
   ModelRelease,
+  ModelReleaseActivationPage,
   ModelReleaseDiff,
   ModelReleasePage,
   ModelRuntimeState,
@@ -254,6 +255,13 @@ export const api = {
   },
   modelRelease: (releaseId: string, includeModel = false) =>
     request<ModelRelease>(`/api/v1/model-releases/${encodeURIComponent(releaseId)}?includeModel=${includeModel}`),
+  modelReleaseActivations: (releaseId: string, options: { cursor?: string; pageSize?: number } = {}) => {
+    const params = new URLSearchParams({ pageSize: String(options.pageSize ?? 100) });
+    if (options.cursor) params.set("cursor", options.cursor);
+    return request<ModelReleaseActivationPage>(
+      `/api/v1/model-releases/${encodeURIComponent(releaseId)}/activations?${params}`,
+    );
+  },
   modelReleaseDiff: (releaseId: string, againstReleaseId: string) =>
     request<ModelReleaseDiff>(
       `/api/v1/model-releases/${encodeURIComponent(releaseId)}/diff?againstReleaseId=${encodeURIComponent(againstReleaseId)}`,

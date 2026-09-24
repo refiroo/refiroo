@@ -357,6 +357,21 @@ class ModelReleasePage(BaseModel):
     nextCursor: str | None
 
 
+class ModelReleaseActivationResponse(BaseModel):
+    """One recorded selection of a release as the active model, read from the audit trail."""
+
+    eventId: str
+    kind: Literal["activated", "schemaUpgraded"]
+    previousReleaseId: str
+    runtimeVersion: int
+    occurredAt: datetime
+
+
+class ModelReleaseActivationPage(BaseModel):
+    items: list[ModelReleaseActivationResponse]
+    nextCursor: str | None
+
+
 class ModelDocumentRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 

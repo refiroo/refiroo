@@ -8,6 +8,15 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.7 WP-12: `GET /api/v1/model-releases/{releaseId}/activations` reads a release's recorded
+  activations (oldest first, with the release each replaced). Models release details move the
+  Release ID and content hash into an explained, copyable **Technical details** disclosure; release
+  history compares an earlier baseline (Before) with the selected release (After), including the
+  active release, defaulting to the recorded predecessor, otherwise the labelled preceding installed
+  release of the same key, with an explicit **Compare with** selector and truthful first-release,
+  identical-content and unsupported-baseline states. Activation readiness is shown separately and
+  always checks the current active release against the candidate.
+
 - Dark mode: a complete dark token set that follows the system preference by default, with an
   explicit System / Light / Dark choice saved per browser and applied before first paint.
 - Settings control at the bottom of the navigation rail with the appearance choice and an

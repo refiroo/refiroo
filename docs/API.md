@@ -142,6 +142,7 @@ Both headers and the body come from the same request-scoped installed release sn
 - `GET /api/v1/model-releases?releaseKey=...&active=...&pageSize=...&cursor=...`
 - `GET /api/v1/model-releases/{releaseId}?includeModel=false`
 - `GET /api/v1/model-releases/{releaseId}/diff?againstReleaseId=...`
+- `GET /api/v1/model-releases/{releaseId}/activations?pageSize=...&cursor=...`
 - `GET /api/v1/model-runtime-state`
 - `POST /api/v1/model-releases/{releaseId}/activation`
 
@@ -164,6 +165,31 @@ this identity shape; `model` is included only on detail when `includeModel=true`
 
 `model` is absent, rather than `null`, unless requested. Release list and detail are always readable;
 release installation and activation are mutation-gated.
+
+Release activations read the recorded selections of one release as the active model, oldest first,
+from the existing audit trail. Each item names the release it replaced, so the first item identifies
+the predecessor the release was introduced over. It is an always-readable, cursor-paged `{items,
+nextCursor}` page (default `pageSize` 100, maximum 500); an unknown release returns `404
+model_release_not_found`:
+
+```json
+{
+  "items": [
+    {
+      "eventId": "0b1c...",
+      "kind": "activated",
+      "previousReleaseId": "6f57924d-...",
+      "runtimeVersion": 2,
+      "occurredAt": "2026-09-14T12:00:00Z"
+    }
+  ],
+  "nextCursor": null
+}
+```
+
+`kind` is `activated` for a guarded API activation and `schemaUpgraded` for the offline schema-upgrade
+selection. The initial bootstrap selection is not an audited activation, so a release first selected
+by bootstrap has no item for it; clients must not infer activation history from installation order.
 
 Metadata and release cursors are signed opaque tokens bound to their endpoint, ordering and effective
 filters. Changing a cursor or reusing it with different filters returns `422 invalid_cursor`.

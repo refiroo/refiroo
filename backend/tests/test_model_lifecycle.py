@@ -903,3 +903,103 @@ def test_model_admin_mutations_reject_multi_worker_configuration(monkeypatch):
 
     with pytest.raises(RuntimeError, match="requires WEB_CONCURRENCY=1"):
         create_app()
+
+
+def test_release_activation_history_reads_recorded_predecessors_oldest_first(monkeypatch):
+    monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
+    enabled_app = create_app()
+    with TestClient(enabled_app) as client:
+        active = client.get("/api/v1/model")
+        original_id = active.headers["X-Model-Release-Id"]
+        candidates = []
+        for suffix in ("a", "b"):
+            source = active.json()
+            source["release"]["version"] = f"0.7.0-wp12-history-{suffix}"
+            with SessionLocal() as session:
+                release = ensure_bootstrap_release(session, EngineModel.model_validate(source))
+                session.commit()
+                candidates.append(release.public_id)
+        first_id, second_id = candidates
+
+        untouched = client.get(f"/api/v1/model-releases/{first_id}/activations")
+        assert untouched.status_code == 200
+        assert untouched.json() == {"items": [], "nextCursor": None}
+
+        # original -> first -> second -> first (rollback) -> original (restores the shared database)
+        current_id = original_id
+        for target_id in (first_id, second_id, first_id, original_id):
+            state = client.get("/api/v1/model-runtime-state").json()
+            response = client.post(
+                f"/api/v1/model-releases/{target_id}/activation",
+                json={
+                    "expectedRuntimeVersion": state["version"],
+                    "expectedActiveReleaseId": current_id,
+                },
+            )
+            assert response.status_code == 200, response.json()
+            current_id = target_id
+
+        first_page = client.get(
+            f"/api/v1/model-releases/{first_id}/activations", params={"pageSize": 1}
+        )
+        assert first_page.status_code == 200
+        introduced = first_page.json()["items"]
+        assert [item["previousReleaseId"] for item in introduced] == [original_id]
+        assert introduced[0]["kind"] == "activated"
+        assert datetime.fromisoformat(introduced[0]["occurredAt"]).utcoffset() is not None
+        cursor = first_page.json()["nextCursor"]
+        assert cursor is not None
+
+        second_page = client.get(
+            f"/api/v1/model-releases/{first_id}/activations",
+            params={"pageSize": 1, "cursor": cursor},
+        )
+        assert [item["previousReleaseId"] for item in second_page.json()["items"]] == [second_id]
+        assert second_page.json()["items"][0]["runtimeVersion"] > introduced[0]["runtimeVersion"]
+        assert second_page.json()["nextCursor"] is None
+
+        second = client.get(f"/api/v1/model-releases/{second_id}/activations").json()
+        assert [item["previousReleaseId"] for item in second["items"]] == [first_id]
+
+        reused = client.get(
+            f"/api/v1/model-releases/{second_id}/activations",
+            params={"pageSize": 1, "cursor": cursor},
+        )
+        assert reused.status_code == 422
+        assert reused.json()["error"]["code"] == "invalid_cursor"
+
+        unknown = client.get(
+            "/api/v1/model-releases/00000000-0000-4000-8000-000000000000/activations"
+        )
+        assert unknown.status_code == 404
+        assert unknown.json()["error"]["code"] == "model_release_not_found"
+
+
+def test_release_activation_history_includes_offline_schema_upgrades():
+    with SessionLocal() as session:
+        upgraded = ensure_bootstrap_release(session, _model("0.7.0-wp12-schema-upgrade"))
+        session.add(
+            AuditEvent(
+                aggregate_type="model_runtime_state",
+                aggregate_id=upgraded.public_id,
+                action="schema_upgraded",
+                version=99,
+                changes={
+                    "oldReleaseId": "legacy-release",
+                    "newReleaseId": upgraded.public_id,
+                    "oldSchemaVersion": "0.5",
+                    "newSchemaVersion": "0.6",
+                },
+            )
+        )
+        session.commit()
+        upgraded_id = upgraded.public_id
+
+    with TestClient(app) as client:
+        response = client.get(f"/api/v1/model-releases/{upgraded_id}/activations")
+
+    assert response.status_code == 200
+    [item] = response.json()["items"]
+    assert item["kind"] == "schemaUpgraded"
+    assert item["previousReleaseId"] == "legacy-release"
+    assert item["runtimeVersion"] == 99

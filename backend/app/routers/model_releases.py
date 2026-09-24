@@ -6,17 +6,19 @@ from ..db import DbSession
 from ..errors import api_error
 from ..models.api import (
     ModelCompatibilityResponse,
+    ModelReleaseActivationPage,
+    ModelReleaseActivationResponse,
     ModelReleaseDiffResponse,
     ModelReleasePage,
     ModelReleaseResponse,
 )
-from ..models.database import ModelRelease
+from ..models.database import AuditEvent, ModelRelease
 from ..services.cursors import METADATA_CURSOR_MESSAGE
 from ..services.model.compatibility import analyze_compatibility
 from ..services.model.compiler import SUPPORTED_SCHEMA_VERSIONS, compile_model
 from ..services.model.diff import semantic_diff
 from ..services.model.registry import ActiveModelSnapshot
-from ..services.pagination import datetime_key, paginate_statement, text_key
+from ..services.pagination import datetime_key, integer_key, paginate_statement, text_key
 from .presenters import change_response, diagnostic_details, diagnostic_response
 
 router = APIRouter(prefix="/api/v1", tags=["model"])
@@ -25,6 +27,13 @@ _RELEASE_KEYS = (
     datetime_key("installedAt", ModelRelease.installed_at, "installed_at"),
     text_key("publicId", ModelRelease.public_id, "public_id"),
 )
+
+# Oldest first, so the first item is the activation that introduced the release.
+_ACTIVATION_KEYS = (
+    datetime_key("occurredAt", AuditEvent.occurred_at, "occurred_at"),
+    integer_key("sequenceId", AuditEvent.sequence_id, "sequence_id"),
+)
+_ACTIVATION_KINDS = {"activated": "activated", "schema_upgraded": "schemaUpgraded"}
 
 
 @router.get("/model-releases", response_model=ModelReleasePage)
@@ -77,6 +86,52 @@ def get_model_release(
 ) -> ModelReleaseResponse:
     release = load_release(session, release_id)
     return build_release_response(release, snapshot.release_id, include_model=include_model)
+
+
+@router.get(
+    "/model-releases/{release_id}/activations",
+    response_model=ModelReleaseActivationPage,
+)
+def list_model_release_activations(
+    release_id: str,
+    session: DbSession,
+    cursor: str | None = None,
+    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+) -> ModelReleaseActivationPage:
+    """Recorded selections of this release as the active model, with the release they replaced.
+
+    The initial bootstrap selection is not an audited activation, so a release first selected by
+    bootstrap has no item for that selection.
+    """
+    load_release(session, release_id)
+    statement = select(AuditEvent).where(
+        AuditEvent.aggregate_type == "model_runtime_state",
+        AuditEvent.aggregate_id == release_id,
+        AuditEvent.action.in_(tuple(_ACTIVATION_KINDS)),
+    )
+    events, next_cursor = paginate_statement(
+        session,
+        statement,
+        keys=_ACTIVATION_KEYS,
+        scope="model-release-activations",
+        filters={"releaseId": release_id},
+        cursor=cursor,
+        page_size=page_size,
+        message=METADATA_CURSOR_MESSAGE,
+    )
+    return ModelReleaseActivationPage(
+        items=[
+            ModelReleaseActivationResponse(
+                eventId=event.event_id,
+                kind=_ACTIVATION_KINDS[event.action],
+                previousReleaseId=event.changes["oldReleaseId"],
+                runtimeVersion=event.version,
+                occurredAt=as_utc(event.occurred_at),
+            )
+            for event in events
+        ],
+        nextCursor=next_cursor,
+    )
 
 
 @router.get(

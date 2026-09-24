@@ -66,7 +66,10 @@ in code does not establish that a browser user can complete its story.
    correlation-ID error boundary, API client HTML/non-JSON hardening, compact Modal version-change dialog,
    supported-schema pinned-model loading, shell-aligned workspace error recovery and historical-release
    informational state. Non-retryable pinned-schema limitations do not offer Retry. Focused wide/narrow
-   browser evidence is recorded; WP-12 follows WP-11 before composed WP-9 acceptance.
+   browser evidence is recorded. WP-12 delivered 2026-09-24: explained, copyable Release ID and
+   content hash under Technical details; release history compares the recorded predecessor (or a
+   labelled installation-order fallback, or an explicit baseline) to the selected release, including
+   the active one, while activation readiness stays current-active to candidate.
 4. **UI-07 (carried from 0.6, delivered 2026-09-12):** automated accessibility and visual-regression
    gates using the existing Playwright harness with `@axe-core/playwright` and visual comparison
    baselines. Light-theme baselines committed; dark mode and dark baselines followed on 2026-09-24.
@@ -320,7 +323,7 @@ Base 0.6 is released; next work targets product 0.7 (core mapping, schema 0.6, d
 selection). WP-1 (UI-07 accessibility gates), WP-2 (schema 0.6 `mappingGrid` view contract) and
 WP-3 (relation-set version persistence), WP-4 reads, WP-5 replacement, WP-6 backend draft version selection, WP-7 browser draft version selection,
 WP-10A/WP-10B hardening and WP-11 release refusals/errors are delivered. WP-8A/WP-8B and WP-14 are
-implemented and locally reviewed in the uncommitted worktree. Continue with WP-12, then WP-13A/B audit
+implemented and locally reviewed in the uncommitted worktree. WP-12 is delivered. Continue with WP-13A/B audit
 priority coverage and efficient commands;
 WP-13C establishes UI acceptance and closes after mapping/WP-12, before WP-9 composed acceptance.
 Use one implementation owner per slice, focused verification and appropriate review. Do not commit

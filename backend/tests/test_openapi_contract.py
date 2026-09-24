@@ -4,10 +4,10 @@ import json
 from app.main import app, create_app
 
 
-def test_base_0_7_wp14_openapi_document_is_locked():
+def test_base_0_7_wp12_openapi_document_is_locked():
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "e8cdad7dbedc4f7233b257cbe333191bfc854f4cbe91c980c7f37a7c8cf665d2"
+        "9a1664a8e2cb50900d64d8fc699f9a4cd3bb05c0e91c77e38d725d2b5716fafc"
     )
 
 

@@ -7,14 +7,25 @@ function preview(value: unknown) {
   return encoded && encoded.length > 160 ? `${encoded.slice(0, 157)}…` : encoded;
 }
 
-export function ModelDiff({ changes, compatibility }: { changes: ModelChange[]; compatibility: ModelCompatibility }) {
+/** Semantic changes; `compatibility`, when given, is shown alongside as the activation assessment. */
+export function ModelDiff({
+  changes,
+  compatibility,
+  emptyMessage = "No semantic changes from the comparison release.",
+}: {
+  changes: ModelChange[];
+  compatibility?: ModelCompatibility;
+  emptyMessage?: string;
+}) {
   return (
     <section className="model-diff">
       <div className="model-result-heading">
         <h3>Semantic changes</h3>
-        <span className={`compatibility ${compatibility.classification}`}>
-          {compatibility.classification.replace("_", " ")}
-        </span>
+        {compatibility && (
+          <span className={`compatibility ${compatibility.classification}`}>
+            {compatibility.classification.replace("_", " ")}
+          </span>
+        )}
       </div>
       {changes.length ? (
         <div className="table-wrap">
@@ -48,9 +59,11 @@ export function ModelDiff({ changes, compatibility }: { changes: ModelChange[]; 
           </table>
         </div>
       ) : (
-        <p className="panel-state">No semantic changes from the comparison release.</p>
+        <p className="panel-state">{emptyMessage}</p>
       )}
-      {compatibility.diagnostics.length > 0 && <ModelDiagnostics diagnostics={compatibility.diagnostics} />}
+      {compatibility && compatibility.diagnostics.length > 0 && (
+        <ModelDiagnostics diagnostics={compatibility.diagnostics} />
+      )}
     </section>
   );
 }
