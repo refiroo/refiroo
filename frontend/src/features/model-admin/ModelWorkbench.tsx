@@ -13,6 +13,8 @@ import type {
 import { CreateDraftDialog, type CreateDraftSeed } from "@/features/model-admin/CreateDraftDialog";
 import { ModelDraftEditor } from "@/features/model-admin/ModelDraftEditor";
 import { ModelReleaseDetail } from "@/features/model-admin/ModelReleaseDetail";
+import { Icon } from "@/ui/Icon";
+import { SidebarPortal } from "@/ui/SidebarSlot";
 
 type ModelsRoute = Extract<RouteState, { kind: "models" }>;
 
@@ -138,25 +140,105 @@ export function ModelWorkbench({
 
   const selectedDraft = route.draftId ? drafts.find((item) => item.id === route.draftId) : undefined;
   const activeReleaseId = runtime?.activeReleaseId ?? releases.find((item) => item.active)?.id ?? "";
+  const activeRelease = releases.find((item) => item.id === activeReleaseId);
+  const catalogue = (
+    <nav className="model-catalogue" aria-label="Model catalogue">
+      <section>
+        <h2 className="nav-label">
+          Releases <span>{releases.length}</span>
+        </h2>
+        {releases.map((release) => (
+          <button
+            key={release.id}
+            className={route.releaseId === release.id ? "active" : ""}
+            aria-current={route.releaseId === release.id ? "page" : undefined}
+            onClick={() => onRouteChange({ kind: "models", releaseId: release.id })}
+          >
+            <Icon name="model" />
+            <span className="catalogue-text">
+              <strong>{release.name}</strong>
+              <small>
+                {release.key} · {release.version}
+              </small>
+            </span>
+            {release.active && <span className="pill active-pill">Active</span>}
+          </button>
+        ))}
+        {releaseCursor && (
+          <button className="load-more" onClick={moreReleases}>
+            Load more releases
+          </button>
+        )}
+      </section>
+      {capabilities?.modelAdmin.manageDrafts && (
+        <section>
+          <h2 className="nav-label">
+            Drafts <span>{drafts.length}</span>
+          </h2>
+          {drafts.length ? (
+            drafts.map((draft) => (
+              <button
+                key={draft.id}
+                className={route.draftId === draft.id ? "active" : ""}
+                aria-current={route.draftId === draft.id ? "page" : undefined}
+                onClick={() => onRouteChange({ kind: "models", draftId: draft.id })}
+              >
+                <Icon name="list" />
+                <span className="catalogue-text">
+                  <strong>{draft.name}</strong>
+                  <small>
+                    Version {draft.version} · {formatServerTime(draft.updatedAt)}
+                  </small>
+                </span>
+              </button>
+            ))
+          ) : (
+            <p className="explorer-empty">No drafts yet.</p>
+          )}
+          {draftCursor && (
+            <button className="load-more" onClick={moreDrafts}>
+              Load more drafts
+            </button>
+          )}
+        </section>
+      )}
+    </nav>
+  );
   return (
     <div className="model-workbench">
-      <header className="page-header model-page-header">
-        <div>
-          <p className="eyebrow">Model administration</p>
-          <h1>Models</h1>
-          <p>
-            Review immutable releases and safely move JSON candidates through draft, validation, installation and
-            activation.
-          </p>
+      <div className="context-bar">
+        <div role="group" className="shell-context" aria-label="Current context">
+          <span>Model administration</span>
+          {activeRelease && (
+            <span className="context-status">
+              Active · {activeRelease.name} {activeRelease.version}
+            </span>
+          )}
+        </div>
+      </div>
+      <header className="page-header collection-header">
+        <div className="page-title">
+          <span className="page-icon" aria-hidden="true">
+            <Icon name="model" size={20} />
+          </span>
+          <div>
+            <h1>Models</h1>
+            <p>
+              Review immutable releases and safely move JSON candidates through draft, validation, installation and
+              activation.
+            </p>
+          </div>
         </div>
         {capabilities?.modelAdmin.manageDrafts && (
-          <button
-            ref={newDraftButtonRef}
-            className="primary"
-            onClick={() => setCreating({ name: "", releaseId: createReleaseId })}
-          >
-            New draft
-          </button>
+          <div className="collection-header-actions">
+            <button
+              ref={newDraftButtonRef}
+              className="primary"
+              onClick={() => setCreating({ name: "", releaseId: createReleaseId })}
+            >
+              <Icon name="plus" /> New draft
+            </button>
+          </div>
         )}
       </header>
       {error && (
@@ -169,93 +251,37 @@ export function ModelWorkbench({
       )}
       {!capabilities && !error && <div className="panel-state">Loading model catalogue…</div>}
       {capabilities && !capabilities.modelAdmin.manageDrafts && (
-        <p className="notice">
+        <p className="notice info-notice">
           Model mutations are disabled. Installed releases remain available for read-only inspection and export.
         </p>
       )}
-      <div className="model-workbench-grid">
-        <aside className="surface model-catalogue">
-          <section>
-            <div className="model-list-heading">
-              <h2>Releases</h2>
-              <span>{releases.length}</span>
-            </div>
-            {releases.map((release) => (
-              <button
-                key={release.id}
-                className={route.releaseId === release.id ? "active" : ""}
-                onClick={() => onRouteChange({ kind: "models", releaseId: release.id })}
-              >
-                <strong>{release.name}</strong>
-                <small>
-                  {release.key} · {release.version}
-                </small>
-                {release.active && <span className="pill active-pill">Active</span>}
-              </button>
-            ))}
-            {releaseCursor && (
-              <button className="load-more" onClick={moreReleases}>
-                Load more releases
-              </button>
-            )}
-          </section>
-          {capabilities?.modelAdmin.manageDrafts && (
-            <section>
-              <div className="model-list-heading">
-                <h2>Drafts</h2>
-                <span>{drafts.length}</span>
-              </div>
-              {drafts.length ? (
-                drafts.map((draft) => (
-                  <button
-                    key={draft.id}
-                    className={route.draftId === draft.id ? "active" : ""}
-                    onClick={() => onRouteChange({ kind: "models", draftId: draft.id })}
-                  >
-                    <strong>{draft.name}</strong>
-                    <small>
-                      Version {draft.version} · {formatServerTime(draft.updatedAt)}
-                    </small>
-                  </button>
-                ))
-              ) : (
-                <p className="panel-state">No drafts yet.</p>
-              )}
-              {draftCursor && (
-                <button className="load-more" onClick={moreDrafts}>
-                  Load more drafts
-                </button>
-              )}
-            </section>
-          )}
-        </aside>
-        <section className="surface model-detail">
-          {selectedDraft ? (
-            <ModelDraftEditor
-              draft={selectedDraft}
-              canInstall={!!capabilities?.modelAdmin.install}
-              onSaved={updateDraft}
-              onReload={() => reloadDraft(selectedDraft.id)}
-              onInstalled={installed}
-              onDeleted={() => {
-                setDrafts((items) => items.filter((item) => item.id !== selectedDraft.id));
-                onRouteChange({ kind: "models", releaseId: activeReleaseId });
-              }}
-            />
-          ) : route.releaseId && activeReleaseId ? (
-            <ModelReleaseDetail
-              releaseId={route.releaseId}
-              activeReleaseId={activeReleaseId}
-              canManageDrafts={!!capabilities?.modelAdmin.manageDrafts}
-              canActivate={!!capabilities?.modelAdmin.activate}
-              onCreateDraft={startFromRelease}
-              onActivated={activated}
-            />
-          ) : (
-            <div className="empty-state">Choose an installed release or draft.</div>
-          )}
-        </section>
-      </div>
+      <SidebarPortal>{catalogue}</SidebarPortal>
+      <section className="surface model-detail">
+        {selectedDraft ? (
+          <ModelDraftEditor
+            draft={selectedDraft}
+            canInstall={!!capabilities?.modelAdmin.install}
+            onSaved={updateDraft}
+            onReload={() => reloadDraft(selectedDraft.id)}
+            onInstalled={installed}
+            onDeleted={() => {
+              setDrafts((items) => items.filter((item) => item.id !== selectedDraft.id));
+              onRouteChange({ kind: "models", releaseId: activeReleaseId });
+            }}
+          />
+        ) : route.releaseId && activeReleaseId ? (
+          <ModelReleaseDetail
+            releaseId={route.releaseId}
+            activeReleaseId={activeReleaseId}
+            canManageDrafts={!!capabilities?.modelAdmin.manageDrafts}
+            canActivate={!!capabilities?.modelAdmin.activate}
+            onCreateDraft={startFromRelease}
+            onActivated={activated}
+          />
+        ) : (
+          <div className="panel-state">Choose an installed release or draft.</div>
+        )}
+      </section>
       {creating && (
         <CreateDraftDialog
           releases={releases}

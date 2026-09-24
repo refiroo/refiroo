@@ -29,8 +29,7 @@ try {
   harness = await bootHarness({ modelAdmin: true, workspaceAdmin: true });
   const { page, browser, uiUrl, apiUrl, records, api, output } = harness;
 
-  // Light theme baselines for core page types.
-  // Dark theme baselines are deferred until the application implements a dark mode.
+  // Light theme baselines for core page types, then dark baselines for a representative subset.
 
   // --- 1. Collection table: Domain ---
   await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default`);
@@ -83,6 +82,23 @@ try {
   await page.goto(`${uiUrl}/apps/rdm-master/drafts?workspaceKey=default`);
   await shown(page.getByText("Second draft"));
   await capture(page, "drafts-list-light", output);
+
+  // --- 10. Dark theme (system preference) ---
+  await page.emulateMedia({ colorScheme: "dark" });
+  // Reload so no colour transition from the light theme is captured mid-flight.
+  await page.reload();
+  await shown(page.getByText("Second draft"));
+  await capture(page, "drafts-list-dark", output);
+  await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default`);
+  await shown(page.getByRole("button", { name: "Domain 00", exact: true }));
+  await capture(page, "collection-table-domain-dark", output);
+  await page.goto(`${uiUrl}/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default`);
+  await shown(page.getByRole("heading", { name: "Domain 00" }));
+  await capture(page, "record-detail-domain-dark", output);
+  await page.goto(`${uiUrl}/models`);
+  await shown(page.getByRole("heading", { name: "Models" }));
+  await capture(page, "model-workbench-dark", output);
+  await page.emulateMedia({ colorScheme: "light" });
   const draft2Detail = await api(`/workspace-drafts/${draft2.id}`);
   await api(`/workspace-drafts/${draft2.id}?expectedVersion=${draft2Detail.version}`, undefined, "DELETE");
 

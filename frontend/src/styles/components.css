@@ -186,7 +186,7 @@
   padding: 0 5px;
   border-radius: 9px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-size: 11px;
   font-weight: 650;
 }
@@ -404,7 +404,7 @@ tbody tr:hover {
 }
 .object-table tbody tr:hover,
 .object-table tbody tr:focus-within {
-  background: #f1f7f4;
+  background: var(--row-hover);
 }
 .object-table .cell-link:focus-visible {
   outline-offset: 3px;
@@ -875,7 +875,7 @@ tbody tr:hover {
   display: grid;
   place-items: center;
   padding: 32px;
-  background: rgba(14, 26, 21, 0.42);
+  background: var(--backdrop);
   backdrop-filter: blur(2px);
 }
 .dialog {
@@ -1228,14 +1228,14 @@ tbody tr:hover {
 .notice.error-notice {
   border-color: var(--danger-line);
   background: var(--danger-soft);
-  color: #7a1f17;
+  color: var(--danger-ink);
 }
 .notice.warning-notice {
   border-color: var(--warning-line);
   background: var(--warning-soft);
 }
 .notice.success-notice {
-  border-color: #bfe5cf;
+  border-color: var(--success-line);
   background: var(--success-soft);
 }
 .notice-actions {
@@ -1262,7 +1262,7 @@ tbody tr:hover {
   border: 1px solid var(--danger-line);
   border-radius: 8px;
   background: var(--danger-soft);
-  color: #7a1f17;
+  color: var(--danger-ink);
   font-size: 13.5px;
 }
 .inline-state .secondary {
@@ -1352,7 +1352,7 @@ tbody tr:hover {
 .draft-bar {
   margin-bottom: 18px;
   padding: 12px 16px;
-  border-left: 3px solid #d9a441;
+  border-left: 3px solid var(--warning-accent);
 }
 .draft-bar-row {
   display: flex;
@@ -1506,74 +1506,71 @@ tbody tr:hover {
   align-items: flex-end;
   gap: 24px;
 }
-.model-workbench-grid {
-  display: grid;
-  grid-template-columns: 290px minmax(0, 1fr);
-  gap: 16px;
-  align-items: start;
-}
 .model-catalogue {
-  overflow: hidden;
+  display: grid;
+  gap: 20px;
 }
-.model-catalogue section + section {
-  border-top: 1px solid var(--line);
+.model-catalogue section {
+  display: grid;
+  gap: 1px;
 }
-.model-list-heading {
+.model-catalogue h2.nav-label {
   display: flex;
-  align-items: center;
   justify-content: space-between;
-  padding: 12px 14px 8px;
-}
-.model-list-heading h2 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 650;
-}
-.model-list-heading > span {
+  margin: 0 10px 6px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+}
+.model-catalogue .nav-label span {
+  letter-spacing: 0;
 }
 .model-catalogue section > button:not(.load-more) {
-  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
-  display: grid;
-  gap: 2px;
+  min-height: 44px;
+  padding: 6px 10px;
   border: 0;
-  border-top: 1px solid var(--soft-line);
-  padding: 10px 14px;
-  background: var(--surface);
-  color: var(--ink);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink-2);
   text-align: left;
 }
+.model-catalogue section > button:not(.load-more) > .icon {
+  color: var(--faint);
+}
 .model-catalogue section > button:not(.load-more):hover {
-  background: var(--surface-hover);
+  background: var(--fill);
 }
 .model-catalogue section > button.active {
   background: var(--accent-soft);
-  box-shadow: inset 3px 0 var(--accent);
+  color: var(--accent-ink);
 }
-.model-catalogue button strong {
-  padding-right: 56px;
-  font-size: 13.5px;
-  font-weight: 600;
+.model-catalogue section > button.active > .icon {
+  color: var(--accent);
+}
+.catalogue-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+}
+.catalogue-text strong {
   overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 600;
 }
-.model-catalogue button small {
+.catalogue-text small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--muted);
   font-size: 12px;
-  overflow-wrap: anywhere;
-}
-.model-catalogue button .pill {
-  position: absolute;
-  top: 10px;
-  right: 10px;
 }
 .model-catalogue .load-more {
-  width: calc(100% - 24px);
-  margin: 10px 12px 12px;
-}
-.model-catalogue .panel-state {
-  padding: 16px;
+  margin-top: 4px;
 }
 .model-detail {
   min-width: 0;
@@ -1686,7 +1683,7 @@ tbody tr:hover {
   box-shadow: inset 3px 0 var(--danger);
 }
 .diagnostic-list li.warning {
-  box-shadow: inset 3px 0 #c98a1b;
+  box-shadow: inset 3px 0 var(--warning-accent);
 }
 .diagnostic-list li > div {
   display: flex;
@@ -1839,13 +1836,13 @@ tbody tr:hover {
   background: var(--faint);
 }
 .state-dot.state-mapped {
-  background: #12a15e;
+  background: var(--success-dot);
 }
 .state-dot.state-ambiguous {
-  background: #d98b0b;
+  background: var(--warning-accent);
 }
 .state-dot.state-unmapped {
-  background: #9aa6a1;
+  background: var(--neutral-dot);
 }
 .mapping-row.mapping-state-unmapped .mapping-source-name {
   color: var(--ink);

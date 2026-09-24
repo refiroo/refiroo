@@ -20,6 +20,8 @@ import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { Notice } from "@/ui/Notice";
 import { ResizeHandle } from "@/ui/ResizeHandle";
 import { useLocalNumberPreference } from "@/lib/localPreference";
+import { SidebarSlotContext } from "@/ui/SidebarSlot";
+import { SettingsMenu } from "./SettingsMenu";
 
 export function AppShell({
   model,
@@ -51,6 +53,7 @@ export function AppShell({
   const { draft } = useWorkspaceData();
   const rail = useLocalNumberPreference("rdm:layout:navigation-width:v1", 248, 210, 380);
   const [navigationOpen, setNavigationOpen] = useState(false);
+  const [sidebarSlot, setSidebarSlot] = useState<HTMLElement | null>(null);
   const workspaceDraftId =
     activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.workspaceDraftId : undefined;
   const workspaceRevisionId =
@@ -65,10 +68,7 @@ export function AppShell({
   const statusTone = workspaceDraftId ? "draft" : workspaceRevisionId ? "history" : "live";
 
   return (
-    <div
-      className={`app-shell${models ? " without-sidebar" : ""}`}
-      style={{ "--sidebar": `${rail.value}px` } as CSSProperties}
-    >
+    <div className="app-shell" style={{ "--sidebar": `${rail.value}px` } as CSSProperties}>
       <a className="skip-link" href="#main-content">
         Skip to main content
       </a>
@@ -114,62 +114,64 @@ export function AppShell({
           </nav>
         </div>
       </header>
-      {!models && (
-        <button
-          type="button"
-          className="navigation-toggle"
-          aria-haspopup="dialog"
-          aria-controls="workspace-navigation"
-          aria-expanded={navigationOpen}
-          onClick={() => setNavigationOpen(true)}
-        >
-          <Icon name="menu" /> Browse application
-        </button>
-      )}
-      {!models && (
-        <NavigationDrawer open={navigationOpen} onClose={() => setNavigationOpen(false)}>
-          <aside id="workspace-navigation" aria-label="Workspace navigation">
-            <WorkspaceSelector
-              workspaceKey={activeRoute.workspaceKey}
-              onChange={onChangeWorkspace}
-              onResolved={onWorkspaceResolved}
-            />
-            <Explorer
-              key={`${application.key}:${activeRoute.workspaceKey}`}
-              model={model}
-              application={application}
-              workspaceKey={activeRoute.workspaceKey}
-              activeObjectId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
-              activeViewKey={activeRoute.kind === "list" ? activeRoute.viewKey : undefined}
-              refreshToken={refreshToken}
-              onOpen={(item) => {
-                onOpenObject(item);
-                setNavigationOpen(false);
-              }}
-              onOpenCollection={(viewKey, parent) => {
-                onNavigate({
-                  ...viewRoute(application, viewKey, activeRoute.workspaceKey),
-                  workspaceDraftId,
-                  workspaceRevisionId,
-                  ...(parent ? { parentObjectId: parent.id, parentObjectTypeKey: parent.objectTypeKey } : {}),
-                });
-                setNavigationOpen(false);
-              }}
-            />
-          </aside>
-        </NavigationDrawer>
-      )}
-      {!models && (
-        <ResizeHandle
-          className="navigation-resizer"
-          label="Resize navigation rail"
-          value={rail.value}
-          min={210}
-          max={380}
-          onChange={rail.change}
-          onReset={rail.reset}
-        />
-      )}
+      <button
+        type="button"
+        className="navigation-toggle"
+        aria-haspopup="dialog"
+        aria-controls="workspace-navigation"
+        aria-expanded={navigationOpen}
+        onClick={() => setNavigationOpen(true)}
+      >
+        <Icon name="menu" /> {models ? "Browse models" : "Browse application"}
+      </button>
+      <NavigationDrawer open={navigationOpen} onClose={() => setNavigationOpen(false)}>
+        <aside id="workspace-navigation" aria-label={models ? "Model navigation" : "Workspace navigation"}>
+          {models ? (
+            <div ref={setSidebarSlot} className="sidebar-slot" />
+          ) : (
+            <>
+              <WorkspaceSelector
+                workspaceKey={activeRoute.workspaceKey}
+                onChange={onChangeWorkspace}
+                onResolved={onWorkspaceResolved}
+              />
+              <Explorer
+                key={`${application.key}:${activeRoute.workspaceKey}`}
+                model={model}
+                application={application}
+                workspaceKey={activeRoute.workspaceKey}
+                activeObjectId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
+                activeViewKey={activeRoute.kind === "list" ? activeRoute.viewKey : undefined}
+                refreshToken={refreshToken}
+                onOpen={(item) => {
+                  onOpenObject(item);
+                  setNavigationOpen(false);
+                }}
+                onOpenCollection={(viewKey, parent) => {
+                  onNavigate({
+                    ...viewRoute(application, viewKey, activeRoute.workspaceKey),
+                    workspaceDraftId,
+                    workspaceRevisionId,
+                    ...(parent ? { parentObjectId: parent.id, parentObjectTypeKey: parent.objectTypeKey } : {}),
+                  });
+                  setNavigationOpen(false);
+                }}
+              />
+            </>
+          )}
+          <SettingsMenu />
+          {/* Fixed-position, so it stays inside the navigation landmark without affecting layout. */}
+          <ResizeHandle
+            className="navigation-resizer"
+            label="Resize navigation rail"
+            value={rail.value}
+            min={210}
+            max={380}
+            onChange={rail.change}
+            onReset={rail.reset}
+          />
+        </aside>
+      </NavigationDrawer>
       <main id="main-content" className="workspace-main" tabIndex={-1}>
         {!models && (
           <div className="context-bar">
@@ -227,7 +229,7 @@ export function AppShell({
             This workspace is retired. Runtime data and history remain available, but changes are disabled.
           </Notice>
         )}
-        {children}
+        <SidebarSlotContext.Provider value={sidebarSlot}>{children}</SidebarSlotContext.Provider>
       </main>
     </div>
   );

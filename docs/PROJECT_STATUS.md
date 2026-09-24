@@ -69,7 +69,7 @@ in code does not establish that a browser user can complete its story.
    browser evidence is recorded; WP-12 follows WP-11 before composed WP-9 acceptance.
 4. **UI-07 (carried from 0.6, delivered 2026-09-12):** automated accessibility and visual-regression
    gates using the existing Playwright harness with `@axe-core/playwright` and visual comparison
-   baselines. Light-theme baselines committed; dark-theme baselines deferred until a dark theme exists.
+   baselines. Light-theme baselines committed; dark mode and dark baselines followed on 2026-09-24.
 5. **Contextual collections (WP-8A/WP-8B/WP-14, implemented and locally reviewed 2026-09-15;
    uncommitted):** one generic application browser combines collection entry points and runtime
    hierarchy. Views sharing a source type are collection lenses; mapping adds visible server-backed
@@ -93,7 +93,7 @@ identities and direction-aware mapping validation. WP-6/WP-7 add atomic complete
 and browser model-context refresh; both are delivered. WP-8A delivers coverage; WP-8B adds mapping actions. WP-9 extends
 new-control accessibility/visual evidence and checks independent bindings, differing same-schema
 releases, generic-write races and activation/live set conflicts. Confirmed missing foundation behavior
-triggers bounded WP-10 work before acceptance. Dark baselines stay deferred until dark mode exists.
+triggers bounded WP-10 work before acceptance. Dark mode and dark baselines were added on 2026-09-24.
 
 ### WP-4 delivery and review — 2026-09-14
 
@@ -270,9 +270,10 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 ## Remaining limitations
 
 - Automated accessibility gates (`npm run test:a11y`) and visual-regression gates
-  (`npm run test:visual`) are delivered. Two known violations are allowlisted by exact target
-  and bounded node count with tracked references.
-  Visual baselines cover light theme only (no dark theme exists yet).
+  (`npm run test:visual`) are delivered. One known violation (WP1-002) is allowlisted by exact
+  target and bounded node count; WP1-001 was fixed on 2026-09-24. Light baselines cover the core
+  page types and dark baselines a representative subset; the accessibility gate runs core pages
+  and the settings menu in both themes.
 - Schema 0.6 supports strict table and `mappingGrid` collection lenses. Exact-binding relation-set
   versions are integrated into all generic relation writes; coverage, target details, candidate
   search and atomic replacement are delivered, and the WP-8/WP-14 UI is implemented locally. Base 0.7

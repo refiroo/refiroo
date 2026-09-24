@@ -169,8 +169,9 @@ focused startup/migration evidence; focused package tests do not replace the ful
 Accessibility scenarios must include the changed controls and two object types. Unexpected
 violations fail the gate; known violations require tracked references in
 `e2e/accessibility-gate.mjs`. Visual checks compare against committed `e2e/baselines/`; review
-intentional baseline updates before including them in the change. Dark baselines remain deferred
-until dark mode exists. Do not update baselines merely to hide an unexplained failure.
+intentional baseline updates before including them in the change. Dark baselines cover a
+representative subset (`*-dark`); extend them and the dark accessibility scenarios when a change
+affects theme tokens or a new surface. Do not update baselines merely to hide an unexplained failure.
 
 ### Execution discipline
 

@@ -6,7 +6,19 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Dark mode: a complete dark token set that follows the system preference by default, with an
+  explicit System / Light / Dark choice saved per browser and applied before first paint.
+- Settings control at the bottom of the navigation rail with the appearance choice and an
+  Account placeholder (local single-user session, disabled Sign in) for the planned multi-user
+  authentication.
+- Dark accessibility scenarios (core pages and the settings menu) and four dark visual baselines.
+
 ### Changed
+
+- Models page aligned with the rest of the UI: the release/draft catalogue is now sidebar
+  navigation, and the main column uses the shared context bar, page header and surfaces.
 
 - Base 0.7 UX pass over the generic frontend, with routes, data contexts and API contracts unchanged:
   applications as header tabs with model icons; a segmented Live / Drafts / History control;
@@ -20,6 +32,10 @@ All notable changes to this project are documented in this file. The format foll
   longer turns the primary button into a clear operation.
 
 ### Fixed
+
+- WP1-001: the navigation resize separator is inside the navigation landmark, so its accessibility
+  exception is removed. Collection and settings popovers render inside a landmark (or the open
+  dialog), and zone-less server timestamps are read as UTC.
 
 - Build 0.7 WP-5 review: enforce ancestor-scoped constraints against the final replacement graph,
   and reject missing required ancestors in generic draft relation writes as in live writes. Reject

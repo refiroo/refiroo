@@ -160,6 +160,15 @@ no renderer branches on an application or object-type key.
 - **Inside a draft:** a compact draft bar replaces the stacked workflow panel and keeps Validate,
   Activate and More draft actions in one row.
 
+- **Models:** the same rail-and-content frame as data pages. The release/draft catalogue is the
+  sidebar navigation; the main column has the context bar (with the active release), the standard
+  page header and the selected release or draft.
+- **Settings:** a persistent control at the bottom of the rail opens Account and Appearance.
+  Account is a placeholder (local single-user session, disabled Sign in) for the planned multi-user
+  authentication. Appearance offers System, Light and Dark; the choice is stored per browser and
+  applied before first paint. Dark mode redefines the same semantic tokens, so renderers never
+  branch on the theme.
+
 Records opened from a collection keep the full-width presentation chosen in UI-03; the inspector
 split view remains available in code but is not the default.
 

@@ -59,7 +59,7 @@
   height: 28px;
   border-radius: 7px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 700;
 }
 .product-mark strong {
@@ -167,8 +167,160 @@
   background: var(--sidebar-bg);
   border-right: 1px solid var(--line);
 }
+.workspace-sidebar > div {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
 #workspace-navigation {
-  padding: 16px 12px 24px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 12px 0;
+}
+
+/* Settings are pinned to the bottom of the rail and stay reachable while the tree scrolls. */
+.sidebar-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: auto -12px 0;
+  padding: 8px 12px 12px;
+  border-top: 1px solid var(--line);
+  background: var(--sidebar-bg);
+}
+.explorer,
+.sidebar-slot {
+  margin-bottom: 20px;
+}
+.settings-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink-2);
+  text-align: left;
+}
+.settings-trigger:hover,
+.settings-trigger[aria-expanded="true"] {
+  background: var(--fill);
+}
+.settings-trigger > .icon {
+  color: var(--muted);
+}
+.settings-trigger[data-focus-visible] {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.settings-trigger-text {
+  display: grid;
+  flex: 1;
+  min-width: 0;
+  line-height: 1.25;
+}
+.settings-trigger-text strong {
+  font-size: 13px;
+  font-weight: 600;
+}
+.settings-trigger-text small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.account-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+.settings-popover {
+  width: min(320px, calc(100vw - 24px));
+}
+.settings-section {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 0 0;
+  border: 0;
+  border-top: 1px solid var(--soft-line);
+}
+.settings-section h3,
+.settings-section legend {
+  margin: 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+fieldset.settings-section legend {
+  float: left;
+  width: 100%;
+  margin-bottom: 10px;
+}
+.account-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.account-card div {
+  display: grid;
+}
+.account-card strong {
+  font-size: 14px;
+}
+.account-card small,
+.settings-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.settings-section > .secondary {
+  justify-self: start;
+}
+.theme-choice {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px;
+  padding: 3px;
+  border-radius: 8px;
+  background: var(--fill);
+}
+.theme-choice label {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  border-radius: 6px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 550;
+  cursor: pointer;
+}
+.theme-choice input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.theme-choice label.selected {
+  background: var(--surface);
+  color: var(--ink);
+  font-weight: 650;
+  box-shadow: var(--shadow-sm);
+}
+.theme-choice label:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 .resize-handle {
   touch-action: none;
@@ -223,6 +375,7 @@
 }
 .explorer {
   display: grid;
+  align-content: start;
   gap: 20px;
 }
 .collection-tree {

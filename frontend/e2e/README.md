@@ -209,8 +209,10 @@ npm --prefix frontend run test:visual:update
 
 This captures new baselines. Review the updated PNGs in `e2e/baselines/`, then commit them.
 
-Dark theme baselines are deferred until the application implements a dark mode. When dark mode
-lands, add `*-dark` baseline variants to the visual regression gate.
+Dark variants (`*-dark`) cover the domain collection, domain detail, drafts list and model
+workbench. The gate switches with `page.emulateMedia({ colorScheme: "dark" })` and reloads before a
+capture so no colour transition is recorded. The accessibility gate repeats core pages and the
+settings menu in the dark theme.
 
 ## When to run comprehensive gates
 
@@ -229,7 +231,7 @@ conflict recovery, clearing and contextual target creation. WP-9 supplies compos
 browser/API evidence with independent bindings and differing same-schema releases, including concurrency
 and isolation checks. Existing baseline pages alone do not establish coverage of those new controls.
 No new scenario pass is claimed here. See [the 0.7 plan](../../docs/BASE_0_7_IMPLEMENTATION_PLAN.md).
-Dark variants remain deferred until dark mode exists; reuse passing gates unless relevant code changes.
+Reuse passing light and dark gates unless relevant code or theme tokens change.
 
 Run gate-helper regressions (including missing baseline refusal and scoped accessibility exceptions):
 

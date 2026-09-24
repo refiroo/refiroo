@@ -149,7 +149,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 
 ## Known accessibility exceptions
 
-- [ ] WP1-001: place the navigation resize separator inside a landmark. The gate permits only
-  the known separator target, with one matching node per page.
+- [x] WP1-001: the navigation resize separator now sits inside the navigation landmark (fixed
+  2026-09-24); its allowlist entries were removed. Collection and settings popovers render inside a
+  landmark so their dismiss controls are not stray page content.
 - [ ] WP1-002: give the child/relation table regions distinct accessible labels. The gate permits
-  one known duplicate-label target on the System detail page only.
+  one known duplicate-label target on the System detail page (light and dark) only.

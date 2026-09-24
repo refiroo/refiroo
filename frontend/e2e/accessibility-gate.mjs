@@ -10,25 +10,11 @@ import { runAxe, formatViolations } from "./helpers/axe-helper.mjs";
 // Each entry must state the axe rule id and a tracking reference.
 const ALLOWLIST = [
   {
-    rule: "region",
-    target: [".navigation-resizer"],
-    maxNodes: 1,
-    issue:
-      "WP1-001: resize-handle separator sits between aside and main landmarks; structural fix requires layout refactor",
-  },
-  {
-    rule: "region",
-    target: [".resize-handle"],
-    maxNodes: 1,
-    pages: ["history", "model-workbench", "drafts-list"],
-    issue: "WP1-001: the same navigation separator is the only resize handle on these pages",
-  },
-  {
     rule: "landmark-unique",
     target: ['.panel-tables > .embedded-table > .table-wrap.object-table[role="region"]'],
     maxNodes: 1,
     relatedTargets: [['.panel.surface:nth-child(2) > .embedded-table > .table-wrap.object-table[role="region"]']],
-    pages: ["detail-system"],
+    pages: ["detail-system", "dark-detail-system"],
     issue:
       "WP1-002: children/relation panels repeat aria-label='Objects' on nested tables; needs scoped labels per panel type",
   },
@@ -153,6 +139,39 @@ try {
   if (result.violations.length > 0) failures.push(`drafts-list:\n${formatViolations(result.violations)}`);
   checks.push(`drafts-list: ${result.violations.length} violations, ${result.allowed.length} allowed`);
   await page.screenshot({ path: resolve(output, "a11y-drafts-list.png"), fullPage: true });
+
+  // --- 9. Settings menu (account placeholder and appearance) ---
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await shown(page.getByRole("dialog", { name: "Settings" }));
+  result = await runAxe(page, ALLOWLIST, "settings-menu");
+  if (result.violations.length > 0) failures.push(`settings-menu:\n${formatViolations(result.violations)}`);
+  checks.push(`settings-menu: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  await page.keyboard.press("Escape");
+
+  // --- 10. Dark theme: the same token contract must keep contrast on core page types ---
+  await page.emulateMedia({ colorScheme: "dark" });
+  for (const [name, path, ready] of [
+    ["dark-collection-domain", "/apps/rdm-master/views/domains?workspaceKey=default", () => page.getByRole("button", { name: "Domain 00", exact: true })],
+    ["dark-detail-domain", `/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default`, () => page.getByRole("heading", { name: "Domain 00" })],
+    ["dark-detail-system", `/apps/rdm-systems/objects/system/${records.system[0].id}?workspaceKey=default`, () => page.getByRole("heading", { name: "System 00" })],
+    ["dark-drafts-list", "/apps/rdm-master/drafts?workspaceKey=default", () => page.getByText("Second draft")],
+    ["dark-model-workbench", "/models", () => page.getByRole("heading", { name: "Models" })],
+  ]) {
+    await page.goto(`${uiUrl}${path}`);
+    await shown(ready());
+    await page.waitForLoadState("networkidle");
+    result = await runAxe(page, ALLOWLIST, name);
+    if (result.violations.length > 0) failures.push(`${name}:\n${formatViolations(result.violations)}`);
+    checks.push(`${name}: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+    await page.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
+  }
+  await page.getByRole("button", { name: "Settings", exact: true }).click();
+  await shown(page.getByRole("dialog", { name: "Settings" }));
+  result = await runAxe(page, ALLOWLIST, "dark-settings-menu");
+  if (result.violations.length > 0) failures.push(`dark-settings-menu:\n${formatViolations(result.violations)}`);
+  checks.push(`dark-settings-menu: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  await page.keyboard.press("Escape");
+  await page.emulateMedia({ colorScheme: "light" });
 
   // Discard the leftover draft.
   const draft2Detail = await api(`/workspace-drafts/${draft2.id}`);
