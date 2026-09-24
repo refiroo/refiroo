@@ -73,9 +73,9 @@ WP-4 and its WP-10A review fix delivered (2026-09-14). WP-5 delivered (2026-09-1
 - [x] WP-13B: `docs/testing/EXECUTION_GUIDE.md` with measured costs, pytest contract-group markers
   (unclassified modules refused), `unit`/`dom` Vitest projects, boundary-to-check expansion and the
   WP-9 command set; migrated-template databases halve the sampled backend time. 2026-09-24.
-- [ ] WP-13C: inventory the applicable states of every materially changed 0.7 UI surface, then add
-  risk-selected browser journeys and reviewed normal/narrow screenshots against existing UI patterns;
-  close after mapping UI and WP-12, before WP-9.
+- [x] WP-13C: `docs/testing/UI_ACCEPTANCE.md` with reference patterns and the state inventory of 14
+  changed 0.7 surfaces; `test:browser:wp13c` covers outage/retry, empty, conflict, draft-context mapping
+  and non-active-release draft states at 1440/390px; screenshots reviewed; found WP-10F/WP-10G. 2026-09-24.
 - [ ] WP-9: independent binding fixtures, same-schema differing releases, new-control a11y/visual
   coverage, generic-write races and draft activation/live same-set conflicts.
 - [x] WP-10A: live/draft cascade deletion advances affected mapping-set versions atomically; stale
@@ -86,6 +86,9 @@ WP-4 and its WP-10A review fix delivered (2026-09-14). WP-5 delivered (2026-09-1
   activate. Delivered 2026-09-24.
 - [ ] WP-10E: a live `dateTime` write drops its UTC offset (the instant moves), and live decimals
   are padded to the column scale. Strict xfail reproduces it; blocks 0.7.
+- [ ] WP-10F: contextual mapping-target creation is scoped to the lens's application, so the starter
+  model cannot create a target in either direction; needs an owning-application decision.
+- [ ] WP-10G: narrow mapping-dialog search box height; raw release UUID in the draft mismatch notice.
 - [ ] Further conditional WP-10 slices: only confirmed missing foundation capabilities; required slices block 0.7
   acceptance. WP-1–WP-3 are delivered and frozen; their implementation reviews stay separate.
 

@@ -5,9 +5,9 @@ WP-10A cascade-deletion version fix are complete. WP-5 acceptance follow-up and 
 hardening are delivered. The earlier WP-1–WP-3 review boundary remains separate;
 WP-1–WP-3 scopes are frozen. WP-6 backend, WP-7 frontend and WP-11 follow-up are delivered.
 WP-8A/WP-8B have an uncommitted component implementation but are not reviewed or accepted.
-ADR-029 extends 0.7 with WP-14 contextual collection composition. WP-12, WP-13A and WP-13B are
-delivered; WP-13A triggered WP-10C/WP-10D (delivered) and WP-10E (open). WP-13C and WP-9 composed 0.7
-acceptance remain pending.
+ADR-029 extends 0.7 with WP-14 contextual collection composition. WP-12 and WP-13A/B/C are
+delivered; WP-13A triggered WP-10C/WP-10D (delivered) and WP-10E (open); WP-13C found WP-10F and
+WP-10G (open). WP-9 composed 0.7 acceptance remains pending.
 
 **Target:** Product 0.7.0, schema language 0.6. The starter model content advances to a version on
 schema 0.6; that number alone does not mean the product release is accepted.
@@ -1000,6 +1000,19 @@ cases are skipped to manufacture speed. Full suites run at WP-9, not per slice.
 **Prerequisites:** WP-13B; complete final scenario coverage after WP-8A/WP-8B and WP-12.
 Establish the pattern/checklist first so those packages can use it during implementation.
 
+**Delivered 2026-09-24:** [UI acceptance](testing/UI_ACCEPTANCE.md) names the reference pattern for
+dialogs, fields, actions, page/load-failure/empty surfaces, notices, disclosures and narrow layout, and
+holds the state inventory of 14 surfaces added or materially changed in 0.7 with the evidence for
+each state (browser, component only, gap, or inapplicable with a reason). A new real-backend runner,
+`e2e/wp13c-ui-states.mjs` (`test:browser:wp13c`), covers the user-critical states without browser
+evidence: coverage/candidate/drafts-list outages with Retry, filtered-empty and no-match states,
+conflict review keeping the attempted choice, the inverse binding in a named draft with live unchanged,
+a draft pinned to a non-active release, keyboard focus, 390px layout and five scoped axe checks. All
+12 screenshots were inspected against the references. Three product defects were found and scoped,
+not fixed: WP-10F (contextual target creation) and WP-10G (two visual fixes). `AGENTS.md`, the
+execution guide and the e2e README now require a named reference, a state-inventory row, focused
+browser selection and separate functional/accessibility/visual reports for UI changes.
+
 **Scope:**
 
 1. Create `docs/testing/UI_ACCEPTANCE.md` with named existing 0.6 reference screens/components for
@@ -1174,7 +1187,8 @@ documentation reflects the delivered state. Any gaps or simplifications are expl
 
 **Status:** WP-10A and WP-10B delivered after WP-4/WP-5 review (2026-09-14). WP-10C and WP-10D,
 triggered by the WP-13A audit, were delivered on 2026-09-24. WP-10E, found while validating WP-10C,
-is open and blocks 0.7 acceptance. Other slices remain conditional.
+is open and blocks 0.7 acceptance. WP-10F and WP-10G, found by WP-13C, are open. Other slices remain
+conditional.
 
 **WP-10A — Cascade-deletion relation-set participation:** HTTP reproduction in both live and
 current-live draft contexts: deleting a mapped system value reduced incoming coverage from 21
@@ -1260,6 +1274,27 @@ reads. Acceptance: store instants in UTC and return them with an explicit offset
 decide whether existing live `dateTime` values need a migration (the starter model has no `dateTime`
 field; check deployed models first); give decimals one canonical form across contexts. Regression:
 remove the strict `xfail` from `test_typed_table_queries.py::test_live_datetime_keeps_its_instant`.
+
+**WP-10F — Contextual target creation uses the lens's application (found by WP-13C, 2026-09-24;
+open):** Browser reproduction (`wp13c-ui-states.mjs`, starter model): in the System → Master lens of
+`rdm-systems`, **Create new master value** offers a Codelist parent, and its lookup fails with
+“Object type 'codelist' is not available in application 'rdm-systems'”; no master value exists in
+that application to serve as the other permitted parent, so the target cannot be created. In the
+Master ← System lens of `rdm-master`, a system value cannot be created because `rdm-master` does not
+contain that type. Cause: `MappingActionDialog` passes the view's `applicationKey` to the generic
+`ObjectFormDialog`, while objects belong to exactly one application and candidates are read across
+applications. The refusal is contained (message shown, unsaved choice kept). Affected contract: US-M04
+contextual creation “where the model permits”. Needs a decision on the owning application of a target
+created in context (for example the target type's application that contains the permitted parents,
+or a choice among the applications containing the type), then a real-API and browser regression that
+creates, selects and saves the target in both configured directions.
+
+**WP-10G — Visual fixes from WP-13C screenshot review (2026-09-24; open):** (1) At ≤ 720px the mapping
+dialog's candidate search stretches to ~170–500px high: `styles/responsive.css` gives every
+`.search-box` `flex: 1 1 100%`, which becomes a height basis in the dialog's column form. (2) The draft
+model-mismatch notice names the active model by raw release UUID instead of key and version, contrary
+to WP-12's human-readable release identity. Acceptance: reviewed narrow and wide screenshots of both
+surfaces; rerun `test:browser:wp13c`.
 
 **WP-5 acceptance follow-up (delivered 2026-09-14):** Add independent-binding isolation in live/draft
 contexts, required-ownership rejection, forbidden clearing, and overlapping real HTTP generic

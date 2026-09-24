@@ -172,6 +172,19 @@ former mode switch, runs axe against the composed mapping page and records wide/
 This is package evidence; the comprehensive accessibility and visual-baseline gates remain WP-9 build
 acceptance.
 
+## WP-13C changed-state checks
+
+```sh
+npm --prefix frontend run test:browser:wp13c
+```
+
+Runs the user-critical states selected in [UI acceptance](../../docs/testing/UI_ACCEPTANCE.md) for 0.7
+surfaces: mapping coverage and candidate outages with Retry, filtered-empty and no-match states,
+contained contextual-creation refusal, conflict review preserving the attempted choice, the inverse
+binding in a named draft with live unchanged, a drafts-list outage, and a draft pinned to a non-active
+release. Both widths (1440px, 390px), keyboard focus and scoped axe checks are included. Outages are
+503 responses held until the Retry click; everything else reaches the isolated real backend.
+Screenshots must be inspected against the named reference patterns; the runner does not compare them.
 
 ## UI-07 accessibility gate
 

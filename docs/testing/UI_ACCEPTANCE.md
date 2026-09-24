@@ -1,0 +1,128 @@
+# UI acceptance
+
+**Package:** Base 0.7 WP-13C, 2026-09-24. **Inputs:** the [coverage map](COVERAGE_MAP.md) (C-UI-*,
+C-MAP-UI, C-DR-PIN) and the [execution guide](EXECUTION_GUIDE.md). **Consumers:** every package that
+adds or materially changes a user-visible surface, and WP-9.
+
+This document answers two questions: *which existing screen must my new UI look and behave like?* and
+*which states of a changed surface have browser evidence, and which do not?* Accessibility checks and
+screenshot equality supplement design review; neither establishes that a layout is good. An
+uninspected appearance is unverified, not passed.
+
+## 1. Reference patterns
+
+Reuse the named reference's structure, classes and tokens. Introduce a shared component only when a
+repeated gap is demonstrated on two surfaces; do not add a second design system or redesign a surface
+to fit a new control.
+
+| Pattern | Reference (0.6, retained in 0.7) | Structure to reuse |
+| --- | --- | --- |
+| Dialog | `ui/Modal` as used by `features/objects/ObjectFormDialog.tsx` | `Modal` (title, optional `eyebrow`, `busy`, `dirty`, `size="compact"` for short forms) wrapping one `<form>`; `Notice` for the error; `.dialog-actions` with Cancel (`secondary`) then the submit (`primary`). Never a hand-rolled `.dialog-backdrop`. |
+| Confirmation | `ui/ConfirmDialog` (draft activate/discard, deletion) | States the consequence; destructive action uses `danger`/`danger-ghost`. |
+| Field | `ui/AttributeField`, `ui/ObjectLookup`, label-wrapped `<input>/<select>` in `ObjectFormDialog` | Visible `<label>` text wraps the control; required state from the model; typed input types. |
+| Actions | Collection header action (`.collection-header-actions .primary`), `RecordActionMenu`/`ui/ActionMenu`, `ui/ControlPopover` | One primary action per surface; secondary actions in a menu or `<details>` disclosure; icon buttons carry an accessible name. |
+| Page surface | `features/objects/CollectionView.tsx` | `.page-header` with `.page-title` and `h1`; `.surface` with toolbar, table region and footer (`role="status"` count plus `ui/Pagination`). |
+| Load failure | `ui/InlineError` (a `Notice` titled “Could not load this content” with **Retry**) | Replaces only the failed content; shell, header and previously loaded data stay; Retry repeats the exact request. |
+| Empty state | Collection empty row, `.empty-panel` in `WorkspaceDrafts` | Says whether nothing exists or nothing matches the current search/filter. |
+| Notice | `ui/Notice` tones `info`/`warning`/`error` | Title plus a sentence stating what happened and the safe next action; `focusOnMount` for a failure the user must act on. |
+| Disclosure | `<details>` in `WorkspaceDrafts` (More draft actions) and `ModelReleaseDetail` (Technical details); `ui/Tabs`; `ui/NavigationDrawer` | Native keyboard operation; identifiers and technical metadata stay collapsed by default. |
+| Narrow layout | `styles/responsive.css` at ≤ 720px; 390×844 is the checked phone width | No page-level horizontal scroll; wide tables scroll inside their labelled region; dialogs fit the viewport. |
+
+## 2. Surfaces added or materially changed in 0.7
+
+Navigation is given from a fresh isolated harness (`e2e/helpers/harness.mjs`). The state columns use:
+**B** browser evidence (runner named in the last column), **C** component evidence only,
+**—** not applicable (reason in the notes), **gap** applicable without evidence.
+
+| # | Surface (package) | Navigation | Reference | Load | Populated / empty | Pending | Success | Invalid / refused | Conflict | Dependency failure → retry | Narrow | Keyboard / focus | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| S1 | Shell: application tabs, model/schema version, Live/Drafts/History, settings menu, dark theme (redesign, 315e6f7) | any `/apps/<app>/…` | Page surface | C | B | — | B | — | — | B (context failure) | B | B | `wp9-navigation`, `App.test` “keeps transient context failures in the shell”, `SettingsMenu.test`, a11y dark pages |
+| S2 | Unified application browser: collections + record tree (WP-14) | sidebar; narrow: **Browse application** | Disclosure (drawer, tree) | C | B | — | B | — | — | C (`Explorer.test`) | B | B | `wp9-navigation`, `wp14-contextual-browser` |
+| S3 | Collection lenses, scope banner, Filter popover (WP-14, redesign) | `/apps/rdm-systems/views/systems` → expand System 00 → System values collection | Page surface, `ControlPopover` | C | B | — | B | C (typed filter 422) | — | C (`CollectionView.test`) | B | B | `wp14-contextual-browser`, `wp9-navigation` UI-02 |
+| S4 | Mapping lens grid (WP-8A/WP-14) | lens tab **System → Master mapping**; `/apps/rdm-master/views/master-to-system-mapping` | Page surface | C | B incl. filtered-empty | — | B | — | — | **B** | **B** | B (region focusable, row button) | `wp13c-ui-states`, `wp14-contextual-browser` |
+| S5 | Mapping dialog: candidates, save/next, remove, conflict (WP-8B) | row **Map/Change** | Dialog | C | **B** incl. no-match | C (`Saving…`) | **B** | C (server error notice) | **B** | **B** | **B** | **B** (search focus, Escape restores focus) | `wp13c-ui-states`, `MappingGridView.test` (22) |
+| S6 | Contextual target creation (WP-8B) | mapping dialog → **Create new …** | Dialog (nested `ObjectFormDialog`) | — | — | — | **gap: blocked by WP-10F** | **B** (refusal contained) | — | B (lookup error + Retry shown) | gap | C | `wp13c-ui-states` |
+| S7 | Mapping in a named draft, inverse direction (WP-8B/WP-7) | `…/master-to-system-mapping?workspaceDraftId=…` | as S4/S5 | — | **B** | — | **B** (live unchanged) | — | C | — | gap (wide only) | B | `wp13c-ui-states` |
+| S8 | Drafts list and creation with model version (WP-7) | Drafts tab | Page surface, Dialog | C | B | C | **B** | C (`WorkspaceDrafts.test` creation refusal) | — | **B** | gap (dialog) | C | `wp13c-ui-states`, `wp9-drafts` |
+| S9 | Draft bar, model mismatch notice, activation refusal (WP-7/WP-11) | open a draft pinned to a non-active release | Notice, Actions | C | **B** | C | B (`wp9-drafts` activation) | **B** (Activate disabled with reason) | B (`wp9-drafts`) | C (refresh warning) | **B** | C | `wp13c-ui-states`, `wp9-drafts` |
+| S10 | Change model version dialog (WP-7/WP-11) | draft bar → More draft actions → **Change model version** | Dialog (`compact`) | C | B | C | B | C (incompatibility diagnostics) | C | C | B | B (focus trap, dirty Escape) | `wp11-model-admin`, `WorkspaceDrafts.test` |
+| S11 | Workspace/page load failures (WP-11) | any context read failing | Load failure | — | — | — | B | B (unsupported historical schema: C) | — | **B** (drafts list), B (`wp9-navigation` panels) | C | C | `wp13c-ui-states`, `App.test` |
+| S12 | Release detail: identity, Technical details, comparison baseline (WP-12) | Models → release | Page surface, Disclosure | C | B | — | B (copy) | C (unsupported baseline) | — | C | B | B | `wp12-release-identity`, `ModelReleaseDetail.test` |
+| S13 | Models page alignment (315e6f7) | header **Models** | Page surface | C | B | — | B | C | C (version conflict) | C | C | C | visual/a11y gate pages (`model-workbench-*`), `ModelWorkbench.test` |
+| S14 | Record header, breadcrumb, readable activity (redesign) | open any record | Page surface | C | B | — | B | — | B (`wp9-authoring`) | B | B | B | `wp9-navigation`, `wp9-authoring`, visual baselines |
+
+Not applicable, with reasons: S4 has no pending/refused state of its own (writes happen in S5);
+S6 load/empty belong to the nested form's lookups, shown under dependency failure; S7 load and failure
+share S4's renderer and code path, so only the context difference (draft overlay, inverse direction) is
+checked; S11 has no conflict state.
+
+## 3. Selected focused browser checks
+
+Selected by risk to the user's job (losing an unsaved choice, silently overwriting a newer mapping,
+publishing from the wrong model, being stranded on a failed read), not by earlier defect reports. Two
+model configurations are exercised: the outgoing System → Master binding in `rdm-systems` and the
+incoming Master ← System binding in `rdm-master`, in Live and a named Draft respectively, plus two
+installed releases of the starter model.
+
+```sh
+PLAYWRIGHT_EXECUTABLE_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' \
+  npm --prefix frontend run test:browser:wp13c
+```
+
+`e2e/wp13c-ui-states.mjs` (real backend, 11 checks, 5 scoped axe checks, 12 screenshots; ~8.5 s of
+which ~2.4 s harness setup):
+
+1. Coverage read outage keeps the shell and lens, states “Coverage unavailable”, Retry loads the grid.
+2. Filtered-empty coverage is explained; clearing the facet restores rows.
+3. Keyboard opening of the mapping dialog focuses candidate search; a no-match search is named.
+4. Candidate read outage stays inside the dialog; Retry restores candidates.
+5. Contextual creation refusal is contained: actionable message, Cancel keeps the unsaved choice,
+   coverage unchanged (see WP-10F).
+6. Explicit save stores the selection and refreshes coverage.
+7. A concurrent mapping change shows the current mapping, keeps the attempted choice, blocks Save until
+   **Continue with my selection**, then saves the attempted target.
+8. Narrow grid and dialog fit 390px; Escape returns focus to the row action.
+9. The inverse binding maps in a named draft; live coverage stays unchanged.
+10. Drafts-list outage keeps the page header; Retry loads drafts.
+11. A draft created on a non-active release shows its model, explains the mismatch and refuses activation.
+
+Outages are simulated with `page.route` 503 responses on one read path until restored; every successful
+read and write reaches the real backend. React development mode issues reads twice, so an injected
+failure must persist until the Retry click rather than failing once.
+
+## 4. Screenshot review (2026-09-24)
+
+Inspected against the references in section 1: all twelve wp13c screenshots.
+
+| Surface | Result |
+| --- | --- |
+| S4 coverage failure (wide), S8 drafts-list failure (wide) | Matches the load-failure reference: header, lens tabs and facets stay; error replaces only the content. |
+| S5 candidate failure, conflict (wide) | Dialog reference respected; conflict notice states the current mapping and the review action; disabled Save/Remove visibly disabled. |
+| S5 conflict and dialog (narrow) | **Defect (WP-10G):** the candidate search box stretches to fill free height (≈170–500px). `responsive.css` gives every `.search-box` `flex: 1 1 100%`, which becomes a height basis inside the dialog's column form. |
+| S4 grid (narrow) | Usable; secondary columns hidden, Action column scrolls inside the labelled region; lens tab strip and application tabs scroll horizontally within their own row. Acceptable. |
+| S6 creation refusal (wide) | Error is contained and actionable, but the user cannot complete the job (WP-10F). |
+| S7 draft inverse (wide) | Draft bar, inverse direction label and target fields render per reference. |
+| S8 creation dialog (wide) | Matches the dialog and field references. |
+| S9 mismatch (wide, narrow) | Layout correct at both widths. **Defect (WP-10G):** the notice names the active model by raw release UUID instead of key and version, contrary to WP-12's human-readable release identity. |
+
+Dark-theme variants of the new states were not captured; the dark a11y/visual gate pages remain WP-9.
+
+## 5. Follow-ups found (not fixed here)
+
+- **WP-10F — Contextual target creation is scoped to the lens's application.** `MappingActionDialog`
+  passes the view's `applicationKey` to `ObjectFormDialog`, and objects belong to one application. In
+  the starter model the System → Master lens (`rdm-systems`) offers a Codelist parent that its
+  application cannot load, and the Master ← System lens (`rdm-master`) cannot create a system value at
+  all. Needs a product decision on which application owns a target created in context (the target
+  type's owning application, or one chosen from the applications that contain it) and a real-API
+  regression.
+- **WP-10G — Visual fixes:** narrow candidate-search height; human-readable active release in the draft
+  mismatch notice.
+
+## 6. Limitations
+
+- Contextual creation success, its narrow layout and target refresh are unverified until WP-10F.
+- Pending states rely on component evidence; browser timing of `busy` states was not asserted.
+- The new states have no committed visual baselines. Screenshots are reviewed evidence, and the
+  comprehensive a11y/visual gates were not run (WP-9).
+- One Chrome build, one machine; no operating-system zoom or assistive-technology session.

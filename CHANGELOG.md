@@ -8,6 +8,13 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.7 WP-13C: `docs/testing/UI_ACCEPTANCE.md` names the existing reference pattern for each kind
+  of UI element and inventories the states of every 0.7 surface with its evidence. The new browser
+  runner `test:browser:wp13c` checks mapping and draft states against a real backend: outages with
+  Retry, empty and no-match results, conflict review, the inverse mapping in a draft, a draft on a
+  non-active model release, keyboard focus and phone width. UI changes now report functional,
+  accessibility and visual evidence separately. Found and scoped WP-10F and WP-10G.
+
 - Base 0.7 WP-13B: `docs/testing/EXECUTION_GUIDE.md` maps each changed production boundary to its
   focused checks and shared-boundary expansion, lists the WP-9 comprehensive command set and records
   measured before/after costs. Backend tests carry contract-group markers (`pytest -m mapping`, …) from

@@ -147,9 +147,12 @@ Select them from the changed boundary with [the execution guide](docs/testing/EX
   `eslint.config.js`.
 - Cross-stack behavior or a public contract: exercise the changed API boundary, relevant contract
   checks and affected consumer behavior. A contract change alone does not require both full suites.
-- UI changes: exercise changed interactions, keyboard operation and semantics with at least two
-  object types. Add or update relevant accessibility scenarios and visual baselines, and inspect
-  changed surfaces. Reserve the comprehensive accessibility and visual runners for build acceptance.
+- UI changes: follow [UI acceptance](docs/testing/UI_ACCEPTANCE.md). Name the reference pattern the
+  surface reuses, add or complete its state-inventory row (applicable states or a reason each is
+  inapplicable), and exercise its user-critical states in a real-backend browser runner with at least
+  two object types or model configurations, keyboard operation and 390px width. Inspect the changed
+  screenshots against the reference; add or update scenarios and baselines only for changed surfaces.
+  Reserve the comprehensive accessibility and visual runners for build acceptance.
 - Startup or migration code: retain the focused bootstrap, upgrade, restart, interrupted-migration,
   lifespan and final smoke checks required above. Concurrency and security changes likewise require
   focused checks at the real affected boundary; do not defer these checks to the end of the build.
@@ -158,7 +161,9 @@ Select them from the changed boundary with [the execution guide](docs/testing/EX
 
 Package completion requires its focused checks to pass. Record the checks actually exercised and
 identify comprehensive checks deferred to build acceptance; do not claim release acceptance from
-package evidence. These rules govern package delivery even when an older plan or workflow refers
+package evidence. A package report states the exact user flow exercised, the failure boundaries
+affected, the named UI reference and the focused commands, and reports functional, accessibility
+and visual evidence separately. An uninspected appearance is reported as unverified. These rules govern package delivery even when an older plan or workflow refers
 loosely to the “full validation matrix”.
 
 ### Build acceptance

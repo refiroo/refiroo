@@ -83,6 +83,7 @@ Chrome. Setup costs ~2.8 s per runner (section 4). Pick by surface:
 | `e2e/wp11-model-admin.mjs` (`test:browser:wp11`) | C-DR-PIN version-change dialog |
 | `e2e/wp12-release-identity.mjs` (`test:browser:wp12`) | C-MOD-DIFF release identity and history comparison |
 | `e2e/wp14-contextual-browser.mjs` (`test:browser:wp14`) | C-Q-SCOPE, C-MAP-UI, contextual collections |
+| `e2e/wp13c-ui-states.mjs` (`test:browser:wp13c`) | C-MAP-UI and C-DR-PIN changed states: outage/retry, empty, conflict review, draft-context mapping, non-active-release draft, narrow layout ([UI acceptance](UI_ACCEPTANCE.md)) |
 | `e2e/accessibility-gate.mjs` (`test:a11y`) | C-UI-A11Y, T5 build gate |
 | `e2e/visual-regression-gate.mjs` (`test:visual`) | C-UI-A11Y visual stability, T5 build gate |
 
@@ -122,9 +123,9 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | `src/lib/hooks/useCursor*` | `vitest related` (6 files) | none by default |
 | `src/model/*` | `--project unit`, `src/model` | `vitest related` when a read's result shape changes |
 | `src/ui/*` shared components | `vitest related` | `test:a11y`/`test:visual` scenario for the changed control only when focus, semantics or tokens change; full gates at WP-9 |
-| `src/features/objects/views/MappingGridView.tsx` | `vitest related` (3 files) | `wp14-contextual-browser.mjs` |
+| `src/features/objects/MappingGridView.tsx` and its `views/` host | `vitest related` (3 files) | `wp14-contextual-browser.mjs`, `wp13c-ui-states.mjs` |
 | `src/features/objects/**` other | the file's test and `vitest related` | the runner for the surface (section 1 table) |
-| `src/features/workspaces/**` | `src/features/workspaces` | `wp9-drafts.mjs` or `wp9-history.mjs`; `wp11-model-admin.mjs` for version selection |
+| `src/features/workspaces/**` | `src/features/workspaces` | `wp9-drafts.mjs` or `wp9-history.mjs`; `wp11-model-admin.mjs` and `wp13c-ui-states.mjs` for version selection |
 | `src/features/model-admin/**` | `src/features/model-admin` | `wp12-release-identity.mjs`, `wp11-model-admin.mjs` |
 | `src/styles*`, theme tokens | none at T1 | focused a11y/visual scenarios for affected pages, plus dark variants |
 
@@ -136,9 +137,9 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | Backend shared | Keyset predicate in `services/pagination.py` | `-m "queries or mapping or model_admin or workspaces"` | 252 of 532 (47%) |
 | Backend model | A new validation rule in `validation/relation_rules.py` | `-m model` (T0, no database) | 109 of 532 (20%) |
 | Startup | New Alembic revision | `-m startup` plus the AGENTS.md smoke start | 24 of 532 (5%) |
-| Frontend leaf | `MappingGridView.tsx` | `npx vitest related … --run` and `test:browser:wp14` | 3 of 36 files, 50 tests; one runner of 7 |
+| Frontend leaf | `MappingGridView.tsx` | `npx vitest related … --run` and `test:browser:wp14` | 3 of 36 files, 50 tests; one runner of 8 |
 | Frontend shared | `src/api/client.ts` | `vitest related` | 24 of 36 files |
-| Browser surface | Draft activation dialog | `WorkspaceDrafts.test.tsx` and `test:browser:drafts` | one runner of 7 |
+| Browser surface | Draft activation dialog | `WorkspaceDrafts.test.tsx` and `test:browser:drafts` | one runner of 8 |
 
 ### Targeted failure reruns
 
@@ -148,6 +149,13 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 - Browser: rerun only the failed runner; its evidence directory is printed on exit.
 - A second failure at the same boundary after a fix, or an unexplained failure, justifies the
   broader group or suite. State the reason before running it.
+
+### UI changes
+
+A changed user-visible surface additionally follows [UI acceptance](UI_ACCEPTANCE.md): name its
+reference pattern, complete its state inventory row, run the runner that covers its user-critical
+states and inspect the changed screenshots at 1440px and 390px. Report functional, accessibility and
+visual evidence separately.
 
 ## 3. WP-9 comprehensive command set
 
@@ -161,7 +169,7 @@ pytest processes at once: they share `backend/tests/test-rdm-engine.db`.
 (cd frontend && npm run test && npm run test:gate-helpers)
 (cd frontend && npm run test:browser && npm run test:browser:authoring && npm run test:browser:drafts \
   && npm run test:browser:history && npm run test:browser:wp11 && npm run test:browser:wp12 \
-  && npm run test:browser:wp14)
+  && npm run test:browser:wp14 && npm run test:browser:wp13c)
 (cd frontend && npm run test:a11y && npm run test:visual)
 ```
 
