@@ -497,6 +497,7 @@ describe("MappingGridView — mapping actions (WP-8B)", () => {
         "west",
         expect.objectContaining({
           expectedMappingVersion: 7,
+          targetObjectId: "c1",
         }),
       ),
     );

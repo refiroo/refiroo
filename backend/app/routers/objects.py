@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from fastapi import APIRouter, Query, Request, Response, status
 from sqlalchemy import select
 
+from ..common.time import as_utc
 from ..db import DbSession
 from ..errors import api_error
 from ..models.api import (
@@ -15,6 +16,7 @@ from ..models.api import (
     WorkspaceDraftObjectWrite,
 )
 from ..models.database import WorkspaceRevision, WorkspaceRevisionObject
+from ..services.attributes import normalize_value
 from ..services.audit import list_object_history
 from ..services.deletion import delete_object_record
 from ..services.model.registry import (
@@ -25,7 +27,6 @@ from ..services.model.registry import (
 from ..services.objects import (
     OBJECT_SORT_COLUMNS,
     _built_in_value_type,
-    _format_typed_value,
     _parse_filter_value,
     build_object_query,
     build_object_responses,
@@ -35,7 +36,7 @@ from ..services.objects import (
     load_object,
     update_object_record,
 )
-from ..services.pagination import paginate_sequence, paginate_statement
+from ..services.pagination import paginate_sequence, paginate_statement, sequence_sort_text
 from ..services.workspace_revisions import (
     delete_draft_object,
     effective_draft_membership,
@@ -57,11 +58,16 @@ def _sequence_object_rows(
             return item.object_id
         if field == "name":
             return item.name
-        if field == "createdAt":
-            return getattr(item, "created_at", None)
-        if field == "updatedAt":
-            return getattr(item, "updated_at", None)
-        return (item.attributes or {}).get(field)
+        if field in {"createdAt", "updatedAt"}:
+            stamp = getattr(item, "created_at" if field == "createdAt" else "updated_at", None)
+            return as_utc(stamp) if stamp is not None else None
+        stored = (item.attributes or {}).get(field)
+        definition = model.attribute_type(field)
+        if stored is None or definition is None:
+            return stored
+        # Draft rows hold the JSON form; compare as the declared type, like live SQL does.
+        typed = normalize_value(definition, stored)
+        return as_utc(typed) if isinstance(typed, datetime) else typed
 
     parsed_filters = []
     for field, operator, raw in filters:
@@ -70,8 +76,9 @@ def _sequence_object_rows(
         else:
             definition = model.attribute_type(field)
             value_type = definition.valueType if definition else "text"
+        parsed = _parse_filter_value(value_type, operator, raw, field)
         parsed_filters.append(
-            (field, operator, _parse_filter_value(value_type, operator, raw, field))
+            (field, operator, as_utc(parsed) if isinstance(parsed, datetime) else parsed)
         )
 
     def matches(item):
@@ -129,7 +136,7 @@ def _sequence_object_rows(
             rank = "a" if descending else "z"
             return (rank, item.object_id)
         rank = "z" if descending else "a"
-        return (f"{rank}{_format_typed_value(candidate)}", item.object_id)
+        return (f"{rank}{sequence_sort_text(candidate)}", item.object_id)
 
     return [item for item in rows if matches(item)], identity, descending, field
 

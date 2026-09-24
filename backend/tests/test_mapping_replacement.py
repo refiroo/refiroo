@@ -508,6 +508,78 @@ def test_draft_missing_draft_version_409(client):
     assert r.json()["error"]["code"] == "workspace_draft_required"
 
 
+def test_replacement_authority_follows_the_addressed_workspace_context(client):
+    key = f"archive-{_suffix()}"
+    created = client.post("/api/v1/workspaces", json={"key": key, "label": "Archive"})
+    assert created.status_code == 201, created.text
+    sv, mv = _mapping_endpoints(client, _suffix(), ws=key)
+    archive_put = f"/api/v1/workspaces/{key}/mappings"
+    mapped = client.put(archive_put, json=_replacement_body(sv, mv, 0, target=mv))
+    assert mapped.status_code == 200, mapped.text
+    draft = client.post(f"/api/v1/workspaces/{key}/drafts", json={"source": "currentLive"})
+    assert draft.status_code == 201, draft.text
+    draft = draft.json()
+
+    def mapping_state():
+        relations = client.get(
+            "/api/v1/relations",
+            params={"objectId": sv["id"], "workspaceKey": key, "relationTypeKey": RELATION_TYPE},
+        )
+        assert relations.status_code == 200, relations.text
+        return (
+            _set_version(key, None, RELATION_TYPE, FROM_TYPE, TO_TYPE, sv["id"], "outgoing"),
+            [row["relation"]["id"] for row in relations.json()["items"]],
+            _draft_version(client, draft["id"]),
+        )
+
+    before = mapping_state()
+    assert len(before[1]) == 1
+
+    # A draft is addressed only through its own workspace; the default is never substituted.
+    foreign = client.put(
+        PUT,
+        json=_replacement_body(
+            sv, mv, 0, target=None, draft_id=draft["id"], draft_version=draft["version"]
+        ),
+    )
+    assert foreign.status_code == 404
+    assert foreign.json()["error"]["code"] == "workspace_draft_not_found"
+    unknown = client.put(
+        f"/api/v1/workspaces/missing-{_suffix()}/mappings",
+        json=_replacement_body(sv, mv, before[0], target=None),
+    )
+    assert unknown.status_code == 404
+    assert unknown.json()["error"]["code"] == "workspace_not_found"
+    # Immutable history has no write context.
+    revision = client.put(
+        archive_put,
+        json={
+            **_replacement_body(sv, mv, before[0], target=None),
+            "workspaceRevisionId": draft["id"],
+        },
+    )
+    assert revision.status_code == 422
+    assert mapping_state() == before
+
+    retired = client.patch(
+        f"/api/v1/workspaces/{key}",
+        json={"status": "retired", "expectedVersion": created.json()["version"]},
+    )
+    assert retired.status_code == 200, retired.text
+    live = client.put(archive_put, json=_replacement_body(sv, mv, before[0], target=None))
+    assert live.status_code == 409
+    assert live.json()["error"]["code"] == "workspace_retired"
+    in_draft = client.put(
+        archive_put,
+        json=_replacement_body(
+            sv, mv, 0, target=None, draft_id=draft["id"], draft_version=draft["version"]
+        ),
+    )
+    assert in_draft.status_code == 409
+    assert in_draft.json()["error"]["code"] == "workspace_retired"
+    assert mapping_state() == before
+
+
 # ---------------------------------------------------------------------------
 # 13. Generic-write vs replacement race (set version reflects both)
 # ---------------------------------------------------------------------------

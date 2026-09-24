@@ -5,8 +5,9 @@ WP-10A cascade-deletion version fix are complete. WP-5 acceptance follow-up and 
 hardening are delivered. The earlier WP-1–WP-3 review boundary remains separate;
 WP-1–WP-3 scopes are frozen. WP-6 backend, WP-7 frontend and WP-11 follow-up are delivered.
 WP-8A/WP-8B have an uncommitted component implementation but are not reviewed or accepted.
-ADR-029 extends 0.7 with WP-14 contextual collection composition. Scheduled WP-12/WP-13 follow-ups
-and WP-9 composed 0.7 acceptance remain pending.
+ADR-029 extends 0.7 with WP-14 contextual collection composition. WP-12 and WP-13A are delivered;
+WP-13A triggered WP-10C/WP-10D (delivered) and WP-10E (open). WP-13B/C and WP-9 composed 0.7
+acceptance remain pending.
 
 **Target:** Product 0.7.0, schema language 0.6. The starter model content advances to a version on
 schema 0.6; that number alone does not mean the product release is accepted.
@@ -920,6 +921,13 @@ These sources guide mechanics; RDM's product contracts and risk assessment deter
 
 **Prerequisites:** WP-11 complete. Prefer delivery before further mapping UI implementation.
 
+**Delivered 2026-09-24:** [coverage map](testing/COVERAGE_MAP.md) with 16 cross-cutting invariants
+and 38 capability contracts, risk ranking and audit record. Filled gaps: mapping-write authority across
+workspace contexts, draft relation update/delete set versions, a static starter-key guard, live date
+values, and the mapping conflict retry's attempted target. One duplicated test was removed with its
+surviving protection recorded. Two product defects were reproduced as strict `xfail` tests and scoped
+as WP-10C and WP-10D. Focused evidence only; see the map's residual-risk section.
+
 **Scope:**
 
 1. Build a product contract inventory from `AGENTS.md`, acceptance scenarios, ADRs, the API and model
@@ -1156,7 +1164,9 @@ documentation reflects the delivered state. Any gaps or simplifications are expl
 
 #### WP-10: Conditional 0.7 foundation hardening
 
-**Status:** WP-10A and WP-10B delivered after WP-4/WP-5 review (2026-09-14). Other slices remain conditional.
+**Status:** WP-10A and WP-10B delivered after WP-4/WP-5 review (2026-09-14). WP-10C and WP-10D,
+triggered by the WP-13A audit, were delivered on 2026-09-24. WP-10E, found while validating WP-10C,
+is open and blocks 0.7 acceptance. Other slices remain conditional.
 
 **WP-10A — Cascade-deletion relation-set participation:** HTTP reproduction in both live and
 current-live draft contexts: deleting a mapped system value reduced incoming coverage from 21
@@ -1186,6 +1196,62 @@ with bounded binding/anchor/direction diagnostics and recovery instructions, pre
 all live rows and the active revision. Check newly mapped sets, both directions, new/deleted/updated
 live edges, independent bindings and unrelated live work. A changed live set whose complete current
 state and relation versions match the source again is not a divergent graph under this check.
+
+**WP-10C — Typed values in draft writes (triggered by WP-13A; delivered 2026-09-24):** HTTP reproduction:
+creating a record with a `date` field inside a draft returns `500 internal_error`. The draft write
+path stores the typed output of `validate_attributes` (a Python `date`) in the JSON
+`workspace_draft_objects.attributes` column, which cannot serialize it. Live writes and current-live
+capture of dated records are correct. Affected contract: typed attribute values (AGENTS.md invariant)
+and operator-facing errors. Ownership: attribute normalization for draft rows in
+`services/workspace_revisions.py` (`_normalize_object_attributes` and its create, update and
+attribute-endpoint callers). No schema change. Acceptance: draft create, update and field writes of
+`date` values succeed and read back in ISO form; invalid dates remain `422 invalid_attribute_value`;
+the same holds for `dateTime` and `decimal` bindings (use a test model, since the starter has neither);
+activation publishes the values to live typed columns. Regression: remove the strict `xfail` from
+`test_typed_table_queries.py::test_date_values_keep_their_type_through_write_filter_and_sort[draft]`.
+
+*Delivered:* draft rows store the JSON form that current-live capture already copies from live rows
+(`attributes.stored_json_value`); `save_attribute_values` converts each value to its declared type
+before writing typed columns, so activation of new and captured values works. Validation found two
+more parts of the same contract, which are included: in-memory draft and revision list filters
+compared typed filter values with stored strings (500 for dates), and their sort key ordered numbers
+as text (`10` before `5`) and date-times by local wall clock. Filters now compare declared types, a
+zone-less `dateTime` filter is read as UTC, and `pagination.sequence_sort_text` gives numbers and
+instants an order-preserving cursor text. A draft or revision cursor issued before this change may
+continue in the old order once; restarting the list fixes it.
+
+**WP-10D — Containment edge on based draft edits (triggered by WP-13A; delivered 2026-09-24):** HTTP
+reproduction: in a current-live (or revision-derived) draft, renaming a contained record (a codelist
+under a domain) adds a second containment edge with a new relation ID; activation then refuses with
+`409 version_conflict` / `duplicate_edge`. Moving it to another parent keeps the old base edge as
+well, and activation refuses with `422 relation_cardinality_violation`. Root records, the field
+sub-resource and deletion are unaffected. Cause: `_sync_draft_parent_relation` tombstones only
+draft-local containment rows, never the edge inherited from the draft base, and recreates the edge
+even when the parent is unchanged. Affected contracts: atomic containment (ADR-006), stable public
+IDs, SC-06 publication. Ownership: `_sync_draft_parent_relation` in `services/workspace_revisions.py`.
+Acceptance: an unchanged parent keeps the effective edge and its identity; a parent change tombstones
+the effective (base or draft) edge and creates exactly one new edge; activation succeeds for rename
+and move; set versions for affected containment sets follow ADR-022. Regression: remove the strict
+`xfail` from `test_wp81b_current_live_bases.py::test_editing_a_based_child_keeps_its_one_containment_edge_and_activates`
+and add a move case.
+
+*Delivered:* `_sync_draft_parent_relation` compares the requested parent with the *effective* (base or
+draft) containment edge. An unchanged parent keeps the edge and its identity. A changed parent
+tombstones the effective edge — a base edge through a draft tombstone row, as deletion does — and adds
+exactly one new edge. As in live updates, containment edits do not advance relation-set versions;
+mapping views cannot address containment bindings.
+
+**WP-10E — Live `dateTime` values lose their offset (found validating WP-10C, 2026-09-24; open):**
+HTTP reproduction: a live write of `2026-12-24T18:00:00+01:00` reads back as `2026-12-24T18:00:00`.
+SQLite does not keep the zone despite `DateTime(timezone=True)`, and clients read a zone-less value
+as UTC, so the stored instant moves by the offset. Draft rows keep the offset until activation, which
+then loses it. Live `decimal` reads are also padded to the column scale (`12.5000000000`) while draft
+writes return the submitted form, so draft uniqueness compares unequal strings for equal decimals.
+Affected contract: typed attribute values. Ownership: `services/attributes.py` value storage and
+reads. Acceptance: store instants in UTC and return them with an explicit offset in every context;
+decide whether existing live `dateTime` values need a migration (the starter model has no `dateTime`
+field; check deployed models first); give decimals one canonical form across contexts. Regression:
+remove the strict `xfail` from `test_typed_table_queries.py::test_live_datetime_keeps_its_instant`.
 
 **WP-5 acceptance follow-up (delivered 2026-09-14):** Add independent-binding isolation in live/draft
 contexts, required-ownership rejection, forbidden clearing, and overlapping real HTTP generic

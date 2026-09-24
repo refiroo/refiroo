@@ -145,10 +145,11 @@ def test_update_relation_increments_set_versions():
         )
         assert r.status_code == 201
         relation = r.json()
-        client.patch(
+        updated = client.patch(
             f"/api/v1/relations/{relation['id']}",
             json={"attributes": {}, "expectedVersion": relation["version"]},
         )
+        assert updated.status_code == 200, updated.text
         outgoing = _live_set_version(
             "system-value-maps-to-master", "system-value", "master-value", sv["id"], "outgoing"
         )
@@ -277,6 +278,57 @@ def test_draft_relation_create_increments_draft_scoped_set_version():
         assert draft_v == 1
 
 
+def test_draft_relation_update_and_delete_advance_both_draft_anchors_only():
+    binding = ("system-value-maps-to-master", "system-value", "master-value")
+    with TestClient(app) as client:
+        sv, mv = _mapping_endpoints(client, _suffix())
+        draft = _create_draft(client)
+        created = client.post(
+            "/api/v1/relations",
+            json={
+                "relationTypeKey": binding[0],
+                "fromObjectId": sv["id"],
+                "toObjectId": mv["id"],
+                "workspaceDraftId": draft["id"],
+                "expectedWorkspaceDraftVersion": draft["version"],
+            },
+        )
+        assert created.status_code == 201, created.text
+        relation = created.json()
+
+        def versions():
+            return (
+                _draft_set_version(draft["id"], *binding, sv["id"], "outgoing"),
+                _draft_set_version(draft["id"], *binding, mv["id"], "incoming"),
+                _live_set_version(*binding, sv["id"], "outgoing"),
+                _live_set_version(*binding, mv["id"], "incoming"),
+            )
+
+        assert versions() == (1, 1, 0, 0)
+        updated = client.patch(
+            f"/api/v1/relations/{relation['id']}",
+            json={
+                "attributes": {},
+                "expectedVersion": relation["version"],
+                "workspaceDraftId": draft["id"],
+                "expectedWorkspaceDraftVersion": relation["workspaceDraftVersion"],
+            },
+        )
+        assert updated.status_code == 200, updated.text
+        assert versions() == (2, 2, 0, 0)
+        updated = updated.json()
+        deleted = client.delete(
+            f"/api/v1/relations/{relation['id']}",
+            params={
+                "expectedVersion": updated["version"],
+                "workspaceDraftId": draft["id"],
+                "expectedWorkspaceDraftVersion": updated["workspaceDraftVersion"],
+            },
+        )
+        assert deleted.status_code == 204, deleted.text
+        assert versions() == (3, 3, 0, 0)
+
+
 def test_draft_and_live_set_versions_are_independent():
     with TestClient(app) as client:
         s = _suffix()
@@ -391,24 +443,3 @@ def test_draft_activation_merges_set_versions_into_live():
         )
         assert live_v >= 1
         assert _draft_set_version_count(draft_id) == 0
-
-
-def test_existing_relation_tests_still_pass_transparently():
-    """Set versions are transparent to the existing relation API — no response shape change."""
-    with TestClient(app) as client:
-        s = _suffix()
-        sv, mv = _mapping_endpoints(client, s)
-        r = client.post(
-            "/api/v1/relations",
-            json={
-                "relationTypeKey": "system-value-maps-to-master",
-                "fromObjectId": sv["id"],
-                "toObjectId": mv["id"],
-            },
-        )
-        assert r.status_code == 201
-        body = r.json()
-        assert "id" in body
-        assert body["relationTypeKey"] == "system-value-maps-to-master"
-        assert body["version"] == 1
-        assert "mappingVersion" not in body

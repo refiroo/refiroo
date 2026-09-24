@@ -12,7 +12,8 @@ within the filtered set, otherwise rows can be skipped or repeated across a page
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import and_, or_
@@ -112,6 +113,36 @@ def paginate_statement[Row](
             filters=filters,
         )
     return visible, next_cursor
+
+
+def sequence_sort_text(value: Any) -> str:
+    """Encode a typed value as text whose string order matches the value order.
+
+    In-memory sequences carry string identities in their cursors, so numbers and instants need an
+    order-preserving form: ``10`` must follow ``5`` and ``18:00+01:00`` must precede ``17:30Z``.
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, (int, Decimal)):
+        return _number_sort_text(Decimal(value))
+    if isinstance(value, datetime):
+        return as_utc(value).isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
+    return str(value)
+
+
+def _number_sort_text(value: Decimal) -> str:
+    if value.is_zero():
+        return "1"
+    digits = "".join(map(str, value.as_tuple().digits)).rstrip("0")
+    exponent = value.adjusted() + 5_000_000
+    if value > 0:
+        return f"2{exponent:08d}{digits}"
+    # Larger magnitude sorts first: invert the exponent and digits, and end with a character above
+    # every digit so a shorter mantissa (-1) sorts after a longer one (-1.5).
+    inverted = "".join(str(9 - int(digit)) for digit in digits)
+    return f"0{99_999_999 - exponent:08d}{inverted}~"
 
 
 def paginate_sequence[Item](

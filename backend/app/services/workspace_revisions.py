@@ -37,6 +37,7 @@ from ..models.database import (
 from .attributes import (
     load_attribute_values,
     save_attribute_values,
+    stored_json_value,
     validate_attributes,
     validate_deletable_attribute,
     validate_object_attribute_rules,
@@ -465,9 +466,11 @@ def _normalize_object_attributes(
             "unknown_object_type",
             f"Object type '{object_type_key}' is not in the pinned model",
         )
-    return validate_attributes(
+    normalized = validate_attributes(
         model, object_type, attributes, partial=partial, apply_defaults=not partial
     )
+    # Draft rows are JSON; store the same form that current-live capture copies from live rows.
+    return {key: stored_json_value(value) for key, value in normalized.items()}
 
 
 def _validate_object_identity(model: Any, application_key: str, object_type_key: str) -> None:
@@ -1125,10 +1128,13 @@ def _validate_candidate_parent(model: Any, row: Any, objects: dict[str, Any]) ->
 def _sync_draft_parent_relation(
     session: Session, draft: WorkspaceDraft, model: Any, row: WorkspaceDraftObject
 ) -> None:
-    """Maintain the typed containment edge with a draft object edit."""
-    objects = {
-        item.object_id: item for item in effective_draft_membership(session, draft.id).objects
-    }
+    """Maintain the typed containment edge with a draft object edit.
+
+    The effective edge may come from the draft base; like a live update, an unchanged parent keeps
+    that edge and its identity, and a changed parent tombstones it before adding the new one.
+    """
+    membership = effective_draft_membership(session, draft.id)
+    objects = {item.object_id: item for item in membership.objects}
     _validate_candidate_parent(model, row, objects)
     keys = (
         set(
@@ -1141,27 +1147,40 @@ def _sync_draft_parent_relation(
     )
     if not keys:
         return
-    existing = list(
-        session.scalars(
+    current = [
+        relation
+        for relation in membership.relations
+        if relation.to_object_id == row.object_id and relation.relation_type_key in keys
+    ]
+    if [relation.from_object_id for relation in current] == (
+        [row.parent_object_id] if row.parent_object_id else []
+    ):
+        return
+    for relation in current:
+        stored = session.scalar(
             select(WorkspaceDraftRelation).where(
                 WorkspaceDraftRelation.draft_id == draft.id,
-                WorkspaceDraftRelation.to_object_id == row.object_id,
-                WorkspaceDraftRelation.relation_type_key.in_(keys),
+                WorkspaceDraftRelation.relation_id == relation.relation_id,
             )
         )
-    )
-    for relation in existing:
-        relation.is_deleted = True
-        relation.version += 1
+        if stored is None:
+            session.add(
+                WorkspaceDraftRelation(
+                    draft_id=draft.id,
+                    relation_id=relation.relation_id,
+                    relation_type_key=relation.relation_type_key,
+                    from_object_id=relation.from_object_id,
+                    to_object_id=relation.to_object_id,
+                    attributes=dict(relation.attributes or {}),
+                    version=relation.version + 1,
+                    is_deleted=True,
+                )
+            )
+        else:
+            stored.is_deleted = True
+            stored.version += 1
     if row.parent_object_id:
-        parent = next(
-            (
-                item
-                for item in effective_draft_membership(session, draft.id).objects
-                if item.object_id == row.parent_object_id
-            ),
-            None,
-        )
+        parent = objects.get(row.parent_object_id)
         if parent is None:
             raise api_error(422, "parent_wrong_scope", "Parent must exist in the workspace draft")
         allowed = next(

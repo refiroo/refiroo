@@ -937,6 +937,14 @@ model:
 ]
 ```
 
+`text`, `longText`, `integer` and `boolean` values are JSON strings, numbers and booleans. A
+`decimal` is a decimal string (`"12.5"`), a `date` an ISO 8601 date (`"2026-07-01"`) and a
+`dateTime` an ISO 8601 date-time. Requests may send a `decimal` as a JSON number. Live, draft and
+revision reads use the same forms, and filters and sorts compare values by their declared type in
+every context. A zone-less `dateTime` filter value is read as UTC. Known limitation (WP-10E): a live
+`dateTime` write currently drops its UTC offset, and live `decimal` values are padded to the stored
+scale (`"12.5000000000"`).
+
 ### Attribute uniqueness
 
 An attribute type may declare `"features": { "unique": true }`. Values for such an attribute are

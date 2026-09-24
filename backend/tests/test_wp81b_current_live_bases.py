@@ -7,10 +7,12 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select, text
 from sqlalchemy.exc import OperationalError
 from wp8_support import (
+    activate_draft,
     build_complete_graph,
     create_draft,
     create_object,
     create_workspace,
+    published_relations,
     unique_key,
 )
 
@@ -616,3 +618,97 @@ def test_current_live_base_remains_frozen_and_readable_after_restart(tmp_path, m
             patch.undo()
             model_registry.clear()
             reload_settings()
+
+
+def test_editing_a_based_child_keeps_its_one_containment_edge_and_activates():
+    workspace_key = unique_key("wp13-contained")
+    with TestClient(app) as client:
+        create_workspace(client, workspace_key)
+        suffix = unique_key("s")
+        domain = _live_domain(client, workspace_key, suffix)
+        codelist = _live_codelist(client, workspace_key, domain["id"], suffix)
+        live_edges = published_relations(client, workspace_key, codelist["id"])
+        draft = create_draft(client, workspace_key, source="currentLive").json()
+        current = client.get(
+            f"/api/v1/objects/codelist/{codelist['id']}",
+            params={"workspaceDraftId": draft["id"]},
+        ).json()
+        renamed = client.patch(
+            f"/api/v1/objects/codelist/{codelist['id']}",
+            json={
+                "name": "Renamed in draft",
+                "expectedVersion": current["version"],
+                "workspaceDraftId": draft["id"],
+                "expectedWorkspaceDraftVersion": draft["version"],
+            },
+        )
+        assert renamed.status_code == 200, renamed.text
+        draft_edges = client.get(
+            "/api/v1/relations",
+            params={"objectId": codelist["id"], "workspaceDraftId": draft["id"]},
+        ).json()["items"]
+        assert [item["relation"]["id"] for item in draft_edges] == [
+            item["relation"]["id"] for item in live_edges
+        ]
+        activate_draft(
+            client, draft["id"], expected_draft_version=renamed.json()["workspaceDraftVersion"]
+        )
+
+
+def test_moving_a_based_child_replaces_its_containment_edge_and_activates():
+    workspace_key = unique_key("wp10d-move")
+    with TestClient(app) as client:
+        create_workspace(client, workspace_key)
+        first = _live_domain(client, workspace_key, unique_key("a"))
+        second = _live_domain(client, workspace_key, unique_key("b"))
+        codelist = _live_codelist(client, workspace_key, first["id"], unique_key("c"))
+        [old_edge] = published_relations(client, workspace_key, codelist["id"])
+        draft = create_draft(client, workspace_key, source="currentLive").json()
+        current = client.get(
+            f"/api/v1/objects/codelist/{codelist['id']}",
+            params={"workspaceDraftId": draft["id"]},
+        ).json()
+        moved = client.patch(
+            f"/api/v1/objects/codelist/{codelist['id']}",
+            json={
+                "parentObjectId": second["id"],
+                "expectedVersion": current["version"],
+                "workspaceDraftId": draft["id"],
+                "expectedWorkspaceDraftVersion": draft["version"],
+            },
+        )
+        assert moved.status_code == 200, moved.text
+        [draft_edge] = client.get(
+            "/api/v1/relations",
+            params={"objectId": codelist["id"], "workspaceDraftId": draft["id"]},
+        ).json()["items"]
+        assert draft_edge["relation"]["fromObjectId"] == second["id"]
+        assert draft_edge["relation"]["id"] != old_edge["relation"]["id"]
+        assert published_relations(client, workspace_key, codelist["id"]) == [old_edge]
+
+        renamed = client.patch(
+            f"/api/v1/objects/codelist/{codelist['id']}",
+            json={
+                "name": "Moved and renamed",
+                "expectedVersion": moved.json()["version"],
+                "workspaceDraftId": draft["id"],
+                "expectedWorkspaceDraftVersion": moved.json()["workspaceDraftVersion"],
+            },
+        )
+        assert renamed.status_code == 200, renamed.text
+        [kept] = client.get(
+            "/api/v1/relations",
+            params={"objectId": codelist["id"], "workspaceDraftId": draft["id"]},
+        ).json()["items"]
+        assert kept["relation"]["id"] == draft_edge["relation"]["id"]
+
+        activate_draft(
+            client, draft["id"], expected_draft_version=renamed.json()["workspaceDraftVersion"]
+        )
+        live = client.get(
+            f"/api/v1/objects/codelist/{codelist['id']}", params={"workspaceKey": workspace_key}
+        ).json()
+        assert (live["parentObjectId"], live["name"]) == (second["id"], "Moved and renamed")
+        [live_edge] = published_relations(client, workspace_key, codelist["id"])
+        assert live_edge["relation"]["id"] == draft_edge["relation"]["id"]
+        assert live_edge["relation"]["fromObjectId"] == second["id"]

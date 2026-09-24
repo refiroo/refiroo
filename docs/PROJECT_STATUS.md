@@ -323,8 +323,10 @@ Base 0.6 is released; next work targets product 0.7 (core mapping, schema 0.6, d
 selection). WP-1 (UI-07 accessibility gates), WP-2 (schema 0.6 `mappingGrid` view contract) and
 WP-3 (relation-set version persistence), WP-4 reads, WP-5 replacement, WP-6 backend draft version selection, WP-7 browser draft version selection,
 WP-10A/WP-10B hardening and WP-11 release refusals/errors are delivered. WP-8A/WP-8B and WP-14 are
-implemented and locally reviewed in the uncommitted worktree. WP-12 is delivered. Continue with WP-13A/B audit
-priority coverage and efficient commands;
+implemented and locally reviewed in the uncommitted worktree. WP-12 and WP-13A are delivered. WP-13A's
+[coverage map](testing/COVERAGE_MAP.md) confirmed two draft-write defects, fixed as WP-10C/WP-10D.
+WP-10E (live `dateTime` offset loss) is open and blocks 0.7 acceptance. Continue with WP-10E and
+WP-13B efficient commands;
 WP-13C establishes UI acceptance and closes after mapping/WP-12, before WP-9 composed acceptance.
 Use one implementation owner per slice, focused verification and appropriate review. Do not commit
 unless explicitly requested. Summarize each completed batch while work continues so scope can be

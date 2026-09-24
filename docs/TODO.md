@@ -67,9 +67,9 @@ WP-4 and its WP-10A review fix delivered (2026-09-14). WP-5 delivered (2026-09-1
 - [x] WP-14D: review the composed WP-8/WP-14 implementation, run focused backend/frontend and
   real-browser evidence for generic collections and two mapping directions, then reconcile status
   documentation. Comprehensive suites and a11y/visual baselines remain WP-9 build acceptance.
-- [ ] WP-13A: derive a product-wide risk-ranked contract inventory from invariants, acceptance, ADR,
-  API and model contracts; map existing evidence, fill confirmed gaps and consolidate only with
-  surviving protection recorded. Recent defects are regression inputs, not the audit structure.
+- [x] WP-13A: risk-ranked contract inventory in `docs/testing/COVERAGE_MAP.md`; filled mapping-write
+  authority, draft relation-set, starter-key, date-value and conflict-retry gaps; removed one duplicate
+  with surviving protection recorded; reproduced WP-10C/WP-10D as strict xfail tests. 2026-09-24.
 - [ ] WP-13B: measure runtime/setup costs and implement maintained contract/risk-group commands with
   explicit shared-boundary expansion; after WP-13A.
 - [ ] WP-13C: inventory the applicable states of every materially changed 0.7 UI surface, then add
@@ -79,6 +79,12 @@ WP-4 and its WP-10A review fix delivered (2026-09-14). WP-5 delivered (2026-09-1
   coverage, generic-write races and draft activation/live same-set conflicts.
 - [x] WP-10A: live/draft cascade deletion advances affected mapping-set versions atomically; stale
   target continuations require refresh. Delivered with WP-4 review, 2026-09-14.
+- [x] WP-10C: typed `date`/`dateTime`/`decimal` values in draft writes, activation, and draft/revision
+  list filters and sort. Delivered 2026-09-24.
+- [x] WP-10D: based contained records keep one containment edge on draft rename or move, and
+  activate. Delivered 2026-09-24.
+- [ ] WP-10E: a live `dateTime` write drops its UTC offset (the instant moves), and live decimals
+  are padded to the column scale. Strict xfail reproduces it; blocks 0.7.
 - [ ] Further conditional WP-10 slices: only confirmed missing foundation capabilities; required slices block 0.7
   acceptance. WP-1–WP-3 are delivered and frozen; their implementation reviews stay separate.
 

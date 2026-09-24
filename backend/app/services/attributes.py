@@ -217,7 +217,8 @@ def save_attribute_values(
             session.add(row)
         else:
             row.version += 1
-        _set_row_value(row, definition.valueType, value)
+        # Draft rows carry the JSON form; typed columns need the declared Python type.
+        _set_row_value(row, definition.valueType, normalize_value(definition, value))
 
 
 def load_attribute_values(
@@ -360,7 +361,11 @@ def _set_row_value(row: AttributeValue, value_type: str, value: Any) -> None:
 
 
 def _get_row_value(row: AttributeValue) -> Any:
-    value = getattr(row, VALUE_COLUMNS[row.value_type])
+    return stored_json_value(getattr(row, VALUE_COLUMNS[row.value_type]))
+
+
+def stored_json_value(value: Any) -> Any:
+    """Return the JSON form of a normalized value, as live reads and draft rows carry it."""
     if isinstance(value, Decimal):
         return str(value)
     if isinstance(value, (date, datetime)):

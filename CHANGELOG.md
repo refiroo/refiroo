@@ -8,6 +8,16 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.7 WP-13A: `docs/testing/COVERAGE_MAP.md` links product invariants and capability contracts
+  to their test evidence, boundary and cost tier, ranks risk and records audit status, residual risk
+  and consolidation decisions. New regression evidence: mapping replacement refuses foreign-workspace
+  drafts, unknown workspaces, a revision context and retired workspaces without changing data; draft
+  relation update/delete advance both draft anchors' set versions only; runtime sources contain no
+  starter-model key literal; live `date` values keep their type through write, boundary filters and
+  sort; the mapping conflict retry sends the user's attempted target. Two confirmed defects are
+  reproduced and fixed as WP-10C and WP-10D (see Fixed); WP-10E remains open with a strict `xfail`
+  reproduction. One relation-set test duplicating stronger evidence was removed.
+
 - Base 0.7 WP-12: `GET /api/v1/model-releases/{releaseId}/activations` reads a release's recorded
   activations (oldest first, with the release each replaced). Models release details move the
   Release ID and content hash into an explained, copyable **Technical details** disclosure; release
@@ -41,6 +51,16 @@ All notable changes to this project are documented in this file. The format foll
   longer turns the primary button into a clear operation.
 
 ### Fixed
+
+- Base 0.7 WP-10C: `date`, `dateTime` and `decimal` values can be written in a workspace draft
+  (create, update and the field endpoint returned 500) and are published to live on activation,
+  including values captured from live. Draft and revision lists filter and sort these fields and
+  integers by their declared type: numbers no longer sort as text (`10` before `5`), date-times sort
+  by instant, and a zone-less `dateTime` filter value is read as UTC.
+- Base 0.7 WP-10D: renaming or moving a contained record inherited by a draft no longer adds a
+  second containment relation with a new ID. An unchanged parent keeps its relation; a move replaces
+  it with exactly one. Such drafts now activate instead of refusing with `duplicate_edge` or
+  `relation_cardinality_violation`.
 
 - WP1-001: the navigation resize separator is inside the navigation landmark, so its accessibility
   exception is removed. Collection and settings popovers render inside a landmark (or the open
