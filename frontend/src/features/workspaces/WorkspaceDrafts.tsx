@@ -207,7 +207,7 @@ export function DraftActions({
   onExit: (message: string) => void;
   onModelChanged: () => Promise<void>;
 }) {
-  const { draft, activeModelReleaseId, warning, refresh } = useWorkspaceData();
+  const { draft, activeModelReleaseId, activeModelReleaseLabel, warning, refresh } = useWorkspaceData();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [diagnostics, setDiagnostics] = useState<Array<Record<string, unknown>>>([]);
@@ -376,8 +376,8 @@ export function DraftActions({
       {modelMismatch && (
         <Notice tone="info" title="This draft uses a different model version">
           This draft works under {current.modelReleaseKey} {current.modelReleaseVersion}; live data uses the active
-          model ({activeModelReleaseId}). Activation requires these versions to match. You can change the draft's model
-          version if the content fits, or discard the draft.
+          model{activeModelReleaseLabel ? ` ${activeModelReleaseLabel}` : ""}. Activation requires these versions to
+          match. You can change the draft's model version if the content fits, or discard the draft.
         </Notice>
       )}
       {warning && (

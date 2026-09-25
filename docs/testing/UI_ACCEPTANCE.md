@@ -40,8 +40,8 @@ Navigation is given from a fresh isolated harness (`e2e/helpers/harness.mjs`). T
 | S2 | Unified application browser: collections + record tree (WP-14) | sidebar; narrow: **Browse application** | Disclosure (drawer, tree) | C | B | — | B | — | — | C (`Explorer.test`) | B | B | `wp9-navigation`, `wp14-contextual-browser` |
 | S3 | Collection lenses, scope banner, Filter popover (WP-14, redesign) | `/apps/rdm-systems/views/systems` → expand System 00 → System values collection | Page surface, `ControlPopover` | C | B | — | B | C (typed filter 422) | — | C (`CollectionView.test`) | B | B | `wp14-contextual-browser`, `wp9-navigation` UI-02 |
 | S4 | Mapping lens grid (WP-8A/WP-14) | lens tab **System → Master mapping**; `/apps/rdm-master/views/master-to-system-mapping` | Page surface | C | B incl. filtered-empty | — | B | — | — | **B** | **B** | B (region focusable, row button) | `wp13c-ui-states`, `wp14-contextual-browser` |
-| S5 | Mapping dialog: candidates, save/next, remove, conflict (WP-8B) | row **Map/Change** | Dialog | C | **B** incl. no-match | C (`Saving…`) | **B** | C (server error notice) | **B** | **B** | **B** | **B** (search focus, Escape restores focus) | `wp13c-ui-states`, `MappingGridView.test` (22) |
-| S6 | Contextual target creation (WP-8B) | mapping dialog → **Create new …** | Dialog (nested `ObjectFormDialog`) | — | — | — | **gap: blocked by WP-10F** | **B** (refusal contained) | — | B (lookup error + Retry shown) | gap | C | `wp13c-ui-states` |
+| S5 | Mapping dialog: candidates, save/next, remove, conflict (WP-8B) | row **Map/Change** | Dialog | C | **B** incl. no-match | C (`Saving…`) | **B** | C (server error notice) | **B** | **B** | **B** | **B** (search focus, Escape restores focus) | `wp13c-ui-states`, `MappingGridView.test` (24) |
+| S6 | Contextual target creation (WP-8B) | mapping dialog → **Create new …** | Dialog (nested `ObjectFormDialog`) | — | — | — | **B** (WP-10F: create, select, save in both directions, live and draft) | C (no parent type in the chosen application) | — | B (lookup error + Retry shown) | gap | C | `wp13c-ui-states`, `MappingGridView.test` |
 | S7 | Mapping in a named draft, inverse direction (WP-8B/WP-7) | `…/master-to-system-mapping?workspaceDraftId=…` | as S4/S5 | — | **B** | — | **B** (live unchanged) | — | C | — | gap (wide only) | B | `wp13c-ui-states` |
 | S8 | Drafts list and creation with model version (WP-7) | Drafts tab | Page surface, Dialog | C | B | C | **B** | C (`WorkspaceDrafts.test` creation refusal) | — | **B** | gap (dialog) | C | `wp13c-ui-states`, `wp9-drafts` |
 | S9 | Draft bar, model mismatch notice, activation refusal (WP-7/WP-11) | open a draft pinned to a non-active release | Notice, Actions | C | **B** | C | B (`wp9-drafts` activation) | **B** (Activate disabled with reason) | B (`wp9-drafts`) | C (refresh warning) | **B** | C | `wp13c-ui-states`, `wp9-drafts` |
@@ -76,15 +76,19 @@ which ~2.4 s harness setup):
 2. Filtered-empty coverage is explained; clearing the facet restores rows.
 3. Keyboard opening of the mapping dialog focuses candidate search; a no-match search is named.
 4. Candidate read outage stays inside the dialog; Retry restores candidates.
-5. Contextual creation refusal is contained: actionable message, Cancel keeps the unsaved choice,
-   coverage unchanged (see WP-10F).
+5. Contextual creation offers every application containing the target type, with the lens's
+   application as the default and only its parent types; Cancel keeps the unsaved choice and coverage.
+   Creating a master value in RDM Master from the RDM Systems lens selects it and saves it (WP-10F).
 6. Explicit save stores the selection and refreshes coverage.
 7. A concurrent mapping change shows the current mapping, keeps the attempted choice, blocks Save until
    **Continue with my selection**, then saves the attempted target.
-8. Narrow grid and dialog fit 390px; Escape returns focus to the row action.
-9. The inverse binding maps in a named draft; live coverage stays unchanged.
+8. Narrow grid and dialog fit 390px, and the candidate search stays ≤ 48px high (WP-10G); Escape
+   returns focus to the row action.
+9. The inverse binding creates a system value in its only application inside a named draft, maps it,
+   and neither the value nor the mapping reaches live.
 10. Drafts-list outage keeps the page header; Retry loads drafts.
-11. A draft created on a non-active release shows its model, explains the mismatch and refuses activation.
+11. A draft created on a non-active release names both releases by key and version (no UUID, WP-10G),
+    explains the mismatch and refuses activation.
 
 Outages are simulated with `page.route` 503 responses on one read path until restored; every successful
 read and write reaches the real backend. React development mode issues reads twice, so an injected
@@ -107,7 +111,13 @@ Inspected against the references in section 1: all twelve wp13c screenshots.
 
 Dark-theme variants of the new states were not captured; the dark a11y/visual gate pages remain WP-9.
 
-## 5. Follow-ups found (not fixed here)
+**Re-review after WP-10F/WP-10G (2026-09-25):** `mapping-create-target-wide` shows the Application
+choice with only the RDM Systems parent type. `mapping-draft-create-target-wide` shows a single owner
+as a fixed Application fact aligned with the labelled fields. `mapping-dialog-narrow` keeps a one-line
+search box. `draft-version-mismatch-wide`/`-narrow` read "the active model rdm-starter 0.7.0". All
+match the dialog and notice references.
+
+## 5. Follow-ups found (delivered as WP-10F/WP-10G on 2026-09-25)
 
 - **WP-10F — Contextual target creation is scoped to the lens's application.** `MappingActionDialog`
   passes the view's `applicationKey` to `ObjectFormDialog`, and objects belong to one application. In
@@ -121,7 +131,7 @@ Dark-theme variants of the new states were not captured; the dark a11y/visual ga
 
 ## 6. Limitations
 
-- Contextual creation success, its narrow layout and target refresh are unverified until WP-10F.
+- Contextual creation at 390px was not captured; the dialog uses the shared narrow form layout.
 - Pending states rely on component evidence; browser timing of `busy` states was not asserted.
 - The new states have no committed visual baselines. Screenshots are reviewed evidence, and the
   comprehensive a11y/visual gates were not run (WP-9).

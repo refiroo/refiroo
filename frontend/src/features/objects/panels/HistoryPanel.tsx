@@ -1,6 +1,6 @@
 import { api } from "@/api/client";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
-import { formatServerTime, parseServerTime } from "@/lib/dates";
+import { formatServerTime } from "@/lib/dates";
 import { attributeName } from "@/model/fields";
 import type { AuditEventItem, EngineModel } from "@/types";
 import { InlineError } from "@/ui/InlineError";
@@ -85,7 +85,7 @@ const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
 ];
 
 function relativeTime(iso: string) {
-  const elapsed = parseServerTime(iso).getTime() - Date.now();
+  const elapsed = new Date(iso).getTime() - Date.now();
   if (Number.isNaN(elapsed) || Math.abs(elapsed) > 7 * 86_400_000) return formatServerTime(iso);
   for (const [unit, size] of UNITS) {
     if (Math.abs(elapsed) >= size) return relative.format(Math.round(elapsed / size), unit);

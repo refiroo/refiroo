@@ -9,6 +9,8 @@ release plan and changelog rather than accumulating it here.
 Base 0.6 is released (2026-09-11). WP-1 delivered (2026-09-12). WP-2 delivered (2026-09-12).
 WP-3 delivered (2026-09-12); its pending participation changes committed 2026-09-14.
 WP-4 and its WP-10A review fix delivered (2026-09-14). WP-5 delivered (2026-09-14). WP-7 delivered (2026-09-14).
+WP-8/WP-14 committed 2026-09-15; redesign and dark mode 2026-09-24; WP-10E/F/G 2026-09-25. Only WP-9 remains;
+after it passes, 0.7 is released and work moves to 0.8 (arbitrary-depth tree browsing, translation screens).
 
 - [x] UI-07 (carried from 0.6): automated accessibility and visual-regression gates using the existing
   Playwright harness with `@axe-core/playwright` and visual comparison baselines. Delivered 2026-09-12;
@@ -56,8 +58,8 @@ WP-4 and its WP-10A review fix delivered (2026-09-14). WP-5 delivered (2026-09-1
   history and OpenAPI tests, 15 model-admin component tests, `npm run test:browser:wp12` (seven
   wide/narrow checks); comprehensive suites and a11y/visual gates remain WP-9.
 - [x] WP-8A/WP-8B review: preserved the bounded reads and atomic actions; corrected conflict review,
-  duplicated configured identity fields and missing coverage filters through WP-14. Reviewed locally
-  with focused component and real-browser evidence on 2026-09-15; not committed.
+  duplicated configured identity fields and missing coverage filters through WP-14. Reviewed with
+  focused component and real-browser evidence and committed in `f8e39a8` (2026-09-15).
 - [x] WP-14A: record ADR-029 and reconcile product, UI, architecture, model and roadmap documentation.
 - [x] WP-14B: add cursor-bound `parentObjectId` and mapping coverage-state filters with live/draft/revision
   integration coverage and public-contract updates.
@@ -84,11 +86,18 @@ WP-4 and its WP-10A review fix delivered (2026-09-14). WP-5 delivered (2026-09-1
   list filters and sort. Delivered 2026-09-24.
 - [x] WP-10D: based contained records keep one containment edge on draft rename or move, and
   activate. Delivered 2026-09-24.
-- [ ] WP-10E: a live `dateTime` write drops its UTC offset (the instant moves), and live decimals
-  are padded to the column scale. Strict xfail reproduces it; blocks 0.7.
-- [ ] WP-10F: contextual mapping-target creation is scoped to the lens's application, so the starter
-  model cannot create a target in either direction; needs an owning-application decision.
-- [ ] WP-10G: narrow mapping-dialog search box height; raw release UUID in the draft mismatch notice.
+- [x] WP-10E: timestamps are stored in UTC and returned with an explicit offset on every database
+  (attribute `dateTime` values and server timestamps); decimals have one canonical form in every
+  context; the frontend zone-less workaround is removed. No live `dateTime` data to migrate.
+  Delivered 2026-09-25.
+- [x] WP-10F: contextual mapping-target creation asks for the owning application (every application
+  containing the type, lens's application by default) and offers only that application's parent
+  types; both starter directions create, select and save. Delivered 2026-09-25.
+- [x] WP-10G: narrow mapping-dialog search keeps its height; draft-mismatch and historical-revision
+  notices name releases by key and version. Delivered 2026-09-25.
+- [x] Base 0.7 frontend redesign (header application tabs, Live/Drafts/History control, record tree,
+  Filter popover, lens tabs, mapping row actions) and dark mode with the settings menu, dark
+  accessibility scenarios and baselines. Delivered 2026-09-24 (`936a70e`, `315e6f7`).
 - [ ] Further conditional WP-10 slices: only confirmed missing foundation capabilities; required slices block 0.7
   acceptance. WP-1–WP-3 are delivered and frozen; their implementation reviews stay separate.
 

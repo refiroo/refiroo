@@ -5,6 +5,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..common.time import as_utc
 from ..errors import api_error
 from ..models.api import AttributeValueResponse
 from ..models.database import AttributeValue, RdmObject
@@ -151,7 +152,9 @@ def normalize_value(definition: AttributeTypeDefinition, value: Any) -> Any:
         elif definition.valueType == "decimal":
             if isinstance(value, bool):
                 raise TypeError
-            normalized = Decimal(str(value))
+            normalized = canonical_decimal(Decimal(str(value)))
+            if not normalized.is_finite():
+                raise ValueError
         elif definition.valueType == "boolean":
             if not isinstance(value, bool):
                 raise TypeError
@@ -159,7 +162,9 @@ def normalize_value(definition: AttributeTypeDefinition, value: Any) -> Any:
         elif definition.valueType == "date":
             normalized = value if isinstance(value, date) else date.fromisoformat(value)
         elif definition.valueType == "dateTime":
-            normalized = value if isinstance(value, datetime) else datetime.fromisoformat(value)
+            # One instant, one form: a zone-less value is UTC, as in filters and cursors.
+            parsed = value if isinstance(value, datetime) else datetime.fromisoformat(value)
+            normalized = as_utc(parsed)
         else:
             normalized = value
     except (TypeError, ValueError, InvalidOperation):
@@ -367,10 +372,21 @@ def _get_row_value(row: AttributeValue) -> Any:
 def stored_json_value(value: Any) -> Any:
     """Return the JSON form of a normalized value, as live reads and draft rows carry it."""
     if isinstance(value, Decimal):
-        return str(value)
-    if isinstance(value, (date, datetime)):
+        return format(canonical_decimal(value), "f")
+    if isinstance(value, datetime):
+        return as_utc(value).isoformat()
+    if isinstance(value, date):
         return value.isoformat()
     return value
+
+
+def canonical_decimal(value: Decimal) -> Decimal:
+    """Drop trailing zeros so equal decimals share one form in every context.
+
+    A live read comes back padded to the column scale (``12.5000000000``) while a draft row keeps the
+    submitted text; both must read, compare and deduplicate as ``12.5``.
+    """
+    return Decimal(0) if value.is_zero() else value.normalize()
 
 
 def _attribute_definition(model: EngineModel, key: str) -> AttributeTypeDefinition:

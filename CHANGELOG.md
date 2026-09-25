@@ -72,6 +72,17 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+- Base 0.7 WP-10E: a live `dateTime` write keeps its instant. Values are stored in UTC and every
+  context returns them with an explicit offset; decimals read back in one form without trailing
+  zeros (live reads were padded to `12.5000000000`), so draft uniqueness compares equal decimals as
+  equal. All server timestamps (`createdAt`, `updatedAt`, `occurredAt`, …) now carry an offset on
+  SQLite too, and the browser no longer appends one to zone-less times.
+- Base 0.7 WP-10F: **Create new …** in a mapping lens asks which application the new target
+  belongs to, listing every application that contains its type and defaulting to the lens's own.
+  Parent choices are limited to types in that application, and a notice explains when it has none.
+  The starter can now create a target in both mapping directions.
+- Base 0.7 WP-10G: the mapping dialog's search box keeps its height at phone width, and the draft
+  model-mismatch and historical-revision notices name releases by key and version instead of UUID.
 - Base 0.7 WP-10C: `date`, `dateTime` and `decimal` values can be written in a workspace draft
   (create, update and the field endpoint returned 500) and are published to live on activation,
   including values captured from live. Draft and revision lists filter and sort these fields and

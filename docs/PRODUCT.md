@@ -47,7 +47,7 @@ and supported task lenses; it does not reserve navigation or renderer branches f
 a form used for record editing is not an implemented configurable top-level `form` view. Schema 0.6
 mapping-grid configuration, live/draft coverage, target-detail, candidate APIs (WP-4) and atomic
 mapping replacement (WP-5) are delivered. WP-8A/WP-8B and WP-14 implement the contextual mapping
-lens and unified browser in the current uncommitted worktree; composed story acceptance remains WP-9.
+lens and unified browser (committed 2026-09-15); composed story acceptance remains WP-9.
 Cascade deletions advance mapping
 tokens (WP-10A), and draft activation refuses divergent live sets touched by staged mutable relations
 (WP-10B), preserving the draft and all live content. Schema 0.6 table and mapping declarations are

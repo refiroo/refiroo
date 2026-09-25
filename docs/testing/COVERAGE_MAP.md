@@ -165,7 +165,7 @@ omissions state why.
 | 2 | C-MAP-W | New 0.7 write path; silent loss of a mapping is the SC-07 failure | normal, conflict, invalid context (foreign/unknown/revision), unavailable (retired live/draft) | covered + authority gap filled |
 | 3 | C-MAP-SET | Concurrency boundary shared by generic and mapping writes | create/update/delete × L/D × outgoing/incoming anchors | draft update/delete gap filled |
 | 4 | C-DR-ACT | All-or-nothing publication | every failure class (`no_partial_publication_after_every_failure_class`), conflict variants, based edits | covered; WP-10D fixed |
-| 5 | INV-11 | Types reduced to strings or lost silently | boolean, integer, date (valid/invalid/boundary/sort), null vs unset, L/D | date gap filled; WP-10C fixed; live `dateTime` offset loss open as WP-10E |
+| 5 | INV-11 | Types reduced to strings or lost silently | boolean, integer, date (valid/invalid/boundary/sort), null vs unset, L/D | date gap filled; WP-10C fixed; WP-10E fixed (instants and canonical decimals in every context) |
 | 6 | INV-02 | Architectural invariant with no automated guard | static literal scan | guard added |
 | 7 | C-WS-RET / INV-16 | Wrong-workspace or retired writes | every runtime write route incl. mapping | mapping gap filled |
 | 8 | C-DR-PIN, C-MOD-ACT, C-MIG, C-BOOT | Model/runtime selection and startup | mapped by name to dense existing suites | covered (not re-audited partition by partition) |
@@ -196,7 +196,8 @@ The two WP-13A `xfail(strict=True)` reproductions failed at their intended asser
 integer draft paging in both sort directions in `::numeric_ranges_and_capability_errors_are_model_aware`,
 `pagination::sequence_sort_text_orders_numbers_and_instants_by_value` and
 `wp81b_current_live_bases::moving_a_based_child_replaces_its_containment_edge_and_activates`.
-`typed_table_queries::live_datetime_keeps_its_instant` is a strict `xfail` reproducing open WP-10E.
+`typed_table_queries::live_datetime_keeps_its_instant` (formerly a strict `xfail`) and
+`typed_table_queries::server_timestamps_carry_an_explicit_offset` cover WP-10E.
 
 ## 5. Redundancy and consolidation
 
@@ -227,10 +228,10 @@ integer draft paging in both sort directions in `::numeric_ranges_and_capability
 - **Based-draft edits beyond those probed:** translation create/delete on a based target, relation
   edits between based records, and draft moves across applications were not probed. WP-10C/10D
   suggest this partition still deserves a dedicated sweep.
-- **Typed value representation (WP-10E, open):** live `dateTime` values lose their offset; live
-  decimals are padded to the column scale while draft writes keep the submitted form, so draft
-  uniqueness compares unequal strings for equal decimals. Existing deployed `dateTime` data may need
-  a migration decision.
+- **Typed value representation (WP-10E, fixed 2026-09-25):** instants are stored in UTC and returned
+  with an offset, and decimals have one canonical form in every context. No migration was added: no
+  local database holds a live `dateTime`, and a dropped offset cannot be recovered. PostgreSQL
+  `timestamptz` round-trips were not exercised.
 - **Draft built-in timestamps:** draft-local records carry no `createdAt`/`updatedAt`, so those
   filters match none of them in a draft list (pre-existing; not changed by WP-10C, which only stopped
   mixed naive/aware comparisons from failing). Decide the intended draft semantics before 0.7 acceptance.

@@ -331,8 +331,9 @@ def test_draft_writes_keep_decimal_datetime_and_date_values_through_activation(t
         **context, "expectedWorkspaceDraftVersion": draft["version"],
     })
     assert created.status_code == 201, created.text
+    # One canonical form in every context: trailing zeros dropped, instants in UTC with an offset.
     assert values(created.json()) == {
-        "wp10-amount": "12.50",
+        "wp10-amount": "12.5",
         "wp10-seen-at": "2026-09-24T10:15:00+00:00",
         "wp10-due": "2026-10-01",
     }
@@ -371,7 +372,7 @@ def test_draft_writes_keep_decimal_datetime_and_date_values_through_activation(t
 
     expected = {
         "wp10-amount": "7",
-        "wp10-seen-at": "2026-12-24T18:00:00+01:00",
+        "wp10-seen-at": "2026-12-24T17:00:00+00:00",
         "wp10-due": "2026-11-30",
     }
     draft_read = client.get(f"/api/v1/objects/domain/{record['id']}", params=context)
@@ -406,30 +407,60 @@ def test_draft_writes_keep_decimal_datetime_and_date_values_through_activation(t
         f"/api/v1/objects/domain/{record['id']}", params={"workspaceKey": "default"}
     )
     assert live.status_code == 200, live.text
-    live_values = values(live.json())
-    assert live_values["wp10-due"] == "2026-11-30"
-    assert live_values["wp10-seen-at"].startswith("2026-12-24T")
-    assert float(live_values["wp10-amount"]) == 7
+    assert values(live.json()) == expected
 
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="WP-10E: a live dateTime write drops its UTC offset, so the stored instant moves",
-)
 def test_live_datetime_keeps_its_instant(typed_model_client):
     written = "2026-12-24T18:00:00+01:00"
     created = typed_model_client.post("/api/v1/objects", json={
         "applicationKey": "rdm-master", "objectTypeKey": "domain", "name": "Instant",
         "workspaceKey": "default",
-        "attributes": [_attribute("domain-code", "INSTANT"), _attribute("wp10-seen-at", written)],
+        "attributes": [
+            _attribute("domain-code", "INSTANT"),
+            _attribute("wp10-seen-at", written),
+            _attribute("wp10-amount", "12.50"),
+        ],
     })
     assert created.status_code == 201, created.text
     read = typed_model_client.get(
         f"/api/v1/objects/domain/{created.json()['id']}", params={"workspaceKey": "default"}
     )
-    [stored] = [
-        item["value"] for item in read.json()["attributes"]
-        if item["attributeTypeKey"] == "wp10-seen-at"
-    ]
-    assert as_utc(datetime.fromisoformat(stored)) == as_utc(datetime.fromisoformat(written))
+    body = read.json()
+    stored = {item["attributeTypeKey"]: item["value"] for item in body["attributes"]}
+    assert as_utc(datetime.fromisoformat(stored["wp10-seen-at"])) == as_utc(
+        datetime.fromisoformat(written)
+    )
+    # The same forms a draft row carries, so equal values compare equal across contexts.
+    assert stored["wp10-seen-at"] == "2026-12-24T17:00:00+00:00"
+    assert stored["wp10-amount"] == "12.5"
+    for filter_value, found in (("2026-12-24T18:00:00+01:00", True), ("2026-12-24T16:30:00", False)):
+        listed = typed_model_client.get("/api/v1/objects/domain", params={
+            "workspaceKey": "default", "filter.wp10-seen-at.lte": filter_value,
+        })
+        assert listed.status_code == 200, listed.text
+        assert (body["id"] in [item["id"] for item in listed.json()["items"]]) is found
+
+
+def test_server_timestamps_carry_an_explicit_offset(typed_model_client):
+    """SQLite drops the zone, so a naive read would reach clients as local wall-clock time."""
+    created = typed_model_client.post("/api/v1/objects", json={
+        "applicationKey": "rdm-master", "objectTypeKey": "domain", "name": "Stamped",
+        "workspaceKey": "default", "attributes": [_attribute("domain-code", "STAMPED")],
+    })
+    assert created.status_code == 201, created.text
+    read = typed_model_client.get(
+        f"/api/v1/objects/domain/{created.json()['id']}", params={"workspaceKey": "default"}
+    )
+    draft = typed_model_client.post("/api/v1/workspaces/default/drafts", json={})
+    assert draft.status_code == 201, draft.text
+    history = typed_model_client.get(
+        f"/api/v1/objects/domain/{created.json()['id']}/history", params={"workspaceKey": "default"}
+    )
+    assert history.status_code == 200, history.text
+    stamps = [read.json()["createdAt"], read.json()["updatedAt"], draft.json()["createdAt"]]
+    stamps += [item["occurredAt"] for item in history.json()["items"]]
+    assert len(stamps) > 3
+    for stamp in stamps:
+        parsed = datetime.fromisoformat(stamp)
+        assert parsed.utcoffset() is not None, stamp

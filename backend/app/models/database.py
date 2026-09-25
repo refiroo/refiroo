@@ -18,7 +18,29 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
+from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.types import TypeDecorator
+
+from ..common.time import as_utc
+
+
+class UTCDateTime(TypeDecorator[datetime]):
+    """A timestamp stored as UTC and always read back as an aware UTC ``datetime``.
+
+    SQLite drops the zone of ``DateTime(timezone=True)``: an offset value would be stored as its wall
+    clock and read back zone-less. Converting on the way in and attaching UTC on the way out keeps
+    the instant and lets every API response carry an explicit offset on every database.
+    """
+
+    impl = DateTime(timezone=True)
+    cache_ok = True
+
+    def process_bind_param(self, value: datetime | None, dialect: Dialect) -> datetime | None:
+        return as_utc(value) if value is not None else None
+
+    def process_result_value(self, value: datetime | None, dialect: Dialect) -> datetime | None:
+        return as_utc(value) if value is not None else None
 
 
 class Base(DeclarativeBase):
@@ -43,7 +65,7 @@ class ModelRelease(Base):
     model_json: Mapped[dict[str, Any]] = mapped_column(JSON)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     installed_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+        UTCDateTime(), default=lambda: datetime.now(UTC)
     )
 
 
@@ -57,7 +79,7 @@ class ModelRuntimeState(Base):
     )
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
 
 
@@ -75,10 +97,10 @@ class ModelDraft(Base):
     model_json: Mapped[dict[str, Any]] = mapped_column(JSON)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
 
 
@@ -103,10 +125,10 @@ class Workspace(Base):
     )
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        UTCDateTime(),
         nullable=False,
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
@@ -123,7 +145,7 @@ class WorkspaceRuntimeState(Base):
     )
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
 
 
@@ -311,10 +333,10 @@ class RdmObject(Base):
     name: Mapped[str] = mapped_column(String(500), index=True)
     version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+        UTCDateTime(), default=lambda: datetime.now(UTC)
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        UTCDateTime(),
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
@@ -346,12 +368,12 @@ class WorkspaceRevision(Base):
         ForeignKey("workspace_revisions.id", ondelete="RESTRICT"), nullable=True, index=True
     )
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
     activated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
-    retired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    retired_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
 
 class WorkspaceDraft(Base):
@@ -378,10 +400,10 @@ class WorkspaceDraft(Base):
     name: Mapped[str | None] = mapped_column(String(300), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        UTCDateTime(),
         nullable=False,
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
@@ -404,7 +426,7 @@ class AttributeValue(Base):
     decimal_value: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
     boolean_value: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     date_value: Mapped[date | None] = mapped_column(Date, nullable=True)
-    datetime_value: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    datetime_value: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
     json_value: Mapped[Any | None] = mapped_column(JSON, nullable=True)
     value_source: Mapped[str] = mapped_column(String(40), default="own")
     version: Mapped[int] = mapped_column(Integer, default=1)
@@ -433,10 +455,10 @@ class ObjectRelation(Base):
     attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC)
+        UTCDateTime(), default=lambda: datetime.now(UTC)
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        UTCDateTime(),
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
@@ -493,7 +515,7 @@ class WorkspaceDraftBase(Base):
     )
     model_runtime_version: Mapped[int] = mapped_column(Integer, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
 
 
@@ -611,10 +633,10 @@ class RelationSetVersion(Base):
     direction: Mapped[str] = mapped_column(String(10), nullable=False)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
+        UTCDateTime(),
         nullable=False,
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
@@ -634,7 +656,7 @@ class AuditEvent(Base):
     version: Mapped[int] = mapped_column(Integer)
     changes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     occurred_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True
+        UTCDateTime(), default=lambda: datetime.now(UTC), index=True
     )
 
 

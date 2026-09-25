@@ -466,6 +466,11 @@ function MappingActionDialog({
   const [candidateSearch, setCandidateSearch] = useState("");
   const debouncedSearch = useDebouncedValue(candidateSearch.trim());
   const [showCreate, setShowCreate] = useState(false);
+  // Objects belong to one application and candidates are read across all of them, so the user
+  // chooses where a target created here lives; the lens's application is the default when it can.
+  const ownerChoices = model.applications
+    .filter((application) => application.objectTypeKeys.includes(targetTypeKey))
+    .map((application) => application.key);
   const dirty = selectedId !== currentId;
   const blockedByConflict = conflictVersion !== null && !conflictAcknowledged;
 
@@ -668,7 +673,8 @@ function MappingActionDialog({
       {showCreate && (
         <ObjectFormDialog
           model={model}
-          applicationKey={applicationKey}
+          applicationKey={ownerChoices.includes(applicationKey) ? applicationKey : ownerChoices[0]}
+          applicationChoices={ownerChoices}
           workspaceKey={workspaceKey}
           objectType={targetType}
           onClose={() => setShowCreate(false)}

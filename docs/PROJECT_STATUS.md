@@ -8,11 +8,13 @@ mapping, schema 0.6, draft version selection). WP-1 (accessibility gates), WP-2 
 `mappingGrid` view contract), WP-3 (relation-set version persistence), WP-4 (mapping query APIs),
 WP-5 (atomic mapping replacement), WP-6 (backend draft version selection) and WP-7 (browser draft
 version selection) are delivered.
-Bounded WP-10A cascade invalidation and WP-10B draft-activation mapping-set conflict fixes are delivered.
-WP-8A/WP-8B and WP-14 are implemented and locally reviewed in the current uncommitted worktree:
-mapping is a lens of a contextual collection inside one model-driven application browser rather than
-a separate primary destination. Focused package evidence passes; WP-9 comprehensive build acceptance
-remains pending.
+WP-8A/WP-8B and WP-14 are delivered (committed in `f8e39a8`, 2026-09-15): mapping is a lens of a
+contextual collection inside one model-driven application browser rather than a separate primary
+destination. The Base 0.7 frontend redesign (`936a70e`) and dark mode with the settings menu
+(`315e6f7`) followed on 2026-09-24, then WP-12 and WP-13A/B/C. All triggered WP-10 slices (A–G) are
+delivered; WP-10E/F/G closed on 2026-09-25. **WP-9 composed build acceptance is the only remaining 0.7
+package.** Once it passes, 0.7 is released and work moves to 0.8: lazy tree browsing to any depth and
+specialised translation screens.
 
 The generic model defines applications, object types, reusable fields, allowed relationships and views.
 Master, Systems and Translations are configurable starter examples; runtime code must remain unaware
@@ -31,8 +33,8 @@ GAP-01–GAP-08 answers and distinguishes accepted targets from implementation e
 | Historical data | Complete: newest-first browser discovery, pinned-model immutable reads and historical draft derivation | — |
 | Publication retirement | Complete: truthful browser confirmation removes only the designation while retaining live data/history | — |
 | Model administration | Complete: immutable releases, JSON drafts, validation/diff/install/activation workbench | Browser administration acceptance (0.7+) |
-| UI foundation | Complete: catalogue selection, typed tables, generic panels, redesigned navigation/collections/inspector/inline editing, automated accessibility and visual-regression gates (UI-07) | — |
-| Specialist workflows | Schema 0.6 `mappingGrid` contract, live/draft/revision coverage, target-detail, candidate APIs, atomic replacement and contextual mapping lens implemented; focused review passes, uncommitted | WP-9 composed acceptance; lazy arbitrary-depth hierarchy/translation specializations 0.8; integration 0.9 |
+| UI foundation | Complete: catalogue selection, typed tables, generic panels, redesigned navigation/collections/inspector/inline editing, automated accessibility and visual-regression gates (UI-07); 0.7 redesign (header application tabs, Live/Drafts/History control, record tree, Filter popover), dark mode and settings menu | WP-9 a11y/visual acceptance of the redesign |
+| Specialist workflows | Schema 0.6 `mappingGrid` contract, live/draft/revision coverage, target-detail, candidate APIs, atomic replacement and contextual mapping lens with in-context target creation delivered | WP-9 composed acceptance; lazy arbitrary-depth hierarchy/translation specializations 0.8; integration 0.9 |
 | Production and model migration | Basic readiness and actionable startup refusal | Authenticated production, staged assignments and reviewed historical model migration 0.10; draft version selection 0.7 |
 
 Ordinary live saves create neither a draft nor a revision. Draft activation applies authored changes
@@ -73,8 +75,7 @@ in code does not establish that a browser user can complete its story.
 4. **UI-07 (carried from 0.6, delivered 2026-09-12):** automated accessibility and visual-regression
    gates using the existing Playwright harness with `@axe-core/playwright` and visual comparison
    baselines. Light-theme baselines committed; dark mode and dark baselines followed on 2026-09-24.
-5. **Contextual collections (WP-8A/WP-8B/WP-14, implemented and locally reviewed 2026-09-15;
-   uncommitted):** one generic application browser combines collection entry points and runtime
+5. **Contextual collections (WP-8A/WP-8B/WP-14, delivered 2026-09-15 in `f8e39a8`):** one generic application browser combines collection entry points and runtime
    hierarchy. Views sharing a source type are collection lenses; mapping adds visible server-backed
    coverage state and atomic actions without adding another primary navigation destination. Direct-parent
    scope is URL-backed and valid in live, draft and immutable-revision contexts. ADR-029 records the
@@ -108,8 +109,8 @@ sets, view-specific projections, draft pins, concurrent reads and stale continua
 live/draft cascades in both directions. The review found no further confirmed issues.
 
 This was backend query evidence at the WP-4 boundary. Atomic replacement (WP-5) was subsequently
-delivered and reviewed; WP-8A/WP-8B and WP-14 browser work is now implemented locally, while composed
-product 0.7 acceptance (WP-9) remains pending.
+delivered and reviewed; WP-8A/WP-8B and WP-14 browser work is delivered, while composed product 0.7
+acceptance (WP-9) remains pending.
 
 ### WP-5 acceptance and WP-10B activation hardening — 2026-09-14
 
@@ -134,8 +135,8 @@ remains separate; PostgreSQL concurrency is not established.
 
 ### WP-8/WP-14 contextual-browser delivery and review — 2026-09-15
 
-The uncommitted WP-8 renderer was reviewed as part of WP-14. Mapping coverage and actions now render
-as a lens of the same source collection as its table views. The application rail presents collection
+The then-uncommitted WP-8 renderer was reviewed as part of WP-14; both were committed in `f8e39a8`.
+Mapping coverage and actions now render as a lens of the same source collection as its table views. The application rail presents collection
 groups and runtime hierarchy in one model-driven browser. Direct-parent scope, typed field facets and
 mapping coverage state are visible and URL-backed; the server applies parent/state filters before
 cursor pagination. Live, draft and immutable-revision reads resolve their governing model and data
@@ -148,6 +149,38 @@ Ruff, frontend format, lint (zero errors, 12 configured warnings) and production
 real-backend/browser journey covers direct-parent composition, table/mapping lens changes, both
 configured directions, live replacement, narrow layout and an axe check. Comprehensive suites and
 reviewed visual baselines remain WP-9 build acceptance.
+
+### Frontend redesign and dark mode — 2026-09-24
+
+The Base 0.7 UX pass (`936a70e`) reworked the generic shell and renderers without changing routes,
+data contexts, API contracts or the model: applications as header tabs, a segmented Live / Drafts /
+History control, a collapsed-by-default record tree, one Filter popover, lens tabs with a scope banner,
+a record header with a visible Edit action and a rewritten token stylesheet. Mapping lenses gained a
+segmented coverage filter, row-click to map, a candidate radio list, **Save and next** and an explicit
+**Remove mapping**. `315e6f7` added a dark token set with a System / Light / Dark choice, the settings
+menu and dark accessibility scenarios and baselines, and aligned the Models page. Presentation rules
+are in [UI model](UI_MODEL.md); reviewed light and dark baselines are committed.
+
+### WP-10E/F/G — 2026-09-25
+
+- **WP-10E:** timestamp columns use one UTC column type, so SQLite keeps the instant and every
+  response carries an explicit offset (server timestamps as well as `dateTime` fields). Decimals read
+  back in one form without trailing zeros in every context. The browser's zone-less workaround is
+  removed. No local database holds a live `dateTime` value, and offsets lost earlier cannot be
+  recovered, so no data migration was added.
+- **WP-10F:** a target created from a mapping lens goes to the application the user chooses; every
+  application containing the target type is listed, the lens's application is the default, and parent
+  choices are limited to that application's types.
+- **WP-10G:** the narrow candidate search keeps its height; draft-mismatch and historical-revision
+  notices name releases by key and version.
+
+Evidence: the full backend suite (533 passed; run once because the column type affects every
+timestamp read), 167 affected frontend component tests, Ruff, frontend format, lint (zero errors, 11
+warnings) and build. `test:browser:wp13c` (12 checks) creates, selects and saves a target in both
+directions, live and in a draft, and checks the narrow search height and mismatch text.
+`test:browser:authoring`, `test:browser:history` and `test:browser:wp14` pass. The changed
+screenshots were inspected at 1440px and 390px. The full frontend suite and the a11y/visual gates
+remain WP-9.
 
 ## Evidence boundary
 
@@ -319,17 +352,13 @@ do not rebuild rejected object lifecycle.
 ## Coding-agent handoff
 
 Read `AGENTS.md`, the product stories/scenarios, ADR-027, `ROADMAP.md`, `API.md` and `TODO.md`.
-Base 0.6 is released; next work targets product 0.7 (core mapping, schema 0.6, draft version
-selection). WP-1 (UI-07 accessibility gates), WP-2 (schema 0.6 `mappingGrid` view contract) and
-WP-3 (relation-set version persistence), WP-4 reads, WP-5 replacement, WP-6 backend draft version selection, WP-7 browser draft version selection,
-WP-10A/WP-10B hardening and WP-11 release refusals/errors are delivered. WP-8A/WP-8B and WP-14 are
-implemented and locally reviewed in the uncommitted worktree. WP-12 and WP-13A/B/C are delivered. WP-13A's
-[coverage map](testing/COVERAGE_MAP.md) confirmed two draft-write defects, fixed as WP-10C/WP-10D.
-WP-10E (live `dateTime` offset loss) is open and blocks 0.7 acceptance. WP-13B's
-[execution guide](testing/EXECUTION_GUIDE.md) selects focused checks per changed boundary. WP-13C's
-[UI acceptance](testing/UI_ACCEPTANCE.md) names UI references and inventories changed-surface states; it
-found WP-10F (contextual mapping-target creation) and WP-10G (visual fixes). Continue with WP-10E/F/G,
-then WP-9 composed acceptance.
+Base 0.6 is released; product 0.7 (core mapping, schema 0.6, draft version selection) has every
+implementation package delivered: WP-1–WP-8B, WP-10A–G, WP-11, WP-12, WP-13A/B/C and WP-14, plus the
+2026-09-24 frontend redesign and dark mode. WP-13A's [coverage map](testing/COVERAGE_MAP.md), WP-13B's
+[execution guide](testing/EXECUTION_GUIDE.md) and WP-13C's [UI acceptance](testing/UI_ACCEPTANCE.md)
+supply the audited selections. **Next: WP-9 composed acceptance**, which runs the comprehensive
+command set once. After it passes, 0.7 is released and 0.8 starts: lazy tree browsing to any depth
+and specialised translation screens ([roadmap](ROADMAP.md)).
 Use one implementation owner per slice, focused verification and appropriate review. Do not commit
 unless explicitly requested. Summarize each completed batch while work continues so scope can be
 corrected before the entire task finishes.

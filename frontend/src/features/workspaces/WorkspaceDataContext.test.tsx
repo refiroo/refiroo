@@ -42,6 +42,7 @@ it.each(["unavailable model", "dirty input"])("blocks writes and retries a pin r
   vi.spyOn(api, "workspaceDraft")
     .mockResolvedValueOnce(draft)
     .mockResolvedValue({ ...draft, modelReleaseId: "new", version: 2 });
+  vi.spyOn(api, "modelRelease").mockRejectedValue(new Error("not needed"));
   vi.spyOn(api, "modelRuntimeState").mockResolvedValue({ activeReleaseId: "old" } as Awaited<
     ReturnType<typeof api.modelRuntimeState>
   >);
@@ -71,4 +72,28 @@ it.each(["unavailable model", "dirty input"])("blocks writes and retries a pin r
     expect(save).toHaveBeenCalledWith("domain", "id", expect.objectContaining({ expectedWorkspaceDraftVersion: 2 })),
   );
   expect(loadModel).toHaveBeenCalledTimes(failure === "dirty input" ? 2 : 3);
+});
+
+it("names a differing active release by key and version, not by its id", async () => {
+  vi.spyOn(api, "workspaceDraft").mockResolvedValue(draft);
+  vi.spyOn(api, "modelRuntimeState").mockResolvedValue({ activeReleaseId: "active-id" } as Awaited<
+    ReturnType<typeof api.modelRuntimeState>
+  >);
+  vi.spyOn(api, "model").mockResolvedValue(testModel);
+  const release = vi
+    .spyOn(api, "modelRelease")
+    .mockResolvedValue({ id: "active-id", key: "rdm-starter", version: "0.7.0" } as Awaited<
+      ReturnType<typeof api.modelRelease>
+    >);
+  function Label() {
+    const data = useWorkspaceData();
+    return <p>active: {data.activeModelReleaseLabel ?? "none"}</p>;
+  }
+  render(
+    <WorkspaceDataProvider draftId="draft" workspaceKey="west" model={testModel}>
+      <Label />
+    </WorkspaceDataProvider>,
+  );
+  await screen.findByText("active: rdm-starter 0.7.0");
+  expect(release).toHaveBeenCalledWith("active-id");
 });

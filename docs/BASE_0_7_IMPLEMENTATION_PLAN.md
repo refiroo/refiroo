@@ -4,10 +4,9 @@
 WP-10A cascade-deletion version fix are complete. WP-5 acceptance follow-up and WP-10B activation
 hardening are delivered. The earlier WP-1–WP-3 review boundary remains separate;
 WP-1–WP-3 scopes are frozen. WP-6 backend, WP-7 frontend and WP-11 follow-up are delivered.
-WP-8A/WP-8B have an uncommitted component implementation but are not reviewed or accepted.
-ADR-029 extends 0.7 with WP-14 contextual collection composition. WP-12 and WP-13A/B/C are
-delivered; WP-13A triggered WP-10C/WP-10D (delivered) and WP-10E (open); WP-13C found WP-10F and
-WP-10G (open). WP-9 composed 0.7 acceptance remains pending.
+WP-8A/WP-8B were reviewed and composed through WP-14 (ADR-029), committed 2026-09-15. WP-12 and
+WP-13A/B/C are delivered; WP-13A triggered WP-10C/WP-10D/WP-10E and WP-13C found WP-10F/WP-10G, all
+delivered (WP-10E/F/G on 2026-09-25). WP-9 composed 0.7 acceptance is the remaining package.
 
 **Target:** Product 0.7.0, schema language 0.6. The starter model content advances to a version on
 schema 0.6; that number alone does not mean the product release is accepted.
@@ -1052,7 +1051,7 @@ comprehensive command set once against the finished build; no slice claims relea
 
 #### WP-14: Contextual collections and model-driven application browser
 
-**Status:** Implemented and locally reviewed 2026-09-15; not committed. This package started from the
+**Status:** Implemented and reviewed 2026-09-15; committed in `f8e39a8`. This package started from the
 uncommitted WP-8A/WP-8B frontend implementation, preserved its mapping API and atomic-action work, and
 replaced the original standalone-grid presentation with contextual collection composition.
 
@@ -1186,9 +1185,8 @@ documentation reflects the delivered state. Any gaps or simplifications are expl
 #### WP-10: Conditional 0.7 foundation hardening
 
 **Status:** WP-10A and WP-10B delivered after WP-4/WP-5 review (2026-09-14). WP-10C and WP-10D,
-triggered by the WP-13A audit, were delivered on 2026-09-24. WP-10E, found while validating WP-10C,
-is open and blocks 0.7 acceptance. WP-10F and WP-10G, found by WP-13C, are open. Other slices remain
-conditional.
+triggered by the WP-13A audit, were delivered on 2026-09-24. WP-10E (found while validating WP-10C)
+and WP-10F/WP-10G (found by WP-13C) were delivered on 2026-09-25. Other slices remain conditional.
 
 **WP-10A — Cascade-deletion relation-set participation:** HTTP reproduction in both live and
 current-live draft contexts: deleting a mapped system value reduced incoming coverage from 21
@@ -1263,7 +1261,7 @@ tombstones the effective edge — a base edge through a draft tombstone row, as 
 exactly one new edge. As in live updates, containment edits do not advance relation-set versions;
 mapping views cannot address containment bindings.
 
-**WP-10E — Live `dateTime` values lose their offset (found validating WP-10C, 2026-09-24; open):**
+**WP-10E — Live `dateTime` values lose their offset (found validating WP-10C, 2026-09-24; delivered 2026-09-25):**
 HTTP reproduction: a live write of `2026-12-24T18:00:00+01:00` reads back as `2026-12-24T18:00:00`.
 SQLite does not keep the zone despite `DateTime(timezone=True)`, and clients read a zone-less value
 as UTC, so the stored instant moves by the offset. Draft rows keep the offset until activation, which
@@ -1275,8 +1273,21 @@ decide whether existing live `dateTime` values need a migration (the starter mod
 field; check deployed models first); give decimals one canonical form across contexts. Regression:
 remove the strict `xfail` from `test_typed_table_queries.py::test_live_datetime_keeps_its_instant`.
 
+*Delivered:* every timestamp column uses `UTCDateTime` (`models/database.py`), which converts to UTC
+on write and attaches UTC on read. SQLite then keeps the instant, and every response carries an
+explicit offset: attribute `dateTime` values and all server timestamps, which removes the frontend's
+zone-less workaround. `normalize_value` stores a `dateTime` as its UTC instant (zone-less means UTC,
+as in filters) and a `decimal` in `canonical_decimal` form. `stored_json_value` returns the same forms
+for live reads, so live, draft and revision values are equal strings for equal values. The column type
+does not change the DDL; the head-versus-metadata migration test passes. **Migration decision:** none.
+No local development database holds a live `dateTime` value; the starter model has none; and an offset
+already dropped cannot be recovered. Existing server timestamps were written as UTC and read back
+unchanged. Regression: the strict `xfail` is removed. The live test also asserts the canonical forms
+and offset-aware filtering, and a new test asserts that object, draft and history timestamps carry an
+offset. WP-10C's draft test now expects `12.5` for `12.50` and exact equality after activation.
+
 **WP-10F — Contextual target creation uses the lens's application (found by WP-13C, 2026-09-24;
-open):** Browser reproduction (`wp13c-ui-states.mjs`, starter model): in the System → Master lens of
+delivered 2026-09-25):** Browser reproduction (`wp13c-ui-states.mjs`, starter model): in the System → Master lens of
 `rdm-systems`, **Create new master value** offers a Codelist parent, and its lookup fails with
 “Object type 'codelist' is not available in application 'rdm-systems'”; no master value exists in
 that application to serve as the other permitted parent, so the target cannot be created. In the
@@ -1289,12 +1300,29 @@ created in context (for example the target type's application that contains the 
 or a choice among the applications containing the type), then a real-API and browser regression that
 creates, selects and saves the target in both configured directions.
 
-**WP-10G — Visual fixes from WP-13C screenshot review (2026-09-24; open):** (1) At ≤ 720px the mapping
+*Decision (user, 2026-09-25):* always ask. *Delivered:* `MappingActionDialog` passes every
+application that contains the target type to `ObjectFormDialog` as `applicationChoices`, defaulting
+to the lens's application when it contains the type. The form shows an **Application** choice, or a
+fixed fact when only one application qualifies. Because a parent must share the record's application
+(`parent_wrong_scope`), the form offers only parent types the chosen application contains. When a
+required parent has no type there, it explains that and disables **Create**. No model change. Evidence:
+two component tests, and `test:browser:wp13c` creating a master value in RDM Master from the RDM Systems
+lens (live) and a system value in RDM Systems from the RDM Master lens (named draft). Each run checks
+that the new target is selected, saved as the mapping and placed in the chosen application under the
+chosen parent, and that a draft-created value does not reach live.
+
+**WP-10G — Visual fixes from WP-13C screenshot review (2026-09-24; delivered 2026-09-25):** (1) At ≤ 720px the mapping
 dialog's candidate search stretches to ~170–500px high: `styles/responsive.css` gives every
 `.search-box` `flex: 1 1 100%`, which becomes a height basis in the dialog's column form. (2) The draft
 model-mismatch notice names the active model by raw release UUID instead of key and version, contrary
 to WP-12's human-readable release identity. Acceptance: reviewed narrow and wide screenshots of both
 surfaces; rerun `test:browser:wp13c`.
+
+*Delivered:* `.dialog form .candidate-search` sets `flex: none`. The workspace data context resolves
+the active release's key and version when it differs from the pinned one, so the draft mismatch
+notice reads "the active model rdm-starter 0.7.0". The historical-revision banner had the same raw-ID
+defect and now names both releases by key and version. `test:browser:wp13c` asserts the narrow search
+height (≤ 48px) and the mismatch text without a UUID. Wide and narrow screenshots were inspected.
 
 **WP-5 acceptance follow-up (delivered 2026-09-14):** Add independent-binding isolation in live/draft
 contexts, required-ownership rejection, forbidden clearing, and overlapping real HTTP generic

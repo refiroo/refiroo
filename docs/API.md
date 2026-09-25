@@ -98,8 +98,8 @@ filtered with `fromObjectType` and `toObjectType` query parameters.
 The following contract is locked for Base 0.5 implementation. WP1 implements the active-model headers
 and installed-release catalogue/detail endpoints. WP2 implements inline validation and installed
 release diff with runtime compatibility; WP3 implements capabilities, drafts and installation, and
-WP4 implements guarded activation. All IDs are UUID v4 strings, timestamps are UTC ISO
-8601 values and model hashes are lowercase SHA-256 hex strings. JSON field names use the camelCase
+WP4 implements guarded activation. All IDs are UUID v4 strings, timestamps are ISO 8601 UTC
+values with an explicit offset (`2026-09-25T08:15:00Z`) on every database, and model hashes are lowercase SHA-256 hex strings. JSON field names use the camelCase
 forms shown here.
 
 #### Capabilities and active model
@@ -939,11 +939,13 @@ model:
 
 `text`, `longText`, `integer` and `boolean` values are JSON strings, numbers and booleans. A
 `decimal` is a decimal string (`"12.5"`), a `date` an ISO 8601 date (`"2026-07-01"`) and a
-`dateTime` an ISO 8601 date-time. Requests may send a `decimal` as a JSON number. Live, draft and
-revision reads use the same forms, and filters and sorts compare values by their declared type in
-every context. A zone-less `dateTime` filter value is read as UTC. Known limitation (WP-10E): a live
-`dateTime` write currently drops its UTC offset, and live `decimal` values are padded to the stored
-scale (`"12.5000000000"`).
+`dateTime` an ISO 8601 date-time. Requests may send a `decimal` as a JSON number. Every context
+returns one canonical form: a `decimal` without trailing zeros (`"12.50"` reads back as `"12.5"`,
+`"7.0"` as `"7"`) and a `dateTime` as the same instant in UTC with an explicit offset
+(`"2026-12-24T18:00:00+01:00"` reads back as `"2026-12-24T17:00:00+00:00"`). A zone-less `dateTime`
+in a write or filter is read as UTC. Live, draft and revision reads use the same forms, so equal
+values compare equal for uniqueness, and filters and sorts compare values by their declared type in
+every context.
 
 ### Attribute uniqueness
 

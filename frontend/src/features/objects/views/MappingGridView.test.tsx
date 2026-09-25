@@ -557,3 +557,79 @@ describe("MappingGridView — mapping actions (WP-8B)", () => {
     );
   });
 });
+
+describe("MappingGridView contextual target creation", () => {
+  // The lens's application holds the mapped types it browses but not every parent they need, as in
+  // the starter's Systems application, so the owning application is the user's choice.
+  const lensModel = structuredClone(mappingModel);
+  lensModel.applications.push({
+    ...structuredClone(mappingModel.applications[0]),
+    key: "lens-app",
+    name: "Lens App",
+    objectTypeKeys: ["codelist"],
+    defaultView: mappingView.key,
+    views: [mappingView, incomingView],
+  });
+  const lensApplication = lensModel.applications[1];
+
+  function openCreate(view: MappingGridViewDefinition) {
+    render(
+      <CollectionView
+        model={lensModel}
+        application={lensApplication}
+        view={view}
+        workspaceKey="west"
+        query={defaultQuery}
+        onQueryChange={vi.fn()}
+        onOpen={vi.fn()}
+      />,
+    );
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.mappingCoverage).mockResolvedValue(coveragePage);
+    vi.mocked(api.mappingCandidates).mockResolvedValue({ items: [], nextCursor: null });
+    vi.mocked(api.objects).mockResolvedValue({ items: [domainObject], nextCursor: null });
+  });
+
+  it("offers every application containing the target type and only that application's parent types", async () => {
+    openCreate(mappingView);
+    fireEvent.click(await screen.findByRole("button", { name: /Change mapping for Financial/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Create new codelist/i }));
+
+    const owner = screen.getByRole("combobox", { name: "Application" });
+    expect(owner).toHaveValue("lens-app");
+    expect(
+      within(owner)
+        .getAllByRole("option")
+        .map((option) => option.textContent),
+    ).toEqual(["Test App", "Lens App"]);
+    expect(screen.getByText(/none of its parent types belong to\s+Lens App/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Create" })).toBeDisabled();
+
+    fireEvent.change(owner, { target: { value: "test-app" } });
+    expect(screen.queryByText(/No parent available/)).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(api.objects).toHaveBeenCalledWith("domain", expect.objectContaining({ applicationKey: "test-app" })),
+    );
+  });
+
+  it("creates a target in the application that contains its type, not the lens's", async () => {
+    vi.mocked(api.createObject).mockResolvedValue(domainObject);
+    openCreate(incomingView);
+    fireEvent.click((await screen.findAllByRole("button", { name: /Change mapping for/ }))[0]);
+    fireEvent.click(await screen.findByRole("button", { name: /Create new domain/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /New Domain/ });
+    expect(within(dialog).getByText("Test App")).toBeInTheDocument();
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "Created" } });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: /Code/ }), { target: { value: "NEW" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create" }));
+
+    await waitFor(() =>
+      expect(api.createObject).toHaveBeenCalledWith("domain", expect.objectContaining({ applicationKey: "test-app" })),
+    );
+    expect(await screen.findByRole("radio", { name: /Connections/ })).toBeChecked();
+  });
+});

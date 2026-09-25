@@ -208,18 +208,20 @@ function CreateHistoricalDraft({
 }
 
 export function HistoricalRevisionBanner({ onExit }: { onExit: () => void }) {
-  const { revision, activeModelReleaseId } = useWorkspaceData();
-  if (!revision) return null;
+  const { revision, model, activeModelReleaseId, activeModelReleaseLabel } = useWorkspaceData();
+  if (!revision || !model) return null;
+  const pinned = `${model.release.key} ${model.release.version}`;
   return (
     <Notice tone="info" title={`Immutable revision ${revision.revisionNumber}`}>
       <p>
-        Read-only historical snapshot {revision.id}, interpreted with pinned model release {revision.modelReleaseId}.
-        Current definitions are not substituted.
+        Read-only historical snapshot, interpreted with its pinned model release {pinned}. Current definitions are not
+        substituted.
       </p>
       {activeModelReleaseId && activeModelReleaseId !== revision.modelReleaseId && (
         <p>
-          The current model is {activeModelReleaseId}; this snapshot remains on {revision.modelReleaseId}. Starting a
-          draft preserves that pin. Applying it requires a supported model migration, which Base 0.6 does not perform.
+          The current model is {activeModelReleaseLabel ?? "a different release"}; this snapshot remains on {pinned}.
+          Starting a draft preserves that pin. Applying it requires a supported model migration, which Base 0.6 does not
+          perform.
         </p>
       )}
       <button className="secondary" onClick={onExit}>

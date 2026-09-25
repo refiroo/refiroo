@@ -580,7 +580,8 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText("Immutable revision 2")).toBeInTheDocument();
-    expect(screen.getByText(/interpreted with pinned model release historical-model/)).toBeInTheDocument();
+    expect(screen.getByText(/interpreted with its pinned model release test 0.3.0\./)).toBeInTheDocument();
+    expect(screen.queryByText(/revision-2/)).not.toBeInTheDocument();
     expect(screen.getByText(/supported model migration/)).toBeInTheDocument();
     fireEvent.click((await screen.findAllByRole("button", { name: "Historical domain" }))[0]);
     expect(await screen.findByRole("heading", { name: "Historical domain", level: 1 })).toBeInTheDocument();

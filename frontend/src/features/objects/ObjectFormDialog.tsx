@@ -14,6 +14,7 @@ import { ObjectLookup } from "@/ui/ObjectLookup";
 export function ObjectFormDialog({
   model,
   applicationKey,
+  applicationChoices,
   workspaceKey,
   objectType,
   object,
@@ -26,6 +27,11 @@ export function ObjectFormDialog({
 }: {
   model: EngineModel;
   applicationKey: string;
+  /**
+   * Applications a new record may be created in, shown as a choice. `applicationKey` is the default.
+   * Used where the context (a mapping lens) does not decide which application owns the record.
+   */
+  applicationChoices?: string[];
   workspaceKey?: string;
   objectType: ObjectTypeDefinition;
   object?: ObjectItem;
@@ -47,6 +53,8 @@ export function ObjectFormDialog({
   const activeWorkspaceKey = workspaceKey ?? object?.workspaceKey ?? "default";
   const priorWorkspace = useRef(activeWorkspaceKey);
   const initialParentType = parentObjectTypeKey ?? object?.path.at(-2)?.objectTypeKey ?? undefined;
+  const [ownerKey, setOwnerKey] = useState(applicationKey);
+  const owner = model.applications.find((application) => application.key === ownerKey);
   const [parentTypeKey, setParentTypeKey] = useState(initialParentType);
   const [parentId, setParentId] = useState<string | null>(parentObjectId ?? object?.parentObjectId ?? null);
   const attributeMap = useMemo(
@@ -58,7 +66,7 @@ export function ObjectFormDialog({
     .slice()
     .sort((a, b) => a.order - b.order);
   const parentRelationKeys = new Set(objectType.behavior.parentRelationTypeKeys ?? []);
-  const parentTypeKeys = Array.from(
+  const modelParentTypeKeys = Array.from(
     new Set(
       model.objectTypeRelations
         .filter(
@@ -67,7 +75,11 @@ export function ObjectFormDialog({
         .map((relation) => relation.fromObjectTypeKey),
     ),
   );
+  // A parent must belong to the record's own application, so offer only the types it contains.
+  const parentTypeKeys = modelParentTypeKeys.filter((key) => !owner || owner.objectTypeKeys.includes(key));
   const parentRequired = objectType.features.rootCreatable !== true;
+  const noPermittedParent =
+    !object && !parentObjectId && parentRequired && modelParentTypeKeys.length > 0 && parentTypeKeys.length === 0;
   const activeParentTypeKey =
     parentTypeKey && parentTypeKeys.includes(parentTypeKey) ? parentTypeKey : parentTypeKeys[0];
   const requiredRelationGroups = useMemo(() => {
@@ -149,7 +161,7 @@ export function ObjectFormDialog({
           attributes: {},
         }));
         const saved = await api.createObject(objectType.key, {
-          applicationKey,
+          applicationKey: ownerKey,
           workspaceKey: activeWorkspaceKey,
           name,
           parentObjectId: parentId ?? undefined,
@@ -195,6 +207,39 @@ export function ObjectFormDialog({
             editedFields.current.add(target.name);
         }}
       >
+        {applicationChoices && !object && applicationChoices.length === 1 && (
+          <p className="form-fact">
+            <span>Application</span>
+            <strong>{owner?.name ?? ownerKey}</strong>
+          </p>
+        )}
+        {applicationChoices && !object && applicationChoices.length > 1 && (
+          <label>
+            Application
+            <select
+              value={ownerKey}
+              onChange={(event) => {
+                setDirty(true);
+                setOwnerKey(event.target.value);
+                setParentTypeKey(undefined);
+                setParentId(null);
+              }}
+            >
+              {applicationChoices.map((key) => (
+                <option key={key} value={key}>
+                  {model.applications.find((application) => application.key === key)?.name ?? key}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {noPermittedParent && (
+          <Notice tone="warning" title="No parent available">
+            A {objectType.name.toLowerCase()} needs a parent, and none of its parent types belong to{" "}
+            {owner?.name ?? ownerKey}.
+            {applicationChoices && applicationChoices.length > 1 && " Choose another application."}
+          </Notice>
+        )}
         {parentTypeKeys.length > 0 && (
           <label>
             Parent
@@ -216,8 +261,9 @@ export function ObjectFormDialog({
               </select>
             )}
             <ObjectLookup
+              key={ownerKey}
               objectTypeKey={activeParentTypeKey}
-              applicationKey={applicationKey}
+              applicationKey={ownerKey}
               workspaceKey={activeWorkspaceKey}
               excludeId={object?.id}
               selectedId={parentId}
@@ -319,6 +365,7 @@ export function ObjectFormDialog({
             className="primary"
             disabled={
               saving ||
+              noPermittedParent ||
               (!object && requiredRelationGroups.some((group) => !requiredRelationObjects[group.relationTypeKey]))
             }
           >

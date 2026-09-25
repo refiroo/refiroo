@@ -1,11 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { formatServerTime, parseServerTime } from "@/lib/dates";
+import { formatServerTime } from "@/lib/dates";
 
 describe("server times", () => {
-  it("reads a zone-less timestamp as UTC and keeps explicit offsets", () => {
-    expect(parseServerTime("2026-09-24T18:41:59.123").toISOString()).toBe("2026-09-24T18:41:59.123Z");
-    expect(parseServerTime("2026-09-24T18:41:59Z").toISOString()).toBe("2026-09-24T18:41:59.000Z");
-    expect(parseServerTime("2026-09-24T20:41:59+02:00").toISOString()).toBe("2026-09-24T18:41:59.000Z");
+  it("formats an offset timestamp as local time", () => {
+    expect(formatServerTime("2026-09-24T18:41:59Z")).toBe(new Date(Date.UTC(2026, 8, 24, 18, 41, 59)).toLocaleString());
   });
 
   it("returns unparseable input unchanged for display", () => {

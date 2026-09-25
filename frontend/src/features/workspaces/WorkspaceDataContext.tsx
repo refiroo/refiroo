@@ -21,6 +21,8 @@ interface DataContext {
   revision?: WorkspaceRevision;
   model?: EngineModel;
   activeModelReleaseId?: string;
+  /** "key version" of the active release, resolved only when it differs from the pinned one. */
+  activeModelReleaseLabel?: string;
   warning: string;
   /** Set when the workspace context could not be loaded at all. */
   loadingError?: string;
@@ -51,6 +53,7 @@ export function WorkspaceDataProvider({
     revision?: WorkspaceRevision;
     model: EngineModel;
     activeModelReleaseId?: string;
+    activeModelReleaseLabel?: string;
   }>();
   const [error, setError] = useState<{ message: string; retryable: boolean }>();
   const [retry, setRetry] = useState(0);
@@ -72,11 +75,13 @@ export function WorkspaceDataProvider({
         workspaceKey,
         ...(draftId ? { workspaceDraftId: draftId } : { workspaceRevisionId: revisionId }),
       });
+      const activeLabel = await differingReleaseLabel(runtime?.activeReleaseId, context.modelReleaseId);
       if (active) {
         setLoaded({
           ...(draftId ? { draft: context as WorkspaceDraft } : { revision: context as WorkspaceRevision }),
           model: pinnedModel,
           activeModelReleaseId: runtime?.activeReleaseId,
+          activeModelReleaseLabel: activeLabel,
         });
         setError(undefined);
       }
@@ -101,7 +106,12 @@ export function WorkspaceDataProvider({
       </Context.Provider>
     );
   return loaded.draft ? (
-    <LoadedDraft initial={loaded.draft} model={loaded.model} activeModelReleaseId={loaded.activeModelReleaseId}>
+    <LoadedDraft
+      initial={loaded.draft}
+      model={loaded.model}
+      activeModelReleaseId={loaded.activeModelReleaseId}
+      activeModelReleaseLabel={loaded.activeModelReleaseLabel}
+    >
       {children}
     </LoadedDraft>
   ) : (
@@ -111,6 +121,7 @@ export function WorkspaceDataProvider({
         revision: loaded.revision,
         model: loaded.model,
         activeModelReleaseId: loaded.activeModelReleaseId,
+        activeModelReleaseLabel: loaded.activeModelReleaseLabel,
         warning: "",
       }}
     >
@@ -123,16 +134,19 @@ function LoadedDraft({
   initial,
   model: initialModel,
   activeModelReleaseId: initialActiveId,
+  activeModelReleaseLabel: initialActiveLabel,
   children,
 }: {
   initial: WorkspaceDraft;
   model: EngineModel;
   activeModelReleaseId?: string;
+  activeModelReleaseLabel?: string;
   children: ReactNode;
 }) {
   const [draft, setDraft] = useState(initial);
   const [model, setModel] = useState(initialModel);
   const [activeModelReleaseId, setActiveModelReleaseId] = useState(initialActiveId);
+  const [activeModelReleaseLabel, setActiveModelReleaseLabel] = useState(initialActiveLabel);
   const [warning, setWarning] = useState("");
   const [controller] = useState(() => {
     let loadedReleaseId = initial.modelReleaseId;
@@ -151,11 +165,13 @@ function LoadedDraft({
           });
         }
         const runtime = await api.modelRuntimeState();
+        const activeLabel = await differingReleaseLabel(runtime.activeReleaseId, refreshed.modelReleaseId);
         if (nextModel) {
           setModel(nextModel);
           loadedReleaseId = refreshed.modelReleaseId;
         }
         setActiveModelReleaseId(runtime.activeReleaseId);
+        setActiveModelReleaseLabel(activeLabel);
         setDraft(refreshed);
       },
       setWarning,
@@ -179,6 +195,7 @@ function LoadedDraft({
         draft,
         model,
         activeModelReleaseId,
+        activeModelReleaseLabel,
         warning,
         refresh,
         reloadDraftModel,
@@ -187,6 +204,13 @@ function LoadedDraft({
       {children}
     </Context.Provider>
   );
+}
+
+/** Name the active release by key and version where it differs from the pinned one; ids are not for people. */
+async function differingReleaseLabel(activeId: string | undefined, pinnedId: string) {
+  if (!activeId || activeId === pinnedId) return undefined;
+  const release = await api.modelRelease(activeId).catch(() => undefined);
+  return release ? `${release.key} ${release.version}` : undefined;
 }
 
 function contextLoadError(cause: unknown, label: "draft" | "revision") {

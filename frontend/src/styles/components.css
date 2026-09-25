@@ -936,6 +936,22 @@ tbody tr:hover {
   font-size: 13px;
   font-weight: 550;
 }
+/* A fixed fact shown where a choice would otherwise be, aligned with the labelled fields. */
+.dialog form .form-fact {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 14px;
+  font-size: 13px;
+}
+.dialog form .form-fact > span {
+  color: var(--ink-2);
+  font-weight: 550;
+}
+.dialog form .form-fact > strong {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+}
 .dialog form label > small,
 .checkbox small {
   display: block;
@@ -2007,6 +2023,8 @@ tbody tr:hover {
   color: var(--muted);
 }
 .dialog form .candidate-search {
+  /* The dialog form is a column: a shared 100% flex basis would become this box's height. */
+  flex: none;
   display: flex;
   width: 100%;
   margin: 0 0 8px;

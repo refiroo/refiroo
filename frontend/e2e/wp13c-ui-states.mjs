@@ -153,17 +153,30 @@ try {
   await mappingDialog.getByRole("radio", { name: /^Master Alpha/ }).waitFor();
   checks.push("mapping dialog: failed candidate read stays in the dialog and Retry restores candidates");
 
-  // Contextual target creation (WP-10F): the lens offers it, but the generic form scopes the new
-  // target to this lens's application, which does not contain the target's permitted parents. The
-  // check here is that the refusal is contained: an actionable message, the nested dialog closes on
-  // Cancel and the mapping dialog keeps the user's unsaved choice.
+  // Contextual target creation (WP-10F): objects belong to one application and candidates are read
+  // across all of them, so the user chooses the new target's application. The lens's application is
+  // the default; its parent choices are only the types that application contains.
   await mappingDialog.getByRole("radio", { name: /^Master Beta/ }).check();
   await mappingDialog.getByRole("button", { name: "Create new master value" }).click();
   const createDialog = page.getByRole("dialog", { name: "New Master value" });
   await createDialog.waitFor();
-  await createDialog.getByText("Object type 'codelist' is not available in application 'rdm-systems'").waitFor();
+  const owner = createDialog.getByRole("combobox", { name: "Application" });
+  expect((await owner.inputValue()) === "rdm-systems", "contextual creation does not default to the lens's application");
+  expect(
+    JSON.stringify(await owner.locator("option").allTextContents()) ===
+      JSON.stringify(["RDM Master", "RDM Systems", "RDM Translations"]),
+    "application choice does not list every application containing master values",
+  );
+  expect(
+    (await createDialog.getByRole("combobox", { name: "Parent type" }).count()) === 0,
+    "RDM Systems offers a Codelist parent it does not contain",
+  );
+  expect(
+    (await createDialog.getByText(/is not available in application/).count()) === 0,
+    "contextual creation still reports an application scope error",
+  );
   await createDialog.getByLabel("Name", { exact: true }).fill("Master Delta");
-  await shot("mapping-create-target-refused-wide");
+  await shot("mapping-create-target-wide");
   await axe("wp13c-mapping-create-target");
   page.once("dialog", (prompt) => prompt.accept());
   await createDialog.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -173,7 +186,7 @@ try {
     "cancelling contextual creation discarded the unsaved mapping choice",
   );
   expect((await coverageFor("Value Alpha"))?.state === "unmapped", "contextual creation changed the mapping");
-  checks.push("contextual creation refusal (WP-10F) is contained: message shown, cancel keeps the unsaved choice");
+  checks.push("contextual creation offers the applications containing the target; cancel keeps the unsaved choice");
 
   await mappingDialog.getByRole("button", { name: "Save mapping", exact: true }).click();
   await mappingDialog.waitFor({ state: "detached" });
@@ -224,13 +237,48 @@ try {
   );
   checks.push("conflict shows the current mapping, keeps the attempted choice and saves only after explicit review");
 
+  // Contextual creation completes (WP-10F): create the target in RDM Master, the application that
+  // contains its Codelist parent, then select and save it from the lens of RDM Systems.
+  await page.getByRole("button", { name: "Change mapping for Value Beta" }).click();
+  const betaDialog = page.getByRole("dialog", { name: /Change mapping — Value Beta/ });
+  await betaDialog.getByRole("button", { name: "Create new master value" }).click();
+  await createDialog.waitFor();
+  await createDialog.getByRole("combobox", { name: "Application" }).selectOption("rdm-master");
+  await createDialog.getByRole("combobox", { name: "Parent type" }).selectOption("codelist");
+  await createDialog.getByRole("combobox", { name: "Select object" }).selectOption(codelist.id);
+  await createDialog.getByLabel("Name", { exact: true }).fill("Master Delta");
+  await createDialog.getByLabel("Master ID").fill("MASTER-DELTA");
+  await createDialog.getByLabel("Value code").fill("MD");
+  await createDialog.getByLabel("Value name").fill("Master Delta");
+  await createDialog.getByRole("button", { name: "Create", exact: true }).click();
+  await createDialog.waitFor({ state: "detached" });
+  expect(
+    await betaDialog.getByRole("radio", { name: /^Master Delta/ }).isChecked(),
+    "the created target is not selected in the mapping dialog",
+  );
+  await betaDialog.getByRole("button", { name: "Save mapping", exact: true }).click();
+  await betaDialog.waitFor({ state: "detached" });
+  await grid.getByText("Master Delta", { exact: true }).first().waitFor();
+  const delta = (await coverageFor("Value Beta"))?.targets[0]?.object;
+  const deltaRecord = delta && (await api(`/objects/master-value/${delta.id}?workspaceKey=default`));
+  expect(delta?.name === "Master Delta", "the created target was not saved as the mapping");
+  expect(
+    deltaRecord?.applicationKey === "rdm-master" && deltaRecord?.parentObjectId === codelist.id,
+    "the created target is not in the chosen application under the chosen parent",
+  );
+  checks.push("contextual creation (WP-10F) creates the target in the chosen application, selects it and saves");
+
   // Narrow grid: rows remain usable without page-level horizontal scroll.
   await page.setViewportSize({ width: 390, height: 844 });
   await grid.getByText("Value Beta", { exact: true }).first().waitFor();
   await noHorizontalScroll("narrow mapping grid");
   await shot("mapping-grid-narrow");
   await page.getByRole("button", { name: "Change mapping for Value Beta" }).click();
-  await page.getByRole("dialog", { name: /Change mapping — Value Beta/ }).waitFor();
+  const narrowDialog = page.getByRole("dialog", { name: /Change mapping — Value Beta/ });
+  await narrowDialog.waitFor();
+  // WP-10G: the shared narrow `.search-box` flex basis must not become this column's height.
+  const searchHeight = (await narrowDialog.locator(".candidate-search").boundingBox())?.height ?? 0;
+  expect(searchHeight > 0 && searchHeight <= 48, `narrow candidate search is ${searchHeight}px high`);
   await shot("mapping-dialog-narrow");
   await page.keyboard.press("Escape");
   await page.getByRole("dialog").waitFor({ state: "detached" });
@@ -239,7 +287,7 @@ try {
     "focus did not return to the row action after Escape",
   );
   await page.setViewportSize({ width: 1440, height: 900 });
-  checks.push("narrow mapping grid and dialog fit the viewport; Escape restores focus to the row action");
+  checks.push("narrow mapping grid and dialog fit the viewport; search stays compact; Escape restores focus");
 
   // ---- 2. Inverse direction, Master ← System (rdm-master, incoming), in a named draft ----
   const draft = await api("/workspaces/default/drafts", { name: "WP-13C mapping draft", source: "currentLive" });
@@ -251,16 +299,34 @@ try {
   await grid.getByText("Master Gamma", { exact: true }).first().waitFor();
   await page.getByRole("button", { name: "Change mapping for Master Gamma" }).click();
   const inverseDialog = page.getByRole("dialog", { name: /Change mapping — Master Gamma/ });
-  await inverseDialog.getByRole("radio", { name: /^Value Beta/ }).check();
+  // Only RDM Systems contains system values, so the new target goes there although the lens is RDM Master.
   await inverseDialog.getByRole("button", { name: "Create new system value" }).click();
   const inverseCreate = page.getByRole("dialog", { name: "New System value" });
-  await inverseCreate.getByText(/is not available in application 'rdm-master'/).first().waitFor();
-  await inverseCreate.getByRole("button", { name: "Cancel", exact: true }).click();
+  await inverseCreate.waitFor();
+  expect(
+    (await inverseCreate.getByRole("combobox", { name: "Application" }).count()) === 0 &&
+      (await inverseCreate.getByText("RDM Systems", { exact: true }).count()) === 1,
+    "the only application containing system values is not named as the owner",
+  );
+  await inverseCreate.getByRole("combobox", { name: "Parent type" }).selectOption("system");
+  await inverseCreate.getByRole("combobox", { name: "Select object" }).selectOption(records.system[0].id);
+  await inverseCreate.getByLabel("Name", { exact: true }).fill("Value Draft");
+  await inverseCreate.getByLabel("Value code").fill("VD");
+  await inverseCreate.getByLabel("Value name").fill("Value Draft");
+  await shot("mapping-draft-create-target-wide");
+  await inverseCreate.getByRole("button", { name: "Create", exact: true }).click();
   await inverseCreate.waitFor({ state: "detached" });
-  expect(await inverseDialog.getByRole("radio", { name: /^Value Beta/ }).isChecked(), "inverse choice lost");
+  expect(
+    await inverseDialog.getByRole("radio", { name: /^Value Draft/ }).isChecked(),
+    "the created draft target is not selected",
+  );
   await inverseDialog.getByRole("button", { name: "Save mapping", exact: true }).click();
   await inverseDialog.waitFor({ state: "detached" });
-  await grid.getByText("Value Beta", { exact: true }).first().waitFor();
+  await grid.getByText("Value Draft", { exact: true }).first().waitFor();
+  const liveDraftValue = await api(
+    "/objects/system-value?workspaceKey=default&applicationKey=rdm-systems&search=Value%20Draft",
+  );
+  expect(liveDraftValue.items.length === 0, "a target created in a draft leaked into live data");
   const liveGamma = await api(
     `/workspaces/default/mapping-coverage?applicationKey=rdm-master&viewKey=master-to-system-mapping` +
       `&relationTypeKey=system-value-maps-to-master&fromObjectTypeKey=system-value&toObjectTypeKey=master-value` +
@@ -269,7 +335,7 @@ try {
   expect(liveGamma.items[0]?.state === "unmapped", "draft mapping leaked into live coverage");
   await shot("mapping-draft-inverse-wide");
   await axe("wp13c-mapping-draft-inverse");
-  checks.push("inverse configured direction maps in a named draft; live coverage is unchanged");
+  checks.push("inverse direction creates a target in its only application inside a draft, maps it; live is unchanged");
 
   // ---- 3. Draft model-version selection (WP-7/WP-11): non-active pin, explanation, refusal ----
   const model = await api("/model");
@@ -300,6 +366,13 @@ try {
   await create.waitFor({ state: "detached" });
   const mismatch = page.getByText("This draft uses a different model version");
   await mismatch.waitFor();
+  // WP-10G: the active model is named by key and version, like the draft's own release.
+  const mismatchText = await page.locator(".notice", { has: mismatch }).innerText();
+  expect(
+    mismatchText.includes(`active model ${model.release.key} ${model.release.version}.`),
+    `mismatch notice does not name the active release: ${mismatchText}`,
+  );
+  expect(!/[0-9a-f]{8}-[0-9a-f]{4}-/.test(mismatchText), `mismatch notice shows a release id: ${mismatchText}`);
   const activate = page.getByRole("button", { name: "Activate draft" });
   expect(await activate.isDisabled(), "activation is enabled for a draft on a non-active release");
   expect(
@@ -313,7 +386,7 @@ try {
   await noHorizontalScroll("narrow draft mismatch");
   await shot("draft-version-mismatch-narrow");
   await page.setViewportSize({ width: 1440, height: 900 });
-  checks.push("draft on a non-active release shows its model, explains the mismatch and refuses activation");
+  checks.push("draft on a non-active release names both releases by key and version and refuses activation");
 
   const report = {
     browser: browser.version(),
