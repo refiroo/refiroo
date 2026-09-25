@@ -25,6 +25,7 @@ from ..services.mapping import (
     target_details,
     validate_binding,
 )
+from .paging import PageQuery, SeekablePageQuery
 
 router = APIRouter(prefix="/api/v1/workspaces/{workspace_key}", tags=["mapping"])
 
@@ -73,19 +74,20 @@ BindingRead = Annotated[MappingRead, Depends(binding_read)]
 @router.get("/mapping-coverage", response_model=MappingCoveragePage)
 def mapping_coverage(
     read: BindingRead,
+    paging: SeekablePageQuery,
     search: str | None = Query(default=None, max_length=500),
     parent_object_id: str | None = Query(default=None, alias="parentObjectId"),
     state: Literal["mapped", "unmapped", "ambiguous"] | None = Query(default=None),
-    cursor: str | None = None,
     page_size: int | None = Query(default=None, ge=1, le=100, alias="pageSize"),
 ) -> MappingCoveragePage:
-    return coverage(read, search, cursor, page_size, parent_object_id, state)
+    return coverage(read, search, paging, page_size, parent_object_id, state)
 
 
 @router.get("/mappings", response_model=MappingListPage)
 def get_mappings(
     workspace_key: str,
     session: DbSession,
+    paging: PageQuery,
     application_key: str | None = Query(default=None, alias="applicationKey"),
     view_key: str | None = Query(default=None, alias="viewKey"),
     relation_type_key: str | None = Query(default=None, alias="relationTypeKey"),
@@ -94,7 +96,6 @@ def get_mappings(
     direction: Literal["outgoing", "incoming"] | None = Query(default=None),
     workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
     search: str | None = Query(default=None, max_length=500),
-    cursor: str | None = None,
     page_size: int | None = Query(default=None, ge=1, le=100, alias="pageSize"),
 ) -> MappingListPage:
     return list_mappings(
@@ -108,7 +109,7 @@ def get_mappings(
         to_object_type_key=to_object_type_key,
         direction=direction,
         search=search,
-        cursor=cursor,
+        page=paging,
         page_size=page_size,
     )
 
@@ -116,12 +117,12 @@ def get_mappings(
 @router.get("/mapping-candidates", response_model=MappingCandidatePage)
 def mapping_candidates(
     read: Read,
+    paging: PageQuery,
     object_type_key: str = Query(alias="objectTypeKey"),
     search: str | None = Query(default=None, max_length=500),
-    cursor: str | None = None,
     page_size: int | None = Query(default=None, ge=1, le=100, alias="pageSize"),
 ) -> MappingCandidatePage:
-    return candidates(read, object_type_key, search, cursor, page_size)
+    return candidates(read, object_type_key, search, paging, page_size)
 
 
 def target_binding_read(
@@ -173,12 +174,12 @@ TargetRead = Annotated[MappingRead, Depends(target_binding_read)]
 @router.get("/mapping-targets", response_model=MappingTargetPage)
 def mapping_targets(
     read: TargetRead,
+    paging: PageQuery,
     source_object_id: str = Query(alias="sourceObjectId"),
     mapping_version: int = Query(ge=0, alias="mappingVersion"),
-    cursor: str | None = None,
     page_size: int = Query(default=20, ge=1, le=100, alias="pageSize"),
 ) -> MappingTargetPage:
-    return target_details(read, source_object_id, mapping_version, cursor, page_size)
+    return target_details(read, source_object_id, mapping_version, paging, page_size)
 
 
 @router.put("/mappings", response_model=MappingReplacementResponse)

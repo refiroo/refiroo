@@ -64,7 +64,7 @@ def test_wp8_upgrade_preserves_audit_subjects_and_restarts(tmp_path, monkeypatch
             with engine.connect() as connection:
                 assert (
                     connection.scalar(text("SELECT version_num FROM alembic_version"))
-                    == "20260925_01"
+                    == "20260925_03"
                 )
     finally:
         engine.dispose()
@@ -89,7 +89,7 @@ def test_wp8_interrupted_batch_refuses_safely_and_preserves_history(tmp_path, mo
             ):
                 assert client.get("/health").status_code == 503
             message = str(error.call_args.args[1])
-            assert "20260907_03" in message and "20260925_01" in message
+            assert "20260907_03" in message and "20260925_03" in message
             assert "_alembic_tmp_audit_events" in message
             assert "take a consistent backup" in message
             assert "python -m app.cli.database_upgrade" in message
@@ -132,7 +132,7 @@ def test_current_live_base_interrupted_migration_refuses_startup_and_preserves_p
             ):
                 assert client.get("/health").status_code == 503
             message = str(error.call_args.args[1])
-            assert "20260908_01" in message and "20260925_01" in message
+            assert "20260908_01" in message and "20260925_03" in message
             assert "workspace_draft_bases" in message
             assert "take a consistent backup" in message
             assert "python -m app.cli.database_upgrade" in message

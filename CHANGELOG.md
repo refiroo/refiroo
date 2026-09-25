@@ -24,8 +24,26 @@ All notable changes to this project are documented in this file. The format foll
   volume a draft page takes 3–6 ms (was about 3.1 s) and a history page 2–5 ms (was 1.1–2.6 s). Live,
   draft and history share one object query builder, held by a parity test across all four contexts.
 
+- Base 0.8 S3: cursor and position paging on every collection endpoint (ADR-030). Pages add
+  `prevCursor`, an `anchor` that reopens the page, and with `includeTotal=true` a `totalCount` and
+  `startIndex`; requests add `from=end`, `position=N` and, on object, relation and mapping-coverage
+  lists, `seek=<value>`. Selecting a page two ways is refused with `422 conflicting_page_parameters`.
+  Existing cursors keep working.
+- Base 0.8 S4: `topLevel=true` on object lists pages records without a parent in every context;
+  relation lists gain `search` (the related record's name and searchable fields) and `sort` (`name`,
+  and `createdAt` live) in live, draft and history. Migration `20260925_02` adds (owner, endpoint,
+  relation ID) indexes on revision, draft-base and draft relations, so a draft or history relation page reads the
+  record's own relations instead of the whole revision.
+- Live object page indexes (migration `20260925_03`): (workspace, type, name, sequence) and
+  (workspace, parent, type, name, sequence). Name-ordered live pages past the first, their totals and
+  position reads now seek instead of scanning the type: 2–13 ms at full volume (a deep position read
+  took about 500 ms).
+
 ### Changed
 
+- Page responses carry the new navigation fields beside `items` and `nextCursor`, so a client that
+  compared a whole page body must allow them. Live relation pages build their related records in one
+  batch instead of two statements per row.
 - Draft and history `search` matches the record name and `searchable` fields, as live search does,
   instead of every attribute's text. Draft and history cursors issued before the upgrade are refused
   with `422 invalid_cursor`; restart from the first page.

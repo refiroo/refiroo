@@ -4,6 +4,21 @@ from typing import Any, Literal
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
+class PageNavigation(BaseModel):
+    """Navigation fields every collection page carries (ADR-030).
+
+    ``nextCursor`` and ``prevCursor`` continue after the last and before the first row and are
+    null at the end and the start; ``anchor`` reopens this page. ``totalCount`` and ``startIndex``
+    (the number of matching rows before the first row) are present only with ``includeTotal=true``.
+    """
+
+    nextCursor: str | None
+    prevCursor: str | None = None
+    anchor: str | None = None
+    totalCount: int | None = None
+    startIndex: int | None = None
+
+
 class ApiErrorBody(BaseModel):
     code: str
     message: str
@@ -94,9 +109,8 @@ class ObjectResponse(BaseModel):
     workspaceDraftVersion: int | None = None
 
 
-class ObjectPage(BaseModel):
+class ObjectPage(PageNavigation):
     items: list[ObjectResponse]
-    nextCursor: str | None
 
 
 class WorkspaceDraftCreate(BaseModel):
@@ -145,9 +159,8 @@ class WorkspaceDraftResponse(BaseModel):
     updatedAt: datetime
 
 
-class WorkspaceDraftPage(BaseModel):
+class WorkspaceDraftPage(PageNavigation):
     items: list[WorkspaceDraftResponse]
-    nextCursor: str | None
 
 
 class WorkspaceRevisionResponse(BaseModel):
@@ -163,9 +176,8 @@ class WorkspaceRevisionResponse(BaseModel):
     retiredAt: datetime | None
 
 
-class WorkspaceRevisionPage(BaseModel):
+class WorkspaceRevisionPage(PageNavigation):
     items: list[WorkspaceRevisionResponse]
-    nextCursor: str | None
 
 
 class WorkspaceDraftObjectWrite(BaseModel):
@@ -334,9 +346,8 @@ class RelationTypeResponse(BaseModel):
     allowedPairs: list[AllowedObjectTypePair]
 
 
-class MetadataPage[ResponseItem](BaseModel):
+class MetadataPage[ResponseItem](PageNavigation):
     items: list[ResponseItem]
-    nextCursor: str | None
 
 
 class ModelReleaseSummary(BaseModel):
@@ -354,9 +365,8 @@ class ModelReleaseResponse(ModelReleaseSummary):
     model: dict[str, Any] | None = None
 
 
-class ModelReleasePage(BaseModel):
+class ModelReleasePage(PageNavigation):
     items: list[ModelReleaseSummary]
-    nextCursor: str | None
 
 
 class ModelReleaseActivationResponse(BaseModel):
@@ -369,9 +379,8 @@ class ModelReleaseActivationResponse(BaseModel):
     occurredAt: datetime
 
 
-class ModelReleaseActivationPage(BaseModel):
+class ModelReleaseActivationPage(PageNavigation):
     items: list[ModelReleaseActivationResponse]
-    nextCursor: str | None
 
 
 class ModelDocumentRequest(BaseModel):
@@ -469,9 +478,8 @@ class WorkspaceResponse(BaseModel):
     updatedAt: datetime
 
 
-class WorkspacePage(BaseModel):
+class WorkspacePage(PageNavigation):
     items: list[WorkspaceResponse]
-    nextCursor: str | None
 
 
 class WorkspaceRuntimeStateUpdate(BaseModel):
@@ -539,9 +547,8 @@ class ModelDraftResponse(BaseModel):
     updatedAt: datetime
 
 
-class ModelDraftPage(BaseModel):
+class ModelDraftPage(PageNavigation):
     items: list[ModelDraftResponse]
-    nextCursor: str | None
 
 
 class ModelCompilationResponse(BaseModel):
@@ -560,9 +567,8 @@ class RelationExpansion(BaseModel):
     object: ObjectResponse
 
 
-class RelationPage(BaseModel):
+class RelationPage(PageNavigation):
     items: list[RelationExpansion]
-    nextCursor: str | None
 
 
 class AuditEventResponse(BaseModel):
@@ -576,9 +582,8 @@ class AuditEventResponse(BaseModel):
     occurredAt: datetime
 
 
-class AuditEventPage(BaseModel):
+class AuditEventPage(PageNavigation):
     items: list[AuditEventResponse]
-    nextCursor: str | None
 
 
 class MappingObjectSummary(BaseModel):
@@ -603,21 +608,18 @@ class MappingCoverageRow(BaseModel):
     targetsNextCursor: str | None
 
 
-class MappingCoveragePage(BaseModel):
+class MappingCoveragePage(PageNavigation):
     items: list[MappingCoverageRow]
-    nextCursor: str | None
 
 
-class MappingTargetPage(BaseModel):
+class MappingTargetPage(PageNavigation):
     mappingVersion: int
     targetCount: int
     items: list[MappingTargetSummary]
-    nextCursor: str | None
 
 
-class MappingCandidatePage(BaseModel):
+class MappingCandidatePage(PageNavigation):
     items: list[MappingObjectSummary]
-    nextCursor: str | None
 
 
 class MappingListRow(BaseModel):
@@ -630,9 +632,8 @@ class MappingListRow(BaseModel):
     mappingVersion: int
 
 
-class MappingListPage(BaseModel):
+class MappingListPage(PageNavigation):
     items: list[MappingListRow]
-    nextCursor: str | None
 
 
 class MappingReplacementRequest(BaseModel):

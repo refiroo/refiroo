@@ -923,7 +923,14 @@ def test_release_activation_history_reads_recorded_predecessors_oldest_first(mon
 
         untouched = client.get(f"/api/v1/model-releases/{first_id}/activations")
         assert untouched.status_code == 200
-        assert untouched.json() == {"items": [], "nextCursor": None}
+        assert untouched.json() == {
+            "items": [],
+            "nextCursor": None,
+            "prevCursor": None,
+            "anchor": None,
+            "totalCount": None,
+            "startIndex": None,
+        }
 
         # original -> first -> second -> first (rollback) -> original (restores the shared database)
         current_id = original_id

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from ..models.api import AuditEventPage, AuditEventResponse
 from ..models.database import AuditEvent, AuditEventSubject
-from .pagination import datetime_key, integer_key, paginate_statement
+from .pagination import PageRequest, datetime_key, integer_key, paginate_statement
 
 _HISTORY_KEYS = (
     datetime_key("occurredAt", AuditEvent.occurred_at, "occurred_at", descending=True),
@@ -45,7 +45,7 @@ def list_object_history(
     object_id: str,
     object_type_key: str,
     workspace_key: str,
-    cursor: str | None,
+    page: PageRequest,
     page_size: int,
 ) -> AuditEventPage:
     statement = (
@@ -53,7 +53,7 @@ def list_object_history(
         .join(AuditEventSubject, AuditEventSubject.audit_event_id == AuditEvent.sequence_id)
         .where(AuditEventSubject.object_id == object_id)
     )
-    events, next_cursor = paginate_statement(
+    events = paginate_statement(
         session,
         statement,
         keys=_HISTORY_KEYS,
@@ -63,12 +63,12 @@ def list_object_history(
             "objectTypeKey": object_type_key,
             "workspaceKey": workspace_key,
         },
-        cursor=cursor,
+        page=page,
         page_size=page_size,
         message="Audit history cursor is invalid",
     )
     return AuditEventPage(
-        items=[_audit_response(event) for event in events], nextCursor=next_cursor
+        items=[_audit_response(event) for event in events.items], **events.links()
     )
 
 

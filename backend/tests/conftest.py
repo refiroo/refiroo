@@ -68,6 +68,8 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_volume_baseline.py": ("volume",),
     "test_context_read_parity.py": ("drafts", "queries"),
     "test_snapshot_value_migration.py": ("startup", "drafts"),
+    "test_paging_contract.py": ("volume", "queries", "contract"),
+    "test_page_index_migrations.py": ("startup", "drafts"),
 }
 
 

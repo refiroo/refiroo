@@ -63,7 +63,14 @@ def test_empty_draft_relation_page_and_nested_routes_are_absent():
             },
         )
         assert response.status_code == 200, response.text
-        assert response.json() == {"items": [], "nextCursor": None}
+        assert response.json() == {
+            "items": [],
+            "nextCursor": None,
+            "prevCursor": None,
+            "anchor": None,
+            "totalCount": None,
+            "startIndex": None,
+        }
         assert (
             "/api/v1/workspace-drafts/{draft_id}/objects"
             not in client.get("/openapi.json").json()["paths"]

@@ -317,6 +317,18 @@ class ViewDefinitionMeta(Base):
 
 class RdmObject(Base):
     __tablename__ = "objects"
+    __table_args__ = (
+        # Name-ordered pages by type and by parent seek to their position (migration 20260925_03).
+        Index("ix_objects_type_name", "workspace_key", "object_type_key", "name", "sequence_id"),
+        Index(
+            "ix_objects_parent_name",
+            "workspace_key",
+            "parent_object_id",
+            "object_type_key",
+            "name",
+            "sequence_id",
+        ),
+    )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     id: Mapped[str] = mapped_column(
@@ -503,6 +515,9 @@ class WorkspaceRevisionRelation(Base):
     __tablename__ = "workspace_revision_relations"
     __table_args__ = (
         UniqueConstraint("revision_id", "relation_id", name="uq_workspace_revision_relation"),
+        # Relation pages read one record's relations inside one owner (migration 20260925_02).
+        Index("ix_workspace_revision_relations_from", "revision_id", "from_object_id", "relation_id"),
+        Index("ix_workspace_revision_relations_to", "revision_id", "to_object_id", "relation_id"),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -574,6 +589,9 @@ class WorkspaceDraftBaseRelation(Base):
     __tablename__ = "workspace_draft_base_relations"
     __table_args__ = (
         UniqueConstraint("base_id", "relation_id", name="uq_workspace_draft_base_relation"),
+        # Relation pages read one record's relations inside one owner (migration 20260925_02).
+        Index("ix_workspace_draft_base_relations_from", "base_id", "from_object_id", "relation_id"),
+        Index("ix_workspace_draft_base_relations_to", "base_id", "to_object_id", "relation_id"),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -610,6 +628,9 @@ class WorkspaceDraftRelation(Base):
     __tablename__ = "workspace_draft_relations"
     __table_args__ = (
         UniqueConstraint("draft_id", "relation_id", name="uq_workspace_draft_relation"),
+        # Relation pages read one record's relations inside one owner (migration 20260925_02).
+        Index("ix_workspace_draft_relations_from", "draft_id", "from_object_id", "relation_id"),
+        Index("ix_workspace_draft_relations_to", "draft_id", "to_object_id", "relation_id"),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

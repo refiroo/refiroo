@@ -42,6 +42,7 @@ from ..services.workspace_revisions import (
     update_draft_object,
 )
 from ..services.workspaces import resolve_workspace
+from .paging import PageQuery, SeekablePageQuery
 
 router = APIRouter(prefix="/api/v1", tags=["objects"])
 
@@ -242,13 +243,18 @@ def list_objects(
     request: Request,
     session: DbSession,
     snapshot: RequestModelSnapshot,
-    cursor: str | None = None,
+    paging: SeekablePageQuery,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
     application_key: str | None = Query(default=None, alias="applicationKey"),
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
     workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
     workspace_revision_id: str | None = Query(default=None, alias="workspaceRevisionId"),
     parent_object_id: str | None = Query(default=None, alias="parentObjectId"),
+    top_level: bool = Query(
+        default=False,
+        alias="topLevel",
+        description="Only records without a parent; cannot be combined with parentObjectId",
+    ),
     search: str | None = None,
     sort: str | None = Query(
         default=None,
@@ -261,6 +267,13 @@ def list_objects(
             422,
             "mutually_exclusive_context",
             "workspaceDraftId and workspaceRevisionId cannot be combined",
+        )
+    if top_level and parent_object_id:
+        raise api_error(
+            422,
+            "mutually_exclusive_scope",
+            "topLevel and parentObjectId cannot be combined",
+            {"parameters": ["topLevel", "parentObjectId"]},
         )
     if workspace_draft_id or workspace_revision_id:
         context = (
@@ -277,26 +290,28 @@ def list_objects(
             search=search or None,
             sort=sort,
             field_filters=_field_filters(request),
+            top_level=top_level,
         )
-        rows, next_cursor = paginate_statement(
+        page = paginate_statement(
             session,
             query.statement,
             keys=query.keys,
             scope=object_scope(context),
             filters=query.filters,
-            cursor=cursor,
+            page=paging,
             page_size=page_size,
             message="Object cursor is invalid",
             rows=True,
+            seek=query.seek,
         )
         return ObjectPage(
             items=[
                 _draft_object_response(row, context.id, model).model_copy(
                     update={"workspaceKey": context.workspace_key}
                 )
-                for row in rows
+                for row in page.items
             ],
-            nextCursor=next_cursor,
+            **page.links(),
         )
     workspace = resolve_workspace(session, workspace_key)
     workspace_key = workspace.key
@@ -309,18 +324,20 @@ def list_objects(
         search=search or None,
         sort=sort,
         field_filters=_field_filters(request),
+        top_level=top_level,
     )
-    objects, next_cursor = paginate_statement(
+    page = paginate_statement(
         session,
         query.statement,
         keys=query.keys,
         scope="objects",
         filters=query.filters,
-        cursor=cursor,
+        page=paging,
         page_size=page_size,
         message="Object cursor is invalid",
+        seek=query.seek,
     )
-    return ObjectPage(items=build_object_responses(session, model, objects), nextCursor=next_cursor)
+    return ObjectPage(items=build_object_responses(session, model, page.items), **page.links())
 
 
 def _field_filters(request: Request) -> list[tuple[str, str, str]]:
@@ -390,7 +407,7 @@ def get_object_history(
     object_type_key: str,
     object_id: str,
     session: DbSession,
-    cursor: str | None = None,
+    paging: PageQuery,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
     workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
 ) -> AuditEventPage:
@@ -406,7 +423,7 @@ def get_object_history(
             object_id=item.object_id,
             object_type_key=item.object_type_key,
             workspace_key=context.workspace_key,
-            cursor=cursor,
+            page=paging,
             page_size=page_size,
         )
     snapshot = resolve_model_snapshot(session)
@@ -417,6 +434,6 @@ def get_object_history(
         object_id=item.id,
         object_type_key=item.object_type_key,
         workspace_key=item.workspace_key,
-        cursor=cursor,
+        page=paging,
         page_size=page_size,
     )

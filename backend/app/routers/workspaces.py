@@ -50,6 +50,7 @@ from ..services.workspaces import (
     update_workspace,
     workspace_response,
 )
+from .paging import PageQuery
 
 read_router = APIRouter(prefix="/api/v1", tags=["workspaces"])
 admin_router = APIRouter(prefix="/api/v1", tags=["workspaces"])
@@ -58,23 +59,25 @@ admin_router = APIRouter(prefix="/api/v1", tags=["workspaces"])
 @read_router.get("/workspaces", response_model=WorkspacePage)
 def list_workspaces(
     session: DbSession,
+    paging: PageQuery,
     search: str | None = None,
     workspace_status: Literal["active", "retired", "all"] = Query(default="active", alias="status"),
-    cursor: str | None = None,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> WorkspacePage:
     statement, filters = build_workspace_query(search, workspace_status)
-    items, next_cursor = paginate_statement(
+    page = paginate_statement(
         session,
         statement,
         keys=(text_key("key", Workspace.key, "key"),),
         scope="workspaces",
         filters=filters,
-        cursor=cursor,
+        page=paging,
         page_size=page_size,
         message="Workspace cursor is invalid",
     )
-    return WorkspacePage(items=[workspace_response(item) for item in items], nextCursor=next_cursor)
+    return WorkspacePage(
+        items=[workspace_response(item) for item in page.items], **page.links()
+    )
 
 
 @read_router.get("/workspaces/{workspace_key}", response_model=WorkspaceResponse)
@@ -154,25 +157,25 @@ def _revision_response(session, item: WorkspaceRevision) -> WorkspaceRevisionRes
 def list_workspace_drafts(
     workspace_key: str,
     session: DbSession,
-    cursor: str | None = None,
+    paging: PageQuery,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> WorkspaceDraftPage:
     load_workspace(session, workspace_key)
     items = list(
         session.scalars(select(WorkspaceDraft).where(WorkspaceDraft.workspace_key == workspace_key))
     )
-    page, next_cursor = paginate_sequence(
+    page = paginate_sequence(
         items,
         lambda x: (x.created_at.isoformat(), x.id),
         scope="workspace-drafts",
         filters={"workspaceKey": workspace_key},
-        cursor=cursor,
+        page=paging,
         page_size=page_size,
         sort=("createdAt", "id"),
         message="Workspace draft cursor is invalid",
     )
     return WorkspaceDraftPage(
-        items=[_draft_response(session, x) for x in page], nextCursor=next_cursor
+        items=[_draft_response(session, x) for x in page.items], **page.links()
     )
 
 
@@ -311,11 +314,11 @@ def activate_workspace_draft(
 def list_workspace_revisions(
     workspace_key: str,
     session: DbSession,
-    cursor: str | None = None,
+    paging: PageQuery,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> WorkspaceRevisionPage:
     load_workspace(session, workspace_key)
-    page, next_cursor = paginate_statement(
+    page = paginate_statement(
         session,
         select(WorkspaceRevision).where(WorkspaceRevision.workspace_key == workspace_key),
         keys=(
@@ -329,12 +332,12 @@ def list_workspace_revisions(
         ),
         scope="workspace-revisions",
         filters={"workspaceKey": workspace_key},
-        cursor=cursor,
+        page=paging,
         page_size=page_size,
         message="Workspace revision cursor is invalid",
     )
     return WorkspaceRevisionPage(
-        items=[_revision_response(session, x) for x in page], nextCursor=next_cursor
+        items=[_revision_response(session, x) for x in page.items], **page.links()
     )
 
 

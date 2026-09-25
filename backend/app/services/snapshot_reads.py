@@ -13,7 +13,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from sqlalchemy import Row, String, literal, or_, select, union_all
+from sqlalchemy import Row, String, case, exists, literal, select, union_all
 from sqlalchemy.orm import Session
 from sqlalchemy.sql.selectable import Subquery
 
@@ -37,6 +37,7 @@ from .objects import (
     _query_error,
     get_object_type,
     refine_object_query,
+    top_level_filter,
     validate_application_object_type,
 )
 from .pagination import text_key
@@ -117,6 +118,7 @@ def object_projection(
     object_type_key: str | None = None,
     application_key: str | None = None,
     parent_object_id: str | None = None,
+    top_level: bool = False,
     object_ids: Iterable[str] | None = None,
 ) -> Subquery:
     """The context's effective object rows, narrowed inside each arm so indexes apply.
@@ -133,6 +135,8 @@ def object_projection(
             where.append(entity.application_key == application_key)
         if parent_object_id:
             where.append(entity.parent_object_id == parent_object_id)
+        if top_level:
+            where.append(entity.parent_object_id.is_(None))
         if ids is not None:
             where.append(entity.object_id.in_(ids))
         return select(
@@ -165,30 +169,41 @@ def relation_projection(
     relation_type_key: str | None = None,
     relation_ids: Iterable[str] | None = None,
 ) -> Subquery:
-    """The context's effective relation rows touching ``object_id`` in ``direction``."""
+    """The context's effective relation rows touching ``object_id`` in ``direction``.
+
+    Each end is its own arm, so the (owner, from) and (owner, to) indexes serve it; one ``OR`` over
+    both ends would read every relation of the owner.
+    """
     ids = list(relation_ids) if relation_ids is not None else None
 
-    def arm(entity: Any, _owner_id: str, *conditions: Any) -> Any:
+    def arm(entity: Any, _owner_id: str, *conditions: Any) -> list[Any]:
         where = list(conditions)
-        if object_id is not None:
-            ends = []
-            if direction in {"outgoing", "both"}:
-                ends.append(entity.from_object_id == object_id)
-            if direction in {"incoming", "both"}:
-                ends.append(entity.to_object_id == object_id)
-            where.append(or_(*ends))
         if relation_type_key:
             where.append(entity.relation_type_key == relation_type_key)
         if ids is not None:
             where.append(entity.relation_id.in_(ids))
-        return select(
-            entity.relation_id,
-            entity.relation_type_key,
-            entity.from_object_id,
-            entity.to_object_id,
-            entity.attributes,
-            entity.version,
-        ).where(*where)
+        ends: list[list[Any]] = [[]]
+        if object_id is not None:
+            ends = []
+            if direction in {"outgoing", "both"}:
+                ends.append([entity.from_object_id == object_id])
+            if direction in {"incoming", "both"}:
+                # A relation from the record to itself is already in the outgoing arm.
+                incoming = [entity.to_object_id == object_id]
+                if direction == "both":
+                    incoming.append(entity.from_object_id != object_id)
+                ends.append(incoming)
+        return [
+            select(
+                entity.relation_id,
+                entity.relation_type_key,
+                entity.from_object_id,
+                entity.to_object_id,
+                entity.attributes,
+                entity.version,
+            ).where(*where, *end)
+            for end in ends
+        ]
 
     return _effective(
         context,
@@ -202,18 +217,78 @@ def relation_projection(
 
 
 def _effective(context, overlay, identity, arm, base_filter, base_entity, *, name) -> Subquery:
+    """Union the context's arms; ``arm`` returns one select or a list of them per source."""
+
+    def selects(result: Any) -> list[Any]:
+        return result if isinstance(result, list) else [result]
+
     base = context.base
-    if context.kind == "revision":
-        return arm(base_entity(base), base.owner_id, base_filter(base)).subquery(name)
     arms = []
-    if base is not None:
-        entity = base_entity(base)
-        overridden = select(getattr(overlay, identity)).where(overlay.draft_id == context.id)
-        arms.append(
-            arm(entity, base.owner_id, base_filter(base), ~getattr(entity, identity).in_(overridden))
+    if context.kind == "revision":
+        arms.extend(selects(arm(base_entity(base), base.owner_id, base_filter(base))))
+    else:
+        if base is not None:
+            entity = base_entity(base)
+            overridden = select(getattr(overlay, identity)).where(overlay.draft_id == context.id)
+            arms.extend(
+                selects(
+                    arm(
+                        entity,
+                        base.owner_id,
+                        base_filter(base),
+                        ~getattr(entity, identity).in_(overridden),
+                    )
+                )
+            )
+        arms.extend(
+            selects(
+                arm(overlay, context.id, overlay.draft_id == context.id, overlay.is_deleted.is_(False))
+            )
         )
-    arms.append(arm(overlay, context.id, overlay.draft_id == context.id, overlay.is_deleted.is_(False)))
     return (union_all(*arms) if len(arms) > 1 else arms[0]).subquery(name)
+
+
+def effective_object_value(context: SnapshotContext, object_id: Any, column: str) -> tuple[Any, Any]:
+    """One column of the context's effective record ``object_id`` (an expression), and the owner of
+    its typed values, as correlated scalar lookups on the unique (owner, object) keys.
+
+    Any draft row, a tombstone included, hides the base row; a missing or deleted record reads as
+    null. Use it where a statement needs a few fields of records it names by ID; a whole object
+    page reads ``object_projection`` instead.
+    """
+    base = context.base
+    # Explicit correlation: the lookups may sit several subqueries below the statement that names
+    # ``object_id``, where automatic correlation would cross-join that statement instead.
+
+    def base_lookup() -> tuple[Any, Any]:
+        entity = base.objects
+        value = (
+            select(getattr(entity, column))
+            .where(getattr(entity, base.owner_column) == base.owner_id, entity.object_id == object_id)
+            .correlate_except(entity)
+            .scalar_subquery()
+        )
+        return value, literal(base.owner_id, String)
+
+    if context.kind == "revision":
+        return base_lookup()
+    overlay = WorkspaceDraftObject
+    in_draft = (overlay.draft_id == context.id, overlay.object_id == object_id)
+    draft_value = (
+        select(getattr(overlay, column))
+        .where(*in_draft, overlay.is_deleted.is_(False))
+        .correlate_except(overlay)
+        .scalar_subquery()
+    )
+    draft_owner = literal(context.id, String)
+    if base is None:
+        return draft_value, draft_owner
+    base_value, base_owner = base_lookup()
+    overridden = exists(select(overlay.sequence_id).where(*in_draft).correlate_except(overlay))
+    return (
+        case((overridden, draft_value), else_=base_value),
+        case((overridden, draft_owner), else_=base_owner),
+    )
 
 
 def find_objects(session: Session, context: SnapshotContext, object_ids: Iterable[str]) -> dict[str, Row]:
@@ -281,6 +356,7 @@ def build_snapshot_object_query(
     search: str | None,
     sort: str | None,
     field_filters: list[tuple[str, str, str]],
+    top_level: bool = False,
 ) -> ObjectQuery:
     """The draft or revision object collection query, with the same contract as a live one."""
     object_type = get_object_type(model, object_type_key)
@@ -305,8 +381,9 @@ def build_snapshot_object_query(
         object_type_key=object_type_key,
         application_key=application_key,
         parent_object_id=parent_object_id,
+        top_level=top_level,
     )
-    statement, keys, normalized_filters = refine_object_query(
+    statement, keys, seek, normalized_filters = refine_object_query(
         model,
         snapshot_object_columns(projection),
         select(projection),
@@ -326,7 +403,9 @@ def build_snapshot_object_query(
             "parentObjectId": parent_object_id,
             "search": search,
             "typedFilters": normalized_filters,
+            **top_level_filter(top_level),
         },
+        seek=seek,
     )
 
 

@@ -12,13 +12,9 @@ until the scoped follow-up slice lands.
 """
 
 import json
-import shutil
-from collections.abc import Iterator
-from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from volume_baseline import PAGE_SIZE, run_scenarios
 from volume_fixture import (
@@ -27,47 +23,21 @@ from volume_fixture import (
     ITEM_CITES_GROUP,
     NODE,
     WORKSPACE,
-    VolumeDataset,
-    VolumeShape,
     scaled_shape,
-    seed_volume,
+    volume_app,
     volume_model,
 )
 
-from app.config import reload_settings
 from app.db import get_engine
-from app.main import create_app
 from app.models.database import (
     ObjectRelation,
     RdmObject,
     WorkspaceRevisionObject,
     WorkspaceRevisionRelation,
 )
-from app.services.model.registry import model_registry
 
 SMALL, LARGE = scaled_shape(0.01), scaled_shape(0.04)
 ROWS_PER_LISTED_ROW = 6
-
-
-@contextmanager
-def volume_app(
-    template: Path, directory: Path, shape: VolumeShape
-) -> Iterator[tuple[TestClient, VolumeDataset]]:
-    database = directory / "volume.db"
-    shutil.copyfile(template, database)
-    model_path = directory / "volume-model.json"
-    model_path.write_text(json.dumps(volume_model()))
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setenv("DATABASE_URL", f"sqlite:///{database}")
-        patch.setenv("RDM_MODEL_PATH", str(model_path))
-        model_registry.clear()
-        try:
-            with TestClient(create_app()) as client:
-                yield client, seed_volume(get_engine(), shape)
-        finally:
-            get_engine().dispose()
-    reload_settings()
-    model_registry.clear()
 
 
 @pytest.fixture(scope="module")

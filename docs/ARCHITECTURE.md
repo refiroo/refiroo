@@ -323,8 +323,11 @@ authorized future retention operation.
 The API returns attributes by stable keys and typed JSON values. Clients may request relations using
 stable relation keys. It never requires arrays of internal attribute or relation IDs.
 
-Cursor pagination is used throughout. Cursor tokens are signed and bound to their endpoint, ordering
-and effective filters. Full extraction belongs to asynchronous export or a resumable change feed
+Collections page with cursors or positions (ADR-030, Base 0.8 S3). Cursors continue after or before a
+row, are signed and bound to their endpoint, ordering and effective filters, and never repeat or skip
+a row as data changes; a position read jumps to row N and may. Every page carries both cursors, an
+anchor that reopens it and, on request, the total and its start index, all from
+`services/pagination.py`. Full extraction belongs to asynchronous export or a resumable change feed
 rather than an undocumented unbounded page.
 
 ## Presentation foundation

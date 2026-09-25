@@ -45,6 +45,7 @@ from ..services.model.releases import (
     model_installation_lock,
 )
 from ..services.pagination import datetime_key, paginate_statement, text_key
+from .paging import PageQuery
 from .presenters import change_response, diagnostic_details, diagnostic_response
 
 router = APIRouter(prefix="/api/v1", tags=["model administration"])
@@ -144,22 +145,22 @@ def activate_release(
 @router.get("/model-drafts", response_model=ModelDraftPage)
 def list_model_drafts(
     session: DbSession,
-    cursor: str | None = None,
+    paging: PageQuery,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> ModelDraftPage:
-    drafts, next_cursor = paginate_statement(
+    page = paginate_statement(
         session,
         select(ModelDraft),
         keys=_DRAFT_KEYS,
         scope="model-drafts",
         filters={},
-        cursor=cursor,
+        page=paging,
         page_size=page_size,
         cursor_sort_tokens=("updatedAt", "publicId"),
         message=METADATA_CURSOR_MESSAGE,
     )
     return ModelDraftPage(
-        items=[draft_response(session, draft) for draft in drafts], nextCursor=next_cursor
+        items=[draft_response(session, draft) for draft in page.items], **page.links()
     )
 
 

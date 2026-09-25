@@ -6,11 +6,40 @@ from app.main import app, create_app
 
 def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for WP-10K: object and relation timestamps are nullable (not recorded in drafts
-    # and history). That was the only schema difference.
+    # and history). Re-baselined for Base 0.8 S3/S4: every collection gains from, position and
+    # includeTotal and every page prevCursor, anchor, totalCount and startIndex; objects, relations
+    # and mapping coverage gain seek; objects gain topLevel; relations gain search and sort
+    # (test_paging_openapi_inventory below states them).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "7cec49e9321f292d2940049cbb3a7d82e729675a4af040cf3fda517346eb3f60"
+        "08d3ceec6029ad2360b898d7fde6a5087e323247c42d77e28c20f3ffa278fd90"
     )
+
+
+def test_paging_openapi_inventory():
+    """Base 0.8 S3: every cursor-paged collection pages both ways, by position and with totals."""
+    document = app.openapi()
+    seekable = {
+        "/api/v1/objects/{object_type_key}",
+        "/api/v1/relations",
+        "/api/v1/workspaces/{workspace_key}/mapping-coverage",
+    }
+    paged = set()
+    for path, operations in document["paths"].items():
+        parameters = {item["name"] for item in operations.get("get", {}).get("parameters", [])}
+        if "cursor" not in parameters:
+            continue
+        paged.add(path)
+        assert {"from", "position", "includeTotal"} <= parameters, path
+        assert ("seek" in parameters) == (path in seekable), path
+        schema = operations["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+        name = schema["$ref"].rsplit("/", 1)[-1]
+        properties = document["components"]["schemas"][name]["properties"]
+        assert {"nextCursor", "prevCursor", "anchor", "totalCount", "startIndex"} <= set(properties)
+    assert seekable <= paged and len(paged) == 17
+    objects = {item["name"] for item in document["paths"]["/api/v1/objects/{object_type_key}"]["get"]["parameters"]}
+    relations = {item["name"] for item in document["paths"]["/api/v1/relations"]["get"]["parameters"]}
+    assert "topLevel" in objects and {"search", "sort"} <= relations
 
 
 def test_wp6_openapi_removes_rejected_object_lifecycle_and_direct_writes():

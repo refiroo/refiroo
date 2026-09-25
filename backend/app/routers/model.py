@@ -32,6 +32,7 @@ from ..services.model.registry import RequestModelSnapshot
 from ..services.model.runtime import load_runtime_state
 from ..services.objects import get_application, get_object_type
 from ..services.pagination import paginate_sequence
+from .paging import PageQuery
 from .presenters import diagnostic_response
 
 router = APIRouter(prefix="/api/v1", tags=["model"])
@@ -104,20 +105,20 @@ def validate_model(payload: ModelDocumentRequest) -> ModelValidationResponse:
 def get_applications(
     session: DbSession,
     snapshot: RequestModelSnapshot,
-    cursor: str | None = None,
+    paging: PageQuery,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> MetadataPage[ApplicationResponse]:
-    items, next_cursor = paginate_sequence(
+    page = paginate_sequence(
         snapshot.model.applications,
         lambda item: (item.key,),
         scope="applications",
         filters={"modelReleaseId": snapshot.release_id},
-        cursor=cursor,
+        page=paging,
         page_size=page_size,
         message=METADATA_CURSOR_MESSAGE,
     )
     return MetadataPage(
-        items=build_application_responses(session, snapshot, items), nextCursor=next_cursor
+        items=build_application_responses(session, snapshot, page.items), **page.links()
     )
 
 
@@ -133,20 +134,20 @@ def get_application_detail(
 def list_attribute_types(
     session: DbSession,
     snapshot: RequestModelSnapshot,
-    cursor: str | None = None,
+    paging: PageQuery,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> MetadataPage[AttributeTypeResponse]:
-    items, next_cursor = paginate_sequence(
+    page = paginate_sequence(
         snapshot.model.attributeTypes,
         lambda item: (item.key,),
         scope="attribute-types",
         filters={"modelReleaseId": snapshot.release_id},
-        cursor=cursor,
+        page=paging,
         page_size=page_size,
         message=METADATA_CURSOR_MESSAGE,
     )
     return MetadataPage(
-        items=build_attribute_type_responses(session, snapshot, items), nextCursor=next_cursor
+        items=build_attribute_type_responses(session, snapshot, page.items), **page.links()
     )
 
 
@@ -166,20 +167,20 @@ def get_attribute_type(
 def list_object_types(
     session: DbSession,
     snapshot: RequestModelSnapshot,
-    cursor: str | None = None,
+    paging: PageQuery,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> MetadataPage[ObjectTypeResponse]:
-    items, next_cursor = paginate_sequence(
+    page = paginate_sequence(
         snapshot.model.objectTypes,
         lambda item: (item.key,),
         scope="object-types",
         filters={"modelReleaseId": snapshot.release_id},
-        cursor=cursor,
+        page=paging,
         page_size=page_size,
         message=METADATA_CURSOR_MESSAGE,
     )
     return MetadataPage(
-        items=build_object_type_responses(session, snapshot, items), nextCursor=next_cursor
+        items=build_object_type_responses(session, snapshot, page.items), **page.links()
     )
 
 
@@ -195,20 +196,20 @@ def get_object_type_detail(
 def list_relation_types(
     session: DbSession,
     snapshot: RequestModelSnapshot,
-    cursor: str | None = None,
+    paging: PageQuery,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> MetadataPage[RelationTypeResponse]:
-    items, next_cursor = paginate_sequence(
+    page = paginate_sequence(
         snapshot.model.relationTypes,
         lambda item: (item.key,),
         scope="relation-types",
         filters={"modelReleaseId": snapshot.release_id},
-        cursor=cursor,
+        page=paging,
         page_size=page_size,
         message=METADATA_CURSOR_MESSAGE,
     )
     return MetadataPage(
-        items=build_relation_type_responses(session, snapshot, items), nextCursor=next_cursor
+        items=build_relation_type_responses(session, snapshot, page.items), **page.links()
     )
 
 
@@ -228,9 +229,9 @@ def get_relation_type(
 def get_object_type_relations(
     session: DbSession,
     snapshot: RequestModelSnapshot,
+    paging: PageQuery,
     from_object_type: str | None = Query(default=None, alias="fromObjectType"),
     to_object_type: str | None = Query(default=None, alias="toObjectType"),
-    cursor: str | None = None,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> MetadataPage[ObjectTypeRelationResponse]:
     relations = snapshot.model.objectTypeRelations
@@ -238,7 +239,7 @@ def get_object_type_relations(
         relations = [item for item in relations if item.fromObjectTypeKey == from_object_type]
     if to_object_type:
         relations = [item for item in relations if item.toObjectTypeKey == to_object_type]
-    items, next_cursor = paginate_sequence(
+    page = paginate_sequence(
         relations,
         lambda item: (
             item.relationTypeKey,
@@ -252,11 +253,11 @@ def get_object_type_relations(
             "fromObjectType": from_object_type,
             "toObjectType": to_object_type,
         },
-        cursor=cursor,
+        page=paging,
         page_size=page_size,
         message=METADATA_CURSOR_MESSAGE,
     )
     return MetadataPage(
-        items=build_object_type_relation_responses(session, snapshot, items),
-        nextCursor=next_cursor,
+        items=build_object_type_relation_responses(session, snapshot, page.items),
+        **page.links(),
     )

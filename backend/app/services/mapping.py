@@ -36,7 +36,14 @@ from .attributes import VALUE_COLUMNS, load_attribute_values
 from .audit import record_audit_event
 from .mapping_projection import draft_mapping_projection, revision_mapping_projection
 from .model.registry import ModelSnapshot, resolve_request_model
-from .pagination import paginate_sequence, paginate_statement, text_key
+from .pagination import (
+    FIRST_PAGE,
+    Page,
+    PageRequest,
+    paginate_sequence,
+    paginate_statement,
+    text_key,
+)
 from .relation_set_versions import claim_set_version, increment_single_set_version
 from .relations import (
     ensure_relation_mutable,
@@ -399,13 +406,13 @@ def object_page(
     object_type: str,
     fields: tuple[str, ...],
     search: str | None,
-    cursor: str | None,
+    page: PageRequest,
     page_size: int,
     *,
     candidates: bool = False,
     parent_object_id: str | None = None,
     mapping_state: str | None = None,
-) -> tuple[list[Any], str | None]:
+) -> Page[Any]:
     fields = tuple(
         field
         for field in fields
@@ -497,7 +504,7 @@ def object_page(
         keys=(text_key("id", read.objects.c.id, "id"),),
         scope="mapping-candidates" if candidates else "mapping-coverage",
         filters=filters,
-        cursor=cursor,
+        page=page,
         page_size=page_size,
     )
 
@@ -505,22 +512,23 @@ def object_page(
 def coverage(
     read: MappingRead,
     search: str | None,
-    cursor: str | None,
+    page: PageRequest,
     page_size: int | None,
     parent_object_id: str | None = None,
     mapping_state: str | None = None,
 ) -> MappingCoveragePage:
     validate_parent_scope(read, parent_object_id)
-    objects, next_cursor = object_page(
+    source_page = object_page(
         read,
         read.source_type,
         read.config.sourceColumns,
         search,
-        cursor,
+        page,
         page_size or read.config.pageSize,
         parent_object_id=parent_object_id,
         mapping_state=mapping_state,
     )
+    objects = source_page.items
     ids = [row.id for row in objects]
     sources = read.summary(objects, read.config.sourceColumns)
     versions = read.versions(ids)
@@ -559,12 +567,11 @@ def coverage(
     rows = []
     for key in ids:
         version = versions.get(key, 0)
-        preview, continuation = paginate_sequence(
+        preview = paginate_sequence(
             previews[key],
             lambda row: (row.id,),
             scope="mapping-targets",
             filters=read.target_filters(key, version),
-            cursor=None,
             page_size=PREVIEW_SIZE,
             sort=("relationId",),
         )
@@ -575,18 +582,18 @@ def coverage(
                 state="unmapped" if count == 0 else "mapped" if count == 1 else "ambiguous",
                 mappingVersion=version,
                 targetCount=count,
-                targets=[summaries[row.id] for row in preview],
-                targetsNextCursor=continuation,
+                targets=[summaries[row.id] for row in preview.items],
+                targetsNextCursor=preview.next_cursor,
             )
         )
-    return MappingCoveragePage(items=rows, nextCursor=next_cursor)
+    return MappingCoveragePage(items=rows, **source_page.links())
 
 
 def candidates(
     read: MappingRead,
     object_type: str,
     search: str | None,
-    cursor: str | None,
+    page: PageRequest,
     page_size: int | None,
 ) -> MappingCandidatePage:
     if object_type != read.target_type:
@@ -595,18 +602,20 @@ def candidates(
             "mapping_candidate_type_mismatch",
             "Candidate type must match the target side of the mapping view",
         )
-    objects, next_cursor = object_page(
+    candidate_page = object_page(
         read,
         object_type,
         read.config.candidateSearchFields,
         search,
-        cursor,
+        page,
         page_size or read.config.pageSize,
         candidates=True,
     )
     return MappingCandidatePage(
-        items=list(read.summary(objects, read.config.targetDisplayColumns).values()),
-        nextCursor=next_cursor,
+        items=list(
+            read.summary(candidate_page.items, read.config.targetDisplayColumns).values()
+        ),
+        **candidate_page.links(),
     )
 
 
@@ -631,7 +640,7 @@ def list_mappings(
     to_object_type_key: str | None = None,
     direction: str | None = None,
     search: str | None = None,
-    cursor: str | None = None,
+    page: PageRequest = FIRST_PAGE,
     page_size: int | None = None,
 ) -> MappingListPage:
     connection = session.connection()
@@ -743,7 +752,7 @@ def list_mappings(
         "direction": direction,
         "search": search,
     }
-    page, next_cursor = paginate_statement(
+    edge_page = paginate_statement(
         session,
         statement,
         keys=(
@@ -752,9 +761,10 @@ def list_mappings(
         ),
         scope="mapping-list",
         filters=cursor_filters,
-        cursor=cursor,
+        page=page,
         page_size=effective_size,
     )
+    page = edge_page.items
 
     all_ids = list(dict.fromkeys(oid for row in page for oid in (row.source_id, row.target_id)))
     obj_rows = (
@@ -838,11 +848,11 @@ def list_mappings(
                 mappingVersion=_get_version(row),
             )
         )
-    return MappingListPage(items=rows, nextCursor=next_cursor)
+    return MappingListPage(items=rows, **edge_page.links())
 
 
 def target_details(
-    read: MappingRead, source_id: str, version: int, cursor: str | None, page_size: int
+    read: MappingRead, source_id: str, version: int, page: PageRequest, page_size: int
 ) -> MappingTargetPage:
     exists = (
         read.session.scalar(
@@ -866,20 +876,20 @@ def target_details(
         )
     edges = read.edge_statement().where(read.anchor_column == source_id).subquery()
     count = read.session.scalar(select(func.count()).select_from(edges)) or 0
-    page, next_cursor = paginate_statement(
+    target_page = paginate_statement(
         read.session,
         select(projection_bundle(edges)),
         keys=(text_key("relationId", edges.c.id, "id"),),
         scope="mapping-targets",
         filters=read.target_filters(source_id, version),
-        cursor=cursor,
+        page=page,
         page_size=page_size,
     )
     return MappingTargetPage(
         mappingVersion=version,
         targetCount=count,
-        items=read.target_summaries(page),
-        nextCursor=next_cursor,
+        items=read.target_summaries(target_page.items),
+        **target_page.links(),
     )
 
 
@@ -1021,7 +1031,7 @@ def _conflict_continuation(session, workspace_key, request, source_id, version, 
             ):
                 continue
             read = _mapping_read_in_transaction(session, workspace_key, app.key, view.key, draft_id)
-            page = target_details(read, source_id, version, None, PREVIEW_SIZE)
+            page = target_details(read, source_id, version, FIRST_PAGE, PREVIEW_SIZE)
             return {
                 "targets": [item.model_dump(mode="json") for item in page.items],
                 "targetsNextCursor": page.nextCursor,
@@ -1041,7 +1051,7 @@ def _conflict_continuation(session, workspace_key, request, source_id, version, 
     read = _mapping_read_in_transaction(
         session, workspace_key, None, None, draft_id, binding_config=config
     )
-    page = target_details(read, source_id, version, None, PREVIEW_SIZE)
+    page = target_details(read, source_id, version, FIRST_PAGE, PREVIEW_SIZE)
     return {
         "targets": [item.model_dump(mode="json") for item in page.items],
         "targetsNextCursor": page.nextCursor,

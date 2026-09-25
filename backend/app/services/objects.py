@@ -32,7 +32,14 @@ from .attributes import (
     validate_object_attribute_rules,
 )
 from .audit import record_audit_event
-from .pagination import SortKey, datetime_key, integer_key, text_key
+from .pagination import (
+    SortKey,
+    datetime_key,
+    integer_key,
+    seek_error,
+    seek_predicate,
+    text_key,
+)
 
 OBJECT_SORT_COLUMNS: dict[str, Any] = {
     "id": RdmObject.id,
@@ -47,11 +54,15 @@ _SEQUENCE_FIELD = "sequenceId"
 
 @dataclass(frozen=True)
 class ObjectQuery:
-    """A filtered object collection query with the keyset it must be paged by."""
+    """A filtered object collection query with the keyset it must be paged by.
+
+    ``seek`` turns a ``seek`` value into the predicate for rows at or after it in list order.
+    """
 
     statement: Select[Any]
     keys: tuple[SortKey, ...]
     filters: dict[str, Any]
+    seek: Callable[[str], Any]
 
 
 @dataclass(frozen=True)
@@ -123,6 +134,7 @@ def build_object_query(
     search: str | None,
     sort: str | None,
     field_filters: list[tuple[str, str, str]] | None = None,
+    top_level: bool = False,
 ) -> ObjectQuery:
     """Build the filtered statement, keyset and cursor filters for an object collection."""
     object_type = get_object_type(model, object_type_key)
@@ -137,7 +149,9 @@ def build_object_query(
         statement = statement.where(RdmObject.application_key == application_key)
     if parent_object_id:
         statement = statement.where(RdmObject.parent_object_id == parent_object_id)
-    statement, keys, normalized_filters = refine_object_query(
+    if top_level:
+        statement = statement.where(RdmObject.parent_object_id.is_(None))
+    statement, keys, seek, normalized_filters = refine_object_query(
         model,
         LIVE_OBJECT_COLUMNS,
         statement,
@@ -156,8 +170,15 @@ def build_object_query(
             "search": search,
             "typedFilters": normalized_filters,
             "workspaceKey": workspace_key,
+            **top_level_filter(top_level),
         },
+        seek=seek,
     )
+
+
+def top_level_filter(top_level: bool) -> dict[str, Any]:
+    """Bind ``topLevel`` into a cursor only when set, so cursors issued before it stay valid."""
+    return {"topLevel": True} if top_level else {}
 
 
 def refine_object_query(
@@ -169,8 +190,8 @@ def refine_object_query(
     search: str | None,
     sort: str | None,
     field_filters: list[tuple[str, str, str]],
-) -> tuple[Select[Any], tuple[SortKey, ...], list[dict[str, str]]]:
-    """Add search and typed filters to an object statement and return its keyset."""
+) -> tuple[Select[Any], tuple[SortKey, ...], Callable[[str], Any], list[dict[str, str]]]:
+    """Add search and typed filters to an object statement and return its keyset and seek."""
     if search:
         statement = statement.where(_search_predicate(model, columns, object_type, search))
     normalized_filters, predicates = _typed_filter_predicates(
@@ -178,7 +199,36 @@ def refine_object_query(
     )
     if predicates:
         statement = statement.where(and_(*predicates))
-    return statement, _object_sort_keys(model, columns, object_type, sort), normalized_filters
+    keys = _object_sort_keys(model, columns, object_type, sort)
+    return statement, keys, _object_seek(model, object_type, keys, sort), normalized_filters
+
+
+def _object_seek(
+    model: EngineModel, object_type: ObjectTypeDefinition, keys: tuple[SortKey, ...], sort: str | None
+) -> Callable[[str], Any]:
+    """Seek by the sorted field's value; the default live order has no public value to seek by."""
+    field_name = (sort or "").removeprefix("-")
+
+    def seek(raw: str) -> Any:
+        if keys[0].name == _SEQUENCE_FIELD:
+            raise seek_error("Seek requires a sort; the default order has no value to seek by")
+        definition = next(
+            (
+                model.attribute_type(binding.attributeTypeKey)
+                for binding in object_type.attributes
+                if binding.attributeTypeKey == field_name
+            ),
+            None,
+        )
+        try:
+            if definition is None:
+                return seek_predicate(keys, [keys[0].parse(raw)])
+            # Attribute sorts lead with the null rank: seek among the non-null values.
+            return seek_predicate(keys, [0, _parse_typed(definition.valueType, raw)])
+        except ValueError:
+            raise seek_error(f"Invalid seek value for sort '{field_name or keys[0].name}'") from None
+
+    return seek
 
 
 def _search_predicate(
@@ -367,6 +417,14 @@ def _parse_filter_value(value_type: str, operator: str, lexical: str, field: str
             _query_error("invalid_filter", f"Filter '{operator}' requires true or false", f"filter.{field}.{operator}")
         return lexical == "true"
     try:
+        return _parse_typed(value_type, lexical)
+    except ValueError:
+        _query_error("invalid_filter", f"Invalid {value_type} value for field '{field}'", f"filter.{field}.{operator}")
+
+
+def _parse_typed(value_type: str, lexical: str) -> Any:
+    """A lexical value in its declared type; ``ValueError`` when it is not one."""
+    try:
         if value_type in {"text", "longText"}:
             return lexical
         if value_type == "integer":
@@ -383,7 +441,7 @@ def _parse_filter_value(value_type: str, operator: str, lexical: str, field: str
             return datetime.fromisoformat(lexical)
     except (ValueError, InvalidOperation):
         pass
-    _query_error("invalid_filter", f"Invalid {value_type} value for field '{field}'", f"filter.{field}.{operator}")
+    raise ValueError(f"Invalid {value_type} value")
 
 
 def _query_error(code: str, message: str, path: str) -> None:

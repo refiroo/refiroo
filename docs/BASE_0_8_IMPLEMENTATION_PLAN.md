@@ -271,6 +271,37 @@ are.
 fixture in live, draft and history contexts, including a concurrent insert between cursor reads, a
 position read deep in the 20,000-child parent within budget, and refusal of `position` with `cursor`.
 
+**Delivered 2026-09-25 (with S4).** `services/pagination.py` takes a `PageRequest` (at most one of
+cursor, position, seek, `from=end`; otherwise `422 conflicting_page_parameters`) and returns a `Page`
+with `nextCursor`, `prevCursor`, `anchor` and, on request, `totalCount` and `startIndex`. A cursor
+records its direction (after, from, before, up to its row); cursors without one, issued before S3,
+continue forward. Backward reads reverse the keyset predicate and order and return rows in list order.
+A page costs its own read, at most one probe for the opposite edge and, with totals, two counts.
+`routers/paging.PageQuery` and `SeekablePageQuery` give all 17 cursor-paged collections the same
+parameters; seek is offered on objects (typed by the sorted field, including attribute sorts),
+relations and mapping coverage. Every page response inherits `PageNavigation`; API.md documents the
+contract and each mode's concurrency behaviour, and the OpenAPI lock is re-baselined with an explicit
+paging inventory beside it.
+
+_Evidence._ `test_paging_contract.py` (fixture at 1%, all three contexts) walks the 20,000-child
+parent's name-sorted list forward and backward against a reference walk, with totals and start
+indexes on every page; lands position reads mid-list and past the end and continues from their
+cursors and anchor; seeks by name and by an integer attribute in both directions; refuses combined
+selectors, a negative position, a cursor reused with another filter and an unparseable or
+unsupported seek; and inserts records before and after the reader between cursor reads, live and in
+the draft, without a repeat or a skip. `test_pagination.py` covers the in-memory paginator the same
+way, and a pre-S3 cursor still continuing forward. The S1 budget scenarios gained last page, backward
+page, seek, deep position, top-level page and relation name sort and search, and hold budgets 1–2 in
+every context.
+
+_Result:_ see the S4 table. The previous-page probe first doubled live middle and last object pages
+(20 → 40–47 ms), and a live position read three quarters into 100,000 records took about 500 ms,
+because live objects had only single-column indexes and every name-ordered read scanned the type.
+Migration `20260925_03` adds (workspace, type, name, sequence) and (workspace, parent, type, name,
+sequence) indexes on live objects, mirroring the S2 page indexes on revision and draft-base objects:
+live pages now take 2–13 ms. The default creation order already reads through the primary key and
+needs no index. `test_page_index_migrations.py` holds both S3/S4 index migrations.
+
 #### S4: Top-level and relation query additions
 
 **Scope:**
@@ -285,6 +316,57 @@ position read deep in the 20,000-child parent within budget, and refusal of `pos
 
 **Exit:** the S1 record with 1,500 relations can be searched and sorted in each context within
 budget, and a root type pages without descendants.
+
+**Delivered 2026-09-25.** `topLevel=true` on object lists, in every context, and refused beside
+`parentObjectId`. `services/relation_queries.py` builds relation pages for live and for draft and
+history with one contract: `search` over the related record's name and `searchable` values, `sort`
+by the related record's name or, live, `createdAt`, and seek on either. Draft and history read the
+related record through correlated lookups on its (owner, object) keys (`snapshot_reads.
+effective_object_value`) rather than a join to the object projection. Live relation pages build their
+related records in one batch (the S1 finding): 7 statements instead of 45.
+
+The first full-volume run showed draft and history relation pages scanning every relation of the
+revision: the revision and draft relation tables had only owner indexes, so `owner = ? AND (from = ?
+OR to = ?)` read the whole owner. Migration `20260925_02` adds (owner, from, relation ID) and (owner,
+to, relation ID) indexes on revision, draft-base and draft relations, and `relation_projection` reads
+each end in its own arm. `test_page_index_migrations.py` checks clean bootstrap, upgrade
+from `20260925_01` through the FastAPI lifespan across two restarts with relation pages answering as
+before, and an interrupted run that left one index behind and an earlier shape of another. The
+development database was upgraded by the running dev server and smoke-checked (health, relation and
+object pages with totals in live and history).
+
+_Results_ (same machine, fixture and method as S1; `volume_baseline.py --scale 1 --repeat 3`):
+
+| Request | Live | Draft | History |
+| --- | --- | --- | --- |
+| objects: first page | 3.1 ms · 5 · 79 | 4.3 ms · 5 · 4 | 4.0 ms · 4 · 3 |
+| objects: middle page | 3.7 ms · 6 · 81 | 5.4 ms · 6 · 4 | 4.0 ms · 5 · 3 |
+| objects: last page | 3.7 ms · 6 · 81 | 4.3 ms · 6 · 4 | 3.3 ms · 5 · 3 |
+| children: heavy parent, first page | 2.9 ms · 5 · 65 | 3.6 ms · 5 · 4 | 3.0 ms · 4 · 3 |
+| children: heavy parent, middle page | 3.5 ms · 6 · 66 | 4.8 ms · 6 · 4 | 3.7 ms · 5 · 3 |
+| children: small parent | 2.3 ms · 5 · 19 | 3.6 ms · 5 · 4 | 2.4 ms · 4 · 3 |
+| relations: 1,500-relation record | 8.3 ms · 7 · 103 | 4.6 ms · 6 · 4 | 3.5 ms · 5 · 3 |
+| relations: heavy parent | 47.1 ms · 7 · 85 | 4.7 ms · 6 · 4 | 3.5 ms · 5 · 3 |
+| record: single read | 2.0 ms · 5 · 7 | 3.2 ms · 5 · 4 | 2.2 ms · 4 · 3 |
+| objects: last page by from=end, total | 7.6 ms · 6 · 81 | 47.6 ms · 6 · 4 | 9.0 ms · 5 · 3 |
+| objects: backward page from the middle | 4.6 ms · 6 · 83 | 6.5 ms · 6 · 4 | 3.3 ms · 5 · 3 |
+| objects: seek by name, total | 8.2 ms · 8 · 83 | 48.3 ms · 8 · 4 | 10.7 ms · 7 · 3 |
+| objects: position ¾ deep, total | 12.6 ms · 6 · 81 | **175.1 ms** · 6 · 4 | 15.6 ms · 5 · 3 |
+| children: heavy parent, position ¾ deep, total | 6.1 ms · 6 · 65 | 43.0 ms · 6 · 4 | 9.1 ms · 5 · 3 |
+| roots: top-level page, total | 3.3 ms · 5 · 64 | 9.2 ms · 6 · 4 | 6.2 ms · 5 · 3 |
+| relations: 1,500-relation record by name, total | 9.8 ms · 8 · 103 | 21.7 ms · 7 · 4 | 16.4 ms · 6 · 3 |
+| relations: 1,500-relation record, search | 18.5 ms · 7 · 102 | 18.3 ms · 6 · 4 | 13.9 ms · 5 · 3 |
+| write: rename one record | 3.6 ms · 13 · 9 | 4,793.7 ms · 30 · 216,944 | — |
+
+Every read meets budgets 1–3 in every context except one: a draft position read three quarters into
+a whole 100,000-record type takes 175 ms (budget 100 ms; history 16 ms). SQLite skips 75,000 rows
+through the draft's base-plus-overlay union, then counts it. Position reads inside a branch, the S3
+exit case, stay within budget (43 ms in the 20,000-child parent). **Open:** to be resolved before
+S5 relies on scrollbar jumps over a whole large type in a draft, for example by resolving a deep
+position against the base's index and correcting for the overlay's rows before it. Totals
+cost most in drafts (the count runs over the base-plus-overlay union, about 40 ms over 100,000 items);
+the UI asks for them on first load, after a query change and with jumps (D5), not on every scroll.
+The draft write is unchanged (S2b).
 
 #### S5: Shared continuous-scroll list
 

@@ -19,6 +19,7 @@ from ..services.model.compiler import SUPPORTED_SCHEMA_VERSIONS, compile_model
 from ..services.model.diff import semantic_diff
 from ..services.model.registry import ActiveModelSnapshot
 from ..services.pagination import datetime_key, integer_key, paginate_statement, text_key
+from .paging import PageQuery
 from .presenters import change_response, diagnostic_details, diagnostic_response
 
 router = APIRouter(prefix="/api/v1", tags=["model"])
@@ -40,9 +41,9 @@ _ACTIVATION_KINDS = {"activated": "activated", "schema_upgraded": "schemaUpgrade
 def list_model_releases(
     session: DbSession,
     snapshot: ActiveModelSnapshot,
+    paging: PageQuery,
     release_key: str | None = Query(default=None, alias="releaseKey"),
     active: bool | None = None,
-    cursor: str | None = None,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> ModelReleasePage:
     statement = select(ModelRelease)
@@ -53,7 +54,7 @@ def list_model_releases(
     elif active is False:
         statement = statement.where(ModelRelease.public_id != snapshot.release_id)
 
-    releases, next_cursor = paginate_statement(
+    page = paginate_statement(
         session,
         statement,
         keys=_RELEASE_KEYS,
@@ -63,13 +64,13 @@ def list_model_releases(
             "active": active,
             "activeReleaseId": snapshot.release_id,
         },
-        cursor=cursor,
+        page=paging,
         page_size=page_size,
         message=METADATA_CURSOR_MESSAGE,
     )
     return ModelReleasePage(
-        items=[build_release_response(item, snapshot.release_id) for item in releases],
-        nextCursor=next_cursor,
+        items=[build_release_response(item, snapshot.release_id) for item in page.items],
+        **page.links(),
     )
 
 
@@ -95,7 +96,7 @@ def get_model_release(
 def list_model_release_activations(
     release_id: str,
     session: DbSession,
-    cursor: str | None = None,
+    paging: PageQuery,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> ModelReleaseActivationPage:
     """Recorded selections of this release as the active model, with the release they replaced.
@@ -109,13 +110,13 @@ def list_model_release_activations(
         AuditEvent.aggregate_id == release_id,
         AuditEvent.action.in_(tuple(_ACTIVATION_KINDS)),
     )
-    events, next_cursor = paginate_statement(
+    page = paginate_statement(
         session,
         statement,
         keys=_ACTIVATION_KEYS,
         scope="model-release-activations",
         filters={"releaseId": release_id},
-        cursor=cursor,
+        page=paging,
         page_size=page_size,
         message=METADATA_CURSOR_MESSAGE,
     )
@@ -128,9 +129,9 @@ def list_model_release_activations(
                 runtimeVersion=event.version,
                 occurredAt=as_utc(event.occurred_at),
             )
-            for event in events
+            for event in page.items
         ],
-        nextCursor=next_cursor,
+        **page.links(),
     )
 
 

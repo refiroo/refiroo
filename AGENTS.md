@@ -27,8 +27,8 @@ Master, Systems and Translations are starter applications, not hardcoded modules
 - Parent containment is both an object hierarchy and a typed relation, maintained atomically.
 - UI renderers may implement generic view types but must not branch on application or object-type keys.
 - Every model reference is validated at startup and should fail with a precise path and reason.
-- Public APIs never use an undocumented result cap. Collections use cursor pagination; 0.8 Track S adds
-  position paging for jumps (ADR-030): the UI scrolls with cursors and jumps with positions.
+- Public APIs never use an undocumented result cap. Collections page with cursors or positions
+  (ADR-030): the UI scrolls with cursors and jumps with positions.
 - Bulk and integration APIs are first-class features, not wrappers around UI calls.
 - Public IDs and model keys are stable. Never expose database sequence IDs as domain identifiers.
 - Attribute values retain their declared types. Do not reduce booleans, numbers or dates to strings.
@@ -87,7 +87,9 @@ errors explicit and machine-readable.
 - Handlers take the request-scoped `DbSession` dependency. Do not open `SessionLocal()` inside a
   request path; one request reads from one session.
 - Collections page through `services/pagination.py`. Declare sort keys, do not hand-write a keyset
-  predicate, and make the last key unique within the filtered set.
+  predicate, and make the last key unique within the filtered set. A collection route takes
+  `routers/paging.PageQuery` (or `SeekablePageQuery` where it supports seek) and returns the page's
+  `links()`, so every list gains cursors both ways, position, `from=end` and totals together.
 - Draft and history reads go through `services/snapshot_reads.py`, never `effective_draft_membership`,
   which is for whole-graph validation, activation and writes. Revision, draft-base and draft object
   rows keep a typed value index (`snapshot_attribute_values`) that an ORM flush hook maintains; a bulk

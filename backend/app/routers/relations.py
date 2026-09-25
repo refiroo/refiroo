@@ -1,8 +1,7 @@
 from typing import Literal
 
 from fastapi import APIRouter, Query, Response, status
-from sqlalchemy import or_, select
-from sqlalchemy.orm import aliased
+from sqlalchemy import select
 
 from ..db import DbSession
 from ..errors import api_error
@@ -15,10 +14,11 @@ from ..models.api import (
     WorkspaceDraftRelationUpdate,
     WorkspaceDraftRelationWrite,
 )
-from ..models.database import ObjectRelation, RdmObject
+from ..models.database import RdmObject
 from ..services.model.registry import RequestModelSnapshot, resolve_model_snapshot
 from ..services.objects import build_object_responses, load_active_projection
-from ..services.pagination import integer_key, paginate_statement, text_key
+from ..services.pagination import paginate_statement
+from ..services.relation_queries import build_relation_query, build_snapshot_relation_query
 from ..services.relations import (
     build_relation_response,
     create_live_relation,
@@ -30,7 +30,6 @@ from ..services.snapshot_reads import (
     draft_context,
     find_objects,
     find_relation,
-    relation_projection,
     revision_context,
 )
 from ..services.workspace_revisions import (
@@ -40,6 +39,7 @@ from ..services.workspace_revisions import (
 )
 from ..services.workspaces import resolve_workspace
 from .objects import _draft_object_response
+from .paging import SeekablePageQuery
 
 router = APIRouter(prefix="/api/v1", tags=["relations"])
 
@@ -67,30 +67,48 @@ def create_relation(payload: RelationCreate, session: DbSession) -> RelationResp
     return build_relation_response(row)
 
 @router.get("/relations", response_model=RelationPage)
-def list_relations(session: DbSession, snapshot: RequestModelSnapshot, object_id: str = Query(alias="objectId"), direction: Literal["outgoing", "incoming", "both"] = "both", relation_type_key: str | None = Query(default=None, alias="relationTypeKey"), workspace_key: str | None = Query(default=None, alias="workspaceKey"), workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"), workspace_revision_id: str | None = Query(default=None, alias="workspaceRevisionId"), cursor: str | None = None, page_size: int = Query(default=100, ge=1, le=500, alias="pageSize")) -> RelationPage:
+def list_relations(
+    session: DbSession,
+    snapshot: RequestModelSnapshot,
+    paging: SeekablePageQuery,
+    object_id: str = Query(alias="objectId"),
+    direction: Literal["outgoing", "incoming", "both"] = "both",
+    relation_type_key: str | None = Query(default=None, alias="relationTypeKey"),
+    workspace_key: str | None = Query(default=None, alias="workspaceKey"),
+    workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
+    workspace_revision_id: str | None = Query(default=None, alias="workspaceRevisionId"),
+    search: str | None = Query(
+        default=None,
+        description="Match the related record's name or searchable fields, case-insensitively",
+    ),
+    sort: str | None = Query(
+        default=None,
+        description=(
+            "name (the related record's name) or createdAt (live only); prefix '-' for"
+            " descending. Omitted: creation order live, relation ID in drafts and history"
+        ),
+    ),
+    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+) -> RelationPage:
     if sum(value is not None for value in (workspace_draft_id, workspace_revision_id)) > 1:
         raise api_error(422, "mutually_exclusive_context", "Workspace contexts cannot be combined")
     if workspace_draft_id or workspace_revision_id:
         context = draft_context(session, workspace_draft_id) if workspace_draft_id else revision_context(session, workspace_revision_id)
-        projection = relation_projection(context, object_id=object_id, direction=direction, relation_type_key=relation_type_key)
-        owner = {"draftId": context.id} if context.kind == "draft" else {"revisionId": context.id}
-        rows, next_cursor = paginate_statement(session, select(projection), keys=(text_key("id", projection.c.relation_id, "relation_id"),), scope=f"relations-{context.kind}", filters={**owner, "objectId": object_id, "direction": direction, "relationTypeKey": relation_type_key}, cursor=cursor, page_size=page_size, message="Relation cursor is invalid", rows=True)
-        objects = find_objects(session, context, (row.to_object_id if row.from_object_id == object_id else row.from_object_id for row in rows))
-        return RelationPage(items=[RelationExpansion(direction="outgoing" if row.from_object_id == object_id else "incoming", relation=_draft_response(row), object=_draft_object_response(objects[row.to_object_id if row.from_object_id == object_id else row.from_object_id], context.id, snapshot.model).model_copy(update={"workspaceKey": context.workspace_key})) for row in rows if (row.to_object_id if row.from_object_id == object_id else row.from_object_id) in objects], nextCursor=next_cursor)
+        query = build_snapshot_relation_query(snapshot.model, context, object_id=object_id, direction=direction, relation_type_key=relation_type_key, search=search or None, sort=sort)
+        page = paginate_statement(session, query.statement, keys=query.keys, scope=f"relations-{context.kind}", filters=query.filters, page=paging, page_size=page_size, message="Relation cursor is invalid", rows=True, seek=query.seek)
+        objects = find_objects(session, context, (row.related_id for row in page.items))
+        return RelationPage(items=[RelationExpansion(direction="outgoing" if row.from_object_id == object_id else "incoming", relation=_draft_response(row), object=_draft_object_response(objects[row.related_id], context.id, snapshot.model).model_copy(update={"workspaceKey": context.workspace_key})) for row in page.items if row.related_id in objects], **page.links())
     anchor = load_active_projection(session, object_id)
     workspace = resolve_workspace(session, workspace_key)
     if anchor.workspace_key != workspace.key:
         raise api_error(404, "object_not_found", "Object not found in the selected workspace")
-    clauses = []
-    if direction in {"outgoing", "both"}: clauses.append(ObjectRelation.from_object_id == object_id)
-    if direction in {"incoming", "both"}: clauses.append(ObjectRelation.to_object_id == object_id)
-    from_object, to_object = aliased(RdmObject), aliased(RdmObject)
-    statement = select(ObjectRelation).join(from_object, from_object.id == ObjectRelation.from_object_id).join(to_object, to_object.id == ObjectRelation.to_object_id).where(or_(*clauses), from_object.workspace_key == anchor.workspace_key, to_object.workspace_key == anchor.workspace_key)
-    if relation_type_key: statement = statement.where(ObjectRelation.relation_type_key == relation_type_key)
-    rows, next_cursor = paginate_statement(session, statement, keys=(integer_key("sequenceId", ObjectRelation.sequence_id, "sequence_id"),), scope="relations", filters={"objectId": object_id, "direction": direction, "relationTypeKey": relation_type_key, "workspaceKey": anchor.workspace_key}, cursor=cursor, page_size=page_size, message="Relation cursor is invalid")
-    related_ids = [row.to_object_id if row.from_object_id == object_id else row.from_object_id for row in rows]
-    related = {item.id: item for item in session.scalars(select(RdmObject).where(RdmObject.id.in_(related_ids)))}
-    return RelationPage(items=[RelationExpansion(direction="outgoing" if row.from_object_id == object_id else "incoming", relation=build_relation_response(row), object=build_object_responses(session, snapshot.model, [related[ row.to_object_id if row.from_object_id == object_id else row.from_object_id]])[0]) for row in rows], nextCursor=next_cursor)
+    query = build_relation_query(snapshot.model, object_id=object_id, direction=direction, relation_type_key=relation_type_key, workspace_key=anchor.workspace_key, search=search or None, sort=sort)
+    page = paginate_statement(session, query.statement, keys=query.keys, scope="relations", filters=query.filters, page=paging, page_size=page_size, message="Relation cursor is invalid", rows=True, seek=query.seek)
+    related_ids = list(dict.fromkeys(row.related_id for row in page.items))
+    related_rows = list(session.scalars(select(RdmObject).where(RdmObject.id.in_(related_ids))))
+    # One batched build for the page, not one per row (S1 finding).
+    related = {item.id: item for item in build_object_responses(session, snapshot.model, related_rows)}
+    return RelationPage(items=[RelationExpansion(direction="outgoing" if row.ObjectRelation.from_object_id == object_id else "incoming", relation=build_relation_response(row.ObjectRelation), object=related[row.related_id]) for row in page.items], **page.links())
 
 @router.get("/relations/{relation_id}", response_model=RelationResponse)
 def get_relation(relation_id: str, session: DbSession, snapshot: RequestModelSnapshot, workspace_key: str | None = Query(default=None, alias="workspaceKey"), workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"), workspace_revision_id: str | None = Query(default=None, alias="workspaceRevisionId")) -> RelationResponse:

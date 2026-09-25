@@ -2,10 +2,15 @@ import base64
 import hashlib
 import hmac
 import json
-from typing import Any
+from typing import Any, Literal
 
 from ..config import cursor_signing_key
 from ..errors import api_error
+
+# Where a cursor continues relative to its row: strictly after it, from it (inclusive), strictly
+# before it, or up to it (inclusive). Cursors issued before 0.8 carry no direction and mean "after".
+CursorDirection = Literal["after", "from", "before", "upto"]
+CURSOR_DIRECTIONS: tuple[CursorDirection, ...] = ("after", "from", "before", "upto")
 
 
 def encode_cursor(
@@ -14,15 +19,19 @@ def encode_cursor(
     scope: str,
     sort: tuple[str, ...],
     filters: dict[str, Any],
+    direction: CursorDirection = "after",
 ) -> str:
+    body: dict[str, Any] = {
+        "version": 1,
+        "scope": scope,
+        "sort": sort,
+        "filters": filter_fingerprint(filters),
+        "position": position,
+    }
+    if direction != "after":
+        body["direction"] = direction
     payload = json.dumps(
-        {
-            "version": 1,
-            "scope": scope,
-            "sort": sort,
-            "filters": filter_fingerprint(filters),
-            "position": position,
-        },
+        body,
         sort_keys=True,
         separators=(",", ":"),
     ).encode()
@@ -39,6 +48,29 @@ def decode_cursor(
     position_size: int | None = None,
     message: str = "Cursor is invalid",
 ) -> tuple[str, ...]:
+    direction, position = decode_directed_cursor(
+        cursor,
+        scope=scope,
+        sort=sort,
+        filters=filters,
+        position_size=position_size,
+        message=message,
+    )
+    if direction != "after":
+        raise api_error(422, "invalid_cursor", message)
+    return position
+
+
+def decode_directed_cursor(
+    cursor: str,
+    *,
+    scope: str,
+    sort: tuple[str, ...],
+    filters: dict[str, Any],
+    position_size: int | None = None,
+    message: str = "Cursor is invalid",
+) -> tuple[CursorDirection, tuple[str, ...]]:
+    """Decode a paging cursor into its direction and row position."""
     try:
         encoded_payload, encoded_signature = cursor.split(".")
         payload = _base64_decode(encoded_payload)
@@ -50,6 +82,7 @@ def decode_cursor(
     except (ValueError, json.JSONDecodeError):
         raise api_error(422, "invalid_cursor", message) from None
     position = decoded.get("position") if isinstance(decoded, dict) else None
+    direction = decoded.get("direction", "after") if isinstance(decoded, dict) else None
     if (
         not isinstance(decoded, dict)
         or decoded.get("version") != 1
@@ -60,9 +93,10 @@ def decode_cursor(
         or not position
         or not all(isinstance(item, str) for item in position)
         or (position_size is not None and len(position) != position_size)
+        or direction not in CURSOR_DIRECTIONS
     ):
         raise api_error(422, "invalid_cursor", message)
-    return tuple(position)
+    return direction, tuple(position)
 
 
 METADATA_CURSOR_MESSAGE = "Metadata cursor is invalid"

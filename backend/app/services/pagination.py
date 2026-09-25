@@ -1,26 +1,32 @@
-"""Shared keyset pagination.
+"""Shared keyset pagination (ADR-030).
 
-Every public collection pages with a signed, filter-bound keyset cursor. The two entry points here
-own that mechanism so each endpoint only declares its sort keys:
+Every public collection pages with a signed, filter-bound keyset cursor or, for jumps, a row
+position. The two entry points here own that mechanism so each endpoint only declares its sort keys:
 
 * :func:`paginate_statement` pages a SQLAlchemy select over persisted rows;
 * :func:`paginate_sequence` pages an in-memory sequence of model definitions.
+
+A request selects its page with at most one of ``cursor``, ``position``, ``seek`` or ``from=end``
+(:class:`PageRequest`); none means the first page. Whatever it used, a page returns ``nextCursor``
+and ``prevCursor`` to continue in either direction, an ``anchor`` that reopens the same page, and,
+when asked, ``totalCount`` and ``startIndex``. Cursor reads never repeat or skip a row when data
+changes between requests; position reads address rows by number and can.
 
 Sort keys must form a strict total order: the last key of a statement paginator has to be unique
 within the filtered set, otherwise rows can be skipped or repeated across a page boundary.
 """
 
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import and_, literal, or_
+from sqlalchemy import and_, func, literal, or_, select
 from sqlalchemy.orm import Session
 
 from ..common.time import as_utc
 from ..errors import api_error
-from .cursors import decode_cursor, encode_cursor
+from .cursors import CursorDirection, decode_directed_cursor, encode_cursor
 
 
 @dataclass(frozen=True)
@@ -39,6 +45,74 @@ class SortKey:
     parse: Callable[[str], Any] = str
     format: Callable[[Any], str] = str
     extract: Callable[[Session, Any], Any] | None = None
+
+
+@dataclass(frozen=True)
+class PageRequest:
+    """Which page of a collection to read.
+
+    At most one of ``cursor``, ``position``, ``seek`` and ``from_end`` selects the page; none selects
+    the first page. ``include_total`` adds ``totalCount`` and ``startIndex``, counted under the same
+    filters.
+    """
+
+    cursor: str | None = None
+    position: int | None = None
+    seek: str | None = None
+    from_end: bool = False
+    include_total: bool = False
+
+    def __post_init__(self) -> None:
+        chosen = [
+            name
+            for name, present in (
+                ("cursor", self.cursor is not None),
+                ("position", self.position is not None),
+                ("seek", self.seek is not None),
+                ("from", self.from_end),
+            )
+            if present
+        ]
+        if len(chosen) > 1:
+            raise api_error(
+                422,
+                "conflicting_page_parameters",
+                "Select a page with one of cursor, position, seek or from=end, not "
+                + " and ".join(chosen),
+                {"parameters": chosen},
+            )
+        if self.position is not None and self.position < 0:
+            raise api_error(
+                422,
+                "invalid_position",
+                "position must be zero or greater",
+                {"path": "/query/position"},
+            )
+
+
+FIRST_PAGE = PageRequest()
+
+
+@dataclass(frozen=True)
+class Page[Item]:
+    """One page in list order, with the cursors to continue from it."""
+
+    items: list[Item]
+    next_cursor: str | None = None
+    prev_cursor: str | None = None
+    anchor: str | None = None
+    total_count: int | None = None
+    start_index: int | None = None
+
+    def links(self) -> dict[str, Any]:
+        """The page's navigation fields, as every page response names them."""
+        return {
+            "nextCursor": self.next_cursor,
+            "prevCursor": self.prev_cursor,
+            "anchor": self.anchor,
+            "totalCount": self.total_count,
+            "startIndex": self.start_index,
+        }
 
 
 def integer_key(name: str, column: Any, attribute: str, *, descending: bool = False) -> SortKey:
@@ -67,6 +141,28 @@ def cursor_sort(keys: Sequence[SortKey]) -> tuple[str, ...]:
     return tuple(f"-{key.name}" if key.descending else key.name for key in keys)
 
 
+def seek_predicate(keys: Sequence[SortKey], values: Sequence[Any]) -> Any:
+    """Rows at or after ``values`` on a leading prefix of ``keys``, in list order."""
+    return _keyset_predicate(keys[: len(values)], values, backward=False, inclusive=True)
+
+
+def seek_error(message: str = "Seek value is invalid for the list's sort") -> Exception:
+    return api_error(422, "invalid_seek", message, {"path": "/query/seek"})
+
+
+def leading_key_seek(keys: Sequence[SortKey]) -> Callable[[str], Any]:
+    """Seek on the first sort key, parsed as its cursor token is."""
+
+    def seek(raw: str) -> Any:
+        try:
+            value = keys[0].parse(raw)
+        except ValueError:
+            raise seek_error() from None
+        return seek_predicate(keys, [value])
+
+    return seek
+
+
 def paginate_statement[Row](
     session: Session,
     statement: Any,
@@ -74,16 +170,21 @@ def paginate_statement[Row](
     keys: Sequence[SortKey],
     scope: str,
     filters: dict[str, Any],
-    cursor: str | None,
+    page: PageRequest,
     page_size: int,
     cursor_sort_tokens: tuple[str, ...] | None = None,
     message: str = "Cursor is invalid",
     rows: bool = False,
-) -> tuple[list[Row], str | None]:
+    seek: Callable[[str], Any] | None = None,
+) -> Page[Row]:
     """Page a select with a lexicographic keyset predicate over ``keys``.
 
     A statement over one mapped entity returns its instances; with ``rows=True`` a statement over
-    labelled columns (a draft or revision projection) returns result rows.
+    labelled columns (a draft or revision projection) returns result rows. ``seek`` turns a
+    ``seek`` value into a predicate; without it, seek applies to the first sort key.
+
+    Besides the page itself a read costs at most one probe for the opposite edge and, with totals,
+    two counts: its statement count does not depend on the dataset.
     """
     if not keys:
         raise ValueError("Keyset pagination requires at least one sort key")
@@ -91,33 +192,107 @@ def paginate_statement[Row](
     if len(sort) != len(keys):
         raise ValueError("Cursor sort tokens must match the keyset width")
 
-    if cursor is not None:
-        position = decode_cursor(
-            cursor,
+    def fetch(where: Any, limit: int, *, backward: bool = False, offset: int = 0) -> list[Any]:
+        selected = statement if where is None else statement.where(where)
+        selected = selected.order_by(*(_order(key, backward) for key in keys)).limit(limit)
+        if offset:
+            selected = selected.offset(offset)
+        return list(session.execute(selected).all() if rows else session.scalars(selected))
+
+    positions: dict[int, tuple[str, ...]] = {}
+
+    def position_of(row: Any) -> tuple[str, ...]:
+        if id(row) not in positions:
+            positions[id(row)] = _row_position(session, keys, row)
+        return positions[id(row)]
+
+    def beyond(row: Any, *, backward: bool) -> Any:
+        values = _parse_position(keys, position_of(row), message)
+        return _keyset_predicate(keys, values, backward=backward, inclusive=False)
+
+    backward = False
+    # Rows before the page when known without a probe: the first page and position reads.
+    known_before: int | None = None
+    if page.cursor is not None:
+        direction, token = decode_directed_cursor(
+            page.cursor,
             scope=scope,
             sort=sort,
             filters=filters,
             position_size=len(keys),
             message=message,
         )
-        values = _parse_position(keys, position, message)
-        statement = statement.where(_keyset_predicate(keys, values))
-
-    statement = statement.order_by(
-        *(key.column.desc() if key.descending else key.column.asc() for key in keys)
-    )
-    limited = statement.limit(page_size + 1)
-    fetched = list(session.execute(limited).all() if rows else session.scalars(limited))
-    visible = fetched[:page_size]
-    next_cursor = None
-    if len(fetched) > page_size:
-        next_cursor = encode_cursor(
-            _row_position(session, keys, visible[-1]),
-            scope=scope,
-            sort=sort,
-            filters=filters,
+        backward = direction in {"before", "upto"}
+        predicate = _keyset_predicate(
+            keys,
+            _parse_position(keys, token, message),
+            backward=backward,
+            inclusive=direction in {"from", "upto"},
         )
-    return visible, next_cursor
+        fetched = fetch(predicate, page_size + 1, backward=backward)
+    elif page.seek is not None:
+        fetched = fetch((seek or leading_key_seek(keys))(page.seek), page_size + 1)
+    elif page.position is not None:
+        known_before = page.position
+        fetched = fetch(None, page_size + 1, offset=page.position)
+    elif page.from_end:
+        backward = True
+        fetched = fetch(None, page_size + 1, backward=True)
+    else:
+        known_before = 0
+        fetched = fetch(None, page_size + 1)
+
+    visible = fetched[:page_size]
+    more = len(fetched) > page_size
+    if backward:
+        visible.reverse()
+    has_before, has_after = (more, False) if backward else (False, more)
+    # An empty page has no row to continue from, so it continues from the nearest row instead.
+    edge_first = edge_last = None
+    if backward and not page.from_end:
+        if visible:
+            has_after = bool(fetch(beyond(visible[-1], backward=False), 1))
+        else:
+            edge_first = next(iter(fetch(None, 1)), None)
+    elif not backward:
+        if visible and known_before is None:
+            has_before = bool(fetch(beyond(visible[0], backward=True), 1, backward=True))
+        elif visible:
+            has_before = known_before > 0
+        elif known_before != 0:
+            edge_last = next(iter(fetch(None, 1, backward=True)), None)
+
+    def encode(row: Any, direction: CursorDirection) -> str:
+        return encode_cursor(
+            position_of(row), scope=scope, sort=sort, filters=filters, direction=direction
+        )
+
+    result = Page(
+        items=visible,
+        next_cursor=(
+            encode(visible[-1], "after")
+            if visible and has_after
+            else encode(edge_first, "from") if edge_first is not None else None
+        ),
+        prev_cursor=(
+            encode(visible[0], "before")
+            if visible and has_before
+            else encode(edge_last, "upto") if edge_last is not None else None
+        ),
+        anchor=encode(visible[0], "from") if visible else None,
+    )
+    if not page.include_total:
+        return result
+    total = _count(session, statement)
+    if not visible:
+        start = 0 if backward or known_before == 0 else total
+    elif known_before is not None:
+        start = known_before
+    elif page.from_end:
+        start = total - len(visible)
+    else:
+        start = _count(session, statement.where(beyond(visible[0], backward=True)))
+    return replace(result, total_count=total, start_index=start)
 
 
 def paginate_sequence[Item](
@@ -126,44 +301,73 @@ def paginate_sequence[Item](
     *,
     scope: str,
     filters: dict[str, Any] | None = None,
-    cursor: str | None,
+    page: PageRequest = FIRST_PAGE,
     page_size: int,
     sort: tuple[str, ...] = ("key",),
     descending: bool = False,
     message: str = "Cursor is invalid",
-) -> tuple[list[Item], str | None]:
+) -> Page[Item]:
     """Page an in-memory sequence ordered by its identity tuple."""
     cursor_filters = filters or {}
     ordered = sorted(items, key=identity, reverse=descending)
-    if cursor is not None:
-        cursor_identity = decode_cursor(
-            cursor,
-            scope=scope,
-            sort=sort,
-            filters=cursor_filters,
-            message=message,
+    count = len(ordered)
+    if page.seek is not None:
+        raise seek_error("This collection does not support seek")
+    if page.cursor is not None:
+        direction, token = decode_directed_cursor(
+            page.cursor, scope=scope, sort=sort, filters=cursor_filters, message=message
         )
-        expected_width = len(identity(ordered[0])) if ordered else len(cursor_identity)
-        if len(cursor_identity) != expected_width:
+        expected_width = len(identity(ordered[0])) if ordered else len(token)
+        if len(token) != expected_width:
             raise api_error(422, "invalid_cursor", message)
-        ordered = [
-            item
-            for item in ordered
-            if (identity(item) < cursor_identity if descending else identity(item) > cursor_identity)
-        ]
-    page = ordered[: page_size + 1]
-    visible = page[:page_size]
-    next_cursor = (
-        encode_cursor(
-            identity(visible[-1]),
-            scope=scope,
-            sort=sort,
-            filters=cursor_filters,
+        precedes = (lambda item: item > token) if descending else (lambda item: item < token)
+        before = sum(1 for item in ordered if precedes(identity(item)))
+        through = sum(1 for item in ordered if precedes(identity(item)) or identity(item) == token)
+        if direction in {"after", "from"}:
+            start = through if direction == "after" else before
+            end = min(count, start + page_size)
+        else:
+            end = before if direction == "before" else through
+            start = max(0, end - page_size)
+    elif page.position is not None:
+        start = page.position
+        end = min(count, start + page_size)
+    elif page.from_end:
+        end = count
+        start = max(0, end - page_size)
+    else:
+        start, end = 0, min(count, page_size)
+    visible = list(ordered[start:end])
+
+    def encode(item: Item, direction: CursorDirection) -> str:
+        return encode_cursor(
+            identity(item), scope=scope, sort=sort, filters=cursor_filters, direction=direction
         )
-        if len(page) > page_size
-        else None
+
+    next_cursor = prev_cursor = None
+    if visible:
+        next_cursor = encode(visible[-1], "after") if end < count else None
+        prev_cursor = encode(visible[0], "before") if start > 0 else None
+    elif ordered and start >= count:
+        prev_cursor = encode(ordered[-1], "upto")
+    elif ordered:
+        next_cursor = encode(ordered[0], "from")
+    return Page(
+        items=visible,
+        next_cursor=next_cursor,
+        prev_cursor=prev_cursor,
+        anchor=encode(visible[0], "from") if visible else None,
+        total_count=count if page.include_total else None,
+        start_index=min(start, count) if page.include_total else None,
     )
-    return visible, next_cursor
+
+
+def _order(key: SortKey, backward: bool) -> Any:
+    return key.column.asc() if key.descending == backward else key.column.desc()
+
+
+def _count(session: Session, statement: Any) -> int:
+    return session.scalar(select(func.count()).select_from(statement.order_by(None).subquery()))
 
 
 def _parse_position(
@@ -175,28 +379,40 @@ def _parse_position(
         raise api_error(422, "invalid_cursor", message) from None
 
 
-def _keyset_predicate(keys: Sequence[SortKey], values: Sequence[Any]) -> Any:
-    """Lexicographic ``(k0, k1, ...) > (v0, v1, ...)`` honoring each key's direction."""
+def _keyset_predicate(
+    keys: Sequence[SortKey], values: Sequence[Any], *, backward: bool, inclusive: bool
+) -> Any:
+    """Lexicographic ``(k0, k1, ...) > (v0, v1, ...)`` in list order, honoring each key's direction.
+
+    ``backward`` selects the rows before the position instead; ``inclusive`` adds the rows equal
+    to it.
+    """
     clauses = []
     # Bind positions as typed literals: SQLAlchemy refuses ``column > True`` for a bare boolean.
     bound = [
         None if value is None else literal(value, key.column.type)
         for key, value in zip(keys, values, strict=True)
     ]
+
+    def past(key: SortKey, value: Any) -> Any:
+        return key.column > value if key.descending == backward else key.column < value
+
     for index, (key, value) in enumerate(zip(keys, bound, strict=True)):
-        comparison = None if value is None else (key.column < value if key.descending else key.column > value)
+        comparison = None if value is None else past(key, value)
         equalities = [
             previous.column == previous_value
             for previous, previous_value in zip(keys[:index], bound[:index], strict=True)
         ]
         if comparison is not None:
             clauses.append(and_(*equalities, comparison) if equalities else comparison)
+    if inclusive:
+        clauses.append(and_(*(key.column == value for key, value in zip(keys, bound, strict=True))))
     first, first_value = keys[0], bound[0]
     if first_value is None:
         return or_(*clauses)
-    # Implied by every clause; stated so an index on the first key can seek to the cursor instead
+    # Implied by every clause; stated so an index on the first key can seek to the position instead
     # of scanning every row before it.
-    leading = first.column <= first_value if first.descending else first.column >= first_value
+    leading = first.column >= first_value if first.descending == backward else first.column <= first_value
     return and_(leading, or_(*clauses))
 
 

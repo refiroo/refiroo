@@ -10,12 +10,15 @@ Every row is generated from a seeded ``random.Random``, so a shape always produc
 public IDs included. :data:`FULL_SHAPE` is the plan's volume; tests use a scaled-down shape.
 """
 
+import json
 import random
+import shutil
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -576,3 +579,32 @@ def measure(engine: Engine) -> Iterator[RequestCost]:
         cost.seconds = time.perf_counter() - started
         event.remove(engine, "before_cursor_execute", on_execute)
         event.remove(Base, "load", on_load)
+
+
+@contextmanager
+def volume_app(template: Path, directory: Path, shape: VolumeShape) -> Iterator[tuple[Any, VolumeDataset]]:
+    """A test client over a copy of the migrated ``template`` holding the seeded volume data."""
+    # Imported here: the baseline script must set its database before the app is imported.
+    import pytest
+    from fastapi.testclient import TestClient
+
+    from app.config import reload_settings
+    from app.db import get_engine
+    from app.main import create_app
+    from app.services.model.registry import model_registry
+
+    database = directory / "volume.db"
+    shutil.copyfile(template, database)
+    model_path = directory / "volume-model.json"
+    model_path.write_text(json.dumps(volume_model()))
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setenv("DATABASE_URL", f"sqlite:///{database}")
+        patch.setenv("RDM_MODEL_PATH", str(model_path))
+        model_registry.clear()
+        try:
+            with TestClient(create_app()) as client:
+                yield client, seed_volume(get_engine(), shape)
+        finally:
+            get_engine().dispose()
+    reload_settings()
+    model_registry.clear()

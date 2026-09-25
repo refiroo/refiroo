@@ -7,8 +7,8 @@ this file directly for the full-volume figures recorded in the Base 0.8 plan::
 
     cd backend && .venv/bin/python tests/volume_baseline.py --scale 1 --repeat 5
 
-Middle and last pages are reached with a cursor built by the production query and cursor code,
-because today's API has no position read (S3) and walking 5,000 pages in a draft is impractical.
+Middle and last pages are reached with a cursor built by the production query and cursor code, as
+a client scrolling there would hold one; S3 adds position, end, backward and seek reads beside them.
 """
 
 import argparse
@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from volume_fixture import (
+    GROUP,
     ITEM,
     WORKSPACE,
     VolumeDataset,
@@ -64,11 +65,17 @@ def context_params(context: str, dataset: VolumeDataset) -> dict[str, str]:
 
 
 def object_cursor(
-    engine: Engine, context: str, dataset: VolumeDataset, *, parent: str | None, offset: int
+    engine: Engine,
+    context: str,
+    dataset: VolumeDataset,
+    *,
+    parent: str | None,
+    offset: int,
+    direction: str = "after",
 ) -> tuple[str, int]:
-    """A name-sorted item cursor positioned after ``offset`` rows, and the list's length.
+    """A name-sorted item cursor at row ``offset`` (one-based), and the list's length.
 
-    The cursor is the one the endpoint itself would have issued after ``offset`` rows.
+    The cursor is the one the endpoint itself would have issued for that row in ``direction``.
     """
     from app.services.cursors import encode_cursor
     from app.services.model.compiler import parse_model
@@ -108,7 +115,13 @@ def object_cursor(
         record = row[0] if context == "live" else row
         position = _row_position(session, query.keys, record)
         return (
-            encode_cursor(position, scope=scope, sort=cursor_sort(query.keys), filters=query.filters),
+            encode_cursor(
+                position,
+                scope=scope,
+                sort=cursor_sort(query.keys),
+                filters=query.filters,
+                direction=direction,
+            ),
             total,
         )
 
@@ -127,6 +140,10 @@ def _read_scenarios(
         engine, context, dataset, parent=dataset.heavy_group_id, offset=heavy_total // 2
     )
     heavy = {**page, "parentObjectId": dataset.heavy_group_id}
+    before_middle, _ = object_cursor(
+        engine, context, dataset, parent=None, offset=total // 2, direction="before"
+    )
+    citations = {**base, "objectId": dataset.cited_group_id, "pageSize": PAGE_SIZE}
     return [
         ("objects: first page", items, page),
         ("objects: middle page", items, {**page, "cursor": middle}),
@@ -149,6 +166,31 @@ def _read_scenarios(
             {**base, "objectId": dataset.heavy_group_id, "pageSize": PAGE_SIZE},
         ),
         ("record: single read", f"{items}/{dataset.live_item_id}", base),
+        # S3 and S4 reads.
+        ("objects: last page by from=end, total", items, {**page, "from": "end", "includeTotal": True}),
+        ("objects: backward page from the middle", items, {**page, "cursor": before_middle}),
+        ("objects: seek by name, total", items, {**page, "seek": "Item 0005", "includeTotal": True}),
+        ("objects: position ¾ deep, total", items, {**page, "position": total * 3 // 4, "includeTotal": True}),
+        (
+            "children: heavy parent, position ¾ deep, total",
+            items,
+            {**heavy, "position": heavy_total * 3 // 4, "includeTotal": True},
+        ),
+        (
+            "roots: top-level page, total",
+            f"/api/v1/objects/{GROUP}",
+            {**page, "topLevel": True, "includeTotal": True},
+        ),
+        (
+            "relations: 1,500-relation record by name, total",
+            "/api/v1/relations",
+            {**citations, "sort": "name", "includeTotal": True},
+        ),
+        (
+            "relations: 1,500-relation record, search",
+            "/api/v1/relations",
+            {**citations, "search": "Item 0", "sort": "-name"},
+        ),
     ]
 
 

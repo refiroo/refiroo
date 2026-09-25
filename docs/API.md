@@ -70,6 +70,63 @@ key:
 }
 ```
 
+## Collection paging
+
+Every collection endpoint pages in one of two modes (Base 0.8 S3,
+[ADR-030](DECISIONS.md#adr-030--cursor-and-position-paging-with-continuous-scrolling)). A request
+selects its page with **at most one** of these parameters; none reads the first page.
+
+| Parameter | Reads |
+| --- | --- |
+| `cursor` | The page after (`nextCursor`) or before (`prevCursor`) a row, or the page an `anchor` reopens |
+| `from=end` | The last page (`from=start`, the default, is the first page) |
+| `position=N` | The page starting at zero-based row `N` of the filtered, sorted list |
+| `seek=<value>` | The page starting at the first row whose sort value is at or after the value (at or before it for a descending sort); objects, relations and mapping coverage only |
+
+`pageSize` keeps its per-endpoint default and maximum. `includeTotal=true` adds counts, taken under
+the same filters. Combining two selectors returns `422 conflicting_page_parameters` with the
+parameters in `details.parameters`; a negative `position` is `422 request_validation_error`.
+
+Every page returns, in list order:
+
+```json
+{
+  "items": [],
+  "nextCursor": null,
+  "prevCursor": null,
+  "anchor": null,
+  "totalCount": null,
+  "startIndex": null
+}
+```
+
+- `nextCursor` continues after the last row and `prevCursor` before the first; each is `null` only
+  at that end of the list. A backward read returns rows in list order, so walking back from the end
+  can yield a short first page.
+- `anchor` reopens this page from its first row: keep it (for example in a URL) instead of a trail of
+  cursors. It is `null` for an empty page.
+- `totalCount` and `startIndex` (the number of matching rows before the first row) are present only
+  with `includeTotal=true`; otherwise they are `null` and cost nothing.
+- A position at or past the end returns no items, `startIndex` equal to `totalCount`, and a
+  `prevCursor` to the last page.
+
+**Consistency.** Cursor reads never repeat or skip a row when data changes between requests: a
+cursor names a row by its sort values, so inserts and deletes elsewhere do not move it. Position
+reads address rows by number, so a concurrent insert or delete before row `N` moves the landing
+point, and consecutive position reads can repeat or miss a row at a page boundary. Read a whole list
+with cursors; use positions for jumps (a scrollbar or a page number). A position read costs a scan
+over the skipped rows; `seek` is the fast jump in a very large list.
+
+Cursors stay signed, opaque and bound to their endpoint, ordering, filters and context; reusing one
+with another sort, filter or context returns `422 invalid_cursor`. Cursors issued before 0.8 continue
+forward as before.
+
+`seek` takes the lexical form of the sorted field (ISO 8601 for dates, `true`/`false` for booleans)
+and applies to the sort in effect; rows without a value, which sort last, follow the seeked rows. A
+seek value that does not parse, or a seek on an order that has no public value (the default live
+object order is the internal creation sequence; relation lists without `sort`), returns
+`422 invalid_seek`.
+
 ## Model endpoints
 
 - `GET /api/v1/model`
@@ -146,7 +203,7 @@ Both headers and the body come from the same request-scoped installed release sn
 - `GET /api/v1/model-runtime-state`
 - `POST /api/v1/model-releases/{releaseId}/activation`
 
-The collection returns the standard `{items, nextCursor}` page. A release summary and detail share
+The collection returns the standard [page](#collection-paging). A release summary and detail share
 this identity shape; `model` is included only on detail when `includeModel=true`:
 
 ```json
@@ -168,8 +225,8 @@ release installation and activation are mutation-gated.
 
 Release activations read the recorded selections of one release as the active model, oldest first,
 from the existing audit trail. Each item names the release it replaced, so the first item identifies
-the predecessor the release was introduced over. It is an always-readable, cursor-paged `{items,
-nextCursor}` page (default `pageSize` 100, maximum 500); an unknown release returns `404
+the predecessor the release was introduced over. It is an always-readable, cursor-paged standard
+[page](#collection-paging) (default `pageSize` 100, maximum 500); an unknown release returns `404
 model_release_not_found`:
 
 ```json
@@ -384,18 +441,10 @@ The generated contract includes representative `invalid_cursor`, `version_confli
 `request_validation_error` examples; concrete status codes and endpoint-specific codes remain as
 documented in the sections above.
 
-All metadata collection endpoints accept an opaque `cursor` and a `pageSize` from 1 to 500 (default
-100). They return:
-
-```json
-{
-  "items": [],
-  "nextCursor": null
-}
-```
-
-Pass a non-null `nextCursor` unchanged to retrieve the next page. Metadata cursors are derived from
-stable model keys, never database sequence IDs.
+All metadata collection endpoints accept a `pageSize` from 1 to 500 (default 100) and the
+[collection paging](#collection-paging) parameters except `seek`, and return the standard page
+(`items`, `nextCursor`, `prevCursor`, `anchor`, `totalCount`, `startIndex`). Pass cursors back
+unchanged. Metadata cursors are derived from stable model keys, never database sequence IDs.
 
 ### Applications response
 
@@ -757,8 +806,9 @@ version rather than assuming every record read returns one.
 - `PATCH /api/v1/objects/{objectTypeKey}/{objectId}` — update an object
 - `DELETE /api/v1/objects/{objectTypeKey}/{objectId}` — delete an object
 
-Object collections accept `cursor`, `pageSize`, `applicationKey`, `workspaceKey`, optional
-`workspaceDraftId` or `workspaceRevisionId`, `parentObjectId`, `search`, one `sort` and typed filters named
+Object collections accept the [collection paging](#collection-paging) parameters (including `seek`),
+`pageSize`, `applicationKey`, `workspaceKey`, optional
+`workspaceDraftId` or `workspaceRevisionId`, `parentObjectId` or `topLevel`, `search`, one `sort` and typed filters named
 `filter.<field>.<operator>=<value>`. Built-in fields and model attributes with the corresponding
 `filterable` or `sortable` feature are available; JSON attributes are excluded. Prefix a sort with
 `-` for descending order. Null and unset attribute values sort last in either direction, and every
@@ -766,6 +816,11 @@ live ordering uses the internal sequence as a non-public final tie-breaker. Omit
 creation sequence order. Drafts and history record no creation sequence: there the record ID is the
 final tie-breaker, and omitting `sort` orders by ID. Page size defaults to 100 and has a documented
 maximum of 500. `nextCursor` is null only when that traversal is complete.
+
+`topLevel=true` (Base 0.8 S4) lists only records without a parent, so a tree can page a root type
+without loading its descendants; it holds in draft and history contexts too. It cannot be combined
+with `parentObjectId` (`422 mutually_exclusive_scope`). A branch whose children have several types
+pages each child type separately with `parentObjectId`; there is no mixed-type list.
 
 Search, typed filters and sort mean the same in live, draft and history contexts (Base 0.8 S2): the
 same query over the same data returns the same records in the same order, apart from the order of
@@ -1094,10 +1149,20 @@ Live update/delete claim only the relation `expectedVersion`; creation has no ex
 Endpoints identify their workspace; live mutation payloads do not accept a new `workspaceKey` field.
 
 `GET /api/v1/relations` accepts its existing `objectId`, `direction` and `relationTypeKey` filters plus
-bounded `pageSize` (1–500, default 100) and opaque `cursor`. It returns
-`{"items": [...], "nextCursor": null}` rather than an unbounded array. A legitimate collection with
-no matching relationships returns `{"items": [], "nextCursor": null}`. The cursor is signed and bound
-to the anchor object, direction, relation type and effective workspace. Draft/history continuations
+bounded `pageSize` (1–500, default 100) and the [collection paging](#collection-paging) parameters,
+including `seek`. It returns the standard page rather than an unbounded array; a legitimate collection
+with no matching relationships returns an empty `items`. The cursor is signed and bound
+to the anchor object, direction, relation type, search and effective workspace.
+
+Base 0.8 S4 adds `search` and `sort`, with the same meaning in live, draft and history contexts:
+
+- `search` matches the related record (the other end of each relation) by name or by any attribute
+  whose type is `searchable`, as a literal, case-insensitive substring.
+- `sort=name` orders by the related record's name; `sort=createdAt` orders by relation creation and
+  is live only (drafts and history record no timestamps: `422 invalid_sort`). Prefix `-` for
+  descending. Without `sort`, live lists keep creation order and drafts and history order by relation
+  ID, as before. Ties break on creation order live and on relation ID in drafts and history.
+- `seek` needs a `sort`: a name, or an ISO 8601 creation time. Draft/history continuations
 add their selected context identity; live continuations do not bind an active revision or model.
 Publication alone does not invalidate a live continuation. Malformed or mismatched cursors return `422 invalid_cursor`. Both relation endpoint objects are joined in the anchor object's
 workspace before projection, preventing a corrupt or legacy cross-workspace edge from being exposed.
@@ -1190,7 +1255,7 @@ endpoint. Composed acceptance remains in WP-9. WP-1–WP-3 scopes remain frozen.
   and optional paired `applicationKey`/`viewKey` for view-specific projection, plus `sourceObjectId`, required nonnegative `mappingVersion`,
   optional `cursor`, `pageSize` (1–100; default 20), and one optional `workspaceDraftId` or
   `workspaceRevisionId`.
-  It returns `{mappingVersion, targetCount, items, nextCursor}`. An observed-version mismatch returns
+  It returns `{mappingVersion, targetCount, items}` with the [paging fields](#collection-paging). An observed-version mismatch returns
   `409 mapping_version_conflict` with an instruction to refresh coverage and the current version in
   `error.details.mappingVersion`. A cursor for another version, anchor or context is `422 invalid_cursor`.
   Confirmed live/draft object cascade deletion advances both directional set versions for every
@@ -1231,6 +1296,8 @@ For example, a coverage page has this shape (cursor strings are opaque):
 }
 ```
 
+The page also carries the [collection paging](#collection-paging) fields (omitted above).
+Coverage accepts `seek` by source ID, its sort; candidates and target details page without it.
 An ambiguous row reports the complete `targetCount`, up to 20 targets and `targetsNextCursor`.
 Pass that cursor to `mapping-targets` with the row's source ID and mapping version to continue beyond
 the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
@@ -1250,11 +1317,10 @@ the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
   - `workspaceDraftId` — read from a draft snapshot instead of live data.
   - `search` — case-insensitive substring on source or target name (max 500 characters).
   - `cursor`, `pageSize` (1–100; defaults to 20 without a view, or the view's configured page size).
-- Returns `{items, nextCursor}`. Each item contains `relationId`, `relationTypeKey`, `direction`
+- Returns the standard page. Each item contains `relationId`, `relationTypeKey`, `direction`
   (`"outgoing"` or `"incoming"`), `source` and `target` object summaries, the stored relation
   `attributes` and the source anchor's `mappingVersion`.
-- Pagination is cursor-based and currently forward only. 0.8 adds position (page-number) paging,
-  backward cursors, optional totals and seek by value (ADR-030).
+- Pages with the [collection paging](#collection-paging) parameters except `seek`.
 - Unlike coverage, the list shows only existing edges — unmapped sources do not appear. This is useful
   for export, integration, flat-list views, and ad-hoc exploration where the source-anchored grouping
   of coverage is not needed and parameters may not be known upfront.
