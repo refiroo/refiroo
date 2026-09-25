@@ -466,6 +466,22 @@ describe("MappingGridView — mapping actions (WP-8B)", () => {
     );
   });
 
+  it.each([
+    ["outgoing", mappingView],
+    ["incoming", incomingView],
+  ])("does not offer removal of a required mapping (%s view)", async (_direction, view) => {
+    const requiredModel = structuredClone(mappingModel);
+    requiredModel.objectTypeRelations.find((binding) => binding.relationTypeKey === "maps-to")!.required = true;
+    renderGrid({ model: requiredModel, application: requiredModel.applications[0], view });
+
+    await waitFor(() => expect(api.mappingCoverage).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: /Change mapping for Connections/ }));
+    await waitFor(() => expect(api.mappingCandidates).toHaveBeenCalled());
+
+    expect(screen.queryByRole("button", { name: "Remove mapping" })).not.toBeInTheDocument();
+    expect(screen.getByText(/This mapping is required/)).toBeInTheDocument();
+  });
+
   it("handles mapping version conflict and allows retry", async () => {
     const conflictError = new ApiError(409, "mapping_version_conflict", "Mapping changed", {
       mappingVersion: 7,

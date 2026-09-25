@@ -27,16 +27,17 @@ cd backend && .venv/bin/python -m pytest -m mapping -q
 | Marker | Contracts (coverage map) | Modules | Cases |
 | --- | --- | --- | --- |
 | `model` | INV-01/02/03/04/06, compatibility classes | `test_model`, `test_model_diagnostics`, `test_model_independence`, `test_model_compatibility` | 109 |
-| `model_admin` | C-MOD-*, C-DR-PIN, C-MOD-ACT | `test_model_lifecycle`, `test_build07_wp11`, `test_build07_wp6`, `test_model_compatibility`, `test_model_schema_upgrade`, `test_wp81a_context` | 92 |
+| `model_admin` | C-MOD-*, C-DR-PIN, C-MOD-ACT | `test_model_lifecycle`, `test_build07_wp11`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_model_compatibility`, `test_model_schema_upgrade`, `test_wp81a_context` | 93 |
 | `startup` | C-BOOT, C-MIG, C-SCHEMA-UP, INV-15 (startup) | `test_startup`, `test_migrations`, `test_wp8_audit_migration`, `test_model_schema_upgrade` | 24 |
 | `records` | C-OBJ-*, C-ATTR, C-REL, C-DEL, C-TR, C-HIST-OBJ, INV-05/10/12 (live) | `test_api`, `test_attributes`, `test_relations`, `test_translations`, `test_cascade_delete`, `test_query_foundations`, `test_wp8_review_regressions`, `test_relation_set_versions` | 113 |
 | `queries` | C-Q-FILTER, C-Q-SCOPE, INV-07/08/11 | `test_pagination`, `test_typed_table_queries`, `test_query_foundations` | 25 |
-| `workspaces` | C-WS-*, C-PUB-RET, INV-14/16 | `test_workspaces`, `test_wp81a_context`, `test_request_scope`, `test_wp8_retirement` | 30 |
-| `drafts` | C-DR-*, C-REV, C-PUB-RET | `test_workspace_revisions`, `test_wp7_canonical_crud`, `test_wp8_*` (except audit migration), `test_wp81b_current_live_bases`, `test_build07_wp6`, `test_typed_table_queries`, `test_mapping_replacement`, `test_wp8_retirement` | 201 |
+| `workspaces` | C-WS-*, C-PUB-RET, INV-14/16 | `test_workspaces`, `test_wp81a_context`, `test_request_scope`, `test_wp8_retirement`, `test_build07_wp9_acceptance` | 31 |
+| `drafts` | C-DR-*, C-REV, C-PUB-RET | `test_workspace_revisions`, `test_wp7_canonical_crud`, `test_wp8_*` (except audit migration), `test_wp81b_current_live_bases`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_typed_table_queries`, `test_mapping_replacement`, `test_wp8_retirement` | 202 |
 | `mapping` | C-MAP-R, C-MAP-W, C-MAP-SET | `test_mapping_coverage`, `test_mapping_replacement`, `test_relation_set_versions` | 115 |
 | `contract` | OpenAPI lock and route inventories | `test_openapi_contract` | 7 |
 
-Counts are collected cases on 2026-09-24 (532 in total). A module carries several markers when it is
+Counts are collected cases on 2026-09-24 (532 in total); group counts include the WP-9 composed
+SC-15 case. The full suite collected 534 cases at WP-9 build acceptance (2026-09-25). A module carries several markers when it is
 evidence for several groups, so groups overlap and their counts do not add up to the total.
 
 **Unclassified tests are refused.** A module missing from `TEST_GROUPS` fails collection with exit
@@ -84,6 +85,8 @@ Chrome. Setup costs ~2.8 s per runner (section 4). Pick by surface:
 | `e2e/wp12-release-identity.mjs` (`test:browser:wp12`) | C-MOD-DIFF release identity and history comparison |
 | `e2e/wp14-contextual-browser.mjs` (`test:browser:wp14`) | C-Q-SCOPE, C-MAP-UI, contextual collections |
 | `e2e/wp13c-ui-states.mjs` (`test:browser:wp13c`) | C-MAP-UI and C-DR-PIN changed states: outage/retry, empty, conflict review, draft-context mapping, non-active-release draft, narrow layout ([UI acceptance](UI_ACCEPTANCE.md)) |
+| `e2e/sc07-mapping-acceptance.mjs` (`test:browser:sc07`) | WP-9 composed SC-07: C-MAP-UI/W/SET across the starter binding in both directions and an independent binding with a typed relation attribute; candidates beyond page one, large ambiguous sets, generic-write race, draft activation against a divergent live set |
+| `e2e/sc15-model-version-acceptance.mjs` (`test:browser:sc15`) | WP-9 composed SC-15: C-DR-PIN and C-MOD-ACT with two same-schema releases and an incompatible one; refusals leave live, history and another workspace untouched |
 | `e2e/accessibility-gate.mjs` (`test:a11y`) | C-UI-A11Y, T5 build gate |
 | `e2e/visual-regression-gate.mjs` (`test:visual`) | C-UI-A11Y visual stability, T5 build gate |
 
@@ -169,7 +172,8 @@ pytest processes at once: they share `backend/tests/test-rdm-engine.db`.
 (cd frontend && npm run test && npm run test:gate-helpers)
 (cd frontend && npm run test:browser && npm run test:browser:authoring && npm run test:browser:drafts \
   && npm run test:browser:history && npm run test:browser:wp11 && npm run test:browser:wp12 \
-  && npm run test:browser:wp14 && npm run test:browser:wp13c)
+  && npm run test:browser:wp14 && npm run test:browser:wp13c \
+  && npm run test:browser:sc07 && npm run test:browser:sc15)
 (cd frontend && npm run test:a11y && npm run test:visual)
 ```
 

@@ -161,6 +161,15 @@ surviving versions after a temporary live add/delete. The browser story, attempt
 contextual creation and new-control accessibility/visual acceptance remain WP-8A/WP-8B/WP-9;
 PostgreSQL concurrency was not exercised.
 
+**Composed evidence — WP-9, 2026-09-25:** `test:browser:sc07` passes against a real backend with the
+starter binding in both directions and an independent binding (own labels, integer relation attribute):
+“Collection” search and keyboard-only save, a target first listed on page two, a 25-target ambiguous
+row through bounded preview and continuation, retained relation identity and attribute, a racing
+generic write with the attempted choice kept, and a live edit to the draft's touched set refusing
+activation until withdrawn. WP-13C covers cancelled and completed contextual creation. Removal is
+offered only for non-required bindings (WP-10H). PostgreSQL concurrency remains unexercised. See the
+[plan's WP-9 record](../BASE_0_7_IMPLEMENTATION_PLAN.md#wp-9-composed-product-validation--sc-07-and-sc-15).
+
 **Simplicity check:** the user selects a business target, not individual links to delete and recreate.
 
 ## SC-08 — Understand history without accidentally promising rollback
@@ -320,6 +329,13 @@ change leaves content, pin and version unchanged. Test concurrent edits and exte
 removed-view recovery, obsolete cursor reset and dirty-input protection. A retained older pin stays
 readable/editable and is described neutrally. Live, history, other drafts and other workspaces remain
 unchanged. Version-selection controls and diagnostics require accessibility and visual evidence.
+
+**Composed evidence — WP-9, 2026-09-25:** `test:browser:sc15` and `test_build07_wp9_acceptance.py`
+pass: two drafts on two same-schema releases with a different field, rule and view name; an
+incompatible release refused at creation and version change with the records named; unavailable,
+unsupported and corrupt releases refused with live data, history, the runtime selection, the other
+draft and another workspace unchanged; the prepared draft publishes after the candidate is activated;
+the remaining draft is refused with an explanation and discarded with no data change.
 
 **Simplicity check:** a steward can see which definition each draft is working under without reading
 deployment mechanics, and discarding a draft is always available and never requires model agreement.

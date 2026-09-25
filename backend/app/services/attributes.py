@@ -39,7 +39,12 @@ def validate_attributes(
 
     read_only = [key for key in attributes if bindings[key].readOnly]
     if read_only and not allow_read_only:
-        raise api_error(422, "read_only_attributes", f"Read-only attributes: {read_only}")
+        raise api_error(
+            422,
+            "read_only_attributes",
+            f"Read-only fields cannot be changed: {_field_names(model, read_only)}",
+            {"attributeTypeKeys": read_only},
+        )
 
     result = dict(attributes)
     if not partial and apply_defaults:
@@ -61,7 +66,10 @@ def validate_attributes(
     ]
     if missing:
         raise api_error(
-            422, "missing_required_attributes", f"Required attributes missing: {missing}"
+            422,
+            "missing_required_attributes",
+            f"Required fields are missing: {_field_names(model, missing)}",
+            {"attributeTypeKeys": missing},
         )
 
     return {
@@ -394,3 +402,8 @@ def _attribute_definition(model: EngineModel, key: str) -> AttributeTypeDefiniti
     if not definition:
         raise api_error(500, "internal_error", f"Unknown model attribute '{key}'")
     return definition
+
+
+def _field_names(model: EngineModel, keys: list[str]) -> str:
+    """Model field names for a user-facing message; keys stay in the error details."""
+    return ", ".join(_attribute_definition(model, key).name for key in keys)

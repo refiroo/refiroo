@@ -34,6 +34,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_model_lifecycle.py": ("model_admin",),
     "test_build07_wp11.py": ("model_admin",),
     "test_build07_wp6.py": ("model_admin", "drafts"),
+    "test_build07_wp9_acceptance.py": ("model_admin", "drafts", "workspaces"),
     "test_startup.py": ("startup",),
     "test_migrations.py": ("startup",),
     "test_wp8_audit_migration.py": ("startup",),

@@ -239,7 +239,8 @@ def test_missing_required_attribute_is_a_graph_diagnostic():
         assert result["valid"] is False
         diagnostic = _diag_by_code(result, "missing_required_attributes")
         assert diagnostic["details"]["objectId"]
-        assert "domain-code" in diagnostic["message"]
+        assert diagnostic["details"]["attributeTypeKeys"] == ["domain-code"]
+        assert diagnostic["message"] == "Required fields are missing: Domain code"
 
 
 def test_attribute_bounds_violation_is_a_graph_diagnostic():

@@ -40,12 +40,12 @@ Navigation is given from a fresh isolated harness (`e2e/helpers/harness.mjs`). T
 | S2 | Unified application browser: collections + record tree (WP-14) | sidebar; narrow: **Browse application** | Disclosure (drawer, tree) | C | B | — | B | — | — | C (`Explorer.test`) | B | B | `wp9-navigation`, `wp14-contextual-browser` |
 | S3 | Collection lenses, scope banner, Filter popover (WP-14, redesign) | `/apps/rdm-systems/views/systems` → expand System 00 → System values collection | Page surface, `ControlPopover` | C | B | — | B | C (typed filter 422) | — | C (`CollectionView.test`) | B | B | `wp14-contextual-browser`, `wp9-navigation` UI-02 |
 | S4 | Mapping lens grid (WP-8A/WP-14) | lens tab **System → Master mapping**; `/apps/rdm-master/views/master-to-system-mapping` | Page surface | C | B incl. filtered-empty | — | B | — | — | **B** | **B** | B (region focusable, row button) | `wp13c-ui-states`, `wp14-contextual-browser` |
-| S5 | Mapping dialog: candidates, save/next, remove, conflict (WP-8B) | row **Map/Change** | Dialog | C | **B** incl. no-match | C (`Saving…`) | **B** | C (server error notice) | **B** | **B** | **B** | **B** (search focus, Escape restores focus) | `wp13c-ui-states`, `MappingGridView.test` (24) |
+| S5 | Mapping dialog: candidates, save/next, remove, conflict (WP-8B) | row **Map/Change** | Dialog | C | **B** incl. no-match, page two (WP-9) | C (`Saving…`) | **B** | C (server error notice; WP-10H: no removal for a required binding) | **B** (also a racing generic write, WP-9) | **B** | **B** | **B** (search focus, Escape restores focus, keyboard-only save) | `wp13c-ui-states`, `sc07-mapping-acceptance`, `MappingGridView.test` (26) |
 | S6 | Contextual target creation (WP-8B) | mapping dialog → **Create new …** | Dialog (nested `ObjectFormDialog`) | — | — | — | **B** (WP-10F: create, select, save in both directions, live and draft) | C (no parent type in the chosen application) | — | B (lookup error + Retry shown) | gap | C | `wp13c-ui-states`, `MappingGridView.test` |
 | S7 | Mapping in a named draft, inverse direction (WP-8B/WP-7) | `…/master-to-system-mapping?workspaceDraftId=…` | as S4/S5 | — | **B** | — | **B** (live unchanged) | — | C | — | gap (wide only) | B | `wp13c-ui-states` |
-| S8 | Drafts list and creation with model version (WP-7) | Drafts tab | Page surface, Dialog | C | B | C | **B** | C (`WorkspaceDrafts.test` creation refusal) | — | **B** | gap (dialog) | C | `wp13c-ui-states`, `wp9-drafts` |
-| S9 | Draft bar, model mismatch notice, activation refusal (WP-7/WP-11) | open a draft pinned to a non-active release | Notice, Actions | C | **B** | C | B (`wp9-drafts` activation) | **B** (Activate disabled with reason) | B (`wp9-drafts`) | C (refresh warning) | **B** | C | `wp13c-ui-states`, `wp9-drafts` |
-| S10 | Change model version dialog (WP-7/WP-11) | draft bar → More draft actions → **Change model version** | Dialog (`compact`) | C | B | C | B | C (incompatibility diagnostics) | C | C | B | B (focus trap, dirty Escape) | `wp11-model-admin`, `WorkspaceDrafts.test` |
+| S8 | Drafts list and creation with model version (WP-7) | Drafts tab | Page surface, Dialog | C | B | C | **B** | **B** (WP-9: incompatible release lists the records, keeps the name, leaves no draft) | — | **B** | **B** (refused creation at 390px) | C | `wp13c-ui-states`, `sc15-model-version-acceptance`, `wp9-drafts` |
+| S9 | Draft bar, model mismatch notice, activation refusal (WP-7/WP-11) | open a draft pinned to a non-active release | Notice, Actions | C | **B** | C | B (`wp9-drafts`; WP-9: the prepared draft after model activation) | **B** (Activate disabled with reason; WP-9 also after the active release moves on) | B (`wp9-drafts`; WP-9 mapping-set divergence) | C (refresh warning) | **B** | C | `wp13c-ui-states`, `sc15-model-version-acceptance`, `sc07-mapping-acceptance`, `wp9-drafts` |
+| S10 | Change model version dialog (WP-7/WP-11) | draft bar → More draft actions → **Change model version** | Dialog (`compact`) | C | B | C | B | **B** (WP-9: incompatibility diagnostics, pin unchanged) | C | C | B | B (focus trap, dirty Escape) | `wp11-model-admin`, `sc15-model-version-acceptance`, `WorkspaceDrafts.test` |
 | S11 | Workspace/page load failures (WP-11) | any context read failing | Load failure | — | — | — | B | B (unsupported historical schema: C) | — | **B** (drafts list), B (`wp9-navigation` panels) | C | C | `wp13c-ui-states`, `App.test` |
 | S12 | Release detail: identity, Technical details, comparison baseline (WP-12) | Models → release | Page surface, Disclosure | C | B | — | B (copy) | C (unsupported baseline) | — | C | B | B | `wp12-release-identity`, `ModelReleaseDetail.test` |
 | S13 | Models page alignment (315e6f7) | header **Models** | Page surface | C | B | — | B | C | C (version conflict) | C | C | C | visual/a11y gate pages (`model-workbench-*`), `ModelWorkbench.test` |
@@ -109,13 +109,24 @@ Inspected against the references in section 1: all twelve wp13c screenshots.
 | S8 creation dialog (wide) | Matches the dialog and field references. |
 | S9 mismatch (wide, narrow) | Layout correct at both widths. **Defect (WP-10G):** the notice names the active model by raw release UUID instead of key and version, contrary to WP-12's human-readable release identity. |
 
-Dark-theme variants of the new states were not captured; the dark a11y/visual gate pages remain WP-9.
+Dark-theme variants of the new states were not captured. WP-9 ran the dark a11y/visual gate pages.
 
 **Re-review after WP-10F/WP-10G (2026-09-25):** `mapping-create-target-wide` shows the Application
 choice with only the RDM Systems parent type. `mapping-draft-create-target-wide` shows a single owner
 as a fixed Application fact aligned with the labelled fields. `mapping-dialog-narrow` keeps a one-line
 search box. `draft-version-mismatch-wide`/`-narrow` read "the active model rdm-starter 0.7.0". All
 match the dialog and notice references.
+
+**WP-9 composed review (2026-09-25).** A second binding configuration, the independent **Master
+alignment** lens (`qa-master-aligns-to-system`, outgoing from master values), reuses S4/S5 unchanged.
+Reviewed screenshots: `sc07-ambiguous-expanded-wide` (25 targets after continuation, count in the
+badge), `sc07-independent-binding-wide`/`-narrow` and `sc07-independent-dialog-narrow` (third lens,
+dialog fits 390px; actions pinned at the sheet foot), `sc07-activation-conflict-wide` (the error now
+reads as two sentences), `sc15-incompatible-create-wide`/`-narrow` and `sc15-incompatible-change-wide`
+(records listed under the reason), `sc15-draft2-candidate-view-wide` (candidate view name and Priority
+column), `sc15-draft1-mismatch-narrow`. All match the dialog, notice and page references. Diagnostics
+still identify a record by UUID, which is recorded as a residual gap. Fixed shell elements appear
+mid-page in full-page captures; this is a stitching artifact.
 
 ## 5. Follow-ups found (delivered as WP-10F/WP-10G on 2026-09-25)
 
@@ -133,6 +144,6 @@ match the dialog and notice references.
 
 - Contextual creation at 390px was not captured; the dialog uses the shared narrow form layout.
 - Pending states rely on component evidence; browser timing of `busy` states was not asserted.
-- The new states have no committed visual baselines. Screenshots are reviewed evidence, and the
-  comprehensive a11y/visual gates were not run (WP-9).
+- The new states have no committed visual baselines; screenshots are reviewed evidence. WP-9 ran the
+  comprehensive a11y/visual gates (13 baselines; the two Models baselines were refreshed for WP-12).
 - One Chrome build, one machine; no operating-system zoom or assistive-technology session.

@@ -6,7 +6,8 @@ hardening are delivered. The earlier WP-1–WP-3 review boundary remains separat
 WP-1–WP-3 scopes are frozen. WP-6 backend, WP-7 frontend and WP-11 follow-up are delivered.
 WP-8A/WP-8B were reviewed and composed through WP-14 (ADR-029), committed 2026-09-15. WP-12 and
 WP-13A/B/C are delivered; WP-13A triggered WP-10C/WP-10D/WP-10E and WP-13C found WP-10F/WP-10G, all
-delivered (WP-10E/F/G on 2026-09-25). WP-9 composed 0.7 acceptance is the remaining package.
+delivered (WP-10E/F/G on 2026-09-25). **WP-9 composed 0.7 acceptance passed on 2026-09-25**; it found and
+closed WP-10H/I/J. All work packages are complete; cutting the 0.7.0 release is a separate step.
 
 **Target:** Product 0.7.0, schema language 0.6. The starter model content advances to a version on
 schema 0.6; that number alone does not mean the product release is accepted.
@@ -1180,13 +1181,98 @@ release acceptance.
 **Exit:** SC-07 and SC-15 pass with recorded evidence. The full validation matrix is green. All
 documentation reflects the delivered state. Any gaps or simplifications are explicitly stated.
 
+**Delivered 2026-09-25.** Evidence, then gaps.
+
+*Acceptance data.* No starter dataset exists outside the browser harness, so the SC-07/SC-15 data is
+`e2e/helpers/acceptance-data.mjs`, seeded through the real API: `Collection`, `Home delivery`, `Parcel
+locker` and 24 fillers (so candidates exist beyond page one); `PICKUP` unmapped, `HOME` mapped to a
+different target, `MULTI` ambiguous across 25 targets (beyond the 20-item preview). It also defines an
+independent binding, `qa-master-aligns-to-system` (master value → system value, own labels, an integer
+`qa-confidence` relation attribute, **Master alignment** lens). The SC-15 releases are the active one,
+a same-schema candidate with a new `Priority` field (rule 1–5) in a renamed **Prioritised values** view, and
+an incompatible one that makes `External ID` required. `bootHarness({ transformModel })` starts from a variant.
+
+*SC-07 — `test:browser:sc07` (9 checks, 4 axe scans with 0 violations, 1440/390px).* Keyboard-only search
+for “Collection” maps `PICKUP`; a candidate first listed on page two replaces `HOME`'s different target;
+`MULTI`'s exact count (25), bounded preview and continuation show every target, and resolving it to an
+existing target keeps that edge's relation ID. A generic `POST /relations` racing the dialog's save yields
+the conflict review with the current targets and the attempted choice kept; nothing changes until the
+reviewed retry. The independent binding appears as a third lens; resolving it keeps the retained edge's
+ID and integer attribute (`7`), and neither binding's writes change the other. The inverse starter lens
+reads the same edges from the master side. In a draft, a live edge added to the draft's touched set
+refuses activation (409 with anchor diagnostics) while the draft, the live set and unrelated live work
+survive; after that edge is withdrawn, activation publishes the draft and keeps the unrelated live
+change. WP-13C's evidence is reused, not repeated: outages and Retry, cancelled contextual creation,
+contextual creation in both directions and the draft-context inverse lens.
+
+*SC-15 — `test:browser:sc15` (8 checks, 4 axe scans with 0 violations, 1440/390px) and
+`test_build07_wp9_acceptance.py`.* In the browser, draft1 is created on the active release and draft2 on the
+installed candidate. Creation on the incompatible release is refused with the records that do not fit;
+the typed name stays, and no draft is left. draft2 shows the candidate's view name and `Priority` column;
+draft1 and live do not. The draft2 form applies the 1–5 rule (9 is not sent and stays in the field) and
+stores the integer 3 in draft2 only. An incompatible version change of draft1 (browser) and an
+unavailable release (API) are refused, and a JSON snapshot of the runtime selection, the live record,
+history and the Warehouse workspace's records and drafts is unchanged. draft2 cannot activate until the
+administrator activates the candidate; live then follows the new view without data changes, and draft2
+publishes through validate/activate. draft1 is refused with the mismatch explanation and discarded with no
+data change. The backend test repeats the journey through HTTP, adding **corrupt** and **unsupported**
+installed releases (`pinned_model_invalid`, `unsupported_pinned_model_schema`) for creation and version
+change against the same untouched-state snapshot. It uses a private database because it activates a release.
+
+*Cross-cutting.* Keyboard: the full SC-07 unmapped flow, conflict and version dialogs (WP-11/WP-13C focus
+trap and restore). Narrow: SC-07 lens/dialog, SC-15 refused creation and mismatch notice at 390px with no
+horizontal scroll. Empty/error/retry: WP-13C. Dirty input: attempted mapping choice after conflict, draft
+name after refused creation, out-of-range field value, version-change discard prompt (WP-11). Context
+retention: workspace/draft context in every URL above; scope and lens retention by `test:browser:wp14`.
+
+*Build acceptance (one run after implementation).* Backend: Ruff clean; `pytest` **534 passed**, no
+xfails. Frontend: format check, lint (0 errors, 11 existing warnings), `tsc -b && vite build`, Vitest
+**36 files / 231 tests**, gate helpers 5/5. Browser: `test:browser`, `:authoring`, `:drafts`, `:history`,
+`:wp11`, `:wp12`, `:wp14`, `:wp13c`, `:sc07`, `:sc15` all pass. `test:a11y` passes (no unexpected
+violations, light and dark). `test:visual` passes 13 baselines after the reviewed update below. The
+startup smoke against a copy of the development database served health, runtime state, the 0.7.0/0.6
+model and records. `git diff --check` is clean. Migration code did not change; the focused WP-10E
+migration/bootstrap evidence is reused.
+
+*Failures found and fixed during the gate.*
+
+- `test:browser:wp12` and `test:browser:wp13c` failed on the committed source too. Both were test races:
+  copy feedback was read before the clipboard promise settled, and focus was read in the same frame the
+  dialog unmounted. Both now wait for the outcome (focus restore is still required within 2s).
+- `test_wp81b_current_live_bases::test_current_live_source_captures_unpublished_graph_and_stays_frozen`
+  failed once in a group run: it read the first draft base in the shared test database, not its own.
+  It is now scoped to its workspace and object.
+- `test:visual` flagged `model-workbench-dark` (0.72%): both Models baselines predated WP-12's Technical
+  details and Release history. The new screenshots were reviewed against the delivered WP-12 layout, and
+  only those two baselines were replaced.
+- The SC-07 runner's own early failures were debounce races. It now waits for the exact search
+  response before choosing, and passed four consecutive runs.
+
+*Open decision.* The coverage map asks for a decision before 0.7 acceptance on draft built-in
+timestamps: draft-local records have no `createdAt`/`updatedAt`, so those filters match none of them in
+a draft list. This is pre-existing behavior, and WP-9 did not decide it.
+
+*Residual gaps (not release blockers, recorded for later work).*
+
+- Activation and compatibility diagnostics identify records by UUID (for example the mapping-set
+  anchor and the record missing `External ID`). WP-10G fixed release identities only. Naming records
+  needs a diagnostic contract addition.
+- PostgreSQL concurrency is not exercised; all race evidence is on SQLite.
+- The candidate's server-side rule in a draft is proven by `test_build07_wp6`; the browser run shows
+  the form-level constraint, which prevents the request.
+- Moving draft1 onto the new release was not repeated here. `test:browser:wp11` and
+  `test_build07_wp6` cover compatible version change.
+- `history-view-light` drifts 0.20% (under the 0.5% threshold) and was not inspected. Full-page
+  screenshots with fixed shell elements show stitching artifacts, not layout defects.
+
 ---
 
 #### WP-10: Conditional 0.7 foundation hardening
 
 **Status:** WP-10A and WP-10B delivered after WP-4/WP-5 review (2026-09-14). WP-10C and WP-10D,
 triggered by the WP-13A audit, were delivered on 2026-09-24. WP-10E (found while validating WP-10C)
-and WP-10F/WP-10G (found by WP-13C) were delivered on 2026-09-25. Other slices remain conditional.
+and WP-10F/WP-10G (found by WP-13C) were delivered on 2026-09-25, as were WP-10H/I/J (found by WP-9).
+No further slice is open.
 
 **WP-10A — Cascade-deletion relation-set participation:** HTTP reproduction in both live and
 current-live draft contexts: deleting a mapped system value reduced incoming coverage from 21
@@ -1323,6 +1409,27 @@ the active release's key and version when it differs from the pinned one, so the
 notice reads "the active model rdm-starter 0.7.0". The historical-revision banner had the same raw-ID
 defect and now names both releases by key and version. `test:browser:wp13c` asserts the narrow search
 height (≤ 48px) and the mismatch text without a UUID. Wide and narrow screenshots were inspected.
+
+**WP-10H — Removal offered for a required mapping (found by WP-9; delivered 2026-09-25):** SC-07 says
+clearing is offered only where an empty mapping is allowed. The server refuses to clear a `required`
+binding (`422 required_relation`), but the mapping dialog offered **Remove mapping** whenever a row had a
+target. Ownership: `MappingActionDialog`. *Delivered:* the dialog offers removal only when the binding is
+not required and otherwise says a replacement is needed. Two component cases (outgoing and incoming
+views of a required binding); the unchanged optional case keeps its removal test.
+
+**WP-10I — Draft refusal messages (found by WP-9; delivered 2026-09-25):** Creating a draft on an
+incompatible release showed only the summary, while a version change listed the records that do not
+fit; and a server message without a full stop ran into the guidance (“…live active data The draft is
+preserved”). Ownership: `CreateDraft` and `DraftActions`. *Delivered:* creation shows the same
+diagnostics list; joined messages end the server sentence first. Component regressions and
+`test:browser:sc15` cover both.
+
+**WP-10J — Field names in attribute errors (found by WP-9; delivered 2026-09-25):**
+`missing_required_attributes` and `read_only_attributes` messages were Python list literals of keys
+(“Required attributes missing: ['external-id']”), shown to users in forms and draft diagnostics. Ownership:
+`services/attributes.validate_attributes`. *Delivered:* messages name the model fields (“Required fields
+are missing: External ID”); keys move to `details.attributeTypeKeys`. Codes are unchanged. Live and
+draft-graph regressions assert both.
 
 **WP-5 acceptance follow-up (delivered 2026-09-14):** Add independent-binding isolation in live/draft
 contexts, required-ownership rejection, forbidden clearing, and overlapping real HTTP generic

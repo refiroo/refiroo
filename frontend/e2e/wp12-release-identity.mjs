@@ -51,6 +51,8 @@ try {
   await page.getByText(introduced.modelHash, { exact: true }).waitFor();
   await page.getByRole("button", { name: "Copy release ID" }).focus();
   await page.keyboard.press("Enter");
+  // The clipboard write settles asynchronously; wait for its outcome rather than reading at once.
+  await page.locator(".release-technical-feedback").filter({ hasText: /\S/ }).waitFor();
   const feedback = await page.locator(".release-technical-feedback").innerText();
   expect(/Release ID copied\.|Could not copy the release ID/.test(feedback), `copy feedback: ${feedback}`);
   await page.screenshot({ path: resolve(output, "wp12-active-wide.png"), fullPage: true });

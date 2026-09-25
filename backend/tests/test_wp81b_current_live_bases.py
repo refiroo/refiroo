@@ -108,11 +108,17 @@ def test_current_live_source_captures_unpublished_graph_and_stays_frozen():
         assert client.get(f"/api/v1/workspaces/{workspace_key}/revisions").json()["items"] == []
 
         with SessionLocal() as session:
-            base = session.get(WorkspaceDraftBase, session.scalar(select(WorkspaceDraftBase.id)))
+            # The test database is shared across modules: select this workspace's base and domain.
+            base = session.scalar(
+                select(WorkspaceDraftBase).where(WorkspaceDraftBase.workspace_key == workspace_key)
+            )
             assert base is not None
             assert base.model_runtime_version >= 1
             base_object = session.scalar(
-                select(WorkspaceDraftBaseObject).where(WorkspaceDraftBaseObject.base_id == base.id)
+                select(WorkspaceDraftBaseObject).where(
+                    WorkspaceDraftBaseObject.base_id == base.id,
+                    WorkspaceDraftBaseObject.object_id == domain["id"],
+                )
             )
             assert base_object is not None and base_object.version == domain["version"]
 

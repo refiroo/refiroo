@@ -571,7 +571,11 @@ def test_update_cannot_null_required_attribute():
             json={"attributes": [_attr("domain-code", None)], "expectedVersion": 1},
         )
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "missing_required_attributes"
+        error = response.json()["error"]
+        assert error["code"] == "missing_required_attributes"
+        # The message names the field for people; the key stays machine-readable in details.
+        assert error["message"] == "Required fields are missing: Domain code"
+        assert error["details"] == {"attributeTypeKeys": ["domain-code"]}
 
 
 def test_partial_update_without_required_attribute_succeeds():

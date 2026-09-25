@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
@@ -158,6 +158,8 @@ describe("draft creation incompatibility error", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: "Create draft" }));
     expect(await screen.findByText(/Content does not fit the target model/)).toBeInTheDocument();
+    expect(screen.getByRole("listitem")).toHaveTextContent("Attribute x required");
+    expect(screen.getByRole("textbox", { name: "Draft name" })).toBeInTheDocument();
   });
 });
 
@@ -199,5 +201,26 @@ it("keeps the version-change error visible if the saved pin cannot be refreshed"
   await screen.findByRole("option", { name: /0.6.0/ });
   fireEvent.change(screen.getByRole("combobox", { name: "Target release" }), { target: { value: olderRelease.id } });
   fireEvent.click(screen.getByRole("button", { name: "Apply version change" }));
-  expect(await screen.findByText(/Model version changed, but the interface could not refresh/)).toBeVisible();
+  expect(await screen.findByText(/could not refresh\. Pinned model refresh failed\. Retry/)).toBeVisible();
+});
+
+it("separates an unpunctuated server message from the preserved-draft guidance", async () => {
+  vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+    api,
+    draft: baseDraft,
+    activeModelReleaseId: baseDraft.modelReleaseId,
+    warning: "",
+    refresh: vi.fn().mockResolvedValue(baseDraft),
+  });
+  vi.spyOn(api, "discardWorkspaceDraft").mockRejectedValue(
+    new ApiError(409, "version_conflict", "Workspace draft conflicts with the live active data"),
+  );
+  render(<DraftActions readOnly={false} onExit={vi.fn()} onModelChanged={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: "Discard draft" }));
+  fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Discard draft" }));
+  expect(
+    await screen.findByText(
+      "Workspace draft conflicts with the live active data. The draft is preserved. Review the current data and validate again before retrying.",
+    ),
+  ).toBeVisible();
 });

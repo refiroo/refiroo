@@ -282,9 +282,15 @@ try {
   await shot("mapping-dialog-narrow");
   await page.keyboard.press("Escape");
   await page.getByRole("dialog").waitFor({ state: "detached" });
+  // Focus is restored after the dialog unmounts; allow that frame before judging it.
+  const focusRestored = await page
+    .waitForFunction(() => document.activeElement?.getAttribute("aria-label") === "Change mapping for Value Beta", null, {
+      timeout: 2000,
+    })
+    .then(() => true, () => false);
   expect(
-    await page.getByRole("button", { name: "Change mapping for Value Beta" }).evaluate((b) => b === document.activeElement),
-    "focus did not return to the row action after Escape",
+    focusRestored,
+    `focus did not return to the row action after Escape (focused: ${await page.evaluate(() => document.activeElement?.outerHTML.slice(0, 120))})`,
   );
   await page.setViewportSize({ width: 1440, height: 900 });
   checks.push("narrow mapping grid and dialog fit the viewport; search stays compact; Escape restores focus");

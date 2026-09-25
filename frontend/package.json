@@ -19,6 +19,8 @@
     "test:browser:wp12": "node e2e/wp12-release-identity.mjs",
     "test:browser:wp14": "node e2e/wp14-contextual-browser.mjs",
     "test:browser:wp13c": "node e2e/wp13c-ui-states.mjs",
+    "test:browser:sc07": "node e2e/sc07-mapping-acceptance.mjs",
+    "test:browser:sc15": "node e2e/sc15-model-version-acceptance.mjs",
     "test:gate-helpers": "node --test e2e/helpers/*.node-test.mjs",
     "test:a11y": "node e2e/accessibility-gate.mjs",
     "test:visual": "node e2e/visual-regression-gate.mjs",

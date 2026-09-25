@@ -256,3 +256,18 @@ browser-runner classification):
 ```sh
 npm --prefix frontend run test:gate-helpers
 ```
+
+
+## Base 0.7 WP-9: composed SC-07 and SC-15 acceptance
+
+```sh
+npm --prefix frontend run test:browser:sc07
+npm --prefix frontend run test:browser:sc15
+```
+
+Both use the shared harness and the same installed-Chrome override. `helpers/acceptance-data.mjs` holds
+the model variants and records they seed through the real API: an independent mapping binding with an
+integer relation attribute, enough master values for a second candidate page, a 25-target ambiguous
+row, and SC-15's candidate and incompatible releases. `bootHarness({ transformModel })` starts the
+backend on a model variant. Each runner checks browser results against API state, runs scoped axe checks,
+captures 1440px and 390px screenshots, and writes `report.json` to its printed evidence directory.

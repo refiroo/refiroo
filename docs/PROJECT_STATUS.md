@@ -12,9 +12,13 @@ WP-8A/WP-8B and WP-14 are delivered (committed in `f8e39a8`, 2026-09-15): mappin
 contextual collection inside one model-driven application browser rather than a separate primary
 destination. The Base 0.7 frontend redesign (`936a70e`) and dark mode with the settings menu
 (`315e6f7`) followed on 2026-09-24, then WP-12 and WP-13A/B/C. All triggered WP-10 slices (A–G) are
-delivered; WP-10E/F/G closed on 2026-09-25. **WP-9 composed build acceptance is the only remaining 0.7
-package.** Once it passes, 0.7 is released and work moves to 0.8: lazy tree browsing to any depth and
-specialised translation screens.
+delivered; WP-10E/F/G closed on 2026-09-25. **WP-9 composed build acceptance passed on 2026-09-25**:
+SC-07 and SC-15 run as composed browser + API journeys (`test:browser:sc07`, `test:browser:sc15`,
+`test_build07_wp9_acceptance.py`), the full backend/frontend suites, all browser runners and the
+accessibility and visual gates are green, and WP-10H/I/J found on the way are closed. All 0.7 work
+packages are complete; cutting the 0.7.0 release is the next step, then 0.8: lazy tree browsing to any
+depth and specialised translation screens. Residual gaps are listed in the
+[plan's WP-9 record](BASE_0_7_IMPLEMENTATION_PLAN.md#wp-9-composed-product-validation--sc-07-and-sc-15).
 
 The generic model defines applications, object types, reusable fields, allowed relationships and views.
 Master, Systems and Translations are configurable starter examples; runtime code must remain unaware
@@ -33,8 +37,8 @@ GAP-01–GAP-08 answers and distinguishes accepted targets from implementation e
 | Historical data | Complete: newest-first browser discovery, pinned-model immutable reads and historical draft derivation | — |
 | Publication retirement | Complete: truthful browser confirmation removes only the designation while retaining live data/history | — |
 | Model administration | Complete: immutable releases, JSON drafts, validation/diff/install/activation workbench | Browser administration acceptance (0.7+) |
-| UI foundation | Complete: catalogue selection, typed tables, generic panels, redesigned navigation/collections/inspector/inline editing, automated accessibility and visual-regression gates (UI-07); 0.7 redesign (header application tabs, Live/Drafts/History control, record tree, Filter popover), dark mode and settings menu | WP-9 a11y/visual acceptance of the redesign |
-| Specialist workflows | Schema 0.6 `mappingGrid` contract, live/draft/revision coverage, target-detail, candidate APIs, atomic replacement and contextual mapping lens with in-context target creation delivered | WP-9 composed acceptance; lazy arbitrary-depth hierarchy/translation specializations 0.8; integration 0.9 |
+| UI foundation | Complete: catalogue selection, typed tables, generic panels, redesigned navigation/collections/inspector/inline editing, automated accessibility and visual-regression gates (UI-07); 0.7 redesign (header application tabs, Live/Drafts/History control, record tree, Filter popover), dark mode and settings menu; WP-9 a11y/visual acceptance passed | — |
+| Specialist workflows | Schema 0.6 `mappingGrid` contract, live/draft/revision coverage, target-detail, candidate APIs, atomic replacement and contextual mapping lens with in-context target creation delivered; SC-07 composed acceptance passed | Lazy arbitrary-depth hierarchy/translation specializations 0.8; integration 0.9 |
 | Production and model migration | Basic readiness and actionable startup refusal | Authenticated production, staged assignments and reviewed historical model migration 0.10; draft version selection 0.7 |
 
 Ordinary live saves create neither a draft nor a revision. Draft activation applies authored changes

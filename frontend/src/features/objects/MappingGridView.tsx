@@ -471,6 +471,15 @@ function MappingActionDialog({
   const ownerChoices = model.applications
     .filter((application) => application.objectTypeKeys.includes(targetTypeKey))
     .map((application) => application.key);
+  // The server refuses to clear a required relationship, so removal is offered only where the
+  // binding allows an empty mapping (SC-07).
+  const clearable = !model.objectTypeRelations.some(
+    (binding) =>
+      binding.relationTypeKey === config.relationTypeKey &&
+      binding.fromObjectTypeKey === config.fromObjectTypeKey &&
+      binding.toObjectTypeKey === config.toObjectTypeKey &&
+      binding.required,
+  );
   const dirty = selectedId !== currentId;
   const blockedByConflict = conflictVersion !== null && !conflictAcknowledged;
 
@@ -639,7 +648,10 @@ function MappingActionDialog({
           )}
 
           <div className="dialog-actions">
-            {targetCount > 0 && (
+            {targetCount > 0 && !clearable && (
+              <span className="muted">This mapping is required; choose a replacement to change it.</span>
+            )}
+            {targetCount > 0 && clearable && (
               <button
                 type="button"
                 className="danger-ghost"

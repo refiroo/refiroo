@@ -11,6 +11,12 @@ import { Modal } from "@/ui/Modal";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { Icon } from "@/ui/Icon";
 
+/** An API message followed by more guidance, so the two read as separate sentences. */
+function asSentence(cause: unknown) {
+  const message = errorMessage(cause);
+  return /[.!?]$/.test(message) ? message : `${message}.`;
+}
+
 export function draftSource(draft: WorkspaceDraft) {
   return draft.source === "currentLive"
     ? "Current live data at draft creation"
@@ -100,14 +106,19 @@ function CreateDraft({
   const releases = useCursorFeed((cursor) => api.modelReleases({ cursor }), []);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [diagnostics, setDiagnostics] = useState<Array<Record<string, unknown>>>([]);
   async function create(event: FormEvent) {
     event.preventDefault();
     setPending(true);
     setError("");
+    setDiagnostics([]);
     try {
       onCreated((await api.createWorkspaceDraft(workspaceKey, name.trim(), selectedRelease || undefined)).id);
     } catch (cause) {
       setError(errorMessage(cause));
+      // An incompatible release names the records that do not fit, as a version change does.
+      const details = isApiError(cause) ? (cause.details as Record<string, unknown> | undefined) : undefined;
+      if (Array.isArray(details?.diagnostics)) setDiagnostics(details.diagnostics);
       setPending(false);
     }
   }
@@ -151,7 +162,12 @@ function CreateDraft({
           </button>
         )}
         {releases.error && <InlineError message={releases.error} onRetry={releases.retry} />}
-        {error && <Notice tone="error">{error}</Notice>}
+        {error && (
+          <Notice tone="error">
+            {error}
+            {diagnostics.length > 0 && <DraftDiagnostics items={diagnostics} />}
+          </Notice>
+        )}
         <div className="dialog-actions">
           <button
             type="button"
@@ -266,7 +282,7 @@ export function DraftActions({
       } else throw new Error("The draft changed. Validate it again before activation.");
     } catch (cause) {
       setError(
-        `${errorMessage(cause)} The draft is preserved. Review the current data and validate again before retrying.`,
+        `${asSentence(cause)} The draft is preserved. Review the current data and validate again before retrying.`,
       );
       if (isApiError(cause) && cause.details && typeof cause.details === "object") {
         const details = cause.details as Record<string, unknown>;
@@ -278,7 +294,7 @@ export function DraftActions({
       try {
         await reload();
       } catch (refreshCause) {
-        setError(`${errorMessage(cause)} ${errorMessage(refreshCause)}`);
+        setError(`${asSentence(cause)} ${errorMessage(refreshCause)}`);
       }
     } finally {
       setPending(false);
@@ -306,7 +322,7 @@ export function DraftActions({
     } catch (cause) {
       setVersionChangeError(
         changed
-          ? `Model version changed, but the interface could not refresh. ${errorMessage(cause)} Retry the draft refresh before editing.`
+          ? `Model version changed, but the interface could not refresh. ${asSentence(cause)} Retry the draft refresh before editing.`
           : errorMessage(cause),
       );
       if (isApiError(cause) && cause.details && typeof cause.details === "object") {

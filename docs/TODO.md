@@ -9,8 +9,9 @@ release plan and changelog rather than accumulating it here.
 Base 0.6 is released (2026-09-11). WP-1 delivered (2026-09-12). WP-2 delivered (2026-09-12).
 WP-3 delivered (2026-09-12); its pending participation changes committed 2026-09-14.
 WP-4 and its WP-10A review fix delivered (2026-09-14). WP-5 delivered (2026-09-14). WP-7 delivered (2026-09-14).
-WP-8/WP-14 committed 2026-09-15; redesign and dark mode 2026-09-24; WP-10E/F/G 2026-09-25. Only WP-9 remains;
-after it passes, 0.7 is released and work moves to 0.8 (arbitrary-depth tree browsing, translation screens).
+WP-8/WP-14 committed 2026-09-15; redesign and dark mode 2026-09-24; WP-10E/F/G 2026-09-25. WP-9 composed
+acceptance passed 2026-09-25. Next: cut the 0.7.0 release, then 0.8 (arbitrary-depth tree browsing,
+translation screens).
 
 - [x] UI-07 (carried from 0.6): automated accessibility and visual-regression gates using the existing
   Playwright harness with `@axe-core/playwright` and visual comparison baselines. Delivered 2026-09-12;
@@ -78,8 +79,12 @@ after it passes, 0.7 is released and work moves to 0.8 (arbitrary-depth tree bro
 - [x] WP-13C: `docs/testing/UI_ACCEPTANCE.md` with reference patterns and the state inventory of 14
   changed 0.7 surfaces; `test:browser:wp13c` covers outage/retry, empty, conflict, draft-context mapping
   and non-active-release draft states at 1440/390px; screenshots reviewed; found WP-10F/WP-10G. 2026-09-24.
-- [ ] WP-9: independent binding fixtures, same-schema differing releases, new-control a11y/visual
-  coverage, generic-write races and draft activation/live same-set conflicts.
+- [x] WP-9: composed SC-07/SC-15 browser + API acceptance (`test:browser:sc07`, `test:browser:sc15`,
+  `test_build07_wp9_acceptance.py`) with an independent binding, same-schema differing releases,
+  generic-write races and a live same-set conflict before activation; full build gate green. Found and
+  closed WP-10H/I/J; fixed two browser-runner races, a shared-database test query and two stale
+  Models baselines. 2026-09-25.
+- [ ] Cut the 0.7.0 release (changelog section, versions) — separate from WP-9.
 - [x] WP-10A: live/draft cascade deletion advances affected mapping-set versions atomically; stale
   target continuations require refresh. Delivered with WP-4 review, 2026-09-14.
 - [x] WP-10C: typed `date`/`dateTime`/`decimal` values in draft writes, activation, and draft/revision
@@ -90,6 +95,9 @@ after it passes, 0.7 is released and work moves to 0.8 (arbitrary-depth tree bro
   (attribute `dateTime` values and server timestamps); decimals have one canonical form in every
   context; the frontend zone-less workaround is removed. No live `dateTime` data to migrate.
   Delivered 2026-09-25.
+- [x] WP-10H/I/J (found by WP-9): removal is not offered for a required mapping; draft creation
+  on an incompatible release lists the records that do not fit and draft errors read as sentences;
+  required/read-only field errors name fields, with keys in `details`. Delivered 2026-09-25.
 - [x] WP-10F: contextual mapping-target creation asks for the owning application (every application
   containing the type, lens's application by default) and offers only that application's parent
   types; both starter directions create, select and save. Delivered 2026-09-25.

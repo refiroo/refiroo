@@ -8,6 +8,17 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.7 WP-9: composed acceptance for SC-07 and SC-15. `test:browser:sc07` resolves unmapped,
+  differently mapped and 25-target ambiguous rows (candidates beyond page one, bounded previews with
+  continuation), survives a racing generic relation write with the attempted choice kept, proves an
+  independent binding with a typed relation attribute is untouched, and refuses draft activation when
+  live changed the draft's mapping set. `test:browser:sc15` prepares one draft on an installed candidate
+  release while another stays on the active one, refuses incompatible and unavailable releases without
+  touching live data, history or another workspace, then publishes the prepared draft after the
+  candidate is activated and discards the other. `test_build07_wp9_acceptance.py` adds corrupt and
+  unsupported releases at the HTTP boundary. The browser harness accepts a model variant
+  (`transformModel`).
+
 - Base 0.7 WP-13C: `docs/testing/UI_ACCEPTANCE.md` names the existing reference pattern for each kind
   of UI element and inventories the states of every 0.7 surface with its evidence. The new browser
   runner `test:browser:wp13c` checks mapping and draft states against a real backend: outages with
@@ -72,6 +83,15 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+- Base 0.7 WP-10H: the mapping dialog no longer offers **Remove mapping** for a required
+  relationship, which the server refuses; it asks for a replacement instead.
+- Base 0.7 WP-10I: starting a draft on an incompatible model release lists the records that do not
+  fit, as a version change already did, and draft error messages no longer run two sentences together.
+- Base 0.7 WP-10J: missing-required and read-only field errors name the fields (“Required fields are
+  missing: External ID”) instead of printing a list of keys; the keys are in `details.attributeTypeKeys`.
+- Test reliability: the WP-12 and WP-13C browser runners waited too little for clipboard feedback
+  and focus restore; a current-live base test read another test's draft from the shared database. The
+  Models page visual baselines now show the WP-12 layout.
 - Base 0.7 WP-10E: a live `dateTime` write keeps its instant. Values are stored in UTC and every
   context returns them with an explicit offset; decimals read back in one form without trailing
   zeros (live reads were padded to `12.5000000000`), so draft uniqueness compares equal decimals as

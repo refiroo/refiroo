@@ -94,7 +94,7 @@ or navigating low-level relation screens.
 6. Audit mapping transitions and underlying relation changes. **(WP-5, delivered 2026-09-14.)**
 7. Prove the contract and renderer with two relation bindings whose types, direction and labels differ.
    **Backend independent-binding isolation and overlapping generic writes are covered by WP-5;
-   renderer and composed browser evidence remain WP-8A/WP-8B/WP-9.**
+   WP-9 (2026-09-25) adds the composed browser evidence with an independent binding and its own lens.**
 8. Let a workspace draft work under a version the user chooses, so one draft prepares the schema 0.6
    release while another stays on the version serving live data. Draft reads, writes and validation
    use the version chosen for that draft instead of the global selection (ADR-028; US-W09, SC-15).
@@ -126,6 +126,9 @@ or navigating low-level relation screens.
     0.5/0.6 views by source object type as collection lenses, expose visible typed/scope/state facets,
     and add cursor-bound parent/state filtering to mapping coverage. Preserve existing model releases
     and generic renderer semantics; arbitrary-depth hierarchy work remains 0.8.
+
+15. WP-9 (passed 2026-09-25): composed SC-07/SC-15 acceptance and the full build gate. Residual gaps
+    (record UUIDs in diagnostics, SQLite-only concurrency) are recorded in the plan.
 
 The [0.7 implementation plan](BASE_0_7_IMPLEMENTATION_PLAN.md) owns detailed follow-up acceptance
 criteria; [API.md](API.md) distinguishes these planned contracts from delivered endpoints.

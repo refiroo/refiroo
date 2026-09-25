@@ -26,10 +26,11 @@ async function freePort() {
  * @param {object} options
  * @param {boolean} [options.modelAdmin=true] - Enable model admin mutations.
  * @param {boolean} [options.workspaceAdmin=true] - Enable workspace admin mutations.
+ * @param {(model: object) => void} [options.transformModel] - Adjust the starter model before startup.
  * @returns {Promise<{page, browser, apiUrl, uiUrl, output, records, cleanup}>}
  */
 export async function bootHarness(options = {}) {
-  const { modelAdmin = true, workspaceAdmin = true } = options;
+  const { modelAdmin = true, workspaceAdmin = true, transformModel } = options;
   const started = performance.now();
   // Setup phase durations in milliseconds, separated from the runner's own checks (WP-13B).
   const timings = {};
@@ -73,6 +74,7 @@ export async function bootHarness(options = {}) {
   }
 
   const model = JSON.parse(await readFile(resolve(root, "model/rdm-starter.json"), "utf8"));
+  transformModel?.(model);
   const modelPath = resolve(output, "model.json");
   await writeFile(modelPath, JSON.stringify(model));
 
