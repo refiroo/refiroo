@@ -123,8 +123,6 @@ def _sequence_object_rows(
                 continue
             if candidate is None:
                 return False
-            if operator == "eq" and candidate != expected:
-                return False
             if operator == "contains" and str(expected).casefold() not in str(candidate).casefold():
                 return False
             if operator == "startsWith" and not str(candidate).casefold().startswith(

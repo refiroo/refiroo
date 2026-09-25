@@ -1255,6 +1255,13 @@ history responses filled `createdAt`/`updatedAt` with the request time, timestam
 matched nothing, and timestamp sorts fell back to ID order. The user chose to report timestamps as not
 recorded (WP-10K). Recording real timestamps in drafts and history is on the roadmap, unscheduled.
 
+*Re-verification after WP-10K (2026-09-25).* WP-10K landed after the gate and changed the shared
+collection renderer in draft and history contexts, so the gate was repeated on `138c268`: Ruff clean,
+`pytest` **535 passed**, lint 0 errors (11 existing warnings), `format:check`, build, Vitest **36 files /
+235 tests**, gate helpers, all ten browser runners, `test:a11y` (16 checks, no unexpected violations)
+and `test:visual` (13 baselines match). No defects found; an unreachable `eq` branch in the draft/history
+object filter was removed.
+
 *Residual gaps (not release blockers, recorded for later work).*
 
 - Activation and compatibility diagnostics identify records by UUID (for example the mapping-set
@@ -1265,8 +1272,8 @@ recorded (WP-10K). Recording real timestamps in drafts and history is on the roa
   the form-level constraint, which prevents the request.
 - Moving draft1 onto the new release was not repeated here. `test:browser:wp11` and
   `test_build07_wp6` cover compatible version change.
-- `history-view-light` drifts 0.20% (under the 0.5% threshold) and was not inspected. Full-page
-  screenshots with fixed shell elements show stitching artifacts, not layout defects.
+- `history-view-light` drifts 0.20% (under the 0.5% threshold). Inspected on 2026-09-25: the
+  difference is only the generated revision UUID, publication time and release UUID; layout matches.
 
 ---
 
