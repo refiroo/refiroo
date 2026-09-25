@@ -16,6 +16,25 @@ All notable changes to this project are documented in this file. The format foll
   in live, draft and history contexts; the full-volume figures and the budgets are recorded in the
   Base 0.8 plan. The new `volume` test group holds the budgets at two scales: live reads and writes
   meet them, while draft/history reads and draft writes are strict expected failures until S2.
+- Base 0.8 S2: draft and history reads in SQL. Migration `20260925_01` adds
+  `snapshot_attribute_values`, a typed index of revision, draft-base and draft object values (D1),
+  backfilled from existing rows and kept current by an ORM flush hook, plus ordered page indexes on
+  revision and draft-base objects. Object pages, single records, attributes, relation pages and draft
+  write responses read one base-plus-overlay statement instead of the whole draft or revision; at full
+  volume a draft page takes 3–6 ms (was about 3.1 s) and a history page 2–5 ms (was 1.1–2.6 s). Live,
+  draft and history share one object query builder, held by a parity test across all four contexts.
+
+### Changed
+
+- Draft and history `search` matches the record name and `searchable` fields, as live search does,
+  instead of every attribute's text. Draft and history cursors issued before the upgrade are refused
+  with `422 invalid_cursor`; restart from the first page.
+
+### Fixed
+
+- Paging a list sorted by a boolean field past its first page returned a server error; keyset cursor
+  positions are now bound as typed values. Keyset pages also seek to the cursor through the first sort
+  key's index instead of scanning every earlier row.
 
 ## [0.7.0] - 2026-09-25
 

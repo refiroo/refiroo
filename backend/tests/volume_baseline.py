@@ -70,72 +70,46 @@ def object_cursor(
 
     The cursor is the one the endpoint itself would have issued after ``offset`` rows.
     """
-    from app.models.database import WorkspaceRevisionObject
-    from app.routers.objects import _sequence_object_rows
     from app.services.cursors import encode_cursor
     from app.services.model.compiler import parse_model
     from app.services.objects import build_object_query
     from app.services.pagination import _row_position, cursor_sort
-    from app.services.workspace_revisions import effective_draft_membership
+    from app.services.snapshot_reads import (
+        build_snapshot_object_query,
+        draft_context,
+        object_scope,
+        revision_context,
+    )
 
     model = parse_model(volume_model())
     with Session(engine) as session:
-        if context == "live":
-            query = build_object_query(
-                model,
-                object_type_key=ITEM,
-                application_key=None,
-                workspace_key=WORKSPACE,
-                parent_object_id=parent,
-                search=None,
-                sort="name",
-                field_filters=[],
-            )
-            total = session.scalar(select(func.count()).select_from(query.statement.subquery()))
-            ordered = query.statement.order_by(*(key.column for key in query.keys))
-            row = session.scalars(ordered.offset(max(offset - 1, 0)).limit(1)).one()
-            position = _row_position(session, query.keys, row)
-            return (
-                encode_cursor(
-                    position, scope="objects", sort=cursor_sort(query.keys), filters=query.filters
-                ),
-                total,
-            )
-        if context == "draft":
-            members = effective_draft_membership(session, dataset.draft_id).objects
-            scope, owner = "objects-draft", {"draftId": dataset.draft_id}
-        else:
-            members = session.scalars(
-                select(WorkspaceRevisionObject).where(
-                    WorkspaceRevisionObject.revision_id == dataset.revision_id
-                )
-            ).all()
-            scope, owner = "objects-revision", {"revisionId": dataset.revision_id}
-        rows, identity, _descending, _field = _sequence_object_rows(
-            [item for item in members if item.object_type_key == ITEM],
-            model=model,
-            object_type_key=ITEM,
-            application_key=None,
-            parent_object_id=parent,
-            search=None,
-            sort="name",
-            filters=[],
-        )
-        ordered_rows = sorted(rows, key=identity)
-        filters = {
-            **owner,
-            "objectTypeKey": ITEM,
-            "applicationKey": None,
-            "parentObjectId": parent,
+        options = {
+            "object_type_key": ITEM,
+            "application_key": None,
+            "parent_object_id": parent,
             "search": None,
             "sort": "name",
-            "descending": False,
-            "typedFilters": [],
+            "field_filters": [],
         }
-        position = identity(ordered_rows[max(offset - 1, 0)])
+        if context == "live":
+            query = build_object_query(model, workspace_key=WORKSPACE, **options)
+            scope = "objects"
+        else:
+            snapshot = (
+                draft_context(session, dataset.draft_id)
+                if context == "draft"
+                else revision_context(session, dataset.revision_id)
+            )
+            query = build_snapshot_object_query(model, snapshot, **options)
+            scope = object_scope(snapshot)
+        total = session.scalar(select(func.count()).select_from(query.statement.subquery()))
+        ordered = query.statement.order_by(*(key.column for key in query.keys))
+        row = session.execute(ordered.offset(max(offset - 1, 0)).limit(1)).one()
+        record = row[0] if context == "live" else row
+        position = _row_position(session, query.keys, record)
         return (
-            encode_cursor(position, scope=scope, sort=("name", "id"), filters=filters),
-            len(ordered_rows),
+            encode_cursor(position, scope=scope, sort=cursor_sort(query.keys), filters=query.filters),
+            total,
         )
 
 

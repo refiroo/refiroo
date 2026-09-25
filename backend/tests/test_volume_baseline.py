@@ -6,8 +6,9 @@ rows per row of a full page, at either scale. Row counts vary by a few with page
 on one page can share a parent), so they are bounded rather than compared. Wall-time figures at full volume come from
 ``volume_baseline.py`` and are recorded in docs/BASE_0_8_IMPLEMENTATION_PLAN.md.
 
-Live reads meet the budgets today. Draft and history reads load the whole membership, so their
-budget tests are strict expected failures until S2 moves them into SQL.
+Live reads meet the budgets, and since S2 so do draft and history reads, which answer in SQL. Draft
+writes still load the whole membership (D7), so their budget test is a strict expected failure
+until the scoped follow-up slice lands.
 """
 
 import json
@@ -108,9 +109,6 @@ def test_live_reads_and_writes_do_not_grow_with_the_dataset(baselines):
     assert not _over_budget(baselines, {"live"}, writes=True)
 
 
-@pytest.mark.xfail(
-    strict=True, reason="S2 answers draft and history reads in SQL; today they load whole sets"
-)
 def test_draft_and_history_reads_hold_the_live_budget(baselines):
     assert not _over_budget(baselines, {"draft", "history"})
 
@@ -120,18 +118,6 @@ def test_draft_and_history_reads_hold_the_live_budget(baselines):
 )
 def test_draft_writes_hold_the_live_budget(baselines):
     assert not _over_budget(baselines, {"draft"}, writes=True)
-
-
-def test_baseline_shows_draft_and_history_reads_growing_with_the_dataset(baselines):
-    """The S1 exit evidence: whole-membership loading grows with data where live does not."""
-    growing = {
-        (small.context, small.scenario)
-        for small, large in _pairs(baselines, {"draft", "history"}, writes=False)
-        if large.rows_loaded >= 3 * small.rows_loaded
-    }
-    assert {context for context, _ in growing} == {"draft", "history"}
-    assert ("draft", "record: single read") in growing
-    assert ("history", "relations: 1,500-relation record") in growing
 
 
 def test_fixture_matches_its_shape_and_is_reproducible(_migrated_template, tmp_path, baselines):

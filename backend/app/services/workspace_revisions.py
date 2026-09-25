@@ -50,6 +50,7 @@ from .relation_set_versions import (
     merge_draft_set_versions_to_live,
 )
 from .relations import validate_relation_attributes
+from .snapshot_values import delete_owner_values
 from .workspace_audit import (
     record_draft_created,
     record_draft_derived,
@@ -434,10 +435,12 @@ def _delete_draft_and_base(session: Session, draft: WorkspaceDraft) -> None:
     """Remove a private base explicitly because SQLite does not enable FK cascades by default."""
     base_id = draft.base_id
     delete_draft_set_versions(session, draft.id)
+    delete_owner_values(session, draft.id)
     session.delete(draft)
     session.flush()
     if base_id is None:
         return
+    delete_owner_values(session, base_id)
     session.execute(
         delete(WorkspaceDraftBaseRelation).where(WorkspaceDraftBaseRelation.base_id == base_id)
     )

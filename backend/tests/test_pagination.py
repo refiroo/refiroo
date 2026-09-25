@@ -1,7 +1,6 @@
 """Behavior of the shared keyset paginator, including the cases each endpoint depends on."""
 
-from datetime import UTC, datetime, timedelta, timezone
-from decimal import Decimal
+from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import select
@@ -18,7 +17,6 @@ from app.services.pagination import (
     integer_key,
     paginate_sequence,
     paginate_statement,
-    sequence_sort_text,
     text_key,
 )
 
@@ -205,20 +203,3 @@ def test_draft_paging_visits_every_row_when_timestamps_tie(monkeypatch):
         tied = [draft_id for draft_id in seen if draft_id in created]
         assert sorted(tied) == sorted(created), "every tied draft appears exactly once"
         assert len(seen) == len(set(seen)), "no draft is repeated across pages"
-
-
-def test_sequence_sort_text_orders_numbers_and_instants_by_value():
-    numbers = [
-        Decimal(-1000), Decimal("-12.5"), Decimal("-1.5"), -1, Decimal("-0.001"), 0,
-        Decimal("0.001"), Decimal(1), Decimal("1.50"), 2, 5, 10, 40, 100, Decimal("1E+6"),
-    ]
-    assert sorted(numbers, key=sequence_sort_text) == numbers
-    assert sequence_sort_text(Decimal("1.50")) == sequence_sort_text(Decimal("1.5"))
-    plus_one = timezone(timedelta(hours=1))
-    instants = [
-        datetime(2026, 12, 24, 18, 0, tzinfo=plus_one),
-        datetime(2026, 12, 24, 17, 30, tzinfo=UTC),
-        datetime(2026, 12, 25, 0, 30, tzinfo=plus_one),
-    ]
-    assert sorted([instants[2], instants[0], instants[1]], key=sequence_sort_text) == instants
-    assert sequence_sort_text(True) > sequence_sort_text(False)

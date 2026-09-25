@@ -88,6 +88,10 @@ errors explicit and machine-readable.
   request path; one request reads from one session.
 - Collections page through `services/pagination.py`. Declare sort keys, do not hand-write a keyset
   predicate, and make the last key unique within the filtered set.
+- Draft and history reads go through `services/snapshot_reads.py`, never `effective_draft_membership`,
+  which is for whole-graph validation, activation and writes. Revision, draft-base and draft object
+  rows keep a typed value index (`snapshot_attribute_values`) that an ORM flush hook maintains; a bulk
+  insert or delete of those rows outside the ORM must update it through `services/snapshot_values.py`.
 - Model shape lives in `models/schema.py`; cross-reference rules live in
   `services/model/validation/`. A rule raises `ModelReferenceError` with the JSON pointer of the
   failing node — never reconstruct a path from a message.

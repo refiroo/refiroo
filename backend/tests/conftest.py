@@ -66,6 +66,8 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_relation_set_versions.py": ("mapping", "records"),
     "test_openapi_contract.py": ("contract",),
     "test_volume_baseline.py": ("volume",),
+    "test_context_read_parity.py": ("drafts", "queries"),
+    "test_snapshot_value_migration.py": ("startup", "drafts"),
 }
 
 

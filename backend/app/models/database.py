@@ -468,6 +468,22 @@ class WorkspaceRevisionObject(Base):
     __tablename__ = "workspace_revision_objects"
     __table_args__ = (
         UniqueConstraint("revision_id", "object_id", name="uq_workspace_revision_object"),
+        # Ordered history pages by type and by parent (Base 0.8 S2).
+        Index(
+            "ix_workspace_revision_objects_type_name",
+            "revision_id",
+            "object_type_key",
+            "name",
+            "object_id",
+        ),
+        Index(
+            "ix_workspace_revision_objects_parent_name",
+            "revision_id",
+            "parent_object_id",
+            "object_type_key",
+            "name",
+            "object_id",
+        ),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -521,7 +537,25 @@ class WorkspaceDraftBase(Base):
 
 class WorkspaceDraftBaseObject(Base):
     __tablename__ = "workspace_draft_base_objects"
-    __table_args__ = (UniqueConstraint("base_id", "object_id", name="uq_workspace_draft_base_object"),)
+    __table_args__ = (
+        UniqueConstraint("base_id", "object_id", name="uq_workspace_draft_base_object"),
+        # Ordered draft pages by type and by parent (Base 0.8 S2).
+        Index(
+            "ix_workspace_draft_base_objects_type_name",
+            "base_id",
+            "object_type_key",
+            "name",
+            "object_id",
+        ),
+        Index(
+            "ix_workspace_draft_base_objects_parent_name",
+            "base_id",
+            "parent_object_id",
+            "object_type_key",
+            "name",
+            "object_id",
+        ),
+    )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     base_id: Mapped[str] = mapped_column(
@@ -589,6 +623,41 @@ class WorkspaceDraftRelation(Base):
     attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     version: Mapped[int] = mapped_column(Integer, default=1)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
+class SnapshotAttributeValue(Base):
+    """Typed index of one attribute value held as JSON by a revision, draft-base or draft row.
+
+    ``owner_id`` is the revision, draft base or draft that owns the object row, so one query
+    builder can filter and sort draft and history reads exactly as live ``attribute_values`` rows.
+    The JSON ``attributes`` column stays the source of truth; these rows are derived from it by
+    ``services/snapshot_values.py`` whenever the owning row is written (D1, Base 0.8 S2).
+    """
+
+    __tablename__ = "snapshot_attribute_values"
+    __table_args__ = (
+        UniqueConstraint(
+            "owner_id", "object_id", "attribute_type_key", name="uq_snapshot_attribute_value"
+        ),
+        CheckConstraint(
+            "owner_kind IN ('revision', 'base', 'draft')", name="ck_snapshot_attribute_owner_kind"
+        ),
+        Index("ix_snapshot_attribute_values_owner_key", "owner_id", "attribute_type_key"),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    owner_kind: Mapped[str] = mapped_column(String(10), nullable=False)
+    owner_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    object_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    attribute_type_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    value_type: Mapped[str] = mapped_column(String(40), nullable=False)
+    text_value: Mapped[str | None] = mapped_column(Text, nullable=True)
+    integer_value: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    decimal_value: Mapped[Decimal | None] = mapped_column(Numeric, nullable=True)
+    boolean_value: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    date_value: Mapped[date | None] = mapped_column(Date, nullable=True)
+    datetime_value: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    json_value: Mapped[Any | None] = mapped_column(JSON, nullable=True)
 
 
 class RelationSetVersion(Base):

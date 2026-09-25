@@ -37,6 +37,7 @@ from app.models.database import (
     WorkspaceRevisionObject,
     WorkspaceRevisionRelation,
 )
+from app.services.snapshot_values import insert_value_rows, release_value_types, value_rows
 
 APPLICATION = "vol-catalogue"
 WORKSPACE = "vol-workspace"
@@ -350,6 +351,12 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
         WorkspaceRevisionRelation,
         [_relation_row(row, revision_id=revision_id) for row in relations],
     )
+    _index_values(
+        engine,
+        "revision",
+        release_id,
+        ((revision_id, row["id"], attributes[row["id"]]) for row in objects),
+    )
 
     # Draft edits land across the whole name range, not in one block.
     containment = {
@@ -413,6 +420,16 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
             }
         )
     _bulk_insert(engine, WorkspaceDraftObject, draft_objects)
+    _index_values(
+        engine,
+        "draft",
+        release_id,
+        (
+            (draft_id, row["object_id"], row["attributes"])
+            for row in draft_objects
+            if not row["is_deleted"]
+        ),
+    )
     _bulk_insert(engine, WorkspaceDraftRelation, draft_relations)
 
     touched = edited_items | set(deleted) | cited_items
@@ -491,6 +508,20 @@ def _relation_row(
         "attributes": {},
         "version": row["version"],
     }
+
+
+def _index_values(engine: Engine, owner_kind: str, release_id: int, rows) -> None:
+    """Write the typed value index the app's flush hook writes for ORM-inserted rows."""
+    with engine.begin() as connection:
+        value_types = release_value_types(connection, release_id)
+        insert_value_rows(
+            connection,
+            (
+                value
+                for owner_id, object_id, values in rows
+                for value in value_rows(owner_kind, owner_id, object_id, values, value_types)
+            ),
+        )
 
 
 def _bulk_insert(engine: Engine, table: type[Base], rows) -> None:

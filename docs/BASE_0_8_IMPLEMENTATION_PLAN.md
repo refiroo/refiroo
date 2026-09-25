@@ -62,7 +62,8 @@ coverage of Milestone A; bulk and export APIs (0.9).
 
 ## Work packages — Track S
 
-Order: S1 → S2 → S3, with S4 alongside S3 → S5 → S6 → S7. Each package states its own focused
+Order: S1 → S2 → S3, with S4 alongside S3 → S5 → S6 → S7. S2b (bounded draft writes) follows S2 and
+blocks nothing in the read path. Each package states its own focused
 checks under [AGENTS.md](../AGENTS.md#work-package-validation); S7 owns composed acceptance for the
 track.
 
@@ -172,6 +173,75 @@ lifespan and a smoke start.
 
 **Exit:** S1 draft and history reads meet the live budget, the parity test passes, and existing
 `drafts`, `workspaces`, `mapping` and `records` groups pass unchanged.
+
+**Delivered 2026-09-25.** Migration `20260925_01` adds `snapshot_attribute_values`, a typed index of
+the JSON values of revision, draft-base and draft objects keyed by owner, object and field, and
+backfills it from every existing row with the value types of the owner's pinned release. A
+`before_flush` hook (`services/snapshot_values.py`) rewrites an object row's index whenever the ORM
+writes it, so no draft, activation or capture path can leave it behind; bulk writers call the same
+helpers. The migration also adds (owner, type, name, id) and (owner, parent, type, name, id) indexes on
+revision and draft-base objects, so pages read in index order. `services/snapshot_reads.py` answers
+object, record, attribute, relation and draft-write-response reads with one base-plus-overlay
+statement narrowed inside each arm, and `services/objects.py` builds search, typed filters and sort
+for live and snapshot sources from one builder (`refine_object_query`). `_sequence_object_rows` is
+gone; `paginate_sequence` remains only for model definitions and mapping previews. Validation,
+activation and the draft write services still load the whole membership (item 5).
+
+The shared keyset predicate now binds positions as typed literals, which fixes a live defect found by
+the parity test (paging a boolean sort past its first page returned 500), and adds the implied
+leading bound `k0 >= v0` so an index on the first key seeks to the cursor rather than scanning from
+the start.
+
+_Results_ (same machine, fixture and method as S1; `volume_baseline.py --scale 1 --repeat 3`):
+
+| Request | Live | Draft | History |
+| --- | --- | --- | --- |
+| objects: first page | 20.6 ms · 5 · 79 | 3.8 ms · 5 · 4 | 2.4 ms · 4 · 3 |
+| objects: middle page | 20.8 ms · 5 · 80 | 3.5 ms · 5 · 4 | 2.6 ms · 4 · 3 |
+| objects: last page | 18.7 ms · 5 · 80 | 3.5 ms · 5 · 4 | 2.5 ms · 4 · 3 |
+| children: 20,000-child parent, first page | 11.8 ms · 5 · 65 | 3.3 ms · 5 · 4 | 2.4 ms · 4 · 3 |
+| children: 20,000-child parent, middle page | 12.9 ms · 5 · 65 | 3.5 ms · 5 · 4 | 2.6 ms · 4 · 3 |
+| children: 5-child parent | 2.1 ms · 5 · 19 | 3.0 ms · 5 · 4 | 2.6 ms · 4 · 3 |
+| relations: 1,500-relation record | 10.6 ms · 45 · 105 | 6.0 ms · 6 · 4 | 4.8 ms · 5 · 3 |
+| relations: 20,000-child parent | 50.0 ms · 45 · 85 | 4.0 ms · 6 · 4 | 2.9 ms · 5 · 3 |
+| record: single read | 2.3 ms · 5 · 7 | 2.3 ms · 5 · 4 | 1.7 ms · 4 · 3 |
+| write: rename one record | 4.5 ms · 13 · 9 | 4,664 ms · 30 · 216,944 | — |
+
+Draft and history reads meet budgets 1–3; `test_draft_and_history_reads_hold_the_live_budget` is no
+longer an expected failure, and the S1 test that asserted their growth is retired. The draft write
+halves because its response no longer loads the membership, but the write itself still does (D7).
+
+_Evidence._ `test_context_read_parity.py` runs 37 queries (every field type sorted both ways, search
+including `%` and `_`, every filter operator, null and unset) over live data, a current-live draft that
+reaches the same data through identical overlay rows and tombstones, a draft derived from a revision
+and the revision itself, paged three at a time: same rows, same order up to ties, same values; plus
+parent scope, relation pages, single-record and attribute reads, cursor binding to context and query,
+and the index equal to the JSON after every draft write kind. `test_snapshot_value_migration.py`
+downgrades an API-written database to `20260912_01` and upgrades it through the FastAPI lifespan: the
+backfill equals the hook's rows and reads answer as before across two restarts; a table left by an
+interrupted run is rebuilt; an unexpected table refuses startup with the operator message and is
+preserved. A copy of the development database was downgraded and smoke-started: health ok, the
+backfilled index equals the one written at head, and draft and history reads answer for every starter
+type. The full backend suite passes except `test_base_0_7_wp12_openapi_document_is_locked`, which
+fails identically on the unchanged S1 commit (the OpenAPI document is byte-identical before and after
+S2); it is left for its owner to re-baseline.
+
+_Behaviour changes._ Draft and history `search` now matches the name and `searchable` fields, as live
+does; before, it matched any attribute's text form. Draft and history cursors issued before the
+upgrade are refused with `422 invalid_cursor` (they encoded in-memory sort identities); clients restart
+from the first page.
+
+_D7 follow-up slice (S2b, scoped): bounded draft writes._ The draft write services
+(`put_draft_object`, `update_draft_object`, `delete_draft_object`, attribute and relation writes,
+`_sync_draft_parent_relation` and draft mapping replacement) load the whole membership to check parent
+existence, draft-wide attribute uniqueness, the relations touching the record and, for deletion, its
+dependants. Replace each with `snapshot_reads` lookups: parent and endpoint existence by ID;
+uniqueness as one query over the typed index in the draft projection; relation and cardinality checks
+over `relation_projection` for the touched record; deletion planning as a walk down `parent_object_id`
+and required-ownership edges whose cost is the deleted subtree, not the draft. Exit: the draft write
+budget test passes without its expected-failure marker and a rename stays within 50 ms at full volume;
+the `drafts` and `mapping` groups pass unchanged. Whole-graph validation and activation stay as they
+are.
 
 #### S3: Cursor and position paging contract
 
@@ -595,7 +665,7 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D4 | Does a view's `pageSize` keep its meaning? | Yes: it becomes the fetch size; no schema change | S5 |
 | D5 | Totals on every page or on request? | On request (`includeTotal`); the UI asks on first load, after a query change and with position jumps | S3 |
 | D6 | Relation sort keys | Related record's name and relation creation order; related-type fields later if needed | S4 |
-| D7 | Draft writes still load the whole membership | **Measured in S1:** over budget (7.6 s per rename at full volume); S2 scopes a bounded follow-up slice | S2 |
+| D7 | Draft writes still load the whole membership | **Measured in S1:** over budget (7.6 s per rename at full volume). **S2:** 4.7 s after reads moved to SQL; follow-up slice S2b scoped | S2b |
 | D8 | A dedicated `translationMatrix` view type, or a generic coverage-matrix type? | `translationMatrix` with generic config keys. One real case exists; generalise after a second (AGENTS.md) | A1 |
 | D9 | Schema 0.7 if only one milestone ships | Each view type is added by its own package; a cut milestone's type is removed before release | A1, B1 |
 | D10 | Language columns | Explicit `languageIds` (at most 20) or the first page of languages; columns page with their own cursor | A2 |

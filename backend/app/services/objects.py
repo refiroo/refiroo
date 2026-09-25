@@ -1,3 +1,4 @@
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
@@ -53,6 +54,39 @@ class ObjectQuery:
     filters: dict[str, Any]
 
 
+@dataclass(frozen=True)
+class ObjectColumns:
+    """Where an object collection query reads record columns and their typed values.
+
+    Live reads use ``objects`` with ``attribute_values``; draft and history reads use a
+    base-plus-overlay projection with ``snapshot_attribute_values``. One builder serves both, so
+    search, typed filters and sort mean the same in every context.
+    """
+
+    source: Any
+    id: Any
+    name: Any
+    values: Any
+    value_match: tuple[Any, ...]
+    builtin: dict[str, Any]
+    default_sort: str
+    tiebreak: Callable[[bool], SortKey]
+
+
+LIVE_OBJECT_COLUMNS = ObjectColumns(
+    source=RdmObject,
+    id=RdmObject.id,
+    name=RdmObject.name,
+    values=AttributeValue,
+    value_match=(AttributeValue.object_id == RdmObject.id,),
+    builtin=OBJECT_SORT_COLUMNS,
+    default_sort=_SEQUENCE_FIELD,
+    tiebreak=lambda descending: integer_key(
+        _SEQUENCE_FIELD, RdmObject.sequence_id, "sequence_id", descending=descending
+    ),
+)
+
+
 def get_object_type(model: EngineModel, object_type_key: str) -> ObjectTypeDefinition:
     definition = model.object_type(object_type_key)
     if not definition:
@@ -103,18 +137,18 @@ def build_object_query(
         statement = statement.where(RdmObject.application_key == application_key)
     if parent_object_id:
         statement = statement.where(RdmObject.parent_object_id == parent_object_id)
-
-    if search:
-        statement = statement.where(_search_predicate(model, object_type, search))
-    normalized_filters, predicates = _typed_filter_predicates(
-        model, object_type, field_filters or []
+    statement, keys, normalized_filters = refine_object_query(
+        model,
+        LIVE_OBJECT_COLUMNS,
+        statement,
+        object_type=object_type,
+        search=search,
+        sort=sort,
+        field_filters=field_filters or [],
     )
-    if predicates:
-        statement = statement.where(and_(*predicates))
-
     return ObjectQuery(
         statement=statement,
-        keys=_object_sort_keys(model, object_type, sort),
+        keys=keys,
         filters={
             "applicationKey": application_key,
             "objectTypeKey": object_type_key,
@@ -126,44 +160,64 @@ def build_object_query(
     )
 
 
-def _search_predicate(model: EngineModel, object_type: ObjectTypeDefinition, search: str) -> Any:
+def refine_object_query(
+    model: EngineModel,
+    columns: ObjectColumns,
+    statement: Select[Any],
+    *,
+    object_type: ObjectTypeDefinition,
+    search: str | None,
+    sort: str | None,
+    field_filters: list[tuple[str, str, str]],
+) -> tuple[Select[Any], tuple[SortKey, ...], list[dict[str, str]]]:
+    """Add search and typed filters to an object statement and return its keyset."""
+    if search:
+        statement = statement.where(_search_predicate(model, columns, object_type, search))
+    normalized_filters, predicates = _typed_filter_predicates(
+        model, columns, object_type, field_filters
+    )
+    if predicates:
+        statement = statement.where(and_(*predicates))
+    return statement, _object_sort_keys(model, columns, object_type, sort), normalized_filters
+
+
+def _search_predicate(
+    model: EngineModel, columns: ObjectColumns, object_type: ObjectTypeDefinition, search: str
+) -> Any:
     escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     searchable_attributes = [
         binding.attributeTypeKey
         for binding in object_type.attributes
         if model.attribute_type(binding.attributeTypeKey).features.get("searchable")
     ]
-    attribute_match = select(AttributeValue.object_id).where(
-        AttributeValue.attribute_type_key.in_(searchable_attributes),
-        AttributeValue.text_value.ilike(f"%{escaped}%", escape="\\"),
+    values = columns.values
+    attribute_match = exists(
+        select(values.sequence_id).where(
+            *columns.value_match,
+            values.attribute_type_key.in_(searchable_attributes),
+            values.text_value.ilike(f"%{escaped}%", escape="\\"),
+        )
     )
-    return or_(
-        RdmObject.name.ilike(f"%{escaped}%", escape="\\"),
-        RdmObject.id.in_(attribute_match),
-    )
+    return or_(columns.name.ilike(f"%{escaped}%", escape="\\"), attribute_match)
 
 
 def _object_sort_keys(
-    model: EngineModel, object_type: ObjectTypeDefinition, sort: str | None
+    model: EngineModel, columns: ObjectColumns, object_type: ObjectTypeDefinition, sort: str | None
 ) -> tuple[SortKey, ...]:
-    """Sort keys for an object collection, always closed by the unique sequence id."""
-    sort_name = sort or _SEQUENCE_FIELD
+    """Sort keys for an object collection, always closed by the source's unique tiebreak."""
+    sort_name = sort or columns.default_sort
     descending = sort_name.startswith("-")
     field_name = sort_name.removeprefix("-")
-    if field_name == "id":
-        pass
-    elif field_name == _SEQUENCE_FIELD and sort is not None:
+    if field_name == _SEQUENCE_FIELD and sort is not None:
         _query_error("invalid_sort", "Unknown sort field 'sequenceId'", "sort")
-    sequence = integer_key(
-        _SEQUENCE_FIELD, RdmObject.sequence_id, "sequence_id", descending=descending
-    )
-    if field_name == _SEQUENCE_FIELD:
-        return (sequence,)
+    tiebreak = columns.tiebreak(descending)
+    if field_name == tiebreak.name:
+        return (tiebreak,)
 
-    column = OBJECT_SORT_COLUMNS.get(field_name)
+    column = columns.builtin.get(field_name)
     if column is None:
         definition = _query_attribute(model, object_type, field_name, "sortable", "sort")
-        column = _attribute_scalar(field_name, definition.valueType)
+        column = _attribute_scalar(columns, field_name, definition.valueType)
         null_rank = case((column.is_(None), 1), else_=0)
         return (
             SortKey(
@@ -172,7 +226,7 @@ def _object_sort_keys(
                 attribute="",
                 parse=int,
                 extract=lambda session, row: int(
-                    _attribute_sort_value(session, row.id, field_name, definition.valueType)
+                    _attribute_sort_value(session, columns, row, field_name, definition.valueType)
                     is None
                 ),
             ),
@@ -184,33 +238,34 @@ def _object_sort_keys(
                 parse=lambda token: _parse_cursor_value(definition.valueType, token),
                 format=lambda value: "~null" if value is None else _format_typed_value(value),
                 extract=lambda session, row: _attribute_sort_value(
-                    session, row.id, field_name, definition.valueType
+                    session, columns, row, field_name, definition.valueType
                 ),
             ),
-            sequence,
+            tiebreak,
         )
     if field_name in {"createdAt", "updatedAt"}:
         attribute = "created_at" if field_name == "createdAt" else "updated_at"
         primary = datetime_key(field_name, column, attribute, descending=descending)
     else:
-        primary = text_key(field_name, column, field_name, descending=descending)
-    return (primary, sequence)
+        primary = text_key(field_name, column, column.key, descending=descending)
+    return (primary, tiebreak)
 
 
 def _typed_filter_predicates(
     model: EngineModel,
+    columns: ObjectColumns,
     object_type: ObjectTypeDefinition,
     filters: list[tuple[str, str, str]],
 ) -> tuple[list[dict[str, str]], list[Any]]:
     parsed: list[tuple[str, str, Any, str, Any]] = []
     for field, operator, lexical in filters:
-        column = OBJECT_SORT_COLUMNS.get(field)
+        column = columns.builtin.get(field)
         value_type = _built_in_value_type(field)
         if column is None:
             definition = _query_attribute(model, object_type, field, "filterable", "filter")
             value_type = definition.valueType
-            column = getattr(AttributeValue, VALUE_COLUMNS[value_type])
-        allowed = _filter_operators(value_type, attribute=field not in OBJECT_SORT_COLUMNS)
+            column = getattr(columns.values, VALUE_COLUMNS[value_type])
+        allowed = _filter_operators(value_type, attribute=field not in columns.builtin)
         if operator not in allowed:
             _query_error(
                 "invalid_filter",
@@ -226,15 +281,13 @@ def _typed_filter_predicates(
         if operator == "eq":
             eq_groups.setdefault(field, []).append((value, value_type, column))
         else:
-            predicates.append(
-                _filter_predicate(field, operator, value, value_type, column)
-            )
+            predicates.append(_filter_predicate(columns, field, operator, value, column))
     for field, values in eq_groups.items():
         predicates.append(
             or_(
                 *[
-                    _filter_predicate(field, "eq", value, value_type, column)
-                    for value, value_type, column in values
+                    _filter_predicate(columns, field, "eq", value, column)
+                    for value, _value_type, column in values
                 ]
             )
         )
@@ -248,14 +301,13 @@ def _typed_filter_predicates(
     return normalized, predicates
 
 
-def _filter_predicate(field: str, operator: str, value: Any, value_type: str, column: Any) -> Any:
-    is_attribute = field not in OBJECT_SORT_COLUMNS
-    base = [
-        AttributeValue.object_id == RdmObject.id,
-        AttributeValue.attribute_type_key == field,
-    ]
+def _filter_predicate(
+    columns: ObjectColumns, field: str, operator: str, value: Any, column: Any
+) -> Any:
+    is_attribute = field not in columns.builtin
+    base = [*columns.value_match, columns.values.attribute_type_key == field]
     if operator == "isUnset":
-        present = exists(select(AttributeValue.sequence_id).where(*base))
+        present = exists(select(columns.values.sequence_id).where(*base))
         return not_(present) if value else present
     if operator == "isNull":
         comparison = column.is_(None) if value else column.is_not(None)
@@ -270,7 +322,7 @@ def _filter_predicate(field: str, operator: str, value: Any, value_type: str, co
         comparison = comparisons[operator]
     if not is_attribute:
         return comparison
-    return exists(select(AttributeValue.sequence_id).where(*base, comparison))
+    return exists(select(columns.values.sequence_id).where(*base, comparison))
 
 
 def _query_attribute(
@@ -342,24 +394,28 @@ def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
-def _attribute_scalar(field: str, value_type: str) -> Any:
-    column = getattr(AttributeValue, VALUE_COLUMNS[value_type])
+def _attribute_scalar(columns: ObjectColumns, field: str, value_type: str) -> Any:
+    column = getattr(columns.values, VALUE_COLUMNS[value_type])
     return (
         select(column)
-        .where(AttributeValue.object_id == RdmObject.id, AttributeValue.attribute_type_key == field)
-        .correlate(RdmObject)
+        .where(*columns.value_match, columns.values.attribute_type_key == field)
+        .correlate(columns.source)
         .scalar_subquery()
     )
 
 
-def _attribute_sort_value(session: Session, object_id: str, field: str, value_type: str) -> Any:
-    column = getattr(AttributeValue, VALUE_COLUMNS[value_type])
-    return session.scalar(
-        select(column).where(
-            AttributeValue.object_id == object_id,
-            AttributeValue.attribute_type_key == field,
+def _attribute_sort_value(
+    session: Session, columns: ObjectColumns, row: Any, field: str, value_type: str
+) -> Any:
+    """Read one row's sort value back for its cursor position."""
+    statement = select(_attribute_scalar(columns, field, value_type))
+    if columns.source is RdmObject:
+        statement = statement.where(RdmObject.id == row.id)
+    else:
+        statement = statement.select_from(columns.source).where(
+            columns.id == row.object_id, columns.source.c.values_owner_id == row.values_owner_id
         )
-    )
+    return session.scalar(statement)
 
 
 def _parse_cursor_value(value_type: str, token: str) -> Any:

@@ -762,9 +762,16 @@ Object collections accept `cursor`, `pageSize`, `applicationKey`, `workspaceKey`
 `filter.<field>.<operator>=<value>`. Built-in fields and model attributes with the corresponding
 `filterable` or `sortable` feature are available; JSON attributes are excluded. Prefix a sort with
 `-` for descending order. Null and unset attribute values sort last in either direction, and every
-ordering uses the internal sequence as a non-public final tie-breaker. Omitting `sort` preserves
-creation sequence order. Page size defaults to 100 and has a documented maximum of 500.
-`nextCursor` is null only when that traversal is complete.
+live ordering uses the internal sequence as a non-public final tie-breaker. Omitting `sort` preserves
+creation sequence order. Drafts and history record no creation sequence: there the record ID is the
+final tie-breaker, and omitting `sort` orders by ID. Page size defaults to 100 and has a documented
+maximum of 500. `nextCursor` is null only when that traversal is complete.
+
+Search, typed filters and sort mean the same in live, draft and history contexts (Base 0.8 S2): the
+same query over the same data returns the same records in the same order, apart from the order of
+records that tie on the sort. `search` matches the record name and model attributes with the
+`searchable` feature, case-insensitively, in every context. A draft or history page costs its own
+rows, not the size of the draft or revision.
 
 Drafts and history record no timestamps. In a `workspaceDraftId` or `workspaceRevisionId` context,
 object and relation responses return `createdAt` and `updatedAt` as `null`, and a filter or sort on

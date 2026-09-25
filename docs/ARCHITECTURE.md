@@ -266,6 +266,15 @@ that never address individual records.
   that immutable base (`effective_draft_membership`). Omitted source remains the compatible empty root
   or historical request form; empty creation is not the normal user workflow. Rename, discard and
   record edits each claim the draft's aggregate version.
+- **Draft and history reads in SQL (Base 0.8 S2).** Collection, record, attribute and relation reads
+  in a draft or revision context go through `app/services/snapshot_reads.py`: one statement over the
+  base rows no draft row replaces plus the non-deleted draft rows, narrowed per arm so indexes apply.
+  `snapshot_attribute_values` indexes the JSON values of revision, draft-base and draft objects as
+  typed rows (D1), so the object query builder in `services/objects.py` serves live, draft and history
+  with the same search, typed filters and sort. A `before_flush` hook in
+  `app/services/snapshot_values.py` rewrites an object row's index whenever the ORM writes the row; bulk
+  writes outside the ORM maintain it themselves. Validation, activation and draft writes still resolve
+  the whole graph through `effective_draft_membership`.
 - **Validation.** `POST /api/v1/workspace-drafts/{draftId}/validation` is side-effect-free over the
   effective graph: it validates attributes, containment, ownership, cardinality, ancestor-scoped
   uniqueness and model pinning, and records only a bounded outcome audit event (validity, deduplicated

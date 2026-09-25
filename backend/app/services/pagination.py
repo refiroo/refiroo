@@ -12,11 +12,10 @@ within the filtered set, otherwise rows can be skipped or repeated across a page
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
-from datetime import date, datetime
-from decimal import Decimal
+from datetime import datetime
 from typing import Any
 
-from sqlalchemy import and_, or_
+from sqlalchemy import and_, literal, or_
 from sqlalchemy.orm import Session
 
 from ..common.time import as_utc
@@ -79,8 +78,13 @@ def paginate_statement[Row](
     page_size: int,
     cursor_sort_tokens: tuple[str, ...] | None = None,
     message: str = "Cursor is invalid",
+    rows: bool = False,
 ) -> tuple[list[Row], str | None]:
-    """Page a select with a lexicographic keyset predicate over ``keys``."""
+    """Page a select with a lexicographic keyset predicate over ``keys``.
+
+    A statement over one mapped entity returns its instances; with ``rows=True`` a statement over
+    labelled columns (a draft or revision projection) returns result rows.
+    """
     if not keys:
         raise ValueError("Keyset pagination requires at least one sort key")
     sort = cursor_sort(keys) if cursor_sort_tokens is None else cursor_sort_tokens
@@ -102,10 +106,11 @@ def paginate_statement[Row](
     statement = statement.order_by(
         *(key.column.desc() if key.descending else key.column.asc() for key in keys)
     )
-    rows = list(session.scalars(statement.limit(page_size + 1)))
-    visible = rows[:page_size]
+    limited = statement.limit(page_size + 1)
+    fetched = list(session.execute(limited).all() if rows else session.scalars(limited))
+    visible = fetched[:page_size]
     next_cursor = None
-    if len(rows) > page_size:
+    if len(fetched) > page_size:
         next_cursor = encode_cursor(
             _row_position(session, keys, visible[-1]),
             scope=scope,
@@ -113,36 +118,6 @@ def paginate_statement[Row](
             filters=filters,
         )
     return visible, next_cursor
-
-
-def sequence_sort_text(value: Any) -> str:
-    """Encode a typed value as text whose string order matches the value order.
-
-    In-memory sequences carry string identities in their cursors, so numbers and instants need an
-    order-preserving form: ``10`` must follow ``5`` and ``18:00+01:00`` must precede ``17:30Z``.
-    """
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    if isinstance(value, (int, Decimal)):
-        return _number_sort_text(Decimal(value))
-    if isinstance(value, datetime):
-        return as_utc(value).isoformat()
-    if isinstance(value, date):
-        return value.isoformat()
-    return str(value)
-
-
-def _number_sort_text(value: Decimal) -> str:
-    if value.is_zero():
-        return "1"
-    digits = "".join(map(str, value.as_tuple().digits)).rstrip("0")
-    exponent = value.adjusted() + 5_000_000
-    if value > 0:
-        return f"2{exponent:08d}{digits}"
-    # Larger magnitude sorts first: invert the exponent and digits, and end with a character above
-    # every digit so a shorter mantissa (-1) sorts after a longer one (-1.5).
-    inverted = "".join(str(9 - int(digit)) for digit in digits)
-    return f"0{99_999_999 - exponent:08d}{inverted}~"
 
 
 def paginate_sequence[Item](
@@ -203,15 +178,26 @@ def _parse_position(
 def _keyset_predicate(keys: Sequence[SortKey], values: Sequence[Any]) -> Any:
     """Lexicographic ``(k0, k1, ...) > (v0, v1, ...)`` honoring each key's direction."""
     clauses = []
-    for index, (key, value) in enumerate(zip(keys, values, strict=True)):
+    # Bind positions as typed literals: SQLAlchemy refuses ``column > True`` for a bare boolean.
+    bound = [
+        None if value is None else literal(value, key.column.type)
+        for key, value in zip(keys, values, strict=True)
+    ]
+    for index, (key, value) in enumerate(zip(keys, bound, strict=True)):
         comparison = None if value is None else (key.column < value if key.descending else key.column > value)
         equalities = [
             previous.column == previous_value
-            for previous, previous_value in zip(keys[:index], values[:index], strict=True)
+            for previous, previous_value in zip(keys[:index], bound[:index], strict=True)
         ]
         if comparison is not None:
             clauses.append(and_(*equalities, comparison) if equalities else comparison)
-    return or_(*clauses)
+    first, first_value = keys[0], bound[0]
+    if first_value is None:
+        return or_(*clauses)
+    # Implied by every clause; stated so an index on the first key can seek to the cursor instead
+    # of scanning every row before it.
+    leading = first.column <= first_value if first.descending else first.column >= first_value
+    return and_(leading, or_(*clauses))
 
 
 def _row_position(session: Session, keys: Sequence[SortKey], row: Any) -> tuple[str, ...]:

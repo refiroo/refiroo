@@ -15,16 +15,10 @@ from ..models.api import (
     WorkspaceDraftRelationUpdate,
     WorkspaceDraftRelationWrite,
 )
-from ..models.database import (
-    ObjectRelation,
-    RdmObject,
-    WorkspaceRevision,
-    WorkspaceRevisionObject,
-    WorkspaceRevisionRelation,
-)
+from ..models.database import ObjectRelation, RdmObject
 from ..services.model.registry import RequestModelSnapshot, resolve_model_snapshot
 from ..services.objects import build_object_responses, load_active_projection
-from ..services.pagination import integer_key, paginate_sequence, paginate_statement
+from ..services.pagination import integer_key, paginate_statement, text_key
 from ..services.relations import (
     build_relation_response,
     create_live_relation,
@@ -32,9 +26,15 @@ from ..services.relations import (
     load_relation,
     update_live_relation,
 )
+from ..services.snapshot_reads import (
+    draft_context,
+    find_objects,
+    find_relation,
+    relation_projection,
+    revision_context,
+)
 from ..services.workspace_revisions import (
     delete_draft_relation,
-    effective_draft_membership,
     put_draft_relation,
     update_draft_relation,
 )
@@ -62,7 +62,7 @@ def create_relation(payload: RelationCreate, session: DbSession) -> RelationResp
         draft = str(payload.workspaceDraftId)
         expected = _ctx(draft, payload.expectedWorkspaceDraftVersion)
         row = put_draft_relation(session, draft, WorkspaceDraftRelationWrite(id=None, relationTypeKey=payload.relationTypeKey, fromObjectId=payload.fromObjectId, toObjectId=payload.toObjectId, attributes=payload.attributes, expectedDraftVersion=expected, expectedRecordVersion=None))
-        return _draft_response(row).model_copy(update={"workspaceDraftVersion": effective_draft_membership(session, draft).draft.version})
+        return _draft_response(row).model_copy(update={"workspaceDraftVersion": draft_context(session, draft).draft.version})
     row = create_live_relation(session, resolve_model_snapshot(session).model, payload)
     return build_relation_response(row)
 
@@ -70,27 +70,13 @@ def create_relation(payload: RelationCreate, session: DbSession) -> RelationResp
 def list_relations(session: DbSession, snapshot: RequestModelSnapshot, object_id: str = Query(alias="objectId"), direction: Literal["outgoing", "incoming", "both"] = "both", relation_type_key: str | None = Query(default=None, alias="relationTypeKey"), workspace_key: str | None = Query(default=None, alias="workspaceKey"), workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"), workspace_revision_id: str | None = Query(default=None, alias="workspaceRevisionId"), cursor: str | None = None, page_size: int = Query(default=100, ge=1, le=500, alias="pageSize")) -> RelationPage:
     if sum(value is not None for value in (workspace_draft_id, workspace_revision_id)) > 1:
         raise api_error(422, "mutually_exclusive_context", "Workspace contexts cannot be combined")
-    if workspace_draft_id:
-        membership = effective_draft_membership(session, workspace_draft_id)
-        rows = [row for row in membership.relations if (row.from_object_id == object_id and direction in {"outgoing", "both"}) or (row.to_object_id == object_id and direction in {"incoming", "both"})]
-        if relation_type_key:
-            rows = [row for row in rows if row.relation_type_key == relation_type_key]
-        page, next_cursor = paginate_sequence(rows, lambda row: (row.relation_id,), scope="relations-draft", filters={"draftId": workspace_draft_id, "objectId": object_id, "direction": direction, "relationTypeKey": relation_type_key}, cursor=cursor, page_size=page_size, sort=("id",), message="Relation cursor is invalid")
-        objects = {row.object_id: row for row in membership.objects}
-        return RelationPage(items=[RelationExpansion(direction="outgoing" if row.from_object_id == object_id else "incoming", relation=_draft_response(row), object=_draft_object_response(objects[ row.to_object_id if row.from_object_id == object_id else row.from_object_id], workspace_draft_id, snapshot.model).model_copy(update={"workspaceKey": membership.draft.workspace_key})) for row in page if (row.to_object_id if row.from_object_id == object_id else row.from_object_id) in objects], nextCursor=next_cursor)
-    if workspace_revision_id:
-        revision = session.scalar(
-            select(WorkspaceRevision).where(WorkspaceRevision.id == workspace_revision_id)
-        )
-        if revision is None:
-            raise api_error(404, "workspace_revision_not_found", "Workspace revision not found")
-        rows = list(session.scalars(select(WorkspaceRevisionRelation).where(WorkspaceRevisionRelation.revision_id == workspace_revision_id)))
-        rows = [row for row in rows if (row.from_object_id == object_id and direction in {"outgoing", "both"}) or (row.to_object_id == object_id and direction in {"incoming", "both"})]
-        if relation_type_key:
-            rows = [row for row in rows if row.relation_type_key == relation_type_key]
-        page, next_cursor = paginate_sequence(rows, lambda row: (row.relation_id,), scope="relations-revision", filters={"revisionId": workspace_revision_id, "objectId": object_id, "direction": direction, "relationTypeKey": relation_type_key}, cursor=cursor, page_size=page_size, sort=("id",), message="Relation cursor is invalid")
-        objects = {row.object_id: row for row in session.scalars(select(WorkspaceRevisionObject).where(WorkspaceRevisionObject.revision_id == workspace_revision_id))}
-        return RelationPage(items=[RelationExpansion(direction="outgoing" if row.from_object_id == object_id else "incoming", relation=_draft_response(row), object=_draft_object_response(objects[ row.to_object_id if row.from_object_id == object_id else row.from_object_id], workspace_revision_id, snapshot.model).model_copy(update={"workspaceKey": revision.workspace_key})) for row in page if (row.to_object_id if row.from_object_id == object_id else row.from_object_id) in objects], nextCursor=next_cursor)
+    if workspace_draft_id or workspace_revision_id:
+        context = draft_context(session, workspace_draft_id) if workspace_draft_id else revision_context(session, workspace_revision_id)
+        projection = relation_projection(context, object_id=object_id, direction=direction, relation_type_key=relation_type_key)
+        owner = {"draftId": context.id} if context.kind == "draft" else {"revisionId": context.id}
+        rows, next_cursor = paginate_statement(session, select(projection), keys=(text_key("id", projection.c.relation_id, "relation_id"),), scope=f"relations-{context.kind}", filters={**owner, "objectId": object_id, "direction": direction, "relationTypeKey": relation_type_key}, cursor=cursor, page_size=page_size, message="Relation cursor is invalid", rows=True)
+        objects = find_objects(session, context, (row.to_object_id if row.from_object_id == object_id else row.from_object_id for row in rows))
+        return RelationPage(items=[RelationExpansion(direction="outgoing" if row.from_object_id == object_id else "incoming", relation=_draft_response(row), object=_draft_object_response(objects[row.to_object_id if row.from_object_id == object_id else row.from_object_id], context.id, snapshot.model).model_copy(update={"workspaceKey": context.workspace_key})) for row in rows if (row.to_object_id if row.from_object_id == object_id else row.from_object_id) in objects], nextCursor=next_cursor)
     anchor = load_active_projection(session, object_id)
     workspace = resolve_workspace(session, workspace_key)
     if anchor.workspace_key != workspace.key:
@@ -109,12 +95,9 @@ def list_relations(session: DbSession, snapshot: RequestModelSnapshot, object_id
 @router.get("/relations/{relation_id}", response_model=RelationResponse)
 def get_relation(relation_id: str, session: DbSession, snapshot: RequestModelSnapshot, workspace_key: str | None = Query(default=None, alias="workspaceKey"), workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"), workspace_revision_id: str | None = Query(default=None, alias="workspaceRevisionId")) -> RelationResponse:
     if workspace_draft_id and workspace_revision_id: raise api_error(422, "mutually_exclusive_context", "Workspace contexts cannot be combined")
-    if workspace_draft_id:
-        row = next((row for row in effective_draft_membership(session, workspace_draft_id).relations if row.relation_id == relation_id), None)
-        if row is None: raise api_error(404, "relation_not_found", "Relation not found")
-        return _draft_response(row)
-    if workspace_revision_id:
-        row = session.scalar(select(WorkspaceRevisionRelation).where(WorkspaceRevisionRelation.revision_id == workspace_revision_id, WorkspaceRevisionRelation.relation_id == relation_id))
+    if workspace_draft_id or workspace_revision_id:
+        context = draft_context(session, workspace_draft_id) if workspace_draft_id else revision_context(session, workspace_revision_id)
+        row = find_relation(session, context, relation_id)
         if row is None: raise api_error(404, "relation_not_found", "Relation not found")
         return _draft_response(row)
     row = load_relation(session, relation_id)
@@ -135,7 +118,7 @@ def update_relation(relation_id: str, payload: RelationUpdate, session: DbSessio
         draft = str(payload.workspaceDraftId)
         expected = _ctx(draft, payload.expectedWorkspaceDraftVersion)
         row = update_draft_relation(session, draft, relation_id, WorkspaceDraftRelationUpdate(attributes=payload.attributes, expectedDraftVersion=expected, expectedRecordVersion=payload.expectedVersion))
-        return _draft_response(row).model_copy(update={"workspaceDraftVersion": effective_draft_membership(session, draft).draft.version})
+        return _draft_response(row).model_copy(update={"workspaceDraftVersion": draft_context(session, draft).draft.version})
     row = update_live_relation(session, resolve_model_snapshot(session).model, relation_id, payload)
     return build_relation_response(row)
 

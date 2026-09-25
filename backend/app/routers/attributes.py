@@ -1,10 +1,8 @@
 from fastapi import APIRouter, Query, Response, status
-from sqlalchemy import select
 
 from ..db import DbSession
 from ..errors import api_error
 from ..models.api import AttributeValueResponse, AttributeValueWrite, ObjectResponse
-from ..models.database import WorkspaceRevision, WorkspaceRevisionObject
 from ..services.attributes import build_attribute_value_response, load_attribute_value
 from ..services.model.registry import (
     RequestModelSnapshot,
@@ -18,9 +16,9 @@ from ..services.objects import (
     load_active_projection,
     set_live_attribute_value,
 )
+from ..services.snapshot_reads import draft_context, find_object, revision_context
 from ..services.workspace_revisions import (
     delete_draft_attribute,
-    effective_draft_membership,
     ensure_draft_writable,
     patch_draft_attribute,
 )
@@ -38,30 +36,15 @@ def get_attribute_value(object_type_key: str, object_id: str, attribute_type_key
     if workspace_draft_id and workspace_revision_id:
         raise api_error(422, "mutually_exclusive_context", "workspaceDraftId and workspaceRevisionId cannot be combined")
     get_object_type(snapshot.model, object_type_key)
-    if workspace_draft_id:
-        membership = effective_draft_membership(session, workspace_draft_id)
-        item = next((x for x in membership.objects if x.object_id == object_id and x.object_type_key == object_type_key), None)
-        if item is None:
+    if workspace_draft_id or workspace_revision_id:
+        context = (
+            draft_context(session, workspace_draft_id)
+            if workspace_draft_id
+            else revision_context(session, workspace_revision_id)
+        )
+        item = find_object(session, context, object_id, object_type_key)
+        if item is None and context.kind == "draft":
             raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
-        if attribute_type_key not in (item.attributes or {}):
-            raise api_error(404, "attribute_not_found", f"Attribute '{attribute_type_key}' has no value on object '{object_id}'")
-        definition = snapshot.model.attribute_type(attribute_type_key)
-        return AttributeValueResponse(id=f"{object_id}:{attribute_type_key}", attributeTypeKey=attribute_type_key,
-            name=definition.name if definition else attribute_type_key, valueType=definition.valueType if definition else "text",
-            value=item.attributes[attribute_type_key], objectVersion=item.version)
-    if workspace_revision_id:
-        revision = session.scalar(
-            select(WorkspaceRevision).where(WorkspaceRevision.id == workspace_revision_id)
-        )
-        if revision is None:
-            raise api_error(404, "workspace_revision_not_found", "Workspace revision not found")
-        item = session.scalar(
-            select(WorkspaceRevisionObject).where(
-                WorkspaceRevisionObject.revision_id == workspace_revision_id,
-                WorkspaceRevisionObject.object_id == object_id,
-                WorkspaceRevisionObject.object_type_key == object_type_key,
-            )
-        )
         if item is None or attribute_type_key not in (item.attributes or {}):
             raise api_error(
                 404,
@@ -90,8 +73,8 @@ def _write(object_type_key: str, object_id: str, attribute_type_key: str, payloa
             raise api_error(409, "workspace_draft_required",
                             "expectedWorkspaceDraftVersion is required when targeting a workspace draft")
         ensure_draft_writable(session, draft_id)
-        membership = effective_draft_membership(session, draft_id)
-        item = next((entry for entry in membership.objects if entry.object_id == object_id and entry.object_type_key == object_type_key), None)
+        context = draft_context(session, draft_id)
+        item = find_object(session, context, object_id, object_type_key)
         if item is None:
             raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
         present = attribute_type_key in (item.attributes or {})
@@ -107,7 +90,7 @@ def _write(object_type_key: str, object_id: str, attribute_type_key: str, payloa
             raise api_error(404, "attribute_not_found", f"Attribute '{attribute_type_key}' has no value on object '{object_id}'")
         row = patch_draft_attribute(session, draft_id, object_id, attribute_type_key,
                                     payload.value, payload.expectedWorkspaceDraftVersion, payload.expectedVersion)
-        draft = effective_draft_membership(session, draft_id).draft
+        draft = draft_context(session, draft_id).draft
         return _draft_object_response(row, draft_id, resolve_draft_snapshot(session, draft_id).model).model_copy(
             update={"workspaceKey": draft.workspace_key, "workspaceDraftVersion": draft.version}
         )

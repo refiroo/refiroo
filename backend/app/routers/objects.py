@@ -1,9 +1,5 @@
-from datetime import datetime
-
 from fastapi import APIRouter, Query, Request, Response, status
-from sqlalchemy import select
 
-from ..common.time import as_utc
 from ..db import DbSession
 from ..errors import api_error
 from ..models.api import (
@@ -15,8 +11,6 @@ from ..models.api import (
     WorkspaceDraftObjectUpdate,
     WorkspaceDraftObjectWrite,
 )
-from ..models.database import WorkspaceRevision, WorkspaceRevisionObject
-from ..services.attributes import normalize_value
 from ..services.audit import list_object_history
 from ..services.deletion import delete_object_record
 from ..services.model.registry import (
@@ -25,10 +19,6 @@ from ..services.model.registry import (
     resolve_model_snapshot,
 )
 from ..services.objects import (
-    OBJECT_SORT_COLUMNS,
-    _built_in_value_type,
-    _parse_filter_value,
-    _query_error,
     build_object_query,
     build_object_responses,
     create_object_record,
@@ -37,10 +27,17 @@ from ..services.objects import (
     load_object,
     update_object_record,
 )
-from ..services.pagination import paginate_sequence, paginate_statement, sequence_sort_text
+from ..services.pagination import paginate_statement
+from ..services.snapshot_reads import (
+    build_snapshot_object_query,
+    draft_context,
+    find_object,
+    object_path,
+    object_scope,
+    revision_context,
+)
 from ..services.workspace_revisions import (
     delete_draft_object,
-    effective_draft_membership,
     put_draft_object,
     update_draft_object,
 )
@@ -49,112 +46,7 @@ from ..services.workspaces import resolve_workspace
 router = APIRouter(prefix="/api/v1", tags=["objects"])
 
 
-# Draft and history rows record no timestamps; a query on them is refused, not matched as empty.
-_UNRECORDED_TIMESTAMPS = {"createdAt": "Created", "updatedAt": "Updated"}
-
-
-def _sequence_object_rows(
-    rows, *, model, object_type_key, application_key, parent_object_id, search, sort, filters
-):
-    """Apply the public query contract to immutable draft/revision projections."""
-    for field, operator, _raw in filters:
-        if field in _UNRECORDED_TIMESTAMPS:
-            _query_error(
-                "invalid_filter",
-                f"{_UNRECORDED_TIMESTAMPS[field]} is not recorded in drafts or history",
-                f"filter.{field}.{operator}",
-            )
-    if (sort or "").removeprefix("-") in _UNRECORDED_TIMESTAMPS:
-        _query_error(
-            "invalid_sort",
-            f"{_UNRECORDED_TIMESTAMPS[sort.removeprefix('-')]} is not recorded in drafts or history",
-            "sort",
-        )
-
-    def value(item, field):
-        if field == "id":
-            return item.object_id
-        if field == "name":
-            return item.name
-        stored = (item.attributes or {}).get(field)
-        definition = model.attribute_type(field)
-        if stored is None or definition is None:
-            return stored
-        # Draft rows hold the JSON form; compare as the declared type, like live SQL does.
-        typed = normalize_value(definition, stored)
-        return as_utc(typed) if isinstance(typed, datetime) else typed
-
-    parsed_filters = []
-    for field, operator, raw in filters:
-        if field in OBJECT_SORT_COLUMNS:
-            value_type = _built_in_value_type(field)
-        else:
-            definition = model.attribute_type(field)
-            value_type = definition.valueType if definition else "text"
-        parsed = _parse_filter_value(value_type, operator, raw, field)
-        parsed_filters.append(
-            (field, operator, as_utc(parsed) if isinstance(parsed, datetime) else parsed)
-        )
-
-    def matches(item):
-        if application_key and item.application_key != application_key:
-            return False
-        if parent_object_id and item.parent_object_id != parent_object_id:
-            return False
-        if search:
-            needle = search.casefold()
-            if needle not in item.name.casefold() and not any(
-                needle in str(v).casefold() for v in (item.attributes or {}).values()
-            ):
-                return False
-        equalities: dict[str, list[object]] = {}
-        for field, operator, expected in parsed_filters:
-            if operator == "eq":
-                equalities.setdefault(field, []).append(expected)
-                continue
-            candidate = value(item, field)
-            if operator == "isUnset":
-                if (field not in (item.attributes or {})) != expected:
-                    return False
-                continue
-            if operator == "isNull":
-                if (field in (item.attributes or {}) and candidate is None) != expected:
-                    return False
-                continue
-            if candidate is None:
-                return False
-            if operator == "contains" and str(expected).casefold() not in str(candidate).casefold():
-                return False
-            if operator == "startsWith" and not str(candidate).casefold().startswith(
-                str(expected).casefold()
-            ):
-                return False
-            if operator == "lt" and not candidate < expected:
-                return False
-            if operator == "lte" and not candidate <= expected:
-                return False
-            if operator == "gt" and not candidate > expected:
-                return False
-            if operator == "gte" and not candidate >= expected:
-                return False
-        return not any(value(item, field) not in expected for field, expected in equalities.items())
-
-    sort_name = sort or "id"
-    descending = sort_name.startswith("-")
-    field = sort_name.removeprefix("-")
-
-    def identity(item):
-        candidate = value(item, field)
-        if candidate is None:
-            rank = "a" if descending else "z"
-            return (rank, item.object_id)
-        rank = "z" if descending else "a"
-        return (f"{rank}{sequence_sort_text(candidate)}", item.object_id)
-
-    return [item for item in rows if matches(item)], identity, descending, field
-
-
-def _draft_object_response(item, draft_id: str, model, *, objects=None) -> ObjectResponse:
+def _draft_object_response(item, draft_id: str, model, *, path=None) -> ObjectResponse:
     attrs = []
     for key, value in (item.attributes or {}).items():
         definition = model.attribute_type(key)
@@ -167,22 +59,6 @@ def _draft_object_response(item, draft_id: str, model, *, objects=None) -> Objec
                 "value": value,
             }
         )
-    path = []
-    if objects is not None:
-        by_id = {candidate.object_id: candidate for candidate in objects}
-        current = item
-        seen = set()
-        while current is not None and current.object_id not in seen:
-            seen.add(current.object_id)
-            path.append(
-                {
-                    "id": current.object_id,
-                    "name": current.name,
-                    "objectTypeKey": current.object_type_key,
-                }
-            )
-            current = by_id.get(current.parent_object_id) if current.parent_object_id else None
-        path.reverse()
     return ObjectResponse(
         id=item.object_id,
         workspaceKey=(getattr(item, "workspace_key", None) or ""),
@@ -190,12 +66,28 @@ def _draft_object_response(item, draft_id: str, model, *, objects=None) -> Objec
         objectTypeKey=item.object_type_key,
         parentObjectId=item.parent_object_id,
         name=item.name,
-        path=path,
+        path=path or [],
         attributes=attrs,
         version=item.version,
         # Not recorded for draft and history rows (WP-10K); never substitute the current time.
         createdAt=None,
         updatedAt=None,
+    )
+
+
+def _draft_write_response(session, draft_id: str, row) -> ObjectResponse:
+    """A draft write's response: the written row with its path, read by direct lookups."""
+    context = draft_context(session, draft_id)
+    return _draft_object_response(
+        row,
+        draft_id,
+        resolve_draft_snapshot(session, draft_id).model,
+        path=object_path(session, context, row),
+    ).model_copy(
+        update={
+            "workspaceKey": context.workspace_key,
+            "workspaceDraftVersion": context.draft.version,
+        }
     )
 
 
@@ -220,15 +112,15 @@ def create_object(
     if payload.workspaceDraftId:
         draft_id = str(payload.workspaceDraftId)
         expected = _require_draft_context(draft_id, payload.expectedWorkspaceDraftVersion)
-        membership = effective_draft_membership(session, draft_id)
-        if payload.workspaceKey is not None and payload.workspaceKey != membership.draft.workspace_key:
+        context = draft_context(session, draft_id)
+        if payload.workspaceKey is not None and payload.workspaceKey != context.workspace_key:
             raise api_error(
                 422,
                 "workspace_context_mismatch",
                 "workspaceKey does not match workspaceDraftId",
                 {
                     "workspaceKey": payload.workspaceKey,
-                    "contextWorkspaceKey": membership.draft.workspace_key,
+                    "contextWorkspaceKey": context.workspace_key,
                 },
             )
         row = put_draft_object(
@@ -246,13 +138,7 @@ def create_object(
                 expectedRecordVersion=None,
             ),
         )
-        membership = effective_draft_membership(session, draft_id)
-        draft = membership.draft
-        return _draft_object_response(
-            row, draft_id, resolve_draft_snapshot(session, draft_id).model, objects=membership.objects
-        ).model_copy(
-            update={"workspaceKey": draft.workspace_key, "workspaceDraftVersion": draft.version}
-        )
+        return _draft_write_response(session, draft_id, row)
     if payload.workspaceKey is None:
         raise api_error(
             422,
@@ -287,13 +173,7 @@ def update_object(
             expectedDraftVersion=expected, expectedRecordVersion=payload.expectedVersion, **fields
         )
         row = update_draft_object(session, draft_id, object_id, draft_payload)
-        membership = effective_draft_membership(session, draft_id)
-        draft = membership.draft
-        return _draft_object_response(
-            row, draft_id, resolve_draft_snapshot(session, draft_id).model, objects=membership.objects
-        ).model_copy(
-            update={"workspaceKey": draft.workspace_key, "workspaceDraftVersion": draft.version}
-        )
+        return _draft_write_response(session, draft_id, row)
     snapshot = resolve_model_snapshot(session)
     item = update_object_record(session, snapshot.model, object_type_key, object_id, payload)
     return build_object_responses(session, snapshot.model, [item])[0]
@@ -382,121 +262,39 @@ def list_objects(
             "mutually_exclusive_context",
             "workspaceDraftId and workspaceRevisionId cannot be combined",
         )
-    if workspace_draft_id:
-        membership = effective_draft_membership(session, workspace_draft_id)
-        get_object_type(model, object_type_key)
-        filters = _field_filters(request)
-        # Reuse the model-aware query builder for declared field/operator validation.
-        build_object_query(
+    if workspace_draft_id or workspace_revision_id:
+        context = (
+            draft_context(session, workspace_draft_id)
+            if workspace_draft_id
+            else revision_context(session, workspace_revision_id)
+        )
+        query = build_snapshot_object_query(
             model,
+            context,
             object_type_key=object_type_key,
-            application_key=application_key,
-            workspace_key=membership.draft.workspace_key,
-            parent_object_id=parent_object_id,
-            search=search,
+            application_key=application_key or None,
+            parent_object_id=parent_object_id or None,
+            search=search or None,
             sort=sort,
-            field_filters=filters,
+            field_filters=_field_filters(request),
         )
-        rows, identity, descending, sort_field = _sequence_object_rows(
-            [x for x in membership.objects if x.object_type_key == object_type_key],
-            model=model,
-            object_type_key=object_type_key,
-            application_key=application_key,
-            parent_object_id=parent_object_id,
-            search=search,
-            sort=sort,
-            filters=filters,
-        )
-        page, next_cursor = paginate_sequence(
-            rows,
-            identity,
-            scope="objects-draft",
-            filters={
-                "draftId": workspace_draft_id,
-                "objectTypeKey": object_type_key,
-                "applicationKey": application_key,
-                "parentObjectId": parent_object_id,
-                "search": search,
-                "sort": sort_field,
-                "descending": descending,
-                "typedFilters": filters,
-            },
+        rows, next_cursor = paginate_statement(
+            session,
+            query.statement,
+            keys=query.keys,
+            scope=object_scope(context),
+            filters=query.filters,
             cursor=cursor,
             page_size=page_size,
-            sort=(("-" if descending else "") + sort_field, "id"),
-            descending=descending,
             message="Object cursor is invalid",
+            rows=True,
         )
         return ObjectPage(
             items=[
-                _draft_object_response(x, workspace_draft_id, model).model_copy(
-                    update={"workspaceKey": membership.draft.workspace_key}
+                _draft_object_response(row, context.id, model).model_copy(
+                    update={"workspaceKey": context.workspace_key}
                 )
-                for x in page
-            ],
-            nextCursor=next_cursor,
-        )
-    if workspace_revision_id:
-        revision = session.scalar(
-            select(WorkspaceRevision).where(WorkspaceRevision.id == workspace_revision_id)
-        )
-        if revision is None:
-            raise api_error(404, "workspace_revision_not_found", "Workspace revision not found")
-        get_object_type(model, object_type_key)
-        filters = _field_filters(request)
-        build_object_query(
-            model,
-            object_type_key=object_type_key,
-            application_key=application_key,
-            workspace_key=revision.workspace_key,
-            parent_object_id=parent_object_id,
-            search=search,
-            sort=sort,
-            field_filters=filters,
-        )
-        rows, identity, descending, sort_field = _sequence_object_rows(
-            list(
-                session.scalars(
-                    select(WorkspaceRevisionObject).where(
-                        WorkspaceRevisionObject.revision_id == workspace_revision_id,
-                        WorkspaceRevisionObject.object_type_key == object_type_key,
-                    )
-                )
-            ),
-            model=model,
-            object_type_key=object_type_key,
-            application_key=application_key,
-            parent_object_id=parent_object_id,
-            search=search,
-            sort=sort,
-            filters=filters,
-        )
-        page, next_cursor = paginate_sequence(
-            rows,
-            identity,
-            scope="objects-revision",
-            filters={
-                "revisionId": workspace_revision_id,
-                "objectTypeKey": object_type_key,
-                "applicationKey": application_key,
-                "parentObjectId": parent_object_id,
-                "search": search,
-                "sort": sort_field,
-                "descending": descending,
-                "typedFilters": filters,
-            },
-            cursor=cursor,
-            page_size=page_size,
-            sort=(("-" if descending else "") + sort_field, "id"),
-            descending=descending,
-            message="Object cursor is invalid",
-        )
-        return ObjectPage(
-            items=[
-                _draft_object_response(x, workspace_revision_id, model).model_copy(
-                    update={"workspaceKey": revision.workspace_key}
-                )
-                for x in page
+                for row in rows
             ],
             nextCursor=next_cursor,
         )
@@ -568,38 +366,17 @@ def get_object(
             "mutually_exclusive_context",
             "workspaceDraftId and workspaceRevisionId cannot be combined",
         )
-    if workspace_draft_id:
-        membership = effective_draft_membership(session, workspace_draft_id)
-        item = next(
-            (
-                x
-                for x in membership.objects
-                if x.object_id == object_id and x.object_type_key == object_type_key
-            ),
-            None,
+    if workspace_draft_id or workspace_revision_id:
+        context = (
+            draft_context(session, workspace_draft_id)
+            if workspace_draft_id
+            else revision_context(session, workspace_revision_id)
         )
+        item = find_object(session, context, object_id, object_type_key)
         if item is None:
             raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
-        return _draft_object_response(item, workspace_draft_id, model).model_copy(
-            update={"workspaceKey": membership.draft.workspace_key}
-        )
-    if workspace_revision_id:
-        revision = session.scalar(
-            select(WorkspaceRevision).where(WorkspaceRevision.id == workspace_revision_id)
-        )
-        if revision is None:
-            raise api_error(404, "workspace_revision_not_found", "Workspace revision not found")
-        item = session.scalar(
-            select(WorkspaceRevisionObject).where(
-                WorkspaceRevisionObject.revision_id == workspace_revision_id,
-                WorkspaceRevisionObject.object_id == object_id,
-                WorkspaceRevisionObject.object_type_key == object_type_key,
-            )
-        )
-        if item is None:
-            raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
-        return _draft_object_response(item, workspace_revision_id, model).model_copy(
-            update={"workspaceKey": revision.workspace_key}
+        return _draft_object_response(item, context.id, model).model_copy(
+            update={"workspaceKey": context.workspace_key}
         )
     selected_workspace_key = resolve_workspace(session, workspace_key).key
     item = load_active_projection(session, object_id, object_type_key)
@@ -620,22 +397,15 @@ def get_object_history(
     if workspace_draft_id:
         snapshot = resolve_draft_snapshot(session, workspace_draft_id)
         get_object_type(snapshot.model, object_type_key)
-        membership = effective_draft_membership(session, workspace_draft_id)
-        item = next(
-            (
-                candidate
-                for candidate in membership.objects
-                if candidate.object_id == object_id and candidate.object_type_key == object_type_key
-            ),
-            None,
-        )
+        context = draft_context(session, workspace_draft_id)
+        item = find_object(session, context, object_id, object_type_key)
         if item is None:
             raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
         return list_object_history(
             session,
             object_id=item.object_id,
             object_type_key=item.object_type_key,
-            workspace_key=membership.draft.workspace_key,
+            workspace_key=context.workspace_key,
             cursor=cursor,
             page_size=page_size,
         )
