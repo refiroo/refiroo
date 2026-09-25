@@ -72,7 +72,7 @@ frontend/src/
 │       └── WorkspaceSelector.tsx
 ├── ui/                          feature-agnostic primitives
 │   ├── Modal.tsx                backdrop, header, Escape, focus, scroll lock       (FE-18)
-│   ├── ConfirmDialog.tsx  Pagination.tsx  InlineError.tsx
+│   ├── ConfirmDialog.tsx  ScrollWindow.tsx  InlineError.tsx                     (0.8 S5)
 │   ├── ObjectTable.tsx  ObjectLookup.tsx
 │   ├── formatValue.tsx                                                           (FE-04)
 │   └── AttributeField.tsx  attributeForm.ts                                      (FE-04)
@@ -80,7 +80,7 @@ frontend/src/
 │   ├── download.ts                                                               (FE-04)
 │   └── hooks/
 │       ├── useDebouncedValue.ts                                                  (FE-09)
-│       ├── useCursorPages.ts                                                     (FE-11)
+│       ├── useCursorWindow.ts   replaced useCursorPages                         (0.8 S5)
 │       └── useCursorFeed.ts                                                      (FE-11)
 ├── types/
 │   ├── index.ts                 barrel; `src/types.ts` moves here                (FE-07)

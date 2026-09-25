@@ -7,7 +7,7 @@ import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 afterEach(() => vi.restoreAllMocks());
 
 describe("embedded collection reads", () => {
-  it.each([domainObject, codelistObject])("keeps $objectTypeKey content on a failed next page", async (row) => {
+  it.each([domainObject, codelistObject])("keeps $objectTypeKey content when scrolling on fails", async (row) => {
     const read = vi
       .spyOn(api, "objects")
       .mockResolvedValueOnce({ items: [row], nextCursor: "second" })
@@ -48,19 +48,23 @@ describe("embedded collection reads", () => {
     expect(screen.queryByRole("columnheader", { name: "Code" })).not.toBeInTheDocument();
     expect(read).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole("button", { name: "Next page" }));
+    // Moving down from the last loaded row reads the next page, as scrolling near the edge does.
+    fireEvent.keyDown(screen.getByRole("button", { name: row.name }), { key: "ArrowDown" });
     await screen.findByText("Children unavailable");
     expect(screen.getByRole("button", { name: row.name })).toBeInTheDocument();
     expect(screen.queryByText("Nothing to show yet.")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await screen.findByRole("button", { name: "Next record" });
+    expect(screen.getByRole("button", { name: row.name })).toBeInTheDocument();
     expect(read.mock.calls.map(([, query]) => query.cursor)).toEqual([undefined, "second", "second"]);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Next record" })).toHaveFocus());
     await waitFor(() =>
       expect(read).toHaveBeenLastCalledWith(
         row.objectTypeKey,
         expect.objectContaining({
           workspaceKey: "west",
           parentObjectId: domainObject.id,
+          sort: "name",
         }),
       ),
     );

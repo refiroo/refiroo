@@ -192,7 +192,7 @@ it.each(["domain", "codelist"])("preserves typed filters and query/display owner
       search: "",
       sort: "name",
       pageSize: 20,
-      cursors: ["later"],
+      anchor: "later",
       filters: [],
     });
     latest = query;
@@ -227,7 +227,7 @@ it.each(["domain", "codelist"])("preserves typed filters and query/display owner
     { field: "date", operator: "gte", value: "2026-01-01" },
     { field: "code", operator: "isUnset", value: "true" },
   ]);
-  expect(latest!.cursors).toBeUndefined();
+  expect(latest!.anchor).toBeUndefined();
   fireEvent.change(screen.getByLabelText("Code operator"), { target: { value: "isNull" } });
   fireEvent.change(screen.getByLabelText("Code value"), { target: { value: "false" } });
   expect(latest!.filters.at(-1)).toEqual({ field: "code", operator: "isNull", value: "false" });
@@ -244,7 +244,7 @@ it.each(["domain", "codelist"])("preserves typed filters and query/display owner
   expect(latest!).toBe(before);
   fireEvent.change(within(display).getByLabelText("Per page"), { target: { value: "50" } });
   expect(latest!.pageSize).toBe(50);
-  expect(latest!.cursors).toBeUndefined();
+  expect(latest!.anchor).toBeUndefined();
   fireEvent.click(within(display).getByRole("button", { name: "Done" }));
   expect(screen.queryByRole("columnheader", { name: "Code" })).not.toBeInTheDocument();
   fireEvent.click(screen.getByRole("button", { name: /Name/ }));

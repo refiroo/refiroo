@@ -117,8 +117,10 @@ errors explicit and machine-readable.
   `features/objects/panels/`, and render the result as an element. Calling it as a function puts
   its hooks in the caller's hook list.
 - `model/` holds reads over the model and stays free of JSX; presentation belongs in `ui/`.
-- Page a collection with `lib/hooks/useCursorPages` for backward movement or `useCursorFeed` for
-  append-on-demand. Do not hand-write a cursor stack.
+- Page a collection a user scrolls or jumps through with `lib/hooks/useCursorWindow` rendered in
+  `ui/ScrollWindow` (ADR-030): a bounded window of pages, cursors to scroll, positions to jump, one
+  `anchor` in the URL. `useCursorFeed` remains for short append-only feeds (record history, draft and
+  revision lists). Do not hand-write a cursor stack or page buttons.
 - Recognise an API failure with `isApiError` from `api/errors`, never by reading `code` off a cast,
   and render one with `errorMessage` so users never see an `Error:` prefix.
 - Build a dialog with `ui/Modal`, which owns the backdrop, the generated `aria-labelledby`,

@@ -23,6 +23,11 @@ export interface Router {
   /** Pushes or replaces a route, keeping the URL and the rendered route in step. */
   navigate: (next: RouteState, replace?: boolean) => boolean;
   /**
+   * Replaces the current entry without consulting the navigation guard, for state that only records
+   * where the user is (a list's scroll anchor) and must not discard an open editor.
+   */
+  replaceRoute: (next: RouteState) => void;
+  /**
    * The collection the user last looked at, optionally scoped to an application, used to return
    * from detail and to restore each application's view and query after navigation.
    *
@@ -137,6 +142,14 @@ export function useRouter(): Router {
     return true;
   }, []);
 
+  const replaceRoute = useCallback((next: RouteState) => {
+    if (restoring.current) return;
+    const destination = routeWithOrigin(next, currentRoute.current);
+    window.history.replaceState(historyState(destination, historyIndex.current), "", routePath(destination));
+    currentRoute.current = destination;
+    setRoute(destination);
+  }, []);
+
   const reloadModel = useCallback(async () => {
     setModel(await api.model());
   }, []);
@@ -148,7 +161,7 @@ export function useRouter(): Router {
         workspaceKey,
         workspaceDraftId: undefined,
         workspaceRevisionId: undefined,
-        cursors: undefined,
+        anchor: undefined,
       });
     }
     if (mostRecentCollection.current)
@@ -157,7 +170,7 @@ export function useRouter(): Router {
         workspaceKey,
         workspaceDraftId: undefined,
         workspaceRevisionId: undefined,
-        cursors: undefined,
+        anchor: undefined,
       };
   }, []);
 
@@ -166,6 +179,7 @@ export function useRouter(): Router {
     error,
     route: active,
     navigate,
+    replaceRoute,
     lastCollection: (applicationKey) =>
       applicationKey ? lastCollections.current.get(applicationKey) : mostRecentCollection.current,
     rememberWorkspace,

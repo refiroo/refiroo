@@ -7,6 +7,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "node:net";
 import { chromium } from "playwright";
+import { goToPage } from "./helpers/lists.mjs";
 import { checkRecordReturn } from "./ui03a-navigation.mjs";
 import { checkInspectorDeletion } from "./ui03b-deletion.mjs";
 import { checkHierarchySelection } from "./ui03b-hierarchy.mjs";
@@ -129,7 +130,7 @@ try {
     // UI-02: exercise controls through the composed page before the existing restoration journey.
     await page.goto(`${uiUrl}${listPath}`);
     await shown(page.getByRole("button", { name: "Record 00", exact: true }));
-    await page.getByRole("button", { name: "Next page", exact: true }).click();
+    await goToPage(page, 2);
     await shown(page.getByRole("button", { name: "Record 10", exact: true }));
     await page.getByRole("button", { name: /^Filter/ }).click();
     let facet = page.getByRole("dialog", { name: "Filter", exact: true });
@@ -174,7 +175,7 @@ try {
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => document.activeElement?.textContent?.startsWith("Filter"));
     await shown(page.getByRole("button", { name: "Record 00", exact: true }));
-    assert.equal(new URL(page.url()).searchParams.getAll("cursor").length, 0);
+    assert.equal(new URL(page.url()).searchParams.get("anchor"), null);
     await page.getByRole("button", { name: "Remove Count is 0", exact: true }).click();
     assert.equal(new URL(page.url()).searchParams.get("filter.qa-date.gte"), "2026-01-01");
     const collection = page.getByRole("region", { name: `${type === "domain" ? "Domains" : "Systems"} table` });
@@ -193,11 +194,13 @@ try {
     await display.getByLabel("Density").selectOption("compact");
     await display.getByLabel("Per page").selectOption("20");
     await display.getByRole("button", { name: "Done" }).click();
-    await shown(page.getByText("20 records on this page", { exact: true }));
+    await page.waitForFunction(() => new URL(location.href).searchParams.get("pageSize") === "20");
+    await shown(page.getByText(/^1–\d+ of [\d,]+ records$/));
     assert.equal(await collection.getByRole("columnheader", { name: "Count", exact: true }).count(), 0);
     await page.screenshot({ path: resolve(output, `ui02-${type}-desktop.png`), fullPage: true });
     await page.reload();
-    await shown(page.getByText("20 records on this page", { exact: true }));
+    await page.waitForFunction(() => new URL(location.href).searchParams.get("pageSize") === "20");
+    await shown(page.getByText(/^1–\d+ of [\d,]+ records$/));
     assert.equal(await collection.getByRole("columnheader", { name: "Count", exact: true }).count(), 0);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByRole("button", { name: /Show all .* columns/ }).tap();
@@ -214,19 +217,21 @@ try {
     await page.screenshot({ path: resolve(output, `ui02-${type}-mobile.png`), fullPage: true });
     await page.setViewportSize({ width: 1440, height: 1000 });
     checks.push(`UI-02 ${type}: typed filter controls/chip isolation, cursor reset, heading/menu sort, display preference persistence and mobile columns/focus`);
+    // The list reads its next page ahead of the viewport; that read fails and is retried in place.
+    const failedPage = await failRead(page, (url) => url.pathname === `/api/v1/objects/${type}` && url.searchParams.has("cursor") && url.searchParams.has("sort"), "Collection page unavailable");
     await page.goto(`${uiUrl}${listPath}`);
     const table = page.getByRole("region", { name: `${type === "domain" ? "Domains" : "Systems"} table` });
-    await shown(table.getByRole("button", { name: "Record 00", exact: true }));
-    const failedPage = await failRead(page, (url) => url.pathname === `/api/v1/objects/${type}` && url.searchParams.has("cursor") && url.searchParams.has("sort"), "Collection page unavailable");
-    await page.getByRole("button", { name: "Next page", exact: true }).click();
-    await shown(page.getByText("Collection page unavailable", { exact: true }));
+    await shown(table.getByText("Collection page unavailable"));
     await shown(table.getByRole("button", { name: "Record 00", exact: true }));
     await failedPage.restore();
-    await page.getByRole("button", { name: "Retry", exact: true }).click();
+    await table.getByRole("button", { name: "Retry", exact: true }).click();
     await shown(table.getByRole("button", { name: "Record 10", exact: true }));
+    await goToPage(page, 2);
     assert(requests.filter((url) => url === failedPage.seen[0]).length >= failedPage.seen.length + 1);
+    // The list records one anchor for the page at its top once scrolling rests (ADR-030).
+    await page.waitForFunction(() => new URL(location.href).searchParams.has("anchor"));
     const pageTwo = page.url();
-    assert.equal(new URL(pageTwo).searchParams.getAll("cursor").length, 1);
+    assert.equal(new URL(pageTwo).searchParams.getAll("cursor").length, 0);
     const explorer = page.getByRole("region", { name: `${model.applications.find((item) => item.key === app).name} explorer` });
     await explorer.getByRole("button", { name: "Load more objects", exact: true }).click();
     await shown(explorer.getByRole("button", { name: /^Record 31 / }));
@@ -250,7 +255,7 @@ try {
 
     await page.reload();
     await shown(table.getByRole("button", { name: "Record 10", exact: true }));
-    await shown(page.getByText("Page 2", { exact: true }));
+    assert.equal(await page.getByRole("spinbutton", { name: "Page", exact: true }).inputValue(), "2");
     await checkRecordReturn({ page, table, name: "Record 10", origin: pageTwo, output, tag: `${type}-live`, checks });
     await page.setViewportSize({ width: 1440, height: 1000 });
     const item = records.warehouse[type][10];
@@ -258,6 +263,11 @@ try {
     await table.getByRole("button", { name: "Record 10", exact: true }).click();
     await shown(page.getByText("Record temporarily unavailable", { exact: true }));
     await failedDetail.restore();
+    // The children panel reads its next page ahead of the viewport as soon as it opens.
+    const failedChild =
+      type === "domain"
+        ? await failRead(page, (url) => url.pathname === "/api/v1/objects/codelist" && url.searchParams.has("parentObjectId") && url.searchParams.has("cursor"), "Children temporarily unavailable")
+        : undefined;
     await page.getByRole("button", { name: "Retry", exact: true }).click();
     await shown(page.getByRole("heading", { name: "Record 10", level: 1 }));
     assert(requests.filter((url) => url === failedDetail.seen[0]).length >= failedDetail.seen.length + 1);
@@ -267,8 +277,6 @@ try {
     if (type === "domain") {
       const children = panel(page, "Codelists");
       await shown(children.getByRole("button", { name: "Child A", exact: true }));
-      const failedChild = await failRead(page, (url) => url.pathname === "/api/v1/objects/codelist" && url.searchParams.has("parentObjectId") && url.searchParams.has("cursor"), "Children temporarily unavailable");
-      await children.getByRole("button", { name: "Next page", exact: true }).click();
       await shown(children.getByText("Children temporarily unavailable"));
       await shown(children.getByRole("button", { name: "Child A", exact: true }));
       await failedChild.restore();
@@ -322,12 +330,12 @@ try {
     await page.goBack();
     await shown(table.getByRole("button", { name: "Record 10", exact: true }));
     assert.equal(page.url(), pageTwo);
-    // Choose another workspace from page two: query survives, its cursor must not.
+    // Choose another workspace from page two: query survives, its anchor must not.
     await page.getByRole("combobox", { name: "Workspace", exact: true }).fill("Retail");
     await page.getByRole("option", { name: /Retail/ }).click();
     await shown(table.getByRole("button", { name: "Record 00", exact: true }));
     assert.equal(new URL(page.url()).searchParams.get("workspaceKey"), "retail");
-    assert.equal(new URL(page.url()).searchParams.getAll("cursor").length, 0);
+    assert.equal(new URL(page.url()).searchParams.get("anchor"), null);
     await table.getByRole("button", { name: "Record 00", exact: true }).click();
     await shown(page.getByRole("heading", { name: "Record 00", level: 1 }));
     assert(page.url().includes(records.retail[type][0].id));
@@ -365,8 +373,9 @@ try {
         await page.goto(`${uiUrl}/apps/${app}/views/${view}?workspaceKey=${workspaceKey}&workspaceDraftId=${draft.id}&search=Record&sort=name&pageSize=10&filter.qa-count.gte=0`);
         const draftTable = page.getByRole("region", { name: `${title} table` });
         await shown(draftTable.getByRole("button", { name: "Record 00", exact: true }));
-        await page.getByRole("button", { name: "Next page", exact: true }).click();
+        await goToPage(page, 2);
         await shown(draftTable.getByRole("button", { name: "Record 10", exact: true }));
+        await page.waitForFunction(() => new URL(location.href).searchParams.has("anchor"));
         await checkRecordReturn({ page, table: draftTable, name: "Record 10", origin: page.url(), output, tag: `${type}-draft`, checks });
       }
     }

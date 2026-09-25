@@ -404,7 +404,7 @@ flowchart LR
 ```
 
 Collection query state remains browser-owned and URL-backed. It includes search, typed field filters,
-sort where supported, cursor trail and optional containing-object identity. Mapping coverage adds its
+sort where supported, one scroll `anchor` cursor and optional containing-object identity. Mapping coverage adds its
 configured zero/one/many state filter. The API binds scope and state into opaque cursor semantics, so a
 continuation cannot silently traverse another administrative context.
 

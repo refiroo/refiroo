@@ -6,16 +6,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
-import { isQueryableField } from "@/model/fields";
+import { attributeName, isQueryableField } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import { InlineError } from "@/ui/InlineError";
 import { Icon, ModelIcon } from "@/ui/Icon";
 import { ObjectTable } from "@/ui/ObjectTable";
 import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
-import { Pagination } from "@/ui/Pagination";
 import { ObjectToolbar } from "@/features/objects/ObjectToolbar";
 import { CollectionScope } from "@/features/objects/CollectionScope";
-import { useCursorPages } from "@/lib/hooks/useCursorPages";
+import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import type { ObjectItem, TableViewDefinition } from "@/types";
 import type { ViewComponentProps } from "./views/types";
 
@@ -26,6 +25,7 @@ export function ObjectCollectionView({
   workspaceKey,
   query: requestedQuery,
   onQueryChange,
+  onAnchorChange,
   onOpen,
   readOnly = true,
   onChanged,
@@ -80,9 +80,9 @@ export function ObjectCollectionView({
     previousSelection.current = selectedId;
   }, [selectedId]);
   const objectType = view.objectTypeKey ? objectTypeFor(model, view.objectTypeKey) : undefined;
-  const pages = useCursorPages<ObjectItem>(
+  const pages = useCursorWindow<ObjectItem>(
     objectType
-      ? (cursor) =>
+      ? (selector) =>
           api.objects(objectType.key, {
             applicationKey: application.key,
             workspaceKey,
@@ -90,7 +90,7 @@ export function ObjectCollectionView({
             sort: query.sort,
             filters: query.filters,
             parentObjectId: query.parentObjectId,
-            cursor,
+            ...selector,
             pageSize: query.pageSize,
           })
       : null,
@@ -104,12 +104,10 @@ export function ObjectCollectionView({
       query.filters,
       query.parentObjectId,
     ],
-    { cursors: query.cursors ?? [], onChange: (cursors) => onQueryChange({ ...query, cursors }) },
-    refreshToken,
+    { anchor: query.anchor, refreshToken },
   );
   const { loading, error } = pages;
   useEffect(() => {
-    if (!loading && !error && pages.items.length === 0 && pages.pageNumber > 1) pages.previous();
     if (
       focusedRow.current &&
       !loading &&
@@ -168,7 +166,7 @@ export function ObjectCollectionView({
                 ...query,
                 parentObjectId: undefined,
                 parentObjectTypeKey: undefined,
-                cursors: undefined,
+                anchor: undefined,
               })
             }
           >
@@ -186,14 +184,14 @@ export function ObjectCollectionView({
               display={display}
               pageSize={query.pageSize}
               defaultPageSize={view.config.pageSize}
-              onPageSize={(pageSize) => onQueryChange({ ...query, pageSize, cursors: undefined })}
+              onPageSize={(pageSize) => onQueryChange({ ...query, pageSize, anchor: undefined })}
               urlBacked
             />
           }
           model={model}
           view={view}
           query={query}
-          onChange={(next) => onQueryChange({ ...next, cursors: undefined })}
+          onChange={(next) => onQueryChange({ ...next, anchor: undefined })}
           placeholder={`Search ${objectType.pluralName.toLowerCase()}`}
         />
         {error && <InlineError message={error} onRetry={pages.retry} />}
@@ -207,9 +205,11 @@ export function ObjectCollectionView({
             identityColumn={display.identity}
             sort={query.sort}
             sortFields={view.config.sortFields}
-            onSort={(sort) => onQueryChange({ ...query, sort, cursors: undefined })}
-            objects={pages.items}
-            loading={loading}
+            onSort={(sort) => onQueryChange({ ...query, sort, anchor: undefined })}
+            list={pages}
+            pageSize={query.pageSize}
+            seekLabel={query.sort ? attributeName(model, query.sort.replace(/^-/, "")).toLowerCase() : undefined}
+            onAnchorChange={onAnchorChange}
             onOpen={onOpen}
             selectedId={selectedId}
             renderActions={(item, menu) => (
@@ -229,26 +229,6 @@ export function ObjectCollectionView({
             }
           />
         )}
-        <footer className="collection-footer">
-          <span role="status">
-            {loading
-              ? "Loading records…"
-              : !error
-                ? `${pages.items.length} ${pages.items.length === 1 ? "record" : "records"} on this page`
-                : pages.items.length > 0
-                  ? "Showing previously loaded records"
-                  : "Records unavailable"}
-          </span>
-          {!error && (
-            <Pagination
-              disabled={loading}
-              page={pages.pageNumber}
-              hasNext={pages.hasNext}
-              onPrevious={pages.previous}
-              onNext={pages.next}
-            />
-          )}
-        </footer>
       </section>
       {creating && !readOnly && (
         <ObjectFormDialog

@@ -17,6 +17,8 @@ export interface ViewComponentProps {
   selectedId?: string;
   query: CollectionQueryState;
   onQueryChange: (query: CollectionQueryState) => void;
+  /** Records the scroll anchor in the route without a history entry or a reload. */
+  onAnchorChange?: (anchor: string | undefined) => void;
   onViewChange?: (viewKey: string) => void;
   /** Sibling lenses of the same source collection, placed by the renderer below its heading. */
   lenses?: ReactNode;

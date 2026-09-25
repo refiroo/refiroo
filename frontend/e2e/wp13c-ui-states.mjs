@@ -6,6 +6,7 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
+import { chooseObject } from "./helpers/lists.mjs";
 
 const KNOWN_ACCESSIBILITY_EXCEPTIONS = [
   {
@@ -109,7 +110,7 @@ try {
   await page.goto(lensUrl);
   const coverageError = page.getByText("Could not load this content");
   await coverageError.waitFor();
-  expect(await page.getByText("Coverage unavailable").isVisible(), "coverage failure did not report its state");
+  expect(await page.getByRole("button", { name: "Retry" }).isVisible(), "coverage failure did not offer Retry");
   expect(await page.getByRole("banner").isVisible(), "shell header lost on coverage failure");
   await shot("mapping-coverage-failure-wide");
   await restore();
@@ -245,7 +246,7 @@ try {
   await createDialog.waitFor();
   await createDialog.getByRole("combobox", { name: "Application" }).selectOption("rdm-master");
   await createDialog.getByRole("combobox", { name: "Parent type" }).selectOption("codelist");
-  await createDialog.getByRole("combobox", { name: "Select object" }).selectOption(codelist.id);
+  await chooseObject(createDialog, codelist.id);
   await createDialog.getByLabel("Name", { exact: true }).fill("Master Delta");
   await createDialog.getByLabel("Master ID").fill("MASTER-DELTA");
   await createDialog.getByLabel("Value code").fill("MD");
@@ -315,7 +316,7 @@ try {
     "the only application containing system values is not named as the owner",
   );
   await inverseCreate.getByRole("combobox", { name: "Parent type" }).selectOption("system");
-  await inverseCreate.getByRole("combobox", { name: "Select object" }).selectOption(records.system[0].id);
+  await chooseObject(inverseCreate, records.system[0].id);
   await inverseCreate.getByLabel("Name", { exact: true }).fill("Value Draft");
   await inverseCreate.getByLabel("Value code").fill("VD");
   await inverseCreate.getByLabel("Value name").fill("Value Draft");

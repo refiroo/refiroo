@@ -5,6 +5,19 @@
 
 import type { ValueType } from "@/types/model";
 
+/**
+ * Navigation every collection page returns (ADR-030). The cursor fields other than `nextCursor`
+ * and the counts, present only with `includeTotal=true`, are optional here so that feeds reading
+ * forward only need not model them.
+ */
+export interface PageNavigation {
+  nextCursor: string | null;
+  prevCursor?: string | null;
+  anchor?: string | null;
+  totalCount?: number | null;
+  startIndex?: number | null;
+}
+
 export interface ObjectItem {
   id: string;
   workspaceKey: string;
@@ -85,9 +98,8 @@ export interface RelationItem {
   object: ObjectItem;
 }
 
-export interface RelationPage {
+export interface RelationPage extends PageNavigation {
   items: RelationItem[];
-  nextCursor: string | null;
 }
 
 export interface AttributeValueResponse extends ObjectAttributeValue {
@@ -106,9 +118,8 @@ export interface RelationUpdateInput {
   expectedVersion: number;
 }
 
-export interface ObjectPage {
+export interface ObjectPage extends PageNavigation {
   items: ObjectItem[];
-  nextCursor: string | null;
 }
 
 export interface AuditEventItem {
@@ -191,9 +202,8 @@ export interface MappingCoverageRow {
   targetsNextCursor: string | null;
 }
 
-export interface MappingCoveragePage {
+export interface MappingCoveragePage extends PageNavigation {
   items: MappingCoverageRow[];
-  nextCursor: string | null;
 }
 
 export interface MappingTargetPage {
@@ -203,9 +213,8 @@ export interface MappingTargetPage {
   nextCursor: string | null;
 }
 
-export interface MappingCandidatePage {
+export interface MappingCandidatePage extends PageNavigation {
   items: MappingObjectSummary[];
-  nextCursor: string | null;
 }
 
 export interface MappingReplacementRequest {

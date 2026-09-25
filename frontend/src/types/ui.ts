@@ -23,8 +23,8 @@ export interface CollectionQueryState {
   parentObjectTypeKey?: string;
   /** Mapping-only coverage state; ignored by other renderer types. */
   mappingState?: "mapped" | "unmapped" | "ambiguous";
-  /** Cursor trail maintained by useCursorPages; omitted on the first page. */
-  cursors?: string[];
+  /** Cursor that reopens the page at the top of the list (ADR-030); omitted on the first page. */
+  anchor?: string;
 }
 
 export type RouteState =

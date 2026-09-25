@@ -33,11 +33,11 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 ## Next — 0.8 and beyond
 
 - [ ] 0.8 Track S — scalable browsing ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md), ADR-030), first:
-  - [ ] S1 volume fixture and baseline over a generated model.
-  - [ ] S2 draft and history reads in the database (D1 accepted: typed value rows).
-  - [ ] S3 cursor and position paging: backward cursors, anchor, totals, seek by value, `position`.
-  - [ ] S4 top-level filter; relation search and sort.
-  - [ ] S5 shared continuous-scroll list with loading and end markers.
+  - [x] S1 volume fixture and baseline over a generated model.
+  - [x] S2 draft and history reads in the database (D1 accepted: typed value rows).
+  - [x] S3 cursor and position paging: backward cursors, anchor, totals, seek by value, `position`.
+  - [x] S4 top-level filter; relation search and sort.
+  - [x] S5 shared continuous-scroll list with loading and end markers.
   - [ ] S6 sidebar tree by parent, replacing **Load more objects**.
   - [ ] S7 composed volume acceptance.
 - [ ] 0.8 Track W — workspace terminology and capability boundaries ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#track-w--workspace-terminology-and-capability-boundaries), ADR-031):

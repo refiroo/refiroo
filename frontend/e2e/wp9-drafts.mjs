@@ -8,6 +8,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "node:net";
 import { chromium } from "playwright";
+import { chooseObject } from "./helpers/lists.mjs";
 
 const frontend = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const root = resolve(frontend, "..");
@@ -163,7 +164,7 @@ try {
   // Required ownership connections and individual fields use canonical draft CRUD too.
   await open(codelist, first);
   await page.getByRole("button", { name: "Add Translation", exact: true }).click();
-  await dialog().getByLabel("Select object", { exact: true }).selectOption(group.id);
+  await chooseObject(dialog(), group.id);
   await dialog().getByLabel("Name", { exact: true }).fill("Czech methods");
   await dialog().getByLabel("Translated name", { exact: true }).fill("Způsoby");
   const translationResponse = page.waitForResponse((response) => response.request().method() === "POST" && response.url().endsWith("/api/v1/objects"));
@@ -190,7 +191,7 @@ try {
   // Ordinary relationships use the same controls and draft candidate lookup.
   await open(domain, first);
   await panel(page, "System representations").getByRole("button", { name: "Add relationship" }).click();
-  await dialog().getByLabel("Select object", { exact: true }).selectOption(systemValue.id);
+  await chooseObject(dialog(), systemValue.id);
   await dialog().getByLabel("Count", { exact: true }).fill("0");
   await dialog().getByRole("button", { name: "Create", exact: true }).click();
   await dialog().waitFor({ state: "hidden" });

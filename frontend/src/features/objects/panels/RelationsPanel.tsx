@@ -1,7 +1,8 @@
 import { useMemo, useState } from "react";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { errorMessage, isApiError } from "@/api/errors";
-import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
+import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
+import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { EngineModel, ObjectItem, RelationItem, RelationsPanelDefinition } from "@/types";
 import { isManagedRelation, relationChoices } from "@/model/lookup";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
@@ -11,6 +12,15 @@ import { formatValue } from "@/ui/formatValue";
 import { attributeName, fieldValue } from "@/model/fields";
 import { InlineError } from "@/ui/InlineError";
 import { Icon } from "@/ui/Icon";
+import { ScrollWindow } from "@/ui/ScrollWindow";
+
+const PAGE_SIZE = 50;
+const SORTS = [
+  { value: "name", label: "Name, A to Z", live: false },
+  { value: "-name", label: "Name, Z to A", live: false },
+  { value: "-createdAt", label: "Newest first", live: true },
+  { value: "createdAt", label: "Oldest first", live: true },
+];
 
 export function RelationsPanel({
   model,
@@ -28,6 +38,11 @@ export function RelationsPanel({
   readOnly?: boolean;
 }) {
   const api = useDataApi();
+  const { draft, revision } = useWorkspaceData();
+  const live = !draft && !revision;
+  const [searchInput, setSearchInput] = useState("");
+  const search = useDebouncedValue(searchInput.trim());
+  const [sort, setSort] = useState("name");
   const [removeError, setRemoveError] = useState("");
   const [creating, setCreating] = useState(false);
   const [creatingDependent, setCreatingDependent] = useState<{
@@ -69,28 +84,29 @@ export function RelationsPanel({
     [model, object.objectTypeKey, panel.config.direction, panel.config.relationTypeKeys],
   );
 
-  const {
-    items: relations,
-    loading,
-    error: feedError,
-    hasMore,
-    loadMore,
-    retry,
-    reload,
-  } = useCursorFeed<RelationItem>(
-    (cursor) =>
+  const effectiveSort = live || !SORTS.find((option) => option.value === sort)?.live ? sort : "name";
+  const list = useCursorWindow<RelationItem>(
+    (selector) =>
       api.relations(object.id, {
         workspaceKey: object.workspaceKey,
         direction: panel.config.direction,
         ...(relationTypeKey ? { relationTypeKey } : {}),
-        ...(cursor ? { cursor } : {}),
+        search,
+        sort: effectiveSort,
+        ...selector,
+        pageSize: PAGE_SIZE,
       }),
-    [object.id, object.workspaceKey, panel.config.direction, relationTypeKey],
+    [object.id, object.workspaceKey, panel.config.direction, relationTypeKey, search, effectiveSort],
   );
+  const { items: relations, loading, error: feedError, retry, reload } = list;
   // Loading failures belong to the panel; delete failures stay in their confirmation dialog so
   // cancelling that action cannot leave the collection in a persistent feed-error state.
   const error = feedError;
-  const visible = relations.filter((item) => panel.config.relationTypeKeys.includes(item.relation.relationTypeKey));
+  const visible = relations.flatMap((item, position) =>
+    panel.config.relationTypeKeys.includes(item.relation.relationTypeKey)
+      ? [{ item, index: list.startIndex + position }]
+      : [],
+  );
   const showRelationshipColumn = panel.config.showRelationshipColumn !== false;
   const tableColumnCount = panel.config.columns.length + 1 + (showRelationshipColumn ? 1 : 0);
   const linkColumn = panel.config.columns.includes("name") ? "name" : panel.config.columns[0];
@@ -137,6 +153,25 @@ export function RelationsPanel({
   return (
     <>
       <div className="embedded-toolbar relation-toolbar">
+        <label className="search-box compact">
+          <Icon name="search" />
+          <input
+            aria-label={`Search ${panel.title.toLowerCase()}`}
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            placeholder="Search related records"
+          />
+        </label>
+        <label className="toolbar-field">
+          Sort
+          <select value={effectiveSort} onChange={(event) => setSort(event.target.value)}>
+            {SORTS.filter((option) => live || !option.live).map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
         {!readOnly &&
           dependentCreates.map((creation) => (
             <button
@@ -156,10 +191,20 @@ export function RelationsPanel({
       </div>
       {error && <InlineError message={error} onRetry={retry} />}
       {(!error || relations.length > 0) && (
-        <div className="table-wrap">
-          <table>
+        <ScrollWindow
+          list={list}
+          label={panel.title}
+          noun={["relationship", "relationships"]}
+          pageSize={PAGE_SIZE}
+          className="table-wrap"
+        >
+          <table
+            aria-busy={loading || undefined}
+            aria-rowcount={list.totalCount !== null && visible.length > 0 ? list.totalCount + 1 : undefined}
+          >
+            <caption className="visually-hidden">{panel.title}</caption>
             <thead>
-              <tr>
+              <tr aria-rowindex={1}>
                 {showRelationshipColumn && <th>Relationship</th>}
                 {panel.config.columns.map((column) => (
                   <th key={column}>{attributeName(model, column)}</th>
@@ -177,11 +222,11 @@ export function RelationsPanel({
               ) : visible.length === 0 ? (
                 <tr>
                   <td colSpan={tableColumnCount} className="empty-row">
-                    No relationships yet.
+                    {search ? "No relationships match this search." : "No relationships yet."}
                   </td>
                 </tr>
               ) : (
-                visible.map((item) => {
+                visible.map(({ item, index }) => {
                   const definition = model.relationTypes.find(
                     (relation) => relation.key === item.relation.relationTypeKey,
                   );
@@ -190,7 +235,13 @@ export function RelationsPanel({
                   const required = allowed?.required === true;
                   const hasAttributes = Boolean(allowed?.attributeTypeKeys?.length);
                   return (
-                    <tr key={item.relation.id}>
+                    <tr
+                      key={item.relation.id}
+                      data-row-key={item.relation.id}
+                      data-row-index={index}
+                      aria-rowindex={index + 2}
+                      tabIndex={-1}
+                    >
                       {showRelationshipColumn && (
                         <td>{item.direction === "outgoing" ? definition?.name : definition?.reverseName}</td>
                       )}
@@ -199,6 +250,7 @@ export function RelationsPanel({
                           {column === linkColumn ? (
                             <button
                               className="cell-link"
+                              data-row-focus
                               onClick={() =>
                                 onOpen(item.object.objectTypeKey, item.object.id, item.object.applicationKey)
                               }
@@ -234,12 +286,7 @@ export function RelationsPanel({
               )}
             </tbody>
           </table>
-        </div>
-      )}
-      {hasMore && !error && (
-        <button type="button" className="load-more inline" disabled={loading} onClick={loadMore}>
-          {loading ? "Loading…" : "Load more relationships"}
-        </button>
+        </ScrollWindow>
       )}
       {creating && (
         <RelationFormDialog

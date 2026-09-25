@@ -1,5 +1,7 @@
 import { useState, type ReactNode } from "react";
 import type { EngineModel, ObjectItem } from "@/types";
+import type { CursorWindow } from "@/lib/hooks/useCursorWindow";
+import { ScrollWindow } from "@/ui/ScrollWindow";
 import { formatValue } from "@/ui/formatValue";
 import { attributeName, fieldValue } from "@/model/fields";
 import { ResizeHandle } from "@/ui/ResizeHandle";
@@ -12,8 +14,11 @@ export function ObjectTable({
   onSort,
   model,
   columns,
-  objects,
-  loading = false,
+  list,
+  pageSize,
+  noun = ["record", "records"],
+  seekLabel,
+  onAnchorChange,
   onOpen,
   selectedId,
   renderActions,
@@ -29,8 +34,12 @@ export function ObjectTable({
   onSort?: (sort: string) => void;
   model: EngineModel;
   columns: string[];
-  objects: ObjectItem[];
-  loading?: boolean;
+  /** The continuous window of rows; the table scrolls it (ADR-030). */
+  list: CursorWindow<ObjectItem>;
+  pageSize: number;
+  noun?: [string, string];
+  seekLabel?: string;
+  onAnchorChange?: (anchor: string | undefined) => void;
   onOpen: (item: ObjectItem) => void;
   selectedId?: string;
   renderActions?: (item: ObjectItem, menu: { isOpen: boolean; onOpenChange: (open: boolean) => void }) => ReactNode;
@@ -44,6 +53,8 @@ export function ObjectTable({
   const identity = identityColumn ?? (columns.includes("name") ? "name" : columns.includes("id") ? "id" : columns[0]);
   const mobileColumns = [identity, ...columns.filter((column) => column !== identity)].slice(0, 3);
   const secondary = (column: string) => (!mobileColumns.includes(column) ? "mobile-secondary-column" : undefined);
+  const objects = list.items;
+  const loading = list.loading;
   return (
     <>
       {columns.length > 3 && (
@@ -55,16 +66,22 @@ export function ObjectTable({
           {allColumns ? "Show fewer columns" : `Show all ${columns.length} columns`}
         </button>
       )}
-      <div
+      <ScrollWindow
+        list={list}
+        label={label}
+        noun={noun}
+        pageSize={pageSize}
+        seekLabel={seekLabel}
+        onAnchorChange={onAnchorChange}
         className={`table-wrap object-table${compact ? " density-compact" : ""}${allColumns ? " show-all-columns" : ""}`}
-        role="region"
-        aria-label={label}
-        tabIndex={0}
       >
-        <table aria-busy={loading || undefined}>
+        <table
+          aria-busy={loading || undefined}
+          aria-rowcount={list.totalCount !== null && objects.length > 0 ? list.totalCount + 1 : undefined}
+        >
           <caption className="visually-hidden">{label}</caption>
           <thead>
-            <tr>
+            <tr aria-rowindex={1}>
               {columns.map((column) => (
                 <th
                   key={column}
@@ -120,9 +137,12 @@ export function ObjectTable({
                 </td>
               </tr>
             ) : (
-              objects.map((item) => (
+              objects.map((item, position) => (
                 <tr
                   key={item.id}
+                  data-row-key={item.id}
+                  data-row-index={list.startIndex + position}
+                  aria-rowindex={list.startIndex + position + 2}
                   className={`clickable-row${selectedId === item.id ? " selected-record" : ""}`}
                   onClick={(event) => {
                     // The identity button is the keyboard path; the row is a larger pointer target.
@@ -156,6 +176,7 @@ export function ObjectTable({
                         <button
                           className="cell-link"
                           data-record-id={item.id}
+                          data-row-focus
                           aria-current={selectedId === item.id ? "true" : undefined}
                           onClick={() => onOpen(item)}
                         >
@@ -179,7 +200,7 @@ export function ObjectTable({
             )}
           </tbody>
         </table>
-      </div>
+      </ScrollWindow>
     </>
   );
 }

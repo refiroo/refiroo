@@ -1,8 +1,10 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  ArrowDownToLine,
   ArrowLeft,
   ArrowRight,
   ArrowUpDown,
+  ArrowUpToLine,
   Blocks,
   Box,
   Check,
@@ -40,6 +42,8 @@ import {
 const icons = {
   "arrow-left": ArrowLeft,
   "arrow-right": ArrowRight,
+  "to-start": ArrowUpToLine,
+  "to-end": ArrowDownToLine,
   check: Check,
   "chevron-down": ChevronDown,
   "chevron-right": ChevronRight,

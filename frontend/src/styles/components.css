@@ -262,33 +262,173 @@
   color: var(--muted);
   font-size: 13px;
 }
-.collection-footer {
+/* Continuous lists (ScrollWindow, ADR-030) */
+.scroll-window {
+  --window-height: min(640px, calc(100vh - 300px));
+  min-width: 0;
+}
+.scroll-window-frame {
+  position: relative;
+}
+.scroll-window-viewport {
+  max-height: max(240px, var(--window-height));
+  overflow: auto;
+  overflow-anchor: none;
+  overscroll-behavior: contain;
+}
+.scroll-window-viewport:focus-visible {
+  outline-offset: -2px;
+}
+.scroll-window-viewport thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+/* The window scrollbar replaces the vertical bar, which would describe only the rows held. */
+.scroll-window-viewport.has-window-scrollbar {
+  padding-right: 12px;
+}
+.scroll-window-viewport.has-window-scrollbar::-webkit-scrollbar {
+  width: 0;
+  height: 10px;
+}
+.scroll-window-viewport.has-window-scrollbar::-webkit-scrollbar-thumb {
+  border: 2px solid var(--surface);
+  border-radius: 6px;
+  background: var(--line-strong);
+}
+@supports not selector(::-webkit-scrollbar) {
+  .scroll-window-viewport.has-window-scrollbar {
+    scrollbar-width: none;
+  }
+}
+.window-scrollbar {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  bottom: 2px;
+  width: 10px;
+  border-radius: 5px;
+  touch-action: none;
+  cursor: pointer;
+}
+.window-scrollbar:hover {
+  background: var(--surface-hover);
+}
+.window-scrollbar-thumb {
+  position: relative;
+  width: 100%;
+  border-radius: 5px;
+  background: var(--line-strong);
+  cursor: grab;
+}
+.window-scrollbar:hover .window-scrollbar-thumb,
+.window-scrollbar-thumb.is-dragging {
+  background: var(--faint);
+}
+.window-scrollbar-thumb.is-dragging {
+  cursor: grabbing;
+}
+.window-scrollbar-tip {
+  position: absolute;
+  top: 50%;
+  right: 16px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateY(-50%);
+}
+.scroll-window-edge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 14px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.scroll-window-edge.is-loading {
+  color: var(--muted);
+}
+.scroll-window-edge-error {
+  color: var(--danger);
+}
+.scroll-window-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: window-spin 0.8s linear infinite;
+}
+@keyframes window-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-window-spinner {
+    animation: none;
+  }
+}
+.scroll-window-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  min-height: 48px;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  min-height: 44px;
   padding: 6px 8px 6px 14px;
   border-top: 1px solid var(--soft-line);
   color: var(--muted);
   font-size: 13px;
 }
-.pagination {
+.scroll-window-range {
+  font-variant-numeric: tabular-nums;
+}
+.scroll-window-jumps {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  flex-wrap: wrap;
   gap: 6px;
   margin-left: auto;
-  color: var(--muted);
-  font-size: 13px;
 }
-.pagination span {
-  margin-right: 6px;
+.page-jump {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
-.panel .pagination,
-.embedded-table .pagination {
-  padding: 6px 8px;
-  border-top: 1px solid var(--soft-line);
+.page-jump label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.page-jump input {
+  width: 7ch;
+  min-height: 30px;
+  padding: 2px 6px;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  appearance: textfield;
+}
+.page-jump input::-webkit-inner-spin-button,
+.page-jump input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+.seek-jump input {
+  width: 16ch;
+  min-height: 30px;
+  padding: 2px 8px;
+}
+.embedded-table .scroll-window,
+.panel .scroll-window {
+  --window-height: 420px;
 }
 
 /* Tables */
@@ -376,9 +516,6 @@ tbody tr:hover {
 .muted-text {
   color: var(--muted);
   font-size: 13px;
-}
-.object-table {
-  max-height: 68vh;
 }
 .object-table th {
   position: sticky;
@@ -2043,10 +2180,8 @@ tbody tr:hover {
   display: grid;
   gap: 2px;
   min-width: 0;
-  max-height: 300px;
   margin: 0 0 8px;
   padding: 4px;
-  overflow-y: auto;
   border: 1px solid var(--line);
   border-radius: 8px;
 }
@@ -2094,4 +2229,73 @@ tbody tr:hover {
 .mapping-create-target {
   margin-left: -8px;
   color: var(--accent);
+}
+
+.candidate-scroll {
+  display: grid;
+  gap: 2px;
+}
+.candidate-list .scroll-window,
+.object-lookup .scroll-window {
+  --window-height: 200px;
+}
+.object-lookup .scroll-window-viewport {
+  max-height: 200px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+.object-lookup-choice {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.object-lookup-choice strong {
+  color: var(--ink);
+}
+.object-lookup-options {
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+}
+.object-lookup-options [role="option"] {
+  display: grid;
+  gap: 1px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+}
+.object-lookup-options [role="option"]:hover {
+  background: var(--surface-hover);
+}
+.object-lookup-options [role="option"].is-active {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.object-lookup-options [role="option"][aria-selected="true"] {
+  background: var(--accent-soft);
+}
+.object-lookup-options small {
+  color: var(--muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.object-lookup-state {
+  padding: 10px;
+  color: var(--muted);
+  text-align: center;
+}
+.lookup-field {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.lookup-field > legend {
+  padding: 0;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 600;
 }

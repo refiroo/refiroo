@@ -7,7 +7,7 @@
  * module free of presentation.
  */
 
-import type { EngineModel, ObjectItem } from "@/types";
+import type { EngineModel, ObjectItem, ObjectTypeDefinition } from "@/types";
 import { objectTypeFor } from "@/model/lookup";
 
 export function attributeName(model: EngineModel, key: string) {
@@ -44,4 +44,23 @@ const LIVE_ONLY_FIELDS = ["createdAt", "updatedAt"];
 /** Whether a field (or a `-field` sort) can be filtered or sorted in this data context. */
 export function isQueryableField(field: string, live: boolean) {
   return live || !LIVE_ONLY_FIELDS.includes(field.replace(/^-/, ""));
+}
+
+/**
+ * The columns of an object list the server can sort by in this context: the name, the recorded
+ * timestamps (live only) and bound attributes whose type declares the `sortable` feature.
+ */
+export function sortableColumns(
+  model: EngineModel,
+  objectType: ObjectTypeDefinition,
+  columns: string[],
+  live: boolean,
+) {
+  return columns.filter((column) => {
+    if (column === "name") return true;
+    if (LIVE_ONLY_FIELDS.includes(column)) return live;
+    if (!objectType.attributes.some((binding) => binding.attributeTypeKey === column)) return false;
+    const definition = model.attributeTypes.find((item) => item.key === column);
+    return Boolean(definition && definition.valueType !== "json" && definition.features.sortable);
+  });
 }

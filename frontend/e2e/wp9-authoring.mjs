@@ -8,6 +8,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "node:net";
 import { chromium } from "playwright";
+import { chooseObject } from "./helpers/lists.mjs";
 
 const frontend = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const root = resolve(frontend, "..");
@@ -214,17 +215,17 @@ try {
   assert(parentRelations.items.some((item) => item.relation.relationTypeKey === "codelist-contains-value"));
   await open(master);
   await recordAction(page, "Edit all fields");
-  await dialog().getByLabel("Select object", { exact: true }).selectOption(otherList.id);
+  await chooseObject(dialog(), otherList.id);
   await save();
   assert.equal((await get(master)).parentObjectId, otherList.id);
   await recordAction(page, "Edit all fields");
-  await dialog().getByLabel("Select object", { exact: true }).selectOption(codelist.id);
+  await chooseObject(dialog(), codelist.id);
   await save();
   checks.push("Master and System containment: one-save child creates and managed parent links; coherent parent move");
 
   await open(codelist);
   await panel(page, "System representations").getByRole("button", { name: "Add relationship" }).click();
-  await dialog().getByLabel("Select object", { exact: true }).selectOption(systemValue.id);
+  await chooseObject(dialog(), systemValue.id);
   let response = page.waitForResponse((response) => response.url().endsWith("/api/v1/relations") && response.request().method() === "POST");
   await dialog().getByRole("button", { name: "Create", exact: true }).click();
   assert.equal((await response).status(), 201);
@@ -259,7 +260,7 @@ try {
   // Required target is selected once from the context that opened the flow.
   await open(master);
   await page.getByRole("button", { name: "Add Translation", exact: true }).click();
-  await dialog().getByLabel("Select object", { exact: true }).selectOption(group.id);
+  await chooseObject(dialog(), group.id);
   await dialog().getByLabel("Name", { exact: true }).fill("Czech locker");
   await save("Create", 422);
   assert.equal(await dialog().getByLabel("Name", { exact: true }).inputValue(), "Czech locker");
@@ -270,7 +271,7 @@ try {
   const edges = await api(`/relations?objectId=${translation.id}&workspaceKey=${workspaceKey}`);
   assert(edges.items.some((item) => item.relation.fromObjectId === master.id && item.relation.relationTypeKey === "object-has-translation"));
   await page.getByRole("button", { name: "Add Translation", exact: true }).click();
-  await dialog().getByLabel("Select object", { exact: true }).selectOption(group.id);
+  await chooseObject(dialog(), group.id);
   await dialog().getByLabel("Name", { exact: true }).fill("Duplicate Czech");
   await dialog().getByLabel("Translated name", { exact: true }).fill("Duplicate text");
   await save("Create", 409);
@@ -281,7 +282,7 @@ try {
   await open(group);
   await page.getByRole("button", { name: "Add Translation", exact: true }).click();
   await dialog().getByRole("combobox", { name: /object type/i }).selectOption("domain");
-  await dialog().getByLabel("Select object", { exact: true }).nth(1).selectOption(roots.domain.id);
+  await chooseObject(dialog().locator(".object-lookup").nth(1), roots.domain.id);
   await dialog().getByLabel("Name", { exact: true }).fill("Czech domain");
   await dialog().getByLabel("Translated name", { exact: true }).fill("Doména");
   await save("Create", 201);

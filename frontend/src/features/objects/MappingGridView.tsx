@@ -1,11 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
-import { useCursorPages } from "@/lib/hooks/useCursorPages";
-import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
+import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { errorMessage, isApiError } from "@/api/errors";
 import { InlineError } from "@/ui/InlineError";
-import { Pagination } from "@/ui/Pagination";
+import { ScrollWindow } from "@/ui/ScrollWindow";
 import { Icon } from "@/ui/Icon";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
@@ -41,6 +40,7 @@ export function MappingGridView({
   onChanged,
   query,
   onQueryChange,
+  onAnchorChange,
   refreshToken = 0,
   lenses,
 }: ViewComponentProps) {
@@ -62,15 +62,16 @@ export function MappingGridView({
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const trimmed = search.trim();
-      if (trimmed !== query.search) onQueryChange({ ...query, search: trimmed, cursors: undefined });
+      if (trimmed !== query.search) onQueryChange({ ...query, search: trimmed, anchor: undefined });
     }, 250);
     return () => window.clearTimeout(timer);
   }, [search, query, onQueryChange]);
 
   const combinedRefresh = refreshToken + internalRefresh;
 
-  const pages = useCursorPages<MappingCoverageRow>(
-    (cursor) =>
+  const pageSize = query.pageSize || config.pageSize;
+  const pages = useCursorWindow<MappingCoverageRow>(
+    (selector) =>
       api.mappingCoverage({
         workspaceKey,
         applicationKey: application.key,
@@ -83,8 +84,8 @@ export function MappingGridView({
         search: query.search || undefined,
         parentObjectId: query.parentObjectId,
         state: query.mappingState,
-        cursor,
-        pageSize: query.pageSize || config.pageSize,
+        ...selector,
+        pageSize,
       }),
     [
       application.key,
@@ -96,14 +97,9 @@ export function MappingGridView({
       query.mappingState,
       draft?.id,
     ],
-    { cursors: query.cursors ?? [], onChange: (cursors) => onQueryChange({ ...query, cursors }) },
-    combinedRefresh,
+    { anchor: query.anchor, refreshToken: combinedRefresh },
   );
   const { loading, error } = pages;
-
-  useEffect(() => {
-    if (!loading && !error && pages.items.length === 0 && pages.pageNumber > 1) pages.previous();
-  }, [loading, error, pages]);
 
   const refreshCoverage = useCallback(() => {
     setInternalRefresh((n) => n + 1);
@@ -157,7 +153,7 @@ export function MappingGridView({
           <button
             className="ghost"
             onClick={() =>
-              onQueryChange({ ...query, parentObjectId: undefined, parentObjectTypeKey: undefined, cursors: undefined })
+              onQueryChange({ ...query, parentObjectId: undefined, parentObjectTypeKey: undefined, anchor: undefined })
             }
           >
             Show all {sourceType.pluralName.toLowerCase()}
@@ -185,7 +181,7 @@ export function MappingGridView({
                   onQueryChange({
                     ...query,
                     mappingState: option.value || undefined,
-                    cursors: undefined,
+                    anchor: undefined,
                   })
                 }
               >
@@ -197,11 +193,21 @@ export function MappingGridView({
         </div>
         {error && <InlineError message={error} onRetry={pages.retry} />}
         {(!error || pages.items.length > 0) && (
-          <div className="table-wrap mapping-table" role="region" aria-label={`${view.name} mapping grid`} tabIndex={0}>
-            <table aria-busy={loading || undefined}>
+          <ScrollWindow
+            list={pages}
+            label={`${view.name} mapping grid`}
+            noun={["row", "rows"]}
+            pageSize={pageSize}
+            onAnchorChange={onAnchorChange}
+            className="table-wrap mapping-table"
+          >
+            <table
+              aria-busy={loading || undefined}
+              aria-rowcount={pages.totalCount !== null && pages.items.length > 0 ? pages.totalCount + 1 : undefined}
+            >
               <caption className="visually-hidden">{view.name}</caption>
               <thead>
-                <tr>
+                <tr aria-rowindex={1}>
                   <th scope="col">{sourceType.name}</th>
                   {sourceColumns.map((col) => (
                     <th key={col} scope="col" className="mobile-secondary-column">
@@ -235,9 +241,10 @@ export function MappingGridView({
                     </td>
                   </tr>
                 ) : (
-                  pages.items.map((row) => (
+                  pages.items.map((row, position) => (
                     <CoverageRow
                       key={row.source.id}
+                      index={pages.startIndex + position}
                       row={row}
                       sourceColumns={sourceColumns}
                       targetColumns={targetColumns}
@@ -253,28 +260,8 @@ export function MappingGridView({
                 )}
               </tbody>
             </table>
-          </div>
+          </ScrollWindow>
         )}
-        <footer className="collection-footer">
-          <span role="status">
-            {loading
-              ? "Loading coverage…"
-              : !error
-                ? `${pages.items.length} ${pages.items.length === 1 ? "row" : "rows"} on this page`
-                : pages.items.length > 0
-                  ? "Showing previously loaded data"
-                  : "Coverage unavailable"}
-          </span>
-          {!error && (
-            <Pagination
-              disabled={loading}
-              page={pages.pageNumber}
-              hasNext={pages.hasNext}
-              onPrevious={pages.previous}
-              onNext={pages.next}
-            />
-          )}
-        </footer>
       </section>
       {editingRow && !readOnly && (
         <MappingActionDialog
@@ -309,6 +296,7 @@ const STATE_LABELS: Record<string, string> = {
 };
 
 function CoverageRow({
+  index,
   row,
   sourceColumns,
   targetColumns,
@@ -320,6 +308,7 @@ function CoverageRow({
   readOnly,
   onEdit,
 }: {
+  index: number;
   row: MappingCoverageRow;
   sourceColumns: string[];
   targetColumns: string[];
@@ -337,6 +326,10 @@ function CoverageRow({
 
   return (
     <tr
+      data-row-key={row.source.id}
+      data-row-index={index}
+      aria-rowindex={index + 2}
+      tabIndex={-1}
       className={`mapping-row mapping-state-${row.state}${readOnly ? "" : " clickable-row"}`}
       onClick={
         readOnly
@@ -407,6 +400,7 @@ function CoverageRow({
       {!readOnly && (
         <td className="mapping-actions-col">
           <button
+            data-row-focus
             className={row.state === "unmapped" ? "secondary accent-outline" : "secondary"}
             onClick={onEdit}
             aria-label={`Change mapping for ${row.source.name}`}
@@ -483,8 +477,8 @@ function MappingActionDialog({
   const dirty = selectedId !== currentId;
   const blockedByConflict = conflictVersion !== null && !conflictAcknowledged;
 
-  const candidates = useCursorFeed<MappingObjectSummary>(
-    (cursor) =>
+  const candidates = useCursorWindow<MappingObjectSummary>(
+    (selector) =>
       api.mappingCandidates({
         workspaceKey,
         applicationKey,
@@ -492,11 +486,16 @@ function MappingActionDialog({
         objectTypeKey: targetTypeKey,
         workspaceDraftId: draftId,
         search: debouncedSearch || undefined,
-        cursor,
+        ...selector,
         pageSize: 20,
       }),
     [workspaceKey, applicationKey, viewKey, targetTypeKey, draftId, debouncedSearch],
   );
+  // A target created here is shown first until the list reads it; it has no place in the list yet.
+  const rowIndex = (id: string) => {
+    const position = candidates.items.findIndex((item) => item.id === id);
+    return position >= 0 ? candidates.startIndex + position : -1;
+  };
   const listed = [
     ...(created && !candidates.items.some((item) => item.id === created.id) ? [created] : []),
     ...candidates.items,
@@ -577,45 +576,55 @@ function MappingActionDialog({
           </label>
           <fieldset className="candidate-list" aria-busy={candidates.loading || undefined}>
             <legend className="visually-hidden">Select {targetType.name.toLowerCase()}</legend>
-            {listed.map((candidate) => {
-              const details = [
-                ...new Set(
-                  Object.values(candidate.fields)
-                    .filter((value) => value != null && value !== "" && value !== candidate.name)
-                    .map(String),
-                ),
-              ];
-              return (
-                <label key={candidate.id} className={selectedId === candidate.id ? "candidate selected" : "candidate"}>
-                  <input
-                    type="radio"
-                    name="mapping-target"
-                    value={candidate.id}
-                    checked={selectedId === candidate.id}
-                    onChange={() => setSelectedId(candidate.id)}
-                  />
-                  <span className="candidate-text">
-                    <span className="candidate-name">{candidate.name}</span>
-                    {details.length > 0 && <small>{details.join(" · ")}</small>}
-                  </span>
-                  {currentTargets.some((target) => target.object.id === candidate.id) && (
-                    <span className="pill">Current</span>
-                  )}
-                </label>
-              );
-            })}
-            {candidates.loading && !candidates.items.length && <p className="candidate-state">Loading…</p>}
-            {!candidates.loading && !candidates.error && listed.length === 0 && (
-              <p className="candidate-state">
-                No {targetType.pluralName.toLowerCase()} match{debouncedSearch ? ` “${debouncedSearch}”` : ""}.
-              </p>
-            )}
+            <ScrollWindow
+              list={candidates}
+              label={`${targetType.pluralName} to choose from`}
+              noun={[targetType.name.toLowerCase(), targetType.pluralName.toLowerCase()]}
+              pageSize={20}
+              rowNavigation={false}
+              footer={false}
+              className="candidate-scroll"
+            >
+              {listed.map((candidate) => {
+                const details = [
+                  ...new Set(
+                    Object.values(candidate.fields)
+                      .filter((value) => value != null && value !== "" && value !== candidate.name)
+                      .map(String),
+                  ),
+                ];
+                return (
+                  <label
+                    key={candidate.id}
+                    data-row-key={candidate.id}
+                    data-row-index={rowIndex(candidate.id) >= 0 ? rowIndex(candidate.id) : undefined}
+                    className={selectedId === candidate.id ? "candidate selected" : "candidate"}
+                  >
+                    <input
+                      type="radio"
+                      name="mapping-target"
+                      value={candidate.id}
+                      checked={selectedId === candidate.id}
+                      onChange={() => setSelectedId(candidate.id)}
+                    />
+                    <span className="candidate-text">
+                      <span className="candidate-name">{candidate.name}</span>
+                      {details.length > 0 && <small>{details.join(" · ")}</small>}
+                    </span>
+                    {currentTargets.some((target) => target.object.id === candidate.id) && (
+                      <span className="pill">Current</span>
+                    )}
+                  </label>
+                );
+              })}
+              {candidates.loading && !candidates.items.length && <p className="candidate-state">Loading…</p>}
+              {!candidates.loading && !candidates.error && listed.length === 0 && (
+                <p className="candidate-state">
+                  No {targetType.pluralName.toLowerCase()} match{debouncedSearch ? ` “${debouncedSearch}”` : ""}.
+                </p>
+              )}
+            </ScrollWindow>
             {candidates.error && <InlineError message={candidates.error} onRetry={candidates.retry} />}
-            {candidates.hasMore && !candidates.error && (
-              <button type="button" className="load-more" disabled={candidates.loading} onClick={candidates.loadMore}>
-                Load more candidates
-              </button>
-            )}
           </fieldset>
           <button type="button" className="ghost mapping-create-target" onClick={() => setShowCreate(true)}>
             <Icon name="plus" size={15} /> Create new {targetType.name.toLowerCase()}

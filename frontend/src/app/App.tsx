@@ -43,7 +43,16 @@ function AppContent({
   message: string;
   setMessage: (message: string) => void;
 }) {
-  const { model: currentModel, error, route, navigate, lastCollection, rememberWorkspace, reloadModel } = router;
+  const {
+    model: currentModel,
+    error,
+    route,
+    navigate,
+    replaceRoute,
+    lastCollection,
+    rememberWorkspace,
+    reloadModel,
+  } = router;
   const data = useWorkspaceData();
   const model = data.model ?? currentModel;
   const [refreshToken, setRefreshToken] = useState(0);
@@ -113,7 +122,7 @@ function AppContent({
             workspaceKey,
             workspaceDraftId,
             workspaceRevisionId,
-            cursors: sameContext ? remembered.cursors : undefined,
+            anchor: sameContext ? remembered.anchor : undefined,
             parentObjectId: sameContext ? remembered.parentObjectId : undefined,
             parentObjectTypeKey: sameContext ? remembered.parentObjectTypeKey : undefined,
           }
@@ -206,7 +215,7 @@ function AppContent({
               workspaceKey,
               workspaceDraftId: undefined,
               workspaceRevisionId: undefined,
-              cursors: undefined,
+              anchor: undefined,
               parentObjectId: undefined,
               parentObjectTypeKey: undefined,
             }
@@ -220,7 +229,7 @@ function AppContent({
         workspaceKey,
         workspaceDraftId: undefined,
         workspaceRevisionId: undefined,
-        cursors: undefined,
+        anchor: undefined,
         parentObjectId: undefined,
         parentObjectTypeKey: undefined,
       });
@@ -389,6 +398,14 @@ function AppContent({
                           : { ...collection, ...query },
                       )
                     }
+                    onAnchorChange={(anchor) => {
+                      if (anchor === collection.anchor) return;
+                      replaceRoute(
+                        activeRoute.kind === "detail"
+                          ? { ...activeRoute, collectionOrigin: { ...collection, anchor } }
+                          : { ...collection, anchor },
+                      );
+                    }}
                     onViewChange={(viewKey) => {
                       const next = viewRoute(collectionApplication, viewKey, collection.workspaceKey);
                       navigate({

@@ -241,8 +241,8 @@ export function ObjectFormDialog({
           </Notice>
         )}
         {parentTypeKeys.length > 0 && (
-          <label>
-            Parent
+          <fieldset className="lookup-field">
+            <legend>Parent</legend>
             {parentTypeKeys.length > 1 && (
               <select
                 aria-label="Parent type"
@@ -274,8 +274,9 @@ export function ObjectFormDialog({
                 editedParent.current = true;
                 setParentId(item?.id ?? null);
               }}
+              label="Parent"
             />
-          </label>
+          </fieldset>
         )}
         {!object &&
           requiredRelationGroups.map((group) => {
@@ -321,6 +322,7 @@ export function ObjectFormDialog({
                       objectTypeKey={selectedType}
                       workspaceKey={activeWorkspaceKey}
                       required
+                      label={definition?.reverseName ?? group.relationTypeKey}
                       value={requiredRelationObjects[group.relationTypeKey]}
                       onChange={(item) => {
                         setDirty(true);

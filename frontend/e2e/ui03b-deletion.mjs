@@ -12,7 +12,6 @@ export async function checkInspectorDeletion({ page, api, uiUrl, output, checks 
     await page.goto(`${uiUrl}/apps/${app}/views/${view}?workspaceKey=warehouse&search=UI03B&sort=name&pageSize=1`);
     const table = page.getByRole("region", { name: `${title} table` });
     await table.getByRole("button", { name: "UI03B record 1", exact: true }).waitFor();
-    await page.getByRole("button", { name: "Next page", exact: true }).click();
     await table.getByRole("button", { name: "UI03B record 2", exact: true }).click();
     await page.getByRole("heading", { name: "UI03B record 2", level: 1, exact: true }).waitFor();
     await recordAction(page, "Delete record");
@@ -20,8 +19,8 @@ export async function checkInspectorDeletion({ page, api, uiUrl, output, checks 
     await table.getByRole("button", { name: "UI03B record 1", exact: true }).waitFor();
     assert.equal(await page.locator(".record-detail").count(), 0);
     assert.equal(new URL(page.url()).searchParams.get("search"), "UI03B");
-    assert.equal(new URL(page.url()).searchParams.getAll("cursor").length, 0);
+    assert.equal(new URL(page.url()).searchParams.get("anchor"), null);
     await page.screenshot({ path: resolve(output, `ui03b-${type}-deleted-last-row.png`), fullPage: true });
-    checks.push(`UI-03B ${type}: deleting the only row on page two closes the record, refreshes the collection and returns to page one with its filter intact`);
+    checks.push(`UI-03B ${type}: deleting the only row of the second page closes the record and refreshes the continuous list with its filter intact`);
   }
 }

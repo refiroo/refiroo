@@ -2,10 +2,19 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import { ObjectTable } from "@/ui/ObjectTable";
+import { staticWindow } from "@/test/cursorWindow";
 
 describe("ObjectTable", () => {
   it("renders model-derived column headers and values for one object type", () => {
-    render(<ObjectTable model={testModel} columns={["name", "code"]} objects={[domainObject]} onOpen={() => {}} />);
+    render(
+      <ObjectTable
+        model={testModel}
+        columns={["name", "code"]}
+        list={staticWindow([domainObject])}
+        pageSize={20}
+        onOpen={() => {}}
+      />,
+    );
     expect(screen.getByText("Name")).toBeInTheDocument();
     expect(screen.getByText("Code")).toBeInTheDocument();
     expect(screen.getByText("Connections")).toBeInTheDocument();
@@ -14,7 +23,13 @@ describe("ObjectTable", () => {
 
   it("renders the same generic columns for a different object type", () => {
     render(
-      <ObjectTable model={testModel} columns={["name", "objectType"]} objects={[codelistObject]} onOpen={() => {}} />,
+      <ObjectTable
+        model={testModel}
+        columns={["name", "objectType"]}
+        list={staticWindow([codelistObject])}
+        pageSize={20}
+        onOpen={() => {}}
+      />,
     );
     expect(screen.getByText("Timetable types")).toBeInTheDocument();
     expect(screen.getByText("Codelist")).toBeInTheDocument();
@@ -26,7 +41,8 @@ describe("ObjectTable", () => {
       <ObjectTable
         model={testModel}
         columns={["name", "code"]}
-        objects={[domainObject]}
+        list={staticWindow([domainObject])}
+        pageSize={20}
         onOpen={() => {}}
         onColumnWidth={onColumnWidth}
         renderActions={() => <button>Actions</button>}

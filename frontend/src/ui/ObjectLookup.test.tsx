@@ -31,18 +31,27 @@ describe("ObjectLookup", () => {
     expect(onChange).toHaveBeenCalledWith(undefined);
   });
 
-  it("retries the same lookup cursor after a load-more failure", async () => {
+  it("moves through options across a page boundary by keyboard and retries a failed page", async () => {
     vi.mocked(api.objects)
-      .mockResolvedValueOnce({ items: [domainObject], nextCursor: "next" })
+      .mockResolvedValueOnce({ items: [domainObject], nextCursor: "next", totalCount: 2, startIndex: 0 })
       .mockRejectedValueOnce(new Error("Lookup page unavailable"))
       .mockResolvedValueOnce({ items: [{ ...domainObject, id: "other", name: "Finance" }], nextCursor: null });
-    render(<ObjectLookup objectTypeKey="domain" workspaceKey="default" onChange={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Load more results" }));
+    const onChange = vi.fn();
+    render(<ObjectLookup objectTypeKey="domain" workspaceKey="default" label="Parent" onChange={onChange} />);
+    const field = screen.getByRole("combobox", { name: "Search: Parent" });
+    await screen.findByRole("option", { name: /Connections/ });
+    expect(screen.getByRole("option", { name: /Connections/ })).toHaveAttribute("aria-setsize", "2");
+    fireEvent.keyDown(field, { key: "ArrowDown" });
+    expect(field).toHaveAttribute("aria-activedescendant", screen.getByRole("option", { name: /Connections/ }).id);
+    fireEvent.keyDown(field, { key: "ArrowDown" });
     fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
-    expect(await screen.findByRole("option", { name: /Finance/ })).toBeInTheDocument();
+    const finance = await screen.findByRole("option", { name: /Finance/ });
     expect(api.objects).toHaveBeenLastCalledWith(
       "domain",
       expect.objectContaining({ workspaceKey: "default", cursor: "next" }),
     );
+    await waitFor(() => expect(field).toHaveAttribute("aria-activedescendant", finance.id));
+    fireEvent.keyDown(field, { key: "Enter" });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ id: "other" }));
   });
 });

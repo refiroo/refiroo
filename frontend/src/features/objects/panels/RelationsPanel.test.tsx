@@ -125,7 +125,7 @@ describe("RelationsPanel", () => {
     expect(screen.queryByRole("button", { name: "Add relationship" })).not.toBeInTheDocument();
   });
 
-  it("loads another relation page without replacing the first", async () => {
+  it("scrolls on to another relation page without replacing the first", async () => {
     vi.mocked(api.relations)
       .mockResolvedValueOnce({
         items: [
@@ -162,7 +162,7 @@ describe("RelationsPanel", () => {
         nextCursor: null,
       });
     render(<RelationsPanel model={testModel} object={domainObject} panel={panel} onOpen={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Load more relationships" }));
+    fireEvent.keyDown(await screen.findByRole("button", { name: "Timetable types" }), { key: "ArrowDown" });
     expect(await screen.findByText("Procedures")).toBeInTheDocument();
     expect(screen.getByText("Timetable types")).toBeInTheDocument();
     await waitFor(() =>
@@ -170,12 +170,15 @@ describe("RelationsPanel", () => {
         workspaceKey: "default",
         direction: "outgoing",
         relationTypeKey: "domain-contains-codelist",
+        search: "",
+        sort: "name",
         cursor: "next",
+        pageSize: 50,
       }),
     );
   });
 
-  it("retries the same relation cursor after a load-more failure", async () => {
+  it("retries the same relation cursor after an edge failure", async () => {
     const first = {
       direction: "outgoing" as const,
       relation: {
@@ -202,14 +205,17 @@ describe("RelationsPanel", () => {
         nextCursor: null,
       });
     render(<RelationsPanel model={testModel} object={domainObject} panel={panel} onOpen={vi.fn()} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Load more relationships" }));
+    fireEvent.keyDown(await screen.findByRole("button", { name: "Timetable types" }), { key: "ArrowDown" });
     fireEvent.click(await screen.findByRole("button", { name: "Retry" }));
     expect(await screen.findByText("Procedures")).toBeInTheDocument();
     expect(api.relations).toHaveBeenLastCalledWith(domainObject.id, {
       workspaceKey: "default",
       direction: "outgoing",
       relationTypeKey: "domain-contains-codelist",
+      search: "",
+      sort: "name",
       cursor: "next",
+      pageSize: 50,
     });
   });
 

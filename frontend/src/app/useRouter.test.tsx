@@ -13,7 +13,7 @@ vi.mock("@/api/client", () => ({ api: { model: vi.fn(), workspaceRuntimeState: v
 const collection = {
   ...defaultRoute(testModel, "west"),
   search: "client",
-  cursors: ["second", "third"],
+  anchor: "second",
   filters: [{ field: "code", operator: "eq", value: "A&B" }],
 };
 const detail: RouteState = {
@@ -58,7 +58,7 @@ describe("record navigation", () => {
         expect(reloaded.result.current.route).toMatchObject({ objectId: "related", collectionOrigin: origin }),
       );
       act(() => {
-        reloaded.result.current.navigate({ ...origin, search: "another", cursors: undefined });
+        reloaded.result.current.navigate({ ...origin, search: "another", anchor: undefined });
       });
       act(() => window.history.back());
       await waitFor(() => expect(window.location.href).toBe(savedPath));

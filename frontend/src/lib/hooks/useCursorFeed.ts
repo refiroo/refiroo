@@ -37,7 +37,8 @@ export interface CursorFeed<T> {
  * `previous` is empty — so a caller that excludes certain items writes that rule once. It is read
  * through a ref, so an inline closure does not need to be memoised by the caller.
  *
- * Collections that need backward movement through pages use `useCursorPages` instead.
+ * Collections a user scrolls or jumps through use `useCursorWindow` instead; this remains for short,
+ * append-only feeds such as record history and draft and revision lists.
  */
 export function useCursorFeed<T>(
   fetchPage: (cursor?: string) => Promise<CursorPage<T>>,

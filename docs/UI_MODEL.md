@@ -100,7 +100,7 @@ The main workspace distinguishes:
 - **context:** workspace, application, Live/Draft/History and optional containing object;
 - **collection:** the row/source object type;
 - **lens:** one configured semantic view over that source type;
-- **query:** scope, search, filters, sort and cursor trail; and
+- **query:** scope, search, filters, sort and the scroll anchor; and
 - **detail:** one object's application-defined composition.
 
 For schema 0.5/0.6 the view source type groups lenses without changing the model contract. A table and

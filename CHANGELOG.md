@@ -39,8 +39,23 @@ All notable changes to this project are documented in this file. The format foll
   position reads now seek instead of scanning the type: 2–13 ms at full volume (a deep position read
   took about 500 ms).
 
+- Base 0.8 S5: continuous-scroll lists (ADR-030). `useCursorWindow` keeps at most five pages,
+  prefetches one page ahead of either edge and evicts the page furthest from the viewport;
+  `ui/ScrollWindow` keeps rows still as pages arrive above them, shows quiet start and end markers
+  and a loading marker only while the user waits, and offers a proportional scrollbar sized from the
+  total (a click or a drag's release sends one position request), a page field, start and end
+  buttons, Ctrl+Home/Ctrl+End and, on the collection lens, **Go to** a value. Arrow keys move
+  through rows across page boundaries. Adopted by the collection lens, record panels (which gain a
+  sort, by name by default), relation panels (which gain search and sort), the mapping lens, the
+  mapping candidates and the object picker, now a search field over a listbox.
+  `tests/volume_seed.py` seeds the volume fixture for the new `test:browser:s5` runner.
+
 ### Changed
 
+- Collection URLs hold one `anchor` cursor for the page at the top of the list instead of a
+  `cursor` trail, written as the user scrolls without adding history entries. Older links with
+  `cursor` parameters open at the start. Previous/Next page buttons and **Load more** in panels,
+  relation lists and pickers are removed.
 - Page responses carry the new navigation fields beside `items` and `nextCursor`, so a client that
   compared a whole page body must allow them. Live relation pages build their related records in one
   batch instead of two statements per row.

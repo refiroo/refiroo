@@ -27,10 +27,13 @@ async function freePort() {
  * @param {boolean} [options.modelAdmin=true] - Enable model admin mutations.
  * @param {boolean} [options.workspaceAdmin=true] - Enable workspace admin mutations.
  * @param {(model: object) => void} [options.transformModel] - Adjust the starter model before startup.
+ * @param {(output: string) => Promise<{modelPath: string, databasePath: string}>} [options.prepare] -
+ *   Provide a prepared model and database instead of the starter model, which also skips the starter seed.
+ * @param {{width: number, height: number}} [options.viewport] - Browser viewport; 1440×900 by default.
  * @returns {Promise<{page, browser, apiUrl, uiUrl, output, records, cleanup}>}
  */
 export async function bootHarness(options = {}) {
-  const { modelAdmin = true, workspaceAdmin = true, transformModel } = options;
+  const { modelAdmin = true, workspaceAdmin = true, transformModel, prepare, viewport } = options;
   const started = performance.now();
   // Setup phase durations in milliseconds, separated from the runner's own checks (WP-13B).
   const timings = {};
@@ -73,17 +76,21 @@ export async function bootHarness(options = {}) {
     return text ? JSON.parse(text) : undefined;
   }
 
-  const model = JSON.parse(await readFile(resolve(root, "model/rdm-starter.json"), "utf8"));
-  transformModel?.(model);
-  const modelPath = resolve(output, "model.json");
-  await writeFile(modelPath, JSON.stringify(model));
+  let modelPath = resolve(output, "model.json");
+  let databasePath = resolve(output, "database.sqlite");
+  if (prepare) ({ modelPath, databasePath } = await prepare(output));
+  else {
+    const model = JSON.parse(await readFile(resolve(root, "model/rdm-starter.json"), "utf8"));
+    transformModel?.(model);
+    await writeFile(modelPath, JSON.stringify(model));
+  }
 
   const backend = start(
     resolve(root, "backend/.venv/bin/python"),
     ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", String(apiPort)],
     resolve(root, "backend"),
     {
-      DATABASE_URL: `sqlite:///${resolve(output, "database.sqlite")}`,
+      DATABASE_URL: `sqlite:///${databasePath}`,
       RDM_MODEL_PATH: modelPath,
       CORS_ORIGINS: uiUrl,
       MODEL_ADMIN_MUTATIONS_ENABLED: String(modelAdmin),
@@ -103,10 +110,10 @@ export async function bootHarness(options = {}) {
   await ready(uiUrl, ui);
   phase = mark("viteReady", phase);
 
-  // Seed: use the auto-created default workspace; create a test workspace if it doesn't exist.
-  try { await api("/workspaces", { key: "default", label: "Default" }); } catch { /* already exists */ }
   const records = { domain: [], system: [] };
-  for (const [type, app] of [["domain", "rdm-master"], ["system", "rdm-systems"]]) {
+  // Seed: use the auto-created default workspace; create a test workspace if it doesn't exist.
+  if (!prepare) try { await api("/workspaces", { key: "default", label: "Default" }); } catch { /* already exists */ }
+  if (!prepare) for (const [type, app] of [["domain", "rdm-master"], ["system", "rdm-systems"]]) {
     for (let i = 0; i < 5; i++) {
       records[type].push(await api("/objects", {
         applicationKey: app, workspaceKey: "default", objectTypeKey: type,
@@ -116,13 +123,14 @@ export async function bootHarness(options = {}) {
     }
   }
   // Add children to the first domain and system objects.
-  for (const suffix of ["Alpha", "Beta"]) {
+  if (!prepare) for (const suffix of ["Alpha", "Beta"]) {
     await api("/objects", {
       applicationKey: "rdm-master", workspaceKey: "default", objectTypeKey: "codelist",
       name: `Codelist ${suffix}`, parentObjectId: records.domain[0].id,
       attributes: [{ attributeTypeKey: "codelist-code", value: suffix.toLowerCase() }],
     });
   }
+  if (!prepare) {
   const sysChild = await api("/objects", {
     applicationKey: "rdm-systems", workspaceKey: "default", objectTypeKey: "system-value",
     name: "Value Alpha", parentObjectId: records.system[0].id,
@@ -133,6 +141,7 @@ export async function bootHarness(options = {}) {
     relationTypeKey: "reference-has-system-representation",
     fromObjectId: records.domain[0].id, toObjectId: sysChild.id,
   });
+  }
 
   phase = mark("seed", phase);
   const browser = await chromium.launch({
@@ -140,7 +149,7 @@ export async function bootHarness(options = {}) {
     ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}),
   });
 
-  const context = await browser.newContext({ hasTouch: true, viewport: { width: 1440, height: 900 } });
+  const context = await browser.newContext({ hasTouch: true, viewport: viewport ?? { width: 1440, height: 900 } });
   const page = await context.newPage();
   page.setDefaultTimeout(10000);
   mark("browserLaunch", phase);

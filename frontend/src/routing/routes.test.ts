@@ -44,10 +44,10 @@ describe("routes", () => {
     window.history.pushState({}, "", "/");
   });
 
-  it("round-trips the cursor trail with its workspace and typed query", () => {
+  it("round-trips the scroll anchor with its workspace and typed query", () => {
     const route = {
       ...defaultRoute(testModel, "west"),
-      cursors: ["token/one+", "token&two"],
+      anchor: "token/one+&two",
       filters: [{ field: "code", operator: "eq", value: "A&B" }],
     };
     window.history.replaceState({}, "", routePath(route));

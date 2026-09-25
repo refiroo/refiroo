@@ -232,7 +232,7 @@ describe("MappingGridView", () => {
     const status = screen.getByRole("group", { name: "Mapping status" });
     expect(within(status).getByRole("button", { name: "Unmapped" })).toHaveAttribute("aria-pressed", "true");
     fireEvent.click(within(status).getByRole("button", { name: "Mapped" }));
-    expect(onQueryChange).toHaveBeenCalledWith(expect.objectContaining({ mappingState: "mapped", cursors: undefined }));
+    expect(onQueryChange).toHaveBeenCalledWith(expect.objectContaining({ mappingState: "mapped", anchor: undefined }));
   });
 
   it("presents table and mapping renderers as lenses of one source collection", async () => {
@@ -282,7 +282,7 @@ describe("MappingGridView", () => {
     renderGrid();
 
     await screen.findByRole("button", { name: "Retry" });
-    expect(screen.getByText("Coverage unavailable")).toBeInTheDocument();
+    expect(screen.getByText("Network error")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     await waitFor(() => expect(screen.getByText("Connections")).toBeInTheDocument());

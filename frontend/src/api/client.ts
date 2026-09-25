@@ -86,13 +86,32 @@ export interface DraftWriteContext {
   expectedWorkspaceDraftVersion?: number;
 }
 
-export interface ObjectQuery {
+/**
+ * Selects one page of a collection (ADR-030): a cursor, a position, the end or a seek value, at
+ * most one of them; none reads the first page. `includeTotal` adds `totalCount` and `startIndex`.
+ */
+export interface PageSelector {
+  cursor?: string;
+  position?: number;
+  fromEnd?: boolean;
+  seek?: string;
+  includeTotal?: boolean;
+}
+
+function setPaging(params: URLSearchParams, selector: PageSelector) {
+  if (selector.cursor) params.set("cursor", selector.cursor);
+  if (selector.position !== undefined) params.set("position", String(selector.position));
+  if (selector.fromEnd) params.set("from", "end");
+  if (selector.seek !== undefined) params.set("seek", selector.seek);
+  if (selector.includeTotal) params.set("includeTotal", "true");
+}
+
+export interface ObjectQuery extends PageSelector {
   workspaceDraftId?: string;
   workspaceRevisionId?: string;
   applicationKey?: string;
   workspaceKey?: string;
   search?: string;
-  cursor?: string;
   pageSize?: number;
   parentObjectId?: string;
   sort?: ObjectSort;
@@ -106,7 +125,7 @@ export interface ObjectDeleteOptions {
   expectedWorkspaceDraftVersion?: number;
 }
 
-export interface MappingCoverageQuery {
+export interface MappingCoverageQuery extends PageSelector {
   workspaceKey: string;
   applicationKey: string;
   viewKey: string;
@@ -117,7 +136,6 @@ export interface MappingCoverageQuery {
   workspaceDraftId?: string;
   workspaceRevisionId?: string;
   search?: string;
-  cursor?: string;
   pageSize?: number;
   parentObjectId?: string;
   state?: "mapped" | "unmapped" | "ambiguous";
@@ -139,7 +157,7 @@ export interface MappingTargetQuery {
   pageSize?: number;
 }
 
-export interface MappingCandidateQuery {
+export interface MappingCandidateQuery extends PageSelector {
   workspaceKey: string;
   applicationKey: string;
   viewKey: string;
@@ -147,7 +165,6 @@ export interface MappingCandidateQuery {
   workspaceDraftId?: string;
   workspaceRevisionId?: string;
   search?: string;
-  cursor?: string;
   pageSize?: number;
 }
 
@@ -158,7 +175,7 @@ function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
   if (query.workspaceRevisionId) params.set("workspaceRevisionId", query.workspaceRevisionId);
   if (query.workspaceKey) params.set("workspaceKey", query.workspaceKey);
   if (query.search) params.set("search", query.search);
-  if (query.cursor) params.set("cursor", query.cursor);
+  setPaging(params, query);
   if (query.parentObjectId) params.set("parentObjectId", query.parentObjectId);
   if (query.sort) params.set("sort", query.sort);
   query.filters?.forEach(({ field, operator, value }) => params.append(`filter.${field}.${operator}`, value));
@@ -421,13 +438,15 @@ export const api = {
     ),
   relations: (
     objectId: string,
-    options: {
+    options: PageSelector & {
       workspaceKey?: string;
       workspaceDraftId?: string;
       workspaceRevisionId?: string;
       direction?: "incoming" | "outgoing" | "both";
       relationTypeKey?: string;
-      cursor?: string;
+      search?: string;
+      /** `name` or, live only, `createdAt`; prefix `-` for descending. */
+      sort?: string;
       pageSize?: number;
     } = {},
   ) => {
@@ -437,7 +456,9 @@ export const api = {
     if (options.workspaceKey) params.set("workspaceKey", options.workspaceKey);
     if (options.direction) params.set("direction", options.direction);
     if (options.relationTypeKey) params.set("relationTypeKey", options.relationTypeKey);
-    if (options.cursor) params.set("cursor", options.cursor);
+    if (options.search) params.set("search", options.search);
+    if (options.sort) params.set("sort", options.sort);
+    setPaging(params, options);
     params.set("pageSize", String(options.pageSize ?? 100));
     return request<RelationPage>(`/api/v1/relations?${params}`);
   },
@@ -482,7 +503,7 @@ export const api = {
     if (query.search) params.set("search", query.search);
     if (query.parentObjectId) params.set("parentObjectId", query.parentObjectId);
     if (query.state) params.set("state", query.state);
-    if (query.cursor) params.set("cursor", query.cursor);
+    setPaging(params, query);
     if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
     return request<MappingCoveragePage>(
       `/api/v1/workspaces/${encodeURIComponent(query.workspaceKey)}/mapping-coverage?${params}`,
@@ -497,7 +518,7 @@ export const api = {
     if (query.workspaceDraftId) params.set("workspaceDraftId", query.workspaceDraftId);
     if (query.workspaceRevisionId) params.set("workspaceRevisionId", query.workspaceRevisionId);
     if (query.search) params.set("search", query.search);
-    if (query.cursor) params.set("cursor", query.cursor);
+    setPaging(params, query);
     if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
     return request<MappingCandidatePage>(
       `/api/v1/workspaces/${encodeURIComponent(query.workspaceKey)}/mapping-candidates?${params}`,

@@ -125,9 +125,10 @@ export function RelationFormDialog({
                 ))}
               </select>
             </label>
-            <label>
-              Object
+            <fieldset className="lookup-field">
+              <legend>Object</legend>
               <ObjectLookup
+                label="Object"
                 objectTypeKey={choice.otherObjectTypeKey}
                 workspaceKey={object.workspaceKey}
                 excludeId={object.id}
@@ -138,7 +139,7 @@ export function RelationFormDialog({
                   setCandidate(item);
                 }}
               />
-            </label>
+            </fieldset>
           </>
         )}
         {attributes.map((attribute) => (

@@ -263,7 +263,7 @@ describe("ObjectFormDialog", () => {
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "Czech connections" } });
     fireEvent.change(screen.getByLabelText("Code"), { target: { value: "CS_CONNECTIONS" } });
     await waitFor(() => expect(api.objects).toHaveBeenCalled());
-    fireEvent.change(screen.getByLabelText("Select object"), { target: { value: domainObject.id } });
+    fireEvent.click(await screen.findByRole("option", { name: /Connections/ }));
     fireEvent.click(screen.getByRole("button", { name: "Create" }));
 
     await waitFor(() =>

@@ -397,6 +397,54 @@ scrollbar and page number, in two model
 configurations (the starter model and the generated model) at 1440px and 390px, using the keyboard
 alone.
 
+**Delivered 2026-09-25.** `lib/hooks/useCursorWindow` holds at most five pages (D2), each with its
+own cursors, so evicting the page furthest from the viewport keeps no trail; jumps (`position`,
+`from=end`, `seek`) replace the window with one request and ask for totals (D5), and edge reads
+extend it with cursors alone. Reaching either end corrects the counted indexes and total. `ui/
+ScrollWindow` renders the scrolling region: it prefetches when the viewport is within one page of an
+edge, keeps the rows on screen still when rows arrive above or are evicted, lands jumps below the
+sticky header, shows quiet start and end markers and a loading marker only at the edge being waited
+for (announced politely, spinner still under reduced motion), and, while the window holds part of the
+list, a proportional scrollbar sized from `totalCount`: a track click or the release of a drag sends
+one position request, and a target already held scrolls without one. Its footer shows the visible
+range, a page field, start and end buttons and, on the collection lens, **Go to** the sorted value.
+Arrow keys move focus through rows across page boundaries, Ctrl+Home and Ctrl+End jump and focus,
+and a focused row evicted from the window leaves focus on the list. Tables carry `aria-rowcount` and
+`aria-rowindex`. The URL holds one `anchor`, written without a history entry or the navigation
+guard, and only when the user scrolls or jumps; the list's own compensating scrolls never rewrite
+it. A view's `pageSize` is the fetch size (D4). Adopted by the collection lens, record panels (sorted
+by name by default, by any sortable column from its header), relation panels (search and sort), the
+mapping lens and its candidate list, and the object picker, now a combobox over a listbox with
+`aria-setsize` and `aria-posinset`. `useCursorPages` and `ui/Pagination` are removed; `useCursorFeed`
+remains for record history and draft and revision lists. AGENTS.md names the new hook.
+
+_Evidence._ `useCursorWindow.test.tsx` covers the bounded window both ways, jumps held and not
+held, anchor reopening with a stale-anchor fallback, index correction after deletions before the
+window, edge failure and retry, and refresh in place. `e2e/s5-continuous-lists.mjs`
+(`test:browser:s5`) runs against a real backend: over the volume fixture it scrolls the items lens
+both ways with the window bounded at 100 rows and the JS heap flat, jumps by scrollbar click and
+drag with exactly one position request each and by page number, reopens a copied URL at the same row,
+and walks it by keyboard (arrow keys across pages, Ctrl+End, Ctrl+Home, seek), in live, draft and
+history; it also scrolls, sorts and walks the heavy record panel and searches and walks the cited
+relation panel in all three contexts, and repeats the lens and panel at 390px. Over the starter
+model it scrolls the codelist lens, the mapping lens (keyboard across pages, Ctrl+End, page number),
+a relation panel and the picker (keyboard choice across a page boundary), at 1440px and 390px, with
+axe clean on five surfaces. It passes at the default 10% scale and at full volume
+(`S5_VOLUME_SCALE=1`: 100,000 items, the 20,000-child parent, the 1,500-relation record; about 100 s).
+`wp9-navigation`, `wp9-authoring`, `wp9-drafts`, `wp9-history`, `wp13c`, `wp14`, `sc07` and `sc15`
+were updated for the removed page buttons, **Load more** and native picker select, and pass.
+
+_Found on the way and fixed:_ a landing measured against the header's unstuck position and the
+visible range counted a row under the stuck header (both one to two rows off); an edge page read
+from the previous window could be appended to a replaced one (the page is now applied only to the
+window whose edge it continues); a landed page too short to fill the viewport never prefetched; a
+list mounted hidden (a record reopened by reload) refreshed from its first page.
+
+_Open:_ the S4 draft position read three quarters into a whole 100,000-record type (175 ms, budget
+100 ms) is unchanged; the scrollbar works there at that cost. Visual baselines for the tables that
+lost their page buttons and dedicated accessibility-gate scenarios for the list remain S7 scope; the
+edge loading marker is covered by component state only, not a captured screenshot.
+
 #### S6: Sidebar tree by parent
 
 **Scope:**
@@ -527,6 +575,56 @@ instances sharing a database. Unverified; found while documenting split deployme
 
 **Exit:** the test passes on SQLite; the caveat is either removed or restated precisely.
 
+## Pending items — revisit before R1
+
+Gaps in the read API found on 2026-09-25. They are not scheduled work packages. Each is decided at the
+latest before R1: scheduled into 0.8 as a package, moved to a later build in ROADMAP/TODO, or dropped
+with a reason (D20). A package taken into 0.8 is written after W2, so it uses the ADR-031 names.
+
+A parameterless "list everything" endpoint for object, relation or attribute value reads was
+considered and rejected. Paging through live data across many requests is not a consistent snapshot
+(API.md, object cursors), so full extraction stays with 0.9 export and the change feed (ADR-008).
+Until then a publication (revision) read is the consistent full traversal. A flat list of attribute
+values was also rejected: values only mean something with their object, which already returns
+them, and "objects where attribute X = Y" belongs to the 0.9 advanced queries.
+
+#### P1: Cross-type object lookup
+
+**Gap:** objects are listed only per type (`GET /objects/{objectTypeKey}`). A record whose type is not
+known, for example one found by name or external ID, cannot be looked up in one call.
+
+**Shape to evaluate:** `GET /objects`, paged under the S3 contract, in live, change-set and
+publication contexts. Search, filter and sort on built-in fields only (`name`, `id`,
+`objectTypeKey`, parent, created and updated). A repeatable `objectTypeKey` narrows the list. Each
+item carries its `objectTypeKey`. Model-declared typed filters stay on the per-type route. No branch
+on type keys (principle 2); additive (principle 4).
+
+**Uses:** global search, a lookup field that accepts several types, admin and debugging.
+
+#### P2: Change set changes list
+
+**Gap:** a change-set read returns the complete graph as the change set sees it (base plus overlay
+and tombstones). No endpoint lists only what the change set changed, so reviewing it means scanning
+every record.
+
+**Shape to evaluate:** a paged list of the change set's own object and relation entries, each with
+its kind (`added`, `changed`, `removed`), the record's identity and type, and its before and after
+versions. Field-level differences only if cheap. Validation and publication remain the only checks
+against current live content.
+
+**Uses:** reviewing before publish, the change-set screen, and integrations that stage changes.
+
+#### P3: Relation edge list across the workspace
+
+**Gap:** `GET /relations` needs `objectId`, because its items are expansions from that object
+(direction plus the other object). The flat edge list that exists, `GET /workspaces/{key}/mappings`,
+already returns edges of any relation type in live and change-set contexts. It has no publication
+context, and its name suggests it covers mapping relations only.
+
+**Shape to evaluate:** add publication context to the existing edge list and decide whether to rename
+or document it as the general relation list, instead of a second endpoint. `GET /relations` keeps its
+anchored shape; one endpoint does not return two response shapes.
+
 ## Sequence and dependencies
 
 ```text
@@ -541,6 +639,7 @@ Milestone B:  B1 ──────────────┐
 Track W:      W1, W5 (any time)
               S7 → W2 → W3 → W4
               W2 ─→ A2, B2
+Pending:      P1, P2, P3 decided (D20) ─→ R1
 Release:      S7, W4, W5, A5, B4 → R1
 ```
 
@@ -835,7 +934,7 @@ US-H02 and US-D09 move to delivered in the functionality catalogue.
 
 ## R1: Build acceptance and release
 
-**Scope:** after S7, W4, W5, A5 and B4: the full backend `pytest` suite, frontend `npm run test`, Ruff,
+**Scope:** after S7, W4, W5, A5 and B4, and once P1–P3 are decided (D20): the full backend `pytest` suite, frontend `npm run test`, Ruff,
 format, lint and build, every browser runner, `test:a11y` and `test:visual`. Migration checks for the
 S2 typed value rows (clean bootstrap, upgrade from the 0.7 head, restart, interrupted migration,
 lifespan, smoke start on a copy of the development database). Confirm a schema 0.7 release installs
@@ -867,3 +966,4 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D17 | Is split deployment (admin and public instance on one database) verified in 0.8? | **Accepted 2026-09-25:** no, it stays a documented, unsupported topology until 0.10 multi-node work; the suspected write-versus-activation race it exposed is investigated in 0.8 as W5 because it may affect one process too | W5 |
 | D18 | Verb for making a change set live | **Accepted 2026-09-25:** **publish**; **activate** is reserved for model releases, **install** for model drafts | W1, W2 |
 | D19 | Removing a publication's current designation | **Accepted 2026-09-25:** **withdraw** (status `withdrawn`); **retire** is reserved for workspaces | W1, W2 |
+| D20 | Are P1 (cross-type lookup), P2 (change set changes list) and P3 (workspace edge list) in 0.8? | **Pending, decide before R1.** Each is scheduled as a package after W2, moved to a later build, or dropped with a reason. A parameterless "list everything" and a flat attribute value list are rejected (export and change feed, 0.9) | R1 |

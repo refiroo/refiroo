@@ -21,7 +21,8 @@ to fit a new control.
 | Confirmation | `ui/ConfirmDialog` (draft activate/discard, deletion) | States the consequence; destructive action uses `danger`/`danger-ghost`. |
 | Field | `ui/AttributeField`, `ui/ObjectLookup`, label-wrapped `<input>/<select>` in `ObjectFormDialog` | Visible `<label>` text wraps the control; required state from the model; typed input types. |
 | Actions | Collection header action (`.collection-header-actions .primary`), `RecordActionMenu`/`ui/ActionMenu`, `ui/ControlPopover` | One primary action per surface; secondary actions in a menu or `<details>` disclosure; icon buttons carry an accessible name. |
-| Page surface | `features/objects/CollectionView.tsx` | `.page-header` with `.page-title` and `h1`; `.surface` with toolbar, table region and footer (`role="status"` count plus `ui/Pagination`). |
+| Page surface | `features/objects/CollectionView.tsx` | `.page-header` with `.page-title` and `h1`; `.surface` with toolbar and a continuous list. |
+| Continuous list (0.8 S5) | `ui/ScrollWindow` in `ui/ObjectTable` (collection lens) | Labelled scrolling region with a sticky header; quiet start and end markers, an edge loading marker only while waiting; a proportional window scrollbar when the window holds part of the list; footer with the visible range, page field, start/end buttons and, where the list seeks, a **Go to** field. Rows carry `aria-rowindex` and the table `aria-rowcount`. |
 | Load failure | `ui/InlineError` (a `Notice` titled “Could not load this content” with **Retry**) | Replaces only the failed content; shell, header and previously loaded data stay; Retry repeats the exact request. |
 | Empty state | Collection empty row, `.empty-panel` in `WorkspaceDrafts` | Says whether nothing exists or nothing matches the current search/filter. |
 | Notice | `ui/Notice` tones `info`/`warning`/`error` | Title plus a sentence stating what happened and the safe next action; `focusOnMount` for a failure the user must act on. |
@@ -55,6 +56,18 @@ Not applicable, with reasons: S4 has no pending/refused state of its own (writes
 S6 load/empty belong to the nested form's lookups, shown under dependency failure; S7 load and failure
 share S4's renderer and code path, so only the context difference (draft overlay, inverse direction) is
 checked; S11 has no conflict state.
+
+### Surfaces materially changed in 0.8 Track S
+
+| # | Surface (package) | Navigation | Reference | Load | Populated / empty | Pending | Success | Invalid / refused | Conflict | Dependency failure → retry | Narrow | Keyboard / focus | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| T1 | Continuous lists: collection lens, record panels (with a name-default sort), relation panels (with search and sort), mapping lens, mapping candidates (S5) | any collection; a record's panels; mapping lens | Continuous list | C (`useCursorWindow.test`) | **B** (populated at 10,000 and 72 rows; empty from search: C) | B (edge marker while waiting: component only; not captured in a screenshot) | **B** (scroll both ways, scrollbar click and drag, page number, seek, Ctrl+Home/End, URL anchor reopen, in live, draft and history) | B (unknown seek value: InlineError, C) | — (read-only lists; writes keep their own conflict states) | **B** (edge read fails, window kept, Retry in place: `wp9-navigation`); C (`CollectionPanelTable.test`, `RelationsPanel.test`) | **B** (390px, no page overflow) | **B** (arrow keys across page boundaries, focus kept by row identity) | `s5-continuous-lists`, `wp9-navigation`, `sc07-mapping-acceptance` |
+| T2 | Object picker: search field over a listbox (S5) | record form **Parent**; relation dialog **Object** | Field | C | **B** | — | **B** (keyboard choice across a page boundary) | C (required: hidden required input) | — | C (`ObjectLookup.test`) | **B** | **B** (combobox with `aria-activedescendant`, Enter chooses) | `s5-continuous-lists`, `wp9-authoring`, `wp13c-ui-states` |
+
+Not applicable, with reasons: the lists hold no writes of their own, so they have no conflict state.
+Visual baselines for tables that lost their page buttons and dedicated accessibility-gate scenarios are
+S7 scope; the S5 runner runs axe on the volume lens, the relation panel, the starter lens, the mapping
+lens and the picker.
 
 ## 3. Selected focused browser checks
 

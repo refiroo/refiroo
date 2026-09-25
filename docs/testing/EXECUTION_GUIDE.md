@@ -65,7 +65,7 @@ Every test file matches exactly one project by extension, so none is unclassifie
 ```sh
 npx vitest run --project unit                         # all pure tests, < 1 s
 npx vitest run src/features/objects/views             # a directory
-npx vitest related src/lib/hooks/useCursorPages.ts --run   # tests importing a changed file
+npx vitest related src/lib/hooks/useCursorWindow.ts --run   # tests importing a changed file
 ```
 
 `vitest related` follows the static import graph. It is the right tool for a changed shared module;
@@ -88,6 +88,7 @@ Chrome. Setup costs ~2.8 s per runner (section 4). Pick by surface:
 | `e2e/wp14-contextual-browser.mjs` (`test:browser:wp14`) | C-Q-SCOPE, C-MAP-UI, contextual collections |
 | `e2e/wp13c-ui-states.mjs` (`test:browser:wp13c`) | C-MAP-UI and C-DR-PIN changed states: outage/retry, empty, conflict review, draft-context mapping, non-active-release draft, narrow layout ([UI acceptance](UI_ACCEPTANCE.md)) |
 | `e2e/sc07-mapping-acceptance.mjs` (`test:browser:sc07`) | WP-9 composed SC-07: C-MAP-UI/W/SET across the starter binding in both directions and an independent binding with a typed relation attribute; candidates beyond page one, large ambiguous sets, generic-write race, draft activation against a divergent live set |
+| `e2e/s5-continuous-lists.mjs` (`test:browser:s5`) | Base 0.8 S5 continuous lists: collection lens, record and relation panels, mapping lens and object picker over the Track S volume fixture (seeded by `backend/tests/volume_seed.py`, 10% by default, `S5_VOLUME_SCALE=1` for full volume) and the starter model; live, draft and history; scrollbar, page number, seek, URL anchor, keyboard, 1440px and 390px |
 | `e2e/sc15-model-version-acceptance.mjs` (`test:browser:sc15`) | WP-9 composed SC-15: C-DR-PIN and C-MOD-ACT with two same-schema releases and an incompatible one; refusals leave live, history and another workspace untouched |
 | `e2e/accessibility-gate.mjs` (`test:a11y`) | C-UI-A11Y, T5 build gate |
 | `e2e/visual-regression-gate.mjs` (`test:visual`) | C-UI-A11Y visual stability, T5 build gate |
@@ -126,7 +127,7 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | --- | --- | --- |
 | `src/api/*` | `npx vitest related <file> --run` (a change to `client.ts` selects 24 of 36 files) | the browser runner covering the consuming surface if request shape or error handling changes |
 | `src/routing/*`, `src/app/useRouter*` | `src/routing`, `src/app` | `wp9-navigation.mjs` for URL or history behavior |
-| `src/lib/hooks/useCursor*` | `vitest related` (6 files) | none by default |
+| `src/lib/hooks/useCursor*`, `src/ui/ScrollWindow.tsx`, `src/ui/ObjectLookup.tsx` | `vitest related` | `test:browser:s5`; scroll, landing or anchor changes also `test:browser` (record return and URL restoration) |
 | `src/model/*` | `--project unit`, `src/model` | `vitest related` when a read's result shape changes |
 | `src/ui/*` shared components | `vitest related` | `test:a11y`/`test:visual` scenario for the changed control only when focus, semantics or tokens change; full gates at WP-9 |
 | `src/features/objects/MappingGridView.tsx` and its `views/` host | `vitest related` (3 files) | `wp14-contextual-browser.mjs`, `wp13c-ui-states.mjs` |

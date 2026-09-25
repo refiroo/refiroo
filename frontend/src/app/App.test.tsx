@@ -101,6 +101,8 @@ describe("App", () => {
             : [{ ...original, id: "other", name: "Earlier record" }]
           : [],
         nextCursor: query.cursor ? null : "second",
+        prevCursor: query.cursor ? "before-second" : null,
+        anchor: query.cursor ? "second" : "start",
       }));
       vi.mocked(api.updateObject).mockImplementation(async () => {
         object = { ...object, name: "Updated record", version: 2 };
@@ -109,7 +111,7 @@ describe("App", () => {
       vi.mocked(api.deleteObject).mockImplementation(async () => {
         deleted = true;
       });
-      visit("/apps/test-app/views/domains?workspaceKey=default&search=record&sort=name&pageSize=10&cursor=second");
+      visit("/apps/test-app/views/domains?workspaceKey=default&search=record&sort=name&pageSize=10&anchor=second");
       render(<App />);
       const table = await screen.findByRole("region", { name: "Domains table" });
       fireEvent.click(await within(table).findByRole("button", { name: original.name }));
@@ -135,7 +137,11 @@ describe("App", () => {
       await within(table).findByRole("button", { name: "Earlier record" });
       expect(screen.queryByRole("article", { name: "Record details" })).not.toBeInTheDocument();
       expect(new URLSearchParams(window.location.search).get("search")).toBe("record");
-      expect(new URLSearchParams(window.location.search).getAll("cursor")).toEqual([]);
+      // The emptied page reopened on the last page that still has rows.
+      expect(api.objects).toHaveBeenLastCalledWith(
+        original.objectTypeKey,
+        expect.objectContaining({ fromEnd: true, includeTotal: true }),
+      );
     },
   );
 
@@ -350,7 +356,7 @@ describe("App", () => {
   });
 
   it.each([domainObject, codelistObject])(
-    "restores page two after $objectTypeKey detail and parent navigation",
+    "reopens a copied anchor and restores it after $objectTypeKey detail and parent navigation",
     async (object) => {
       const model = structuredClone(testModel);
       const view = model.applications[0].views[0] as import("@/types").TableViewDefinition;
@@ -361,6 +367,10 @@ describe("App", () => {
       vi.mocked(api.objects).mockImplementation(async (_type, query) => ({
         items: query.sort ? [{ ...row, name: query.cursor ? "Second page record" : "First page record" }] : [],
         nextCursor: query.cursor ? null : "west-second",
+        prevCursor: query.cursor ? "west-first" : null,
+        anchor: query.cursor ? "west-second" : "west-start",
+        totalCount: 2,
+        startIndex: query.cursor ? 1 : 0,
       }));
       vi.mocked(api.object).mockImplementation(async (type) => ({
         ...(type === "domain" ? domainObject : codelistObject),
@@ -368,11 +378,9 @@ describe("App", () => {
       }));
       vi.mocked(api.objectHistory).mockResolvedValue({ items: [], nextCursor: null });
       visit(
-        "/apps/test-app/views/domains?workspaceKey=west&search=record&sort=-name&pageSize=10&filter.createdAt.gte=2026-01-01",
+        "/apps/test-app/views/domains?workspaceKey=west&search=record&sort=-name&pageSize=10&filter.createdAt.gte=2026-01-01&anchor=west-second",
       );
       const firstRender = render(<App />);
-      await screen.findByRole("button", { name: "First page record" });
-      fireEvent.click(screen.getByRole("button", { name: "Next page" }));
       fireEvent.click(await screen.findByRole("button", { name: "Second page record" }));
       expect(await screen.findByRole("heading", { name: object.name, level: 1 })).toBeInTheDocument();
       if (object.objectTypeKey === "codelist") {
@@ -388,9 +396,9 @@ describe("App", () => {
       await screen.findByRole("heading", { name: domainObject.name, level: 1 });
       fireEvent.click(screen.getByRole("button", { name: "Back to list" }));
       expect(await screen.findByRole("button", { name: "Second page record" })).toBeInTheDocument();
-      expect(screen.getByText("Page 2")).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "First page record" })).not.toBeInTheDocument();
       const query = new URLSearchParams(window.location.search);
-      expect(query.getAll("cursor")).toEqual(["west-second"]);
+      expect(query.get("anchor")).toBe("west-second");
       expect(query.get("workspaceKey")).toBe("west");
       expect(query.get("filter.createdAt.gte")).toBe("2026-01-01");
       expect(query.get("search")).toBe("record");
@@ -399,6 +407,7 @@ describe("App", () => {
         expect.objectContaining({
           workspaceKey: "west",
           cursor: "west-second",
+          includeTotal: true,
           sort: "-name",
           pageSize: 10,
         }),

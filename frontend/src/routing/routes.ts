@@ -93,7 +93,7 @@ export function parseRoute(
         ...(view.type === "mappingGrid" && ["mapped", "unmapped", "ambiguous"].includes(query.get("mappingState") ?? "")
           ? { mappingState: query.get("mappingState") as "mapped" | "unmapped" | "ambiguous" }
           : {}),
-        ...(query.getAll("cursor").length ? { cursors: query.getAll("cursor") } : {}),
+        ...(query.get("anchor") ? { anchor: query.get("anchor")! } : {}),
       };
     }
   }
@@ -137,7 +137,7 @@ export function routePath(route: RouteState) {
       query.set("parentObjectTypeKey", route.parentObjectTypeKey);
     }
     if (route.mappingState) query.set("mappingState", route.mappingState);
-    route.cursors?.forEach((cursor) => query.append("cursor", cursor));
+    if (route.anchor) query.set("anchor", route.anchor);
     return `/apps/${app}/views/${encodeURIComponent(route.viewKey)}?${query}`;
   }
   return `/apps/${app}/objects/${encodeURIComponent(route.objectTypeKey)}/${encodeURIComponent(route.objectId)}?${query}`;

@@ -1,5 +1,5 @@
 /**
- * A searchable, cursor-paged table of objects embedded inside a detail panel.
+ * A searchable, sortable, continuously scrolling table of objects embedded inside a detail panel.
  *
  * Shared by the children and table panels, which differ only in how they choose the object type
  * and whether rows are filtered to the object being viewed.
@@ -7,15 +7,15 @@
 
 import { useState } from "react";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
-import { useCursorPages } from "@/lib/hooks/useCursorPages";
+import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
+import { sortableColumns } from "@/model/fields";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { objectTypeFor } from "@/model/lookup";
 import type { ObjectItem } from "@/types";
 import { InlineError } from "@/ui/InlineError";
 import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
 import { ObjectTable } from "@/ui/ObjectTable";
-import { Pagination } from "@/ui/Pagination";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { Icon } from "@/ui/Icon";
 import type { PanelProps } from "./types";
@@ -40,30 +40,35 @@ export function CollectionPanelTable({
   allowCreate: boolean;
 }) {
   const api = useDataApi();
+  const { draft, revision } = useWorkspaceData();
   const display = useTableDisplay(columns, `${application.key}:${object.id}:${objectTypeKey}`);
   const [selectedPageSize, setPageSize] = useState(pageSize);
   const objectType = objectTypeFor(model, objectTypeKey);
   const [searchInput, setSearchInput] = useState("");
   const search = useDebouncedValue(searchInput.trim());
   const [creating, setCreating] = useState(false);
-  const pages = useCursorPages<ObjectItem>(
+  // Panels list by name unless the user sorts by another column; creation order means little here.
+  const [sort, setSort] = useState("name");
+  const sortFields = objectType ? sortableColumns(model, objectType, columns, !draft && !revision) : [];
+  const pages = useCursorWindow<ObjectItem>(
     objectType
-      ? (cursor) =>
+      ? (selector) =>
           api.objects(objectTypeKey, {
             applicationKey: application.key,
             workspaceKey: object.workspaceKey,
             search,
-            cursor,
+            sort,
+            ...selector,
             pageSize: selectedPageSize,
             parentObjectId,
           })
       : null,
-    [application.key, object.workspaceKey, objectTypeKey, selectedPageSize, parentObjectId, search],
+    [application.key, object.workspaceKey, objectTypeKey, selectedPageSize, parentObjectId, search, sort],
   );
-  const { loading, error } = pages;
+  const { error } = pages;
 
   function refresh() {
-    pages.retry();
+    pages.reload();
     onChanged();
   }
 
@@ -109,8 +114,12 @@ export function CollectionPanelTable({
           columnWidths={display.widths}
           onColumnWidth={display.setWidth}
           identityColumn={display.identity}
-          objects={pages.items}
-          loading={loading}
+          sort={sort}
+          sortFields={sortFields}
+          onSort={setSort}
+          list={pages}
+          pageSize={selectedPageSize}
+          label={`${objectType.pluralName} of ${object.name}`}
           onOpen={(item) => onOpen(item.objectTypeKey, item.id, item.applicationKey)}
           renderActions={(item, menu) => (
             <RecordActionMenu
@@ -121,15 +130,6 @@ export function CollectionPanelTable({
               {...menu}
             />
           )}
-        />
-      )}
-      {!error && (
-        <Pagination
-          disabled={loading}
-          page={pages.pageNumber}
-          hasNext={pages.hasNext}
-          onPrevious={pages.previous}
-          onNext={pages.next}
         />
       )}
       {creating && (

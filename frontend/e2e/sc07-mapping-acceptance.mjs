@@ -8,6 +8,7 @@ import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 import { addAlignmentBinding, seedMappingData } from "./helpers/acceptance-data.mjs";
+import { scrollUntil } from "./helpers/lists.mjs";
 
 const KNOWN_ACCESSIBILITY_EXCEPTIONS = [
   {
@@ -139,9 +140,10 @@ try {
   await home.getByText(/Currently\s*Parcel locker/).waitFor();
   expect((await home.getByRole("button", { name: "Remove mapping" }).count()) === 1, "removal is not offered where empty is allowed");
   await home.getByRole("radio", { name: new RegExp(`^${firstPage.items[0].name}`) }).waitFor();
-  expect((await home.getByRole("radio").count()) === 20, "the first candidate page does not hold 20 candidates");
-  expect((await home.getByRole("radio", { name: new RegExp(`^${beyond.name}`) }).count()) === 0, `${beyond.name} is on the first page`);
-  await home.getByRole("button", { name: "Load more candidates" }).click();
+  // The window holds at most five pages of 20; the second page arrives by scrolling on.
+  expect((await home.getByRole("radio").count()) <= 100, "the candidate window is not bounded");
+  // Candidates scroll continuously (Base 0.8 S5): scrolling on reads the next page.
+  await scrollUntil(page, home.getByRole("region", { name: /to choose from$/ }), home.getByRole("radio", { name: new RegExp(`^${beyond.name}`) }));
   await home.getByRole("radio", { name: new RegExp(`^${beyond.name}`) }).check();
   await save(home).click();
   await home.waitFor({ state: "detached" });
