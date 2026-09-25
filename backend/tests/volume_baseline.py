@@ -33,7 +33,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from volume_fixture import (
     GROUP,
+    GROUP_CONTAINS_ITEM,
     ITEM,
+    ITEM_CITES_GROUP,
+    NODE_HAS_CHILD,
+    RANK,
     WORKSPACE,
     VolumeDataset,
     measure,
@@ -190,6 +194,52 @@ def _read_scenarios(
             "relations: 1,500-relation record, search",
             "/api/v1/relations",
             {**citations, "search": "Item 0", "sort": "-name"},
+        ),
+        # S4R1: the related type's attributes and ancestors.
+        (
+            "relations: 1,500-relation record by rank",
+            "/api/v1/relations",
+            {**citations, "relationTypeKey": ITEM_CITES_GROUP, "sort": RANK},
+        ),
+        (
+            "relations: 1,500-relation record by group, total",
+            "/api/v1/relations",
+            {**citations, "relationTypeKey": ITEM_CITES_GROUP, "sort": "ancestor:vol-group", "includeTotal": True},
+        ),
+        (
+            "relations: heavy parent by rank",
+            "/api/v1/relations",
+            {
+                **base,
+                "objectId": dataset.heavy_group_id,
+                "relationTypeKey": GROUP_CONTAINS_ITEM,
+                "sort": RANK,
+                "pageSize": PAGE_SIZE,
+            },
+        ),
+        # The same order on the object list, for comparison: an attribute sort reads every child.
+        ("children: heavy parent by rank", items, {**heavy, "sort": RANK}),
+        (
+            "relations: heavy parent by group",
+            "/api/v1/relations",
+            {
+                **base,
+                "objectId": dataset.heavy_group_id,
+                "relationTypeKey": GROUP_CONTAINS_ITEM,
+                "sort": "-ancestor:vol-group",
+                "pageSize": PAGE_SIZE,
+            },
+        ),
+        (
+            "relations: deep node by top node",
+            "/api/v1/relations",
+            {
+                **base,
+                "objectId": dataset.deep_node_id,
+                "relationTypeKey": NODE_HAS_CHILD,
+                "direction": "incoming",
+                "sort": "ancestor:vol-node",
+            },
         ),
     ]
 

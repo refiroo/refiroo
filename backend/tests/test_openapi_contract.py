@@ -12,7 +12,7 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # (test_paging_openapi_inventory below states them).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "08d3ceec6029ad2360b898d7fde6a5087e323247c42d77e28c20f3ffa278fd90"
+        "b51bb776362e4a5fbd8cf131094e9603f2ff2f90ac4625a1ce98c3ea1026d800"
     )
 
 

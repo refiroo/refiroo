@@ -52,6 +52,17 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Base 0.8 S4R1: relation lists sort and search the related record through the object query
+  builder, as object lists do. `sort` takes `name` (now the default in every context), any
+  `sortable` attribute of the related type, `ancestor:<type>`, and live only the related record's
+  `createdAt`/`updatedAt`; relation creation order is no longer a sort. Attribute and ancestor sorts
+  need the listed relations to reach one object type (`422 invalid_sort` otherwise), and
+  `relationTypeKey` repeats to list several relation types. Search covers the related types'
+  searchable fields instead of every searchable attribute type. Draft and history object and
+  relation pages return each record's `path` (it was empty, so ancestor columns were blank), and a
+  relation page for a record the context does not hold answers `404` as it does live. Migration
+  `20260926_01` rebuilds the draft and history relation endpoint indexes to cover the relation type
+  and the other end. Relation cursors issued before the change are refused with `422 invalid_cursor`.
 - Collection URLs hold one `anchor` cursor for the page at the top of the list instead of a
   `cursor` trail, written as the user scrolls without adding history entries. Older links with
   `cursor` parameters open at the start. Previous/Next page buttons and **Load more** in panels,

@@ -246,12 +246,18 @@ than UI endpoints or undocumented limits.
 6. Bounded bulk relation/mapping operations with explicit concurrency semantics.
 7. Position (page-number) paging alongside cursors, with bidirectional cursors, totals and seek by
    value, arrives in 0.8 Track S (ADR-030).
+8. Consumer API ([CONSUMER_API.md](CONSUMER_API.md)): a read-only tier for systems that use reference
+   data. Model-declared definitions give XREF lookup (search, resolve, get), lists and one shared
+   object shape across object types, with a contract version independent of the management API. The
+   production gateway XREF and list APIs are the functional baseline.
 
 ### Exit gate
 
 - Every collection and job result is bounded or resumable.
 - Partial failures and lifecycle stages are machine-readable.
 - Bulk contracts are first-class services, not loops over UI calls.
+- A consumer API definition alone reproduces the reference XREF and list responses (CONSUMER_API.md
+  C8), with no runtime branch on object-type or relation keys.
 
 ## Product release 0.10 — Production hardening and staged model rollout
 

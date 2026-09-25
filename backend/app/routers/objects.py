@@ -33,6 +33,7 @@ from ..services.snapshot_reads import (
     draft_context,
     find_object,
     object_path,
+    object_paths,
     object_scope,
     revision_context,
 )
@@ -304,11 +305,12 @@ def list_objects(
             rows=True,
             seek=query.seek,
         )
+        paths = object_paths(session, context, page.items)
         return ObjectPage(
             items=[
-                _draft_object_response(row, context.id, model).model_copy(
-                    update={"workspaceKey": context.workspace_key}
-                )
+                _draft_object_response(
+                    row, context.id, model, path=paths[row.object_id]
+                ).model_copy(update={"workspaceKey": context.workspace_key})
                 for row in page.items
             ],
             **page.links(),

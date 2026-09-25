@@ -17,3 +17,6 @@ build/
 coverage/
 *.egg-info/
 *.tsbuildinfo
+
+# Local source material, never committed
+a local folder

@@ -1137,7 +1137,7 @@ Internal error example:
 ## Relation endpoints
 
 - `POST /api/v1/relations`
-- `GET /api/v1/relations?objectId={id}&direction={outgoing|incoming|both}&relationTypeKey={key}`
+- `GET /api/v1/relations?objectId={id}&direction={outgoing|incoming|both}&relationTypeKey={key}` (`relationTypeKey` repeatable)
 - `GET /api/v1/relations/{relationId}`
 - `PATCH /api/v1/relations/{relationId}`
 - `DELETE /api/v1/relations/{relationId}?expectedVersion={n}&workspaceDraftId={id}&expectedWorkspaceDraftVersion={n}`
@@ -1152,20 +1152,32 @@ Endpoints identify their workspace; live mutation payloads do not accept a new `
 bounded `pageSize` (1–500, default 100) and the [collection paging](#collection-paging) parameters,
 including `seek`. It returns the standard page rather than an unbounded array; a legitimate collection
 with no matching relationships returns an empty `items`. The cursor is signed and bound
-to the anchor object, direction, relation type, search and effective workspace.
+to the anchor object, direction, relation types, search and effective workspace.
 
-Base 0.8 S4 adds `search` and `sort`, with the same meaning in live, draft and history contexts:
+Base 0.8 S4 adds `search` and `sort`, revised in S4R1 to mean what they mean on an object list, for
+the related record (the other end of each relation), in live, draft and history contexts:
 
-- `search` matches the related record (the other end of each relation) by name or by any attribute
-  whose type is `searchable`, as a literal, case-insensitive substring.
-- `sort=name` orders by the related record's name; `sort=createdAt` orders by relation creation and
-  is live only (drafts and history record no timestamps: `422 invalid_sort`). Prefix `-` for
-  descending. Without `sort`, live lists keep creation order and drafts and history order by relation
-  ID, as before. Ties break on creation order live and on relation ID in drafts and history.
-- `seek` needs a `sort`: a name, or an ISO 8601 creation time. Draft/history continuations
-add their selected context identity; live continuations do not bind an active revision or model.
-Publication alone does not invalidate a live continuation. Malformed or mismatched cursors return `422 invalid_cursor`. Both relation endpoint objects are joined in the anchor object's
-workspace before projection, preventing a corrupt or legacy cross-workspace edge from being exposed.
+- `relationTypeKey` may repeat to list several relation types together.
+- `search` matches the related record by name or by any attribute its type binds as `searchable`, as
+  a literal, case-insensitive substring.
+- `sort` takes a field of the related record: `name`, an attribute its type binds whose attribute
+  type is `sortable`, or `ancestor:<type>`, the name of its ancestor of that type (as in its `path`;
+  a type met twice resolves to the one nearest the root). Prefix `-` for descending. Records without
+  the value come last in either direction. `createdAt` and `updatedAt` (the related record's) are
+  live only; drafts and history record no timestamps, so they answer `422 invalid_sort`.
+- Attribute and ancestor sorts need the listed relations to reach one object type, decided by the
+  anchor record's type, `direction` and `relationTypeKey` from the model's allowed relations;
+  otherwise `422 invalid_sort`. An `ancestor:<type>` the related type cannot sit under is refused too.
+- Without `sort` the list is in name order in every context. Ties break on the relation.
+- `seek` takes a value of the sorted field (a name by default).
+
+Draft and history relation items carry the related record's `path`, as live items do. A relation page
+for a record the context does not hold answers `404 object_not_found` in every context. Draft and
+history continuations add their selected context identity; live continuations do not bind an active
+revision or model. Publication alone does not invalidate a live continuation. Malformed or
+mismatched cursors return `422 invalid_cursor`; cursors issued before S4R1 are refused. Live, the
+anchor must be in the selected workspace and the related record is joined in it before projection,
+preventing a corrupt or legacy cross-workspace edge from being exposed.
 
 This page shape is an intentional pre-1.0 breaking change. Callers must follow `nextCursor` unchanged
 and must not parse it.
@@ -1221,6 +1233,8 @@ identity, type and workspace; mismatches return `422 invalid_cursor`.
 - Bounded bulk create/update/upsert with per-item results
 - Asynchronous import/export jobs
 - Ordered change feed and webhook subscriptions
+- Consumer API: a separate read-only tier with model-declared XREF lookup and lists
+  ([CONSUMER_API.md](CONSUMER_API.md))
 
 There will be no equivalent of enumerating numeric attribute IDs `1..1000` or using `take: 0` for a full
 extract.

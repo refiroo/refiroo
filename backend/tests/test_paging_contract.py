@@ -13,8 +13,12 @@ import pytest
 from volume_fixture import (
     CODE,
     GROUP,
+    GROUP_CONTAINS_ITEM,
+    GROUP_CONTAINS_NODE,
     ITEM,
+    ITEM_CITES_GROUP,
     NODE,
+    NODE_HAS_CHILD,
     RANK,
     WORKSPACE,
     scaled_shape,
@@ -185,32 +189,32 @@ def test_relations_search_sort_seek_and_page_in_every_context(volume, context):
     by_name = _everything(client, path, {**params, "sort": "name"})
     names = [row["object"]["name"] for row in by_name]
     assert len(by_name) == dataset.shape.citations and names == sorted(names)
+    # Name is the default order in every context (S4R1, D22).
+    assert _ids(_everything(client, path, params)) == _ids(by_name)
     descending = _everything(client, path, {**params, "sort": "-name"})
     assert [row["object"]["name"] for row in descending] == names[::-1]
     _walk(client, path, {**params, "sort": "name"}, _ids(by_name))
 
     target = names[len(names) // 2]
-    seeked = _get(client, path, {**params, "sort": "name", "seek": target, "pageSize": 3, "includeTotal": True})
+    seeked = _get(client, path, {**params, "seek": target, "pageSize": 3, "includeTotal": True})
     assert seeked["items"][0]["object"]["name"] == target
     assert seeked["startIndex"] == names.index(target)
 
     # Search covers the related record's name and its searchable fields (here the code).
-    def code(row: dict[str, Any]) -> str:
-        return next(a["value"] for a in row["object"]["attributes"] if a["attributeTypeKey"] == CODE)
-
-    by_code = code(by_name[3])
+    by_code = _value(by_name[3], CODE)
     found = _everything(client, path, {**params, "search": by_code.lower(), "sort": "name"})
-    assert _ids(found) == [row["relation"]["id"] for row in by_name if by_code.lower() in code(row).lower()]
+    assert _ids(found) == [row["relation"]["id"] for row in by_name if by_code.lower() in _value(row, CODE).lower()]
     fragment = names[5][-4:]
     found = _everything(client, path, {**params, "search": fragment, "sort": "-name"})
     expected = [
         row
         for row in descending
         if fragment.casefold() in row["object"]["name"].casefold()
-        or fragment.casefold() in code(row).casefold()
+        or fragment.casefold() in _value(row, CODE).casefold()
     ]
     assert found and _ids(found) == _ids(expected)
 
+    # Timestamps are the related record's, recorded live only (WP-10K).
     created = client.get(path, params={**params, "sort": "-createdAt"})
     if context == "live":
         assert created.status_code == 200, created.text
@@ -218,8 +222,82 @@ def test_relations_search_sort_seek_and_page_in_every_context(volume, context):
     else:
         assert created.status_code == 422
         assert created.json()["error"]["code"] == "invalid_sort"
-    assert _error(client, path, {**params, "sort": "size"})["code"] == "invalid_sort"
-    assert _error(client, path, {**params, "seek": "Item"})["code"] == "invalid_seek"
+        assert "not recorded" in created.json()["error"]["message"]
+    for refused in ("size", "relation", "sequenceId", "ancestor:vol-workspace"):
+        assert _error(client, path, {**params, "sort": refused})["code"] == "invalid_sort"
+    # Without a relation type the group's relations can reach items and nodes: no attribute sort.
+    assert _error(client, path, {**params, "sort": RANK})["code"] == "invalid_sort"
+    assert _error(client, path, {**params, "sort": "ancestor:vol-group"})["code"] == "invalid_sort"
+
+
+@pytest.mark.parametrize("context", CONTEXTS)
+def test_relations_sort_by_the_related_types_attributes_and_ancestors(volume, context):
+    client, dataset = volume
+    path = "/api/v1/relations"
+    params = {
+        **_context(context, dataset),
+        "objectId": dataset.cited_group_id,
+        "relationTypeKey": ITEM_CITES_GROUP,
+    }
+    by_name = _everything(client, path, {**params, "sort": "name"})
+    assert len(by_name) == dataset.shape.citations
+
+    # A sortable attribute of the one related type: typed values, records without one last.
+    by_rank = _everything(client, path, {**params, "sort": RANK})
+    ranks = [_value(row, RANK) for row in by_rank]
+    present = [rank for rank in ranks if rank is not None]
+    assert present == sorted(present) and ranks[: len(present)] == present
+    assert sorted(_ids(by_rank)) == sorted(_ids(by_name))
+    _walk(client, path, {**params, "sort": RANK}, _ids(by_rank))
+    descending = _everything(client, path, {**params, "sort": f"-{RANK}"})
+    ranks = [_value(row, RANK) for row in descending]
+    present = [rank for rank in ranks if rank is not None]
+    assert present == sorted(present, reverse=True) and ranks[: len(present)] == present
+    seeked = _get(client, path, {**params, "sort": RANK, "seek": str(present[len(present) // 2]), "includeTotal": True})
+    assert _value(seeked["items"][0], RANK) == min(rank for rank in present if rank >= present[len(present) // 2])
+
+    # The related item's group, read up the containment chain.
+    by_group = _everything(client, path, {**params, "sort": "ancestor:vol-group"})
+    groups = [row["object"]["path"][0]["name"] for row in by_group]
+    assert groups == sorted(groups) and sorted(_ids(by_group)) == sorted(_ids(by_name))
+    _walk(client, path, {**params, "sort": "ancestor:vol-group"}, _ids(by_group))
+    landed = _get(client, path, {**params, "sort": "ancestor:vol-group", "position": 10, "pageSize": 5})
+    assert _ids(landed["items"]) == _ids(by_group)[10:15]
+    back = _get(client, path, {**params, "sort": "ancestor:vol-group", "cursor": landed["prevCursor"], "pageSize": 5})
+    assert _ids(back["items"]) == _ids(by_group)[5:10]
+    reverse = _everything(client, path, {**params, "sort": "-ancestor:vol-group"})
+    assert [row["object"]["path"][0]["name"] for row in reverse] == groups[::-1]
+    seeked = _get(client, path, {**params, "sort": "ancestor:vol-group", "seek": groups[len(groups) // 2], "includeTotal": True})
+    assert seeked["startIndex"] == groups.index(groups[len(groups) // 2])
+
+    # Several levels up: a deep node's parent, under a chain of nodes below the heavy group.
+    deep = {
+        **_context(context, dataset),
+        "objectId": dataset.deep_node_id,
+        "direction": "incoming",
+        "relationTypeKey": NODE_HAS_CHILD,
+    }
+    parent = _get(client, path, {**deep, "sort": "ancestor:vol-group"})["items"]
+    assert len(parent) == 1 and parent[0]["object"]["path"][0]["id"] == dataset.heavy_group_id
+    top_node = _get(client, path, {**deep, "sort": "ancestor:vol-node"})["items"]
+    assert [row["object"]["id"] for row in top_node] == [row["object"]["id"] for row in parent]
+
+    # Repeating relationTypeKey lists several types; items and nodes together sort by name only.
+    heavy = {
+        **_context(context, dataset),
+        "objectId": dataset.heavy_group_id,
+        "relationTypeKey": [GROUP_CONTAINS_ITEM, GROUP_CONTAINS_NODE],
+    }
+    both = _get(client, path, {**heavy, "pageSize": 500, "includeTotal": True})
+    kinds = {row["relation"]["relationTypeKey"] for row in both["items"]}
+    assert kinds == {GROUP_CONTAINS_ITEM, GROUP_CONTAINS_NODE}
+    assert _error(client, path, {**heavy, "sort": RANK})["code"] == "invalid_sort"
+    only_nodes = _get(client, path, {**heavy, "relationTypeKey": GROUP_CONTAINS_NODE, "sort": RANK})
+    assert {row["relation"]["relationTypeKey"] for row in only_nodes["items"]} == {GROUP_CONTAINS_NODE}
+
+
+def _value(row: dict[str, Any], key: str) -> Any:
+    return next((a["value"] for a in row["object"]["attributes"] if a["attributeTypeKey"] == key), None)
 
 
 @pytest.mark.parametrize("context", CONTEXTS)

@@ -369,6 +369,136 @@ cost most in drafts (the count runs over the base-plus-overlay union, about 40 m
 the UI asks for them on first load, after a query change and with jumps (D5), not on every scroll.
 The draft write is unchanged (S2b).
 
+#### S4R: Revision of the S3/S4 query design (decided 2026-09-26)
+
+**Why.** Reviewing the relation panels on systems and translations showed that S4 gave relation lists
+a fixed sort vocabulary: the related record's `name` and `createdAt`. It ignores the model. Tables sort by
+their declared `sortFields`, object lists by any `sortable` attribute, and the starter's relation panels
+show `ancestor:system`, `value-code`, `ancestor:language` and `translated-name`, none of which could be
+sorted. It also behaves differently per context: `createdAt` works live only, so "Newest first"
+disappears in drafts, and without a sort, live lists came back in creation order while drafts and
+history came back in UUID order. S5 then hardcoded that vocabulary in `RelationsPanel`. The same review
+found mapping coverage seeking by source ID, the draft deep-position read over budget, and pages
+always carrying null totals.
+
+**Decisions (user, 2026-09-26).**
+
+- **D21** Relations panels declare their sort options in the model: optional `sortFields` and
+  `defaultSort`, as table views do, in **schema 0.7**. This is the first schema 0.7 addition; A1 and B1
+  add their view types to the same version. Schema 0.5 and 0.6 panels keep working and sort by name.
+- **D22** Every list's default order is the same in live, draft and history: name order, with the
+  context's unique tiebreak. Recorded timestamps in drafts and history (reopening WP-10K) become a
+  separate later package (T1); until then a relation list sorts by the related record's
+  `createdAt`/`updatedAt` live only, as an object list does, and refuses them in drafts and history
+  as not recorded. Relation creation order is not offered.
+- **D23** Ancestor columns (`ancestor:<type>`) are sortable on relation lists now, measured at volume.
+
+**Slices**, each independently deliverable and verified on its own:
+
+1. **S4R1 — Relation queries through the object query builder (API).** A relation list sorts and
+   searches its related records with `refine_object_query`, in live, draft and history. `sort` accepts
+   `name`, any `sortable` attribute of the related type, and `ancestor:<type>` for a type the related
+   type can sit under; typed values, nulls last, descending with `-`. Attribute and ancestor sorts need
+   one related type, derived from the relation types, direction and anchor type; otherwise
+   `422 invalid_sort`. `relationTypeKey` repeats, so a panel over several relation types derives its
+   related types exactly. Search uses the related types' searchable bindings. `createdAt` and
+   `updatedAt` are the related record's, live only (D22). The default is `name`. An ancestor is
+   resolved by one walk up the containment chain for the anchor's related records, not per row. Exit:
+   parity across contexts, the S1 budgets, and the 1,500-relation record and the 20,000-child parent
+   sorted by ancestor within budget.
+2. **S4R2 — Schema 0.7 and panel sort configuration.** Accept `schemaVersion: "0.7"` (schema, compiler,
+   registry, releases, `model_schema_upgrade`, startup message) as A1 item 1 describes. Relations panels
+   gain optional `sortFields` and `defaultSort`, refused below 0.7 at the field's path. Validation: each
+   field sorts on every related type the panel can list (name, sortable attribute, or reachable
+   ancestor), `defaultSort` (with optional `-`) names one of them, lists are unique. The starter moves to
+   schema 0.7, content release 0.8.0, with sort options on its relation panels (systems: system, value
+   code, name; translations: language, translated name, name). Exit: `model` group, starter and
+   generated model validate, a 0.6 model still installs.
+3. **S4R3 — One sort element (UI).** Every table-shaped list sorts through one generic element, fed
+   by the model (`sortFields`, `defaultSort`), never by component-defined options:
+   - **Sortable column headers** in `ui/ObjectTable` are the primary control. A sortable header shows
+     a quiet sort icon on hover and focus; the active one an accent up or down icon (Lucide, replacing
+     the text arrows); activating it toggles ascending and descending. `aria-sort`, an accessible name
+     stating the current order, and a polite announcement of the change.
+   - **A compact icon-only sort menu** (sort icon with tooltip, `ui/ActionMenu`, one radio item per
+     field plus direction) appears only when a sortable field has no visible header: at 390px, with
+     columns collapsed, or on a list without headers.
+   - Adopted by the collection lens, record panels and relation panels. Removed: the collection lens's
+     toolbar **Sort** popover (a duplicate of its headers) and the relation panel's inline **Sort**
+     select, whose layout was broken: it used `.toolbar-field`, the stacked label-over-select field
+     meant for popovers, so inline its label sat above the select and the control stood taller than
+     the search box and **Add relationship** beside it. `RelationsPanel` renders through the shared
+     header; without configured sort fields it lists by name and offers no sort.
+   Reference pattern: the record panel's header sort (`CollectionPanelTable` over `ObjectTable`). Exit:
+   focused component tests (header states, toggling, keyboard, the menu appearing only when needed);
+   the UI acceptance state-inventory row; the S5 browser runner's lens, record panel and relation panel
+   in live, draft and history for two object types at 1440px and 390px by keyboard; screenshots of the
+   three surfaces inspected and their visual baselines updated after review (search and actions aligned,
+   no labelled sort control left).
+4. **S4R4 — One default order in every context.** Object lists default to name order in every context
+   (live used the internal creation sequence), and mapping coverage and candidates sort by source name,
+   so `seek` jumps to a name. Pre-change cursors for the changed defaults are refused with
+   `422 invalid_cursor`. Exit: parity test with the default order, mapping group.
+5. **S4R5 — Page response shape.** Pages list `items` first and omit `totalCount` and `startIndex`
+   unless `includeTotal=true`. Exit: contract group and the OpenAPI lock.
+6. **S4R6 — Draft deep-position read.** Bring a draft position read three quarters into a whole
+   100,000-record type within 100 ms (175 ms now), for example by resolving the position against the
+   base's index and correcting for the overlay rows before it. Exit: the S1 scenario within budget.
+
+**S4R1 delivered 2026-09-26.** `relation_queries` builds both relation lists over
+`objects.refine_object_query`, with `ObjectColumns` describing the related record: live, an aliased
+`objects` row joined on the other end; in drafts and history, `snapshot_reads.effective_record`, outer
+joins to the one draft row and the one base row on their unique keys (replacing S4's correlated
+lookups, which ran up to three times per row). `relation_projection` arms name the other end as a
+plain `related_id` column to join on. The builder gained what relation lists need and object lists can
+reuse: several object types (search over all their searchable bindings, attribute and ancestor sorts
+refused unless there is one), `select_sort_values` (sort values selected as labelled columns and read
+back for cursors, and attribute values joined rather than looked up per row), and an `ancestor` hook.
+The ancestor walk starts once from each distinct parent of the listed records, reads records with
+keyed lookups (the walk is small), and joins the name back by parent. Draft and history object and
+relation pages now return each record's `path`, resolved level by level for the page
+(`snapshot_reads.object_paths`); they returned an empty `path`, so an `ancestor:` column was blank
+outside live. A relation page for a record the context does not hold answers `404`, as live did.
+Migration `20260926_01` rebuilds the revision, draft-base and draft relation endpoint indexes as
+(owner, end, relation type, relation ID, other end), so the listing reads the index alone.
+
+Two planner findings are recorded in the code. A `WHERE name IS NOT NULL` on the outer-joined record
+let SQLite reduce the join to an inner one and scan all 110,000 records of the revision to probe the
+list (history totals took 38 ms instead of 2 ms); `EffectiveRecord.present` is a `CASE`, which keeps
+the outer join. Joins in the ancestor walk were reordered into a scan of every group; keyed lookups
+keep the walk on its own rows.
+
+Full volume, `ms · statements · rows` (repeat 5); the heavy parent lists its 20,000 contained items:
+
+| Request | Live | Draft | History |
+| --- | --- | --- | --- |
+| relations: heavy parent (default: name) | 43.0 · 7 · 85 | 72.5 · 8 · 4 | 59.6 · 7 · 3 |
+| relations: 1,500-relation record by name, total | 9.0 · 8 · 103 | 14.8 · 9 · 4 | 10.0 · 8 · 3 |
+| relations: 1,500-relation record by rank | 9.2 · 7 · 101 | 18.5 · 8 · 4 | 13.1 · 7 · 3 |
+| relations: 1,500-relation record by group, total | 28.1 · 8 · 102 | 50.4 · 9 · 4 | 34.0 · 8 · 3 |
+| relations: deep node by top node (7 levels) | 5.0 · 12 · 14 | 10.4 · 13 · 4 | 6.1 · 12 · 3 |
+| relations: heavy parent by rank | 85.9 · 7 · 85 | 170.2 · 8 · 4 | 205.5 · 7 · 3 |
+| relations: heavy parent by group | 98.1 · 7 · 85 | 208.2 · 8 · 4 | 198.3 · 7 · 3 |
+| children: heavy parent by rank (object list, for comparison) | 101.2 · 9 · 65 | 132.3 · 10 · 4 | 108.0 · 9 · 3 |
+
+Statement counts stay constant and every other S1 scenario is unchanged or faster (the heavy parent's
+default relation page was 155 ms in drafts by name before the joins and indexes).
+**Open: the exit's 20,000-child parent sorted by ancestor is not within budget** in drafts and history
+(about 200 ms; live 98 ms), and neither is an attribute sort there. An order no index holds costs a
+keyed lookup per listed row for each field it reads: about 50 ms per pass over 20,000 relations
+here, and an ancestor sort needs two passes (parents, then the list). Object lists share the
+limit: sorting the same 20,000 children by an attribute takes 101–132 ms, which S1 never measured.
+The 1,500-relation record, the size of the starter's relation panels, sorts by any field within
+budget. Closing the gap needs precomputed sort keys (an indexed sort value per record and sortable
+field, or a stored ancestor per record and containment type), which is storage work for a later
+package rather than S4R1.
+
+**Later package T1 — recorded timestamps in drafts and history.** Timestamp columns on draft,
+draft-base and revision object and relation rows (captured rows keep live values, draft writes set
+them), plus an internal creation ordinal so creation order is identical in every context. Backfill from
+live where the record still exists; others stay not recorded. Restores `createdAt`/`updatedAt` queries
+in drafts and history and makes creation order available as a relation sort. Scheduled separately.
+
 #### S5: Shared continuous-scroll list
 
 **Scope:**
@@ -967,3 +1097,6 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D18 | Verb for making a change set live | **Accepted 2026-09-25:** **publish**; **activate** is reserved for model releases, **install** for model drafts | W1, W2 |
 | D19 | Removing a publication's current designation | **Accepted 2026-09-25:** **withdraw** (status `withdrawn`); **retire** is reserved for workspaces | W1, W2 |
 | D20 | Are P1 (cross-type lookup), P2 (change set changes list) and P3 (workspace edge list) in 0.8? | **Pending, decide before R1.** Each is scheduled as a package after W2, moved to a later build, or dropped with a reason. A parameterless "list everything" and a flat attribute value list are rejected (export and change feed, 0.9) | R1 |
+| D21 | Where relation panel sort options come from | **Accepted 2026-09-26:** declared on the relations panel (`sortFields`, `defaultSort`) in schema 0.7; no hardcoded options; 0.5/0.6 panels sort by name | S4R1–S4R3 |
+| D22 | Default list order across contexts | **Accepted 2026-09-26:** name order in live, draft and history; recorded draft and history timestamps are a later package (T1) | S4R4, T1 |
+| D23 | Ancestor sort on relation lists | **Accepted 2026-09-26:** included now, one walk per list rather than per row, measured at volume | S4R1 |

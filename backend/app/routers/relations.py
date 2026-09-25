@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Query, Response, status
 from sqlalchemy import select
@@ -28,8 +28,10 @@ from ..services.relations import (
 )
 from ..services.snapshot_reads import (
     draft_context,
+    find_object,
     find_objects,
     find_relation,
+    object_paths,
     revision_context,
 )
 from ..services.workspace_revisions import (
@@ -73,7 +75,13 @@ def list_relations(
     paging: SeekablePageQuery,
     object_id: str = Query(alias="objectId"),
     direction: Literal["outgoing", "incoming", "both"] = "both",
-    relation_type_key: str | None = Query(default=None, alias="relationTypeKey"),
+    relation_type_keys: Annotated[
+        list[str] | None,
+        Query(
+            alias="relationTypeKey",
+            description="List only these relation types; repeat the parameter for several",
+        ),
+    ] = None,
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
     workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
     workspace_revision_id: str | None = Query(default=None, alias="workspaceRevisionId"),
@@ -84,25 +92,38 @@ def list_relations(
     sort: str | None = Query(
         default=None,
         description=(
-            "name (the related record's name) or createdAt (live only); prefix '-' for"
-            " descending. Omitted: creation order live, relation ID in drafts and history"
+            "A field of the related record, as on an object list: name, a sortable attribute,"
+            " ancestor:<type>, or (live only) createdAt or updatedAt; prefix '-' for descending."
+            " Attribute and ancestor sorts need the listed relations to reach one object type."
+            " Omitted: name"
         ),
     ),
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> RelationPage:
     if sum(value is not None for value in (workspace_draft_id, workspace_revision_id)) > 1:
         raise api_error(422, "mutually_exclusive_context", "Workspace contexts cannot be combined")
+    options = {
+        "object_id": object_id,
+        "direction": direction,
+        "relation_type_keys": relation_type_keys or None,
+        "search": search or None,
+        "sort": sort,
+    }
     if workspace_draft_id or workspace_revision_id:
         context = draft_context(session, workspace_draft_id) if workspace_draft_id else revision_context(session, workspace_revision_id)
-        query = build_snapshot_relation_query(snapshot.model, context, object_id=object_id, direction=direction, relation_type_key=relation_type_key, search=search or None, sort=sort)
+        anchor = find_object(session, context, object_id)
+        if anchor is None:
+            raise api_error(404, "object_not_found", "Object not found")
+        query = build_snapshot_relation_query(snapshot.model, context, anchor_type_key=anchor.object_type_key, **options)
         page = paginate_statement(session, query.statement, keys=query.keys, scope=f"relations-{context.kind}", filters=query.filters, page=paging, page_size=page_size, message="Relation cursor is invalid", rows=True, seek=query.seek)
         objects = find_objects(session, context, (row.related_id for row in page.items))
-        return RelationPage(items=[RelationExpansion(direction="outgoing" if row.from_object_id == object_id else "incoming", relation=_draft_response(row), object=_draft_object_response(objects[row.related_id], context.id, snapshot.model).model_copy(update={"workspaceKey": context.workspace_key})) for row in page.items if row.related_id in objects], **page.links())
+        paths = object_paths(session, context, objects.values())
+        return RelationPage(items=[RelationExpansion(direction="outgoing" if row.from_object_id == object_id else "incoming", relation=_draft_response(row), object=_draft_object_response(objects[row.related_id], context.id, snapshot.model, path=paths[row.related_id]).model_copy(update={"workspaceKey": context.workspace_key})) for row in page.items if row.related_id in objects], **page.links())
     anchor = load_active_projection(session, object_id)
     workspace = resolve_workspace(session, workspace_key)
     if anchor.workspace_key != workspace.key:
         raise api_error(404, "object_not_found", "Object not found in the selected workspace")
-    query = build_relation_query(snapshot.model, object_id=object_id, direction=direction, relation_type_key=relation_type_key, workspace_key=anchor.workspace_key, search=search or None, sort=sort)
+    query = build_relation_query(snapshot.model, anchor_type_key=anchor.object_type_key, workspace_key=anchor.workspace_key, **options)
     page = paginate_statement(session, query.statement, keys=query.keys, scope="relations", filters=query.filters, page=paging, page_size=page_size, message="Relation cursor is invalid", rows=True, seek=query.seek)
     related_ids = list(dict.fromkeys(row.related_id for row in page.items))
     related_rows = list(session.scalars(select(RdmObject).where(RdmObject.id.in_(related_ids))))

@@ -52,7 +52,7 @@ def test_canonical_draft_object_and_attribute_journey():
         assert attribute.json()["workspaceDraftVersion"] == 4
 
 
-def test_empty_draft_relation_page_and_nested_routes_are_absent():
+def test_draft_relation_page_of_an_unknown_record_and_nested_routes_are_absent():
     with TestClient(app) as client:
         draft = client.post("/api/v1/workspaces/default/drafts", json={}).json()
         response = client.get(
@@ -62,15 +62,9 @@ def test_empty_draft_relation_page_and_nested_routes_are_absent():
                 "workspaceDraftId": draft["id"],
             },
         )
-        assert response.status_code == 200, response.text
-        assert response.json() == {
-            "items": [],
-            "nextCursor": None,
-            "prevCursor": None,
-            "anchor": None,
-            "totalCount": None,
-            "startIndex": None,
-        }
+        # As live: the anchor record decides the related types, so an unknown one is not found.
+        assert response.status_code == 404, response.text
+        assert response.json()["error"]["code"] == "object_not_found"
         assert (
             "/api/v1/workspace-drafts/{draft_id}/objects"
             not in client.get("/openapi.json").json()["paths"]

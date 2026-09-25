@@ -1,7 +1,8 @@
-"""Base 0.8 S3/S4 index migrations: relation endpoint indexes and live object page indexes.
+"""Base 0.8 S3/S4 and S4R1 index migrations: relation endpoint indexes and live object page indexes.
 
 ``20260925_02`` adds (owner, endpoint, relation ID) indexes on revision, draft-base and draft
-relations; ``20260925_03`` adds name-ordered page indexes on live objects. The data is written
+relations; ``20260925_03`` adds name-ordered page indexes on live objects; ``20260926_01`` rebuilds
+the endpoint indexes to cover the relation type and the other end. The data is written
 through the API at head, the database is taken back to the S2 head (``20260925_01``), which drops
 both, and is upgraded again through the FastAPI lifespan. Relation and object pages in every context
 must answer as before, and an interrupted run that left some indexes behind must complete.
@@ -15,16 +16,21 @@ from sqlalchemy import create_engine, inspect, text
 from test_context_read_parity import ENTRY, FOLDER, _seed, _walk
 from test_snapshot_value_migration import _app, _config, _version
 
-PRECEDING, HEAD = "20260925_01", "20260925_03"
+PRECEDING, HEAD = "20260925_01", "20260926_01"
 TABLES = {
     "workspace_revision_relations": "revision_id",
     "workspace_draft_base_relations": "base_id",
     "workspace_draft_relations": "draft_id",
 }
+ENDS = (("from", "to"), ("to", "from"))
 EXPECTED = {
-    (table, f"ix_{table}_{end}", (owner, f"{end}_object_id", "relation_id"))
+    (
+        table,
+        f"ix_{table}_{end}",
+        (owner, f"{end}_object_id", "relation_type_key", "relation_id", f"{other}_object_id"),
+    )
     for table, owner in TABLES.items()
-    for end in ("from", "to")
+    for end, other in ENDS
 } | {
     ("objects", "ix_objects_type_name", ("workspace_key", "object_type_key", "name", "sequence_id")),
     (
@@ -34,7 +40,7 @@ EXPECTED = {
     ),
 }
 OBJECT_QUERIES = ({}, {"sort": "name"}, {"sort": "-name", "includeTotal": True}, {"from": "end"})
-QUERIES = ({}, {"sort": "name"}, {"sort": "-name", "search": "e"}, {"direction": "incoming"})
+QUERIES = ({}, {"sort": "-name"}, {"search": "e"}, {"direction": "incoming"})
 
 
 def _endpoint_indexes(database) -> set[tuple[str, str, tuple[str, ...]]]:
@@ -135,3 +141,16 @@ def test_upgrade_completes_after_an_interrupted_run(seeded_database, monkeypatch
         assert _reads(client, seeded) == reads
     assert _version(database) == HEAD
     assert _endpoint_indexes(database) == EXPECTED
+
+
+def test_downgrade_restores_the_s4_endpoint_indexes(seeded_database, monkeypatch):
+    database, seeded, reads = seeded_database
+    with _app(database, monkeypatch) as client:
+        assert _reads(client, seeded) == reads
+    command.downgrade(_config(database), "20260925_03")
+    s4 = {
+        (table, f"ix_{table}_{end}", (owner, f"{end}_object_id", "relation_id"))
+        for table, owner in TABLES.items()
+        for end, _other in ENDS
+    }
+    assert _endpoint_indexes(database) == s4 | {item for item in EXPECTED if item[0] == "objects"}

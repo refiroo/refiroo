@@ -9,12 +9,12 @@ Validation, activation and draft writes still resolve the whole graph through
 ``workspace_revisions.effective_draft_membership``; they need all of it by definition.
 """
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
 
-from sqlalchemy import Row, String, case, exists, literal, select, union_all
-from sqlalchemy.orm import Session
+from sqlalchemy import Row, Select, String, and_, case, exists, literal, select, union_all
+from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql.selectable import Subquery
 
 from ..errors import api_error
@@ -166,33 +166,36 @@ def relation_projection(
     *,
     object_id: str | None = None,
     direction: str = "both",
-    relation_type_key: str | None = None,
+    relation_type_keys: Sequence[str] | None = None,
     relation_ids: Iterable[str] | None = None,
 ) -> Subquery:
     """The context's effective relation rows touching ``object_id`` in ``direction``.
 
-    Each end is its own arm, so the (owner, from) and (owner, to) indexes serve it; one ``OR`` over
+    With ``object_id``, rows carry ``related_id``, the record at the other end. Each end is its own arm, so the (owner, from) and (owner, to) indexes serve it; one ``OR`` over
     both ends would read every relation of the owner.
     """
     ids = list(relation_ids) if relation_ids is not None else None
 
     def arm(entity: Any, _owner_id: str, *conditions: Any) -> list[Any]:
         where = list(conditions)
-        if relation_type_key:
-            where.append(entity.relation_type_key == relation_type_key)
+        if relation_type_keys:
+            where.append(entity.relation_type_key.in_(relation_type_keys))
         if ids is not None:
             where.append(entity.relation_id.in_(ids))
-        ends: list[list[Any]] = [[]]
+        # Each end's arm also names the record at the other end, as a plain column to join on.
+        ends: list[tuple[list[Any], list[Any]]] = [([], [])]
         if object_id is not None:
             ends = []
             if direction in {"outgoing", "both"}:
-                ends.append([entity.from_object_id == object_id])
+                ends.append(
+                    ([entity.from_object_id == object_id], [entity.to_object_id.label("related_id")])
+                )
             if direction in {"incoming", "both"}:
                 # A relation from the record to itself is already in the outgoing arm.
                 incoming = [entity.to_object_id == object_id]
                 if direction == "both":
                     incoming.append(entity.from_object_id != object_id)
-                ends.append(incoming)
+                ends.append((incoming, [entity.from_object_id.label("related_id")]))
         return [
             select(
                 entity.relation_id,
@@ -201,8 +204,9 @@ def relation_projection(
                 entity.to_object_id,
                 entity.attributes,
                 entity.version,
+                *related,
             ).where(*where, *end)
-            for end in ends
+            for end, related in ends
         ]
 
     return _effective(
@@ -248,13 +252,89 @@ def _effective(context, overlay, identity, arm, base_filter, base_entity, *, nam
     return (union_all(*arms) if len(arms) > 1 else arms[0]).subquery(name)
 
 
+@dataclass(frozen=True)
+class EffectiveRecord:
+    """The context's effective record for an ID expression, read through outer joins.
+
+    Any draft row, a tombstone included, hides the base row, and a missing or deleted record reads
+    as null. Use it where a statement lists records it names by ID, such as the other end of each
+    relation; a whole object page reads ``object_projection`` instead, whose union arms a join
+    would multiply.
+
+    ``present`` keeps only rows whose record exists. It is a ``CASE`` on purpose: SQLite turns an
+    outer join whose row a ``WHERE`` term requires (``name IS NOT NULL``) into an inner join it may
+    reorder, and then scans every record of the owner to probe the listed rows. A ``CASE`` keeps
+    the outer join, so the listed rows stay the outer loop.
+    """
+
+    joins: tuple[tuple[Any, Any], ...]
+    read: Callable[[str], Any]
+    values_owner: Any
+    present: Any
+
+    def join(self, statement: Select[Any]) -> Select[Any]:
+        for target, onclause in self.joins:
+            statement = statement.outerjoin(target, onclause)
+        return statement
+
+    def column(self, name: str) -> Any:
+        return self.read(name)
+
+
+def effective_record(context: SnapshotContext, object_id: Any) -> EffectiveRecord:
+    """Outer joins to the one base row and the one draft row of ``object_id``, on unique keys."""
+    base = context.base
+    if context.kind == "revision":
+        row = aliased(base.objects)
+        return EffectiveRecord(
+            ((row, and_(getattr(row, base.owner_column) == base.owner_id, row.object_id == object_id)),),
+            lambda name: getattr(row, name),
+            literal(base.owner_id, String),
+            case((row.object_id.is_(None), False), else_=True),
+        )
+    draft = aliased(WorkspaceDraftObject)
+    joins: list[tuple[Any, Any]] = [
+        (draft, and_(draft.draft_id == context.id, draft.object_id == object_id))
+    ]
+    in_draft = draft.object_id.is_not(None)
+    live_in_draft = draft.is_deleted.is_(False)
+
+    def draft_value(name: str) -> Any:
+        return case((live_in_draft, getattr(draft, name)))
+
+    if base is None:
+        return EffectiveRecord(
+            tuple(joins),
+            draft_value,
+            literal(context.id, String),
+            case((in_draft, live_in_draft), else_=False),
+        )
+    row = aliased(base.objects)
+    joins.append(
+        (
+            row,
+            and_(
+                getattr(row, base.owner_column) == base.owner_id,
+                row.object_id == object_id,
+                draft.object_id.is_(None),
+            ),
+        )
+    )
+    return EffectiveRecord(
+        tuple(joins),
+        lambda name: case((in_draft, draft_value(name)), else_=getattr(row, name)),
+        case((in_draft, literal(context.id, String)), else_=literal(base.owner_id, String)),
+        case((in_draft, live_in_draft), else_=row.object_id.is_not(None)),
+    )
+
+
 def effective_object_value(context: SnapshotContext, object_id: Any, column: str) -> tuple[Any, Any]:
     """One column of the context's effective record ``object_id`` (an expression), and the owner of
     its typed values, as correlated scalar lookups on the unique (owner, object) keys.
 
     Any draft row, a tombstone included, hides the base row; a missing or deleted record reads as
-    null. Use it where a statement needs a few fields of records it names by ID; a whole object
-    page reads ``object_projection`` instead.
+    null. A lookup runs once per row of the statement it sits in, whatever the planner prefers: use
+    it for few rows, such as an ancestor walk, and :func:`effective_record` for a list.
     """
     base = context.base
     # Explicit correlation: the lookups may sit several subqueries below the statement that names
@@ -327,6 +407,40 @@ def object_path(session: Session, context: SnapshotContext, item: Any) -> list[d
     return path
 
 
+def object_paths(
+    session: Session, context: SnapshotContext, items: Iterable[Any]
+) -> dict[str, list[dict[str, Any]]]:
+    """Root-first ancestor paths for a page of records, as live pages return them.
+
+    Parents resolve level by level for the whole batch, so a page costs one lookup per hierarchy
+    level rather than one per record and level.
+    """
+    items = list(items)
+    paths = {
+        item.object_id: [
+            {"id": item.object_id, "name": item.name, "objectTypeKey": item.object_type_key}
+        ]
+        for item in items
+    }
+    visited = {item.object_id: {item.object_id} for item in items}
+    frontier = {item.object_id: item.parent_object_id for item in items if item.parent_object_id}
+    while frontier:
+        parents = find_objects(session, context, set(frontier.values()))
+        next_frontier: dict[str, str] = {}
+        for object_id, parent_id in frontier.items():
+            parent = parents.get(parent_id)
+            if parent is None or parent.object_id in visited[object_id]:
+                continue
+            visited[object_id].add(parent.object_id)
+            paths[object_id].append(
+                {"id": parent.object_id, "name": parent.name, "objectTypeKey": parent.object_type_key}
+            )
+            if parent.parent_object_id:
+                next_frontier[object_id] = parent.parent_object_id
+        frontier = next_frontier
+    return {object_id: list(reversed(path)) for object_id, path in paths.items()}
+
+
 def snapshot_object_columns(projection: Subquery) -> ObjectColumns:
     values = SnapshotAttributeValue
     return ObjectColumns(
@@ -334,7 +448,7 @@ def snapshot_object_columns(projection: Subquery) -> ObjectColumns:
         id=projection.c.object_id,
         name=projection.c.name,
         values=values,
-        value_match=(
+        value_match=lambda values: (
             values.owner_id == projection.c.values_owner_id,
             values.object_id == projection.c.object_id,
         ),
@@ -387,7 +501,7 @@ def build_snapshot_object_query(
         model,
         snapshot_object_columns(projection),
         select(projection),
-        object_type=object_type,
+        object_types=(object_type,),
         search=search,
         sort=sort,
         field_filters=field_filters,

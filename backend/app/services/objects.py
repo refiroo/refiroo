@@ -1,12 +1,12 @@
-from collections.abc import Callable
-from dataclasses import dataclass
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass, replace
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from sqlalchemy import Select, and_, case, delete, exists, not_, or_, select, update
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from ..errors import api_error
 from ..models.api import (
@@ -32,6 +32,7 @@ from .attributes import (
     validate_object_attribute_rules,
 )
 from .audit import record_audit_event
+from .model.validation.fields import ANCESTOR_FIELD_PREFIX
 from .pagination import (
     SortKey,
     datetime_key,
@@ -70,18 +71,27 @@ class ObjectColumns:
     """Where an object collection query reads record columns and their typed values.
 
     Live reads use ``objects`` with ``attribute_values``; draft and history reads use a
-    base-plus-overlay projection with ``snapshot_attribute_values``. One builder serves both, so
-    search, typed filters and sort mean the same in every context.
+    base-plus-overlay projection with ``snapshot_attribute_values``. A relation list reads the
+    record at the other end of each relation the same way. One builder serves all of them, so
+    search, typed filters and sort mean the same in every context and on every list.
+
+    ``select_sort_values`` selects each sort value as a labelled column and reads cursor positions
+    back from it, for statements whose rows are not the records themselves; such a list joins an
+    attribute sort's value rather than looking it up per row. ``value_match`` relates a (possibly
+    aliased) values table to the record. ``ancestor`` joins the
+    name of each record's ``ancestor:<type>`` into a statement; lists without it cannot sort by one.
     """
 
     source: Any
     id: Any
     name: Any
     values: Any
-    value_match: tuple[Any, ...]
+    value_match: Callable[[Any], tuple[Any, ...]]
     builtin: dict[str, Any]
     default_sort: str
     tiebreak: Callable[[bool], SortKey]
+    select_sort_values: bool = False
+    ancestor: Callable[[Select[Any], str], tuple[Select[Any], Any]] | None = None
 
 
 LIVE_OBJECT_COLUMNS = ObjectColumns(
@@ -89,7 +99,7 @@ LIVE_OBJECT_COLUMNS = ObjectColumns(
     id=RdmObject.id,
     name=RdmObject.name,
     values=AttributeValue,
-    value_match=(AttributeValue.object_id == RdmObject.id,),
+    value_match=lambda values: (values.object_id == RdmObject.id,),
     builtin=OBJECT_SORT_COLUMNS,
     default_sort=_SEQUENCE_FIELD,
     tiebreak=lambda descending: integer_key(
@@ -155,7 +165,7 @@ def build_object_query(
         model,
         LIVE_OBJECT_COLUMNS,
         statement,
-        object_type=object_type,
+        object_types=(object_type,),
         search=search,
         sort=sort,
         field_filters=field_filters or [],
@@ -186,64 +196,65 @@ def refine_object_query(
     columns: ObjectColumns,
     statement: Select[Any],
     *,
-    object_type: ObjectTypeDefinition,
+    object_types: Sequence[ObjectTypeDefinition],
     search: str | None,
     sort: str | None,
     field_filters: list[tuple[str, str, str]],
 ) -> tuple[Select[Any], tuple[SortKey, ...], Callable[[str], Any], list[dict[str, str]]]:
-    """Add search and typed filters to an object statement and return its keyset and seek."""
+    """Add search and typed filters to an object statement and return its keyset and seek.
+
+    ``object_types`` are the types the listed records can have: search covers the searchable
+    fields of all of them, while an attribute or ancestor field needs exactly one.
+    """
     if search:
-        statement = statement.where(_search_predicate(model, columns, object_type, search))
+        statement = statement.where(_search_predicate(model, columns, object_types, search))
     normalized_filters, predicates = _typed_filter_predicates(
-        model, columns, object_type, field_filters
+        model, columns, object_types, field_filters
     )
     if predicates:
         statement = statement.where(and_(*predicates))
-    keys = _object_sort_keys(model, columns, object_type, sort)
-    return statement, keys, _object_seek(model, object_type, keys, sort), normalized_filters
+    statement, keys, seek_values = _object_sort_keys(model, columns, statement, object_types, sort)
+    if columns.select_sort_values:
+        statement, keys = _select_sort_values(statement, keys)
+    return statement, keys, _object_seek(keys, seek_values, sort), normalized_filters
 
 
 def _object_seek(
-    model: EngineModel, object_type: ObjectTypeDefinition, keys: tuple[SortKey, ...], sort: str | None
+    keys: tuple[SortKey, ...], seek_values: Callable[[str], list[Any]] | None, sort: str | None
 ) -> Callable[[str], Any]:
-    """Seek by the sorted field's value; the default live order has no public value to seek by."""
-    field_name = (sort or "").removeprefix("-")
+    """Seek by the sorted field's value; an order by the tiebreak alone has no value to seek by."""
 
     def seek(raw: str) -> Any:
-        if keys[0].name == _SEQUENCE_FIELD:
+        if seek_values is None:
             raise seek_error("Seek requires a sort; the default order has no value to seek by")
-        definition = next(
-            (
-                model.attribute_type(binding.attributeTypeKey)
-                for binding in object_type.attributes
-                if binding.attributeTypeKey == field_name
-            ),
-            None,
-        )
         try:
-            if definition is None:
-                return seek_predicate(keys, [keys[0].parse(raw)])
-            # Attribute sorts lead with the null rank: seek among the non-null values.
-            return seek_predicate(keys, [0, _parse_typed(definition.valueType, raw)])
+            return seek_predicate(keys, seek_values(raw))
         except ValueError:
-            raise seek_error(f"Invalid seek value for sort '{field_name or keys[0].name}'") from None
+            field_name = (sort or "").removeprefix("-") or keys[0].name
+            raise seek_error(f"Invalid seek value for sort '{field_name}'") from None
 
     return seek
 
 
 def _search_predicate(
-    model: EngineModel, columns: ObjectColumns, object_type: ObjectTypeDefinition, search: str
+    model: EngineModel,
+    columns: ObjectColumns,
+    object_types: Sequence[ObjectTypeDefinition],
+    search: str,
 ) -> Any:
     escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-    searchable_attributes = [
-        binding.attributeTypeKey
-        for binding in object_type.attributes
-        if model.attribute_type(binding.attributeTypeKey).features.get("searchable")
-    ]
+    searchable_attributes = list(
+        dict.fromkeys(
+            binding.attributeTypeKey
+            for object_type in object_types
+            for binding in object_type.attributes
+            if model.attribute_type(binding.attributeTypeKey).features.get("searchable")
+        )
+    )
     values = columns.values
     attribute_match = exists(
         select(values.sequence_id).where(
-            *columns.value_match,
+            *columns.value_match(values),
             values.attribute_type_key.in_(searchable_attributes),
             values.text_value.ilike(f"%{escaped}%", escape="\\"),
         )
@@ -252,59 +263,158 @@ def _search_predicate(
 
 
 def _object_sort_keys(
-    model: EngineModel, columns: ObjectColumns, object_type: ObjectTypeDefinition, sort: str | None
-) -> tuple[SortKey, ...]:
-    """Sort keys for an object collection, always closed by the source's unique tiebreak."""
+    model: EngineModel,
+    columns: ObjectColumns,
+    statement: Select[Any],
+    object_types: Sequence[ObjectTypeDefinition],
+    sort: str | None,
+) -> tuple[Select[Any], tuple[SortKey, ...], Callable[[str], list[Any]] | None]:
+    """Sort keys for an object collection, always closed by the source's unique tiebreak.
+
+    Also returns how a ``seek`` value becomes the leading key values, or ``None`` when the order
+    has no public value to seek by. Attribute and ancestor sorts put records without a value last.
+    """
     sort_name = sort or columns.default_sort
     descending = sort_name.startswith("-")
     field_name = sort_name.removeprefix("-")
-    if field_name == _SEQUENCE_FIELD and sort is not None:
-        _query_error("invalid_sort", "Unknown sort field 'sequenceId'", "sort")
     tiebreak = columns.tiebreak(descending)
+    if sort is not None and (
+        field_name == _SEQUENCE_FIELD
+        or (field_name == tiebreak.name and field_name not in columns.builtin)
+    ):
+        _query_error("invalid_sort", f"Unknown sort field '{field_name}'", "sort")
     if field_name == tiebreak.name:
-        return (tiebreak,)
+        seek_values = None if field_name == _SEQUENCE_FIELD else lambda raw: [tiebreak.parse(raw)]
+        return statement, (tiebreak,), seek_values
+
+    if field_name.startswith(ANCESTOR_FIELD_PREFIX):
+        statement, column = _query_ancestor(model, columns, statement, object_types, field_name)
+        value_key = SortKey(
+            name=field_name,
+            column=column,
+            attribute="",
+            descending=descending,
+            parse=lambda token: None if token == "~null" else token,
+            format=lambda value: "~null" if value is None else str(value),
+        )
+        return statement, (_null_rank_key(field_name, column), value_key, tiebreak), lambda raw: [0, raw]
 
     column = columns.builtin.get(field_name)
     if column is None:
-        definition = _query_attribute(model, object_type, field_name, "sortable", "sort")
-        column = _attribute_scalar(columns, field_name, definition.valueType)
-        null_rank = case((column.is_(None), 1), else_=0)
+        definition = _query_attribute(model, object_types, field_name, "sortable", "sort")
+        if columns.select_sort_values:
+            # One outer join on the unique (record, attribute) key reads the value once per row.
+            values = aliased(columns.values)
+            statement = statement.outerjoin(
+                values,
+                and_(*columns.value_match(values), values.attribute_type_key == field_name),
+            )
+            column = getattr(values, VALUE_COLUMNS[definition.valueType])
+        else:
+            column = _attribute_scalar(columns, field_name, definition.valueType)
+        null_rank = _null_rank_key(field_name, column)
+        null_rank = replace(
+            null_rank,
+            extract=lambda session, row: int(
+                _attribute_sort_value(session, columns, row, field_name, definition.valueType)
+                is None
+            ),
+        )
+        value_key = SortKey(
+            name=field_name,
+            column=column,
+            attribute="",
+            descending=descending,
+            parse=lambda token: _parse_cursor_value(definition.valueType, token),
+            format=lambda value: "~null" if value is None else _format_typed_value(value),
+            extract=lambda session, row: _attribute_sort_value(
+                session, columns, row, field_name, definition.valueType
+            ),
+        )
         return (
-            SortKey(
-                name=f"{field_name}:null",
-                column=null_rank,
-                attribute="",
-                parse=int,
-                extract=lambda session, row: int(
-                    _attribute_sort_value(session, columns, row, field_name, definition.valueType)
-                    is None
-                ),
-            ),
-            SortKey(
-                name=field_name,
-                column=column,
-                attribute="",
-                descending=descending,
-                parse=lambda token: _parse_cursor_value(definition.valueType, token),
-                format=lambda value: "~null" if value is None else _format_typed_value(value),
-                extract=lambda session, row: _attribute_sort_value(
-                    session, columns, row, field_name, definition.valueType
-                ),
-            ),
-            tiebreak,
+            statement,
+            (null_rank, value_key, tiebreak),
+            lambda raw: [0, _parse_typed(definition.valueType, raw)],
         )
     if field_name in {"createdAt", "updatedAt"}:
         attribute = "created_at" if field_name == "createdAt" else "updated_at"
         primary = datetime_key(field_name, column, attribute, descending=descending)
     else:
         primary = text_key(field_name, column, column.key, descending=descending)
-    return (primary, tiebreak)
+    return statement, (primary, tiebreak), lambda raw: [primary.parse(raw)]
+
+
+def _null_rank_key(field_name: str, column: Any) -> SortKey:
+    """Orders records with a value before those without, whatever the value's direction."""
+    return SortKey(
+        name=f"{field_name}:null",
+        column=case((column.is_(None), 1), else_=0),
+        attribute="",
+        parse=int,
+    )
+
+
+def _select_sort_values(
+    statement: Select[Any], keys: tuple[SortKey, ...]
+) -> tuple[Select[Any], tuple[SortKey, ...]]:
+    """Select every key but the tiebreak as a labelled column and read positions back from it."""
+    labelled = []
+    for index, key in enumerate(keys[:-1]):
+        label = f"sort_{index}"
+        statement = statement.add_columns(key.column.label(label))
+        labelled.append(replace(key, attribute=label, extract=None))
+    return statement, (*labelled, keys[-1])
+
+
+def _query_ancestor(
+    model: EngineModel,
+    columns: ObjectColumns,
+    statement: Select[Any],
+    object_types: Sequence[ObjectTypeDefinition],
+    field: str,
+) -> tuple[Select[Any], Any]:
+    ancestor_type_key = field.removeprefix(ANCESTOR_FIELD_PREFIX)
+    if columns.ancestor is None:
+        _query_error("invalid_sort", f"Field '{field}' is not sortable in this list", "sort")
+    if len(object_types) != 1:
+        _query_error(
+            "invalid_sort",
+            f"Sorting by '{field}' needs one object type; this list holds several",
+            "sort",
+        )
+    if ancestor_type_key not in ancestor_type_keys(model, object_types[0].key):
+        _query_error(
+            "invalid_sort",
+            f"Object type '{object_types[0].key}' has no ancestor of type '{ancestor_type_key}'",
+            "sort",
+        )
+    return columns.ancestor(statement, ancestor_type_key)
+
+
+def ancestor_type_keys(model: EngineModel, object_type_key: str) -> set[str]:
+    """The object types a record of ``object_type_key`` can sit under, at any depth."""
+    found: set[str] = set()
+    pending = [object_type_key]
+    while pending:
+        child = model.object_type(pending.pop())
+        if child is None:
+            continue
+        parent_relations = set(child.behavior.get("parentRelationTypeKeys", []))
+        for allowed in model.objectTypeRelations:
+            if (
+                allowed.relationTypeKey in parent_relations
+                and allowed.toObjectTypeKey == child.key
+                and allowed.fromObjectTypeKey not in found
+            ):
+                found.add(allowed.fromObjectTypeKey)
+                pending.append(allowed.fromObjectTypeKey)
+    return found
 
 
 def _typed_filter_predicates(
     model: EngineModel,
     columns: ObjectColumns,
-    object_type: ObjectTypeDefinition,
+    object_types: Sequence[ObjectTypeDefinition],
     filters: list[tuple[str, str, str]],
 ) -> tuple[list[dict[str, str]], list[Any]]:
     parsed: list[tuple[str, str, Any, str, Any]] = []
@@ -312,7 +422,7 @@ def _typed_filter_predicates(
         column = columns.builtin.get(field)
         value_type = _built_in_value_type(field)
         if column is None:
-            definition = _query_attribute(model, object_type, field, "filterable", "filter")
+            definition = _query_attribute(model, object_types, field, "filterable", "filter")
             value_type = definition.valueType
             column = getattr(columns.values, VALUE_COLUMNS[value_type])
         allowed = _filter_operators(value_type, attribute=field not in columns.builtin)
@@ -355,7 +465,7 @@ def _filter_predicate(
     columns: ObjectColumns, field: str, operator: str, value: Any, column: Any
 ) -> Any:
     is_attribute = field not in columns.builtin
-    base = [*columns.value_match, columns.values.attribute_type_key == field]
+    base = [*columns.value_match(columns.values), columns.values.attribute_type_key == field]
     if operator == "isUnset":
         present = exists(select(columns.values.sequence_id).where(*base))
         return not_(present) if value else present
@@ -377,13 +487,20 @@ def _filter_predicate(
 
 def _query_attribute(
     model: EngineModel,
-    object_type: ObjectTypeDefinition,
+    object_types: Sequence[ObjectTypeDefinition],
     field: str,
     capability: str,
     parameter: str,
 ):
-    if field not in {item.attributeTypeKey for item in object_type.attributes}:
+    bound = {item.attributeTypeKey for object_type in object_types for item in object_type.attributes}
+    if field not in bound:
         _query_error(f"invalid_{parameter}", f"Unknown field '{field}'", parameter)
+    if len(object_types) != 1:
+        _query_error(
+            f"invalid_{parameter}",
+            f"Field '{field}' needs one object type; this list holds several",
+            parameter,
+        )
     definition = model.attribute_type(field)
     if definition is None or definition.valueType == "json" or not definition.features.get(capability):
         _query_error(
@@ -456,8 +573,8 @@ def _attribute_scalar(columns: ObjectColumns, field: str, value_type: str) -> An
     column = getattr(columns.values, VALUE_COLUMNS[value_type])
     return (
         select(column)
-        .where(*columns.value_match, columns.values.attribute_type_key == field)
-        .correlate(columns.source)
+        .where(*columns.value_match(columns.values), columns.values.attribute_type_key == field)
+        .correlate_except(columns.values)
         .scalar_subquery()
     )
 
