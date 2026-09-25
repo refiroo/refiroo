@@ -92,6 +92,43 @@ release key/version identity is unique. Multiple active rows or conflicting hist
 the upgrade before the new schema is applied. The migration does not delete releases, rewrite their
 identity or guess which immutable snapshot to preserve.
 
+### Deployment capabilities and split deployments
+
+Operation groups are exposed per process by environment capabilities read at startup
+([ADR-031](DECISIONS.md#adr-031--workspace-terminology-and-deployment-capability-boundaries)).
+A disabled group's routes are not registered. `GET /api/v1/capabilities` reports the effective
+values. These are deployment limits, not authorization; 0.10 authorization works within them.
+
+| Capability | Default | Group |
+| --- | --- | --- |
+| `MODEL_ADMIN_MUTATIONS_ENABLED` | off | Model drafts, install, activate; requires one process |
+| `WORKSPACE_ADMIN_MUTATIONS_ENABLED` | on | Workspace create, rename, retire, set default (Track W narrows it to this group; today it also gates data-draft lifecycle) |
+
+Because the capabilities are per process, several instances can share one database with different
+exposure. For example, an internal administration instance runs with model administration enabled and
+one process, and a public instance runs with both flags off and any worker count.
+
+What holds today:
+
+- **Activation reaches other instances without a restart.** Every request reads the selected release
+  from `model_runtime_state` and caches parsed models and metadata by release identity, so a public
+  instance serves a newly activated release on its next request.
+- **Instances must share `RDM_CURSOR_SIGNING_KEY`** if a load balancer can route one client's
+  requests to different instances; otherwise cursors issued by one are refused by another.
+
+Open caveats before this is a supported topology:
+
+- **The publication guard is per process.** It keeps local requests out of the commit-to-publication
+  window, and even locally it covers only the moment a request resolves the release, not the whole
+  request. A live write resolved under the old release may commit after an incompatible activation,
+  within one process or across instances; only draft-base capture takes `BEGIN IMMEDIATE`. Not yet
+  verified; Base 0.8 W5 tests it and fixes it if confirmed.
+- **The single-process rule is checked per instance.** Startup rejects model administration with
+  several workers, but cannot detect a second instance with model administration enabled on the same
+  database.
+- **Split deployment has no composed test.** It is a possible topology, not yet a tested one; the
+  0.10 multi-node propagation work owns making it supported.
+
 ### Upgrade, backup and rollback operations
 
 The bootstrap model path and the active release are separate operational controls. On startup the

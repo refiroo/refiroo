@@ -40,6 +40,12 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [ ] S5 shared continuous-scroll list with loading and end markers.
   - [ ] S6 sidebar tree by parent, replacing **Load more objects**.
   - [ ] S7 composed volume acceptance.
+- [ ] 0.8 Track W — workspace terminology and capability boundaries ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#track-w--workspace-terminology-and-capability-boundaries), ADR-031):
+  - [ ] W1 glossary, roadmap and milestone names (translation/hierarchy editor); stale gap notes.
+  - [ ] W2 rename workspace drafts/revisions to change sets/publications ("Publication N") in every layer.
+  - [ ] W3 narrow `WORKSPACE_ADMIN_MUTATIONS_ENABLED` to catalogue administration.
+  - [ ] W4 workspace administration screen, read-only single-workspace selector, capability status.
+  - [ ] W5 test (and fix if confirmed) live writes committing across a model activation.
 - [ ] 0.8 Milestone A — translation workspace ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-a--translation-workspace)):
   - [ ] A1 schema 0.7 `translationMatrix` view contract (may run alongside Track S).
   - [ ] A2 translation coverage query with cell states and whole-list gap filter.
@@ -66,7 +72,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [ ] OIDC, application/object/operation authorization and audit identity.
 - [ ] Replace the pre-authentication, default-enabled workspace mutation posture with authenticated,
   authorized workspace administration; retain the capability gate as deployment defence in depth.
-- [ ] Multi-node active-model propagation and protected publication.
+- [ ] Multi-node active-model propagation and protected publication; verify split deployment
+  (administration and public instances on one database) against the caveats in ARCHITECTURE.
 - [ ] Structured model designer with reference-aware forms, matrices and live preview.
 - [ ] Read-only dependency graph visualization where it improves comprehension.
 - [ ] Product 0.10: executable runtime-data migration plans for currently blocked model changes.

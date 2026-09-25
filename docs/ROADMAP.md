@@ -184,6 +184,17 @@ database, relation search and sort, and a sidebar tree that loads by parent
 Exit: a generated model with 100,000 records scrolls both ways with flat memory in live, draft and
 history contexts within recorded budgets.
 
+### Track W — Workspace terminology and capability boundaries
+
+One name per concept (workspace, live, change set, publication, model draft, model release) in
+every layer, and one capability gate per operation group: workspace administration, change-set
+workflow and model administration
+([ADR-031](DECISIONS.md#adr-031--workspace-terminology-and-deployment-capability-boundaries),
+[plan](BASE_0_8_IMPLEMENTATION_PLAN.md#track-w--workspace-terminology-and-capability-boundaries)).
+
+Exit: no old name remains; disabling workspace administration leaves change sets working; a second
+workspace can be created, selected, made default and retired in the browser.
+
 ### Milestone A — Translation workspace
 
 A localization steward works by target and language, sees missing coverage and edits translations

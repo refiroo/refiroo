@@ -3,7 +3,8 @@
 **Status:** Draft plan, 2026-09-25. Track S (scalable browsing) starts first. Milestone A
 (translation workspace) and Milestone B (hierarchy workspace) from the
 [roadmap](ROADMAP.md#product-release-08--translation-and-hierarchy-workspaces) are broken into work
-packages A1–A5 and B1–B4; R1 owns build acceptance. Decisions D8–D14 are proposed, not yet accepted.
+packages A1–A5 and B1–B4; Track W (W1–W5) delivers ADR-031 terminology and capability boundaries; R1
+owns build acceptance. Decisions D8–D19 are proposed, not yet accepted.
 
 **Target:** Product 0.8.0. Track S does not change the schema language. Milestones A and B add
 schema language 0.7 (`translationMatrix` and `tree` views); the starter model becomes content release
@@ -427,6 +428,105 @@ the S1 measurements again against the budgets.
 **Exit:** budgets met in all three contexts; accessibility and visual gates pass; the runner is
 registered in the [execution guide](testing/EXECUTION_GUIDE.md).
 
+## Track W — Workspace terminology and capability boundaries
+
+Delivers [ADR-031](DECISIONS.md#adr-031--workspace-terminology-and-deployment-capability-boundaries).
+"Workspace" currently names the catalogue scope, the prefix of its drafts and revisions, and the 0.8
+steward screens. `WORKSPACE_ADMIN_MUTATIONS_ENABLED` gates both catalogue administration and the data
+draft workflow. Track W gives each concept one name and each operation group its own gate.
+
+Unlike Track S (principle 4), Track W renames API routes and fields deliberately. Nothing is in
+production before 1.0, so there are no aliases; the change is still planned as one migration with
+full verification.
+
+Order: W1 → W2 → W3 → W4. W1 may run at any time. W2 follows S7 and precedes A2 and B2 (D15). W5 is
+independent and may run at any time.
+
+#### W1: Terms in documentation
+
+**Scope:** update the [glossary](product-functionality/GLOSSARY.md) to the ADR-031 terms and add the
+Live / change set / publication relationship to one workspace. Rename Milestones A and B to
+**Translation editor** and **Hierarchy editor** in ROADMAP, TODO, this plan and the functionality
+catalogue. Correct the stale "non-default workspace detail gap" notes in PRODUCT and USER_JOURNEYS
+after checking the current behavior.
+
+**Exit:** no document uses "workspace" for the 0.8 screens; the glossary defines every ADR-031 term.
+
+#### W2: Rename change sets and publications
+
+**Scope:**
+
+1. Migration: `workspace_draft*` tables become `change_set*`, `workspace_revision*` become
+   `publication*` (`revision_number` → `publication_number`), with their columns, indexes and constraints. Stored audit event and aggregate
+   names are rewritten in the same migration.
+2. API: `/workspace-drafts` → `/change-sets`, `/workspace-revisions` → `/publications`,
+   `/workspaces/{key}/drafts` and `/revisions` accordingly; `/activation` on a change set →
+   `/publication`; `POST /workspaces/{key}/retirement` → `POST /publications/{id}/withdrawal` (status `withdrawn`,
+   `withdrawnAt`). Today that route withdraws the current publication, not the workspace; workspace
+   retirement is `PATCH /workspaces/{key}` with `status: "retired"` and keeps that name; `workspaceDraftId`, `workspaceRevisionId`, `revisionNumber`,
+   `expectedWorkspaceDraftVersion` and error codes such as `workspace_draft_model_release_conflict`
+   take the new names. The OpenAPI lock is re-baselined.
+3. Backend services, schemas and tests; frontend types, API client, route state, URLs, components
+   (`WorkspaceDrafts`, `WorkspaceHistory`) and labels ("Draft · name" → "Change set · name", "Activate draft" → "Publish change set",
+   "Historical snapshot" and "Revision N" → "Publication N", with date and model release as secondary
+   text); e2e runners and fixtures.
+4. Route shape: lists stay nested under their workspace (`/workspaces/{key}/change-sets`,
+   `/workspaces/{key}/publications`), single items are flat by global id (`/change-sets/{id}`,
+   `/publications/{id}`). The one exception, `PATCH /workspaces/{key}/drafts/{id}/model-release`,
+   becomes `PATCH /change-sets/{id}/model-release`. API.md records the rule for future endpoints.
+5. API.md, ARCHITECTURE, README and the functionality catalogue.
+
+**Exit:** the ADR-031 acceptance search finds no old name; migration checks pass (clean bootstrap,
+upgrade from the previous head, restart, interrupted migration); full backend and frontend suites and
+every browser runner pass.
+
+#### W3: Narrow the workspace administration capability
+
+**Scope:** move change-set create, update, delete, model-release change, validation and publish, and
+publication withdrawal, from the workspace administration router to an always-registered router,
+keeping the retired-workspace refusal. `WORKSPACE_ADMIN_MUTATIONS_ENABLED` then gates only workspace
+create, rename, retire and set default. Update README, ARCHITECTURE's capability table and the CHANGELOG.
+
+**Exit:** with the flag off, catalogue mutations return 404/405 and the change-set workflow passes end
+to end; with it on, both work; `MODEL_ADMIN_MUTATIONS_ENABLED` tests are unchanged.
+
+#### W4: Workspace administration screen
+
+**Scope:**
+
+1. A global **Workspaces** screen in the header next to **Models**, in the same list-and-detail
+   layout: all workspaces including retired, create, rename, retire and set default, with the
+   existing concurrency claims. Shown only when `workspaceAdmin.manageWorkspaces` is true.
+2. A **Manage workspaces** link in the selector dropdown when the capability is on.
+3. The selector renders as a read-only label while exactly one workspace exists.
+4. Read-only capability status on the Models and Workspaces screens: a disabled group names the
+   environment setting that controls it.
+5. Change sets and publications stay per workspace, as renamed in W2.
+
+**Exit:** component tests for each state; a browser runner creates a second workspace, switches to
+it, sets it as default and retires it; accessibility and visual gates pass.
+
+#### W5: Model activation versus concurrent live writes
+
+**Background:** the registry's publication guard only covers the moment a request resolves the active
+release, not the whole request. Only draft-base capture takes `BEGIN IMMEDIATE`; ordinary live writes
+neither lock nor recheck the active release inside their transaction. A write resolved under release
+A may therefore commit after an incompatible release B activates, inside one process as well as across
+instances sharing a database. Unverified; found while documenting split deployment (D17).
+
+**Scope:**
+
+1. A focused backend test: hold a live write resolved under release A, activate a release B that
+   makes that write invalid (for example a newly required attribute), then let the write commit.
+   Cover object, attribute and relation writes, and draft-base capture as the protected reference.
+2. If the write commits under the wrong release: make live writes and activation mutually exclusive
+   in the database, or recheck the active release identity inside the write transaction and return a
+   recoverable conflict. Choose the smaller change that also holds across processes.
+3. If the write is already refused: record the mechanism in ARCHITECTURE and keep the test.
+4. Update ARCHITECTURE's split-deployment caveats with the result.
+
+**Exit:** the test passes on SQLite; the caveat is either removed or restated precisely.
+
 ## Sequence and dependencies
 
 ```text
@@ -438,7 +538,10 @@ Milestone A:  A1 ──────────────┐
 Milestone B:  B1 ──────────────┐
               S3, S4 ─────────→ B2 → B3 → B4
               S6 ────────────────────↗
-Release:      S7, A5, B4 → R1
+Track W:      W1, W5 (any time)
+              S7 → W2 → W3 → W4
+              W2 ─→ A2, B2
+Release:      S7, W4, W5, A5, B4 → R1
 ```
 
 A1 and B1 depend only on 0.7 and may be delivered while Track S is in progress. Everything else in
@@ -446,6 +549,10 @@ A and B follows the Track S packages named above, because both milestones browse
 through the S3 contract and the S5 list. Milestones A and B are independent of each other and may be
 delivered in either order. If one of them is cut from 0.8, its view type is removed from schema 0.7
 before release so the language never declares a view without a renderer (D9).
+
+W2 lands before A2 and B2 so the new translation and hierarchy endpoints are written with the ADR-031
+names rather than renamed afterwards. A2 and B2 already wait for S5 and S6, so the extra wait is W2
+alone (D15).
 
 ## Milestone A — Translation workspace
 
@@ -728,7 +835,7 @@ US-H02 and US-D09 move to delivered in the functionality catalogue.
 
 ## R1: Build acceptance and release
 
-**Scope:** after S7, A5 and B4: the full backend `pytest` suite, frontend `npm run test`, Ruff,
+**Scope:** after S7, W4, W5, A5 and B4: the full backend `pytest` suite, frontend `npm run test`, Ruff,
 format, lint and build, every browser runner, `test:a11y` and `test:visual`. Migration checks for the
 S2 typed value rows (clean bootstrap, upgrade from the 0.7 head, restart, interrupted migration,
 lifespan, smoke start on a copy of the development database). Confirm a schema 0.7 release installs
@@ -755,3 +862,8 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D12 | Resolving language ancestry for the gap filter | A recursive query down from the selected languages, measured in A2. A stored ancestor table only if the measurement is over budget, as a scoped follow-up | A2 |
 | D13 | Which group a new translation goes into | The user picks a container under the language; preselected when there is exactly one. No model default | A3, A4 |
 | D14 | Ineligible move targets | Listed but disabled, with a reason, so totals stay truthful and the user sees why | B2, B3 |
+| D15 | When does the W2 rename land? | **Accepted 2026-09-25:** after S7 (draft and revision tables stable after S2) and before A2 and B2, so new endpoints use the new names | W2, A2, B2 |
+| D16 | Name of the snapshot a change set publishes | **Accepted 2026-09-25:** **Publication**, referred to as "Publication N" by its per-workspace counter, which continues across model releases; date and model release are secondary. "Version" is avoided because record, change-set and model-release versions already use it | W1, W2 |
+| D17 | Is split deployment (admin and public instance on one database) verified in 0.8? | **Accepted 2026-09-25:** no, it stays a documented, unsupported topology until 0.10 multi-node work; the suspected write-versus-activation race it exposed is investigated in 0.8 as W5 because it may affect one process too | W5 |
+| D18 | Verb for making a change set live | **Accepted 2026-09-25:** **publish**; **activate** is reserved for model releases, **install** for model drafts | W1, W2 |
+| D19 | Removing a publication's current designation | **Accepted 2026-09-25:** **withdraw** (status `withdrawn`); **retire** is reserved for workspaces | W1, W2 |

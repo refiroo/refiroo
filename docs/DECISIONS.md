@@ -956,3 +956,115 @@ Collections support two paging modes. Each request uses exactly one of them.
 - A concurrent insert between cursor reads causes no repeated or skipped row.
 - A request with both `position` and `cursor` is refused.
 - No frontend or backend branch names a starter application, object type or relation key.
+
+## ADR-031 — Workspace terminology and deployment capability boundaries
+
+**Status:** Accepted, 2026-09-25; delivery belongs to Base 0.8 Track W
+([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#track-w--workspace-terminology-and-capability-boundaries)).
+The rename is recorded as resolved: every layer changes in one planned package without aliases, and
+Git history traces the previous names.
+
+### Motivation
+
+"Workspace" had three meanings: the catalogue scope chosen in the selector, the prefix of its drafts
+and revisions (`WorkspaceDraft`, `WorkspaceRevision`), and the 0.8 steward screens ("translation
+workspace", "hierarchy workspace"). "Draft" had two: model drafts and data drafts. The Live / Draft /
+Historical badge looked like a second workspace selection unrelated to the selector.
+
+`WORKSPACE_ADMIN_MUTATIONS_ENABLED` also bundled two different concerns. It gated catalogue
+administration (create, rename, retire, set default) and the routine steward workflow of data drafts
+(create, update, delete, validate, activate). An operator protecting the catalogue also removed
+coordinated data changes.
+
+### Decision
+
+**Terms.** One meaning per word, applied to the database, API, backend, frontend, tests and docs:
+
+| Concept | Term | Replaces |
+| --- | --- | --- |
+| Named governed scope holding reference data | **Workspace** | unchanged |
+| Current, directly editable data of a workspace | **Live** | unchanged |
+| Optional group of data changes published together | **Change set** | workspace draft, design draft |
+| Immutable snapshot created by publishing a change set | **Publication**, identified as "Publication N" | workspace revision, historical snapshot |
+| Editable model JSON | **Model draft** | unchanged; now the only "draft" |
+| Immutable installed model | **Model release** | unchanged |
+| Removing a publication's current designation | **Withdraw** (status `withdrawn`) | publication retirement |
+| 0.8 steward screens | **Translation editor**, **Hierarchy editor** | translation/hierarchy workspace |
+
+A workspace has live data, change sets and publications, and runs on one model release. Live, a
+change set and a publication are ways of viewing one workspace, not workspaces themselves.
+
+**Verbs.** One verb per action: **publish** a change set (creates Publication N and makes its changes
+live), **install** a model draft (creates an immutable model release), **activate** a model release
+(makes it serve the installation). "Activate" is never used for change sets. **Withdraw** a
+publication removes its current-publication designation (status `withdrawn`); live data and history
+are unchanged. **Retire** is reserved for the workspace catalogue action that makes a workspace
+read-only.
+
+**Publication numbering.** A publication is referred to by its number, e.g. **Publication 12**; the
+date is secondary. The number is a per-workspace counter (`publicationNumber`, the existing
+`revision_number`): the next number is the highest in the workspace plus one. It continues across
+model releases and never restarts, so the number alone names one publication of a workspace. Each
+publication records its model release, shown beside the number where useful ("Publication 12 · model
+0.8.0 · 3 Sep 2026"). The counter is not a version: it has no parts and is never labelled "version",
+so the only version users see is the model release's.
+
+**Capability boundaries.** Three operation groups, each with its own gate:
+
+1. **Workspace administration** — create, rename, retire, set default. Gated by
+   `WORKSPACE_ADMIN_MUTATIONS_ENABLED` (default on until authentication exists). The flag is narrowed
+   to exactly this group.
+2. **Change-set workflow** — create, update, delete, validate, publish, discard, and withdraw a
+   publication. Ordinary steward
+   operations like live edits: always registered, refused in a retired workspace.
+3. **Model administration** — model drafts, install, activate. Gated by
+   `MODEL_ADMIN_MUTATIONS_ENABLED` (default off, single process), unchanged from ADR-017.
+
+**Deployment capability versus authorization.** The flags stay environment settings and stay after
+authentication. They answer "does this installation expose the operation at all"; authorization in
+0.10 answers "who may use it here" within that limit:
+
+| Layer | Lives in | Set by | Arrives |
+| --- | --- | --- | --- |
+| Deployment capability | Environment, read at startup | Operator | Now |
+| Authorization | Database, managed in the UI | Authorized administrator | 0.10 |
+
+They are environment settings rather than UI settings because:
+
+- **A switch cannot guard itself.** Before authentication, anyone who reaches the UI could turn a UI
+  toggle back on. The guard must live outside the API it guards.
+- **They take effect at startup.** A disabled group's routes are not registered, so the operation
+  does not exist rather than being refused per request. Model administration is also tied to process
+  topology (`WEB_CONCURRENCY=1` until cross-process release propagation), which only the operator
+  starting the processes knows.
+- **The exposure decision belongs to the operator.** The same build can run as an open local sandbox
+  or behind a public URL; that choice sits beside `DATABASE_URL` and `CORS_ORIGINS`.
+
+The UI may show the effective capabilities read-only (from `GET /api/v1/capabilities`) so a user sees
+why an action is unavailable. It never edits them.
+
+**Split deployment.** Because each group is a separate startup capability, several API instances may
+share one database with different exposure, for example an internal administration instance with
+model administration enabled and a public instance with both administration flags off. See
+[Architecture](ARCHITECTURE.md#deployment-capabilities-and-split-deployments) for what holds today and
+the open caveats.
+
+### Consequences
+
+- Change-set routes move from the workspace administration router to an always-registered router.
+  Deployments that set `WORKSPACE_ADMIN_MUTATIONS_ENABLED=false` keep coordinated data changes.
+- Stored audit event and aggregate names are renamed by migration together with tables and columns;
+  change-set "activated" events become "published".
+- ADR-026 and other earlier text saying "activation" of a draft reads as "publishing" a change set.
+- A browser screen for workspace administration becomes possible and is shown only when the
+  capability is enabled; until a second workspace exists the selector is read-only.
+- The 0.10 authorization work adds roles within these three groups; it does not remove the flags.
+
+### Acceptance
+
+- No API route, field, table, column, stored event name, UI label or document uses "workspace draft",
+  "design draft", "workspace revision" or "historical snapshot" for these concepts; "activate" is not
+  used for change sets and "retire" is not used for publications.
+- With `WORKSPACE_ADMIN_MUTATIONS_ENABLED=false`, catalogue mutations are absent and the change-set
+  workflow still works end to end.
+- `MODEL_ADMIN_MUTATIONS_ENABLED` behavior is unchanged.
