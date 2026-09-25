@@ -35,6 +35,7 @@ cd backend && .venv/bin/python -m pytest -m mapping -q
 | `drafts` | C-DR-*, C-REV, C-PUB-RET | `test_workspace_revisions`, `test_wp7_canonical_crud`, `test_wp8_*` (except audit migration), `test_wp81b_current_live_bases`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_typed_table_queries`, `test_mapping_replacement`, `test_wp8_retirement` | 202 |
 | `mapping` | C-MAP-R, C-MAP-W, C-MAP-SET | `test_mapping_coverage`, `test_mapping_replacement`, `test_relation_set_versions` | 115 |
 | `contract` | OpenAPI lock and route inventories | `test_openapi_contract` | 7 |
+| `volume` | Track S read and write budgets over the generated volume fixture (Base 0.8 S1) | `test_volume_baseline` | 6 |
 
 Counts are collected cases on 2026-09-24 (532 in total); group counts include the WP-9 composed
 SC-15 case. The full suite collected 534 cases at WP-9 build acceptance (2026-09-25). A module carries several markers when it is
@@ -110,9 +111,9 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | `services/objects.py`, `attributes.py`, `routers/objects.py`, `routers/attributes.py` | `records` | typed conversion or version claims change | `queries` (typed filters), `drafts` (draft writes use the same apply path) |
 | `services/relations.py`, `relation_set_versions.py`, `routers/relations.py` | `records` + `mapping` | always | `drafts` (draft relation writes, activation merge) |
 | `services/deletion.py` | `records` | cascade or preview token changes | `mapping` (continuation invalidation), `drafts` (draft deletion) |
-| `services/pagination.py`, `cursors.py` | `queries` | always | every group with a collection endpoint: `-m "queries or mapping or model_admin or workspaces"` |
+| `services/pagination.py`, `cursors.py` | `queries` | always | every group with a collection endpoint: `-m "queries or mapping or model_admin or workspaces"`; `volume` (read budgets) |
 | `services/workspaces.py`, `routers/workspaces.py` | `workspaces` | scope resolution changes | `mapping` (C-MAP-W authority), `drafts` |
-| `services/workspace_revisions.py`, `workspace_audit.py`, `audit.py` | `drafts` | overlay, activation or audit projection changes | `mapping` (draft coverage and replacement), `records` (history) |
+| `services/workspace_revisions.py`, `workspace_audit.py`, `audit.py` | `drafts` | overlay, activation or audit projection changes | `mapping` (draft coverage and replacement), `records` (history); `volume` when a draft or history read path changes |
 | `services/mapping.py`, `mapping_projection.py`, `routers/mapping.py` | `mapping` | never by default | `drafts` only if activation or draft overlay is touched |
 | `errors.py`, `routers/presenters.py` | the group of the changed error | error envelope shape changes | `contract`; `model_admin` (`test_build07_wp11` correlation IDs) |
 | Any router signature, parameter or response model | the router's group | always | `contract` (re-baseline the OpenAPI lock only for intended changes) |

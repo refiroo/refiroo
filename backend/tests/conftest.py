@@ -25,6 +25,7 @@ GROUP_DESCRIPTIONS = {
     "drafts": "data drafts: sources, edits, graph validation, activation and history",
     "mapping": "mapping coverage, atomic replacement and relation-set versions",
     "contract": "locked OpenAPI document and route inventories",
+    "volume": "Track S volume fixture: read and write budgets as the dataset grows",
 }
 TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_model.py": ("model",),
@@ -64,6 +65,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_mapping_replacement.py": ("mapping", "drafts"),
     "test_relation_set_versions.py": ("mapping", "records"),
     "test_openapi_contract.py": ("contract",),
+    "test_volume_baseline.py": ("volume",),
 }
 
 

@@ -86,6 +86,58 @@ track.
 **Exit:** a reproducible fixture and a recorded baseline that shows today's draft and history
 reads growing with the dataset while live reads do not.
 
+**Delivered 2026-09-25.** `backend/tests/volume_fixture.py` holds the generated model (keys
+`vol-catalogue`, `vol-group`, `vol-item`, `vol-node`, `vol-*` relation types; no starter key) and
+the seeded bulk writer; `backend/tests/volume_baseline.py` measures; `test_volume_baseline.py`
+(marker `volume`) holds the budgets. The draft derives from revision 1, whose membership equals
+live; a current-live draft reads through the same whole-membership code, so it is not measured
+separately. The seeded draft passes the app's own graph validation.
+
+_Baseline_ (full shape: 110,254 objects, 220,508 typed values, 101,754 relations, 7-level
+hierarchy of 254 nodes; draft with 1,031 edits, 461 tombstones and 50 new records; seeded in 17.7 s).
+Page size 20, median of 3 runs after a warm-up, in-process ASGI, SQLite 3.53.4, Python 3.14.7,
+Apple silicon laptop. Each cell is time · SQL statements · ORM rows materialised. Reproduce with
+`cd backend && .venv/bin/python tests/volume_baseline.py --scale 1 --repeat 3`.
+
+| Request | Live | Draft | History |
+| --- | --- | --- | --- |
+| objects: first page | 20.2 ms · 5 · 79 | 3,171 ms · 8 · 214,065 | 1,312 ms · 4 · 100,003 |
+| objects: middle page | 20.9 ms · 5 · 80 | 3,188 ms · 8 · 214,065 | 1,404 ms · 4 · 100,003 |
+| objects: last page | 20.2 ms · 5 · 80 | 3,540 ms · 8 · 214,065 | 1,424 ms · 4 · 100,003 |
+| children: 20,000-child parent, first page | 13.7 ms · 5 · 65 | 3,081 ms · 8 · 214,065 | 1,199 ms · 4 · 100,003 |
+| children: 20,000-child parent, middle page | 12.5 ms · 5 · 65 | 3,121 ms · 8 · 214,065 | 1,279 ms · 4 · 100,003 |
+| children: 5-child parent | 2.1 ms · 5 · 19 | 3,032 ms · 8 · 214,065 | 1,111 ms · 4 · 100,003 |
+| relations: 1,500-relation record | 10.6 ms · 45 · 105 | 3,079 ms · 8 · 214,065 | 2,405 ms · 5 · 212,011 |
+| relations: 20,000-child parent | 52.1 ms · 45 · 85 | 3,156 ms · 8 · 214,065 | 2,609 ms · 5 · 212,011 |
+| record: single read | 2.5 ms · 5 · 7 | 2,944 ms · 8 · 214,065 | 1.8 ms · 4 · 4 |
+| write: rename one record | 3.6 ms · 13 · 9 | 7,638 ms · 29 · 431,004 | — |
+
+Findings:
+
+- Live reads are bounded: rows track the page, not the dataset, and the statement count is fixed.
+- Every draft read, including a single-record read, materialises the whole draft membership
+  (objects and relations). History object pages materialise every revision object of the type;
+  history relation pages every revision relation and object. A history single-record read is
+  already a direct lookup.
+- A draft write loads the membership twice (the write, then the response) and takes 7.6 s.
+- Live relation pages issue two statements per listed row (building each related object's
+  response). This is constant in dataset size but proportional to page size; S4 should batch it.
+
+_Budgets._ Held by `test_volume_baseline.py` at two scales four times apart:
+
+1. A request's SQL statement count does not change with dataset size.
+2. A request materialises at most 6 ORM rows per row of a full 20-row page (120).
+3. At full volume, a page or record read in any context stays within 100 ms median on the
+   reference machine (live worst case: 52 ms), and a single-record draft write within 50 ms. Time
+   is checked by rerunning `volume_baseline.py`, not in the test suite, because wall time is
+   machine-dependent.
+
+Live reads and writes meet 1 and 2 today. The draft/history read test and the draft write test are
+strict expected failures; S2 removes the markers as each is met.
+
+_D7 outcome:_ draft writes are over budget (7.6 s and 431,004 rows for one rename at full volume),
+so S2 scopes a bounded follow-up slice for draft writes after the read paths move to SQL.
+
 #### S2: Draft and history reads in the database
 
 **Scope:**
@@ -543,7 +595,7 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D4 | Does a view's `pageSize` keep its meaning? | Yes: it becomes the fetch size; no schema change | S5 |
 | D5 | Totals on every page or on request? | On request (`includeTotal`); the UI asks on first load, after a query change and with position jumps | S3 |
 | D6 | Relation sort keys | Related record's name and relation creation order; related-type fields later if needed | S4 |
-| D7 | Draft writes still load the whole membership | Measure in S1; scope a follow-up only if over budget | S1, S2 |
+| D7 | Draft writes still load the whole membership | **Measured in S1:** over budget (7.6 s per rename at full volume); S2 scopes a bounded follow-up slice | S2 |
 | D8 | A dedicated `translationMatrix` view type, or a generic coverage-matrix type? | `translationMatrix` with generic config keys. One real case exists; generalise after a second (AGENTS.md) | A1 |
 | D9 | Schema 0.7 if only one milestone ships | Each view type is added by its own package; a cut milestone's type is removed before release | A1, B1 |
 | D10 | Language columns | Explicit `languageIds` (at most 20) or the first page of languages; columns page with their own cursor | A2 |

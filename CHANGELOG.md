@@ -6,6 +6,17 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Base 0.8 S1: a Track S volume fixture and read baseline. `tests/volume_fixture.py` generates a model
+  with its own keys and bulk-seeds 10,000 root records, 100,000 contained records (20,000 under one
+  parent), a seven-level self-hierarchy, a record with 1,500 relations of one type and a parent with
+  children of two types, then records revision 1 and derives a draft with scattered edits, tombstones
+  and new records. `tests/volume_baseline.py` measures time, SQL statements and ORM rows per request
+  in live, draft and history contexts; the full-volume figures and the budgets are recorded in the
+  Base 0.8 plan. The new `volume` test group holds the budgets at two scales: live reads and writes
+  meet them, while draft/history reads and draft writes are strict expected failures until S2.
+
 ## [0.7.0] - 2026-09-25
 
 ### Added
