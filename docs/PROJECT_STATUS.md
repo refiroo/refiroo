@@ -1,10 +1,10 @@
 # Project status
 
-## Current development baseline — released 2026-09-11
+## Current development baseline — Base 0.7 released 2026-09-25
 
-Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released. The starter
-model is content release 0.7.0 on schema language 0.6. Next development targets product 0.7 (core
-mapping, schema 0.6, draft version selection). WP-1 (accessibility gates), WP-2 (schema 0.6
+Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
+**Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter
+model is content release 0.7.0 on schema language 0.6. WP-1 (accessibility gates), WP-2 (schema 0.6
 `mappingGrid` view contract), WP-3 (relation-set version persistence), WP-4 (mapping query APIs),
 WP-5 (atomic mapping replacement), WP-6 (backend draft version selection) and WP-7 (browser draft
 version selection) are delivered.
@@ -16,9 +16,8 @@ delivered; WP-10E/F/G closed on 2026-09-25. **WP-9 composed build acceptance pas
 SC-07 and SC-15 run as composed browser + API journeys (`test:browser:sc07`, `test:browser:sc15`,
 `test_build07_wp9_acceptance.py`), the full backend/frontend suites, all browser runners and the
 accessibility and visual gates are green, and WP-10H/I/J found on the way are closed. The draft
-timestamp decision it surfaced is delivered as WP-10K (not recorded in drafts and history). All 0.7 work
-packages are complete; cutting the 0.7.0 release is the next step, then 0.8: scalable browsing
-first ([Track S](BASE_0_8_IMPLEMENTATION_PLAN.md), ADR-030), then lazy tree browsing to any depth and
+timestamp decision it surfaced is delivered as WP-10K (not recorded in drafts and history). Next is
+0.8: scalable browsing first ([Track S](BASE_0_8_IMPLEMENTATION_PLAN.md), ADR-030), then lazy tree browsing to any depth and
 specialised translation screens. Residual gaps are listed in the
 [plan's WP-9 record](BASE_0_7_IMPLEMENTATION_PLAN.md#wp-9-composed-product-validation--sc-07-and-sc-15).
 
@@ -41,7 +40,7 @@ GAP-01–GAP-08 answers and distinguishes accepted targets from implementation e
 | Model administration | Complete: immutable releases, JSON drafts, validation/diff/install/activation workbench | Browser administration acceptance (0.7+) |
 | UI foundation | Complete: catalogue selection, typed tables, generic panels, redesigned navigation/collections/inspector/inline editing, automated accessibility and visual-regression gates (UI-07); 0.7 redesign (header application tabs, Live/Drafts/History control, record tree, Filter popover), dark mode and settings menu; WP-9 a11y/visual acceptance passed | — |
 | Specialist workflows | Schema 0.6 `mappingGrid` contract, live/draft/revision coverage, target-detail, candidate APIs, atomic replacement and contextual mapping lens with in-context target creation delivered; SC-07 composed acceptance passed | Lazy arbitrary-depth hierarchy/translation specializations 0.8; integration 0.9 |
-| Production and model migration | Basic readiness and actionable startup refusal | Authenticated production, staged assignments and reviewed historical model migration 0.10; draft version selection 0.7 |
+| Production and model migration | Basic readiness and actionable startup refusal | Authenticated production, staged assignments and reviewed historical model migration 0.10 |
 
 Ordinary live saves create neither a draft nor a revision. Draft activation applies authored changes
 over current live data, preserves unrelated live work and publishes nothing on a touched-record conflict
@@ -53,7 +52,7 @@ The current default/non-default browser gap and disconnected record controls are
 [functionality catalogue](product-functionality/CURRENT_FUNCTIONALITY.md). A component or API present
 in code does not establish that a browser user can complete its story.
 
-## Next delivery sequence — product 0.7
+## Product 0.7 delivery sequence (released 2026-09-25)
 
 1. **Typed `mappingGrid` (WP-2, delivered 2026-09-12):** schema 0.6 with a strict `mappingGrid` view
    contract, discriminated union dispatch, full validation rules and an initial frontend placeholder.
@@ -318,7 +317,7 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
   and the settings menu in both themes.
 - Schema 0.6 supports strict table and `mappingGrid` collection lenses. Exact-binding relation-set
   versions are integrated into all generic relation writes; coverage, target details, candidate
-  search and atomic replacement are delivered, and the WP-8/WP-14 UI is implemented locally. Base 0.7
+  search and atomic replacement are delivered with the contextual mapping lens (WP-8/WP-14). Base 0.7
   limits contextual hierarchy queries to direct-parent scope. Lazy arbitrary-depth traversal and
   specialist translation/tree renderers follow the 0.8 roadmap; top-level `form`, `dashboard` and
   `tree` are not implemented renderers.
@@ -329,9 +328,8 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
   observability, backup/restore rehearsal and multi-node model propagation remain production work.
 - The version serving live data is chosen globally today. Per-workspace migration/assignment, moving
   a draft onto a version its content does not fit, and confirmed potential-loss historical model
-  changes require 0.10 and supported parser/runtime versions; letting a draft work under a version the
-  user chooses is 0.7 work (ADR-028). Backend clients can choose compatible draft versions (WP-6);
-  browser selection is delivered (WP-7). A draft on a replaced version can be read, edited and discarded,
+  changes require 0.10 and supported parser/runtime versions. A draft can work under a compatible
+  version the user chooses (ADR-028; WP-6 backend, WP-7 browser). A draft on a replaced version can be read, edited and discarded,
   but activation still requires agreement with the active model.
 - The starter remains representative rather than a one-to-one reproduction of the source export.
 
@@ -358,12 +356,10 @@ do not rebuild rejected object lifecycle.
 ## Coding-agent handoff
 
 Read `AGENTS.md`, the product stories/scenarios, ADR-027, `ROADMAP.md`, `API.md` and `TODO.md`.
-Base 0.6 is released; product 0.7 (core mapping, schema 0.6, draft version selection) has every
-implementation package delivered: WP-1–WP-8B, WP-10A–G, WP-11, WP-12, WP-13A/B/C and WP-14, plus the
+Base 0.7 is released (2026-09-25): WP-1–WP-9, WP-10A–K, WP-11, WP-12, WP-13A/B/C and WP-14, plus the
 2026-09-24 frontend redesign and dark mode. WP-13A's [coverage map](testing/COVERAGE_MAP.md), WP-13B's
 [execution guide](testing/EXECUTION_GUIDE.md) and WP-13C's [UI acceptance](testing/UI_ACCEPTANCE.md)
-supply the audited selections. **Next: WP-9 composed acceptance**, which runs the comprehensive
-command set once. After it passes, 0.7 is released and 0.8 starts: scalable browsing first
+supply the audited selections. **Next: 0.8**, scalable browsing first
 ([Track S](BASE_0_8_IMPLEMENTATION_PLAN.md)), then lazy tree browsing to any depth and specialised
 translation screens ([roadmap](ROADMAP.md)).
 Use one implementation owner per slice, focused verification and appropriate review. Do not commit

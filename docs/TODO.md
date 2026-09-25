@@ -4,120 +4,23 @@ This file is the prioritized delivery queue. The roadmap owns sequencing and out
 implementation plan owns detailed contracts and work packages. Keep completed historical work in its
 release plan and changelog rather than accumulating it here.
 
-## Now — Product 0.7 core mapping
+## Now — Product 0.8
 
-Base 0.6 is released (2026-09-11). WP-1 delivered (2026-09-12). WP-2 delivered (2026-09-12).
-WP-3 delivered (2026-09-12); its pending participation changes committed 2026-09-14.
-WP-4 and its WP-10A review fix delivered (2026-09-14). WP-5 delivered (2026-09-14). WP-7 delivered (2026-09-14).
-WP-8/WP-14 committed 2026-09-15; redesign and dark mode 2026-09-24; WP-10E/F/G 2026-09-25. WP-9 composed
-acceptance passed 2026-09-25. Next: cut the 0.7.0 release, then 0.8 (arbitrary-depth tree browsing,
-translation screens).
-
-- [x] UI-07 (carried from 0.6): automated accessibility and visual-regression gates using the existing
-  Playwright harness with `@axe-core/playwright` and visual comparison baselines. Delivered 2026-09-12;
-  light-theme baselines only (dark theme does not exist yet).
-- [x] Schema 0.6 `mappingGrid` view contract (WP-2). `MappingGridViewConfig` and discriminated
-  `ViewDefinition` union, full validation rules (relation binding, containment/required-ownership
-  rejection, column/search-field checks), starter model 0.7.0 with two mapping grid views, frontend
-  type-safe narrowing and placeholder renderer. Delivered 2026-09-12.
-- [x] ADR-022 relation-set versions (WP-3). `relation_set_versions` table with lazy row creation,
-  integrated into all six generic relation mutation paths (live and draft), draft deletion cascade
-  and activation merge. Delivered 2026-09-12.
-- [x] Product 0.7: cursor-paged mapping coverage, version-bound target details and candidate lookup
-  (WP-4). View-specific typed projections and batched live/draft SQL reads. Delivered 2026-09-14.
-- [x] ADR-022: atomic mapping replacement in live and optional-draft contexts (WP-5). Delivered
-  2026-09-14: retained relation identities, typed relation-attribute semantics and direction-aware
-  replacement/clear validation with single-direction set version increments.
-- [x] WP-5 acceptance follow-up and WP-10B activation hardening: independent bindings, forbidden
-  ownership/clearing, overlapping generic writes, and complete touched-set source/live comparison
-  with actionable activation refusal. See the 0.7 implementation plan for validation boundaries.
-- [ ] ADR-028: let a workspace draft work under a version the user chooses, so one draft prepares the
-  schema 0.6 release while another stays on the version serving live data.
-- [x] WP-6: backend selected-release creation, complete-candidate compatibility, atomic audited pin
-  changes, snapshot isolation and pinned model/metadata reads (2026-09-14).
-- [x] WP-7: browser version selection and complete model-context refresh. Delivered 2026-09-14:
-  model-release selector in draft creation, model release display on draft cards and detail,
-  informational banner and activation refusal when versions differ, version-change action with
-  incompatibility diagnostics, model-context refresh after pin change, and dirty-input protection
-  via navigation guards. 169 frontend tests (5 new), zero lint errors, production build passes.
-- [x] WP-11 (after WP-7, before WP-9): historical release diff/compile unsupported-schema refusals,
-  informative frontend states, actionable internal-error diagnostics and WP-7 draft UI consistency
-  using the existing modal/form styles and diagnostics; supported pinned-schema loading, shell-aligned
-  workspace loading/error recovery and safe handling of HTML/non-JSON API responses. Delivered
-  2026-09-15: 422 unsupported_schema_version with structured details for diff/compile/activation, correlation-ID
-  error boundary, API client HTML hardening, Modal version-change dialog, supported-schema pinned-model
-  loading, retry-aware shell-aligned error recovery and historical-release informational state. Final
-  review passed 155 affected backend and 55 focused frontend tests, static/build gates and a five-check
-  desktop/narrow real-browser journey. Comprehensive suites and gates remain WP-9.
-- [x] WP-12 (after WP-11, before WP-9): Models release **Technical details** with explained,
-  copyable public release UUID and canonical content hash; keep human-readable release information
-  prominent. Correct semantic-change baselines to earlier release → selected release, including active
-  release inspection, with explicit baseline selection and truthful unsupported/first-release states.
-  Preserve separate activation compatibility checks; correlation-ID behavior remains unchanged.
-  Delivered 2026-09-24 with an additive read-only `GET /model-releases/{id}/activations` over the
-  existing audit trail for the recorded-predecessor default. Focused evidence: backend activation-
-  history and OpenAPI tests, 15 model-admin component tests, `npm run test:browser:wp12` (seven
-  wide/narrow checks); comprehensive suites and a11y/visual gates remain WP-9.
-- [x] WP-8A/WP-8B review: preserved the bounded reads and atomic actions; corrected conflict review,
-  duplicated configured identity fields and missing coverage filters through WP-14. Reviewed with
-  focused component and real-browser evidence and committed in `f8e39a8` (2026-09-15).
-- [x] WP-14A: record ADR-029 and reconcile product, UI, architecture, model and roadmap documentation.
-- [x] WP-14B: add cursor-bound `parentObjectId` and mapping coverage-state filters with live/draft/revision
-  integration coverage and public-contract updates.
-- [x] WP-14C: replace the Browse hierarchy/Views switch with one generic application browser; group
-  table/mapping declarations by source object type as collection lenses; provide visible scope, typed
-  and coverage facets; retain Live/Draft/History, detail-origin and narrow/keyboard behavior.
-- [x] WP-14D: review the composed WP-8/WP-14 implementation, run focused backend/frontend and
-  real-browser evidence for generic collections and two mapping directions, then reconcile status
-  documentation. Comprehensive suites and a11y/visual baselines remain WP-9 build acceptance.
-- [x] WP-13A: risk-ranked contract inventory in `docs/testing/COVERAGE_MAP.md`; filled mapping-write
-  authority, draft relation-set, starter-key, date-value and conflict-retry gaps; removed one duplicate
-  with surviving protection recorded; reproduced WP-10C/WP-10D as strict xfail tests. 2026-09-24.
-- [x] WP-13B: `docs/testing/EXECUTION_GUIDE.md` with measured costs, pytest contract-group markers
-  (unclassified modules refused), `unit`/`dom` Vitest projects, boundary-to-check expansion and the
-  WP-9 command set; migrated-template databases halve the sampled backend time. 2026-09-24.
-- [x] WP-13C: `docs/testing/UI_ACCEPTANCE.md` with reference patterns and the state inventory of 14
-  changed 0.7 surfaces; `test:browser:wp13c` covers outage/retry, empty, conflict, draft-context mapping
-  and non-active-release draft states at 1440/390px; screenshots reviewed; found WP-10F/WP-10G. 2026-09-24.
-- [x] WP-9: composed SC-07/SC-15 browser + API acceptance (`test:browser:sc07`, `test:browser:sc15`,
-  `test_build07_wp9_acceptance.py`) with an independent binding, same-schema differing releases,
-  generic-write races and a live same-set conflict before activation; full build gate green. Found and
-  closed WP-10H/I/J; fixed two browser-runner races, a shared-database test query and two stale
-  Models baselines. 2026-09-25.
-- [x] WP-10K (decision surfaced by WP-9): drafts and history report timestamps as not recorded
-  (null, refused filters/sorts) instead of inventing the request time. Recording them is an
-  unscheduled roadmap item. 2026-09-25.
-- [ ] Cut the 0.7.0 release (changelog section, versions) — separate from WP-9.
-- [x] WP-10A: live/draft cascade deletion advances affected mapping-set versions atomically; stale
-  target continuations require refresh. Delivered with WP-4 review, 2026-09-14.
-- [x] WP-10C: typed `date`/`dateTime`/`decimal` values in draft writes, activation, and draft/revision
-  list filters and sort. Delivered 2026-09-24.
-- [x] WP-10D: based contained records keep one containment edge on draft rename or move, and
-  activate. Delivered 2026-09-24.
-- [x] WP-10E: timestamps are stored in UTC and returned with an explicit offset on every database
-  (attribute `dateTime` values and server timestamps); decimals have one canonical form in every
-  context; the frontend zone-less workaround is removed. No live `dateTime` data to migrate.
-  Delivered 2026-09-25.
-- [x] WP-10H/I/J (found by WP-9): removal is not offered for a required mapping; draft creation
-  on an incompatible release lists the records that do not fit and draft errors read as sentences;
-  required/read-only field errors name fields, with keys in `details`. Delivered 2026-09-25.
-- [x] WP-10F: contextual mapping-target creation asks for the owning application (every application
-  containing the type, lens's application by default) and offers only that application's parent
-  types; both starter directions create, select and save. Delivered 2026-09-25.
-- [x] WP-10G: narrow mapping-dialog search keeps its height; draft-mismatch and historical-revision
-  notices name releases by key and version. Delivered 2026-09-25.
-- [x] Base 0.7 frontend redesign (header application tabs, Live/Drafts/History control, record tree,
-  Filter popover, lens tabs, mapping row actions) and dark mode with the settings menu, dark
-  accessibility scenarios and baselines. Delivered 2026-09-24 (`936a70e`, `315e6f7`).
-- [ ] Further conditional WP-10 slices: only confirmed missing foundation capabilities; required slices block 0.7
-  acceptance. WP-1–WP-3 are delivered and frozen; their implementation reviews stay separate.
+Base 0.7 is released (2026-09-25). Next: 0.8 Track S (scalable browsing), then arbitrary-depth tree
+browsing and translation screens. See [Next — 0.8 and beyond](#next--08-and-beyond).
 
 ## Open decisions
 
 None. Offset/limit pagination is closed by ADR-030 (accepted 2026-09-25): each request pages with a
 cursor or a position; the UI scrolls with cursors and jumps with positions. Delivered in 0.8 Track S.
 
-See `ROADMAP.md` for the 0.7 delivery scope, exit gate and full milestone sequence.
+See `ROADMAP.md` for the delivery scope, exit gates and full milestone sequence.
+
+## Base 0.7 delivery record (released 2026-09-25)
+
+WP-1–WP-9, WP-10A–K, WP-11, WP-12, WP-13A/B/C and WP-14 are complete, with ADR-022 relation-set
+versions, ADR-028 draft version selection, ADR-029 contextual collections, UI-07 gates, the frontend
+redesign and dark mode. See `CHANGELOG.md` and `BASE_0_7_IMPLEMENTATION_PLAN.md` for details.
 
 ## Base 0.6 delivery record (complete 2026-09-11)
 

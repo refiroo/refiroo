@@ -6,6 +6,8 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-25
+
 ### Added
 
 - Base 0.7 WP-9: composed acceptance for SC-07 and SC-15. `test:browser:sc07` resolves unmapped,
@@ -41,8 +43,7 @@ All notable changes to this project are documented in this file. The format foll
   relation update/delete advance both draft anchors' set versions only; runtime sources contain no
   starter-model key literal; live `date` values keep their type through write, boundary filters and
   sort; the mapping conflict retry sends the user's attempted target. Two confirmed defects are
-  reproduced and fixed as WP-10C and WP-10D (see Fixed); WP-10E remains open with a strict `xfail`
-  reproduction. One relation-set test duplicating stronger evidence was removed.
+  reproduced and fixed as WP-10C and WP-10D, and a third as WP-10E (see Fixed). One relation-set test duplicating stronger evidence was removed.
 
 - Base 0.7 WP-12: `GET /api/v1/model-releases/{releaseId}/activations` reads a release's recorded
   activations (oldest first, with the release each replaced). Models release details move the
@@ -59,6 +60,72 @@ All notable changes to this project are documented in this file. The format foll
   Account placeholder (local single-user session, disabled Sign in) for the planned multi-user
   authentication.
 - Dark accessibility scenarios (core pages and the settings menu) and four dark visual baselines.
+
+- Build 0.7 WP-7 browser draft version selection (ADR-028 frontend). Draft creation offers an
+  optional model-release selector when multiple releases are installed; default is the active release.
+  Draft list cards and detail header show each draft's model release key and version. An informational
+  banner explains the state when a draft's version differs from the active release, and activation is
+  disabled with a tooltip. A "Change model version" action in secondary draft actions loads available
+  releases, attempts the pin change via the WP-6 PATCH endpoint, shows incompatibility diagnostics
+  on failure and reloads the model context on success. Dirty-input protection via the existing
+  `allowNavigation()` guard before applying version changes. Model-context refresh after pin change
+  reloads the draft, pinned model and active release state; external pin change detection via
+  `useEffect` + `useRef` in `LoadedDraft`. `WorkspaceDraft` type extended with `modelReleaseKey` and
+  `modelReleaseVersion`. 169 frontend tests (5 new), zero lint errors, production build passes.
+
+- Build 0.7 WP-5 atomic mapping replacement API: `PUT /api/v1/workspaces/{workspaceKey}/mappings`
+  atomically creates, replaces or removes a mapping for one source in a configured relation binding.
+  Supports live and draft contexts with optimistic concurrency via `expectedMappingVersion` and
+  `expectedWorkspaceDraftVersion`. Direction-aware cross-cardinality enforcement (one-to-one always,
+  one-to-many outgoing only). Retained relation identity when resolving ambiguous→mapped. Typed
+  attribute semantics: omitted preserves retained edge values, explicit replaces, `{}` clears. Null
+  target with non-empty attributes rejected. Idempotent no-ops with valid tokens produce no version
+  increment or audit event. Stale tokens return `409 mapping_version_conflict` with bounded preview.
+  Single-direction set version increments avoid double counting. Containment and required-ownership
+  bindings rejected. Mapping-transition audit events with old/new targets and relation identities.
+  After acceptance follow-up: 73 replacement/activation integration tests; 486 backend tests pass
+  on SQLite.
+
+- Build 0.7 mapping list API: `GET /api/v1/workspaces/{workspaceKey}/mappings` returns cursor-paged
+  live/draft edges with optional binding, direction and name filters, directional set tokens, stored
+  typed relation attributes and optional view-specific projections. Omitting direction returns both
+  orientations of each edge; this supplements source-grouped coverage for integration reads.
+
+- Build 0.7 WP-4 mapping query APIs: workspace-scoped coverage, candidate search and version-bound
+  target details resolve the selected `mappingGrid` view under the live or draft-pinned model.
+  SQL pagination and batched reads return typed projections, mapped/unmapped/ambiguous states,
+  exact counts and at most 20 target summaries with explicit continuation. Cursors bind workspace,
+  context, model release, view, direction and query configuration.
+
+- Schema 0.6 `mappingGrid` view contract (Build 0.7 WP-2). The model language now accepts
+  `schemaVersion: "0.6"` alongside `"0.5"`. `MappingGridViewDefinition` joins `TableViewDefinition`
+  in a Pydantic discriminated union on `ViewDefinition.type`. Backend validation checks relation
+  binding existence, rejects containment (`parentOf`) and required-ownership bindings, validates
+  source/target columns against attached attributes, and verifies candidate search fields are
+  searchable target-type attributes. The starter model advances to schema 0.6 / content release 0.7.0
+  with two mapping grid views: `system-to-master-mapping` (outgoing) in RDM Systems and
+  `master-to-system-mapping` (incoming) in RDM Master. Frontend `ViewDefinition` is a TypeScript
+  discriminated union with type-safe narrowing; its initial placeholder was subsequently replaced by
+  the WP-8/WP-14 contextual lens. 11 new backend tests cover parse, activation, backward compatibility
+  and all validation rejection paths.
+
+- Relation-set version persistence and generic participation (Build 0.7 WP-3). Every generic relation
+  write (create, update, delete) now atomically maintains exact-binding set versions in both the
+  outgoing and incoming directions. The `relation_set_versions` table tracks the optimistic version
+  of each (workspace, optional draft, relation type, from/to object-type pair, anchor object,
+  direction) combination. Rows are created lazily on first touch with version 1; untouched sets have
+  implicit version 0. Draft-scoped and live-scoped versions are independent. Draft deletion cascades
+  set-version rows; draft activation merges draft mutation counts into live set versions. A partial
+  unique index protects live-context uniqueness where `workspace_draft_id IS NULL`. 9 focused tests
+  cover all mutation paths, independent bindings, draft/live isolation, cascade and activation merge.
+  All 379 backend tests pass.
+
+- UI-07 automated accessibility and visual-regression gates (WP-1). `npm run test:a11y` runs
+  axe-core WCAG 2.1 AA checks on 9 core page types across two object types; `npm run test:visual`
+  compares viewport screenshots against committed baselines using pixelmatch. ~16 color-contrast
+  violations fixed, definition-list structure corrected, sidebar landmark added. Two known violations
+  allowlisted with tracked references. Light-theme baselines committed; dark baselines followed with
+  dark mode.
 
 ### Changed
 
@@ -80,6 +147,26 @@ All notable changes to this project are documented in this file. The format foll
 - Mapping lenses: segmented coverage filter, row-click to map, a searchable radio list of
   candidates, **Save and next**, and an explicit **Remove mapping** action. Selecting nothing no
   longer turns the primary button into a clear operation.
+
+- Build 0.7 WP-14 composes model-defined table and mapping views as lenses of one contextual
+  collection. One application browser now presents virtual collection groups alongside runtime
+  hierarchy records, replacing the separate Browse hierarchy / Views modes. Direct-parent scope,
+  typed field facets and mapping coverage state are visible and URL-backed. Mapping coverage applies
+  parent/state filters before cursor pagination in live, draft and immutable-revision contexts, and
+  cursor fingerprints bind both values. This remains generic over configured applications, object
+  types, relations and renderers; Master, Systems and Translations remain starter examples.
+
+- The WP-8A/WP-8B review retained atomic mapping actions while removing duplicate configured name
+  columns and requiring explicit review before retrying after a mapping-version conflict. Historical
+  mapping reads now use revision projections and expose no mutation controls. Focused package evidence
+  covers both configured mapping directions, direct-parent scope, visible mapping-state filtering,
+  live replacement, narrow layout and the composed page's accessibility.
+
+- Extended the planned 0.7 design and delivery documentation after plan review: WP-1–WP-3 remain
+  frozen; later packages specify bounded view-based mapping reads, stable retained relation identities,
+  typed attributes, direction-aware constraints and atomic whole-candidate draft compatibility.
+  Mapping UI is split into WP-8A coverage and WP-8B actions; WP-9 expands integration/a11y/visual
+  evidence, with conditional WP-10 for confirmed foundation gaps.
 
 ### Fixed
 
@@ -146,101 +233,6 @@ All notable changes to this project are documented in this file. The format foll
   schema 0.5 or 0.6 candidate. The CLI reports expected refusals without a traceback, and the draft
   context regression now checks the current named-draft and version presentation. Visual capture
   waits for loaded panels, and the model-workbench baseline now covers the loaded release detail.
-
-### Changed
-
-- Build 0.7 WP-14 composes model-defined table and mapping views as lenses of one contextual
-  collection. One application browser now presents virtual collection groups alongside runtime
-  hierarchy records, replacing the separate Browse hierarchy / Views modes. Direct-parent scope,
-  typed field facets and mapping coverage state are visible and URL-backed. Mapping coverage applies
-  parent/state filters before cursor pagination in live, draft and immutable-revision contexts, and
-  cursor fingerprints bind both values. This remains generic over configured applications, object
-  types, relations and renderers; Master, Systems and Translations remain starter examples.
-
-- The WP-8A/WP-8B review retained atomic mapping actions while removing duplicate configured name
-  columns and requiring explicit review before retrying after a mapping-version conflict. Historical
-  mapping reads now use revision projections and expose no mutation controls. Focused package evidence
-  covers both configured mapping directions, direct-parent scope, visible mapping-state filtering,
-  live replacement, narrow layout and the composed page's accessibility. WP-9 still owns comprehensive
-  suites and visual-baseline release acceptance.
-
-- Extended the planned 0.7 design and delivery documentation after plan review: WP-1–WP-3 remain
-  frozen; later packages specify bounded view-based mapping reads, stable retained relation identities,
-  typed attributes, direction-aware constraints and atomic whole-candidate draft compatibility.
-  Mapping UI is split into WP-8A coverage and WP-8B actions; WP-9 expands integration/a11y/visual
-  evidence, with conditional WP-10 for confirmed foundation gaps. This is documentation work, not
-  implementation delivery or release acceptance evidence.
-
-### Added
-
-- Build 0.7 WP-7 browser draft version selection (ADR-028 frontend). Draft creation offers an
-  optional model-release selector when multiple releases are installed; default is the active release.
-  Draft list cards and detail header show each draft's model release key and version. An informational
-  banner explains the state when a draft's version differs from the active release, and activation is
-  disabled with a tooltip. A "Change model version" action in secondary draft actions loads available
-  releases, attempts the pin change via the WP-6 PATCH endpoint, shows incompatibility diagnostics
-  on failure and reloads the model context on success. Dirty-input protection via the existing
-  `allowNavigation()` guard before applying version changes. Model-context refresh after pin change
-  reloads the draft, pinned model and active release state; external pin change detection via
-  `useEffect` + `useRef` in `LoadedDraft`. `WorkspaceDraft` type extended with `modelReleaseKey` and
-  `modelReleaseVersion`. 169 frontend tests (5 new), zero lint errors, production build passes.
-
-- Build 0.7 WP-5 atomic mapping replacement API: `PUT /api/v1/workspaces/{workspaceKey}/mappings`
-  atomically creates, replaces or removes a mapping for one source in a configured relation binding.
-  Supports live and draft contexts with optimistic concurrency via `expectedMappingVersion` and
-  `expectedWorkspaceDraftVersion`. Direction-aware cross-cardinality enforcement (one-to-one always,
-  one-to-many outgoing only). Retained relation identity when resolving ambiguous→mapped. Typed
-  attribute semantics: omitted preserves retained edge values, explicit replaces, `{}` clears. Null
-  target with non-empty attributes rejected. Idempotent no-ops with valid tokens produce no version
-  increment or audit event. Stale tokens return `409 mapping_version_conflict` with bounded preview.
-  Single-direction set version increments avoid double counting. Containment and required-ownership
-  bindings rejected. Mapping-transition audit events with old/new targets and relation identities.
-  After acceptance follow-up: 73 replacement/activation integration tests; 486 backend tests pass
-  on SQLite.
-
-- Build 0.7 mapping list API: `GET /api/v1/workspaces/{workspaceKey}/mappings` returns cursor-paged
-  live/draft edges with optional binding, direction and name filters, directional set tokens, stored
-  typed relation attributes and optional view-specific projections. Omitting direction returns both
-  orientations of each edge; this supplements source-grouped coverage for integration reads.
-
-- Build 0.7 WP-4 mapping query APIs: workspace-scoped coverage, candidate search and version-bound
-  target details resolve the selected `mappingGrid` view under the live or draft-pinned model.
-  SQL pagination and batched reads return typed projections, mapped/unmapped/ambiguous states,
-  exact counts and at most 20 target summaries with explicit continuation. Cursors bind workspace,
-  context, model release, view, direction and query configuration. The mapping
-  browser workflow remains pending; replacement was subsequently delivered in WP-5. The WP-4
-  reviewed backend suite passed 401 tests on SQLite;
-  this does not establish composed product 0.7 or browser acceptance.
-
-- Schema 0.6 `mappingGrid` view contract (Build 0.7 WP-2). The model language now accepts
-  `schemaVersion: "0.6"` alongside `"0.5"`. `MappingGridViewDefinition` joins `TableViewDefinition`
-  in a Pydantic discriminated union on `ViewDefinition.type`. Backend validation checks relation
-  binding existence, rejects containment (`parentOf`) and required-ownership bindings, validates
-  source/target columns against attached attributes, and verifies candidate search fields are
-  searchable target-type attributes. The starter model advances to schema 0.6 / content release 0.7.0
-  with two mapping grid views: `system-to-master-mapping` (outgoing) in RDM Systems and
-  `master-to-system-mapping` (incoming) in RDM Master. Frontend `ViewDefinition` is a TypeScript
-  discriminated union with type-safe narrowing; its initial placeholder was subsequently replaced by
-  the WP-8/WP-14 contextual lens. 11 new backend tests cover parse, activation, backward compatibility
-  and all validation rejection paths.
-
-- Relation-set version persistence and generic participation (Build 0.7 WP-3). Every generic relation
-  write (create, update, delete) now atomically maintains exact-binding set versions in both the
-  outgoing and incoming directions. The `relation_set_versions` table tracks the optimistic version
-  of each (workspace, optional draft, relation type, from/to object-type pair, anchor object,
-  direction) combination. Rows are created lazily on first touch with version 1; untouched sets have
-  implicit version 0. Draft-scoped and live-scoped versions are independent. Draft deletion cascades
-  set-version rows; draft activation merges draft mutation counts into live set versions. A partial
-  unique index protects live-context uniqueness where `workspace_draft_id IS NULL`. 9 focused tests
-  cover all mutation paths, independent bindings, draft/live isolation, cascade and activation merge.
-  All 379 backend tests pass.
-
-- UI-07 automated accessibility and visual-regression gates (WP-1). `npm run test:a11y` runs
-  axe-core WCAG 2.1 AA checks on 9 core page types across two object types; `npm run test:visual`
-  compares viewport screenshots against committed baselines using pixelmatch. ~16 color-contrast
-  violations fixed, definition-list structure corrected, sidebar landmark added. Two known violations
-  allowlisted with tracked references. Light-theme baselines committed; dark-theme baselines deferred
-  until a dark theme exists.
 
 ## [0.6.0] - 2026-09-11
 

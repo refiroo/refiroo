@@ -13,7 +13,7 @@ The starter model contains three configured applications:
 They are starter definitions, not reserved engine modules. A model can replace them or add entirely
 different applications.
 
-## Current state — Base 0.6 released
+## Current state — Base 0.7 released
 
 - Global reusable attribute types and object-type attribute bindings
 - Forward/reverse typed relations, features and allowed object-type relation triples
@@ -50,26 +50,27 @@ different applications.
   and active Language-scoped uniqueness
 - A global model workbench for installed-release inspection and export, plus capability-gated JSON
   draft validation, comparison, installation and activation
+- Schema 0.6 `mappingGrid` views: live and draft mapping coverage, candidate search, version-bound
+  target details and atomic mapping replacement with relation-set concurrency (ADR-022)
+- One contextual application browser with table and mapping lenses, direct-parent scope, typed facets
+  and mapping coverage filters (ADR-029)
+- Workspace drafts on a chosen model release, so one draft can prepare a new release while live data
+  stays on the active one (ADR-028)
+- Release technical details and earlier-release → selected-release semantic comparison
+- Dark mode, automated accessibility (axe) and visual-regression gates
 - Docker development environment and continuous-integration workflow
 
 Base 0.5 supplies the bounded query and model-lifecycle foundations. Base 0.6 delivers daily live
-operations and optional coordinated design: a steward can maintain live records, fields, parents,
-relationships and translations without a draft; use optional workspace drafts for coordinated changes
-with delta-merge activation; browse newest-first immutable history; and retire publications truthfully.
-Automated accessibility and visual-regression tooling (UI-07), the schema 0.6 mapping-grid contract,
-and live/draft mapping coverage, version-bound target details and candidate search APIs (WP-4) are
-delivered. Atomic replacement (WP-5) retains relation identities and typed attributes and checks
-mapping/draft concurrency tokens. Cascade deletion invalidates affected mapping tokens (WP-10A);
-draft activation refuses divergent touched mapping sets before applying changes (WP-10B). The
-mapping renderer is currently a placeholder; see the
-[mapping API contract](docs/API.md#product-07-mapping-api-wp-4-and-wp-5-delivered). The full workflow and draft
-model-version selection remain planned 0.7 work, with translation and hierarchy interactions in 0.8.
-The [0.7 plan](docs/BASE_0_7_IMPLEMENTATION_PLAN.md) freezes WP1–WP3, splits mapping coverage/actions
-into WP8A/WP8B and assigns integration acceptance to WP9, with conditional WP10 for confirmed gaps.
+operations and optional coordinated design. Base 0.7 adds core mapping: a steward resolves unmapped,
+differently mapped and ambiguous rows in a configured mapping lens, live or in a draft, with conflicts
+reported rather than overwritten; and prepares a schema change in a draft pinned to a candidate release
+while live work continues. See the [mapping API contract](docs/API.md#product-07-mapping-api-wp-4-and-wp-5-delivered)
+and the [0.7 plan](docs/BASE_0_7_IMPLEMENTATION_PLAN.md). Scalable browsing, translation and hierarchy
+interactions follow in 0.8.
 
 Start with the [product functionality guide](docs/product-functionality/README.md) for available/planned
 functions, stories and realistic acceptance scenarios. The [delivery queue](docs/TODO.md) traces
-remaining 0.7 work. Historical schema replacement with preview and explicit loss confirmation is a
+the 0.8 work. Historical schema replacement with preview and explicit loss confirmation is a
 planned 0.10 migration, not a current force action.
 
 ## Run with Docker

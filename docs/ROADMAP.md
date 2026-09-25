@@ -8,9 +8,12 @@ The release train is 0.6 for daily live operations and optional coordinated desi
 hierarchy, 0.9 for integration APIs, 0.10 for production hardening and staged workspace model rollout,
 and 1.0 for self-service model authoring and extensions.
 
-## Current development baseline — Base 0.6 released, Base 0.7 next
+## Current development baseline — Base 0.7 released, Base 0.8 next
 
-Base 0.5 delivered the operational and model-release foundation. Base 0.6 is released (2026-09-11):
+Base 0.5 delivered the operational and model-release foundation. Base 0.7 is released (2026-09-25):
+core mapping as a lens of one contextual application browser, schema 0.6 `mappingGrid` views,
+ADR-022 relation-set concurrency and workspace drafts on a chosen model release (ADR-028). It builds on
+Base 0.6, released 2026-09-11:
 
 - Daily live operations: generic object, field, parent, relation and translation CRUD without a draft
 - Optional coordinated design: workspace drafts, validation, delta-merge activation over live content
@@ -67,7 +70,9 @@ sources and truthful publication retirement. WP10 validated the composed product
 (UI-01–UI-06) delivered compact navigation, focused collections, record inspector, inline field editing,
 resizable panels and refined draft presentation.
 
-## Product release 0.7 — Core mapping and contextual collection workspace
+## Product release 0.7 — Core mapping and contextual collection workspace (complete)
+
+Released 2026-09-25. Implementation: [`BASE_0_7_IMPLEMENTATION_PLAN.md`](BASE_0_7_IMPLEMENTATION_PLAN.md).
 
 ### Product outcome
 
@@ -106,7 +111,7 @@ or navigating low-level relation screens.
    agreement — or explicitly moved onto the new release where its content already fits it.
 10. UI-07 (carried from 0.6, delivered 2026-09-12): automated accessibility and visual-regression gates
     using the existing Playwright harness with `@axe-core/playwright` and visual comparison baselines.
-    Light-theme baselines committed; dark-theme baselines deferred until a dark theme exists.
+    Light-theme baselines committed; dark baselines followed with dark mode (2026-09-24).
 
 11. Keep WP-1–WP-3 frozen. Later packages add view-specific bounded mapping reads, retained relation
     identities, direction-aware constraints and atomic whole-candidate draft compatibility checks.
@@ -120,7 +125,7 @@ or navigating low-level relation screens.
     hardening, compact Modal version-change dialog, supported-schema pinned-model loading, retry-aware
     shell-aligned workspace errors and historical-release informational state. WP-12 (delivered
     2026-09-24) adds release identity details and earlier-to-selected release history comparison.
-14. WP-14, implemented and locally reviewed 2026-09-15 but not committed, normalizes the
+14. WP-14, delivered and committed 2026-09-15, normalizes the
     administrative UI after review of the WP-8A/WP-8B renderer:
     replace the hierarchy/views navigation switch with one application browser, group existing schema
     0.5/0.6 views by source object type as collection lenses, expose visible typed/scope/state facets,
@@ -130,8 +135,8 @@ or navigating low-level relation screens.
 15. WP-9 (passed 2026-09-25): composed SC-07/SC-15 acceptance and the full build gate. Residual gaps
     (record UUIDs in diagnostics, SQLite-only concurrency) are recorded in the plan.
 
-The [0.7 implementation plan](BASE_0_7_IMPLEMENTATION_PLAN.md) owns detailed follow-up acceptance
-criteria; [API.md](API.md) distinguishes these planned contracts from delivered endpoints.
+The [0.7 implementation plan](BASE_0_7_IMPLEMENTATION_PLAN.md) records detailed acceptance criteria
+and evidence; [API.md](API.md) documents the delivered endpoints.
 
 
 ### Validation improvement within 0.7

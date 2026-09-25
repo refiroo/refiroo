@@ -1,14 +1,8 @@
 # Base 0.7 implementation plan
 
-**Status:** In progress. WP-1–WP-7 and WP-11 delivered; WP-4 implementation review and the bounded
-WP-10A cascade-deletion version fix are complete. WP-5 acceptance follow-up and WP-10B activation
-hardening are delivered. The earlier WP-1–WP-3 review boundary remains separate;
-WP-1–WP-3 scopes are frozen. WP-6 backend, WP-7 frontend and WP-11 follow-up are delivered.
-WP-8A/WP-8B were reviewed and composed through WP-14 (ADR-029), committed 2026-09-15. WP-12 and
-WP-13A/B/C are delivered; WP-13A triggered WP-10C/WP-10D/WP-10E and WP-13C found WP-10F/WP-10G, all
-delivered (WP-10E/F/G on 2026-09-25). **WP-9 composed 0.7 acceptance passed on 2026-09-25**; it found and
-closed WP-10H/I/J; the draft-timestamp decision it surfaced was taken and delivered as WP-10K. All work
-packages are complete; cutting the 0.7.0 release is a separate step.
+**Status:** Released 2026-09-25. All work packages complete (WP-1–WP-9, WP-10A–K, WP-11, WP-12,
+WP-13A/B/C, WP-14), plus the frontend redesign and dark mode. WP-9 composed acceptance passed on
+2026-09-25; residual gaps are listed in its record below.
 
 **Target:** Product 0.7.0, schema language 0.6. The starter model content advances to a version on
 schema 0.6; that number alone does not mean the product release is accepted.
