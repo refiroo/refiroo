@@ -1246,8 +1246,8 @@ the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
 - Returns `{items, nextCursor}`. Each item contains `relationId`, `relationTypeKey`, `direction`
   (`"outgoing"` or `"incoming"`), `source` and `target` object summaries, the stored relation
   `attributes` and the source anchor's `mappingVersion`.
-- Pagination is currently cursor-based (sequential forward traversal only). Random-access page
-  navigation (offset/limit) is under consideration — see the open decision in `TODO.md`.
+- Pagination is cursor-based and currently forward only. Offset/limit paging is not planned
+  (ADR-030); 0.8 adds backward cursors, optional totals and seek by value.
 - Unlike coverage, the list shows only existing edges — unmapped sources do not appear. This is useful
   for export, integration, flat-list views, and ad-hoc exploration where the source-anchored grouping
   of coverage is not needed and parameters may not be known upfront.

@@ -904,3 +904,49 @@ its currently loaded runtime tree is an unbounded hierarchy query.
   still exposes its collections.
 - Live, Draft and History retain the same visible scope, with all history mutations absent.
 - No frontend or backend branch names a starter application, object type or relation key.
+
+## ADR-030 — Continuous scrolling over bidirectional cursors
+
+**Status:** Proposed, 2026-09-25; delivery belongs to Base 0.8 Track S
+([plan](BASE_0_8_IMPLEMENTATION_PLAN.md)). Closes the open offset/limit pagination decision.
+
+### Motivation
+
+Object types, hierarchy depth and relation volume come from the model and its data. A first level may
+hold 7 records or 7000, and one record may have 1500 relations. A 1000-record probe showed that
+Previous/Next paging without totals is tedious, that the sidebar tree is incomplete at volume, and that
+draft and history reads load whole sets into memory. Random-access page numbers (offset/limit) were
+proposed for UI tables and considered for integration clients.
+
+### Decision
+
+Every collection surface scrolls continuously in both directions over keyset cursors:
+
+1. The UI keeps a bounded window of pages, prefetches toward both edges and evicts pages far from the
+   viewport. Memory and DOM size do not grow with scroll distance.
+2. The API adds backward cursors (`prevCursor`), a last-page read, an `anchor` cursor for URLs, opt-in
+   `totalCount` and `startIndex`, and `seek` by sort value. Cursors stay signed and filter-bound.
+3. Offset/limit paging is not added. After an evicted page, offsets would re-read rows by position,
+   so a concurrent insert or delete repeats or skips rows exactly where the page rejoins the list.
+   Keyset cursors fetch relative to rows still on screen and stay correct.
+4. Dragging a scrollbar to an arbitrary position in a list larger than the window is not supported.
+   The scrollbar covers the loaded window; the list shows its position as "rows 401–420 of 1,000";
+   users jump to the start, the end or a value instead.
+5. Integration clients keep forward cursors, which are resumable and never skip rows under change.
+   They can request totals for progress; bulk export stays 0.9 scope.
+
+### Consequences
+
+- The AGENTS.md invariant "Collections use cursor pagination" is unchanged.
+- Draft and history reads must run in the database; loading whole sets per page is incompatible with
+  a prefetching UI.
+- The API changes are additive; the OpenAPI lock is re-baselined in the delivering package.
+- If real use later needs positional scrollbar seeking, it is a new decision limited to UI reads, and
+  it must keep cursors for everything after the jump.
+
+### Acceptance
+
+- Any collection in a generated model with 100,000 records scrolls both ways with flat memory in live,
+  draft and history contexts.
+- A concurrent insert between page reads causes no repeated or skipped row.
+- No frontend or backend branch names a starter application, object type or relation key.

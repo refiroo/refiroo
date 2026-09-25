@@ -17,8 +17,9 @@ SC-07 and SC-15 run as composed browser + API journeys (`test:browser:sc07`, `te
 `test_build07_wp9_acceptance.py`), the full backend/frontend suites, all browser runners and the
 accessibility and visual gates are green, and WP-10H/I/J found on the way are closed. The draft
 timestamp decision it surfaced is delivered as WP-10K (not recorded in drafts and history). All 0.7 work
-packages are complete; cutting the 0.7.0 release is the next step, then 0.8: lazy tree browsing to any
-depth and specialised translation screens. Residual gaps are listed in the
+packages are complete; cutting the 0.7.0 release is the next step, then 0.8: scalable browsing
+first ([Track S](BASE_0_8_IMPLEMENTATION_PLAN.md), ADR-030), then lazy tree browsing to any depth and
+specialised translation screens. Residual gaps are listed in the
 [plan's WP-9 record](BASE_0_7_IMPLEMENTATION_PLAN.md#wp-9-composed-product-validation--sc-07-and-sc-15).
 
 The generic model defines applications, object types, reusable fields, allowed relationships and views.
@@ -362,8 +363,9 @@ implementation package delivered: WP-1–WP-8B, WP-10A–G, WP-11, WP-12, WP-13A
 2026-09-24 frontend redesign and dark mode. WP-13A's [coverage map](testing/COVERAGE_MAP.md), WP-13B's
 [execution guide](testing/EXECUTION_GUIDE.md) and WP-13C's [UI acceptance](testing/UI_ACCEPTANCE.md)
 supply the audited selections. **Next: WP-9 composed acceptance**, which runs the comprehensive
-command set once. After it passes, 0.7 is released and 0.8 starts: lazy tree browsing to any depth
-and specialised translation screens ([roadmap](ROADMAP.md)).
+command set once. After it passes, 0.7 is released and 0.8 starts: scalable browsing first
+([Track S](BASE_0_8_IMPLEMENTATION_PLAN.md)), then lazy tree browsing to any depth and specialised
+translation screens ([roadmap](ROADMAP.md)).
 Use one implementation owner per slice, focused verification and appropriate review. Do not commit
 unless explicitly requested. Summarize each completed batch while work continues so scope can be
 corrected before the entire task finishes.

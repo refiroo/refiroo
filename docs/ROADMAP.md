@@ -166,7 +166,18 @@ acceptance gates rather than per-package requirements. See the [implementation p
 ## Product release 0.8 — Translation and hierarchy workspaces
 
 The two independently gated milestones may ship together, but neither may weaken runtime revision
-semantics.
+semantics. Track S comes first because both milestones browse large, model-defined collections.
+
+### Track S — Scalable browsing
+
+Every collection surface stays bounded for any model: continuous scrolling in both directions with
+prefetch and a bounded window, totals, jump to start, end or value, draft and history reads in the
+database, relation search and sort, and a sidebar tree that loads by parent
+([ADR-030](DECISIONS.md#adr-030--continuous-scrolling-over-bidirectional-cursors),
+[plan](BASE_0_8_IMPLEMENTATION_PLAN.md)).
+
+Exit: a generated model with 100,000 records scrolls both ways with flat memory in live, draft and
+history contexts within recorded budgets.
 
 ### Milestone A — Translation workspace
 
@@ -217,9 +228,8 @@ than UI endpoints or undocumented limits.
 4. Asynchronous import/export with validation previews and resumable job status.
 5. Ordered change feed and retryable webhooks.
 6. Bounded bulk relation/mapping operations with explicit concurrency semantics.
-7. Optional offset/limit pagination mode alongside cursor pagination, so frontend table UIs can
-   support random-access page navigation. Open decision: scope (all list endpoints vs. mapping-only)
-   and whether `totalCount` is always returned or only in offset mode.
+7. Offset/limit pagination was declined by ADR-030; bidirectional cursors, totals and seek by value
+   arrive in 0.8 Track S.
 
 ### Exit gate
 
