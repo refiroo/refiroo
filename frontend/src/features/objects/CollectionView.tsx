@@ -2,10 +2,11 @@
  * The table renderer behind every declared view type. Selected through `views/registry`.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
+import { isQueryableField } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import { InlineError } from "@/ui/InlineError";
 import { Icon, ModelIcon } from "@/ui/Icon";
@@ -23,7 +24,7 @@ export function ObjectCollectionView({
   application,
   view: rawView,
   workspaceKey,
-  query,
+  query: requestedQuery,
   onQueryChange,
   onOpen,
   readOnly = true,
@@ -32,8 +33,38 @@ export function ObjectCollectionView({
   selectedId,
   lenses,
 }: ViewComponentProps) {
-  const view = rawView as TableViewDefinition;
+  const declaredView = rawView as TableViewDefinition;
   const api = useDataApi();
+  const { draft, revision } = useWorkspaceData();
+  // Drafts and history record no timestamps, so they are neither offered nor requested there, and
+  // a view whose default sort is a timestamp sorts by name instead.
+  const live = !draft && !revision;
+  const view = useMemo<TableViewDefinition>(
+    () =>
+      live
+        ? declaredView
+        : {
+            ...declaredView,
+            config: {
+              ...declaredView.config,
+              filterFields: declaredView.config.filterFields.filter((field) => isQueryableField(field, false)),
+              sortFields: declaredView.config.sortFields.filter((field) => isQueryableField(field, false)),
+            },
+          },
+    [declaredView, live],
+  );
+  const queryableFilters = useMemo(
+    () =>
+      live ? requestedQuery.filters : requestedQuery.filters.filter((filter) => isQueryableField(filter.field, false)),
+    [requestedQuery.filters, live],
+  );
+  const query = live
+    ? requestedQuery
+    : {
+        ...requestedQuery,
+        sort: isQueryableField(requestedQuery.sort, false) ? requestedQuery.sort : "name",
+        filters: queryableFilters,
+      };
   const [creating, setCreating] = useState(false);
   const root = useRef<HTMLDivElement>(null);
   const previousSelection = useRef(selectedId);

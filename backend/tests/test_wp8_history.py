@@ -318,7 +318,7 @@ def test_revision_snapshot_parity_across_active_and_draft_read_contexts():
         assert graph_snapshot_sets(draft_snapshot) == graph_snapshot_sets(published)
 
         # The generic record representation is identical across the three read contexts for the same
-        # record (structural fields only -- the draft/revision builders emit request-time timestamps).
+        # record (structural fields only -- draft and revision rows record no timestamps).
         domain_id = graph["domain"]["id"]
         active_detail = client.get(
             f"/api/v1/objects/domain/{domain_id}", params={"workspaceKey": workspace_key}
@@ -332,6 +332,23 @@ def test_revision_snapshot_parity_across_active_and_draft_read_contexts():
         ).json()
         assert _canonical_object(active_detail) == _canonical_object(revision_detail)
         assert _canonical_object(draft_detail) == _canonical_object(revision_detail)
+        # WP-10K: live keeps its timestamps; history and drafts report them as absent rather than
+        # substituting the request time, and refuse queries on them instead of matching nothing.
+        assert active_detail["createdAt"] and active_detail["updatedAt"]
+        for detail in (revision_detail, draft_detail):
+            assert detail["createdAt"] is None and detail["updatedAt"] is None
+        for context in ({"workspaceRevisionId": revision_id}, {"workspaceDraftId": derived["id"]}):
+            for params, code in (
+                ({"filter.updatedAt.gte": "2000-01-01T00:00:00Z"}, "invalid_filter"),
+                ({"sort": "-createdAt"}, "invalid_sort"),
+            ):
+                refused = client.get("/api/v1/objects/domain", params={**context, **params})
+                assert refused.status_code == 422, refused.text
+                assert refused.json()["error"]["code"] == code
+        live_sorted = client.get(
+            "/api/v1/objects/domain", params={"workspaceKey": workspace_key, "sort": "-updatedAt"}
+        )
+        assert live_sorted.status_code == 200, live_sorted.text
 
         # A relation present in the graph reads with the same generic RelationResponse from every
         # context.  The active projection's per-anchor feed is the generic active relation read path;
@@ -343,6 +360,9 @@ def test_revision_snapshot_parity_across_active_and_draft_read_contexts():
             match = next(
                 item for item in items if item["relation"]["relationTypeKey"] == relation_type_key
             )
+            recorded = "workspaceKey" in context_params
+            assert (match["relation"]["createdAt"] is not None) is recorded
+            assert (match["relation"]["updatedAt"] is not None) is recorded
             return _canonical_relation(match["relation"])
 
         active_relation = relation_for_anchor({"workspaceKey": workspace_key}, "object-has-translation")

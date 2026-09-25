@@ -7,7 +7,8 @@ WP-1–WP-3 scopes are frozen. WP-6 backend, WP-7 frontend and WP-11 follow-up a
 WP-8A/WP-8B were reviewed and composed through WP-14 (ADR-029), committed 2026-09-15. WP-12 and
 WP-13A/B/C are delivered; WP-13A triggered WP-10C/WP-10D/WP-10E and WP-13C found WP-10F/WP-10G, all
 delivered (WP-10E/F/G on 2026-09-25). **WP-9 composed 0.7 acceptance passed on 2026-09-25**; it found and
-closed WP-10H/I/J. All work packages are complete; cutting the 0.7.0 release is a separate step.
+closed WP-10H/I/J; the draft-timestamp decision it surfaced was taken and delivered as WP-10K. All work
+packages are complete; cutting the 0.7.0 release is a separate step.
 
 **Target:** Product 0.7.0, schema language 0.6. The starter model content advances to a version on
 schema 0.6; that number alone does not mean the product release is accepted.
@@ -1248,9 +1249,11 @@ migration/bootstrap evidence is reused.
 - The SC-07 runner's own early failures were debounce races. It now waits for the exact search
   response before choosing, and passed four consecutive runs.
 
-*Open decision.* The coverage map asks for a decision before 0.7 acceptance on draft built-in
-timestamps: draft-local records have no `createdAt`/`updatedAt`, so those filters match none of them in
-a draft list. This is pre-existing behavior, and WP-9 did not decide it.
+*Decision taken after WP-9 (user, 2026-09-25).* The coverage map asked for a decision on built-in
+timestamps in drafts before 0.7 acceptance. Investigation showed it was wider than filters. Draft and
+history responses filled `createdAt`/`updatedAt` with the request time, timestamp filters silently
+matched nothing, and timestamp sorts fell back to ID order. The user chose to report timestamps as not
+recorded (WP-10K). Recording real timestamps in drafts and history is on the roadmap, unscheduled.
 
 *Residual gaps (not release blockers, recorded for later work).*
 
@@ -1271,8 +1274,8 @@ a draft list. This is pre-existing behavior, and WP-9 did not decide it.
 
 **Status:** WP-10A and WP-10B delivered after WP-4/WP-5 review (2026-09-14). WP-10C and WP-10D,
 triggered by the WP-13A audit, were delivered on 2026-09-24. WP-10E (found while validating WP-10C)
-and WP-10F/WP-10G (found by WP-13C) were delivered on 2026-09-25, as were WP-10H/I/J (found by WP-9).
-No further slice is open.
+and WP-10F/WP-10G (found by WP-13C) were delivered on 2026-09-25, as were WP-10H/I/J (found by WP-9)
+and WP-10K (the decision WP-9 surfaced). No further slice is open.
 
 **WP-10A — Cascade-deletion relation-set participation:** HTTP reproduction in both live and
 current-live draft contexts: deleting a mapped system value reduced incoming coverage from 21
@@ -1430,6 +1433,22 @@ diagnostics list; joined messages end the server sentence first. Component regre
 `services/attributes.validate_attributes`. *Delivered:* messages name the model fields (“Required fields
 are missing: External ID”); keys move to `details.attributeTypeKeys`. Codes are unchanged. Live and
 draft-graph regressions assert both.
+
+**WP-10K — Timestamps not recorded in drafts and history (decision after WP-9; delivered 2026-09-25):**
+Draft, draft-base and revision rows have no timestamp columns. Object and relation responses in those
+contexts invented `createdAt`/`updatedAt` as the request time. Timestamp filters excluded every record
+without an error, and timestamp sorts had no effect. Only models whose views declare these fields
+expose them in the browser; the starter has none. *Decision (user):* say “not recorded” now and put
+recorded timestamps on the roadmap without a release. *Delivered:* `ObjectResponse` and
+`RelationResponse` timestamps are nullable (the OpenAPI lock was re-baselined, and the diff showed only
+those four fields). Draft and revision responses return `null`. Filters and sorts on them are refused
+with `422 invalid_filter`/`invalid_sort` naming the field, while live responses and queries are
+unchanged. The collection view neither offers nor sends these fields in a draft or history, and a view
+whose default sort is a timestamp sorts by name there; an unrecorded column shows “—”. No migration.
+Evidence: `test_wp8_history` snapshot parity (live has timestamps; revision and draft objects and
+relations return null and refuse both queries), `test_query_foundations` live/draft sort traversal,
+`test_typed_table_queries` draft refusals, `CollectionView.test.tsx` (live, draft ×2 object types,
+history), and `test:browser:drafts`, `:history` and `:sc15`.
 
 **WP-5 acceptance follow-up (delivered 2026-09-14):** Add independent-binding isolation in live/draft
 contexts, required-ownership rejection, forbidden clearing, and overlapping real HTTP generic

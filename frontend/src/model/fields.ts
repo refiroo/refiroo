@@ -37,3 +37,11 @@ export function fieldValue(item: ObjectItem, key: string, model: EngineModel): u
   if (key === "updatedAt") return item.updatedAt;
   return item.attributes.find((attribute) => attribute.attributeTypeKey === key)?.value;
 }
+
+/** Built-in timestamps are recorded for live records only; drafts and history have none. */
+const LIVE_ONLY_FIELDS = ["createdAt", "updatedAt"];
+
+/** Whether a field (or a `-field` sort) can be filtered or sorted in this data context. */
+export function isQueryableField(field: string, live: boolean) {
+  return live || !LIVE_ONLY_FIELDS.includes(field.replace(/^-/, ""));
+}

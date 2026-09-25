@@ -83,6 +83,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+- Base 0.7 WP-10K: records and relations read in a draft or from history no longer show the current
+  time as their created and updated times. These are not recorded there, so the API returns `null`
+  (the fields are now nullable), filtering or sorting by them is refused with an explanation instead
+  of matching nothing, and collection views neither offer nor send them outside live data.
 - Base 0.7 WP-10H: the mapping dialog no longer offers **Remove mapping** for a required
   relationship, which the server refuses; it asks for a replacement instead.
 - Base 0.7 WP-10I: starting a draft on an incompatible model release lists the records that do not

@@ -1,4 +1,3 @@
-from datetime import UTC, datetime
 from typing import Literal
 
 from fastapi import APIRouter, Query, Response, status
@@ -45,8 +44,8 @@ from .objects import _draft_object_response
 router = APIRouter(prefix="/api/v1", tags=["relations"])
 
 def _draft_response(item) -> RelationResponse:
-    now = datetime.now(UTC)
-    return RelationResponse(id=item.relation_id, relationTypeKey=item.relation_type_key, fromObjectId=item.from_object_id, toObjectId=item.to_object_id, attributes=item.attributes or {}, version=item.version, createdAt=now, updatedAt=now)
+    # Draft and history relations record no timestamps (WP-10K); never substitute the current time.
+    return RelationResponse(id=item.relation_id, relationTypeKey=item.relation_type_key, fromObjectId=item.from_object_id, toObjectId=item.to_object_id, attributes=item.attributes or {}, version=item.version, createdAt=None, updatedAt=None)
 
 def _ctx(draft: str, expected: int | None) -> int:
     if expected is None:

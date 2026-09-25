@@ -15,7 +15,8 @@ destination. The Base 0.7 frontend redesign (`936a70e`) and dark mode with the s
 delivered; WP-10E/F/G closed on 2026-09-25. **WP-9 composed build acceptance passed on 2026-09-25**:
 SC-07 and SC-15 run as composed browser + API journeys (`test:browser:sc07`, `test:browser:sc15`,
 `test_build07_wp9_acceptance.py`), the full backend/frontend suites, all browser runners and the
-accessibility and visual gates are green, and WP-10H/I/J found on the way are closed. All 0.7 work
+accessibility and visual gates are green, and WP-10H/I/J found on the way are closed. The draft
+timestamp decision it surfaced is delivered as WP-10K (not recorded in drafts and history). All 0.7 work
 packages are complete; cutting the 0.7.0 release is the next step, then 0.8: lazy tree browsing to any
 depth and specialised translation screens. Residual gaps are listed in the
 [plan's WP-9 record](BASE_0_7_IMPLEMENTATION_PLAN.md#wp-9-composed-product-validation--sc-07-and-sc-15).

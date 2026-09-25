@@ -766,6 +766,11 @@ ordering uses the internal sequence as a non-public final tie-breaker. Omitting 
 creation sequence order. Page size defaults to 100 and has a documented maximum of 500.
 `nextCursor` is null only when that traversal is complete.
 
+Drafts and history record no timestamps. In a `workspaceDraftId` or `workspaceRevisionId` context,
+object and relation responses return `createdAt` and `updatedAt` as `null`, and a filter or sort on
+either field is refused with `422 invalid_filter` or `invalid_sort` (“Created is not recorded in drafts
+or history”) instead of matching nothing. Live responses always carry both timestamps.
+
 Text filters support `eq`, `contains`, `startsWith` and `isNull`; number, date and datetime filters
 support `eq`, `lt`, `lte`, `gt`, `gte` and `isNull`; booleans support `eq` and `isNull`. Attribute
 fields also support `isUnset`. `isNull` and `isUnset` take `true` or `false`; boolean values use the

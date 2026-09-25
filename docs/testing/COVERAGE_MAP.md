@@ -235,7 +235,8 @@ integer draft paging in both sort directions in `::numeric_ranges_and_capability
 - **Draft built-in timestamps:** draft-local records carry no `createdAt`/`updatedAt`, so those
   filters match none of them in a draft list (pre-existing; not changed by WP-10C, which only stopped
   mixed naive/aware comparisons from failing). Decide the intended draft semantics before 0.7 acceptance.
-  **Still open at WP-9 (2026-09-25):** a product decision, not made here; recorded in the WP-9 gaps.
+  **Decided and delivered as WP-10K (2026-09-25):** draft and history responses return null
+  timestamps and refuse timestamp filters/sorts; recording them is an unscheduled roadmap item.
 - **Order-dependent test (resolved in WP-13B):** `pagination::statement_paginator_accepts_the_historical_draft_cursor_identity`
   failed when run alone (no schema yet); it now owns a migrated database.
 - **Concurrency** is proven on SQLite only; PostgreSQL locking behavior is not exercised. WP-9 did not

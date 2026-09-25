@@ -5,9 +5,11 @@ from app.main import app, create_app
 
 
 def test_base_0_7_wp12_openapi_document_is_locked():
+    # Re-baselined for WP-10K: object and relation timestamps are nullable (not recorded in drafts
+    # and history). That was the only schema difference.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "9a1664a8e2cb50900d64d8fc699f9a4cd3bb05c0e91c77e38d725d2b5716fafc"
+        "7cec49e9321f292d2940049cbb3a7d82e729675a4af040cf3fda517346eb3f60"
     )
 
 

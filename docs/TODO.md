@@ -84,6 +84,9 @@ translation screens).
   generic-write races and a live same-set conflict before activation; full build gate green. Found and
   closed WP-10H/I/J; fixed two browser-runner races, a shared-database test query and two stale
   Models baselines. 2026-09-25.
+- [x] WP-10K (decision surfaced by WP-9): drafts and history report timestamps as not recorded
+  (null, refused filters/sorts) instead of inventing the request time. Recording them is an
+  unscheduled roadmap item. 2026-09-25.
 - [ ] Cut the 0.7.0 release (changelog section, versions) — separate from WP-9.
 - [x] WP-10A: live/draft cascade deletion advances affected mapping-set versions atomically; stale
   target continuations require refresh. Delivered with WP-4 review, 2026-09-14.

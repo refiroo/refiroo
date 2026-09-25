@@ -1,5 +1,7 @@
 from uuid import uuid4
 
+import pytest
+from fastapi.testclient import TestClient as LiveTestClient
 from test_api import DraftTestClient as TestClient
 
 from app.main import app
@@ -114,20 +116,24 @@ def test_object_lifecycle_is_bound_to_cursor_filters_and_sort():
         assert mismatched.json()["error"]["code"] == "invalid_cursor"
 
 
-def test_every_built_in_object_sort_supports_cursor_traversal():
+@pytest.mark.parametrize("context", ["live", "draft"])
+def test_every_built_in_object_sort_supports_cursor_traversal(context):
     token = f"WP5_{uuid4().hex[:8]}"
-    with TestClient(app) as client:
+    client_type = LiveTestClient if context == "live" else TestClient
+    with client_type(app) as client:
         created = {
             _create_domain(client, token, index)["id"] for index in range(1, 4)
         }
-        for sort in (
-            "name",
-            "-name",
-            "createdAt",
-            "-createdAt",
-            "updatedAt",
-            "-updatedAt",
-        ):
+        if context == "draft":
+            # Drafts record no timestamps (WP-10K): a timestamp sort is refused explicitly.
+            for sort in ("createdAt", "-updatedAt"):
+                refused = client.get(
+                    "/api/v1/objects/domain", params={"search": token, "sort": sort}
+                )
+                assert refused.status_code == 422, refused.text
+                assert refused.json()["error"]["code"] == "invalid_sort"
+        timestamp_sorts = ("createdAt", "-createdAt", "updatedAt", "-updatedAt")
+        for sort in ("name", "-name", *(timestamp_sorts if context == "live" else ())):
             seen: list[str] = []
             cursor = None
             while True:

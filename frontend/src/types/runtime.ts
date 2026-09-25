@@ -15,8 +15,9 @@ export interface ObjectItem {
   path: Array<{ id: string; name: string; objectTypeKey: string }>;
   attributes: ObjectAttributeValue[];
   version: number;
-  createdAt: string;
-  updatedAt: string;
+  /** Null in drafts and history, which do not record timestamps. */
+  createdAt: string | null;
+  updatedAt: string | null;
 }
 
 export interface Workspace {
@@ -73,8 +74,9 @@ export interface RelationRecord {
   toObjectId: string;
   attributes: Record<string, unknown>;
   version: number;
-  createdAt?: string;
-  updatedAt?: string;
+  /** Null in drafts and history, which do not record timestamps. */
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface RelationItem {

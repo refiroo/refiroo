@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime
 
 from fastapi import APIRouter, Query, Request, Response, status
 from sqlalchemy import select
@@ -28,6 +28,7 @@ from ..services.objects import (
     OBJECT_SORT_COLUMNS,
     _built_in_value_type,
     _parse_filter_value,
+    _query_error,
     build_object_query,
     build_object_responses,
     create_object_record,
@@ -48,19 +49,33 @@ from ..services.workspaces import resolve_workspace
 router = APIRouter(prefix="/api/v1", tags=["objects"])
 
 
+# Draft and history rows record no timestamps; a query on them is refused, not matched as empty.
+_UNRECORDED_TIMESTAMPS = {"createdAt": "Created", "updatedAt": "Updated"}
+
+
 def _sequence_object_rows(
     rows, *, model, object_type_key, application_key, parent_object_id, search, sort, filters
 ):
     """Apply the public query contract to immutable draft/revision projections."""
+    for field, operator, _raw in filters:
+        if field in _UNRECORDED_TIMESTAMPS:
+            _query_error(
+                "invalid_filter",
+                f"{_UNRECORDED_TIMESTAMPS[field]} is not recorded in drafts or history",
+                f"filter.{field}.{operator}",
+            )
+    if (sort or "").removeprefix("-") in _UNRECORDED_TIMESTAMPS:
+        _query_error(
+            "invalid_sort",
+            f"{_UNRECORDED_TIMESTAMPS[sort.removeprefix('-')]} is not recorded in drafts or history",
+            "sort",
+        )
 
     def value(item, field):
         if field == "id":
             return item.object_id
         if field == "name":
             return item.name
-        if field in {"createdAt", "updatedAt"}:
-            stamp = getattr(item, "created_at" if field == "createdAt" else "updated_at", None)
-            return as_utc(stamp) if stamp is not None else None
         stored = (item.attributes or {}).get(field)
         definition = model.attribute_type(field)
         if stored is None or definition is None:
@@ -180,8 +195,9 @@ def _draft_object_response(item, draft_id: str, model, *, objects=None) -> Objec
         path=path,
         attributes=attrs,
         version=item.version,
-        createdAt=getattr(item, "created_at", None) or datetime.now(UTC),
-        updatedAt=getattr(item, "updated_at", None) or datetime.now(UTC),
+        # Not recorded for draft and history rows (WP-10K); never substitute the current time.
+        createdAt=None,
+        updatedAt=None,
     )
 
 

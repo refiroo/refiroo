@@ -377,6 +377,8 @@ def test_draft_writes_keep_decimal_datetime_and_date_values_through_activation(t
     }
     draft_read = client.get(f"/api/v1/objects/domain/{record['id']}", params=context)
     assert values(draft_read.json()) == expected
+    # Drafts record no timestamps (WP-10K): report them as absent, never as the current time.
+    assert draft_read.json()["createdAt"] is None and draft_read.json()["updatedAt"] is None
     for params, found in (
         ({"filter.wp10-amount.gt": "6.5"}, True),
         ({"filter.wp10-amount.gt": "10"}, False),
@@ -390,13 +392,16 @@ def test_draft_writes_keep_decimal_datetime_and_date_values_through_activation(t
         listed = client.get("/api/v1/objects/domain", params={**context, **params})
         assert listed.status_code == 200, (params, listed.text)
         assert (record["id"] in [item["id"] for item in listed.json()["items"]]) is found, params
-    # Built-in timestamps compare as instants whether or not the filter names an offset.
-    for params in (
-        {"filter.createdAt.gte": "2000-01-01T00:00:00", "sort": "-updatedAt"},
-        {"filter.updatedAt.lt": "2000-01-01T00:00:00+02:00"},
+    # Built-in timestamps are not recorded in a draft: a query on them is refused, not matched empty.
+    for params, code, message in (
+        ({"filter.createdAt.gte": "2000-01-01T00:00:00"}, "invalid_filter", "Created"),
+        ({"filter.updatedAt.lt": "2000-01-01T00:00:00+02:00"}, "invalid_filter", "Updated"),
+        ({"sort": "-updatedAt"}, "invalid_sort", "Updated"),
     ):
         listed = client.get("/api/v1/objects/domain", params={**context, **params})
-        assert listed.status_code == 200, (params, listed.text)
+        assert listed.status_code == 422, (params, listed.text)
+        assert listed.json()["error"]["code"] == code
+        assert listed.json()["error"]["message"] == f"{message} is not recorded in drafts or history"
 
     activated = client.post(
         f"/api/v1/workspace-drafts/{draft['id']}/activation",

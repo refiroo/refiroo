@@ -88,8 +88,9 @@ class ObjectResponse(BaseModel):
     path: list[dict[str, str]]
     attributes: list[AttributeOutput]
     version: int
-    createdAt: datetime
-    updatedAt: datetime
+    # Null in draft and history contexts, which do not record timestamps.
+    createdAt: datetime | None
+    updatedAt: datetime | None
     workspaceDraftVersion: int | None = None
 
 
@@ -249,8 +250,9 @@ class RelationUpdate(BaseModel):
 class RelationResponse(RelationCreate):
     id: str
     version: int
-    createdAt: datetime
-    updatedAt: datetime
+    # Null in draft and history contexts, which do not record timestamps.
+    createdAt: datetime | None
+    updatedAt: datetime | None
     workspaceDraftVersion: int | None = None
 
 

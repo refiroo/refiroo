@@ -308,6 +308,14 @@ JSON workbench and lifecycle foundation.
 | 0.10 production | US-S01, US-O03–O06, US-P07 | SC-13 | Protected operation, measured recovery and consistent model selection |
 | 1.0 authoring | US-P05, US-P08 | SC-12 through structured tools and reuse cases | Existing immutable definitions, validation and release safety |
 
+### Unscheduled
+
+- **Recorded timestamps in drafts and history.** Since 0.7 (WP-10K), drafts and history report `createdAt`
+  and `updatedAt` as not recorded and refuse queries on them. Recording them would add timestamp columns
+  to draft, draft-base and revision rows (captured values keep the live timestamps; draft writes set
+  their own). That needs a migration and a decision on what `updatedAt` means after activation (draft
+  edit time or publication time). Not assigned to a release.
+
 Earlier milestones are pre-production functionality; 0.10 is the gate for authenticated shared
 production operation. Release numbers specify sequence, not dates. Detailed format, query, validity,
 recovery and reuse contracts must be recorded before their implementation packages. Unscheduled

@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { domainObject, testModel } from "@/test/fixtures";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
+import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
+import type { WorkspaceDraft, WorkspaceRevision } from "@/types";
 
 vi.mock("@/api/client", () => ({
   ApiError: class ApiError extends Error {},
@@ -248,4 +250,97 @@ it.each(["domain", "codelist"])("preserves typed filters and query/display owner
   fireEvent.click(screen.getByRole("button", { name: /Name/ }));
   expect(latest!.sort).toBe("-name");
   expect(screen.getByRole("columnheader", { name: /Name/ })).toHaveAttribute("aria-sort", "descending");
+});
+
+describe("timestamps outside live data (WP-10K)", () => {
+  const timestampView = (objectTypeKey: string): TableViewDefinition => ({
+    key: `${objectTypeKey}-timestamps`,
+    name: "Timestamps",
+    type: "table",
+    objectTypeKey,
+    config: {
+      columns: ["name", "updatedAt"],
+      filterFields: ["code", "createdAt"],
+      sortFields: ["name", "updatedAt"],
+      defaultSort: "-updatedAt",
+      pageSize: 20,
+    },
+  });
+  const timestampQuery: CollectionQueryState = {
+    search: "",
+    sort: "-updatedAt",
+    pageSize: 20,
+    filters: [{ field: "createdAt", operator: "gte", value: "2026-01-01T00:00" }],
+  };
+  function renderIn(objectTypeKey: string, context: "live" | "draft" | "revision") {
+    vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+      api,
+      warning: "",
+      ...(context === "draft" ? { draft: { id: "d1" } as WorkspaceDraft } : {}),
+      ...(context === "revision" ? { revision: { id: "r1" } as WorkspaceRevision } : {}),
+    });
+    vi.mocked(api.objects).mockResolvedValue({
+      items: [
+        {
+          ...domainObject,
+          objectTypeKey,
+          createdAt: context === "live" ? domainObject.createdAt : null,
+          updatedAt: null,
+        },
+      ],
+      nextCursor: null,
+    });
+    render(
+      <CollectionView
+        model={testModel}
+        application={testModel.applications[0]}
+        view={timestampView(objectTypeKey)}
+        workspaceKey="west"
+        query={timestampQuery}
+        onQueryChange={vi.fn()}
+        onOpen={vi.fn()}
+      />,
+    );
+  }
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    vi.clearAllMocks();
+  });
+
+  it("requests and offers timestamps in live data", async () => {
+    renderIn("domain", "live");
+    await waitFor(() =>
+      expect(api.objects).toHaveBeenCalledWith(
+        "domain",
+        expect.objectContaining({ sort: "-updatedAt", filters: timestampQuery.filters }),
+      ),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Filter/ }));
+    expect(await screen.findByRole("combobox", { name: "Created operator" })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["domain", "draft"],
+    ["codelist", "draft"],
+    ["domain", "revision"],
+  ] as const)("neither requests nor offers them for %s records in a %s", async (objectTypeKey, context) => {
+    renderIn(objectTypeKey, context);
+    await waitFor(() =>
+      expect(api.objects).toHaveBeenCalledWith(objectTypeKey, expect.objectContaining({ sort: "name", filters: [] })),
+    );
+    // An unrecorded timestamp column reads as absent, never as a date.
+    const row = (await screen.findByRole("button", { name: "Connections" })).closest("tr")!;
+    expect(within(row).getByText("—")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Filter/ }));
+    await screen.findByRole("combobox", { name: "Code operator" });
+    expect(screen.queryByRole("combobox", { name: "Created operator" })).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("dialog", { name: "Filter" }), { key: "Escape" });
+    fireEvent.click(await screen.findByRole("button", { name: /^Sort/ }));
+    fireEvent.keyDown(await screen.findByRole("button", { name: /name.*sort/i }), {
+      key: "ArrowDown",
+      code: "ArrowDown",
+    });
+    await screen.findByRole("option", { name: "Name (ascending)" });
+    expect(screen.queryByRole("option", { name: /Updated/ })).not.toBeInTheDocument();
+  });
 });
