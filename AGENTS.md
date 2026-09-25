@@ -27,7 +27,8 @@ Master, Systems and Translations are starter applications, not hardcoded modules
 - Parent containment is both an object hierarchy and a typed relation, maintained atomically.
 - UI renderers may implement generic view types but must not branch on application or object-type keys.
 - Every model reference is validated at startup and should fail with a precise path and reason.
-- Public APIs never use an undocumented result cap. Collections use cursor pagination.
+- Public APIs never use an undocumented result cap. Collections use cursor pagination; 0.8 Track S adds
+  position paging for jumps (ADR-030): the UI scrolls with cursors and jumps with positions.
 - Bulk and integration APIs are first-class features, not wrappers around UI calls.
 - Public IDs and model keys are stable. Never expose database sequence IDs as domain identifiers.
 - Attribute values retain their declared types. Do not reduce booleans, numbers or dates to strings.

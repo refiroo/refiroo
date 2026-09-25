@@ -114,8 +114,8 @@ translation screens).
 
 ## Open decisions
 
-None. Offset/limit pagination was proposed and is closed by ADR-030 (2026-09-25): continuous
-scrolling over bidirectional cursors, with totals and seek by value, in 0.8 Track S.
+None. Offset/limit pagination is closed by ADR-030 (accepted 2026-09-25): each request pages with a
+cursor or a position; the UI scrolls with cursors and jumps with positions. Delivered in 0.8 Track S.
 
 See `ROADMAP.md` for the 0.7 delivery scope, exit gate and full milestone sequence.
 
@@ -128,8 +128,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 
 - [ ] 0.8 Track S — scalable browsing ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md), ADR-030), first:
   - [ ] S1 volume fixture and baseline over a generated model.
-  - [ ] S2 draft and history reads in the database (decision D1: typed value rows).
-  - [ ] S3 bidirectional cursors, anchor, totals and seek by value.
+  - [ ] S2 draft and history reads in the database (D1 accepted: typed value rows).
+  - [ ] S3 cursor and position paging: backward cursors, anchor, totals, seek by value, `position`.
   - [ ] S4 top-level filter; relation search and sort.
   - [ ] S5 shared continuous-scroll list with loading and end markers.
   - [ ] S6 sidebar tree by parent, replacing **Load more objects**.

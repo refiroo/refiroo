@@ -171,9 +171,9 @@ semantics. Track S comes first because both milestones browse large, model-defin
 ### Track S — Scalable browsing
 
 Every collection surface stays bounded for any model: continuous scrolling in both directions with
-prefetch and a bounded window, totals, jump to start, end or value, draft and history reads in the
+prefetch and a bounded window, totals, jumps by scrollbar, page number, start, end or value, draft and history reads in the
 database, relation search and sort, and a sidebar tree that loads by parent
-([ADR-030](DECISIONS.md#adr-030--continuous-scrolling-over-bidirectional-cursors),
+([ADR-030](DECISIONS.md#adr-030--cursor-and-position-paging-with-continuous-scrolling),
 [plan](BASE_0_8_IMPLEMENTATION_PLAN.md)).
 
 Exit: a generated model with 100,000 records scrolls both ways with flat memory in live, draft and
@@ -228,8 +228,8 @@ than UI endpoints or undocumented limits.
 4. Asynchronous import/export with validation previews and resumable job status.
 5. Ordered change feed and retryable webhooks.
 6. Bounded bulk relation/mapping operations with explicit concurrency semantics.
-7. Offset/limit pagination was declined by ADR-030; bidirectional cursors, totals and seek by value
-   arrive in 0.8 Track S.
+7. Position (page-number) paging alongside cursors, with bidirectional cursors, totals and seek by
+   value, arrives in 0.8 Track S (ADR-030).
 
 ### Exit gate
 

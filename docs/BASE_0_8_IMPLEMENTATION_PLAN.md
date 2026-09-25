@@ -33,7 +33,7 @@ isolated database through the real API and browser. The findings, confirmed in c
 
 Object types, hierarchy depth and relation volume come from the model and its data, not from code.
 Nothing guarantees a first level of 7 records rather than 7000, so every collection surface must stay
-bounded for any model. [ADR-030](DECISIONS.md#adr-030--continuous-scrolling-over-bidirectional-cursors)
+bounded for any model. [ADR-030](DECISIONS.md#adr-030--cursor-and-position-paging-with-continuous-scrolling)
 records the chosen approach.
 
 ## Product outcome
@@ -42,19 +42,20 @@ A steward scrolls any collection continuously in both directions: collection len
 relation panels, the mapping lens, pickers and every sidebar tree branch. Rows ahead are fetched
 before they are needed. A small marker appears only when the user actually waits, and quiet markers
 show the start and end of the list. Memory and DOM size stay flat however far the user scrolls. A
-list shows its total, can jump to its start, its end or a value (for example "go to M"), and a copied
-URL reopens at the same place. This holds in live, draft and history contexts for any model.
+list shows its total and a proportional scrollbar; clicking or dragging it, or entering a page number,
+jumps there. The user can also jump to the start, the end or a value (for example "go to M"), and a
+copied URL reopens at the same place. This holds in live, draft and history contexts for any model.
 
 ## Principles and exclusions
 
-1. Collections keep cursor pagination (AGENTS.md invariant). No offset-based paging is added.
+1. Each request pages with a cursor or a position, never both. The UI scrolls with cursors and
+   jumps with positions (ADR-030).
 2. Every addition is generic: no branch on application, object-type or relation-type keys.
 3. Draft and history reads return the same results as today; only where the work happens changes.
 4. Additive API changes only. Existing clients that pass `cursor` and read `nextCursor` keep working.
 5. A read's cost depends on the page size and the hierarchy depth, not on the size of the dataset.
 
-Excluded: dragging the scrollbar to an arbitrary position in a list larger than the loaded window
-(ADR-030); the typed `tree` view contract, reparenting and child creation of Milestone B; translation
+Excluded: the typed `tree` view contract, reparenting and child creation of Milestone B; translation
 coverage of Milestone A; bulk and export APIs (0.9).
 
 ## Work packages — Track S
@@ -101,7 +102,7 @@ reads growing with the dataset while live reads do not.
 6. Add a parity test: the same query in live, draft and history returns the same rows in the same
    order when the three contexts hold the same data.
 
-**Decision needed — D1, typed values for draft/history queries.** Live values sit in a typed
+**Decision D1 — typed values for draft/history queries (accepted 2026-09-25: typed value rows).** Live values sit in a typed
 `attribute_values` table; draft and revision rows store them as JSON. Two options:
 
 - Extract typed values from JSON per dialect. No migration, but decimal comparison through floats is
@@ -110,7 +111,7 @@ reads growing with the dataset while live reads do not.
   more storage, but gives exact typed comparison and indexes, and lets one query builder serve all
   three contexts.
 
-_Recommendation:_ typed value rows. Attribute values must keep their declared types, and one builder
+_Accepted:_ typed value rows. Attribute values must keep their declared types, and one builder
 for every context removes a class of parity defects. The migration follows the AGENTS.md startup
 rules: clean bootstrap, upgrade from the preceding revision, restart, interrupted migration,
 lifespan and a smoke start.
@@ -118,7 +119,7 @@ lifespan and a smoke start.
 **Exit:** S1 draft and history reads meet the live budget, the parity test passes, and existing
 `drafts`, `workspaces`, `mapping` and `records` groups pass unchanged.
 
-#### S3: Bidirectional cursor contract
+#### S3: Cursor and position paging contract
 
 **Scope:** in the shared pagination helpers, so every collection endpoint gains it:
 
@@ -131,13 +132,20 @@ lifespan and a smoke start.
    nothing.
 5. `seek=<value>` on object, relation and mapping-coverage lists starts at the first row whose
    current sort value is at or after the value (at or before for descending order).
-6. Cursors stay signed and bound to endpoint, ordering and filters; a changed filter still returns
+6. `position=N` returns the page starting at row N of the filtered, sorted list, with the same
+   `prevCursor`, `nextCursor` and `anchor` as any page. A request with both `position` and `cursor` is
+   refused with a machine-readable error. API.md documents that position reads can repeat or miss a
+   row at a page boundary when data changes between requests, and that whole-list reads should use
+   cursors.
+7. Cursors stay signed and bound to endpoint, ordering and filters; a changed filter still returns
    `422 invalid_cursor`.
-7. Update API.md and the OpenAPI lock, and state the concurrency behavior: rows inserted or deleted
-   elsewhere never cause a repeated or skipped row at a page boundary.
+8. Update API.md and the OpenAPI lock, and state the concurrency behavior of each mode: cursor reads
+   never repeat or skip a row when data changes; position reads can.
+9. Update the AGENTS.md invariant and the S5 hook rule once delivered.
 
-**Exit:** forward, backward, end, anchor, total and seek reads are exercised over the S1 fixture in
-live, draft and history contexts, including a concurrent insert between page reads.
+**Exit:** forward, backward, end, anchor, total, seek and position reads are exercised over the S1
+fixture in live, draft and history contexts, including a concurrent insert between cursor reads, a
+position read deep in the 20,000-child parent within budget, and refusal of `position` with `cursor`.
 
 #### S4: Top-level and relation query additions
 
@@ -168,13 +176,17 @@ budget, and a root type pages without descendants.
 4. The URL holds one `anchor` cursor instead of the cursor trail.
 5. Keyboard: arrow keys move through rows across page boundaries; Ctrl+Home and Ctrl+End go to the
    start and end; the focused or selected row keeps its identity when pages are evicted.
-6. Accessibility: `aria-rowcount` from `totalCount` and `aria-rowindex` from `startIndex`.
-7. Adopt it in the collection lenses, record panels (which gain a sort control, defaulting to name),
+6. A proportional scrollbar sized from `totalCount`. Clicking or dragging it, or entering a page
+   number, sends one position request and replaces the window with the landed page; scrolling on
+   uses that page's cursors. Rapid dragging sends only the final position.
+7. Accessibility: `aria-rowcount` from `totalCount` and `aria-rowindex` from `startIndex`.
+8. Adopt it in the collection lenses, record panels (which gain a sort control, defaulting to name),
    relation panels, the mapping lens and object pickers (a searchable listbox instead of a native
    select plus **Load more**).
-8. Update AGENTS.md: the rule naming `useCursorPages` and `useCursorFeed` changes to the new hook.
+9. Update AGENTS.md: the rule naming `useCursorPages` and `useCursorFeed` changes to the new hook.
 
-**Exit:** each adopted surface scrolls the S1 fixture both ways with flat memory, in two model
+**Exit:** each adopted surface scrolls the S1 fixture both ways with flat memory and jumps by
+scrollbar and page number, in two model
 configurations (the starter model and the generated model) at 1440px and 390px, using the keyboard
 alone.
 
@@ -201,7 +213,7 @@ reparenting and child creation remain Milestone B.
 #### S7: Composed volume acceptance
 
 **Scope:** a real-backend browser runner over the S1 fixture and the starter model that scrolls,
-seeks, jumps to the end, reopens from a copied URL and opens a record deep in the tree, in live,
+seeks, jumps by scrollbar and page number, jumps to the end, reopens from a copied URL and opens a record deep in the tree, in live,
 draft and history contexts. It adds accessibility scenarios for the scrolling list and the tree,
 updates visual baselines for tables that lose their page buttons (reviewed, not blind), and records
 the S1 measurements again against the budgets.
@@ -213,10 +225,10 @@ registered in the [execution guide](testing/EXECUTION_GUIDE.md).
 
 | ID | Question | Recommendation | Blocking |
 | --- | --- | --- | --- |
-| D1 | Typed values for draft/history queries: JSON extraction or typed value rows? | Typed value rows, mirroring live | S2 |
+| D1 | Typed values for draft/history queries: JSON extraction or typed value rows? | **Accepted 2026-09-25:** typed value rows, mirroring live | S2 |
 | D2 | Window size and prefetch distance | 5 pages kept; prefetch one page from either edge; a code constant, not model configuration | S5 |
 | D3 | Branch with several child types: mixed endpoint or one list per type? | One list per child-type group, matching the existing collection groups | S4, S6 |
 | D4 | Does a view's `pageSize` keep its meaning? | Yes: it becomes the fetch size; no schema change | S5 |
-| D5 | Totals on every page or on request? | On request (`includeTotal`); the UI asks on first load and after a query change | S3 |
+| D5 | Totals on every page or on request? | On request (`includeTotal`); the UI asks on first load, after a query change and with position jumps | S3 |
 | D6 | Relation sort keys | Related record's name and relation creation order; related-type fields later if needed | S4 |
 | D7 | Draft writes still load the whole membership | Measure in S1; scope a follow-up only if over budget | S1, S2 |
