@@ -11,8 +11,11 @@ browsing and translation screens. See [Next — 0.8 and beyond](#next--08-and-be
 
 ## Open decisions
 
-None. Offset/limit pagination is closed by ADR-030 (accepted 2026-09-25): each request pages with a
+Offset/limit pagination is closed by ADR-030 (accepted 2026-09-25): each request pages with a
 cursor or a position; the UI scrolls with cursors and jumps with positions. Delivered in 0.8 Track S.
+
+Milestone A and B decisions D8–D14 are proposed in the
+[0.8 plan](BASE_0_8_IMPLEMENTATION_PLAN.md#decisions-summary) and need acceptance before A1/B1.
 
 See `ROADMAP.md` for the delivery scope, exit gates and full milestone sequence.
 
@@ -37,8 +40,18 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [ ] S5 shared continuous-scroll list with loading and end markers.
   - [ ] S6 sidebar tree by parent, replacing **Load more objects**.
   - [ ] S7 composed volume acceptance.
-- [ ] Translation coverage matrix and in-cell live editing, with explicit optional staging (0.8).
-- [ ] Lazy hierarchy workspace with contextual live creation and atomic reparenting, optional draft (0.8).
+- [ ] 0.8 Milestone A — translation workspace ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-a--translation-workspace)):
+  - [ ] A1 schema 0.7 `translationMatrix` view contract (may run alongside Track S).
+  - [ ] A2 translation coverage query with cell states and whole-list gap filter.
+  - [ ] A3 writes from a cell: container lookup, create and edit, live or in a draft.
+  - [ ] A4 translation matrix lens.
+  - [ ] A5 Milestone A acceptance (SC-09 translation half).
+- [ ] 0.8 Milestone B — hierarchy workspace ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-b--hierarchy-workspace)):
+  - [ ] B1 schema 0.7 `tree` view contract (may run alongside Track S).
+  - [ ] B2 move targets with eligibility, and path context in every context.
+  - [ ] B3 tree lens with add child, rename, availability and move.
+  - [ ] B4 Milestone B acceptance (SC-09 hierarchy half).
+- [ ] 0.8 R1 build acceptance and release.
 - [ ] Integration-grade query expressions beyond daily-use filters.
 - [ ] Bounded live bulk object/relation/mapping operations with explicit optional staging, per-item
   outcomes and safe retry; do not require a draft merely because several records change (0.9).

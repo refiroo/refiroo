@@ -1,11 +1,13 @@
 # Base 0.8 implementation plan
 
-**Status:** Draft plan, 2026-09-25. Track S (scalable browsing) is planned below and starts first.
-Milestone A (translation workspace) and Milestone B (hierarchy workspace) from the
-[roadmap](ROADMAP.md#product-release-08--translation-and-hierarchy-workspaces) are not yet broken into
-work packages.
+**Status:** Draft plan, 2026-09-25. Track S (scalable browsing) starts first. Milestone A
+(translation workspace) and Milestone B (hierarchy workspace) from the
+[roadmap](ROADMAP.md#product-release-08--translation-and-hierarchy-workspaces) are broken into work
+packages A1–A5 and B1–B4; R1 owns build acceptance. Decisions D8–D14 are proposed, not yet accepted.
 
-**Target:** Product 0.8.0. Track S does not change the schema language.
+**Target:** Product 0.8.0. Track S does not change the schema language. Milestones A and B add
+schema language 0.7 (`translationMatrix` and `tree` views); the starter model becomes content release
+0.8.0 on schema 0.7.
 
 **Depends on:** Product 0.7.0 released.
 
@@ -221,6 +223,316 @@ the S1 measurements again against the budgets.
 **Exit:** budgets met in all three contexts; accessibility and visual gates pass; the runner is
 registered in the [execution guide](testing/EXECUTION_GUIDE.md).
 
+## Sequence and dependencies
+
+```text
+Track S:      S1 → S2 → S3 ─┬─ S5 → S6 → S7
+                            └─ S4 ─┘
+Milestone A:  A1 ──────────────┐
+              S2, S3 ─────────→ A2 → A3 → A4 → A5
+              S5 ─────────────────────────↗
+Milestone B:  B1 ──────────────┐
+              S3, S4 ─────────→ B2 → B3 → B4
+              S6 ────────────────────↗
+Release:      S7, A5, B4 → R1
+```
+
+A1 and B1 depend only on 0.7 and may be delivered while Track S is in progress. Everything else in
+A and B follows the Track S packages named above, because both milestones browse large collections
+through the S3 contract and the S5 list. Milestones A and B are independent of each other and may be
+delivered in either order. If one of them is cut from 0.8, its view type is removed from schema 0.7
+before release so the language never declares a view without a renderer (D9).
+
+## Milestone A — Translation workspace
+
+### Outcome
+
+A localization steward opens a target collection (for example the values of one codelist) as a
+translation matrix: targets as rows, languages as columns. Each cell says whether a usable current
+translation exists, whether one exists but is unavailable, whether one exists only in history, or
+whether none exists. The steward filters to targets missing any selected language across the whole
+list, not only the loaded page, and fills or corrects a translation in the cell. Routine edits are
+live; a selected design draft stages them. Stories US-L03 and US-L04, scenario SC-09 (translation half).
+
+### Model facts this milestone relies on
+
+- A translation record is contained by a group type, which is contained, possibly recursively, by
+  the language type. The language is an ancestor, not a field.
+- The target owns the translation through a required one-to-many binding whose
+  `uniqueToAncestorTypeKey` names the language type and whose `uniqueWhenToAttributeEquals` names
+  the availability predicate (ADR-014). Live writes, draft validation and activation already enforce
+  it.
+- No ancestor path is stored. Ancestry is walked through `parent_object_id`, so a read that needs a
+  translation's language costs the hierarchy depth per translation.
+
+All of these come from the model. The matrix reads the binding, its uniqueness feature and the
+containment chain; it never names `translation`, `language` or `object-has-translation`.
+
+#### A1: Schema 0.7 — `translationMatrix` view contract
+
+**Scope:**
+
+1. Accept `schemaVersion: "0.7"` beside 0.5 and 0.6 in `models/schema.py`, `compiler.py`
+   (`SUPPORTED_SCHEMA_VERSIONS`), registry, releases and `cli/model_schema_upgrade.py`. Schema 0.7 is a
+   strict superset; 0.5 and 0.6 models keep parsing and activating, and reject the new view type at
+   the view's `type` path.
+2. Add `TranslationMatrixViewDefinition` (type `translationMatrix`) to the `ViewDefinition` union
+   with config:
+   `relationTypeKey`, `targetObjectTypeKey`, `translationObjectTypeKey`, `languageObjectTypeKey`,
+   `targetColumns`, `languageLabelField`, `cellFields` (translated fields shown and edited in a cell),
+   `searchFields` and `pageSize` (1–100).
+3. Validation rules in `services/model/validation/application_rules.py`, each raising
+   `ModelReferenceError` at the failing node:
+   - a binding `relationTypeKey` from `targetObjectTypeKey` to `translationObjectTypeKey` exists, is
+     required and one-to-many, and is not containment;
+   - its `uniqueToAncestorTypeKey` equals `languageObjectTypeKey`;
+   - the language type is reachable from the translation type through `parentRelationTypeKeys`;
+   - `cellFields` are attached to the translation type and at least one is required or meaningful;
+     `targetColumns` and `searchFields` are attached to the target type; lists are unique;
+   - all three object types belong to the application.
+4. Lens grouping (ADR-029): a `translationMatrix` groups under its `targetObjectTypeKey`, so it
+   appears as a lens beside the target's table rather than as a new sidebar destination.
+5. Starter model: schema 0.7, content release 0.8.0, with `translationMatrix` views for two target
+   types (master values and codelists) in the translations application. Existing views are unchanged.
+6. Frontend: extend the `ViewDefinition` union in `src/types/model.ts` and register a placeholder in
+   `features/objects/views/registry.ts`; A4 replaces it.
+7. Document the contract and its validation rules in `APPLICATION_MODEL.md`.
+
+View definitions persist as JSON with a `view_type` string, so no database migration is needed.
+
+**Exit:** a schema 0.7 model with the view parses, installs and activates; 0.5 and 0.6 models still
+do; each rule above rejects an invalid configuration with a precise JSON pointer; the starter model
+and the generated S1 model (extended in A2) both validate. Focused `model` group tests and the
+frontend build pass.
+
+#### A2: Translation coverage query
+
+**Scope:**
+
+1. `GET /api/v1/workspaces/{workspaceKey}/translation-coverage` with `applicationKey`, `viewKey`,
+   optional `parentObjectId` scope, `search`, `sort`, one of `workspaceDraftId` or
+   `workspaceRevisionId`, and the S3 paging parameters (`cursor`, `from`, `includeTotal`, `seek`,
+   `position`) for rows.
+2. Columns: `languageIds` (explicit, at most 20) or, when omitted, the first language page in the
+   language's sort order; the response carries a `languagesNextCursor` so the UI can page columns
+   (D10). Languages are records of the configured type in the same context.
+3. Each cell reports one state (D11):
+   - `current` — exactly one translation whose availability predicate holds;
+   - `unavailable` — translations exist but none satisfies the predicate;
+   - `historyOnly` — nothing in the current context, but a published revision of this workspace held
+     one for the same target and language;
+   - `missing` — none of the above;
+   - `duplicate` — more than one available translation, which a draft can hold before validation.
+   A cell also returns its translation's id, version, `cellFields` values and a relation-set version
+   for writes, and a count when several exist.
+4. `state=missing|unavailable|historyOnly|duplicate` together with `languageIds` filters rows before
+   pagination: a row matches when any selected language's cell has that state. Totals count the
+   filtered rows.
+5. Implementation: page targets first; then fetch their translations through the binding in one
+   query; resolve each translation's language with one recursive query up the containment chain
+   (depth-bounded); fetch the `historyOnly` evidence in one query over revision relations for the
+   page's targets. No per-row or per-cell requests. Draft and history contexts use the S2
+   base-plus-overlay and revision SQL.
+6. The row state filter must decide across all targets, not a page. Resolve it with one recursive
+   query from the selected languages down through container types to translations (D12), and
+   measure it against an S1 fixture extension: 10,000 targets, 30 languages, a three-level group
+   hierarchy under each language and 150,000 translations, a tenth of them unavailable.
+7. Cursors bind view, context, scope, selected languages, state filter and sort.
+8. Update API.md and the OpenAPI lock.
+
+**Exit:** each state is produced in live, draft and history contexts over both starter target types
+and the generated model; a missing-filter page deep in the list is correct and within its recorded
+budget; the query count per page is constant; `historyOnly` never counts as covered.
+
+#### A3: Writes from a cell
+
+The existing create and update APIs already save a translation, its containment and its target
+relation in one transaction, live or in a draft (ADR-014). This package adds what a cell needs to
+call them without asking the user for context they already chose.
+
+**Scope:**
+
+1. `GET /api/v1/workspaces/{workspaceKey}/translation-containers` with `applicationKey`, `viewKey`,
+   `languageId`, context, `search` and cursor: the records under that language whose type can
+   directly contain the translation type, with their path below the language. A language with
+   exactly one container is marked as the default (D13).
+2. Create from a `missing`, `unavailable` or `historyOnly` cell: `POST /objects` with the chosen
+   container as parent, the target through `initialRelations` and `cellFields` as attributes. The
+   name defaults from the target and language names; the user may change it.
+3. Edit from a `current` or `unavailable` cell: `PATCH` with `expectedVersion`, changing `cellFields`
+   or the availability field. Making a second translation available returns the existing duplicate
+   error with the conflicting translation's id, so the cell can point to it.
+4. Tests for the matrix path at the real boundaries: live create and edit; draft create, validation
+   and activation; a duplicate created in a draft and the same language filled live, refused at
+   activation with the draft kept; a draft that moves a translation's group to another language,
+   rechecked at activation (ADR-014); a stale `expectedVersion`. Each refusal leaves nothing partial.
+
+**Exit:** every write a cell performs succeeds or fails whole in live and draft contexts, with
+machine-readable errors that carry enough context for the cell to keep the user's input.
+
+#### A4: Translation matrix lens
+
+**Scope:**
+
+1. Replace the A1 placeholder with a generic `TranslationMatrixView` that receives the view definition.
+   Rows scroll through the S5 hook; the target column and the language header stay pinned; language
+   columns page horizontally with the column cursor.
+2. Grid semantics: `role="grid"` with row and column counts from totals, arrow keys across cells and
+   row pages, Enter to edit, Escape to cancel. Each state has a text label and an icon, not colour
+   alone, and a legend.
+3. Filters in the Filter popover: languages to show (searchable, from the language list) and the
+   coverage state. Both live in the URL with the S5 anchor.
+4. Cell editor in a popover: a `missing` cell offers a create form with the target and language fixed,
+   the container preselected when there is one and a searchable container picker otherwise; a
+   `current` or `unavailable` cell edits `cellFields` and availability; a `historyOnly` cell shows the
+   last published content, read-only, with **Create from this** that prefills it; a `duplicate` cell
+   lists the translations and opens their records.
+5. After a save, only the affected cell refreshes. A failure keeps the entered text and shows the
+   error through `errorMessage`; a duplicate conflict links to the conflicting translation.
+6. Context: in a draft the lens shows the draft badge and writes to it; in history it is read-only.
+7. Add the lens to the UI acceptance state inventory (loading, empty, filtered-empty, error, read-only
+   history, draft, 390px).
+
+**Reference pattern:** the mapping lens (`MappingGridView`) for the pinned-column grid and inline
+action, and `ui/Modal` rules for the popover focus trap.
+
+**Exit:** a steward fills a missing cell, corrects a current one and filters to gaps across the whole
+list, by keyboard alone, for two target types at 1440px and 390px in live and draft contexts.
+
+#### A5: Milestone A acceptance
+
+**Scope:** a real-backend browser runner for the SC-09 translation half on the starter model:
+Delivery Methods by language with a current Czech cell, a missing English cell and a history-only
+cell; fill English live; reject a duplicate; stage a change in a draft and activate it. Repeat the
+fill on the generated model. Add accessibility scenarios for the matrix and its editor (light and
+dark) and reviewed visual baselines. Record A2 measurements against budgets.
+
+**Exit:** SC-09 translation half passes; budgets hold; the runner is registered in the
+[execution guide](testing/EXECUTION_GUIDE.md); US-L03 and US-L04 move to delivered in the
+functionality catalogue.
+
+## Milestone B — Hierarchy workspace
+
+### Outcome
+
+A steward opens a hierarchy as a tree beside the selected record's detail, finds a nested record
+without loading every branch, adds a child in the branch it belongs to, renames it or changes its
+availability in place, and moves it to another valid parent. The path and the typed containment
+relation change together; a move beneath the record's own descendant is refused. Routine edits are
+live; a selected design draft stages them. Stories US-H01, US-H02 and US-D09, scenario SC-09
+(hierarchy half).
+
+### What already exists
+
+- `PATCH /objects/{type}/{id}` with `parentObjectId` changes the parent and its typed edge together,
+  live or in a draft, and rejects cycles (`_would_create_parent_cycle`, `_validate_candidate_parent`).
+  Activation revalidates the merged graph (ADR-006).
+- `POST /objects` with `parentObjectId` creates a child and its containment edge together.
+- Object reads return `path`.
+- S6 delivers generic tree loading by parent, per child type, with totals and keyboard traversal. S3
+  `seek` lets a branch open at a given child.
+
+Milestone B adds a declared tree view, a query for valid move targets, and the maintenance actions in
+the tree.
+
+#### B1: Schema 0.7 — `tree` view contract
+
+**Scope:**
+
+1. Add `TreeViewDefinition` (type `tree`) to the schema 0.7 union. Config: `rootObjectTypeKeys`,
+   `objectTypeKeys` (the node types shown), `labelField`, optional `secondaryField`, `childSort` per
+   type (a sort field of that type), `pageSize` (1–100), and `actions` (subset of `createChild`,
+   `rename`, `move`, `setAvailability`) with `availabilityField` required when `setAvailability` is
+   listed.
+2. Validation: every node type belongs to the application and is reachable from a root type through
+   `parentRelationTypeKeys`; root types can exist without a parent; fields are attached to their types;
+   `childSort` fields are declared sortable; `availabilityField` is a boolean attached to every node
+   type that the action applies to.
+3. Lens grouping: a `tree` groups under its first root type.
+4. Starter model: a tree over systems and system groups (recursive self-hierarchy with values beneath
+   it, mixed types) and one over domains, codelists and master values. The generated S1 model gains
+   a tree over its six-level self-hierarchy.
+5. Frontend union and placeholder registration, as in A1. Document in `APPLICATION_MODEL.md`.
+
+**Exit:** as A1, for the tree contract; a view whose node type is unreachable from its roots is
+rejected at that type's pointer.
+
+#### B2: Move targets and path context
+
+**Scope:**
+
+1. `GET /api/v1/objects/{objectTypeKey}/{objectId}/parent-candidates` with context, `search`,
+   optional `objectTypeKey` of the candidate, and S3 paging. It returns records of every type that the
+   model allows as this record's parent, in the same workspace and context.
+2. Each candidate carries `eligible` and, when false, a machine-readable `reason`: `self`,
+   `descendant` or `currentParent`. Ineligible candidates stay in the list so pages and totals remain
+   truthful (D14). `descendant` is decided by walking each candidate's ancestors, which costs page
+   size × depth and does not grow with the size of the moved subtree.
+3. Candidates include their `path` so a steward can tell same-named groups apart.
+4. Confirm that `path` on object reads is correct in draft and history contexts after S2, including a
+   record whose parent changed in the draft; fix it if not.
+5. Moving a record with 20,000 descendants (S1 fixture) stays within the single-record write budget,
+   live and in a draft, because only the moved record's parent and edge change.
+6. Tests: every refusal reason; a draft move that the draft makes valid but live makes cyclic,
+   refused at activation with the draft kept; moving across types in a mixed hierarchy. Update API.md
+   and the OpenAPI lock.
+
+**Exit:** the candidate query and a deep move meet budget in each context; cycles are refused at the
+query, the write and activation.
+
+#### B3: Tree lens with maintenance actions
+
+**Scope:**
+
+1. A generic `TreeView` lens: the tree on the left, the selected record's configured detail on the
+   right (panels as today), resizable as the existing split. Tree loading reuses S6 by parent and per
+   child type; `childSort` sets each branch's order.
+2. Opening a URL or a search result reveals the record: load its `path`, then open each ancestor's
+   branch at the child with `seek`. Unrelated branches stay closed.
+3. Actions from a node's menu and keyboard shortcuts, as the view allows:
+   - **Add child** — choose the child type when several are allowed; the form carries the parent; the
+     new node appears in its branch and gets focus.
+   - **Rename** — inline on the node.
+   - **Set availability** — a toggle on the node.
+   - **Move to…** — a dialog with a searchable B2 candidate list; ineligible candidates are shown
+     disabled with their reason; confirming moves the node, updates both branches' counts and keeps
+     focus on the moved node.
+4. Failure keeps the user's place and input: loaded branches stay loaded, a failed branch shows
+   **Retry** without collapsing its siblings, and a refused move leaves the dialog open with the error.
+5. Draft and history: in a draft the actions write to it; in history the tree is read-only.
+6. WAI-ARIA tree pattern: `aria-level`, `aria-setsize`, `aria-posinset`, `aria-expanded`,
+   Home/End and type-ahead. Every action is reachable without a pointer.
+7. Add the lens to the UI acceptance state inventory.
+
+**Reference pattern:** the S6 sidebar tree for loading and keyboard behaviour; `ObjectFormDialog` for
+child creation; `ui/Modal` for the move dialog.
+
+**Exit:** on both starter trees and the generated six-level tree, a steward finds a nested record,
+adds a child, renames it and moves it, by keyboard alone, at 1440px and 390px, live and in a draft.
+
+#### B4: Milestone B acceptance
+
+**Scope:** a real-backend browser runner for the SC-09 hierarchy half: find a nested system group
+without loading every branch, add a child, move it to another permitted group, see the new path and
+unchanged unrelated branches, and be refused a move beneath the child's own descendant. Repeat on the
+domain/codelist/value tree (different record types). Repeat the move in a draft and activate it;
+check that parent and containment edge both changed in live. Add accessibility scenarios for the tree
+lens and move dialog (light and dark) and reviewed visual baselines.
+
+**Exit:** SC-09 hierarchy half passes; the runner is registered in the execution guide; US-H01,
+US-H02 and US-D09 move to delivered in the functionality catalogue.
+
+## R1: Build acceptance and release
+
+**Scope:** after S7, A5 and B4: the full backend `pytest` suite, frontend `npm run test`, Ruff,
+format, lint and build, every browser runner, `test:a11y` and `test:visual`. Migration checks for the
+S2 typed value rows (clean bootstrap, upgrade from the 0.7 head, restart, interrupted migration,
+lifespan, smoke start on a copy of the development database). Confirm a schema 0.7 release installs
+and activates on a Base 0.7 database that holds schema 0.6 releases. Update PROJECT_STATUS, ROADMAP,
+TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
+
+**Exit:** all gates pass, or each failure is explained and tracked; Base 0.8.0 is ready to release.
+
 ## Decisions summary
 
 | ID | Question | Recommendation | Blocking |
@@ -232,3 +544,10 @@ registered in the [execution guide](testing/EXECUTION_GUIDE.md).
 | D5 | Totals on every page or on request? | On request (`includeTotal`); the UI asks on first load, after a query change and with position jumps | S3 |
 | D6 | Relation sort keys | Related record's name and relation creation order; related-type fields later if needed | S4 |
 | D7 | Draft writes still load the whole membership | Measure in S1; scope a follow-up only if over budget | S1, S2 |
+| D8 | A dedicated `translationMatrix` view type, or a generic coverage-matrix type? | `translationMatrix` with generic config keys. One real case exists; generalise after a second (AGENTS.md) | A1 |
+| D9 | Schema 0.7 if only one milestone ships | Each view type is added by its own package; a cut milestone's type is removed before release | A1, B1 |
+| D10 | Language columns | Explicit `languageIds` (at most 20) or the first page of languages; columns page with their own cursor | A2 |
+| D11 | Cell states | `current`, `unavailable`, `historyOnly`, `missing`, `duplicate`; only `current` counts as covered. `historyOnly` means a published revision of this workspace held one | A2 |
+| D12 | Resolving language ancestry for the gap filter | A recursive query down from the selected languages, measured in A2. A stored ancestor table only if the measurement is over budget, as a scoped follow-up | A2 |
+| D13 | Which group a new translation goes into | The user picks a container under the language; preselected when there is exactly one. No model default | A3, A4 |
+| D14 | Ineligible move targets | Listed but disabled, with a reason, so totals stay truthful and the user sees why | B2, B3 |
