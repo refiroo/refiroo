@@ -33,8 +33,8 @@ export type RouteState =
       applicationKey: string;
       viewKey: string;
       workspaceKey: string;
-      workspaceDraftId?: string;
-      workspaceRevisionId?: string;
+      changeSetId?: string;
+      publicationId?: string;
     } & CollectionQueryState)
   | {
       kind: "detail";
@@ -48,9 +48,9 @@ export type RouteState =
       /** One-shot row action; never restored from history or a copied link. */
       actionRequest?: { action: "edit" | "delete"; key: number };
       workspaceKey: string;
-      workspaceDraftId?: string;
-      workspaceRevisionId?: string;
+      changeSetId?: string;
+      publicationId?: string;
     }
-  | { kind: "drafts"; applicationKey: string; workspaceKey: string; workspaceDraftId?: undefined }
-  | { kind: "history"; applicationKey: string; workspaceKey: string }
+  | { kind: "changeSets"; applicationKey: string; workspaceKey: string; changeSetId?: undefined }
+  | { kind: "publications"; applicationKey: string; workspaceKey: string }
   | { kind: "models"; releaseId?: string; draftId?: string };

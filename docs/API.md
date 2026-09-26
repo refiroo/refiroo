@@ -612,129 +612,142 @@ Create/update/default-switch routes are absent when `WORKSPACE_ADMIN_MUTATIONS_E
 The flag defaults to true only for the pre-authentication development posture; exposed deployments
 must disable it or protect the API with external access control.
 
-## Workspace data drafts and publication history — current API and accepted targets
+## Change sets and publications — current API and accepted targets
+
+A workspace has live data, change sets and publications ([ADR-031](DECISIONS.md#adr-031--workspace-terminology-and-deployment-capability-boundaries)).
+A **change set** is an optional group of data changes published together; **publishing** it creates
+**Publication N**, an immutable snapshot, and makes its changes live. **Withdrawing** a publication
+removes its current designation. Model drafts and model releases are a separate lifecycle
+([model endpoints](#model-endpoints)).
 
 ADR-024 replaces the rejected WP4 object-lifecycle surface. Object-draft, object-revision, activation
 and object-retirement endpoints from WP4 are migration history, not public contracts; clients and UI
-must not call them. WP6 implemented the workspace-revision storage and corrective migration, WP7
-restored the canonical record resources over that storage, and WP8 completed and tested the workspace
-lifecycle surface below. ADR-026 restored direct live writes; ADR-027 records the remaining WP8.1
-corrections. Current behavior and accepted targets are distinguished below; no new endpoint is
-implemented by this documentation update.
+must not call them. WP6 implemented the publication storage and corrective migration, WP7 restored the
+canonical record resources over that storage, and WP8 completed and tested the lifecycle surface
+below. ADR-026 restored direct live writes; ADR-027 records the remaining WP8.1 corrections; Base 0.8
+W2 gave every route, field and error code its ADR-031 name.
 
-- `GET|POST /api/v1/workspaces/{workspaceKey}/drafts` lists cursor-paged drafts or creates a draft
-  from an explicit source. `source: "currentLive"` captures a private immutable base from the current
-  live graph; it includes typed fields, parent/typed containment edges, independent relations, record
-  versions and the selected model identity, and works when no publication exists. It creates neither a
-  public revision nor an activation. `source: "revision"` requires `derivedFromRevisionId` and retains
-  the selected immutable historical revision as the source. For compatibility, omitted `source` keeps
-  the old meaning: a supplied `derivedFromRevisionId` is historical derivation and its absence creates
-  the documented empty development/bootstrap root. `currentLive` rejects a revision id and `revision`
-  rejects its absence with request validation errors; clients must not infer current data from the last
-  publication.
-- `GET|PATCH|DELETE /api/v1/workspace-drafts/{draftId}` reads, names or discards a mutable draft.
-  PATCH and DELETE claim `expectedVersion`.
+**Route shape.** Collections stay nested under their workspace
+(`/workspaces/{workspaceKey}/change-sets`, `/workspaces/{workspaceKey}/publications`); a single change
+set or publication is addressed flat by its global ID (`/change-sets/{changeSetId}`,
+`/publications/{publicationId}`), including its actions. New endpoints follow the same rule.
+
+- `GET|POST /api/v1/workspaces/{workspaceKey}/change-sets` lists cursor-paged change sets or creates
+  one from an explicit source. `source: "currentLive"` captures a private immutable base from the
+  current live graph; it includes typed fields, parent/typed containment edges, independent relations,
+  record versions and the selected model identity, and works when no publication exists. It creates
+  no publication. `source: "publication"` requires `derivedFromPublicationId` and retains the selected
+  immutable publication as the source. For compatibility, omitted `source` keeps the old meaning: a
+  supplied `derivedFromPublicationId` derives from that publication and its absence creates the
+  documented empty development/bootstrap root. `currentLive` rejects a publication ID and
+  `publication` rejects its absence with request validation errors; clients must not infer current
+  data from the last publication.
+- `GET|PATCH|DELETE /api/v1/change-sets/{changeSetId}` reads, names or discards a change set. PATCH
+  and DELETE claim `expectedVersion`. An unknown ID returns `404 change_set_not_found`.
 - The existing canonical object, attribute, containment and relation resources retain their paths,
-  request/response shapes and CRUD semantics. `workspaceKey` selects the live active projection for
-  active reads, `workspaceDraftId` selects the effective mutable draft for draft reads and writes, and
-  `workspaceRevisionId` selects an immutable historical revision. Draft and historical contexts are
-  mutually exclusive. Writes are draft-gated only when the caller supplies `workspaceDraftId` (with
-  `expectedWorkspaceDraftVersion`); draft updates and deletes also claim the existing record's
-  `expectedVersion`, while draft creation has no prior record version. Without a draft, mutations
-  target the live store; updates/deletes claim the record `expectedVersion`, while creation has no
-  previous record version; an existing object or relation
-  supplies its workspace context. Only a live object create requires `workspaceKey`. This execution context is not a second public CRUD
-  dialect. In particular, `/api/v1/workspace-drafts/{draftId}/objects` and
-  `/api/v1/workspace-drafts/{draftId}/relations` are explicitly not public resources. Canonical draft record
-  updates/deletes use `expectedVersion` and `expectedWorkspaceDraftVersion`; internal service models
-  use different names and are not a second client contract. Live writes never mutate a revision snapshot.
-- Draft creation accepts optional `modelReleaseId` (installed public UUID). Current-live creation
+  request/response shapes and CRUD semantics. `workspaceKey` selects live data, `changeSetId` selects
+  the effective content of a change set for reads and writes, and `publicationId` selects an
+  immutable publication. Change-set and publication contexts are mutually exclusive. Writes go into a
+  change set only when the caller supplies `changeSetId` (with `expectedChangeSetVersion`); change-set
+  updates and deletes also claim the existing record's `expectedVersion`, while a create has no prior
+  record version. Without a change set, mutations target live data; updates/deletes claim the record
+  `expectedVersion`, while creation has no previous record version; an existing object or relation
+  supplies its workspace context. Only a live object create requires `workspaceKey`. This execution
+  context is not a second public CRUD dialect: there are no `/change-sets/{changeSetId}/objects` or
+  `/change-sets/{changeSetId}/relations` resources. Live writes never change a publication.
+- Change-set creation accepts optional `modelReleaseId` (installed public UUID). Current-live creation
   captures the active data and versions while pinning the chosen release; the complete copied graph
-  must fit before creation commits. Historical creation retains its source revision's pin and refuses
-  a simultaneous release selection. Draft responses include `modelReleaseId`, `modelReleaseKey`
-  and `modelReleaseVersion`.
-- `PATCH /api/v1/workspaces/{workspaceKey}/drafts/{draftId}/model-release` accepts
-  `modelReleaseId` and `expectedDraftVersion`. It claims the draft token, checks the complete effective
-  graph (base plus authored content minus tombstones) under the target, then changes only that pin.
-  Success increments the draft version and audits old/new public release identities. A valid request
-  selecting the current pin is a no-op. Stale claims return `409 workspace_draft_version_conflict`.
+  must fit before creation commits. Creation from a publication retains that publication's pin and
+  refuses a simultaneous release selection. Change-set responses include `modelReleaseId`,
+  `modelReleaseKey` and `modelReleaseVersion`.
+- `PATCH /api/v1/change-sets/{changeSetId}/model-release` accepts `modelReleaseId` and
+  `expectedChangeSetVersion`. It claims the change-set version, checks the complete effective graph
+  (base plus authored content minus tombstones) under the target, then changes only that pin. Success
+  increments the change-set version and audits old/new public release identities. A valid request
+  selecting the current pin is a no-op. Stale claims return `409 change_set_version_conflict`.
   Declared attribute type changes for stored effective object/relation values require conversion,
   even if a target normalizer could accept the old value. Populated containment also retains its
-  source model semantics; changing those requires conversion. Missing required fields are not defaulted
-  during compatibility checks. Incompatible content returns `409 draft_content_incompatible` with `details.diagnostics` (at most
-  20), `diagnosticCount` and `diagnosticsTruncated`; refusal leaves content, pin and version unchanged.
-  Uniqueness conflict ID previews are also bounded to 20 with exact count/truncation metadata.
-  No conversion is performed. Missing, unsupported and invalid targets use `pinned_model_unavailable`,
+  source model semantics; changing those requires conversion. Missing required fields are not
+  defaulted during compatibility checks. Incompatible content returns
+  `409 change_set_content_incompatible` with `details.diagnostics` (at most 20), `diagnosticCount` and
+  `diagnosticsTruncated`; refusal leaves content, pin and version unchanged. Uniqueness conflict ID
+  previews are also bounded to 20 with exact count/truncation metadata. No conversion is performed.
+  Missing, unsupported and invalid targets use `pinned_model_unavailable`,
   `unsupported_pinned_model_schema` and `pinned_model_invalid` respectively.
-- `/model` and model metadata reads accept `workspaceDraftId` or `workspaceRevisionId` and resolve
-  that context's installed model. Metadata cursors are bound to the release identity. Draft record
-  reads, writes and graph validation use the draft pin even when it differs from active; activation
-  agreement remains a separate requirement. Discard does not require model agreement.
-- `POST /api/v1/workspace-drafts/{draftId}/validation` validates the complete effective graph without
-  publication. `POST /api/v1/workspace-drafts/{draftId}/activation` requires
-  `expectedDraftVersion` and nullable `expectedActiveRevisionId`.
-  Stored read-only values, including model defaults, are valid snapshot content and are checked for
-  their declared types and constraints; ordinary writes and attribute deletion still enforce the
-  binding's read-only restriction.
-- `GET /api/v1/workspaces/{workspaceKey}/revisions` and
-  `GET /api/v1/workspace-revisions/{revisionId}` expose cursor-paged immutable history and bounded
-  snapshot reads. Revision discovery is newest first by revision number and public UUID as a unique
-  descending tie-breaker. Its cursor is bound to the workspace and descending sort; an ascending,
-  malformed or differently scoped cursor returns `422 invalid_cursor` with
-  `Workspace revision cursor is invalid`. Pages contain 1–500 items and exact retry is deterministic.
-- `POST /api/v1/workspaces/{workspaceKey}/retirement` retires the active workspace content revision
-  under `expectedActiveRevisionId` and clears its publication designation. It retains the live
-  records; it does not retire, delete or change any individual object, and it is not a user-facing
-  data-withdrawal operation.
+- `/model` and model metadata reads accept `changeSetId` or `publicationId` and resolve that context's
+  installed model. Metadata cursors are bound to the release identity. Change-set record reads, writes
+  and graph validation use the change set's pin even when it differs from active; agreement with the
+  active release is a separate requirement for publishing. Discard does not require model agreement.
+- `POST /api/v1/change-sets/{changeSetId}/validation` validates the complete effective graph without
+  publishing. `POST /api/v1/change-sets/{changeSetId}/publication` publishes it and requires
+  `expectedChangeSetVersion` and nullable `expectedActivePublicationId`. Stored read-only values,
+  including model defaults, are valid publication content and are checked for their declared types and
+  constraints; ordinary writes and attribute deletion still enforce the binding's read-only
+  restriction.
+- `GET /api/v1/workspaces/{workspaceKey}/publications` and `GET /api/v1/publications/{publicationId}`
+  list and read publications. A publication carries `publicationNumber`, its `status` (`active` while
+  it is the workspace's current publication, otherwise `withdrawn`), `publishedAt`, `withdrawnAt`,
+  `derivedFromPublicationId`, `supersedesPublicationId` and its `modelReleaseId`, `modelReleaseKey`
+  and `modelReleaseVersion`, so a client can show "Publication 12 · model 0.8.0 · 3 Sep 2026".
+  `publicationNumber` is a per-workspace counter that never restarts, not a version. The list is
+  newest first by publication number with the public UUID as a unique descending tie-breaker. Its
+  cursor is bound to the workspace and descending sort; an ascending, malformed or differently scoped
+  cursor returns `422 invalid_cursor` with `Publication cursor is invalid`. Pages contain 1–500 items
+  and exact retry is deterministic. An unknown ID returns `404 publication_not_found`.
+- `POST /api/v1/publications/{publicationId}/withdrawal` withdraws the workspace's current
+  publication: its status becomes `withdrawn` and the workspace no longer has a current publication.
+  The path ID is the concurrency claim, so a publication that is no longer current returns
+  `409 workspace_active_publication_conflict`. It retains the live records and every publication; it
+  does not retire the workspace or change any individual record. A retired workspace refuses it with
+  `409 workspace_retired`.
 
-A workspace revision snapshots one graph: objects, typed attributes, containment (both parent
-projection and typed edge), required ownership relations and independent relations. Stable object and
-relation UUIDs remain integration identities but have no lifecycle state. Drafts pin `modelReleaseId`;
-revisions persist a `modelReleaseId` as their historical model identity. Activation against another
-resolved model returns
-`workspace_draft_model_release_conflict` and never rebases implicitly. Activation delta-merges the
-draft onto the current live content and snapshots the merged graph, so a draft branched from an old
-revision preserves newer live records it never touched (ADR-026). Conflicts are
-`workspace_draft_version_conflict`, `workspace_active_revision_conflict`,
-`workspace_draft_model_release_conflict`, and
-`version_conflict` — activation reports every per-record merge divergence under `409 version_conflict`
-with `details.conflicts` (`kind`, `id`, `code` `version_mismatch`/`id_collision`/`duplicate_edge`,
-expected/actual version) — plus `422 workspace_graph_invalid` when the merged graph fails whole-graph
-validation. Activation also compares complete source/live relation identities and versions for
-exact directional mutable binding sets touched by the draft. A divergent set adds a diagnostic with
-`kind: "mapping-set"`, `code: "mapping_set_changed"`, `id`/`anchorObjectId`, physical binding type keys,
-`direction`, expected/actual target counts and a recovery message. At most 20 mapping-set diagnostics
-are returned; `details.mappingSetConflictCount` gives the exact total and
+A publication snapshots one graph: objects, typed attributes, containment (both parent projection
+and typed edge), required ownership relations and independent relations. Stable object and relation
+UUIDs remain integration identities but have no lifecycle state. Change sets pin `modelReleaseId`;
+publications record the `modelReleaseId` they were published under. Publishing against another
+resolved model returns `409 change_set_model_release_conflict` and never rebases implicitly.
+Publishing delta-merges the change set onto the current live content and snapshots the merged graph,
+so a change set started from an earlier publication preserves newer live records it never touched
+(ADR-026). Conflicts are `change_set_version_conflict`, `workspace_active_publication_conflict`,
+`change_set_model_release_conflict`, and `version_conflict` — publishing reports every per-record merge
+divergence under `409 version_conflict` with `details.conflicts` (`kind`, `id`, `code`
+`version_mismatch`/`id_collision`/`duplicate_edge`, expected/actual version) — plus
+`422 workspace_graph_invalid` when the merged graph fails whole-graph validation. Publishing also
+compares complete source/live relation identities and versions for exact directional mutable binding
+sets touched by the change set. A divergent set adds a diagnostic with `kind: "mapping-set"`,
+`code: "mapping_set_changed"`, `id`/`anchorObjectId`, physical binding type keys, `direction`,
+expected/actual target counts and a recovery message. At most 20 mapping-set diagnostics are
+returned; `details.mappingSetConflictCount` gives the exact total and
 `details.mappingSetConflictsTruncated` indicates omitted mapping-set diagnostics. No graph is applied,
-no revision is created, and the draft remains available. Review current live mappings and reapply
-intended changes in a new current-live draft before activation; validating the unchanged conflicting
-draft does not resolve the conflict. Containment/ownership use their existing merge rules. Identical
-source/live edge identities and surviving edge versions count as the same graph, even if an intervening
-addition was later removed. Draft and historical collection cursors bind their selected context identity and query
-filters; malformed/mismatched tokens return `422 invalid_cursor`. Live collection cursors bind the
-effective live workspace and query filters. Current cursor
-tokens do not bind a model or revision ID unless that context is itself selected.
+no publication is created, and the change set remains available. Review current live mappings and
+reapply intended changes in a new current-live change set before publishing; validating the unchanged
+conflicting change set does not resolve the conflict. Containment/ownership use their existing merge
+rules. Identical source/live edge identities and surviving edge versions count as the same graph, even
+if an intervening addition was later removed. Change-set and publication collection cursors bind
+their selected context identity and query filters; malformed/mismatched tokens return
+`422 invalid_cursor`. Live collection cursors bind the effective live workspace and query filters.
+Cursor tokens do not bind a model or publication ID unless that context is itself selected.
 
-Current-live snapshot capture is implemented and validated for SQLite. PostgreSQL and other dialects
-currently return `409 workspace_draft_snapshot_unsupported` for this operation. The
-service starts an explicit `BEGIN IMMEDIATE` transaction before reading the graph, which excludes
-independent SQLite live/model writers through the base commit. It compares the request's captured active
-release with `model_runtime_state` under that reservation, separately from the selected draft pin;
-a lock conflict or changed active selection returns
-`409 workspace_draft_snapshot_retry` with an actionable retry message. Other database dialects return
-`409 workspace_draft_snapshot_unsupported` rather than silently offering a weaker, potentially mixed
-snapshot. The private base is deleted with its draft on discard or activation and is never a public
-revision or publication lineage.
+Current-live capture is implemented and validated for SQLite. PostgreSQL and other dialects currently
+return `409 change_set_snapshot_unsupported` for this operation. The service starts an explicit
+`BEGIN IMMEDIATE` transaction before reading the graph, which excludes independent SQLite live/model
+writers through the base commit. It compares the request's captured active release with
+`model_runtime_state` under that reservation, separately from the selected change-set pin; a lock
+conflict or changed active selection returns `409 change_set_snapshot_retry` with an actionable retry
+message. Other database dialects return `409 change_set_snapshot_unsupported` rather than silently
+offering a weaker, potentially mixed capture. The private base is deleted with its change set on
+discard or publish and is never a publication or part of publication lineage.
 
-Draft responses return `source: "currentLive"`, `"revision"` or `"empty"`; `empty` reports a
-compatible legacy/bootstrap draft and is not a normal new-draft source choice. The private base ID is
-not exposed.
+Change-set responses return `source: "currentLive"`, `"publication"` or `"empty"`; `empty` reports a
+compatible legacy/bootstrap change set and is not a normal source choice. The private base ID is not
+exposed.
 
-Historical draft and revision reads resolve their pinned supported model before field/filter metadata,
+Change-set and publication reads resolve their pinned supported model before field/filter metadata,
 typed responses or relationship expansion. Missing, corrupt or unsupported pins return structured
-errors and never fall back to the active model. Supplying `workspaceKey` with a draft or revision must
-match that context; draft and revision IDs remain mutually exclusive. Live writes continue to resolve
-the active model, while draft writes validate and respond using the draft's pinned model.
+errors and never fall back to the active model. Supplying `workspaceKey` with a change set or
+publication must match that context; change-set and publication IDs remain mutually exclusive. Live
+writes continue to resolve the active model, while change-set writes validate and respond using the
+change set's pinned model.
 
 These refusals use the normal error envelope. A context mismatch is `422` with
 `{"error":{"code":"workspace_context_mismatch","message":"workspaceKey does not match the selected context","details":{"workspaceKey":"...","contextWorkspaceKey":"..."}}}`.
@@ -744,100 +757,100 @@ A missing pinned release is `409` with code `pinned_model_unavailable`; an inval
 `supportedSchemaVersions: ["0.5", "0.6"]` in details.
 >
 > **Target — product 0.10 historical model migration.** Preview incompatibilities and potential data
-> loss for one workspace and a named installed target release (normally the historical draft’s pin),
+> loss for one workspace and a named installed target release (normally the pin of a change set started from a publication),
 > then confirm the exact reviewed plan or cancel. Confirmed execution migrates live data to that target and changes
-> only the selected workspace model assignment atomically. Model drafts and data drafts remain separate;
+> only the selected workspace model assignment atomically. Model drafts and change sets remain separate;
 > target validity, conflict checks and parser support still apply. Nothing today overrides them.
 >
-> **Product 0.7 draft version selection (ADR-028; backend delivered in WP-6).** A workspace draft may be created against,
-> or explicitly moved onto, any installed release the deployment supports, so one draft prepares a
+> **Product 0.7 change-set version selection (ADR-028; backend delivered in WP-6).** A change set may be created against,
+> or explicitly moved onto, any installed release the deployment supports, so one change set prepares a
 > candidate release while another continues on the release serving live data. The target must be
 > installed, parseable and supported; refusal reuses the existing pinned-model envelope
 > (`pinned_model_unavailable`, `pinned_model_invalid`, `unsupported_pinned_model_schema`) rather than
-> introducing a weaker success path. Choosing a release is an edit to that draft and never changes
-> another draft, another workspace or the active selection. It does not make ordinary activation accept
-> a mismatched model: the refusal above still holds, and a draft whose version differs from the active
-> release cannot activate. Once a prepared release is activated and begins serving live data, a draft
-> still on the replaced release remains readable and editable under its own version and must be
-> explicitly moved or discarded before it can activate.
+> introducing a weaker success path. Choosing a release is an edit to that change set and never changes
+> another change set, another workspace or the active selection. It does not make publishing accept
+> a mismatched model: the refusal above still holds, and a change set whose version differs from the
+> active release cannot be published. Once a prepared release is activated and begins serving live
+> data, a change set still on the replaced release remains readable and editable under its own version
+> and must be explicitly moved or discarded before it can be published.
 >
 > **0.7 compatibility and atomicity detail (WP-6 backend delivered; WP-7 browser pending).**
-> Current-live draft creation
+> Current-live change-set creation
 > against a selected release and explicit pin changes validate the complete effective candidate graph,
 > including inherited content and tombstones, under that release. Incompatible content returns
-> `409 draft_content_incompatible` with bounded diagnostics; creation leaves no draft/base, and failed
-> changes leave content, pin and version unchanged. Version change atomically claims the expected draft
+> `409 change_set_content_incompatible` with bounded diagnostics; creation leaves no change set or base, and failed
+> changes leave content, pin and version unchanged. Version change atomically claims the expected change-set
 > version, validates and updates the pin, increments its version and audits old/new release identities.
-> The snapshot's captured active release/runtime token is separate from the chosen draft pin.
-> Historical-source creation retains its source pin; another selection is a subsequent explicit change.
+> The capture's active release/runtime token is separate from the chosen change-set pin.
+> Creation from a publication retains its source pin; another selection is a subsequent explicit change.
 > WP-7 will reload model-dependent browser navigation, forms, lookups and caches, reset obsolete
 > cursors and protect dirty input on local or externally detected pin changes.
 >
-> **Target — product 0.10 moving a draft onto an incompatible release (ADR-028).** Moving a draft onto
+> **Target — product 0.10 moving a change set onto an incompatible release (ADR-028).** Moving a change set onto
 > a release whose rules its stored content does not already satisfy requires the conversion machinery
-> above, applied to that draft's own candidate graph and its current-live base: a review reports the
-> conversions and any potential loss of draft-authored content, and applies only on confirmation of the
-> exact reviewed draft and release versions. Cancel, stale review or revalidation failure changes the
-> draft, its version, live data and history not at all, and a move never deletes draft content to make a
-> target fit.
+> above, applied to that change set's own candidate graph and its current-live base: a review reports the
+> conversions and any potential loss of content authored in the change set, and applies only on confirmation of the
+> exact reviewed change-set and release versions. Cancel, stale review or revalidation failure changes the
+> change set, its version, live data and publications not at all, and a move never deletes change-set
+> content to make a target fit.
 
 ## Generic runtime CRUD contract
 
 The following routes remain the canonical generic runtime CRUD contract. Workspace lifecycle changes
-the selected storage/publication context, not these operations. Historical reads are read-only; the
-same operations write either to an explicitly selected mutable workspace draft or, without one, directly
+the selected storage/publication context, not these operations. Publication reads are read-only; the
+same operations write either to an explicitly selected mutable change set or, without one, directly
 to the live active store (explicit workspace on creation, record version on updates/deletes). There are no object drafts, object
-revisions or object lifecycle endpoints.
+publications or object lifecycle endpoints.
 
 Content context extends rather than replaces the established payloads. Collection and identity reads
-use their existing active `workspaceKey` context by default; optional `workspaceDraftId` selects the
-effective draft and optional `workspaceRevisionId` selects immutable history. Those two optional
-contexts are mutually exclusive. POST, PATCH and DELETE use `workspaceDraftId` plus
-`expectedWorkspaceDraftVersion` only for the draft path. A live object create must provide
-`workspaceKey`; a draft create infers it from the draft. Live object updates, attribute writes and
+use their existing active `workspaceKey` context by default; optional `changeSetId` selects the
+effective change set and optional `publicationId` selects an immutable publication. Those two optional
+contexts are mutually exclusive. POST, PATCH and DELETE use `changeSetId` plus
+`expectedChangeSetVersion` only for the change set path. A live object create must provide
+`workspaceKey`; a change set create infers it from the change set. Live object updates, attribute writes and
 relation mutations infer the workspace from their existing record(s), so their payloads do not add
-`workspaceKey`. Successful draft record mutation responses supply `workspaceDraftVersion`. It has no usable value
-for live/history responses; the nullable response fields currently serialize as null where unset.
-Draft GET paths do not consistently populate it, so read the draft resource for its current aggregate
+`workspaceKey`. Successful change set record mutation responses supply `changeSetVersion`. It has no usable value
+for live/publication responses; the nullable response fields currently serialize as null where unset.
+Change set GET paths do not consistently populate it, so read the change set resource for its current aggregate
 version rather than assuming every record read returns one.
 
 - `GET /api/v1/objects/{objectTypeKey}` — list objects of a type
 - `POST /api/v1/objects` — create an object
-- `GET /api/v1/objects/{objectTypeKey}/{objectId}?workspaceDraftId={id}|workspaceRevisionId={id}` — get one object from draft or history; omit both for the live active projection
+- `GET /api/v1/objects/{objectTypeKey}/{objectId}?changeSetId={id}|publicationId={id}` — get one object from a change set or a publication; omit both for the live active projection
 - `PATCH /api/v1/objects/{objectTypeKey}/{objectId}` — update an object
 - `DELETE /api/v1/objects/{objectTypeKey}/{objectId}` — delete an object
 
 Object collections accept the [collection paging](#collection-paging) parameters (including `seek`),
 `pageSize`, `applicationKey`, `workspaceKey`, optional
-`workspaceDraftId` or `workspaceRevisionId`, `parentObjectId` or `topLevel`, `search`, one `sort` and typed filters named
+`changeSetId` or `publicationId`, `parentObjectId` or `topLevel`, `search`, one `sort` and typed filters named
 `filter.<field>.<operator>=<value>`. Filters take built-in fields and attributes with the
 `filterable` feature. `sort` takes `name`, `id`, `objectType` (ordered by the type's model name, then
 by name), live `createdAt`/`updatedAt`, or any attribute the type binds, flagged `sortable` or not
 (S4R3 revision). JSON attributes are excluded from both. Prefix a sort with
 `-` for descending order. Null and unset attribute values sort last in either direction, and every
-live ordering uses the internal sequence as a non-public final tie-breaker; drafts and history record
+live ordering uses the internal sequence as a non-public final tie-breaker; change sets and publications record
 no creation sequence, so there the record ID is the final tie-breaker. Omitting `sort` orders by name
-in every context (S4R4); before 0.8 it listed live records in creation order and draft and history
+in every context (S4R4); before 0.8 it listed live records in creation order and change-set and publication
 records by ID. Page size defaults to 100 and has a documented
 maximum of 500. `nextCursor` is null only when that traversal is complete.
 
 `topLevel=true` (Base 0.8 S4) lists only records without a parent, so a tree can page a root type
-without loading its descendants; it holds in draft and history contexts too. It cannot be combined
+without loading its descendants; it holds in change-set and publication contexts too. It cannot be combined
 with `parentObjectId` (`422 mutually_exclusive_scope`). A branch whose children have several types
 pages each child type separately with `parentObjectId`; there is no mixed-type list.
 
-Search, typed filters and sort mean the same in live, draft and history contexts (Base 0.8 S2): the
+Search, typed filters and sort mean the same in live, change-set and publication contexts (Base 0.8 S2): the
 same query over the same data returns the same records in the same order, apart from the order of
 records that tie on the sort. `search` matches the record name and model attributes with the
-`searchable` feature, case-insensitively, in every context. A draft or history page costs its own
-rows, not the size of the draft or revision.
+`searchable` feature, case-insensitively, in every context. A change-set or publication page costs its own
+rows, not the size of the change set or publication.
 
 `search` is a literal substring: `%`, `_` and quotes match themselves. Case folding covers ASCII
 letters only (SQLite's `LIKE`), so `Ü` matches `Ü` but not `ü`; this is unchanged by the search index.
 Since Base 0.8 S8 (D25), a search of three or more characters looks up attribute values through a
 trigram index over text values, reading only the records whose values contain the text; names are
 matched on the type's name index, about 20 ms per 100,000 records. A name search with its total over
-100,000 records takes about 35 ms in live and history and 75 ms in a draft (0.7–0.9 s before). A
+100,000 records takes about 35 ms in live data and a publication and 75 ms in a change set (0.7–0.9 s before). A
 one- or two-character search has no trigram to look up and reads each record's values (0.4–0.7 s
 over 100,000 records when few names match); so does a phrase present in more than 10,000 text values,
 where reading the index would cost more than it saves (about 0.4 s when it is in every value and no
@@ -846,10 +859,10 @@ records. The index is SQLite's (FTS5); on PostgreSQL, until its trigram form arr
 0.10, a search reads each record's values with the same results. A first page, or a `position` page, that reaches the end of the list reports its
 `totalCount` without a second count.
 
-Drafts and history record no timestamps. In a `workspaceDraftId` or `workspaceRevisionId` context,
+Change sets and publications record no timestamps. In a `changeSetId` or `publicationId` context,
 object and relation responses return `createdAt` and `updatedAt` as `null`, and a filter or sort on
-either field is refused with `422 invalid_filter` or `invalid_sort` (“Created is not recorded in drafts
-or history”) instead of matching nothing. Live responses always carry both timestamps.
+either field is refused with `422 invalid_filter` or `invalid_sort` (“Created is not recorded in change sets
+or publications”) instead of matching nothing. Live responses always carry both timestamps.
 
 Text filters support `eq`, `contains`, `startsWith` and `isNull`; number, date and datetime filters
 support `eq`, `lt`, `lte`, `gt`, `gte` and `isNull`; booleans support `eq` and `isNull`. Attribute
@@ -860,18 +873,18 @@ for one field combines with OR. Invalid grammar, capability, operator or typed i
 `422 invalid_filter` (or `invalid_sort`) with `details.path` identifying the query parameter.
 
 Object cursors are signed opaque tokens. Live cursors bind object type, selected sort, effective live
-workspace and every effective normalized filter; they do not bind a model or revision. Draft and
-historical cursors additionally bind their selected draft or revision context. A malformed token, a
+workspace and every effective normalized filter; they do not bind a model or publication. Change-set and
+publication cursors additionally bind their selected change-set or publication context. A malformed token, a
 changed sort/filter/context or reuse for another collection returns `422 invalid_cursor`. A live
 publication switch alone does not invalidate the cursor. Live predicates use keyset
 positions rather than offsets, so duplicate names and timestamps remain deterministic and inserts do
 not cause already traversed rows to repeat merely by shifting offsets. Live changes to sort keys may
 affect traversal; a live cursor is not a snapshot-consistent export.
 
-Draft-context `DELETE` requires `workspaceDraftId`, `expectedWorkspaceDraftVersion` and
+Change-set context `DELETE` requires `changeSetId`, `expectedChangeSetVersion` and
 `expectedVersion`; live `DELETE` requires only `expectedVersion`. Both accept optional `cascade`
-(default `false`). A draft delete changes only the selected workspace draft; live reads remain
-unchanged until activation. Without cascade,
+(default `false`). A change set delete changes only the selected change set; live reads remain
+unchanged until it is published. Without cascade,
 an object that has no children or non-parent relations is deleted normally. If dependencies exist, the
 request performs no deletion and returns `409 object_has_dependants` with a structured impact report:
 
@@ -915,11 +928,11 @@ request performs no deletion and returns `409 object_has_dependants` with a stru
 
 Confirming requires both `cascade=true` and the opaque `deletionPreviewToken` returned by that exact
 preview. The token locks the displayed hierarchy and incident relationships, including their record
-versions, workspace/draft and model context. If an object, attribute, parent link or incident
+versions, workspace/change set and model context. If an object, attribute, parent link or incident
 relationship changes before confirmation, deletion changes nothing and returns `409
 deletion_preview_changed`: `The object was modified by another session. Please retry.` The client must
 request and display a fresh preview. A missing token returns `409 deletion_preview_required`; a token
-cannot be reused for another object, workspace, draft or model.
+cannot be reused for another object, workspace, change set or model.
 
 Deletion is always confined to one workspace. If inconsistent stored data contains a containment or
 relationship edge into another workspace, the operation changes nothing and returns `409
@@ -948,9 +961,9 @@ with an endpoint outside the deletion set.
 | `applicationKey` | Yes | Application the object belongs to. |
 | `objectTypeKey` | Yes | Type of the object to create. |
 | `name` | Yes | Display name (1–500 characters). |
-| `workspaceKey` | Yes for live create; No for draft create | Required without `workspaceDraftId`; inferred from the draft when targeting one. A supplied key must match the selected draft or revision context. |
-| `workspaceDraftId` | No | Optional mutable workspace draft that receives the record. Omit it for a live create. |
-| `expectedWorkspaceDraftVersion` | When targeting a draft | Aggregate workspace-draft concurrency claim. |
+| `workspaceKey` | Yes for live create; No for change set create | Required without `changeSetId`; inferred from the change set when targeting one. A supplied key must match the selected change set or publication context. |
+| `changeSetId` | No | Optional mutable change set that receives the record. Omit it for a live create. |
+| `expectedChangeSetVersion` | When targeting a change set | Aggregate change-set concurrency claim. |
 | `parentObjectId` | No | Parent object UUID. Required for non-root-creatable types. |
 | `attributes` | No | Array of attribute values (see below). |
 | `initialRelations` | Conditionally | Required non-parent relationships created atomically with the object. |
@@ -974,16 +987,16 @@ Each `initialRelations` item contains `relationTypeKey`, `direction` relative to
 `otherObjectId`, and optional relation `attributes`. If a model binding is required at the new object's
 target side, creation returns `422 missing_required_relations` unless a matching incoming relation is
 provided. Object, attributes, containment, initial relationships and audit events commit in one
-transaction. The first create example is live. For the optional staged path, supply the draft and its
-version; for example, a Translation with its target can be created in a selected draft as follows:
+transaction. The first create example is live. For the optional staged path, supply the change set and its
+version; for example, a Translation with its target can be created in a selected change set as follows:
 
 ```json
 {
   "applicationKey": "rdm-translations",
   "objectTypeKey": "translation",
   "workspaceKey": "default",
-  "workspaceDraftId": "workspace-draft-uuid",
-  "expectedWorkspaceDraftVersion": 4,
+  "changeSetId": "change-set-uuid",
+  "expectedChangeSetVersion": 4,
   "parentObjectId": "translation-group-uuid",
   "name": "Czech timetable type",
   "attributes": [
@@ -1028,7 +1041,7 @@ model:
 returns one canonical form: a `decimal` without trailing zeros (`"12.50"` reads back as `"12.5"`,
 `"7.0"` as `"7"`) and a `dateTime` as the same instant in UTC with an explicit offset
 (`"2026-12-24T18:00:00+01:00"` reads back as `"2026-12-24T17:00:00+00:00"`). A zone-less `dateTime`
-in a write or filter is read as UTC. Live, draft and revision reads use the same forms, so equal
+in a write or filter is read as UTC. Live, change set and publication reads use the same forms, so equal
 values compare equal for uniqueness, and filters and sorts compare values by their declared type in
 every context.
 
@@ -1044,8 +1057,8 @@ database-level constraint is planned.
 ### Update request
 
 `PATCH /api/v1/objects/{objectTypeKey}/{objectId}` accepts a partial update. Only provided fields
-are changed. `expectedVersion` is required for live and draft updates. `workspaceDraftId` is optional;
-when present, `expectedWorkspaceDraftVersion` is required as well. Claims are atomic; stale writes
+are changed. `expectedVersion` is required for live and change set updates. `changeSetId` is optional;
+when present, `expectedChangeSetVersion` is required as well. Claims are atomic; stale writes
 return HTTP 409. Live payloads do not accept `workspaceKey`.
 
 ```json
@@ -1058,31 +1071,31 @@ return HTTP 409. Live payloads do not accept `workspaceKey`.
 }
 ```
 
-For a draft update, add `workspaceDraftId` and `expectedWorkspaceDraftVersion` to the same payload.
-The preceding example is a normal live correction and does not create a workspace revision.
+For a change set update, add `changeSetId` and `expectedChangeSetVersion` to the same payload.
+The preceding example is a normal live correction and does not create a publication.
 
 ### Attribute value endpoints
 
 Attribute values are child resources of an object, addressable one at a time. An object can carry at
 most one stored value per attached attribute type, so the URL leaf is the attribute type's `key`:
 
-Attribute GET routes accept optional `workspaceDraftId` or `workspaceRevisionId` using the same
+Attribute GET routes accept optional `changeSetId` or `publicationId` using the same
 mutually exclusive content-context rules as object reads.
 
 - `GET /api/v1/objects/{objectTypeKey}/{objectId}/attributes/{attributeTypeKey}` — read one stored value
 - `POST /api/v1/objects/{objectTypeKey}/{objectId}/attributes/{attributeTypeKey}` — set a value that is not yet stored
 - `PATCH /api/v1/objects/{objectTypeKey}/{objectId}/attributes/{attributeTypeKey}` — update a stored value
-- `DELETE /api/v1/objects/{objectTypeKey}/{objectId}/attributes/{attributeTypeKey}?expectedVersion={n}&workspaceDraftId={id}&expectedWorkspaceDraftVersion={n}` — remove a stored value
+- `DELETE /api/v1/objects/{objectTypeKey}/{objectId}/attributes/{attributeTypeKey}?expectedVersion={n}&changeSetId={id}&expectedChangeSetVersion={n}` — remove a stored value
 
-`GET` returns one stored value with `objectVersion`, the containing object's version. Current draft
-attribute GET does not populate `workspaceDraftVersion`; the optional field is null. Read the draft
+`GET` returns one stored value with `objectVersion`, the containing object's version. Current change set
+attribute GET does not populate `changeSetVersion`; the optional field is null. Read the change set
 resource to obtain its aggregate version. `POST`/`PATCH` return the full object response; successful
-draft writes populate the resulting draft version. Live writes have no draft claim or usable draft
+change set writes populate the resulting change set version. Live writes have no change set claim or usable change set
 version. `DELETE` returns 204.
 
-All attribute mutations require the object's `expectedVersion`. Only explicitly draft-scoped writes
-also require `workspaceDraftId` and `expectedWorkspaceDraftVersion` (body for POST/PATCH, query for
-DELETE). Both claims apply atomically in draft context; live mutations claim only the object version.
+All attribute mutations require the object's `expectedVersion`. Only explicitly change-set-scoped writes
+also require `changeSetId` and `expectedChangeSetVersion` (body for POST/PATCH, query for
+DELETE). Both claims apply atomically in change set context; live mutations claim only the object version.
 
 ```json
 {
@@ -1092,12 +1105,12 @@ DELETE). Both claims apply atomically in draft context; live mutations claim onl
   "valueType": "longText",
   "value": "Connections domain",
   "objectVersion": 1,
-  "workspaceDraftVersion": null
+  "changeSetVersion": null
 }
 ```
 
-This read does not supply a draft version, even when the record was requested through a draft.
-Historical values are immutable; live values remain writable. Null draft metadata is not a read-only
+This read does not supply a change set version, even when the record was requested through a change set.
+Publication values are immutable; live values remain writable. Null change set metadata is not a read-only
 flag.
 
 `POST` and `PATCH` share a request body:
@@ -1106,15 +1119,15 @@ flag.
 {
   "value": "Connections domain",
   "expectedVersion": 1,
-  "workspaceDraftId": "workspace-draft-uuid",
-  "expectedWorkspaceDraftVersion": 6
+  "changeSetId": "change-set-uuid",
+  "expectedChangeSetVersion": 6
 }
 ```
 
 - `POST` creates only when no value is stored for the key (`409 attribute_already_exists` otherwise).
 - `PATCH` updates only a stored value (`404 attribute_not_found` when the key has no value yet).
-- For a live POST/PATCH, omit both draft fields from the example. For live DELETE, supply only
-  `expectedVersion`; the draft query fields shown in the route list are optional context.
+- For a live POST/PATCH, omit both change set fields from the example. For live DELETE, supply only
+  `expectedVersion`; the change set query fields shown in the route list are optional context.
 - `DELETE` removes a stored value and returns 204. Required attributes cannot be deleted
   (`422 cannot_delete_required_attribute`); read-only attributes are rejected with
   `422 read_only_attributes`. Deleting an optional value reverts that attribute to "not stored".
@@ -1158,11 +1171,11 @@ Internal error example:
 - `GET /api/v1/relations?objectId={id}&direction={outgoing|incoming|both}&relationTypeKey={key}` (`relationTypeKey` repeatable)
 - `GET /api/v1/relations/{relationId}`
 - `PATCH /api/v1/relations/{relationId}`
-- `DELETE /api/v1/relations/{relationId}?expectedVersion={n}&workspaceDraftId={id}&expectedWorkspaceDraftVersion={n}`
+- `DELETE /api/v1/relations/{relationId}?expectedVersion={n}&changeSetId={id}&expectedChangeSetVersion={n}`
 
-Relation GET routes accept optional `workspaceDraftId` or `workspaceRevisionId` under the same
-mutually exclusive content-context rules as object reads. POST/PATCH use optional draft fields in
-the body; DELETE uses them in query parameters. Supplying `workspaceDraftId` requires the draft version.
+Relation GET routes accept optional `changeSetId` or `publicationId` under the same
+mutually exclusive content-context rules as object reads. POST/PATCH use optional change set fields in
+the body; DELETE uses them in query parameters. Supplying `changeSetId` requires the change set version.
 Live update/delete claim only the relation `expectedVersion`; creation has no existing relation version.
 Endpoints identify their workspace; live mutation payloads do not accept a new `workspaceKey` field.
 
@@ -1173,7 +1186,7 @@ with no matching relationships returns an empty `items`. The cursor is signed an
 to the anchor object, direction, relation types, search and effective workspace.
 
 Base 0.8 S4 adds `search` and `sort`, revised in S4R1 to mean what they mean on an object list, for
-the related record (the other end of each relation), in live, draft and history contexts:
+the related record (the other end of each relation), in live, change-set and publication contexts:
 
 - `relationTypeKey` may repeat to list several relation types together.
 - `search` matches the related record by name or by any attribute its type binds as `searchable`, as
@@ -1185,7 +1198,7 @@ the related record (the other end of each relation), in live, draft and history 
   orders by the label each row shows: the relation type's `name` when the anchor is the source, its
   `reverseName` otherwise. Label sorts break ties by name. Prefix `-` for descending. Records without
   the value come last in either direction. `createdAt` and `updatedAt` (the related record's) are
-  live only; drafts and history record no timestamps, so they answer `422 invalid_sort`.
+  live only; change sets and publications record no timestamps, so they answer `422 invalid_sort`.
 - An attribute sort over several related types puts records whose type lacks the attribute last. An
   ancestor sort needs the listed relations to reach one object type, decided by the anchor record's
   type, `direction` and `relationTypeKey` from the model's allowed relations; otherwise
@@ -1193,10 +1206,10 @@ the related record (the other end of each relation), in live, draft and history 
 - Without `sort` the list is in name order in every context. Ties break on the relation.
 - `seek` takes a value of the sorted field (a name by default).
 
-Draft and history relation items carry the related record's `path`, as live items do. A relation page
-for a record the context does not hold answers `404 object_not_found` in every context. Draft and
+Change-set and publication relation items carry the related record's `path`, as live items do. A relation page
+for a record the context does not hold answers `404 object_not_found` in every context. Change set and
 history continuations add their selected context identity; live continuations do not bind an active
-revision or model. Publication alone does not invalidate a live continuation. Malformed or
+publication or model. Publication alone does not invalidate a live continuation. Malformed or
 mismatched cursors return `422 invalid_cursor`; cursors issued before S4R1 are refused. Live, the
 anchor must be in the selected workspace and the related record is joined in it before projection,
 preventing a corrupt or legacy cross-workspace edge from being exposed.
@@ -1217,8 +1230,8 @@ the relation `attributes` and an optimistic-concurrency `version`. `GET /api/v1/
 reads one relation; an unknown id returns `404 relation_not_found`.
 
 `PATCH /api/v1/relations/{relationId}` accepts `{"attributes": {...}, "expectedVersion": n,
-"workspaceDraftId": "...", "expectedWorkspaceDraftVersion": n}`. The
-example is draft-scoped; omit its two draft fields for a live update. The relation identity
+"changeSetId": "...", "expectedChangeSetVersion": n}`. The
+example is change-set-scoped; omit its two change set fields for a live update. The relation identity
 (`relationTypeKey`, `fromObjectId`, `toObjectId`) is immutable; only `attributes`
 can be replaced. Replacement attributes are validated against the original allowed pair in the same
 transaction as the version claim. `DELETE` returns 204 and removes the relation row. Both mutations
@@ -1269,7 +1282,7 @@ endpoint. Composed acceptance remains in WP-9. WP-1–WP-3 scopes remain frozen.
 - `GET /api/v1/workspaces/{workspaceKey}/mapping-coverage` takes `applicationKey`, `viewKey`,
   explicit `relationTypeKey`, `fromObjectTypeKey`, `toObjectTypeKey`, `direction`, bounded `pageSize`,
   `cursor`, optional source search, optional direct `parentObjectId` scope, optional
-  `state=mapped|unmapped|ambiguous` and one optional `workspaceDraftId` or `workspaceRevisionId`.
+  `state=mapped|unmapped|ambiguous` and one optional `changeSetId` or `publicationId`.
   Parent and state filtering happen
   before pagination. The effective model resolves the
   configured `mappingGrid`; supplied binding fields must match. Display fields and candidate search
@@ -1282,19 +1295,19 @@ endpoint. Composed acceptance remains in WP-9. WP-1–WP-3 scopes remain frozen.
   the complete count. A cursor-paged target-detail query identifies the same view/binding/anchor and
   observed version; changed versions require refresh. Conflict responses use the same bounded preview
   convention. Coverage fields and version describe one consistent read.
-- Cursors bind workspace, live/draft/revision context, effective model release, view, direction, parent scope,
+- Cursors bind workspace, live/change-set/publication context, effective model release, view, direction, parent scope,
   mapping state and query
   configuration. Unknown view/binding or parent is `404`; a parent whose model-defined containment
   cannot hold the view's source type and mismatched configuration/cursors are explicit validation
   errors. A valid parent with no matching direct children returns an empty page. The frozen detail route is
   `GET /api/v1/workspaces/{workspaceKey}/mapping-targets`, with the same explicit binding parameters as coverage
   and optional paired `applicationKey`/`viewKey` for view-specific projection, plus `sourceObjectId`, required nonnegative `mappingVersion`,
-  optional `cursor`, `pageSize` (1–100; default 20), and one optional `workspaceDraftId` or
-  `workspaceRevisionId`.
+  optional `cursor`, `pageSize` (1–100; default 20), and one optional `changeSetId` or
+  `publicationId`.
   It returns the page's `items` and [paging fields](#collection-paging), then `mappingVersion` and `targetCount`. An observed-version mismatch returns
   `409 mapping_version_conflict` with an instruction to refresh coverage and the current version in
   `error.details.mappingVersion`. A cursor for another version, anchor or context is `422 invalid_cursor`.
-  Confirmed live/draft object cascade deletion advances both directional set versions for every
+  Confirmed live/change-set object cascade deletion advances both directional set versions for every
   removed edge, so existing continuations also require refresh after a cascade. Preview, refused
   and stale-delete requests leave set versions unchanged.
 
@@ -1305,15 +1318,15 @@ Coverage-state filters use the complete effective relation set, in both directio
 the requested source page. Views select the returned fields independently of the physical binding. Candidate lookup removes
 occupied target-side objects for one-to-one bindings and outgoing one-to-many views; source-dependent
 ancestor/graph constraints and final cardinality checks remain the save operation's responsibility.
-The mapping queries read effective draft overlays/tombstones or immutable revision snapshots in SQL,
+The mapping queries read effective change-set overlays/tombstones or immutable publications in SQL,
 page before projection, and
 batch bounded target previews and exact counts within the same transaction as model and version reads.
 
 Object summaries contain `id`, `objectTypeKey`, `name` and a `fields` dictionary keyed by the declared
 columns. Attributes retain JSON types (including numeric decimals, integers and booleans); missing
 values are `null`. Built-in fields include `id`, `name`, the model's `objectType` label, `path` as a
-slash-separated name path, `ancestor:<type>` as the ancestor name, and timestamps. Draft snapshots do
-not store object timestamps, so draft timestamp fields are `null`. Each target summary also preserves
+slash-separated name path, `ancestor:<type>` as the ancestor name, and timestamps. Change-set snapshots do
+not store object timestamps, so change set timestamp fields are `null`. Each target summary also preserves
 `relationId` and the stored relation `attributes` for future replacement operations.
 
 For example, a coverage page has this shape (cursor strings are opaque):
@@ -1351,7 +1364,7 @@ the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
   - `applicationKey` + `viewKey` — both required together; controls column projection only (the view's
     source/target display columns enrich the `fields` dict). Without a view, default projection returns
     `id`, `objectTypeKey`, `name` and an empty `fields` dict.
-  - `workspaceDraftId` — read from a draft snapshot instead of live data.
+  - `changeSetId` — read from a change set snapshot instead of live data.
   - `search` — case-insensitive substring on source or target name (max 500 characters).
   - `cursor`, `pageSize` (1–100; defaults to 20 without a view, or the view's configured page size).
 - Returns the standard page. Each item contains `relationId`, `relationTypeKey`, `direction`
@@ -1390,10 +1403,10 @@ the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
 - `PUT /api/v1/workspaces/{workspaceKey}/mappings` accepts `relationTypeKey`, `fromObjectTypeKey`,
   `toObjectTypeKey`, `direction` (outgoing/incoming), `sourceObjectId` (the row anchor), nullable
   `targetObjectId`, `expectedMappingVersion` (≥0), optional relation `attributes` dict and optional
-  `workspaceDraftId` with `expectedWorkspaceDraftVersion`. Incoming direction reverses source/target
+  `changeSetId` with `expectedChangeSetVersion`. Incoming direction reverses source/target
   roles, not the physical type keys. Null target removes the exact selected set; non-null replaces it
   with one selected target.
-- Returns `{sourceObjectId, mappingVersion, state, relationId?, workspaceDraftVersion?}`. State is
+- Returns `{sourceObjectId, mappingVersion, state, relationId?, changeSetVersion?}`. State is
   `"mapped"` or `"unmapped"`.
 - Validates workspace status, endpoint identities and the effective model. Rejects containment
   bindings (`422 immutable_relation`) and required-ownership bindings
@@ -1402,16 +1415,16 @@ the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
   direction only. Violations return `409 cardinality_violation`. Ancestor-scoped uniqueness is
   validated against the final graph, excluding edges being replaced. Duplicate scopes return
   `409 duplicate_relation_scope`; a missing required ancestor returns `422 relation_ancestor_required`
-  in both mapping and generic relation writes, live or draft.
+  in both mapping and generic relation writes, live or change set.
 - Tokens are checked before no-op detection. A stale mapping token returns `409 mapping_version_conflict`
   with `{mappingVersion, targetCount, targets (≤20), targetsNextCursor}` in error details and no
-  changes. Draft aggregate conflicts remain distinct (`409 workspace_draft_version_conflict`).
+  changes. Change set aggregate conflicts remain distinct (`409 change_set_version_conflict`).
   Large conflict sets include a signed continuation cursor and the selected `applicationKey`/`viewKey`;
   pass these with the binding, source and returned version to `GET /mapping-targets`. When no mapping
   view exists, omit both view keys for a binding-only name projection. Coverage and candidate reads
   still require a declared view. Supplying only one view key is rejected. Explicit empty view keys
   are supplied identities and fail lookup; they never select the binding-only fallback.
-  Draft context requires `expectedWorkspaceDraftVersion` (`409 workspace_draft_required` if omitted).
+  Change set context requires `expectedChangeSetVersion` (`409 change_set_required` if omitted).
 - Preserves the selected existing relation identity when the target is retained, removes obsolete
   edges, updates selected attributes or creates a new edge. Maintains all affected outgoing/incoming
   set versions atomically without double increments: the source anchor is incremented once per
@@ -1424,6 +1437,6 @@ the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
 - Changes record underlying per-relation audit events (created/updated/deleted) and one mapping
   `transition` event with old/new targets, relation identities and attributes.
 
-WP-9 verifies generic-write/mapping races, both directional sets, independent bindings and draft
+WP-9 verifies generic-write/mapping races, both directional sets, independent bindings and change set
 activation versus live same-set changes. Confirmed missing foundation capabilities trigger a bounded
 WP-10 slice and block acceptance; they do not retroactively change WP-3 scope.

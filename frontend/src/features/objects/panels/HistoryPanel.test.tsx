@@ -99,7 +99,7 @@ describe("HistoryPanel", () => {
           aggregateId: "relation-id",
           action: "created",
           version: 1,
-          changedFields: ["expectedWorkspaceDraftVersion", "fromObjectId", "relationTypeKey", "workspaceDraftId"],
+          changedFields: ["expectedChangeSetVersion", "fromObjectId", "relationTypeKey", "changeSetId"],
           attributeTypeKeys: [],
           occurredAt: "2026-09-05T10:00:00Z",
         },
@@ -120,6 +120,6 @@ describe("HistoryPanel", () => {
     expect(await screen.findByText("Relationship created")).toBeInTheDocument();
     expect(screen.getByText("Record created")).toBeInTheDocument();
     expect(screen.getByText("Changed Code")).toBeInTheDocument();
-    expect(screen.queryByText(/expectedWorkspaceDraftVersion|fromObjectId|initialRelations|objectTypeKey/)).toBeNull();
+    expect(screen.queryByText(/expectedChangeSetVersion|fromObjectId|initialRelations|objectTypeKey/)).toBeNull();
   });
 });

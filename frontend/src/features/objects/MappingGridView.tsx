@@ -46,7 +46,7 @@ export function MappingGridView({
 }: ViewComponentProps) {
   const view = rawView as MappingGridViewDefinition;
   const api = useDataApi();
-  const { draft } = useWorkspaceData();
+  const { changeSet } = useWorkspaceData();
   const root = useRef<HTMLDivElement>(null);
   const [search, setSearch] = useState(query.search);
   const [internalRefresh, setInternalRefresh] = useState(0);
@@ -80,7 +80,7 @@ export function MappingGridView({
         fromObjectTypeKey: config.fromObjectTypeKey,
         toObjectTypeKey: config.toObjectTypeKey,
         direction: config.direction,
-        workspaceDraftId: draft?.id,
+        changeSetId: changeSet?.id,
         search: query.search || undefined,
         parentObjectId: query.parentObjectId,
         state: query.mappingState,
@@ -95,7 +95,7 @@ export function MappingGridView({
       query.pageSize,
       query.parentObjectId,
       query.mappingState,
-      draft?.id,
+      changeSet?.id,
     ],
     { anchor: query.anchor, refreshToken: combinedRefresh },
   );
@@ -252,7 +252,7 @@ export function MappingGridView({
                       applicationKey={application.key}
                       viewKey={view.key}
                       config={config}
-                      draftId={draft?.id}
+                      changeSetId={changeSet?.id}
                       readOnly={readOnly}
                       onEdit={() => setEditingId(row.source.id)}
                     />
@@ -271,7 +271,7 @@ export function MappingGridView({
           applicationKey={application.key}
           viewKey={view.key}
           config={config}
-          draftId={draft?.id}
+          changeSetId={changeSet?.id}
           source={editingRow.source}
           currentTargets={editingRow.targets}
           targetCount={editingRow.targetCount}
@@ -304,7 +304,7 @@ function CoverageRow({
   applicationKey,
   viewKey,
   config,
-  draftId,
+  changeSetId,
   readOnly,
   onEdit,
 }: {
@@ -316,7 +316,7 @@ function CoverageRow({
   applicationKey: string;
   viewKey: string;
   config: MappingGridViewDefinition["config"];
-  draftId?: string;
+  changeSetId?: string;
   readOnly?: boolean;
   onEdit: () => void;
 }) {
@@ -373,7 +373,7 @@ function CoverageRow({
                 applicationKey={applicationKey}
                 viewKey={viewKey}
                 config={config}
-                draftId={draftId}
+                changeSetId={changeSetId}
                 sourceObjectId={row.source.id}
                 mappingVersion={row.mappingVersion}
                 nextCursor={row.targetsNextCursor}
@@ -419,7 +419,7 @@ function MappingActionDialog({
   applicationKey,
   viewKey,
   config,
-  draftId,
+  changeSetId,
   source,
   currentTargets,
   targetCount,
@@ -434,7 +434,7 @@ function MappingActionDialog({
   applicationKey: string;
   viewKey: string;
   config: MappingGridViewDefinition["config"];
-  draftId?: string;
+  changeSetId?: string;
   source: MappingObjectSummary;
   currentTargets: MappingTargetSummary[];
   targetCount: number;
@@ -484,12 +484,12 @@ function MappingActionDialog({
         applicationKey,
         viewKey,
         objectTypeKey: targetTypeKey,
-        workspaceDraftId: draftId,
+        changeSetId: changeSetId,
         search: debouncedSearch || undefined,
         ...selector,
         pageSize: 20,
       }),
-    [workspaceKey, applicationKey, viewKey, targetTypeKey, draftId, debouncedSearch],
+    [workspaceKey, applicationKey, viewKey, targetTypeKey, changeSetId, debouncedSearch],
   );
   // A target created here is shown first until the list reads it; it has no place in the list yet.
   const rowIndex = (id: string) => {
@@ -724,7 +724,7 @@ function TargetContinuation({
   applicationKey,
   viewKey,
   config,
-  draftId,
+  changeSetId,
   sourceObjectId,
   mappingVersion,
   nextCursor,
@@ -734,7 +734,7 @@ function TargetContinuation({
   applicationKey: string;
   viewKey: string;
   config: MappingGridViewDefinition["config"];
-  draftId?: string;
+  changeSetId?: string;
   sourceObjectId: string;
   mappingVersion: number;
   nextCursor: string | null;
@@ -759,7 +759,7 @@ function TargetContinuation({
         fromObjectTypeKey: config.fromObjectTypeKey,
         toObjectTypeKey: config.toObjectTypeKey,
         direction: config.direction,
-        workspaceDraftId: draftId,
+        changeSetId: changeSetId,
         sourceObjectId,
         mappingVersion,
         cursor,
@@ -771,7 +771,18 @@ function TargetContinuation({
     } finally {
       setLoading(false);
     }
-  }, [api, workspaceKey, applicationKey, viewKey, config, draftId, sourceObjectId, mappingVersion, cursor, loading]);
+  }, [
+    api,
+    workspaceKey,
+    applicationKey,
+    viewKey,
+    config,
+    changeSetId,
+    sourceObjectId,
+    mappingVersion,
+    cursor,
+    loading,
+  ]);
 
   return (
     <>

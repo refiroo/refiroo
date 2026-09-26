@@ -1,10 +1,10 @@
 import type {
   EngineModel,
-  WorkspaceDraft,
-  WorkspaceDraftPage,
-  WorkspaceRevision,
-  WorkspaceRevisionPage,
-  WorkspaceDraftValidation,
+  ChangeSet,
+  ChangeSetPage,
+  Publication,
+  PublicationPage,
+  ChangeSetValidation,
   InitialRelationInput,
   ObjectAttributeInput,
   ObjectItem,
@@ -81,9 +81,9 @@ function failedResponseMessage(path: string, status: number): string {
   return `The request to ${path} failed with status ${status}. Retry or contact support if the problem continues.`;
 }
 
-export interface DraftWriteContext {
-  workspaceDraftId?: string;
-  expectedWorkspaceDraftVersion?: number;
+export interface ChangeSetWriteContext {
+  changeSetId?: string;
+  expectedChangeSetVersion?: number;
 }
 
 /**
@@ -107,8 +107,8 @@ function setPaging(params: URLSearchParams, selector: PageSelector) {
 }
 
 export interface ObjectQuery extends PageSelector {
-  workspaceDraftId?: string;
-  workspaceRevisionId?: string;
+  changeSetId?: string;
+  publicationId?: string;
   applicationKey?: string;
   workspaceKey?: string;
   search?: string;
@@ -123,8 +123,8 @@ export interface ObjectQuery extends PageSelector {
 export interface ObjectDeleteOptions {
   cascade?: boolean;
   deletionPreviewToken?: string;
-  workspaceDraftId?: string;
-  expectedWorkspaceDraftVersion?: number;
+  changeSetId?: string;
+  expectedChangeSetVersion?: number;
 }
 
 export interface MappingCoverageQuery extends PageSelector {
@@ -135,8 +135,8 @@ export interface MappingCoverageQuery extends PageSelector {
   fromObjectTypeKey: string;
   toObjectTypeKey: string;
   direction: "outgoing" | "incoming";
-  workspaceDraftId?: string;
-  workspaceRevisionId?: string;
+  changeSetId?: string;
+  publicationId?: string;
   search?: string;
   pageSize?: number;
   parentObjectId?: string;
@@ -151,8 +151,8 @@ export interface MappingTargetQuery {
   direction: "outgoing" | "incoming";
   applicationKey?: string;
   viewKey?: string;
-  workspaceDraftId?: string;
-  workspaceRevisionId?: string;
+  changeSetId?: string;
+  publicationId?: string;
   sourceObjectId: string;
   mappingVersion: number;
   cursor?: string;
@@ -164,8 +164,8 @@ export interface MappingCandidateQuery extends PageSelector {
   applicationKey: string;
   viewKey: string;
   objectTypeKey: string;
-  workspaceDraftId?: string;
-  workspaceRevisionId?: string;
+  changeSetId?: string;
+  publicationId?: string;
   search?: string;
   pageSize?: number;
 }
@@ -173,8 +173,8 @@ export interface MappingCandidateQuery extends PageSelector {
 function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
   const params = new URLSearchParams({ pageSize: String(query.pageSize ?? 20) });
   if (query.applicationKey) params.set("applicationKey", query.applicationKey);
-  if (query.workspaceDraftId) params.set("workspaceDraftId", query.workspaceDraftId);
-  if (query.workspaceRevisionId) params.set("workspaceRevisionId", query.workspaceRevisionId);
+  if (query.changeSetId) params.set("changeSetId", query.changeSetId);
+  if (query.publicationId) params.set("publicationId", query.publicationId);
   if (query.workspaceKey) params.set("workspaceKey", query.workspaceKey);
   if (query.search) params.set("search", query.search);
   setPaging(params, query);
@@ -186,11 +186,11 @@ function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
 }
 
 export const api = {
-  model: (context: { workspaceKey?: string; workspaceDraftId?: string; workspaceRevisionId?: string } = {}) => {
+  model: (context: { workspaceKey?: string; changeSetId?: string; publicationId?: string } = {}) => {
     const params = new URLSearchParams();
     if (context.workspaceKey) params.set("workspaceKey", context.workspaceKey);
-    if (context.workspaceDraftId) params.set("workspaceDraftId", context.workspaceDraftId);
-    if (context.workspaceRevisionId) params.set("workspaceRevisionId", context.workspaceRevisionId);
+    if (context.changeSetId) params.set("changeSetId", context.changeSetId);
+    if (context.publicationId) params.set("publicationId", context.publicationId);
     const query = params.toString();
     return request<EngineModel>(`/api/v1/model${query ? `?${query}` : ""}`);
   },
@@ -212,61 +212,52 @@ export const api = {
     return request<WorkspacePage>(`/api/v1/workspaces?${params}`);
   },
   workspace: (workspaceKey: string) => request<Workspace>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}`),
-  workspaceDrafts: (workspaceKey: string, cursor?: string) => {
+  changeSets: (workspaceKey: string, cursor?: string) => {
     const query = new URLSearchParams({ pageSize: "50" });
     if (cursor) query.set("cursor", cursor);
-    return request<WorkspaceDraftPage>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/drafts?${query}`);
+    return request<ChangeSetPage>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/change-sets?${query}`);
   },
-  workspaceDraft: (id: string) => request<WorkspaceDraft>(`/api/v1/workspace-drafts/${encodeURIComponent(id)}`),
-  createWorkspaceDraft: (workspaceKey: string, name: string, modelReleaseId?: string) =>
-    request<WorkspaceDraft>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/drafts`, {
+  changeSet: (id: string) => request<ChangeSet>(`/api/v1/change-sets/${encodeURIComponent(id)}`),
+  createChangeSet: (workspaceKey: string, name: string, modelReleaseId?: string) =>
+    request<ChangeSet>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/change-sets`, {
       method: "POST",
       body: JSON.stringify({ name, source: "currentLive", ...(modelReleaseId ? { modelReleaseId } : {}) }),
     }),
-  createHistoricalWorkspaceDraft: (workspaceKey: string, name: string, revisionId: string) =>
-    request<WorkspaceDraft>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/drafts`, {
+  createChangeSetFromPublication: (workspaceKey: string, name: string, publicationId: string) =>
+    request<ChangeSet>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/change-sets`, {
       method: "POST",
-      body: JSON.stringify({ name, source: "revision", derivedFromRevisionId: revisionId }),
+      body: JSON.stringify({ name, source: "publication", derivedFromPublicationId: publicationId }),
     }),
-  discardWorkspaceDraft: (id: string, expectedVersion: number) =>
-    request<void>(`/api/v1/workspace-drafts/${encodeURIComponent(id)}?expectedVersion=${expectedVersion}`, {
+  discardChangeSet: (id: string, expectedVersion: number) =>
+    request<void>(`/api/v1/change-sets/${encodeURIComponent(id)}?expectedVersion=${expectedVersion}`, {
       method: "DELETE",
     }),
-  validateWorkspaceDraft: (id: string) =>
-    request<WorkspaceDraftValidation>(`/api/v1/workspace-drafts/${encodeURIComponent(id)}/validation`, {
+  validateChangeSet: (id: string) =>
+    request<ChangeSetValidation>(`/api/v1/change-sets/${encodeURIComponent(id)}/validation`, {
       method: "POST",
     }),
-  activateWorkspaceDraft: (id: string, expectedDraftVersion: number, expectedActiveRevisionId: string | null) =>
-    request<WorkspaceRevision>(`/api/v1/workspace-drafts/${encodeURIComponent(id)}/activation`, {
+  publishChangeSet: (id: string, expectedChangeSetVersion: number, expectedActivePublicationId: string | null) =>
+    request<Publication>(`/api/v1/change-sets/${encodeURIComponent(id)}/publication`, {
       method: "POST",
-      body: JSON.stringify({ expectedDraftVersion, expectedActiveRevisionId }),
+      body: JSON.stringify({ expectedChangeSetVersion, expectedActivePublicationId }),
     }),
-  changeWorkspaceDraftModelRelease: (
-    workspaceKey: string,
-    draftId: string,
-    modelReleaseId: string,
-    expectedDraftVersion: number,
-  ) =>
-    request<WorkspaceDraft>(
-      `/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/drafts/${encodeURIComponent(draftId)}/model-release`,
-      { method: "PATCH", body: JSON.stringify({ modelReleaseId, expectedDraftVersion }) },
+  setChangeSetModelRelease: (changeSetId: string, modelReleaseId: string, expectedChangeSetVersion: number) =>
+    request<ChangeSet>(`/api/v1/change-sets/${encodeURIComponent(changeSetId)}/model-release`, {
+      method: "PATCH",
+      body: JSON.stringify({ modelReleaseId, expectedChangeSetVersion }),
+    }),
+  latestPublication: (workspaceKey: string) =>
+    request<{ items: Publication[]; nextCursor: string | null }>(
+      `/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/publications?pageSize=1`,
     ),
-  latestWorkspaceRevision: (workspaceKey: string) =>
-    request<{ items: WorkspaceRevision[]; nextCursor: string | null }>(
-      `/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/revisions?pageSize=1`,
-    ),
-  workspaceRevisions: (workspaceKey: string, cursor?: string) => {
+  publications: (workspaceKey: string, cursor?: string) => {
     const query = new URLSearchParams({ pageSize: "50" });
     if (cursor) query.set("cursor", cursor);
-    return request<WorkspaceRevisionPage>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/revisions?${query}`);
+    return request<PublicationPage>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/publications?${query}`);
   },
-  workspaceRevision: (id: string) =>
-    request<WorkspaceRevision>(`/api/v1/workspace-revisions/${encodeURIComponent(id)}`),
-  retireWorkspacePublication: (workspaceKey: string, expectedActiveRevisionId: string) =>
-    request<void>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/retirement`, {
-      method: "POST",
-      body: JSON.stringify({ expectedActiveRevisionId }),
-    }),
+  publication: (id: string) => request<Publication>(`/api/v1/publications/${encodeURIComponent(id)}`),
+  withdrawPublication: (publicationId: string) =>
+    request<void>(`/api/v1/publications/${encodeURIComponent(publicationId)}/withdrawal`, { method: "POST" }),
   workspaceRuntimeState: () => request<WorkspaceRuntimeState>("/api/v1/workspace-runtime-state"),
   modelReleases: (options: { cursor?: string; pageSize?: number } = {}) => {
     const params = new URLSearchParams({ pageSize: String(options.pageSize ?? 100) });
@@ -329,20 +320,20 @@ export const api = {
     objectTypeKey: string,
     objectId: string,
     workspaceKey?: string,
-    workspaceDraftId?: string,
-    workspaceRevisionId?: string,
+    changeSetId?: string,
+    publicationId?: string,
   ) =>
     request<ObjectItem>(
       withWorkspace(
         `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}`,
         workspaceKey,
-        workspaceDraftId,
-        workspaceRevisionId,
+        changeSetId,
+        publicationId,
       ),
     ),
   createObject: (
     objectTypeKey: string,
-    payload: DraftWriteContext & {
+    payload: ChangeSetWriteContext & {
       applicationKey: string;
       workspaceKey: string;
       name: string;
@@ -358,7 +349,7 @@ export const api = {
   updateObject: (
     objectTypeKey: string,
     objectId: string,
-    payload: DraftWriteContext & {
+    payload: ChangeSetWriteContext & {
       expectedVersion: number;
       name?: string;
       parentObjectId?: string | null;
@@ -378,9 +369,9 @@ export const api = {
     const params = new URLSearchParams({ expectedVersion: String(expectedVersion) });
     if (options.cascade) params.set("cascade", "true");
     if (options.deletionPreviewToken) params.set("deletionPreviewToken", options.deletionPreviewToken);
-    if (options.workspaceDraftId) params.set("workspaceDraftId", options.workspaceDraftId);
-    if (options.expectedWorkspaceDraftVersion !== undefined) {
-      params.set("expectedWorkspaceDraftVersion", String(options.expectedWorkspaceDraftVersion));
+    if (options.changeSetId) params.set("changeSetId", options.changeSetId);
+    if (options.expectedChangeSetVersion !== undefined) {
+      params.set("expectedChangeSetVersion", String(options.expectedChangeSetVersion));
     }
     return request<void>(
       `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}?${params}`,
@@ -391,16 +382,11 @@ export const api = {
     objectTypeKey: string,
     objectId: string,
     attributeTypeKey: string,
-    workspaceDraftId?: string,
-    workspaceRevisionId?: string,
+    changeSetId?: string,
+    publicationId?: string,
   ) =>
     request<AttributeValueResponse>(
-      withWorkspace(
-        attributePath(objectTypeKey, objectId, attributeTypeKey),
-        undefined,
-        workspaceDraftId,
-        workspaceRevisionId,
-      ),
+      withWorkspace(attributePath(objectTypeKey, objectId, attributeTypeKey), undefined, changeSetId, publicationId),
     ),
   createAttribute: (
     objectTypeKey: string,
@@ -408,7 +394,7 @@ export const api = {
     attributeTypeKey: string,
     value: unknown,
     expectedVersion: number,
-    context: DraftWriteContext = {},
+    context: ChangeSetWriteContext = {},
   ) =>
     request<ObjectItem>(attributePath(objectTypeKey, objectId, attributeTypeKey), {
       method: "POST",
@@ -420,7 +406,7 @@ export const api = {
     attributeTypeKey: string,
     value: unknown,
     expectedVersion: number,
-    context: DraftWriteContext = {},
+    context: ChangeSetWriteContext = {},
   ) =>
     request<ObjectItem>(attributePath(objectTypeKey, objectId, attributeTypeKey), {
       method: "PATCH",
@@ -431,7 +417,7 @@ export const api = {
     objectId: string,
     attributeTypeKey: string,
     expectedVersion: number,
-    context: DraftWriteContext = {},
+    context: ChangeSetWriteContext = {},
   ) =>
     request<void>(
       `${attributePath(objectTypeKey, objectId, attributeTypeKey)}?${writeQuery(expectedVersion, context)}`,
@@ -443,8 +429,8 @@ export const api = {
     objectId: string,
     options: PageSelector & {
       workspaceKey?: string;
-      workspaceDraftId?: string;
-      workspaceRevisionId?: string;
+      changeSetId?: string;
+      publicationId?: string;
       direction?: "incoming" | "outgoing" | "both";
       relationTypeKey?: string;
       search?: string;
@@ -454,8 +440,8 @@ export const api = {
     } = {},
   ) => {
     const params = new URLSearchParams({ objectId });
-    if (options.workspaceDraftId) params.set("workspaceDraftId", options.workspaceDraftId);
-    if (options.workspaceRevisionId) params.set("workspaceRevisionId", options.workspaceRevisionId);
+    if (options.changeSetId) params.set("changeSetId", options.changeSetId);
+    if (options.publicationId) params.set("publicationId", options.publicationId);
     if (options.workspaceKey) params.set("workspaceKey", options.workspaceKey);
     if (options.direction) params.set("direction", options.direction);
     if (options.relationTypeKey) params.set("relationTypeKey", options.relationTypeKey);
@@ -465,23 +451,18 @@ export const api = {
     params.set("pageSize", String(options.pageSize ?? 100));
     return request<RelationPage>(`/api/v1/relations?${params}`);
   },
-  createRelation: (payload: RelationCreateInput & DraftWriteContext) =>
+  createRelation: (payload: RelationCreateInput & ChangeSetWriteContext) =>
     request<RelationRecord>("/api/v1/relations", { method: "POST", body: JSON.stringify(payload) }),
-  relation: (relationId: string, workspaceKey?: string, workspaceDraftId?: string, workspaceRevisionId?: string) =>
+  relation: (relationId: string, workspaceKey?: string, changeSetId?: string, publicationId?: string) =>
     request<RelationRecord>(
-      withWorkspace(
-        `/api/v1/relations/${encodeURIComponent(relationId)}`,
-        workspaceKey,
-        workspaceDraftId,
-        workspaceRevisionId,
-      ),
+      withWorkspace(`/api/v1/relations/${encodeURIComponent(relationId)}`, workspaceKey, changeSetId, publicationId),
     ),
-  updateRelation: (relationId: string, payload: RelationUpdateInput & DraftWriteContext) =>
+  updateRelation: (relationId: string, payload: RelationUpdateInput & ChangeSetWriteContext) =>
     request<RelationRecord>(`/api/v1/relations/${encodeURIComponent(relationId)}`, {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
-  deleteRelation: (relationId: string, expectedVersion: number, context: DraftWriteContext = {}) =>
+  deleteRelation: (relationId: string, expectedVersion: number, context: ChangeSetWriteContext = {}) =>
     request<void>(`/api/v1/relations/${encodeURIComponent(relationId)}?${writeQuery(expectedVersion, context)}`, {
       method: "DELETE",
     }),
@@ -501,8 +482,8 @@ export const api = {
       toObjectTypeKey: query.toObjectTypeKey,
       direction: query.direction,
     });
-    if (query.workspaceDraftId) params.set("workspaceDraftId", query.workspaceDraftId);
-    if (query.workspaceRevisionId) params.set("workspaceRevisionId", query.workspaceRevisionId);
+    if (query.changeSetId) params.set("changeSetId", query.changeSetId);
+    if (query.publicationId) params.set("publicationId", query.publicationId);
     if (query.search) params.set("search", query.search);
     if (query.parentObjectId) params.set("parentObjectId", query.parentObjectId);
     if (query.state) params.set("state", query.state);
@@ -518,8 +499,8 @@ export const api = {
       viewKey: query.viewKey,
       objectTypeKey: query.objectTypeKey,
     });
-    if (query.workspaceDraftId) params.set("workspaceDraftId", query.workspaceDraftId);
-    if (query.workspaceRevisionId) params.set("workspaceRevisionId", query.workspaceRevisionId);
+    if (query.changeSetId) params.set("changeSetId", query.changeSetId);
+    if (query.publicationId) params.set("publicationId", query.publicationId);
     if (query.search) params.set("search", query.search);
     setPaging(params, query);
     if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
@@ -543,8 +524,8 @@ export const api = {
     });
     if (query.applicationKey) params.set("applicationKey", query.applicationKey);
     if (query.viewKey) params.set("viewKey", query.viewKey);
-    if (query.workspaceDraftId) params.set("workspaceDraftId", query.workspaceDraftId);
-    if (query.workspaceRevisionId) params.set("workspaceRevisionId", query.workspaceRevisionId);
+    if (query.changeSetId) params.set("changeSetId", query.changeSetId);
+    if (query.publicationId) params.set("publicationId", query.publicationId);
     if (query.cursor) params.set("cursor", query.cursor);
     if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
     return request<MappingTargetPage>(
@@ -557,18 +538,18 @@ function attributePath(objectTypeKey: string, objectId: string, attributeTypeKey
   return `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}/attributes/${encodeURIComponent(attributeTypeKey)}`;
 }
 
-function withWorkspace(path: string, workspaceKey?: string, workspaceDraftId?: string, workspaceRevisionId?: string) {
+function withWorkspace(path: string, workspaceKey?: string, changeSetId?: string, publicationId?: string) {
   const params = new URLSearchParams();
   if (workspaceKey) params.set("workspaceKey", workspaceKey);
-  if (workspaceDraftId) params.set("workspaceDraftId", workspaceDraftId);
-  if (workspaceRevisionId) params.set("workspaceRevisionId", workspaceRevisionId);
+  if (changeSetId) params.set("changeSetId", changeSetId);
+  if (publicationId) params.set("publicationId", publicationId);
   return params.size ? `${path}?${params}` : path;
 }
 
-function writeQuery(expectedVersion: number, context: DraftWriteContext) {
+function writeQuery(expectedVersion: number, context: ChangeSetWriteContext) {
   const params = new URLSearchParams({ expectedVersion: String(expectedVersion) });
-  if (context.workspaceDraftId) params.set("workspaceDraftId", context.workspaceDraftId);
-  if (context.expectedWorkspaceDraftVersion !== undefined)
-    params.set("expectedWorkspaceDraftVersion", String(context.expectedWorkspaceDraftVersion));
+  if (context.changeSetId) params.set("changeSetId", context.changeSetId);
+  if (context.expectedChangeSetVersion !== undefined)
+    params.set("expectedChangeSetVersion", String(context.expectedChangeSetVersion));
   return params;
 }

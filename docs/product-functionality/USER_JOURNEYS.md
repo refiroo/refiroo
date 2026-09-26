@@ -33,8 +33,8 @@ successful content.
 
 Guardrails:
 
-- Do not require creating, naming, validating and activating a workspace draft.
-- Do not create a workspace revision for the edit.
+- Do not require creating, naming, validating and activating a change set.
+- Do not create a publication for the edit.
 - If another person changed the record, preserve the user's input and show what must be reviewed before
   an explicit retry.
 - Do not split one coherent record edit into avoidable separate screens.
@@ -57,40 +57,40 @@ none of them do. Candidate lookup searches the server and stays in the selected 
 
 **Current channel:** API; browser dialog exists but the flow is not connected.
 
-1. Choose Delete on a live record or a record in a design draft.
+1. Choose Delete on a live record or a record in a change set.
 2. Review the returned children, owned dependants and relationships.
 3. Cancel with no change, or explicitly confirm the cascade.
-4. See the resulting live state or draft candidate and audit outcome.
+4. See the resulting live state or change set candidate and audit outcome.
 
-Success means independent associated records survive. Live deletion is immediate; draft deletion does
-not alter live data until activation. Historical snapshots do not change in either case.
+Success means independent associated records survive. Live deletion is immediate; change set deletion does
+not alter live data until activation. Publications do not change in either case.
 
 ## J05 — Prepare and activate a coordinated design
 
 **Current channel:** API; browser completion is 0.6 WP9.
 
-1. Open the workspace's Drafts area.
-2. Choose a clearly labelled source: current live data or a historical snapshot. Empty drafts are
+1. Open the workspace's Change sets area.
+2. Choose a clearly labelled source: current live data or a publication. Empty change sets are
    development/bootstrap support, not the normal creation flow.
    The current-live option is implemented by WP8.1-B; browser controls for choosing it remain WP9 work.
-3. Name the draft and make changes using the normal record controls.
+3. Name the change set and make changes using the normal record controls.
 4. Validate the complete candidate.
 5. Review the source, current live context, model release, changes and validation result.
 6. Activate once.
-7. Open the new immutable revision and its lineage.
+7. Open the new immutable publication and its lineage.
 
 Success means live readers see no staged change before activation and see the complete merged result
-afterward. A conflict or invalid graph publishes nothing and preserves the draft.
+afterward. A conflict or invalid graph publishes nothing and preserves the change set.
 
-## J06 — Continue live work while a design draft is open
+## J06 — Continue live work while a change set is open
 
-**Current channel:** Merge and current-live draft creation are available through the SQLite API; the
+**Current channel:** Merge and current-live change set creation are available through the SQLite API; the
 browser journey is pending.
 
-1. A design draft starts from a private immutable copy of current live content.
-2. Routine live edits continue without using the draft.
-3. The design team edits other records in the draft.
-4. Activation computes only the draft's changes.
+1. A change set starts from a private immutable copy of current live content.
+2. Routine live edits continue without using the change set.
+3. The design team edits other records in the change set.
+4. Publishing computes only the change set's changes.
 5. Untouched live edits are preserved.
 
 If both paths changed the same record, activation stops with a record-specific conflict. It must never
@@ -101,11 +101,11 @@ silently overwrite the live edit or delete live-only records.
 **Current channel:** API; browser completion is 0.6 WP9.
 
 1. Open workspace publication history.
-2. Choose Retire publication and confirm the named current revision.
-3. Observe that no revision is designated as the current publication. Live data and history remain
+2. Choose Withdraw publication and confirm the named current publication.
+3. Observe that no publication is designated as the current publication. Live data and history remain
    readable; this action has not withdrawn live records or made the workspace read-only.
-4. Choose a historical revision and create a new design draft from it.
-5. Explicitly prepare the intended changes, review, validate and activate the new draft. Selecting an
+4. Choose a earlier publication and create a new change set from it.
+5. Explicitly prepare the intended changes, review, validate and publish the new change set. Selecting an
    older base alone does not undo live content; untouched newer live records are preserved.
 
 This is a workspace-level action. It must not show or update individual “retired objects.” Retiring a
@@ -183,8 +183,8 @@ underlying cause remains available through controlled diagnostics or escalation 
 
 In J10, clear is offered only where empty is valid. Search continues beyond page one; large ambiguous
 sets expose counts and continuation. Keeping a selected existing target preserves its relationship
-identity and attributes. Mapping and draft-version conflicts retain the attempted choice for review.
-When changing a draft model, the full candidate must already fit; failure changes nothing. Success
+identity and attributes. Mapping and change-set-version conflicts retain the attempted choice for review.
+When changing a change set model, the full candidate must already fit; failure changes nothing. Success
 reloads model-dependent views, forms and lookups, resets obsolete cursors and recovers removed routes
 without silently discarding dirty input. Older pinned releases remain usable and are labelled neutrally.
 WP-6/WP-7 deliver selection and WP-11 delivers refusal, recovery and dialog hardening; composed SC-15

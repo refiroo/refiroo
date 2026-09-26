@@ -22,7 +22,7 @@ export function RecordActionMenu({
   isOpen?: boolean;
   onOpenChange?: (open: boolean) => void;
 }) {
-  const { draft, revision } = useWorkspaceData();
+  const { changeSet, publication } = useWorkspaceData();
   const [message, setMessage] = useState("");
   async function copyLink() {
     const path = routePath({
@@ -31,8 +31,8 @@ export function RecordActionMenu({
       objectTypeKey: object.objectTypeKey,
       objectId: object.id,
       workspaceKey: object.workspaceKey,
-      workspaceDraftId: draft?.id,
-      workspaceRevisionId: revision?.id,
+      changeSetId: changeSet?.id,
+      publicationId: publication?.id,
     });
     try {
       await navigator.clipboard.writeText(new URL(path, window.location.origin).href);

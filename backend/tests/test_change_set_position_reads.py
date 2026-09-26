@@ -1,10 +1,10 @@
-"""Base 0.8 S4R6: a draft position read resolves in its base's index and lands on the same row.
+"""Base 0.8 S4R6: a change set position read resolves in its base's index and lands on the same row.
 
-A draft lists its base rows less those its draft rows replace, plus its own rows. A position read
-finds the base row at the position less the draft's own rows, then corrects for the draft rows
-sorting before it (``pagination._locate``). The drafts here move rows across the order: renames to
+A change set lists its base rows less those its change set rows replace, plus its own rows. A position read
+finds the base row at the position less the change set's own rows, then corrects for the change set rows
+sorting before it (``pagination._locate``). The change sets here move rows across the order: renames to
 the front, the back and the middle, new records at the front, and the fixture's tombstones. Every
-landing is compared with a cursor walk of the whole list, on a revision base and a current-live
+landing is compared with a cursor walk of the whole list, on a publication base and a current-live
 base, over a whole type and inside a parent, ascending, descending and by an attribute. The
 full-volume time is recorded in the Base 0.8 plan.
 """
@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 from volume_fixture import APPLICATION, CODE, ITEM, RANK, WORKSPACE, scaled_shape, volume_app
-from wp8_support import attribute, create_draft, create_object, update_object
+from wp8_support import attribute, create_change_set, create_object, update_object
 
 from app.services import pagination
 
@@ -21,20 +21,20 @@ PAGE = 7
 
 
 @pytest.fixture(scope="module")
-def drafts(_migrated_template, tmp_path_factory):
-    """The fixture's revision-based draft and a current-live draft, both with rows moved."""
+def change_sets(_migrated_template, tmp_path_factory):
+    """The fixture's publication-based change set and a current-live change set, both with rows moved."""
     with volume_app(
-        _migrated_template, tmp_path_factory.mktemp("draft-positions"), scaled_shape(0.01)
+        _migrated_template, tmp_path_factory.mktemp("change-set-positions"), scaled_shape(0.01)
     ) as (client, dataset):
-        current_live = create_draft(client, WORKSPACE, source="currentLive").json()
-        revision_based = client.get(f"/api/v1/workspace-drafts/{dataset.draft_id}").json()
-        for draft in (revision_based, current_live):
-            _move_rows(client, draft, dataset.heavy_group_id)
-        yield client, dataset, {"revision": revision_based["id"], "currentLive": current_live["id"]}
+        current_live = create_change_set(client, WORKSPACE, source="currentLive").json()
+        publication_based = client.get(f"/api/v1/change-sets/{dataset.change_set_id}").json()
+        for change_set in (publication_based, current_live):
+            _move_rows(client, change_set, dataset.heavy_group_id)
+        yield client, dataset, {"publication": publication_based["id"], "currentLive": current_live["id"]}
 
 
-def _move_rows(client, draft: dict[str, Any], parent_id: str) -> None:
-    params = {"workspaceDraftId": draft["id"], "sort": "name", "pageSize": 500}
+def _move_rows(client, change_set: dict[str, Any], parent_id: str) -> None:
+    params = {"changeSetId": change_set["id"], "sort": "name", "pageSize": 500}
     items = client.get(f"/api/v1/objects/{ITEM}", params=params).json()["items"]
     unedited = [item for item in items if "(edited)" not in item["name"]]
     renames = {
@@ -47,7 +47,7 @@ def _move_rows(client, draft: dict[str, Any], parent_id: str) -> None:
     for object_id, name in renames.items():
         update_object(
             client,
-            draft,
+            change_set,
             ITEM,
             object_id,
             payload={"name": name, "expectedVersion": by_id[object_id]["version"]},
@@ -55,7 +55,7 @@ def _move_rows(client, draft: dict[str, Any], parent_id: str) -> None:
     for number in range(3):
         create_object(
             client,
-            draft,
+            change_set,
             APPLICATION,
             ITEM,
             f"0 new at the front {number}",
@@ -80,12 +80,12 @@ def _reference(client, params: dict[str, Any]) -> list[str]:
             return ids
 
 
-@pytest.mark.parametrize("source", ["revision", "currentLive"])
+@pytest.mark.parametrize("source", ["publication", "currentLive"])
 @pytest.mark.parametrize("sort", ["name", "-name", RANK])
 @pytest.mark.parametrize("scope", ["type", "parent"])
-def test_draft_position_reads_land_on_the_row_a_walk_reaches(drafts, monkeypatch, source, sort, scope):
-    client, dataset, draft_ids = drafts
-    params = {"workspaceDraftId": draft_ids[source], "sort": sort}
+def test_change_set_position_reads_land_on_the_row_a_walk_reaches(change_sets, monkeypatch, source, sort, scope):
+    client, dataset, change_set_ids = change_sets
+    params = {"changeSetId": change_set_ids[source], "sort": sort}
     if scope == "parent":
         params["parentObjectId"] = dataset.heavy_group_id
     reference = _reference(client, params)
@@ -113,7 +113,7 @@ def test_draft_position_reads_land_on_the_row_a_walk_reaches(drafts, monkeypatch
         if 0 < position <= size:
             before = _get(client, {**params, "pageSize": PAGE, "cursor": body["prevCursor"]})
             assert [item["id"] for item in before["items"]] == reference[max(0, position - PAGE) : position]
-    # Every position read took the overlay path; beyond the draft's own rows, it resolved in the
+    # Every position read took the overlay path; beyond the change set's own rows, it resolved in the
     # base rather than falling back to an offset over the union.
     assert [position for position, _ in located] == positions
     assert all(resolved for position, resolved in located if size // 2 <= position < size)

@@ -1,35 +1,35 @@
 """Workspace lifecycle audit seam (ADR-024 / WP8).
 
-Workspace lifecycle events are purely workspace-scoped: mutable-draft events use the
-``workspace-draft`` aggregate, activation uses the ``workspace-revision`` aggregate and publication
-retirement uses the ``workspace`` aggregate (aggregated on the workspace key), all with no
+Workspace lifecycle events are purely workspace-scoped: change-set events use the
+``change-set`` aggregate, publishing uses the ``publication`` aggregate and publication
+withdrawal uses the ``workspace`` aggregate (aggregated on the workspace key), all with no
 ``AuditEventSubject`` rows, so a workspace lifecycle action never amplifies events per object.  The
 ``changes`` payloads are deliberately bounded identity metadata -- never graph payloads or attribute
-values.  Record-level draft CRUD keeps its own ``object-draft`` / ``relation`` aggregates and
-per-object subjects (see :mod:`app.services.workspace_revisions`).
+values.  Record-level change set CRUD keeps its own ``change-set-object`` / ``relation`` aggregates and
+per-object subjects (see :mod:`app.services.change_sets`).
 """
 
 from typing import Any
 
 from sqlalchemy.orm import Session
 
-from ..models.database import ModelRelease, WorkspaceDraft, WorkspaceRevision
+from ..models.database import ChangeSet, ModelRelease, Publication
 from .audit import record_audit_event
 
-_AGGREGATE_TYPE = "workspace-draft"
-_REVISION_AGGREGATE_TYPE = "workspace-revision"
+_AGGREGATE_TYPE = "change-set"
+_PUBLICATION_AGGREGATE_TYPE = "publication"
 _WORKSPACE_AGGREGATE_TYPE = "workspace"
 
 
 def _emit(
-    session: Session, *, draft: WorkspaceDraft, action: str, changes: dict[str, Any]
+    session: Session, *, change_set: ChangeSet, action: str, changes: dict[str, Any]
 ) -> None:
     record_audit_event(
         session,
         aggregate_type=_AGGREGATE_TYPE,
-        aggregate_id=draft.id,
+        aggregate_id=change_set.id,
         action=action,
-        version=draft.version,
+        version=change_set.version,
         changes=changes,
         object_ids=(),
     )
@@ -37,64 +37,64 @@ def _emit(
 
 def _release_public_id(session: Session, model_release_id: int) -> str:
     release = session.get(ModelRelease, model_release_id)
-    # WorkspaceDraft/WorkspaceRevision model_release_id are FK RESTRICT, so the release is always
-    # present; fall back to the stable integer id exactly like the draft response projection does for
+    # ChangeSet/Publication model_release_id are FK RESTRICT, so the release is always
+    # present; fall back to the stable integer id exactly like the change set response projection does for
     # a corrupt database.
     return release.public_id if release is not None else str(model_release_id)
 
 
-def _model_release_public_id(session: Session, draft: WorkspaceDraft) -> str:
-    return _release_public_id(session, draft.model_release_id)
+def _model_release_public_id(session: Session, change_set: ChangeSet) -> str:
+    return _release_public_id(session, change_set.model_release_id)
 
 
-def _identity_changes(session: Session, draft: WorkspaceDraft) -> dict[str, Any]:
+def _identity_changes(session: Session, change_set: ChangeSet) -> dict[str, Any]:
     changes: dict[str, Any] = {
-        "workspaceKey": draft.workspace_key,
-        "modelReleaseId": _model_release_public_id(session, draft),
+        "workspaceKey": change_set.workspace_key,
+        "modelReleaseId": _model_release_public_id(session, change_set),
     }
-    if draft.name is not None:
-        changes["name"] = draft.name
+    if change_set.name is not None:
+        changes["name"] = change_set.name
     return changes
 
 
-def record_draft_created(session: Session, *, draft: WorkspaceDraft) -> None:
-    """Record the creation of an empty root workspace draft."""
-    _emit(session, draft=draft, action="created", changes=_identity_changes(session, draft))
+def record_change_set_created(session: Session, *, change_set: ChangeSet) -> None:
+    """Record the creation of an empty root change set."""
+    _emit(session, change_set=change_set, action="created", changes=_identity_changes(session, change_set))
 
 
-def record_draft_derived(session: Session, *, draft: WorkspaceDraft) -> None:
-    """Record deriving a draft from an active or historical workspace revision."""
-    changes = _identity_changes(session, draft)
-    if draft.derived_from_revision_id is not None:
-        changes["derivedFromRevisionId"] = draft.derived_from_revision_id
-    _emit(session, draft=draft, action="derived", changes=changes)
+def record_change_set_derived(session: Session, *, change_set: ChangeSet) -> None:
+    """Record deriving a change set from the current or an earlier publication."""
+    changes = _identity_changes(session, change_set)
+    if change_set.derived_from_publication_id is not None:
+        changes["derivedFromPublicationId"] = change_set.derived_from_publication_id
+    _emit(session, change_set=change_set, action="derived", changes=changes)
 
 
-def record_draft_renamed(
+def record_change_set_renamed(
     session: Session,
     *,
-    draft: WorkspaceDraft,
+    change_set: ChangeSet,
     from_name: str | None,
     to_name: str | None,
 ) -> None:
-    """Record renaming a draft, preserving the previous and new names."""
+    """Record renaming a change set, preserving the previous and new names."""
     _emit(
         session,
-        draft=draft,
+        change_set=change_set,
         action="renamed",
         changes={"name": {"from": from_name, "to": to_name}},
     )
 
 
-def record_draft_discarded(session: Session, *, draft: WorkspaceDraft) -> None:
-    """Record discarding a mutable draft before its row is deleted."""
-    _emit(session, draft=draft, action="discarded", changes={"workspaceKey": draft.workspace_key})
+def record_change_set_discarded(session: Session, *, change_set: ChangeSet) -> None:
+    """Record discarding a mutable change set before its row is deleted."""
+    _emit(session, change_set=change_set, action="discarded", changes={"workspaceKey": change_set.workspace_key})
 
 
-def record_draft_validated(
+def record_change_set_validated(
     session: Session,
     *,
-    draft: WorkspaceDraft,
+    change_set: ChangeSet,
     valid: bool,
     error_codes: list[str],
     object_count: int,
@@ -105,11 +105,11 @@ def record_draft_validated(
 
     The payload is deliberately bounded: only the validity flag, deduplicated error codes and graph
     counts are stored.  Per-object diagnostics, attribute values and unbounded graph payloads are
-    never written so a validation cannot amplify audit storage with the draft's contents.
+    never written so a validation cannot amplify audit storage with the change set's contents.
     """
     _emit(
         session,
-        draft=draft,
+        change_set=change_set,
         action="validated",
         changes={
             "valid": valid,
@@ -121,66 +121,66 @@ def record_draft_validated(
     )
 
 
-def record_revision_activated(
+def record_change_set_published(
     session: Session,
     *,
-    revision: WorkspaceRevision,
-    draft: WorkspaceDraft,
+    publication: Publication,
+    change_set: ChangeSet,
     object_count: int,
     relation_count: int,
 ) -> None:
-    """Record activating an immutable workspace revision from a mutable draft.
+    """Record publishing a mutable change set as an immutable publication.
 
-    The event is aggregated on ``workspace-revision`` with the revision as its aggregate id and the
-    revision number as the version, and is recorded in the same transaction as the activation so a
-    rolled-back activation never leaves an orphan event.  The ``changes`` payload is deliberately
+    The event is aggregated on ``publication`` with the publication as its aggregate id and the
+    publication number as the version, and is recorded in the same transaction as the publish so a
+    rolled-back publish never leaves an orphan event.  The ``changes`` payload is deliberately
     bounded to identity metadata plus graph counts -- never graph payloads or attribute values -- and
-    carries no ``AuditEventSubject`` rows (activating a workspace never amplifies events per object).
+    carries no ``AuditEventSubject`` rows (publishing never amplifies events per object).
     """
     changes: dict[str, Any] = {
-        "draftId": draft.id,
-        "workspaceKey": revision.workspace_key,
-        "modelReleaseId": _release_public_id(session, revision.model_release_id),
+        "changeSetId": change_set.id,
+        "workspaceKey": publication.workspace_key,
+        "modelReleaseId": _release_public_id(session, publication.model_release_id),
         "objectCount": object_count,
         "relationCount": relation_count,
     }
-    if revision.derived_from_revision_id is not None:
-        changes["derivedFromRevisionId"] = revision.derived_from_revision_id
-    if revision.supersedes_revision_id is not None:
-        changes["supersedesRevisionId"] = revision.supersedes_revision_id
+    if publication.derived_from_publication_id is not None:
+        changes["derivedFromPublicationId"] = publication.derived_from_publication_id
+    if publication.supersedes_publication_id is not None:
+        changes["supersedesPublicationId"] = publication.supersedes_publication_id
     record_audit_event(
         session,
-        aggregate_type=_REVISION_AGGREGATE_TYPE,
-        aggregate_id=revision.id,
-        action="activated",
-        version=revision.revision_number,
+        aggregate_type=_PUBLICATION_AGGREGATE_TYPE,
+        aggregate_id=publication.id,
+        action="published",
+        version=publication.publication_number,
         changes=changes,
         object_ids=(),
     )
 
 
-def record_publication_retired(
-    session: Session, *, revision: WorkspaceRevision
+def record_publication_withdrawn(
+    session: Session, *, publication: Publication
 ) -> None:
-    """Record retiring a workspace's active publication.
+    """Record withdrawing a workspace's current publication.
 
     The event is aggregated on the ``workspace`` aggregate with the workspace key as its aggregate id
-    (the workspace's stable public/string identity) and the retired revision's revision number as the
-    version (see D3a).  It is recorded in the same transaction as the pointer clear and revision
-    retire so a rolled-back retirement never leaves an orphan event.  The ``changes`` payload is
-    deliberately bounded to the retired revision identity -- never graph payloads or attribute values
-    -- and carries no ``AuditEventSubject`` rows (retiring a publication never amplifies events per
-    object).  Workspace lifecycle audit stays separate from the record-level draft CRUD aggregates.
+    (the workspace's stable public/string identity) and the withdrawn publication's number as the
+    version (see D3a).  It is recorded in the same transaction as the pointer clear and status change,
+    so a rolled-back withdrawal never leaves an orphan event.  The ``changes`` payload is deliberately
+    bounded to the withdrawn publication identity -- never graph payloads or attribute values -- and
+    carries no ``AuditEventSubject`` rows (withdrawing a publication never amplifies events per
+    object).  Workspace lifecycle audit stays separate from the record-level change set aggregates.
     """
     record_audit_event(
         session,
         aggregate_type=_WORKSPACE_AGGREGATE_TYPE,
-        aggregate_id=revision.workspace_key,
-        action="publication-retired",
-        version=revision.revision_number,
+        aggregate_id=publication.workspace_key,
+        action="publication-withdrawn",
+        version=publication.publication_number,
         changes={
-            "retiredRevisionId": revision.id,
-            "revisionNumber": revision.revision_number,
+            "withdrawnPublicationId": publication.id,
+            "publicationNumber": publication.publication_number,
         },
         object_ids=(),
     )

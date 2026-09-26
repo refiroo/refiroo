@@ -60,17 +60,17 @@ try {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow <= 0, `${label}: page scrolls horizontally by ${overflow}px`);
   }
-  // The coverage row for one source, read straight from the API, optionally inside a draft.
-  async function coverage(binding, applicationKey, viewKey, direction, name, draftId) {
+  // The coverage row for one source, read straight from the API, optionally inside a change set.
+  async function coverage(binding, applicationKey, viewKey, direction, name, changeSetId) {
     const query = new URLSearchParams({
       applicationKey, viewKey, direction, search: name, ...binding,
-      ...(draftId ? { workspaceDraftId: draftId } : {}),
+      ...(changeSetId ? { changeSetId: changeSetId } : {}),
     });
     const result = await api(`/workspaces/default/mapping-coverage?${query}`);
     return result.items.find((row) => row.source.name === name);
   }
-  const starterRow = (name, draftId) =>
-    coverage(STARTER, "rdm-systems", "system-to-master-mapping", "outgoing", name, draftId);
+  const starterRow = (name, changeSetId) =>
+    coverage(STARTER, "rdm-systems", "system-to-master-mapping", "outgoing", name, changeSetId);
   const alignmentRow = (name) => coverage(ALIGNMENT, "rdm-master", "qa-alignment", "outgoing", name);
   const targetNames = (row) => row.targets.map((target) => target.object.name).sort();
 
@@ -242,22 +242,22 @@ try {
   await inverseRow.locator(".mapping-target-name", { hasText: "PICKUP" }).waitFor();
   checks.push("the inverse lens of the starter binding reads the replacements from the other anchor");
 
-  // ---- 7. Draft mapping vs a live change to a different edge of the same set before activation ----
+  // ---- 7. Change set mapping vs a live change to a different edge of the same set before activation ----
   const unrelatedBefore = await starterRow("HOME");
-  const draft = await api("/workspaces/default/drafts", { name: "SC-07 mapping draft", source: "currentLive" });
-  await page.goto(`${uiUrl}/apps/rdm-systems/views/system-to-master-mapping?workspaceKey=default&workspaceDraftId=${draft.id}`);
-  await page.getByRole("region", { name: "Draft publication" }).waitFor();
+  const changeSet = await api("/workspaces/default/change-sets", { name: "SC-07 mapping change set", source: "currentLive" });
+  await page.goto(`${uiUrl}/apps/rdm-systems/views/system-to-master-mapping?workspaceKey=default&changeSetId=${changeSet.id}`);
+  await page.getByRole("region", { name: "Change set publication" }).waitFor();
   await page.getByRole("button", { name: "Change mapping for PICKUP" }).click();
   const drafted = dialogFor("PICKUP");
   await searchCandidates(drafted, "Search master values", "Parcel");
   await drafted.getByRole("radio", { name: /^Parcel locker/ }).check();
   await save(drafted).click();
   await drafted.waitFor({ state: "detached" });
-  expect(targetNames(await starterRow("PICKUP", draft.id)).join() === "Parcel locker", "draft mapping was not saved");
-  expect(targetNames(await starterRow("PICKUP")).join() === "Home delivery", "draft mapping reached live");
+  expect(targetNames(await starterRow("PICKUP", changeSet.id)).join() === "Parcel locker", "change set mapping was not saved");
+  expect(targetNames(await starterRow("PICKUP")).join() === "Home delivery", "change set mapping reached live");
 
   // A second steward adds a different edge to the same live set, and does unrelated live work in a
-  // set the draft does not touch (its targets' incoming sets are touched too, so not Parcel locker).
+  // set the change set does not touch (its targets' incoming sets are touched too, so not Parcel locker).
   const liveEdge = await api("/relations", {
     relationTypeKey: STARTER.relationTypeKey, fromObjectId: systemValues.PICKUP.id, toObjectId: data.fillers[0].id,
   });
@@ -266,38 +266,38 @@ try {
     targetObjectId: masters.Collection.id, expectedMappingVersion: unrelatedBefore.mappingVersion,
   }, "PUT");
 
-  const publication = page.getByRole("region", { name: "Draft publication" });
+  const publication = page.getByRole("region", { name: "Change set publication" });
   async function validateAndActivate() {
-    await publication.getByRole("button", { name: "Validate draft", exact: true }).click();
-    await page.getByText("Draft validation passed", { exact: true }).waitFor();
-    await page.getByRole("button", { name: "Activate draft", exact: true }).click();
-    const response = page.waitForResponse((r) => r.url().endsWith("/activation") && r.request().method() === "POST");
-    await page.getByRole("alertdialog").getByRole("button", { name: "Publish changes", exact: true }).click();
+    await publication.getByRole("button", { name: "Validate change set", exact: true }).click();
+    await page.getByText("Change set validation passed", { exact: true }).waitFor();
+    await page.getByRole("button", { name: "Publish change set", exact: true }).click();
+    const response = page.waitForResponse((r) => r.url().endsWith("/publication") && r.request().method() === "POST");
+    await page.getByRole("alertdialog").getByRole("button", { name: "Publish change set", exact: true }).click();
     return response;
   }
   let activation = await validateAndActivate();
   expect(activation.status() === 409, `divergent live set activation returned ${activation.status()}`);
-  await page.getByText(/The draft is preserved/).waitFor();
+  await page.getByText(/The change set is preserved/).waitFor();
   await shot("sc07-activation-conflict-wide");
   await axe("sc07-activation-conflict");
-  expect(targetNames(await starterRow("PICKUP", draft.id)).join() === "Parcel locker", "refused activation lost the draft mapping");
+  expect(targetNames(await starterRow("PICKUP", changeSet.id)).join() === "Parcel locker", "refused activation lost the change set mapping");
   expect(
     targetNames(await starterRow("PICKUP")).join() === "Filler 01,Home delivery",
     "refused activation changed the live set",
   );
   expect(targetNames(await starterRow("HOME")).join() === "Collection", "refused activation changed unrelated live work");
-  checks.push("a live edit to a different edge of the draft's touched set refuses activation; draft, live set and unrelated live work are preserved");
+  checks.push("a live edit to a different edge of the change set's touched set refuses activation; change set, live set and unrelated live work are preserved");
 
-  // The second steward withdraws their edge; the set matches the draft's source again.
+  // The second steward withdraws their edge; the set matches the change set's source again.
   await api(`/relations/${liveEdge.id}?expectedVersion=${liveEdge.version}`, undefined, "DELETE");
   activation = await validateAndActivate();
   expect(activation.status() === 200, `restored-set activation returned ${activation.status()}`);
   await page.getByText(/Reviewed changes are now live/).waitFor();
-  expect(targetNames(await starterRow("PICKUP")).join() === "Parcel locker", "activation did not publish the draft mapping");
+  expect(targetNames(await starterRow("PICKUP")).join() === "Parcel locker", "activation did not publish the change set mapping");
   expect(targetNames(await starterRow("HOME")).join() === "Collection", "activation overwrote unrelated live work");
   const alignmentAfter = await alignmentRow("Collection");
   expect(alignmentAfter.targets[0].relationId === data.aligned.home.id, "activation changed the independent binding");
-  checks.push("after the conflicting live edge is withdrawn, activation publishes the draft mapping and keeps unrelated live work");
+  checks.push("after the conflicting live edge is withdrawn, activation publishes the change set mapping and keeps unrelated live work");
 
   // ---- 8. Narrow layout of the independent lens and its dialog ----
   await page.setViewportSize({ width: 390, height: 844 });

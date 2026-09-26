@@ -8,8 +8,8 @@ import type { ApplicationDefinition, CollectionQueryState, ObjectItem, Workspace
 import { AppShell } from "./AppShell";
 import { useRouter, type Router } from "./useRouter";
 import { WorkspaceDataProvider, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
-import { DraftActions, WorkspaceDrafts } from "@/features/workspaces/WorkspaceDrafts";
-import { HistoricalRevisionBanner, WorkspaceHistory } from "@/features/workspaces/WorkspaceHistory";
+import { ChangeSetActions, ChangeSets } from "@/features/workspaces/ChangeSets";
+import { PublicationBanner, Publications } from "@/features/workspaces/Publications";
 import { Notice } from "@/ui/Notice";
 import { ResizeHandle } from "@/ui/ResizeHandle";
 import { useLocalNumberPreference } from "@/lib/localPreference";
@@ -19,13 +19,13 @@ export default function App() {
   const [message, setMessage] = useState("");
   const { model, route, error } = router;
   if (!model || !route) return <div className="center-message">{error || "Loading the model…"}</div>;
-  const draftId = route.kind === "list" || route.kind === "detail" ? route.workspaceDraftId : undefined;
-  const revisionId = route.kind === "list" || route.kind === "detail" ? route.workspaceRevisionId : undefined;
+  const changeSetId = route.kind === "list" || route.kind === "detail" ? route.changeSetId : undefined;
+  const publicationId = route.kind === "list" || route.kind === "detail" ? route.publicationId : undefined;
   return (
     <WorkspaceDataProvider
-      key={`${route.kind === "models" ? "models" : route.workspaceKey}:${draftId ?? revisionId ?? "live"}`}
-      draftId={draftId}
-      revisionId={revisionId}
+      key={`${route.kind === "models" ? "models" : route.workspaceKey}:${changeSetId ?? publicationId ?? "live"}`}
+      changeSetId={changeSetId}
+      publicationId={publicationId}
       workspaceKey={route.kind === "models" ? "" : route.workspaceKey}
       model={model}
     >
@@ -59,11 +59,7 @@ function AppContent({
   const contextLoading =
     !data.model &&
     !data.loadingError &&
-    !!(
-      route &&
-      (route.kind === "list" || route.kind === "detail") &&
-      (route.workspaceDraftId || route.workspaceRevisionId)
-    );
+    !!(route && (route.kind === "list" || route.kind === "detail") && (route.changeSetId || route.publicationId));
   const [workspace, setWorkspace] = useState<Workspace>();
   const actionSequence = useRef(0);
   const inspectorWidth = useLocalNumberPreference(
@@ -73,37 +69,37 @@ function AppContent({
     720,
   );
 
-  const previousPin = useRef(data.draft?.modelReleaseId);
+  const previousPin = useRef(data.changeSet?.modelReleaseId);
   useEffect(() => {
-    const pin = data.draft?.modelReleaseId;
+    const pin = data.changeSet?.modelReleaseId;
     if (pin && previousPin.current && pin !== previousPin.current && model && route && route.kind !== "models") {
       const selected = applicationFor(model, route.applicationKey) ?? model.applications[0];
-      navigate({ ...viewRoute(selected, selected.defaultView, route.workspaceKey), workspaceDraftId: data.draft!.id });
+      navigate({ ...viewRoute(selected, selected.defaultView, route.workspaceKey), changeSetId: data.changeSet!.id });
     }
     previousPin.current = pin;
-  }, [data.draft, model, route, navigate]);
+  }, [data.changeSet, model, route, navigate]);
 
   if (!model || !route) return <div className="center-message">{error || "Loading the model…"}</div>;
   const requested = route.kind === "models" ? undefined : applicationFor(model, route.applicationKey);
   const application = requested ?? model.applications[0];
   const activeRoute =
-    data.draft &&
+    data.changeSet &&
     route.kind !== "models" &&
     (!requested ||
       (route.kind === "list" && !application.views.some((view) => view.key === route.viewKey)) ||
       (route.kind === "detail" && !model.objectTypes.some((type) => type.key === route.objectTypeKey)))
-      ? { ...viewRoute(application, application.defaultView, route.workspaceKey), workspaceDraftId: data.draft.id }
+      ? { ...viewRoute(application, application.defaultView, route.workspaceKey), changeSetId: data.changeSet.id }
       : route;
   // Aliased because the handlers below are hoisted function declarations, which TypeScript types
   // from the declaration rather than from the narrowing performed by the guard above.
   const activeModel = model;
 
-  const workspaceDraftId =
-    activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.workspaceDraftId : undefined;
-  const workspaceRevisionId =
-    activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.workspaceRevisionId : undefined;
+  const changeSetId =
+    activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.changeSetId : undefined;
+  const publicationId =
+    activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.publicationId : undefined;
   const readOnly =
-    Boolean(workspaceRevisionId) ||
+    Boolean(publicationId) ||
     workspace?.key !== (activeRoute.kind === "models" ? "" : activeRoute.workspaceKey) ||
     workspace?.status !== "active";
 
@@ -113,20 +109,20 @@ function AppContent({
     const remembered = lastCollection(selected.key);
     const sameContext =
       remembered?.workspaceKey === workspaceKey &&
-      remembered?.workspaceDraftId === workspaceDraftId &&
-      remembered?.workspaceRevisionId === workspaceRevisionId;
+      remembered?.changeSetId === changeSetId &&
+      remembered?.publicationId === publicationId;
     navigate(
       remembered
         ? {
             ...remembered,
             workspaceKey,
-            workspaceDraftId,
-            workspaceRevisionId,
+            changeSetId,
+            publicationId,
             anchor: sameContext ? remembered.anchor : undefined,
             parentObjectId: sameContext ? remembered.parentObjectId : undefined,
             parentObjectTypeKey: sameContext ? remembered.parentObjectTypeKey : undefined,
           }
-        : { ...viewRoute(selected, selected.defaultView, workspaceKey), workspaceDraftId, workspaceRevisionId },
+        : { ...viewRoute(selected, selected.defaultView, workspaceKey), changeSetId, publicationId },
     );
   }
 
@@ -143,8 +139,8 @@ function AppContent({
       ...(source === "hierarchy" ? { collectionOrigin: null } : {}),
       ...(action ? { actionRequest: { action, key: ++actionSequence.current } } : {}),
       workspaceKey: activeRoute.kind === "models" ? item.workspaceKey : activeRoute.workspaceKey,
-      workspaceDraftId,
-      workspaceRevisionId,
+      changeSetId,
+      publicationId,
     });
   }
 
@@ -163,8 +159,8 @@ function AppContent({
       ...(action ? { actionRequest: { action, key: ++actionSequence.current } } : {}),
       fullPage: activeRoute.kind === "detail" ? activeRoute.fullPage : undefined,
       workspaceKey: activeRoute.workspaceKey,
-      workspaceDraftId,
-      workspaceRevisionId,
+      changeSetId,
+      publicationId,
     });
   }
 
@@ -173,8 +169,8 @@ function AppContent({
     const remembered = activeRoute.kind === "detail" ? activeRoute.collectionOrigin : undefined;
     if (
       remembered?.workspaceKey === activeRoute.workspaceKey &&
-      remembered.workspaceDraftId === workspaceDraftId &&
-      remembered.workspaceRevisionId === workspaceRevisionId
+      remembered.changeSetId === changeSetId &&
+      remembered.publicationId === publicationId
     ) {
       navigate(remembered);
       return;
@@ -185,16 +181,16 @@ function AppContent({
     );
     navigate({
       ...viewRoute(application, matchingView?.key ?? application.defaultView, activeRoute.workspaceKey),
-      workspaceDraftId,
-      workspaceRevisionId,
+      changeSetId,
+      publicationId,
     });
   }
 
   function goHome() {
     navigate({
       ...defaultRoute(activeModel),
-      workspaceDraftId,
-      workspaceRevisionId,
+      changeSetId,
+      publicationId,
       workspaceKey:
         activeRoute.kind === "models" ? (lastCollection()?.workspaceKey ?? "default") : activeRoute.workspaceKey,
     });
@@ -213,22 +209,22 @@ function AppContent({
           ? {
               ...remembered,
               workspaceKey,
-              workspaceDraftId: undefined,
-              workspaceRevisionId: undefined,
+              changeSetId: undefined,
+              publicationId: undefined,
               anchor: undefined,
               parentObjectId: undefined,
               parentObjectTypeKey: undefined,
             }
           : viewRoute(application, matchingView?.key ?? application.defaultView, workspaceKey),
       );
-    } else if (activeRoute.kind === "drafts" || activeRoute.kind === "history") {
+    } else if (activeRoute.kind === "changeSets" || activeRoute.kind === "publications") {
       changed = navigate({ ...activeRoute, workspaceKey });
     } else {
       changed = navigate({
         ...activeRoute,
         workspaceKey,
-        workspaceDraftId: undefined,
-        workspaceRevisionId: undefined,
+        changeSetId: undefined,
+        publicationId: undefined,
         anchor: undefined,
         parentObjectId: undefined,
         parentObjectTypeKey: undefined,
@@ -301,37 +297,37 @@ function AppContent({
         <div className="surface panel">
           <p>
             Loading{" "}
-            {route && (route.kind === "list" || route.kind === "detail") && route.workspaceDraftId
-              ? "draft"
-              : "historical revision"}
+            {route && (route.kind === "list" || route.kind === "detail") && route.changeSetId
+              ? "change set"
+              : "publication"}
             …
           </p>
         </div>
       ) : (
         <>
-          {data.draft && (
-            <DraftActions
+          {data.changeSet && (
+            <ChangeSetActions
               readOnly={readOnly}
               onExit={(result) => {
                 setMessage(result);
-                navigate({ ...viewRoute(application, application.defaultView, data.draft!.workspaceKey) });
+                navigate({ ...viewRoute(application, application.defaultView, data.changeSet!.workspaceKey) });
                 setRefreshToken((value) => value + 1);
               }}
               onModelChanged={async () => {
-                if (data.reloadDraftModel) {
-                  await data.reloadDraftModel();
+                if (data.reloadChangeSetModel) {
+                  await data.reloadChangeSetModel();
                   setRefreshToken((value) => value + 1);
                 }
               }}
             />
           )}
-          {data.revision && (
-            <HistoricalRevisionBanner
+          {data.publication && (
+            <PublicationBanner
               onExit={() =>
                 navigate({
-                  kind: "history",
+                  kind: "publications",
                   applicationKey: application.key,
-                  workspaceKey: data.revision!.workspaceKey,
+                  workspaceKey: data.publication!.workspaceKey,
                 })
               }
             />
@@ -342,31 +338,31 @@ function AppContent({
               onRouteChange={(next) => navigate(next)}
               onActiveModelChange={reloadModel}
             />
-          ) : activeRoute.kind === "drafts" ? (
-            <WorkspaceDrafts
+          ) : activeRoute.kind === "changeSets" ? (
+            <ChangeSets
               workspaceKey={activeRoute.workspaceKey}
               readOnly={readOnly}
               onOpen={(id) =>
                 navigate({
                   ...viewRoute(application, application.defaultView, activeRoute.workspaceKey),
-                  workspaceDraftId: id,
+                  changeSetId: id,
                 })
               }
             />
-          ) : activeRoute.kind === "history" ? (
-            <WorkspaceHistory
+          ) : activeRoute.kind === "publications" ? (
+            <Publications
               workspaceKey={activeRoute.workspaceKey}
               readOnly={readOnly}
               onOpen={(id) =>
                 navigate({
                   ...viewRoute(application, application.defaultView, activeRoute.workspaceKey),
-                  workspaceRevisionId: id,
+                  publicationId: id,
                 })
               }
-              onDraftCreated={(id) =>
+              onChangeSetCreated={(id) =>
                 navigate({
                   ...viewRoute(application, application.defaultView, activeRoute.workspaceKey),
-                  workspaceDraftId: id,
+                  changeSetId: id,
                 })
               }
             />
@@ -378,7 +374,7 @@ function AppContent({
               {collection && collectionApplication && (
                 <div className="record-collection" hidden={hasDetail && !inspector}>
                   <CollectionView
-                    key={`${collection.applicationKey}:${collection.viewKey}:${collection.workspaceKey}:${workspaceDraftId ?? workspaceRevisionId ?? "live"}:${data.draft?.modelReleaseId ?? ""}`}
+                    key={`${collection.applicationKey}:${collection.viewKey}:${collection.workspaceKey}:${changeSetId ?? publicationId ?? "live"}:${data.changeSet?.modelReleaseId ?? ""}`}
                     model={model}
                     application={collectionApplication}
                     view={
@@ -410,8 +406,8 @@ function AppContent({
                       const next = viewRoute(collectionApplication, viewKey, collection.workspaceKey);
                       navigate({
                         ...next,
-                        workspaceDraftId: collection.workspaceDraftId,
-                        workspaceRevisionId: collection.workspaceRevisionId,
+                        changeSetId: collection.changeSetId,
+                        publicationId: collection.publicationId,
                         search: collection.search,
                         parentObjectId: collection.parentObjectId,
                         parentObjectTypeKey: collection.parentObjectTypeKey,
@@ -436,7 +432,7 @@ function AppContent({
                     />
                   )}
                   <ObjectDetail
-                    key={`${application.key}:${activeRoute.objectTypeKey}:${activeRoute.objectId}:${activeRoute.workspaceKey}:${activeRoute.actionRequest?.key ?? 0}:${data.draft?.modelReleaseId ?? ""}`}
+                    key={`${application.key}:${activeRoute.objectTypeKey}:${activeRoute.objectId}:${activeRoute.workspaceKey}:${activeRoute.actionRequest?.key ?? 0}:${data.changeSet?.modelReleaseId ?? ""}`}
                     model={model}
                     application={application}
                     objectTypeKey={activeRoute.objectTypeKey}

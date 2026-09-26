@@ -41,7 +41,7 @@ export function CollectionPanelTable({
   allowCreate: boolean;
 }) {
   const api = useDataApi();
-  const { draft, revision } = useWorkspaceData();
+  const { changeSet, publication } = useWorkspaceData();
   const display = useTableDisplay(columns, `${application.key}:${object.id}:${objectTypeKey}`);
   const [selectedPageSize, setPageSize] = useState(pageSize);
   const objectType = objectTypeFor(model, objectTypeKey);
@@ -50,7 +50,7 @@ export function CollectionPanelTable({
   const [creating, setCreating] = useState(false);
   // Panels list by name, as every list does without a sort, until the user sorts by another column.
   const [sort, setSort] = useState("name");
-  const sortFields = objectType ? listSortFields(model, [objectType], columns, [], !draft && !revision) : [];
+  const sortFields = objectType ? listSortFields(model, [objectType], columns, [], !changeSet && !publication) : [];
   const pages = useCursorWindow<ObjectItem>(
     objectType
       ? (selector) =>

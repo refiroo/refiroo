@@ -12,12 +12,12 @@ describe("API client", () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
     vi.stubGlobal("fetch", fetchMock);
 
-    await api.model({ workspaceKey: "West & East", workspaceRevisionId: "revision/id" });
+    await api.model({ workspaceKey: "West & East", publicationId: "publication/id" });
 
     const url = new URL(String(fetchMock.mock.calls[0][0]));
     expect(url.pathname).toBe("/api/v1/model");
     expect(url.searchParams.get("workspaceKey")).toBe("West & East");
-    expect(url.searchParams.get("workspaceRevisionId")).toBe("revision/id");
+    expect(url.searchParams.get("publicationId")).toBe("publication/id");
   });
 
   it("preserves structured errors", async () => {
@@ -132,14 +132,14 @@ describe("API client", () => {
     await api.deleteObject("kind", "object", 7, {
       cascade: true,
       deletionPreviewToken: "signed-preview",
-      workspaceDraftId: "draft/id",
-      expectedWorkspaceDraftVersion: 11,
+      changeSetId: "change-set/id",
+      expectedChangeSetVersion: 11,
     });
     expect(fetchMock.mock.calls[0][0]).not.toContain("cascade=true");
     expect(fetchMock.mock.calls[1][0]).toContain("cascade=true");
     expect(fetchMock.mock.calls[1][0]).toContain("deletionPreviewToken=signed-preview");
-    expect(fetchMock.mock.calls[1][0]).toContain("workspaceDraftId=draft%2Fid");
-    expect(fetchMock.mock.calls[1][0]).toContain("expectedWorkspaceDraftVersion=11");
+    expect(fetchMock.mock.calls[1][0]).toContain("changeSetId=change-set%2Fid");
+    expect(fetchMock.mock.calls[1][0]).toContain("expectedChangeSetVersion=11");
   });
 
   it("creates direction-ready relationship payloads without changing them", async () => {
@@ -170,14 +170,14 @@ describe("API client", () => {
         }),
       );
     vi.stubGlobal("fetch", fetchMock);
-    await api.compileModelDraft("draft/id", 7);
+    await api.compileModelDraft("change-set/id", 7);
     await api.activateModelRelease("release/id", {
       activeReleaseId: "active",
       activeModelHash: "hash",
       version: 3,
       updatedAt: "2026-09-05T00:00:00Z",
     });
-    expect(fetchMock.mock.calls[0][0]).toContain("/model-drafts/draft%2Fid/compile");
+    expect(fetchMock.mock.calls[0][0]).toContain("/model-drafts/change-set%2Fid/compile");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ expectedVersion: 7 });
     expect(JSON.parse(fetchMock.mock.calls[1][1].body)).toEqual({
       expectedRuntimeVersion: 3,
@@ -186,28 +186,28 @@ describe("API client", () => {
   });
 });
 
-it("encodes canonical draft reads, mutations and explicit current-live lifecycle requests", async () => {
+it("encodes canonical change-set reads, mutations and explicit current-live lifecycle requests", async () => {
   const fetchMock = vi.fn().mockImplementation(async () => jsonResponse({}));
   vi.stubGlobal("fetch", fetchMock);
-  const context = { workspaceDraftId: "draft/id", expectedWorkspaceDraftVersion: 7 };
-  await api.object("type", "id", "west", context.workspaceDraftId);
-  await api.objects("type", { workspaceKey: "west", workspaceDraftId: context.workspaceDraftId });
-  await api.relations("id", { workspaceKey: "west", workspaceDraftId: context.workspaceDraftId });
-  await api.relation("id", "west", context.workspaceDraftId);
+  const context = { changeSetId: "change-set/id", expectedChangeSetVersion: 7 };
+  await api.object("type", "id", "west", context.changeSetId);
+  await api.objects("type", { workspaceKey: "west", changeSetId: context.changeSetId });
+  await api.relations("id", { workspaceKey: "west", changeSetId: context.changeSetId });
+  await api.relation("id", "west", context.changeSetId);
   await api.updateAttribute("type", "id", "flag", false, 3, context);
   await api.deleteAttribute("type", "id", "flag", 3, context);
   await api.deleteRelation("id", 2, context);
-  await api.createWorkspaceDraft("west", "Coordinated changes");
-  await api.activateWorkspaceDraft("draft/id", 7, null);
+  await api.createChangeSet("west", "Coordinated changes");
+  await api.publishChangeSet("change-set/id", 7, null);
   for (const [url] of fetchMock.mock.calls.slice(0, 4))
-    expect(new URL(url).searchParams.get("workspaceDraftId")).toBe("draft/id");
+    expect(new URL(url).searchParams.get("changeSetId")).toBe("change-set/id");
   expect(JSON.parse(fetchMock.mock.calls[4][1].body)).toEqual({ value: false, expectedVersion: 3, ...context });
   for (const [url] of fetchMock.mock.calls.slice(5, 7))
-    expect(new URL(url).searchParams.get("expectedWorkspaceDraftVersion")).toBe("7");
+    expect(new URL(url).searchParams.get("expectedChangeSetVersion")).toBe("7");
   expect(JSON.parse(fetchMock.mock.calls[7][1].body)).toEqual({ name: "Coordinated changes", source: "currentLive" });
   expect(JSON.parse(fetchMock.mock.calls[8][1].body)).toEqual({
-    expectedDraftVersion: 7,
-    expectedActiveRevisionId: null,
+    expectedChangeSetVersion: 7,
+    expectedActivePublicationId: null,
   });
 });
 
@@ -290,27 +290,30 @@ describe("HTML and non-JSON response hardening", () => {
   });
 });
 
-it("encodes immutable history reads, historical derivation and publication retirement", async () => {
+it("encodes publication reads, derivation from a publication and withdrawal", async () => {
   const fetchMock = vi.fn().mockImplementation(async () => jsonResponse({}));
   vi.stubGlobal("fetch", fetchMock);
-  await api.workspaceRevisions("west", "older token");
-  await api.workspaceRevision("revision/id");
-  await api.object("type", "object", "west", undefined, "revision/id");
-  await api.objects("type", { workspaceKey: "west", workspaceRevisionId: "revision/id" });
-  await api.relations("object", { workspaceKey: "west", workspaceRevisionId: "revision/id" });
-  await api.createHistoricalWorkspaceDraft("west", "Review old values", "revision/id");
-  await api.retireWorkspacePublication("west", "revision/id");
+  await api.publications("west", "older token");
+  await api.publication("publication/id");
+  await api.object("type", "object", "west", undefined, "publication/id");
+  await api.objects("type", { workspaceKey: "west", publicationId: "publication/id" });
+  await api.relations("object", { workspaceKey: "west", publicationId: "publication/id" });
+  await api.createChangeSetFromPublication("west", "Review old values", "publication/id");
+  await api.withdrawPublication("publication/id");
 
   expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get("cursor")).toBe("older token");
-  expect(fetchMock.mock.calls[1][0]).toContain("/workspace-revisions/revision%2Fid");
+  expect(fetchMock.mock.calls[1][0]).toContain("/publications/publication%2Fid");
   for (const [url] of fetchMock.mock.calls.slice(2, 5))
-    expect(new URL(url).searchParams.get("workspaceRevisionId")).toBe("revision/id");
+    expect(new URL(url).searchParams.get("publicationId")).toBe("publication/id");
   expect(JSON.parse(fetchMock.mock.calls[5][1].body)).toEqual({
     name: "Review old values",
-    source: "revision",
-    derivedFromRevisionId: "revision/id",
+    source: "publication",
+    derivedFromPublicationId: "publication/id",
   });
-  expect(JSON.parse(fetchMock.mock.calls[6][1].body)).toEqual({ expectedActiveRevisionId: "revision/id" });
+  expect(fetchMock.mock.calls[5][0]).toContain("/workspaces/west/change-sets");
+  expect(fetchMock.mock.calls[6][0]).toContain("/publications/publication%2Fid/withdrawal");
+  expect(fetchMock.mock.calls[6][1]).toMatchObject({ method: "POST" });
+  expect(fetchMock.mock.calls[6][1].body).toBeUndefined();
 });
 
 it("encodes contextual mapping coverage filters", async () => {
@@ -324,12 +327,12 @@ it("encodes contextual mapping coverage filters", async () => {
     fromObjectTypeKey: "source",
     toObjectTypeKey: "target",
     direction: "outgoing",
-    workspaceRevisionId: "revision/id",
+    publicationId: "publication/id",
     parentObjectId: "parent/id",
     state: "unmapped",
   });
   const url = new URL(fetchMock.mock.calls[0][0]);
   expect(url.searchParams.get("parentObjectId")).toBe("parent/id");
   expect(url.searchParams.get("state")).toBe("unmapped");
-  expect(url.searchParams.get("workspaceRevisionId")).toBe("revision/id");
+  expect(url.searchParams.get("publicationId")).toBe("publication/id");
 });

@@ -10,7 +10,7 @@ every context, closed by the relation's unique key. An attribute sort puts recor
 the attribute last; an ancestor sort needs the related records to have one type, which the relation
 types, direction and anchor type decide.
 
-Live, draft and history reads share this contract; each builder returns the statement, keyset,
+Live, change set and history reads share this contract; each builder returns the statement, keyset,
 cursor filters and seek for ``pagination.paginate_statement``.
 """
 
@@ -140,7 +140,7 @@ def build_snapshot_relation_query(
     search: str | None,
     sort: str | None,
 ) -> RelationQuery:
-    """The draft or revision relations touching ``object_id``, with the live contract.
+    """The change set or publication relations touching ``object_id``, with the live contract.
 
     The related record is read by outer joins on its unique keys
     (:func:`snapshot_reads.effective_record`) rather than a join to the object projection, whose
@@ -150,7 +150,7 @@ def build_snapshot_relation_query(
     if field in UNRECORDED_TIMESTAMPS:
         _query_error(
             "invalid_sort",
-            f"{UNRECORDED_TIMESTAMPS[field]} is not recorded in drafts or history",
+            f"{UNRECORDED_TIMESTAMPS[field]} is not recorded in change sets or publications",
             "sort",
         )
     relations = relation_projection(
@@ -159,7 +159,7 @@ def build_snapshot_relation_query(
     related_id = relations.c.related_id
     related = effective_record(context, related_id)
     related_name = related.column("name")
-    # A relation whose other end is missing is not listed (a valid draft holds none).
+    # A relation whose other end is missing is not listed (a valid change set holds none).
     statement = related.join(select(relations)).where(related.present)
     values = SnapshotAttributeValue
     columns = ObjectColumns(
@@ -192,7 +192,7 @@ def build_snapshot_relation_query(
         sort=sort,
         field_filters=[],
     )
-    owner = "draftId" if context.kind == "draft" else "revisionId"
+    owner = "changeSetId" if context.kind == "change_set" else "publicationId"
     return RelationQuery(
         statement=statement,
         keys=keys,

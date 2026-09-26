@@ -172,14 +172,14 @@ export function ObjectFormDialog({
         onSaved(saved);
       }
     } catch (cause) {
-      if (object && (isApiError(cause, "version_conflict") || isApiError(cause, "workspace_draft_version_conflict"))) {
+      if (object && (isApiError(cause, "version_conflict") || isApiError(cause, "change_set_version_conflict"))) {
         try {
           const fresh = await api.object(objectType.key, object.id, activeWorkspaceKey);
           setBaselineObject(fresh);
           setObjectVersion(fresh.version);
           setError(
-            isApiError(cause, "workspace_draft_version_conflict")
-              ? "The draft changed. Current content is loaded; your edits are preserved. Review and save again."
+            isApiError(cause, "change_set_version_conflict")
+              ? "The change set changed. Current content is loaded; your edits are preserved. Review and save again."
               : "The object changed. Its latest version has been loaded; your edits are preserved. Review and save again.",
           );
         } catch (reloadCause) {

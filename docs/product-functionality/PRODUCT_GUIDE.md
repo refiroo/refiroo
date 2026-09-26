@@ -49,7 +49,7 @@ preloaded demonstration data.
 | Keep a shared list accurate | Add, correct or remove a value and its fields, with clear validation and change history | Service and Base 0.6 browser authoring available; see the functionality catalogue for context limitations | US-D06–D08, US-D11–D12, US-D14 |
 | Organize and connect data | Choose a valid parent, connect related records and understand deletion impact | Service and Base 0.6 browser authoring available; see the functionality catalogue for context limitations | US-D09–D11 |
 | Work in several domains | Use the configured terminology, fields and views through familiar controls | Model-driven foundation exists | US-D13, US-P06 |
-| Prepare a coordinated change | Work in an optional draft, check it and apply its changes together while preserving unrelated live work | Current-live/history API available; browser gaps remain | US-W01–W08 |
+| Prepare a coordinated change | Work in an optional change set, check it and apply its changes together while preserving unrelated live work | Current-live/history API available; browser gaps remain | US-W01–W08 |
 | Maintain translations | Enter a target, language and translated content together; prevent conflicting active translations | Basic API and Base 0.6 browser flows available; specialist coverage view remains 0.8 | US-L01–L04 |
 | Manage system equivalences | See missing or conflicting mappings and choose, replace or clear a target in one action | WP-8/WP-14 browser lens and APIs implemented with focused proof; composed WP-9 acceptance remains | US-M01–M04 |
 | Navigate a deep hierarchy | Expand the relevant branch, add a child or move a record without losing context | Specialist workflow planned for 0.8 | US-H01–H02 |
@@ -72,18 +72,18 @@ saves. The correction is immediately available. Its identity and connections sta
 else has changed the record, the product keeps the attempted correction and asks the steward to review
 the newer information before trying again.
 
-No release, draft name or publication action is needed. Marking a model-defined availability field
+No release, change set name or publication action is needed. Marking a model-defined availability field
 false is also an ordinary edit. Whether a consuming system hides unavailable values depends on its
 agreed query; the engine must not silently invent that business policy.
 
 ### Prepare several related changes
 
 A steward is reorganizing delivery options and related system mappings. The team chooses a design
-draft, makes the changes away from live users, checks the result and activates the coordinated change.
+change set, makes the changes away from live users, checks the result and publishes the coordinated change.
 Another steward can still correct an unrelated live value. That correction must survive activation.
 If both change the same record, activation must stop without losing either person's work.
 
-This draft changes data. It does not by itself change the application definition. The current-live
+This change set changes data. It does not by itself change the application definition. The current-live
 starting point promised by the product still needs implementation reconciliation; see GAP-02 in
 [planning handoff](PLANNING_HANDOFF.md).
 
@@ -109,10 +109,10 @@ planned for 0.10, not a present property of workspace selection.
 - Future effective-date queries answer “what value applied on this business date?” A field containing
   a date does not provide that behavior on its own.
 
-Starting a draft from old history is not a one-click undo of today's dataset. Activation preserves
+Starting a change set from old history is not a one-click undo of today's dataset. Publishing preserves
 untouched live records and checks conflicts. Stopping a publication also does not currently remove
 live data from normal reads or make the workspace read-only. Use workspace retirement for read-only
-status; settle publication-retirement wording before presenting it as a user-facing withdrawal action.
+status; settle publication-withdrawal wording before presenting it as a user-facing withdrawal action.
 
 ## What success looks like
 
@@ -146,6 +146,6 @@ Read next: [user stories](USER_STORIES.md), [product roadmap](ROADMAP_COVERAGE.m
 
 The [0.7 plan](../BASE_0_7_IMPLEMENTATION_PLAN.md) separates mapping coverage (WP-8A), actions
 (WP-8B) and contextual composition (WP-14). Large ambiguous mappings remain inspectable through bounded pages; keeping a selected target
-preserves its relationship identity and attributes. A draft's chosen definition must already accept
+preserves its relationship identity and attributes. A change set's chosen definition must already accept
 its complete content. Failed choices change nothing; successful choices refresh the browser's fields,
 rules and views safely. SC-07/SC-15 remain release acceptance requirements, not delivered evidence.

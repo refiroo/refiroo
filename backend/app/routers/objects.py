@@ -4,18 +4,23 @@ from ..db import DbSession
 from ..errors import api_error
 from ..models.api import (
     AuditEventPage,
+    ChangeSetObjectUpdate,
+    ChangeSetObjectWrite,
     ObjectCreate,
     ObjectPage,
     ObjectResponse,
     ObjectUpdate,
-    WorkspaceDraftObjectUpdate,
-    WorkspaceDraftObjectWrite,
 )
 from ..services.audit import list_object_history
+from ..services.change_sets import (
+    delete_change_set_object,
+    put_change_set_object,
+    update_change_set_object,
+)
 from ..services.deletion import delete_object_record
 from ..services.model.registry import (
     RequestModelSnapshot,
-    resolve_draft_snapshot,
+    resolve_change_set_snapshot,
     resolve_model_snapshot,
 )
 from ..services.objects import (
@@ -30,17 +35,12 @@ from ..services.objects import (
 from ..services.pagination import paginate_statement
 from ..services.snapshot_reads import (
     build_snapshot_object_query,
-    draft_context,
+    change_set_context,
     find_object,
     object_path,
     object_paths,
     object_scope,
-    revision_context,
-)
-from ..services.workspace_revisions import (
-    delete_draft_object,
-    put_draft_object,
-    update_draft_object,
+    publication_context,
 )
 from ..services.workspaces import resolve_workspace
 from .paging import PageQuery, SeekablePageQuery
@@ -48,7 +48,7 @@ from .paging import PageQuery, SeekablePageQuery
 router = APIRouter(prefix="/api/v1", tags=["objects"])
 
 
-def _draft_object_response(item, draft_id: str, model, *, path=None) -> ObjectResponse:
+def _change_set_object_response(item, change_set_id: str, model, *, path=None) -> ObjectResponse:
     attrs = []
     for key, value in (item.attributes or {}).items():
         definition = model.attribute_type(key)
@@ -71,35 +71,35 @@ def _draft_object_response(item, draft_id: str, model, *, path=None) -> ObjectRe
         path=path or [],
         attributes=attrs,
         version=item.version,
-        # Not recorded for draft and history rows (WP-10K); never substitute the current time.
+        # Not recorded for change set and history rows (WP-10K); never substitute the current time.
         createdAt=None,
         updatedAt=None,
     )
 
 
-def _draft_write_response(session, draft_id: str, row) -> ObjectResponse:
-    """A draft write's response: the written row with its path, read by direct lookups."""
-    context = draft_context(session, draft_id)
-    return _draft_object_response(
+def _change_set_write_response(session, change_set_id: str, row) -> ObjectResponse:
+    """A change set write's response: the written row with its path, read by direct lookups."""
+    context = change_set_context(session, change_set_id)
+    return _change_set_object_response(
         row,
-        draft_id,
-        resolve_draft_snapshot(session, draft_id).model,
+        change_set_id,
+        resolve_change_set_snapshot(session, change_set_id).model,
         path=object_path(session, context, row),
     ).model_copy(
         update={
             "workspaceKey": context.workspace_key,
-            "workspaceDraftVersion": context.draft.version,
+            "changeSetVersion": context.change_set.version,
         }
     )
 
 
-def _require_draft_context(draft_id: str, expected: int | None) -> int:
-    """Guard a write that explicitly targets a draft but omits its optimistic-concurrency version."""
+def _require_change_set_context(change_set_id: str, expected: int | None) -> int:
+    """Guard a write that explicitly targets a change set but omits its optimistic-concurrency version."""
     if expected is None:
         raise api_error(
             409,
-            "workspace_draft_required",
-            "expectedWorkspaceDraftVersion is required when targeting a workspace draft",
+            "change_set_required",
+            "expectedChangeSetVersion is required when targeting a change set",
         )
     return expected
 
@@ -111,24 +111,24 @@ def create_object(
     attribute_keys = [item.attributeTypeKey for item in payload.attributes]
     if len(attribute_keys) != len(set(attribute_keys)):
         raise api_error(422, "duplicate_attribute", "Object attributes must not repeat a key")
-    if payload.workspaceDraftId:
-        draft_id = str(payload.workspaceDraftId)
-        expected = _require_draft_context(draft_id, payload.expectedWorkspaceDraftVersion)
-        context = draft_context(session, draft_id)
+    if payload.changeSetId:
+        change_set_id = str(payload.changeSetId)
+        expected = _require_change_set_context(change_set_id, payload.expectedChangeSetVersion)
+        context = change_set_context(session, change_set_id)
         if payload.workspaceKey is not None and payload.workspaceKey != context.workspace_key:
             raise api_error(
                 422,
                 "workspace_context_mismatch",
-                "workspaceKey does not match workspaceDraftId",
+                "workspaceKey does not match changeSetId",
                 {
                     "workspaceKey": payload.workspaceKey,
                     "contextWorkspaceKey": context.workspace_key,
                 },
             )
-        row = put_draft_object(
+        row = put_change_set_object(
             session,
-            draft_id,
-            WorkspaceDraftObjectWrite(
+            change_set_id,
+            ChangeSetObjectWrite(
                 id=payload.id,
                 applicationKey=payload.applicationKey,
                 objectTypeKey=payload.objectTypeKey,
@@ -136,17 +136,17 @@ def create_object(
                 parentObjectId=payload.parentObjectId,
                 attributes={item.attributeTypeKey: item.value for item in payload.attributes},
                 initialRelations=payload.initialRelations,
-                expectedDraftVersion=expected,
+                expectedChangeSetVersion=expected,
                 expectedRecordVersion=None,
             ),
         )
-        return _draft_write_response(session, draft_id, row)
+        return _change_set_write_response(session, change_set_id, row)
     if payload.workspaceKey is None:
         raise api_error(
             422,
             "workspace_key_required",
-            "workspaceKey is required for a live (active workspace) write; omit workspaceDraftId "
-            "and provide workspaceKey, or target a workspace draft",
+            "workspaceKey is required for a live (active workspace) write; omit changeSetId "
+            "and provide workspaceKey, or target a change set",
         )
     snapshot = resolve_model_snapshot(session)
     item = create_object_record(session, snapshot.model, payload)
@@ -161,21 +161,21 @@ def update_object(
     session: DbSession,
 ) -> ObjectResponse:
     fields = payload.model_dump(
-        exclude={"expectedVersion", "workspaceDraftId", "expectedWorkspaceDraftVersion"},
+        exclude={"expectedVersion", "changeSetId", "expectedChangeSetVersion"},
         exclude_unset=True,
     )
     if "attributes" in fields:
         fields["attributes"] = {
             item["attributeTypeKey"]: item["value"] for item in fields["attributes"]
         }
-    if payload.workspaceDraftId:
-        draft_id = str(payload.workspaceDraftId)
-        expected = _require_draft_context(draft_id, payload.expectedWorkspaceDraftVersion)
-        draft_payload = WorkspaceDraftObjectUpdate(
-            expectedDraftVersion=expected, expectedRecordVersion=payload.expectedVersion, **fields
+    if payload.changeSetId:
+        change_set_id = str(payload.changeSetId)
+        expected = _require_change_set_context(change_set_id, payload.expectedChangeSetVersion)
+        change_set_payload = ChangeSetObjectUpdate(
+            expectedChangeSetVersion=expected, expectedRecordVersion=payload.expectedVersion, **fields
         )
-        row = update_draft_object(session, draft_id, object_id, draft_payload)
-        return _draft_write_response(session, draft_id, row)
+        row = update_change_set_object(session, change_set_id, object_id, change_set_payload)
+        return _change_set_write_response(session, change_set_id, row)
     snapshot = resolve_model_snapshot(session)
     item = update_object_record(session, snapshot.model, object_type_key, object_id, payload)
     return build_object_responses(session, snapshot.model, [item])[0]
@@ -186,22 +186,22 @@ def delete_object(
     object_type_key: str,
     object_id: str,
     session: DbSession,
-    workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
-    expected_workspace_draft_version: int | None = Query(
-        default=None, alias="expectedWorkspaceDraftVersion", ge=1
+    change_set_id: str | None = Query(default=None, alias="changeSetId"),
+    expected_change_set_version: int | None = Query(
+        default=None, alias="expectedChangeSetVersion", ge=1
     ),
     expected_version: int = Query(ge=1, alias="expectedVersion"),
     cascade: bool = False,
     deletion_preview_token: str | None = Query(default=None, alias="deletionPreviewToken"),
 ) -> Response:
-    if workspace_draft_id:
-        _require_draft_context(workspace_draft_id, expected_workspace_draft_version)
-        delete_draft_object(
+    if change_set_id:
+        _require_change_set_context(change_set_id, expected_change_set_version)
+        delete_change_set_object(
             session,
-            workspace_draft_id,
+            change_set_id,
             object_type_key,
             object_id,
-            expected_workspace_draft_version,
+            expected_change_set_version,
             expected_version,
             cascade=cascade,
             deletion_preview=deletion_preview_token,
@@ -248,8 +248,8 @@ def list_objects(
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
     application_key: str | None = Query(default=None, alias="applicationKey"),
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
-    workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
-    workspace_revision_id: str | None = Query(default=None, alias="workspaceRevisionId"),
+    change_set_id: str | None = Query(default=None, alias="changeSetId"),
+    publication_id: str | None = Query(default=None, alias="publicationId"),
     parent_object_id: str | None = Query(default=None, alias="parentObjectId"),
     top_level: bool = Query(
         default=False,
@@ -267,11 +267,11 @@ def list_objects(
     ),
 ) -> ObjectPage:
     model = snapshot.model
-    if workspace_draft_id and workspace_revision_id:
+    if change_set_id and publication_id:
         raise api_error(
             422,
             "mutually_exclusive_context",
-            "workspaceDraftId and workspaceRevisionId cannot be combined",
+            "changeSetId and publicationId cannot be combined",
         )
     if top_level and parent_object_id:
         raise api_error(
@@ -280,11 +280,11 @@ def list_objects(
             "topLevel and parentObjectId cannot be combined",
             {"parameters": ["topLevel", "parentObjectId"]},
         )
-    if workspace_draft_id or workspace_revision_id:
+    if change_set_id or publication_id:
         context = (
-            draft_context(session, workspace_draft_id)
-            if workspace_draft_id
-            else revision_context(session, workspace_revision_id)
+            change_set_context(session, change_set_id)
+            if change_set_id
+            else publication_context(session, publication_id)
         )
         query = build_snapshot_object_query(
             model,
@@ -313,7 +313,7 @@ def list_objects(
         paths = object_paths(session, context, page.items)
         return ObjectPage(
             items=[
-                _draft_object_response(
+                _change_set_object_response(
                     row, context.id, model, path=paths[row.object_id]
                 ).model_copy(update={"workspaceKey": context.workspace_key})
                 for row in page.items
@@ -379,27 +379,27 @@ def get_object(
     session: DbSession,
     snapshot: RequestModelSnapshot,
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
-    workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
-    workspace_revision_id: str | None = Query(default=None, alias="workspaceRevisionId"),
+    change_set_id: str | None = Query(default=None, alias="changeSetId"),
+    publication_id: str | None = Query(default=None, alias="publicationId"),
 ) -> ObjectResponse:
     model = snapshot.model
     get_object_type(model, object_type_key)
-    if workspace_draft_id and workspace_revision_id:
+    if change_set_id and publication_id:
         raise api_error(
             422,
             "mutually_exclusive_context",
-            "workspaceDraftId and workspaceRevisionId cannot be combined",
+            "changeSetId and publicationId cannot be combined",
         )
-    if workspace_draft_id or workspace_revision_id:
+    if change_set_id or publication_id:
         context = (
-            draft_context(session, workspace_draft_id)
-            if workspace_draft_id
-            else revision_context(session, workspace_revision_id)
+            change_set_context(session, change_set_id)
+            if change_set_id
+            else publication_context(session, publication_id)
         )
         item = find_object(session, context, object_id, object_type_key)
         if item is None:
             raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
-        return _draft_object_response(
+        return _change_set_object_response(
             item, context.id, model, path=object_path(session, context, item)
         ).model_copy(update={"workspaceKey": context.workspace_key})
     selected_workspace_key = resolve_workspace(session, workspace_key).key
@@ -416,12 +416,12 @@ def get_object_history(
     session: DbSession,
     paging: PageQuery,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
-    workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
+    change_set_id: str | None = Query(default=None, alias="changeSetId"),
 ) -> AuditEventPage:
-    if workspace_draft_id:
-        snapshot = resolve_draft_snapshot(session, workspace_draft_id)
+    if change_set_id:
+        snapshot = resolve_change_set_snapshot(session, change_set_id)
         get_object_type(snapshot.model, object_type_key)
-        context = draft_context(session, workspace_draft_id)
+        context = change_set_context(session, change_set_id)
         item = find_object(session, context, object_id, object_type_key)
         if item is None:
             raise api_error(404, "object_not_found", f"Object '{object_id}' not found")

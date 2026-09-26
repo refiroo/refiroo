@@ -97,7 +97,7 @@ models; the starter applications supply examples, not reserved navigation sectio
 
 The main workspace distinguishes:
 
-- **context:** workspace, application, Live/Draft/History and optional containing object;
+- **context:** workspace, application, Live/Change set/History and optional containing object;
 - **collection:** the row/source object type;
 - **lens:** one configured semantic view over that source type;
 - **query:** scope, search, filters, sort and the scroll anchor; and
@@ -137,8 +137,8 @@ no renderer branches on an application or object-type key.
 - **Global header:** model-declared applications are peer tabs with their model `icon`/`color`. The
   active model and schema versions are shown as plain text; Models is a separate header entry and its
   page has no application browser.
-- **Context bar:** workspace and application with a Live, named Draft or Historical snapshot status,
-  and one segmented Live / Drafts / History control that always shows the active context.
+- **Context bar:** workspace and application with a Live, named Change set or Publication status,
+  and one segmented Live / Change sets / History control that always shows the active context.
 - **Application browser:** Collections list (with the model object-type icon and a mapping-lens hint)
   above Browse records. Record branches start collapsed; the active record's ancestors and search
   results open by default, and an explicit expand/collapse choice persists per workspace and
@@ -158,11 +158,11 @@ no renderer branches on an application or object-type key.
   mapping is only the explicit **Remove mapping** action; saving is disabled until a different
   target is selected. Conflict review is unchanged.
 - **Inside a draft:** a compact draft bar replaces the stacked workflow panel and keeps Validate,
-  Activate and More draft actions in one row.
+  Publish and More change set actions in one row.
 
 - **Models:** the same rail-and-content frame as data pages. The release/draft catalogue is the
   sidebar navigation; the main column has the context bar (with the active release), the standard
-  page header and the selected release or draft.
+  page header and the selected release or change set.
 - **Settings:** a persistent control at the bottom of the rail opens Account and Appearance.
   Account is a placeholder (local single-user session, disabled Sign in) for the planned multi-user
   authentication. Appearance offers System, Light and Dark; the choice is stored per browser and
@@ -175,8 +175,8 @@ split view remains available in code but is not the default.
 ## Established CRUD UI contract and WP9 recovery target
 
 The behaviors in this section existed before the WP5/WP6 transition. They are the required generic UI
-contract, and WP7 restored the backend contract over the workspace-revision runtime. WP9 must
-restore/reuse these controls for normal live writes and explicitly selected optional drafts under
+contract, and WP7 restored the backend contract over the publication runtime. WP9 must
+restore/reuse these controls for normal live writes and explicitly selected optional change sets under
 ADR-026/027. Current disconnected controls and lost non-default detail context are implementation
 gaps, not read-only product rules.
 
@@ -207,7 +207,7 @@ Attribute panels distinguish an unset value from a stored falsy or null value. E
 model-driven add/edit actions, while optional stored values can be removed with confirmation. Required,
 read-only and hidden bindings retain their declared behavior. All eight value types use one typed field
 renderer. Individual attribute writes claim the containing object’s current version; only explicitly
-draft-scoped writes additionally claim the draft’s current version.
+change-set-scoped writes additionally claim the change set’s current version.
 
 Relation panels preserve relation identity, attributes, direction and version. They derive valid
 incoming and outgoing creation choices from the panel configuration and allowed object-type triples,
@@ -247,26 +247,26 @@ architecture.
 ## Base 0.6 direction
 
 Base 0.6 completes daily live maintenance using model-driven tables, forms and detail panels. The
-visible context distinguishes **Live**, an explicitly selected **Draft**, and immutable **History**.
+visible context distinguishes **Live**, an explicitly selected **Change set**, and immutable **History**.
 A catalogue-retired workspace is read-only. Model-defined availability is an ordinary field; it is not
-an object publication state. Publication retirement removes the current-publication designation while
+an object publication state. Publication withdrawal removes the current-publication designation while
 live data stays available.
 
-A draft starts from actual current live data, including edits since the latest publication, or from
-an explicitly selected historical snapshot. Empty-root creation is a development/bootstrap mechanism,
+A change set starts from actual current live data, including edits since the latest publication, or from
+an explicitly selected publication. Empty-root creation is a development/bootstrap mechanism,
 not the normal user workflow. WP8.1 supplies the missing current-live base and pinned historical model
 interpretation before the dependent browser flows can be accepted.
 
 Activation applies only authored changes over current live content, checks touched-record conflicts,
 preserves unrelated live work and validates the final combined graph. History is newest first and
-presents source separately from supersession. Starting a draft from history is not restoring the active
-dataset. Cancel, validation failure and version conflicts preserve input and persisted draft/live data.
+presents source separately from supersession. Starting a change set from history is not restoring the active
+dataset. Cancel, validation failure and version conflicts preserve input and persisted change set/live data.
 
-A model-mismatched historical draft cannot activate through the Base 0.6 data flow. Show the source and
+A model-mismatched change set started from a publication cannot activate through the Base 0.6 data flow. Show the source and
 current models and explain the migration requirement. Product 0.10 adds a separate reviewed migration:
 preview affected schema/data and potential loss, confirm the exact plan or cancel, then apply an atomic
 workspace model/data change. Do not enable a fake override control or change other workspaces’ models.
-Application-model drafts and workspace data drafts remain separate resources and concepts.
+Application-model drafts and change sets remain separate resources and concepts.
 
 The [interaction specification](BASE_0_6_INTERACTION_SPEC.md) and product scenarios are the current
 acceptance baseline. Earlier WP0/WP5 fixtures remain implementation evidence for the behaviors they

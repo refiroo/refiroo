@@ -17,26 +17,26 @@ record the gap below instead of silently choosing the most convenient interpreta
 
 | ID | Finding and user impact | Required planning action | Priority / stories | User decision (verbatim) |
 | --- | --- | --- | --- | --- |
-| GAP-01 | Detail requests omit workspace context and record controls are disconnected. A steward can select another workspace but cannot finish the task there. | Restore the complete live browser journey and preserve context through lookup, detail, history and return. Optional draft context must remain explicit.  | 0.6 blocker; US-D01–D12, US-L01–L02 | OK, Accepted. |
-| GAP-02 | ADR-026 promises a fresh current-live draft base. `create_draft` currently creates an empty draft or points to a supplied immutable revision; it does not capture current live data. Live changes since the last publication are therefore absent from that starting view. | Specify and implement “start from current live data,” including a workspace with live records but no published revision. Retain separately labelled historical derivation. Add direct boundary evidence for SC-05.  | Before coordinated design is accepted; US-W01, US-W08 | OK, Accewpted. Creating a draft was always planned to make a copy of the actual active or a previously retired one. The empty draft was a temporary solution for the development phase, this has to be extended with the copy from active functionality. If a draft created from a preiously retired workspace is not compatible with the current active schema in case of activation, then the merge functionality gives a warning on this and asks for comfirmation of overridding the active scheme with potential data loss, or cancel the activation. |
-| GAP-03 | “Restore from history” implies undo. Activation applies only authored changes over live data; selecting an older base alone does not restore old content or remove newer records. | Rename the existing action to “start a draft from history.” Specify recovery as reviewed new changes. A full dataset rollback would require a separate explicit product decision and is not promised here. | 0.6 wording and acceptance; US-W07, SC-08 | Ok. The active cannot be restored from history. A draft be created from the active or a previous histroy, see GAP-03. |
-| GAP-04 | Publication retirement clears the publication selection but retains live records; active reads use those live records. “Stop publishing” can be misread as withdrawing data from consumers. | Clearly distinguish removing the current publication label, making a workspace read-only, marking a business value unavailable and deleting data. Decide whether any future withdrawal operation is needed; do not infer one. | Before exposing retirement controls; US-W06, US-A03 | ok, Accepted. |
-| GAP-05 | Current revision history is oldest first, whereas the interaction baseline asks for newest first. | Align the history order or explicitly amend the interaction baseline; validate the user's ability to find the latest publication. | 0.6 history gate; US-W05 | Ok. Newest first. |
-| GAP-06 | Technical 0.7 mapping, 0.8 hierarchy/translation and 0.9 bulk scope still includes mandatory draft wording. It conflicts with direct daily maintenance. | Rewrite those plans to offer live maintenance and an explicit optional design context under ADR-026. If an operation needs extra review, state its particular risk and obtain a product decision. | Before planning each specialist/integration release | Ok. Plans has to be rewritten based on the recent product functionality. |
+| GAP-01 | Detail requests omit workspace context and record controls are disconnected. A steward can select another workspace but cannot finish the task there. | Restore the complete live browser journey and preserve context through lookup, detail, history and return. Optional change set context must remain explicit.  | 0.6 blocker; US-D01–D12, US-L01–L02 | OK, Accepted. |
+| GAP-02 | ADR-026 promises a fresh current-live change set base. `create_draft` currently creates an empty change set or points to a supplied immutable publication; it does not capture current live data. Live changes since the last publication are therefore absent from that starting view. | Specify and implement “start from current live data,” including a workspace with live records but no published publication. Retain separately labelled historical derivation. Add direct boundary evidence for SC-05.  | Before coordinated design is accepted; US-W01, US-W08 | OK, Accewpted. Creating a change set was always planned to make a copy of the actual active or a previously retired one. The empty change set was a temporary solution for the development phase, this has to be extended with the copy from active functionality. If a change set created from a preiously retired workspace is not compatible with the current active schema in case of publishing, then the merge functionality gives a warning on this and asks for comfirmation of overridding the active scheme with potential data loss, or cancel the publishing. |
+| GAP-03 | “Restore from history” implies undo. Publishing applies only authored changes over live data; selecting an older base alone does not restore old content or remove newer records. | Rename the existing action to “start a change set from history.” Specify recovery as reviewed new changes. A full dataset rollback would require a separate explicit product decision and is not promised here. | 0.6 wording and acceptance; US-W07, SC-08 | Ok. The active cannot be restored from history. A change set be created from the active or a previous histroy, see GAP-03. |
+| GAP-04 | Publication withdrawal clears the publication selection but retains live records; active reads use those live records. “Stop publishing” can be misread as withdrawing data from consumers. | Clearly distinguish removing the current publication label, making a workspace read-only, marking a business value unavailable and deleting data. Decide whether any future withdrawal operation is needed; do not infer one. | Before exposing retirement controls; US-W06, US-A03 | ok, Accepted. |
+| GAP-05 | Current publications is oldest first, whereas the interaction baseline asks for newest first. | Align the history order or explicitly amend the interaction baseline; validate the user's ability to find the latest publication. | 0.6 history gate; US-W05 | Ok. Newest first. |
+| GAP-06 | Technical 0.7 mapping, 0.8 hierarchy/translation and 0.9 bulk scope still includes mandatory change set wording. It conflicts with direct daily maintenance. | Rewrite those plans to offer live maintenance and an explicit optional design context under ADR-026. If an operation needs extra review, state its particular risk and obtain a product decision. | Before planning each specialist/integration release | Ok. Plans has to be rewritten based on the recent product functionality. |
 | GAP-07 | Component and service tests are described as functionality evidence, but no composed browser proof is supplied here. | Attach actual executed scenarios, results, skips and limitations before changing availability to browser validated. | 0.6 WP10; all browser stories |Ok. the validations and testing have to be extended. |
-| GAP-08 | A workspace design draft and an application-definition draft are different tools. Some “design playground” wording suggests editing both together today. | Keep data coordination separate from definition release management. Treat coordinated schema/data migration and workspace-specific model selection as 0.10 work. | All lifecycle plans; US-W01–W08, US-P07 | Ok, accepted, these have to be different concepts. The documentation has to be upgraded accordingly. |
+| GAP-08 | A change set (data) and a model draft (application definition) are different tools. Some “design playground” wording suggests editing both together today. | Keep data coordination separate from definition release management. Treat coordinated schema/data migration and workspace-specific model selection as 0.10 work. | All lifecycle plans; US-W01–W08, US-P07 | Ok, accepted, these have to be different concepts. The documentation has to be upgraded accordingly. |
 
 Read-only evidence inspected for this update:
 
-- [Draft creation and merge service](../../backend/app/services/workspace_revisions.py):
-  `create_draft`, `effective_draft_membership`, `_merge_draft_over_live`, `retire_publication`.
-- [Workspace routes](../../backend/app/routers/workspaces.py): draft creation forwards only the selected
-  source revision; it does not add a current-live snapshot operation.
+- [Change set creation and merge service](../../backend/app/services/change_sets.py):
+  `create_draft`, `effective_change_set_membership`, `_merge_draft_over_live`, `retire_publication`.
+- [Workspace routes](../../backend/app/routers/workspaces.py): change set creation forwards only the selected
+  source publication; it does not add a current-live snapshot operation.
 - [Record service](../../backend/app/services/objects.py): `create_object_record` already accepts
   permitted initial relationships together with fields and containment, then commits once. The
   single-create acceptance scenario reuses that contract; it does not propose an arbitrary
   multi-record transaction interface. Fresh failure-path proof is still needed at release validation.
-- [ADR-026](../DECISIONS.md#adr-026--active-workspaces-are-live-writable-for-data-drafts-are-the-design-path):
+- [ADR-026](../DECISIONS.md#adr-026--active-workspaces-are-live-writable-for-data-change sets-are-the-design-path):
   direct live maintenance and the current-live starting-point requirement.
 - [Object detail](../../frontend/src/features/objects/ObjectDetail.tsx),
   [application shell](../../frontend/src/app/AppShell.tsx) and
@@ -78,12 +78,12 @@ this review did not refresh their vendor sources or adopt their proposals wholes
 | Accepted resolution | Technical owner | Completion requirement |
 | --- | --- | --- |
 | GAP-01 complete workspace/live browser flow | WP9 | SC-01–SC-04 in composed browser, two record types |
-| GAP-02 copy current live or historical content | WP8.1-B, then WP9 | SC-05 and concurrent snapshot/merge evidence; empty drafts are development/bootstrap support |
+| GAP-02 copy current live or historical content | WP8.1-B, then WP9 | SC-05 and concurrent snapshot/merge evidence; empty change sets are development/bootstrap support |
 | GAP-02 incompatible historical schema replacement | Product 0.10 migration and workspace model assignment | Preview losses, confirm exact reviewed plan or cancel, atomic migration, unaffected workspace isolation |
 | GAP-03 no direct restore | WP8.1/WP9 wording and merge checks | Historical source applies only authored changes; newer untouched data survives |
-| GAP-04 truthful publication retirement | WP9, with service proof in WP8.1 | Remove designation; preserve live access and history; distinguish catalogue retirement |
+| GAP-04 truthful publication withdrawal | WP9, with service proof in WP8.1 | Remove designation; preserve live access and history; distinguish catalogue retirement |
 | GAP-05 newest first | WP8.1-C, then WP9 history | Deterministic reverse chronological paging and exact retry |
-| GAP-06 live specialist/integration flows | Roadmap 0.7–0.9 packages | Live default plus explicit optional draft; generic paths preserve the same rules |
+| GAP-06 live specialist/integration flows | Roadmap 0.7–0.9 packages | Live default plus explicit optional change set; generic paths preserve the same rules |
 | GAP-07 stronger validation | WP10 and each later release | Actual composed journeys and boundary evidence, not component-only acceptance |
 | GAP-08 separate data/model drafts | ADR-027, WP9, product 0.10 | No data activation silently edits model definitions or global selection |
 | GAP-08 stage a candidate release in an optional draft | ADR-028, product 0.7 | A draft is created against, or explicitly moved onto, an installed supported release; a draft the target does not already accept needs the reviewed 0.10 conversion; nothing forces a change through or moves a draft without being asked |
@@ -92,10 +92,10 @@ The historical-schema confirmation requested in GAP-02 is preserved as a planned
 not a current activation flag. The 0.10 workspace model-assignment/migration boundary avoids changing
 other workspaces’ rules. An unsupported schema language still needs parser/runtime support. A
 catalogue-retired workspace is read-only; historical derivation means a retired publication snapshot.
-ADR-028 keeps a data draft on a release the user chooses without changing any data. A draft whose
-content the chosen release already accepts is a draft edit with no migration and no assignment; a
-draft the chosen release does not already accept needs the reviewed 0.10 conversion. Either way a
-draft edit never changes the release serving data.
+ADR-028 keeps a change set on a release the user chooses without changing any data. A change set whose
+content the chosen release already accepts is a change set edit with no migration and no assignment; a
+change set the chosen release does not already accept needs the reviewed 0.10 conversion. Either way a
+change set edit never changes the release serving data.
 
 ## 0.7 plan review follow-up — 2026-09-12
 
@@ -115,7 +115,7 @@ complete source/live edge identities and versions. The SQLite gate passes 486 ba
 164 frontend tests; this does not complete US-M01–M04 in the browser. WP-8A delivers coverage,
 WP-8B actions/conflict recovery/contextual target creation, and WP-9 composed acceptance.
 View-only mapping and modal target creation are resolved in the WP-8B handoff. WP-6/WP-7 deliver
-non-active draft model selection; WP-11 delivers historical-schema refusal, pinned-model loading,
+non-active change set model selection; WP-11 delivers historical-schema refusal, pinned-model loading,
 retry-aware shell errors and the established version-dialog presentation. Composed SC-15 acceptance
 remains WP-9. Earlier plan-review evidence remains historical.
 

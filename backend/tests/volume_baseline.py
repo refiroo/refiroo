@@ -1,6 +1,6 @@
 """Track S read baseline (Base 0.8 S1) over the volume fixture.
 
-Runs the same requests in live, draft and history contexts and records, per request, the wall time
+Runs the same requests in live, change set and history contexts and records, per request, the wall time
 inside the ASGI app, the SQL statements executed and the ORM rows materialised. The pytest module
 ``test_volume_baseline.py`` uses :func:`run_scenarios` at small scales to hold the budgets; run
 this file directly for the full-volume figures recorded in the Base 0.8 plan::
@@ -48,7 +48,7 @@ from volume_fixture import (
 )
 
 PAGE_SIZE = 20
-CONTEXTS = ("live", "draft", "history")
+CONTEXTS = ("live", "change_set", "history")
 
 
 @dataclass(frozen=True)
@@ -64,9 +64,9 @@ class Measurement:
 def context_params(context: str, dataset: VolumeDataset) -> dict[str, str]:
     if context == "live":
         return {"workspaceKey": WORKSPACE}
-    if context == "draft":
-        return {"workspaceDraftId": dataset.draft_id}
-    return {"workspaceRevisionId": dataset.revision_id}
+    if context == "change_set":
+        return {"changeSetId": dataset.change_set_id}
+    return {"publicationId": dataset.publication_id}
 
 
 def object_cursor(
@@ -88,9 +88,9 @@ def object_cursor(
     from app.services.pagination import _row_position, cursor_sort
     from app.services.snapshot_reads import (
         build_snapshot_object_query,
-        draft_context,
+        change_set_context,
         object_scope,
-        revision_context,
+        publication_context,
     )
 
     model = parse_model(volume_model())
@@ -108,9 +108,9 @@ def object_cursor(
             scope = "objects"
         else:
             snapshot = (
-                draft_context(session, dataset.draft_id)
-                if context == "draft"
-                else revision_context(session, dataset.revision_id)
+                change_set_context(session, dataset.change_set_id)
+                if context == "change_set"
+                else publication_context(session, dataset.publication_id)
             )
             query = build_snapshot_object_query(model, snapshot, **options)
             scope = object_scope(snapshot)
@@ -279,7 +279,7 @@ def _timed(
 
 
 def run_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int) -> list[Measurement]:
-    """Measure every read in each context, then one live and one draft write."""
+    """Measure every read in each context, then one live and one change set write."""
     results = []
     for context in CONTEXTS:
         for scenario, path, params in _read_scenarios(engine, context, dataset):
@@ -293,25 +293,25 @@ def run_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int
     path = f"/api/v1/objects/{ITEM}/{dataset.edited_item_id}"
     state: dict[str, Any] = {}
 
-    def draft_versions() -> None:
-        record = client.get(path, params={"workspaceDraftId": dataset.draft_id}).json()
-        draft = client.get(f"/api/v1/workspace-drafts/{dataset.draft_id}").json()
-        state.update(record=record["version"], draft=draft["version"])
+    def change_set_versions() -> None:
+        record = client.get(path, params={"changeSetId": dataset.change_set_id}).json()
+        change_set = client.get(f"/api/v1/change-sets/{dataset.change_set_id}").json()
+        state.update(record=record["version"], change_set=change_set["version"])
         state["name"] = f"Edited {record['version']}"
 
-    def draft_write():
+    def change_set_write():
         return client.patch(
             path,
             json={
                 "name": state["name"],
                 "expectedVersion": state["record"],
-                "workspaceDraftId": dataset.draft_id,
-                "expectedWorkspaceDraftVersion": state["draft"],
+                "changeSetId": dataset.change_set_id,
+                "expectedChangeSetVersion": state["change_set"],
             },
         )
 
-    status, milliseconds, statements, rows = _timed(engine, draft_write, repeat, draft_versions)
-    results.append(Measurement("draft", "write: rename one record", status, milliseconds, statements, rows))
+    status, milliseconds, statements, rows = _timed(engine, change_set_write, repeat, change_set_versions)
+    results.append(Measurement("change_set", "write: rename one record", status, milliseconds, statements, rows))
 
     live_path = f"/api/v1/objects/{ITEM}/{dataset.live_item_id}"
 
@@ -334,7 +334,7 @@ def markdown_table(results: list[Measurement]) -> str:
     scenarios = list(dict.fromkeys(item.scenario for item in results))
     by_key = {(item.scenario, item.context): item for item in results}
     lines = [
-        "| Request | Live | Draft | History |",
+        "| Request | Live | Change set | History |",
         "| --- | --- | --- | --- |",
     ]
     for scenario in scenarios:

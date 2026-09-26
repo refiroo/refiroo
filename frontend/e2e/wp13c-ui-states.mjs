@@ -1,6 +1,6 @@
 // WP-13C changed-state browser checks for 0.7 surfaces not covered by the package runners:
 // mapping dependency failure/retry, candidate search states, contextual target creation,
-// conflict review, draft-context mapping, draft model-version selection and narrow layouts.
+// conflict review, change set-context mapping, change set model-version selection and narrow layouts.
 // The state inventory these checks come from is docs/testing/UI_ACCEPTANCE.md.
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -296,13 +296,13 @@ try {
   await page.setViewportSize({ width: 1440, height: 900 });
   checks.push("narrow mapping grid and dialog fit the viewport; search stays compact; Escape restores focus");
 
-  // ---- 2. Inverse direction, Master ← System (rdm-master, incoming), in a named draft ----
-  const draft = await api("/workspaces/default/drafts", { name: "WP-13C mapping draft", source: "currentLive" });
+  // ---- 2. Inverse direction, Master ← System (rdm-master, incoming), in a named change set ----
+  const changeSet = await api("/workspaces/default/change-sets", { name: "WP-13C mapping change set", source: "currentLive" });
   await page.goto(
-    `${uiUrl}/apps/rdm-master/views/master-to-system-mapping?workspaceKey=default&workspaceDraftId=${draft.id}`,
+    `${uiUrl}/apps/rdm-master/views/master-to-system-mapping?workspaceKey=default&changeSetId=${changeSet.id}`,
   );
   await page.getByRole("heading", { name: "Master ← System mapping", level: 1 }).waitFor();
-  await page.getByRole("region", { name: "Draft publication" }).waitFor();
+  await page.getByRole("region", { name: "Change set publication" }).waitFor();
   await grid.getByText("Master Gamma", { exact: true }).first().waitFor();
   await page.getByRole("button", { name: "Change mapping for Master Gamma" }).click();
   const inverseDialog = page.getByRole("dialog", { name: /Change mapping — Master Gamma/ });
@@ -317,34 +317,34 @@ try {
   );
   await inverseCreate.getByRole("combobox", { name: "Parent type" }).selectOption("system");
   await chooseObject(inverseCreate, records.system[0].id);
-  await inverseCreate.getByLabel("Name", { exact: true }).fill("Value Draft");
+  await inverseCreate.getByLabel("Name", { exact: true }).fill("Value Change set");
   await inverseCreate.getByLabel("Value code").fill("VD");
-  await inverseCreate.getByLabel("Value name").fill("Value Draft");
-  await shot("mapping-draft-create-target-wide");
+  await inverseCreate.getByLabel("Value name").fill("Value Change set");
+  await shot("mapping-change-set-create-target-wide");
   await inverseCreate.getByRole("button", { name: "Create", exact: true }).click();
   await inverseCreate.waitFor({ state: "detached" });
   expect(
-    await inverseDialog.getByRole("radio", { name: /^Value Draft/ }).isChecked(),
-    "the created draft target is not selected",
+    await inverseDialog.getByRole("radio", { name: /^Value Change set/ }).isChecked(),
+    "the created change set target is not selected",
   );
   await inverseDialog.getByRole("button", { name: "Save mapping", exact: true }).click();
   await inverseDialog.waitFor({ state: "detached" });
-  await grid.getByText("Value Draft", { exact: true }).first().waitFor();
-  const liveDraftValue = await api(
+  await grid.getByText("Value Change set", { exact: true }).first().waitFor();
+  const liveChangeSetValue = await api(
     "/objects/system-value?workspaceKey=default&applicationKey=rdm-systems&search=Value%20Draft",
   );
-  expect(liveDraftValue.items.length === 0, "a target created in a draft leaked into live data");
+  expect(liveChangeSetValue.items.length === 0, "a target created in a change set leaked into live data");
   const liveGamma = await api(
     `/workspaces/default/mapping-coverage?applicationKey=rdm-master&viewKey=master-to-system-mapping` +
       `&relationTypeKey=system-value-maps-to-master&fromObjectTypeKey=system-value&toObjectTypeKey=master-value` +
       `&direction=incoming&search=Master%20Gamma`,
   );
-  expect(liveGamma.items[0]?.state === "unmapped", "draft mapping leaked into live coverage");
-  await shot("mapping-draft-inverse-wide");
-  await axe("wp13c-mapping-draft-inverse");
-  checks.push("inverse direction creates a target in its only application inside a draft, maps it; live is unchanged");
+  expect(liveGamma.items[0]?.state === "unmapped", "change set mapping leaked into live coverage");
+  await shot("mapping-change-set-inverse-wide");
+  await axe("wp13c-mapping-change-set-inverse");
+  checks.push("inverse direction creates a target in its only application inside a change set, maps it; live is unchanged");
 
-  // ---- 3. Draft model-version selection (WP-7/WP-11): non-active pin, explanation, refusal ----
+  // ---- 3. Change set model-version selection (WP-7/WP-11): non-active pin, explanation, refusal ----
   const model = await api("/model");
   const modelDraft = await api("/model-drafts", {
     name: "WP-13C other release",
@@ -352,53 +352,53 @@ try {
   });
   const other = await api(`/model-drafts/${modelDraft.id}/installation`, { expectedVersion: modelDraft.version });
 
-  restore = await failReads("/api/v1/workspaces/default/drafts");
-  await page.goto(`${uiUrl}/apps/rdm-master/drafts?workspaceKey=default`);
-  await page.getByRole("heading", { name: "Workspace drafts", level: 1 }).waitFor();
+  restore = await failReads("/api/v1/workspaces/default/change-sets");
+  await page.goto(`${uiUrl}/apps/rdm-master/change-sets?workspaceKey=default`);
+  await page.getByRole("heading", { name: "Change sets", level: 1 }).waitFor();
   await page.getByText("Could not load this content").waitFor();
-  await shot("drafts-list-failure-wide");
+  await shot("change-sets-list-failure-wide");
   await restore();
   await page.getByRole("button", { name: "Retry", exact: true }).click();
-  await page.getByRole("heading", { name: "WP-13C mapping draft" }).waitFor();
-  checks.push("drafts list: failed read keeps the page header and Retry loads the drafts");
+  await page.getByRole("heading", { name: "WP-13C mapping change set" }).waitFor();
+  checks.push("change sets list: failed read keeps the page header and Retry loads the change sets");
 
   await page.getByRole("button", { name: "Start from current live data" }).click();
   const create = page.getByRole("dialog", { name: "Start from current live data" });
-  await create.getByLabel("Draft name").fill("WP-13C pinned draft");
+  await create.getByLabel("Change set name").fill("WP-13C pinned change set");
   const versionSelect = create.getByRole("combobox", { name: "Model version" });
   await versionSelect.selectOption(other.id);
-  await shot("draft-create-version-wide");
-  await axe("wp13c-draft-create-version");
-  await create.getByRole("button", { name: "Create draft" }).click();
+  await shot("change-set-create-version-wide");
+  await axe("wp13c-change-set-create-version");
+  await create.getByRole("button", { name: "Create change set" }).click();
   await create.waitFor({ state: "detached" });
-  const mismatch = page.getByText("This draft uses a different model version");
+  const mismatch = page.getByText("This change set uses a different model version");
   await mismatch.waitFor();
-  // WP-10G: the active model is named by key and version, like the draft's own release.
+  // WP-10G: the active model is named by key and version, like the change set's own release.
   const mismatchText = await page.locator(".notice", { has: mismatch }).innerText();
   expect(
     mismatchText.includes(`active model ${model.release.key} ${model.release.version}.`),
     `mismatch notice does not name the active release: ${mismatchText}`,
   );
   expect(!/[0-9a-f]{8}-[0-9a-f]{4}-/.test(mismatchText), `mismatch notice shows a release id: ${mismatchText}`);
-  const activate = page.getByRole("button", { name: "Activate draft" });
-  expect(await activate.isDisabled(), "activation is enabled for a draft on a non-active release");
+  const activate = page.getByRole("button", { name: "Publish change set" });
+  expect(await activate.isDisabled(), "activation is enabled for a change set on a non-active release");
   expect(
     ((await activate.getAttribute("title")) ?? "").includes("differs from the active release"),
     "disabled activation does not explain the version mismatch",
   );
   await page.getByText(`Model ${other.key} ${other.version}`).first().waitFor();
-  await shot("draft-version-mismatch-wide");
-  await axe("wp13c-draft-version-mismatch");
+  await shot("change-set-version-mismatch-wide");
+  await axe("wp13c-change-set-version-mismatch");
   await page.setViewportSize({ width: 390, height: 844 });
-  await noHorizontalScroll("narrow draft mismatch");
-  await shot("draft-version-mismatch-narrow");
+  await noHorizontalScroll("narrow change set mismatch");
+  await shot("change-set-version-mismatch-narrow");
   await page.setViewportSize({ width: 1440, height: 900 });
-  checks.push("draft on a non-active release names both releases by key and version and refuses activation");
+  checks.push("change set on a non-active release names both releases by key and version and refuses activation");
 
   const report = {
     browser: browser.version(),
     viewports: ["1440x900", "390x844"],
-    configurations: ["System → Master mapping (outgoing, Live)", "Master ← System mapping (incoming, Draft)"],
+    configurations: ["System → Master mapping (outgoing, Live)", "Master ← System mapping (incoming, Change set)"],
     releases: [model.release.version, other.version],
     checks,
     accessibility,

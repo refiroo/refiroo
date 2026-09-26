@@ -21,7 +21,7 @@ WP-11 has a focused model-version-dialog journey:
 PLAYWRIGHT_EXECUTABLE_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' npm --prefix frontend run test:browser:wp11
 ```
 
-It installs a second compatible model release in an isolated database, opens the workspace draft
+It installs a second compatible model release in an isolated database, opens the change set
 version-change dialog at normal and narrow widths, checks focus containment and dirty-input refusal,
 applies the release, and writes screenshots plus `report.json` to its printed temporary directory.
 Historical unsupported-release rendering remains covered by the focused component and real HTTP
@@ -39,7 +39,7 @@ retries, genuine empty translations, cross-application navigation, both containm
 paths, audit reads, and a narrow-screen keyboard navigation check. Simulated 503s
 exercise retry behavior; successful reads always reach the real backend.
 
-This is bounded WP9-A evidence. It does not establish complete CRUD, draft/history
+This is bounded WP9-A evidence. It does not establish complete CRUD, change-set/publication
 publication journeys, a full accessibility audit, visual regression baselines or
 WP10 release acceptance.
 
@@ -62,21 +62,21 @@ without partial records, individual fields, explicit conflict reconciliation,
 cancellation, signed deletion impact and stale-preview refusal. Master containment,
 required translation ownership and independent System/Translation hierarchies are
 exercised. It also checks keyboard/focus at 390×844, catalogue retirement, and that
-live authoring creates no drafts or revisions.
+live authoring creates no change sets or publications.
 
 This does not close slices C/D or WP10. Full accessibility/visual audits and composed
 release, migration, installed-wheel and draft/history acceptance remain separate.
 
 
-## Slice C: optional drafts and publication
+## Slice C: optional change sets and publication
 
 ```sh
-npm --prefix frontend run test:browser:drafts
+npm --prefix frontend run test:browser:change-sets
 ```
 
 The same installed-Chrome override works here. This runner creates an isolated SQLite
 backend and temporary starter model, enables workspace lifecycle mutations, and exercises
-SC-05/SC-06 and draft SC-04 through the browser. It covers current-live capture without
+SC-05/SC-06 and change set SC-04 through the browser. It covers current-live capture without
 publication and after later live edits, two-type editing with zero/false, translation creation
 with required ownership, individual fields, ordinary relationships, route/reload context,
 aggregate/record conflict reconciliation, successful publication preserving unrelated live work,
@@ -84,7 +84,7 @@ touched-record refusal, invalid final merged graph, discard/cancellation, and si
 with stale-preview recovery across Master and System containment. Narrow-screen Escape and
 focus restoration are exercised at 390×844. All successful reads and writes reach the real API.
 
-The runner asserts canonical draft write paths and both concurrency contexts and records
+The runner asserts canonical change set write paths and both concurrency contexts and records
 screenshots, server logs and `report.json` in its printed temporary evidence directory.
 History/historical-source acceptance remains slice D; WP10 composed release, full accessibility,
 visual, migration and packaging gates remain separate. Backend code and public contracts are
@@ -94,13 +94,13 @@ unchanged by slice C, so its final unit/build gates are frontend-only.
 ## Slice D: immutable history and historical sources
 
 ```sh
-npm --prefix frontend run test:browser:history
+npm --prefix frontend run test:browser:publications
 ```
 
 The isolated real-backend runner exercises SC-08: newest-first history, an unchanged typed older
-snapshot under its pinned model, revision context through shared list/detail reads, immutable controls,
-an explicitly labelled historical draft source, pinned/current model mismatch guidance, truthful
-publication retirement, and catalogue retirement as a separate read-only state. It records screenshots,
+snapshot under its pinned model, publication context through shared list/detail reads, immutable controls,
+an explicitly labelled change set started from a publication source, pinned/current model mismatch guidance, truthful
+publication withdrawal, and catalogue retirement as a separate read-only state. It records screenshots,
 server logs and `report.json` in its printed temporary evidence directory.
 
 Exact failed-page retry is additionally locked by the focused history-feed component regression; the
@@ -111,7 +111,7 @@ accessibility/visual, migration and packaging acceptance.
 
 `test:browser` also checks the compact shell, all configured Master/System views, hierarchy
 continuation across mode changes, touch/keyboard drawer dismissal and focus restoration, retained
-search and collection position, named drafts in two workspaces, and desktop/mobile model navigation.
+search and collection position, named change sets in two workspaces, and desktop/mobile model navigation.
 It captures 1440px and 390px screens plus a 720px CSS viewport for 200%-zoom-equivalent reflow.
 This is not an operating-system browser-zoom or manual assistive-technology test.
 
@@ -128,11 +128,11 @@ exercised; this does not supply UI-07 automated accessibility/visual baselines.
 ## UI-03A navigation preservation
 
 `test:browser` includes `ui03a-navigation.mjs` in the same isolated backend harness. Domain and System
-records in Live and a named Draft retain filtered later-page origins through record reload and
+records in Live and a named Change set retain filtered later-page origins through record reload and
 Back/Forward. At 1440px and 390px it verifies cancelled navigation preserves editable input, explicit
 discard permits navigation, native reload cancellation retains the form, and a delayed real save
 blocks Back until completion. Cross-application related-record reload returns to the original list.
-The existing authoring and draft runners exercise successful writes, conflicts and signed deletion
+The existing authoring and change set runners exercise successful writes, conflicts and signed deletion
 through the guarded record editors. Evidence is written to the runner's temporary output directory.
 This section records the UI-03A navigation coverage. UI-03B extends it below; UI-07 gate delivery is recorded below.
 
@@ -141,11 +141,11 @@ This section records the UI-03A navigation coverage. UI-03B extends it below; UI
 The navigation runner now checks the full-width collection-record default, reload/Back/Forward,
 canonical Copy link, all configured panel headings, mobile single-screen layout, real save refresh,
 right-click and keyboard row menus, and last-row deletion with filter-preserving page recovery.
-Domain and System are covered in Live and Draft at 1440px and 390px. The hierarchy regression starts
+Domain and System are covered in Live and Change set at 1440px and 390px. The hierarchy regression starts
 in a codelist record and selects a master value from the application browser: the unrelated collection
 must disappear, Value details must be available in the full record view, and reload must preserve it.
 
-The live-authoring, draft and history runners use the visible Record actions menu and retain their
+The live-authoring, change-set and publication runners use the visible Record actions menu and retain their
 mutation, conflict, signed-deletion and read-only assertions. UI-07 gates are documented below; these screenshots
 and interaction checks do not establish an accessibility audit or automated visual baselines.
 
@@ -181,7 +181,7 @@ npm --prefix frontend run test:browser:wp13c
 Runs the user-critical states selected in [UI acceptance](../../docs/testing/UI_ACCEPTANCE.md) for 0.7
 surfaces: mapping coverage and candidate outages with Retry, filtered-empty and no-match states,
 contained contextual-creation refusal, conflict review preserving the attempted choice, the inverse
-binding in a named draft with live unchanged, a drafts-list outage, and a draft pinned to a non-active
+binding in a named change set with live unchanged, a change-set list outage, and a change set pinned to a non-active
 release. Both widths (1440px, 390px), keyboard focus and scoped axe checks are included. Outages are
 503 responses held until the Retry click; everything else reaches the isolated real backend.
 Screenshots must be inspected against the named reference patterns; the runner does not compare them.
@@ -193,7 +193,7 @@ npm --prefix frontend run test:a11y
 ```
 
 Runs axe-core (WCAG 2.1 AA + best practices) on core page types: collection tables (Domain,
-System), record detail with panels, draft editing, history view, model workbench, the drafts
+System), record detail with panels, change-set editing, publications view, model workbench, the change sets
 list and, since Base 0.8 S7, the continuous list and record tree together: the codelist lens at page
 3 of 7 (window scrollbar, footer fields) beside a 60-codelist tree branch scrolling in its group,
 with focus on a row inside it, in light and dark. A self-check appends a control the tree may not
@@ -228,7 +228,7 @@ This captures new baselines. Review the updated PNGs in `e2e/baselines/`, then c
 `scrolling-list-tree-*` (Base 0.8 S7) captures the codelist lens mid-list with its window
 scrollbar and footer beside the expanded tree branch; its data (`helpers/acceptance-data.mjs`
 `seedLongList`) is seeded after the other light pages so they are unchanged. Dark variants (`*-dark`)
-cover the domain collection, domain detail, drafts list, model workbench and the list and tree. The gate switches with `page.emulateMedia({ colorScheme: "dark" })` and reloads before a
+cover the domain collection, domain detail, change sets list, model workbench and the list and tree. The gate switches with `page.emulateMedia({ colorScheme: "dark" })` and reloads before a
 capture so no colour transition is recorded. The accessibility gate repeats core pages and the
 settings menu in the dark theme.
 
@@ -285,7 +285,7 @@ S7_VOLUME_SCALE=1 npm --prefix frontend run test:browser:s7   # full volume
 ```
 
 Over the generated volume fixture (seeded by `backend/tests/volume_seed.py`) and the starter model,
-in live, draft and history: one collection-lens journey per context (wheel scroll both ways, a
+in live, change-set and publication: one collection-lens journey per context (wheel scroll both ways, a
 scrollbar click from the start, seek by name, **Go to end**, a page number and a copied URL reopened
 at the same row), each landing checked against the same context's API read at that position; then a
 record deep in the tree (the volume model's deep node through the tree search and its ancestor path;

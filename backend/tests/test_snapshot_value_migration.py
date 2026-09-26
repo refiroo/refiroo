@@ -26,7 +26,7 @@ from app.main import create_app
 from app.models.database import SnapshotAttributeValue
 from app.services.model.registry import model_registry
 
-PRECEDING, HEAD = "20260912_01", "20260926_03"
+PRECEDING, HEAD = "20260912_01", "20260926_04"
 QUERIES = (
     {"sort": "par-amount"},
     {"sort": "-par-seen", "filter.par-flag.isNull": "false"},
@@ -106,7 +106,7 @@ def seeded_database(tmp_path, monkeypatch, _migrated_template):
         seeded = _seed(client)
         reads = _reads(client, seeded["contexts"])
     index = _index(database)
-    assert {row[0] for row in index} == {"revision", "base", "draft"}
+    assert {row[0] for row in index} == {"publication", "base", "change_set"}
     command.downgrade(_config(database), PRECEDING)
     engine = create_engine(f"sqlite:///{database}")
     try:
@@ -140,7 +140,7 @@ def test_upgrade_rebuilds_an_index_left_by_an_interrupted_run(seeded_database, m
                 text(
                     "INSERT INTO snapshot_attribute_values (owner_kind, owner_id, object_id, "
                     "attribute_type_key, value_type, text_value) VALUES "
-                    "('draft', 'stale', 'stale', 'par-code', 'text', 'stale')"
+                    "('base', 'stale', 'stale', 'par-code', 'text', 'stale')"
                 )
             )
             connection.execute(

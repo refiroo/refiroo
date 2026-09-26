@@ -23,8 +23,8 @@ frontend and real-browser package evidence; it is not WP-9 release acceptance. S
 | F09 | Maintain translations                                     | Components present  | Available      | Translation editor is roadmap    |
 | F10 | Preview and confirm dependent deletion                    | Components present  | Available      | Browser completion is WP9        |
 | F11 | Inspect record history                                    | Default only        | Available      | Non-default context is dropped   |
-| F12 | Prepare a workspace design draft                          | Unavailable         | Available      | Browser completion is WP9        |
-| F13 | Validate and activate a design draft                      | Unavailable         | Available      | Browser completion is WP9        |
+| F12 | Prepare a workspace change set                          | Unavailable         | Available      | Browser completion is WP9        |
+| F13 | Validate and activate a change set                      | Unavailable         | Available      | Browser completion is WP9        |
 | F14 | Browse immutable workspace history and retire publication | Unavailable         | Available      | Browser completion is WP9        |
 | F15 | Inspect and release application models                    | Implemented         | Available      | Browser validation pending       |
 | F16 | Consume stable, bounded APIs                              | API concern         | Available      | Advanced integration is roadmap  |
@@ -77,7 +77,7 @@ be retired.
 Safety and limits:
 
 - an unknown explicit key fails rather than silently falling back;
-- catalogue retirement is different from retiring a published data revision;
+- catalogue retirement is different from retiring a published data publication;
 - workspace administration is controlled by a deployment setting that defaults on in the current
   pre-authentication product; this is not user authorization; and
 - no workspace-management screen is currently documented as complete.
@@ -142,12 +142,12 @@ Evidence: [object detail](../../frontend/src/features/objects/ObjectDetail.tsx),
 
 ## F05 — Maintain live reference-data records
 
-**User outcome:** A data owner can add or correct an everyday reference value without opening a draft
+**User outcome:** A data owner can add or correct an everyday reference value without opening a change set
 or publishing a release.
 
 The API supports creating, editing and deleting records directly in an active workspace. A successful
 change is immediately visible to active reads, advances the record version and produces audit history.
-It does not create a workspace draft or workspace revision.
+It does not create a change set or publication.
 
 Record creation can include its typed fields, parent and permitted initial relationships in the same
 request. This is existing generic behavior, not translation-specific orchestration: the live
@@ -156,19 +156,19 @@ initial relationships in the request transaction, then commits. This does not im
 multi-record transaction API or automatic creation of missing target records. Browser completion and
 direct end-to-end failure evidence remain required by SC-03.
 
-The same record operation can instead name a workspace design draft. In that case it changes the draft
+The same record operation can instead name a workspace change set. In that case it changes the change set
 candidate and remains separate from live data until activation.
 
 Current implementation gap: generic object forms exist and are tested, but record detail currently
 passes an unconditional `readOnly` instruction to its panels. This is not a product rule. WP9 must
 remove that temporary wiring limitation and expose normal live editing, while also allowing an
-explicitly selected design draft as an alternative context.
+explicitly selected change set as an alternative context.
 
 Evidence: [object API](../../backend/app/routers/objects.py),
 [record creation service](../../backend/app/services/objects.py),
 [object form](../../frontend/src/features/objects/ObjectFormDialog.tsx),
 [temporary detail-page wiring](../../frontend/src/features/objects/ObjectDetail.tsx),
-[ADR-026](../DECISIONS.md#adr-026--active-workspaces-are-live-writable-for-data-drafts-are-the-design-path).
+[ADR-026](../DECISIONS.md#adr-026--active-workspaces-are-live-writable-for-data-change sets-are-the-design-path).
 
 ## F06 — Maintain typed field values
 
@@ -199,7 +199,7 @@ edit the engine-managed parent relationship separately.
 The browser can inspect hierarchy through the explorer, breadcrumbs, hierarchy panels and child tables.
 The explorer's record tree reads by parent at any size (Base 0.8 S6): each root type pages its
 top-level records, and expanding a record pages each child type separately with its count, in live,
-draft and history. It scrolls every branch continuously and walks by keyboard to any depth; a search
+change-set and publication. It scrolls every branch continuously and walks by keyboard to any depth; a search
 lists matching records of every type with their ancestor path.
 Generic parent selection exists in the record form but is not currently connected to a writable flow.
 The typed `tree` view, reparenting and child creation remain planned for 0.8 (Milestone B).
@@ -222,13 +222,13 @@ Generic browser components support related-record lookup, creation, edit, delete
 a linked record. They are temporarily disabled by the incomplete detail-page wiring, not by the product
 contract.
 
-WP-4/WP-14 deliver model-configured live/draft/revision mapping coverage with mapped, unmapped and ambiguous
+WP-4/WP-14 deliver model-configured live/change-set/publication mapping coverage with mapped, unmapped and ambiguous
 states, exact counts, bounded target previews, version-bound target details and paged candidate search.
 WP-5 delivers atomic mapping replacement: `PUT /mappings` creates, replaces or removes a mapping for
 one source with retained relation identity, typed attribute semantics, direction-aware cross-cardinality
 enforcement, idempotent no-ops, bounded conflict responses and mapping-transition audit events in both
-live and draft contexts. WP-10A ensures that cascade object deletion invalidates affected mapping
-continuations. WP-10B refuses divergent live sets touched by staged mutable relations before draft
+live and change set contexts. WP-10A ensures that cascade object deletion invalidates affected mapping
+continuations. WP-10B refuses divergent live sets touched by staged mutable relations before change set
 activation, with bounded binding/anchor/direction diagnostics; unrelated live work survives. The
 source/live fingerprint uses edge identities and surviving edge versions. WP-8A/WP-8B now provide
 the generic coverage and action renderer; WP-14 composes it as a source-collection lens, adds visible
@@ -270,8 +270,8 @@ contained children, owned dependants and affected relationships. The caller must
 cascade before the product removes owned dependants. Independent associated records are unlinked rather
 than accidentally deleted.
 
-For a live edit, deletion takes effect immediately and is audited. For a design draft, it becomes a
-candidate removal and does not alter live or historical content before activation. Historical snapshots
+For a live edit, deletion takes effect immediately and is audited. For a change set, it becomes a
+candidate removal and does not alter live or historical content before activation. Publications
 and audit history are never retroactively erased.
 
 The two-stage browser dialog exists but is not currently reachable because detail-page mutation wiring
@@ -294,16 +294,16 @@ WP10.
 Evidence: [history panel](../../frontend/src/features/objects/panels/HistoryPanel.tsx),
 [audit service](../../backend/app/services/audit.py).
 
-## F12 — Prepare a workspace design draft
+## F12 — Prepare a workspace change set
 
 **User outcome:** A team can prepare a coordinated graph change without disturbing live data.
 
 Through the API a user can start from a private immutable copy of current live content or derive a
-draft from a selected immutable revision, give it a name, list and open drafts, edit records through
-the normal record APIs, and discard the draft. Current-live capture includes changes made since the
-latest publication and works without a publication. A derived draft presents the selected historical
+change set from a selected immutable publication, give it a name, list and open change sets, edit records through
+the normal record APIs, and discard the change set. Current-live capture includes changes made since the
+latest publication and works without a publication. A derived change set presents the selected historical
 base together with its changes. Starting from history is not a full rollback: only explicitly authored
-draft changes are applied at activation, while untouched newer live data is preserved.
+change set changes are applied at publishing, while untouched newer live data is preserved.
 
 Draft edits use both record versions and a draft-wide version. Drafts pin the application-model release
 against which they are validated. The browser can create, open, edit, validate, activate and discard a
@@ -312,31 +312,31 @@ unsupported or corrupt pins block interpretation and writes without substituting
 Current-live capture is implemented for SQLite and explicitly refused on unsupported database dialects.
 
 Evidence: [workspace routes](../../backend/app/routers/workspaces.py),
-[workspace revision service](../../backend/app/services/workspace_revisions.py).
+[publication service](../../backend/app/services/change_sets.py).
 
-## F13 — Validate and activate a design draft
+## F13 — Validate and activate a change set
 
 **User outcome:** A coordinated design change is checked as a complete dataset and either becomes live
 in full or not at all.
 
-Validation checks the complete effective graph without publishing. Activation applies the draft's
+Validation checks the complete effective graph without publishing. Publishing applies the change set's
 changes over the latest live content, preserves unrelated live changes and detects conflicts on every
-record the draft touched. It then validates the merged result and creates one immutable revision.
+record the change set touched. It then validates the merged result and creates one immutable publication.
 
-If a version, identity, model-release or graph check fails, neither the live dataset nor the draft is
+If a version, identity, model-release or graph check fails, neither the live dataset nor the change set is
 partially changed. The response explains the conflicts so the user can reconcile them. The browser
 review, validation and activation journey remains WP9 work.
 
-Evidence: [activation merge tests](../../backend/tests/test_wp8_activation_merge.py),
+Evidence: [activation merge tests](../../backend/tests/test_wp8_publish_merge.py),
 [whole-graph validation tests](../../backend/tests/test_wp8_graph_validation.py),
 [ADR-026 activation decision](../DECISIONS.md#resolved-decision--activation-is-a-delta-merge-over-live-content).
 
 ## F14 — Browse workspace history and retire publication
 
 **User outcome:** A user can understand publication lineage, inspect a frozen snapshot and stop
-designating a revision as current without deleting its history.
+designating a publication as current without deleting its history.
 
-The API lists immutable workspace revisions newest first with bounded deterministic cursor paging and
+The API lists immutable publications newest first with bounded deterministic cursor paging and
 exposes a selected snapshot for record and
 relationship reads. It keeps “created from” separate from “superseded on activation,” so branching from
 older history remains truthful.
@@ -344,15 +344,15 @@ older history remains truthful.
 The user confirmed newest-first order in GAP-05, and WP8.1-C implements that API boundary. The browser
 history journey remains assigned to WP9/WP10.
 
-Publication retirement clears the current published revision under a concurrency check while retaining
-workspace identity, historical revisions and stable record identities. It is distinct from retiring the
+Publication withdrawal clears the current published publication under a concurrency check while retaining
+workspace identity, earlier publication and stable record identities. It is distinct from retiring the
 workspace catalogue entry. Current retirement leaves the live store readable and writable in an
 active catalogue workspace; it is not a withdrawal of data from consumers. The browser has no
 workspace history or retirement flow yet. GAP-04 accepted this distinction; ADR-027 and the revised
 interaction specification provide the wording for implementation.
 
 Evidence: [workspace history tests](../../backend/tests/test_wp8_history.py),
-[retirement tests](../../backend/tests/test_wp8_retirement.py).
+[retirement tests](../../backend/tests/test_wp8_withdrawal.py).
 
 ## F15 — Inspect and release application models
 
@@ -397,10 +397,10 @@ Evidence: [API reference](../API.md), [cursor decision](../DECISIONS.md#adr-018-
 
 **User outcome:** One user's save does not silently overwrite another user's newer work.
 
-Mutations to existing records, relationships, model drafts and workspace drafts, together with
+Mutations to existing records, relationships, model drafts and change sets, together with
 activation and retirement actions, use explicit expected versions or expected active identities.
-Read-only checks such as draft validation do not claim a version. A stale mutation fails and preserves
-the user's candidate or local input where the interface owns it. Draft activation reports record-level
+Read-only checks such as change set validation do not claim a version. A stale mutation fails and preserves
+the user's candidate or local input where the interface owns it. Publishing reports record-level
 merge conflicts and publishes nothing.
 
 Current model-workbench screens include conflict recovery. Generic data forms contain recovery behavior
@@ -408,7 +408,7 @@ but are not connected to the current record-detail journey. Complete browser rec
 part of WP9/WP10.
 
 Evidence: [model workbench tests](../../frontend/src/features/model-admin/ModelWorkbench.test.tsx),
-[workspace activation tests](../../backend/tests/test_wp8_activation.py).
+[workspace activation tests](../../backend/tests/test_wp8_publish.py).
 
 ## F18 — Accessible and responsive foundations
 

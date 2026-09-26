@@ -74,6 +74,39 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Base 0.8 W2: data drafts are **change sets** and workspace revisions are **publications** in every
+  layer (ADR-031), with no aliases. Breaking API changes:
+  - Routes: `/workspaces/{key}/drafts` → `/workspaces/{key}/change-sets`,
+    `/workspace-drafts/{id}` → `/change-sets/{id}`, `/workspace-drafts/{id}/activation` →
+    `/change-sets/{id}/publication`, `/workspaces/{key}/drafts/{id}/model-release` →
+    `/change-sets/{id}/model-release`, `/workspaces/{key}/revisions` → `/workspaces/{key}/publications`,
+    `/workspace-revisions/{id}` → `/publications/{id}`, and `POST /workspaces/{key}/retirement` with
+    `expectedActiveRevisionId` → `POST /publications/{id}/withdrawal` with no body (the path ID is the
+    claim). Lists stay under their workspace; single items are flat by global ID.
+  - Fields and parameters: `workspaceDraftId` → `changeSetId`, `workspaceRevisionId` →
+    `publicationId`, `expectedWorkspaceDraftVersion` and `expectedDraftVersion` →
+    `expectedChangeSetVersion`, `workspaceDraftVersion` → `changeSetVersion`,
+    `expectedActiveRevisionId` → `expectedActivePublicationId`, `derivedFromRevisionId` →
+    `derivedFromPublicationId`, `supersedesRevisionId` → `supersedesPublicationId`, `revisionNumber`
+    → `publicationNumber`, `activatedAt` → `publishedAt`, `retiredAt` → `withdrawnAt`, source
+    `"revision"` → `"publication"` and publication status `retired` → `withdrawn`. A publication also
+    returns `modelReleaseKey` and `modelReleaseVersion`.
+  - Error codes: `workspace_draft_*` → `change_set_*` (`change_set_not_found`,
+    `change_set_version_conflict`, `change_set_model_release_conflict`, `change_set_required`,
+    `change_set_snapshot_retry`, `change_set_snapshot_unsupported`), `draft_content_incompatible` →
+    `change_set_content_incompatible`, `workspace_revision_not_found` → `publication_not_found` and
+    `workspace_active_revision_conflict` → `workspace_active_publication_conflict`.
+
+  Migration `20260926_04` rebuilds the draft and revision tables as `change_set*` and `publication*`
+  with their columns, indexes and constraints, renames `workspaces.active_revision_id` and
+  `relation_set_versions.workspace_draft_id`, records snapshot value owners as `publication`, `base`
+  and `change_set`, and rewrites stored audit names (`change-set`, `change-set-object`,
+  `publication`/`published`, `publication-withdrawn`) and payload keys. It resumes an interrupted run
+  on SQLite and refuses another dialect with a recovery instruction. The browser says "Change set ·
+  name", "Publish change set", "Publication N" with its model release and date, and "Withdraw
+  publication"; its URLs are `/apps/{app}/change-sets` and `/apps/{app}/publications` with
+  `changeSetId` and `publicationId`. The OpenAPI lock is re-baselined, the `drafts` test marker is
+  `change_sets`, and the WP9 runners are `test:browser:change-sets` and `test:browser:publications`.
 - Base 0.8 W1: documentation adopts the ADR-031 terms. The glossary defines workspace, live, change
   set, publication ("Publication N" and its per-workspace number), model draft, model release, and the
   verbs publish, install, activate, withdraw and retire, with a diagram of one workspace's live data,

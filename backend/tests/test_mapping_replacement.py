@@ -31,9 +31,9 @@ def _live_set_version(anchor_id, direction):
     return _set_version("default", None, RELATION_TYPE, FROM_TYPE, TO_TYPE, anchor_id, direction)
 
 
-def _draft_set_version(draft_id, anchor_id, direction):
+def _change_set_set_version(change_set_id, anchor_id, direction):
     return _set_version(
-        "default", draft_id, RELATION_TYPE, FROM_TYPE, TO_TYPE, anchor_id, direction
+        "default", change_set_id, RELATION_TYPE, FROM_TYPE, TO_TYPE, anchor_id, direction
     )
 
 
@@ -45,8 +45,8 @@ def _replacement_body(
     direction="outgoing",
     target=...,
     attrs=None,
-    draft_id=None,
-    draft_version=None,
+    change_set_id=None,
+    change_set_version=None,
 ):
     body = {
         "relationTypeKey": RELATION_TYPE,
@@ -60,10 +60,10 @@ def _replacement_body(
         body["targetObjectId"] = target["id"] if target else None
     if attrs is not None:
         body["attributes"] = attrs
-    if draft_id:
-        body["workspaceDraftId"] = draft_id
-    if draft_version is not None:
-        body["expectedWorkspaceDraftVersion"] = draft_version
+    if change_set_id:
+        body["changeSetId"] = change_set_id
+    if change_set_version is not None:
+        body["expectedChangeSetVersion"] = change_set_version
     return body
 
 
@@ -458,55 +458,55 @@ def test_one_to_many_incoming_no_cross_check(otm_client):
 
 
 # ---------------------------------------------------------------------------
-# 12. Draft context
+# 12. Change set context
 # ---------------------------------------------------------------------------
 
 
-def _create_draft(client):
-    r = client.post(f"{BASE}/drafts", json={"source": "currentLive"})
+def _create_change_set(client):
+    r = client.post(f"{BASE}/change-sets", json={"source": "currentLive"})
     assert r.status_code == 201, r.text
     return r.json()
 
 
-def _draft_version(client, draft_id):
-    r = client.get(f"/api/v1/workspace-drafts/{draft_id}")
+def _change_set_version(client, change_set_id):
+    r = client.get(f"/api/v1/change-sets/{change_set_id}")
     assert r.status_code == 200, r.text
     return r.json()["version"]
 
 
-def test_draft_create_and_clear(client):
+def test_change_set_create_and_clear(client):
     sv, mv = _endpoints(client)
-    draft = _create_draft(client)
-    dv = draft["version"]
-    body = _replacement_body(sv, mv, 0, target=mv, draft_id=draft["id"], draft_version=dv)
+    change_set = _create_change_set(client)
+    dv = change_set["version"]
+    body = _replacement_body(sv, mv, 0, target=mv, change_set_id=change_set["id"], change_set_version=dv)
     r = client.put(PUT, json=body)
     assert r.status_code == 200
     result = r.json()
     assert result["state"] == "mapped"
-    assert result["workspaceDraftVersion"] is not None
-    dv2 = _draft_version(client, draft["id"])
-    ver = _draft_set_version(draft["id"], sv["id"], "outgoing")
-    body2 = _replacement_body(sv, mv, ver, target=None, draft_id=draft["id"], draft_version=dv2)
+    assert result["changeSetVersion"] is not None
+    dv2 = _change_set_version(client, change_set["id"])
+    ver = _change_set_set_version(change_set["id"], sv["id"], "outgoing")
+    body2 = _replacement_body(sv, mv, ver, target=None, change_set_id=change_set["id"], change_set_version=dv2)
     r2 = client.put(PUT, json=body2)
     assert r2.status_code == 200
     assert r2.json()["state"] == "unmapped"
 
 
-def test_draft_stale_draft_version_409(client):
+def test_change_set_stale_change_set_version_409(client):
     sv, mv = _endpoints(client)
-    draft = _create_draft(client)
-    body = _replacement_body(sv, mv, 0, target=mv, draft_id=draft["id"], draft_version=999)
+    change_set = _create_change_set(client)
+    body = _replacement_body(sv, mv, 0, target=mv, change_set_id=change_set["id"], change_set_version=999)
     r = client.put(PUT, json=body)
     assert r.status_code == 409
 
 
-def test_draft_missing_draft_version_409(client):
+def test_change_set_missing_change_set_version_409(client):
     sv, mv = _endpoints(client)
-    draft = _create_draft(client)
-    body = _replacement_body(sv, mv, 0, target=mv, draft_id=draft["id"])
+    change_set = _create_change_set(client)
+    body = _replacement_body(sv, mv, 0, target=mv, change_set_id=change_set["id"])
     r = client.put(PUT, json=body)
     assert r.status_code == 409
-    assert r.json()["error"]["code"] == "workspace_draft_required"
+    assert r.json()["error"]["code"] == "change_set_required"
 
 
 def test_replacement_authority_follows_the_addressed_workspace_context(client):
@@ -517,9 +517,9 @@ def test_replacement_authority_follows_the_addressed_workspace_context(client):
     archive_put = f"/api/v1/workspaces/{key}/mappings"
     mapped = client.put(archive_put, json=_replacement_body(sv, mv, 0, target=mv))
     assert mapped.status_code == 200, mapped.text
-    draft = client.post(f"/api/v1/workspaces/{key}/drafts", json={"source": "currentLive"})
-    assert draft.status_code == 201, draft.text
-    draft = draft.json()
+    change_set = client.post(f"/api/v1/workspaces/{key}/change-sets", json={"source": "currentLive"})
+    assert change_set.status_code == 201, change_set.text
+    change_set = change_set.json()
 
     def mapping_state():
         relations = client.get(
@@ -530,21 +530,21 @@ def test_replacement_authority_follows_the_addressed_workspace_context(client):
         return (
             _set_version(key, None, RELATION_TYPE, FROM_TYPE, TO_TYPE, sv["id"], "outgoing"),
             [row["relation"]["id"] for row in relations.json()["items"]],
-            _draft_version(client, draft["id"]),
+            _change_set_version(client, change_set["id"]),
         )
 
     before = mapping_state()
     assert len(before[1]) == 1
 
-    # A draft is addressed only through its own workspace; the default is never substituted.
+    # A change set is addressed only through its own workspace; the default is never substituted.
     foreign = client.put(
         PUT,
         json=_replacement_body(
-            sv, mv, 0, target=None, draft_id=draft["id"], draft_version=draft["version"]
+            sv, mv, 0, target=None, change_set_id=change_set["id"], change_set_version=change_set["version"]
         ),
     )
     assert foreign.status_code == 404
-    assert foreign.json()["error"]["code"] == "workspace_draft_not_found"
+    assert foreign.json()["error"]["code"] == "change_set_not_found"
     unknown = client.put(
         f"/api/v1/workspaces/missing-{_suffix()}/mappings",
         json=_replacement_body(sv, mv, before[0], target=None),
@@ -552,14 +552,14 @@ def test_replacement_authority_follows_the_addressed_workspace_context(client):
     assert unknown.status_code == 404
     assert unknown.json()["error"]["code"] == "workspace_not_found"
     # Immutable history has no write context.
-    revision = client.put(
+    publication = client.put(
         archive_put,
         json={
             **_replacement_body(sv, mv, before[0], target=None),
-            "workspaceRevisionId": draft["id"],
+            "publicationId": change_set["id"],
         },
     )
-    assert revision.status_code == 422
+    assert publication.status_code == 422
     assert mapping_state() == before
 
     retired = client.patch(
@@ -570,14 +570,14 @@ def test_replacement_authority_follows_the_addressed_workspace_context(client):
     live = client.put(archive_put, json=_replacement_body(sv, mv, before[0], target=None))
     assert live.status_code == 409
     assert live.json()["error"]["code"] == "workspace_retired"
-    in_draft = client.put(
+    in_change_set = client.put(
         archive_put,
         json=_replacement_body(
-            sv, mv, 0, target=None, draft_id=draft["id"], draft_version=draft["version"]
+            sv, mv, 0, target=None, change_set_id=change_set["id"], change_set_version=change_set["version"]
         ),
     )
-    assert in_draft.status_code == 409
-    assert in_draft.json()["error"]["code"] == "workspace_retired"
+    assert in_change_set.status_code == 409
+    assert in_change_set.json()["error"]["code"] == "workspace_retired"
     assert mapping_state() == before
 
 
@@ -618,43 +618,43 @@ def test_incoming_conflict_shows_correct_target(client):
 
 
 # ---------------------------------------------------------------------------
-# 15. Draft no-op does not increment draft version
+# 15. Change set no-op does not increment change set version
 # ---------------------------------------------------------------------------
 
 
-def test_draft_noop_clear_unmapped_preserves_draft_version(client):
+def test_change_set_noop_clear_unmapped_preserves_change_set_version(client):
     sv, mv = _endpoints(client)
-    draft = _create_draft(client)
-    dv = draft["version"]
-    body = _replacement_body(sv, mv, 0, target=None, draft_id=draft["id"], draft_version=dv)
+    change_set = _create_change_set(client)
+    dv = change_set["version"]
+    body = _replacement_body(sv, mv, 0, target=None, change_set_id=change_set["id"], change_set_version=dv)
     r = client.put(PUT, json=body)
     assert r.status_code == 200
     assert r.json()["state"] == "unmapped"
-    assert _draft_version(client, draft["id"]) == dv
+    assert _change_set_version(client, change_set["id"]) == dv
 
 
-def test_draft_noop_same_target_preserves_draft_version(client):
+def test_change_set_noop_same_target_preserves_change_set_version(client):
     sv, mv = _endpoints(client)
-    draft = _create_draft(client)
-    dv = draft["version"]
-    body = _replacement_body(sv, mv, 0, target=mv, draft_id=draft["id"], draft_version=dv)
+    change_set = _create_change_set(client)
+    dv = change_set["version"]
+    body = _replacement_body(sv, mv, 0, target=mv, change_set_id=change_set["id"], change_set_version=dv)
     r1 = client.put(PUT, json=body)
     assert r1.status_code == 200
-    dv2 = _draft_version(client, draft["id"])
-    ver = _draft_set_version(draft["id"], sv["id"], "outgoing")
-    body2 = _replacement_body(sv, mv, ver, target=mv, draft_id=draft["id"], draft_version=dv2)
+    dv2 = _change_set_version(client, change_set["id"])
+    ver = _change_set_set_version(change_set["id"], sv["id"], "outgoing")
+    body2 = _replacement_body(sv, mv, ver, target=mv, change_set_id=change_set["id"], change_set_version=dv2)
     r2 = client.put(PUT, json=body2)
     assert r2.status_code == 200
     assert r2.json()["mappingVersion"] == ver
-    assert _draft_version(client, draft["id"]) == dv2
+    assert _change_set_version(client, change_set["id"]) == dv2
 
 
 @pytest.mark.parametrize("mapped", [False, True])
-def test_draft_noop_rejects_stale_aggregate_token(client, mapped):
+def test_change_set_noop_rejects_stale_aggregate_token(client, mapped):
     sv, mv = _endpoints(client)
     if mapped:
         _create_relation(client, sv, mv)
-    draft = _create_draft(client)
+    change_set = _create_change_set(client)
     response = client.put(
         PUT,
         json=_replacement_body(
@@ -662,13 +662,13 @@ def test_draft_noop_rejects_stale_aggregate_token(client, mapped):
             mv,
             0,
             target=mv if mapped else None,
-            draft_id=draft["id"],
-            draft_version=draft["version"] + 1,
+            change_set_id=change_set["id"],
+            change_set_version=change_set["version"] + 1,
         ),
     )
     assert response.status_code == 409
-    assert response.json()["error"]["code"] == "workspace_draft_version_conflict"
-    assert _draft_version(client, draft["id"]) == draft["version"]
+    assert response.json()["error"]["code"] == "change_set_version_conflict"
+    assert _change_set_version(client, change_set["id"]) == change_set["version"]
 
 
 def test_concurrent_replacements_claim_initial_set_once(client):
@@ -691,7 +691,7 @@ def test_concurrent_replacements_claim_initial_set_once(client):
     assert _live_set_version(sv["id"], "outgoing") == 1
 
 
-def test_draft_attribute_update_and_clear_record_relation_audits(attr_client):
+def test_change_set_attribute_update_and_clear_record_relation_audits(attr_client):
     from sqlalchemy import select
 
     from app.db import SessionLocal
@@ -699,7 +699,7 @@ def test_draft_attribute_update_and_clear_record_relation_audits(attr_client):
 
     sv, mv = _endpoints(attr_client)
     relation = _create_relation(attr_client, sv, mv, attributes={"rank": 1})
-    draft = _create_draft(attr_client)
+    change_set = _create_change_set(attr_client)
     updated = attr_client.put(
         PUT,
         json=_replacement_body(
@@ -708,8 +708,8 @@ def test_draft_attribute_update_and_clear_record_relation_audits(attr_client):
             0,
             target=mv,
             attrs={"rank": 2},
-            draft_id=draft["id"],
-            draft_version=draft["version"],
+            change_set_id=change_set["id"],
+            change_set_version=change_set["version"],
         ),
     )
     assert updated.status_code == 200, updated.text
@@ -720,8 +720,8 @@ def test_draft_attribute_update_and_clear_record_relation_audits(attr_client):
             mv,
             1,
             target=None,
-            draft_id=draft["id"],
-            draft_version=updated.json()["workspaceDraftVersion"],
+            change_set_id=change_set["id"],
+            change_set_version=updated.json()["changeSetVersion"],
         ),
     )
     assert cleared.status_code == 200, cleared.text
@@ -737,12 +737,12 @@ def test_draft_attribute_update_and_clear_record_relation_audits(attr_client):
             )
         )
         assert [event.action for event in events] == ["created", "updated", "deleted"]
-        assert events[-1].changes["workspaceDraftId"] == draft["id"]
+        assert events[-1].changes["changeSetId"] == change_set["id"]
 
 
 @pytest.mark.parametrize("client", [False, True], indirect=True)
-@pytest.mark.parametrize("draft_context", [False, True])
-def test_conflict_preview_continues_without_loss(client, draft_context):
+@pytest.mark.parametrize("change_set_context", [False, True])
+def test_conflict_preview_continues_without_loss(client, change_set_context):
     sv, mv = _endpoints(client)
     targets = [mv]
     for _ in range(20):
@@ -751,14 +751,14 @@ def test_conflict_preview_continues_without_loss(client, draft_context):
         codelist = _create_codelist(client, suffix, domain["id"])
         targets.append(_create_master_value(client, suffix, codelist["id"]))
     relations = [_create_relation(client, sv, target) for target in targets]
-    draft = _create_draft(client) if draft_context else None
+    change_set = _create_change_set(client) if change_set_context else None
     body = _replacement_body(
         sv,
         mv,
         999,
         target=mv,
-        draft_id=draft["id"] if draft else None,
-        draft_version=draft["version"] if draft else None,
+        change_set_id=change_set["id"] if change_set else None,
+        change_set_version=change_set["version"] if change_set else None,
     )
     response = client.put(PUT, json=body)
     assert response.status_code == 409, response.text
@@ -777,8 +777,8 @@ def test_conflict_preview_continues_without_loss(client, draft_context):
         "viewKey": details["viewKey"],
     }
     params = {key: value for key, value in params.items() if value is not None}
-    if draft:
-        params["workspaceDraftId"] = draft["id"]
+    if change_set:
+        params["changeSetId"] = change_set["id"]
     continuation = client.get(BASE + "/mapping-targets", params=params)
     assert continuation.status_code == 200, continuation.text
     assert {row["relationId"] for row in details["targets"] + continuation.json()["items"]} == {
@@ -810,16 +810,16 @@ def test_conditional_claim_rejects_changed_set_without_overwriting(client, monke
 
 
 @pytest.mark.parametrize("client", [{"attr_key": "rank"}], indirect=True)
-@pytest.mark.parametrize("draft_source", ["currentLive", "revision"])
+@pytest.mark.parametrize("change_set_source", ["currentLive", "publication"])
 @pytest.mark.parametrize("mutation", ["add", "update", "delete"])
 @pytest.mark.parametrize("direction", ["outgoing", "incoming"])
 def test_activation_refuses_live_divergence_in_touched_mapping_set(
-    client, direction, mutation, draft_source
+    client, direction, mutation, change_set_source
 ):
     from sqlalchemy import select
 
     from app.db import SessionLocal
-    from app.models.database import ObjectRelation, Workspace, WorkspaceRevision
+    from app.models.database import ObjectRelation, Publication, Workspace
 
     sv, mv = _endpoints(client)
     old_relation = _create_relation(client, sv, mv, attributes={"rank": 1})
@@ -834,23 +834,23 @@ def test_activation_refuses_live_divergence_in_touched_mapping_set(
         if mutation != "add"
         else None
     )
-    active_revision_id = None
-    if draft_source == "revision":
-        seed = _create_draft(client)
+    active_publication_id = None
+    if change_set_source == "publication":
+        seed = _create_change_set(client)
         published = client.post(
-            f"/api/v1/workspace-drafts/{seed['id']}/activation",
-            json={"expectedDraftVersion": seed["version"], "expectedActiveRevisionId": None},
+            f"/api/v1/change-sets/{seed['id']}/publication",
+            json={"expectedChangeSetVersion": seed["version"], "expectedActivePublicationId": None},
         )
         assert published.status_code == 200, published.text
-        active_revision_id = published.json()["id"]
+        active_publication_id = published.json()["id"]
         derived = client.post(
-            BASE + "/drafts",
-            json={"source": "revision", "derivedFromRevisionId": active_revision_id},
+            BASE + "/change-sets",
+            json={"source": "publication", "derivedFromPublicationId": active_publication_id},
         )
         assert derived.status_code == 201, derived.text
-        draft = derived.json()
+        change_set = derived.json()
     else:
-        draft = _create_draft(client)
+        change_set = _create_change_set(client)
     anchor, selected = (sv, mv) if direction == "outgoing" else (mv, sv)
     saved = client.put(
         PUT,
@@ -860,8 +860,8 @@ def test_activation_refuses_live_divergence_in_touched_mapping_set(
             0,
             target=None,
             direction=direction,
-            draft_id=draft["id"],
-            draft_version=draft["version"],
+            change_set_id=change_set["id"],
+            change_set_version=change_set["version"],
         ),
     )
     assert saved.status_code == 200, saved.text
@@ -885,12 +885,12 @@ def test_activation_refuses_live_divergence_in_touched_mapping_set(
             (row.id, row.version)
             for row in session.scalars(select(ObjectRelation).order_by(ObjectRelation.id))
         ]
-        revision_count = len(list(session.scalars(select(WorkspaceRevision))))
+        publication_count = len(list(session.scalars(select(Publication))))
     activation = client.post(
-        f"/api/v1/workspace-drafts/{draft['id']}/activation",
+        f"/api/v1/change-sets/{change_set['id']}/publication",
         json={
-            "expectedDraftVersion": saved.json()["workspaceDraftVersion"],
-            "expectedActiveRevisionId": active_revision_id,
+            "expectedChangeSetVersion": saved.json()["changeSetVersion"],
+            "expectedActivePublicationId": active_publication_id,
         },
     )
     assert activation.status_code == 409, activation.text
@@ -902,14 +902,14 @@ def test_activation_refuses_live_divergence_in_touched_mapping_set(
         and item["direction"] == direction
         for item in conflicts
     )
-    assert _draft_version(client, draft["id"]) == saved.json()["workspaceDraftVersion"]
+    assert _change_set_version(client, change_set["id"]) == saved.json()["changeSetVersion"]
     with SessionLocal() as session:
         assert [
             (row.id, row.version)
             for row in session.scalars(select(ObjectRelation).order_by(ObjectRelation.id))
         ] == before
-        assert len(list(session.scalars(select(WorkspaceRevision)))) == revision_count
-        assert session.get(Workspace, "default").active_revision_id == active_revision_id
+        assert len(list(session.scalars(select(Publication)))) == publication_count
+        assert session.get(Workspace, "default").active_publication_id == active_publication_id
     assert old_relation["id"] in {item[0] for item in before}
     if live_edge:
         assert live_edge["id"] in {item[0] for item in before}
@@ -921,12 +921,12 @@ def test_activation_refuses_live_divergence_in_touched_mapping_set(
 
 
 @pytest.mark.parametrize("client", [{"independent_binding": True}], indirect=True)
-@pytest.mark.parametrize("draft_context", [False, True])
-def test_independent_binding_is_unchanged_by_replacement_and_clear(client, draft_context):
+@pytest.mark.parametrize("change_set_context", [False, True])
+def test_independent_binding_is_unchanged_by_replacement_and_clear(client, change_set_context):
     from sqlalchemy import select
 
     from app.db import SessionLocal
-    from app.models.database import ObjectRelation, WorkspaceDraftRelation
+    from app.models.database import ChangeSetRelation, ObjectRelation
 
     sv, mv = _endpoints(client)
     extra = client.post(
@@ -938,17 +938,17 @@ def test_independent_binding_is_unchanged_by_replacement_and_clear(client, draft
         },
     )
     assert extra.status_code == 201, extra.text
-    draft = _create_draft(client) if draft_context else None
-    draft_id = draft["id"] if draft else None
+    change_set = _create_change_set(client) if change_set_context else None
+    change_set_id = change_set["id"] if change_set else None
     extra_versions = [
         _set_version(
-            "default", draft_id, "alternate-mapping", FROM_TYPE, TO_TYPE, anchor["id"], direction
+            "default", change_set_id, "alternate-mapping", FROM_TYPE, TO_TYPE, anchor["id"], direction
         )
         for anchor, direction in [(sv, "outgoing"), (mv, "incoming")]
     ]
-    version = draft["version"] if draft else None
+    version = change_set["version"] if change_set else None
     saved = client.put(
-        PUT, json=_replacement_body(sv, mv, 0, target=mv, draft_id=draft_id, draft_version=version)
+        PUT, json=_replacement_body(sv, mv, 0, target=mv, change_set_id=change_set_id, change_set_version=version)
     )
     assert saved.status_code == 200, saved.text
     cleared = client.put(
@@ -958,14 +958,14 @@ def test_independent_binding_is_unchanged_by_replacement_and_clear(client, draft
             mv,
             1,
             target=None,
-            draft_id=draft_id,
-            draft_version=saved.json()["workspaceDraftVersion"],
+            change_set_id=change_set_id,
+            change_set_version=saved.json()["changeSetVersion"],
         ),
     )
     assert cleared.status_code == 200, cleared.text
     assert [
         _set_version(
-            "default", draft_id, "alternate-mapping", FROM_TYPE, TO_TYPE, anchor["id"], direction
+            "default", change_set_id, "alternate-mapping", FROM_TYPE, TO_TYPE, anchor["id"], direction
         )
         for anchor, direction in [(sv, "outgoing"), (mv, "incoming")]
     ] == extra_versions
@@ -974,9 +974,9 @@ def test_independent_binding_is_unchanged_by_replacement_and_clear(client, draft
         assert edge is not None and edge.version == 1
         assert (
             session.scalar(
-                select(WorkspaceDraftRelation).where(
-                    WorkspaceDraftRelation.draft_id == draft_id,
-                    WorkspaceDraftRelation.relation_id == extra.json()["id"],
+                select(ChangeSetRelation).where(
+                    ChangeSetRelation.change_set_id == change_set_id,
+                    ChangeSetRelation.relation_id == extra.json()["id"],
                 )
             )
             is None
@@ -988,8 +988,8 @@ def test_independent_binding_is_unchanged_by_replacement_and_clear(client, draft
         extra_versions[1],
         target=sv,
         direction="incoming",
-        draft_id=draft_id,
-        draft_version=cleared.json()["workspaceDraftVersion"],
+        change_set_id=change_set_id,
+        change_set_version=cleared.json()["changeSetVersion"],
     )
     extra_body["relationTypeKey"] = "alternate-mapping"
     result = client.put(PUT, json=extra_body)
@@ -1002,29 +1002,29 @@ def test_independent_binding_is_unchanged_by_replacement_and_clear(client, draft
     [{"required": True, "cardinality": "one-to-many", "no_mapping_views": True}],
     indirect=True,
 )
-@pytest.mark.parametrize("draft_context", [False, True])
-def test_required_ownership_binding_is_rejected_before_endpoint_changes(client, draft_context):
+@pytest.mark.parametrize("change_set_context", [False, True])
+def test_required_ownership_binding_is_rejected_before_endpoint_changes(client, change_set_context):
     from uuid import uuid4
 
-    draft = _create_draft(client) if draft_context else None
+    change_set = _create_change_set(client) if change_set_context else None
     body = _replacement_body(
         {"id": str(uuid4())},
         None,
         0,
         target=None,
-        draft_id=draft["id"] if draft else None,
-        draft_version=draft["version"] if draft else None,
+        change_set_id=change_set["id"] if change_set else None,
+        change_set_version=change_set["version"] if change_set else None,
     )
     result = client.put(PUT, json=body)
     assert result.status_code == 422, result.text
     assert result.json()["error"]["code"] == "required_ownership_binding"
-    if draft:
-        assert _draft_version(client, draft["id"]) == draft["version"]
+    if change_set:
+        assert _change_set_version(client, change_set["id"]) == change_set["version"]
 
 
 @pytest.mark.parametrize("client", [{"required": True}], indirect=True)
-@pytest.mark.parametrize("draft_context", [False, True])
-def test_required_mapping_cannot_be_cleared(client, draft_context):
+@pytest.mark.parametrize("change_set_context", [False, True])
+def test_required_mapping_cannot_be_cleared(client, change_set_context):
     from sqlalchemy import select
 
     from app.db import SessionLocal
@@ -1057,8 +1057,8 @@ def test_required_mapping_cannot_be_cleared(client, draft_context):
     )
     assert target.status_code == 201, target.text
     mv = target.json()
-    draft = _create_draft(client) if draft_context else None
-    expected = 0 if draft else _live_set_version(sv["id"], "outgoing")
+    change_set = _create_change_set(client) if change_set_context else None
+    expected = 0 if change_set else _live_set_version(sv["id"], "outgoing")
     result = client.put(
         PUT,
         json=_replacement_body(
@@ -1066,8 +1066,8 @@ def test_required_mapping_cannot_be_cleared(client, draft_context):
             mv,
             expected,
             target=None,
-            draft_id=draft["id"] if draft else None,
-            draft_version=draft["version"] if draft else None,
+            change_set_id=change_set["id"] if change_set else None,
+            change_set_version=change_set["version"] if change_set else None,
         ),
     )
     assert result.status_code == 422, result.text
@@ -1083,8 +1083,8 @@ def test_required_mapping_cannot_be_cleared(client, draft_context):
             )
             is not None
         )
-    if draft:
-        assert _draft_version(client, draft["id"]) == draft["version"]
+    if change_set:
+        assert _change_set_version(client, change_set["id"]) == change_set["version"]
 
 
 @pytest.mark.parametrize("mutation", ["create", "update", "delete"])
@@ -1189,7 +1189,7 @@ def test_overlapping_generic_write_forces_mapping_save_to_refresh(
 def test_activation_protects_initially_empty_mapping_set(client, direction):
     sv, mv = _endpoints(client)
     other_sv, other_mv = _endpoints(client)
-    draft = _create_draft(client)
+    change_set = _create_change_set(client)
     anchor, selected = (sv, mv) if direction == "outgoing" else (mv, sv)
     saved = client.put(
         PUT,
@@ -1199,8 +1199,8 @@ def test_activation_protects_initially_empty_mapping_set(client, direction):
             0,
             target=selected,
             direction=direction,
-            draft_id=draft["id"],
-            draft_version=draft["version"],
+            change_set_id=change_set["id"],
+            change_set_version=change_set["version"],
         ),
     )
     assert saved.status_code == 200, saved.text
@@ -1210,10 +1210,10 @@ def test_activation_protects_initially_empty_mapping_set(client, direction):
         else _create_relation(client, other_sv, mv)
     )
     response = client.post(
-        f"/api/v1/workspace-drafts/{draft['id']}/activation",
+        f"/api/v1/change-sets/{change_set['id']}/publication",
         json={
-            "expectedDraftVersion": saved.json()["workspaceDraftVersion"],
-            "expectedActiveRevisionId": None,
+            "expectedChangeSetVersion": saved.json()["changeSetVersion"],
+            "expectedActivePublicationId": None,
         },
     )
     assert response.status_code == 409, response.text
@@ -1225,7 +1225,7 @@ def test_activation_protects_initially_empty_mapping_set(client, direction):
         for item in conflicts
     )
     assert _live_set_version(anchor["id"], direction) == 1
-    assert _draft_version(client, draft["id"]) == saved.json()["workspaceDraftVersion"]
+    assert _change_set_version(client, change_set["id"]) == saved.json()["changeSetVersion"]
     page = client.get(
         BASE + "/mapping-targets",
         params={
@@ -1251,11 +1251,11 @@ def test_activation_preserves_unrelated_live_mapping_work(client, unrelated_bind
 
     sv, mv = _endpoints(client)
     other_sv, other_mv = (sv, mv) if unrelated_binding else _endpoints(client)
-    draft = _create_draft(client)
+    change_set = _create_change_set(client)
     saved = client.put(
         PUT,
         json=_replacement_body(
-            sv, mv, 0, target=mv, draft_id=draft["id"], draft_version=draft["version"]
+            sv, mv, 0, target=mv, change_set_id=change_set["id"], change_set_version=change_set["version"]
         ),
     )
     assert saved.status_code == 200, saved.text
@@ -1270,10 +1270,10 @@ def test_activation_preserves_unrelated_live_mapping_work(client, unrelated_bind
     )
     assert live.status_code == 201, live.text
     response = client.post(
-        f"/api/v1/workspace-drafts/{draft['id']}/activation",
+        f"/api/v1/change-sets/{change_set['id']}/publication",
         json={
-            "expectedDraftVersion": saved.json()["workspaceDraftVersion"],
-            "expectedActiveRevisionId": None,
+            "expectedChangeSetVersion": saved.json()["changeSetVersion"],
+            "expectedActivePublicationId": None,
         },
     )
     assert response.status_code == 200, response.text
@@ -1298,28 +1298,28 @@ def test_activation_preserves_unrelated_live_mapping_work(client, unrelated_bind
 def test_activation_bounds_mapping_set_diagnostics(client):
     first, mv = _endpoints(client)
     sources = [first] + [_create_system_value(client, _suffix()) for _ in range(20)]
-    draft = _create_draft(client)
-    draft_version = draft["version"]
+    change_set = _create_change_set(client)
+    change_set_version = change_set["version"]
     for source in sources:
         result = client.put(
             PUT,
             json=_replacement_body(
-                source, mv, 0, target=mv, draft_id=draft["id"], draft_version=draft_version
+                source, mv, 0, target=mv, change_set_id=change_set["id"], change_set_version=change_set_version
             ),
         )
         assert result.status_code == 200, result.text
-        draft_version = result.json()["workspaceDraftVersion"]
+        change_set_version = result.json()["changeSetVersion"]
         _create_relation(client, source, mv)
     response = client.post(
-        f"/api/v1/workspace-drafts/{draft['id']}/activation",
-        json={"expectedDraftVersion": draft_version, "expectedActiveRevisionId": None},
+        f"/api/v1/change-sets/{change_set['id']}/publication",
+        json={"expectedChangeSetVersion": change_set_version, "expectedActivePublicationId": None},
     )
     assert response.status_code == 409, response.text
     details = response.json()["error"]["details"]
     assert details["mappingSetConflictCount"] == 22
     assert details["mappingSetConflictsTruncated"] is True
     assert len([item for item in details["conflicts"] if item["kind"] == "mapping-set"]) == 20
-    assert _draft_version(client, draft["id"]) == draft_version
+    assert _change_set_version(client, change_set["id"]) == change_set_version
     assert _live_set_version(mv["id"], "incoming") == 21
 
 
@@ -1328,12 +1328,12 @@ def test_activation_accepts_restored_source_graph_despite_advanced_live_token(cl
     from sqlalchemy import select
 
     from app.db import SessionLocal
-    from app.models.database import ObjectRelation, WorkspaceDraft
+    from app.models.database import ChangeSet, ObjectRelation
 
     sv, mv = _endpoints(client)
     original = _create_relation(client, sv, mv)
     other_sv, other_mv = _endpoints(client)
-    draft = _create_draft(client)
+    change_set = _create_change_set(client)
     anchor, target = (sv, mv) if direction == "outgoing" else (mv, sv)
     cleared = client.put(
         PUT,
@@ -1343,8 +1343,8 @@ def test_activation_accepts_restored_source_graph_despite_advanced_live_token(cl
             0,
             target=None,
             direction=direction,
-            draft_id=draft["id"],
-            draft_version=draft["version"],
+            change_set_id=change_set["id"],
+            change_set_version=change_set["version"],
         ),
     )
     assert cleared.status_code == 200, cleared.text
@@ -1357,16 +1357,16 @@ def test_activation_accepts_restored_source_graph_despite_advanced_live_token(cl
     assert deleted.status_code == 204, deleted.text
     assert _live_set_version(anchor["id"], direction) == 3
     activated = client.post(
-        f"/api/v1/workspace-drafts/{draft['id']}/activation",
+        f"/api/v1/change-sets/{change_set['id']}/publication",
         json={
-            "expectedDraftVersion": cleared.json()["workspaceDraftVersion"],
-            "expectedActiveRevisionId": None,
+            "expectedChangeSetVersion": cleared.json()["changeSetVersion"],
+            "expectedActivePublicationId": None,
         },
     )
     assert activated.status_code == 200, activated.text
     with SessionLocal() as session:
         assert (
-            session.scalar(select(WorkspaceDraft.id).where(WorkspaceDraft.id == draft["id"]))
+            session.scalar(select(ChangeSet.id).where(ChangeSet.id == change_set["id"]))
             is None
         )
         assert (
@@ -1381,12 +1381,12 @@ def test_activation_accepts_restored_source_graph_despite_advanced_live_token(cl
 
 
 @pytest.mark.parametrize("client", [{"ancestor_type": "codelist"}], indirect=True)
-@pytest.mark.parametrize("draft_context", [False, True])
-def test_replacement_validates_final_ancestor_scope(client, draft_context):
+@pytest.mark.parametrize("change_set_context", [False, True])
+def test_replacement_validates_final_ancestor_scope(client, change_set_context):
     sv, mv = _endpoints(client)
     other = _create_master_value(client, _suffix(), mv["parentObjectId"])
     edge = _create_relation(client, sv, mv)
-    draft = _create_draft(client) if draft_context else None
+    change_set = _create_change_set(client) if change_set_context else None
     response = client.put(
         PUT,
         json=_replacement_body(
@@ -1395,26 +1395,26 @@ def test_replacement_validates_final_ancestor_scope(client, draft_context):
             0,
             direction="incoming",
             target=sv,
-            draft_id=draft["id"] if draft else None,
-            draft_version=draft["version"] if draft else None,
+            change_set_id=change_set["id"] if change_set else None,
+            change_set_version=change_set["version"] if change_set else None,
         ),
     )
     assert response.status_code == 409, response.text
     assert response.json()["error"]["code"] == "duplicate_relation_scope"
     assert "ancestor scope" in response.json()["error"]["message"]
     assert _live_set_version(other["id"], "incoming") == 0
-    if draft:
-        assert _draft_version(client, draft["id"]) == draft["version"]
+    if change_set:
+        assert _change_set_version(client, change_set["id"]) == change_set["version"]
     # Replacing an outgoing edge within the same scope validates the final graph.
     response = client.put(
         PUT,
         json=_replacement_body(
             sv,
             other,
-            0 if draft else 1,
+            0 if change_set else 1,
             target=other,
-            draft_id=draft["id"] if draft else None,
-            draft_version=draft["version"] if draft else None,
+            change_set_id=change_set["id"] if change_set else None,
+            change_set_version=change_set["version"] if change_set else None,
         ),
     )
     assert response.status_code == 200, response.text
@@ -1422,13 +1422,13 @@ def test_replacement_validates_final_ancestor_scope(client, draft_context):
 
 
 @pytest.mark.parametrize("client", [{"ancestor_type": "system"}], indirect=True)
-@pytest.mark.parametrize("draft_context", [False, True])
-def test_missing_mapping_ancestor_is_actionable_at_both_write_boundaries(client, draft_context):
+@pytest.mark.parametrize("change_set_context", [False, True])
+def test_missing_mapping_ancestor_is_actionable_at_both_write_boundaries(client, change_set_context):
     sv, mv = _endpoints(client)
-    draft = _create_draft(client) if draft_context else None
+    change_set = _create_change_set(client) if change_set_context else None
     context = (
-        {"workspaceDraftId": draft["id"], "expectedWorkspaceDraftVersion": draft["version"]}
-        if draft
+        {"changeSetId": change_set["id"], "expectedChangeSetVersion": change_set["version"]}
+        if change_set
         else {}
     )
     generic = client.post(
@@ -1449,16 +1449,16 @@ def test_missing_mapping_ancestor_is_actionable_at_both_write_boundaries(client,
             mv,
             0,
             target=mv,
-            draft_id=draft["id"] if draft else None,
-            draft_version=draft["version"] if draft else None,
+            change_set_id=change_set["id"] if change_set else None,
+            change_set_version=change_set["version"] if change_set else None,
         ),
     )
     assert response.status_code == 422, response.text
     assert response.json()["error"]["code"] == "relation_ancestor_required"
     assert "ancestor of type 'system'" in response.json()["error"]["message"]
     assert _live_set_version(sv["id"], "outgoing") == 0
-    if draft:
-        assert _draft_version(client, draft["id"]) == draft["version"]
+    if change_set:
+        assert _change_set_version(client, change_set["id"]) == change_set["version"]
 
 
 @pytest.mark.parametrize(
@@ -1466,9 +1466,9 @@ def test_missing_mapping_ancestor_is_actionable_at_both_write_boundaries(client,
     [{"required": True, "oriented": False, "cardinality": "one-to-many", "no_mapping_views": True}],
     indirect=True,
 )
-@pytest.mark.parametrize("draft_context", [False, True])
-def test_nonoriented_required_ownership_replacement_is_rejected(client, draft_context):
-    test_required_ownership_binding_is_rejected_before_endpoint_changes(client, draft_context)
+@pytest.mark.parametrize("change_set_context", [False, True])
+def test_nonoriented_required_ownership_replacement_is_rejected(client, change_set_context):
+    test_required_ownership_binding_is_rejected_before_endpoint_changes(client, change_set_context)
 
 
 @pytest.mark.parametrize("endpoint", ["mappings", "mapping-targets"])

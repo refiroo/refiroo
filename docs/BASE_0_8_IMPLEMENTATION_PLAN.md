@@ -1053,6 +1053,16 @@ after checking the current behavior.
 
 **Exit:** no document uses "workspace" for the 0.8 screens; the glossary defines every ADR-031 term.
 
+**Delivered 2026-09-26.** The glossary defines every ADR-031 term and verb, shows one workspace's
+live data, change sets and publications, and lists the old names the code keeps until W2. Milestones
+A and B are the Translation editor and Hierarchy editor in ROADMAP, TODO, this plan and the
+functionality catalogue; ARCHITECTURE and two earlier plans no longer call a steward screen a
+workspace. The non-default workspace detail gap was repaired by 0.6 WP9 (`ObjectDetail` passes the
+workspace; `e2e/wp9-navigation.mjs` opens detail, children, relationships and history in a
+non-default workspace), so the notes in PRODUCT, the product guide, user journeys, user stories and
+the functionality catalogue now say so. Left open: other pre-WP9 status markers in the catalogue
+(F03, F05, F06, J02) and PROJECT_STATUS's 0.8 progress.
+
 #### W2: Rename change sets and publications
 
 **Scope:**
@@ -1080,6 +1090,18 @@ after checking the current behavior.
 **Exit:** the ADR-031 acceptance search finds no old name; migration checks pass (clean bootstrap,
 upgrade from the previous head, restart, interrupted migration); full backend and frontend suites and
 every browser runner pass.
+
+**Delivered 2026-09-26.** Migration `20260926_04_change_sets_and_publications` rebuilds each table
+into a `_w2_` copy from DDL frozen in the revision and swaps it in, so it renames constraints, changes
+the publication status CHECK (`retired` → `withdrawn`) and the snapshot owner kinds, and resumes a run
+stopped after any statement; `test_change_set_rename_migration` covers upgrade with data in every
+context across two lifespan starts, the schema equal to a clean bootstrap, three interrupted states,
+a refused source of another shape, the downgrade to `20260926_03` and the non-SQLite refusal. The
+publication response gained `modelReleaseKey` and `modelReleaseVersion` so the browser can show
+"Publication N · model X · date" (item 3). Withdrawal takes the publication ID in the path as its
+claim and no body. The rename also covers the audit payload keys, the `drafts` test marker and the WP9
+runner names. Earlier plans, ADRs and review notes keep the names they were written with, as ADR-031's
+consequences allow; the ADR-031 terms table names the old terms on purpose.
 
 #### W3: Narrow the workspace administration capability
 

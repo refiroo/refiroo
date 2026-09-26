@@ -257,18 +257,18 @@ def test_coverage_pagination_and_cursor_scope_validation(client):
 
 
 def test_coverage_and_candidates_list_by_name_and_seek_a_name(client):
-    """S4R4 (D22): sources and candidates list by name in live and drafts, and seek finds a name."""
+    """S4R4 (D22): sources and candidates list by name in live and change sets, and seek finds a name."""
     labels = ("zulu", "alpha", "mike", "bravo")
     tag = _suffix()
     sources = {label: _create_system_value(client, f"{label} {tag}") for label in labels}
     targets = masters(client, 3)
-    draft = client.post(BASE + "/drafts", json={"source": "currentLive"}).json()
+    change_set = client.post(BASE + "/change-sets", json={"source": "currentLive"}).json()
     candidate_params = {
         "applicationKey": OUT["applicationKey"],
         "viewKey": OUT["viewKey"],
         "objectTypeKey": "master-value",
     }
-    for context in ({}, {"workspaceDraftId": draft["id"]}):
+    for context in ({}, {"changeSetId": change_set["id"]}):
         coverage = get(client, "/mapping-coverage", dict(OUT, search=tag, **context))["items"]
         assert [row["source"]["id"] for row in coverage] == [
             sources[label]["id"] for label in sorted(labels)
@@ -331,18 +331,18 @@ def test_coverage_parent_and_state_filters_apply_before_pagination(client):
     assert missing.json()["error"]["code"] == "mapping_parent_not_found"
 
 
-def test_draft_coverage_versions_and_context_bound_cursors(client):
+def test_change_set_coverage_versions_and_context_bound_cursors(client):
     master = masters(client, 1)[0]
     sources = [_create_system_value(client, _suffix()) for _ in range(3)]
-    draft = client.post(BASE + "/drafts", json={"source": "currentLive"}).json()
+    change_set = client.post(BASE + "/change-sets", json={"source": "currentLive"}).json()
     relation(
         client,
         sources[0],
         master,
-        workspaceDraftId=draft["id"],
-        expectedWorkspaceDraftVersion=draft["version"],
+        changeSetId=change_set["id"],
+        expectedChangeSetVersion=change_set["version"],
     )
-    rows = get(client, "/mapping-coverage", dict(OUT, workspaceDraftId=draft["id"]))["items"]
+    rows = get(client, "/mapping-coverage", dict(OUT, changeSetId=change_set["id"]))["items"]
     assert sum(row["state"] == "mapped" for row in rows) == 1
     assert (
         next(row for row in rows if row["source"]["id"] == sources[0]["id"])["mappingVersion"] == 1
@@ -351,7 +351,7 @@ def test_draft_coverage_versions_and_context_bound_cursors(client):
         row["mappingVersion"] == 0 and row["state"] == "unmapped"
         for row in get(client, "/mapping-coverage", OUT)["items"]
     )
-    first = get(client, "/mapping-coverage", dict(OUT, workspaceDraftId=draft["id"], pageSize=1))
+    first = get(client, "/mapping-coverage", dict(OUT, changeSetId=change_set["id"], pageSize=1))
     r = client.get(BASE + "/mapping-coverage", params=dict(OUT, cursor=first["nextCursor"]))
     assert r.status_code == 422 and r.json()["error"]["code"] == "invalid_cursor"
     assert (
@@ -362,7 +362,7 @@ def test_draft_coverage_versions_and_context_bound_cursors(client):
                 "applicationKey": OUT["applicationKey"],
                 "viewKey": OUT["viewKey"],
                 "objectTypeKey": "master-value",
-                "workspaceDraftId": draft["id"],
+                "changeSetId": change_set["id"],
             },
         )["items"][0]["id"]
         == master["id"]
@@ -370,18 +370,18 @@ def test_draft_coverage_versions_and_context_bound_cursors(client):
     detail = get(
         client,
         "/mapping-targets",
-        dict(OUT, workspaceDraftId=draft["id"], sourceObjectId=sources[0]["id"], mappingVersion=1),
+        dict(OUT, changeSetId=change_set["id"], sourceObjectId=sources[0]["id"], mappingVersion=1),
     )
     assert detail["targetCount"] == 1
 
 
-def test_draft_coverage_parent_scope_uses_effective_objects(client):
+def test_change_set_coverage_parent_scope_uses_effective_objects(client):
     source = _create_system_value(client, _suffix())
-    draft = client.post(BASE + "/drafts", json={"source": "currentLive"}).json()
+    change_set = client.post(BASE + "/change-sets", json={"source": "currentLive"}).json()
     rows = get(
         client,
         "/mapping-coverage",
-        dict(OUT, workspaceDraftId=draft["id"], parentObjectId=source["parentObjectId"]),
+        dict(OUT, changeSetId=change_set["id"], parentObjectId=source["parentObjectId"]),
     )["items"]
     assert [row["source"]["id"] for row in rows] == [source["id"]]
 
@@ -421,16 +421,16 @@ def test_coverage_sources_are_scoped_to_the_declaring_application(client):
     assert foreign.json()["id"] not in {row["source"]["id"] for row in rows}
 
 
-def test_revision_coverage_is_immutable_scoped_and_version_bound(client):
+def test_publication_coverage_is_immutable_scoped_and_version_bound(client):
     master = masters(client, 1)[0]
     source = _create_system_value(client, _suffix())
-    draft = client.post(BASE + "/drafts", json={"source": "currentLive"}).json()
+    change_set = client.post(BASE + "/change-sets", json={"source": "currentLive"}).json()
     activation = client.post(
-        f"/api/v1/workspace-drafts/{draft['id']}/activation",
-        json={"expectedDraftVersion": draft["version"], "expectedActiveRevisionId": None},
+        f"/api/v1/change-sets/{change_set['id']}/publication",
+        json={"expectedChangeSetVersion": change_set["version"], "expectedActivePublicationId": None},
     )
     assert activation.status_code == 200, activation.text
-    revision_id = activation.json()["id"]
+    publication_id = activation.json()["id"]
 
     old_code = next(
         item["value"] for item in source["attributes"] if item["attributeTypeKey"] == "value-code"
@@ -452,14 +452,14 @@ def test_revision_coverage_is_immutable_scoped_and_version_bound(client):
         for row in get(
             client,
             "/mapping-coverage",
-            dict(OUT, workspaceRevisionId=revision_id, search=old_code),
+            dict(OUT, publicationId=publication_id, search=old_code),
         )["items"]
     ] == [source["id"]]
     assert (
         get(
             client,
             "/mapping-coverage",
-            dict(OUT, workspaceRevisionId=revision_id, search=new_code),
+            dict(OUT, publicationId=publication_id, search=new_code),
         )["items"]
         == []
     )
@@ -477,7 +477,7 @@ def test_revision_coverage_is_immutable_scoped_and_version_bound(client):
         "/mapping-coverage",
         dict(
             OUT,
-            workspaceRevisionId=revision_id,
+            publicationId=publication_id,
             parentObjectId=source["parentObjectId"],
             state="unmapped",
         ),
@@ -490,7 +490,7 @@ def test_revision_coverage_is_immutable_scoped_and_version_bound(client):
         "/mapping-targets",
         dict(
             OUT,
-            workspaceRevisionId=revision_id,
+            publicationId=publication_id,
             sourceObjectId=source["id"],
             mappingVersion=0,
         ),
@@ -499,7 +499,7 @@ def test_revision_coverage_is_immutable_scoped_and_version_bound(client):
 
     invalid = client.get(
         BASE + "/mapping-coverage",
-        params=dict(OUT, workspaceDraftId="draft", workspaceRevisionId=revision_id),
+        params=dict(OUT, changeSetId="change_set", publicationId=publication_id),
     )
     assert invalid.status_code == 422
     assert invalid.json()["error"]["code"] == "mutually_exclusive_context"
@@ -542,15 +542,15 @@ def test_concurrent_coverage_keeps_edges_fields_and_versions_in_one_snapshot(cli
     assert refreshed["mappingVersion"] == 1 and refreshed["targetCount"] == 1
 
 
-@pytest.mark.parametrize("draft_context", [False, True])
-def test_coverage_query_count_does_not_grow_per_source(client, draft_context):
+@pytest.mark.parametrize("change_set_context", [False, True])
+def test_coverage_query_count_does_not_grow_per_source(client, change_set_context):
     master = masters(client, 1)[0]
     for _ in range(12):
         relation(client, _create_system_value(client, _suffix()), master)
     params = dict(OUT)
-    if draft_context:
-        draft = client.post(BASE + "/drafts", json={"source": "currentLive"}).json()
-        params["workspaceDraftId"] = draft["id"]
+    if change_set_context:
+        change_set = client.post(BASE + "/change-sets", json={"source": "currentLive"}).json()
+        params["changeSetId"] = change_set["id"]
     counts = []
     for size in (1, 12):
         statements = []
@@ -609,7 +609,7 @@ def test_direction_aware_candidate_cardinality(client):
     assert {row["id"] for row in incoming["items"]} == {row["id"] for row in expected}
 
 
-def test_builtin_projections_live_and_draft(client):
+def test_builtin_projections_live_and_change_set(client):
     source = _create_system_value(client, _suffix())
     params = dict(OUT, viewKey="builtins", search=source["name"])
     live = get(client, "/mapping-coverage", params)["items"][0]["source"]["fields"]
@@ -617,23 +617,23 @@ def test_builtin_projections_live_and_draft(client):
     assert live["ancestor:system"].startswith("System ")
     assert live["path"].endswith(source["name"])
     assert isinstance(live["createdAt"], str)
-    draft = client.post(BASE + "/drafts", json={"source": "currentLive"}).json()
-    fields = get(client, "/mapping-coverage", dict(params, workspaceDraftId=draft["id"]))["items"][
+    change_set = client.post(BASE + "/change-sets", json={"source": "currentLive"}).json()
+    fields = get(client, "/mapping-coverage", dict(params, changeSetId=change_set["id"]))["items"][
         0
     ]["source"]["fields"]
     assert {key: value for key, value in fields.items() if key != "createdAt"} == {
         key: value for key, value in live.items() if key != "createdAt"
     }
-    assert fields["createdAt"] is None  # Draft snapshots do not store object timestamps.
+    assert fields["createdAt"] is None  # Change set snapshots do not store object timestamps.
 
 
-def test_draft_pinned_model_and_release_bound_cursor(client):
+def test_change_set_pinned_model_and_release_bound_cursor(client):
     for _ in range(2):
         _create_system_value(client, _suffix())
-    draft = client.post(BASE + "/drafts", json={"source": "currentLive"}).json()
+    change_set = client.post(BASE + "/change-sets", json={"source": "currentLive"}).json()
     first = get(client, "/mapping-coverage", dict(OUT, pageSize=1))
     # Select a distinct installed same-schema release with different view content.
-    # The draft's pin remains the original immutable release.
+    # The change set's pin remains the original immutable release.
     with SessionLocal() as session:
         previous = session.scalar(select(ModelRelease))
         document = json.loads(json.dumps(previous.model_json))
@@ -661,19 +661,19 @@ def test_draft_pinned_model_and_release_bound_cursor(client):
     r = client.get(BASE + "/mapping-coverage", params=dict(OUT, viewKey="by-name"))
     assert r.status_code == 404
     pinned = get(
-        client, "/mapping-coverage", dict(OUT, viewKey="by-name", workspaceDraftId=draft["id"])
+        client, "/mapping-coverage", dict(OUT, viewKey="by-name", changeSetId=change_set["id"])
     )
     assert len(pinned["items"]) == 2
     r = client.get(BASE + "/mapping-coverage", params=dict(OUT, cursor=first["nextCursor"]))
     assert r.status_code == 422 and r.json()["error"]["code"] == "invalid_cursor"
 
 
-def test_draft_base_overlay_tombstones_and_target_preview(client):
+def test_change_set_base_overlay_tombstones_and_target_preview(client):
     master = masters(client, 1)[0]
     sources = [_create_system_value(client, _suffix()) for _ in range(23)]
     edges = [relation(client, source, master) for source in sources]
-    draft = client.post(BASE + "/drafts", json={"source": "currentLive"}).json()
-    params = dict(IN, workspaceDraftId=draft["id"])
+    change_set = client.post(BASE + "/change-sets", json={"source": "currentLive"}).json()
+    params = dict(IN, changeSetId=change_set["id"])
     before = get(client, "/mapping-coverage", params)["items"][0]
     assert before["targetCount"] == 23 and len(before["targets"]) == 20
     assert before["mappingVersion"] == 0
@@ -691,20 +691,20 @@ def test_draft_base_overlay_tombstones_and_target_preview(client):
     deleted = client.delete(
         f"/api/v1/relations/{edges[0]['id']}",
         params={
-            "workspaceDraftId": draft["id"],
-            "expectedWorkspaceDraftVersion": draft["version"],
+            "changeSetId": change_set["id"],
+            "expectedChangeSetVersion": change_set["version"],
             "expectedVersion": edges[0]["version"],
         },
     )
     assert deleted.status_code == 204, deleted.text
-    version = client.get(f"/api/v1/workspace-drafts/{draft['id']}").json()["version"]
+    version = client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"]
     changed = client.patch(
         f"/api/v1/objects/system-value/{sources[1]['id']}",
         json={
-            "workspaceDraftId": draft["id"],
-            "expectedWorkspaceDraftVersion": version,
+            "changeSetId": change_set["id"],
+            "expectedChangeSetVersion": version,
             "expectedVersion": sources[1]["version"],
-            "name": "Draft renamed target",
+            "name": "Change set renamed target",
         },
     )
     assert changed.status_code == 200, changed.text
@@ -720,10 +720,10 @@ def test_draft_base_overlay_tombstones_and_target_preview(client):
         next(row for row in detail["items"] if row["object"]["id"] == sources[1]["id"])["object"][
             "name"
         ]
-        == "Draft renamed target"
+        == "Change set renamed target"
     )
     assert get(client, "/mapping-coverage", IN)["items"][0]["targetCount"] == 23
-    # Candidate attribute search executes against the effective draft JSON fields.
+    # Candidate attribute search executes against the effective change set JSON fields.
     search = next(
         row["value"] for row in master["attributes"] if row["attributeTypeKey"] == "value-code"
     )
@@ -733,7 +733,7 @@ def test_draft_base_overlay_tombstones_and_target_preview(client):
         {
             "applicationKey": OUT["applicationKey"],
             "viewKey": OUT["viewKey"],
-            "workspaceDraftId": draft["id"],
+            "changeSetId": change_set["id"],
             "objectTypeKey": "master-value",
             "search": search,
         },
@@ -741,9 +741,9 @@ def test_draft_base_overlay_tombstones_and_target_preview(client):
     assert candidates["items"][0]["id"] == master["id"]
 
 
-@pytest.mark.parametrize("draft_context", [False, True])
+@pytest.mark.parametrize("change_set_context", [False, True])
 @pytest.mark.parametrize("direction", ["outgoing", "incoming"])
-def test_cascade_deletion_invalidates_mapping_continuations(client, draft_context, direction):
+def test_cascade_deletion_invalidates_mapping_continuations(client, change_set_context, direction):
     if direction == "outgoing":
         targets = masters(client, 21)
         source = _create_system_value(client, _suffix())
@@ -755,12 +755,12 @@ def test_cascade_deletion_invalidates_mapping_continuations(client, draft_contex
         edges = [relation(client, source, target) for source in sources]
         params = dict(IN)
     context = {}
-    draft_id = None
-    if draft_context:
-        draft = client.post(BASE + "/drafts", json={"source": "currentLive"}).json()
-        draft_id = draft["id"]
-        params["workspaceDraftId"] = draft_id
-        context = {"workspaceDraftId": draft_id, "expectedWorkspaceDraftVersion": draft["version"]}
+    change_set_id = None
+    if change_set_context:
+        change_set = client.post(BASE + "/change-sets", json={"source": "currentLive"}).json()
+        change_set_id = change_set["id"]
+        params["changeSetId"] = change_set_id
+        context = {"changeSetId": change_set_id, "expectedChangeSetVersion": change_set["version"]}
     # Search identifies the one anchor in the outgoing view; incoming has one master.
     if direction == "outgoing":
         params["search"] = source["name"]
@@ -771,10 +771,10 @@ def test_cascade_deletion_invalidates_mapping_continuations(client, draft_contex
     root = first["object"]
     path = f"/api/v1/objects/{root['objectTypeKey']}/{root['id']}"
 
-    def version(edge, side, selected_draft=draft_id):
+    def version(edge, side, selected_change_set=change_set_id):
         return _set_version(
             "default",
-            selected_draft,
+            selected_change_set,
             BINDING["relationTypeKey"],
             "system-value",
             "master-value",
@@ -805,7 +805,7 @@ def test_cascade_deletion_invalidates_mapping_continuations(client, draft_contex
     assert version(removed_edge, "outgoing") == outgoing_before + 1
     assert version(removed_edge, "incoming") == incoming_before + 1
     assert version(untouched_edge, opposite) == untouched_before
-    if draft_context:
+    if change_set_context:
         assert version(removed_edge, direction, None) == live_before
     after = get(client, "/mapping-coverage", params)["items"][0]
     assert after["targetCount"] == 20 and after["mappingVersion"] == before["mappingVersion"] + 1
@@ -892,12 +892,12 @@ def test_list_mappings_empty(client):
     assert page["nextCursor"] is None
 
 
-def test_list_mappings_draft_context(client):
+def test_list_mappings_change_set_context(client):
     master = masters(client, 1)[0]
     source = _create_system_value(client, _suffix())
     relation(client, source, master)
-    draft = client.post(BASE + "/drafts", json={"source": "currentLive"}).json()
-    page = get(client, "/mappings", dict(OUT, workspaceDraftId=draft["id"]))
+    change_set = client.post(BASE + "/change-sets", json={"source": "currentLive"}).json()
+    page = get(client, "/mappings", dict(OUT, changeSetId=change_set["id"]))
     matching = [row for row in page["items"] if row["source"]["id"] == source["id"]]
     assert len(matching) == 1
     assert matching[0]["target"]["id"] == master["id"]

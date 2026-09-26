@@ -6,8 +6,8 @@ type DataRoute = Extract<RouteState, { kind: "list" | "detail" }>;
 export function sameDataContext(left: DataRoute, right: DataRoute): boolean {
   return (
     left.workspaceKey === right.workspaceKey &&
-    left.workspaceDraftId === right.workspaceDraftId &&
-    left.workspaceRevisionId === right.workspaceRevisionId
+    left.changeSetId === right.changeSetId &&
+    left.publicationId === right.publicationId
   );
 }
 

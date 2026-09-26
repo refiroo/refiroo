@@ -110,17 +110,17 @@ describe("routes", () => {
   });
 });
 
-it("round-trips draft collections, detail bookmarks and the separate drafts catalogue", () => {
+it("round-trips change-set collections, detail bookmarks and the separate change-set catalogue", () => {
   for (const path of [
-    "/apps/test-app/views/domains?workspaceKey=west&workspaceDraftId=draft-1",
-    "/apps/test-app/objects/domain/object-1?workspaceKey=west&workspaceDraftId=draft-1",
-    "/apps/test-app/drafts?workspaceKey=west",
+    "/apps/test-app/views/domains?workspaceKey=west&changeSetId=change-set-1",
+    "/apps/test-app/objects/domain/object-1?workspaceKey=west&changeSetId=change-set-1",
+    "/apps/test-app/change-sets?workspaceKey=west",
   ]) {
     window.history.replaceState({}, "", path);
     const route = parseRoute(testModel);
     expect(route).toMatchObject({
       workspaceKey: "west",
-      ...(path.includes("workspaceDraftId") ? { workspaceDraftId: "draft-1" } : { kind: "drafts" }),
+      ...(path.includes("changeSetId") ? { changeSetId: "change-set-1" } : { kind: "changeSets" }),
     });
     window.history.replaceState({}, "", routePath(route));
     expect(parseRoute(testModel)).toEqual(route);
@@ -128,17 +128,17 @@ it("round-trips draft collections, detail bookmarks and the separate drafts cata
   window.history.replaceState({}, "", "/");
 });
 
-it("round-trips history discovery and immutable collection/detail contexts", () => {
+it("round-trips publication discovery and immutable collection/detail contexts", () => {
   for (const path of [
-    "/apps/test-app/history?workspaceKey=west",
-    "/apps/test-app/views/domains?workspaceKey=west&workspaceRevisionId=revision-2",
-    "/apps/test-app/objects/domain/object-1?workspaceKey=west&workspaceRevisionId=revision-2",
+    "/apps/test-app/publications?workspaceKey=west",
+    "/apps/test-app/views/domains?workspaceKey=west&publicationId=publication-2",
+    "/apps/test-app/objects/domain/object-1?workspaceKey=west&publicationId=publication-2",
   ]) {
     window.history.replaceState({}, "", path);
     const route = parseRoute(testModel);
     expect(route).toMatchObject({
       workspaceKey: "west",
-      ...(path.includes("workspaceRevisionId") ? { workspaceRevisionId: "revision-2" } : { kind: "history" }),
+      ...(path.includes("publicationId") ? { publicationId: "publication-2" } : { kind: "publications" }),
     });
     window.history.replaceState({}, "", routePath(route));
     expect(parseRoute(testModel)).toEqual(route);

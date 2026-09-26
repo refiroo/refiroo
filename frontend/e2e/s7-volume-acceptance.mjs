@@ -1,9 +1,9 @@
 // Base 0.8 S7: composed Track S acceptance against a real backend, in two model configurations.
 //
-// One journey per context (live, draft, history) over each model: on a collection lens the user
+// One journey per context (live, change set, history) over each model: on a collection lens the user
 // scrolls, seeks a name, jumps by scrollbar click and by page number, jumps to the end, and reopens
 // a copied URL at the same row; then opens a record deep in the sidebar tree. Every landing is
-// checked against the context's own API read of the same position, so draft edits and history are
+// checked against the context's own API read of the same position, so change set edits and history are
 // compared with what that context holds. Part 1 boots the generated Track S volume model
 // (backend/tests/volume_fixture.py, 10% scale by default: 10,000 items, a seven-level node
 // hierarchy); the deep record is found through the tree's search and opened from its match.
@@ -225,8 +225,8 @@ try {
   const base = `${uiUrl}/apps/vol-catalogue`;
   const contexts = [
     ["live", ""],
-    ["draft", `&workspaceDraftId=${dataset.draft_id}`],
-    ["history", `&workspaceRevisionId=${dataset.revision_id}`],
+    ["changeSet", `&changeSetId=${dataset.change_set_id}`],
+    ["history", `&publicationId=${dataset.publication_id}`],
   ];
   const pageSize = 20;
 
@@ -354,16 +354,16 @@ try {
         { attributeTypeKey: "sort-order", value: index },
       ],
     });
-  const published = await api(`/workspaces/default/drafts`, { name: "S7 publication", source: "currentLive" });
-  const revision = await api(`/workspace-drafts/${published.id}/activation`, {
-    expectedDraftVersion: published.version,
-    expectedActiveRevisionId: null,
+  const published = await api(`/workspaces/default/change-sets`, { name: "S7 publication", source: "currentLive" });
+  const publication = await api(`/change-sets/${published.id}/publication`, {
+    expectedChangeSetVersion: published.version,
+    expectedActivePublicationId: null,
   });
-  const draft = await api(`/workspaces/default/drafts`, { name: "S7 draft", source: "currentLive" });
+  const changeSet = await api(`/workspaces/default/change-sets`, { name: "S7 change set", source: "currentLive" });
   const contexts = [
     ["live", ""],
-    ["draft", `&workspaceDraftId=${draft.id}`],
-    ["history", `&workspaceRevisionId=${revision.id}`],
+    ["changeSet", `&changeSetId=${changeSet.id}`],
+    ["history", `&publicationId=${publication.id}`],
   ];
   const pageSize = 10;
 
@@ -423,7 +423,7 @@ try {
     treeReads.stop();
     reads.durations.push(...treeReads.durations);
     summarise(`starter ${context}`, reads);
-    if (context === "draft") {
+    if (context === "changeSet") {
       await assertAccessible(page, "s7-starter-deep-record");
       await page.screenshot({ path: resolve(harness.output, "s7-starter-deep-record-1440.png") });
     }

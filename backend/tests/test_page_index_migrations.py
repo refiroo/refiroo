@@ -16,8 +16,14 @@ from sqlalchemy import create_engine, inspect, text
 from test_context_read_parity import ENTRY, FOLDER, _seed, _walk
 from test_snapshot_value_migration import _app, _config, _version
 
-PRECEDING, HEAD = "20260925_01", "20260926_03"
+PRECEDING, HEAD = "20260925_01", "20260926_04"
+# Relation tables by name at head (``20260926_04`` renamed them) and at the preceding revision.
 TABLES = {
+    "publication_relations": "publication_id",
+    "change_set_base_relations": "base_id",
+    "change_set_relations": "change_set_id",
+}
+PRECEDING_TABLES = {
     "workspace_revision_relations": "revision_id",
     "workspace_draft_base_relations": "base_id",
     "workspace_draft_relations": "draft_id",
@@ -43,13 +49,13 @@ OBJECT_QUERIES = ({}, {"sort": "name"}, {"sort": "-name", "includeTotal": True},
 QUERIES = ({}, {"sort": "-name"}, {"search": "e"}, {"direction": "incoming"})
 
 
-def _endpoint_indexes(database) -> set[tuple[str, str, tuple[str, ...]]]:
+def _endpoint_indexes(database, tables=tuple(TABLES)) -> set[tuple[str, str, tuple[str, ...]]]:
     engine = create_engine(f"sqlite:///{database}")
     try:
         inspector = inspect(engine)
         return {
             (table, index["name"], tuple(index["column_names"]))
-            for table in (*TABLES, "objects")
+            for table in (*tables, "objects")
             for index in inspector.get_indexes(table)
             if index["name"].endswith(("_from", "_to", "_name"))
             and index["name"] != "ix_objects_name"
@@ -96,7 +102,7 @@ def seeded_database(tmp_path, monkeypatch, _migrated_template):
         reads = _reads(client, seeded)
     assert any(rows for rows in reads.values())
     command.downgrade(_config(database), PRECEDING)
-    assert _endpoint_indexes(database) == set()
+    assert _endpoint_indexes(database, PRECEDING_TABLES) == set()
     return database, seeded, reads
 
 
@@ -150,7 +156,7 @@ def test_downgrade_restores_the_s4_endpoint_indexes(seeded_database, monkeypatch
     command.downgrade(_config(database), "20260925_03")
     s4 = {
         (table, f"ix_{table}_{end}", (owner, f"{end}_object_id", "relation_id"))
-        for table, owner in TABLES.items()
+        for table, owner in PRECEDING_TABLES.items()
         for end, _other in ENDS
     }
-    assert _endpoint_indexes(database) == s4 | {item for item in EXPECTED if item[0] == "objects"}
+    assert _endpoint_indexes(database, PRECEDING_TABLES) == s4 | {item for item in EXPECTED if item[0] == "objects"}

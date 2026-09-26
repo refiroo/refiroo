@@ -35,22 +35,22 @@ def mapping_read(
     session: DbSession,
     application_key: str = Query(alias="applicationKey"),
     view_key: str = Query(alias="viewKey"),
-    workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
-    workspace_revision_id: str | None = Query(default=None, alias="workspaceRevisionId"),
+    change_set_id: str | None = Query(default=None, alias="changeSetId"),
+    publication_id: str | None = Query(default=None, alias="publicationId"),
 ) -> MappingRead:
-    if workspace_draft_id and workspace_revision_id:
+    if change_set_id and publication_id:
         raise api_error(
             422,
             "mutually_exclusive_context",
-            "workspaceDraftId and workspaceRevisionId cannot be combined",
+            "changeSetId and publicationId cannot be combined",
         )
     return open_mapping_read(
         session,
         workspace_key,
         application_key,
         view_key,
-        workspace_draft_id,
-        revision_id=workspace_revision_id,
+        change_set_id,
+        publication_id=publication_id,
     )
 
 
@@ -94,14 +94,14 @@ def get_mappings(
     from_object_type_key: str | None = Query(default=None, alias="fromObjectTypeKey"),
     to_object_type_key: str | None = Query(default=None, alias="toObjectTypeKey"),
     direction: Literal["outgoing", "incoming"] | None = Query(default=None),
-    workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
+    change_set_id: str | None = Query(default=None, alias="changeSetId"),
     search: str | None = Query(default=None, max_length=500),
     page_size: int | None = Query(default=None, ge=1, le=100, alias="pageSize"),
 ) -> MappingListPage:
     return list_mappings(
         session,
         workspace_key,
-        draft_id=workspace_draft_id,
+        change_set_id=change_set_id,
         application_key=application_key,
         view_key=view_key,
         relation_type_key=relation_type_key,
@@ -134,10 +134,10 @@ def target_binding_read(
     direction: Literal["outgoing", "incoming"] = Query(),
     application_key: str | None = Query(default=None, alias="applicationKey"),
     view_key: str | None = Query(default=None, alias="viewKey"),
-    draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
-    revision_id: str | None = Query(default=None, alias="workspaceRevisionId"),
+    change_set_id: str | None = Query(default=None, alias="changeSetId"),
+    publication_id: str | None = Query(default=None, alias="publicationId"),
 ) -> MappingRead:
-    if draft_id and revision_id:
+    if change_set_id and publication_id:
         raise api_error(422, "mutually_exclusive_context", "Workspace contexts cannot be combined")
     if (application_key is None) != (view_key is None):
         raise api_error(422, "mapping_view_required", "Supply applicationKey and viewKey together")
@@ -160,8 +160,8 @@ def target_binding_read(
         workspace_key,
         application_key,
         view_key,
-        draft_id,
-        revision_id=revision_id,
+        change_set_id,
+        publication_id=publication_id,
         binding_config=config,
     )
     validate_binding(read, relation_type_key, from_type, to_type, direction)

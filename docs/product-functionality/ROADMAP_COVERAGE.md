@@ -10,7 +10,7 @@ The technical roadmap needs the reconciliations in [planning handoff](PLANNING_H
 | Release      | User outcome                                                                | Stories primarily covered                  | Current state                                  |
 | ------------ | --------------------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------- |
 | Base 0.5     | Establish stable bounded APIs and the application-model release lifecycle   | US-I01-I02, US-P01-P04                     | Completed foundation                           |
-| Product 0.6  | Complete model-driven daily browser use and optional workspace design       | US-D01–D14, US-W01–W08, US-L01–L02, US-P06, US-U01 | Current-live draft API available; browser gaps remain for WP9/WP10 |
+| Product 0.6  | Complete model-driven daily browser use and optional workspace design       | US-D01–D14, US-W01–W08, US-L01–L02, US-P06, US-U01 | Current-live change set API available; browser gaps remain for WP9/WP10 |
 | Product 0.7  | Review mapping coverage and replace one mapping atomically                  | US-M01–M04, US-W09                         | Roadmap                                        |
 | Product 0.8  | Work efficiently with translation coverage and deep hierarchies             | US-L03–L04, US-H01–H02   | Roadmap                                        |
 | Product 0.9  | Exchange and synchronize data at integration scale                          | US-I03–I09                                 | Roadmap                                        |
@@ -21,7 +21,7 @@ The technical roadmap needs the reconciliations in [planning handoff](PLANNING_H
 
 **Why first:** users need to complete ordinary maintenance before specialist screens add value.
 **Acceptance:** SC-01–SC-06, SC-08 and the existing-workbench portion of SC-12; keyboard and recovery
-checks apply throughout. Current-live draft creation (US-W08) is available through the API; its browser
+checks apply throughout. Current-live change set creation (US-W08) is available through the API; its browser
 source-selection journey remains a WP9/WP10 gap.
 
 ### What is already present
@@ -31,10 +31,10 @@ source-selection journey remains a WP9/WP10 gap.
 - model-driven browser navigation and record inspection, with edit actions temporarily not wired into
   the detail journey;
 - accessible interface foundations;
-- API support for live and draft-context record, typed-field, relation and translation maintenance;
-- API support for workspace drafts, whole-graph validation, conflict-aware activation, immutable history
-  and publication retirement; and
-- direct live maintenance while a design draft is open, with activation that applies its changes over
+- API support for live and change-set-context record, typed-field, relation and translation maintenance;
+- API support for change sets, whole-graph validation, conflict-aware activation, immutable history
+  and publication withdrawal; and
+- direct live maintenance while a change set is open, with activation that applies its changes over
   current live data and preserves unrelated work.
 
 WP8.1-B captures the fresh live starting view required by ADR-026/027. The complete browser design
@@ -42,19 +42,19 @@ journey, including source choice, remains WP9 work.
 
 ### What WP9 must make usable in the browser
 
-- Add/Edit/Delete for live records without requiring a draft.
-- Optional switching into a selected workspace design draft for coordinated changes.
+- Add/Edit/Delete for live records without requiring a change set.
+- Optional switching into a selected workspace change set for coordinated changes.
 - Typed field add/edit/remove actions.
 - Ordinary relationship and translation actions.
 - Parent/containment editing through the record rather than the engine-managed relationship.
 - Two-stage deletion with impact preview.
-- Workspace-level Drafts, History, validation, activation and publication-retirement destinations.
+- Workspace-level Change sets, History, validation, publishing and publication-withdrawal destinations.
 - Newest-first workspace history, confirmed by the user in GAP-05 and implemented through WP8.1-C.
 - Empty relationship and translation collections as successful empty states.
-- Conflict recovery that preserves entered values and distinguishes record, draft, activation and model
+- Conflict recovery that preserves entered values and distinguishes record, change set, activation and model
   conflicts.
 
-The important simplicity rule is: **a normal data edit is live by default; choosing a design draft is
+The important simplicity rule is: **a normal data edit is live by default; choosing a change set is
 an explicit alternative, not a prerequisite.**
 
 ### What WP10 must prove
@@ -76,14 +76,14 @@ an explicit alternative, not a prerequisite.**
 - model-workbench information-architecture redesign;
 - a structured model designer;
 - physical deletion of immutable history; and
-- any individual record draft, revision, activation or retirement lifecycle.
+- any individual record change set, publication, publishing or retirement lifecycle.
 
 ## Product 0.7 — Core mapping and contextual collections
 
 **Why next:** mapping is a central RDM task that generic relationship editing does not make simple.
-**Depends on:** usable live record/relationship maintenance, optional draft context and two proven
+**Depends on:** usable live record/relationship maintenance, optional change set context and two proven
 relationship configurations. **Acceptance:** SC-07, stories US-M01–M04; and SC-15, story US-W09 for
-draft model-version selection (ADR-028).
+change set model-version selection (ADR-028).
 
 ### User outcome
 
@@ -101,8 +101,8 @@ managing low-level relationship records.
 - one concurrency version for the complete mapping set, including currently empty or ambiguous sets;
 - conflict responses with bounded current-target context;
 - creation of a missing target through normal workspace record creation where configuration permits;
-- draft model-version selection, delivered in WP-6/WP-7 with WP-11 refusal/UI hardening, so one draft
-  prepares under a candidate release while live data and other drafts keep the release in use
+- change set model-version selection, delivered in WP-6/WP-7 with WP-11 refusal/UI hardening, so one change set
+  prepares under a candidate release while live data and other change sets keep the release in use
   (US-W09, ADR-028; composed acceptance remains WP-9); and
 - mapping-transition audit in addition to underlying relationship history.
 
@@ -150,14 +150,14 @@ Planned functions:
 ### Live maintenance and optional coordinated design
 
 ADR-026 is the existing product baseline: ordinary mapping, translation and hierarchy changes are
-live; a design draft is an explicit alternative for coordinated work. Apply this to the specialist
-views and reconcile contradictory draft-only wording in the technical roadmap before implementation.
+live; a change set is an explicit alternative for coordinated work. Apply this to the specialist
+views and reconcile contradictory change-set-only wording in the technical roadmap before implementation.
 A specialist screen must not introduce a mandatory release step for changing an ordinary value.
 
 ## Product 0.9 — Integration-grade APIs
 
 **Why here:** extend validated single-record semantics to reliable larger exchanges.
-**Depends on:** stable identity, data validation, explicit live/draft scope and mapping concurrency for
+**Depends on:** stable identity, data validation, explicit live/change set scope and mapping concurrency for
 bulk mapping. **Acceptance:** SC-10–SC-11, stories US-I03–I09. Format, failure policy and business-date
 semantics must be settled before their implementation packages.
 
@@ -203,7 +203,7 @@ immutable models through controlled migrations.
 - rehearsed backup, restore and rollback;
 - multi-node propagation of an activated immutable model;
 - executable data-migration plans;
-- historical-draft model replacement with a preview of incompatibilities and potential data loss,
+- model replacement for a change set started from a publication, with a preview of incompatibilities and potential data loss,
   explicit confirmation of the reviewed plan or cancel, and atomic workspace model/data application;
 - workspace-specific model assignment and atomic staged switching; and
 - an explicit supported window for schema-language versions.
@@ -248,13 +248,13 @@ The roadmap does not turn RDM Engine into:
 - a lifecycle where every individual record has to be drafted, activated or retired.
 
 Source: [delivery roadmap](../ROADMAP.md), [current queue](../TODO.md),
-[Base 0.6 plan](../BASE_0_6_IMPLEMENTATION_PLAN.md) and [ADR-026](../DECISIONS.md#adr-026--active-workspaces-are-live-writable-for-data-drafts-are-the-design-path).
+[Base 0.6 plan](../BASE_0_6_IMPLEMENTATION_PLAN.md) and [ADR-026](../DECISIONS.md#adr-026--active-workspaces-are-live-writable-for-data-change sets-are-the-design-path).
 
 ## Capability preservation across releases
 
 | Delivery adds | Existing user function it must preserve | Review question |
 | --- | --- | --- |
-| Optional design drafts | Direct daily maintenance | Can I still correct a live label with one save? |
+| Optional change sets | Direct daily maintenance | Can I still correct a live label with one save? |
 | Mapping grid | Ordinary relationship and target-record editing | Can I use the generic flow, and does it preserve mapping safety? |
 | Translation matrix and tree | Generic translation creation and parent editing | Can I complete the task without adopting the specialist view? |
 | Bulk/import | Validation, scope and conflict protection | Do the same rules apply to every submitted item? |
@@ -279,7 +279,7 @@ See [the 0.7 plan](../BASE_0_7_IMPLEMENTATION_PLAN.md); these refinements add no
 
 WP-4 query and WP-5 replacement contracts are delivered. WP-5 acceptance includes an independent
 binding and overlapping generic writes; WP-10A makes cascades invalidate continuations, and WP-10B
-refuses divergent touched live mapping sets at draft activation. Source/live identity/version
+refuses divergent touched live mapping sets at publishing. Source/live identity/version
 comparison preserves unrelated live work and permits a restored source graph. Validation: 486
 backend tests, Ruff, frontend format/lint (zero errors, 12 existing warnings), 164 tests and build.
 US-M01–M04 still require WP-8A/WP-8B browser delivery and WP-9 composed evidence. This API/component

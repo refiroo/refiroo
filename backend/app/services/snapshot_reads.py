@@ -1,13 +1,13 @@
-"""Draft and history reads in SQL (Base 0.8 S2).
+"""Change set and history reads in SQL (Base 0.8 S2).
 
-A revision's objects and relations are its own rows. A draft's are its base rows (a revision or a
-private current-live base) that no draft row replaces, plus its non-deleted draft rows; any draft
+A publication's objects and relations are its own rows. A change set's are its base rows (a publication or a
+private current-live base) that no change set row replaces, plus its non-deleted change set rows; any change set
 row, including a tombstone, hides the base row with the same public ID. Every read here states that
 rule as one statement, so a page or a record costs its own rows rather than the whole membership.
 
-Validation and activation still resolve the whole graph through
-``workspace_revisions.effective_draft_membership``; they need all of it by definition. Draft writes
-check only the records they touch, through ``draft_lookups`` (S2b).
+Validation and publishing still resolve the whole graph through
+``publications.effective_change_set_membership``; they need all of it by definition. Change set writes
+check only the records they touch, through ``change_set_lookups`` (S2b).
 """
 
 from collections.abc import Callable, Iterable, Sequence
@@ -20,16 +20,16 @@ from sqlalchemy.sql.selectable import Subquery
 
 from ..errors import api_error
 from ..models.database import (
+    ChangeSet,
+    ChangeSetBase,
+    ChangeSetBaseObject,
+    ChangeSetBaseRelation,
+    ChangeSetObject,
+    ChangeSetRelation,
+    Publication,
+    PublicationObject,
+    PublicationRelation,
     SnapshotAttributeValue,
-    WorkspaceDraft,
-    WorkspaceDraftBase,
-    WorkspaceDraftBaseObject,
-    WorkspaceDraftBaseRelation,
-    WorkspaceDraftObject,
-    WorkspaceDraftRelation,
-    WorkspaceRevision,
-    WorkspaceRevisionObject,
-    WorkspaceRevisionRelation,
 )
 from ..models.schema import EngineModel
 from ..models.search_index import SNAPSHOT_VALUES
@@ -45,19 +45,19 @@ from .objects import (
 )
 from .pagination import Keyed, Overlay, text_key
 
-# Draft and history rows record no timestamps; a query on them is refused, not matched as empty.
+# Change set and history rows record no timestamps; a query on them is refused, not matched as empty.
 UNRECORDED_TIMESTAMPS = {"createdAt": "Created", "updatedAt": "Updated"}
 
 
-# One part of a draft's union: every base row ("base"), the base rows its draft rows replace or
-# delete ("replaced"), its non-deleted draft rows ("added"), or the effective rows: base less
+# One part of a change set's union: every base row ("base"), the base rows its change set rows replace or
+# delete ("replaced"), its non-deleted change set rows ("added"), or the effective rows: base less
 # replaced, plus added.
-DraftPart = Literal["effective", "base", "replaced", "added"]
+ChangeSetPart = Literal["effective", "base", "replaced", "added"]
 
 
 @dataclass(frozen=True)
 class SnapshotBase:
-    """The immutable rows a draft starts from: a revision or a private current-live base."""
+    """The immutable rows a change set starts from: a publication or a private current-live base."""
 
     objects: Any
     relations: Any
@@ -67,57 +67,57 @@ class SnapshotBase:
 
 @dataclass(frozen=True)
 class SnapshotContext:
-    """One draft or revision read context."""
+    """One change set or publication read context."""
 
-    kind: Literal["draft", "revision"]
+    kind: Literal["change_set", "publication"]
     id: str
     workspace_key: str
-    draft: WorkspaceDraft | None
+    change_set: ChangeSet | None
     base: SnapshotBase | None
 
 
-def draft_context(session: Session, draft_id: str) -> SnapshotContext:
-    draft = session.scalar(select(WorkspaceDraft).where(WorkspaceDraft.id == draft_id))
-    if draft is None:
-        raise api_error(404, "workspace_draft_not_found", f"Workspace draft '{draft_id}' not found")
+def change_set_context(session: Session, change_set_id: str) -> SnapshotContext:
+    change_set = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
+    if change_set is None:
+        raise api_error(404, "change_set_not_found", f"Change set '{change_set_id}' not found")
     base = None
-    if draft.derived_from_revision_id is not None:
-        revision = session.scalar(
-            select(WorkspaceRevision).where(WorkspaceRevision.id == draft.derived_from_revision_id)
+    if change_set.derived_from_publication_id is not None:
+        publication = session.scalar(
+            select(Publication).where(Publication.id == change_set.derived_from_publication_id)
         )
-        if revision is None or revision.workspace_key != draft.workspace_key:
+        if publication is None or publication.workspace_key != change_set.workspace_key:
             raise api_error(
                 409,
-                "workspace_draft_base_invalid",
-                "Workspace draft base revision is missing or belongs to another workspace",
+                "change_set_base_invalid",
+                "Change set base publication is missing or belongs to another workspace",
             )
         base = SnapshotBase(
-            WorkspaceRevisionObject, WorkspaceRevisionRelation, "revision_id", revision.id
+            PublicationObject, PublicationRelation, "publication_id", publication.id
         )
-    if draft.base_id is not None:
-        current_live = session.get(WorkspaceDraftBase, draft.base_id)
-        if current_live is None or current_live.workspace_key != draft.workspace_key:
+    if change_set.base_id is not None:
+        current_live = session.get(ChangeSetBase, change_set.base_id)
+        if current_live is None or current_live.workspace_key != change_set.workspace_key:
             raise api_error(
                 409,
-                "workspace_draft_base_invalid",
-                "Workspace draft current-live base is missing or belongs to another workspace",
+                "change_set_base_invalid",
+                "Change set current-live base is missing or belongs to another workspace",
             )
         base = SnapshotBase(
-            WorkspaceDraftBaseObject, WorkspaceDraftBaseRelation, "base_id", current_live.id
+            ChangeSetBaseObject, ChangeSetBaseRelation, "base_id", current_live.id
         )
-    return SnapshotContext("draft", draft.id, draft.workspace_key, draft, base)
+    return SnapshotContext("change_set", change_set.id, change_set.workspace_key, change_set, base)
 
 
-def revision_context(session: Session, revision_id: str) -> SnapshotContext:
-    revision = session.scalar(select(WorkspaceRevision).where(WorkspaceRevision.id == revision_id))
-    if revision is None:
-        raise api_error(404, "workspace_revision_not_found", "Workspace revision not found")
+def publication_context(session: Session, publication_id: str) -> SnapshotContext:
+    publication = session.scalar(select(Publication).where(Publication.id == publication_id))
+    if publication is None:
+        raise api_error(404, "publication_not_found", "Publication not found")
     return SnapshotContext(
-        "revision",
-        revision.id,
-        revision.workspace_key,
+        "publication",
+        publication.id,
+        publication.workspace_key,
         None,
-        SnapshotBase(WorkspaceRevisionObject, WorkspaceRevisionRelation, "revision_id", revision.id),
+        SnapshotBase(PublicationObject, PublicationRelation, "publication_id", publication.id),
     )
 
 
@@ -130,13 +130,13 @@ def object_projection(
     parent_object_ids: Iterable[str] | None = None,
     top_level: bool = False,
     object_ids: Iterable[str] | None = None,
-    part: DraftPart = "effective",
+    part: ChangeSetPart = "effective",
 ) -> Subquery:
     """The context's effective object rows, narrowed inside each arm so indexes apply.
 
     ``values_owner_id`` names the owner of each row's typed values in ``snapshot_attribute_values``;
     ``row_sequence_id`` is the row's key in its own table, which its type and parent indexes hold.
-    ``part`` selects one part of a draft's union instead (see :data:`DraftPart`).
+    ``part`` selects one part of a change set's union instead (see :data:`ChangeSetPart`).
     """
     ids = list(object_ids) if object_ids is not None else None
     parents = list(parent_object_ids) if parent_object_ids is not None else None
@@ -172,7 +172,7 @@ def object_projection(
 
     return _effective(
         context,
-        WorkspaceDraftObject,
+        ChangeSetObject,
         "object_id",
         arm,
         lambda base: getattr(base.objects, base.owner_column) == base.owner_id,
@@ -245,7 +245,7 @@ def relation_projection(
 
     return _effective(
         context,
-        WorkspaceDraftRelation,
+        ChangeSetRelation,
         "relation_id",
         arm,
         lambda base: getattr(base.relations, base.owner_column) == base.owner_id,
@@ -260,7 +260,7 @@ def _unindexed(condition: Any) -> Any:
 
 
 def _effective(
-    context, overlay, identity, arm, base_filter, base_entity, *, name, part: DraftPart = "effective"
+    context, overlay, identity, arm, base_filter, base_entity, *, name, part: ChangeSetPart = "effective"
 ) -> Subquery:
     """Union the context's arms; ``arm`` returns one select or a list of them per source."""
 
@@ -269,17 +269,17 @@ def _effective(
 
     base = context.base
     arms = []
-    if context.kind == "revision":
+    if context.kind == "publication":
         arms.extend(selects(arm(base_entity(base), base.owner_id, base_filter(base))))
     else:
         if base is not None and part != "added":
             entity = base_entity(base)
-            overridden = select(getattr(overlay, identity)).where(overlay.draft_id == context.id)
+            overridden = select(getattr(overlay, identity)).where(overlay.change_set_id == context.id)
             conditions = [base_filter(base)]
             if part == "effective":
                 conditions.append(~getattr(entity, identity).in_(overridden))
             elif part == "replaced":
-                # Driven by the draft's IDs: the arm's other terms would otherwise let the
+                # Driven by the change set's IDs: the arm's other terms would otherwise let the
                 # planner walk the base's type or parent index across every base row.
                 conditions = [
                     _unindexed(conditions[0]),
@@ -292,7 +292,7 @@ def _effective(
                     arm(
                         overlay,
                         context.id,
-                        overlay.draft_id == context.id,
+                        overlay.change_set_id == context.id,
                         overlay.is_deleted.is_(False),
                     )
                 )
@@ -304,7 +304,7 @@ def _effective(
 class EffectiveRecord:
     """The context's effective record for an ID expression, read through outer joins.
 
-    Any draft row, a tombstone included, hides the base row, and a missing or deleted record reads
+    Any change set row, a tombstone included, hides the base row, and a missing or deleted record reads
     as null. Use it where a statement lists records it names by ID, such as the other end of each
     relation; a whole object page reads ``object_projection`` instead, whose union arms a join
     would multiply.
@@ -330,9 +330,9 @@ class EffectiveRecord:
 
 
 def effective_record(context: SnapshotContext, object_id: Any) -> EffectiveRecord:
-    """Outer joins to the one base row and the one draft row of ``object_id``, on unique keys."""
+    """Outer joins to the one base row and the one change set row of ``object_id``, on unique keys."""
     base = context.base
-    if context.kind == "revision":
+    if context.kind == "publication":
         row = aliased(base.objects)
         return EffectiveRecord(
             ((row, and_(getattr(row, base.owner_column) == base.owner_id, row.object_id == object_id)),),
@@ -340,22 +340,22 @@ def effective_record(context: SnapshotContext, object_id: Any) -> EffectiveRecor
             literal(base.owner_id, String),
             case((row.object_id.is_(None), False), else_=True),
         )
-    draft = aliased(WorkspaceDraftObject)
+    change_set = aliased(ChangeSetObject)
     joins: list[tuple[Any, Any]] = [
-        (draft, and_(draft.draft_id == context.id, draft.object_id == object_id))
+        (change_set, and_(change_set.change_set_id == context.id, change_set.object_id == object_id))
     ]
-    in_draft = draft.object_id.is_not(None)
-    live_in_draft = draft.is_deleted.is_(False)
+    in_change_set = change_set.object_id.is_not(None)
+    live_in_change_set = change_set.is_deleted.is_(False)
 
-    def draft_value(name: str) -> Any:
-        return case((live_in_draft, getattr(draft, name)))
+    def change_set_value(name: str) -> Any:
+        return case((live_in_change_set, getattr(change_set, name)))
 
     if base is None:
         return EffectiveRecord(
             tuple(joins),
-            draft_value,
+            change_set_value,
             literal(context.id, String),
-            case((in_draft, live_in_draft), else_=False),
+            case((in_change_set, live_in_change_set), else_=False),
         )
     row = aliased(base.objects)
     joins.append(
@@ -364,15 +364,15 @@ def effective_record(context: SnapshotContext, object_id: Any) -> EffectiveRecor
             and_(
                 getattr(row, base.owner_column) == base.owner_id,
                 row.object_id == object_id,
-                draft.object_id.is_(None),
+                change_set.object_id.is_(None),
             ),
         )
     )
     return EffectiveRecord(
         tuple(joins),
-        lambda name: case((in_draft, draft_value(name)), else_=getattr(row, name)),
-        case((in_draft, literal(context.id, String)), else_=literal(base.owner_id, String)),
-        case((in_draft, live_in_draft), else_=row.object_id.is_not(None)),
+        lambda name: case((in_change_set, change_set_value(name)), else_=getattr(row, name)),
+        case((in_change_set, literal(context.id, String)), else_=literal(base.owner_id, String)),
+        case((in_change_set, live_in_change_set), else_=row.object_id.is_not(None)),
     )
 
 
@@ -380,7 +380,7 @@ def effective_object_value(context: SnapshotContext, object_id: Any, column: str
     """One column of the context's effective record ``object_id`` (an expression), and the owner of
     its typed values, as correlated scalar lookups on the unique (owner, object) keys.
 
-    Any draft row, a tombstone included, hides the base row; a missing or deleted record reads as
+    Any change set row, a tombstone included, hides the base row; a missing or deleted record reads as
     null. A lookup runs once per row of the statement it sits in, whatever the planner prefers: use
     it for few rows, such as an ancestor walk, and :func:`effective_record` for a list.
     """
@@ -398,24 +398,24 @@ def effective_object_value(context: SnapshotContext, object_id: Any, column: str
         )
         return value, literal(base.owner_id, String)
 
-    if context.kind == "revision":
+    if context.kind == "publication":
         return base_lookup()
-    overlay = WorkspaceDraftObject
-    in_draft = (overlay.draft_id == context.id, overlay.object_id == object_id)
-    draft_value = (
+    overlay = ChangeSetObject
+    in_change_set = (overlay.change_set_id == context.id, overlay.object_id == object_id)
+    change_set_value = (
         select(getattr(overlay, column))
-        .where(*in_draft, overlay.is_deleted.is_(False))
+        .where(*in_change_set, overlay.is_deleted.is_(False))
         .correlate_except(overlay)
         .scalar_subquery()
     )
-    draft_owner = literal(context.id, String)
+    change_set_owner = literal(context.id, String)
     if base is None:
-        return draft_value, draft_owner
+        return change_set_value, change_set_owner
     base_value, base_owner = base_lookup()
-    overridden = exists(select(overlay.sequence_id).where(*in_draft).correlate_except(overlay))
+    overridden = exists(select(overlay.sequence_id).where(*in_change_set).correlate_except(overlay))
     return (
-        case((overridden, draft_value), else_=base_value),
-        case((overridden, draft_owner), else_=base_owner),
+        case((overridden, change_set_value), else_=base_value),
+        case((overridden, change_set_owner), else_=base_owner),
     )
 
 
@@ -518,16 +518,16 @@ def _value_candidates(
     """Records with a value of ``attributes`` that the trigram index matches a phrase in.
 
     Candidates are object rows of the context's owners, compared by ``row_sequence_id``, which
-    the type and parent indexes a search walks already hold. A draft's candidates come from its
-    base and its own rows alike: a replaced base value, or a base row and a draft row that share a
+    the type and parent indexes a search walks already hold. A change set's candidates come from its
+    base and its own rows alike: a replaced base value, or a base row and a change set row that share a
     sequence number, may name a row that does not match, and the search's ``LIKE`` on the
     effective row's values drops it (D25).
     """
     owners: list[tuple[Any, str, str]] = []
     if context.base is not None:
         owners.append((context.base.objects, context.base.owner_column, context.base.owner_id))
-    if context.kind == "draft":
-        owners.append((WorkspaceDraftObject, "draft_id", context.id))
+    if context.kind == "change_set":
+        owners.append((ChangeSetObject, "change_set_id", context.id))
 
     def search_values(phrase: str, attributes: list[str]) -> Any:
         value = aliased(SnapshotAttributeValue)
@@ -567,7 +567,7 @@ def build_snapshot_object_query(
     field_filters: list[tuple[str, str, str]],
     top_level: bool = False,
 ) -> ObjectQuery:
-    """The draft or revision object collection query, with the same contract as a live one."""
+    """The change set or publication object collection query, with the same contract as a live one."""
     object_type = get_object_type(model, object_type_key)
     if application_key:
         validate_application_object_type(model, application_key, object_type_key)
@@ -575,18 +575,18 @@ def build_snapshot_object_query(
         if field in UNRECORDED_TIMESTAMPS:
             _query_error(
                 "invalid_filter",
-                f"{UNRECORDED_TIMESTAMPS[field]} is not recorded in drafts or history",
+                f"{UNRECORDED_TIMESTAMPS[field]} is not recorded in change sets or publications",
                 f"filter.{field}.{operator}",
             )
     sort_field = (sort or "").removeprefix("-")
     if sort_field in UNRECORDED_TIMESTAMPS:
         _query_error(
             "invalid_sort",
-            f"{UNRECORDED_TIMESTAMPS[sort_field]} is not recorded in drafts or history",
+            f"{UNRECORDED_TIMESTAMPS[sort_field]} is not recorded in change sets or publications",
             "sort",
         )
 
-    def refine(part: DraftPart) -> tuple[Any, Any, Any, Any]:
+    def refine(part: ChangeSetPart) -> tuple[Any, Any, Any, Any]:
         projection = object_projection(
             context,
             object_type_key=object_type_key,
@@ -597,7 +597,7 @@ def build_snapshot_object_query(
         )
         return refine_object_query(
             model,
-            # The replaced and added parts are as small as the draft: looking up their values
+            # The replaced and added parts are as small as the change set: looking up their values
             # row by row costs less than reading the index (S8).
             snapshot_object_columns(projection, context, search_index=part in {"effective", "base"}),
             select(projection),
@@ -608,12 +608,12 @@ def build_snapshot_object_query(
         )
 
     statement, keys, seek, normalized_filters = refine("effective")
-    # A draft over a base resolves position reads in the base's index (Base 0.8 S4R6).
+    # A change set over a base resolves position reads in the base's index (Base 0.8 S4R6).
     overlay = None
-    if context.kind == "draft" and context.base is not None:
+    if context.kind == "change_set" and context.base is not None:
         parts = {part: Keyed(*refine(part)[:2]) for part in ("base", "replaced", "added")}
         overlay = Overlay(parts["base"], parts["replaced"], parts["added"])
-    owner = "draftId" if context.kind == "draft" else "revisionId"
+    owner = "changeSetId" if context.kind == "change_set" else "publicationId"
     return ObjectQuery(
         statement=statement,
         keys=keys,
@@ -632,4 +632,4 @@ def build_snapshot_object_query(
 
 
 def object_scope(context: SnapshotContext) -> str:
-    return "objects-draft" if context.kind == "draft" else "objects-revision"
+    return "objects-change-set" if context.kind == "change_set" else "objects-publication"

@@ -159,8 +159,8 @@ export function useRouter(): Router {
       lastCollections.current.set(applicationKey, {
         ...collection,
         workspaceKey,
-        workspaceDraftId: undefined,
-        workspaceRevisionId: undefined,
+        changeSetId: undefined,
+        publicationId: undefined,
         anchor: undefined,
       });
     }
@@ -168,8 +168,8 @@ export function useRouter(): Router {
       mostRecentCollection.current = {
         ...mostRecentCollection.current,
         workspaceKey,
-        workspaceDraftId: undefined,
-        workspaceRevisionId: undefined,
+        changeSetId: undefined,
+        publicationId: undefined,
         anchor: undefined,
       };
   }, []);

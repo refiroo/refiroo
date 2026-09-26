@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
-import type { RelationsPanelDefinition, WorkspaceDraft } from "@/types";
+import type { RelationsPanelDefinition, ChangeSet } from "@/types";
 import { RelationsPanel } from "@/features/objects/panels/RelationsPanel";
 
 vi.mock("@/api/client", () => ({ api: { relations: vi.fn(), deleteRelation: vi.fn() } }));
@@ -298,11 +298,11 @@ describe("RelationsPanel", () => {
       await waitFor(() => expect(lastSort()).toBe("code"));
     });
 
-    it("drops live-only timestamps from the declared fields in a draft", async () => {
+    it("drops live-only timestamps from the declared fields in a change set", async () => {
       vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
         api,
         warning: "",
-        draft: { id: "d1" } as WorkspaceDraft,
+        changeSet: { id: "d1" } as ChangeSet,
       });
       render(
         <RelationsPanel

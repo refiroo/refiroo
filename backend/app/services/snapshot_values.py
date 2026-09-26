@@ -1,7 +1,7 @@
-"""Typed value index for draft, draft-base and revision object rows (D1, Base 0.8 S2).
+"""Typed value index for change set, change-set base and publication object rows (D1, Base 0.8 S2).
 
-Draft and history rows hold attribute values as JSON. ``snapshot_attribute_values`` mirrors them as
-typed rows, like live ``attribute_values``, so draft and history reads filter and sort in SQL with
+Change set and history rows hold attribute values as JSON. ``snapshot_attribute_values`` mirrors them as
+typed rows, like live ``attribute_values``, so change set and history reads filter and sort in SQL with
 the same query builder as live reads.
 
 The index is derived data. A ``before_flush`` hook rewrites an object row's typed values whenever
@@ -18,21 +18,21 @@ from sqlalchemy.orm import Session
 
 from ..models.database import (
     AttributeTypeMeta,
+    ChangeSet,
+    ChangeSetBase,
+    ChangeSetBaseObject,
+    ChangeSetObject,
+    Publication,
+    PublicationObject,
     SnapshotAttributeValue,
-    WorkspaceDraft,
-    WorkspaceDraftBase,
-    WorkspaceDraftBaseObject,
-    WorkspaceDraftObject,
-    WorkspaceRevision,
-    WorkspaceRevisionObject,
 )
 from .attributes import typed_value_columns
 
 # Object row class -> (owner kind, owner column on the row, owner table carrying the release).
 _OWNERS: dict[type, tuple[str, str, Any]] = {
-    WorkspaceRevisionObject: ("revision", "revision_id", WorkspaceRevision),
-    WorkspaceDraftBaseObject: ("base", "base_id", WorkspaceDraftBase),
-    WorkspaceDraftObject: ("draft", "draft_id", WorkspaceDraft),
+    PublicationObject: ("publication", "publication_id", Publication),
+    ChangeSetBaseObject: ("base", "base_id", ChangeSetBase),
+    ChangeSetObject: ("change_set", "change_set_id", ChangeSet),
 }
 _TABLE = SnapshotAttributeValue.__table__
 
@@ -70,7 +70,7 @@ def release_value_types(connection: Connection, model_release_id: int) -> dict[s
 
 
 def delete_owner_values(session: Session, owner_id: str) -> None:
-    """Remove the whole index of one revision, draft base or draft (bulk deletion paths)."""
+    """Remove the whole index of one publication, change set base or change set (bulk deletion paths)."""
     session.execute(delete(SnapshotAttributeValue).where(SnapshotAttributeValue.owner_id == owner_id))
 
 

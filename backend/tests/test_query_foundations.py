@@ -2,7 +2,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient as LiveTestClient
-from test_api import DraftTestClient as TestClient
+from test_api import ChangeSetTestClient as TestClient
 
 from app.main import app
 
@@ -116,7 +116,7 @@ def test_object_lifecycle_is_bound_to_cursor_filters_and_sort():
         assert mismatched.json()["error"]["code"] == "invalid_cursor"
 
 
-@pytest.mark.parametrize("context", ["live", "draft"])
+@pytest.mark.parametrize("context", ["live", "change_set"])
 def test_every_built_in_object_sort_supports_cursor_traversal(context):
     token = f"WP5_{uuid4().hex[:8]}"
     client_type = LiveTestClient if context == "live" else TestClient
@@ -124,8 +124,8 @@ def test_every_built_in_object_sort_supports_cursor_traversal(context):
         created = {
             _create_domain(client, token, index)["id"] for index in range(1, 4)
         }
-        if context == "draft":
-            # Drafts record no timestamps (WP-10K): a timestamp sort is refused explicitly.
+        if context == "change_set":
+            # Change sets record no timestamps (WP-10K): a timestamp sort is refused explicitly.
             for sort in ("createdAt", "-updatedAt"):
                 refused = client.get(
                     "/api/v1/objects/domain", params={"search": token, "sort": sort}
@@ -204,24 +204,24 @@ def test_object_parent_candidate_and_relation_queries_preserve_workspace_scope()
         for key in ("west", "east"):
             response = client.post("/api/v1/workspaces", json={"key": key, "label": key.title()})
             assert response.status_code in {201, 409}
-        west_draft = client.post("/api/v1/workspaces/west/drafts", json={}).json()
-        east_draft = client.post("/api/v1/workspaces/east/drafts", json={}).json()
+        west_change_set = client.post("/api/v1/workspaces/west/change-sets", json={}).json()
+        east_change_set = client.post("/api/v1/workspaces/east/change-sets", json={}).json()
         west_response = client.post("/api/v1/objects", json={
             "applicationKey": "rdm-master", "objectTypeKey": "domain", "name": f"{token} west",
             "attributes": [_attr("domain-code", f"{token}_west")],
-            "workspaceDraftId": west_draft["id"], "expectedWorkspaceDraftVersion": 1,
+            "changeSetId": west_change_set["id"], "expectedChangeSetVersion": 1,
         })
         east_response = client.post("/api/v1/objects", json={
             "applicationKey": "rdm-master", "objectTypeKey": "domain", "name": f"{token} east",
             "attributes": [_attr("domain-code", f"{token}_east")],
-            "workspaceDraftId": east_draft["id"], "expectedWorkspaceDraftVersion": 1,
+            "changeSetId": east_change_set["id"], "expectedChangeSetVersion": 1,
         })
         assert west_response.status_code == east_response.status_code == 201
         west, east = west_response.json(), east_response.json()
 
         candidates = client.get(
             "/api/v1/objects/domain",
-            params={"workspaceDraftId": west_draft["id"], "search": token},
+            params={"changeSetId": west_change_set["id"], "search": token},
         )
         assert candidates.status_code == 200
         assert [item["id"] for item in candidates.json()["items"]] == [west["id"]]
@@ -234,8 +234,8 @@ def test_object_parent_candidate_and_relation_queries_preserve_workspace_scope()
                 "parentObjectId": east["id"],
                 "name": f"Wrong parent {token}",
                 "attributes": [_attr("codelist-code", f"WRONG_{token}")],
-                "workspaceDraftId": west_draft["id"],
-                "expectedWorkspaceDraftVersion": 2,
+                "changeSetId": west_change_set["id"],
+                "expectedChangeSetVersion": 2,
             },
         )
         assert wrong_parent.status_code == 422
@@ -247,8 +247,8 @@ def test_object_parent_candidate_and_relation_queries_preserve_workspace_scope()
                 "relationTypeKey": "reference-has-system-representation",
                 "fromObjectId": west["id"],
                 "toObjectId": east["id"],
-                "workspaceDraftId": west_draft["id"],
-                "expectedWorkspaceDraftVersion": 2,
+                "changeSetId": west_change_set["id"],
+                "expectedChangeSetVersion": 2,
             },
         )
         assert wrong_relation.status_code == 422
@@ -283,7 +283,7 @@ def test_object_history_includes_safe_object_and_connected_relation_events():
             events.extend(page.json()["items"])
             cursor = page.json()["nextCursor"]
         assert len({item["id"] for item in events}) == 2
-        assert {item["aggregateType"] for item in events} == {"object-draft"}
+        assert {item["aggregateType"] for item in events} == {"change-set-object"}
         assert all("changes" not in item for item in events)
 
         wrong_object = client.get(

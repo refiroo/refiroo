@@ -10,7 +10,7 @@ import { chromium } from "playwright";
 
 const frontend = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const root = resolve(frontend, "..");
-const output = await mkdtemp(resolve(tmpdir(), "rdm-wp9-history-"));
+const output = await mkdtemp(resolve(tmpdir(), "rdm-wp9-publications-"));
 const processes = [];
 const failures = [];
 const checks = [];
@@ -115,14 +115,14 @@ try {
       { attributeTypeKey: "qa-history-count", value: 7 },
     ],
   });
-  async function publish(name, expectedActiveRevisionId) {
-    const draft = await api(`/workspaces/${workspaceKey}/drafts`, { name, source: "currentLive" });
-    return api(`/workspace-drafts/${draft.id}/activation`, {
-      expectedDraftVersion: draft.version,
-      expectedActiveRevisionId,
+  async function publish(name, expectedActivePublicationId) {
+    const changeSet = await api(`/workspaces/${workspaceKey}/change-sets`, { name, source: "currentLive" });
+    return api(`/change-sets/${changeSet.id}/publication`, {
+      expectedChangeSetVersion: changeSet.version,
+      expectedActivePublicationId,
     });
   }
-  const oldRevision = await publish("Old publication", null);
+  const oldPublication = await publish("Old publication", null);
   const changed = await api(
     `/objects/domain/${domain.id}`,
     {
@@ -150,7 +150,7 @@ try {
     expectedRuntimeVersion: runtimeBefore.version,
     expectedActiveReleaseId: runtimeBefore.activeReleaseId,
   });
-  const currentRevision = await publish("Current publication", oldRevision.id);
+  const currentPublication = await publish("Current publication", oldPublication.id);
 
   browser = await chromium.launch({
     headless: true,
@@ -161,18 +161,20 @@ try {
   page.on("pageerror", (error) => failures.push(error.message));
   const historicalReads = [];
   page.on("request", (request) => {
-    if (request.url().includes("workspaceRevisionId=")) historicalReads.push(request.url());
+    if (request.url().includes("publicationId=")) historicalReads.push(request.url());
   });
 
-  await page.goto(`${uiUrl}/apps/rdm-master/history?workspaceKey=${workspaceKey}`);
-  await page.getByRole("heading", { name: new RegExp(`Revision ${oldRevision.revisionNumber} · Historical snapshot`) }).waitFor();
-  const revisionHeadings = await page.locator("article.history-card h2").allTextContents();
-  assert.match(revisionHeadings[0], new RegExp(`Revision ${currentRevision.revisionNumber} · Current publication`));
-  assert.match(revisionHeadings[1], new RegExp(`Revision ${oldRevision.revisionNumber} · Historical snapshot`));
-  const oldCard = page.locator("article.history-card").filter({
-    has: page.getByRole("heading", { name: new RegExp(`Revision ${oldRevision.revisionNumber} · Historical snapshot`) }),
+  await page.goto(`${uiUrl}/apps/rdm-master/publications?workspaceKey=${workspaceKey}`);
+  await page.getByRole("heading", { name: `Publication ${oldPublication.publicationNumber}`, exact: true }).waitFor();
+  const publicationHeadings = await page.locator("article.publication-card h2").allTextContents();
+  assert.equal(publicationHeadings[0], `Publication ${currentPublication.publicationNumber} Current`);
+  assert.equal(publicationHeadings[1], `Publication ${oldPublication.publicationNumber}`);
+  const oldCard = page.locator("article.publication-card").filter({
+    has: page.getByRole("heading", { name: `Publication ${oldPublication.publicationNumber}`, exact: true }),
   });
-  await oldCard.getByRole("button", { name: "Inspect snapshot" }).click();
+  // The number names the publication; model release and date are secondary text.
+  assert.match(await oldCard.innerText(), new RegExp(`Model ${oldModelVersion.replaceAll(".", "\\.")} · Published`));
+  await oldCard.getByRole("button", { name: "Open publication" }).click();
   await page.locator("main table").getByRole("button", { name: "Published old domain", exact: true }).click();
   await page.getByRole("heading", { name: "Published old domain", exact: true }).waitFor();
   assert.match(await page.locator("main").innerText(), /History count\s*7/i);
@@ -180,35 +182,36 @@ try {
   await page.getByRole("button", { name: "Record actions", exact: true }).click();
   assert.equal(await page.getByRole("menuitem", { name: "Edit all fields", exact: true }).count(), 0);
   await page.keyboard.press("Escape");
-  assert(historicalReads.some((url) => url.includes(`workspaceRevisionId=${oldRevision.id}`)));
-  await page.screenshot({ path: resolve(output, "historical-snapshot.png"), fullPage: true });
-  checks.push("Older snapshot remains typed and unchanged under its pinned model; shared list/detail reads carry the immutable revision and expose no write controls");
+  assert(historicalReads.some((url) => url.includes(`publicationId=${oldPublication.id}`)));
+  await page.screenshot({ path: resolve(output, "earlier-publication.png"), fullPage: true });
+  checks.push("An earlier publication remains typed and unchanged under its pinned model; shared list/detail reads carry the immutable publication and expose no write controls");
 
-  await page.getByRole("button", { name: "Back to publication history" }).click();
+  await page.getByRole("button", { name: "Back to publications" }).click();
   const sourceCard = oldCard;
-  await sourceCard.getByRole("button", { name: "Start a draft from this revision" }).click();
-  await page.getByRole("dialog").getByLabel("Draft name").fill("Historical review");
-  await page.getByRole("dialog").getByRole("button", { name: "Create draft" }).click();
-  await page.getByRole("region", { name: "Draft publication" }).getByRole("heading", { name: "Historical review", exact: true }).waitFor();
-  const draftText = await page.locator("main").innerText();
-  assert.match(draftText, new RegExp(`Historical revision ${oldRevision.id}`));
-  assert.match(draftText, /This draft uses a different model version/);
-  checks.push("Historical derivation is explicitly labelled, keeps the old model pin and explains that Base 0.6 requires migration instead of promising restore or implicit override");
+  await sourceCard.getByRole("button", { name: "Start a change set from this publication" }).click();
+  await page.getByRole("dialog").getByLabel("Change set name").fill("Earlier review");
+  await page.getByRole("dialog").getByRole("button", { name: "Create change set" }).click();
+  await page.getByRole("region", { name: "Change set publication" }).getByRole("heading", { name: "Earlier review", exact: true }).waitFor();
+  const changeSetText = await page.locator("main").innerText();
+  assert.match(changeSetText, new RegExp(`From publication ${oldPublication.id}`));
+  assert.match(changeSetText, /This change set uses a different model version/);
+  checks.push("Deriving from an earlier publication is explicitly labelled, keeps the old model pin and explains that Base 0.6 requires migration instead of promising restore or implicit override");
 
-  await page.goto(`${uiUrl}/apps/rdm-master/history?workspaceKey=${workspaceKey}`);
-  const currentCard = page.locator("article.history-card").filter({
-    has: page.getByRole("heading", { name: new RegExp(`Revision ${currentRevision.revisionNumber} · Current publication`) }),
+  await page.goto(`${uiUrl}/apps/rdm-master/publications?workspaceKey=${workspaceKey}`);
+  const currentCard = page.locator("article.publication-card").filter({
+    has: page.getByRole("heading", { name: `Publication ${currentPublication.publicationNumber} Current`, exact: true }),
   });
-  await currentCard.getByRole("button", { name: "Retire publication" }).click();
+  await currentCard.getByRole("button", { name: "Withdraw publication" }).click();
   const confirmation = page.getByRole("alertdialog");
-  assert.match(await confirmation.innerText(), /Live records and all historical snapshots remain available/);
-  await confirmation.getByRole("button", { name: "Retire publication" }).click();
-  await page.getByText(/no longer the current publication/).waitFor();
-  const afterRetirement = await api(`/workspaces/${workspaceKey}/revisions`);
-  assert.equal(afterRetirement.items[0].status, "retired");
+  assert.match(await confirmation.innerText(), new RegExp(`Withdraw Publication ${currentPublication.publicationNumber}\\?`));
+  assert.match(await confirmation.innerText(), /Live records and all publications remain available/);
+  await confirmation.getByRole("button", { name: "Withdraw publication" }).click();
+  await page.getByText(/is withdrawn and no longer current/).waitFor();
+  const afterWithdrawal = await api(`/workspaces/${workspaceKey}/publications`);
+  assert.equal(afterWithdrawal.items[0].status, "withdrawn");
   assert.equal((await api(`/objects/domain/${changed.id}?workspaceKey=${workspaceKey}`)).name, "Current live domain");
-  await page.screenshot({ path: resolve(output, "publication-retired.png"), fullPage: true });
-  checks.push("Publication retirement names the selected revision and removes only its designation; current live data and both immutable snapshots remain readable");
+  await page.screenshot({ path: resolve(output, "publication-withdrawn.png"), fullPage: true });
+  checks.push("Withdrawing names the selected publication and removes only its current designation; current live data and both immutable publications remain readable");
 
   await api("/workspaces", { key: "other", label: "Other workspace" });
   const workspaceState = await api("/workspace-runtime-state");
@@ -217,9 +220,9 @@ try {
   await api(`/workspaces/${workspaceKey}`, { expectedVersion: workspace.version, status: "retired" }, "PATCH");
   await page.reload();
   await page.getByText("Read-only workspace").waitFor();
-  assert.equal(await page.getByRole("button", { name: "Start a draft from this revision" }).count(), 0);
-  assert.equal(await page.getByRole("button", { name: "Retire publication" }).count(), 0);
-  checks.push("Catalogue retirement is a separate read-only state: history stays visible while draft and publication mutations disappear");
+  assert.equal(await page.getByRole("button", { name: "Start a change set from this publication" }).count(), 0);
+  assert.equal(await page.getByRole("button", { name: "Withdraw publication" }).count(), 0);
+  checks.push("Catalogue retirement is a separate read-only state: publications stay visible while change-set and withdrawal actions disappear");
 
   assert.deepEqual(failures, []);
   const report = {

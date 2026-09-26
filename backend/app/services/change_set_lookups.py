@@ -1,8 +1,8 @@
-"""Bounded lookups for draft writes (Base 0.8 S2b).
+"""Bounded lookups for change set writes (Base 0.8 S2b).
 
-A draft write checks the records it touches: its parent and ancestors, the relations at its ends,
-the draft-wide holders of a unique value and, for a deletion, the subtree it removes. Each check is
-a statement over the draft's effective rows (``snapshot_reads``), so a write costs what it touches
+A change set write checks the records it touches: its parent and ancestors, the relations at its ends,
+the change-set-wide holders of a unique value and, for a deletion, the subtree it removes. Each check is
+a statement over the change set's effective rows (``snapshot_reads``), so a write costs what it touches
 rather than the whole membership.
 
 Statements run through the session, which flushes pending rows first: a lookup sees the write's own
@@ -20,7 +20,7 @@ from ..models.database import SnapshotAttributeValue
 from .attributes import VALUE_COLUMNS, typed_value_columns
 from .snapshot_reads import (
     SnapshotContext,
-    draft_context,
+    change_set_context,
     find_objects,
     find_relation,
     object_projection,
@@ -37,15 +37,15 @@ def _chunks(ids: Sequence[str]) -> Iterable[list[str]]:
 
 
 @dataclass(frozen=True)
-class DraftLookup:
-    """The effective records and relations of one draft, read by what a write touches."""
+class ChangeSetLookup:
+    """The effective records and relations of one change set, read by what a write touches."""
 
     session: Session
     context: SnapshotContext
 
     @classmethod
-    def of(cls, session: Session, draft_id: str) -> DraftLookup:
-        return cls(session, draft_context(session, draft_id))
+    def of(cls, session: Session, change_set_id: str) -> ChangeSetLookup:
+        return cls(session, change_set_context(session, change_set_id))
 
     def object(self, object_id: str | None) -> Row | None:
         if not object_id:
@@ -134,8 +134,8 @@ class DraftLookup:
     ) -> str | None:
         """Another effective record holding ``value`` for the attribute, by the typed index.
 
-        Index rows of the base and of the draft both match; a base row counts only while no draft
-        row replaces it, and a draft row only while it is not deleted, which the effective lookup
+        Index rows of the base and of the change set both match; a base row counts only while no change set
+        row replaces it, and a change set row only while it is not deleted, which the effective lookup
         of the few matching records decides.
         """
         column_name = VALUE_COLUMNS.get(value_type)

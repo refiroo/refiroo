@@ -143,7 +143,7 @@ const replacementResponse: MappingReplacementResponse = {
   mappingVersion: 1,
   state: "mapped",
   relationId: "r-new",
-  workspaceDraftVersion: null,
+  changeSetVersion: null,
 };
 
 const defaultQuery = { search: "", sort: "", pageSize: 20, filters: [] };

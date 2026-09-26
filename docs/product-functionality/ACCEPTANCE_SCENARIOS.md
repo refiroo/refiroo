@@ -46,8 +46,8 @@ Retry preserves successful content and the selected workspace.
 
 **Given** `COLLECT` is live as “Collecton,” **when** a steward changes its name to “Collection” and
 saves, **then** normal reads show the correction immediately with the same identity, fields and
-connections. History records the change. No draft or publication is required, including when an
-unrelated design draft is open.
+connections. History records the change. No change set or publication is required, including when an
+unrelated change set is open.
 
 **Given** two stewards opened the same version, **when** the first saves and the second then saves a
 different name, **then** the second save does not overwrite the first. The second steward can still
@@ -86,7 +86,7 @@ the owner requests deletion, **then** the preview identifies owned records and a
 Cancel preserves everything. Confirm removes the intended owned records and their affected links,
 while the independent System Value and its own hierarchy survive.
 
-Repeat in an optional design draft: the candidate changes, but live reads and old snapshots do not.
+Repeat in an optional change set: the candidate changes, but live reads and old snapshots do not.
 The preview locks the displayed hierarchy. If any displayed object, attribute, parent link or affected
 relationship changes, or another descendant/affected relationship is added before confirmation, the
 service rejects deletion without side effects and asks the user to retry. Confirmation always uses the
@@ -100,11 +100,11 @@ opaque token returned by that exact preview and never silently expands or change
 **Stories:** US-W01, US-W08. **Target:** 0.6 design acceptance; WP8.1-B provides the SQLite API boundary, while the browser journey remains WP9/WP10 work.
 
 **Given** the latest publication predates a live `LOCKER` addition and a corrected label, **when** a
-steward chooses “start from current live data,” **then** the new draft contains both the addition and
-the correction exactly as they were when the draft started. Later live changes do not silently rewrite
-that draft's starting content.
+steward chooses “start from current live data,” **then** the new change set contains both the addition and
+the correction exactly as they were when the change set started. Later live changes do not silently rewrite
+that change set's starting content.
 
-Repeat in a workspace containing live records but no published revision. The user must not publish a
+Repeat in a workspace containing live records but no published publication. The user must not publish a
 dummy change or copy live records manually merely to begin a design. Choosing an older historical
 snapshot is a separate, explicitly labelled action.
 
@@ -114,13 +114,13 @@ snapshot is a separate, explicitly labelled action.
 
 **Stories:** US-W01–W04. **Target:** 0.6 design browser and service.
 
-**Given** a draft changes two Delivery Methods records and a permitted relationship, **when** someone
+**Given** a change set changes two Delivery Methods records and a permitted relationship, **when** someone
 corrects the live Payment Methods `CARD` description and the design is then validated and activated,
 **then** live readers see none of the staged changes before activation and all of them afterward.
-The live Card correction survives and is included in the new historical snapshot.
+The live Card correction survives and is included in the new publication.
 
-Make a separate live addition while the draft is open; it survives too. Then run the conflict variant:
-change `COLLECT` both live and in the draft. Activation must identify the conflict, preserve the draft
+Make a separate live addition while the change set is open; it survives too. Then run the conflict variant:
+change `COLLECT` both live and in the change set. Publishing must identify the conflict, preserve the change set
 and all live data, and publish none of the other staged changes.
 
 Also introduce a cross-record rule violation. Validation identifies the relevant records without
@@ -149,7 +149,7 @@ not only the reverse view of the same binding. Find candidates beyond page one a
 ambiguous set through bounded previews with exact counts and continuation. Retaining an existing
 chosen target retains its relation identity and typed attributes unless explicitly edited. Exercise
 both directions, constrained candidates and refused clearing. A generic relation edit racing with
-mapping save and a live same-set edit before draft activation must conflict without losing attempted
+mapping save and a live same-set edit before publishing must conflict without losing attempted
 input or unrelated live work. New selectors, conflict controls and target creation require keyboard,
 accessibility and visual evidence. Confirmed foundation gaps belong to conditional WP-10.
 
@@ -165,7 +165,7 @@ PostgreSQL concurrency was not exercised.
 starter binding in both directions and an independent binding (own labels, integer relation attribute):
 “Collection” search and keyboard-only save, a target first listed on page two, a 25-target ambiguous
 row through bounded preview and continuation, retained relation identity and attribute, a racing
-generic write with the attempted choice kept, and a live edit to the draft's touched set refusing
+generic write with the attempted choice kept, and a live edit to the change set's touched set refusing
 activation until withdrawn. WP-13C covers cancelled and completed contextual creation. Removal is
 offered only for non-required bindings (WP-10H). PostgreSQL concurrency remains unexercised. See the
 [plan's WP-9 record](../BASE_0_7_IMPLEMENTATION_PLAN.md#wp-9-composed-product-validation--sc-07-and-sc-15).
@@ -177,7 +177,7 @@ offered only for non-required bindings (WP-10H). PostgreSQL concurrency remains 
 **Stories:** US-W05–W07, US-A03, US-D12. **Target:** 0.6 history browser and service.
 
 **Given** two publications and later live corrections, **when** a steward opens the older snapshot,
-**then** its content remains as published. Starting a draft from it clearly identifies the source.
+**then** its content remains as published. Starting a change set from it clearly identifies the source.
 Activation of reviewed changes identifies the publication it replaces separately and preserves
 unrelated newer live records. Simply selecting the old snapshot does not undo today's data.
 
@@ -195,7 +195,7 @@ and rejects changes. Business unavailability of one record is a third, separate 
 For translation, show Delivery Methods by the configured target languages. Include a current Czech
 translation, a missing English translation and a translation found only in history. From the missing
 cell, enter the English content and save in context. Only usable current content counts as covered;
-duplicate active content is rejected. Ordinary correction must still be possible without a draft.
+duplicate active content is rejected. Ordinary correction must still be possible without a change set.
 
 For hierarchy, find a nested System Group without loading every branch, add a child under it and move
 that child to another permitted group. Show the new path and leave unrelated branches alone. Reject a
@@ -267,12 +267,12 @@ Each request sees consistent rules and data. A failed migration leaves Retail us
 selection. Rehearse restoring a matching backup and application, and record actual recovery time and
 data loss against agreed targets rather than assuming them.
 
-For the accepted GAP-02 historical migration variant, derive a draft from an older publication whose
-model conflicts with current rules. Base 0.6 refuses activation while preserving draft/live data.
+For the accepted GAP-02 historical migration variant, derive a change set from an older publication whose
+model conflicts with current rules. Base 0.6 refuses activation while preserving change set/live data.
 In 0.10, name the selected workspace and installed target definition (normally the historical pin),
 then preview exact rule changes and potential data loss without changing data; cancelling leaves
 everything unchanged. Explicitly confirm the reviewed transformation and prove the target data and
-workspace model switch together, history stays immutable and Warehouse is unaffected. A live/draft/
+workspace model switch together, history stays immutable and Warehouse is unaffected. A live/change set/
 model change after preview invalidates confirmation; a missing transform, unsupported parser or invalid
 result cannot be accepted by acknowledging a warning. Failure preserves the prior usable state.
 
@@ -300,10 +300,10 @@ replacing its public identity. Unknown workspace keys fail rather than selecting
 **Simplicity check:** people choose recognizable labels; stable technical identifiers are managed by
 the interface or integration rather than copied manually during ordinary stewardship.
 
-## SC-15 — Prepare for the next model version in one draft while live keeps the current one
+## SC-15 — Prepare for the next model version in one change set while live keeps the current one
 
 **Stories:** US-W01, US-W03, US-W08, US-W09, US-P03. **Target:** model selection remains global;
-draft version selection is delivered in WP-6/WP-7 with WP-11 refusal and UI hardening. Composed
+change set version selection is delivered in WP-6/WP-7 with WP-11 refusal and UI hardening. Composed
 scenario acceptance remains WP-9 (ADR-028).
 
 A model administrator installs a candidate definition without activating it. Retail has two drafts:
@@ -319,26 +319,26 @@ Moving is offered only when draft1's content already satisfies the new definitio
 reviewed conversion and loss preview of 0.10 is required, and declining changes nothing.
 
 Selecting an unavailable, corrupt or unsupported definition is refused with the reason, and leaves live
-data, the other draft, history and every other workspace untouched. No model change reaches live data
-merely because a draft selected it.
+data, the other change set, history and every other workspace untouched. No model change reaches live data
+merely because a change set selected it.
 
 **0.7 composed evidence (WP-6/WP-7/WP-11/WP-9):** use two releases on the same schema with visibly
 different fields, rules and views. Check the complete candidate graph, including inherited content,
-on creation and version change. Incompatible creation leaves no draft; incompatible or stale version
+on creation and version change. Incompatible creation leaves no change set; incompatible or stale version
 change leaves content, pin and version unchanged. Test concurrent edits and externally changed pins,
 removed-view recovery, obsolete cursor reset and dirty-input protection. A retained older pin stays
-readable/editable and is described neutrally. Live, history, other drafts and other workspaces remain
+readable/editable and is described neutrally. Live, history, other change sets and other workspaces remain
 unchanged. Version-selection controls and diagnostics require accessibility and visual evidence.
 
 **Composed evidence — WP-9, 2026-09-25:** `test:browser:sc15` and `test_build07_wp9_acceptance.py`
-pass: two drafts on two same-schema releases with a different field, rule and view name; an
+pass: two change sets on two same-schema releases with a different field, rule and view name; an
 incompatible release refused at creation and version change with the records named; unavailable,
 unsupported and corrupt releases refused with live data, history, the runtime selection, the other
-draft and another workspace unchanged; the prepared draft publishes after the candidate is activated;
-the remaining draft is refused with an explanation and discarded with no data change.
+change set and another workspace unchanged; the prepared change set publishes after the candidate is published;
+the remaining change set is refused with an explanation and discarded with no data change.
 
-**Simplicity check:** a steward can see which definition each draft is working under without reading
-deployment mechanics, and discarding a draft is always available and never requires model agreement.
+**Simplicity check:** a steward can see which definition each change set is working under without reading
+deployment mechanics, and discarding a change set is always available and never requires model agreement.
 
 ## SC-16 — Work from one model-driven application browser
 
@@ -349,7 +349,7 @@ Use one model with containment and one application/model configuration without c
 browser exposes each configured source collection once, alongside runtime records, without a
 Browse-hierarchy/Views mode switch. Selecting a parent opens a compatible direct-child collection and
 shows the selected parent as removable scope. Opening a record and returning preserves that scope,
-search, compatible filters and lens in Live, an explicitly selected Draft and read-only History.
+search, compatible filters and lens in Live, an explicitly selected Change set and read-only History.
 
 For a source type with a table and two differently configured mapping declarations, the main workspace
 offers their model labels as lenses of that one collection. The sidebar does not add one primary entry

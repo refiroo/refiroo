@@ -36,10 +36,10 @@ export function ObjectCollectionView({
 }: ViewComponentProps) {
   const declaredView = rawView as TableViewDefinition;
   const api = useDataApi();
-  const { draft, revision } = useWorkspaceData();
-  // Drafts and history record no timestamps, so they are neither offered nor requested there, and
+  const { changeSet, publication } = useWorkspaceData();
+  // Change sets and history record no timestamps, so they are neither offered nor requested there, and
   // a view whose default sort is a timestamp sorts by name instead.
-  const live = !draft && !revision;
+  const live = !changeSet && !publication;
   const view = useMemo<TableViewDefinition>(
     () =>
       live

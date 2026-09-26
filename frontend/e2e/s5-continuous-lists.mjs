@@ -2,12 +2,12 @@
 //
 // Part 1 boots the generated Track S volume model (backend/tests/volume_fixture.py, 10% scale by
 // default: 10,000 items, a 2,000-child group, a group cited 150 times) and exercises the collection
-// lens, a record panel and a relation panel in live, draft and history contexts at 1440px and
+// lens, a record panel and a relation panel in live, change set and history contexts at 1440px and
 // 390px. Part 2 boots the starter model and exercises the collection lens, the mapping lens, a
 // relation panel and the object picker, then S4R3's one sort element: the lens, a record panel and
 // a relation panel sorted by keyboard from their headers (and the menu where a field has no header)
-// for two object types in live, draft and history at 1440px and 390px. Every data column sorts
-// (the S4R3 revision), so the volume model's schema 0.6 relation panel, which declares no sort,
+// for two object types in live, change set and history at 1440px and 390px. Every data column sorts
+// (the S4R3 publication), so the volume model's schema 0.6 relation panel, which declares no sort,
 // sorts from its headers too. Set S5_VOLUME_SCALE=1 for the full 100,000-item volume.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
@@ -110,8 +110,8 @@ try {
   const base = `${uiUrl}/apps/vol-catalogue`;
   const contexts = [
     ["live", ""],
-    ["draft", `&workspaceDraftId=${dataset.draft_id}`],
-    ["history", `&workspaceRevisionId=${dataset.revision_id}`],
+    ["changeSet", `&changeSetId=${dataset.change_set_id}`],
+    ["history", `&publicationId=${dataset.publication_id}`],
   ];
 
   for (const [context, suffix] of contexts) {
@@ -242,7 +242,7 @@ try {
     assert.ok(state.first < Number(state.rowCount) - 60, `${context}: panel scrolls back up (${state.first})`);
   }
   checks.push(
-    `volume live/draft/history: the ${dataset.shape.heavy_items.toLocaleString("en-US")}-child record panel lists by name, sorts descending from its header by keyboard, reaches its end by Ctrl+End with ≤50 rows held and scrolls back`,
+    `volume live/change set/history: the ${dataset.shape.heavy_items.toLocaleString("en-US")}-child record panel lists by name, sorts descending from its header by keyboard, reaches its end by Ctrl+End with ≤50 rows held and scrolls back`,
   );
 
   // Relation panel: the group cited 150 times, searched and scrolled, in each context.
@@ -277,7 +277,7 @@ try {
     assert.equal(await page.getByRole("combobox", { name: "Sort" }).count(), 0, `${context}: no sort select`);
   }
   checks.push(
-    `volume live/draft/history: the ${dataset.shape.citations.toLocaleString("en-US")}-relation panel pages continuously, reaches its end by keyboard, searches by related name, and without declared sort fields lists by name while every data column, the relationship label included, sorts from its header`,
+    `volume live/change set/history: the ${dataset.shape.citations.toLocaleString("en-US")}-relation panel pages continuously, reaches its end by keyboard, searches by related name, and without declared sort fields lists by name while every data column, the relationship label included, sorts from its header`,
   );
   await assertAccessible(page, "s5-volume-relations-panel");
 
@@ -464,16 +464,16 @@ try {
         { attributeTypeKey: "sort-order", value: 10 - index },
       ],
     });
-  const published = await api(`/workspaces/default/drafts`, { name: "S4R3 publication", source: "currentLive" });
-  const revision = await api(`/workspace-drafts/${published.id}/activation`, {
-    expectedDraftVersion: published.version,
-    expectedActiveRevisionId: null,
+  const published = await api(`/workspaces/default/change-sets`, { name: "S4R3 publication", source: "currentLive" });
+  const publication = await api(`/change-sets/${published.id}/publication`, {
+    expectedChangeSetVersion: published.version,
+    expectedActivePublicationId: null,
   });
-  const sortDraft = await api(`/workspaces/default/drafts`, { name: "S4R3 draft", source: "currentLive" });
+  const sortChangeSet = await api(`/workspaces/default/change-sets`, { name: "S4R3 change set", source: "currentLive" });
   const sortContexts = [
     ["live", ""],
-    ["draft", `&workspaceDraftId=${sortDraft.id}`],
-    ["history", `&workspaceRevisionId=${revision.id}`],
+    ["changeSet", `&changeSetId=${sortChangeSet.id}`],
+    ["history", `&publicationId=${publication.id}`],
   ];
   const listedSort = (response) => {
     const url = new URL(response.url());
@@ -562,7 +562,7 @@ try {
     if (context === "live") await page.screenshot({ path: resolve(harness.output, "s4r3-lens-1440.png") });
   }
   checks.push(
-    "starter live/draft/history: for a domain and a codelist, the relation panel sorts by its declared default, by value code both ways and by the never-flagged value name from the header by keyboard, the record panel from its header, and the master-values lens from its header and, for a declared field without a column, from the toolbar sort menu; aria-sort and the announcement follow; no labelled sort control remains and the relation toolbar's search and Add relationship align",
+    "starter live/change set/history: for a domain and a codelist, the relation panel sorts by its declared default, by value code both ways and by the never-flagged value name from the header by keyboard, the record panel from its header, and the master-values lens from its header and, for a declared field without a column, from the toolbar sort menu; aria-sort and the announcement follow; no labelled sort control remains and the relation toolbar's search and Add relationship align",
   );
 
   // 390px: mapping lens and picker at phone width.

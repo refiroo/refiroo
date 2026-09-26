@@ -114,10 +114,10 @@ class Workspace(Base):
     key: Mapped[str] = mapped_column(String(160), primary_key=True)
     label: Mapped[str] = mapped_column(String(300))
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="active", index=True)
-    active_revision_id: Mapped[str | None] = mapped_column(
+    active_publication_id: Mapped[str | None] = mapped_column(
         ForeignKey(
-            "workspace_revisions.id",
-            name="fk_workspaces_active_revision_id_workspace_revisions",
+            "publications.id",
+            name="fk_workspaces_active_publication_id_publications",
             ondelete="RESTRICT",
             use_alter=True,
         ),
@@ -355,11 +355,11 @@ class RdmObject(Base):
     )
 
 
-class WorkspaceRevision(Base):
-    __tablename__ = "workspace_revisions"
+class Publication(Base):
+    __tablename__ = "publications"
     __table_args__ = (
-        UniqueConstraint("workspace_key", "revision_number", name="uq_workspace_revision_number"),
-        CheckConstraint("status IN ('active', 'retired')", name="ck_workspace_revision_status"),
+        UniqueConstraint("workspace_key", "publication_number", name="uq_publication_number"),
+        CheckConstraint("status IN ('active', 'withdrawn')", name="ck_publication_status"),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -372,25 +372,25 @@ class WorkspaceRevision(Base):
     model_release_id: Mapped[int] = mapped_column(
         ForeignKey("model_releases.id", ondelete="RESTRICT"), nullable=False, index=True
     )
-    revision_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    publication_number: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, index=True)
-    derived_from_revision_id: Mapped[str | None] = mapped_column(
-        ForeignKey("workspace_revisions.id", ondelete="RESTRICT"), nullable=True, index=True
+    derived_from_publication_id: Mapped[str | None] = mapped_column(
+        ForeignKey("publications.id", ondelete="RESTRICT"), nullable=True, index=True
     )
-    supersedes_revision_id: Mapped[str | None] = mapped_column(
-        ForeignKey("workspace_revisions.id", ondelete="RESTRICT"), nullable=True, index=True
+    supersedes_publication_id: Mapped[str | None] = mapped_column(
+        ForeignKey("publications.id", ondelete="RESTRICT"), nullable=True, index=True
     )
     created_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
-    activated_at: Mapped[datetime] = mapped_column(
+    published_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
-    retired_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    withdrawn_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
 
 
-class WorkspaceDraft(Base):
-    __tablename__ = "workspace_drafts"
+class ChangeSet(Base):
+    __tablename__ = "change_sets"
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     id: Mapped[str] = mapped_column(
@@ -402,13 +402,13 @@ class WorkspaceDraft(Base):
     model_release_id: Mapped[int] = mapped_column(
         ForeignKey("model_releases.id", ondelete="RESTRICT"), nullable=False, index=True
     )
-    derived_from_revision_id: Mapped[str | None] = mapped_column(
-        ForeignKey("workspace_revisions.id", ondelete="RESTRICT"), nullable=True, index=True
+    derived_from_publication_id: Mapped[str | None] = mapped_column(
+        ForeignKey("publications.id", ondelete="RESTRICT"), nullable=True, index=True
     )
-    # A current-live base is deliberately not a publication revision.  Legacy drafts retain a
-    # null base id and continue to resolve their original empty/revision source.
+    # A current-live base is deliberately not a publication.  Legacy change sets retain a
+    # null base id and continue to resolve their original empty/publication source.
     base_id: Mapped[str | None] = mapped_column(
-        ForeignKey("workspace_draft_bases.id", ondelete="RESTRICT"), nullable=True, index=True
+        ForeignKey("change_set_bases.id", ondelete="RESTRICT"), nullable=True, index=True
     )
     name: Mapped[str | None] = mapped_column(String(300), nullable=True)
     version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
@@ -477,21 +477,21 @@ class ObjectRelation(Base):
     )
 
 
-class WorkspaceRevisionObject(Base):
-    __tablename__ = "workspace_revision_objects"
+class PublicationObject(Base):
+    __tablename__ = "publication_objects"
     __table_args__ = (
-        UniqueConstraint("revision_id", "object_id", name="uq_workspace_revision_object"),
+        UniqueConstraint("publication_id", "object_id", name="uq_publication_object"),
         # Ordered history pages by type and by parent (Base 0.8 S2).
         Index(
-            "ix_workspace_revision_objects_type_name",
-            "revision_id",
+            "ix_publication_objects_type_name",
+            "publication_id",
             "object_type_key",
             "name",
             "object_id",
         ),
         Index(
-            "ix_workspace_revision_objects_parent_name",
-            "revision_id",
+            "ix_publication_objects_parent_name",
+            "publication_id",
             "parent_object_id",
             "object_type_key",
             "name",
@@ -500,8 +500,8 @@ class WorkspaceRevisionObject(Base):
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    revision_id: Mapped[str] = mapped_column(
-        ForeignKey("workspace_revisions.id", ondelete="CASCADE"), nullable=False, index=True
+    publication_id: Mapped[str] = mapped_column(
+        ForeignKey("publications.id", ondelete="CASCADE"), nullable=False, index=True
     )
     object_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     application_key: Mapped[str] = mapped_column(String(160))
@@ -512,23 +512,23 @@ class WorkspaceRevisionObject(Base):
     version: Mapped[int] = mapped_column(Integer, default=1)
 
 
-class WorkspaceRevisionRelation(Base):
-    __tablename__ = "workspace_revision_relations"
+class PublicationRelation(Base):
+    __tablename__ = "publication_relations"
     __table_args__ = (
-        UniqueConstraint("revision_id", "relation_id", name="uq_workspace_revision_relation"),
+        UniqueConstraint("publication_id", "relation_id", name="uq_publication_relation"),
         # Relation pages read one record's relations inside one owner (migrations 20260925_02,
         # 20260926_01); they cover the type filter and the related end, so listing reads the index.
         Index(
-            "ix_workspace_revision_relations_from",
-            "revision_id",
+            "ix_publication_relations_from",
+            "publication_id",
             "from_object_id",
             "relation_type_key",
             "relation_id",
             "to_object_id",
         ),
         Index(
-            "ix_workspace_revision_relations_to",
-            "revision_id",
+            "ix_publication_relations_to",
+            "publication_id",
             "to_object_id",
             "relation_type_key",
             "relation_id",
@@ -537,8 +537,8 @@ class WorkspaceRevisionRelation(Base):
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    revision_id: Mapped[str] = mapped_column(
-        ForeignKey("workspace_revisions.id", ondelete="CASCADE"), nullable=False, index=True
+    publication_id: Mapped[str] = mapped_column(
+        ForeignKey("publications.id", ondelete="CASCADE"), nullable=False, index=True
     )
     relation_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     relation_type_key: Mapped[str] = mapped_column(String(160), index=True)
@@ -548,10 +548,10 @@ class WorkspaceRevisionRelation(Base):
     version: Mapped[int] = mapped_column(Integer, default=1)
 
 
-class WorkspaceDraftBase(Base):
-    """Private immutable current-live source captured for one mutable draft."""
+class ChangeSetBase(Base):
+    """Private immutable current-live source captured for one mutable change set."""
 
-    __tablename__ = "workspace_draft_bases"
+    __tablename__ = "change_set_bases"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     workspace_key: Mapped[str] = mapped_column(
@@ -566,20 +566,20 @@ class WorkspaceDraftBase(Base):
     )
 
 
-class WorkspaceDraftBaseObject(Base):
-    __tablename__ = "workspace_draft_base_objects"
+class ChangeSetBaseObject(Base):
+    __tablename__ = "change_set_base_objects"
     __table_args__ = (
-        UniqueConstraint("base_id", "object_id", name="uq_workspace_draft_base_object"),
-        # Ordered draft pages by type and by parent (Base 0.8 S2).
+        UniqueConstraint("base_id", "object_id", name="uq_change_set_base_object"),
+        # Ordered change set pages by type and by parent (Base 0.8 S2).
         Index(
-            "ix_workspace_draft_base_objects_type_name",
+            "ix_change_set_base_objects_type_name",
             "base_id",
             "object_type_key",
             "name",
             "object_id",
         ),
         Index(
-            "ix_workspace_draft_base_objects_parent_name",
+            "ix_change_set_base_objects_parent_name",
             "base_id",
             "parent_object_id",
             "object_type_key",
@@ -590,7 +590,7 @@ class WorkspaceDraftBaseObject(Base):
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     base_id: Mapped[str] = mapped_column(
-        ForeignKey("workspace_draft_bases.id", ondelete="CASCADE"), nullable=False, index=True
+        ForeignKey("change_set_bases.id", ondelete="CASCADE"), nullable=False, index=True
     )
     object_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     application_key: Mapped[str] = mapped_column(String(160))
@@ -601,14 +601,14 @@ class WorkspaceDraftBaseObject(Base):
     version: Mapped[int] = mapped_column(Integer, default=1)
 
 
-class WorkspaceDraftBaseRelation(Base):
-    __tablename__ = "workspace_draft_base_relations"
+class ChangeSetBaseRelation(Base):
+    __tablename__ = "change_set_base_relations"
     __table_args__ = (
-        UniqueConstraint("base_id", "relation_id", name="uq_workspace_draft_base_relation"),
+        UniqueConstraint("base_id", "relation_id", name="uq_change_set_base_relation"),
         # Relation pages read one record's relations inside one owner (migrations 20260925_02,
         # 20260926_01); they cover the type filter and the related end, so listing reads the index.
         Index(
-            "ix_workspace_draft_base_relations_from",
+            "ix_change_set_base_relations_from",
             "base_id",
             "from_object_id",
             "relation_type_key",
@@ -616,7 +616,7 @@ class WorkspaceDraftBaseRelation(Base):
             "to_object_id",
         ),
         Index(
-            "ix_workspace_draft_base_relations_to",
+            "ix_change_set_base_relations_to",
             "base_id",
             "to_object_id",
             "relation_type_key",
@@ -627,7 +627,7 @@ class WorkspaceDraftBaseRelation(Base):
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     base_id: Mapped[str] = mapped_column(
-        ForeignKey("workspace_draft_bases.id", ondelete="CASCADE"), nullable=False, index=True
+        ForeignKey("change_set_bases.id", ondelete="CASCADE"), nullable=False, index=True
     )
     relation_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     relation_type_key: Mapped[str] = mapped_column(String(160), index=True)
@@ -637,13 +637,13 @@ class WorkspaceDraftBaseRelation(Base):
     version: Mapped[int] = mapped_column(Integer, default=1)
 
 
-class WorkspaceDraftObject(Base):
-    __tablename__ = "workspace_draft_objects"
-    __table_args__ = (UniqueConstraint("draft_id", "object_id", name="uq_workspace_draft_object"),)
+class ChangeSetObject(Base):
+    __tablename__ = "change_set_objects"
+    __table_args__ = (UniqueConstraint("change_set_id", "object_id", name="uq_change_set_object"),)
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    draft_id: Mapped[str] = mapped_column(
-        ForeignKey("workspace_drafts.id", ondelete="CASCADE"), nullable=False, index=True
+    change_set_id: Mapped[str] = mapped_column(
+        ForeignKey("change_sets.id", ondelete="CASCADE"), nullable=False, index=True
     )
     object_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     application_key: Mapped[str] = mapped_column(String(160))
@@ -655,23 +655,23 @@ class WorkspaceDraftObject(Base):
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
 
 
-class WorkspaceDraftRelation(Base):
-    __tablename__ = "workspace_draft_relations"
+class ChangeSetRelation(Base):
+    __tablename__ = "change_set_relations"
     __table_args__ = (
-        UniqueConstraint("draft_id", "relation_id", name="uq_workspace_draft_relation"),
+        UniqueConstraint("change_set_id", "relation_id", name="uq_change_set_relation"),
         # Relation pages read one record's relations inside one owner (migrations 20260925_02,
         # 20260926_01); they cover the type filter and the related end, so listing reads the index.
         Index(
-            "ix_workspace_draft_relations_from",
-            "draft_id",
+            "ix_change_set_relations_from",
+            "change_set_id",
             "from_object_id",
             "relation_type_key",
             "relation_id",
             "to_object_id",
         ),
         Index(
-            "ix_workspace_draft_relations_to",
-            "draft_id",
+            "ix_change_set_relations_to",
+            "change_set_id",
             "to_object_id",
             "relation_type_key",
             "relation_id",
@@ -680,8 +680,8 @@ class WorkspaceDraftRelation(Base):
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    draft_id: Mapped[str] = mapped_column(
-        ForeignKey("workspace_drafts.id", ondelete="CASCADE"), nullable=False, index=True
+    change_set_id: Mapped[str] = mapped_column(
+        ForeignKey("change_sets.id", ondelete="CASCADE"), nullable=False, index=True
     )
     relation_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     relation_type_key: Mapped[str] = mapped_column(String(160), index=True)
@@ -693,10 +693,10 @@ class WorkspaceDraftRelation(Base):
 
 
 class SnapshotAttributeValue(Base):
-    """Typed index of one attribute value held as JSON by a revision, draft-base or draft row.
+    """Typed index of one attribute value held as JSON by a publication, change-set base or change set row.
 
-    ``owner_id`` is the revision, draft base or draft that owns the object row, so one query
-    builder can filter and sort draft and history reads exactly as live ``attribute_values`` rows.
+    ``owner_id`` is the publication, change set base or change set that owns the object row, so one query
+    builder can filter and sort change set and history reads exactly as live ``attribute_values`` rows.
     The JSON ``attributes`` column stays the source of truth; these rows are derived from it by
     ``services/snapshot_values.py`` whenever the owning row is written (D1, Base 0.8 S2).
     """
@@ -707,10 +707,10 @@ class SnapshotAttributeValue(Base):
             "owner_id", "object_id", "attribute_type_key", name="uq_snapshot_attribute_value"
         ),
         CheckConstraint(
-            "owner_kind IN ('revision', 'base', 'draft')", name="ck_snapshot_attribute_owner_kind"
+            "owner_kind IN ('publication', 'base', 'change_set')", name="ck_snapshot_attribute_owner_kind"
         ),
         Index("ix_snapshot_attribute_values_owner_key", "owner_id", "attribute_type_key"),
-        # A draft write's unique-value check seeks to the value (S2b, 20260926_02).
+        # A change set write's unique-value check seeks to the value (S2b, 20260926_02).
         Index(
             "ix_snapshot_attribute_values_owner_key_text",
             "owner_id",
@@ -721,7 +721,7 @@ class SnapshotAttributeValue(Base):
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    owner_kind: Mapped[str] = mapped_column(String(10), nullable=False)
+    owner_kind: Mapped[str] = mapped_column(String(20), nullable=False)
     owner_id: Mapped[str] = mapped_column(String(36), nullable=False)
     object_id: Mapped[str] = mapped_column(String(36), nullable=False)
     attribute_type_key: Mapped[str] = mapped_column(String(160), nullable=False)
@@ -740,7 +740,7 @@ class RelationSetVersion(Base):
     __table_args__ = (
         UniqueConstraint(
             "workspace_key",
-            "workspace_draft_id",
+            "change_set_id",
             "relation_type_key",
             "from_object_type_key",
             "to_object_type_key",
@@ -758,8 +758,8 @@ class RelationSetVersion(Base):
             "anchor_object_id",
             "direction",
             unique=True,
-            sqlite_where=text("workspace_draft_id IS NULL"),
-            postgresql_where=text("workspace_draft_id IS NULL"),
+            sqlite_where=text("change_set_id IS NULL"),
+            postgresql_where=text("change_set_id IS NULL"),
         ),
     )
 
@@ -767,8 +767,8 @@ class RelationSetVersion(Base):
     workspace_key: Mapped[str] = mapped_column(
         ForeignKey("workspaces.key", ondelete="CASCADE"), nullable=False, index=True
     )
-    workspace_draft_id: Mapped[str | None] = mapped_column(
-        ForeignKey("workspace_drafts.id", ondelete="CASCADE"), nullable=True, index=True
+    change_set_id: Mapped[str | None] = mapped_column(
+        ForeignKey("change_sets.id", ondelete="CASCADE"), nullable=True, index=True
     )
     relation_type_key: Mapped[str] = mapped_column(String(160), nullable=False)
     from_object_type_key: Mapped[str] = mapped_column(String(160), nullable=False)
@@ -794,7 +794,7 @@ class AuditEvent(Base):
     event_id: Mapped[str] = mapped_column(String(36), unique=True, default=lambda: str(uuid4()))
     aggregate_type: Mapped[str] = mapped_column(String(40), index=True)
     # Wide enough to hold the longest legal Workspace.key (String(160)) for the workspace-scoped
-    # lifecycle aggregate (publication retirement aggregates on the real workspace key).
+    # lifecycle aggregate (publication withdrawal aggregates on the real workspace key).
     aggregate_id: Mapped[str] = mapped_column(String(255), index=True)
     action: Mapped[str] = mapped_column(String(80), index=True)
     version: Mapped[int] = mapped_column(Integer)

@@ -1,10 +1,10 @@
 from uuid import uuid4
 
-from test_api import DraftTestClient
+from test_api import ChangeSetTestClient
 
 from app.main import app
 
-TestClient = DraftTestClient
+TestClient = ChangeSetTestClient
 
 
 def _attr(key: str, value):

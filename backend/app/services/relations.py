@@ -330,7 +330,7 @@ def create_live_relation(
     increment_set_versions(
         session,
         workspace_key=from_object.workspace_key,
-        workspace_draft_id=None,
+        change_set_id=None,
         relation_type_key=payload.relationTypeKey,
         from_object_type_key=from_object.object_type_key,
         to_object_type_key=to_object.object_type_key,
@@ -378,7 +378,7 @@ def update_live_relation(
     increment_set_versions(
         session,
         workspace_key=from_object.workspace_key,
-        workspace_draft_id=None,
+        change_set_id=None,
         relation_type_key=relation.relation_type_key,
         from_object_type_key=from_object.object_type_key,
         to_object_type_key=to_object.object_type_key,
@@ -425,7 +425,7 @@ def delete_live_relation(
     increment_set_versions(
         session,
         workspace_key=from_object.workspace_key,
-        workspace_draft_id=None,
+        change_set_id=None,
         relation_type_key=relation.relation_type_key,
         from_object_type_key=from_object.object_type_key,
         to_object_type_key=to_object.object_type_key,

@@ -33,8 +33,8 @@ export function RelationsPanel({
   readOnly?: boolean;
 }) {
   const api = useDataApi();
-  const { draft, revision } = useWorkspaceData();
-  const live = !draft && !revision;
+  const { changeSet, publication } = useWorkspaceData();
+  const live = !changeSet && !publication;
   const [searchInput, setSearchInput] = useState("");
   const search = useDebouncedValue(searchInput.trim());
   // Every data column sorts, as does the relationship label; the panel may add fields to the Sort
@@ -160,7 +160,7 @@ export function RelationsPanel({
       reload();
     } catch (cause) {
       setRemoveError(errorMessage(cause));
-      if (isApiError(cause, "version_conflict") || isApiError(cause, "workspace_draft_version_conflict")) {
+      if (isApiError(cause, "version_conflict") || isApiError(cause, "change_set_version_conflict")) {
         try {
           const fresh = await api.relation(removing.relation.id, object.workspaceKey);
           setRemoving({ ...removing, relation: fresh });

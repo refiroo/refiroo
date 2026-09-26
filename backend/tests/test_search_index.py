@@ -3,7 +3,7 @@
 A search of three or more characters narrows its value look-up to the records the trigram index
 names (D25). The index only decides which records are looked up: the match stays the "contains"
 ``LIKE`` it was, in every context, so a search answers the same through the index, through the
-per-record look-up it falls back to for common phrases, and in live, draft and history reads.
+per-record look-up it falls back to for common phrases, and in live, change-set and publication reads.
 
 ``20260926_03`` builds the indexes. Triggers on the value tables keep them equal to the values on
 every write; FTS5's ``integrity-check`` compares each index with its table.
@@ -21,9 +21,9 @@ from sqlalchemy.dialects import postgresql, sqlite
 from test_context_read_parity import (
     ENTRY,
     WORKSPACE,
+    _change_set,
+    _change_set_version,
     _create,
-    _draft,
-    _draft_version,
     _ok,
     _seed,
     _walk,
@@ -31,11 +31,11 @@ from test_context_read_parity import (
 from test_snapshot_value_migration import _app, _config, _version
 
 from app.db import get_engine
-from app.models.database import Base, RdmObject, WorkspaceDraftBaseObject
+from app.models.database import Base, ChangeSetBaseObject, RdmObject
 from app.models.search_index import SEARCH_INDEXES, match_phrase
 from app.services import objects, snapshot_reads
 
-PRECEDING, HEAD = "20260926_02", "20260926_03"
+PRECEDING, HEAD = "20260926_02", "20260926_04"
 # The parity model's app over a migrated database.
 client = test_context_read_parity.client
 SEARCHES = ("note", "50%", "d_4", "t_s", '"quoted"', "Ünal", "STRAßE", "naïve", "F-", "-10", "zzz")
@@ -103,7 +103,7 @@ def test_search_answers_the_same_through_the_index_in_every_context(client, monk
         assert _ids(client, context, "ünal") == [], name
 
 
-def test_draft_search_counts_a_draft_match_and_not_a_hidden_base_match(client):
+def test_change_set_search_counts_a_change_set_match_and_not_a_hidden_base_match(client):
     live = {"workspaceKey": WORKSPACE}
     folder = _create(client, "par-folder", "Holder", None, {"par-code": "H-0"}, **live)
     renamed, recoded, gained, deleted = (
@@ -115,8 +115,8 @@ def test_draft_search_counts_a_draft_match_and_not_a_hidden_base_match(client):
             ("Needle four", "N-4"),
         )
     )
-    draft = _draft(client, source="currentLive")["id"]
-    context = {"workspaceDraftId": draft}
+    change_set = _change_set(client, source="currentLive")["id"]
+    context = {"changeSetId": change_set}
 
     def patch(record: dict, body: dict) -> None:
         current = _ok(client.get(f"/api/v1/objects/{ENTRY}/{record['id']}", params=context))
@@ -126,8 +126,8 @@ def test_draft_search_counts_a_draft_match_and_not_a_hidden_base_match(client):
                 json={
                     **body,
                     "expectedVersion": current["version"],
-                    "workspaceDraftId": draft,
-                    "expectedWorkspaceDraftVersion": _draft_version(client, draft),
+                    "changeSetId": change_set,
+                    "expectedChangeSetVersion": _change_set_version(client, change_set),
                 },
             )
         )
@@ -140,16 +140,16 @@ def test_draft_search_counts_a_draft_match_and_not_a_hidden_base_match(client):
         client.delete(
             f"/api/v1/objects/{ENTRY}/{deleted['id']}",
             params={
-                "workspaceDraftId": draft,
+                "changeSetId": change_set,
                 "expectedVersion": current["version"],
-                "expectedWorkspaceDraftVersion": _draft_version(client, draft),
+                "expectedChangeSetVersion": _change_set_version(client, change_set),
             },
         ),
         204,
     )
     added = _create(
         client, ENTRY, "Needle five", folder["id"], {"par-code": "A-5"},
-        workspaceDraftId=draft, expectedWorkspaceDraftVersion=_draft_version(client, draft),
+        changeSetId=change_set, expectedChangeSetVersion=_change_set_version(client, change_set),
     )
 
     assert set(_ids(client, live, "needle")) == {
@@ -172,8 +172,8 @@ def test_draft_search_counts_a_draft_match_and_not_a_hidden_base_match(client):
 
 
 def test_every_write_path_keeps_the_indexes_equal_to_the_values(client):
-    # Live creates, updates and deletes; draft writes, tombstones and a draft-only record; a
-    # publication copying live data into a revision; drafts on both base kinds.
+    # Live creates, updates and deletes; change-set writes, tombstones and a change-set-only record;
+    # publishing, which copies live data into a publication; change sets on both base kinds.
     seeded = _seed(client)
     # A live value changed in place, and one removed.
     live = seeded["contexts"]["live"]
@@ -200,12 +200,12 @@ def test_every_write_path_keeps_the_indexes_equal_to_the_values(client):
     assert _ids(client, live, "b-2") == []
     with get_engine().connect() as connection:
         _check_indexes(connection)
-    # Discarding a draft deletes its rows and its base's in bulk.
+    # Discarding a change set deletes its rows and its base's in bulk.
     overlay = seeded["overlay"]
     _ok(
         client.delete(
-            f"/api/v1/workspace-drafts/{overlay}",
-            params={"expectedVersion": _draft_version(client, overlay)},
+            f"/api/v1/change-sets/{overlay}",
+            params={"expectedVersion": _change_set_version(client, overlay)},
         ),
         204,
     )
@@ -311,13 +311,13 @@ def test_upgrade_completes_after_an_interrupted_run(downgraded_database, monkeyp
 
 
 def _search_guards() -> list:
-    """The index guard of a live search and of a draft search over its base's rows."""
+    """The index guard of a live search and of a change set search over its base's rows."""
     context = snapshot_reads.SnapshotContext(
-        "draft",
-        "draft-id",
+        "change_set",
+        "change-set-id",
         WORKSPACE,
         None,
-        snapshot_reads.SnapshotBase(WorkspaceDraftBaseObject, None, "base_id", "base-id"),
+        snapshot_reads.SnapshotBase(ChangeSetBaseObject, None, "base_id", "base-id"),
     )
     projection = snapshot_reads.object_projection(context, object_type_key=ENTRY)
     snapshot = snapshot_reads._value_candidates(projection, context)(match_phrase("note"), ["n"])

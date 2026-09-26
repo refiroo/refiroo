@@ -210,17 +210,17 @@
   .release-metadata {
     grid-template-columns: 1fr;
   }
-  .draft-card,
-  .draft-publication-heading,
-  .draft-workflow-step {
+  .change-set-card,
+  .change-set-publication-heading,
+  .change-set-workflow-step {
     align-items: stretch;
     flex-direction: column;
     gap: 10px;
   }
-  .draft-card-actions {
+  .change-set-card-actions {
     justify-content: space-between;
   }
-  .draft-workflow-step > span {
+  .change-set-workflow-step > span {
     display: none;
   }
 }

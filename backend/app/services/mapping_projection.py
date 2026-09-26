@@ -1,4 +1,4 @@
-"""SQL projections of effective draft membership for bounded mapping queries."""
+"""SQL projections of effective change set membership for bounded mapping queries."""
 
 from sqlalchemy import Select, literal, select, union_all
 from sqlalchemy.orm import Session
@@ -6,51 +6,51 @@ from sqlalchemy.sql.selectable import Subquery
 
 from ..errors import api_error
 from ..models.database import (
-    WorkspaceDraft,
-    WorkspaceDraftBase,
-    WorkspaceDraftBaseObject,
-    WorkspaceDraftBaseRelation,
-    WorkspaceDraftObject,
-    WorkspaceDraftRelation,
-    WorkspaceRevision,
-    WorkspaceRevisionObject,
-    WorkspaceRevisionRelation,
+    ChangeSet,
+    ChangeSetBase,
+    ChangeSetBaseObject,
+    ChangeSetBaseRelation,
+    ChangeSetObject,
+    ChangeSetRelation,
+    Publication,
+    PublicationObject,
+    PublicationRelation,
 )
 
 
-def draft_mapping_projection(session: Session, draft_id: str) -> tuple[Subquery, Subquery]:
-    draft = session.scalar(select(WorkspaceDraft).where(WorkspaceDraft.id == draft_id))
-    if draft is None:
-        raise api_error(404, "workspace_draft_not_found", "Workspace draft not found")
-    if draft.base_id:
-        base = session.get(WorkspaceDraftBase, draft.base_id)
-        if base is None or base.workspace_key != draft.workspace_key:
+def change_set_mapping_projection(session: Session, change_set_id: str) -> tuple[Subquery, Subquery]:
+    change_set = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
+    if change_set is None:
+        raise api_error(404, "change_set_not_found", "Change set not found")
+    if change_set.base_id:
+        base = session.get(ChangeSetBase, change_set.base_id)
+        if base is None or base.workspace_key != change_set.workspace_key:
             raise api_error(
                 409,
-                "workspace_draft_base_invalid",
-                "Draft base is missing or belongs to another workspace",
+                "change_set_base_invalid",
+                "Change set base is missing or belongs to another workspace",
             )
-        object_base, relation_base = WorkspaceDraftBaseObject, WorkspaceDraftBaseRelation
-        base_filter = object_base.base_id == draft.base_id
-        relation_filter = relation_base.base_id == draft.base_id
-    elif draft.derived_from_revision_id:
-        revision = session.scalar(
-            select(WorkspaceRevision).where(WorkspaceRevision.id == draft.derived_from_revision_id)
+        object_base, relation_base = ChangeSetBaseObject, ChangeSetBaseRelation
+        base_filter = object_base.base_id == change_set.base_id
+        relation_filter = relation_base.base_id == change_set.base_id
+    elif change_set.derived_from_publication_id:
+        publication = session.scalar(
+            select(Publication).where(Publication.id == change_set.derived_from_publication_id)
         )
-        if revision is None or revision.workspace_key != draft.workspace_key:
+        if publication is None or publication.workspace_key != change_set.workspace_key:
             raise api_error(
                 409,
-                "workspace_draft_base_invalid",
-                "Draft base revision is missing or belongs to another workspace",
+                "change_set_base_invalid",
+                "Change set base publication is missing or belongs to another workspace",
             )
-        object_base, relation_base = WorkspaceRevisionObject, WorkspaceRevisionRelation
-        base_filter = object_base.revision_id == revision.id
-        relation_filter = relation_base.revision_id == revision.id
+        object_base, relation_base = PublicationObject, PublicationRelation
+        base_filter = object_base.publication_id == publication.id
+        relation_filter = relation_base.publication_id == publication.id
     else:
         raise api_error(
             409,
-            "workspace_draft_base_invalid",
-            "Draft has no immutable base; recreate the draft from live data",
+            "change_set_base_invalid",
+            "Change set has no immutable base; recreate the change set from live data",
         )
 
     def objects(entity) -> Select:
@@ -76,52 +76,52 @@ def draft_mapping_projection(session: Session, draft_id: str) -> tuple[Subquery,
 
     # Any overlay, including a tombstone, hides the base ID. Only non-deleted
     # overlays are added back. Both unions execute inside the mapping read snapshot.
-    object_overrides = select(WorkspaceDraftObject.object_id).where(
-        WorkspaceDraftObject.draft_id == draft_id
+    object_overrides = select(ChangeSetObject.object_id).where(
+        ChangeSetObject.change_set_id == change_set_id
     )
-    relation_overrides = select(WorkspaceDraftRelation.relation_id).where(
-        WorkspaceDraftRelation.draft_id == draft_id
+    relation_overrides = select(ChangeSetRelation.relation_id).where(
+        ChangeSetRelation.change_set_id == change_set_id
     )
     return (
         union_all(
             objects(object_base).where(base_filter, ~object_base.object_id.in_(object_overrides)),
-            objects(WorkspaceDraftObject).where(
-                WorkspaceDraftObject.draft_id == draft_id,
-                WorkspaceDraftObject.is_deleted.is_(False),
+            objects(ChangeSetObject).where(
+                ChangeSetObject.change_set_id == change_set_id,
+                ChangeSetObject.is_deleted.is_(False),
             ),
         ).subquery("mapping_objects"),
         union_all(
             relations(relation_base).where(
                 relation_filter, ~relation_base.relation_id.in_(relation_overrides)
             ),
-            relations(WorkspaceDraftRelation).where(
-                WorkspaceDraftRelation.draft_id == draft_id,
-                WorkspaceDraftRelation.is_deleted.is_(False),
+            relations(ChangeSetRelation).where(
+                ChangeSetRelation.change_set_id == change_set_id,
+                ChangeSetRelation.is_deleted.is_(False),
             ),
         ).subquery("mapping_relations"),
     )
 
 
-def revision_mapping_projection(session: Session, revision_id: str) -> tuple[Subquery, Subquery]:
-    """Project one immutable workspace revision into the shared mapping query shape."""
-    revision = session.scalar(select(WorkspaceRevision).where(WorkspaceRevision.id == revision_id))
-    if revision is None:
-        raise api_error(404, "workspace_revision_not_found", "Workspace revision not found")
+def publication_mapping_projection(session: Session, publication_id: str) -> tuple[Subquery, Subquery]:
+    """Project one immutable publication into the shared mapping query shape."""
+    publication = session.scalar(select(Publication).where(Publication.id == publication_id))
+    if publication is None:
+        raise api_error(404, "publication_not_found", "Publication not found")
     objects = select(
-        WorkspaceRevisionObject.object_id.label("id"),
-        WorkspaceRevisionObject.application_key,
-        WorkspaceRevisionObject.object_type_key,
-        WorkspaceRevisionObject.name,
-        WorkspaceRevisionObject.parent_object_id,
-        WorkspaceRevisionObject.attributes,
+        PublicationObject.object_id.label("id"),
+        PublicationObject.application_key,
+        PublicationObject.object_type_key,
+        PublicationObject.name,
+        PublicationObject.parent_object_id,
+        PublicationObject.attributes,
         literal(None).label("created_at"),
         literal(None).label("updated_at"),
-    ).where(WorkspaceRevisionObject.revision_id == revision_id)
+    ).where(PublicationObject.publication_id == publication_id)
     relations = select(
-        WorkspaceRevisionRelation.relation_id.label("id"),
-        WorkspaceRevisionRelation.relation_type_key,
-        WorkspaceRevisionRelation.from_object_id,
-        WorkspaceRevisionRelation.to_object_id,
-        WorkspaceRevisionRelation.attributes,
-    ).where(WorkspaceRevisionRelation.revision_id == revision_id)
+        PublicationRelation.relation_id.label("id"),
+        PublicationRelation.relation_type_key,
+        PublicationRelation.from_object_id,
+        PublicationRelation.to_object_id,
+        PublicationRelation.attributes,
+    ).where(PublicationRelation.publication_id == publication_id)
     return objects.subquery("mapping_objects"), relations.subquery("mapping_relations")

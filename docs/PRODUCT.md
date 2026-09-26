@@ -36,7 +36,7 @@ and supported task lenses; it does not reserve navigation or renderer branches f
 | --- | --- | --- |
 | Model-defined navigation, tables, search and record inspection | Browser available in every workspace, including record detail in a non-default workspace | F01–F04, US-D01–D05, US-D13 |
 | Live record, field, parent, relationship and basic translation maintenance | API and Base 0.6 browser authoring available; context limitations tracked in the functionality catalogue | F05–F11, US-D06–D14, US-L01–L02 |
-| Optional coordinated data changes | Current-live/history draft sources and delta merge available; mapping browser acceptance remains 0.7 work | F12–F14, US-W01–W08 |
+| Optional coordinated data changes | Current-live/history change set sources and delta merge available; mapping browser acceptance remains 0.7 work | F12–F14, US-W01–W08 |
 | Inspect, check, install and activate application definitions | JSON workbench and release APIs present; installation and activation are separate | F15, US-P01–P04, US-P06 |
 | Stable paged integration reads | Available; larger exchange and advanced query planned for 0.9 | F16, US-I01–I09 |
 | Contextual collections and specialist lenses | Unified application browser and mapping lens 0.7; translation and hierarchy lenses 0.8 | US-D01–D05, US-M01–M04, US-L03–L04, US-H01–H02 |
@@ -45,12 +45,12 @@ and supported task lenses; it does not reserve navigation or renderer branches f
 
 “API available” does not mean a complete browser task. Current top-level views support strict tables;
 a form used for record editing is not an implemented configurable top-level `form` view. Schema 0.6
-mapping-grid configuration, live/draft coverage, target-detail, candidate APIs (WP-4) and atomic
+mapping-grid configuration, live/change set coverage, target-detail, candidate APIs (WP-4) and atomic
 mapping replacement (WP-5) are delivered. WP-8A/WP-8B and WP-14 implement the contextual mapping
 lens and unified browser (committed 2026-09-15); composed story acceptance remains WP-9.
 Cascade deletions advance mapping
-tokens (WP-10A), and draft activation refuses divergent live sets touched by staged mutable relations
-(WP-10B), preserving the draft and all live content. Schema 0.6 table and mapping declarations are
+tokens (WP-10A), and publishing refuses divergent live sets touched by staged mutable relations
+(WP-10B), preserving the change set and all live content. Schema 0.6 table and mapping declarations are
 composed as lenses over their configured source object type; mapping keeps its dedicated semantics
 without multiplying primary navigation destinations. Trees and other specialist declarations require
 their own validated contract and renderer. Dashboards
@@ -61,16 +61,16 @@ records channel limitations; no browser acceptance is implied by the presence of
 
 - **Daily reference data:** adding or correcting a record, field, translation, parent or ordinary
   relationship is a direct live operation. Save validates the data, prevents silent overwrite and
-  records the change. It does not require a design draft or create a workspace revision.
-- **Coordinated data changes:** users may explicitly select a workspace design draft. Its changes stay
+  records the change. It does not require a change set or create a publication.
+- **Coordinated data changes:** users may explicitly select a workspace change set. Its changes stay
   separate until activation applies them together over current live data. Unrelated live changes
-  survive; conflicting or invalid changes publish nothing and preserve the draft and live content.
+  survive; conflicting or invalid changes publish nothing and preserve the change set and live content.
 - **Application definitions:** a model draft changes the allowed structures and rules. Installation
   produces an immutable release; activation separately selects it after compatibility checks. A data
-  draft is not a model editor, and replacing the bootstrap file is not an activation mechanism.
+  change set is not a model editor, and replacing the bootstrap file is not an activation mechanism.
 
 These rules apply to the specialist mapping, translation and hierarchy flows and to later bulk
-operations. Touching several records alone is not a reason to require a draft. Any additional mandatory
+operations. Touching several records alone is not a reason to require a change set. Any additional mandatory
 review step needs a stated user benefit or specific risk and an explicit product decision.
 
 ## Boundaries

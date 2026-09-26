@@ -34,27 +34,27 @@ different applications.
 - Reusable attribute, child, relation, table and hierarchy panels
 - Accessible confirmations, structured mutation errors and optimistic-concurrency recovery
 - Generic object, attribute, relation and translation CRUD as one contract; normal writes are live
-  and an explicitly selected workspace draft is optional; no per-record lifecycle
+  and an explicitly selected change set is optional; no per-record lifecycle
 - Live active data writes (ADR-026): the active workspace is live-writable for **data** —
-  record writes no longer require a workspace draft (`workspaceDraftId` optional; omitted → direct live
-  write, immediate and audited, no workspace revision). The model stays immutable on an active
-  workspace; drafts remain the design playground; activation delta-merges over live content
-- Complete browser journeys for live CRUD, optional drafts, newest-first immutable history, historical
-  draft sources, truthful publication retirement and conflict reconciliation (WP9)
+  record writes no longer require a change set (`changeSetId` optional; omitted → direct live
+  write, immediate and audited, no publication). The model stays immutable on an active
+  workspace; change sets remain the design playground; publishing delta-merges over live content
+- Complete browser journeys for live CRUD, optional change sets, newest-first immutable history, historical
+  change set sources, truthful publication withdrawal and conflict reconciliation (WP9)
 - Composed release validation with real-browser and backend evidence (WP10)
 - Frontend redesign (UI-01–UI-06): compact navigation, focused collections, record inspector, inline
-  field editing, resizable panels, display preferences and refined draft presentation
+  field editing, resizable panels, display preferences and refined change set presentation
 - Cross-application relationship lookup with server-side search and cursor pagination
 - Optional Domain/Codelist-to-System Value representations that preserve the separate system hierarchy
 - Translation CRUD with generic Domain, Codelist and Master Value targets, atomic required bindings,
   and active Language-scoped uniqueness
 - A global model workbench for installed-release inspection and export, plus capability-gated JSON
   draft validation, comparison, installation and activation
-- Schema 0.6 `mappingGrid` views: live and draft mapping coverage, candidate search, version-bound
+- Schema 0.6 `mappingGrid` views: live and change set mapping coverage, candidate search, version-bound
   target details and atomic mapping replacement with relation-set concurrency (ADR-022)
 - One contextual application browser with table and mapping lenses, direct-parent scope, typed facets
   and mapping coverage filters (ADR-029)
-- Workspace drafts on a chosen model release, so one draft can prepare a new release while live data
+- Change sets on a chosen model release, so one draft can prepare a new release while live data
   stays on the active one (ADR-028)
 - Release technical details and earlier-release → selected-release semantic comparison
 - Dark mode, automated accessibility (axe) and visual-regression gates
@@ -62,8 +62,8 @@ different applications.
 
 Base 0.5 supplies the bounded query and model-lifecycle foundations. Base 0.6 delivers daily live
 operations and optional coordinated design. Base 0.7 adds core mapping: a steward resolves unmapped,
-differently mapped and ambiguous rows in a configured mapping lens, live or in a draft, with conflicts
-reported rather than overwritten; and prepares a schema change in a draft pinned to a candidate release
+differently mapped and ambiguous rows in a configured mapping lens, live or in a change set, with conflicts
+reported rather than overwritten; and prepares a schema change in a change set pinned to a candidate release
 while live work continues. See the [mapping API contract](docs/API.md#product-07-mapping-api-wp-4-and-wp-5-delivered)
 and the [0.7 plan](docs/BASE_0_7_IMPLEMENTATION_PLAN.md). Scalable browsing, translation and hierarchy
 interactions follow in 0.8.

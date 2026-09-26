@@ -80,7 +80,7 @@ describe("InlineAttributeEditor", () => {
     fireEvent.keyDown(screen.getByLabelText("Value"), { key: "Escape" });
     expect(onClose).toHaveBeenCalledOnce();
   });
-  it.each(["version_conflict", "workspace_draft_version_conflict"])(
+  it.each(["version_conflict", "change_set_version_conflict"])(
     "blocks retry until current content reloads after %s",
     async (code) => {
       vi.mocked(api.createAttribute).mockRejectedValueOnce(new ApiError(409, code, "Review the latest value"));

@@ -1,12 +1,12 @@
-"""Base 0.8 S2: live, draft and history reads answer the same query with the same rows.
+"""Base 0.8 S2: live, change set and history reads answer the same query with the same rows.
 
-Draft and history reads run in SQL over base-plus-overlay projections with a typed value index,
+Change set and history reads run in SQL over base-plus-overlay projections with a typed value index,
 through the same query builder as live reads. When the three contexts hold the same data, every
 search, typed filter and sort must return the same records in the same order, page by page.
 
-The generated model uses its own keys and one field of every queryable value type. The draft holds
+The generated model uses its own keys and one field of every queryable value type. The change set holds
 the same data as live through a mix of base rows, identical overlay rows and tombstones, so each arm
-of the draft projection is exercised.
+of the change set projection is exercised.
 """
 
 import base64
@@ -23,10 +23,10 @@ from app.config import cursor_signing_key, reload_settings
 from app.db import get_engine
 from app.main import create_app
 from app.models.database import (
+    ChangeSetBaseObject,
+    ChangeSetObject,
+    PublicationObject,
     SnapshotAttributeValue,
-    WorkspaceDraftBaseObject,
-    WorkspaceDraftObject,
-    WorkspaceRevisionObject,
 )
 from app.services.model.registry import model_registry
 from app.services.snapshot_values import value_rows
@@ -206,12 +206,12 @@ def _create(client, object_type: str, name: str, parent: str | None, values, **c
     )
 
 
-def _draft(client, **body) -> dict[str, Any]:
-    return _ok(client.post(f"/api/v1/workspaces/{WORKSPACE}/drafts", json=body), 201)
+def _change_set(client, **body) -> dict[str, Any]:
+    return _ok(client.post(f"/api/v1/workspaces/{WORKSPACE}/change-sets", json=body), 201)
 
 
-def _draft_version(client, draft_id: str) -> int:
-    return _ok(client.get(f"/api/v1/workspace-drafts/{draft_id}"))["version"]
+def _change_set_version(client, change_set_id: str) -> int:
+    return _ok(client.get(f"/api/v1/change-sets/{change_set_id}"))["version"]
 
 
 def _walk(client, path: str, params: dict[str, Any]) -> list[dict[str, Any]]:
@@ -230,7 +230,7 @@ def _values(item: dict[str, Any]) -> dict[str, Any]:
 
 
 def _seed(client) -> dict[str, Any]:
-    """Live data; a draft that reaches the same data through overlays; a revision of it."""
+    """Live data; a change set that reaches the same data through overlays; a publication of it."""
     live = {"workspaceKey": WORKSPACE}
     folders = [
         _create(client, FOLDER, name, None, {"par-code": code}, **live)
@@ -251,32 +251,32 @@ def _seed(client) -> dict[str, Any]:
             201,
         )
 
-    # The overlay draft starts from current live data and ends equal to it: identical rewrites of
-    # base rows, a draft-only record that is created and then deleted, and a tombstone for the record
+    # The overlay change set starts from current live data and ends equal to it: identical rewrites of
+    # base rows, a change set-only record that is created and then deleted, and a tombstone for the record
     # that live deletes too.
-    overlay = _draft(client, source="currentLive")["id"]
+    overlay = _change_set(client, source="currentLive")["id"]
     for entry in entries[::2]:
-        record = _ok(client.get(f"/api/v1/objects/{ENTRY}/{entry['id']}", params={"workspaceDraftId": overlay}))
+        record = _ok(client.get(f"/api/v1/objects/{ENTRY}/{entry['id']}", params={"changeSetId": overlay}))
         for key, value in _values(record).items():
             record = _ok(
                 client.patch(
                     f"/api/v1/objects/{ENTRY}/{entry['id']}/attributes/{key}",
                     json={"value": value, "expectedVersion": record["version"],
-                          "workspaceDraftId": overlay,
-                          "expectedWorkspaceDraftVersion": _draft_version(client, overlay)},
+                          "changeSetId": overlay,
+                          "expectedChangeSetVersion": _change_set_version(client, overlay)},
                 )
             )
     temporary = _create(
         client, ENTRY, "Temporary", folders[1]["id"], {"par-code": "T-0"},
-        workspaceDraftId=overlay, expectedWorkspaceDraftVersion=_draft_version(client, overlay),
+        changeSetId=overlay, expectedChangeSetVersion=_change_set_version(client, overlay),
     )
     for record in (temporary, doomed):
-        current = _ok(client.get(f"/api/v1/objects/{ENTRY}/{record['id']}", params={"workspaceDraftId": overlay}))
+        current = _ok(client.get(f"/api/v1/objects/{ENTRY}/{record['id']}", params={"changeSetId": overlay}))
         _ok(
             client.delete(
                 f"/api/v1/objects/{ENTRY}/{record['id']}",
-                params={"workspaceDraftId": overlay, "expectedVersion": current["version"],
-                        "expectedWorkspaceDraftVersion": _draft_version(client, overlay)},
+                params={"changeSetId": overlay, "expectedVersion": current["version"],
+                        "expectedChangeSetVersion": _change_set_version(client, overlay)},
             ),
             204,
         )
@@ -288,23 +288,23 @@ def _seed(client) -> dict[str, Any]:
         204,
     )
 
-    # A revision of current live data, and a draft derived from it without edits.
-    publish = _draft(client, source="currentLive")
-    revision = _ok(
+    # A publication of current live data, and a change set derived from it without edits.
+    publish = _change_set(client, source="currentLive")
+    publication = _ok(
         client.post(
-            f"/api/v1/workspace-drafts/{publish['id']}/activation",
-            json={"expectedDraftVersion": publish["version"]},
+            f"/api/v1/change-sets/{publish['id']}/publication",
+            json={"expectedChangeSetVersion": publish["version"]},
         )
     )
-    derived = _draft(client, source="revision", derivedFromRevisionId=revision["id"])["id"]
+    derived = _change_set(client, source="publication", derivedFromPublicationId=publication["id"])["id"]
     return {
         "folders": folders,
         "entries": entries,
         "contexts": {
             "live": live,
-            "overlay draft": {"workspaceDraftId": overlay},
-            "revision draft": {"workspaceDraftId": derived},
-            "history": {"workspaceRevisionId": revision["id"]},
+            "overlay change set": {"changeSetId": overlay},
+            "publication change set": {"changeSetId": derived},
+            "history": {"publicationId": publication["id"]},
         },
         "overlay": overlay,
     }
@@ -321,14 +321,14 @@ def _order_key(item: dict[str, Any], sort: str | None) -> Any:
     return _values(item).get(field)
 
 
-def test_live_draft_and_history_return_the_same_rows_in_the_same_order(client):
+def test_live_change_set_and_history_return_the_same_rows_in_the_same_order(client):
     seeded = _seed(client)
     contexts = seeded["contexts"]
-    # The overlay draft really does read through overlay rows and a base-row tombstone.
+    # The overlay change set really does read through overlay rows and a base-row tombstone.
     with get_engine().connect() as connection:
         overlay_rows = connection.execute(
-            select(WorkspaceDraftObject.object_id, WorkspaceDraftObject.is_deleted).where(
-                WorkspaceDraftObject.draft_id == seeded["overlay"]
+            select(ChangeSetObject.object_id, ChangeSetObject.is_deleted).where(
+                ChangeSetObject.change_set_id == seeded["overlay"]
             )
         ).all()
     assert sum(not deleted for _id, deleted in overlay_rows) >= 4
@@ -409,7 +409,7 @@ def reissue_cursor(cursor: str, **changes: Any) -> str:
 
 
 def test_default_order_is_name_in_every_context(client):
-    """S4R4 (D22): without a sort, live, draft and history list by name, which seek finds."""
+    """S4R4 (D22): without a sort, live, change set and history list by name, which seek finds."""
     seeded = _seed(client)
     path = f"/api/v1/objects/{ENTRY}"
     created = [name for name, _folder, _values in ENTRIES]
@@ -422,11 +422,11 @@ def test_default_order_is_name_in_every_context(client):
         sought = _ok(client.get(path, params={**context, "seek": "Echo", "pageSize": 2}))
         assert [item["name"] for item in sought["items"]] == ["Echo", "Golf"], name
 
-    # A cursor issued for the former default (live creation sequence, draft and history record ID)
+    # A cursor issued for the former default (live creation sequence, change set and history record ID)
     # is bound to that order and refused rather than read against the new one.
     for name, context, former in (
         ("live", seeded["contexts"]["live"], "sequenceId"),
-        ("draft", seeded["contexts"]["overlay draft"], "id"),
+        ("change_set", seeded["contexts"]["overlay change set"], "id"),
         ("history", seeded["contexts"]["history"], "id"),
     ):
         first = _ok(client.get(path, params={**context, "pageSize": 2}))
@@ -440,14 +440,14 @@ def test_default_order_is_name_in_every_context(client):
 
 def test_snapshot_cursor_is_bound_to_its_context_and_query(client):
     seeded = _seed(client)
-    draft = seeded["contexts"]["overlay draft"]
-    first = _ok(client.get(f"/api/v1/objects/{ENTRY}", params={**draft, "sort": "name", "pageSize": 2}))
+    change_set = seeded["contexts"]["overlay change set"]
+    first = _ok(client.get(f"/api/v1/objects/{ENTRY}", params={**change_set, "sort": "name", "pageSize": 2}))
     assert first["nextCursor"]
     for params in (
-        {**draft, "sort": "-name"},
-        {**draft, "sort": "name", "search": "a"},
+        {**change_set, "sort": "-name"},
+        {**change_set, "sort": "name", "search": "a"},
         {**seeded["contexts"]["history"], "sort": "name"},
-        {**seeded["contexts"]["revision draft"], "sort": "name"},
+        {**seeded["contexts"]["publication change set"], "sort": "name"},
     ):
         refused = client.get(
             f"/api/v1/objects/{ENTRY}", params={**params, "cursor": first["nextCursor"]}
@@ -456,32 +456,32 @@ def test_snapshot_cursor_is_bound_to_its_context_and_query(client):
         assert refused.json()["error"]["code"] == "invalid_cursor"
 
 
-def test_every_draft_write_keeps_the_typed_value_index_equal_to_the_json(client):
+def test_every_change_set_write_keeps_the_typed_value_index_equal_to_the_json(client):
     """The index is derived from each row's JSON; no write path may leave it behind."""
     seeded = _seed(client)
     overlay = seeded["overlay"]
     entry = seeded["entries"][1]
-    record = _ok(client.get(f"/api/v1/objects/{ENTRY}/{entry['id']}", params={"workspaceDraftId": overlay}))
+    record = _ok(client.get(f"/api/v1/objects/{ENTRY}/{entry['id']}", params={"changeSetId": overlay}))
     record = _ok(
         client.patch(
             f"/api/v1/objects/{ENTRY}/{entry['id']}",
             json={"name": "Bravo renamed", "parentObjectId": seeded["folders"][1]["id"],
                   "attributes": [{"attributeTypeKey": "par-count", "value": 8}],
-                  "expectedVersion": record["version"], "workspaceDraftId": overlay,
-                  "expectedWorkspaceDraftVersion": _draft_version(client, overlay)},
+                  "expectedVersion": record["version"], "changeSetId": overlay,
+                  "expectedChangeSetVersion": _change_set_version(client, overlay)},
         )
     )
     _ok(
         client.delete(
             f"/api/v1/objects/{ENTRY}/{entry['id']}/attributes/par-seen",
-            params={"workspaceDraftId": overlay, "expectedVersion": record["version"],
-                    "expectedWorkspaceDraftVersion": _draft_version(client, overlay)},
+            params={"changeSetId": overlay, "expectedVersion": record["version"],
+                    "expectedChangeSetVersion": _change_set_version(client, overlay)},
         ),
         204,
     )
     listed = _walk(
         client, f"/api/v1/objects/{ENTRY}",
-        {"workspaceDraftId": overlay, "filter.par-count.eq": "8"},
+        {"changeSetId": overlay, "filter.par-count.eq": "8"},
     )
     assert [item["name"] for item in listed] == ["Bravo renamed"]
 
@@ -493,9 +493,9 @@ def test_every_draft_write_keeps_the_typed_value_index_equal_to_the_json(client)
         }
         expected: dict[tuple[str, str, str], dict[str, Any]] = {}
         for entity, kind, owner in (
-            (WorkspaceRevisionObject, "revision", "revision_id"),
-            (WorkspaceDraftBaseObject, "base", "base_id"),
-            (WorkspaceDraftObject, "draft", "draft_id"),
+            (PublicationObject, "publication", "publication_id"),
+            (ChangeSetBaseObject, "base", "base_id"),
+            (ChangeSetObject, "change_set", "change_set_id"),
         ):
             for row in connection.execute(select(entity)):
                 if getattr(row, "is_deleted", False):

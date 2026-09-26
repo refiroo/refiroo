@@ -14,10 +14,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # relationship) instead of the sortable feature. Re-baselined for S4R4: the object sort
     # description states that an omitted sort orders by name. Re-baselined for S4R5: pages list
     # items first and document totalCount and startIndex as optional integers, omitted unless
-    # includeTotal=true.
+    # includeTotal=true. Re-baselined for W2 (ADR-031): drafts and revisions are change sets and
+    # publications in every route, parameter, field, schema and error code, and a publication names
+    # its model release key and version.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "f70e26388af786d4fc454c665c7c5bcdc5f0bce3ac4df85dcf71b2bb16b6efe0"
+        "f0ae21f63a2d4e5b09d3052dc7c036ddd8592dd03593611d93bbe5944049a03e"
     )
 
 
@@ -86,15 +88,27 @@ def test_wp8_openapi_inventory_locks_workspace_lifecycle_and_record_crud():
     def methods(path):
         return frozenset(method for method in paths[path] if method != "parameters")
 
-    # Workspace lifecycle orchestration endpoints (WP8): drafts, validation, atomic activation,
-    # immutable revision history reads, and publication retirement.
-    assert methods("/api/v1/workspaces/{workspace_key}/drafts") == {"get", "post"}
-    assert methods("/api/v1/workspace-drafts/{draft_id}") == {"get", "patch", "delete"}
-    assert methods("/api/v1/workspace-drafts/{draft_id}/validation") == {"post"}
-    assert methods("/api/v1/workspace-drafts/{draft_id}/activation") == {"post"}
-    assert methods("/api/v1/workspaces/{workspace_key}/revisions") == {"get"}
-    assert methods("/api/v1/workspace-revisions/{revision_id}") == {"get"}
-    assert methods("/api/v1/workspaces/{workspace_key}/retirement") == {"post"}
+    # Workspace lifecycle orchestration endpoints (WP8, named by ADR-031): change sets, validation,
+    # atomic publish, immutable publication reads and publication withdrawal. Lists stay under
+    # their workspace; single items are addressed by global id.
+    assert methods("/api/v1/workspaces/{workspace_key}/change-sets") == {"get", "post"}
+    assert methods("/api/v1/change-sets/{change_set_id}") == {"get", "patch", "delete"}
+    assert methods("/api/v1/change-sets/{change_set_id}/model-release") == {"patch"}
+    assert methods("/api/v1/change-sets/{change_set_id}/validation") == {"post"}
+    assert methods("/api/v1/change-sets/{change_set_id}/publication") == {"post"}
+    assert methods("/api/v1/workspaces/{workspace_key}/publications") == {"get"}
+    assert methods("/api/v1/publications/{publication_id}") == {"get"}
+    assert methods("/api/v1/publications/{publication_id}/withdrawal") == {"post"}
+    # ADR-031 names only: no route keeps the earlier draft, revision, activation or retirement name.
+    assert not [
+        path
+        for path in paths
+        if any(
+            old in path
+            for old in ("workspace-draft", "workspace-revision", "/drafts", "/revisions", "/retirement")
+        )
+        or (path.startswith("/api/v1/change-sets") and path.endswith("/activation"))
+    ]
 
     # Canonical record CRUD remains the way objects, typed attribute values and relations are
     # addressed; containment and translation are ordinary object types/edges inside those records.
@@ -170,7 +184,7 @@ def test_wp4_mapping_query_inventory_and_required_context():
         parameters = {row["name"]: row for row in operation["parameters"]}
         assert parameters["applicationKey"]["required"] == (name != "targets")
         assert parameters["viewKey"]["required"] == (name != "targets")
-        assert "workspaceDraftId" in parameters and "workspaceRevisionId" in parameters and "cursor" in parameters
+        assert "changeSetId" in parameters and "publicationId" in parameters and "cursor" in parameters
         size = parameters["pageSize"]["schema"]
         bounds = next((row for row in size.get("anyOf", []) if row.get("type") == "integer"), size)
         assert bounds["minimum"] == 1 and bounds["maximum"] == 100
@@ -213,17 +227,17 @@ def test_wp4_mapping_query_inventory_and_required_context():
 
 def test_build07_wp6_openapi_selected_model_contract():
     schema = app.openapi()
-    endpoint = schema["paths"]["/api/v1/workspaces/{workspace_key}/drafts/{draft_id}/model-release"]
+    endpoint = schema["paths"]["/api/v1/change-sets/{change_set_id}/model-release"]
     assert set(endpoint) == {"patch"}
     models = schema["components"]["schemas"]
-    assert set(models["WorkspaceDraftModelReleaseUpdate"]["required"]) == {
+    assert set(models["ChangeSetModelReleaseUpdate"]["required"]) == {
         "modelReleaseId",
-        "expectedDraftVersion",
+        "expectedChangeSetVersion",
     }
-    assert "modelReleaseId" in models["WorkspaceDraftCreate"]["properties"]
+    assert "modelReleaseId" in models["ChangeSetCreate"]["properties"]
     assert {"modelReleaseId", "modelReleaseKey", "modelReleaseVersion"} <= set(
-        models["WorkspaceDraftResponse"]["required"]
+        models["ChangeSetResponse"]["required"]
     )
     for path in ("/api/v1/model", "/api/v1/applications", "/api/v1/attribute-types"):
         names = {item["name"] for item in schema["paths"][path]["get"]["parameters"]}
-        assert {"workspaceDraftId", "workspaceRevisionId"} <= names
+        assert {"changeSetId", "publicationId"} <= names

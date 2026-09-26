@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 import pytest
-from test_api import DraftTestClient
+from test_api import ChangeSetTestClient
 
 from app.errors import ApiError
 from app.main import app
@@ -13,7 +13,7 @@ from app.services.attributes import (
 )
 from app.services.model.loader import load_bootstrap_model
 
-TestClient = DraftTestClient
+TestClient = ChangeSetTestClient
 
 
 def _attr(key: str, value):

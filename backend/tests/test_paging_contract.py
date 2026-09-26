@@ -1,6 +1,6 @@
 """Base 0.8 S3 and S4: the paging contract and the query additions over the S1 volume fixture.
 
-Every read is checked against a reference list read in one large cursor walk, in live, draft and
+Every read is checked against a reference list read in one large cursor walk, in live, change set and
 history contexts: forward and backward cursors, the last page, anchors, totals and start indexes,
 seek by value and position reads, plus top-level object lists and relation search and sort. The
 volume budgets for these reads (constant statements, bounded rows) are held by
@@ -26,7 +26,7 @@ from volume_fixture import (
     volume_model,
 )
 
-CONTEXTS = ("live", "draft", "history")
+CONTEXTS = ("live", "change_set", "history")
 PAGE = 20
 
 
@@ -39,9 +39,9 @@ def volume(_migrated_template, tmp_path_factory):
 def _context(context: str, dataset) -> dict[str, str]:
     if context == "live":
         return {"workspaceKey": WORKSPACE}
-    if context == "draft":
-        return {"workspaceDraftId": dataset.draft_id}
-    return {"workspaceRevisionId": dataset.revision_id}
+    if context == "change_set":
+        return {"changeSetId": dataset.change_set_id}
+    return {"publicationId": dataset.publication_id}
 
 
 def _get(client, path: str, params: dict[str, Any]) -> dict[str, Any]:
@@ -376,7 +376,7 @@ def test_page_selection_and_cursor_binding_are_refused_explicitly(volume, contex
     assert _error(client, path, {**params, "sort": RANK, "seek": "high"})["code"] == "invalid_seek"
 
 
-@pytest.mark.parametrize("context", ["live", "draft"])
+@pytest.mark.parametrize("context", ["live", "change_set"])
 def test_cursor_reads_neither_repeat_nor_skip_across_a_concurrent_insert(volume, context):
     client, dataset = volume
     path = f"/api/v1/objects/{ITEM}"
@@ -398,8 +398,8 @@ def test_cursor_reads_neither_repeat_nor_skip_across_a_concurrent_insert(volume,
         if context == "live":
             body["workspaceKey"] = WORKSPACE
         else:
-            draft = client.get(f"/api/v1/workspace-drafts/{dataset.draft_id}").json()
-            body |= {"workspaceDraftId": dataset.draft_id, "expectedWorkspaceDraftVersion": draft["version"]}
+            change_set = client.get(f"/api/v1/change-sets/{dataset.change_set_id}").json()
+            body |= {"changeSetId": dataset.change_set_id, "expectedChangeSetVersion": change_set["version"]}
         response = client.post("/api/v1/objects", json=body)
         assert response.status_code == 201, response.text
         created.append(response.json()["id"])

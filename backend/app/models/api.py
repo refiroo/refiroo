@@ -63,7 +63,7 @@ class AttributeOutput(BaseModel):
 
 class AttributeValueResponse(AttributeOutput):
     objectVersion: int
-    workspaceDraftVersion: int | None = None
+    changeSetVersion: int | None = None
 
 
 class AttributeValueWrite(BaseModel):
@@ -71,8 +71,8 @@ class AttributeValueWrite(BaseModel):
 
     value: Any
     expectedVersion: int = Field(ge=1)
-    workspaceDraftId: UUID4 | None = None
-    expectedWorkspaceDraftVersion: int | None = Field(default=None, ge=1)
+    changeSetId: UUID4 | None = None
+    expectedChangeSetVersion: int | None = Field(default=None, ge=1)
 
 
 class InitialRelationInput(BaseModel):
@@ -95,8 +95,8 @@ class ObjectCreate(BaseModel):
     parentObjectId: UUID4 | None = None
     attributes: list[AttributeInput] = Field(default_factory=list)
     initialRelations: list[InitialRelationInput] = Field(default_factory=list)
-    workspaceDraftId: UUID4 | None = None
-    expectedWorkspaceDraftVersion: int | None = Field(default=None, ge=1)
+    changeSetId: UUID4 | None = None
+    expectedChangeSetVersion: int | None = Field(default=None, ge=1)
 
 
 class ObjectUpdate(BaseModel):
@@ -106,8 +106,8 @@ class ObjectUpdate(BaseModel):
     parentObjectId: UUID4 | None = None
     attributes: list[AttributeInput] | None = None
     expectedVersion: int = Field(ge=1)
-    workspaceDraftId: UUID4 | None = None
-    expectedWorkspaceDraftVersion: int | None = Field(default=None, ge=1)
+    changeSetId: UUID4 | None = None
+    expectedChangeSetVersion: int | None = Field(default=None, ge=1)
 
 
 class ObjectResponse(BaseModel):
@@ -120,84 +120,86 @@ class ObjectResponse(BaseModel):
     path: list[dict[str, str]]
     attributes: list[AttributeOutput]
     version: int
-    # Null in draft and history contexts, which do not record timestamps.
+    # Null in change-set and publication contexts, which do not record timestamps.
     createdAt: datetime | None
     updatedAt: datetime | None
-    workspaceDraftVersion: int | None = None
+    changeSetVersion: int | None = None
 
 
 class ObjectPage(CollectionPage[ObjectResponse]):
     pass
 
 
-class WorkspaceDraftCreate(BaseModel):
+class ChangeSetCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str | None = Field(default=None, max_length=300)
-    source: Literal["currentLive", "revision"] | None = None
-    derivedFromRevisionId: UUID4 | None = None
+    source: Literal["currentLive", "publication"] | None = None
+    derivedFromPublicationId: UUID4 | None = None
     modelReleaseId: UUID4 | None = None
 
     @model_validator(mode="after")
-    def validate_source(self) -> WorkspaceDraftCreate:
-        if self.source == "revision" and self.derivedFromRevisionId is None:
-            raise ValueError("derivedFromRevisionId is required when source is revision")
-        if self.source == "currentLive" and self.derivedFromRevisionId is not None:
-            raise ValueError("derivedFromRevisionId cannot be combined with source currentLive")
-        if self.derivedFromRevisionId is not None and self.modelReleaseId is not None:
+    def validate_source(self) -> ChangeSetCreate:
+        if self.source == "publication" and self.derivedFromPublicationId is None:
+            raise ValueError("derivedFromPublicationId is required when source is publication")
+        if self.source == "currentLive" and self.derivedFromPublicationId is not None:
+            raise ValueError("derivedFromPublicationId cannot be combined with source currentLive")
+        if self.derivedFromPublicationId is not None and self.modelReleaseId is not None:
             raise ValueError(
                 "Historical creation retains its source model; change version afterward"
             )
         return self
 
 
-class WorkspaceDraftModelReleaseUpdate(BaseModel):
+class ChangeSetModelReleaseUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     modelReleaseId: UUID4
-    expectedDraftVersion: int = Field(ge=1)
+    expectedChangeSetVersion: int = Field(ge=1)
 
 
-class WorkspaceDraftUpdate(BaseModel):
+class ChangeSetUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str | None = Field(default=None, max_length=300)
     expectedVersion: int = Field(ge=1)
 
 
-class WorkspaceDraftResponse(BaseModel):
+class ChangeSetResponse(BaseModel):
     id: str
     workspaceKey: str
     name: str | None
     modelReleaseId: str
     modelReleaseKey: str
     modelReleaseVersion: str
-    source: Literal["currentLive", "revision", "empty"]
-    derivedFromRevisionId: str | None
+    source: Literal["currentLive", "publication", "empty"]
+    derivedFromPublicationId: str | None
     version: int
     createdAt: datetime
     updatedAt: datetime
 
 
-class WorkspaceDraftPage(CollectionPage[WorkspaceDraftResponse]):
+class ChangeSetPage(CollectionPage[ChangeSetResponse]):
     pass
 
 
-class WorkspaceRevisionResponse(BaseModel):
+class PublicationResponse(BaseModel):
     id: str
     workspaceKey: str
     modelReleaseId: str
-    revisionNumber: int
-    status: Literal["active", "retired"]
-    derivedFromRevisionId: str | None
-    supersedesRevisionId: str | None
+    modelReleaseKey: str
+    modelReleaseVersion: str
+    publicationNumber: int
+    status: Literal["active", "withdrawn"]
+    derivedFromPublicationId: str | None
+    supersedesPublicationId: str | None
     createdAt: datetime
-    activatedAt: datetime
-    retiredAt: datetime | None
+    publishedAt: datetime
+    withdrawnAt: datetime | None
 
 
-class WorkspaceRevisionPage(CollectionPage[WorkspaceRevisionResponse]):
+class PublicationPage(CollectionPage[PublicationResponse]):
     pass
 
 
-class WorkspaceDraftObjectWrite(BaseModel):
+class ChangeSetObjectWrite(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: UUID4 | None = None
     applicationKey: str
@@ -206,52 +208,47 @@ class WorkspaceDraftObjectWrite(BaseModel):
     parentObjectId: UUID4 | None = None
     attributes: dict[str, Any] = Field(default_factory=dict)
     initialRelations: list[InitialRelationInput] = Field(default_factory=list)
-    expectedDraftVersion: int = Field(ge=1)
+    expectedChangeSetVersion: int = Field(ge=1)
     expectedRecordVersion: int | None = Field(default=None, ge=1)
 
 
-class WorkspaceDraftObjectUpdate(BaseModel):
+class ChangeSetObjectUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str | None = Field(default=None, min_length=1, max_length=500)
     parentObjectId: UUID4 | None = None
     attributes: dict[str, Any] | None = None
-    expectedDraftVersion: int = Field(ge=1)
+    expectedChangeSetVersion: int = Field(ge=1)
     expectedRecordVersion: int = Field(ge=1)
 
 
-class WorkspaceDraftRelationWrite(BaseModel):
+class ChangeSetRelationWrite(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: UUID4 | None = None
     relationTypeKey: str
     fromObjectId: UUID4
     toObjectId: UUID4
     attributes: dict[str, Any] = Field(default_factory=dict)
-    expectedDraftVersion: int = Field(ge=1)
+    expectedChangeSetVersion: int = Field(ge=1)
     expectedRecordVersion: int | None = Field(default=None, ge=1)
 
 
-class WorkspaceDraftRelationUpdate(BaseModel):
+class ChangeSetRelationUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     relationTypeKey: str | None = None
     fromObjectId: UUID4 | None = None
     toObjectId: UUID4 | None = None
     attributes: dict[str, Any] | None = None
-    expectedDraftVersion: int = Field(ge=1)
+    expectedChangeSetVersion: int = Field(ge=1)
     expectedRecordVersion: int = Field(ge=1)
 
 
-class WorkspaceDraftActivation(BaseModel):
+class ChangeSetPublishRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    expectedDraftVersion: int = Field(ge=1)
-    expectedActiveRevisionId: UUID4 | None = None
+    expectedChangeSetVersion: int = Field(ge=1)
+    expectedActivePublicationId: UUID4 | None = None
 
 
-class WorkspaceRetirement(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    expectedActiveRevisionId: UUID4
-
-
-class WorkspaceDraftValidation(BaseModel):
+class ChangeSetValidation(BaseModel):
     valid: bool
     diagnostics: list[dict[str, Any]]
 
@@ -263,8 +260,8 @@ class RelationCreate(BaseModel):
     fromObjectId: UUID4
     toObjectId: UUID4
     attributes: dict[str, Any] = Field(default_factory=dict)
-    workspaceDraftId: UUID4 | None = None
-    expectedWorkspaceDraftVersion: int | None = Field(default=None, ge=1)
+    changeSetId: UUID4 | None = None
+    expectedChangeSetVersion: int | None = Field(default=None, ge=1)
 
 
 class RelationUpdate(BaseModel):
@@ -272,17 +269,17 @@ class RelationUpdate(BaseModel):
 
     attributes: dict[str, Any]
     expectedVersion: int = Field(ge=1)
-    workspaceDraftId: UUID4 | None = None
-    expectedWorkspaceDraftVersion: int | None = Field(default=None, ge=1)
+    changeSetId: UUID4 | None = None
+    expectedChangeSetVersion: int | None = Field(default=None, ge=1)
 
 
 class RelationResponse(RelationCreate):
     id: str
     version: int
-    # Null in draft and history contexts, which do not record timestamps.
+    # Null in change-set and publication contexts, which do not record timestamps.
     createdAt: datetime | None
     updatedAt: datetime | None
-    workspaceDraftVersion: int | None = None
+    changeSetVersion: int | None = None
 
 
 class ApplicationResponse(BaseModel):
@@ -663,8 +660,8 @@ class MappingReplacementRequest(BaseModel):
     targetObjectId: UUID4 | None = None
     expectedMappingVersion: int = Field(ge=0)
     attributes: dict[str, Any] | None = None
-    workspaceDraftId: UUID4 | None = None
-    expectedWorkspaceDraftVersion: int | None = Field(default=None, ge=1)
+    changeSetId: UUID4 | None = None
+    expectedChangeSetVersion: int | None = Field(default=None, ge=1)
 
 
 class MappingReplacementResponse(BaseModel):
@@ -672,4 +669,4 @@ class MappingReplacementResponse(BaseModel):
     mappingVersion: int
     state: Literal["mapped", "unmapped"]
     relationId: str | None = None
-    workspaceDraftVersion: int | None = None
+    changeSetVersion: int | None = None

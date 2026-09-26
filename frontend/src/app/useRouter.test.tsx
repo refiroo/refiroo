@@ -38,15 +38,15 @@ describe("record navigation", () => {
 
   it.each([undefined, "draft-1"])(
     "restores each entry's own collection across reload and history in %s context",
-    async (workspaceDraftId) => {
-      const origin = { ...collection, ...(workspaceDraftId ? { workspaceDraftId } : {}) };
+    async (changeSetId) => {
+      const origin = { ...collection, ...(changeSetId ? { changeSetId } : {}) };
       window.history.replaceState({}, "", routePath(origin));
       const first = renderHook(useRouter);
       await waitFor(() => expect(first.result.current.route?.kind).toBe("list"));
       act(() => {
-        first.result.current.navigate({ ...detail, workspaceDraftId });
+        first.result.current.navigate({ ...detail, changeSetId });
       });
-      const related = { ...detail, objectId: "related", workspaceDraftId };
+      const related = { ...detail, objectId: "related", changeSetId };
       act(() => {
         first.result.current.navigate(related);
       });
@@ -102,7 +102,7 @@ describe("record navigation", () => {
     const first = renderHook(useRouter);
     await waitFor(() => expect(first.result.current.route?.kind).toBe("list"));
     act(() => {
-      first.result.current.navigate({ ...detail, workspaceDraftId: "draft-1" });
+      first.result.current.navigate({ ...detail, changeSetId: "draft-1" });
     });
     expect(first.result.current.route).not.toHaveProperty("collectionOrigin");
     act(() => {
@@ -118,8 +118,8 @@ describe("record navigation", () => {
   it.each([
     "/apps/test-app/views/missing?workspaceKey=west",
     "/apps/test-app/views/domains?workspaceKey=east",
-    "/apps/test-app/views/domains?workspaceKey=west&workspaceDraftId=wrong",
-    "/apps/test-app/views/domains?workspaceKey=west&workspaceRevisionId=wrong",
+    "/apps/test-app/views/domains?workspaceKey=west&changeSetId=wrong",
+    "/apps/test-app/views/domains?workspaceKey=west&publicationId=wrong",
     "/apps/%ZZ/views/domains",
     "https://example.com/apps/test-app/views/domains",
   ])("ignores invalid saved origins: %s", async (collectionPath) => {

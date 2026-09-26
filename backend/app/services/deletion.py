@@ -19,8 +19,8 @@ from .relation_set_versions import increment_set_versions
 class DeletePlan:
     """A live cascade: the root object plus every record the database cascade must remove.
 
-    The dependant closure mirrors ``delete_draft_object`` so the live delete surfaces exactly the
-    same ``object_has_dependants`` contract as the draft path: containment children plus the
+    The dependant closure mirrors ``delete_change_set_object`` so the live delete surfaces exactly the
+    same ``object_has_dependants`` contract as the change set path: containment children plus the
     targets of an outgoing required one-to-one / one-to-many relation.  ``relations`` holds every
     edge incident to the planned set (edges to surviving objects are removed with the delete).
     """
@@ -353,7 +353,7 @@ def execute_delete_plan(session: Session, plan: DeletePlan) -> None:
     """Audit then physically remove the planned relations, attribute values and objects.
 
     Containment pointers are detached within the transaction before deleting a mixed parent/child
-    batch, preserving the RESTRICT foreign-key boundary.  Live delete is physical: retired/historical revision snapshots and the audit log
+    batch, preserving the RESTRICT foreign-key boundary.  Live delete is physical: withdrawn and earlier publications and the audit log
     retain the record.
     """
     object_ids = set(plan.objects)
@@ -402,7 +402,7 @@ def execute_delete_plan(session: Session, plan: DeletePlan) -> None:
             increment_set_versions(
                 session,
                 workspace_key=source.workspace_key,
-                workspace_draft_id=None,
+                change_set_id=None,
                 relation_type_key=relation.relation_type_key,
                 from_object_type_key=source.object_type_key,
                 to_object_type_key=target.object_type_key,

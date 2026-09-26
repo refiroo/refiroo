@@ -16,20 +16,20 @@ type Graph = {
     kind: "containment" | "independent";
   }>;
 };
-type Revision = {
+type Publication = {
   id: string;
   number: number;
   modelReleaseId: string;
-  derivedFromRevisionId: string | null;
-  supersedesRevisionId: string | null;
+  derivedFromPublicationId: string | null;
+  supersedesPublicationId: string | null;
   graph: Graph;
-  publicationState: "inactive" | "active" | "retired";
+  publicationState: "inactive" | "active" | "withdrawn";
 };
-type Draft = {
+type ChangeSet = {
   id: string;
   version: number;
   modelReleaseId: string;
-  derivedFromRevisionId: string | null;
+  derivedFromPublicationId: string | null;
   graph: Graph;
 };
 
@@ -40,12 +40,12 @@ const ids = {
   codelistTimetables: "20000000-0000-4000-8000-000000000001",
   translationTimetable: "30000000-0000-4000-8000-000000000001",
   relationTranslation: "40000000-0000-4000-8000-000000000001",
-  workspaceRevision3: "50000000-0000-4000-8000-000000000003",
-  workspaceRevision4: "50000000-0000-4000-8000-000000000004",
-  workspaceRevision5: "50000000-0000-4000-8000-000000000005",
-  draftRoot: "60000000-0000-4000-8000-000000000001",
-  draftFromActive: "60000000-0000-4000-8000-000000000002",
-  draftFromHistory: "60000000-0000-4000-8000-000000000003",
+  publication3: "50000000-0000-4000-8000-000000000003",
+  publication4: "50000000-0000-4000-8000-000000000004",
+  publication5: "50000000-0000-4000-8000-000000000005",
+  changeSetRoot: "60000000-0000-4000-8000-000000000001",
+  changeSetFromActive: "60000000-0000-4000-8000-000000000002",
+  changeSetFromHistory: "60000000-0000-4000-8000-000000000003",
 } as const;
 const graph = {
   objects: [
@@ -96,86 +96,92 @@ export const base06AcceptanceFixtures = {
     { key: "central-europe", label: "Central Europe", status: "active", isDefault: false },
     { key: "legacy-archive", label: "Legacy archive", status: "retired", isDefault: false },
   ],
-  revisions: {
-    revision3: {
-      id: ids.workspaceRevision3,
+  publications: {
+    publication3: {
+      id: ids.publication3,
       number: 3,
       modelReleaseId: ids.modelRelease06,
-      derivedFromRevisionId: null,
-      supersedesRevisionId: null,
+      derivedFromPublicationId: null,
+      supersedesPublicationId: null,
       graph,
       publicationState: "active",
     },
-    revision4: {
-      id: ids.workspaceRevision4,
+    publication4: {
+      id: ids.publication4,
       number: 4,
       modelReleaseId: ids.modelRelease06,
-      derivedFromRevisionId: ids.workspaceRevision3,
-      supersedesRevisionId: ids.workspaceRevision3,
+      derivedFromPublicationId: ids.publication3,
+      supersedesPublicationId: ids.publication3,
       graph,
       publicationState: "inactive",
     },
-    revision5: {
-      id: ids.workspaceRevision5,
+    publication5: {
+      id: ids.publication5,
       number: 5,
       modelReleaseId: ids.modelRelease06,
-      derivedFromRevisionId: ids.workspaceRevision3,
-      supersedesRevisionId: ids.workspaceRevision4,
+      derivedFromPublicationId: ids.publication3,
+      supersedesPublicationId: ids.publication4,
       graph,
       publicationState: "inactive",
     },
-  } satisfies Record<string, Revision>,
-  drafts: {
-    root: { id: ids.draftRoot, version: 1, modelReleaseId: ids.modelRelease06, derivedFromRevisionId: null, graph },
+  } satisfies Record<string, Publication>,
+  changeSets: {
+    root: {
+      id: ids.changeSetRoot,
+      version: 1,
+      modelReleaseId: ids.modelRelease06,
+      derivedFromPublicationId: null,
+      graph,
+    },
     fromActive: {
-      id: ids.draftFromActive,
+      id: ids.changeSetFromActive,
       version: 3,
       modelReleaseId: ids.modelRelease06,
-      derivedFromRevisionId: ids.workspaceRevision4,
+      derivedFromPublicationId: ids.publication4,
       graph,
     },
     fromHistory: {
-      id: ids.draftFromHistory,
+      id: ids.changeSetFromHistory,
       version: 2,
       modelReleaseId: ids.modelRelease06,
-      derivedFromRevisionId: ids.workspaceRevision3,
+      derivedFromPublicationId: ids.publication3,
       graph,
     },
-  } satisfies Record<string, Draft>,
-  publicationRetirement: {
-    expectedActiveRevisionId: ids.workspaceRevision5 as string | null,
+  } satisfies Record<string, ChangeSet>,
+  publicationWithdrawal: {
+    expectedActivePublicationId: ids.publication5 as string | null,
     after: {
-      activeRevisionId: null,
+      activePublicationId: null,
       workspaceIdentityRetained: true,
-      historyRetained: true,
+      publicationsRetained: true,
       objectIdentitiesRetained: true,
     },
   },
-  activation: {
-    expectedActiveRevisionId: ids.workspaceRevision4 as string | null,
-    outcome: { revisionId: ids.workspaceRevision5, publicationState: "active" },
+  publish: {
+    expectedActivePublicationId: ids.publication4 as string | null,
+    outcome: { publicationId: ids.publication5, publicationState: "active" },
   },
   cursors: {
-    boundTo: { workspaceRevisionId: ids.workspaceRevision5, query: "timetable" },
-    invalidatedBy: "workspace_revision_changed",
+    boundTo: { publicationId: ids.publication5, query: "timetable" },
+    invalidatedBy: "publication_changed",
   },
   errors: {
-    workspaceDraftVersionConflict: "workspace_draft_version_conflict",
-    activeRevisionConflict: "workspace_active_revision_conflict",
-    modelReleaseConflict: "workspace_draft_model_release_conflict",
+    changeSetVersionConflict: "change_set_version_conflict",
+    activePublicationConflict: "workspace_active_publication_conflict",
+    modelReleaseConflict: "change_set_model_release_conflict",
     cursorInvalid: "workspace_cursor_invalid",
   },
   conflicts: {
-    recordVersion: { errorCode: "version_conflict", preserve: ["recordFields", "draftContext"] },
-    draftVersion: { errorCode: "workspace_draft_version_conflict", preserve: ["completeGraph"] },
-    activeRevision: {
-      errorCode: "workspace_active_revision_conflict",
-      preserve: ["savedDraft", "derivedFromRevisionId"],
+    recordVersion: { errorCode: "version_conflict", preserve: ["recordFields", "changeSetContext"] },
+    changeSetVersion: { errorCode: "change_set_version_conflict", preserve: ["completeGraph"] },
+    activePublication: {
+      errorCode: "workspace_active_publication_conflict",
+      preserve: ["savedChangeSet", "derivedFromPublicationId"],
     },
     uniqueness: { errorCode: "duplicate_attribute_value", preserve: ["completeGraph"] },
     pinnedModel: {
-      errorCode: "workspace_draft_model_release_conflict",
-      preserve: ["persistedDraft", "unsavedBrowserInput"],
+      errorCode: "change_set_model_release_conflict",
+      preserve: ["persistedChangeSet", "unsavedBrowserInput"],
       currentModelReleaseId: ids.modelReleaseChanged,
     },
   },
@@ -194,33 +200,33 @@ export const base06AcceptanceFixtures = {
     },
     {
       id: "J3",
-      title: "Create and activate a root workspace draft",
-      actions: ["create draft", "validate", "activate"],
-      observe: ["immutable active revision is installed"],
+      title: "Create and publish a root change set",
+      actions: ["create change set", "validate", "publish"],
+      observe: ["immutable active publication is installed"],
     },
     {
       id: "J4",
       title: "Edit and publish one coherent workspace graph",
-      actions: ["edit draft graph", "publish"],
+      actions: ["edit change set graph", "publish"],
       observe: ["objects, containment and independent relations publish together"],
     },
     {
       id: "J5",
-      title: "Branch from workspace history",
-      actions: ["select historical revision", "derive draft", "activate"],
+      title: "Branch from an earlier publication",
+      actions: ["select publication", "derive change set", "publish"],
       observe: ["lineage and model-release pin are retained"],
     },
     {
       id: "J6",
-      title: "Retire a publication and derive new work from history",
-      actions: ["retire workspace publication", "confirm designation removal", "derive and activate changes"],
-      observe: ["live data and immutable history remain available"],
+      title: "Withdraw a publication and derive new work from it",
+      actions: ["withdraw publication", "confirm designation removal", "derive and publish changes"],
+      observe: ["live data and immutable publications remain available"],
     },
     {
       id: "J7",
-      title: "Recover without losing workspace-draft input",
-      actions: ["submit stale draft", "reload current draft", "retry"],
-      observe: ["named conflict preserves complete draft input"],
+      title: "Recover without losing change-set input",
+      actions: ["submit stale change set", "reload current change set", "retry"],
+      observe: ["named conflict preserves complete change set input"],
     },
   ],
 } as const;

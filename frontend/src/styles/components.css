@@ -1467,10 +1467,10 @@ th[aria-sort] {
 .workspace-main > .notice,
 .context-page > .notice,
 .dialog .notice,
-.draft-bar .notice {
+.change-set-bar .notice {
   margin: 0 0 14px;
 }
-.draft-bar .notice {
+.change-set-bar .notice {
   margin: 12px 0 0;
 }
 .inline-state {
@@ -1533,7 +1533,7 @@ th[aria-sort] {
   color: var(--muted);
 }
 
-/* Workspace pages: drafts, the in-draft bar and publication history */
+/* Workspace pages: change sets, the in-change-set bar and publications */
 .context-page {
   display: grid;
   gap: 0;
@@ -1542,84 +1542,84 @@ th[aria-sort] {
   width: auto;
   justify-self: start;
 }
-.draft-list {
+.change-set-list {
   display: grid;
   gap: 10px;
   margin-bottom: 12px;
 }
-.draft-card {
+.change-set-card {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
   padding: 16px 18px;
 }
-.draft-card h2 {
+.change-set-card h2 {
   margin: 6px 0 2px;
   font-size: 16px;
   font-weight: 650;
 }
-.draft-card p {
+.change-set-card p {
   margin: 0;
   color: var(--muted);
   font-size: 13px;
 }
-.draft-card-actions {
+.change-set-card-actions {
   display: flex;
   align-items: center;
   gap: 12px;
   white-space: nowrap;
 }
-.draft-bar {
+.change-set-bar {
   margin-bottom: 18px;
   padding: 12px 16px;
   border-left: 3px solid var(--warning-accent);
 }
-.draft-bar-row {
+.change-set-bar-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
   gap: 10px 16px;
 }
-.draft-bar-main {
+.change-set-bar-main {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 4px 10px;
   min-width: 0;
 }
-.draft-bar-main h2 {
+.change-set-bar-main h2 {
   margin: 0;
   font-size: 16px;
   font-weight: 650;
 }
-.draft-bar-meta {
+.change-set-bar-meta {
   display: inline-flex;
   flex-wrap: wrap;
   gap: 4px;
   color: var(--muted);
   font-size: 13px;
 }
-.draft-bar-meta > span + span::before {
+.change-set-bar-meta > span + span::before {
   content: "·";
   margin-right: 4px;
 }
-.draft-bar-actions {
+.change-set-bar-actions {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
 }
-.draft-bar-note {
+.change-set-bar-note {
   margin: 4px 0 0;
   color: var(--muted);
   font-size: 12.5px;
 }
-.draft-secondary-actions {
+.change-set-secondary-actions {
   position: relative;
 }
-.draft-secondary-actions summary {
+.change-set-secondary-actions summary {
   display: inline-flex;
   align-items: center;
   min-height: var(--control-height);
@@ -1633,15 +1633,15 @@ th[aria-sort] {
   list-style: none;
   cursor: pointer;
 }
-.draft-secondary-actions summary::-webkit-details-marker {
+.change-set-secondary-actions summary::-webkit-details-marker {
   display: none;
 }
-.draft-secondary-actions summary::after {
+.change-set-secondary-actions summary::after {
   content: "▾";
   margin-left: 6px;
   color: var(--muted);
 }
-.draft-secondary-menu {
+.change-set-secondary-menu {
   position: absolute;
   z-index: 15;
   top: calc(100% + 6px);
@@ -1655,15 +1655,15 @@ th[aria-sort] {
   background: var(--surface);
   box-shadow: var(--shadow-md);
 }
-.draft-secondary-menu button {
+.change-set-secondary-menu button {
   justify-content: flex-start;
 }
-.draft-workflow {
+.change-set-workflow {
   display: grid;
   gap: 10px;
   margin: 16px 0;
 }
-.draft-workflow-step {
+.change-set-workflow-step {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1672,20 +1672,20 @@ th[aria-sort] {
   border: 1px solid var(--soft-line);
   border-radius: 8px;
 }
-.draft-publication-heading {
+.change-set-publication-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
 }
-.draft-model-release {
+.change-set-model-release {
   font-size: 12.5px;
 }
-.history-card {
+.publication-card {
   margin-bottom: 12px;
   padding: 16px 18px;
 }
-.history-card h2 {
+.publication-card h2 {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -1694,10 +1694,10 @@ th[aria-sort] {
   font-size: 15px;
   font-weight: 650;
 }
-.history-card .attribute-grid {
+.publication-card .attribute-grid {
   padding: 0;
 }
-.history-card .attribute-grid > div {
+.publication-card .attribute-grid > div {
   border-bottom: 0;
 }
 .card-actions,

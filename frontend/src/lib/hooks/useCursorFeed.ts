@@ -38,7 +38,7 @@ export interface CursorFeed<T> {
  * through a ref, so an inline closure does not need to be memoised by the caller.
  *
  * Collections a user scrolls or jumps through use `useCursorWindow` instead; this remains for short,
- * append-only feeds such as record history and draft and revision lists.
+ * append-only feeds such as record history and change set and publication lists.
  */
 export function useCursorFeed<T>(
   fetchPage: (cursor?: string) => Promise<CursorPage<T>>,

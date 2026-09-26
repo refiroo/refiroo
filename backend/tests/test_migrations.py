@@ -7,7 +7,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
 
-from app.models.database import Base, WorkspaceRevision
+from app.models.database import Base
 from app.models.search_index import SEARCH_INDEXES
 
 # An FTS5 index is a virtual table over four shadow tables (external content has no _content).
@@ -40,8 +40,8 @@ def test_fresh_migration_provisions_the_complete_current_schema(tmp_path):
     assert "object_drafts" not in inspector.get_table_names()
     assert "active_revision_id" not in {column["name"] for column in inspector.get_columns("objects")}
     assert any(
-        foreign_key["referred_table"] == "workspace_revisions"
-        and foreign_key["constrained_columns"] == ["active_revision_id"]
+        foreign_key["referred_table"] == "publications"
+        and foreign_key["constrained_columns"] == ["active_publication_id"]
         for foreign_key in inspector.get_foreign_keys("workspaces")
     )
 
@@ -55,18 +55,29 @@ def test_object_lifecycle_migration_recovers_empty_sqlite_ddl_from_interrupted_r
     config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
     command.upgrade(config, "20260906_01")
 
-    WorkspaceRevision.__table__.create(engine)
+    # The empty table an interrupted 20260907_01 run leaves behind, as that revision created it.
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TABLE workspace_revisions (sequence_id INTEGER NOT NULL PRIMARY KEY, "
+                "id VARCHAR(36) NOT NULL UNIQUE, workspace_key VARCHAR(160) NOT NULL, "
+                "model_release_id INTEGER NOT NULL, revision_number INTEGER NOT NULL, "
+                "status VARCHAR(20) NOT NULL, derived_from_revision_id VARCHAR(36), "
+                "supersedes_revision_id VARCHAR(36), created_at DATETIME NOT NULL, "
+                "activated_at DATETIME NOT NULL, retired_at DATETIME)"
+            )
+        )
 
     command.upgrade(config, "head")
 
     inspector = inspect(engine)
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "20260926_03"
+            "20260926_04"
         )
     assert any(
-        foreign_key["referred_table"] == "workspace_revisions"
-        and foreign_key["constrained_columns"] == ["active_revision_id"]
+        foreign_key["referred_table"] == "publications"
+        and foreign_key["constrained_columns"] == ["active_publication_id"]
         for foreign_key in inspector.get_foreign_keys("workspaces")
     )
 
@@ -162,31 +173,38 @@ def test_current_live_base_migration_preserves_existing_workspace_drafts(tmp_pat
     with engine.connect() as connection:
         draft = connection.execute(
             text(
-                "SELECT id, name, version, base_id FROM workspace_drafts "
+                "SELECT id, name, version, base_id FROM change_sets "
                 "WHERE id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'"
             )
         ).one()
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20260926_03"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20260926_04"
     assert draft == ("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "keep me", 7, None)
     with engine.connect() as connection:
         historical = connection.execute(
             text(
-                "SELECT id, derived_from_revision_id, version, base_id FROM workspace_drafts "
+                "SELECT id, derived_from_publication_id, version, base_id FROM change_sets "
                 "WHERE id = 'ffffffff-ffff-4fff-8fff-ffffffffffff'"
             )
         ).one()
         snapshot = connection.execute(
             text(
-                "SELECT name, attributes, version FROM workspace_revision_objects "
-                "WHERE revision_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'"
+                "SELECT name, attributes, version FROM publication_objects "
+                "WHERE publication_id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'"
             )
         ).one()
         overlay = connection.execute(
             text(
-                "SELECT object_id, is_deleted, version FROM workspace_draft_objects "
-                "WHERE draft_id = 'ffffffff-ffff-4fff-8fff-ffffffffffff'"
+                "SELECT object_id, is_deleted, version FROM change_set_objects "
+                "WHERE change_set_id = 'ffffffff-ffff-4fff-8fff-ffffffffffff'"
             )
         ).one()
+        status = connection.scalar(
+            text(
+                "SELECT status FROM publications "
+                "WHERE id = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc'"
+            )
+        )
+    assert status == "withdrawn"
     assert historical == (
         "ffffffff-ffff-4fff-8fff-ffffffffffff",
         "cccccccc-cccc-4ccc-8ccc-cccccccccccc",
@@ -284,12 +302,12 @@ def test_base_0_5_graph_becomes_one_workspace_revision_with_stable_ids(tmp_path)
 
     with engine.connect() as connection:
         revision_id = connection.scalar(
-            text("SELECT active_revision_id FROM workspaces WHERE key = 'default'")
+            text("SELECT active_publication_id FROM workspaces WHERE key = 'default'")
         )
         objects = connection.execute(
             text(
-                "SELECT object_id, parent_object_id, attributes, version FROM workspace_revision_objects "
-                "WHERE revision_id = :revision_id ORDER BY object_id"
+                "SELECT object_id, parent_object_id, attributes, version FROM publication_objects "
+                "WHERE publication_id = :revision_id ORDER BY object_id"
             ),
             {"revision_id": revision_id},
         ).all()
@@ -309,7 +327,7 @@ def test_base_0_5_graph_becomes_one_workspace_revision_with_stable_ids(tmp_path)
         relations = connection.execute(
             text(
                 "SELECT relation_id, from_object_id, to_object_id, attributes, version "
-                "FROM workspace_revision_relations WHERE revision_id = :revision_id"
+                "FROM publication_relations WHERE publication_id = :revision_id"
             ),
             {"revision_id": revision_id},
         ).all()

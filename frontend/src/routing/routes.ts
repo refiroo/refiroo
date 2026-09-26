@@ -39,12 +39,12 @@ export function parseRoute(
   const parts = location.pathname.split("/").filter(Boolean).map(decodeURIComponent);
   const query = new URLSearchParams(location.search);
   const workspaceKey = query.get("workspaceKey")?.trim() || defaultWorkspaceKey;
-  const workspaceDraftId = query.get("workspaceDraftId")?.trim() || undefined;
-  const workspaceRevisionId = workspaceDraftId ? undefined : query.get("workspaceRevisionId")?.trim() || undefined;
-  if (parts[0] === "apps" && parts[2] === "drafts" && applicationFor(model, parts[1]))
-    return { kind: "drafts", applicationKey: parts[1], workspaceKey };
-  if (parts[0] === "apps" && parts[2] === "history" && applicationFor(model, parts[1]))
-    return { kind: "history", applicationKey: parts[1], workspaceKey };
+  const changeSetId = query.get("changeSetId")?.trim() || undefined;
+  const publicationId = changeSetId ? undefined : query.get("publicationId")?.trim() || undefined;
+  if (parts[0] === "apps" && parts[2] === "change-sets" && applicationFor(model, parts[1]))
+    return { kind: "changeSets", applicationKey: parts[1], workspaceKey };
+  if (parts[0] === "apps" && parts[2] === "publications" && applicationFor(model, parts[1]))
+    return { kind: "publications", applicationKey: parts[1], workspaceKey };
   if (parts[0] === "models") {
     const releaseId = query.get("releaseId")?.trim() || undefined;
     const draftId = query.get("draftId")?.trim() || undefined;
@@ -81,8 +81,8 @@ export function parseRoute(
         applicationKey: parts[1],
         viewKey: parts[3],
         workspaceKey,
-        ...(workspaceDraftId ? { workspaceDraftId } : {}),
-        ...(workspaceRevisionId ? { workspaceRevisionId } : {}),
+        ...(changeSetId ? { changeSetId } : {}),
+        ...(publicationId ? { publicationId } : {}),
         search: query.get("search") ?? "",
         sort:
           candidateSort && allowedSorts.has(candidateSort)
@@ -115,8 +115,8 @@ export function parseRoute(
         objectTypeKey: parts[3],
         objectId: parts[4],
         workspaceKey,
-        ...(workspaceDraftId ? { workspaceDraftId } : {}),
-        ...(workspaceRevisionId ? { workspaceRevisionId } : {}),
+        ...(changeSetId ? { changeSetId } : {}),
+        ...(publicationId ? { publicationId } : {}),
       };
     }
   }
@@ -132,10 +132,10 @@ export function routePath(route: RouteState) {
   }
   const app = encodeURIComponent(route.applicationKey);
   const query = new URLSearchParams({ workspaceKey: route.workspaceKey });
-  if (route.kind === "drafts") return `/apps/${app}/drafts?${query}`;
-  if (route.kind === "history") return `/apps/${app}/history?${query}`;
-  if (route.workspaceDraftId) query.set("workspaceDraftId", route.workspaceDraftId);
-  if (route.workspaceRevisionId) query.set("workspaceRevisionId", route.workspaceRevisionId);
+  if (route.kind === "changeSets") return `/apps/${app}/change-sets?${query}`;
+  if (route.kind === "publications") return `/apps/${app}/publications?${query}`;
+  if (route.changeSetId) query.set("changeSetId", route.changeSetId);
+  if (route.publicationId) query.set("publicationId", route.publicationId);
   if (route.kind === "list") {
     if (route.search) query.set("search", route.search);
     route.filters.forEach(({ field, operator, value }) => query.append(`filter.${field}.${operator}`, value));

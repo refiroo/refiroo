@@ -6,40 +6,39 @@ from sqlalchemy import select
 from ..db import DbSession
 from ..errors import ApiError, api_error
 from ..models.api import (
+    ChangeSetCreate,
+    ChangeSetModelReleaseUpdate,
+    ChangeSetPage,
+    ChangeSetPublishRequest,
+    ChangeSetResponse,
+    ChangeSetUpdate,
+    ChangeSetValidation,
+    PublicationPage,
+    PublicationResponse,
     WorkspaceCreate,
-    WorkspaceDraftActivation,
-    WorkspaceDraftCreate,
-    WorkspaceDraftModelReleaseUpdate,
-    WorkspaceDraftPage,
-    WorkspaceDraftResponse,
-    WorkspaceDraftUpdate,
-    WorkspaceDraftValidation,
     WorkspacePage,
     WorkspaceResponse,
-    WorkspaceRetirement,
-    WorkspaceRevisionPage,
-    WorkspaceRevisionResponse,
     WorkspaceRuntimeStateResponse,
     WorkspaceRuntimeStateUpdate,
     WorkspaceUpdate,
 )
-from ..models.database import ModelRelease, Workspace, WorkspaceDraft, WorkspaceRevision
+from ..models.database import ChangeSet, ModelRelease, Publication, Workspace
+from ..services.change_sets import (
+    create_change_set,
+    discard_change_set,
+    effective_change_set_membership,
+    pinned_model,
+    publish_change_set,
+    selected_change_set_release,
+    set_change_set_model_release,
+    update_change_set,
+    validate_change_set,
+    withdraw_publication,
+)
 from ..services.model.registry import ActiveModelSnapshot, resolve_model_snapshot
 from ..services.model.runtime import load_runtime_state
 from ..services.pagination import integer_key, paginate_sequence, paginate_statement, text_key
-from ..services.workspace_audit import record_draft_validated
-from ..services.workspace_revisions import (
-    activate_draft,
-    change_draft_model_release,
-    create_draft,
-    discard_draft,
-    effective_draft_membership,
-    pinned_model,
-    retire_publication,
-    selected_draft_release,
-    update_draft,
-    validate_draft,
-)
+from ..services.workspace_audit import record_change_set_validated
 from ..services.workspaces import (
     build_workspace_query,
     create_workspace,
@@ -113,16 +112,16 @@ def patch_workspace_runtime_state(
     )
 
 
-def _draft_response(session, item: WorkspaceDraft) -> WorkspaceDraftResponse:
+def _change_set_response(session, item: ChangeSet) -> ChangeSetResponse:
     release = session.get(ModelRelease, item.model_release_id)
     source = (
         "currentLive"
         if item.base_id is not None
-        else "revision"
-        if item.derived_from_revision_id
+        else "publication"
+        if item.derived_from_publication_id
         else "empty"
     )
-    return WorkspaceDraftResponse(
+    return ChangeSetResponse(
         id=item.id,
         workspaceKey=item.workspace_key,
         name=item.name,
@@ -130,67 +129,69 @@ def _draft_response(session, item: WorkspaceDraft) -> WorkspaceDraftResponse:
         modelReleaseKey=release.release_key if release else "unavailable",
         modelReleaseVersion=release.release_version if release else "unavailable",
         source=source,
-        derivedFromRevisionId=item.derived_from_revision_id,
+        derivedFromPublicationId=item.derived_from_publication_id,
         version=item.version,
         createdAt=item.created_at,
         updatedAt=item.updated_at,
     )
 
 
-def _revision_response(session, item: WorkspaceRevision) -> WorkspaceRevisionResponse:
+def _publication_response(session, item: Publication) -> PublicationResponse:
     release = session.get(ModelRelease, item.model_release_id)
-    return WorkspaceRevisionResponse(
+    return PublicationResponse(
         id=item.id,
         workspaceKey=item.workspace_key,
         modelReleaseId=release.public_id if release else str(item.model_release_id),
-        revisionNumber=item.revision_number,
+        modelReleaseKey=release.release_key if release else "unavailable",
+        modelReleaseVersion=release.release_version if release else "unavailable",
+        publicationNumber=item.publication_number,
         status=item.status,
-        derivedFromRevisionId=item.derived_from_revision_id,
-        supersedesRevisionId=item.supersedes_revision_id,
+        derivedFromPublicationId=item.derived_from_publication_id,
+        supersedesPublicationId=item.supersedes_publication_id,
         createdAt=item.created_at,
-        activatedAt=item.activated_at,
-        retiredAt=item.retired_at,
+        publishedAt=item.published_at,
+        withdrawnAt=item.withdrawn_at,
     )
 
 
-@read_router.get("/workspaces/{workspace_key}/drafts", response_model=WorkspaceDraftPage)
-def list_workspace_drafts(
+@read_router.get("/workspaces/{workspace_key}/change-sets", response_model=ChangeSetPage)
+def list_change_sets(
     workspace_key: str,
     session: DbSession,
     paging: PageQuery,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
-) -> WorkspaceDraftPage:
+) -> ChangeSetPage:
     load_workspace(session, workspace_key)
     items = list(
-        session.scalars(select(WorkspaceDraft).where(WorkspaceDraft.workspace_key == workspace_key))
+        session.scalars(select(ChangeSet).where(ChangeSet.workspace_key == workspace_key))
     )
     page = paginate_sequence(
         items,
         lambda x: (x.created_at.isoformat(), x.id),
-        scope="workspace-drafts",
+        scope="change-sets",
         filters={"workspaceKey": workspace_key},
         page=paging,
         page_size=page_size,
         sort=("createdAt", "id"),
-        message="Workspace draft cursor is invalid",
+        message="Change set cursor is invalid",
     )
-    return WorkspaceDraftPage(
-        items=[_draft_response(session, x) for x in page.items], **page.links()
+    return ChangeSetPage(
+        items=[_change_set_response(session, x) for x in page.items], **page.links()
     )
 
 
 @admin_router.post(
-    "/workspaces/{workspace_key}/drafts",
-    response_model=WorkspaceDraftResponse,
+    "/workspaces/{workspace_key}/change-sets",
+    response_model=ChangeSetResponse,
     status_code=status.HTTP_201_CREATED,
 )
-def post_workspace_draft(
+def post_change_set(
     workspace_key: str,
-    payload: WorkspaceDraftCreate,
+    payload: ChangeSetCreate,
     session: DbSession,
-) -> WorkspaceDraftResponse:
+) -> ChangeSetResponse:
     selected = (
-        selected_draft_release(session, str(payload.modelReleaseId))
+        selected_change_set_release(session, str(payload.modelReleaseId))
         if payload.modelReleaseId
         else None
     )
@@ -199,15 +200,15 @@ def post_workspace_draft(
         if selected
         else resolve_model_snapshot(session).release_db_id
     )
-    return _draft_response(
+    return _change_set_response(
         session,
-        create_draft(
+        create_change_set(
             session,
             workspace_key,
             selected.id if selected else active_release_id,
             name=payload.name,
-            source_revision_id=str(payload.derivedFromRevisionId)
-            if payload.derivedFromRevisionId
+            source_publication_id=str(payload.derivedFromPublicationId)
+            if payload.derivedFromPublicationId
             else None,
             source=payload.source,
             expected_model_runtime_release_id=active_release_id,
@@ -216,69 +217,67 @@ def post_workspace_draft(
     )
 
 
-@read_router.get("/workspace-drafts/{draft_id}", response_model=WorkspaceDraftResponse)
-def get_workspace_draft(draft_id: str, session: DbSession) -> WorkspaceDraftResponse:
-    # WorkspaceDraft's ORM primary key is the autoincrement sequence_id, so session.get by the
+@read_router.get("/change-sets/{change_set_id}", response_model=ChangeSetResponse)
+def get_change_set(change_set_id: str, session: DbSession) -> ChangeSetResponse:
+    # ChangeSet's ORM primary key is the autoincrement sequence_id, so session.get by the
     # stable public id would always miss; resolve through the unique id column instead.
-    item = session.scalar(select(WorkspaceDraft).where(WorkspaceDraft.id == draft_id))
+    item = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
     if item is None:
-        raise api_error(404, "workspace_draft_not_found", "Workspace draft not found")
-    return _draft_response(session, item)
+        raise api_error(404, "change_set_not_found", "Change set not found")
+    return _change_set_response(session, item)
 
 
-@admin_router.patch("/workspace-drafts/{draft_id}", response_model=WorkspaceDraftResponse)
-def patch_workspace_draft(
-    draft_id: str, payload: WorkspaceDraftUpdate, session: DbSession
-) -> WorkspaceDraftResponse:
-    return _draft_response(
-        session, update_draft(session, draft_id, payload.expectedVersion, payload.name)
+@admin_router.patch("/change-sets/{change_set_id}", response_model=ChangeSetResponse)
+def patch_change_set(
+    change_set_id: str, payload: ChangeSetUpdate, session: DbSession
+) -> ChangeSetResponse:
+    return _change_set_response(
+        session, update_change_set(session, change_set_id, payload.expectedVersion, payload.name)
     )
 
 
 @admin_router.patch(
-    "/workspaces/{workspace_key}/drafts/{draft_id}/model-release",
-    response_model=WorkspaceDraftResponse,
+    "/change-sets/{change_set_id}/model-release", response_model=ChangeSetResponse
 )
-def patch_workspace_draft_model_release(
-    workspace_key: str, draft_id: str, payload: WorkspaceDraftModelReleaseUpdate, session: DbSession
-) -> WorkspaceDraftResponse:
-    return _draft_response(
+def patch_change_set_model_release(
+    change_set_id: str, payload: ChangeSetModelReleaseUpdate, session: DbSession
+) -> ChangeSetResponse:
+    return _change_set_response(
         session,
-        change_draft_model_release(
+        set_change_set_model_release(
             session,
-            workspace_key,
-            draft_id,
+            change_set_id,
             str(payload.modelReleaseId),
-            payload.expectedDraftVersion,
+            payload.expectedChangeSetVersion,
         ),
     )
 
 
-@admin_router.delete("/workspace-drafts/{draft_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_workspace_draft(
-    draft_id: str, session: DbSession, expected_version: int = Query(alias="expectedVersion", ge=1)
+@admin_router.delete("/change-sets/{change_set_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_change_set(
+    change_set_id: str, session: DbSession, expected_version: int = Query(alias="expectedVersion", ge=1)
 ) -> None:
-    discard_draft(session, draft_id, expected_version)
+    discard_change_set(session, change_set_id, expected_version)
 
 
 @admin_router.post(
-    "/workspace-drafts/{draft_id}/validation", response_model=WorkspaceDraftValidation
+    "/change-sets/{change_set_id}/validation", response_model=ChangeSetValidation
 )
-def validate_workspace_draft(draft_id: str, session: DbSession) -> WorkspaceDraftValidation:
-    draft, draft_model = pinned_model(session, draft_id)
-    diagnostics = validate_draft(session, draft_id, draft_model)
-    # A validation never mutates the draft graph or bumps its version; the audit record is its only
+def post_change_set_validation(change_set_id: str, session: DbSession) -> ChangeSetValidation:
+    change_set, change_set_model = pinned_model(session, change_set_id)
+    diagnostics = validate_change_set(session, change_set_id, change_set_model)
+    # A validation never mutates the change set graph or bumps its version; the audit record is its only
     # side effect and is bounded to identity metadata plus counts (see D3a).  The conflict
     # short-circuit can leave a corrupt base unresolved, so fall back to zero counts instead of
     # failing a validation that already reported its diagnostic.
     try:
-        membership = effective_draft_membership(session, draft_id)
+        membership = effective_change_set_membership(session, change_set_id)
         object_count, relation_count = len(membership.objects), len(membership.relations)
     except ApiError:
         object_count, relation_count = 0, 0
-    record_draft_validated(
+    record_change_set_validated(
         session,
-        draft=draft,
+        change_set=change_set,
         valid=not diagnostics,
         error_codes=[item["code"] for item in diagnostics],
         object_count=object_count,
@@ -286,71 +285,71 @@ def validate_workspace_draft(draft_id: str, session: DbSession) -> WorkspaceDraf
         error_count=len(diagnostics),
     )
     session.commit()
-    return WorkspaceDraftValidation(valid=not diagnostics, diagnostics=diagnostics)
+    return ChangeSetValidation(valid=not diagnostics, diagnostics=diagnostics)
 
 
 @admin_router.post(
-    "/workspace-drafts/{draft_id}/activation", response_model=WorkspaceRevisionResponse
+    "/change-sets/{change_set_id}/publication", response_model=PublicationResponse
 )
-def activate_workspace_draft(
-    draft_id: str,
-    payload: WorkspaceDraftActivation,
+def post_change_set_publication(
+    change_set_id: str,
+    payload: ChangeSetPublishRequest,
     session: DbSession,
     snapshot: ActiveModelSnapshot,
-) -> WorkspaceRevisionResponse:
-    _draft, draft_model = pinned_model(session, draft_id)
-    revision = activate_draft(
+) -> PublicationResponse:
+    _change_set, change_set_model = pinned_model(session, change_set_id)
+    publication = publish_change_set(
         session,
-        draft_id,
-        draft_model,
+        change_set_id,
+        change_set_model,
         snapshot.release_db_id,
-        payload.expectedDraftVersion,
-        str(payload.expectedActiveRevisionId) if payload.expectedActiveRevisionId else None,
+        payload.expectedChangeSetVersion,
+        str(payload.expectedActivePublicationId) if payload.expectedActivePublicationId else None,
     )
-    return _revision_response(session, revision)
+    return _publication_response(session, publication)
 
 
-@read_router.get("/workspaces/{workspace_key}/revisions", response_model=WorkspaceRevisionPage)
-def list_workspace_revisions(
+@read_router.get("/workspaces/{workspace_key}/publications", response_model=PublicationPage)
+def list_publications(
     workspace_key: str,
     session: DbSession,
     paging: PageQuery,
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
-) -> WorkspaceRevisionPage:
+) -> PublicationPage:
     load_workspace(session, workspace_key)
     page = paginate_statement(
         session,
-        select(WorkspaceRevision).where(WorkspaceRevision.workspace_key == workspace_key),
+        select(Publication).where(Publication.workspace_key == workspace_key),
         keys=(
             integer_key(
-                "revisionNumber",
-                WorkspaceRevision.revision_number,
-                "revision_number",
+                "publicationNumber",
+                Publication.publication_number,
+                "publication_number",
                 descending=True,
             ),
-            text_key("id", WorkspaceRevision.id, "id", descending=True),
+            text_key("id", Publication.id, "id", descending=True),
         ),
-        scope="workspace-revisions",
+        scope="publications",
         filters={"workspaceKey": workspace_key},
         page=paging,
         page_size=page_size,
-        message="Workspace revision cursor is invalid",
+        message="Publication cursor is invalid",
     )
-    return WorkspaceRevisionPage(
-        items=[_revision_response(session, x) for x in page.items], **page.links()
+    return PublicationPage(
+        items=[_publication_response(session, x) for x in page.items], **page.links()
     )
 
 
-@read_router.get("/workspace-revisions/{revision_id}", response_model=WorkspaceRevisionResponse)
-def get_workspace_revision(revision_id: str, session: DbSession) -> WorkspaceRevisionResponse:
-    item = session.scalar(select(WorkspaceRevision).where(WorkspaceRevision.id == revision_id))
+@read_router.get("/publications/{publication_id}", response_model=PublicationResponse)
+def get_publication(publication_id: str, session: DbSession) -> PublicationResponse:
+    item = session.scalar(select(Publication).where(Publication.id == publication_id))
     if item is None:
-        raise api_error(404, "workspace_revision_not_found", "Workspace revision not found")
-    return _revision_response(session, item)
+        raise api_error(404, "publication_not_found", "Publication not found")
+    return _publication_response(session, item)
 
 
-@admin_router.post("/workspaces/{workspace_key}/retirement", status_code=status.HTTP_204_NO_CONTENT)
-def retire_workspace_publication(
-    workspace_key: str, payload: WorkspaceRetirement, session: DbSession
-) -> None:
-    retire_publication(session, workspace_key, str(payload.expectedActiveRevisionId))
+@admin_router.post(
+    "/publications/{publication_id}/withdrawal", status_code=status.HTTP_204_NO_CONTENT
+)
+def post_publication_withdrawal(publication_id: str, session: DbSession) -> None:
+    withdraw_publication(session, publication_id)

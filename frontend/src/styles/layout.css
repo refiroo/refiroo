@@ -629,11 +629,11 @@ fieldset.settings-section legend {
   font-size: 12px;
   font-weight: 600;
 }
-.context-status.status-draft {
+.context-status.status-change-set {
   background: var(--warning-soft);
   color: var(--warning);
 }
-.context-status.status-history {
+.context-status.status-publication {
   background: var(--info-soft);
   color: var(--info);
 }

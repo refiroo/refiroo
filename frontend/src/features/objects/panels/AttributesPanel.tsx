@@ -35,7 +35,7 @@ export function AttributesPanel({
   readOnly?: boolean;
 }) {
   const api = useDataApi();
-  const { draft, warning } = useWorkspaceData();
+  const { changeSet, warning } = useWorkspaceData();
   const trigger = useRef<HTMLDivElement | null>(null);
   const [savedField, setSavedField] = useState("");
   const [removed, setRemoved] = useState(false);
@@ -131,7 +131,7 @@ export function AttributesPanel({
                     )}
                     {savedField === field && (
                       <p role="status" className="inline-save-status">
-                        {warning || (draft ? `Saved to draft “${draft.name}”` : "Saved to Live")}
+                        {warning || (changeSet ? `Saved to change set “${changeSet.name}”` : "Saved to Live")}
                       </p>
                     )}
                   </>

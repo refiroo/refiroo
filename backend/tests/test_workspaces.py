@@ -81,7 +81,7 @@ def test_default_switch_is_atomic_and_omitted_scope_uses_the_catalogue_default()
         assert stale.status_code == 409
         assert stale.json()["error"]["code"] == "version_conflict"
 
-        draft = client.post(f"/api/v1/workspaces/{workspace_key}/drafts", json={}).json()
+        change_set = client.post(f"/api/v1/workspaces/{workspace_key}/change-sets", json={}).json()
         created = client.post(
             "/api/v1/objects",
             json={
@@ -91,8 +91,8 @@ def test_default_switch_is_atomic_and_omitted_scope_uses_the_catalogue_default()
                 "attributes": [
                     {"attributeTypeKey": "language-code", "value": _key("catalogue-default")}
                 ],
-                "workspaceDraftId": draft["id"],
-                "expectedWorkspaceDraftVersion": draft["version"],
+                "changeSetId": change_set["id"],
+                "expectedChangeSetVersion": change_set["version"],
             },
         )
         assert created.status_code == 201
@@ -115,7 +115,7 @@ def test_retired_workspace_remains_readable_but_blocks_all_runtime_mutations():
         created_workspace = client.post(
             "/api/v1/workspaces", json={"key": workspace_key, "label": "Archive"}
         ).json()
-        draft = client.post(f"/api/v1/workspaces/{workspace_key}/drafts", json={}).json()
+        change_set = client.post(f"/api/v1/workspaces/{workspace_key}/change-sets", json={}).json()
         created_object = client.post(
             "/api/v1/objects",
             json={
@@ -126,16 +126,16 @@ def test_retired_workspace_remains_readable_but_blocks_all_runtime_mutations():
                 "attributes": [
                     {"attributeTypeKey": "language-code", "value": _key("archive-domain")}
                 ],
-                "workspaceDraftId": draft["id"],
-                "expectedWorkspaceDraftVersion": draft["version"],
+                "changeSetId": change_set["id"],
+                "expectedChangeSetVersion": change_set["version"],
             },
         ).json()
         activation = client.post(
-            f"/api/v1/workspace-drafts/{draft['id']}/activation",
-            json={"expectedDraftVersion": 2, "expectedActiveRevisionId": None},
+            f"/api/v1/change-sets/{change_set['id']}/publication",
+            json={"expectedChangeSetVersion": 2, "expectedActivePublicationId": None},
         )
         assert activation.status_code == 200
-        blocked_draft = client.post(f"/api/v1/workspaces/{workspace_key}/drafts", json={}).json()
+        blocked_change_set = client.post(f"/api/v1/workspaces/{workspace_key}/change-sets", json={}).json()
         retired = client.patch(
             f"/api/v1/workspaces/{workspace_key}",
             json={"status": "retired", "expectedVersion": created_workspace["version"]},
@@ -171,7 +171,7 @@ def test_retired_workspace_remains_readable_but_blocks_all_runtime_mutations():
 
         update = client.patch(
             f"/api/v1/objects/language/{created_object['id']}",
-                json={"name": "Blocked", "expectedVersion": created_object["version"], "workspaceDraftId": blocked_draft["id"], "expectedWorkspaceDraftVersion": 1},
+                json={"name": "Blocked", "expectedVersion": created_object["version"], "changeSetId": blocked_change_set["id"], "expectedChangeSetVersion": 1},
         )
         assert update.status_code == 409
         assert update.json()["error"]["code"] == "workspace_retired"
@@ -183,8 +183,8 @@ def test_retired_workspace_remains_readable_but_blocks_all_runtime_mutations():
                 "workspaceKey": workspace_key,
                 "name": "Blocked",
                 "attributes": [{"attributeTypeKey": "language-code", "value": _key("blocked")}],
-                "workspaceDraftId": blocked_draft["id"],
-                "expectedWorkspaceDraftVersion": 1,
+                "changeSetId": blocked_change_set["id"],
+                "expectedChangeSetVersion": 1,
             },
         )
         assert create.status_code == 409
@@ -192,7 +192,7 @@ def test_retired_workspace_remains_readable_but_blocks_all_runtime_mutations():
 
         attribute = client.patch(
             f"/api/v1/objects/language/{created_object['id']}/attributes/language-code",
-            json={"value": _key("blocked-attribute"), "expectedVersion": created_object["version"], "workspaceDraftId": blocked_draft["id"], "expectedWorkspaceDraftVersion": 1},
+            json={"value": _key("blocked-attribute"), "expectedVersion": created_object["version"], "changeSetId": blocked_change_set["id"], "expectedChangeSetVersion": 1},
         )
         assert attribute.status_code == 409
         assert attribute.json()["error"]["code"] == "workspace_retired"
@@ -203,15 +203,15 @@ def test_retired_workspace_remains_readable_but_blocks_all_runtime_mutations():
                 "fromObjectId": created_object["id"],
                 "toObjectId": created_object["id"],
                 "attributes": {},
-                "workspaceDraftId": blocked_draft["id"],
-                "expectedWorkspaceDraftVersion": 1,
+                "changeSetId": blocked_change_set["id"],
+                "expectedChangeSetVersion": 1,
             },
         )
         assert relation.status_code == 409
         assert relation.json()["error"]["code"] == "workspace_retired"
         delete = client.delete(
             f"/api/v1/objects/language/{created_object['id']}",
-            params={"expectedVersion": created_object["version"], "workspaceDraftId": blocked_draft["id"], "expectedWorkspaceDraftVersion": 1},
+            params={"expectedVersion": created_object["version"], "changeSetId": blocked_change_set["id"], "expectedChangeSetVersion": 1},
         )
         assert delete.status_code == 409
         assert delete.json()["error"]["code"] == "workspace_retired"

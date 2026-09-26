@@ -34,9 +34,9 @@ GAP-01–GAP-08 answers and distinguishes accepted targets from implementation e
 | Area | 0.6 state | Next |
 | --- | --- | --- |
 | Live data | Complete: generic object, field, parent, relation and translation APIs and browser controls; record concurrency and audit | — |
-| Optional data drafts | Complete: current-live and historical source selection, shared browser editing, validation and delta merge | — |
+| Optional change sets | Complete: current-live and historical source selection, shared browser editing, validation and delta merge | — |
 | Historical data | Complete: newest-first browser discovery, pinned-model immutable reads and historical draft derivation | — |
-| Publication retirement | Complete: truthful browser confirmation removes only the designation while retaining live data/history | — |
+| Publication withdrawal | Complete: truthful browser confirmation removes only the designation while retaining live data/history | — |
 | Model administration | Complete: immutable releases, JSON drafts, validation/diff/install/activation workbench | Browser administration acceptance (0.7+) |
 | UI foundation | Complete: catalogue selection, typed tables, generic panels, redesigned navigation/collections/inspector/inline editing, automated accessibility and visual-regression gates (UI-07); 0.7 redesign (header application tabs, Live/Drafts/History control, record tree, Filter popover), dark mode and settings menu; WP-9 a11y/visual acceptance passed | — |
 | Specialist workflows | Schema 0.6 `mappingGrid` contract, live/draft/revision coverage, target-detail, candidate APIs, atomic replacement and contextual mapping lens with in-context target creation delivered; SC-07 composed acceptance passed | Lazy arbitrary-depth hierarchy/translation specializations 0.8; integration 0.9 |
@@ -44,9 +44,9 @@ GAP-01–GAP-08 answers and distinguishes accepted targets from implementation e
 
 Ordinary live saves create neither a draft nor a revision. Draft activation applies authored changes
 over current live data, preserves unrelated live work and publishes nothing on a touched-record conflict
-or divergent touched mutable relation set, or invalid merged graph. Historical derivation is not a direct restore. Publication retirement does
+or divergent touched mutable relation set, or invalid merged graph. Historical derivation is not a direct restore. Publication withdrawal does
 not withdraw live data or make the workspace read-only; catalogue retirement is the read-only control.
-Data drafts and application-definition drafts are different concepts.
+Change sets and application-definition drafts are different concepts.
 
 The current default/non-default browser gap and disconnected record controls are documented in the
 [functionality catalogue](product-functionality/CURRENT_FUNCTIONALITY.md). A component or API present
@@ -183,7 +183,7 @@ Evidence: the full backend suite (533 passed; run once because the column type a
 timestamp read), 167 affected frontend component tests, Ruff, frontend format, lint (zero errors, 11
 warnings) and build. `test:browser:wp13c` (12 checks) creates, selects and saves a target in both
 directions, live and in a draft, and checks the narrow search height and mismatch text.
-`test:browser:authoring`, `test:browser:history` and `test:browser:wp14` pass. The changed
+`test:browser:authoring`, `test:browser:publications` and `test:browser:wp14` pass. The changed
 screenshots were inspected at 1440px and 390px. The full frontend suite and the a11y/visual gates
 remain WP-9.
 
@@ -282,7 +282,7 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
   workspace-explicit routes, view and panel component registries, URL-backed searchable/filterable/
   sortable cursor-paged collections, composable object details and cursor-paged audit history.
   Complete workspace lifecycle UI with live CRUD, optional drafts, newest-first immutable history,
-  historical draft sources, truthful publication retirement and conflict reconciliation. Frontend
+  historical draft sources, truthful publication withdrawal and conflict reconciliation. Frontend
   redesign (UI-01–UI-06) delivers compact navigation, focused collections, record inspector, inline
   field editing, resizable panels and refined draft presentation. Failed collection and lookup reads
   remain retryable; genuinely empty relationship/translation collections render as empty states;

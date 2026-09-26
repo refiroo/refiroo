@@ -66,10 +66,10 @@ workspace; non-default detail context and writable related flows are not yet con
 ### US-D06 — Add a live reference value directly
 
 **Story:** As a data owner, I want to add an everyday reference value directly to an active workspace
-so that routine maintenance does not require a draft and publication ceremony.
+so that routine maintenance does not require a change set and publication ceremony.
 
 **Accepted when:** One create flow collects the core data, typed fields, parent and required
-relationships; success is immediately visible and audited; no workspace revision is created.
+relationships; success is immediately visible and audited; no publication is created.
 
 **Coverage:** F05-F07. **Status:** Available through the API; browser flow is in progress for 0.6 WP9.
 
@@ -173,26 +173,26 @@ without switching between unrelated navigation systems.
 selected parent scope is visible and URL-backed; configured views over the same source object type are
 available as labelled lenses of one collection; and applications with different or no containment and
 mapping configurations receive no hidden starter-specific behavior. Search, compatible filters,
-detail return and Live/Draft/History retain the selected scope.
+detail return and Live/Change set/History retain the selected scope.
 
 **Coverage:** ADR-029; implemented Base 0.7 WP-14 with focused evidence; composed acceptance remains
 SC-16/WP-9.
 
 ## Coordinated design and publication
 
-The live starting-point limitation is tracked in [GAP-02](PLANNING_HANDOFF.md). A design draft
+The live starting-point limitation is tracked in [GAP-02](PLANNING_HANDOFF.md). A change set
 contains data changes; application-definition changes use the separate model administration stories.
 
 ### US-W01 — Prepare changes away from live data
 
-**Story:** As a steward preparing a coordinated redesign, I want an optional workspace draft so that I
+**Story:** As a steward preparing a coordinated redesign, I want an optional change set so that I
 can change several related records without affecting current users.
 
-**Accepted when:** I can name a draft and choose current live data or a clearly identified historical source,
+**Accepted when:** I can name a change set and choose current live data or a clearly identified historical source,
 edit through familiar record controls and discard it without changing live data. Starting from current
-live data includes all changes up to draft creation, as specified by US-W08.
+live data includes all changes up to change set creation, as specified by US-W08.
 
-**Coverage:** F12. **Status:** Empty and historical-source drafts are available through the API; the
+**Coverage:** F12. **Status:** Empty and historical-source change sets are available through the API; the
 current-live starting point is GAP-02. Browser flow is in progress for 0.6 WP9.
 
 ### US-W02 — Check the complete design before activation
@@ -201,7 +201,7 @@ current-live starting point is GAP-02. Browser flow is in progress for 0.6 WP9.
 are found before anything becomes live.
 
 **Accepted when:** Validation checks fields, required relationships, uniqueness, cardinality,
-containment and cycles without publishing or destroying the draft, and identifies actionable problems.
+containment and cycles without publishing or destroying the change set, and identifies actionable problems.
 
 **Coverage:** F13. **Status:** Available through the API; browser flow is in progress for 0.6 WP9.
 
@@ -210,14 +210,14 @@ containment and cycles without publishing or destroying the draft, and identifie
 **Story:** As a data owner, I want one reviewed activation so that users never observe half of a
 coordinated design.
 
-**Accepted when:** The draft changes are merged, revalidated and published in one operation; any failure
-leaves both live content and the draft preserved.
+**Accepted when:** The change set changes are merged, revalidated and published in one operation; any failure
+leaves both live content and the change set preserved.
 
 **Coverage:** F13, F17. **Status:** Available through the API; browser flow is in progress for 0.6 WP9.
 
 ### US-W04 — Preserve unrelated live work during activation
 
-**Story:** As a data owner, I want activation to preserve live records that the draft did not touch so
+**Story:** As a data owner, I want publishing to preserve live records that the change set did not touch so
 that normal maintenance can continue while design work is open.
 
 **Accepted when:** Untouched live changes remain, a live change to a touched record produces a precise
@@ -225,13 +225,13 @@ conflict, and no conflict is silently overwritten.
 
 **Coverage:** F13, F17. **Status:** Available through the API.
 
-### US-W05 — Understand where a revision came from
+### US-W05 — Understand where a publication came from
 
-**Story:** As a data owner, I want history to distinguish the snapshot used to start a draft from the
+**Story:** As a data owner, I want history to distinguish the snapshot used to start a change set from the
 snapshot replaced at activation so that branching from older history remains truthful.
 
 **Accepted when:** “Created from” and “superseded on activation” are separately visible and may contain
-different revision identities.
+different publication identities.
 
 **Coverage:** F14. **Status:** API available; browser flow is in progress for 0.6 WP9.
 
@@ -240,7 +240,7 @@ different revision identities.
 **Story:** As a data owner, I want to remove the current-publication designation so that publication
 history is accurate while its evidence remains available.
 
-**Accepted when:** Retirement checks the expected current revision, clears publication as one workspace
+**Accepted when:** Retirement checks the expected current publication, clears publication as one workspace
 action and retains workspace identity, record identities, snapshots and audit history. The interface
 explains that live records remain readable and that this action does not make the workspace read-only.
 
@@ -248,10 +248,10 @@ explains that live records remain readable and that this action does not make th
 
 ### US-W07 — Start reviewed changes from history
 
-**Story:** As a data owner, I want to start a draft from an older snapshot so that I can use historical
+**Story:** As a data owner, I want to start a change set from an older snapshot so that I can use historical
 content as a reference for reviewed new changes without editing history.
 
-**Accepted when:** The old snapshot stays immutable, the new draft records its source, and activation
+**Accepted when:** The old snapshot stays immutable, the new change set records its source, and publishing
 uses fresh conflict and validation checks. Choosing the old snapshot alone does not undo live changes;
 only explicitly authored changes are applied, and untouched newer live records remain.
 
@@ -259,37 +259,37 @@ only explicitly authored changes are applied, and untouched newer live records r
 
 ### US-W08 — Begin a design with today's complete live content
 
-**Story:** As a steward preparing coordinated changes, I want my draft to start with the data people
+**Story:** As a steward preparing coordinated changes, I want my change set to start with the data people
 are using now so that recent corrections and additions are not absent from my working view.
 
 **Accepted when:** starting from live includes changes made since the last publication and works when
 live data exists without a publication. Later live edits do not rewrite that starting view. Starting
-from an older historical snapshot remains an explicitly different choice.
+from an older publication remains an explicitly different choice.
 
 **Coverage:** F12, F13. **Status:** SQLite API implemented by WP8.1-B; browser acceptance remains
 WP9/WP10 work. **Example:** SC-05.
 
-### US-W09 — Work on the next model version in one draft while live keeps the current one
+### US-W09 — Work on the next model version in one change set while live keeps the current one
 
-**Story:** As a steward, I want one draft to work under a not-yet-active model version while live data
-and my other drafts keep the version in use, so that I can prepare for a model change without moving
+**Story:** As a steward, I want one change set to work under a not-yet-active model version while live data
+and my other change sets keep the version in use, so that I can prepare for a model change without moving
 the whole workspace onto it.
 
-**Accepted when:** that draft reads, writes and validates under the version selected for it rather than
-the globally active one, while live data, immutable history, every other draft and every other
-workspace continue under the active version unchanged. A draft may select only a version that is
+**Accepted when:** that change set reads, writes and validates under the version selected for it rather than
+the globally active one, while live data, immutable history, every other change set and every other
+workspace continue under the active version unchanged. A change set may select only a version that is
 installed, complete and supported by this deployment; an unavailable, corrupt or unsupported selection
 is refused with an explanation and changes nothing. Once the selected version becomes the active one,
-that draft activates through the ordinary path. A draft still on the replaced version is never quietly
+that change set publishes through the ordinary path. A change set still on the replaced version is never quietly
 moved onto another one: it can be discarded without model agreement, or explicitly moved onto the new
-version where its content already satisfies it. Choosing a version changes nothing but that draft: it
+version where its content already satisfies it. Choosing a version changes nothing but that change set: it
 never forces a model change through and never switches the version used anywhere else. Creation and
 version changes require the complete candidate, including inherited content, to already fit. Refusal
 leaves existing content and model selection unchanged; the browser refreshes all model-dependent
 navigation/forms safely, preserving unsaved input when a version change is declined or fails.
 
 **Coverage:** F12, F15, F17. **Status:** WP-6/WP-7 selection and WP-11 refusal/UI hardening delivered;
-composed SC-15 acceptance remains WP-9 (ADR-028). Moving a draft onto a version its content does not
+composed SC-15 acceptance remains WP-9 (ADR-028). Moving a change set onto a version its content does not
 already satisfy is reviewed 0.10 migration work.
 **Example:** SC-15.
 
@@ -334,7 +334,7 @@ can fill a gap without selecting the same target and language again.
 
 **Accepted when:** the context is preselected, permitted content fields are editable, duplicate active
 translations are prevented and the cell reflects a successful save. Routine changes can be live;
-explicitly selected draft changes remain staged. Failed input is retained.
+explicitly selected change set changes remain staged. Failed input is retained.
 
 **Coverage:** Planned translation editor. **Status:** Roadmap 0.8. **Example:** SC-09.
 
@@ -410,7 +410,7 @@ reorganize reference data without managing hidden connections.
 
 **Accepted when:** child creation carries the selected parent, moving offers valid parents, the path
 and parent relationship change together, and a move into the item's own descendants is rejected.
-Routine edits stay live unless I explicitly choose a design draft; my place and input survive failure.
+Routine edits stay live unless I explicitly choose a change set; my place and input survive failure.
 
 **Coverage:** F07 plus planned specialist tree. **Status:** Generic service available; specialist
 browser flow roadmap 0.8. **Example:** SC-09.
@@ -495,7 +495,7 @@ planning decisions. **Example:** SC-10.
 **Story:** As a data owner, I want to export a clearly selected workspace and scope so that the
 recipient knows which reference data the file represents.
 
-**Accepted when:** workspace, live/draft/history context where supported, filters and output format
+**Accepted when:** workspace, live/change-set/publication context where supported, filters and output format
 are explicit. Completion can be checked later, large output is retrievable in the supported way and
 partial output cannot be mistaken for a complete export. Field representation follows the documented
 format contract.
@@ -625,8 +625,8 @@ others so that I can control the change and preserve usable data throughout the 
 
 **Accepted when:** supported old and new definitions remain usable in their assigned workspaces,
 data migration is checked, each request observes one consistent selection and a failed switch
-preserves the prior usable state. For a historical draft incompatible with the active definition, the
-user sees the named target definition (normally the historical draft’s definition), affected rules/data
+preserves the prior usable state. For a change set started from a publication incompatible with the active definition, the
+user sees the named target definition (normally the change set started from a publication’s definition), affected rules/data
 and potential loss, then confirms that exact reviewed migration or
 cancels. Cancel changes nothing; stale review requires a fresh check; confirmation still requires a
 valid target graph and supported schema. Other workspaces and immutable history remain unchanged.

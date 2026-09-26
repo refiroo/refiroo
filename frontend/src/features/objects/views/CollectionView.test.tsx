@@ -6,7 +6,7 @@ import { api } from "@/api/client";
 import { domainObject, testModel } from "@/test/fixtures";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
 import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
-import type { WorkspaceDraft, WorkspaceRevision } from "@/types";
+import type { ChangeSet, Publication } from "@/types";
 
 vi.mock("@/api/client", () => ({
   ApiError: class ApiError extends Error {},
@@ -274,12 +274,12 @@ describe("timestamps outside live data (WP-10K)", () => {
     pageSize: 20,
     filters: [{ field: "createdAt", operator: "gte", value: "2026-01-01T00:00" }],
   };
-  function renderIn(objectTypeKey: string, context: "live" | "draft" | "revision") {
+  function renderIn(objectTypeKey: string, context: "live" | "changeSet" | "publication") {
     vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
       api,
       warning: "",
-      ...(context === "draft" ? { draft: { id: "d1" } as WorkspaceDraft } : {}),
-      ...(context === "revision" ? { revision: { id: "r1" } as WorkspaceRevision } : {}),
+      ...(context === "changeSet" ? { changeSet: { id: "d1" } as ChangeSet } : {}),
+      ...(context === "publication" ? { publication: { id: "r1" } as Publication } : {}),
     });
     vi.mocked(api.objects).mockResolvedValue({
       items: [
@@ -322,9 +322,9 @@ describe("timestamps outside live data (WP-10K)", () => {
   });
 
   it.each([
-    ["domain", "draft"],
-    ["codelist", "draft"],
-    ["domain", "revision"],
+    ["domain", "changeSet"],
+    ["codelist", "changeSet"],
+    ["domain", "publication"],
   ] as const)("neither requests nor offers them for %s records in a %s", async (objectTypeKey, context) => {
     renderIn(objectTypeKey, context);
     await waitFor(() =>

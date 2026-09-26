@@ -2,14 +2,14 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient as HttpTestClient
-from test_api import DraftTestClient
+from test_api import ChangeSetTestClient
 
 from app.db import SessionLocal
 from app.main import app
 from app.services.model.loader import load_bootstrap_model
 from app.services.model.releases import install_model_release
 
-TestClient = DraftTestClient
+TestClient = ChangeSetTestClient
 
 
 def _attr(key: str, value):
@@ -44,7 +44,7 @@ def mapping_relation_attributes(monkeypatch):
         release, _created = install_model_release(session, model)
         session.commit()
         release_id = release.public_id
-    monkeypatch.setattr(DraftTestClient, "model_release_id", release_id)
+    monkeypatch.setattr(ChangeSetTestClient, "model_release_id", release_id)
 
 
 def _create_domain(client, suffix):

@@ -371,9 +371,9 @@ try {
   assert.equal((await get(systemValue)).parentObjectId, roots.system.id);
   await get(group); await get(language); await get(otherList);
   checks.push("Signed deletion: cancel before/after impact, containment and required-target ownership, stale dependent change refused without deletes, fresh explicit confirmation, independent System and Translation hierarchies survive");
-  assert.equal((await api(`/workspaces/${workspaceKey}/drafts`)).items.length, 0);
-  assert.equal((await api(`/workspaces/${workspaceKey}/revisions`)).items.length, 0);
-  assert(!writes.some((write) => /drafts|activation|retirement/.test(write.url)));
+  assert.equal((await api(`/workspaces/${workspaceKey}/change-sets`)).items.length, 0);
+  assert.equal((await api(`/workspaces/${workspaceKey}/publications`)).items.length, 0);
+  assert(!writes.some((write) => /change-sets|\/publication\b|withdrawal/.test(write.url)));
   const workspace = await api(`/workspaces/${workspaceKey}`);
   await api(`/workspaces/${workspaceKey}`, { status: "retired", expectedVersion: workspace.version }, "PATCH");
   await openReadOnly();
@@ -390,7 +390,7 @@ try {
     await shown(page.getByRole("heading", { name: "Domains", exact: true }));
     assert.equal(await page.getByRole("button", { name: "Add Domain", exact: true }).count(), 0);
   }
-  checks.push("All authoring uses live canonical APIs with no drafts/revisions; catalogue retirement removes every tested write control");
+  checks.push("All authoring uses live canonical APIs with no change sets/publications; catalogue retirement removes every tested write control");
   assert.deepEqual(failures, []);
   const report = { browser: browser.version(), viewports: ["1440x1000", "390x844"], checks, pageErrors: failures, isolatedDatabase: resolve(output, "database.sqlite") };
   await writeFile(resolve(output, "report.json"), JSON.stringify(report, null, 2));

@@ -90,8 +90,8 @@ errors explicit and machine-readable.
   predicate, and make the last key unique within the filtered set. A collection route takes
   `routers/paging.PageQuery` (or `SeekablePageQuery` where it supports seek) and returns the page's
   `links()`, so every list gains cursors both ways, position, `from=end` and totals together.
-- Draft and history reads go through `services/snapshot_reads.py`, never `effective_draft_membership`,
-  which is for whole-graph validation, activation and writes. Revision, draft-base and draft object
+- Change-set and publication reads go through `services/snapshot_reads.py`, never `effective_change_set_membership`,
+  which is for whole-graph validation, publishing and writes. Publication, change-set base and change-set object
   rows keep a typed value index (`snapshot_attribute_values`) that an ORM flush hook maintains; a bulk
   insert or delete of those rows outside the ORM must update it through `services/snapshot_values.py`.
 - Model shape lives in `models/schema.py`; cross-reference rules live in
@@ -109,7 +109,7 @@ errors explicit and machine-readable.
 - Import within `src/` through the `@/` alias, never with relative paths that climb directories.
 - Keep model contracts in `src/types/`, which `src/types/index.ts` re-exports as one barrel. Split
   by area: `model.ts` for the declarative model, `runtime.ts` for stored objects and relations,
-  `modelAdmin.ts` for drafts and releases, and `ui.ts` for state the browser owns such as
+  `modelAdmin.ts` for model drafts and releases, and `ui.ts` for state the browser owns such as
   `RouteState` — that is not a model contract and does not belong beside one.
 - Generic renderers receive model definitions as input.
 - Do not embed object-specific columns, labels or forms in components.
@@ -119,8 +119,8 @@ errors explicit and machine-readable.
 - `model/` holds reads over the model and stays free of JSX; presentation belongs in `ui/`.
 - Page a collection a user scrolls or jumps through with `lib/hooks/useCursorWindow` rendered in
   `ui/ScrollWindow` (ADR-030): a bounded window of pages, cursors to scroll, positions to jump, one
-  `anchor` in the URL. `useCursorFeed` remains for short append-only feeds (record history, draft and
-  revision lists). Do not hand-write a cursor stack or page buttons.
+  `anchor` in the URL. `useCursorFeed` remains for short append-only feeds (record history, change-set and
+  publication lists). Do not hand-write a cursor stack or page buttons.
 - Recognise an API failure with `isApiError` from `api/errors`, never by reading `code` off a cast,
   and render one with `errorMessage` so users never see an `Error:` prefix.
 - Build a dialog with `ui/Modal`, which owns the backdrop, the generated `aria-labelledby`,

@@ -21,25 +21,25 @@ it is evidence for, and applies them as markers. Select a group with `-m`:
 
 ```sh
 cd backend && .venv/bin/python -m pytest -m mapping -q
-.venv/bin/python -m pytest -m "drafts and not mapping" -q   # boolean expressions work
+.venv/bin/python -m pytest -m "change_sets and not mapping" -q   # boolean expressions work
 ```
 
 | Marker | Contracts (coverage map) | Modules | Cases |
 | --- | --- | --- | --- |
-| `model` | INV-01/02/03/04/06, compatibility classes | `test_model`, `test_model_diagnostics`, `test_model_independence`, `test_model_compatibility` | 109 |
-| `model_admin` | C-MOD-*, C-DR-PIN, C-MOD-ACT | `test_model_lifecycle`, `test_build07_wp11`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_model_compatibility`, `test_model_schema_upgrade`, `test_wp81a_context` | 93 |
-| `startup` | C-BOOT, C-MIG, C-SCHEMA-UP, INV-15 (startup) | `test_startup`, `test_migrations`, `test_wp8_audit_migration`, `test_model_schema_upgrade`, `test_snapshot_value_migration`, `test_page_index_migrations`, `test_snapshot_lookup_index_migration`, `test_search_index` | 39 |
-| `records` | C-OBJ-*, C-ATTR, C-REL, C-DEL, C-TR, C-HIST-OBJ, INV-05/10/12 (live) | `test_api`, `test_attributes`, `test_relations`, `test_translations`, `test_cascade_delete`, `test_query_foundations`, `test_wp8_review_regressions`, `test_relation_set_versions` | 113 |
-| `queries` | C-Q-FILTER, C-Q-SCOPE, INV-07/08/11 | `test_pagination`, `test_typed_table_queries`, `test_query_foundations`, `test_context_read_parity`, `test_paging_contract`, `test_draft_position_reads`, `test_search_index` | 90 |
-| `workspaces` | C-WS-*, C-PUB-RET, INV-14/16 | `test_workspaces`, `test_wp81a_context`, `test_request_scope`, `test_wp8_retirement`, `test_build07_wp9_acceptance` | 31 |
-| `drafts` | C-DR-*, C-REV, C-PUB-RET | `test_workspace_revisions`, `test_wp7_canonical_crud`, `test_wp8_*` (except audit migration), `test_wp81b_current_live_bases`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_typed_table_queries`, `test_mapping_replacement`, `test_wp8_retirement`, `test_context_read_parity`, `test_snapshot_value_migration`, `test_page_index_migrations`, `test_draft_position_reads`, `test_draft_write_lookups`, `test_snapshot_lookup_index_migration`, `test_search_index` | 234 |
-| `mapping` | C-MAP-R, C-MAP-W, C-MAP-SET | `test_mapping_coverage`, `test_mapping_replacement`, `test_relation_set_versions` | 115 |
+| `model` | INV-01/02/03/04/06, compatibility classes | `test_model`, `test_model_diagnostics`, `test_model_independence`, `test_model_compatibility` | 125 |
+| `model_admin` | C-MOD-*, C-DR-PIN, C-MOD-ACT | `test_model_lifecycle`, `test_build07_wp11`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_model_compatibility`, `test_model_schema_upgrade`, `test_wp81a_context` | 94 |
+| `startup` | C-BOOT, C-MIG, C-SCHEMA-UP, INV-15 (startup) | `test_startup`, `test_migrations`, `test_wp8_audit_migration`, `test_model_schema_upgrade`, `test_snapshot_value_migration`, `test_page_index_migrations`, `test_snapshot_lookup_index_migration`, `test_search_index`, `test_change_set_rename_migration` | 45 |
+| `records` | C-OBJ-*, C-ATTR, C-REL, C-DEL, C-TR, C-HIST-OBJ, INV-05/10/12 (live) | `test_api`, `test_attributes`, `test_relations`, `test_translations`, `test_cascade_delete`, `test_query_foundations`, `test_wp8_review_regressions`, `test_relation_set_versions` | 114 |
+| `queries` | C-Q-FILTER, C-Q-SCOPE, INV-07/08/11 | `test_pagination`, `test_typed_table_queries`, `test_query_foundations`, `test_context_read_parity`, `test_paging_contract`, `test_change_set_position_reads`, `test_search_index` | 92 |
+| `workspaces` | C-WS-*, C-PUB-RET, INV-14/16 | `test_workspaces`, `test_wp81a_context`, `test_request_scope`, `test_wp8_withdrawal`, `test_build07_wp9_acceptance` | 31 |
+| `change_sets` | C-DR-*, C-REV, C-PUB-RET | `test_change_sets`, `test_wp7_canonical_crud`, `test_wp8_*` (except audit migration), `test_wp81b_current_live_bases`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_typed_table_queries`, `test_mapping_replacement`, `test_wp8_withdrawal`, `test_context_read_parity`, `test_snapshot_value_migration`, `test_page_index_migrations`, `test_change_set_position_reads`, `test_change_set_write_lookups`, `test_snapshot_lookup_index_migration`, `test_search_index`, `test_change_set_rename_migration` | 200 |
+| `mapping` | C-MAP-R, C-MAP-W, C-MAP-SET | `test_mapping_coverage`, `test_mapping_replacement`, `test_relation_set_versions` | 116 |
 | `contract` | OpenAPI lock and route inventories | `test_openapi_contract`, `test_paging_contract` | 40 |
-| `volume` | Track S read and write budgets and the paging contract over the generated volume fixture (Base 0.8 S1, S2b, S3, S4, S4R1, S4R6, S7, S8) | `test_volume_baseline`, `test_paging_contract`, `test_draft_position_reads` | 49 |
+| `volume` | Track S read and write budgets and the paging contract over the generated volume fixture (Base 0.8 S1, S2b, S3, S4, S4R1, S4R6, S7, S8) | `test_volume_baseline`, `test_paging_contract`, `test_change_set_position_reads` | 49 |
 
 Counts are collected cases on 2026-09-24 (532 in total); group counts include the WP-9 composed
 SC-15 case. The full suite collected 534 cases at WP-9 build acceptance (2026-09-25). The `startup`,
-`queries`, `drafts` and `volume` counts were recollected at Base 0.8 S2 (2026-09-25, 546 in total), and the `startup`, `queries`, `drafts`, `contract` and `volume` counts at S3/S4 (2026-09-25, 584 in total) at S4R1 (2026-09-26, 588 in total), and the `queries`, `drafts`, `contract` and `volume` counts at S4R6 (2026-09-26, 622 in total), and the `startup` and `drafts` counts at S2b (2026-09-26, 625 in total), and the `startup`, `queries` and `drafts` counts at S8 (2026-09-26, 631 in total). A module carries several markers when it is
+`queries`, `change_sets` and `volume` counts were recollected at Base 0.8 S2 (2026-09-25, 546 in total), and the `startup`, `queries`, `change_sets`, `contract` and `volume` counts at S3/S4 (2026-09-25, 584 in total) at S4R1 (2026-09-26, 588 in total), and the `queries`, `change_sets`, `contract` and `volume` counts at S4R6 (2026-09-26, 622 in total), and the `startup` and `change_sets` counts at S2b (2026-09-26, 625 in total), and the `startup`, `queries` and `change_sets` counts at S8 (2026-09-26, 631 in total). Every count was recollected at W2 (2026-09-26, 637 in total), where the `drafts` marker became `change_sets`. A module carries several markers when it is
 evidence for several groups, so groups overlap and their counts do not add up to the total.
 
 **Unclassified tests are refused.** A module missing from `TEST_GROUPS` fails collection with exit
@@ -49,7 +49,7 @@ the table above in the same change.
 
 **Node selection** is still the sharpest tool when a group is broader than the risk. Use it for
 single contracts, e.g. INV-02 alone: `py -m pytest tests/test_model_independence.py`; activation
-failure atomicity: `py -m pytest "tests/test_wp8_activation.py::test_no_partial_publication_after_every_failure_class"`.
+failure atomicity: `py -m pytest "tests/test_wp8_publish.py::test_no_partial_publication_after_every_failure_class"`.
 
 ### Frontend: Vitest projects plus `vitest related`
 
@@ -81,16 +81,16 @@ Chrome. Setup costs ~2.8 s per runner (section 4). Pick by surface:
 | --- | --- |
 | `e2e/wp9-navigation.mjs` (`test:browser`) | C-UI-NAV, C-Q-FILTER UI, UI-01/02/03 shell, collection controls, inspector; imports `e2e/ui03a-navigation.mjs`, `e2e/ui03b-deletion.mjs`, `e2e/ui03b-hierarchy.mjs`, `e2e/record-actions.mjs` |
 | `e2e/wp9-authoring.mjs` (`test:browser:authoring`) | C-OBJ-C/U, C-REL, C-TR, C-DEL live, conflict reconciliation |
-| `e2e/wp9-drafts.mjs` (`test:browser:drafts`) | C-DR-SRC/EDIT/ACT, draft C-DEL |
-| `e2e/wp9-history.mjs` (`test:browser:history`) | C-REV, historical sources, C-PUB-RET, C-WS-RET |
+| `e2e/wp9-change-sets.mjs` (`test:browser:change-sets`) | C-DR-SRC/EDIT/ACT, change set C-DEL |
+| `e2e/wp9-publications.mjs` (`test:browser:publications`) | C-REV, historical sources, C-PUB-RET, C-WS-RET |
 | `e2e/wp11-model-admin.mjs` (`test:browser:wp11`) | C-DR-PIN version-change dialog |
 | `e2e/wp12-release-identity.mjs` (`test:browser:wp12`) | C-MOD-DIFF release identity and history comparison |
 | `e2e/wp14-contextual-browser.mjs` (`test:browser:wp14`) | C-Q-SCOPE, C-MAP-UI, contextual collections |
-| `e2e/wp13c-ui-states.mjs` (`test:browser:wp13c`) | C-MAP-UI and C-DR-PIN changed states: outage/retry, empty, conflict review, draft-context mapping, non-active-release draft, narrow layout ([UI acceptance](UI_ACCEPTANCE.md)) |
-| `e2e/sc07-mapping-acceptance.mjs` (`test:browser:sc07`) | WP-9 composed SC-07: C-MAP-UI/W/SET across the starter binding in both directions and an independent binding with a typed relation attribute; candidates beyond page one, large ambiguous sets, generic-write race, draft activation against a divergent live set |
-| `e2e/s5-continuous-lists.mjs` (`test:browser:s5`) | Base 0.8 S5 continuous lists: collection lens, record and relation panels, mapping lens and object picker over the Track S volume fixture (seeded by `backend/tests/volume_seed.py`, 10% by default, `S5_VOLUME_SCALE=1` for full volume) and the starter model; live, draft and history; scrollbar, page number, seek, URL anchor, keyboard, 1440px and 390px |
-| `e2e/s6-sidebar-tree.mjs` (`test:browser:s6`) | Base 0.8 S6 sidebar tree by parent over the Track S volume fixture (10% by default, `S6_VOLUME_SCALE=1` for full volume) and the starter model: top-level roots, each branch's own children and counts per child type, a 2,000-child branch scrolled end to end, an eight-level keyboard path, collapse releasing the branch, search with ancestor paths; live, draft and history; 1440px and 390px; axe on three tree states |
-| `e2e/s7-volume-acceptance.mjs` (`test:browser:s7`) | Base 0.8 S7 composed Track S acceptance over the volume fixture (10% by default, `S7_VOLUME_SCALE=1` for full volume) and the starter model: one lens journey per context (scroll, seek, scrollbar click, end, page number, copied URL), each landing checked against the context's API read, then a record deep in the tree (volume: search with its ancestor path; starter: keyboard across a tree window's edge); live, draft and history; 1440px and 390px; reports API read times as the browser saw them |
+| `e2e/wp13c-ui-states.mjs` (`test:browser:wp13c`) | C-MAP-UI and C-DR-PIN changed states: outage/retry, empty, conflict review, change-set-context mapping, non-active-release change set, narrow layout ([UI acceptance](UI_ACCEPTANCE.md)) |
+| `e2e/sc07-mapping-acceptance.mjs` (`test:browser:sc07`) | WP-9 composed SC-07: C-MAP-UI/W/SET across the starter binding in both directions and an independent binding with a typed relation attribute; candidates beyond page one, large ambiguous sets, generic-write race, publishing against a divergent live set |
+| `e2e/s5-continuous-lists.mjs` (`test:browser:s5`) | Base 0.8 S5 continuous lists: collection lens, record and relation panels, mapping lens and object picker over the Track S volume fixture (seeded by `backend/tests/volume_seed.py`, 10% by default, `S5_VOLUME_SCALE=1` for full volume) and the starter model; live, change-set and publication; scrollbar, page number, seek, URL anchor, keyboard, 1440px and 390px |
+| `e2e/s6-sidebar-tree.mjs` (`test:browser:s6`) | Base 0.8 S6 sidebar tree by parent over the Track S volume fixture (10% by default, `S6_VOLUME_SCALE=1` for full volume) and the starter model: top-level roots, each branch's own children and counts per child type, a 2,000-child branch scrolled end to end, an eight-level keyboard path, collapse releasing the branch, search with ancestor paths; live, change-set and publication; 1440px and 390px; axe on three tree states |
+| `e2e/s7-volume-acceptance.mjs` (`test:browser:s7`) | Base 0.8 S7 composed Track S acceptance over the volume fixture (10% by default, `S7_VOLUME_SCALE=1` for full volume) and the starter model: one lens journey per context (scroll, seek, scrollbar click, end, page number, copied URL), each landing checked against the context's API read, then a record deep in the tree (volume: search with its ancestor path; starter: keyboard across a tree window's edge); live, change-set and publication; 1440px and 390px; reports API read times as the browser saw them |
 | `e2e/sc15-model-version-acceptance.mjs` (`test:browser:sc15`) | WP-9 composed SC-15: C-DR-PIN and C-MOD-ACT with two same-schema releases and an incompatible one; refusals leave live, history and another workspace untouched |
 | `e2e/accessibility-gate.mjs` (`test:a11y`) | C-UI-A11Y, T5 build gate |
 | `e2e/visual-regression-gate.mjs` (`test:visual`) | C-UI-A11Y visual stability, T5 build gate |
@@ -112,15 +112,15 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | `services/model/{releases,registry,runtime,metadata,drafts,diff,compatibility}.py`, `routers/model_*.py` | `model_admin` | activation or registry resolution changes | `workspaces` (pinned contexts), `startup` (registry at lifespan) |
 | `db.py`, `migrations/**`, `main.py` lifespan, `services/model/bootstrap.py`, `cli/*` | `startup` | always for migrations | AGENTS.md startup rules: bootstrap, upgrade, restart, interrupted migration, lifespan, smoke start |
 | `models/database.py` | the owning service group | a column or table changes | `startup` (`test_migrations::test_fresh_migration_provisions_the_complete_current_schema` compares head with metadata) |
-| `services/objects.py`, `attributes.py`, `routers/objects.py`, `routers/attributes.py` | `records` | typed conversion or version claims change | `queries` (typed filters), `drafts` (draft writes use the same apply path) |
-| `services/relations.py`, `relation_set_versions.py`, `routers/relations.py` | `records` + `mapping` | always | `drafts` (draft relation writes, activation merge) |
-| `services/deletion.py` | `records` | cascade or preview token changes | `mapping` (continuation invalidation), `drafts` (draft deletion) |
-| `services/pagination.py`, `cursors.py`, `routers/paging.py` | `queries` (`test_pagination`, `test_paging_contract`, `test_draft_position_reads`) | always | every group with a collection endpoint: `-m "queries or mapping or model_admin or workspaces"`; `volume` (read budgets) |
-| `services/workspaces.py`, `routers/workspaces.py` | `workspaces` | scope resolution changes | `mapping` (C-MAP-W authority), `drafts` |
-| `services/workspace_revisions.py`, `draft_lookups.py`, `workspace_audit.py`, `audit.py` | `drafts` | overlay, activation or audit projection changes | `mapping` (draft coverage and replacement), `records` (history); `volume` when a draft read or write path changes |
-| `services/snapshot_reads.py`, `snapshot_values.py`, `relation_queries.py` | `drafts` + `queries` (`test_context_read_parity`, `test_paging_contract`, `test_draft_position_reads`) | always | `volume` (draft and history read budgets); `startup` when the typed value index or its backfill changes |
-| `models/search_index.py`, the search predicate in `services/objects.py` | `queries` + `drafts` (`test_search_index`, `test_context_read_parity`) | always | `startup` when the index DDL changes (a new migration, `test_search_index` upgrade and interrupted run); `volume` (search budgets) |
-| `services/mapping.py`, `mapping_projection.py`, `routers/mapping.py` | `mapping` | never by default | `drafts` only if activation or draft overlay is touched |
+| `services/objects.py`, `attributes.py`, `routers/objects.py`, `routers/attributes.py` | `records` | typed conversion or version claims change | `queries` (typed filters), `change_sets` (change set writes use the same apply path) |
+| `services/relations.py`, `relation_set_versions.py`, `routers/relations.py` | `records` + `mapping` | always | `change_sets` (change set relation writes, publishing merge) |
+| `services/deletion.py` | `records` | cascade or preview token changes | `mapping` (continuation invalidation), `change_sets` (change set deletion) |
+| `services/pagination.py`, `cursors.py`, `routers/paging.py` | `queries` (`test_pagination`, `test_paging_contract`, `test_change_set_position_reads`) | always | every group with a collection endpoint: `-m "queries or mapping or model_admin or workspaces"`; `volume` (read budgets) |
+| `services/workspaces.py`, `routers/workspaces.py` | `workspaces` | scope resolution changes | `mapping` (C-MAP-W authority), `change_sets` |
+| `services/change_sets.py`, `change_set_lookups.py`, `workspace_audit.py`, `audit.py` | `change_sets` | overlay, publishing or audit projection changes | `mapping` (change set coverage and replacement), `records` (history); `volume` when a change set read or write path changes |
+| `services/snapshot_reads.py`, `snapshot_values.py`, `relation_queries.py` | `change_sets` + `queries` (`test_context_read_parity`, `test_paging_contract`, `test_change_set_position_reads`) | always | `volume` (change-set and publication read budgets); `startup` when the typed value index or its backfill changes |
+| `models/search_index.py`, the search predicate in `services/objects.py` | `queries` + `change_sets` (`test_search_index`, `test_context_read_parity`) | always | `startup` when the index DDL changes (a new migration, `test_search_index` upgrade and interrupted run); `volume` (search budgets) |
+| `services/mapping.py`, `mapping_projection.py`, `routers/mapping.py` | `mapping` | never by default | `change_sets` only if publishing or change set overlay is touched |
 | `errors.py`, `routers/presenters.py` | the group of the changed error | error envelope shape changes | `contract`; `model_admin` (`test_build07_wp11` correlation IDs) |
 | Any router signature, parameter or response model | the router's group | always | `contract` (re-baseline the OpenAPI lock only for intended changes) |
 
@@ -136,7 +136,7 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | `src/ui/*` shared components | `vitest related` | `test:a11y`/`test:visual` scenario for the changed control only when focus, semantics or tokens change; full gates at WP-9 |
 | `src/features/objects/MappingGridView.tsx` and its `views/` host | `vitest related` (3 files) | `wp14-contextual-browser.mjs`, `wp13c-ui-states.mjs` |
 | `src/features/objects/**` other | the file's test and `vitest related` | the runner for the surface (section 1 table) |
-| `src/features/workspaces/**` | `src/features/workspaces` | `wp9-drafts.mjs` or `wp9-history.mjs`; `wp11-model-admin.mjs` and `wp13c-ui-states.mjs` for version selection |
+| `src/features/workspaces/**` | `src/features/workspaces` | `wp9-change-sets.mjs` or `wp9-publications.mjs`; `wp11-model-admin.mjs` and `wp13c-ui-states.mjs` for version selection |
 | `src/features/model-admin/**` | `src/features/model-admin` | `wp12-release-identity.mjs`, `wp11-model-admin.mjs` |
 | `src/styles*`, theme tokens | none at T1 | focused a11y/visual scenarios for affected pages, plus dark variants |
 
@@ -150,7 +150,7 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | Startup | New Alembic revision | `-m startup` plus the AGENTS.md smoke start | 24 of 532 (5%) |
 | Frontend leaf | `MappingGridView.tsx` | `npx vitest related … --run` and `test:browser:wp14` | 3 of 36 files, 50 tests; one runner of 8 |
 | Frontend shared | `src/api/client.ts` | `vitest related` | 24 of 36 files |
-| Browser surface | Draft activation dialog | `WorkspaceDrafts.test.tsx` and `test:browser:drafts` | one runner of 8 |
+| Browser surface | Publishing dialog | `ChangeSets.test.tsx` and `test:browser:change-sets` | one runner of 8 |
 
 ### Targeted failure reruns
 
@@ -178,8 +178,8 @@ pytest processes at once: they share `backend/tests/test-rdm-engine.db`.
 (cd backend && .venv/bin/python -m pytest -q)
 (cd frontend && npm run format:check && npm run lint && npm run build)
 (cd frontend && npm run test && npm run test:gate-helpers)
-(cd frontend && npm run test:browser && npm run test:browser:authoring && npm run test:browser:drafts \
-  && npm run test:browser:history && npm run test:browser:wp11 && npm run test:browser:wp12 \
+(cd frontend && npm run test:browser && npm run test:browser:authoring && npm run test:browser:change-sets \
+  && npm run test:browser:publications && npm run test:browser:wp11 && npm run test:browser:wp12 \
   && npm run test:browser:wp14 && npm run test:browser:wp13c \
   && npm run test:browser:sc07 && npm run test:browser:sc15 \
   && npm run test:browser:s5 && npm run test:browser:s6 && npm run test:browser:s7)
@@ -200,7 +200,7 @@ developer machine; expect ±10% noise. Measured 2026-09-24.
 | Layer | Selection |
 | --- | --- |
 | Backend T0 | `test_model.py test_model_diagnostics.py test_pagination.py test_model_independence.py` |
-| Backend T2 | `test_api.py test_mapping_replacement.py test_mapping_coverage.py test_wp8_activation.py test_typed_table_queries.py` |
+| Backend T2 | `test_api.py test_mapping_replacement.py test_mapping_coverage.py test_wp8_publish.py test_typed_table_queries.py` |
 | Backend T3 | `test_startup.py test_migrations.py` |
 | Frontend T1 | `MappingGridView.test.tsx CollectionView.test.tsx App.test.tsx client.test.ts Modal.test.tsx`; separately all seven `*.test.ts` files |
 | Browser T4 | `wp14-contextual-browser.mjs` |

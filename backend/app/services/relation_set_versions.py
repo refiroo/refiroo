@@ -10,7 +10,7 @@ def increment_set_versions(
     session: Session,
     *,
     workspace_key: str,
-    workspace_draft_id: str | None,
+    change_set_id: str | None,
     relation_type_key: str,
     from_object_type_key: str,
     to_object_type_key: str,
@@ -29,7 +29,7 @@ def increment_set_versions(
         _increment_one(
             session,
             workspace_key=workspace_key,
-            workspace_draft_id=workspace_draft_id,
+            change_set_id=change_set_id,
             relation_type_key=relation_type_key,
             from_object_type_key=from_object_type_key,
             to_object_type_key=to_object_type_key,
@@ -42,7 +42,7 @@ def _increment_one(
     session: Session,
     *,
     workspace_key: str,
-    workspace_draft_id: str | None,
+    change_set_id: str | None,
     relation_type_key: str,
     from_object_type_key: str,
     to_object_type_key: str,
@@ -50,17 +50,17 @@ def _increment_one(
     direction: str,
 ) -> None:
     """Increment a single set-version row, creating it on first touch (lazy, version 0 → 1)."""
-    draft_filter = (
-        RelationSetVersion.workspace_draft_id == workspace_draft_id
-        if workspace_draft_id is not None
-        else RelationSetVersion.workspace_draft_id.is_(None)
+    change_set_filter = (
+        RelationSetVersion.change_set_id == change_set_id
+        if change_set_id is not None
+        else RelationSetVersion.change_set_id.is_(None)
     )
     now = datetime.now(UTC)
     result = session.execute(
         update(RelationSetVersion)
         .where(
             RelationSetVersion.workspace_key == workspace_key,
-            draft_filter,
+            change_set_filter,
             RelationSetVersion.relation_type_key == relation_type_key,
             RelationSetVersion.from_object_type_key == from_object_type_key,
             RelationSetVersion.to_object_type_key == to_object_type_key,
@@ -74,7 +74,7 @@ def _increment_one(
         session.add(
             RelationSetVersion(
                 workspace_key=workspace_key,
-                workspace_draft_id=workspace_draft_id,
+                change_set_id=change_set_id,
                 relation_type_key=relation_type_key,
                 from_object_type_key=from_object_type_key,
                 to_object_type_key=to_object_type_key,
@@ -92,7 +92,7 @@ def increment_single_set_version(
     session: Session,
     *,
     workspace_key: str,
-    workspace_draft_id: str | None,
+    change_set_id: str | None,
     relation_type_key: str,
     from_object_type_key: str,
     to_object_type_key: str,
@@ -107,7 +107,7 @@ def increment_single_set_version(
     _increment_one(
         session,
         workspace_key=workspace_key,
-        workspace_draft_id=workspace_draft_id,
+        change_set_id=change_set_id,
         relation_type_key=relation_type_key,
         from_object_type_key=from_object_type_key,
         to_object_type_key=to_object_type_key,
@@ -136,36 +136,36 @@ def claim_set_version(session: Session, *, expected: int, **binding: object) -> 
     return result.rowcount == 1
 
 
-def delete_draft_set_versions(session: Session, draft_id: str) -> None:
-    """Remove all set-version rows scoped to a discarded or activated draft."""
+def delete_change_set_relation_set_versions(session: Session, change_set_id: str) -> None:
+    """Remove all set-version rows scoped to a discarded or published change set."""
     session.execute(
-        delete(RelationSetVersion).where(RelationSetVersion.workspace_draft_id == draft_id)
+        delete(RelationSetVersion).where(RelationSetVersion.change_set_id == change_set_id)
     )
 
 
-def merge_draft_set_versions_to_live(
+def merge_change_set_relation_set_versions_to_live(
     session: Session,
-    draft_id: str,
+    change_set_id: str,
     workspace_key: str,
 ) -> None:
-    """Carry draft set-version increments into the live context during activation.
+    """Carry change-set relation-set version increments into the live context when it is published.
 
-    For each binding+anchor+direction the draft touched, increment the corresponding live
-    set-version row by the draft's version (the number of mutations the draft made to that set).
-    Then delete the draft rows.
+    For each binding+anchor+direction the change set touched, increment the corresponding live
+    set-version row by the change set's version (the number of mutations the change set made to that set).
+    Then delete the change set rows.
     """
-    draft_rows = list(
+    change_set_rows = list(
         session.scalars(
-            select(RelationSetVersion).where(RelationSetVersion.workspace_draft_id == draft_id)
+            select(RelationSetVersion).where(RelationSetVersion.change_set_id == change_set_id)
         )
     )
     now = datetime.now(UTC)
-    for row in draft_rows:
+    for row in change_set_rows:
         live_result = session.execute(
             update(RelationSetVersion)
             .where(
                 RelationSetVersion.workspace_key == workspace_key,
-                RelationSetVersion.workspace_draft_id.is_(None),
+                RelationSetVersion.change_set_id.is_(None),
                 RelationSetVersion.relation_type_key == row.relation_type_key,
                 RelationSetVersion.from_object_type_key == row.from_object_type_key,
                 RelationSetVersion.to_object_type_key == row.to_object_type_key,
@@ -182,7 +182,7 @@ def merge_draft_set_versions_to_live(
             session.add(
                 RelationSetVersion(
                     workspace_key=workspace_key,
-                    workspace_draft_id=None,
+                    change_set_id=None,
                     relation_type_key=row.relation_type_key,
                     from_object_type_key=row.from_object_type_key,
                     to_object_type_key=row.to_object_type_key,
@@ -194,4 +194,4 @@ def merge_draft_set_versions_to_live(
                 )
             )
     session.flush()
-    delete_draft_set_versions(session, draft_id)
+    delete_change_set_relation_set_versions(session, change_set_id)

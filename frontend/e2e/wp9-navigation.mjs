@@ -366,32 +366,32 @@ try {
   await page.screenshot({ path: resolve(output, "mobile-system.png"), fullPage: true });
   checks.push("390x844 drawer opens by keyboard and touch, Escape/Close restore focus, and application-browser search survives drawer changes; no page overflow");
 
-  // Existing drafts use the same navigation and retain their write context across applications.
+  // Existing change sets use the same navigation and retain their write context across applications.
   for (const workspaceKey of ["warehouse", "retail"]) {
-    const draft = await api(`/workspaces/${workspaceKey}/drafts`, { name: `${workspaceKey} review`, source: "currentLive" });
+    const changeSet = await api(`/workspaces/${workspaceKey}/change-sets`, { name: `${workspaceKey} review`, source: "currentLive" });
     if (workspaceKey === "warehouse") {
       for (const [app, type, view, title] of [["rdm-master", "domain", "domains", "Domains"], ["rdm-systems", "system", "systems", "Systems"]]) {
-        await page.goto(`${uiUrl}/apps/${app}/views/${view}?workspaceKey=${workspaceKey}&workspaceDraftId=${draft.id}&search=Record&sort=name&pageSize=10&filter.qa-count.gte=0`);
-        const draftTable = page.getByRole("region", { name: `${title} table` });
-        await shown(draftTable.getByRole("button", { name: "Record 00", exact: true }));
+        await page.goto(`${uiUrl}/apps/${app}/views/${view}?workspaceKey=${workspaceKey}&changeSetId=${changeSet.id}&search=Record&sort=name&pageSize=10&filter.qa-count.gte=0`);
+        const changeSetTable = page.getByRole("region", { name: `${title} table` });
+        await shown(changeSetTable.getByRole("button", { name: "Record 00", exact: true }));
         await goToPage(page, 2);
-        await shown(draftTable.getByRole("button", { name: "Record 10", exact: true }));
+        await shown(changeSetTable.getByRole("button", { name: "Record 10", exact: true }));
         await page.waitForFunction(() => new URL(location.href).searchParams.has("anchor"));
-        await checkRecordReturn({ page, table: draftTable, name: "Record 10", origin: page.url(), output, tag: `${type}-draft`, checks });
+        await checkRecordReturn({ page, table: changeSetTable, name: "Record 10", origin: page.url(), output, tag: `${type}-changeSet`, checks });
       }
     }
-    await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=${workspaceKey}&workspaceDraftId=${draft.id}`);
+    await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=${workspaceKey}&changeSetId=${changeSet.id}`);
     await shown(page.getByRole("heading", { name: "Domains", level: 1 }));
-    assert.match(await page.getByLabel("Current context").innerText(), new RegExp(`Draft · ${workspaceKey} review`));
-    await page.screenshot({ path: resolve(output, `mobile-domain-${workspaceKey}-draft.png`), fullPage: true });
+    assert.match(await page.getByLabel("Current context").innerText(), new RegExp(`Change set · ${workspaceKey} review`));
+    await page.screenshot({ path: resolve(output, `mobile-domain-${workspaceKey}-changeSet.png`), fullPage: true });
     await page.getByRole("navigation", { name: "Applications" }).getByRole("button", { name: model.applications.find((app) => app.key === "rdm-systems").name, exact: true }).click();
     await shown(page.getByRole("heading", { name: "Systems", level: 1 }));
-    assert.equal(new URL(page.url()).searchParams.get("workspaceDraftId"), draft.id);
+    assert.equal(new URL(page.url()).searchParams.get("changeSetId"), changeSet.id);
     assert.equal(new URL(page.url()).searchParams.get("workspaceKey"), workspaceKey);
-    assert.match(await page.getByLabel("Current context").innerText(), new RegExp(`Draft · ${workspaceKey} review`));
+    assert.match(await page.getByLabel("Current context").innerText(), new RegExp(`Change set · ${workspaceKey} review`));
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await page.setViewportSize({ width: 1440, height: 1000 });
-    await page.screenshot({ path: resolve(output, `desktop-system-${workspaceKey}-draft.png`), fullPage: true });
+    await page.screenshot({ path: resolve(output, `desktop-system-${workspaceKey}-changeSet.png`), fullPage: true });
     await page.setViewportSize({ width: 390, height: 844 });
   }
   // A 1440px browser at 200% zoom has a 720px CSS layout viewport.
@@ -404,7 +404,7 @@ try {
   assert(await drawer.evaluate((node) => node.contains(document.activeElement)));
   await page.screenshot({ path: resolve(output, "zoom-equivalent-navigation.png") });
   await page.keyboard.press("Escape");
-  checks.push("Two workspaces and Domain/System draft navigation retain named draft and workspace identity; 720px CSS viewport checks 200%-zoom-equivalent reflow and drawer focus");
+  checks.push("Two workspaces and Domain/System change set navigation retain named change set and workspace identity; 720px CSS viewport checks 200%-zoom-equivalent reflow and drawer focus");
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.getByRole("navigation", { name: "Administration" }).getByRole("button", { name: "Models", exact: true }).click();
   await shown(page.getByRole("heading", { name: "Models", exact: true, level: 1 }));

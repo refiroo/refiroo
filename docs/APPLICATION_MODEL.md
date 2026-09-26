@@ -92,14 +92,14 @@ may store. Relation create and update reject undeclared keys and validate each s
 declared type and numeric bounds before persistence. An empty list therefore means the relation carries
 no instance attributes rather than accepting arbitrary JSON.
 
-In the live and optional-draft deletion contract, a directed non-parent binding with `required: true` and `one-to-one` or
+In the live and optional change-set deletion contract, a directed non-parent binding with `required: true` and `one-to-one` or
 `one-to-many` cardinality represents PK→FK ownership: the `from` object is the owner and the `to`
 object is its dependent. An explicitly confirmed cascade from the owner deletes the dependent. An
 optional binding or a `many-to-many` binding is an association; cascade removes the relation instance
 but preserves the object at the other endpoint. Parent containment remains governed by
 `parentObjectId` and always cascades from parent to descendants when cascade deletion is confirmed.
-The same ownership rules apply live or within an explicitly selected draft. Live deletion is immediate;
-draft deletion changes only the candidate until activation. Historical snapshots remain immutable in
+The same ownership rules apply live or within an explicitly selected change set. Live deletion is immediate;
+change set deletion changes only the candidate until publishing. Publications remain immutable in
 both cases (ADR-026/027).
 
 ## Relation patterns
@@ -159,15 +159,15 @@ may have multiple System Value representations, while each represented System Va
 most one Domain or Codelist through this relation type. It does not change the System Value's parent:
 System and System Group containment remains the separate system hierarchy. Because the association is
 optional rather than an ownership binding, cascade deletion of the Domain or Codelist removes the edge
-but preserves the System Value. Association edits are live by default; explicitly draft-scoped edits
+but preserves the System Value. Association edits are live by default; explicitly change-set-scoped edits
 remain staged until activation. The system containment hierarchy is independent in both contexts.
 
 `object-has-translation` is a required one-to-many ownership binding. Its shared relation type ensures
 that a Translation has exactly one target across all permitted target types. Each binding declares
 `uniqueToAncestorTypeKey: language` together with an `active == true` target-attribute condition,
 preventing multiple business-active Translations for the same object and Language while allowing
-business-inactive current content. The rule is enforced for live changes and effective draft content,
-then checked across the merged graph during activation. Historical revisions do not reserve the
+business-inactive current content. The rule is enforced for live changes and effective change set content,
+then checked across the merged graph during publishing. Historical publications do not reserve the
 current scope. Future
 translatable object types are enabled by adding another explicit allowed triple to the JSON model.
 
@@ -191,7 +191,7 @@ the parent ID and typed relation atomically. Self-relations support arbitrary-de
 Relations named in an object type's `behavior.parentRelationTypeKeys` — the containment and hierarchy
 relations above — are engine-maintained. The relations API returns them on reads but rejects direct
 creation, update or deletion with `422 immutable_relation`, so `parent_object_id` and the typed
-relation cannot diverge. Reparenting updates both representations atomically in live or explicit draft
+relation cannot diverge. Reparenting updates both representations atomically in live or explicit change set
 context; activation revalidates staged changes with current live content (ADR-026/027).
 
 ## Applications and views
@@ -269,7 +269,7 @@ designed for voluntary association relations.
 
 ### Planned 0.7 consumption of the frozen mapping-grid contract
 
-WP-4 identifies `applicationKey`/`viewKey` under the effective live or draft-pinned model to resolve
+WP-4 identifies `applicationKey`/`viewKey` under the effective live or change-set-pinned model to resolve
 columns and candidate search fields; supplied binding keys must match. Incoming direction anchors rows
 on the physical `to` type and searches candidates on the physical `from` type. This requires no new
 schema fields. WP-4/WP-5 APIs are delivered; WP-5 preserves selected relation identities and validates direction-aware cardinality;
@@ -374,14 +374,14 @@ views. Schema 0.6 adds the `mappingGrid` view type. Schema 0.7 adds relations-pa
 Each distinct
 validated model is installed as an immutable database release identified by its content hash.
 
-Workspace snapshots, data drafts and record versions are separate from model-language and model-release
-versions. ADR-026/027 keep current data live and editable while coordinated draft activation records
+Workspace snapshots, change sets and record versions are separate from model-language and model-release
+versions. ADR-026/027 keep current data live and editable while coordinated publishing records
 immutable history. Base 0.6 adds no configurable object publication states. The model declares rules
-used for live writes, effective drafts and the final merged activation graph; the runtime owns their
+used for live writes, effective change sets and the final merged publishing graph; the runtime owns their
 context, versions, lineage and atomicity.
 
-A workspace data draft does not edit definitions. Historical snapshots must be interpreted under their
-pinned supported model (WP8.1 correction). Current-live draft bases must capture the selected model and
+A workspace change set does not edit definitions. Publications must be interpreted under their
+pinned supported model (WP8.1 correction). Current-live change set bases must capture the selected model and
 current record versions without pretending that the last publication contains recent live edits.
 Historical schema replacement with reviewed potential loss is an explicit 0.10 migration and model
 selection operation under ADR-027; it does not mutate an immutable model release or bypass validation.

@@ -45,7 +45,7 @@ export function ObjectDetail({
   onChanged?: () => void;
 }) {
   const api = useDataApi();
-  const { draft, revision } = useWorkspaceData();
+  const { changeSet, publication } = useWorkspaceData();
   const [editing, setEditing] = useState(initialAction === "edit");
   const [deleting, setDeleting] = useState(initialAction === "delete");
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -258,7 +258,7 @@ export function ObjectDetail({
         )}
         <div className="panel-column main-panels">
           {mainPanels.map(renderPanel)}
-          {!draft && !revision && (
+          {!changeSet && !publication && (
             <HistoryPanel
               model={model}
               objectTypeKey={objectTypeKey}

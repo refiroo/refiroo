@@ -28,7 +28,7 @@ export interface ObjectItem {
   path: Array<{ id: string; name: string; objectTypeKey: string }>;
   attributes: ObjectAttributeValue[];
   version: number;
-  /** Null in drafts and history, which do not record timestamps. */
+  /** Null in change sets and history, which do not record timestamps. */
   createdAt: string | null;
   updatedAt: string | null;
 }
@@ -87,7 +87,7 @@ export interface RelationRecord {
   toObjectId: string;
   attributes: Record<string, unknown>;
   version: number;
-  /** Null in drafts and history, which do not record timestamps. */
+  /** Null in change sets and history, which do not record timestamps. */
   createdAt?: string | null;
   updatedAt?: string | null;
 }
@@ -138,44 +138,46 @@ export interface AuditEventPage {
   nextCursor: string | null;
 }
 
-export interface WorkspaceDraft {
+export interface ChangeSet {
   id: string;
   workspaceKey: string;
   name: string | null;
   modelReleaseId: string;
   modelReleaseKey: string;
   modelReleaseVersion: string;
-  source: "currentLive" | "revision" | "empty";
-  derivedFromRevisionId: string | null;
+  source: "currentLive" | "publication" | "empty";
+  derivedFromPublicationId: string | null;
   version: number;
   createdAt: string;
   updatedAt: string;
 }
 
-export interface WorkspaceDraftPage {
-  items: WorkspaceDraft[];
+export interface ChangeSetPage {
+  items: ChangeSet[];
   nextCursor: string | null;
 }
 
-export interface WorkspaceRevision {
+export interface Publication {
   id: string;
   workspaceKey: string;
   modelReleaseId: string;
-  revisionNumber: number;
-  status: "active" | "retired";
-  derivedFromRevisionId: string | null;
-  supersedesRevisionId: string | null;
+  modelReleaseKey: string;
+  modelReleaseVersion: string;
+  publicationNumber: number;
+  status: "active" | "withdrawn";
+  derivedFromPublicationId: string | null;
+  supersedesPublicationId: string | null;
   createdAt: string;
-  activatedAt: string;
-  retiredAt: string | null;
+  publishedAt: string;
+  withdrawnAt: string | null;
 }
 
-export interface WorkspaceRevisionPage {
-  items: WorkspaceRevision[];
+export interface PublicationPage {
+  items: Publication[];
   nextCursor: string | null;
 }
 
-export interface WorkspaceDraftValidation {
+export interface ChangeSetValidation {
   valid: boolean;
   diagnostics: Array<Record<string, unknown>>;
 }
@@ -226,8 +228,8 @@ export interface MappingReplacementRequest {
   targetObjectId: string | null;
   expectedMappingVersion: number;
   attributes?: Record<string, unknown>;
-  workspaceDraftId?: string;
-  expectedWorkspaceDraftVersion?: number;
+  changeSetId?: string;
+  expectedChangeSetVersion?: number;
 }
 
 export interface MappingReplacementResponse {
@@ -235,5 +237,5 @@ export interface MappingReplacementResponse {
   mappingVersion: number;
   state: "mapped" | "unmapped";
   relationId: string | null;
-  workspaceDraftVersion: number | null;
+  changeSetVersion: number | null;
 }

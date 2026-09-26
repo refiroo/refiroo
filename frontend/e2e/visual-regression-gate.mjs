@@ -52,37 +52,37 @@ try {
   await shown(page.getByRole("heading", { name: "System 00" }));
   await capture(page, "record-detail-system-light", output);
 
-  // --- 5. Draft editing (collection in draft context) ---
-  const draft = await api(`/workspaces/default/drafts`, { name: "Visual test draft", source: "currentLive" });
-  await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default&workspaceDraftId=${draft.id}`);
+  // --- 5. Change set editing (collection in change set context) ---
+  const changeSet = await api(`/workspaces/default/change-sets`, { name: "Visual test change set", source: "currentLive" });
+  await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default&changeSetId=${changeSet.id}`);
   await shown(page.getByRole("button", { name: "Domain 00", exact: true }));
-  await capture(page, "draft-editing-light", output);
+  await capture(page, "change-set-editing-light", output);
 
-  // --- 6. Draft record detail ---
+  // --- 6. Change set record detail ---
   await page.goto(
-    `${uiUrl}/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default&workspaceDraftId=${draft.id}`,
+    `${uiUrl}/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default&changeSetId=${changeSet.id}`,
   );
   await shown(page.getByRole("heading", { name: "Domain 00" }));
-  await capture(page, "draft-detail-light", output);
+  await capture(page, "change-set-detail-light", output);
 
   // --- 7. History view ---
-  await api(`/workspace-drafts/${draft.id}/validation`, undefined, "POST");
-  const draftDetail = await api(`/workspace-drafts/${draft.id}`);
-  await api(`/workspace-drafts/${draft.id}/activation`, { expectedDraftVersion: draftDetail.version });
-  await page.goto(`${uiUrl}/apps/rdm-master/history?workspaceKey=default`);
-  await shown(page.getByText("Revision 1"));
-  await capture(page, "history-view-light", output);
+  await api(`/change-sets/${changeSet.id}/validation`, undefined, "POST");
+  const changeSetDetail = await api(`/change-sets/${changeSet.id}`);
+  await api(`/change-sets/${changeSet.id}/publication`, { expectedChangeSetVersion: changeSetDetail.version });
+  await page.goto(`${uiUrl}/apps/rdm-master/publications?workspaceKey=default`);
+  await shown(page.getByText("Publication 1"));
+  await capture(page, "publications-view-light", output);
 
   // --- 8. Model workbench ---
   await page.goto(`${uiUrl}/models`);
   await shown(page.getByRole("heading", { name: "Models" }));
   await capture(page, "model-workbench-light", output);
 
-  // --- 9. Drafts list ---
-  const draft2 = await api(`/workspaces/default/drafts`, { name: "Second draft", source: "currentLive" });
-  await page.goto(`${uiUrl}/apps/rdm-master/drafts?workspaceKey=default`);
-  await shown(page.getByText("Second draft"));
-  await capture(page, "drafts-list-light", output);
+  // --- 9. Change sets list ---
+  const changeSet2 = await api(`/workspaces/default/change-sets`, { name: "Second change set", source: "currentLive" });
+  await page.goto(`${uiUrl}/apps/rdm-master/change-sets?workspaceKey=default`);
+  await shown(page.getByText("Second change set"));
+  await capture(page, "change-sets-list-light", output);
 
   // --- 10. Continuous list and record tree (Base 0.8 S5, S6), seeded after the pages above ---
   // The codelist lens at page 3 of 7 (window scrollbar, footer with page field and Go to) beside
@@ -94,9 +94,9 @@ try {
   // --- 11. Dark theme (system preference) ---
   await page.emulateMedia({ colorScheme: "dark" });
   // Load afresh so no colour transition from the light theme is captured mid-flight.
-  await page.goto(`${uiUrl}/apps/rdm-master/drafts?workspaceKey=default`);
-  await shown(page.getByText("Second draft"));
-  await capture(page, "drafts-list-dark", output);
+  await page.goto(`${uiUrl}/apps/rdm-master/change-sets?workspaceKey=default`);
+  await shown(page.getByText("Second change set"));
+  await capture(page, "change-sets-list-dark", output);
   await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default`);
   await shown(page.getByRole("button", { name: "Domain 00", exact: true }));
   await capture(page, "collection-table-domain-dark", output);
@@ -109,8 +109,8 @@ try {
   await openLongList(page, uiUrl, longDomain);
   await capture(page, "scrolling-list-tree-dark", output);
   await page.emulateMedia({ colorScheme: "light" });
-  const draft2Detail = await api(`/workspace-drafts/${draft2.id}`);
-  await api(`/workspace-drafts/${draft2.id}?expectedVersion=${draft2Detail.version}`, undefined, "DELETE");
+  const changeSet2Detail = await api(`/change-sets/${changeSet2.id}`);
+  await api(`/change-sets/${changeSet2.id}?expectedVersion=${changeSet2Detail.version}`, undefined, "DELETE");
 
   // Write report.
   const report = { checks, failures, passed: failures.length === 0 };

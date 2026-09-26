@@ -84,37 +84,37 @@ try {
   await page.locator("#wp1-unexpected-region").evaluate((element) => element.remove());
   regressionChecks.push("additional duplicate landmark is rejected");
 
-  // --- 5. Draft editing ---
-  // Create a draft and navigate into it.
-  const draft = await api(`/workspaces/default/drafts`, { name: "A11y test draft", source: "currentLive" });
-  await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default&workspaceDraftId=${draft.id}`);
+  // --- 5. Change set editing ---
+  // Create a change set and navigate into it.
+  const changeSet = await api(`/workspaces/default/change-sets`, { name: "A11y test change set", source: "currentLive" });
+  await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default&changeSetId=${changeSet.id}`);
   await shown(page.getByRole("button", { name: "Domain 00", exact: true }));
-  result = await runAxe(page, ALLOWLIST, "draft-collection");
-  if (result.violations.length > 0) failures.push(`draft-collection:\n${formatViolations(result.violations)}`);
-  checks.push(`draft-collection: ${result.violations.length} violations, ${result.allowed.length} allowed`);
-  await page.screenshot({ path: resolve(output, "a11y-draft-collection.png"), fullPage: true });
+  result = await runAxe(page, ALLOWLIST, "change-set-collection");
+  if (result.violations.length > 0) failures.push(`change set-collection:\n${formatViolations(result.violations)}`);
+  checks.push(`change set-collection: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  await page.screenshot({ path: resolve(output, "a11y-change-set-collection.png"), fullPage: true });
 
-  // Draft record editing.
+  // Change set record editing.
   await page.goto(
-    `${uiUrl}/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default&workspaceDraftId=${draft.id}`,
+    `${uiUrl}/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default&changeSetId=${changeSet.id}`,
   );
   await shown(page.getByRole("heading", { name: "Domain 00" }));
-  result = await runAxe(page, ALLOWLIST, "draft-detail");
-  if (result.violations.length > 0) failures.push(`draft-detail:\n${formatViolations(result.violations)}`);
-  checks.push(`draft-detail: ${result.violations.length} violations, ${result.allowed.length} allowed`);
-  await page.screenshot({ path: resolve(output, "a11y-draft-detail.png"), fullPage: true });
+  result = await runAxe(page, ALLOWLIST, "change-set-detail");
+  if (result.violations.length > 0) failures.push(`change set-detail:\n${formatViolations(result.violations)}`);
+  checks.push(`change set-detail: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  await page.screenshot({ path: resolve(output, "a11y-change-set-detail.png"), fullPage: true });
 
-  // --- 6. History view ---
-  // Activate the draft to create a revision, then view history.
-  await api(`/workspace-drafts/${draft.id}/validation`, undefined, "POST");
-  const draftDetail = await api(`/workspace-drafts/${draft.id}`);
-  await api(`/workspace-drafts/${draft.id}/activation`, { expectedDraftVersion: draftDetail.version });
-  await page.goto(`${uiUrl}/apps/rdm-master/history?workspaceKey=default`);
-  await shown(page.getByText("Revision 1"));
-  result = await runAxe(page, ALLOWLIST, "history");
-  if (result.violations.length > 0) failures.push(`history:\n${formatViolations(result.violations)}`);
-  checks.push(`history: ${result.violations.length} violations, ${result.allowed.length} allowed`);
-  await page.screenshot({ path: resolve(output, "a11y-history.png"), fullPage: true });
+  // --- 6. Publications view ---
+  // Publish the change set to create a publication, then view the publications.
+  await api(`/change-sets/${changeSet.id}/validation`, undefined, "POST");
+  const changeSetDetail = await api(`/change-sets/${changeSet.id}`);
+  await api(`/change-sets/${changeSet.id}/publication`, { expectedChangeSetVersion: changeSetDetail.version });
+  await page.goto(`${uiUrl}/apps/rdm-master/publications?workspaceKey=default`);
+  await shown(page.getByText("Publication 1"));
+  result = await runAxe(page, ALLOWLIST, "publications");
+  if (result.violations.length > 0) failures.push(`publications:\n${formatViolations(result.violations)}`);
+  checks.push(`publications: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  await page.screenshot({ path: resolve(output, "a11y-publications.png"), fullPage: true });
 
   // --- 7. Model workbench ---
   await page.goto(`${uiUrl}/models`);
@@ -124,14 +124,14 @@ try {
   checks.push(`model-workbench: ${result.violations.length} violations, ${result.allowed.length} allowed`);
   await page.screenshot({ path: resolve(output, "a11y-model-workbench.png"), fullPage: true });
 
-  // --- 8. Drafts list ---
-  const draft2 = await api(`/workspaces/default/drafts`, { name: "Second draft", source: "currentLive" });
-  await page.goto(`${uiUrl}/apps/rdm-master/drafts?workspaceKey=default`);
-  await shown(page.getByText("Second draft"));
-  result = await runAxe(page, ALLOWLIST, "drafts-list");
-  if (result.violations.length > 0) failures.push(`drafts-list:\n${formatViolations(result.violations)}`);
-  checks.push(`drafts-list: ${result.violations.length} violations, ${result.allowed.length} allowed`);
-  await page.screenshot({ path: resolve(output, "a11y-drafts-list.png"), fullPage: true });
+  // --- 8. Change sets list ---
+  const changeSet2 = await api(`/workspaces/default/change-sets`, { name: "Second change set", source: "currentLive" });
+  await page.goto(`${uiUrl}/apps/rdm-master/change-sets?workspaceKey=default`);
+  await shown(page.getByText("Second change set"));
+  result = await runAxe(page, ALLOWLIST, "change-sets-list");
+  if (result.violations.length > 0) failures.push(`change sets-list:\n${formatViolations(result.violations)}`);
+  checks.push(`change sets-list: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  await page.screenshot({ path: resolve(output, "a11y-change-sets-list.png"), fullPage: true });
 
   // --- 9. Settings menu (account placeholder and appearance) ---
   await page.getByRole("button", { name: "Settings", exact: true }).click();
@@ -169,7 +169,7 @@ try {
     ["dark-collection-domain", "/apps/rdm-master/views/domains?workspaceKey=default", () => page.getByRole("button", { name: "Domain 00", exact: true })],
     ["dark-detail-domain", `/apps/rdm-master/objects/domain/${records.domain[0].id}?workspaceKey=default`, () => page.getByRole("heading", { name: "Domain 00" })],
     ["dark-detail-system", `/apps/rdm-systems/objects/system/${records.system[0].id}?workspaceKey=default`, () => page.getByRole("heading", { name: "System 00" })],
-    ["dark-drafts-list", "/apps/rdm-master/drafts?workspaceKey=default", () => page.getByText("Second draft")],
+    ["dark-change-sets-list", "/apps/rdm-master/change-sets?workspaceKey=default", () => page.getByText("Second change set")],
     ["dark-model-workbench", "/models", () => page.getByRole("heading", { name: "Models" })],
   ]) {
     await page.goto(`${uiUrl}${path}`);
@@ -193,9 +193,9 @@ try {
   await page.keyboard.press("Escape");
   await page.emulateMedia({ colorScheme: "light" });
 
-  // Discard the leftover draft.
-  const draft2Detail = await api(`/workspace-drafts/${draft2.id}`);
-  await api(`/workspace-drafts/${draft2.id}?expectedVersion=${draft2Detail.version}`, undefined, "DELETE");
+  // Discard the leftover change set.
+  const changeSet2Detail = await api(`/change-sets/${changeSet2.id}`);
+  await api(`/change-sets/${changeSet2.id}?expectedVersion=${changeSet2Detail.version}`, undefined, "DELETE");
 
   // Write report.
   const report = { checks, regressionChecks, failures, passed: failures.length === 0 };

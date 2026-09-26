@@ -9,10 +9,10 @@ from app.models.database import (
     AttributeValue,
     Base,
     ObjectRelation,
+    Publication,
+    PublicationObject,
     RdmObject,
     Workspace,
-    WorkspaceRevision,
-    WorkspaceRevisionObject,
 )
 from app.models.schema import EngineModel
 from app.services.model.compatibility import analyze_compatibility
@@ -110,21 +110,21 @@ def session():
     engine = create_engine("sqlite://")
     Base.metadata.create_all(engine)
     with Session(engine) as value:
-        revision_id = str(uuid4())
+        publication_id = str(uuid4())
         value.add(
             Workspace(
                 key="default",
                 label="Default",
                 status="active",
-                active_revision_id=revision_id,
+                active_publication_id=publication_id,
             )
         )
         value.add(
-            WorkspaceRevision(
-                id=revision_id,
+            Publication(
+                id=publication_id,
                 workspace_key="default",
                 model_release_id=1,
-                revision_number=1,
+                publication_number=1,
                 status="active",
             )
         )
@@ -143,12 +143,12 @@ def _object(session: Session, object_type: str, *, parent: RdmObject | None = No
     )
     session.add(item)
     session.flush()
-    revision_id = session.scalar(
-        select(Workspace.active_revision_id).where(Workspace.key == "default")
+    publication_id = session.scalar(
+        select(Workspace.active_publication_id).where(Workspace.key == "default")
     )
     session.add(
-        WorkspaceRevisionObject(
-            revision_id=revision_id,
+        PublicationObject(
+            publication_id=publication_id,
             object_id=item.id,
             application_key=item.application_key,
             object_type_key=item.object_type_key,

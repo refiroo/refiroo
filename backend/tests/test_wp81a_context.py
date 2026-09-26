@@ -4,20 +4,20 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from sqlalchemy import select
-from wp8_support import create_draft, create_workspace, unique_key
+from wp8_support import create_change_set, create_workspace, unique_key
 
 from app.db import SessionLocal
 from app.main import app, create_app
 from app.models.database import (
+    ChangeSet,
     ModelRelease,
     ModelRuntimeState,
     ObjectRelation,
+    Publication,
+    PublicationObject,
+    PublicationRelation,
     RdmObject,
     Workspace,
-    WorkspaceDraft,
-    WorkspaceRevision,
-    WorkspaceRevisionObject,
-    WorkspaceRevisionRelation,
 )
 from app.models.schema import EngineModel
 from app.services.model.bootstrap import ensure_bootstrap_release
@@ -244,27 +244,27 @@ def test_4_pinned_history_survives_active_model_switch_with_old_field_and_relati
         with SessionLocal() as session:
             release = session.scalar(select(ModelRelease).where(ModelRelease.public_id == old_release_id))
             assert release is not None
-            revision = WorkspaceRevision(
+            publication = Publication(
                 workspace_key=workspace_key,
                 model_release_id=release.id,
-                revision_number=1,
-                status="retired",
+                publication_number=1,
+                status="withdrawn",
             )
-            session.add(revision)
+            session.add(publication)
             session.flush()
             language_id, group_id = str(uuid4()), str(uuid4())
             session.add_all(
                 [
-                    WorkspaceRevisionObject(
-                        revision_id=revision.id,
+                    PublicationObject(
+                        publication_id=publication.id,
                         object_id=language_id,
                         application_key="rdm-translations",
                         object_type_key="language",
                         name="Pinned language",
                         attributes={historical_attribute_key: "legacy"},
                     ),
-                    WorkspaceRevisionObject(
-                        revision_id=revision.id,
+                    PublicationObject(
+                        publication_id=publication.id,
                         object_id=group_id,
                         application_key="rdm-translations",
                         object_type_key="translation-group",
@@ -272,8 +272,8 @@ def test_4_pinned_history_survives_active_model_switch_with_old_field_and_relati
                         attributes={},
                         parent_object_id=language_id,
                     ),
-                    WorkspaceRevisionRelation(
-                        revision_id=revision.id,
+                    PublicationRelation(
+                        publication_id=publication.id,
                         relation_id=str(uuid4()),
                         relation_type_key=historical_relation_key,
                         from_object_id=language_id,
@@ -283,7 +283,7 @@ def test_4_pinned_history_survives_active_model_switch_with_old_field_and_relati
                 ]
             )
             session.commit()
-            revision_id = revision.id
+            publication_id = publication.id
         candidate_source = active_model
         candidate_source["release"]["version"] = f"0.6.0-history-new-{uuid4().hex}"
         candidate_source["attributeTypes"] = [
@@ -312,7 +312,7 @@ def test_4_pinned_history_survives_active_model_switch_with_old_field_and_relati
             objects = client.get(
             "/api/v1/objects/language",
             params={
-                "workspaceRevisionId": revision_id,
+                "publicationId": publication_id,
                 f"filter.{historical_attribute_key}.eq": "legacy",
             },
             )
@@ -320,7 +320,7 @@ def test_4_pinned_history_survives_active_model_switch_with_old_field_and_relati
             assert objects.json()["items"][0]["id"] == language_id
             value = client.get(
             f"/api/v1/objects/language/{language_id}/attributes/{historical_attribute_key}",
-            params={"workspaceRevisionId": revision_id},
+            params={"publicationId": publication_id},
             )
             assert value.status_code == 200, value.text
             assert value.json()["value"] == "legacy"
@@ -330,7 +330,7 @@ def test_4_pinned_history_survives_active_model_switch_with_old_field_and_relati
             "/api/v1/relations",
             params={
                 "objectId": language_id,
-                "workspaceRevisionId": revision_id,
+                "publicationId": publication_id,
                 "relationTypeKey": historical_relation_key,
             },
             )
@@ -346,21 +346,21 @@ def test_0_explicit_workspace_key_mismatch_is_rejected_for_all_pinned_read_paths
         other_workspace = unique_key("other-context")
         create_workspace(client, workspace_key)
         create_workspace(client, other_workspace)
-        draft = create_draft(client, workspace_key, name="context").json()
+        change_set = create_change_set(client, workspace_key, name="context").json()
 
         object_id = str(uuid4())
         attribute_url = f"/api/v1/objects/language/{object_id}/attributes/language-code"
         for url, params in (
             (
                 f"/api/v1/objects/language/{object_id}",
-                {"workspaceDraftId": draft["id"], "workspaceKey": other_workspace},
+                {"changeSetId": change_set["id"], "workspaceKey": other_workspace},
             ),
-            (attribute_url, {"workspaceDraftId": draft["id"], "workspaceKey": other_workspace}),
+            (attribute_url, {"changeSetId": change_set["id"], "workspaceKey": other_workspace}),
             (
                 "/api/v1/relations",
                 {
                     "objectId": object_id,
-                    "workspaceDraftId": draft["id"],
+                    "changeSetId": change_set["id"],
                     "workspaceKey": other_workspace,
                 },
             ),
@@ -376,17 +376,17 @@ def test_0_explicit_workspace_key_mismatch_is_rejected_for_all_pinned_read_paths
                 select(ModelRelease).where(ModelRelease.public_id == active_release_id)
             )
             assert release is not None
-            revision = WorkspaceRevision(
+            publication = Publication(
                 workspace_key=workspace_key,
                 model_release_id=release.id,
-                revision_number=1,
-                status="retired",
+                publication_number=1,
+                status="withdrawn",
             )
-            session.add(revision)
+            session.add(publication)
             session.flush()
-            revision_id = revision.id
+            publication_id = publication.id
             session.commit()
-        draft_version = draft["version"]
+        change_set_version = change_set["version"]
         response = client.post(
             "/api/v1/objects",
             json={
@@ -394,8 +394,8 @@ def test_0_explicit_workspace_key_mismatch_is_rejected_for_all_pinned_read_paths
                 "objectTypeKey": "language",
                 "name": "wrong workspace",
                 "workspaceKey": other_workspace,
-                "workspaceDraftId": draft["id"],
-                "expectedWorkspaceDraftVersion": draft_version,
+                "changeSetId": change_set["id"],
+                "expectedChangeSetVersion": change_set_version,
             },
         )
         assert response.status_code == 422
@@ -403,27 +403,27 @@ def test_0_explicit_workspace_key_mismatch_is_rejected_for_all_pinned_read_paths
         for url, params in (
             (
                 "/api/v1/objects/language",
-                {"workspaceRevisionId": revision_id, "workspaceKey": other_workspace},
+                {"publicationId": publication_id, "workspaceKey": other_workspace},
             ),
             (
                 "/api/v1/objects/language/missing",
-                {"workspaceRevisionId": revision_id, "workspaceKey": other_workspace},
+                {"publicationId": publication_id, "workspaceKey": other_workspace},
             ),
             (
                 "/api/v1/objects/language/missing/attributes/language-code",
-                {"workspaceRevisionId": revision_id, "workspaceKey": other_workspace},
+                {"publicationId": publication_id, "workspaceKey": other_workspace},
             ),
             (
                 "/api/v1/relations",
                 {
                     "objectId": "missing",
-                    "workspaceRevisionId": revision_id,
+                    "publicationId": publication_id,
                     "workspaceKey": other_workspace,
                 },
             ),
             (
                 "/api/v1/relations/missing",
-                {"workspaceRevisionId": revision_id, "workspaceKey": other_workspace},
+                {"publicationId": publication_id, "workspaceKey": other_workspace},
             ),
         ):
             mismatch = client.get(url, params=params)
@@ -431,26 +431,26 @@ def test_0_explicit_workspace_key_mismatch_is_rejected_for_all_pinned_read_paths
             assert mismatch.json()["error"]["code"] == "workspace_context_mismatch"
         with SessionLocal() as session:
             current = session.scalar(
-                select(WorkspaceDraft).where(WorkspaceDraft.id == draft["id"])
+                select(ChangeSet).where(ChangeSet.id == change_set["id"])
             )
-            assert current is not None and current.version == draft_version
+            assert current is not None and current.version == change_set_version
         # Relation detail uses the same context resolver even when the relation is not found.
         response = client.get(
             f"/api/v1/relations/{relation_id}",
-            params={"workspaceDraftId": draft["id"], "workspaceKey": other_workspace},
+            params={"changeSetId": change_set["id"], "workspaceKey": other_workspace},
         )
         assert response.status_code == 422
         assert response.json()["error"]["code"] == "workspace_context_mismatch"
 
 
-def test_0_unsupported_pinned_draft_model_is_explicit_and_never_uses_active_model():
+def test_0_unsupported_pinned_change_set_model_is_explicit_and_never_uses_active_model():
     with TestClient(app) as client:
         workspace_key = unique_key("unsupported-pin")
         create_workspace(client, workspace_key)
-        draft = create_draft(client, workspace_key, name="unsupported").json()
+        change_set = create_change_set(client, workspace_key, name="unsupported").json()
 
         with SessionLocal() as session:
-            item = session.scalar(select(WorkspaceDraft).where(WorkspaceDraft.id == draft["id"]))
+            item = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set["id"]))
             assert item is not None
             release = session.get(ModelRelease, item.model_release_id)
             assert release is not None
@@ -466,20 +466,20 @@ def test_0_unsupported_pinned_draft_model_is_explicit_and_never_uses_active_mode
             session.add(unsupported)
             session.flush()
             item.model_release_id = unsupported.id
-            revision = WorkspaceRevision(
+            publication = Publication(
                 workspace_key=item.workspace_key,
                 model_release_id=unsupported.id,
-                revision_number=1,
-                status="retired",
+                publication_number=1,
+                status="withdrawn",
             )
-            session.add(revision)
+            session.add(publication)
             session.flush()
-            revision_id = revision.id
+            publication_id = publication.id
             session.commit()
 
         response = client.get(
             "/api/v1/objects/language",
-            params={"workspaceDraftId": draft["id"]},
+            params={"changeSetId": change_set["id"]},
         )
         assert response.status_code == 409
         body = response.json()
@@ -494,7 +494,7 @@ def test_0_unsupported_pinned_draft_model_is_explicit_and_never_uses_active_mode
         }
         historical = client.get(
             "/api/v1/objects/language",
-            params={"workspaceRevisionId": revision_id},
+            params={"publicationId": publication_id},
         )
         assert historical.status_code == 409
         assert historical.json()["error"]["code"] == "unsupported_pinned_model_schema"
@@ -508,11 +508,11 @@ def test_pinned_model_unavailable_and_invalid_are_structured_without_fallback():
         with SessionLocal() as session:
             active = session.scalar(select(ModelRelease).where(ModelRelease.public_id == active_id))
             assert active is not None
-            unavailable = WorkspaceRevision(
+            unavailable = Publication(
                 workspace_key=workspace_key,
                 model_release_id=active.id,
-                revision_number=1,
-                status="retired",
+                publication_number=1,
+                status="withdrawn",
             )
             session.add(unavailable)
             session.flush()
@@ -528,20 +528,20 @@ def test_pinned_model_unavailable_and_invalid_are_structured_without_fallback():
             )
             session.add(invalid_release)
             session.flush()
-            invalid = WorkspaceRevision(
+            invalid = Publication(
                 workspace_key=workspace_key,
                 model_release_id=invalid_release.id,
-                revision_number=2,
-                status="retired",
+                publication_number=2,
+                status="withdrawn",
             )
             session.add(invalid)
             session.flush()
             session.commit()
             unavailable_id, invalid_id = unavailable.id, invalid.id
-        missing = client.get("/api/v1/objects/language", params={"workspaceRevisionId": unavailable_id})
+        missing = client.get("/api/v1/objects/language", params={"publicationId": unavailable_id})
         assert missing.status_code == 409
         assert missing.json()["error"]["code"] == "pinned_model_unavailable"
-        corrupt = client.get("/api/v1/objects/language", params={"workspaceRevisionId": invalid_id})
+        corrupt = client.get("/api/v1/objects/language", params={"publicationId": invalid_id})
         assert corrupt.status_code == 409
         assert corrupt.json()["error"]["code"] == "pinned_model_invalid"
         assert client.get("/api/v1/model").headers["X-Model-Release-Id"] == active_id
@@ -555,20 +555,20 @@ def test_pinned_resolution_reports_registry_unavailable_as_structured_http_error
         with SessionLocal() as session:
             active = session.scalar(select(ModelRelease).where(ModelRelease.public_id == active_id))
             assert active is not None
-            revision = WorkspaceRevision(
+            publication = Publication(
                 workspace_key=workspace_key,
                 model_release_id=active.id,
-                revision_number=1,
-                status="retired",
+                publication_number=1,
+                status="withdrawn",
             )
-            session.add(revision)
+            session.add(publication)
             session.flush()
-            revision_id = revision.id
+            publication_id = publication.id
             session.commit()
         model_registry.mark_unhealthy()
         try:
             response = client.get(
-                "/api/v1/objects/language", params={"workspaceRevisionId": revision_id}
+                "/api/v1/objects/language", params={"publicationId": publication_id}
             )
             assert response.status_code == 503
             assert response.json()["error"]["code"] == "model_registry_unavailable"
@@ -576,11 +576,11 @@ def test_pinned_resolution_reports_registry_unavailable_as_structured_http_error
             model_registry.clear()
 
 
-def test_draft_write_uses_pinned_model_when_active_registry_is_unhealthy():
+def test_change_set_write_uses_pinned_model_when_active_registry_is_unhealthy():
     with TestClient(app) as client:
-        workspace_key = unique_key("draft-unhealthy")
+        workspace_key = unique_key("change-set-unhealthy")
         create_workspace(client, workspace_key)
-        draft = create_draft(client, workspace_key, name="draft-unhealthy").json()
+        change_set = create_change_set(client, workspace_key, name="change-set-unhealthy").json()
         model_registry.mark_unhealthy()
         try:
             response = client.post(
@@ -588,14 +588,14 @@ def test_draft_write_uses_pinned_model_when_active_registry_is_unhealthy():
                 json={
                     "applicationKey": "rdm-translations",
                     "objectTypeKey": "language",
-                    "name": "Pinned draft write",
-                    "attributes": [{"attributeTypeKey": "language-code", "value": "draft"}],
-                    "workspaceDraftId": draft["id"],
-                    "expectedWorkspaceDraftVersion": draft["version"],
+                    "name": "Pinned change set write",
+                    "attributes": [{"attributeTypeKey": "language-code", "value": "change_set"}],
+                    "changeSetId": change_set["id"],
+                    "expectedChangeSetVersion": change_set["version"],
                 },
             )
             assert response.status_code == 201, response.text
-            assert response.json()["workspaceDraftVersion"] == draft["version"] + 1
+            assert response.json()["changeSetVersion"] == change_set["version"] + 1
         finally:
             model_registry.clear()
 

@@ -1,4 +1,4 @@
-"""ADR-028: selected draft models, complete compatibility and atomic pin changes."""
+"""ADR-028: selected change set models, complete compatibility and atomic pin changes."""
 
 import copy
 import hashlib
@@ -10,19 +10,19 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
-from wp8_support import create_draft, create_object, create_workspace, unique_key
+from wp8_support import create_change_set, create_object, create_workspace, unique_key
 
 from app.db import SessionLocal
 from app.main import app
 from app.models.database import (
     AuditEvent,
+    ChangeSet,
+    ChangeSetBase,
     ModelRelease,
     ModelRuntimeState,
-    WorkspaceDraft,
-    WorkspaceDraftBase,
 )
+from app.services.change_sets import effective_change_set_membership
 from app.services.model.compiler import parse_model
-from app.services.workspace_revisions import effective_draft_membership
 
 
 def install_model(client, mutate=None, *, schema=None, corrupt=False, source_model=None):
@@ -66,38 +66,38 @@ def add_field_and_view(model):
     view["config"]["columns"].append("wp6-number")
 
 
-def change(client, workspace, draft, release, version=None):
+def change(client, change_set, release, version=None):
     return client.patch(
-        f"/api/v1/workspaces/{workspace}/drafts/{draft['id']}/model-release",
-        json={"modelReleaseId": release, "expectedDraftVersion": version or draft["version"]},
+        f"/api/v1/change-sets/{change_set['id']}/model-release",
+        json={"modelReleaseId": release, "expectedChangeSetVersion": version or change_set["version"]},
     )
 
 
-def state(draft_id):
+def state(change_set_id):
     with SessionLocal() as session:
-        membership = effective_draft_membership(session, draft_id)
+        membership = effective_change_set_membership(session, change_set_id)
         return (
-            membership.draft.model_release_id,
-            membership.draft.version,
+            membership.change_set.model_release_id,
+            membership.change_set.version,
             [(x.object_id, x.version, x.name, x.attributes) for x in membership.objects],
             [(x.relation_id, x.version, x.attributes) for x in membership.relations],
             session.scalar(
                 select(func.count())
                 .select_from(AuditEvent)
-                .where(AuditEvent.aggregate_id == draft_id)
+                .where(AuditEvent.aggregate_id == change_set_id)
             ),
         )
 
 
-def test_two_same_schema_drafts_resolve_fields_rules_views_and_preserve_live_history():
+def test_two_same_schema_change_sets_resolve_fields_rules_views_and_preserve_live_history():
     with TestClient(app) as client:
         workspace = unique_key("wp6-models")
         create_workspace(client, workspace)
-        old = create_draft(client, workspace).json()
+        old = create_change_set(client, workspace).json()
         active_model = client.get("/api/v1/model").json()
         target, _, target_model = install_model(client, add_field_and_view)
         response = client.post(
-            f"/api/v1/workspaces/{workspace}/drafts",
+            f"/api/v1/workspaces/{workspace}/change-sets",
             json={"source": "currentLive", "modelReleaseId": target},
         )
         assert response.status_code == 201, response.text
@@ -105,11 +105,11 @@ def test_two_same_schema_drafts_resolve_fields_rules_views_and_preserve_live_his
         assert new["modelReleaseKey"] == target_model["release"]["key"]
         assert new["modelReleaseVersion"] == target_model["release"]["version"]
         assert (
-            client.get("/api/v1/model", params={"workspaceDraftId": old["id"]}).json()
+            client.get("/api/v1/model", params={"changeSetId": old["id"]}).json()
             == active_model
         )
         assert client.get(
-            "/api/v1/model", params={"workspaceDraftId": new["id"]}
+            "/api/v1/model", params={"changeSetId": new["id"]}
         ).json() == parse_model(target_model).model_dump(mode="json")
         attrs = [
             {"attributeTypeKey": "language-code", "value": unique_key("lang")},
@@ -137,7 +137,7 @@ def test_two_same_schema_drafts_resolve_fields_rules_views_and_preserve_live_his
             client, new, "rdm-translations", "language", "Next", attributes=attrs
         ).json()
         detail = client.get(
-            f"/api/v1/objects/language/{record['id']}", params={"workspaceDraftId": new["id"]}
+            f"/api/v1/objects/language/{record['id']}", params={"changeSetId": new["id"]}
         )
         assert detail.status_code == 200
         assert any(
@@ -145,16 +145,16 @@ def test_two_same_schema_drafts_resolve_fields_rules_views_and_preserve_live_his
             for a in detail.json()["attributes"]
         )
         assert (
-            client.post(f"/api/v1/workspace-drafts/{new['id']}/validation").json()["valid"] is True
+            client.post(f"/api/v1/change-sets/{new['id']}/validation").json()["valid"] is True
         )
         refused = client.post(
-            f"/api/v1/workspace-drafts/{new['id']}/activation",
-            json={"expectedDraftVersion": new["version"]},
+            f"/api/v1/change-sets/{new['id']}/publication",
+            json={"expectedChangeSetVersion": new["version"]},
         )
         assert refused.status_code == 409
-        assert refused.json()["error"]["code"] == "workspace_draft_model_release_conflict"
+        assert refused.json()["error"]["code"] == "change_set_model_release_conflict"
         assert client.get("/api/v1/model").json() == active_model
-        assert client.get(f"/api/v1/workspaces/{workspace}/revisions").json()["items"] == []
+        assert client.get(f"/api/v1/workspaces/{workspace}/publications").json()["items"] == []
         assert (
             client.get("/api/v1/objects/language", params={"workspaceKey": workspace}).json()[
                 "items"
@@ -163,11 +163,11 @@ def test_two_same_schema_drafts_resolve_fields_rules_views_and_preserve_live_his
         )
         assert (
             client.delete(
-                f"/api/v1/workspace-drafts/{new['id']}", params={"expectedVersion": new["version"]}
+                f"/api/v1/change-sets/{new['id']}", params={"expectedVersion": new["version"]}
             ).status_code
             == 204
         )
-        assert client.get(f"/api/v1/workspace-drafts/{old['id']}").json() == old
+        assert client.get(f"/api/v1/change-sets/{old['id']}").json() == old
 
 
 def test_pin_change_noop_stale_claim_audit_and_other_contexts():
@@ -176,33 +176,35 @@ def test_pin_change_noop_stale_claim_audit_and_other_contexts():
         create_workspace(client, workspace)
         other_workspace = unique_key("wp6-other")
         create_workspace(client, other_workspace)
-        other = create_draft(client, other_workspace).json()
-        draft = create_draft(client, workspace).json()
-        sibling = create_draft(client, workspace).json()
+        other = create_change_set(client, other_workspace).json()
+        change_set = create_change_set(client, workspace).json()
+        sibling = create_change_set(client, workspace).json()
         target, _, _ = install_model(client, add_field_and_view)
-        before = state(draft["id"])
-        assert change(client, workspace, draft, draft["modelReleaseId"]).json() == draft
-        assert state(draft["id"]) == before
-        assert change(client, other_workspace, draft, target).status_code == 404
-        result = change(client, workspace, draft, target)
+        before = state(change_set["id"])
+        assert change(client, change_set, change_set["modelReleaseId"]).json() == change_set
+        assert state(change_set["id"]) == before
+        unknown = change(client, {**change_set, "id": str(uuid4())}, target)
+        assert unknown.status_code == 404
+        assert unknown.json()["error"]["code"] == "change_set_not_found"
+        result = change(client, change_set, target)
         assert result.status_code == 200, result.text
-        assert result.json()["version"] == draft["version"] + 1
-        after = state(draft["id"])
-        stale = change(client, workspace, draft, target)
+        assert result.json()["version"] == change_set["version"] + 1
+        after = state(change_set["id"])
+        stale = change(client, change_set, target)
         assert stale.status_code == 409
-        assert stale.json()["error"]["code"] == "workspace_draft_version_conflict"
-        assert state(draft["id"]) == after
+        assert stale.json()["error"]["code"] == "change_set_version_conflict"
+        assert state(change_set["id"]) == after
         with SessionLocal() as session:
             event = session.scalar(
                 select(AuditEvent).where(
-                    AuditEvent.aggregate_id == draft["id"],
+                    AuditEvent.aggregate_id == change_set["id"],
                     AuditEvent.action == "model-release-changed",
                 )
             )
-            assert event.changes["modelRelease"]["from"]["id"] == draft["modelReleaseId"]
+            assert event.changes["modelRelease"]["from"]["id"] == change_set["modelReleaseId"]
             assert event.changes["modelRelease"]["to"]["id"] == target
-        assert client.get(f"/api/v1/workspace-drafts/{other['id']}").json() == other
-        assert client.get(f"/api/v1/workspace-drafts/{sibling['id']}").json() == sibling
+        assert client.get(f"/api/v1/change-sets/{other['id']}").json() == other
+        assert client.get(f"/api/v1/change-sets/{sibling['id']}").json() == sibling
 
 
 def require_locale(model):
@@ -228,44 +230,44 @@ def test_inherited_incompatible_creation_change_and_tombstones_are_atomic():
         ).json()
         target, _, _ = install_model(client, require_locale)
         refused = client.post(
-            f"/api/v1/workspaces/{workspace}/drafts",
+            f"/api/v1/workspaces/{workspace}/change-sets",
             json={"source": "currentLive", "modelReleaseId": target},
         )
         assert refused.status_code == 409, refused.text
-        assert refused.json()["error"]["code"] == "draft_content_incompatible"
+        assert refused.json()["error"]["code"] == "change_set_content_incompatible"
         assert refused.json()["error"]["details"]["diagnosticCount"] > 0
         with SessionLocal() as session:
             assert (
                 session.scalar(
-                    select(WorkspaceDraft.id).where(WorkspaceDraft.workspace_key == workspace)
+                    select(ChangeSet.id).where(ChangeSet.workspace_key == workspace)
                 )
                 is None
             )
             assert (
                 session.scalar(
-                    select(WorkspaceDraftBase.id).where(
-                        WorkspaceDraftBase.workspace_key == workspace
+                    select(ChangeSetBase.id).where(
+                        ChangeSetBase.workspace_key == workspace
                     )
                 )
                 is None
             )
-        draft = create_draft(client, workspace, source="currentLive").json()
-        before = state(draft["id"])
-        refused = change(client, workspace, draft, target)
+        change_set = create_change_set(client, workspace, source="currentLive").json()
+        before = state(change_set["id"])
+        refused = change(client, change_set, target)
         assert refused.status_code == 409
-        assert refused.json()["error"]["code"] == "draft_content_incompatible"
-        assert state(draft["id"]) == before
+        assert refused.json()["error"]["code"] == "change_set_content_incompatible"
+        assert state(change_set["id"]) == before
         deleted = client.delete(
             f"/api/v1/objects/language/{live['id']}",
             params={
-                "workspaceDraftId": draft["id"],
-                "expectedWorkspaceDraftVersion": draft["version"],
+                "changeSetId": change_set["id"],
+                "expectedChangeSetVersion": change_set["version"],
                 "expectedVersion": live["version"],
             },
         )
         assert deleted.status_code == 204, deleted.text
-        draft = client.get(f"/api/v1/workspace-drafts/{draft['id']}").json()
-        assert change(client, workspace, draft, target).status_code == 200
+        change_set = client.get(f"/api/v1/change-sets/{change_set['id']}").json()
+        assert change(client, change_set, target).status_code == 200
         assert (
             client.get(
                 f"/api/v1/objects/language/{live['id']}", params={"workspaceKey": workspace}
@@ -273,8 +275,8 @@ def test_inherited_incompatible_creation_change_and_tombstones_are_atomic():
             == 200
         )
         with SessionLocal() as session:
-            row = session.scalar(select(WorkspaceDraft).where(WorkspaceDraft.id == draft["id"]))
-            base = session.get(WorkspaceDraftBase, row.base_id)
+            row = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set["id"]))
+            base = session.get(ChangeSetBase, row.base_id)
             assert base.model_release_id != row.model_release_id
             assert (
                 base.model_release_id == session.get(ModelRuntimeState, 1).active_model_release_id
@@ -293,7 +295,7 @@ def test_invalid_target_creation_and_change_preserve_state(kind, code):
     with TestClient(app) as client:
         workspace = unique_key("wp6-target")
         create_workspace(client, workspace)
-        draft = create_draft(client, workspace).json()
+        change_set = create_change_set(client, workspace).json()
         target = (
             str(uuid4())
             if kind == "missing"
@@ -301,39 +303,39 @@ def test_invalid_target_creation_and_change_preserve_state(kind, code):
                 client, schema="9.9" if kind == "unsupported" else None, corrupt=kind == "corrupt"
             )[0]
         )
-        before = state(draft["id"])
+        before = state(change_set["id"])
         for response in (
-            change(client, workspace, draft, target),
+            change(client, change_set, target),
             client.post(
-                f"/api/v1/workspaces/{workspace}/drafts",
+                f"/api/v1/workspaces/{workspace}/change-sets",
                 json={"source": "currentLive", "modelReleaseId": target},
             ),
         ):
             assert response.status_code == 409, response.text
             assert response.json()["error"]["code"] == code
-        assert state(draft["id"]) == before
-        assert len(client.get(f"/api/v1/workspaces/{workspace}/drafts").json()["items"]) == 1
+        assert state(change_set["id"]) == before
+        assert len(client.get(f"/api/v1/workspaces/{workspace}/change-sets").json()["items"]) == 1
 
 
 def test_overlapping_http_edit_and_pin_change_share_one_claim():
     with TestClient(app) as client:
         workspace = unique_key("wp6-race")
         create_workspace(client, workspace)
-        draft = create_draft(client, workspace).json()
+        change_set = create_change_set(client, workspace).json()
         target, _, _ = install_model(client, add_field_and_view)
         barrier = Barrier(2)
 
         def pin():
             barrier.wait()
-            return change(client, workspace, draft, target)
+            return change(client, change_set, target)
 
         def edit():
             barrier.wait()
             return client.post(
                 "/api/v1/objects",
                 json={
-                    "workspaceDraftId": draft["id"],
-                    "expectedWorkspaceDraftVersion": draft["version"],
+                    "changeSetId": change_set["id"],
+                    "expectedChangeSetVersion": change_set["version"],
                     "applicationKey": "rdm-translations",
                     "objectTypeKey": "language",
                     "name": "Concurrent",
@@ -351,37 +353,37 @@ def test_overlapping_http_edit_and_pin_change_share_one_claim():
         ]
         assert (
             next(x for x in responses if x.status_code == 409).json()["error"]["code"]
-            == "workspace_draft_version_conflict"
+            == "change_set_version_conflict"
         )
-        detail = client.get(f"/api/v1/workspace-drafts/{draft['id']}").json()
-        assert detail["version"] == draft["version"] + 1
+        detail = client.get(f"/api/v1/change-sets/{change_set['id']}").json()
+        assert detail["version"] == change_set["version"] + 1
         assert detail["modelReleaseId"] == (
-            target if responses[0].status_code == 200 else draft["modelReleaseId"]
+            target if responses[0].status_code == 200 else change_set["modelReleaseId"]
         )
 
 
 def test_historical_creation_retains_source_pin_then_explicitly_changes():
-    from wp8_support import publish_language_revision
+    from wp8_support import publish_language_publication
 
     with TestClient(app) as client:
         workspace = unique_key("wp6-history")
         create_workspace(client, workspace)
-        revision = publish_language_revision(client, workspace, unique_key("history"))
+        publication = publish_language_publication(client, workspace, unique_key("history"))
         target, _, _ = install_model(client, add_field_and_view)
-        payload = {"source": "revision", "derivedFromRevisionId": revision["id"]}
+        payload = {"source": "publication", "derivedFromPublicationId": publication["id"]}
         refused = client.post(
-            f"/api/v1/workspaces/{workspace}/drafts", json={**payload, "modelReleaseId": target}
+            f"/api/v1/workspaces/{workspace}/change-sets", json={**payload, "modelReleaseId": target}
         )
         assert refused.status_code == 422
-        created = client.post(f"/api/v1/workspaces/{workspace}/drafts", json=payload)
+        created = client.post(f"/api/v1/workspaces/{workspace}/change-sets", json=payload)
         assert created.status_code == 201
-        draft = created.json()
-        assert draft["modelReleaseId"] == revision["modelReleaseId"]
-        before_history = client.get(f"/api/v1/workspace-revisions/{revision['id']}").json()
-        result = change(client, workspace, draft, target)
+        change_set = created.json()
+        assert change_set["modelReleaseId"] == publication["modelReleaseId"]
+        before_history = client.get(f"/api/v1/publications/{publication['id']}").json()
+        result = change(client, change_set, target)
         assert result.status_code == 200, result.text
-        assert state(draft["id"])[2]
-        assert client.get(f"/api/v1/workspace-revisions/{revision['id']}").json() == before_history
+        assert state(change_set["id"])[2]
+        assert client.get(f"/api/v1/publications/{publication['id']}").json() == before_history
 
 
 @pytest.mark.parametrize(
@@ -402,11 +404,11 @@ def test_target_constraints_check_inherited_complete_graph(rule, code):
         create_workspace(client, workspace)
         seed, _ = build_complete_graph(client, workspace, unique_key("graph"))
         published = client.post(
-            f"/api/v1/workspace-drafts/{seed['id']}/activation",
-            json={"expectedDraftVersion": seed["version"]},
+            f"/api/v1/change-sets/{seed['id']}/publication",
+            json={"expectedChangeSetVersion": seed["version"]},
         )
         assert published.status_code == 200, published.text
-        draft = create_draft(client, workspace, source="currentLive").json()
+        change_set = create_change_set(client, workspace, source="currentLive").json()
 
         def mutate(model):
             if rule == "required":
@@ -441,44 +443,44 @@ def test_target_constraints_check_inherited_complete_graph(rule, code):
                             ]
 
         target, _, _ = install_model(client, mutate)
-        before = state(draft["id"])
-        refused = change(client, workspace, draft, target)
+        before = state(change_set["id"])
+        refused = change(client, change_set, target)
         assert refused.status_code == 409, refused.text
-        assert refused.json()["error"]["code"] == "draft_content_incompatible"
+        assert refused.json()["error"]["code"] == "change_set_content_incompatible"
         assert code in {x["code"] for x in refused.json()["error"]["details"]["diagnostics"]}
-        assert state(draft["id"]) == before
+        assert state(change_set["id"]) == before
         # Creation checks the same inherited live graph and cannot leave a private base.
         refused = client.post(
-            f"/api/v1/workspaces/{workspace}/drafts",
+            f"/api/v1/workspaces/{workspace}/change-sets",
             json={"source": "currentLive", "modelReleaseId": target},
         )
         assert refused.status_code == 409, refused.text
-        assert len(client.get(f"/api/v1/workspaces/{workspace}/drafts").json()["items"]) == 1
+        assert len(client.get(f"/api/v1/workspaces/{workspace}/change-sets").json()["items"]) == 1
 
 
 def test_selected_capture_keeps_active_identity_and_snapshot_retry():
     from app.errors import ApiError
-    from app.services.workspace_revisions import create_draft as create_draft_service
+    from app.services.change_sets import create_change_set as create_change_set_service
 
     with TestClient(app) as client:
         workspace = unique_key("wp6-capture")
         create_workspace(client, workspace)
         target, target_db, _ = install_model(client, add_field_and_view)
         created = client.post(
-            f"/api/v1/workspaces/{workspace}/drafts",
+            f"/api/v1/workspaces/{workspace}/change-sets",
             json={"source": "currentLive", "modelReleaseId": target},
         )
         assert created.status_code == 201, created.text
         with SessionLocal() as session:
-            draft = session.scalar(
-                select(WorkspaceDraft).where(WorkspaceDraft.id == created.json()["id"])
+            change_set = session.scalar(
+                select(ChangeSet).where(ChangeSet.id == created.json()["id"])
             )
-            base = session.get(WorkspaceDraftBase, draft.base_id)
+            base = session.get(ChangeSetBase, change_set.base_id)
             active = session.get(ModelRuntimeState, 1)
             assert base.model_release_id == active.active_model_release_id != target_db
             assert base.model_runtime_version == active.version
             with pytest.raises(ApiError) as error:
-                create_draft_service(
+                create_change_set_service(
                     session,
                     workspace,
                     target_db,
@@ -486,12 +488,12 @@ def test_selected_capture_keeps_active_identity_and_snapshot_retry():
                     expected_model_runtime_release_id=active.active_model_release_id + 100,
                     validate_selected_model=True,
                 )
-            assert error.value.code == "workspace_draft_snapshot_retry"
+            assert error.value.code == "change_set_snapshot_retry"
             assert (
                 session.scalar(
                     select(func.count())
-                    .select_from(WorkspaceDraftBase)
-                    .where(WorkspaceDraftBase.workspace_key == workspace)
+                    .select_from(ChangeSetBase)
+                    .where(ChangeSetBase.workspace_key == workspace)
                 )
                 == 1
             )
@@ -501,11 +503,11 @@ def test_required_target_default_is_not_a_conversion_and_diagnostics_are_bounded
     with TestClient(app) as client:
         workspace = unique_key("wp6-bounded")
         create_workspace(client, workspace)
-        draft = create_draft(client, workspace).json()
+        change_set = create_change_set(client, workspace).json()
         for index in range(21):
             create_object(
                 client,
-                draft,
+                change_set,
                 "rdm-translations",
                 "language",
                 f"Language {index}",
@@ -517,21 +519,21 @@ def test_required_target_default_is_not_a_conversion_and_diagnostics_are_bounded
             next(x for x in model["attributeTypes"] if x["key"] == "locale-code")["default"] = "en"
 
         target, _, _ = install_model(client, mutate)
-        before = state(draft["id"])
-        refused = change(client, workspace, draft, target)
+        before = state(change_set["id"])
+        refused = change(client, change_set, target)
         assert refused.status_code == 409, refused.text
         details = refused.json()["error"]["details"]
         assert details["diagnosticCount"] == 21
         assert len(details["diagnostics"]) == 20
         assert details["diagnosticsTruncated"] is True
-        assert state(draft["id"]) == before
+        assert state(change_set["id"]) == before
 
 
 def test_model_metadata_and_cursors_follow_the_pin():
     with TestClient(app) as client:
         workspace = unique_key("wp6-metadata")
         create_workspace(client, workspace)
-        draft = create_draft(client, workspace).json()
+        change_set = create_change_set(client, workspace).json()
         target, _, _ = install_model(client, add_field_and_view)
         pages = {}
         for endpoint in (
@@ -542,27 +544,27 @@ def test_model_metadata_and_cursors_follow_the_pin():
             "object-type-relations",
         ):
             first = client.get(
-                f"/api/v1/{endpoint}", params={"workspaceDraftId": draft["id"], "pageSize": 1}
+                f"/api/v1/{endpoint}", params={"changeSetId": change_set["id"], "pageSize": 1}
             )
             assert first.status_code == 200, first.text
             pages[endpoint] = first.json()["nextCursor"]
             assert pages[endpoint]
-        changed = change(client, workspace, draft, target)
+        changed = change(client, change_set, target)
         assert changed.status_code == 200
         for endpoint, cursor in pages.items():
             stale = client.get(
                 f"/api/v1/{endpoint}",
-                params={"workspaceDraftId": draft["id"], "cursor": cursor, "pageSize": 1},
+                params={"changeSetId": change_set["id"], "cursor": cursor, "pageSize": 1},
             )
             assert stale.status_code == 422, stale.text
             assert stale.json()["error"]["code"] == "invalid_cursor"
         attribute = client.get(
-            "/api/v1/attribute-types/wp6-number", params={"workspaceDraftId": draft["id"]}
+            "/api/v1/attribute-types/wp6-number", params={"changeSetId": change_set["id"]}
         )
         assert attribute.status_code == 200, attribute.text
         assert attribute.json()["validation"]["minimum"] == 5
         application = client.get(
-            "/api/v1/applications/rdm-translations", params={"workspaceDraftId": draft["id"]}
+            "/api/v1/applications/rdm-translations", params={"changeSetId": change_set["id"]}
         )
         assert application.status_code == 200
         assert any(v["name"] == "Next languages" for v in application.json()["views"])
@@ -582,12 +584,12 @@ def test_valid_selected_creation_does_not_require_healthy_active_registry(source
             payload = {"modelReleaseId": target}
             if source:
                 payload["source"] = source
-            created = client.post(f"/api/v1/workspaces/{workspace}/drafts", json=payload)
+            created = client.post(f"/api/v1/workspaces/{workspace}/change-sets", json=payload)
             assert created.status_code == 201, created.text
             assert created.json()["modelReleaseId"] == target
             assert (
                 client.delete(
-                    f"/api/v1/workspace-drafts/{created.json()['id']}",
+                    f"/api/v1/change-sets/{created.json()['id']}",
                     params={"expectedVersion": 1},
                 ).status_code
                 == 204
@@ -600,11 +602,11 @@ def test_uniqueness_diagnostic_nested_identity_previews_are_bounded():
     with TestClient(app) as client:
         workspace = unique_key("wp6-unique")
         create_workspace(client, workspace)
-        draft = create_draft(client, workspace).json()
+        change_set = create_change_set(client, workspace).json()
         for index in range(22):
             create_object(
                 client,
-                draft,
+                change_set,
                 "rdm-translations",
                 "language",
                 f"Duplicate {index}",
@@ -620,7 +622,7 @@ def test_uniqueness_diagnostic_nested_identity_previews_are_bounded():
             ] = True
 
         target, _, _ = install_model(client, mutate)
-        refused = change(client, workspace, draft, target)
+        refused = change(client, change_set, target)
         assert refused.status_code == 409, refused.text
         diagnostics = refused.json()["error"]["details"]["diagnostics"]
         assert len(diagnostics) == 20
@@ -633,9 +635,9 @@ def test_uniqueness_diagnostic_nested_identity_previews_are_bounded():
 
 def test_inherited_object_and_relation_declared_type_changes_require_conversion():
     from app.models.database import (
-        WorkspaceRevision,
-        WorkspaceRevisionObject,
-        WorkspaceRevisionRelation,
+        Publication,
+        PublicationObject,
+        PublicationRelation,
     )
 
     with TestClient(app) as client:
@@ -668,24 +670,24 @@ def test_inherited_object_and_relation_declared_type_changes_require_conversion(
             )
 
         source, source_db, source_model = install_model(client, add_measure)
-        revision_id, language_id, domain_id, relation_id = [str(uuid4()) for _ in range(4)]
+        publication_id, language_id, domain_id, relation_id = [str(uuid4()) for _ in range(4)]
         # A valid immutable source fixture includes values whose target decimal normalizer accepts
         # their strings. The compatibility rule must still refuse changing their declared type.
         with SessionLocal() as session:
             session.add(
-                WorkspaceRevision(
-                    id=revision_id,
+                Publication(
+                    id=publication_id,
                     workspace_key=workspace,
                     model_release_id=source_db,
-                    revision_number=1,
-                    status="retired",
+                    publication_number=1,
+                    status="withdrawn",
                 )
             )
             session.flush()
             session.add_all(
                 [
-                    WorkspaceRevisionObject(
-                        revision_id=revision_id,
+                    PublicationObject(
+                        publication_id=publication_id,
                         object_id=language_id,
                         application_key="rdm-translations",
                         object_type_key="language",
@@ -693,8 +695,8 @@ def test_inherited_object_and_relation_declared_type_changes_require_conversion(
                         attributes={"language-code": unique_key("measure"), "wp6-measure": "12"},
                         version=1,
                     ),
-                    WorkspaceRevisionObject(
-                        revision_id=revision_id,
+                    PublicationObject(
+                        publication_id=publication_id,
                         object_id=domain_id,
                         application_key="rdm-master",
                         object_type_key="domain",
@@ -702,8 +704,8 @@ def test_inherited_object_and_relation_declared_type_changes_require_conversion(
                         attributes={"domain-code": unique_key("measure")},
                         version=1,
                     ),
-                    WorkspaceRevisionRelation(
-                        revision_id=revision_id,
+                    PublicationRelation(
+                        publication_id=publication_id,
                         relation_id=relation_id,
                         relation_type_key="wp6-links",
                         from_object_id=language_id,
@@ -714,8 +716,8 @@ def test_inherited_object_and_relation_declared_type_changes_require_conversion(
                 ]
             )
             session.commit()
-        draft = create_draft(client, workspace, derived_from_revision_id=revision_id).json()
-        assert draft["modelReleaseId"] == source
+        change_set = create_change_set(client, workspace, derived_from_publication_id=publication_id).json()
+        assert change_set["modelReleaseId"] == source
 
         def change_type(model):
             next(x for x in model["attributeTypes"] if x["key"] == "wp6-measure")["valueType"] = (
@@ -723,9 +725,9 @@ def test_inherited_object_and_relation_declared_type_changes_require_conversion(
             )
 
         target, _, _ = install_model(client, change_type, source_model=source_model)
-        before = state(draft["id"])
-        refused = change(client, workspace, draft, target)
+        before = state(change_set["id"])
+        refused = change(client, change_set, target)
         assert refused.status_code == 409, refused.text
         codes = {x["code"] for x in refused.json()["error"]["details"]["diagnostics"]}
         assert {"attribute_value_type_changed", "relation_attribute_value_type_changed"} <= codes
-        assert state(draft["id"]) == before
+        assert state(change_set["id"]) == before

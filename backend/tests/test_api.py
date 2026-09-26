@@ -5,20 +5,20 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 
-class DraftTestClient(TestClient):
-    """Exercise the legacy generic CRUD assertions through one explicit draft context."""
+class ChangeSetTestClient(TestClient):
+    """Exercise the legacy generic CRUD assertions through one explicit change set context."""
 
-    draft_id: str
-    draft_version: int
+    change_set_id: str
+    change_set_version: int
     model_release_id: str | None = None
 
     def __enter__(self):
         client = super().__enter__()
         payload = {"modelReleaseId": self.model_release_id} if self.model_release_id else {}
-        draft = super().request("POST", "/api/v1/workspaces/default/drafts", json=payload)
-        assert draft.status_code == 201, draft.text
-        self.draft_id = draft.json()["id"]
-        self.draft_version = draft.json()["version"]
+        change_set = super().request("POST", "/api/v1/workspaces/default/change-sets", json=payload)
+        assert change_set.status_code == 201, change_set.text
+        self.change_set_id = change_set.json()["id"]
+        self.change_set_version = change_set.json()["version"]
         return client
 
     def request(self, method, url, **kwargs):
@@ -27,37 +27,37 @@ class DraftTestClient(TestClient):
             return super().request(method, url, **kwargs)
         if method.upper() in {"POST", "PATCH"}:
             payload = dict(kwargs.get("json") or {})
-            payload.setdefault("workspaceDraftId", self.draft_id)
-            payload.setdefault("expectedWorkspaceDraftVersion", self.draft_version)
+            payload.setdefault("changeSetId", self.change_set_id)
+            payload.setdefault("expectedChangeSetVersion", self.change_set_version)
             kwargs["json"] = payload
         else:
             supplied = kwargs.get("params") or {}
             if isinstance(supplied, list):
                 params = list(supplied)
                 keys = {key for key, _value in params}
-                if "workspaceDraftId" not in keys:
-                    params.append(("workspaceDraftId", self.draft_id))
+                if "changeSetId" not in keys:
+                    params.append(("changeSetId", self.change_set_id))
             else:
                 params = dict(supplied)
-                params.setdefault("workspaceDraftId", self.draft_id)
+                params.setdefault("changeSetId", self.change_set_id)
             if method.upper() == "DELETE":
                 if isinstance(params, list):
-                    if not any(key == "expectedWorkspaceDraftVersion" for key, _value in params):
-                        params.append(("expectedWorkspaceDraftVersion", self.draft_version))
+                    if not any(key == "expectedChangeSetVersion" for key, _value in params):
+                        params.append(("expectedChangeSetVersion", self.change_set_version))
                 else:
-                    params.setdefault("expectedWorkspaceDraftVersion", self.draft_version)
+                    params.setdefault("expectedChangeSetVersion", self.change_set_version)
             kwargs["params"] = params
         response = super().request(method, url, **kwargs)
         if response.is_success:
-            version = response.json().get("workspaceDraftVersion") if response.content else None
+            version = response.json().get("changeSetVersion") if response.content else None
             if version is not None:
-                self.draft_version = version
+                self.change_set_version = version
             elif method.upper() == "DELETE":
-                self.draft_version += 1
+                self.change_set_version += 1
         return response
 
 
-TestClient = DraftTestClient
+TestClient = ChangeSetTestClient
 
 
 def _attr(key: str, value):

@@ -24,17 +24,17 @@ from ..models.api import (
 )
 from ..models.database import (
     AttributeValue,
+    ChangeSet,
+    ChangeSetRelation,
     ObjectRelation,
     RdmObject,
     RelationSetVersion,
     Workspace,
-    WorkspaceDraft,
-    WorkspaceDraftRelation,
 )
 from ..models.schema import EngineModel, MappingGridViewConfig, MappingGridViewDefinition
 from .attributes import VALUE_COLUMNS, load_attribute_values
 from .audit import record_audit_event
-from .mapping_projection import draft_mapping_projection, revision_mapping_projection
+from .mapping_projection import change_set_mapping_projection, publication_mapping_projection
 from .model.registry import ModelSnapshot, resolve_request_model
 from .pagination import (
     FIRST_PAGE,
@@ -65,8 +65,8 @@ def projection_bundle(projection: Subquery) -> Bundle:
 class MappingRead:
     session: Session
     workspace_key: str
-    draft_id: str | None
-    revision_id: str | None
+    change_set_id: str | None
+    publication_id: str | None
     snapshot: ModelSnapshot
     config: MappingGridViewConfig
     filters: dict[str, Any]
@@ -134,7 +134,7 @@ class MappingRead:
     def summary(
         self, objects: list[Any], columns: tuple[str, ...]
     ) -> dict[str, MappingObjectSummary]:
-        if self.draft_id or self.revision_id:
+        if self.change_set_id or self.publication_id:
             attrs = {row.id: row.attributes or {} for row in objects}
         else:
             values = load_attribute_values(self.session, [row.id for row in objects])
@@ -196,14 +196,14 @@ class MappingRead:
         )
 
     def versions(self, ids: list[str]) -> dict[str, int]:
-        if self.revision_id:
-            # Revisions are immutable and do not need a mutable-set concurrency token.
-            # Zero is stable within the revision-bound continuation context.
+        if self.publication_id:
+            # Publications are immutable and do not need a mutable-set concurrency token.
+            # Zero is stable within the publication-bound continuation context.
             return {object_id: 0 for object_id in ids}
         rows = self.session.scalars(
             select(RelationSetVersion).where(
                 RelationSetVersion.workspace_key == self.workspace_key,
-                RelationSetVersion.workspace_draft_id == self.draft_id,
+                RelationSetVersion.change_set_id == self.change_set_id,
                 RelationSetVersion.relation_type_key == self.config.relationTypeKey,
                 RelationSetVersion.from_object_type_key == self.config.fromObjectTypeKey,
                 RelationSetVersion.to_object_type_key == self.config.toObjectTypeKey,
@@ -249,9 +249,9 @@ def open_mapping_read(
     workspace_key: str,
     application_key: str | None,
     view_key: str | None,
-    draft_id: str | None,
+    change_set_id: str | None,
     *,
-    revision_id: str | None = None,
+    publication_id: str | None = None,
     binding_config: MappingGridViewConfig | None = None,
 ) -> MappingRead:
     # sqlite's legacy transaction mode does not BEGIN on SELECT. Begin before
@@ -267,8 +267,8 @@ def open_mapping_read(
         workspace_key,
         application_key,
         view_key,
-        draft_id,
-        revision_id=revision_id,
+        change_set_id,
+        publication_id=publication_id,
         binding_config=binding_config,
     )
 
@@ -278,13 +278,13 @@ def _mapping_read_in_transaction(
     workspace_key,
     application_key,
     view_key,
-    draft_id,
+    change_set_id,
     *,
-    revision_id=None,
+    publication_id=None,
     binding_config=None,
 ):
     resolve_workspace(session, workspace_key)
-    snapshot = resolve_request_model(session, workspace_key, draft_id, revision_id)
+    snapshot = resolve_request_model(session, workspace_key, change_set_id, publication_id)
     application = next(
         (row for row in snapshot.model.applications if row.key == application_key), None
     )
@@ -297,10 +297,10 @@ def _mapping_read_in_transaction(
         raise api_error(
             404, "mapping_view_not_found", "Mapping view not found in the selected model"
         )
-    if draft_id:
-        objects, relations = draft_mapping_projection(session, draft_id)
-    elif revision_id:
-        objects, relations = revision_mapping_projection(session, revision_id)
+    if change_set_id:
+        objects, relations = change_set_mapping_projection(session, change_set_id)
+    elif publication_id:
+        objects, relations = publication_mapping_projection(session, publication_id)
     else:
         objects = (
             select(
@@ -327,14 +327,14 @@ def _mapping_read_in_transaction(
     return MappingRead(
         session,
         workspace_key,
-        draft_id,
-        revision_id,
+        change_set_id,
+        publication_id,
         snapshot,
         config,
         {
             "workspaceKey": workspace_key,
-            "workspaceDraftId": draft_id,
-            "workspaceRevisionId": revision_id,
+            "changeSetId": change_set_id,
+            "publicationId": publication_id,
             "modelReleaseId": snapshot.release_id,
             "modelHash": snapshot.model_hash,
             "applicationKey": application_key,
@@ -479,7 +479,7 @@ def object_page(
         for field in fields:
             if field == "name":
                 clauses.append(read.objects.c.name.icontains(search, autoescape=True))
-            elif read.draft_id or read.revision_id:
+            elif read.change_set_id or read.publication_id:
                 clauses.append(
                     cast(read.objects.c.attributes[field].as_string(), String).icontains(
                         search, autoescape=True
@@ -537,7 +537,7 @@ def coverage(
     sources = read.summary(objects, read.config.sourceColumns)
     versions = read.versions(ids)
     # Exact counts and bounded previews in one batched window query, in both
-    # live and effective draft membership (including overlays and tombstones).
+    # live and effective change set membership (including overlays and tombstones).
     ranked = (
         read.edge_statement()
         .where(read.anchor_column.in_(ids))
@@ -636,7 +636,7 @@ def list_mappings(
     session: Session,
     workspace_key: str,
     *,
-    draft_id: str | None = None,
+    change_set_id: str | None = None,
     application_key: str | None = None,
     view_key: str | None = None,
     relation_type_key: str | None = None,
@@ -655,7 +655,7 @@ def list_mappings(
         connection.exec_driver_sql("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
 
     resolve_workspace(session, workspace_key)
-    snapshot = resolve_request_model(session, workspace_key, draft_id, None)
+    snapshot = resolve_request_model(session, workspace_key, change_set_id, None)
 
     config = None
     if application_key is not None and view_key is not None:
@@ -679,8 +679,8 @@ def list_mappings(
             "Both applicationKey and viewKey are required when either is supplied",
         )
 
-    if draft_id:
-        objects, relations = draft_mapping_projection(session, draft_id)
+    if change_set_id:
+        objects, relations = change_set_mapping_projection(session, change_set_id)
     else:
         objects = (
             select(
@@ -749,7 +749,7 @@ def list_mappings(
     effective_size = page_size or (config.pageSize if config else DEFAULT_LIST_PAGE_SIZE)
     cursor_filters = {
         "workspaceKey": workspace_key,
-        "workspaceDraftId": draft_id,
+        "changeSetId": change_set_id,
         "relationTypeKey": relation_type_key,
         "fromObjectTypeKey": from_object_type_key,
         "toObjectTypeKey": to_object_type_key,
@@ -781,7 +781,7 @@ def list_mappings(
         read_for_summary = MappingRead(
             session,
             workspace_key,
-            draft_id,
+            change_set_id,
             None,
             snapshot,
             config,
@@ -811,9 +811,9 @@ def list_mappings(
         version_rows = session.scalars(
             select(RelationSetVersion).where(
                 RelationSetVersion.workspace_key == workspace_key,
-                RelationSetVersion.workspace_draft_id == draft_id
-                if draft_id is not None
-                else RelationSetVersion.workspace_draft_id.is_(None),
+                RelationSetVersion.change_set_id == change_set_id
+                if change_set_id is not None
+                else RelationSetVersion.change_set_id.is_(None),
             )
         )
         for v in version_rows:
@@ -915,8 +915,8 @@ def replace_mapping(
     )
     if result.rowcount != 1:
         resolve_workspace(session, workspace_key, require_active=True)
-    if request.workspaceDraftId:
-        return _replace_draft_mapping(session, workspace_key, request)
+    if request.changeSetId:
+        return _replace_change_set_mapping(session, workspace_key, request)
     return _replace_live_mapping(session, workspace_key, request)
 
 
@@ -960,19 +960,19 @@ def _needs_cross_cardinality_check(allowed, direction: str) -> bool:
 def _get_set_version(
     session: Session,
     workspace_key: str,
-    draft_id: str | None,
+    change_set_id: str | None,
     request: MappingReplacementRequest,
     source_id: str,
 ) -> int:
-    draft_filter = (
-        RelationSetVersion.workspace_draft_id == draft_id
-        if draft_id is not None
-        else RelationSetVersion.workspace_draft_id.is_(None)
+    change_set_filter = (
+        RelationSetVersion.change_set_id == change_set_id
+        if change_set_id is not None
+        else RelationSetVersion.change_set_id.is_(None)
     )
     row = session.scalar(
         select(RelationSetVersion).where(
             RelationSetVersion.workspace_key == workspace_key,
-            draft_filter,
+            change_set_filter,
             RelationSetVersion.relation_type_key == request.relationTypeKey,
             RelationSetVersion.from_object_type_key == request.fromObjectTypeKey,
             RelationSetVersion.to_object_type_key == request.toObjectTypeKey,
@@ -1015,8 +1015,8 @@ def _conflict_target_summaries(
 def _conflict_continuation(session, workspace_key, request, source_id, version, count):
     if count <= PREVIEW_SIZE:
         return {}
-    draft_id = str(request.workspaceDraftId) if request.workspaceDraftId else None
-    model = resolve_request_model(session, workspace_key, draft_id, None).model
+    change_set_id = str(request.changeSetId) if request.changeSetId else None
+    model = resolve_request_model(session, workspace_key, change_set_id, None).model
     for app in model.applications:
         for view in app.views:
             if not isinstance(view, MappingGridViewDefinition):
@@ -1034,7 +1034,7 @@ def _conflict_continuation(session, workspace_key, request, source_id, version, 
                 request.direction,
             ):
                 continue
-            read = _mapping_read_in_transaction(session, workspace_key, app.key, view.key, draft_id)
+            read = _mapping_read_in_transaction(session, workspace_key, app.key, view.key, change_set_id)
             page = target_details(read, source_id, version, FIRST_PAGE, PREVIEW_SIZE)
             return {
                 "targets": [item.model_dump(mode="json") for item in page.items],
@@ -1053,7 +1053,7 @@ def _conflict_continuation(session, workspace_key, request, source_id, version, 
         pageSize=20,
     )
     read = _mapping_read_in_transaction(
-        session, workspace_key, None, None, draft_id, binding_config=config
+        session, workspace_key, None, None, change_set_id, binding_config=config
     )
     page = target_details(read, source_id, version, FIRST_PAGE, PREVIEW_SIZE)
     return {
@@ -1091,10 +1091,10 @@ def _raise_version_conflict(
     )
 
 
-def _claim_mapping_set(session, workspace_key, draft_id, request, source_id):
+def _claim_mapping_set(session, workspace_key, change_set_id, request, source_id):
     base = {
         "workspace_key": workspace_key,
-        "workspace_draft_id": draft_id,
+        "change_set_id": change_set_id,
         "relation_type_key": request.relationTypeKey,
         "from_object_type_key": request.fromObjectTypeKey,
         "to_object_type_key": request.toObjectTypeKey,
@@ -1107,17 +1107,17 @@ def _claim_mapping_set(session, workspace_key, draft_id, request, source_id):
         expected=request.expectedMappingVersion,
     ):
         session.rollback()
-        actual = _get_set_version(session, workspace_key, draft_id, request, source_id)
-        if draft_id:
-            from .draft_lookups import DraftLookup
+        actual = _get_set_version(session, workspace_key, change_set_id, request, source_id)
+        if change_set_id:
+            from .change_set_lookups import ChangeSetLookup
 
-            edges, objects = _draft_edges(
-                DraftLookup.of(session, draft_id),
+            edges, objects = _change_set_edges(
+                ChangeSetLookup.of(session, change_set_id),
                 request,
                 source_id,
                 _source_target_types(request)[1],
             )
-            _raise_draft_version_conflict(session, request, source_id, actual, edges, objects)
+            _raise_change_set_version_conflict(session, request, source_id, actual, edges, objects)
         edges = _live_edges(
             session, request, source_id, _source_target_types(request)[1], workspace_key
         )
@@ -1127,7 +1127,7 @@ def _claim_mapping_set(session, workspace_key, draft_id, request, source_id):
 def _increment_affected_set_versions(
     session: Session,
     workspace_key: str,
-    draft_id: str | None,
+    change_set_id: str | None,
     request: MappingReplacementRequest,
     source_id: str,
     affected_target_ids: set[str],
@@ -1135,7 +1135,7 @@ def _increment_affected_set_versions(
     opposite = "incoming" if request.direction == "outgoing" else "outgoing"
     base = {
         "workspace_key": workspace_key,
-        "workspace_draft_id": draft_id,
+        "change_set_id": change_set_id,
         "relation_type_key": request.relationTypeKey,
         "from_object_type_key": request.fromObjectTypeKey,
         "to_object_type_key": request.toObjectTypeKey,
@@ -1170,7 +1170,7 @@ def _record_transition(
             "fromObjectTypeKey": request.fromObjectTypeKey,
             "toObjectTypeKey": request.toObjectTypeKey,
             "direction": request.direction,
-            "workspaceDraftId": str(request.workspaceDraftId) if request.workspaceDraftId else None,
+            "changeSetId": str(request.changeSetId) if request.changeSetId else None,
             "previousTargets": old_targets,
             "newTarget": new_target,
         },
@@ -1523,58 +1523,58 @@ def _execute_live_replace_new(
 
 
 # ---------------------------------------------------------------------------
-# Draft mapping replacement
+# Change set mapping replacement
 # ---------------------------------------------------------------------------
 
 
-def _replace_draft_mapping(
+def _replace_change_set_mapping(
     session: Session, workspace_key: str, request: MappingReplacementRequest
 ) -> MappingReplacementResponse:
-    from .draft_lookups import DraftLookup
-    from .workspace_revisions import (
-        claim_draft_version,
-        ensure_draft_writable,
+    from .change_set_lookups import ChangeSetLookup
+    from .change_sets import (
+        claim_change_set_version,
+        ensure_change_set_writable,
         pinned_model,
-        validate_draft_relation,
+        validate_change_set_relation,
     )
 
-    draft_id = str(request.workspaceDraftId)
-    draft = ensure_draft_writable(session, draft_id)
-    if draft.workspace_key != workspace_key:
-        raise api_error(404, "workspace_draft_not_found", "Workspace draft not found")
-    _, model = pinned_model(session, draft_id)
+    change_set_id = str(request.changeSetId)
+    change_set = ensure_change_set_writable(session, change_set_id)
+    if change_set.workspace_key != workspace_key:
+        raise api_error(404, "change_set_not_found", "Change set not found")
+    _, model = pinned_model(session, change_set_id)
     allowed = _validate_binding_for_replacement(model, request)
     source_type, target_type = _source_target_types(request)
     _validate_clear_attributes(request)
 
-    lookup = DraftLookup.of(session, draft_id)
+    lookup = ChangeSetLookup.of(session, change_set_id)
     source = lookup.object(str(request.sourceObjectId))
     if source is None or source.object_type_key != source_type:
-        raise api_error(404, "mapping_endpoint_not_found", "Mapping source not found in draft")
+        raise api_error(404, "mapping_endpoint_not_found", "Mapping source not found in change set")
     source_id = source.object_id
     target, target_id = None, None
     if request.targetObjectId:
         target = lookup.object(str(request.targetObjectId))
         if target is None or target.object_type_key != target_type:
-            raise api_error(404, "mapping_endpoint_not_found", "Mapping target not found in draft")
+            raise api_error(404, "mapping_endpoint_not_found", "Mapping target not found in change set")
         target_id = target.object_id
 
-    actual_version = _get_set_version(session, workspace_key, draft_id, request, source_id)
-    edges, objects = _draft_edges(lookup, request, source_id, target_type)
+    actual_version = _get_set_version(session, workspace_key, change_set_id, request, source_id)
+    edges, objects = _change_set_edges(lookup, request, source_id, target_type)
 
     if request.expectedMappingVersion != actual_version:
-        _raise_draft_version_conflict(session, request, source_id, actual_version, edges, objects)
+        _raise_change_set_version_conflict(session, request, source_id, actual_version, edges, objects)
 
-    if request.expectedWorkspaceDraftVersion is None:
+    if request.expectedChangeSetVersion is None:
         raise api_error(
             409,
-            "workspace_draft_required",
-            "expectedWorkspaceDraftVersion is required when targeting a workspace draft",
+            "change_set_required",
+            "expectedChangeSetVersion is required when targeting a change set",
         )
 
-    if draft.version != request.expectedWorkspaceDraftVersion:
+    if change_set.version != request.expectedChangeSetVersion:
         raise api_error(
-            409, "workspace_draft_version_conflict", "Workspace draft version has changed"
+            409, "change_set_version_conflict", "Change set version has changed"
         )
 
     if target is None:
@@ -1585,23 +1585,23 @@ def _replace_draft_mapping(
                 sourceObjectId=source_id,
                 mappingVersion=actual_version,
                 state="unmapped",
-                workspaceDraftVersion=draft.version,
+                changeSetVersion=change_set.version,
             )
-        claim_draft_version(session, draft, request.expectedWorkspaceDraftVersion)
-        _claim_mapping_set(session, workspace_key, draft_id, request, source_id)
-        return _execute_draft_clear(session, workspace_key, draft, request, source_id, edges)
+        claim_change_set_version(session, change_set, request.expectedChangeSetVersion)
+        _claim_mapping_set(session, workspace_key, change_set_id, request, source_id)
+        return _execute_change_set_clear(session, workspace_key, change_set, request, source_id, edges)
 
     if _needs_cross_cardinality_check(allowed, request.direction):
-        _check_draft_cross_cardinality(lookup, request, source_id, target_id)
+        _check_change_set_cross_cardinality(lookup, request, source_id, target_id)
 
     retained = next(
-        (e for e in edges if _draft_edge_other_id(e, request.direction) == target_id), None
+        (e for e in edges if _change_set_edge_other_id(e, request.direction) == target_id), None
     )
     obsolete = [e for e in edges if e.relation_id != (retained.relation_id if retained else None)]
     from_id, to_id = (
         (source_id, target_id) if request.direction == "outgoing" else (target_id, source_id)
     )
-    validate_draft_relation(
+    validate_change_set_relation(
         model,
         lookup,
         request.relationTypeKey,
@@ -1626,14 +1626,14 @@ def _replace_draft_mapping(
                 mappingVersion=actual_version,
                 state="mapped",
                 relationId=retained.relation_id,
-                workspaceDraftVersion=draft.version,
+                changeSetVersion=change_set.version,
             )
-        claim_draft_version(session, draft, request.expectedWorkspaceDraftVersion)
-        _claim_mapping_set(session, workspace_key, draft_id, request, source_id)
-        return _execute_draft_replace_with_retained(
+        claim_change_set_version(session, change_set, request.expectedChangeSetVersion)
+        _claim_mapping_set(session, workspace_key, change_set_id, request, source_id)
+        return _execute_change_set_replace_with_retained(
             session,
             workspace_key,
-            draft,
+            change_set,
             model,
             allowed,
             request,
@@ -1644,16 +1644,16 @@ def _replace_draft_mapping(
             new_attrs,
         )
 
-    claim_draft_version(session, draft, request.expectedWorkspaceDraftVersion)
-    _claim_mapping_set(session, workspace_key, draft_id, request, source_id)
+    claim_change_set_version(session, change_set, request.expectedChangeSetVersion)
+    _claim_mapping_set(session, workspace_key, change_set_id, request, source_id)
     if request.attributes is not None:
         new_attrs = validate_relation_attributes(model, allowed, request.attributes)
     else:
         new_attrs = validate_relation_attributes(model, allowed, {})
-    return _execute_draft_replace_new(
+    return _execute_change_set_replace_new(
         session,
         workspace_key,
-        draft,
+        change_set,
         request,
         source_id,
         target_id,
@@ -1662,28 +1662,28 @@ def _replace_draft_mapping(
     )
 
 
-def _draft_edges(lookup, request, source_id, target_type):
+def _change_set_edges(lookup, request, source_id, target_type):
     """The source's relations of the mapping's type and direction to a record of the target type,
     and the records at their other ends by ID."""
     relations = lookup.relations([source_id], request.direction, [request.relationTypeKey])
-    others = lookup.objects(_draft_edge_other_id(item, request.direction) for item in relations)
+    others = lookup.objects(_change_set_edge_other_id(item, request.direction) for item in relations)
     edges = [
         item
         for item in relations
-        if (other := others.get(_draft_edge_other_id(item, request.direction))) is not None
+        if (other := others.get(_change_set_edge_other_id(item, request.direction))) is not None
         and other.object_type_key == target_type
     ]
     return edges, others
 
 
-def _draft_edge_other_id(edge, direction: str) -> str:
+def _change_set_edge_other_id(edge, direction: str) -> str:
     return edge.to_object_id if direction == "outgoing" else edge.from_object_id
 
 
-def _raise_draft_version_conflict(session, request, source_id, actual_version, edges, objects):
+def _raise_change_set_version_conflict(session, request, source_id, actual_version, edges, objects):
     targets = []
     for edge in edges[:PREVIEW_SIZE]:
-        other_id = _draft_edge_other_id(edge, request.direction)
+        other_id = _change_set_edge_other_id(edge, request.direction)
         obj = objects.get(other_id)
         if obj:
             targets.append(
@@ -1710,8 +1710,8 @@ def _raise_draft_version_conflict(session, request, source_id, actual_version, e
             **_conflict_continuation(
                 session,
                 session.scalar(
-                    select(WorkspaceDraft.workspace_key).where(
-                        WorkspaceDraft.id == str(request.workspaceDraftId)
+                    select(ChangeSet.workspace_key).where(
+                        ChangeSet.id == str(request.changeSetId)
                     )
                 ),
                 request,
@@ -1723,25 +1723,25 @@ def _raise_draft_version_conflict(session, request, source_id, actual_version, e
     )
 
 
-def _check_draft_cross_cardinality(lookup, request, source_id, target_id):
+def _check_change_set_cross_cardinality(lookup, request, source_id, target_id):
     # The target's relations of the type from its other side, other than to the source.
     opposite = "incoming" if request.direction == "outgoing" else "outgoing"
     for relation in lookup.relations([target_id], opposite, [request.relationTypeKey]):
-        if _draft_edge_other_id(relation, opposite) != source_id:
+        if _change_set_edge_other_id(relation, opposite) != source_id:
             raise api_error(409, "cardinality_violation", "Relation cardinality would be violated")
 
 
-def _materialize_draft_relation(session, draft_id, base_relation):
+def _materialize_change_set_relation(session, change_set_id, base_relation):
     row = session.scalar(
-        select(WorkspaceDraftRelation).where(
-            WorkspaceDraftRelation.draft_id == draft_id,
-            WorkspaceDraftRelation.relation_id == base_relation.relation_id,
+        select(ChangeSetRelation).where(
+            ChangeSetRelation.change_set_id == change_set_id,
+            ChangeSetRelation.relation_id == base_relation.relation_id,
         )
     )
     if row is not None:
         return row
-    row = WorkspaceDraftRelation(
-        draft_id=draft_id,
+    row = ChangeSetRelation(
+        change_set_id=change_set_id,
         relation_id=base_relation.relation_id,
         relation_type_key=base_relation.relation_type_key,
         from_object_id=base_relation.from_object_id,
@@ -1754,15 +1754,15 @@ def _materialize_draft_relation(session, draft_id, base_relation):
     return row
 
 
-def _draft_old_target_audit(edge, direction):
+def _change_set_old_target_audit(edge, direction):
     return {
         "relationId": edge.relation_id,
-        "objectId": _draft_edge_other_id(edge, direction),
+        "objectId": _change_set_edge_other_id(edge, direction),
         "attributes": edge.attributes or {},
     }
 
 
-def _record_draft_relation_change(session, draft_id, row, action):
+def _record_change_set_relation_change(session, change_set_id, row, action):
     record_audit_event(
         session,
         aggregate_type="relation",
@@ -1770,7 +1770,7 @@ def _record_draft_relation_change(session, draft_id, row, action):
         action=action,
         version=row.version,
         changes={
-            "workspaceDraftId": draft_id,
+            "changeSetId": change_set_id,
             "relationTypeKey": row.relation_type_key,
             "fromObjectId": row.from_object_id,
             "toObjectId": row.to_object_id,
@@ -1780,19 +1780,19 @@ def _record_draft_relation_change(session, draft_id, row, action):
     )
 
 
-def _execute_draft_clear(session, workspace_key, draft, request, source_id, edges):
-    old_targets = [_draft_old_target_audit(e, request.direction) for e in edges]
+def _execute_change_set_clear(session, workspace_key, change_set, request, source_id, edges):
+    old_targets = [_change_set_old_target_audit(e, request.direction) for e in edges]
     affected_ids: set[str] = set()
     for edge in edges:
-        row = _materialize_draft_relation(session, draft.id, edge)
+        row = _materialize_change_set_relation(session, change_set.id, edge)
         row.version += 1
         row.is_deleted = True
-        _record_draft_relation_change(session, draft.id, row, "deleted")
-        affected_ids.add(_draft_edge_other_id(edge, request.direction))
+        _record_change_set_relation_change(session, change_set.id, row, "deleted")
+        affected_ids.add(_change_set_edge_other_id(edge, request.direction))
     session.flush()
     new_version = request.expectedMappingVersion + 1
     _increment_affected_set_versions(
-        session, workspace_key, draft.id, request, source_id, affected_ids
+        session, workspace_key, change_set.id, request, source_id, affected_ids
     )
     _record_transition(
         session,
@@ -1808,14 +1808,14 @@ def _execute_draft_clear(session, workspace_key, draft, request, source_id, edge
         sourceObjectId=source_id,
         mappingVersion=new_version,
         state="unmapped",
-        workspaceDraftVersion=draft.version,
+        changeSetVersion=change_set.version,
     )
 
 
-def _execute_draft_replace_with_retained(
+def _execute_change_set_replace_with_retained(
     session,
     workspace_key,
-    draft,
+    change_set,
     model,
     allowed,
     request,
@@ -1825,26 +1825,26 @@ def _execute_draft_replace_with_retained(
     obsolete,
     new_attrs,
 ):
-    old_targets = [_draft_old_target_audit(e, request.direction) for e in [retained, *obsolete]]
+    old_targets = [_change_set_old_target_audit(e, request.direction) for e in [retained, *obsolete]]
     affected_ids: set[str] = set()
     attrs_changed = new_attrs != dict(retained.attributes or {})
     if attrs_changed:
-        row = _materialize_draft_relation(session, draft.id, retained)
+        row = _materialize_change_set_relation(session, change_set.id, retained)
         row.attributes = new_attrs
         row.version += 1
         row.is_deleted = False
-        _record_draft_relation_change(session, draft.id, row, "updated")
+        _record_change_set_relation_change(session, change_set.id, row, "updated")
         affected_ids.add(target_id)
     for edge in obsolete:
-        row = _materialize_draft_relation(session, draft.id, edge)
+        row = _materialize_change_set_relation(session, change_set.id, edge)
         row.version += 1
         row.is_deleted = True
-        _record_draft_relation_change(session, draft.id, row, "deleted")
-        affected_ids.add(_draft_edge_other_id(edge, request.direction))
+        _record_change_set_relation_change(session, change_set.id, row, "deleted")
+        affected_ids.add(_change_set_edge_other_id(edge, request.direction))
     session.flush()
     new_version = request.expectedMappingVersion + 1
     _increment_affected_set_versions(
-        session, workspace_key, draft.id, request, source_id, affected_ids
+        session, workspace_key, change_set.id, request, source_id, affected_ids
     )
     _record_transition(
         session,
@@ -1861,35 +1861,35 @@ def _execute_draft_replace_with_retained(
         mappingVersion=new_version,
         state="mapped",
         relationId=retained.relation_id,
-        workspaceDraftVersion=draft.version,
+        changeSetVersion=change_set.version,
     )
 
 
-def _execute_draft_replace_new(
+def _execute_change_set_replace_new(
     session,
     workspace_key,
-    draft,
+    change_set,
     request,
     source_id,
     target_id,
     obsolete,
     new_attrs,
 ):
-    old_targets = [_draft_old_target_audit(e, request.direction) for e in obsolete]
+    old_targets = [_change_set_old_target_audit(e, request.direction) for e in obsolete]
     affected_ids: set[str] = set()
     for edge in obsolete:
-        row = _materialize_draft_relation(session, draft.id, edge)
+        row = _materialize_change_set_relation(session, change_set.id, edge)
         row.version += 1
         row.is_deleted = True
-        _record_draft_relation_change(session, draft.id, row, "deleted")
-        affected_ids.add(_draft_edge_other_id(edge, request.direction))
+        _record_change_set_relation_change(session, change_set.id, row, "deleted")
+        affected_ids.add(_change_set_edge_other_id(edge, request.direction))
     if request.direction == "outgoing":
         from_id, to_id = source_id, target_id
     else:
         from_id, to_id = target_id, source_id
     new_relation_id = str(uuid4())
-    new_row = WorkspaceDraftRelation(
-        draft_id=draft.id,
+    new_row = ChangeSetRelation(
+        change_set_id=change_set.id,
         relation_id=new_relation_id,
         relation_type_key=request.relationTypeKey,
         from_object_id=from_id,
@@ -1910,14 +1910,14 @@ def _execute_draft_replace_new(
             "fromObjectId": from_id,
             "toObjectId": to_id,
             "attributes": new_attrs,
-            "workspaceDraftId": draft.id,
+            "changeSetId": change_set.id,
         },
         object_ids=[from_id, to_id],
     )
     affected_ids.add(target_id)
     new_version = request.expectedMappingVersion + 1
     _increment_affected_set_versions(
-        session, workspace_key, draft.id, request, source_id, affected_ids
+        session, workspace_key, change_set.id, request, source_id, affected_ids
     )
     _record_transition(
         session,
@@ -1934,5 +1934,5 @@ def _execute_draft_replace_new(
         mappingVersion=new_version,
         state="mapped",
         relationId=new_relation_id,
-        workspaceDraftVersion=draft.version,
+        changeSetVersion=change_set.version,
     )

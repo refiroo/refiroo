@@ -1,7 +1,7 @@
 """WP-3: Relation-set version persistence and generic participation.
 
 Tests verify that every relation mutation atomically maintains set versions,
-that different bindings have independent version tracks, and that draft/live
+that different bindings have independent version tracks, and that change set/live
 scopes stay isolated until activation.
 """
 
@@ -77,18 +77,18 @@ def _mapping_endpoints(client, suffix, *, ws=WS):
 
 
 def _set_version(
-    workspace_key, draft_id, relation_type_key, from_type, to_type, anchor_id, direction
+    workspace_key, change_set_id, relation_type_key, from_type, to_type, anchor_id, direction
 ):
     with SessionLocal() as session:
-        draft_filter = (
-            RelationSetVersion.workspace_draft_id == draft_id
-            if draft_id is not None
-            else RelationSetVersion.workspace_draft_id.is_(None)
+        change_set_filter = (
+            RelationSetVersion.change_set_id == change_set_id
+            if change_set_id is not None
+            else RelationSetVersion.change_set_id.is_(None)
         )
         row = session.scalar(
             select(RelationSetVersion).where(
                 RelationSetVersion.workspace_key == workspace_key,
-                draft_filter,
+                change_set_filter,
                 RelationSetVersion.relation_type_key == relation_type_key,
                 RelationSetVersion.from_object_type_key == from_type,
                 RelationSetVersion.to_object_type_key == to_type,
@@ -214,83 +214,83 @@ def test_different_bindings_have_independent_versions():
         assert v2_outgoing == 1
 
 
-# --- Draft relation set-version tracking ---
+# --- Change set relation set-version tracking ---
 
 
-def _create_draft(client):
-    r = client.post("/api/v1/workspaces/default/drafts", json={"source": "currentLive"})
+def _create_change_set(client):
+    r = client.post("/api/v1/workspaces/default/change-sets", json={"source": "currentLive"})
     assert r.status_code == 201, r.text
     return r.json()
 
 
-def _draft_set_version(
-    draft_id, relation_type_key, from_type, to_type, anchor_id, direction
+def _change_set_set_version(
+    change_set_id, relation_type_key, from_type, to_type, anchor_id, direction
 ):
     return _set_version(
-        "default", draft_id, relation_type_key, from_type, to_type, anchor_id, direction
+        "default", change_set_id, relation_type_key, from_type, to_type, anchor_id, direction
     )
 
 
-def _draft_set_version_count(draft_id):
+def _change_set_set_version_count(change_set_id):
     with SessionLocal() as session:
         return len(
             list(
                 session.scalars(
                     select(RelationSetVersion).where(
-                        RelationSetVersion.workspace_draft_id == draft_id
+                        RelationSetVersion.change_set_id == change_set_id
                     )
                 )
             )
         )
 
 
-def _draft_version(client, draft_id):
-    r = client.get(f"/api/v1/workspace-drafts/{draft_id}")
+def _change_set_version(client, change_set_id):
+    r = client.get(f"/api/v1/change-sets/{change_set_id}")
     assert r.status_code == 200, r.text
     return r.json()["version"]
 
 
-def test_draft_relation_create_increments_draft_scoped_set_version():
-    """Create objects live, snapshot into a draft, then create a relation in the draft."""
+def test_change_set_relation_create_increments_change_set_scoped_set_version():
+    """Create objects live, snapshot into a change set, then create a relation in the change set."""
     with TestClient(app) as client:
         s = _suffix()
         sv, mv = _mapping_endpoints(client, s)
-        draft = _create_draft(client)
+        change_set = _create_change_set(client)
         r = client.post(
             "/api/v1/relations",
             json={
                 "relationTypeKey": "system-value-maps-to-master",
                 "fromObjectId": sv["id"],
                 "toObjectId": mv["id"],
-                "workspaceDraftId": draft["id"],
-                "expectedWorkspaceDraftVersion": draft["version"],
+                "changeSetId": change_set["id"],
+                "expectedChangeSetVersion": change_set["version"],
             },
         )
         assert r.status_code == 201, r.text
-        draft_v = _draft_set_version(
-            draft["id"],
+        change_set_v = _change_set_set_version(
+            change_set["id"],
             "system-value-maps-to-master",
             "system-value",
             "master-value",
             sv["id"],
             "outgoing",
         )
-        assert draft_v == 1
+        assert change_set_v == 1
 
 
-def test_draft_relation_update_and_delete_advance_both_draft_anchors_only():
+def test_change_set_relation_update_and_delete_advance_both_change_set_anchors_only():
     binding = ("system-value-maps-to-master", "system-value", "master-value")
     with TestClient(app) as client:
         sv, mv = _mapping_endpoints(client, _suffix())
-        draft = _create_draft(client)
+        change_set = _create_change_set(client)
         created = client.post(
             "/api/v1/relations",
             json={
                 "relationTypeKey": binding[0],
                 "fromObjectId": sv["id"],
                 "toObjectId": mv["id"],
-                "workspaceDraftId": draft["id"],
-                "expectedWorkspaceDraftVersion": draft["version"],
+                "changeSetId": change_set["id"],
+                "expectedChangeSetVersion": change_set["version"],
             },
         )
         assert created.status_code == 201, created.text
@@ -298,8 +298,8 @@ def test_draft_relation_update_and_delete_advance_both_draft_anchors_only():
 
         def versions():
             return (
-                _draft_set_version(draft["id"], *binding, sv["id"], "outgoing"),
-                _draft_set_version(draft["id"], *binding, mv["id"], "incoming"),
+                _change_set_set_version(change_set["id"], *binding, sv["id"], "outgoing"),
+                _change_set_set_version(change_set["id"], *binding, mv["id"], "incoming"),
                 _live_set_version(*binding, sv["id"], "outgoing"),
                 _live_set_version(*binding, mv["id"], "incoming"),
             )
@@ -310,8 +310,8 @@ def test_draft_relation_update_and_delete_advance_both_draft_anchors_only():
             json={
                 "attributes": {},
                 "expectedVersion": relation["version"],
-                "workspaceDraftId": draft["id"],
-                "expectedWorkspaceDraftVersion": relation["workspaceDraftVersion"],
+                "changeSetId": change_set["id"],
+                "expectedChangeSetVersion": relation["changeSetVersion"],
             },
         )
         assert updated.status_code == 200, updated.text
@@ -321,15 +321,15 @@ def test_draft_relation_update_and_delete_advance_both_draft_anchors_only():
             f"/api/v1/relations/{relation['id']}",
             params={
                 "expectedVersion": updated["version"],
-                "workspaceDraftId": draft["id"],
-                "expectedWorkspaceDraftVersion": updated["workspaceDraftVersion"],
+                "changeSetId": change_set["id"],
+                "expectedChangeSetVersion": updated["changeSetVersion"],
             },
         )
         assert deleted.status_code == 204, deleted.text
         assert versions() == (3, 3, 0, 0)
 
 
-def test_draft_and_live_set_versions_are_independent():
+def test_change_set_and_live_set_versions_are_independent():
     with TestClient(app) as client:
         s = _suffix()
         sv, mv = _mapping_endpoints(client, s)
@@ -348,87 +348,87 @@ def test_draft_and_live_set_versions_are_independent():
         assert live_v == 1
         s2 = _suffix()
         sv2, mv2 = _mapping_endpoints(client, s2)
-        draft = _create_draft(client)
+        change_set = _create_change_set(client)
         r2 = client.post(
             "/api/v1/relations",
             json={
                 "relationTypeKey": "system-value-maps-to-master",
                 "fromObjectId": sv2["id"],
                 "toObjectId": mv2["id"],
-                "workspaceDraftId": draft["id"],
-                "expectedWorkspaceDraftVersion": draft["version"],
+                "changeSetId": change_set["id"],
+                "expectedChangeSetVersion": change_set["version"],
             },
         )
         assert r2.status_code == 201, r2.text
-        draft_v = _draft_set_version(
-            draft["id"],
+        change_set_v = _change_set_set_version(
+            change_set["id"],
             "system-value-maps-to-master",
             "system-value",
             "master-value",
             sv2["id"],
             "outgoing",
         )
-        assert draft_v == 1
+        assert change_set_v == 1
         live_v_sv2 = _live_set_version(
             "system-value-maps-to-master", "system-value", "master-value", sv2["id"], "outgoing"
         )
         assert live_v_sv2 == 0
 
 
-def test_draft_discard_cascades_set_version_rows():
+def test_change_set_discard_cascades_set_version_rows():
     with TestClient(app) as client:
         s = _suffix()
         sv, mv = _mapping_endpoints(client, s)
-        draft = _create_draft(client)
+        change_set = _create_change_set(client)
         client.post(
             "/api/v1/relations",
             json={
                 "relationTypeKey": "system-value-maps-to-master",
                 "fromObjectId": sv["id"],
                 "toObjectId": mv["id"],
-                "workspaceDraftId": draft["id"],
-                "expectedWorkspaceDraftVersion": draft["version"],
+                "changeSetId": change_set["id"],
+                "expectedChangeSetVersion": change_set["version"],
             },
         )
-        draft_id = draft["id"]
-        assert _draft_set_version_count(draft_id) > 0
-        version = _draft_version(client, draft_id)
+        change_set_id = change_set["id"]
+        assert _change_set_set_version_count(change_set_id) > 0
+        version = _change_set_version(client, change_set_id)
         d = client.delete(
-            f"/api/v1/workspace-drafts/{draft_id}",
+            f"/api/v1/change-sets/{change_set_id}",
             params={"expectedVersion": version},
         )
         assert d.status_code == 204, d.text
-        assert _draft_set_version_count(draft_id) == 0
+        assert _change_set_set_version_count(change_set_id) == 0
 
 
-def test_draft_activation_merges_set_versions_into_live():
+def test_change_set_activation_merges_set_versions_into_live():
     ws_key = f"rsv-activate-{_suffix()}"
     with TestClient(app) as client:
         client.post("/api/v1/workspaces", json={"key": ws_key, "label": ws_key})
         s = _suffix()
         sv, mv = _mapping_endpoints(client, s, ws=ws_key)
-        draft = client.post(
-            f"/api/v1/workspaces/{ws_key}/drafts", json={"source": "currentLive"}
+        change_set = client.post(
+            f"/api/v1/workspaces/{ws_key}/change-sets", json={"source": "currentLive"}
         )
-        assert draft.status_code == 201, draft.text
-        draft = draft.json()
+        assert change_set.status_code == 201, change_set.text
+        change_set = change_set.json()
         r = client.post(
             "/api/v1/relations",
             json={
                 "relationTypeKey": "system-value-maps-to-master",
                 "fromObjectId": sv["id"],
                 "toObjectId": mv["id"],
-                "workspaceDraftId": draft["id"],
-                "expectedWorkspaceDraftVersion": draft["version"],
+                "changeSetId": change_set["id"],
+                "expectedChangeSetVersion": change_set["version"],
             },
         )
         assert r.status_code == 201, r.text
-        draft_id = draft["id"]
-        version = _draft_version(client, draft_id)
+        change_set_id = change_set["id"]
+        version = _change_set_version(client, change_set_id)
         activation = client.post(
-            f"/api/v1/workspace-drafts/{draft_id}/activation",
+            f"/api/v1/change-sets/{change_set_id}/publication",
             json={
-                "expectedDraftVersion": version,
+                "expectedChangeSetVersion": version,
             },
         )
         assert activation.status_code == 200, activation.text
@@ -442,4 +442,4 @@ def test_draft_activation_merges_set_versions_into_live():
             "outgoing",
         )
         assert live_v >= 1
-        assert _draft_set_version_count(draft_id) == 0
+        assert _change_set_set_version_count(change_set_id) == 0

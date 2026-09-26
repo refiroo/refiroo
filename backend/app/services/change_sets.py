@@ -1,9 +1,9 @@
 """WP8 workspace lifecycle orchestration over ADR-024 persistence.
 
-WP8 owns the workspace-scoped draft / revision / validation / activation / retirement lifecycle on
-top of the WP6 copy-on-write storage layout. Objects and relations are ordinary live records;
-optional staged edits use the canonical routers with ``workspaceDraftId``. Activation merges authored
-changes into live data and records an immutable revision snapshot (ADR-026/027).
+WP8 owns the workspace-scoped change set / validation / publish / withdrawal lifecycle on top of
+the WP6 copy-on-write storage layout. Objects and relations are ordinary live records; optional
+staged edits use the canonical routers with ``changeSetId``. Publishing merges authored changes into
+live data and records an immutable publication (ADR-026/027/031).
 """
 
 from collections.abc import Callable
@@ -19,21 +19,21 @@ from sqlalchemy.orm import Session
 from ..errors import ApiError, api_error
 from ..models.database import (
     AttributeValue,
+    ChangeSet,
+    ChangeSetBase,
+    ChangeSetBaseObject,
+    ChangeSetBaseRelation,
+    ChangeSetObject,
+    ChangeSetRelation,
     ModelRelease,
     ModelRuntimeState,
     ObjectRelation,
+    Publication,
+    PublicationObject,
+    PublicationRelation,
     RdmObject,
     RelationSetVersion,
     Workspace,
-    WorkspaceDraft,
-    WorkspaceDraftBase,
-    WorkspaceDraftBaseObject,
-    WorkspaceDraftBaseRelation,
-    WorkspaceDraftObject,
-    WorkspaceDraftRelation,
-    WorkspaceRevision,
-    WorkspaceRevisionObject,
-    WorkspaceRevisionRelation,
 )
 from .attributes import (
     load_attribute_values,
@@ -44,125 +44,125 @@ from .attributes import (
     validate_object_attribute_rules,
 )
 from .audit import record_audit_event
-from .draft_lookups import DraftLookup
+from .change_set_lookups import ChangeSetLookup
 from .model.registry import resolve_pinned_release
 from .relation_set_versions import (
-    delete_draft_set_versions,
+    delete_change_set_relation_set_versions,
     increment_set_versions,
-    merge_draft_set_versions_to_live,
+    merge_change_set_relation_set_versions_to_live,
 )
 from .relations import validate_relation_attributes
 from .snapshot_values import delete_owner_values
 from .workspace_audit import (
-    record_draft_created,
-    record_draft_derived,
-    record_draft_discarded,
-    record_draft_renamed,
-    record_publication_retired,
-    record_revision_activated,
+    record_change_set_created,
+    record_change_set_derived,
+    record_change_set_discarded,
+    record_change_set_published,
+    record_change_set_renamed,
+    record_publication_withdrawn,
 )
 
 
 @dataclass(frozen=True)
-class EffectiveDraftMembership:
-    draft: WorkspaceDraft
-    objects: tuple[WorkspaceRevisionObject | WorkspaceDraftBaseObject | WorkspaceDraftObject, ...]
+class EffectiveChangeSetMembership:
+    change_set: ChangeSet
+    objects: tuple[PublicationObject | ChangeSetBaseObject | ChangeSetObject, ...]
     relations: tuple[
-        WorkspaceRevisionRelation | WorkspaceDraftBaseRelation | WorkspaceDraftRelation, ...
+        PublicationRelation | ChangeSetBaseRelation | ChangeSetRelation, ...
     ]
 
 
-def effective_draft_membership(session: Session, draft_id: str) -> EffectiveDraftMembership:
-    """Resolve a draft's immutable base plus its changed rows and tombstones.
+def effective_change_set_membership(session: Session, change_set_id: str) -> EffectiveChangeSetMembership:
+    """Resolve a change set's immutable base plus its changed rows and tombstones.
 
-    A draft row replaces the same stable public ID from its base.  A tombstone hides that base row;
-    therefore an edit does not copy unrelated records from the source revision.
+    A change set row replaces the same stable public ID from its base.  A tombstone hides that base row;
+    therefore an edit does not copy unrelated records from the source publication.
     """
-    draft = session.scalar(select(WorkspaceDraft).where(WorkspaceDraft.id == draft_id))
-    if draft is None:
-        raise api_error(404, "workspace_draft_not_found", f"Workspace draft '{draft_id}' not found")
+    change_set = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
+    if change_set is None:
+        raise api_error(404, "change_set_not_found", f"Change set '{change_set_id}' not found")
     objects: dict[
-        str, WorkspaceRevisionObject | WorkspaceDraftBaseObject | WorkspaceDraftObject
+        str, PublicationObject | ChangeSetBaseObject | ChangeSetObject
     ] = {}
     relations: dict[
-        str, WorkspaceRevisionRelation | WorkspaceDraftBaseRelation | WorkspaceDraftRelation
+        str, PublicationRelation | ChangeSetBaseRelation | ChangeSetRelation
     ] = {}
-    if draft.derived_from_revision_id is not None:
-        revision = session.scalar(
-            select(WorkspaceRevision).where(WorkspaceRevision.id == draft.derived_from_revision_id)
+    if change_set.derived_from_publication_id is not None:
+        publication = session.scalar(
+            select(Publication).where(Publication.id == change_set.derived_from_publication_id)
         )
-        if revision is None or revision.workspace_key != draft.workspace_key:
+        if publication is None or publication.workspace_key != change_set.workspace_key:
             raise api_error(
                 409,
-                "workspace_draft_base_invalid",
-                "Workspace draft base revision is missing or belongs to another workspace",
+                "change_set_base_invalid",
+                "Change set base publication is missing or belongs to another workspace",
             )
         objects = {
             item.object_id: item
             for item in session.scalars(
-                select(WorkspaceRevisionObject).where(
-                    WorkspaceRevisionObject.revision_id == revision.id
+                select(PublicationObject).where(
+                    PublicationObject.publication_id == publication.id
                 )
             )
         }
         relations = {
             item.relation_id: item
             for item in session.scalars(
-                select(WorkspaceRevisionRelation).where(
-                    WorkspaceRevisionRelation.revision_id == revision.id
+                select(PublicationRelation).where(
+                    PublicationRelation.publication_id == publication.id
                 )
             )
         }
-    if draft.base_id is not None:
-        base = session.get(WorkspaceDraftBase, draft.base_id)
-        if base is None or base.workspace_key != draft.workspace_key:
+    if change_set.base_id is not None:
+        base = session.get(ChangeSetBase, change_set.base_id)
+        if base is None or base.workspace_key != change_set.workspace_key:
             raise api_error(
                 409,
-                "workspace_draft_base_invalid",
-                "Workspace draft current-live base is missing or belongs to another workspace",
+                "change_set_base_invalid",
+                "Change set current-live base is missing or belongs to another workspace",
             )
         objects = {
             item.object_id: item
             for item in session.scalars(
-                select(WorkspaceDraftBaseObject).where(WorkspaceDraftBaseObject.base_id == base.id)
+                select(ChangeSetBaseObject).where(ChangeSetBaseObject.base_id == base.id)
             )
         }
         relations = {
             item.relation_id: item
             for item in session.scalars(
-                select(WorkspaceDraftBaseRelation).where(
-                    WorkspaceDraftBaseRelation.base_id == base.id
+                select(ChangeSetBaseRelation).where(
+                    ChangeSetBaseRelation.base_id == base.id
                 )
             )
         }
     for item in session.scalars(
-        select(WorkspaceDraftObject).where(WorkspaceDraftObject.draft_id == draft.id)
+        select(ChangeSetObject).where(ChangeSetObject.change_set_id == change_set.id)
     ):
         if item.is_deleted:
             objects.pop(item.object_id, None)
         else:
             objects[item.object_id] = item
     for item in session.scalars(
-        select(WorkspaceDraftRelation).where(WorkspaceDraftRelation.draft_id == draft.id)
+        select(ChangeSetRelation).where(ChangeSetRelation.change_set_id == change_set.id)
     ):
         if item.is_deleted:
             relations.pop(item.relation_id, None)
         else:
             relations[item.relation_id] = item
-    return EffectiveDraftMembership(
-        draft=draft,
+    return EffectiveChangeSetMembership(
+        change_set=change_set,
         objects=tuple(objects[key] for key in sorted(objects)),
         relations=tuple(relations[key] for key in sorted(relations)),
     )
 
 
-def _draft(session: Session, draft_id: str, *, for_update: bool = False) -> WorkspaceDraft:
-    statement = select(WorkspaceDraft).where(WorkspaceDraft.id == draft_id)
+def _change_set(session: Session, change_set_id: str, *, for_update: bool = False) -> ChangeSet:
+    statement = select(ChangeSet).where(ChangeSet.id == change_set_id)
     if for_update:
         statement = statement.with_for_update()
     item = session.scalar(statement)
     if item is None:
-        raise api_error(404, "workspace_draft_not_found", f"Workspace draft '{draft_id}' not found")
+        raise api_error(404, "change_set_not_found", f"Change set '{change_set_id}' not found")
     if for_update:
         workspace = session.get(Workspace, item.workspace_key)
         if workspace is None:
@@ -174,66 +174,66 @@ def _draft(session: Session, draft_id: str, *, for_update: bool = False) -> Work
     return item
 
 
-def ensure_draft_writable(session: Session, draft_id: str) -> WorkspaceDraft:
-    """Resolve a draft and reject mutations against a retired workspace."""
-    return _draft(session, draft_id, for_update=True)
+def ensure_change_set_writable(session: Session, change_set_id: str) -> ChangeSet:
+    """Resolve a change set and reject mutations against a retired workspace."""
+    return _change_set(session, change_set_id, for_update=True)
 
 
-def claim_draft_version(session: Session, draft: WorkspaceDraft, expected: int) -> None:
-    """Claim the draft aggregate version for an external write operation."""
-    _claim_draft(session, draft, expected)
+def claim_change_set_version(session: Session, change_set: ChangeSet, expected: int) -> None:
+    """Claim the change set aggregate version for an external write operation."""
+    _claim_change_set(session, change_set, expected)
 
 
-def _claim_draft(
+def _claim_change_set(
     session: Session,
-    draft: WorkspaceDraft,
+    change_set: ChangeSet,
     expected: int,
     *,
-    conflict_code: str = "workspace_draft_version_conflict",
-    conflict_message: str = "Workspace draft version has changed",
+    conflict_code: str = "change_set_version_conflict",
+    conflict_message: str = "Change set version has changed",
 ) -> None:
-    if draft.version != expected:
+    if change_set.version != expected:
         raise api_error(409, conflict_code, conflict_message)
     # SQLite ignores FOR UPDATE; claim the aggregate in SQL before flushing candidate writes.
     with session.no_autoflush:
         result = session.execute(
-            update(WorkspaceDraft)
-            .where(WorkspaceDraft.id == draft.id, WorkspaceDraft.version == expected)
+            update(ChangeSet)
+            .where(ChangeSet.id == change_set.id, ChangeSet.version == expected)
             .values(version=expected + 1, updated_at=datetime.now(UTC))
             .execution_options(synchronize_session=False)
         )
         if result.rowcount != 1:
             raise api_error(409, conflict_code, conflict_message)
-        session.refresh(draft, attribute_names=["version", "updated_at"])
+        session.refresh(change_set, attribute_names=["version", "updated_at"])
 
 
-def create_draft(
+def create_change_set(
     session: Session,
     workspace_key: str,
     model_release_id: int,
     *,
     name: str | None = None,
-    source_revision_id: str | None = None,
+    source_publication_id: str | None = None,
     source: str | None = None,
     expected_model_runtime_release_id: int | None = None,
     validate_selected_model: bool = False,
-) -> WorkspaceDraft:
-    if source not in (None, "currentLive", "revision"):
-        raise api_error(422, "workspace_draft_source_invalid", "Workspace draft source is invalid")
-    if source == "revision" and source_revision_id is None:
+) -> ChangeSet:
+    if source not in (None, "currentLive", "publication"):
+        raise api_error(422, "change_set_source_invalid", "Change set source is invalid")
+    if source == "publication" and source_publication_id is None:
         raise api_error(
             422,
-            "workspace_draft_source_invalid",
-            "A historical source requires a workspace revision id",
+            "change_set_source_invalid",
+            "A publication source requires a publication id",
         )
-    if source == "currentLive" and source_revision_id is not None:
+    if source == "currentLive" and source_publication_id is not None:
         raise api_error(
             422,
-            "workspace_draft_source_invalid",
-            "A current-live source cannot include a workspace revision id",
+            "change_set_source_invalid",
+            "A current-live source cannot include a publication id",
         )
     if source == "currentLive":
-        return _create_current_live_draft(
+        return _create_current_live_change_set(
             session,
             workspace_key,
             model_release_id,
@@ -246,35 +246,35 @@ def create_draft(
         raise api_error(404, "workspace_not_found", f"Workspace '{workspace_key}' not found")
     if workspace.status != "active":
         raise api_error(409, "workspace_retired", "Retired workspaces cannot be edited")
-    if source_revision_id is not None:
-        revision = session.scalar(
-            select(WorkspaceRevision).where(WorkspaceRevision.id == source_revision_id)
+    if source_publication_id is not None:
+        publication = session.scalar(
+            select(Publication).where(Publication.id == source_publication_id)
         )
-        if revision is None or revision.workspace_key != workspace_key:
+        if publication is None or publication.workspace_key != workspace_key:
             raise api_error(
-                404, "workspace_revision_not_found", "Source workspace revision was not found"
+                404, "publication_not_found", "Source publication was not found"
             )
-        model_release_id = revision.model_release_id
-    draft = WorkspaceDraft(
+        model_release_id = publication.model_release_id
+    change_set = ChangeSet(
         workspace_key=workspace_key,
         model_release_id=model_release_id,
-        derived_from_revision_id=source_revision_id,
+        derived_from_publication_id=source_publication_id,
         name=name,
     )
-    session.add(draft)
+    session.add(change_set)
     session.flush()
     if validate_selected_model:
-        require_draft_compatible(session, draft, _draft_model(session, draft))
-    if source_revision_id is not None:
-        record_draft_derived(session, draft=draft)
+        require_change_set_compatible(session, change_set, _change_set_model(session, change_set))
+    if source_publication_id is not None:
+        record_change_set_derived(session, change_set=change_set)
     else:
-        record_draft_created(session, draft=draft)
+        record_change_set_created(session, change_set=change_set)
     session.commit()
-    session.refresh(draft)
-    return draft
+    session.refresh(change_set)
+    return change_set
 
 
-def _create_current_live_draft(
+def _create_current_live_change_set(
     session: Session,
     workspace_key: str,
     model_release_id: int,
@@ -282,7 +282,7 @@ def _create_current_live_draft(
     name: str | None,
     expected_model_runtime_release_id: int | None,
     validate_selected_model: bool,
-) -> WorkspaceDraft:
+) -> ChangeSet:
     """Capture one private base under SQLite's database-wide writer reservation.
 
     SQLite is the supported Base 0.6 runtime database.  ``BEGIN IMMEDIATE`` prevents a concurrent
@@ -293,8 +293,8 @@ def _create_current_live_draft(
     if session.bind is None or session.bind.dialect.name != "sqlite":
         raise api_error(
             409,
-            "workspace_draft_snapshot_unsupported",
-            "Current-live draft capture is supported only on SQLite in this release",
+            "change_set_snapshot_unsupported",
+            "Current-live change set capture is supported only on SQLite in this release",
         )
     # Active-model dependency resolution may have opened a read transaction before this service.
     # Discard it so the capture starts at the explicit writer reservation rather than a stale read view.
@@ -305,8 +305,8 @@ def _create_current_live_draft(
         session.rollback()
         raise api_error(
             409,
-            "workspace_draft_snapshot_retry",
-            "Current live data is busy; retry starting the draft after the active write finishes",
+            "change_set_snapshot_retry",
+            "Current live data is busy; retry starting the change set after the active write finishes",
         ) from exc
     try:
         workspace = session.get(Workspace, workspace_key)
@@ -328,10 +328,10 @@ def _create_current_live_draft(
         ):
             raise api_error(
                 409,
-                "workspace_draft_snapshot_retry",
+                "change_set_snapshot_retry",
                 "The selected model changed before current-live capture; retry with the current model",
             )
-        base = WorkspaceDraftBase(
+        base = ChangeSetBase(
             workspace_key=workspace_key,
             model_release_id=state.active_model_release_id,
             model_runtime_version=state.version,
@@ -341,7 +341,7 @@ def _create_current_live_draft(
         live_objects, attributes, live_relations = _load_live_membership(session, workspace_key)
         for item in live_objects:
             session.add(
-                WorkspaceDraftBaseObject(
+                ChangeSetBaseObject(
                     base_id=base.id,
                     object_id=item.id,
                     application_key=item.application_key,
@@ -356,7 +356,7 @@ def _create_current_live_draft(
             )
         for item in live_relations:
             session.add(
-                WorkspaceDraftBaseRelation(
+                ChangeSetBaseRelation(
                     base_id=base.id,
                     relation_id=item.id,
                     relation_type_key=item.relation_type_key,
@@ -366,25 +366,25 @@ def _create_current_live_draft(
                     version=item.version,
                 )
             )
-        draft = WorkspaceDraft(
+        change_set = ChangeSet(
             workspace_key=workspace_key,
             model_release_id=model_release_id,
             base_id=base.id,
             name=name,
         )
-        session.add(draft)
+        session.add(change_set)
         session.flush()
         if validate_selected_model:
-            require_draft_compatible(
+            require_change_set_compatible(
                 session,
-                draft,
-                _draft_model(session, draft),
+                change_set,
+                _change_set_model(session, change_set),
                 source_release_id=base.model_release_id,
             )
-        record_draft_created(session, draft=draft)
+        record_change_set_created(session, change_set=change_set)
         session.commit()
-        session.refresh(draft)
-        return draft
+        session.refresh(change_set)
+        return change_set
     except Exception:
         session.rollback()
         raise
@@ -412,44 +412,44 @@ def _load_live_membership(
     return objects, attributes, relations
 
 
-def update_draft(
-    session: Session, draft_id: str, expected_version: int, name: str | None
-) -> WorkspaceDraft:
-    draft = _draft(session, draft_id, for_update=True)
-    previous_name = draft.name
-    _claim_draft(session, draft, expected_version)
+def update_change_set(
+    session: Session, change_set_id: str, expected_version: int, name: str | None
+) -> ChangeSet:
+    change_set = _change_set(session, change_set_id, for_update=True)
+    previous_name = change_set.name
+    _claim_change_set(session, change_set, expected_version)
     if previous_name != name:
-        record_draft_renamed(session, draft=draft, from_name=previous_name, to_name=name)
-    draft.name = name
+        record_change_set_renamed(session, change_set=change_set, from_name=previous_name, to_name=name)
+    change_set.name = name
     session.commit()
-    return draft
+    return change_set
 
 
-def discard_draft(session: Session, draft_id: str, expected_version: int) -> None:
-    draft = _draft(session, draft_id, for_update=True)
-    _claim_draft(session, draft, expected_version)
-    record_draft_discarded(session, draft=draft)
-    _delete_draft_and_base(session, draft)
+def discard_change_set(session: Session, change_set_id: str, expected_version: int) -> None:
+    change_set = _change_set(session, change_set_id, for_update=True)
+    _claim_change_set(session, change_set, expected_version)
+    record_change_set_discarded(session, change_set=change_set)
+    _delete_change_set_and_base(session, change_set)
     session.commit()
 
 
-def _delete_draft_and_base(session: Session, draft: WorkspaceDraft) -> None:
+def _delete_change_set_and_base(session: Session, change_set: ChangeSet) -> None:
     """Remove a private base explicitly because SQLite does not enable FK cascades by default."""
-    base_id = draft.base_id
-    delete_draft_set_versions(session, draft.id)
-    delete_owner_values(session, draft.id)
-    session.delete(draft)
+    base_id = change_set.base_id
+    delete_change_set_relation_set_versions(session, change_set.id)
+    delete_owner_values(session, change_set.id)
+    session.delete(change_set)
     session.flush()
     if base_id is None:
         return
     delete_owner_values(session, base_id)
     session.execute(
-        delete(WorkspaceDraftBaseRelation).where(WorkspaceDraftBaseRelation.base_id == base_id)
+        delete(ChangeSetBaseRelation).where(ChangeSetBaseRelation.base_id == base_id)
     )
     session.execute(
-        delete(WorkspaceDraftBaseObject).where(WorkspaceDraftBaseObject.base_id == base_id)
+        delete(ChangeSetBaseObject).where(ChangeSetBaseObject.base_id == base_id)
     )
-    session.execute(delete(WorkspaceDraftBase).where(WorkspaceDraftBase.id == base_id))
+    session.execute(delete(ChangeSetBase).where(ChangeSetBase.id == base_id))
 
 
 def _record_conflict(expected: int | None, actual: int, label: str) -> None:
@@ -457,8 +457,8 @@ def _record_conflict(expected: int | None, actual: int, label: str) -> None:
         raise api_error(409, "version_conflict", f"{label} version has changed")
 
 
-def _draft_model(session: Session, draft: WorkspaceDraft) -> Any:
-    return resolve_pinned_release(session, draft.model_release_id, require_ready=False).model
+def _change_set_model(session: Session, change_set: ChangeSet) -> Any:
+    return resolve_pinned_release(session, change_set.model_release_id, require_ready=False).model
 
 
 def _normalize_object_attributes(
@@ -474,7 +474,7 @@ def _normalize_object_attributes(
     normalized = validate_attributes(
         model, object_type, attributes, partial=partial, apply_defaults=not partial
     )
-    # Draft rows are JSON; store the same form that current-live capture copies from live rows.
+    # Change set rows are JSON; store the same form that current-live capture copies from live rows.
     return {key: stored_json_value(value) for key, value in normalized.items()}
 
 
@@ -522,9 +522,9 @@ def _normalize_relation(
     return validate_relation_attributes(model, allowed, attributes)
 
 
-def validate_draft_relation(
+def validate_change_set_relation(
     model: Any,
-    lookup: DraftLookup,
+    lookup: ChangeSetLookup,
     relation_type_key: str,
     from_id: str,
     to_id: str,
@@ -538,7 +538,7 @@ def validate_draft_relation(
     source, target = endpoints.get(from_id), endpoints.get(to_id)
     if source is None or target is None:
         raise api_error(
-            422, "relation_endpoint_missing", "Relation endpoints must exist in the workspace draft"
+            422, "relation_endpoint_missing", "Relation endpoints must exist in the change set"
         )
     allowed = next(
         (
@@ -607,26 +607,26 @@ def validate_draft_relation(
     return normalized
 
 
-def put_draft_object(session: Session, draft_id: str, payload: Any) -> WorkspaceDraftObject:
-    draft = _draft(session, draft_id, for_update=True)
-    model = _draft_model(session, draft)
+def put_change_set_object(session: Session, change_set_id: str, payload: Any) -> ChangeSetObject:
+    change_set = _change_set(session, change_set_id, for_update=True)
+    model = _change_set_model(session, change_set)
     _validate_object_identity(model, payload.applicationKey, payload.objectTypeKey)
     attributes = _normalize_object_attributes(
         model, payload.objectTypeKey, payload.attributes, partial=False
     )
     validate_object_attribute_rules(model.object_type(payload.objectTypeKey), attributes)
-    lookup = DraftLookup.of(session, draft_id)
+    lookup = ChangeSetLookup.of(session, change_set_id)
     if payload.parentObjectId is not None and lookup.object(str(payload.parentObjectId)) is None:
-        raise api_error(422, "parent_wrong_scope", "Parent must exist in the workspace draft")
-    _claim_draft(session, draft, payload.expectedDraftVersion)
+        raise api_error(422, "parent_wrong_scope", "Parent must exist in the change set")
+    _claim_change_set(session, change_set, payload.expectedChangeSetVersion)
     object_id = str(payload.id) if payload.id else str(uuid4())
     if lookup.object(object_id) is not None or session.scalar(
         select(RdmObject.id).where(RdmObject.id == object_id)
     ):
         raise api_error(409, "object_already_exists", f"Object '{object_id}' already exists")
     row = session.scalar(
-        select(WorkspaceDraftObject).where(
-            WorkspaceDraftObject.draft_id == draft_id, WorkspaceDraftObject.object_id == object_id
+        select(ChangeSetObject).where(
+            ChangeSetObject.change_set_id == change_set_id, ChangeSetObject.object_id == object_id
         )
     )
     if row is not None:
@@ -634,8 +634,8 @@ def put_draft_object(session: Session, draft_id: str, payload: Any) -> Workspace
     else:
         if payload.expectedRecordVersion is not None:
             raise api_error(409, "version_conflict", "Object record does not exist")
-        row = WorkspaceDraftObject(
-            draft_id=draft_id,
+        row = ChangeSetObject(
+            change_set_id=change_set_id,
             object_id=object_id,
             application_key=payload.applicationKey,
             object_type_key=payload.objectTypeKey,
@@ -645,8 +645,8 @@ def put_draft_object(session: Session, draft_id: str, payload: Any) -> Workspace
             version=1,
         )
         session.add(row)
-    _validate_draft_attribute_uniqueness(model, lookup, row.object_id, attributes)
-    _sync_draft_parent_relation(session, draft, model, row, lookup)
+    _validate_change_set_attribute_uniqueness(model, lookup, row.object_id, attributes)
+    _sync_change_set_parent_relation(session, change_set, model, row, lookup)
     if getattr(payload, "initialRelations", None):
         identities = [
             (item.relationTypeKey, item.direction, str(item.otherObjectId))
@@ -662,11 +662,11 @@ def put_draft_object(session: Session, draft_id: str, payload: Any) -> Workspace
                 row.object_id if initial.direction == "outgoing" else str(initial.otherObjectId)
             )
             to_id = str(initial.otherObjectId) if initial.direction == "outgoing" else row.object_id
-            attrs = validate_draft_relation(
+            attrs = validate_change_set_relation(
                 model, lookup, initial.relationTypeKey, from_id, to_id, initial.attributes
             )
-            relation = WorkspaceDraftRelation(
-                draft_id=draft.id,
+            relation = ChangeSetRelation(
+                change_set_id=change_set.id,
                 relation_id=str(uuid4()),
                 relation_type_key=initial.relationTypeKey,
                 from_object_id=from_id,
@@ -705,35 +705,35 @@ def put_draft_object(session: Session, draft_id: str, payload: Any) -> Workspace
         )
     record_audit_event(
         session,
-        aggregate_type="object-draft",
+        aggregate_type="change-set-object",
         aggregate_id=row.object_id,
         action="created",
         version=row.version,
-        changes={"attributes": attributes, "workspaceDraftId": draft.id},
+        changes={"attributes": attributes, "changeSetId": change_set.id},
         object_ids=[row.object_id],
     )
     session.commit()
     return row
 
 
-def update_draft_object(
-    session: Session, draft_id: str, object_id: str, payload: Any
-) -> WorkspaceDraftObject:
-    draft = _draft(session, draft_id, for_update=True)
-    model = _draft_model(session, draft)
-    lookup = DraftLookup.of(session, draft_id)
-    _claim_draft(session, draft, payload.expectedDraftVersion)
+def update_change_set_object(
+    session: Session, change_set_id: str, object_id: str, payload: Any
+) -> ChangeSetObject:
+    change_set = _change_set(session, change_set_id, for_update=True)
+    model = _change_set_model(session, change_set)
+    lookup = ChangeSetLookup.of(session, change_set_id)
+    _claim_change_set(session, change_set, payload.expectedChangeSetVersion)
     row = session.scalar(
-        select(WorkspaceDraftObject).where(
-            WorkspaceDraftObject.draft_id == draft_id, WorkspaceDraftObject.object_id == object_id
+        select(ChangeSetObject).where(
+            ChangeSetObject.change_set_id == change_set_id, ChangeSetObject.object_id == object_id
         )
     )
     if row is None:
         base = lookup.object(object_id)
         if base is None:
-            raise api_error(404, "object_not_found", f"Object '{object_id}' not found in draft")
-        row = WorkspaceDraftObject(
-            draft_id=draft_id,
+            raise api_error(404, "object_not_found", f"Object '{object_id}' not found in change set")
+        row = ChangeSetObject(
+            change_set_id=change_set_id,
             object_id=object_id,
             application_key=base.application_key,
             object_type_key=base.object_type_key,
@@ -756,7 +756,7 @@ def update_draft_object(
                 model, row.object_type_key, payload.attributes, partial=True
             ),
         }
-    _validate_draft_attribute_uniqueness(model, lookup, row.object_id, row.attributes or {})
+    _validate_change_set_attribute_uniqueness(model, lookup, row.object_id, row.attributes or {})
     # The edited row is flushed into the lookups: each relation into it is checked against it.
     parent_keys = set(
         (model.object_type(row.object_type_key).behavior or {}).get("parentRelationTypeKeys", [])
@@ -764,7 +764,7 @@ def update_draft_object(
     for relation in lookup.relations([row.object_id], "incoming"):
         if relation.relation_type_key in parent_keys:
             continue
-        validate_draft_relation(
+        validate_change_set_relation(
             model,
             lookup,
             relation.relation_type_key,
@@ -775,26 +775,26 @@ def update_draft_object(
         )
     row.version += 1
     row.is_deleted = False
-    _sync_draft_parent_relation(session, draft, model, row, lookup)
+    _sync_change_set_parent_relation(session, change_set, model, row, lookup)
     record_audit_event(
         session,
-        aggregate_type="object-draft",
+        aggregate_type="change-set-object",
         aggregate_id=row.object_id,
         action="updated",
         version=row.version,
-        changes={"attributes": row.attributes or {}, "workspaceDraftId": draft.id},
+        changes={"attributes": row.attributes or {}, "changeSetId": change_set.id},
         object_ids=[row.object_id],
     )
     session.commit()
     return row
 
 
-def delete_draft_object(
+def delete_change_set_object(
     session: Session,
-    draft_id: str,
+    change_set_id: str,
     object_type_key: str,
     object_id: str,
-    expected_draft_version: int,
+    expected_change_set_version: int,
     expected_record_version: int,
     *,
     cascade: bool = False,
@@ -810,29 +810,29 @@ def delete_draft_object(
     if cascade:
         require_deletion_preview(deletion_preview)
 
-    draft = _draft(session, draft_id, for_update=True)
-    model = _draft_model(session, draft)
-    # The aggregate claim serializes all draft mutations before the hierarchy is re-read. A preview
+    change_set = _change_set(session, change_set_id, for_update=True)
+    model = _change_set_model(session, change_set)
+    # The aggregate claim serializes all change set mutations before the hierarchy is re-read. A preview
     # response rolls this claim back; a confirmed delete retains it in the mutation transaction.
-    _claim_draft(
+    _claim_change_set(
         session,
-        draft,
-        expected_draft_version,
+        change_set,
+        expected_change_set_version,
         conflict_code=(
-            "deletion_preview_changed" if cascade else "workspace_draft_version_conflict"
+            "deletion_preview_changed" if cascade else "change_set_version_conflict"
         ),
         conflict_message=(
             "The object was modified by another session. Please retry."
             if cascade
-            else "Workspace draft version has changed"
+            else "Change set version has changed"
         ),
     )
-    lookup = DraftLookup.of(session, draft_id)
+    lookup = ChangeSetLookup.of(session, change_set_id)
     root = lookup.object(object_id)
     if root is None or root.object_type_key != object_type_key:
         if cascade and deletion_preview is not None:
             raise deletion_preview_changed()
-        raise api_error(404, "object_not_found", f"Object '{object_id}' not found in draft")
+        raise api_error(404, "object_not_found", f"Object '{object_id}' not found in change set")
     if cascade and deletion_preview is not None and expected_record_version != root.version:
         raise api_error(
             409,
@@ -842,7 +842,7 @@ def delete_draft_object(
     _record_conflict(expected_record_version, root.version, "Object record")
 
     # The walk reads the planned subtree level by level: its children, and the records its required
-    # owning relations reach. Its cost is the deleted subtree, not the draft.
+    # owning relations reach. Its cost is the deleted subtree, not the change set.
     objects: dict[str, Any] = {object_id: root}
     reasons: dict[str, str] = {object_id: "root"}
     frontier = [object_id]
@@ -913,10 +913,10 @@ def delete_draft_object(
 
     has_non_parent_incident = any(not is_parent_relation(item) for item in incident)
     context = {
-        "draftId": draft_id,
+        "changeSetId": change_set_id,
         "objectTypeKey": object_type_key,
         "objectId": object_id,
-        "modelReleaseId": draft.model_release_id,
+        "modelReleaseId": change_set.model_release_id,
     }
     planned = [objects[key] for key in sorted(planned_ids)]
     object_identity = [(item.object_id, item.version, item.parent_object_id) for item in planned]
@@ -963,7 +963,7 @@ def delete_draft_object(
                     or relation.to_object_id not in planned_ids
                 ),
                 "deletionPreviewToken": deletion_preview_token(
-                    scope="draft-deletion",
+                    scope="change-set-deletion",
                     context=context,
                     objects=object_identity,
                     relations=relation_identity,
@@ -973,7 +973,7 @@ def delete_draft_object(
     if cascade:
         require_matching_deletion_preview(
             deletion_preview,
-            scope="draft-deletion",
+            scope="change-set-deletion",
             context=context,
             objects=object_identity,
             relations=relation_identity,
@@ -981,14 +981,14 @@ def delete_draft_object(
     for deleted_id in planned_ids:
         base = objects[deleted_id]
         row = session.scalar(
-            select(WorkspaceDraftObject).where(
-                WorkspaceDraftObject.draft_id == draft_id,
-                WorkspaceDraftObject.object_id == deleted_id,
+            select(ChangeSetObject).where(
+                ChangeSetObject.change_set_id == change_set_id,
+                ChangeSetObject.object_id == deleted_id,
             )
         )
         if row is None:
-            row = WorkspaceDraftObject(
-                draft_id=draft_id,
+            row = ChangeSetObject(
+                change_set_id=change_set_id,
                 object_id=deleted_id,
                 application_key=base.application_key,
                 object_type_key=base.object_type_key,
@@ -1004,14 +1004,14 @@ def delete_draft_object(
             row.is_deleted = True
     for relation in incident:
         row = session.scalar(
-            select(WorkspaceDraftRelation).where(
-                WorkspaceDraftRelation.draft_id == draft_id,
-                WorkspaceDraftRelation.relation_id == relation.relation_id,
+            select(ChangeSetRelation).where(
+                ChangeSetRelation.change_set_id == change_set_id,
+                ChangeSetRelation.relation_id == relation.relation_id,
             )
         )
         if row is None:
-            row = WorkspaceDraftRelation(
-                draft_id=draft_id,
+            row = ChangeSetRelation(
+                change_set_id=change_set_id,
                 relation_id=relation.relation_id,
                 relation_type_key=relation.relation_type_key,
                 from_object_id=relation.from_object_id,
@@ -1026,8 +1026,8 @@ def delete_draft_object(
             row.is_deleted = True
         increment_set_versions(
             session,
-            workspace_key=draft.workspace_key,
-            workspace_draft_id=draft.id,
+            workspace_key=change_set.workspace_key,
+            change_set_id=change_set.id,
             relation_type_key=relation.relation_type_key,
             from_object_type_key=objects[relation.from_object_id].object_type_key,
             to_object_type_key=objects[relation.to_object_id].object_type_key,
@@ -1037,9 +1037,9 @@ def delete_draft_object(
     session.commit()
 
 
-def _validate_draft_attribute_uniqueness(
+def _validate_change_set_attribute_uniqueness(
     model: Any,
-    lookup: DraftLookup,
+    lookup: ChangeSetLookup,
     object_id: str,
     attributes: dict[str, Any],
 ) -> None:
@@ -1054,7 +1054,7 @@ def _validate_draft_attribute_uniqueness(
             raise api_error(
                 409,
                 "duplicate_attribute_value",
-                f"Attribute '{key}' must be unique in the workspace draft",
+                f"Attribute '{key}' must be unique in the change set",
                 {"attributeTypeKey": key, "conflictingObjectId": conflict},
             )
 
@@ -1094,16 +1094,16 @@ def _validate_candidate_parent(
         current = find(current.parent_object_id)
 
 
-def _sync_draft_parent_relation(
+def _sync_change_set_parent_relation(
     session: Session,
-    draft: WorkspaceDraft,
+    change_set: ChangeSet,
     model: Any,
-    row: WorkspaceDraftObject,
-    lookup: DraftLookup,
+    row: ChangeSetObject,
+    lookup: ChangeSetLookup,
 ) -> None:
-    """Maintain the typed containment edge with a draft object edit.
+    """Maintain the typed containment edge with a change set object edit.
 
-    The effective edge may come from the draft base; like a live update, an unchanged parent keeps
+    The effective edge may come from the change set base; like a live update, an unchanged parent keeps
     that edge and its identity, and a changed parent tombstones it before adding the new one.
     """
     # The ancestor walk is one lookup per level; the row itself is read as edited.
@@ -1130,15 +1130,15 @@ def _sync_draft_parent_relation(
         return
     for relation in current:
         stored = session.scalar(
-            select(WorkspaceDraftRelation).where(
-                WorkspaceDraftRelation.draft_id == draft.id,
-                WorkspaceDraftRelation.relation_id == relation.relation_id,
+            select(ChangeSetRelation).where(
+                ChangeSetRelation.change_set_id == change_set.id,
+                ChangeSetRelation.relation_id == relation.relation_id,
             )
         )
         if stored is None:
             session.add(
-                WorkspaceDraftRelation(
-                    draft_id=draft.id,
+                ChangeSetRelation(
+                    change_set_id=change_set.id,
                     relation_id=relation.relation_id,
                     relation_type_key=relation.relation_type_key,
                     from_object_id=relation.from_object_id,
@@ -1154,7 +1154,7 @@ def _sync_draft_parent_relation(
     if row.parent_object_id:
         parent = lookup.object(row.parent_object_id)
         if parent is None:
-            raise api_error(422, "parent_wrong_scope", "Parent must exist in the workspace draft")
+            raise api_error(422, "parent_wrong_scope", "Parent must exist in the change set")
         allowed = next(
             (
                 item
@@ -1170,8 +1170,8 @@ def _sync_draft_parent_relation(
                 422, "invalid_parent_type", "Parent type is not permitted for this object type"
             )
         session.add(
-            WorkspaceDraftRelation(
-                draft_id=draft.id,
+            ChangeSetRelation(
+                change_set_id=change_set.id,
                 relation_id=str(uuid4()),
                 relation_type_key=allowed.relationTypeKey,
                 from_object_id=parent.object_id,
@@ -1182,11 +1182,11 @@ def _sync_draft_parent_relation(
         )
 
 
-def _increment_draft_relation_set_versions(
+def _increment_change_set_relation_set_versions(
     session: Session,
-    draft: WorkspaceDraft,
-    lookup: DraftLookup,
-    row: WorkspaceDraftRelation,
+    change_set: ChangeSet,
+    lookup: ChangeSetLookup,
+    row: ChangeSetRelation,
 ) -> None:
     objects = lookup.objects([row.from_object_id, row.to_object_id])
     from_obj = objects.get(row.from_object_id)
@@ -1195,8 +1195,8 @@ def _increment_draft_relation_set_versions(
         return
     increment_set_versions(
         session,
-        workspace_key=draft.workspace_key,
-        workspace_draft_id=draft.id,
+        workspace_key=change_set.workspace_key,
+        change_set_id=change_set.id,
         relation_type_key=row.relation_type_key,
         from_object_type_key=from_obj.object_type_key,
         to_object_type_key=to_obj.object_type_key,
@@ -1205,18 +1205,18 @@ def _increment_draft_relation_set_versions(
     )
 
 
-def put_draft_relation(session: Session, draft_id: str, payload: Any) -> WorkspaceDraftRelation:
-    draft = _draft(session, draft_id, for_update=True)
-    model = _draft_model(session, draft)
-    lookup = DraftLookup.of(session, draft_id)
+def put_change_set_relation(session: Session, change_set_id: str, payload: Any) -> ChangeSetRelation:
+    change_set = _change_set(session, change_set_id, for_update=True)
+    model = _change_set_model(session, change_set)
+    lookup = ChangeSetLookup.of(session, change_set_id)
     relation_id = str(payload.id) if payload.id else str(uuid4())
     row = session.scalar(
-        select(WorkspaceDraftRelation).where(
-            WorkspaceDraftRelation.draft_id == draft_id,
-            WorkspaceDraftRelation.relation_id == relation_id,
+        select(ChangeSetRelation).where(
+            ChangeSetRelation.change_set_id == change_set_id,
+            ChangeSetRelation.relation_id == relation_id,
         )
     )
-    attributes = validate_draft_relation(
+    attributes = validate_change_set_relation(
         model,
         lookup,
         payload.relationTypeKey,
@@ -1224,10 +1224,10 @@ def put_draft_relation(session: Session, draft_id: str, payload: Any) -> Workspa
         str(payload.toObjectId),
         payload.attributes,
     )
-    _claim_draft(session, draft, payload.expectedDraftVersion)
+    _claim_change_set(session, change_set, payload.expectedChangeSetVersion)
     if row is None:
-        row = WorkspaceDraftRelation(
-            draft_id=draft_id,
+        row = ChangeSetRelation(
+            change_set_id=change_set_id,
             relation_id=relation_id,
             relation_type_key=payload.relationTypeKey,
             from_object_id=str(payload.fromObjectId),
@@ -1250,34 +1250,34 @@ def put_draft_relation(session: Session, draft_id: str, payload: Any) -> Workspa
         aggregate_id=row.relation_id,
         action="created" if row.version == 1 else "updated",
         version=row.version,
-        changes={"attributes": attributes, "workspaceDraftId": draft.id},
+        changes={"attributes": attributes, "changeSetId": change_set.id},
         object_ids=[row.from_object_id, row.to_object_id],
     )
-    _increment_draft_relation_set_versions(session, draft, lookup, row)
+    _increment_change_set_relation_set_versions(session, change_set, lookup, row)
     session.commit()
     return row
 
 
-def update_draft_relation(
-    session: Session, draft_id: str, relation_id: str, payload: Any
-) -> WorkspaceDraftRelation:
-    draft = _draft(session, draft_id, for_update=True)
-    model = _draft_model(session, draft)
+def update_change_set_relation(
+    session: Session, change_set_id: str, relation_id: str, payload: Any
+) -> ChangeSetRelation:
+    change_set = _change_set(session, change_set_id, for_update=True)
+    model = _change_set_model(session, change_set)
     row = session.scalar(
-        select(WorkspaceDraftRelation).where(
-            WorkspaceDraftRelation.draft_id == draft_id,
-            WorkspaceDraftRelation.relation_id == relation_id,
+        select(ChangeSetRelation).where(
+            ChangeSetRelation.change_set_id == change_set_id,
+            ChangeSetRelation.relation_id == relation_id,
         )
     )
-    lookup = DraftLookup.of(session, draft_id)
+    lookup = ChangeSetLookup.of(session, change_set_id)
     if row is None:
         base = lookup.relation(relation_id)
         if base is None:
             raise api_error(
-                404, "relation_not_found", f"Relation '{relation_id}' not found in draft"
+                404, "relation_not_found", f"Relation '{relation_id}' not found in change set"
             )
-        row = WorkspaceDraftRelation(
-            draft_id=draft_id,
+        row = ChangeSetRelation(
+            change_set_id=change_set_id,
             relation_id=relation_id,
             relation_type_key=base.relation_type_key,
             from_object_id=base.from_object_id,
@@ -1294,10 +1294,10 @@ def update_draft_relation(
     attrs = row.attributes or {}
     if payload.attributes is not None:
         attrs = payload.attributes
-    attrs = validate_draft_relation(
+    attrs = validate_change_set_relation(
         model, lookup, relation_type, from_id, to_id, attrs, exclude_id=relation_id
     )
-    _claim_draft(session, draft, payload.expectedDraftVersion)
+    _claim_change_set(session, change_set, payload.expectedChangeSetVersion)
     row.relation_type_key, row.from_object_id, row.to_object_id, row.attributes = (
         relation_type,
         from_id,
@@ -1312,38 +1312,38 @@ def update_draft_relation(
         aggregate_id=row.relation_id,
         action="updated",
         version=row.version,
-        changes={"attributes": attrs, "workspaceDraftId": draft.id},
+        changes={"attributes": attrs, "changeSetId": change_set.id},
         object_ids=[row.from_object_id, row.to_object_id],
     )
-    _increment_draft_relation_set_versions(session, draft, lookup, row)
+    _increment_change_set_relation_set_versions(session, change_set, lookup, row)
     session.commit()
     return row
 
 
-def delete_draft_relation(
+def delete_change_set_relation(
     session: Session,
-    draft_id: str,
+    change_set_id: str,
     relation_id: str,
-    expected_draft_version: int,
+    expected_change_set_version: int,
     expected_record_version: int,
 ) -> None:
-    draft = _draft(session, draft_id, for_update=True)
-    model = _draft_model(session, draft)
+    change_set = _change_set(session, change_set_id, for_update=True)
+    model = _change_set_model(session, change_set)
     row = session.scalar(
-        select(WorkspaceDraftRelation).where(
-            WorkspaceDraftRelation.draft_id == draft_id,
-            WorkspaceDraftRelation.relation_id == relation_id,
+        select(ChangeSetRelation).where(
+            ChangeSetRelation.change_set_id == change_set_id,
+            ChangeSetRelation.relation_id == relation_id,
         )
     )
-    lookup = DraftLookup.of(session, draft_id)
+    lookup = ChangeSetLookup.of(session, change_set_id)
     if row is None:
         base = lookup.relation(relation_id)
         if base is None:
             raise api_error(
-                404, "relation_not_found", f"Relation '{relation_id}' not found in draft"
+                404, "relation_not_found", f"Relation '{relation_id}' not found in change set"
             )
-        row = WorkspaceDraftRelation(
-            draft_id=draft_id,
+        row = ChangeSetRelation(
+            change_set_id=change_set_id,
             relation_id=relation_id,
             relation_type_key=base.relation_type_key,
             from_object_id=base.from_object_id,
@@ -1382,35 +1382,35 @@ def delete_draft_relation(
                 422, "required_relation", "Required relationships cannot be deleted directly"
             )
     _record_conflict(expected_record_version, row.version, "Relation record")
-    _claim_draft(session, draft, expected_draft_version)
+    _claim_change_set(session, change_set, expected_change_set_version)
     row.version += 1
     row.is_deleted = True
-    _increment_draft_relation_set_versions(session, draft, lookup, row)
+    _increment_change_set_relation_set_versions(session, change_set, lookup, row)
     session.commit()
 
 
-def patch_draft_attribute(
+def patch_change_set_attribute(
     session: Session,
-    draft_id: str,
+    change_set_id: str,
     object_id: str,
     key: str,
     value: Any,
-    expected_draft_version: int,
+    expected_change_set_version: int,
     expected_record_version: int,
-) -> WorkspaceDraftObject:
-    draft = _draft(session, draft_id, for_update=True)
-    lookup = DraftLookup.of(session, draft_id)
+) -> ChangeSetObject:
+    change_set = _change_set(session, change_set_id, for_update=True)
+    lookup = ChangeSetLookup.of(session, change_set_id)
     base = lookup.object(object_id)
     if base is None:
-        raise api_error(404, "object_not_found", f"Object '{object_id}' not found in draft")
+        raise api_error(404, "object_not_found", f"Object '{object_id}' not found in change set")
     row = session.scalar(
-        select(WorkspaceDraftObject).where(
-            WorkspaceDraftObject.draft_id == draft_id, WorkspaceDraftObject.object_id == object_id
+        select(ChangeSetObject).where(
+            ChangeSetObject.change_set_id == change_set_id, ChangeSetObject.object_id == object_id
         )
     )
     if row is None:
-        row = WorkspaceDraftObject(
-            draft_id=draft_id,
+        row = ChangeSetObject(
+            change_set_id=change_set_id,
             object_id=object_id,
             application_key=base.application_key,
             object_type_key=base.object_type_key,
@@ -1422,48 +1422,48 @@ def patch_draft_attribute(
         session.add(row)
         session.flush()
     _record_conflict(expected_record_version, row.version, "Object record")
-    model = _draft_model(session, draft)
+    model = _change_set_model(session, change_set)
     normalized = _normalize_object_attributes(
         model, row.object_type_key, {key: value}, partial=True
     )
-    _claim_draft(session, draft, expected_draft_version)
+    _claim_change_set(session, change_set, expected_change_set_version)
     row.attributes = {**(row.attributes or {}), **normalized}
-    _validate_draft_attribute_uniqueness(model, lookup, row.object_id, row.attributes)
+    _validate_change_set_attribute_uniqueness(model, lookup, row.object_id, row.attributes)
     row.version += 1
     record_audit_event(
         session,
-        aggregate_type="object-draft",
+        aggregate_type="change-set-object",
         aggregate_id=row.object_id,
         action="updated",
         version=row.version,
-        changes={"attributes": {key: value}, "workspaceDraftId": draft.id},
+        changes={"attributes": {key: value}, "changeSetId": change_set.id},
         object_ids=[row.object_id],
     )
     session.commit()
     return row
 
 
-def delete_draft_attribute(
+def delete_change_set_attribute(
     session: Session,
-    draft_id: str,
+    change_set_id: str,
     object_id: str,
     key: str,
-    expected_draft_version: int,
+    expected_change_set_version: int,
     expected_record_version: int,
-) -> WorkspaceDraftObject:
-    draft = _draft(session, draft_id, for_update=True)
-    lookup = DraftLookup.of(session, draft_id)
+) -> ChangeSetObject:
+    change_set = _change_set(session, change_set_id, for_update=True)
+    lookup = ChangeSetLookup.of(session, change_set_id)
     base = lookup.object(object_id)
     if base is None:
-        raise api_error(404, "object_not_found", f"Object '{object_id}' not found in draft")
+        raise api_error(404, "object_not_found", f"Object '{object_id}' not found in change set")
     row = session.scalar(
-        select(WorkspaceDraftObject).where(
-            WorkspaceDraftObject.draft_id == draft_id, WorkspaceDraftObject.object_id == object_id
+        select(ChangeSetObject).where(
+            ChangeSetObject.change_set_id == change_set_id, ChangeSetObject.object_id == object_id
         )
     )
     if row is None:
-        row = WorkspaceDraftObject(
-            draft_id=draft_id,
+        row = ChangeSetObject(
+            change_set_id=change_set_id,
             object_id=object_id,
             application_key=base.application_key,
             object_type_key=base.object_type_key,
@@ -1475,7 +1475,7 @@ def delete_draft_attribute(
         session.add(row)
         session.flush()
     _record_conflict(expected_record_version, row.version, "Object record")
-    model = _draft_model(session, draft)
+    model = _change_set_model(session, change_set)
     object_type = model.object_type(row.object_type_key)
     binding = (
         next((item for item in object_type.attributes if item.attributeTypeKey == key), None)
@@ -1495,16 +1495,16 @@ def delete_draft_attribute(
         if item_key != key
     }
     validate_object_attribute_rules(object_type, remaining)
-    _claim_draft(session, draft, expected_draft_version)
+    _claim_change_set(session, change_set, expected_change_set_version)
     row.attributes = remaining
     row.version += 1
     record_audit_event(
         session,
-        aggregate_type="object-draft",
+        aggregate_type="change-set-object",
         aggregate_id=row.object_id,
         action="updated",
         version=row.version,
-        changes={"attributes": {key: None}, "workspaceDraftId": draft.id},
+        changes={"attributes": {key: None}, "changeSetId": change_set.id},
         object_ids=[row.object_id],
     )
     session.commit()
@@ -1512,7 +1512,7 @@ def delete_draft_attribute(
 
 
 def _diagnostics(
-    membership: EffectiveDraftMembership, model: Any, *, apply_defaults: bool = True
+    membership: EffectiveChangeSetMembership, model: Any, *, apply_defaults: bool = True
 ) -> list[dict[str, Any]]:
     errors: list[dict[str, Any]] = []
     objects = {item.object_id: item for item in membership.objects}
@@ -1703,7 +1703,7 @@ def _diagnostics(
                 )
     # Ancestor-scoped uniqueness (language/target uniqueness for translations): a scoped relation may
     # appear once per source object per ancestor scope while the optional target-attribute condition
-    # holds. Mirrors the draft write path in validate_draft_relation.
+    # holds. Mirrors the change set write path in validate_change_set_relation.
     for relation, allowed in valid_relations:
         ancestor_type_key = allowed.features.get("uniqueToAncestorTypeKey")
         if not ancestor_type_key:
@@ -1749,7 +1749,7 @@ def _diagnostics(
                 break
     # Required relationships bind at the target side: every object that is the target of a required
     # non-parent pair must carry an incoming relation of that type from an allowed source.  This
-    # matches the workspace draft object-create contract, model compatibility counting and the
+    # matches the change set object-create contract, model compatibility counting and the
     # PK->FK ownership cascade used by delete.
     required_by_target: dict[tuple[str, str], set[str]] = {}
     for pair in model.objectTypeRelations:
@@ -1821,11 +1821,11 @@ def _ancestor_object_id(objects: dict[str, Any], item: Any, object_type_key: str
     return None
 
 
-def validate_draft(session: Session, draft_id: str, model: Any) -> list[dict[str, Any]]:
-    return _diagnostics(effective_draft_membership(session, draft_id), model)
+def validate_change_set(session: Session, change_set_id: str, model: Any) -> list[dict[str, Any]]:
+    return _diagnostics(effective_change_set_membership(session, change_set_id), model)
 
 
-def selected_draft_release(session: Session, public_id: str) -> ModelRelease:
+def selected_change_set_release(session: Session, public_id: str) -> ModelRelease:
     """Resolve an installed public release identity using pinned-model errors."""
     release = session.scalar(select(ModelRelease).where(ModelRelease.public_id == public_id))
     if release is None:
@@ -1839,14 +1839,14 @@ def selected_draft_release(session: Session, public_id: str) -> ModelRelease:
     return release
 
 
-def require_draft_compatible(
-    session: Session, draft: WorkspaceDraft, model: Any, *, source_release_id: int | None = None
+def require_change_set_compatible(
+    session: Session, change_set: ChangeSet, model: Any, *, source_release_id: int | None = None
 ) -> None:
     """Check complete effective membership, without conversion or live-table analysis."""
-    membership = effective_draft_membership(session, draft.id)
+    membership = effective_change_set_membership(session, change_set.id)
     source_model = resolve_pinned_release(
         session,
-        source_release_id if source_release_id is not None else draft.model_release_id,
+        source_release_id if source_release_id is not None else change_set.model_release_id,
         require_ready=False,
     ).model
     diagnostics = _diagnostics(membership, model, apply_defaults=False)
@@ -1931,8 +1931,8 @@ def require_draft_compatible(
             bounded.append({**diagnostic, **({"details": details} if details else {})})
         raise api_error(
             409,
-            "draft_content_incompatible",
-            "Draft content does not fit the selected model. Keep its current version or choose a compatible release; conversion requires the migration workflow.",
+            "change_set_content_incompatible",
+            "Change set content does not fit the selected model. Keep its current version or choose a compatible release; conversion requires the migration workflow.",
             {
                 "diagnostics": bounded,
                 "diagnosticCount": len(diagnostics),
@@ -1941,39 +1941,37 @@ def require_draft_compatible(
         )
 
 
-def change_draft_model_release(
-    session: Session, workspace_key: str, draft_id: str, public_id: str, expected_version: int
-) -> WorkspaceDraft:
-    """Claim, validate and change a single draft pin in one transaction."""
+def set_change_set_model_release(
+    session: Session, change_set_id: str, public_id: str, expected_version: int
+) -> ChangeSet:
+    """Claim, validate and change a single change set pin in one transaction."""
     try:
-        draft = _draft(session, draft_id, for_update=True)
-        if draft.workspace_key != workspace_key:
-            raise api_error(404, "workspace_draft_not_found", "Workspace draft not found")
-        release = selected_draft_release(session, public_id)
-        if draft.version != expected_version:
+        change_set = _change_set(session, change_set_id, for_update=True)
+        release = selected_change_set_release(session, public_id)
+        if change_set.version != expected_version:
             raise api_error(
-                409, "workspace_draft_version_conflict", "Workspace draft version has changed"
+                409, "change_set_version_conflict", "Change set version has changed"
             )
         # Claim even a no-op to serialize against edits, then roll it back without an audit/version bump.
-        _claim_draft(session, draft, expected_version)
-        if draft.model_release_id == release.id:
+        _claim_change_set(session, change_set, expected_version)
+        if change_set.model_release_id == release.id:
             session.rollback()
-            return _draft(session, draft_id)
-        old_release = session.get(ModelRelease, draft.model_release_id)
-        require_draft_compatible(
-            session, draft, resolve_pinned_release(session, release.id, require_ready=False).model
+            return _change_set(session, change_set_id)
+        old_release = session.get(ModelRelease, change_set.model_release_id)
+        require_change_set_compatible(
+            session, change_set, resolve_pinned_release(session, release.id, require_ready=False).model
         )
-        draft.model_release_id = release.id
+        change_set.model_release_id = release.id
 
         def identity(item: ModelRelease) -> dict[str, str]:
             return {"id": item.public_id, "key": item.release_key, "version": item.release_version}
 
         record_audit_event(
             session,
-            aggregate_type="workspace-draft",
-            aggregate_id=draft.id,
+            aggregate_type="change-set",
+            aggregate_id=change_set.id,
             action="model-release-changed",
-            version=draft.version,
+            version=change_set.version,
             changes={
                 "modelRelease": {
                     "from": identity(old_release) if old_release else None,
@@ -1983,16 +1981,16 @@ def change_draft_model_release(
             object_ids=(),
         )
         session.commit()
-        session.refresh(draft)
-        return draft
+        session.refresh(change_set)
+        return change_set
     except Exception:
         session.rollback()
         raise
 
 
-def pinned_model(session: Session, draft_id: str) -> tuple[WorkspaceDraft, Any]:
-    draft = _draft(session, draft_id)
-    return draft, _draft_model(session, draft)
+def pinned_model(session: Session, change_set_id: str) -> tuple[ChangeSet, Any]:
+    change_set = _change_set(session, change_set_id)
+    return change_set, _change_set_model(session, change_set)
 
 
 @dataclass(frozen=True)
@@ -2018,61 +2016,61 @@ class _MergedRelation:
 
 @dataclass
 class _LiveMerge:
-    membership: EffectiveDraftMembership
+    membership: EffectiveChangeSetMembership
     authored_object_ids: set[str]
     authored_relation_ids: set[str]
     removed_object_ids: set[str]
     removed_relation_ids: set[str]
 
 
-def _revision_snapshot_maps(
-    session: Session, draft: WorkspaceDraft
+def _publication_snapshot_maps(
+    session: Session, change_set: ChangeSet
 ) -> tuple[
-    dict[str, WorkspaceRevisionObject | WorkspaceDraftBaseObject],
-    dict[str, WorkspaceRevisionRelation | WorkspaceDraftBaseRelation],
+    dict[str, PublicationObject | ChangeSetBaseObject],
+    dict[str, PublicationRelation | ChangeSetBaseRelation],
 ]:
-    """Index the immutable source snapshot by stable id (empty for a legacy root draft)."""
-    if draft.base_id is not None:
-        base = session.get(WorkspaceDraftBase, draft.base_id)
-        if base is None or base.workspace_key != draft.workspace_key:
+    """Index the immutable source snapshot by stable id (empty for a legacy root change set)."""
+    if change_set.base_id is not None:
+        base = session.get(ChangeSetBase, change_set.base_id)
+        if base is None or base.workspace_key != change_set.workspace_key:
             raise api_error(
                 409,
-                "workspace_draft_base_invalid",
-                "Workspace draft current-live base is missing or belongs to another workspace",
+                "change_set_base_invalid",
+                "Change set current-live base is missing or belongs to another workspace",
             )
         return (
             {
                 item.object_id: item
                 for item in session.scalars(
-                    select(WorkspaceDraftBaseObject).where(
-                        WorkspaceDraftBaseObject.base_id == base.id
+                    select(ChangeSetBaseObject).where(
+                        ChangeSetBaseObject.base_id == base.id
                     )
                 )
             },
             {
                 item.relation_id: item
                 for item in session.scalars(
-                    select(WorkspaceDraftBaseRelation).where(
-                        WorkspaceDraftBaseRelation.base_id == base.id
+                    select(ChangeSetBaseRelation).where(
+                        ChangeSetBaseRelation.base_id == base.id
                     )
                 )
             },
         )
-    if draft.derived_from_revision_id is None:
+    if change_set.derived_from_publication_id is None:
         return {}, {}
     objects = {
         item.object_id: item
         for item in session.scalars(
-            select(WorkspaceRevisionObject).where(
-                WorkspaceRevisionObject.revision_id == draft.derived_from_revision_id
+            select(PublicationObject).where(
+                PublicationObject.publication_id == change_set.derived_from_publication_id
             )
         )
     }
     relations = {
         item.relation_id: item
         for item in session.scalars(
-            select(WorkspaceRevisionRelation).where(
-                WorkspaceRevisionRelation.revision_id == draft.derived_from_revision_id
+            select(PublicationRelation).where(
+                PublicationRelation.publication_id == change_set.derived_from_publication_id
             )
         )
     }
@@ -2086,7 +2084,7 @@ def _merge_version_conflict(
         "kind": kind,
         "id": conflict_id,
         "code": "version_mismatch",
-        "message": f"{kind.title()} changed live after the draft's base revision",
+        "message": f"{kind.title()} changed live after the change set's base publication",
         "expectedVersion": expected,
         "actualVersion": actual,
     }
@@ -2094,7 +2092,7 @@ def _merge_version_conflict(
 
 def _mapping_set_merge_conflicts(
     session: Session,
-    draft: WorkspaceDraft,
+    change_set: ChangeSet,
     model: Any,
     base_objects: dict[str, Any],
     base_relations: dict[str, Any],
@@ -2123,8 +2121,8 @@ def _mapping_set_merge_conflicts(
         )
         for row in session.scalars(
             select(RelationSetVersion).where(
-                RelationSetVersion.workspace_key == draft.workspace_key,
-                RelationSetVersion.workspace_draft_id == draft.id,
+                RelationSetVersion.workspace_key == change_set.workspace_key,
+                RelationSetVersion.change_set_id == change_set.id,
             )
         )
         if (row.relation_type_key, row.from_object_type_key, row.to_object_type_key)
@@ -2163,9 +2161,9 @@ def _mapping_set_merge_conflicts(
             "code": "mapping_set_changed",
             "expectedTargetCount": len(expected[key]),
             "actualTargetCount": len(actual[key]),
-            "message": "Mapping relationships changed live since this draft's source. "
-            "Review live mappings and reapply the intended changes in a draft created "
-            "from current live data before retrying activation.",
+            "message": "Mapping relationships changed live since this change set's source. "
+            "Review live mappings and reapply the intended changes in a change set created "
+            "from current live data before retrying the publish.",
         }
         for key in sorted(touched)
         for relation_type, from_type, to_type, anchor, direction in [key]
@@ -2173,23 +2171,23 @@ def _mapping_set_merge_conflicts(
     ]
 
 
-def _merge_draft_over_live(
+def _merge_change_set_over_live(
     session: Session,
-    draft: WorkspaceDraft,
-    base_objects: dict[str, WorkspaceRevisionObject | WorkspaceDraftBaseObject],
-    base_relations: dict[str, WorkspaceRevisionRelation | WorkspaceDraftBaseRelation],
+    change_set: ChangeSet,
+    base_objects: dict[str, PublicationObject | ChangeSetBaseObject],
+    base_relations: dict[str, PublicationRelation | ChangeSetBaseRelation],
     model: Any,
 ) -> _LiveMerge:
-    """Compute the live content that would result from applying the draft's delta.
+    """Compute the live content that would result from applying the change set's delta.
 
-    The current live projection is authoritative and is the substrate; only records the draft
-    actually authored (created / edited / tombstoned relative to its derived-from revision) are
-    applied onto it.  A draft touch on a base record requires the live record to still sit at the
-    exact base-revision version (no concurrent live edit since the snapshot), and a draft-created id
+    The current live projection is authoritative and is the substrate; only records the change set
+    actually authored (created / edited / tombstoned relative to its derived-from publication) are
+    applied onto it.  A change set touch on a base record requires the live record to still sit at the
+    exact base-publication version (no concurrent live edit since the snapshot), and an id created in the change set
     must not already exist live; any divergence is a per-record conflict (``409 version_conflict``)
-    rather than an overwrite.  Live content the draft never touched is preserved untouched.
+    rather than an overwrite.  Live content the change set never touched is preserved untouched.
     """
-    workspace_key = draft.workspace_key
+    workspace_key = change_set.workspace_key
     live_objects = {
         item.id: item
         for item in session.scalars(
@@ -2236,24 +2234,24 @@ def _merge_draft_over_live(
     }
 
     mapping_conflicts = _mapping_set_merge_conflicts(
-        session, draft, model, base_objects, base_relations, live_objects, live_relations
+        session, change_set, model, base_objects, base_relations, live_objects, live_relations
     )
     conflicts: list[dict[str, Any]] = mapping_conflicts[:20]
     authored_object_ids: set[str] = set()
-    draft_objects = {
+    change_set_objects = {
         item.object_id: item
         for item in session.scalars(
-            select(WorkspaceDraftObject).where(WorkspaceDraftObject.draft_id == draft.id)
+            select(ChangeSetObject).where(ChangeSetObject.change_set_id == change_set.id)
         )
     }
     global_object_ids = set(
-        session.scalars(select(RdmObject.id).where(RdmObject.id.in_(draft_objects)))
+        session.scalars(select(RdmObject.id).where(RdmObject.id.in_(change_set_objects)))
     )
-    for object_id, row in draft_objects.items():
+    for object_id, row in change_set_objects.items():
         base = base_objects.get(object_id)
         if row.is_deleted:
             if base is None:
-                continue  # created then deleted inside the draft: never reached live
+                continue  # created then deleted inside the change set: never reached live
             live = live_objects.get(object_id)
             if live is not None and live.version != base.version:
                 conflicts.append(
@@ -2292,22 +2290,22 @@ def _merge_draft_over_live(
                         "kind": "object",
                         "id": object_id,
                         "code": "id_collision",
-                        "message": "Draft-created object id already exists in live data",
+                        "message": "The id of an object created in the change set already exists in live data",
                     }
                 )
             merged_objects[object_id] = authored
 
     authored_relation_ids: set[str] = set()
-    draft_relations = {
+    change_set_relations = {
         item.relation_id: item
         for item in session.scalars(
-            select(WorkspaceDraftRelation).where(WorkspaceDraftRelation.draft_id == draft.id)
+            select(ChangeSetRelation).where(ChangeSetRelation.change_set_id == change_set.id)
         )
     }
     global_relation_ids = set(
-        session.scalars(select(ObjectRelation.id).where(ObjectRelation.id.in_(draft_relations)))
+        session.scalars(select(ObjectRelation.id).where(ObjectRelation.id.in_(change_set_relations)))
     )
-    for relation_id, row in draft_relations.items():
+    for relation_id, row in change_set_relations.items():
         base = base_relations.get(relation_id)
         if row.is_deleted:
             if base is None:
@@ -2349,14 +2347,14 @@ def _merge_draft_over_live(
                         "kind": "relation",
                         "id": relation_id,
                         "code": "id_collision",
-                        "message": "Draft-created relation id already exists in live data",
+                        "message": "The id of a relation created in the change set already exists in live data",
                     }
                 )
             merged_relations[relation_id] = authored
 
-    # A tombstoned object drops its incident live relations even when the draft never saw them; a
+    # A tombstoned object drops its incident live relations even when the change set never saw them; a
     # live relation cannot outlive an endpoint.  Any other dangling endpoint would fail whole-graph
-    # validation below and abort the activation before any row is touched.
+    # validation below and abort the publish before any row is touched.
     for relation_id in [
         relation_id
         for relation_id, relation in merged_relations.items()
@@ -2365,9 +2363,9 @@ def _merge_draft_over_live(
     ]:
         merged_relations.pop(relation_id, None)
 
-    # The live table enforces one directed edge per (type, from, to).  A draft edge duplicating a
+    # The live table enforces one directed edge per (type, from, to).  A change set edge duplicating a
     # live one (distinct ids) would violate that constraint mid-apply; surface it as a conflict
-    # instead of leaking an IntegrityError out of the activation transaction.
+    # instead of leaking an IntegrityError out of the publish transaction.
     seen_edges: dict[tuple[str, str, str], str] = {}
     for relation_id in sorted(merged_relations):
         relation = merged_relations[relation_id]
@@ -2380,7 +2378,7 @@ def _merge_draft_over_live(
                     "id": relation_id,
                     "conflictingRelationId": prior,
                     "code": "duplicate_edge",
-                    "message": "Draft and live both define the same directed relation",
+                    "message": "Change set and live both define the same directed relation",
                 }
             )
         else:
@@ -2390,15 +2388,15 @@ def _merge_draft_over_live(
         raise api_error(
             409,
             "version_conflict",
-            "Workspace draft conflicts with the live active data",
+            "Change set conflicts with the live active data",
             {
                 "conflicts": conflicts,
                 "mappingSetConflictCount": len(mapping_conflicts),
                 "mappingSetConflictsTruncated": len(mapping_conflicts) > 20,
             },
         )
-    membership = EffectiveDraftMembership(
-        draft=draft,
+    membership = EffectiveChangeSetMembership(
+        change_set=change_set,
         objects=tuple(sorted(merged_objects.values(), key=lambda item: item.object_id)),
         relations=tuple(sorted(merged_relations.values(), key=lambda item: item.relation_id)),
     )
@@ -2411,39 +2409,39 @@ def _merge_draft_over_live(
     )
 
 
-def activate_draft(
+def publish_change_set(
     session: Session,
-    draft_id: str,
+    change_set_id: str,
     model: Any,
     active_release_id: int,
-    expected_draft_version: int,
-    expected_active_revision_id: str | None,
-) -> WorkspaceRevision:
-    draft = _draft(session, draft_id, for_update=True)
-    if draft.model_release_id != active_release_id:
+    expected_change_set_version: int,
+    expected_active_publication_id: str | None,
+) -> Publication:
+    change_set = _change_set(session, change_set_id, for_update=True)
+    if change_set.model_release_id != active_release_id:
         raise api_error(
             409,
-            "workspace_draft_model_release_conflict",
-            "Draft is pinned to a different application-model release",
+            "change_set_model_release_conflict",
+            "Change set is pinned to a different application-model release",
         )
     # Claim before reading the merge population. On SQLite this also obtains the writer lock,
     # keeping the live graph stable until the publication transaction completes.
-    _claim_draft(session, draft, expected_draft_version)
+    _claim_change_set(session, change_set, expected_change_set_version)
     workspace = session.scalar(
-        select(Workspace).where(Workspace.key == draft.workspace_key).with_for_update()
+        select(Workspace).where(Workspace.key == change_set.workspace_key).with_for_update()
     )
     if workspace is None:
         raise api_error(404, "workspace_not_found", "Workspace not found")
-    if workspace.active_revision_id != expected_active_revision_id:
+    if workspace.active_publication_id != expected_active_publication_id:
         raise api_error(
-            409, "workspace_active_revision_conflict", "Active workspace revision has changed"
+            409, "workspace_active_publication_conflict", "Active publication has changed"
         )
-    # The draft is applied as a delta onto the *current* live projection, then the merged graph is
-    # validated whole before anything is written; live content newer than the draft base is preserved.
-    merged = _merge_draft_over_live(
+    # The change set is applied as a delta onto the *current* live projection, then the merged graph is
+    # validated whole before anything is written; live content newer than the change set base is preserved.
+    merged = _merge_change_set_over_live(
         session,
-        draft,
-        *_revision_snapshot_maps(session, draft),
+        change_set,
+        *_publication_snapshot_maps(session, change_set),
         model,
     )
     diagnostics = _diagnostics(merged.membership, model)
@@ -2451,32 +2449,32 @@ def activate_draft(
         raise api_error(
             422,
             "workspace_graph_invalid",
-            "Workspace draft failed complete graph validation over the live active data",
+            "Change set failed complete graph validation over the live active data",
             diagnostics,
         )
     number = (
         session.scalar(
-            select(WorkspaceRevision.revision_number)
-            .where(WorkspaceRevision.workspace_key == draft.workspace_key)
-            .order_by(WorkspaceRevision.revision_number.desc())
+            select(Publication.publication_number)
+            .where(Publication.workspace_key == change_set.workspace_key)
+            .order_by(Publication.publication_number.desc())
             .limit(1)
         )
         or 0
     ) + 1
-    revision = WorkspaceRevision(
-        workspace_key=draft.workspace_key,
-        model_release_id=draft.model_release_id,
-        revision_number=number,
+    publication = Publication(
+        workspace_key=change_set.workspace_key,
+        model_release_id=change_set.model_release_id,
+        publication_number=number,
         status="active",
-        derived_from_revision_id=draft.derived_from_revision_id,
-        supersedes_revision_id=workspace.active_revision_id,
+        derived_from_publication_id=change_set.derived_from_publication_id,
+        supersedes_publication_id=workspace.active_publication_id,
     )
-    session.add(revision)
+    session.add(publication)
     session.flush()
     for item in merged.membership.objects:
         session.add(
-            WorkspaceRevisionObject(
-                revision_id=revision.id,
+            PublicationObject(
+                publication_id=publication.id,
                 object_id=item.object_id,
                 application_key=item.application_key,
                 object_type_key=item.object_type_key,
@@ -2488,8 +2486,8 @@ def activate_draft(
         )
     for item in merged.membership.relations:
         session.add(
-            WorkspaceRevisionRelation(
-                revision_id=revision.id,
+            PublicationRelation(
+                publication_id=publication.id,
                 relation_id=item.relation_id,
                 relation_type_key=item.relation_type_key,
                 from_object_id=item.from_object_id,
@@ -2498,10 +2496,10 @@ def activate_draft(
                 version=item.version,
             )
         )
-    record_revision_activated(
+    record_change_set_published(
         session,
-        revision=revision,
-        draft=draft,
+        publication=publication,
+        change_set=change_set,
         object_count=len(merged.membership.objects),
         relation_count=len(merged.membership.relations),
     )
@@ -2541,7 +2539,7 @@ def activate_draft(
     live_objects = {
         item.id: item
         for item in session.scalars(
-            select(RdmObject).where(RdmObject.workspace_key == draft.workspace_key)
+            select(RdmObject).where(RdmObject.workspace_key == change_set.workspace_key)
         )
     }
     for object_id in sorted(authored_objects):
@@ -2550,7 +2548,7 @@ def activate_draft(
         if live is None:
             live = RdmObject(
                 id=object_id,
-                workspace_key=draft.workspace_key,
+                workspace_key=change_set.workspace_key,
                 application_key=authored.application_key,
                 object_type_key=authored.object_type_key,
                 name=authored.name,
@@ -2609,44 +2607,43 @@ def activate_draft(
             live.to_object_id = authored.to_object_id
             live.attributes = authored.attributes or {}
             live.version = authored.version
-    if workspace.active_revision_id:
+    if workspace.active_publication_id:
         old = session.scalar(
-            select(WorkspaceRevision).where(WorkspaceRevision.id == workspace.active_revision_id)
+            select(Publication).where(Publication.id == workspace.active_publication_id)
         )
-        old.status = "retired"
-        old.retired_at = datetime.now(UTC)
-    revision.activated_at = datetime.now(UTC)
-    workspace.active_revision_id = revision.id
-    merge_draft_set_versions_to_live(session, draft.id, draft.workspace_key)
-    _delete_draft_and_base(session, draft)
+        old.status = "withdrawn"
+        old.withdrawn_at = datetime.now(UTC)
+    publication.published_at = datetime.now(UTC)
+    workspace.active_publication_id = publication.id
+    merge_change_set_relation_set_versions_to_live(session, change_set.id, change_set.workspace_key)
+    _delete_change_set_and_base(session, change_set)
     session.commit()
-    return revision
+    return publication
 
 
-def retire_publication(
-    session: Session, workspace_key: str, expected_active_revision_id: str
-) -> None:
+def withdraw_publication(session: Session, publication_id: str) -> None:
+    """Remove the current-publication designation; live data and history are unchanged."""
+    publication = session.scalar(select(Publication).where(Publication.id == publication_id))
+    if publication is None:
+        raise api_error(404, "publication_not_found", "Publication not found")
     workspace = session.scalar(
-        select(Workspace).where(Workspace.key == workspace_key).with_for_update()
+        select(Workspace).where(Workspace.key == publication.workspace_key).with_for_update()
     )
     if workspace is None:
         raise api_error(404, "workspace_not_found", "Workspace not found")
     if workspace.status == "retired":
         raise api_error(409, "workspace_retired", "Workspace is retired and cannot be mutated")
-    if workspace.active_revision_id != expected_active_revision_id:
+    # The path names the publication to withdraw, so it is also the concurrency claim: a publication
+    # that is no longer current (withdrawn or superseded meanwhile) is refused.
+    if workspace.active_publication_id != publication_id:
         raise api_error(
-            409, "workspace_active_revision_conflict", "Active workspace revision has changed"
+            409, "workspace_active_publication_conflict", "Active publication has changed"
         )
-    revision = session.scalar(
-        select(WorkspaceRevision).where(WorkspaceRevision.id == expected_active_revision_id)
-    )
-    if revision is None:
-        raise api_error(404, "workspace_revision_not_found", "Workspace revision not found")
-    revision.status = "retired"
-    revision.retired_at = datetime.now(UTC)
-    workspace.active_revision_id = None
-    # Record the publication retirement identity in the same transaction as the pointer clear and
-    # revision retire so a rolled-back retirement never leaves an orphan event (D3a).  The event is
-    # aggregated on the workspace key and carries no AuditEventSubject rows.
-    record_publication_retired(session, revision=revision)
+    publication.status = "withdrawn"
+    publication.withdrawn_at = datetime.now(UTC)
+    workspace.active_publication_id = None
+    # Record the withdrawal in the same transaction as the pointer clear so a rolled-back
+    # withdrawal never leaves an orphan event (D3a).  The event is aggregated on the workspace key
+    # and carries no AuditEventSubject rows.
+    record_publication_withdrawn(session, publication=publication)
     session.commit()

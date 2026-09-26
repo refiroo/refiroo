@@ -17,10 +17,10 @@ from app.models.database import (
     ModelDraft,
     ModelRelease,
     ModelRuntimeState,
+    Publication,
+    PublicationObject,
     RdmObject,
     Workspace,
-    WorkspaceRevision,
-    WorkspaceRevisionObject,
 )
 from app.models.schema import EngineModel
 from app.services.model.bootstrap import ensure_bootstrap_release
@@ -623,13 +623,13 @@ def test_activation_blocks_incompatible_runtime_data_without_changing_selection(
         with SessionLocal() as session:
             state = session.get(ModelRuntimeState, 1)
             assert state is not None
-            revision = WorkspaceRevision(
+            publication = Publication(
                 workspace_key="default",
                 model_release_id=state.active_model_release_id,
-                revision_number=1,
+                publication_number=1,
                 status="active",
             )
-            session.add(revision)
+            session.add(publication)
             session.flush()
             item = RdmObject(
                 id=str(uuid4()),
@@ -641,8 +641,8 @@ def test_activation_blocks_incompatible_runtime_data_without_changing_selection(
             session.add(item)
             session.flush()
             session.add(
-                WorkspaceRevisionObject(
-                    revision_id=revision.id,
+                PublicationObject(
+                    publication_id=publication.id,
                     object_id=item.id,
                     application_key=item.application_key,
                     object_type_key=item.object_type_key,
@@ -654,7 +654,7 @@ def test_activation_blocks_incompatible_runtime_data_without_changing_selection(
             )
             workspace = session.get(Workspace, "default")
             assert workspace is not None
-            workspace.active_revision_id = revision.id
+            workspace.active_publication_id = publication.id
             candidate = ensure_bootstrap_release(
                 session, EngineModel.model_validate(candidate_model)
             )

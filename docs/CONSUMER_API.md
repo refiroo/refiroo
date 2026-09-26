@@ -280,7 +280,7 @@ Rules the validator enforces:
 - **Match fields** must be `searchable` or explicitly listed as identifiers; weights are positive
   integers.
 - **Parameter names** are unique per definition and cannot shadow reserved names (`query`, `expect`,
-  `pageSize`, `cursor`, `position`, `revision`).
+  `pageSize`, `cursor`, `position`, `publication`).
 
 ### Endpoints
 
@@ -302,7 +302,7 @@ GET /api/consumer/{apiKey}/v{contractVersion}/openapi.json
   `contractVersion` return `404`.
 - **Generated OpenAPI:** each definition generates its own OpenAPI document, so integrators get a
   typed contract per API.
-- **Consistency:** reads use live data by default. `revision={workspaceRevisionId}` reads a
+- **Consistency:** reads use live data by default. `publication={publicationId}` reads a
   publication, so a flow or extract can pin one consistent snapshot. Responses carry
   `ETag: "{dataVersion}:{contractVersion}"` and honor `If-None-Match`.
 
@@ -341,7 +341,7 @@ Only data changes, as a consumer sees them:
 | Live create, update or delete of an object, attribute value or relation | Yes |
 | Change set publication | Yes, one event per affected consumer object, all naming the same publication |
 | Bulk or import job | Yes, one event per affected consumer object, all naming the job |
-| Change set (draft) edits, validation, discard | No |
+| Change set (change set) edits, validation, discard | No |
 | Model release install, workspace administration | No |
 
 An event is about a **consumer object**, not a raw record. A change to a projected record changes the
@@ -497,7 +497,7 @@ coordination is 0.10 work.
 | C3 | Lists: parent parameter resolution, position paging, parameters of kind `ancestor`, `projection` and `related` |
 | C4 | Consumer index and XREF scoring: own-field and promoted scores, multi-term queries, deterministic order, `expect=one` |
 | C5 | XREF parameters of kind `objectType`, `projection`, `ancestor` and `related` (including via a shared projection) |
-| C6 | ETag / `If-None-Match`, `revision` reads, per-definition OpenAPI |
+| C6 | ETag / `If-None-Match`, `publication` reads, per-definition OpenAPI |
 | C7 | Consumer access control (see C-D1) |
 | C8 | Parity acceptance: a test-only fixture model extending the starter with locations, availability and a single-valued self relation (fixture content, not product scope), a fixture dataset, and a definition that reproduces the reference response for the scenarios below; volume budgets |
 | C9 | Event definitions: `events` schema and validation, contract rules for events |
@@ -557,7 +557,7 @@ table under "Behavior the engine does not carry over" says otherwise:
 | C-D3 | Serve several contract versions of one definition at once | Not in 0.9. One installed version per definition; the gateway handles overlap |
 | C-D4 | Are the scoring weights part of the contract | Yes. Weights change ranking, and flows depend on ranking, so a weight change needs a new `contractVersion` |
 | C-D5 | Route compatibility for existing consumers | The existing gateway maps routes. The engine does not accept free-form route templates in 0.9 |
-| C-D6 | Consumer reads in change-set (draft) context | No. Consumers read live or a publication, never unpublished work |
+| C-D6 | Consumer reads in change-set (change set) context | No. Consumers read live or a publication, never unpublished work |
 | C-D7 | Include the full object in per-change events | No in 0.9. Identity plus changed outputs; receivers read the object. An opt-in snapshot can come later if receivers need the state at the time of the change |
 | C-D8 | Outbox: the existing audit log, or a separate event table written in the same transaction | The audit log. It is already transactional and ordered, and it keeps the write path unchanged. Revisit only if deriving events from it proves too slow |
 | C-D9 | Event retention | 30 days by default, configurable per deployment. Past retention, receivers re-sync with lists or an export job |

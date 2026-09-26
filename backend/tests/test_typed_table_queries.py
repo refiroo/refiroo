@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient as LiveTestClient
-from test_api import DraftTestClient as TestClient
+from test_api import ChangeSetTestClient as TestClient
 
 from app.common.time import as_utc
 from app.config import reload_settings
@@ -213,7 +213,7 @@ def test_numeric_ranges_and_capability_errors_are_model_aware():
     "context",
     [
         "live",
-        "draft",
+        "change_set",
     ],
 )
 def test_date_values_keep_their_type_through_write_filter_and_sort(context):
@@ -312,12 +312,12 @@ def typed_model_client(tmp_path, monkeypatch, migrated_database):
     model_registry.clear()
 
 
-def test_draft_writes_keep_decimal_datetime_and_date_values_through_activation(typed_model_client):
+def test_change_set_writes_keep_decimal_datetime_and_date_values_through_activation(typed_model_client):
     client = typed_model_client
-    draft = client.post("/api/v1/workspaces/default/drafts", json={})
-    assert draft.status_code == 201, draft.text
-    draft = draft.json()
-    context = {"workspaceDraftId": draft["id"]}
+    change_set = client.post("/api/v1/workspaces/default/change-sets", json={})
+    assert change_set.status_code == 201, change_set.text
+    change_set = change_set.json()
+    context = {"changeSetId": change_set["id"]}
 
     def values(body):
         return {
@@ -334,7 +334,7 @@ def test_draft_writes_keep_decimal_datetime_and_date_values_through_activation(t
             _attribute("wp10-seen-at", "2026-09-24T10:15:00+00:00"),
             _attribute("wp10-due", "2026-10-01"),
         ],
-        **context, "expectedWorkspaceDraftVersion": draft["version"],
+        **context, "expectedChangeSetVersion": change_set["version"],
     })
     assert created.status_code == 201, created.text
     # One canonical form in every context: trailing zeros dropped, instants in UTC with an offset.
@@ -348,7 +348,7 @@ def test_draft_writes_keep_decimal_datetime_and_date_values_through_activation(t
     updated = client.patch(f"/api/v1/objects/domain/{record['id']}", json={
         "attributes": [_attribute("wp10-amount", 7), _attribute("wp10-due", "2026-11-30")],
         "expectedVersion": record["version"],
-        **context, "expectedWorkspaceDraftVersion": record["workspaceDraftVersion"],
+        **context, "expectedChangeSetVersion": record["changeSetVersion"],
     })
     assert updated.status_code == 200, updated.text
     assert values(updated.json())["wp10-amount"] == "7"
@@ -359,7 +359,7 @@ def test_draft_writes_keep_decimal_datetime_and_date_values_through_activation(t
         json={
             "value": "2026-12-24T18:00:00+01:00",
             "expectedVersion": record["version"],
-            **context, "expectedWorkspaceDraftVersion": record["workspaceDraftVersion"],
+            **context, "expectedChangeSetVersion": record["changeSetVersion"],
         },
     )
     assert field.status_code == 200, field.text
@@ -370,7 +370,7 @@ def test_draft_writes_keep_decimal_datetime_and_date_values_through_activation(t
             json={
                 "value": invalid,
                 "expectedVersion": record["version"],
-                **context, "expectedWorkspaceDraftVersion": record["workspaceDraftVersion"],
+                **context, "expectedChangeSetVersion": record["changeSetVersion"],
             },
         )
         assert refused.status_code == 422, refused.text
@@ -381,10 +381,10 @@ def test_draft_writes_keep_decimal_datetime_and_date_values_through_activation(t
         "wp10-seen-at": "2026-12-24T17:00:00+00:00",
         "wp10-due": "2026-11-30",
     }
-    draft_read = client.get(f"/api/v1/objects/domain/{record['id']}", params=context)
-    assert values(draft_read.json()) == expected
-    # Drafts record no timestamps (WP-10K): report them as absent, never as the current time.
-    assert draft_read.json()["createdAt"] is None and draft_read.json()["updatedAt"] is None
+    change_set_read = client.get(f"/api/v1/objects/domain/{record['id']}", params=context)
+    assert values(change_set_read.json()) == expected
+    # Change sets record no timestamps (WP-10K): report them as absent, never as the current time.
+    assert change_set_read.json()["createdAt"] is None and change_set_read.json()["updatedAt"] is None
     for params, found in (
         ({"filter.wp10-amount.gt": "6.5"}, True),
         ({"filter.wp10-amount.gt": "10"}, False),
@@ -398,7 +398,7 @@ def test_draft_writes_keep_decimal_datetime_and_date_values_through_activation(t
         listed = client.get("/api/v1/objects/domain", params={**context, **params})
         assert listed.status_code == 200, (params, listed.text)
         assert (record["id"] in [item["id"] for item in listed.json()["items"]]) is found, params
-    # Built-in timestamps are not recorded in a draft: a query on them is refused, not matched empty.
+    # Built-in timestamps are not recorded in a change set: a query on them is refused, not matched empty.
     for params, code, message in (
         ({"filter.createdAt.gte": "2000-01-01T00:00:00"}, "invalid_filter", "Created"),
         ({"filter.updatedAt.lt": "2000-01-01T00:00:00+02:00"}, "invalid_filter", "Updated"),
@@ -407,11 +407,11 @@ def test_draft_writes_keep_decimal_datetime_and_date_values_through_activation(t
         listed = client.get("/api/v1/objects/domain", params={**context, **params})
         assert listed.status_code == 422, (params, listed.text)
         assert listed.json()["error"]["code"] == code
-        assert listed.json()["error"]["message"] == f"{message} is not recorded in drafts or history"
+        assert listed.json()["error"]["message"] == f"{message} is not recorded in change sets or publications"
 
     activated = client.post(
-        f"/api/v1/workspace-drafts/{draft['id']}/activation",
-        json={"expectedDraftVersion": record["workspaceDraftVersion"]},
+        f"/api/v1/change-sets/{change_set['id']}/publication",
+        json={"expectedChangeSetVersion": record["changeSetVersion"]},
     )
     assert activated.status_code == 200, activated.text
     live = client.get(
@@ -442,7 +442,7 @@ def test_live_datetime_keeps_its_instant(typed_model_client):
     assert as_utc(datetime.fromisoformat(stored["wp10-seen-at"])) == as_utc(
         datetime.fromisoformat(written)
     )
-    # The same forms a draft row carries, so equal values compare equal across contexts.
+    # The same forms a change set row carries, so equal values compare equal across contexts.
     assert stored["wp10-seen-at"] == "2026-12-24T17:00:00+00:00"
     assert stored["wp10-amount"] == "12.5"
     for filter_value, found in (("2026-12-24T18:00:00+01:00", True), ("2026-12-24T16:30:00", False)):
@@ -463,13 +463,13 @@ def test_server_timestamps_carry_an_explicit_offset(typed_model_client):
     read = typed_model_client.get(
         f"/api/v1/objects/domain/{created.json()['id']}", params={"workspaceKey": "default"}
     )
-    draft = typed_model_client.post("/api/v1/workspaces/default/drafts", json={})
-    assert draft.status_code == 201, draft.text
+    change_set = typed_model_client.post("/api/v1/workspaces/default/change-sets", json={})
+    assert change_set.status_code == 201, change_set.text
     history = typed_model_client.get(
         f"/api/v1/objects/domain/{created.json()['id']}/history", params={"workspaceKey": "default"}
     )
     assert history.status_code == 200, history.text
-    stamps = [read.json()["createdAt"], read.json()["updatedAt"], draft.json()["createdAt"]]
+    stamps = [read.json()["createdAt"], read.json()["updatedAt"], change_set.json()["createdAt"]]
     stamps += [item["occurredAt"] for item in history.json()["items"]]
     assert len(stamps) > 3
     for stamp in stamps:

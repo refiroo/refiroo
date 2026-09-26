@@ -230,7 +230,7 @@ def save_attribute_values(
             session.add(row)
         else:
             row.version += 1
-        # Draft rows carry the JSON form; typed columns need the declared Python type.
+        # Change set rows carry the JSON form; typed columns need the declared Python type.
         _set_row_value(row, definition.valueType, normalize_value(definition, value))
 
 
@@ -378,7 +378,7 @@ def _get_row_value(row: AttributeValue) -> Any:
 
 
 def stored_json_value(value: Any) -> Any:
-    """Return the JSON form of a normalized value, as live reads and draft rows carry it."""
+    """Return the JSON form of a normalized value, as live reads and change set rows carry it."""
     if isinstance(value, Decimal):
         return format(canonical_decimal(value), "f")
     if isinstance(value, datetime):
@@ -391,7 +391,7 @@ def stored_json_value(value: Any) -> Any:
 def typed_value_columns(value_type: str | None, value: Any) -> dict[str, Any]:
     """The typed columns for one attribute value held in a JSON ``attributes`` column.
 
-    Draft, draft-base and revision rows keep values in their JSON form; their typed index
+    Change set, change-set base and publication rows keep values in their JSON form; their typed index
     (``snapshot_attribute_values``) stores them as live ``attribute_values`` rows do. Stored JSON
     was validated when written, so this converts without re-checking range rules; a value that no
     longer converts, or a key the owning release does not declare, is indexed as JSON only.
@@ -432,7 +432,7 @@ def typed_value_columns(value_type: str | None, value: Any) -> dict[str, Any]:
 def canonical_decimal(value: Decimal) -> Decimal:
     """Drop trailing zeros so equal decimals share one form in every context.
 
-    A live read comes back padded to the column scale (``12.5000000000``) while a draft row keeps the
+    A live read comes back padded to the column scale (``12.5000000000``) while a change set row keeps the
     submitted text; both must read, compare and deduplicate as ``12.5``.
     """
     return Decimal(0) if value.is_zero() else value.normalize()

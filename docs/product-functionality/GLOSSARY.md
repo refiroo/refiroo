@@ -74,8 +74,8 @@ exist in a change set's candidate or an immutable publication, but the publicati
 to the workspace. A model-defined `active` field represents business availability, not engine
 publication state.
 
-Until [W2](../BASE_0_8_IMPLEMENTATION_PLAN.md#w2-rename-change-sets-and-publications) lands, the
-API, database and browser still use the earlier names: a change set is a workspace draft
-(`workspaceDraftId`, "Draft · name", "Activate draft"), a publication is a workspace revision
-(`workspaceRevisionId`, `revisionNumber`, "Revision N", "Historical snapshot"), and withdrawing a
-publication is `POST /workspaces/{key}/retirement`.
+Since [W2](../BASE_0_8_IMPLEMENTATION_PLAN.md#w2-rename-change-sets-and-publications) the API,
+database and browser use these names: `changeSetId`, "Change set · name" and "Publish change set" for
+a change set; `publicationId`, `publicationNumber` and "Publication N" for a publication; and
+`POST /publications/{id}/withdrawal` to withdraw one. Earlier plans, ADRs and review notes keep the
+names they were written with (workspace draft, workspace revision, activation, retirement).

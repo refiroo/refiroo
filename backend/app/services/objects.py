@@ -60,7 +60,7 @@ OBJECT_SORT_COLUMNS: dict[str, Any] = {
 }
 
 _SEQUENCE_FIELD = "sequenceId"
-# Every object and relation list defaults to name order in live, draft and history (D22), closed by
+# Every object and relation list defaults to name order in live, change set and history (D22), closed by
 # its context's unique tiebreak, so a default page can be sought by name.
 DEFAULT_SORT = "name"
 
@@ -70,7 +70,7 @@ class ObjectQuery:
     """A filtered object collection query with the keyset it must be paged by.
 
     ``seek`` turns a ``seek`` value into the predicate for rows at or after it in list order.
-    ``overlay`` names a draft list's parts, through which position reads resolve.
+    ``overlay`` names a change set list's parts, through which position reads resolve.
     """
 
     statement: Select[Any]
@@ -84,7 +84,7 @@ class ObjectQuery:
 class ObjectColumns:
     """Where an object collection query reads record columns and their typed values.
 
-    Live reads use ``objects`` with ``attribute_values``; draft and history reads use a
+    Live reads use ``objects`` with ``attribute_values``; change set and history reads use a
     base-plus-overlay projection with ``snapshot_attribute_values``. A relation list reads the
     record at the other end of each relation the same way. One builder serves all of them, so
     search, typed filters and sort mean the same in every context and on every list.
@@ -726,7 +726,7 @@ def create_object_record(session: Session, model: EngineModel, payload: ObjectCr
     """Create one object in the workspace's live object store.
 
     Requires an active (non-retired) workspace.  The record is immediately part of the
-    authoritative live projection; no workspace revision is minted.
+    authoritative live projection; no publication is minted.
     """
     from .relations import create_relation_instance
     from .workspaces import resolve_workspace
@@ -1043,7 +1043,7 @@ def load_active_projection(
     """Load a live record from the workspace's active object store.
 
     The active object store is the authoritative, directly-mutable projection; an object is
-    visible here as soon as it is written, with no workspace revision required.
+    visible here as soon as it is written, with no publication required.
     """
     return load_object(session, object_id, object_type_key)
 

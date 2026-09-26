@@ -26,7 +26,7 @@ def _is_in_active_workspace(_item: Any) -> Any:
 
     The helper name is retained at the query call sites for a small, reviewable change.  Live
     objects are authoritative independently of whether their workspace still has an active
-    publication; revision membership is historical data and must not hide live incompatibilities.
+    publication; publication membership is historical data and must not hide live incompatibilities.
     """
     return literal(True)
 

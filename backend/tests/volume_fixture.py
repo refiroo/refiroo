@@ -2,8 +2,8 @@
 
 The model uses its own application, object-type and relation keys, so no volume check relies on
 the starter model. :func:`seed_volume` writes the dataset straight into the persistence tables
-(the HTTP API takes about 13 s per 1000 records), then records the same membership as revision 1
-of the workspace and derives a draft from that revision with edits, tombstones and new records
+(the HTTP API takes about 13 s per 1000 records), then records the same membership as publication 1
+of the workspace and derives a change set from that publication with edits, tombstones and new records
 scattered through the data.
 
 Every row is generated from a seeded ``random.Random``, so a shape always produces the same data,
@@ -29,16 +29,16 @@ from sqlalchemy.orm import Session
 from app.models.database import (
     AttributeValue,
     Base,
+    ChangeSet,
+    ChangeSetObject,
+    ChangeSetRelation,
     ModelRuntimeState,
     ObjectRelation,
+    Publication,
+    PublicationObject,
+    PublicationRelation,
     RdmObject,
     Workspace,
-    WorkspaceDraft,
-    WorkspaceDraftObject,
-    WorkspaceDraftRelation,
-    WorkspaceRevision,
-    WorkspaceRevisionObject,
-    WorkspaceRevisionRelation,
 )
 from app.services.snapshot_values import insert_value_rows, release_value_types, value_rows
 
@@ -170,7 +170,7 @@ def volume_model() -> dict[str, Any]:
 
 @dataclass(frozen=True)
 class VolumeShape:
-    """Dataset dimensions. The skew and draft-edit spacing are fixed so shapes stay comparable."""
+    """Dataset dimensions. The skew and change set-edit spacing are fixed so shapes stay comparable."""
 
     groups: int
     items: int
@@ -178,9 +178,9 @@ class VolumeShape:
     citations: int  # ITEM_CITES_GROUP relations onto the cited group
     node_depth: int  # levels of the NODE self-hierarchy under the heavy group
     node_fanout: int
-    draft_edit_every: int = 97  # every n-th item is edited in the draft
-    draft_delete_every: int = 211  # every n-th item is tombstoned in the draft
-    draft_new_items: int = 50
+    change_set_edit_every: int = 97  # every n-th item is edited in the change set
+    change_set_delete_every: int = 211  # every n-th item is tombstoned in the change set
+    change_set_new_items: int = 50
     seed: int = 8
 
 
@@ -204,7 +204,7 @@ def scaled_shape(factor: float) -> VolumeShape:
         citations=max(25, round(FULL_SHAPE.citations * factor)),
         node_depth=FULL_SHAPE.node_depth,
         node_fanout=FULL_SHAPE.node_fanout,
-        draft_new_items=max(5, round(FULL_SHAPE.draft_new_items * factor)),
+        change_set_new_items=max(5, round(FULL_SHAPE.change_set_new_items * factor)),
     )
 
 
@@ -213,19 +213,19 @@ class VolumeDataset:
     """Public identifiers a measurement or test addresses in the seeded data."""
 
     shape: VolumeShape
-    revision_id: str
-    draft_id: str
+    publication_id: str
+    change_set_id: str
     heavy_group_id: str  # holds ``heavy_items`` items and the root of the NODE hierarchy
     cited_group_id: str  # target of ``citations`` ITEM_CITES_GROUP relations
     small_group_id: str  # a group holding a handful of items
     deep_node_id: str  # a NODE at ``node_depth`` levels below the heavy group
-    edited_item_id: str  # an item edited in the draft
-    live_item_id: str  # an item neither edited nor deleted in the draft
+    edited_item_id: str  # an item edited in the change set
+    live_item_id: str  # an item neither edited nor deleted in the change set
     counts: dict[str, int] = field(default_factory=dict)
 
 
 def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
-    """Bulk-write live data, revision 1 and a derived draft into an app-migrated database.
+    """Bulk-write live data, publication 1 and a derived change set into an app-migrated database.
 
     The database must already hold the volume model as its active release (start the app with
     ``RDM_MODEL_PATH`` pointing at :func:`volume_model`).
@@ -320,86 +320,86 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
     with Session(engine) as session:
         release_id = session.scalar(select(ModelRuntimeState.active_model_release_id))
         assert release_id is not None, "The volume model must be active before seeding"
-        revision = WorkspaceRevision(
+        publication = Publication(
             id=new_id(),
             workspace_key=WORKSPACE,
             model_release_id=release_id,
-            revision_number=1,
+            publication_number=1,
             status="active",
             created_at=now,
-            activated_at=now,
+            published_at=now,
         )
-        session.add(revision)
+        session.add(publication)
         session.flush()
-        session.get(Workspace, WORKSPACE).active_revision_id = revision.id
-        draft = WorkspaceDraft(
+        session.get(Workspace, WORKSPACE).active_publication_id = publication.id
+        change_set = ChangeSet(
             id=new_id(),
             workspace_key=WORKSPACE,
             model_release_id=release_id,
-            derived_from_revision_id=revision.id,
-            name="Volume draft",
+            derived_from_publication_id=publication.id,
+            name="Volume change set",
         )
-        session.add(draft)
+        session.add(change_set)
         session.commit()
-        revision_id, draft_id = revision.id, draft.id
+        publication_id, change_set_id = publication.id, change_set.id
 
     by_id = {row["id"]: row for row in objects}
     _bulk_insert(
         engine,
-        WorkspaceRevisionObject,
-        [_membership_row(row, attributes, revision_id=revision_id) for row in objects],
+        PublicationObject,
+        [_membership_row(row, attributes, publication_id=publication_id) for row in objects],
     )
     _bulk_insert(
         engine,
-        WorkspaceRevisionRelation,
-        [_relation_row(row, revision_id=revision_id) for row in relations],
+        PublicationRelation,
+        [_relation_row(row, publication_id=publication_id) for row in relations],
     )
     _index_values(
         engine,
-        "revision",
+        "publication",
         release_id,
-        ((revision_id, row["id"], attributes[row["id"]]) for row in objects),
+        ((publication_id, row["id"], attributes[row["id"]]) for row in objects),
     )
 
-    # Draft edits land across the whole name range, not in one block.
+    # Change set edits land across the whole name range, not in one block.
     containment = {
         row["to_object_id"]: row for row in relations if row["relation_type_key"] == GROUP_CONTAINS_ITEM
     }
     cited_items = set(citing)
-    draft_objects: list[dict[str, Any]] = []
-    draft_relations: list[dict[str, Any]] = []
+    change_set_objects: list[dict[str, Any]] = []
+    change_set_relations: list[dict[str, Any]] = []
     edited = [
-        item for index, item in enumerate(items) if index % shape.draft_edit_every == 1
+        item for index, item in enumerate(items) if index % shape.change_set_edit_every == 1
     ]
     edited_items = set(edited)
     deleted = [
         item
         for index, item in enumerate(items)
-        if index % shape.draft_delete_every == 2
+        if index % shape.change_set_delete_every == 2
         and item not in cited_items
         and item not in edited_items
     ]
     for item in edited:
-        row = _membership_row(by_id[item], attributes, draft_id=draft_id)
+        row = _membership_row(by_id[item], attributes, change_set_id=change_set_id)
         row["name"] += " (edited)"
         row["attributes"] = {**row["attributes"], RANK: row["attributes"][RANK] + 1}
         row["version"] = 2
         row["is_deleted"] = False
-        draft_objects.append(row)
+        change_set_objects.append(row)
     for item in deleted:
-        draft_objects.append(
-            {**_membership_row(by_id[item], attributes, draft_id=draft_id), "is_deleted": True}
+        change_set_objects.append(
+            {**_membership_row(by_id[item], attributes, change_set_id=change_set_id), "is_deleted": True}
         )
-        draft_relations.append(
-            {**_relation_row(containment[item], draft_id=draft_id), "is_deleted": True}
+        change_set_relations.append(
+            {**_relation_row(containment[item], change_set_id=change_set_id), "is_deleted": True}
         )
-    for offset in range(shape.draft_new_items):
+    for offset in range(shape.change_set_new_items):
         parent = groups[rng.randrange(len(groups))]
         number = shape.items + offset
         new_item = new_id()
-        draft_objects.append(
+        change_set_objects.append(
             {
-                "draft_id": draft_id,
+                "change_set_id": change_set_id,
                 "object_id": new_item,
                 "application_key": APPLICATION,
                 "object_type_key": ITEM,
@@ -410,9 +410,9 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
                 "is_deleted": False,
             }
         )
-        draft_relations.append(
+        change_set_relations.append(
             {
-                "draft_id": draft_id,
+                "change_set_id": change_set_id,
                 "relation_id": new_id(),
                 "relation_type_key": GROUP_CONTAINS_ITEM,
                 "from_object_id": parent,
@@ -422,25 +422,25 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
                 "is_deleted": False,
             }
         )
-    _bulk_insert(engine, WorkspaceDraftObject, draft_objects)
+    _bulk_insert(engine, ChangeSetObject, change_set_objects)
     _index_values(
         engine,
-        "draft",
+        "change_set",
         release_id,
         (
-            (draft_id, row["object_id"], row["attributes"])
-            for row in draft_objects
+            (change_set_id, row["object_id"], row["attributes"])
+            for row in change_set_objects
             if not row["is_deleted"]
         ),
     )
-    _bulk_insert(engine, WorkspaceDraftRelation, draft_relations)
+    _bulk_insert(engine, ChangeSetRelation, change_set_relations)
 
     touched = edited_items | set(deleted) | cited_items
     untouched = next(item for item in items if item not in touched)
     return VolumeDataset(
         shape=shape,
-        revision_id=revision_id,
-        draft_id=draft_id,
+        publication_id=publication_id,
+        change_set_id=change_set_id,
         heavy_group_id=heavy,
         cited_group_id=cited,
         small_group_id=small,
@@ -452,11 +452,11 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
             "attributeValues": 2 * len(objects),
             "relations": len(relations),
             "nodes": node_number,
-            "draftObjects": len(draft_objects),
-            "draftRelations": len(draft_relations),
-            "draftEdited": len(edited),
-            "draftDeleted": len(deleted),
-            "draftNew": shape.draft_new_items,
+            "changeSetObjects": len(change_set_objects),
+            "changeSetRelations": len(change_set_relations),
+            "changeSetEdited": len(edited),
+            "changeSetDeleted": len(deleted),
+            "changeSetNew": shape.change_set_new_items,
         },
     )
 
@@ -482,10 +482,10 @@ def _membership_row(
     row: dict[str, Any],
     attributes: dict[str, dict[str, Any]],
     *,
-    revision_id: str | None = None,
-    draft_id: str | None = None,
+    publication_id: str | None = None,
+    change_set_id: str | None = None,
 ) -> dict[str, Any]:
-    owner = {"revision_id": revision_id} if revision_id else {"draft_id": draft_id}
+    owner = {"publication_id": publication_id} if publication_id else {"change_set_id": change_set_id}
     return {
         **owner,
         "object_id": row["id"],
@@ -499,9 +499,9 @@ def _membership_row(
 
 
 def _relation_row(
-    row: dict[str, Any], *, revision_id: str | None = None, draft_id: str | None = None
+    row: dict[str, Any], *, publication_id: str | None = None, change_set_id: str | None = None
 ) -> dict[str, Any]:
-    owner = {"revision_id": revision_id} if revision_id else {"draft_id": draft_id}
+    owner = {"publication_id": publication_id} if publication_id else {"change_set_id": change_set_id}
     return {
         **owner,
         "relation_id": row["id"],

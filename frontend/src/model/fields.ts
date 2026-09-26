@@ -38,7 +38,7 @@ export function fieldValue(item: ObjectItem, key: string, model: EngineModel): u
   return item.attributes.find((attribute) => attribute.attributeTypeKey === key)?.value;
 }
 
-/** Built-in timestamps are recorded for live records only; drafts and history have none. */
+/** Built-in timestamps are recorded for live records only; change sets and history have none. */
 const LIVE_ONLY_FIELDS = ["createdAt", "updatedAt"];
 
 /** Whether a field (or a `-field` sort) can be filtered or sorted in this data context. */
@@ -48,7 +48,7 @@ export function isQueryableField(field: string, live: boolean) {
 
 /**
  * Whether a list of records of `objectTypes` sorts by `field` in this data context: every data
- * column does (S4R3 revision) — the name, the ID, the object type, a scalar attribute bound to one
+ * column does (S4R3 publication) — the name, the ID, the object type, a scalar attribute bound to one
  * of the types, and an ancestor when the list holds one type. The exceptions are what the server
  * cannot order: recorded timestamps outside live data, the computed path and JSON attributes. A
  * relation list also sorts by the `relationship` label its rows show.

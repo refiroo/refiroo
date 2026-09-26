@@ -48,13 +48,13 @@ acceptance evidence.
 | US-D11 | F10 deletion impact               | E2 cascade tests + E3 disconnected dialog           | 0.6 WP9/WP10                     |
 | US-D12 | F11 record history                | E2 audit + E3 default-workspace history panel       | WP9 context fix; E1 in WP10      |
 | US-D13 | F01 model-defined applications    | E3 shell/view/panel tests across record types       | Current; E1 proof in WP10        |
-| US-W01 | F12 design draft                  | Current-live/history-source API tests; browser gap | 0.6 WP9/WP10                    |
+| US-W01 | F12 change set                  | Current-live/history-source API tests; browser gap | 0.6 WP9/WP10                    |
 | US-W02 | F13 graph validation              | E2 whole-graph validation tests                     | 0.6 WP9/WP10                     |
 | US-W03 | F13 atomic activation             | E2 activation tests                                 | 0.6 WP9/WP10                     |
 | US-W04 | F13/F17 delta merge               | E2 activation-merge tests                           | 0.6 WP10                         |
 | US-W05 | F14 lineage                       | E2 history tests                                    | 0.6 WP9/WP10                     |
-| US-W06 | F14 publication retirement        | E2 retirement tests                                 | 0.6 WP9/WP10                     |
-| US-W07 | F12-F14 historical-source draft      | E2 draft/history/activation tests                   | 0.6 WP9/WP10                     |
+| US-W06 | F14 publication withdrawal        | E2 retirement tests                                 | 0.6 WP9/WP10                     |
+| US-W07 | F12-F14 historical-source change set      | E2 change-set/publication/publishing tests                   | 0.6 WP9/WP10                     |
 | US-L01 | F09 translation creation          | E2 translation tests + disconnected generic UI      | 0.6 WP9/WP10                     |
 | US-L02 | F09 translation uniqueness        | E2 translation/graph tests                          | 0.6 WP10                         |
 | US-L03 | Translation coverage matrix       | E5 roadmap                                          | 0.8                              |
@@ -87,8 +87,8 @@ acceptance evidence.
 | Story | Function/outcome | Evidence position | Scenario / target |
 | --- | --- | --- | --- |
 | US-D14 | Availability without deletion | Existing generic field semantics; composed proof pending | SC-02 / 0.6 |
-| US-W08 | Fresh live draft starting view | Accepted decision; source gap GAP-02 | SC-05 / 0.6 |
-| US-W09 | Draft model-version selection | Accepted decision; global selection today | SC-15 / 0.7 with schema 0.6 |
+| US-W08 | Fresh live change set starting view | Accepted decision; source gap GAP-02 | SC-05 / 0.6 |
+| US-W09 | Change set model-version selection | Accepted decision; global selection today | SC-15 / 0.7 with schema 0.6 |
 | US-M04 | Missing mapping target creation | Roadmap; no completed specialist flow | SC-07 / 0.7 |
 | US-L04 | In-context translation edit | Roadmap; generic service is not matrix proof | SC-09 / 0.8 |
 | US-H01 | Large hierarchy navigation | Roadmap | SC-09 / 0.8 |
@@ -108,7 +108,7 @@ At minimum, every 0.6 release candidate should execute these against the compose
 
 1. In a non-default workspace, find a Domain using a typed filter, open it, inspect related Codelists
    and history, and return to the exact list.
-2. Create and edit a live root record without a workspace draft; verify immediate visibility, version
+2. Create and edit a live root record without a change set; verify immediate visibility, version
    conflict behavior and audit.
 3. Create a contained record of another type with typed fields and a parent in one flow.
 4. Create a Translation with its Translation Group and one permitted target; reject missing content and
@@ -116,14 +116,14 @@ At minimum, every 0.6 release candidate should execute these against the compose
 5. Create, edit and delete an ordinary relationship while keeping containment relationships read-only.
 6. Preview and confirm deletion of an owner with dependants; prove an independent associated record
    survives.
-7. Create a design draft, change multiple record types and a relationship, validate and activate once;
+7. Create a change set, change multiple record types and a relationship, validate and activate once;
    prove staged changes were not visible before activation.
-8. Make an unrelated live edit while that draft is open and prove activation preserves it.
-9. Make a conflicting live edit to a draft-touched record and prove activation changes nothing and
-   preserves the draft.
-10. Branch from an older revision and prove “created from” differs from “superseded on activation.”
+8. Make an unrelated live edit while that change set is open and prove publishing preserves it.
+9. Make a conflicting live edit to a change-set-touched record and prove publishing changes nothing and
+   preserves the change set.
+10. Branch from an older publication and prove “created from” differs from “superseded on publishing.”
     Separately start from current live data after post-publication edits, including a workspace without
-    a publication (SC-05 / GAP-02); historical-source draft tests do not cover this requirement.
+    a publication (SC-05 / GAP-02); historical-source change set tests do not cover this requirement.
 11. Retire the publication designation, verify live records remain available, inspect retained history
     and prepare explicit new changes from an older snapshot; do not assume automatic rollback.
 12. Inspect, validate, compare, install and activate a model release with mutation enabled; prove
@@ -139,7 +139,7 @@ Use these as design assertions, not optional usability suggestions.
 
 ### Everyday live edit
 
-- No draft selection, validation or activation is required.
+- No change set selection, validation or publishing is required.
 - One coherent form should include core fields, typed fields, parent and required relationships.
 - A successful save is immediately visible and audited.
 - Conflict recovery preserves what the user entered.
@@ -154,7 +154,7 @@ Use these as design assertions, not optional usability suggestions.
 ### Coordinated design
 
 - Lifecycle controls appear at workspace level, never on individual records.
-- Normal record controls are reused inside the selected draft.
+- Normal record controls are reused inside the selected change set.
 - Validation is separate from activation and has no publishing side effect.
 - One activation publishes the whole merged graph or nothing.
 - “Created from” and “superseded on activation” are not collapsed into one vague “previous version.”
@@ -178,11 +178,11 @@ For every relevant changed story, answer all of the following:
 
 - Can the intended user still complete the full journey through its claimed channel?
 - Did the number of decisions, screens or confirmations increase? If so, which named risk requires it?
-- Is routine live maintenance still possible without a draft?
+- Is routine live maintenance still possible without a change set?
 - Does the same generic flow work for two differently configured record types?
 - Are types, stable IDs, workspace scope and relationships preserved?
 - Does stale input fail explicitly rather than overwrite newer work?
-- Does failure preserve local input, drafts and already loaded content where applicable?
+- Does failure preserve local input, change sets and already loaded content where applicable?
 - Is every list bounded and every continuation tied to the original query/context?
 - Are empty, loading, failure, read-only and success states distinct?
 - Can the task be completed with a keyboard and at the narrow target size?
@@ -194,19 +194,19 @@ For every relevant changed story, answer all of the following:
 The canonical technical docs have been reconciled to ADR-027. At future updates, search for recurrence
 of these patterns outside explicitly labelled historical sections:
 
-- “every write requires a workspace draft”;
-- “published reads resolve only through active revision membership”;
+- “every write requires a change set”;
+- “published reads resolve only through active publication membership”;
 - “translation changes must always be activated”;
-- WP9 wording that says a selected draft is required before enabling any record write; and
-- release criteria that call revision projections authoritative without acknowledging the live data
+- WP9 wording that says a selected change set is required before enabling any record write; and
+- release criteria that call publication projections authoritative without acknowledging the live data
   store as the active read/write source; and
-- history status that describes the API as oldest first; WP8.1-C changed revision discovery to bounded,
+- history status that describes the API as oldest first; WP8.1-C changed publication discovery to bounded,
   deterministic newest-first paging. Browser history acceptance remains in WP9/WP10.
 - historical model migration described as a current override, or loss confirmation that bypasses
   target validation, parser support or workspace isolation.
 
 Historical decisions may retain superseded text when clearly labelled. Current status, API, roadmap and
-user documentation must state that live data writes are direct and design drafts are optional.
+user documentation must state that live data writes are direct and change sets are optional.
 
 ## Release evidence record
 
@@ -253,7 +253,7 @@ from an implementation's size or component count.
 
 Use SC-07 and SC-15 with the [0.7 plan](../BASE_0_7_IMPLEMENTATION_PLAN.md). WP-9 adds independent
 binding fixtures, candidates beyond page one, large ambiguous sets, typed attributes, direction-aware
-clearing, generic-write/mapping races and draft activation/live same-set conflicts. Version selection
+clearing, generic-write/mapping races and publishing/live same-set conflicts. Version selection
 uses differing content releases on one schema, complete inherited candidate checks, atomic refusal,
 external pin changes and model-dependent route/form/cursor recovery. WP-11 adds focused real-browser
 dialog evidence plus HTTP/component refusal coverage. WP-8A/WP-8B extend gate scenarios to new controls

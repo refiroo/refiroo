@@ -30,10 +30,10 @@ modules.
 | ---------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------- |
 | Application model      | The definition of applications, record types, fields, relationships and views            | Deliberate draft, check, install and activation process |
 | Live reference data    | The codes, names, availability, translations and relationships people maintain every day | Direct edit with conflict protection and audit          |
-| Workspace design draft | An optional safe place to prepare a coordinated set of data changes                      | Edit, validate and activate as one change set           |
-| Workspace revision     | A read-only historical snapshot created when a design draft is activated                 | Never edited in place                                   |
+| Workspace change set | An optional safe place to prepare a coordinated set of data changes                      | Edit, validate and activate as one change set           |
+| Publication     | A read-only publication created when a change set is activated                 | Never edited in place                                   |
 
-A routine data edit must not require a workspace draft or model release. A draft is chosen when a team
+A routine data edit must not require a change set or model release. A draft is chosen when a team
 needs to prepare and validate a coordinated design change away from live data.
 
 ## Status vocabulary
@@ -82,9 +82,9 @@ for product 0.10.
 ## Evidence and maintenance rule
 
 The original catalogue snapshot is **2026-09-07**. This **2026-09-08** update reviewed product and
-roadmap coverage, browser reachability and workspace draft/merge/retirement behavior against base
+roadmap coverage, browser reachability and change-set/merge/withdrawal behavior against base
 `60b99d3` plus pre-existing uncommitted changes. It adds realistic acceptance examples, fills story
-coverage gaps and corrects current-live draft and historical-restore overclaims. It does not certify a
+coverage gaps and corrects current-live change set and historical-restore overclaims. It does not certify a
 tagged release or rerun the existing tests. Other catalogue evidence remains the prior assessment;
 new source findings and validation limits are recorded in [planning handoff](PLANNING_HANDOFF.md).
 The user subsequently accepted GAP-01–GAP-08 and authorized the technical documentation update. ADR-027

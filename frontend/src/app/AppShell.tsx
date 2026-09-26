@@ -50,22 +50,24 @@ export function AppShell({
   onOpenObject: (item: Pick<ObjectItem, "applicationKey" | "objectTypeKey" | "id" | "workspaceKey">) => void;
   children: ReactNode;
 }) {
-  const { draft } = useWorkspaceData();
+  const { changeSet, publication } = useWorkspaceData();
   const rail = useLocalNumberPreference("rdm:layout:navigation-width:v1", 248, 210, 380);
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [sidebarSlot, setSidebarSlot] = useState<HTMLElement | null>(null);
-  const workspaceDraftId =
-    activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.workspaceDraftId : undefined;
-  const workspaceRevisionId =
-    activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.workspaceRevisionId : undefined;
+  const changeSetId =
+    activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.changeSetId : undefined;
+  const publicationId =
+    activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.publicationId : undefined;
 
   const models = activeRoute.kind === "models";
-  const status = workspaceDraftId
-    ? `Draft · ${draft?.name || "Untitled draft"}`
-    : workspaceRevisionId
-      ? "Historical snapshot"
+  const status = changeSetId
+    ? `Change set · ${changeSet?.name || "Untitled change set"}`
+    : publicationId
+      ? publication
+        ? `Publication ${publication.publicationNumber}`
+        : "Publication"
       : "Live";
-  const statusTone = workspaceDraftId ? "draft" : workspaceRevisionId ? "history" : "live";
+  const statusTone = changeSetId ? "change-set" : publicationId ? "publication" : "live";
 
   return (
     <div className="app-shell" style={{ "--sidebar": `${rail.value}px` } as CSSProperties}>
@@ -151,8 +153,8 @@ export function AppShell({
                 onOpenCollection={(viewKey, parent) => {
                   onNavigate({
                     ...viewRoute(application, viewKey, activeRoute.workspaceKey),
-                    workspaceDraftId,
-                    workspaceRevisionId,
+                    changeSetId,
+                    publicationId,
                     ...(parent ? { parentObjectId: parent.id, parentObjectTypeKey: parent.objectTypeKey } : {}),
                   });
                   setNavigationOpen(false);
@@ -180,17 +182,17 @@ export function AppShell({
               <span>{workspace?.key === activeRoute.workspaceKey ? workspace.label : activeRoute.workspaceKey}</span>
               <span aria-hidden="true"> / </span>
               <span>{application.name}</span>
-              {activeRoute.kind !== "drafts" && activeRoute.kind !== "history" && (
+              {activeRoute.kind !== "changeSets" && activeRoute.kind !== "publications" && (
                 <span className={`context-status status-${statusTone}`}>{status}</span>
               )}
             </div>
             <nav className="data-context-switch" aria-label="Workspace data context">
               <button
                 aria-current={
-                  activeRoute.kind !== "drafts" &&
-                  activeRoute.kind !== "history" &&
-                  !workspaceDraftId &&
-                  !workspaceRevisionId
+                  activeRoute.kind !== "changeSets" &&
+                  activeRoute.kind !== "publications" &&
+                  !changeSetId &&
+                  !publicationId
                     ? "page"
                     : undefined
                 }
@@ -199,28 +201,28 @@ export function AppShell({
                 Live
               </button>
               <button
-                aria-current={activeRoute.kind === "drafts" || workspaceDraftId ? "page" : undefined}
+                aria-current={activeRoute.kind === "changeSets" || changeSetId ? "page" : undefined}
                 onClick={() =>
                   onNavigate({
-                    kind: "drafts",
+                    kind: "changeSets",
                     applicationKey: application.key,
                     workspaceKey: activeRoute.workspaceKey,
                   })
                 }
               >
-                Drafts
+                Change sets
               </button>
               <button
-                aria-current={activeRoute.kind === "history" || workspaceRevisionId ? "page" : undefined}
+                aria-current={activeRoute.kind === "publications" || publicationId ? "page" : undefined}
                 onClick={() =>
                   onNavigate({
-                    kind: "history",
+                    kind: "publications",
                     applicationKey: application.key,
                     workspaceKey: activeRoute.workspaceKey,
                   })
                 }
               >
-                History
+                Publications
               </button>
             </nav>
           </div>

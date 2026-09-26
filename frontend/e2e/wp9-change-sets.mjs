@@ -1,5 +1,5 @@
 import { recordAction } from "./record-actions.mjs";
-// Real-backend SC-05/SC-06 and draft SC-04 regression. All model/data mutations target a temporary database.
+// Real-backend SC-05/SC-06 and change set SC-04 regression. All model/data mutations target a temporary database.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, writeFile } from "node:fs/promises";
@@ -12,7 +12,7 @@ import { chooseObject } from "./helpers/lists.mjs";
 
 const frontend = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const root = resolve(frontend, "..");
-const output = await mkdtemp(resolve(tmpdir(), "rdm-wp9-drafts-"));
+const output = await mkdtemp(resolve(tmpdir(), "rdm-wp9-change-sets-"));
 const processes = [];
 let browser;
 const failures = [];
@@ -83,7 +83,7 @@ try {
   await ready(`${apiUrl}/health`, backend);
   const ui = start(process.execPath, ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", String(uiPort), "--strictPort"], frontend, { VITE_API_URL: apiUrl });
   await ready(uiUrl, ui);
-  await api("/workspaces", { key: "authoring", label: "Draft acceptance" });
+  await api("/workspaces", { key: "authoring", label: "Change set acceptance" });
   const workspaceKey = "authoring";
   browser = await chromium.launch({ headless: true, ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}) });
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
@@ -106,27 +106,27 @@ try {
   const systemValue = await create("system-value", "rdm-systems", "Partner value", "value-code", "PARTNER-VALUE", system, [{ attributeTypeKey: "value-name", value: "Partner value" }]);
   const language = await create("language", "rdm-translations", "Czech", "language-code", "cs");
   const group = await create("translation-group", "rdm-translations", "Czech delivery", "group-code", "CS-DELIVERY", language);
-  const get = (object, draftId) => api(`/objects/${object.objectTypeKey}/${object.id}?workspaceKey=${workspaceKey}${draftId ? `&workspaceDraftId=${draftId}` : ""}`);
+  const get = (object, changeSetId) => api(`/objects/${object.objectTypeKey}/${object.id}?workspaceKey=${workspaceKey}${changeSetId ? `&changeSetId=${changeSetId}` : ""}`);
   const value = (object, key) => object.attributes.find((item) => item.attributeTypeKey === key)?.value;
-  async function open(object, draftId) {
-    await page.goto(`${uiUrl}/apps/${object.applicationKey}/objects/${object.objectTypeKey}/${object.id}?workspaceKey=${workspaceKey}${draftId ? `&workspaceDraftId=${draftId}` : ""}`);
+  async function open(object, changeSetId) {
+    await page.goto(`${uiUrl}/apps/${object.applicationKey}/objects/${object.objectTypeKey}/${object.id}?workspaceKey=${workspaceKey}${changeSetId ? `&changeSetId=${changeSetId}` : ""}`);
     await shown(page.getByRole("button", { name: "Record actions", exact: true }));
   }
-  async function openDraftMenu() {
-    const menu = page.locator("details.draft-secondary-actions");
+  async function openChangeSetMenu() {
+    const menu = page.locator("details.change-set-secondary-actions");
     if (!(await menu.evaluate((element) => element.open))) await menu.locator("summary").click();
   }
-  async function startDraft(name) {
-    await page.getByRole("navigation", { name: "Workspace data context" }).getByRole("button", { name: "Drafts", exact: true }).click();
+  async function startChangeSet(name) {
+    await page.getByRole("navigation", { name: "Workspace data context" }).getByRole("button", { name: "Change sets", exact: true }).click();
     await page.getByRole("button", { name: "Start from current live data", exact: true }).click();
-    await dialog().getByLabel("Draft name").fill(name);
-    await dialog().getByRole("button", { name: "Create draft", exact: true }).click();
-    await shown(page.getByRole("region", { name: "Draft publication" }).getByRole("heading", { name, exact: true }));
-    assert.match(await page.locator("main").innerText(), /Current live data at draft creation/);
-    return new URL(page.url()).searchParams.get("workspaceDraftId");
+    await dialog().getByLabel("Change set name").fill(name);
+    await dialog().getByRole("button", { name: "Create change set", exact: true }).click();
+    await shown(page.getByRole("region", { name: "Change set publication" }).getByRole("heading", { name, exact: true }));
+    assert.match(await page.locator("main").innerText(), /Current live data at change set creation/);
+    return new URL(page.url()).searchParams.get("changeSetId");
   }
-  async function edit(object, draftId, fields) {
-    await open(object, draftId);
+  async function edit(object, changeSetId, fields) {
+    await open(object, changeSetId);
     await recordAction(page, "Edit all fields");
     for (const [key, val] of Object.entries(fields)) {
       const control = dialog().getByLabel(key, { exact: true });
@@ -137,31 +137,31 @@ try {
     const result = await response;
     assert.equal(result.status(), 200, await result.text());
     await dialog().waitFor({ state: "hidden" });
-    return get(object, draftId);
+    return get(object, changeSetId);
   }
   async function validate() {
-    await page.getByRole("button", { name: "Validate draft", exact: true }).click();
-    await shown(page.getByText("Draft validation passed", { exact: true }));
-    await page.getByRole("button", { name: "Activate draft", exact: true }).waitFor({ state: "visible" });
+    await page.getByRole("button", { name: "Validate change set", exact: true }).click();
+    await shown(page.getByText("Change set validation passed", { exact: true }));
+    await page.getByRole("button", { name: "Publish change set", exact: true }).waitFor({ state: "visible" });
   }
   async function publish(status = 200) {
-    await page.getByRole("button", { name: "Activate draft", exact: true }).click();
+    await page.getByRole("button", { name: "Publish change set", exact: true }).click();
     assert.equal(await confirm().getByRole("button", { name: "Cancel", exact: true }).evaluate((node) => node === document.activeElement), true);
-    const response = page.waitForResponse((response) => response.url().endsWith("/activation") && response.request().method() === "POST");
-    await confirm().getByRole("button", { name: "Publish changes", exact: true }).click();
+    const response = page.waitForResponse((response) => response.url().endsWith("/publication") && response.request().method() === "POST");
+    await confirm().getByRole("button", { name: "Publish change set", exact: true }).click();
     const result = await response;
     assert.equal(result.status(), status, await result.text());
     if (status === 200) await shown(page.getByText(/Reviewed changes are now live/));
-    else await shown(page.getByText(/The draft is preserved/));
+    else await shown(page.getByText(/The change set is preserved/));
     return result.json();
   }
   await open(domain);
-  const first = await startDraft("Coordinated delivery");
-  assert.equal((await api(`/workspaces/${workspaceKey}/revisions`)).items.length, 0);
+  const first = await startChangeSet("Coordinated delivery");
+  assert.equal((await api(`/workspaces/${workspaceKey}/publications`)).items.length, 0);
   assert.equal((await get(domain, first)).name, "Delivery");
   await edit(domain, first, { Name: "Delivery reviewed", Count: "0", Active: false });
   await edit(system, first, { Name: "Partner reviewed" });
-  // Required ownership connections and individual fields use canonical draft CRUD too.
+  // Required ownership connections and individual fields use canonical change set CRUD too.
   await open(codelist, first);
   await page.getByRole("button", { name: "Add Translation", exact: true }).click();
   await chooseObject(dialog(), group.id);
@@ -174,7 +174,7 @@ try {
   const translation = await translatedResponse.json();
   await dialog().waitFor({ state: "hidden" });
   assert.equal(translation.parentObjectId, group.id);
-  assert((await api(`/relations?objectId=${translation.id}&workspaceDraftId=${first}`)).items.some((item) => item.relation.fromObjectId === codelist.id && item.relation.relationTypeKey === "object-has-translation"));
+  assert((await api(`/relations?objectId=${translation.id}&changeSetId=${first}`)).items.some((item) => item.relation.fromObjectId === codelist.id && item.relation.relationTypeKey === "object-has-translation"));
   assert.equal((await api(`/objects/translation?workspaceKey=${workspaceKey}`)).items.length, 0);
   await open(translation, first);
   const translatedName = panel(page, "Translation details").locator(".attribute-grid > div").filter({ has: page.locator("dt", { hasText: /^Translated name$/ }) });
@@ -188,48 +188,48 @@ try {
   assert.equal((await get(domain)).name, "Delivery");
   assert.equal((await get(system)).name, "Partner");
   assert.equal((await get(other, first)).name, "Payments");
-  // Ordinary relationships use the same controls and draft candidate lookup.
+  // Ordinary relationships use the same controls and change set candidate lookup.
   await open(domain, first);
   await panel(page, "System representations").getByRole("button", { name: "Add relationship" }).click();
   await chooseObject(dialog(), systemValue.id);
   await dialog().getByLabel("Count", { exact: true }).fill("0");
   await dialog().getByRole("button", { name: "Create", exact: true }).click();
   await dialog().waitFor({ state: "hidden" });
-  const draftRelations = await api(`/relations?objectId=${domain.id}&workspaceDraftId=${first}`);
-  assert(draftRelations.items.some((item) => item.relation.toObjectId === systemValue.id));
+  const changeSetRelations = await api(`/relations?objectId=${domain.id}&changeSetId=${first}`);
+  assert(changeSetRelations.items.some((item) => item.relation.toObjectId === systemValue.id));
   assert(!(await api(`/relations?objectId=${domain.id}&workspaceKey=${workspaceKey}`)).items.some((item) => item.relation.toObjectId === systemValue.id));
-  // In-app navigation and reload retain draft identity across applications and back to the collection.
+  // In-app navigation and reload retain change set identity across applications and back to the collection.
   await page.getByRole("navigation", { name: "Applications" }).getByRole("button", { name: model.applications.find((app) => app.key === "rdm-systems").name, exact: true }).click();
-  assert.equal(new URL(page.url()).searchParams.get("workspaceDraftId"), first);
+  assert.equal(new URL(page.url()).searchParams.get("changeSetId"), first);
   await page.reload();
   await shown(page.getByRole("main").getByRole("button", { name: "Partner reviewed", exact: true }));
   await open(domain, first);
   await validate();
-  const revision = await publish();
+  const publication = await publish();
   assert.equal((await get(domain)).name, "Delivery reviewed");
   assert.equal(value(await get(domain), "qa-count"), 0);
   assert.equal(value(await get(domain), "active"), false);
   assert.equal((await get(system)).name, "Partner reviewed");
   assert.equal((await get(other)).name, "Payment live correction");
   assert.equal((await get(addition)).name, "Live addition");
-  checks.push("SC-05 no-publication current-live copy; SC-06 two-type draft edits with zero/false, translation create with atomic ownership, individual field edit and typed ordinary relation remain invisible live, then activate together preserving unrelated correction and addition; application navigation and reload retain draft");
+  checks.push("SC-05 no-publication current-live copy; SC-06 two-type change set edits with zero/false, translation create with atomic ownership, individual field edit and typed ordinary relation remain invisible live, then activate together preserving unrelated correction and addition; application navigation and reload retain change set");
 
   // A new current-live base includes changes since publication and freezes them.
   const liveDomain = await get(domain);
   await api(`/objects/domain/${domain.id}`, { expectedVersion: liveDomain.version, name: "Post-publication edit" }, "PATCH");
   const post = await create("domain", "rdm-master", "Post-publication addition", "domain-code", "POST-PUB");
   await open(domain);
-  const second = await startDraft("Post-publication review");
+  const second = await startChangeSet("Post-publication review");
   assert.equal((await get(domain, second)).name, "Post-publication edit");
   assert.equal((await get(post, second)).name, "Post-publication addition");
-  assert.equal((await api(`/workspaces/${workspaceKey}/revisions`)).items.length, 1);
+  assert.equal((await api(`/workspaces/${workspaceKey}/publications`)).items.length, 1);
   // Record and aggregate conflict: preserve entered controls and require explicit retry.
   await open(domain, second);
   await recordAction(page, "Edit all fields");
   await dialog().getByLabel("Name", { exact: true }).fill("My preserved input");
-  const latestDraft = await api(`/workspace-drafts/${second}`);
+  const latestChangeSet = await api(`/change-sets/${second}`);
   const latestObject = await get(domain, second);
-  await api(`/objects/domain/${domain.id}`, { workspaceDraftId: second, expectedWorkspaceDraftVersion: latestDraft.version, expectedVersion: latestObject.version, name: "Other draft editor" }, "PATCH");
+  await api(`/objects/domain/${domain.id}`, { changeSetId: second, expectedChangeSetVersion: latestChangeSet.version, expectedVersion: latestObject.version, name: "Other change set editor" }, "PATCH");
   await dialog().getByRole("button", { name: "Save changes", exact: true }).click();
   await shown(dialog().getByText(/your edits are preserved/));
   assert.equal(await dialog().getByLabel("Name", { exact: true }).inputValue(), "My preserved input");
@@ -246,20 +246,20 @@ try {
   assert.equal((await get(system)).name, "Partner reviewed");
   assert.equal((await get(domain)).name, "Live touched conflict");
   assert.equal((await get(domain, second)).name, "My preserved input");
-  assert.equal((await api(`/workspaces/${workspaceKey}/revisions`)).items.length, 1);
-  checks.push("SC-05 post-publication additions and edits copied; record/aggregate conflict retains form input with explicit retry; SC-06 touched-record activation conflict names identity, preserves draft and publishes no other changes");
-  await openDraftMenu();
-  await page.getByRole("button", { name: "Discard draft", exact: true }).click();
+  assert.equal((await api(`/workspaces/${workspaceKey}/publications`)).items.length, 1);
+  checks.push("SC-05 post-publication additions and edits copied; record/aggregate conflict retains form input with explicit retry; SC-06 touched-record activation conflict names identity, preserves change set and publishes no other changes");
+  await openChangeSetMenu();
+  await page.getByRole("button", { name: "Discard change set", exact: true }).click();
   await confirm().getByRole("button", { name: "Cancel", exact: true }).click();
-  await api(`/workspace-drafts/${second}`);
-  await openDraftMenu();
-  await page.getByRole("button", { name: "Discard draft", exact: true }).click();
-  await confirm().getByRole("button", { name: "Discard draft", exact: true }).click();
-  await shown(page.getByText("Draft discarded. Live data is unchanged.", { exact: true }));
-  assert.equal((await fetch(`${apiUrl}/api/v1/workspace-drafts/${second}`)).status, 404);
+  await api(`/change-sets/${second}`);
+  await openChangeSetMenu();
+  await page.getByRole("button", { name: "Discard change set", exact: true }).click();
+  await confirm().getByRole("button", { name: "Discard change set", exact: true }).click();
+  await shown(page.getByText("Change set discarded. Live data is unchanged.", { exact: true }));
+  assert.equal((await fetch(`${apiUrl}/api/v1/change-sets/${second}`)).status, 404);
 
-  // Valid draft + later independent live record can form an invalid final graph.
-  const third = await startDraft("Merged graph refusal");
+  // Valid change set + later independent live record can form an invalid final graph.
+  const third = await startChangeSet("Merged graph refusal");
   await edit(domain, third, { "Domain code": "MERGED-DUP" });
   await validate();
   const countOther = await get(other);
@@ -270,20 +270,20 @@ try {
   assert.equal(value(await get(other), "domain-code"), "MERGED-DUP");
   assert.equal(value(await get(domain, third), "domain-code"), "MERGED-DUP");
   assert.equal(value(await get(domain), "domain-code"), "DELIVERY");
-  assert.equal((await api(`/workspaces/${workspaceKey}/revisions`)).items[0].id, revision.id);
+  assert.equal((await api(`/workspaces/${workspaceKey}/publications`)).items[0].id, publication.id);
   await page.screenshot({ path: resolve(output, "merged-graph-refusal.png"), fullPage: true });
   checks.push("SC-06 validation before a later independent live change; invalid merged unique-field graph returns 422 diagnostics with no publication or partial writes; discard cancellation and confirmed discard leave live untouched");
 
-  // Draft SC-04: signed containment deletion, stale aggregate preview, independent hierarchy retained.
+  // Change set SC-04: signed containment deletion, stale aggregate preview, independent hierarchy retained.
   await open(domain);
-  const fourth = await startDraft("Draft deletion review");
+  const fourth = await startChangeSet("Change set deletion review");
   await open(domain, fourth);
   await recordAction(page, "Delete record");
   await confirm().getByRole("button", { name: "Delete", exact: true }).click();
   await shown(confirm().getByRole("button", { name: "Confirm deletion", exact: true }));
-  const beforeDelete = await api(`/workspace-drafts/${fourth}`);
+  const beforeDelete = await api(`/change-sets/${fourth}`);
   const child = await get(codelist, fourth);
-  await api(`/objects/codelist/${child.id}`, { workspaceDraftId: fourth, expectedWorkspaceDraftVersion: beforeDelete.version, expectedVersion: child.version, name: "Changed child" }, "PATCH");
+  await api(`/objects/codelist/${child.id}`, { changeSetId: fourth, expectedChangeSetVersion: beforeDelete.version, expectedVersion: child.version, name: "Changed child" }, "PATCH");
   await confirm().getByRole("button", { name: "Confirm deletion", exact: true }).click();
   await shown(confirm().getByRole("button", { name: "Retry", exact: true }));
   await get(domain, fourth); await get(codelist, fourth);
@@ -292,11 +292,11 @@ try {
   await shown(confirm().getByText("Changed child", { exact: false }));
   await confirm().getByRole("button", { name: "Confirm deletion", exact: true }).click();
   await confirm().waitFor({ state: "hidden" });
-  assert.equal((await fetch(`${apiUrl}/api/v1/objects/domain/${domain.id}?workspaceDraftId=${fourth}`)).status, 404);
-  assert.equal((await fetch(`${apiUrl}/api/v1/objects/codelist/${codelist.id}?workspaceDraftId=${fourth}`)).status, 404);
+  assert.equal((await fetch(`${apiUrl}/api/v1/objects/domain/${domain.id}?changeSetId=${fourth}`)).status, 404);
+  assert.equal((await fetch(`${apiUrl}/api/v1/objects/codelist/${codelist.id}?changeSetId=${fourth}`)).status, 404);
   await get(systemValue, fourth); await get(domain); await get(codelist); await get(translation);
-  assert.equal((await fetch(`${apiUrl}/api/v1/objects/translation/${translation.id}?workspaceDraftId=${fourth}`)).status, 404);
-  // Independent system hierarchy can be deleted using the same draft control.
+  assert.equal((await fetch(`${apiUrl}/api/v1/objects/translation/${translation.id}?changeSetId=${fourth}`)).status, 404);
+  // Independent system hierarchy can be deleted using the same change set control.
   await open(system, fourth);
   await recordAction(page, "Delete record");
   await confirm().getByRole("button", { name: "Delete", exact: true }).click();
@@ -304,24 +304,24 @@ try {
   await confirm().waitFor({ state: "hidden" });
   await get(system); await get(systemValue);
   await page.setViewportSize({ width: 390, height: 844 });
-  await openDraftMenu();
-  await page.getByRole("button", { name: "Discard draft", exact: true }).click();
+  await openChangeSetMenu();
+  await page.getByRole("button", { name: "Discard change set", exact: true }).click();
   await page.keyboard.press("Escape");
   await confirm().waitFor({ state: "hidden" });
-  await page.waitForFunction(() => document.activeElement?.textContent === "Discard draft");
-  await page.screenshot({ path: resolve(output, "draft-narrow.png"), fullPage: true });
+  await page.waitForFunction(() => document.activeElement?.textContent === "Discard change set");
+  await page.screenshot({ path: resolve(output, "change-set-narrow.png"), fullPage: true });
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
-  checks.push("Draft SC-04 two containment types: signed preview and stale-preview refusal; retry obtains current aggregate and new preview; deleting Master containment retains independent System hierarchy; draft deletions leave live untouched; narrow confirmation Escape/focus restoration");
-  const draftWrites = writes.filter((item) => item.url.includes("/objects") || item.url.includes("/relations"));
-  assert(draftWrites.length > 8);
-  for (const item of draftWrites) {
+  checks.push("Change set SC-04 two containment types: signed preview and stale-preview refusal; retry obtains current aggregate and new preview; deleting Master containment retains independent System hierarchy; change set deletions leave live untouched; narrow confirmation Escape/focus restoration");
+  const changeSetWrites = writes.filter((item) => item.url.includes("/objects") || item.url.includes("/relations"));
+  assert(changeSetWrites.length > 8);
+  for (const item of changeSetWrites) {
     const query = new URL(item.url).searchParams;
-    assert(item.body?.workspaceDraftId || query.get("workspaceDraftId"), `Missing draft context: ${item.url}`);
-    assert(item.body?.expectedWorkspaceDraftVersion || query.get("expectedWorkspaceDraftVersion"), `Missing aggregate version: ${item.url}`);
-    assert(!item.url.includes("/workspace-drafts/"));
+    assert(item.body?.changeSetId || query.get("changeSetId"), `Missing change set context: ${item.url}`);
+    assert(item.body?.expectedChangeSetVersion || query.get("expectedChangeSetVersion"), `Missing aggregate version: ${item.url}`);
+    assert(!item.url.includes("/change-sets/"));
   }
   assert.deepEqual(failures, []);
-  const report = { browser: browser.version(), viewports: ["1440x1000", "390x844"], checks, pageErrors: failures, canonicalDraftWrites: draftWrites.length, isolatedDatabase: resolve(output, "database.sqlite") };
+  const report = { browser: browser.version(), viewports: ["1440x1000", "390x844"], checks, pageErrors: failures, canonicalChangeSetWrites: changeSetWrites.length, isolatedDatabase: resolve(output, "database.sqlite") };
   await writeFile(resolve(output, "report.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify({ ...report, output }, null, 2));
 } catch (error) {

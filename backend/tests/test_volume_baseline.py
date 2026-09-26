@@ -6,8 +6,8 @@ rows per row of a full page, at either scale. Row counts vary by a few with page
 on one page can share a parent), so they are bounded rather than compared. Wall-time figures at full volume come from
 ``volume_baseline.py`` and are recorded in docs/BASE_0_8_IMPLEMENTATION_PLAN.md.
 
-Live reads meet the budgets, and since S2 so do draft and history reads, which answer in SQL. Since
-S2b draft writes do too: they read only the records and relations they touch.
+Live reads meet the budgets, and since S2 so do change set and history reads, which answer in SQL. Since
+S2b change set writes do too: they read only the records and relations they touch.
 """
 
 import json
@@ -30,9 +30,9 @@ from volume_fixture import (
 from app.db import get_engine
 from app.models.database import (
     ObjectRelation,
+    PublicationObject,
+    PublicationRelation,
     RdmObject,
-    WorkspaceRevisionObject,
-    WorkspaceRevisionRelation,
 )
 
 SMALL, LARGE = scaled_shape(0.01), scaled_shape(0.04)
@@ -78,12 +78,12 @@ def test_live_reads_and_writes_do_not_grow_with_the_dataset(baselines):
     assert not _over_budget(baselines, {"live"}, writes=True)
 
 
-def test_draft_and_history_reads_hold_the_live_budget(baselines):
-    assert not _over_budget(baselines, {"draft", "history"})
+def test_change_set_and_history_reads_hold_the_live_budget(baselines):
+    assert not _over_budget(baselines, {"change_set", "history"})
 
 
-def test_draft_writes_hold_the_live_budget(baselines):
-    assert not _over_budget(baselines, {"draft"}, writes=True)
+def test_change_set_writes_hold_the_live_budget(baselines):
+    assert not _over_budget(baselines, {"change_set"}, writes=True)
 
 
 def test_fixture_matches_its_shape_and_is_reproducible(_migrated_template, tmp_path, baselines):
@@ -112,23 +112,23 @@ def test_fixture_matches_its_shape_and_is_reproducible(_migrated_template, tmp_p
                 )
                 == SMALL.citations
             )
-            # Revision 1 holds exactly the live membership.
+            # Publication 1 holds exactly the live membership.
             live = set(
                 connection.execute(
                     select(RdmObject.id, RdmObject.name, RdmObject.parent_object_id)
                 )
             )
-            revision = set(
+            publication = set(
                 connection.execute(
                     select(
-                        WorkspaceRevisionObject.object_id,
-                        WorkspaceRevisionObject.name,
-                        WorkspaceRevisionObject.parent_object_id,
-                    ).where(WorkspaceRevisionObject.revision_id == dataset.revision_id)
+                        PublicationObject.object_id,
+                        PublicationObject.name,
+                        PublicationObject.parent_object_id,
+                    ).where(PublicationObject.publication_id == dataset.publication_id)
                 )
             )
-            assert live == revision
-            assert count(select(WorkspaceRevisionRelation)) == count(select(ObjectRelation))
+            assert live == publication
+            assert count(select(PublicationRelation)) == count(select(ObjectRelation))
 
         # The deep node's ancestor path is its group plus every hierarchy level.
         deep = client.get(
@@ -137,16 +137,16 @@ def test_fixture_matches_its_shape_and_is_reproducible(_migrated_template, tmp_p
         assert deep.status_code == 200, deep.text
         assert len(deep.json()["path"]) == SMALL.node_depth + 1 >= 7
 
-        # The draft is a valid graph, so the app accepts the bulk rows as its own.
-        validation = client.post(f"/api/v1/workspace-drafts/{dataset.draft_id}/validation")
+        # The change set is a valid graph, so the app accepts the bulk rows as its own.
+        validation = client.post(f"/api/v1/change-sets/{dataset.change_set_id}/validation")
         assert validation.json() == {"valid": True, "diagnostics": []}
         edited = client.get(
             f"/api/v1/objects/{ITEM}",
-            params={"workspaceDraftId": dataset.draft_id, "search": "(edited)", "pageSize": 500},
+            params={"changeSetId": dataset.change_set_id, "search": "(edited)", "pageSize": 500},
         )
         assert edited.status_code == 200, edited.text
-        assert len(edited.json()["items"]) == dataset.counts["draftEdited"]
-        assert dataset.counts["draftDeleted"] > 0 and dataset.counts["draftNew"] > 0
+        assert len(edited.json()["items"]) == dataset.counts["changeSetEdited"]
+        assert dataset.counts["changeSetDeleted"] > 0 and dataset.counts["changeSetNew"] > 0
 
 
 def test_volume_model_uses_no_starter_key():

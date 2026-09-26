@@ -50,7 +50,7 @@ export function ObjectDeleteDialog({
       } else {
         setError(errorMessage(cause));
         if (
-          isApiError(cause, "workspace_draft_version_conflict") ||
+          isApiError(cause, "change_set_version_conflict") ||
           isApiError(cause, "deletion_preview_changed") ||
           isApiError(cause, "version_conflict")
         )

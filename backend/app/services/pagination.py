@@ -6,7 +6,7 @@ position. The two entry points here own that mechanism so each endpoint only dec
 * :func:`paginate_statement` pages a SQLAlchemy select over persisted rows;
 * :func:`paginate_sequence` pages an in-memory sequence of model definitions.
 
-A statement over a large indexed base overlaid by a few rows of its own (a draft over its base)
+A statement over a large indexed base overlaid by a few rows of its own (a change set over its base)
 can also name the parts it unions (:class:`Overlay`), so a position read resolves against the
 base's index instead of skipping every earlier row through the union.
 
@@ -209,7 +209,7 @@ def paginate_statement[Row](
     """Page a select with a lexicographic keyset predicate over ``keys``.
 
     A statement over one mapped entity returns its instances; with ``rows=True`` a statement over
-    labelled columns (a draft or revision projection) returns result rows. ``seek`` turns a
+    labelled columns (a change set or publication projection) returns result rows. ``seek`` turns a
     ``seek`` value into a predicate; without it, seek applies to the first sort key. ``overlay``
     names the parts of a base-plus-overlay statement, which position reads resolve through.
 

@@ -4,7 +4,7 @@ import { errorMessage, isApiError } from "@/api/errors";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
 import { useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { allowNavigation } from "@/routing/navigationGuard";
-import type { WorkspaceDraft, WorkspaceDraftValidation } from "@/types";
+import type { ChangeSet, ChangeSetValidation } from "@/types";
 import { Notice } from "@/ui/Notice";
 import { InlineError } from "@/ui/InlineError";
 import { Modal } from "@/ui/Modal";
@@ -17,15 +17,15 @@ function asSentence(cause: unknown) {
   return /[.!?]$/.test(message) ? message : `${message}.`;
 }
 
-export function draftSource(draft: WorkspaceDraft) {
-  return draft.source === "currentLive"
-    ? "Current live data at draft creation"
-    : draft.source === "revision"
-      ? `Historical revision ${draft.derivedFromRevisionId}`
+export function changeSetSource(changeSet: ChangeSet) {
+  return changeSet.source === "currentLive"
+    ? "Current live data at change set creation"
+    : changeSet.source === "publication"
+      ? `From publication ${changeSet.derivedFromPublicationId}`
       : "Empty bootstrap";
 }
 
-export function WorkspaceDrafts({
+export function ChangeSets({
   workspaceKey,
   readOnly,
   onOpen,
@@ -34,15 +34,15 @@ export function WorkspaceDrafts({
   readOnly: boolean;
   onOpen: (id: string) => void;
 }) {
-  const feed = useCursorFeed((cursor) => api.workspaceDrafts(workspaceKey, cursor), [workspaceKey]);
+  const feed = useCursorFeed((cursor) => api.changeSets(workspaceKey, cursor), [workspaceKey]);
   const [creating, setCreating] = useState(false);
   return (
     <section className="context-page">
       <header className="page-header collection-header">
         <div className="page-title">
           <div>
-            <h1>Workspace drafts</h1>
-            <p>Coordinate changes in an optional draft. Ordinary maintenance remains available in Live.</p>
+            <h1>Change sets</h1>
+            <p>Coordinate changes in an optional change set. Ordinary maintenance remains available in Live.</p>
           </div>
         </div>
         {!readOnly && (
@@ -54,45 +54,47 @@ export function WorkspaceDrafts({
         )}
       </header>
       {feed.items.length > 0 && (
-        <div className="draft-list">
-          {feed.items.map((draft) => (
-            <article className="surface draft-card" key={draft.id}>
+        <div className="change-set-list">
+          {feed.items.map((changeSet) => (
+            <article className="surface change-set-card" key={changeSet.id}>
               <div>
-                <span className="context-status status-draft">Draft</span>
-                <h2>{draft.name || "Untitled draft"}</h2>
-                <p>{draftSource(draft)}</p>
-                <p className="draft-model-release">
-                  Model: {draft.modelReleaseKey} {draft.modelReleaseVersion}
+                <span className="context-status status-change-set">Change set</span>
+                <h2>{changeSet.name || "Untitled change set"}</h2>
+                <p>{changeSetSource(changeSet)}</p>
+                <p className="change-set-model-release">
+                  Model: {changeSet.modelReleaseKey} {changeSet.modelReleaseVersion}
                 </p>
               </div>
-              <div className="draft-card-actions">
-                <span className="muted-text">Version {draft.version}</span>
-                <button className="secondary" onClick={() => onOpen(draft.id)}>
-                  Open draft
+              <div className="change-set-card-actions">
+                <span className="muted-text">Version {changeSet.version}</span>
+                <button className="secondary" onClick={() => onOpen(changeSet.id)}>
+                  Open change set
                 </button>
               </div>
             </article>
           ))}
         </div>
       )}
-      {feed.loading && <p className="muted-text">Loading drafts…</p>}
+      {feed.loading && <p className="muted-text">Loading change sets…</p>}
       {feed.error && <InlineError message={feed.error} onRetry={feed.retry} />}
       {!feed.loading && !feed.error && !feed.items.length && (
         <div className="surface empty-panel">
-          <strong>No drafts</strong>
-          <p>You can continue editing Live, or start a draft to prepare coordinated changes.</p>
+          <strong>No change sets</strong>
+          <p>You can continue editing Live, or start a change set to prepare coordinated changes.</p>
         </div>
       )}
       {feed.hasMore && !feed.error && (
         <button className="load-more" disabled={feed.loading} onClick={feed.loadMore}>
-          Load more drafts
+          Load more change sets
         </button>
       )}
-      {creating && <CreateDraft workspaceKey={workspaceKey} onClose={() => setCreating(false)} onCreated={onOpen} />}
+      {creating && (
+        <CreateChangeSet workspaceKey={workspaceKey} onClose={() => setCreating(false)} onCreated={onOpen} />
+      )}
     </section>
   );
 }
-function CreateDraft({
+function CreateChangeSet({
   workspaceKey,
   onClose,
   onCreated,
@@ -113,7 +115,7 @@ function CreateDraft({
     setError("");
     setDiagnostics([]);
     try {
-      onCreated((await api.createWorkspaceDraft(workspaceKey, name.trim(), selectedRelease || undefined)).id);
+      onCreated((await api.createChangeSet(workspaceKey, name.trim(), selectedRelease || undefined)).id);
     } catch (cause) {
       setError(errorMessage(cause));
       // An incompatible release names the records that do not fit, as a version change does.
@@ -136,7 +138,7 @@ function CreateDraft({
           available and nothing is published.
         </p>
         <label>
-          Draft name
+          Change set name
           <input autoFocus value={name} maxLength={300} onChange={(event) => setName(event.target.value)} />
         </label>
         {(releases.items.length > 1 || releases.hasMore) && (
@@ -165,7 +167,7 @@ function CreateDraft({
         {error && (
           <Notice tone="error">
             {error}
-            {diagnostics.length > 0 && <DraftDiagnostics items={diagnostics} />}
+            {diagnostics.length > 0 && <ChangeSetDiagnostics items={diagnostics} />}
           </Notice>
         )}
         <div className="dialog-actions">
@@ -178,7 +180,7 @@ function CreateDraft({
             Cancel
           </button>
           <button className="primary" disabled={pending}>
-            Create draft
+            Create change set
           </button>
         </div>
       </form>
@@ -187,7 +189,7 @@ function CreateDraft({
 }
 
 /** Human-readable diagnostics retain record identities without exposing serialized exception data. */
-export function DraftDiagnostics({ items }: { items: Array<Record<string, unknown>> }) {
+export function ChangeSetDiagnostics({ items }: { items: Array<Record<string, unknown>> }) {
   return (
     <ul>
       {items.map((item, index) => {
@@ -214,7 +216,7 @@ export function DraftDiagnostics({ items }: { items: Array<Record<string, unknow
   );
 }
 
-export function DraftActions({
+export function ChangeSetActions({
   readOnly,
   onExit,
   onModelChanged,
@@ -223,16 +225,16 @@ export function DraftActions({
   onExit: (message: string) => void;
   onModelChanged: () => Promise<void>;
 }) {
-  const { draft, activeModelReleaseId, activeModelReleaseLabel, warning, refresh } = useWorkspaceData();
+  const { changeSet, activeModelReleaseId, activeModelReleaseLabel, warning, refresh } = useWorkspaceData();
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [diagnostics, setDiagnostics] = useState<Array<Record<string, unknown>>>([]);
   const [validation, setValidation] = useState<{
-    result: WorkspaceDraftValidation;
+    result: ChangeSetValidation;
     version: number;
-    activeRevisionId: string | null;
+    activePublicationId: string | null;
   }>();
-  const [confirm, setConfirm] = useState<"activate" | "discard">();
+  const [confirm, setConfirm] = useState<"publish" | "discard">();
   const [changingVersion, setChangingVersion] = useState(false);
   const releases = useCursorFeed(
     (cursor) => (changingVersion ? api.modelReleases({ cursor }) : Promise.resolve({ items: [], nextCursor: null })),
@@ -241,8 +243,8 @@ export function DraftActions({
   const [selectedRelease, setSelectedRelease] = useState("");
   const [versionChangeError, setVersionChangeError] = useState("");
   const [versionChangeDiagnostics, setVersionChangeDiagnostics] = useState<Array<Record<string, unknown>>>([]);
-  if (!draft || !refresh) return null;
-  const current = draft;
+  if (!changeSet || !refresh) return null;
+  const current = changeSet;
   const reload = refresh;
   const modelMismatch = Boolean(activeModelReleaseId && activeModelReleaseId !== current.modelReleaseId);
   async function check() {
@@ -252,15 +254,15 @@ export function DraftActions({
     setValidation(undefined);
     try {
       const before = await reload();
-      const result = await api.validateWorkspaceDraft(current.id);
-      const revisions = await api.latestWorkspaceRevision(current.workspaceKey);
+      const result = await api.validateChangeSet(current.id);
+      const publications = await api.latestPublication(current.workspaceKey);
       const after = await reload();
       if (before.version !== after.version)
-        throw new Error("The draft changed during validation. Validate it again before activation.");
+        throw new Error("The change set changed during validation. Validate it again before publishing.");
       setValidation({
         result,
         version: after.version,
-        activeRevisionId: revisions.items[0]?.status === "active" ? revisions.items[0].id : null,
+        activePublicationId: publications.items[0]?.status === "active" ? publications.items[0].id : null,
       });
     } catch (cause) {
       setError(errorMessage(cause));
@@ -274,15 +276,15 @@ export function DraftActions({
     setDiagnostics([]);
     try {
       if (confirm === "discard") {
-        await api.discardWorkspaceDraft(current.id, current.version);
-        onExit("Draft discarded. Live data is unchanged.");
+        await api.discardChangeSet(current.id, current.version);
+        onExit("Change set discarded. Live data is unchanged.");
       } else if (validation && validation.version === current.version) {
-        const revision = await api.activateWorkspaceDraft(current.id, validation.version, validation.activeRevisionId);
-        onExit(`Published revision ${revision.revisionNumber}. Reviewed changes are now live.`);
-      } else throw new Error("The draft changed. Validate it again before activation.");
+        const publication = await api.publishChangeSet(current.id, validation.version, validation.activePublicationId);
+        onExit(`Published as Publication ${publication.publicationNumber}. Reviewed changes are now live.`);
+      } else throw new Error("The change set changed. Validate it again before publishing.");
     } catch (cause) {
       setError(
-        `${asSentence(cause)} The draft is preserved. Review the current data and validate again before retrying.`,
+        `${asSentence(cause)} The change set is preserved. Review the current data and validate again before retrying.`,
       );
       if (isApiError(cause) && cause.details && typeof cause.details === "object") {
         const details = cause.details as Record<string, unknown>;
@@ -315,14 +317,14 @@ export function DraftActions({
     setValidation(undefined);
     let changed = false;
     try {
-      await api.changeWorkspaceDraftModelRelease(current.workspaceKey, current.id, selectedRelease, current.version);
+      await api.setChangeSetModelRelease(current.id, selectedRelease, current.version);
       changed = true;
       await onModelChanged();
       setChangingVersion(false);
     } catch (cause) {
       setVersionChangeError(
         changed
-          ? `Model version changed, but the interface could not refresh. ${asSentence(cause)} Retry the draft refresh before editing.`
+          ? `Model version changed, but the interface could not refresh. ${asSentence(cause)} Retry the change set refresh before editing.`
           : errorMessage(cause),
       );
       if (isApiError(cause) && cause.details && typeof cause.details === "object") {
@@ -332,68 +334,68 @@ export function DraftActions({
       try {
         await reload();
       } catch {
-        // Draft refresh failure after version-change refusal is non-critical.
+        // A change-set refresh failure after a version-change refusal is non-critical.
       }
     } finally {
       setPending(false);
     }
   }
   return (
-    <section className="surface draft-bar" aria-label="Draft publication">
-      <div className="draft-bar-row">
-        <div className="draft-bar-main">
-          <span className="context-status status-draft">Named draft</span>
-          <h2>{current.name || "Untitled draft"}</h2>
-          <span className="draft-bar-meta">
+    <section className="surface change-set-bar" aria-label="Change set publication">
+      <div className="change-set-bar-row">
+        <div className="change-set-bar-main">
+          <span className="context-status status-change-set">Named change set</span>
+          <h2>{current.name || "Untitled change set"}</h2>
+          <span className="change-set-bar-meta">
             <span>Version {current.version}</span>
-            <span>{draftSource(current)}</span>
+            <span>{changeSetSource(current)}</span>
             <span>
               Model {current.modelReleaseKey} {current.modelReleaseVersion}
             </span>
           </span>
         </div>
         {!readOnly && (
-          <div className="draft-bar-actions">
+          <div className="change-set-bar-actions">
             <button
               className="secondary"
               disabled={pending}
               onClick={check}
-              title="Check the full draft graph against the current publication"
+              title="Check the full change set graph against the current publication"
             >
-              Validate draft
+              Validate change set
             </button>
             <button
               className="primary"
               disabled={pending || modelMismatch || !validation?.result.valid || validation.version !== current.version}
               title={
                 modelMismatch
-                  ? "Draft model version differs from the active release. Change the version or wait until this release is activated."
-                  : "Activation is available after a successful validation."
+                  ? "Change set model version differs from the active release. Change the version or wait until this release is activated."
+                  : "Publishing is available after a successful validation."
               }
-              onClick={() => setConfirm("activate")}
+              onClick={() => setConfirm("publish")}
             >
-              Activate draft
+              Publish change set
             </button>
-            <details className="draft-secondary-actions">
-              <summary>More draft actions</summary>
-              <div className="draft-secondary-menu">
+            <details className="change-set-secondary-actions">
+              <summary>More change set actions</summary>
+              <div className="change-set-secondary-menu">
                 <button className="secondary" disabled={pending} onClick={openVersionChange}>
                   Change model version
                 </button>
                 <button className="danger-ghost" disabled={pending} onClick={() => setConfirm("discard")}>
-                  Discard draft
+                  Discard change set
                 </button>
               </div>
             </details>
           </div>
         )}
       </div>
-      <p className="draft-bar-note">Changes here remain private to this draft until activation.</p>
+      <p className="change-set-bar-note">Changes here remain private to this change set until it is published.</p>
       {modelMismatch && (
-        <Notice tone="info" title="This draft uses a different model version">
-          This draft works under {current.modelReleaseKey} {current.modelReleaseVersion}; live data uses the active
-          model{activeModelReleaseLabel ? ` ${activeModelReleaseLabel}` : ""}. Activation requires these versions to
-          match. You can change the draft's model version if the content fits, or discard the draft.
+        <Notice tone="info" title="This change set uses a different model version">
+          This change set works under {current.modelReleaseKey} {current.modelReleaseVersion}; live data uses the active
+          model{activeModelReleaseLabel ? ` ${activeModelReleaseLabel}` : ""}. Publishing requires these versions to
+          match. You can change the change set's model version if the content fits, or discard the change set.
         </Notice>
       )}
       {warning && (
@@ -407,7 +409,7 @@ export function DraftActions({
       {changingVersion && (
         <Modal
           title="Change model version"
-          eyebrow="Draft action"
+          eyebrow="Change set action"
           size="compact"
           busy={pending}
           dirty={Boolean(selectedRelease)}
@@ -419,7 +421,9 @@ export function DraftActions({
               void applyVersionChange();
             }}
           >
-            <p>Select a different installed model release. The draft content must already satisfy the target model.</p>
+            <p>
+              Select a different installed model release. The change set content must already satisfy the target model.
+            </p>
             <label>
               Target release
               <select value={selectedRelease} onChange={(event) => setSelectedRelease(event.target.value)}>
@@ -443,7 +447,7 @@ export function DraftActions({
             {versionChangeError && (
               <Notice tone="error" title="Version change failed">
                 {versionChangeError}
-                {versionChangeDiagnostics.length > 0 && <DraftDiagnostics items={versionChangeDiagnostics} />}
+                {versionChangeDiagnostics.length > 0 && <ChangeSetDiagnostics items={versionChangeDiagnostics} />}
               </Notice>
             )}
             <div className="dialog-actions">
@@ -462,38 +466,38 @@ export function DraftActions({
           tone={validation.result.valid && validation.version === current.version ? "success" : "warning"}
           title={
             validation.version !== current.version
-              ? "Draft changed: validate again"
+              ? "Change set changed: validate again"
               : validation.result.valid
-                ? "Draft validation passed"
-                : "Draft needs corrections"
+                ? "Change set validation passed"
+                : "Change set needs corrections"
           }
         >
-          <DraftDiagnostics items={validation.result.diagnostics} />
+          <ChangeSetDiagnostics items={validation.result.diagnostics} />
         </Notice>
       )}
       {error && (
-        <Notice tone="error" title="Draft action could not be completed">
+        <Notice tone="error" title="Change set action could not be completed">
           {error}
-          <DraftDiagnostics items={diagnostics} />
+          <ChangeSetDiagnostics items={diagnostics} />
         </Notice>
       )}
       {confirm && (
         <ConfirmDialog
-          title={confirm === "activate" ? "Activate reviewed draft?" : "Discard this draft?"}
-          confirmLabel={confirm === "activate" ? "Publish changes" : "Discard draft"}
+          title={confirm === "publish" ? "Publish this change set?" : "Discard this change set?"}
+          confirmLabel={confirm === "publish" ? "Publish change set" : "Discard change set"}
           pending={pending}
           onCancel={() => setConfirm(undefined)}
           onConfirm={perform}
         >
-          {confirm === "activate" ? (
+          {confirm === "publish" ? (
             <p>
-              Apply authored changes from draft v{validation?.version} over current live data and publish one workspace
-              revision. Unrelated live changes are preserved. Conflicts or an invalid merged graph publish nothing.
-              Current publication to supersede: {validation?.activeRevisionId ?? "none"}.
+              Apply authored changes from change set v{validation?.version} over current live data and create the next
+              publication. Unrelated live changes are preserved. Conflicts or an invalid merged graph publish nothing.
+              Current publication to replace: {validation?.activePublicationId ?? "none"}.
             </p>
           ) : (
             <p>
-              Discard all staged changes in {current.name || "this draft"}. Live records and existing publications
+              Discard all staged changes in {current.name || "this change set"}. Live records and existing publications
               remain unchanged.
             </p>
           )}

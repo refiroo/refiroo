@@ -20,16 +20,16 @@ try {
   const targetRelease = await api(`/model-drafts/${modelDraft.id}/installation`, {
     expectedVersion: modelDraft.version,
   });
-  const draft = await api("/workspaces/default/drafts", {
+  const changeSet = await api("/workspaces/default/change-sets", {
     name: "WP-11 version dialog",
     source: "currentLive",
   });
   console.log("WP-11 browser: fixtures ready");
 
   await page.goto(
-    `${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default&workspaceDraftId=${draft.id}`,
+    `${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default&changeSetId=${changeSet.id}`,
   );
-  await page.getByText("More draft actions").click();
+  await page.getByText("More change set actions").click();
   await page.getByRole("button", { name: "Change model version" }).click();
   const dialog = page.getByRole("dialog", { name: "Change model version" });
   await dialog.waitFor({ state: "visible" });

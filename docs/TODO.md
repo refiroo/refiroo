@@ -22,7 +22,7 @@ See `ROADMAP.md` for the delivery scope, exit gates and full milestone sequence.
 ## Base 0.7 delivery record (released 2026-09-25)
 
 WP-1–WP-9, WP-10A–K, WP-11, WP-12, WP-13A/B/C and WP-14 are complete, with ADR-022 relation-set
-versions, ADR-028 draft version selection, ADR-029 contextual collections, UI-07 gates, the frontend
+versions, ADR-028 change set version selection, ADR-029 contextual collections, UI-07 gates, the frontend
 redesign and dark mode. See `CHANGELOG.md` and `BASE_0_7_IMPLEMENTATION_PLAN.md` for details.
 
 ## Base 0.6 delivery record (complete 2026-09-11)
@@ -34,8 +34,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 
 - [ ] 0.8 Track S — scalable browsing ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md), ADR-030), first:
   - [x] S1 volume fixture and baseline over a generated model.
-  - [x] S2 draft and history reads in the database (D1 accepted: typed value rows).
-  - [x] S2b bounded draft writes: a rename at full volume in 7.5 ms (was 4.9 s).
+  - [x] S2 change-set and publication reads in the database (D1 accepted: typed value rows).
+  - [x] S2b bounded change set writes: a rename at full volume in 7.5 ms (was 4.9 s).
   - [x] S3 cursor and position paging: backward cursors, anchor, totals, seek by value, `position`.
   - [x] S4 top-level filter; relation search and sort.
   - [x] S5 shared continuous-scroll list with loading and end markers.
@@ -46,14 +46,14 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     text values; a whole-type name search with its total in 37 / 73 / 40 ms (was 0.7–0.9 s).
 - [ ] 0.8 Track W — workspace terminology and capability boundaries ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#track-w--workspace-terminology-and-capability-boundaries), ADR-031):
   - [x] W1 glossary, roadmap and milestone names (translation/hierarchy editor); stale gap notes.
-  - [ ] W2 rename workspace drafts/revisions to change sets/publications ("Publication N") in every layer.
+  - [x] W2 change sets and publications ("Publication N") carry their ADR-031 names in every layer.
   - [ ] W3 narrow `WORKSPACE_ADMIN_MUTATIONS_ENABLED` to catalogue administration.
   - [ ] W4 workspace administration screen, read-only single-workspace selector, capability status.
   - [ ] W5 test (and fix if confirmed) live writes committing across a model activation.
 - [ ] 0.8 Milestone A — translation editor ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-a--translation-editor)):
   - [ ] A1 schema 0.7 `translationMatrix` view contract (may run alongside Track S).
   - [ ] A2 translation coverage query with cell states and whole-list gap filter.
-  - [ ] A3 writes from a cell: container lookup, create and edit, live or in a draft.
+  - [ ] A3 writes from a cell: container lookup, create and edit, live or in a change set.
   - [ ] A4 translation matrix lens.
   - [ ] A5 Milestone A acceptance (SC-09 translation half).
 - [ ] 0.8 Milestone B — hierarchy editor ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-b--hierarchy-editor)):
@@ -65,7 +65,7 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [ ] 0.8 R1 build acceptance and release.
 - [ ] Integration-grade query expressions beyond daily-use filters.
 - [ ] Bounded live bulk object/relation/mapping operations with explicit optional staging, per-item
-  outcomes and safe retry; do not require a draft merely because several records change (0.9).
+  outcomes and safe retry; do not require a change set merely because several records change (0.9).
 - [ ] Asynchronous CSV/Excel import and export with validation previews.
 - [ ] Ordered change feed and retryable webhooks.
 - [ ] Cross-type object lookup `GET /objects` (P1) and a general relation edge list with publication
@@ -86,7 +86,7 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [ ] Structured model designer with reference-aware forms, matrices and live preview.
 - [ ] Read-only dependency graph visualization where it improves comprehension.
 - [ ] Product 0.10: executable runtime-data migration plans for currently blocked model changes.
-- [ ] Product 0.10: historical-draft model replacement with a side-effect-free impact/loss preview,
+- [ ] Product 0.10: model replacement for a change set started from a publication, with a side-effect-free impact/loss preview,
   explicit confirmation tied to the reviewed versions or cancel, atomic workspace model/data switch,
   immutable history and unaffected-workspace isolation. Confirmation cannot waive target validity or
   parser support; nothing in Base 0.6 overrides them.
@@ -96,23 +96,23 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   workspace, bind cursors to the release identity and switch assignments atomically. Supporting mixed
   schema-language versions additionally requires a bounded current/previous parser window and explicit
   conversion; workspace pinning alone is not schema compatibility.
-- [ ] Product 0.10 (ADR-028): move a draft onto a release its content does not already satisfy, by
-  reusing the migration preview/confirm machinery against that draft's own candidate graph and
-  current-live base. The review reports conversions and potential draft loss and applies only on
-  confirmation of the exact reviewed draft and release versions; nothing forces the move through or
-  happens without being asked, and a move never deletes draft content to make a target fit.
+- [ ] Product 0.10 (ADR-028): move a change set onto a release its content does not already satisfy, by
+  reusing the migration preview/confirm machinery against that change set's own candidate graph and
+  current-live base. The review reports conversions and potential loss of change-set content and applies only on
+  confirmation of the exact reviewed change set and release versions; nothing forces the move through or
+  happens without being asked, and a move never deletes change-set content to make a target fit.
 - [ ] Extension packaging after two concrete reuse cases exist.
 
 ## Explicitly not planned for Base 0.7
 
 - Model-workbench information-architecture redesign.
-- Physical purge of published workspace revisions or audit history.
+- Physical purge of publications or audit history.
 - Graph-canvas-first model authoring.
 - Arbitrary server-filesystem model load/save.
 - Client-side loops over single-item APIs presented as bulk operations.
 - Starter-key branches in backend or frontend behavior.
 - Object drafts, object revisions, object activation/retirement, or per-object publication state.
-- A second public CRUD dialect under `/workspace-drafts/{draftId}/objects` or `/relations`.
+- A second public CRUD dialect under `/change-sets/{draftId}/objects` or `/relations`.
 
 ## Known accessibility exceptions
 

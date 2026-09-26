@@ -2,7 +2,7 @@
 //
 // Part 1 boots the generated Track S volume model (backend/tests/volume_fixture.py, 10% scale by
 // default: 1,000 groups, a 2,000-item group that also roots a 7-level node hierarchy, a 5-item
-// group). In live, draft and history it checks that the root type pages top-level records only, that
+// group). In live, change set and history it checks that the root type pages top-level records only, that
 // a branch shows exactly its own children and their count for each child type, that the heavy
 // group's items scroll end to end in a bounded window, that an eight-level path (group and seven
 // node levels) opens by keyboard alone, and that collapsing releases the branch. It repeats the
@@ -108,8 +108,8 @@ try {
   assert.equal(deep.path.length, 8, "the deep node sits seven node levels below its group");
   const contexts = [
     ["live", ""],
-    ["draft", `&workspaceDraftId=${dataset.draft_id}`],
-    ["history", `&workspaceRevisionId=${dataset.revision_id}`],
+    ["changeSet", `&changeSetId=${dataset.change_set_id}`],
+    ["history", `&publicationId=${dataset.publication_id}`],
   ];
   /** The context's list read, with totals, for comparison with what the tree shows. */
   const list = (type, query, suffix) =>

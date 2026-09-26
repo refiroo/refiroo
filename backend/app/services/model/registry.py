@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from ...db import DbSession, SessionLocal
 from ...errors import api_error
-from ...models.database import ModelRelease, WorkspaceDraft, WorkspaceRevision
+from ...models.database import ChangeSet, ModelRelease, Publication
 from ...models.schema import EngineModel
 from .compiler import SUPPORTED_SCHEMA_VERSIONS, parse_model
 from .diagnostics import ModelValidationError
@@ -62,7 +62,7 @@ class ModelRegistry:
             raise api_error(
                 409,
                 "pinned_model_unavailable",
-                "The model pinned by this historical context is unavailable",
+                "The model pinned by this publication is unavailable",
                 {"modelReleaseDbId": release_id},
             )
         if release.schema_version not in SUPPORTED_SCHEMA_VERSIONS:
@@ -191,20 +191,20 @@ ActiveModelSnapshot = Annotated[ModelSnapshot, Depends(resolve_model_snapshot)]
 def resolve_request_model(
     session: DbSession,
     workspace_key: str | None = Query(default=None, alias="workspaceKey"),
-    workspace_draft_id: str | None = Query(default=None, alias="workspaceDraftId"),
-    workspace_revision_id: str | None = Query(default=None, alias="workspaceRevisionId"),
+    change_set_id: str | None = Query(default=None, alias="changeSetId"),
+    publication_id: str | None = Query(default=None, alias="publicationId"),
 ) -> ModelSnapshot:
-    """Resolve the one model authority for a live, draft, or historical read request."""
-    if workspace_draft_id and workspace_revision_id:
+    """Resolve the one model authority for a live, change-set or publication read request."""
+    if change_set_id and publication_id:
         raise api_error(
             422,
             "mutually_exclusive_context",
-            "workspaceDraftId and workspaceRevisionId cannot be combined",
+            "changeSetId and publicationId cannot be combined",
         )
-    if workspace_draft_id:
-        context = session.scalar(select(WorkspaceDraft).where(WorkspaceDraft.id == workspace_draft_id))
+    if change_set_id:
+        context = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
         if context is None:
-            raise api_error(404, "workspace_draft_not_found", "Workspace draft not found")
+            raise api_error(404, "change_set_not_found", "Change set not found")
         if workspace_key is not None and workspace_key != context.workspace_key:
             raise api_error(
                 422,
@@ -213,12 +213,12 @@ def resolve_request_model(
                 {"workspaceKey": workspace_key, "contextWorkspaceKey": context.workspace_key},
             )
         return resolve_pinned_release(session, context.model_release_id)
-    if workspace_revision_id:
+    if publication_id:
         context = session.scalar(
-            select(WorkspaceRevision).where(WorkspaceRevision.id == workspace_revision_id)
+            select(Publication).where(Publication.id == publication_id)
         )
         if context is None:
-            raise api_error(404, "workspace_revision_not_found", "Workspace revision not found")
+            raise api_error(404, "publication_not_found", "Publication not found")
         if workspace_key is not None and workspace_key != context.workspace_key:
             raise api_error(
                 422,
@@ -230,12 +230,12 @@ def resolve_request_model(
     return resolve_model_snapshot(session)
 
 
-def resolve_draft_snapshot(session: Session, draft_id: str) -> ModelSnapshot:
-    """Resolve the immutable model pinned by a draft write after its body-selected context."""
-    draft = session.scalar(select(WorkspaceDraft).where(WorkspaceDraft.id == draft_id))
-    if draft is None:
-        raise api_error(404, "workspace_draft_not_found", "Workspace draft not found")
-    return resolve_pinned_release(session, draft.model_release_id, require_ready=False)
+def resolve_change_set_snapshot(session: Session, change_set_id: str) -> ModelSnapshot:
+    """Resolve the immutable model pinned by a change set write after its body-selected context."""
+    change_set = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
+    if change_set is None:
+        raise api_error(404, "change_set_not_found", "Change set not found")
+    return resolve_pinned_release(session, change_set.model_release_id, require_ready=False)
 
 
 def resolve_pinned_release(

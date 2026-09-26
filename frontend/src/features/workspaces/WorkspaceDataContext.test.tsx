@@ -4,17 +4,17 @@ import * as navigationGuard from "@/routing/navigationGuard";
 import { api } from "@/api/client";
 import { WorkspaceDataProvider, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { testModel, domainObject } from "@/test/fixtures";
-import type { WorkspaceDraft } from "@/types";
+import type { ChangeSet } from "@/types";
 
-const draft: WorkspaceDraft = {
-  id: "draft",
+const changeSet: ChangeSet = {
+  id: "changeSet",
   workspaceKey: "west",
   name: "Review",
   modelReleaseId: "old",
   modelReleaseKey: "test",
   modelReleaseVersion: "old",
   source: "currentLive",
-  derivedFromRevisionId: null,
+  derivedFromPublicationId: null,
   version: 1,
   createdAt: "",
   updatedAt: "",
@@ -25,7 +25,7 @@ function Probe() {
   return (
     <>
       <p>
-        {data.draft?.modelReleaseId}:{data.model?.release.version}
+        {data.changeSet?.modelReleaseId}:{data.model?.release.version}
       </p>
       <p>{data.warning}</p>
       <button onClick={() => data.refresh!().catch(() => {})}>Refresh</button>
@@ -39,9 +39,9 @@ function Probe() {
 }
 
 it.each(["unavailable model", "dirty input"])("blocks writes and retries a pin refresh after %s", async (failure) => {
-  vi.spyOn(api, "workspaceDraft")
-    .mockResolvedValueOnce(draft)
-    .mockResolvedValue({ ...draft, modelReleaseId: "new", version: 2 });
+  vi.spyOn(api, "changeSet")
+    .mockResolvedValueOnce(changeSet)
+    .mockResolvedValue({ ...changeSet, modelReleaseId: "new", version: 2 });
   vi.spyOn(api, "modelRelease").mockRejectedValue(new Error("not needed"));
   vi.spyOn(api, "modelRuntimeState").mockResolvedValue({ activeReleaseId: "old" } as Awaited<
     ReturnType<typeof api.modelRuntimeState>
@@ -51,7 +51,7 @@ it.each(["unavailable model", "dirty input"])("blocks writes and retries a pin r
   loadModel.mockResolvedValue({ ...testModel, release: { ...testModel.release, version: "new" } });
   const save = vi.spyOn(api, "updateObject").mockResolvedValue(domainObject);
   render(
-    <WorkspaceDataProvider draftId="draft" workspaceKey="west" model={testModel}>
+    <WorkspaceDataProvider changeSetId="changeSet" workspaceKey="west" model={testModel}>
       <Probe />
     </WorkspaceDataProvider>,
   );
@@ -69,13 +69,13 @@ it.each(["unavailable model", "dirty input"])("blocks writes and retries a pin r
   await screen.findByText("new:new");
   fireEvent.click(screen.getByText("Save"));
   await waitFor(() =>
-    expect(save).toHaveBeenCalledWith("domain", "id", expect.objectContaining({ expectedWorkspaceDraftVersion: 2 })),
+    expect(save).toHaveBeenCalledWith("domain", "id", expect.objectContaining({ expectedChangeSetVersion: 2 })),
   );
   expect(loadModel).toHaveBeenCalledTimes(failure === "dirty input" ? 2 : 3);
 });
 
 it("names a differing active release by key and version, not by its id", async () => {
-  vi.spyOn(api, "workspaceDraft").mockResolvedValue(draft);
+  vi.spyOn(api, "changeSet").mockResolvedValue(changeSet);
   vi.spyOn(api, "modelRuntimeState").mockResolvedValue({ activeReleaseId: "active-id" } as Awaited<
     ReturnType<typeof api.modelRuntimeState>
   >);
@@ -90,7 +90,7 @@ it("names a differing active release by key and version, not by its id", async (
     return <p>active: {data.activeModelReleaseLabel ?? "none"}</p>;
   }
   render(
-    <WorkspaceDataProvider draftId="draft" workspaceKey="west" model={testModel}>
+    <WorkspaceDataProvider changeSetId="changeSet" workspaceKey="west" model={testModel}>
       <Label />
     </WorkspaceDataProvider>,
   );

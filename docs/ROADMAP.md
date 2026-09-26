@@ -12,13 +12,13 @@ and 1.0 for self-service model authoring and extensions.
 
 Base 0.5 delivered the operational and model-release foundation. Base 0.7 is released (2026-09-25):
 core mapping as a lens of one contextual application browser, schema 0.6 `mappingGrid` views,
-ADR-022 relation-set concurrency and workspace drafts on a chosen model release (ADR-028). It builds on
+ADR-022 relation-set concurrency and change sets on a chosen model release (ADR-028). It builds on
 Base 0.6, released 2026-09-11:
 
 - Daily live operations: generic object, field, parent, relation and translation CRUD without a draft
-- Optional coordinated design: workspace drafts, validation, delta-merge activation over live content
+- Optional coordinated design: change sets, validation, delta-merge activation over live content
 - Immutable newest-first history with pinned-model reads and historical draft sources
-- Truthful publication retirement (designation only; live data and history remain accessible)
+- Truthful publication withdrawal (designation only; live data and history remain accessible)
 - Complete browser journeys (WP9) with real-backend evidence for two configured object types
 - Composed release validation (WP10) including keyboard/focus/narrow-layout and migration/packaging
 - Frontend redesign (UI-01–UI-06): compact navigation, focused collections, record inspector, inline
@@ -51,7 +51,7 @@ Released 2026-09-11. Implementation: [`BASE_0_6_IMPLEMENTATION_PLAN.md`](BASE_0_
 
 A steward can select a known workspace, find records with typed filters and sorts, and maintain live
 records, fields, parents, relationships and translations without a draft. For coordinated changes,
-the steward may choose a design draft, validate it and activate all its changes together while
+the steward may choose a change set, validate it and activate all its changes together while
 preserving unrelated live work. History distinguishes the source of a draft from the publication
 superseded at activation.
 
@@ -66,7 +66,7 @@ boundary was rejected and removed through the corrective WP6 migration. WP5 refr
 WP7 restored generic CRUD and WP8 implemented lifecycle orchestration. ADR-026 restored direct live
 writes and delta merge. WP8.1-A–C closed authority, draft-source and history/retirement corrections.
 WP9 completed browser journeys for live CRUD, optional drafts, immutable history, historical draft
-sources and truthful publication retirement. WP10 validated the composed product. The frontend redesign
+sources and truthful publication withdrawal. WP10 validated the composed product. The frontend redesign
 (UI-01–UI-06) delivered compact navigation, focused collections, record inspector, inline field editing,
 resizable panels and refined draft presentation.
 
@@ -91,7 +91,7 @@ or navigating low-level relation screens.
 3. Implement ADR-022 exact-binding relation-set versions across mapping and generic relation writes.
    **(WP-3, delivered 2026-09-12.)**
 4. Provide atomic replacement with zero or one target where the binding permits it, directly live
-   or in an explicitly selected design draft, with recoverable conflict context.
+   or in an explicitly selected change set, with recoverable conflict context.
    **(WP-5, delivered and reviewed 2026-09-14.)** Atomic source-set claims and draft aggregate
    tokens protect saves; WP-10B refuses divergent touched live mapping sets before draft activation.
 5. Reuse ordinary record creation in the selected context when target creation is allowed; target
@@ -100,7 +100,7 @@ or navigating low-level relation screens.
 7. Prove the contract and renderer with two relation bindings whose types, direction and labels differ.
    **Backend independent-binding isolation and overlapping generic writes are covered by WP-5;
    WP-9 (2026-09-25) adds the composed browser evidence with an independent binding and its own lens.**
-8. Let a workspace draft work under a version the user chooses, so one draft prepares the schema 0.6
+8. Let a change set work under a version the user chooses, so one draft prepares the schema 0.6
    release while another stays on the version serving live data. Draft reads, writes and validation
    use the version chosen for that draft instead of the global selection (ADR-028; US-W09, SC-15).
    **(WP-6 backend delivered 2026-09-14; WP-7 browser delivered 2026-09-14.)**
@@ -300,7 +300,7 @@ migrated between immutable model releases in controlled stages.
 - Authorization cannot be bypassed through administrative or bulk APIs.
 - Multi-writer concurrency and uniqueness invariants hold in production-like tests.
 - Workspace migration, release switch and operator backup recovery are rehearsed without mixed-model
-  requests. Historical data drafts are not direct dataset restore operations.
+  requests. Historical change sets are not direct dataset restore operations.
 - Confirmed historical migration validates transformed data, preserves immutable history, affects only
   the selected workspace assignment, and changes nothing on cancel, stale review or execution failure.
 - Supported schema versions and their migration/removal dates are published.
