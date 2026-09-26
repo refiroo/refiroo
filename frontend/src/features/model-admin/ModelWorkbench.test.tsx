@@ -48,8 +48,14 @@ beforeEach(() => {
 describe("ModelWorkbench", () => {
   it("keeps release inspection visible while hiding mutation actions", async () => {
     vi.mocked(api.capabilities).mockResolvedValue({
-      modelAdmin: { readReleases: true, manageDrafts: false, install: false, activate: false },
-      workspaceAdmin: { manageWorkspaces: true },
+      modelAdmin: {
+        readReleases: true,
+        manageDrafts: false,
+        install: false,
+        activate: false,
+        setting: "MODEL_ADMIN_MUTATIONS_ENABLED",
+      },
+      workspaceAdmin: { manageWorkspaces: true, setting: "WORKSPACE_ADMIN_MUTATIONS_ENABLED" },
     });
     vi.mocked(api.modelReleases).mockResolvedValue({ items: [release], nextCursor: null });
     vi.mocked(api.modelRuntimeState).mockResolvedValue({
@@ -61,6 +67,12 @@ describe("ModelWorkbench", () => {
     vi.mocked(api.modelRelease).mockResolvedValue({ ...release, model });
     render(<ModelWorkbench route={{ kind: "models", releaseId: "r1" }} onRouteChange={vi.fn()} />);
     expect(await screen.findByText(/mutations are disabled/i)).toBeInTheDocument();
+    // The disabled group names the setting that controls it; the enabled group does not need to.
+    const status = screen.getByRole("region", { name: "Deployment capabilities" });
+    expect(status).toHaveTextContent(/Model administration\s*Disabled/);
+    expect(status).toHaveTextContent("MODEL_ADMIN_MUTATIONS_ENABLED");
+    expect(status).toHaveTextContent(/Workspace administration\s*Enabled/);
+    expect(status).not.toHaveTextContent("WORKSPACE_ADMIN_MUTATIONS_ENABLED");
     expect(await screen.findByRole("button", { name: /export json/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /new draft/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /create draft from release/i })).not.toBeInTheDocument();
@@ -69,8 +81,14 @@ describe("ModelWorkbench", () => {
   it("keeps unsupported historical releases inspectable while blocking activation", async () => {
     const historical = { ...release, id: "historical", active: false };
     vi.mocked(api.capabilities).mockResolvedValue({
-      modelAdmin: { readReleases: true, manageDrafts: true, install: true, activate: true },
-      workspaceAdmin: { manageWorkspaces: true },
+      modelAdmin: {
+        readReleases: true,
+        manageDrafts: true,
+        install: true,
+        activate: true,
+        setting: "MODEL_ADMIN_MUTATIONS_ENABLED",
+      },
+      workspaceAdmin: { manageWorkspaces: true, setting: "WORKSPACE_ADMIN_MUTATIONS_ENABLED" },
     });
     vi.mocked(api.modelReleases).mockResolvedValue({ items: [release, historical], nextCursor: null });
     vi.mocked(api.modelDrafts).mockResolvedValue({ items: [], nextCursor: null });

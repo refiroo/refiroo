@@ -212,6 +212,21 @@ export const api = {
     return request<WorkspacePage>(`/api/v1/workspaces?${params}`);
   },
   workspace: (workspaceKey: string) => request<Workspace>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}`),
+  createWorkspace: (body: { key: string; label: string }) =>
+    request<Workspace>("/api/v1/workspaces", { method: "POST", body: JSON.stringify(body) }),
+  updateWorkspace: (
+    workspaceKey: string,
+    body: { expectedVersion: number; label?: string; status?: Workspace["status"] },
+  ) =>
+    request<Workspace>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}`, {
+      method: "PATCH",
+      body: JSON.stringify(body),
+    }),
+  setDefaultWorkspace: (defaultWorkspaceKey: string, expectedVersion: number) =>
+    request<WorkspaceRuntimeState>("/api/v1/workspace-runtime-state", {
+      method: "PATCH",
+      body: JSON.stringify({ defaultWorkspaceKey, expectedVersion }),
+    }),
   changeSets: (workspaceKey: string, cursor?: string) => {
     const query = new URLSearchParams({ pageSize: "50" });
     if (cursor) query.set("cursor", cursor);

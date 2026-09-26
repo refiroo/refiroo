@@ -1313,6 +1313,15 @@ th[aria-sort] {
 .selection-option[data-selected] {
   font-weight: 600;
 }
+.selection-option.selection-action {
+  margin-top: 4px;
+  border-top: 1px solid var(--soft-line);
+  border-radius: 0 0 6px 6px;
+  color: var(--accent-ink);
+}
+.selection-option.selection-action strong {
+  font-weight: 600;
+}
 .selection-option[data-disabled] {
   opacity: 0.45;
 }
@@ -1792,6 +1801,58 @@ th[aria-sort] {
 }
 .model-catalogue .load-more {
   margin-top: 4px;
+}
+.catalogue-error {
+  margin: 4px 0 0;
+}
+/* Deployment capability status (Models and Workspaces screens) */
+.capability-status {
+  margin: 0 0 14px;
+}
+.capability-status h2.nav-label {
+  margin: 0 0 6px;
+}
+.capability-status ul {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.capability-status li {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+}
+.capability-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13.5px;
+}
+.capability-status small {
+  color: var(--muted);
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+.capability-status code {
+  color: var(--ink-2);
+  font-size: 12px;
+}
+.admin-hint {
+  margin: 0 20px;
+  color: var(--muted);
+  font-size: 13px;
+}
+.dialog .admin-hint,
+form .admin-hint {
+  margin: 0;
 }
 .model-detail {
   min-width: 0;

@@ -6,9 +6,12 @@ import { Modal } from "@/ui/Modal";
 export function NavigationDrawer({
   open,
   onClose,
+  title = "Application navigation",
   children,
 }: {
   open: boolean;
+  /** Names the drawer after the destination whose navigation it holds. */
+  title?: string;
   onClose: () => void;
   children: ReactNode;
 }) {
@@ -29,7 +32,7 @@ export function NavigationDrawer({
   return (
     <>
       {mobile && open ? (
-        <Modal title="Application navigation" size="navigation" onClose={onClose}>
+        <Modal title={title} size="navigation" onClose={onClose}>
           <div ref={attach} />
         </Modal>
       ) : (

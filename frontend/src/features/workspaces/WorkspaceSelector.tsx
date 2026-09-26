@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import type { Workspace } from "@/types";
@@ -8,14 +8,20 @@ export function WorkspaceSelector({
   workspaceKey,
   onChange,
   onResolved,
+  onManage,
 }: {
   workspaceKey: string;
   onChange: (workspaceKey: string) => void;
   onResolved?: (workspace: Workspace) => void;
+  /** Opens workspace administration; offered only where the deployment allows it. */
+  onManage?: () => void;
 }) {
+  const labelId = useId();
   const [query, setQuery] = useState("");
   const [current, setCurrent] = useState<Workspace>();
   const [items, setItems] = useState<Workspace[]>([]);
+  // Known only from an unfiltered read: a search narrowing to one result says nothing about the catalogue.
+  const [onlyWorkspace, setOnlyWorkspace] = useState(false);
   const [resolveError, setResolveError] = useState("");
   const [searchError, setSearchError] = useState("");
 
@@ -38,12 +44,14 @@ export function WorkspaceSelector({
 
   useEffect(() => {
     let active = true;
+    const search = query === current?.label ? undefined : query;
     const timeout = window.setTimeout(() => {
       api
-        .workspaces({ search: query === current?.label ? undefined : query, status: "all", pageSize: 50 })
+        .workspaces({ search, status: "all", pageSize: 50 })
         .then((page) => {
           if (!active) return;
           setItems(page.items);
+          if (!search) setOnlyWorkspace(page.items.length === 1 && !page.nextCursor);
           setSearchError("");
         })
         .catch((cause) => active && setSearchError(errorMessage(cause)));
@@ -55,6 +63,29 @@ export function WorkspaceSelector({
   }, [current?.label, query]);
 
   const selectedWorkspace = current?.key === workspaceKey ? current : undefined;
+  const description =
+    resolveError || searchError || (selectedWorkspace?.status === "retired" ? "Retired · read only" : undefined);
+
+  if (onlyWorkspace && selectedWorkspace && items[0]?.key === selectedWorkspace.key) {
+    // Nothing to choose between, so the name is a fact rather than a control.
+    return (
+      <div className="workspace-selector">
+        <div className="workspace-single" role="group" aria-labelledby={labelId}>
+          <span id={labelId} className="workspace-single-label">
+            Workspace
+          </span>
+          <strong>{selectedWorkspace.label}</strong>
+          {description && <small className="field-description">{description}</small>}
+          {onManage && (
+            <button type="button" className="ghost workspace-manage" onClick={onManage}>
+              Manage workspaces
+            </button>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   const options = [
     ...(selectedWorkspace ? [selectedWorkspace] : []),
     ...items.filter((item) => item.key !== selectedWorkspace?.key),
@@ -79,8 +110,17 @@ export function WorkspaceSelector({
         }}
         options={options}
         allowsCustomValue={false}
-        description={
-          resolveError || searchError || (selectedWorkspace?.status === "retired" ? "Retired · read only" : undefined)
+        description={description}
+        action={
+          onManage
+            ? {
+                label: "Manage workspaces",
+                onAction: () => {
+                  if (selectedWorkspace) setQuery(selectedWorkspace.label);
+                  onManage();
+                },
+              }
+            : undefined
         }
       />
     </div>

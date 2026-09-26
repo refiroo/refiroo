@@ -173,13 +173,18 @@ Capabilities return deployment-supported operations explicitly:
     "readReleases": true,
     "manageDrafts": false,
     "install": false,
-    "activate": false
+    "activate": false,
+    "setting": "MODEL_ADMIN_MUTATIONS_ENABLED"
   },
   "workspaceAdmin": {
-    "manageWorkspaces": true
+    "manageWorkspaces": true,
+    "setting": "WORKSPACE_ADMIN_MUTATIONS_ENABLED"
   }
 }
 ```
+
+Each group names in `setting` the deployment setting that enables its mutations, so a client can tell
+an operator what to change without knowing the server's configuration names.
 
 `readReleases` remains true when mutations are disabled. `manageDrafts` and `install` are true only
 when `MODEL_ADMIN_MUTATIONS_ENABLED=true`; `activate` follows the same gate. The flag is a deployment
@@ -604,7 +609,8 @@ parent/child combinations. The relation type's own `id` identifies the type itse
 Workspace keys are immutable and case-sensitive. Discovery defaults to active records and uses a
 filter-bound keyset cursor; detail reads include retired records. Updates claim the workspace version,
 and changing the default claims the independent singleton runtime-state version. The current default
-cannot be retired, and there is no delete or rename route. Unknown explicit scopes return
+cannot be retired. A workspace is renamed by changing its `label`; there is no delete route and no
+way to change a key. Unknown explicit scopes return
 `workspace_not_found`; retired scopes remain readable but all object, attribute and relation writes
 return `workspace_retired`.
 

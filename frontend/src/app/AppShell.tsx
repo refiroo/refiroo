@@ -4,15 +4,17 @@
  * view declarations and the product name — so the frame carries no knowledge of any
  * particular application.
  *
- * Applications are peer destinations in the global header. Model administration is a separate
- * header entry that omits workspace controls and the application browser.
+ * Applications are peer destinations in the global header. Model and workspace administration are
+ * separate header entries that omit workspace controls and the application browser; Workspaces
+ * appears only where the deployment allows workspace administration.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { api } from "@/api/client";
 import type { CSSProperties, ReactNode } from "react";
 import { Explorer } from "@/features/objects/Explorer";
 import { WorkspaceSelector } from "@/features/workspaces/WorkspaceSelector";
-import { viewRoute } from "@/routing/routes";
+import { isAdminRoute, viewRoute } from "@/routing/routes";
 import type { ApplicationDefinition, EngineModel, ObjectItem, RouteState, Workspace } from "@/types";
 import { Icon, ModelIcon } from "@/ui/Icon";
 import { NavigationDrawer } from "@/ui/NavigationDrawer";
@@ -54,12 +56,25 @@ export function AppShell({
   const rail = useLocalNumberPreference("rdm:layout:navigation-width:v1", 248, 210, 380);
   const [navigationOpen, setNavigationOpen] = useState(false);
   const [sidebarSlot, setSidebarSlot] = useState<HTMLElement | null>(null);
+  // Capabilities only decide whether Workspaces is offered; a failed read leaves it hidden, and the
+  // screen itself reports the capability state for a direct link.
+  const [manageWorkspaces, setManageWorkspaces] = useState(false);
+  useEffect(() => {
+    let active = true;
+    api
+      .capabilities()
+      .then((capabilities) => active && setManageWorkspaces(capabilities.workspaceAdmin.manageWorkspaces))
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
   const changeSetId =
     activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.changeSetId : undefined;
   const publicationId =
     activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.publicationId : undefined;
 
-  const models = activeRoute.kind === "models";
+  const admin = isAdminRoute(activeRoute);
   const status = changeSetId
     ? `Change set · ${changeSet?.name || "Untitled change set"}`
     : publicationId
@@ -84,7 +99,7 @@ export function AppShell({
             <button
               key={item.key}
               className="application-tab"
-              aria-current={!models && item.key === application.key ? "page" : undefined}
+              aria-current={!admin && item.key === application.key ? "page" : undefined}
               title={item.description}
               onClick={() => {
                 onSelectApplication(item);
@@ -105,7 +120,7 @@ export function AppShell({
           <nav className="secondary-navigation" aria-label="Administration">
             <button
               className="header-link"
-              aria-current={models ? "page" : undefined}
+              aria-current={activeRoute.kind === "models" ? "page" : undefined}
               onClick={() => {
                 onNavigate({ kind: "models" });
                 setNavigationOpen(false);
@@ -113,6 +128,18 @@ export function AppShell({
             >
               <Icon name="settings" /> Models
             </button>
+            {(manageWorkspaces || activeRoute.kind === "workspaces") && (
+              <button
+                className="header-link"
+                aria-current={activeRoute.kind === "workspaces" ? "page" : undefined}
+                onClick={() => {
+                  onNavigate({ kind: "workspaces" });
+                  setNavigationOpen(false);
+                }}
+              >
+                <Icon name="workspace" /> Workspaces
+              </button>
+            )}
           </nav>
         </div>
       </header>
@@ -124,11 +151,35 @@ export function AppShell({
         aria-expanded={navigationOpen}
         onClick={() => setNavigationOpen(true)}
       >
-        <Icon name="menu" /> {models ? "Browse models" : "Browse application"}
+        <Icon name="menu" />{" "}
+        {activeRoute.kind === "models"
+          ? "Browse models"
+          : activeRoute.kind === "workspaces"
+            ? "Browse workspaces"
+            : "Browse application"}
       </button>
-      <NavigationDrawer open={navigationOpen} onClose={() => setNavigationOpen(false)}>
-        <aside id="workspace-navigation" aria-label={models ? "Model navigation" : "Workspace navigation"}>
-          {models ? (
+      <NavigationDrawer
+        open={navigationOpen}
+        onClose={() => setNavigationOpen(false)}
+        title={
+          activeRoute.kind === "models"
+            ? "Model navigation"
+            : activeRoute.kind === "workspaces"
+              ? "Workspace catalogue"
+              : "Application navigation"
+        }
+      >
+        <aside
+          id="workspace-navigation"
+          aria-label={
+            activeRoute.kind === "models"
+              ? "Model navigation"
+              : activeRoute.kind === "workspaces"
+                ? "Workspace administration navigation"
+                : "Workspace navigation"
+          }
+        >
+          {admin ? (
             <div ref={setSidebarSlot} className="sidebar-slot" />
           ) : (
             <>
@@ -136,6 +187,11 @@ export function AppShell({
                 workspaceKey={activeRoute.workspaceKey}
                 onChange={onChangeWorkspace}
                 onResolved={onWorkspaceResolved}
+                onManage={
+                  manageWorkspaces
+                    ? () => onNavigate({ kind: "workspaces", selectedWorkspaceKey: activeRoute.workspaceKey })
+                    : undefined
+                }
               />
               <Explorer
                 key={`${application.key}:${activeRoute.workspaceKey}`}
@@ -176,7 +232,7 @@ export function AppShell({
         </aside>
       </NavigationDrawer>
       <main id="main-content" className="workspace-main" tabIndex={-1}>
-        {!models && (
+        {!admin && (
           <div className="context-bar">
             <div role="group" className="shell-context" aria-label="Current context">
               <span>{workspace?.key === activeRoute.workspaceKey ? workspace.label : activeRoute.workspaceKey}</span>
@@ -227,7 +283,7 @@ export function AppShell({
             </nav>
           </div>
         )}
-        {!models && workspace?.key === activeRoute.workspaceKey && workspace.status === "retired" && (
+        {!admin && workspace?.key === activeRoute.workspaceKey && workspace.status === "retired" && (
           <Notice tone="info" title="Read-only workspace">
             This workspace is retired. Runtime data and history remain available, but changes are disabled.
           </Notice>

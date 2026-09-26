@@ -10,6 +10,7 @@ import type {
   ModelRuntimeState,
   RouteState,
 } from "@/types";
+import { CapabilityStatus } from "@/features/administration/CapabilityStatus";
 import { CreateDraftDialog, type CreateDraftSeed } from "@/features/model-admin/CreateDraftDialog";
 import { ModelDraftEditor } from "@/features/model-admin/ModelDraftEditor";
 import { ModelReleaseDetail } from "@/features/model-admin/ModelReleaseDetail";
@@ -250,6 +251,7 @@ export function ModelWorkbench({
         </div>
       )}
       {!capabilities && !error && <div className="panel-state">Loading model catalogue…</div>}
+      {capabilities && <CapabilityStatus capabilities={capabilities} />}
       {capabilities && !capabilities.modelAdmin.manageDrafts && (
         <p className="notice info-notice">
           Model mutations are disabled. Installed releases remain available for read-only inspection and export.

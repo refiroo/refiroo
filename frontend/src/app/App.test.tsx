@@ -10,6 +10,7 @@ import App from "./App";
 vi.mock("@/api/client", () => ({
   api: {
     model: vi.fn(),
+    capabilities: vi.fn(),
     changeSet: vi.fn(),
     publication: vi.fn(),
     publications: vi.fn(),
@@ -30,6 +31,19 @@ vi.mock("@/api/client", () => ({
     withdrawPublication: vi.fn(),
   },
 }));
+
+function capabilities(manageWorkspaces: boolean) {
+  return {
+    modelAdmin: {
+      readReleases: true,
+      manageDrafts: false,
+      install: false,
+      activate: false,
+      setting: "MODEL_ADMIN_MUTATIONS_ENABLED",
+    },
+    workspaceAdmin: { manageWorkspaces, setting: "WORKSPACE_ADMIN_MUTATIONS_ENABLED" },
+  };
+}
 
 function visit(path: string) {
   window.history.replaceState({}, "", path);
@@ -53,6 +67,7 @@ describe("App", () => {
       vi.fn(() => ({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })),
     );
     vi.mocked(api.model).mockResolvedValue(testModel);
+    vi.mocked(api.capabilities).mockResolvedValue(capabilities(true));
     vi.mocked(api.workspaceRuntimeState).mockResolvedValue({
       defaultWorkspaceKey: "default",
       version: 1,
@@ -235,6 +250,61 @@ describe("App", () => {
     fireEvent.click(navigationToggle);
     expect(navigationToggle).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByLabelText("Current context")).toHaveTextContent("Default / Test AppLive");
+    expect(window.location.pathname).toBe("/apps/test-app/views/domains");
+  });
+
+  it("offers Workspaces beside Models only when workspace administration is enabled", async () => {
+    visit("/apps/test-app/views/domains?workspaceKey=default");
+    const { unmount } = render(<App />);
+    const administration = await screen.findByRole("navigation", { name: "Administration" });
+    await within(administration).findByRole("button", { name: "Workspaces" });
+    unmount();
+
+    vi.mocked(api.capabilities).mockResolvedValue(capabilities(false));
+    render(<App />);
+    await screen.findByRole("heading", { name: "Domains", level: 1 });
+    await waitFor(() => expect(api.capabilities).toHaveBeenCalledTimes(2));
+    expect(
+      within(screen.getByRole("navigation", { name: "Administration" })).queryByRole("button", { name: "Workspaces" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens Workspaces from the header without workspace controls and returns to the opened workspace", async () => {
+    vi.mocked(api.workspaces).mockResolvedValue({
+      items: [
+        {
+          key: "default",
+          label: "Default",
+          status: "active",
+          version: 1,
+          createdAt: "2026-09-05T00:00:00Z",
+          updatedAt: "2026-09-05T00:00:00Z",
+        },
+        {
+          key: "west",
+          label: "west",
+          status: "active",
+          version: 1,
+          createdAt: "2026-09-05T00:00:00Z",
+          updatedAt: "2026-09-05T00:00:00Z",
+        },
+      ],
+      nextCursor: null,
+    });
+    visit("/apps/test-app/views/domains?workspaceKey=default");
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Workspaces" }));
+
+    expect(await screen.findByRole("heading", { name: "Workspaces", level: 1 })).toBeInTheDocument();
+    expect(window.location.pathname).toBe("/workspaces");
+    expect(screen.getByRole("button", { name: "Workspaces" })).toHaveAttribute("aria-current", "page");
+    expect(screen.queryByRole("combobox", { name: "Workspace" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Browse workspaces" })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: /^west/ }));
+    await waitFor(() => expect(window.location.pathname).toBe("/workspaces/west"));
+    fireEvent.click(await screen.findByRole("button", { name: "Open workspace" }));
+
+    await waitFor(() => expect(window.location.search).toContain("workspaceKey=west"));
     expect(window.location.pathname).toBe("/apps/test-app/views/domains");
   });
 

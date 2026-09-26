@@ -2,7 +2,8 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
 import { ObjectDetail } from "@/features/objects/ObjectDetail";
 import { ModelWorkbench } from "@/features/model-admin/ModelWorkbench";
-import { defaultRoute, viewRoute } from "@/routing/routes";
+import { defaultRoute, isAdminRoute, viewRoute } from "@/routing/routes";
+import { WorkspaceAdmin } from "@/features/workspaces/WorkspaceAdmin";
 import { applicationFor } from "@/model/lookup";
 import type { ApplicationDefinition, CollectionQueryState, ObjectItem, Workspace } from "@/types";
 import { AppShell } from "./AppShell";
@@ -23,10 +24,10 @@ export default function App() {
   const publicationId = route.kind === "list" || route.kind === "detail" ? route.publicationId : undefined;
   return (
     <WorkspaceDataProvider
-      key={`${route.kind === "models" ? "models" : route.workspaceKey}:${changeSetId ?? publicationId ?? "live"}`}
+      key={`${isAdminRoute(route) ? route.kind : route.workspaceKey}:${changeSetId ?? publicationId ?? "live"}`}
       changeSetId={changeSetId}
       publicationId={publicationId}
-      workspaceKey={route.kind === "models" ? "" : route.workspaceKey}
+      workspaceKey={isAdminRoute(route) ? "" : route.workspaceKey}
       model={model}
     >
       <AppContent router={router} message={message} setMessage={setMessage} />
@@ -52,6 +53,8 @@ function AppContent({
     lastCollection,
     rememberWorkspace,
     reloadModel,
+    defaultWorkspaceKey,
+    defaultWorkspaceChanged,
   } = router;
   const data = useWorkspaceData();
   const model = data.model ?? currentModel;
@@ -63,7 +66,7 @@ function AppContent({
   const [workspace, setWorkspace] = useState<Workspace>();
   const actionSequence = useRef(0);
   const inspectorWidth = useLocalNumberPreference(
-    `rdm:layout:inspector-width:v1:${route && route.kind !== "models" ? route.applicationKey : "record"}:${route?.kind === "detail" ? (route.collectionOrigin?.viewKey ?? "record") : "record"}`,
+    `rdm:layout:inspector-width:v1:${route && !isAdminRoute(route) ? route.applicationKey : "record"}:${route?.kind === "detail" ? (route.collectionOrigin?.viewKey ?? "record") : "record"}`,
     480,
     360,
     720,
@@ -72,7 +75,7 @@ function AppContent({
   const previousPin = useRef(data.changeSet?.modelReleaseId);
   useEffect(() => {
     const pin = data.changeSet?.modelReleaseId;
-    if (pin && previousPin.current && pin !== previousPin.current && model && route && route.kind !== "models") {
+    if (pin && previousPin.current && pin !== previousPin.current && model && route && !isAdminRoute(route)) {
       const selected = applicationFor(model, route.applicationKey) ?? model.applications[0];
       navigate({ ...viewRoute(selected, selected.defaultView, route.workspaceKey), changeSetId: data.changeSet!.id });
     }
@@ -80,11 +83,11 @@ function AppContent({
   }, [data.changeSet, model, route, navigate]);
 
   if (!model || !route) return <div className="center-message">{error || "Loading the model…"}</div>;
-  const requested = route.kind === "models" ? undefined : applicationFor(model, route.applicationKey);
+  const requested = isAdminRoute(route) ? undefined : applicationFor(model, route.applicationKey);
   const application = requested ?? model.applications[0];
   const activeRoute =
     data.changeSet &&
-    route.kind !== "models" &&
+    !isAdminRoute(route) &&
     (!requested ||
       (route.kind === "list" && !application.views.some((view) => view.key === route.viewKey)) ||
       (route.kind === "detail" && !model.objectTypes.some((type) => type.key === route.objectTypeKey)))
@@ -100,12 +103,13 @@ function AppContent({
     activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.publicationId : undefined;
   const readOnly =
     Boolean(publicationId) ||
-    workspace?.key !== (activeRoute.kind === "models" ? "" : activeRoute.workspaceKey) ||
+    workspace?.key !== (isAdminRoute(activeRoute) ? "" : activeRoute.workspaceKey) ||
     workspace?.status !== "active";
 
   function selectApplication(selected: ApplicationDefinition) {
-    const workspaceKey =
-      activeRoute.kind === "models" ? (lastCollection()?.workspaceKey ?? "default") : activeRoute.workspaceKey;
+    const workspaceKey = isAdminRoute(activeRoute)
+      ? (lastCollection()?.workspaceKey ?? defaultWorkspaceKey)
+      : activeRoute.workspaceKey;
     const remembered = lastCollection(selected.key);
     const sameContext =
       remembered?.workspaceKey === workspaceKey &&
@@ -138,7 +142,7 @@ function AppContent({
       objectId: item.id,
       ...(source === "hierarchy" ? { collectionOrigin: null } : {}),
       ...(action ? { actionRequest: { action, key: ++actionSequence.current } } : {}),
-      workspaceKey: activeRoute.kind === "models" ? item.workspaceKey : activeRoute.workspaceKey,
+      workspaceKey: isAdminRoute(activeRoute) ? item.workspaceKey : activeRoute.workspaceKey,
       changeSetId,
       publicationId,
     });
@@ -150,7 +154,7 @@ function AppContent({
     applicationKey = application.key,
     action?: "edit" | "delete",
   ) {
-    if (activeRoute.kind === "models") return;
+    if (isAdminRoute(activeRoute)) return;
     navigate({
       kind: "detail",
       applicationKey,
@@ -165,7 +169,7 @@ function AppContent({
   }
 
   function backToCollection() {
-    if (activeRoute.kind === "models") return;
+    if (isAdminRoute(activeRoute)) return;
     const remembered = activeRoute.kind === "detail" ? activeRoute.collectionOrigin : undefined;
     if (
       remembered?.workspaceKey === activeRoute.workspaceKey &&
@@ -191,13 +195,14 @@ function AppContent({
       ...defaultRoute(activeModel),
       changeSetId,
       publicationId,
-      workspaceKey:
-        activeRoute.kind === "models" ? (lastCollection()?.workspaceKey ?? "default") : activeRoute.workspaceKey,
+      workspaceKey: isAdminRoute(activeRoute)
+        ? (lastCollection()?.workspaceKey ?? defaultWorkspaceKey)
+        : activeRoute.workspaceKey,
     });
   }
 
   function changeWorkspace(workspaceKey: string) {
-    if (activeRoute.kind === "models") return;
+    if (isAdminRoute(activeRoute)) return;
     let changed: boolean;
     if (activeRoute.kind === "detail") {
       const matchingView = application.views.find(
@@ -280,7 +285,7 @@ function AppContent({
                       ...viewRoute(
                         application,
                         application.defaultView,
-                        activeRoute.kind === "models" ? "default" : activeRoute.workspaceKey,
+                        isAdminRoute(activeRoute) ? defaultWorkspaceKey : activeRoute.workspaceKey,
                       ),
                     })
                   }
@@ -337,6 +342,18 @@ function AppContent({
               route={activeRoute}
               onRouteChange={(next) => navigate(next)}
               onActiveModelChange={reloadModel}
+            />
+          ) : activeRoute.kind === "workspaces" ? (
+            <WorkspaceAdmin
+              route={activeRoute}
+              onRouteChange={(next) => navigate(next)}
+              onDefaultChanged={defaultWorkspaceChanged}
+              onOpenWorkspace={(workspaceKey) => {
+                if (navigate(viewRoute(application, application.defaultView, workspaceKey))) {
+                  rememberWorkspace(workspaceKey);
+                  setRefreshToken((value) => value + 1);
+                }
+              }}
             />
           ) : activeRoute.kind === "changeSets" ? (
             <ChangeSets

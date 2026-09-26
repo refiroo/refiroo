@@ -441,10 +441,13 @@ class ModelAdminCapabilities(BaseModel):
     manageDrafts: bool
     install: bool
     activate: bool
+    # The deployment setting that enables this group's mutations, so a client can name it.
+    setting: Literal["MODEL_ADMIN_MUTATIONS_ENABLED"]
 
 
 class WorkspaceAdminCapabilities(BaseModel):
     manageWorkspaces: bool
+    setting: Literal["WORKSPACE_ADMIN_MUTATIONS_ENABLED"]
 
 
 class CapabilitiesResponse(BaseModel):

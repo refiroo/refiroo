@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "@/api/client";
 import { errorMessage } from "@/api/errors";
 import { applicationFor } from "@/model/lookup";
-import { defaultRoute, parseRoute, routePath } from "@/routing/routes";
+import { defaultRoute, isAdminRoute, parseRoute, routePath } from "@/routing/routes";
 import { historyState, navigationEntry, restoreOrigin, routeWithOrigin } from "@/routing/navigationHistory";
 import { allowNavigation } from "@/routing/navigationGuard";
 import type { EngineModel, RouteState } from "@/types";
@@ -39,6 +39,10 @@ export interface Router {
   rememberWorkspace: (workspaceKey: string) => void;
   /** Re-reads the active model, after a different release is activated. */
   reloadModel: () => Promise<void>;
+  /** The workspace a URL that names none opens in. */
+  defaultWorkspaceKey: string;
+  /** Records a new default workspace, the fallback for a URL that names none. */
+  defaultWorkspaceChanged: (workspaceKey: string) => void;
 }
 
 /**
@@ -109,13 +113,9 @@ export function useRouter(): Router {
     return () => window.removeEventListener("popstate", pop);
   }, [defaultWorkspaceKey, model]);
 
-  const requested = model && route && route.kind !== "models" ? applicationFor(model, route.applicationKey) : undefined;
+  const requested = model && route && !isAdminRoute(route) ? applicationFor(model, route.applicationKey) : undefined;
   const active =
-    model && route
-      ? route.kind === "models" || requested
-        ? route
-        : defaultRoute(model, defaultWorkspaceKey)
-      : undefined;
+    model && route ? (isAdminRoute(route) || requested ? route : defaultRoute(model, defaultWorkspaceKey)) : undefined;
 
   // Remembering the collection is a write, so it belongs in an effect rather than in render. The
   // value is only ever read from event handlers, which run after effects have committed.
@@ -184,5 +184,7 @@ export function useRouter(): Router {
       applicationKey ? lastCollections.current.get(applicationKey) : mostRecentCollection.current,
     rememberWorkspace,
     reloadModel,
+    defaultWorkspaceKey,
+    defaultWorkspaceChanged: setDefaultWorkspaceKey,
   };
 }

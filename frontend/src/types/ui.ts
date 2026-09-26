@@ -53,4 +53,8 @@ export type RouteState =
     }
   | { kind: "changeSets"; applicationKey: string; workspaceKey: string; changeSetId?: undefined }
   | { kind: "publications"; applicationKey: string; workspaceKey: string }
-  | { kind: "models"; releaseId?: string; draftId?: string };
+  | { kind: "models"; releaseId?: string; draftId?: string }
+  | { kind: "workspaces"; selectedWorkspaceKey?: string };
+
+/** Global administration screens, which sit outside any workspace and application. */
+export type AdminRoute = Extract<RouteState, { kind: "models" | "workspaces" }>;

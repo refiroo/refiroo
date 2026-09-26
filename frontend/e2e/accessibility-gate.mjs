@@ -193,6 +193,25 @@ try {
   await page.keyboard.press("Escape");
   await page.emulateMedia({ colorScheme: "light" });
 
+  // --- 12. Workspaces administration (Base 0.8 W4), light and dark, with a retired workspace ---
+  const retired = await api("/workspaces", { key: "archive", label: "Archive" });
+  await api("/workspaces/archive", { expectedVersion: retired.version, status: "retired" }, "PATCH");
+  for (const [name, scheme] of [
+    ["workspaces-admin", "light"],
+    ["dark-workspaces-admin", "dark"],
+  ]) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.goto(`${uiUrl}/workspaces`);
+    await shown(page.getByRole("heading", { level: 2, name: "Default" }));
+    await shown(page.getByRole("button", { name: /Archive.*Retired/s }));
+    await page.waitForLoadState("networkidle");
+    result = await runAxe(page, ALLOWLIST, name);
+    if (result.violations.length > 0) failures.push(`${name}:\n${formatViolations(result.violations)}`);
+    checks.push(`${name}: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+    await page.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+
   // Discard the leftover change set.
   const changeSet2Detail = await api(`/change-sets/${changeSet2.id}`);
   await api(`/change-sets/${changeSet2.id}?expectedVersion=${changeSet2Detail.version}`, undefined, "DELETE");

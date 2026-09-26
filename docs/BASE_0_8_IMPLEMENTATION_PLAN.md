@@ -1040,8 +1040,8 @@ Unlike Track S (principle 4), Track W renames API routes and fields deliberately
 production before 1.0, so there are no aliases; the change is still planned as one migration with
 full verification.
 
-Order: W1 → W2 → W3 → W4. W1 may run at any time. W2 follows S7 and precedes A2 and B2 (D15). W5 is
-independent and may run at any time.
+Order: W1 → W2 → W3 → W4 → W6. W1 may run at any time. W2 follows S7 and precedes A2 and B2 (D15). W5 is
+independent and may run at any time. W6 adds deletion to the W4 screen (D27).
 
 #### W1: Terms in documentation
 
@@ -1139,6 +1139,34 @@ unchanged.
 **Exit:** component tests for each state; a browser runner creates a second workspace, switches to
 it, sets it as default and retires it; accessibility and visual gates pass.
 
+**Delivered 2026-09-26.** `features/workspaces/WorkspaceAdmin.tsx` is the `/workspaces/<key>` route
+in the Models layout: the catalogue (every status, Default and Retired marks) in the sidebar, the
+selected workspace (the default when none is named) as the page. Create suggests a key from the
+name; rename, retire and reactivate claim the workspace version and set default the runtime-state
+version. A conflict reloads and names the current state, keeps the user's input and waits for them to
+act again; the default's Retire is disabled with its reason. Reactivation was added because the
+screen lists retired workspaces and the API already allows it. The selector gains a trailing
+**Manage workspaces** option (a `ComboBoxField` action that never becomes the selection) and becomes
+a labelled group with that link when an unfiltered read finds exactly one workspace. Item 4 needed the
+setting names in the contract rather than in the browser, so each capability group gains a required
+`setting` field (OpenAPI lock re-baselined; additive). `features/administration/CapabilityStatus`
+shows both groups on both screens. A direct `/workspaces` link with the flag off stays read only, and
+the header then marks Workspaces as the current page rather than hiding it. Setting the default also
+moves the router's fallback, so a URL without `workspaceKey` lands in the new default.
+
+Evidence: `WorkspaceAdmin.test` (15: load and retry, flag off, create and duplicate, rename and
+conflict, set default and conflict, retire, refused retirement, reactivate, unknown workspace),
+`WorkspaceSelector.test` (+5), `App.test` (+2), `ModelWorkbench.test`, `routes.test`; backend
+capability, OpenAPI and workspace tests. `test:browser:w4` (19 checks, two harnesses, flag on then
+off) does the exit journey plus the conflicts, keyboard creation and 390px; axe is clean on its six
+states. `test:a11y` (20 pages, including `workspaces-admin` light and dark) passes. `test:visual`
+passes after reviewing the diffs: the 15 earlier baselines changed only in the header entry, the
+single-workspace label and the Models capability block; `workspaces-admin-light`/`-dark` are new.
+`test:browser` and `test:browser:wp12` were rerun for the shared selector and Models screen and pass.
+Limits: an axe scan with the selector popover open covers the popover only (React Aria hides the rest
+of the page while it is open); reactivation and the in-dialog retirement refusal have component
+evidence only; the full suites are left to build acceptance.
+
 #### W5: Model activation versus concurrent live writes
 
 **Background:** the registry's publication guard only covers the moment a request resolves the active
@@ -1159,6 +1187,42 @@ instances sharing a database. Unverified; found while documenting split deployme
 4. Update ARCHITECTURE's split-deployment caveats with the result.
 
 **Exit:** the test passes on SQLite; the caveat is either removed or restated precisely.
+
+#### W6: Delete an unused workspace
+
+**Background:** a workspace key cannot be renamed (ADR-019), so a typo in a new key stays forever;
+retirement only hides it from the active list. Deleting is safe only when nothing refers to the
+workspace: objects, change sets (with their bases) and publications reference the key with
+`RESTRICT`, while `relation_set_versions` cascade. Live objects are hard-deleted and discarding a
+change set removes it and its base, so a steward can empty a workspace by hand. A publication is
+only ever withdrawn, never removed, so a published workspace can never be deleted (D27).
+
+**Scope:**
+
+1. ADR-019 amendment: a workspace may be deleted when it is not the default, has no objects and no
+   change sets, and has never been published. Everything else is retired. A deleted key may be
+   created again.
+2. API: `DELETE /workspaces/{key}?expectedVersion=N` on `workspaces.admin_router`, gated by
+   `WORKSPACE_ADMIN_MUTATIONS_ENABLED`; `204` on success. Refusals, checked in this order inside one
+   transaction that locks the workspace row: `404 workspace_not_found`,
+   `409 workspace_is_default`, `409 workspace_has_publications` (retire instead),
+   `409 workspace_not_empty` with `objectCount` and `changeSetCount` in the details, and the existing
+   version conflict. Retired workspaces may be deleted under the same rule. A refusal changes nothing.
+3. Workspace detail gains `deletable` and, when false, a `deleteBlockedBy` reason (`default`,
+   `published`, `notEmpty`), so the screen does not guess. It is computed on detail reads only, not
+   in the paged list.
+4. W4 screen: a **Delete** action in the workspace detail when `deletable`, with a confirmation that
+   names the key; otherwise the reason, suggesting **Retire** for a published workspace. After
+   deletion the screen returns to the list, and the selector drops the workspace; a stale URL for the
+   deleted key shows the existing not-found state.
+5. API.md, CURRENT_FUNCTIONALITY (F-workspace administration), PRODUCT_GUIDE, ARCHITECTURE's
+   capability table, COVERAGE_MAP (new C-WS-DEL row) and the CHANGELOG.
+
+**Exit:** backend tests cover deletion of an empty workspace, re-creation of the same key, each
+refusal with no data change (default, published then withdrawn, objects, change set, stale version),
+deletion after the objects are deleted and the change set discarded, and 404/405 with the flag off;
+the OpenAPI lock is re-baselined; component tests cover the deletable and each blocked state; the W4
+browser runner creates a workspace with a mistyped key, deletes it and creates the corrected one.
 
 ## Pending items — revisit before R1
 
@@ -1228,10 +1292,10 @@ Milestone B:  B1 ──────────────┐
               S3, S4 ─────────→ B2 → B3 → B4
               S6 ────────────────────↗
 Track W:      W1, W5 (any time)
-              S7 → W2 → W3 → W4
+              S7 → W2 → W3 → W4 → W6
               W2 ─→ A2, B2
 Pending:      W2 → P2 (D20; P1, P3 in 0.9)
-Release:      S8, W4, W5, A5, B4, P2 → R1
+Release:      S8, W6, W5, A5, B4, P2 → R1
 ```
 
 A1 and B1 depend only on 0.7 and may be delivered while Track S is in progress. Everything else in
@@ -1525,7 +1589,7 @@ US-H02 and US-D09 move to delivered in the functionality catalogue.
 
 ## R1: Build acceptance and release
 
-**Scope:** after S8, W4, W5, A5, B4 and P2 (D20, D25): the full backend `pytest` suite, frontend `npm run test`, Ruff,
+**Scope:** after S8, W6, W5, A5, B4 and P2 (D20, D25, D27): the full backend `pytest` suite, frontend `npm run test`, Ruff,
 format, lint and build, every browser runner, `test:a11y` and `test:visual`. Migration checks for the
 S2 typed value rows (clean bootstrap, upgrade from the 0.7 head, restart, interrupted migration,
 lifespan, smoke start on a copy of the development database). Confirm a schema 0.7 release installs
@@ -1563,4 +1627,5 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D23 | Ancestor sort on relation lists | **Accepted 2026-09-26:** included now, one walk per list rather than per row, measured at volume | S4R1 |
 | D25 | Whole-type name search is over budget (0.7–0.9 s, S7): indexed search, prefix match, or no total? | **Accepted 2026-09-26:** an indexed search that keeps "contains" matching, in every context (S8). SQLite first; the PostgreSQL equivalent (trigram) arrives with 0.10 hardening. **Delivered 2026-09-26** as a trigram index over text values; names stay on the (type, name) index, which measured cheaper than indexing them (S8) | S8 |
 | D26 | Attribute and ancestor sorts over the 20,000-child parent are over budget (85–204 ms, S4R1, S7) | **Accepted 2026-09-26:** deferred until after 0.9 (precomputed sort keys, 0.10 or later); recorded as a known budget exception for 0.8 | — |
+| D27 | Can a workspace be deleted? (ADR-019 said never) | **Accepted 2026-09-26:** yes, to correct a mistyped key, when it is not the default, has no objects and no change sets, and was never published; a published workspace is retired instead because publications are never removed. No audit event, matching the unaudited create, rename and retire; the key may be reused | W6 |
 | D24 | Which columns sort | **Accepted 2026-09-26 (S4R3 review):** every data column sorts from its header, whatever the attribute's `sortable` flag, including Type and Relationship by their labels; every list shows the same toolbar Sort menu; D21's `sortFields` only add menu fields and `defaultSort` chooses the order. Exceptions: Actions, the computed path, JSON attributes and unrecorded timestamps | S4R3 |

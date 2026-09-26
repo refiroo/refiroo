@@ -332,8 +332,12 @@ def test_model_admin_capabilities_and_routes_are_disabled_by_default():
             "manageDrafts": False,
             "install": False,
             "activate": False,
+            "setting": "MODEL_ADMIN_MUTATIONS_ENABLED",
         },
-        "workspaceAdmin": {"manageWorkspaces": True},
+        "workspaceAdmin": {
+            "manageWorkspaces": True,
+            "setting": "WORKSPACE_ADMIN_MUTATIONS_ENABLED",
+        },
     }
     assert drafts.status_code == 404
     assert "/api/v1/model-drafts" not in app.openapi()["paths"]
@@ -350,6 +354,7 @@ def test_draft_crud_compile_and_installation_lifecycle(monkeypatch):
             "manageDrafts": True,
             "install": True,
             "activate": True,
+            "setting": "MODEL_ADMIN_MUTATIONS_ENABLED",
         }
         active = client.get("/api/v1/model")
         active_release_id = active.headers["X-Model-Release-Id"]

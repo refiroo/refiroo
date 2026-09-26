@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { Key } from "react-aria-components";
 import {
   Button,
@@ -69,6 +70,9 @@ export function SelectField({
   );
 }
 
+/** A key no option can use: model and catalogue keys never contain a NUL character. */
+const ACTION_KEY = "\u0000action";
+
 export function ComboBoxField({
   label,
   value,
@@ -77,6 +81,7 @@ export function ComboBoxField({
   description,
   allowsCustomValue = true,
   onSelect,
+  action,
 }: {
   label: string;
   value: string;
@@ -85,9 +90,21 @@ export function ComboBoxField({
   description?: string;
   allowsCustomValue?: boolean;
   onSelect?: (value: string) => void;
+  /** A command listed after the options, such as opening the screen that manages them. */
+  action?: { label: string; onAction: () => void };
 }) {
+  const items: readonly (SelectionOption & { action?: true })[] = action
+    ? [...options, { id: ACTION_KEY, label: action.label, action: true }]
+    : options;
+  // Held here so that choosing the action, a command rather than a value, never becomes the
+  // selection: the combobox would otherwise show the action's label as the field's value.
+  const [selectedKey, setSelectedKey] = useState<Key | null>(null);
+
   function select(key: Key | null) {
-    if (key !== null) {
+    if (key === ACTION_KEY) {
+      action?.onAction();
+    } else if (key !== null) {
+      setSelectedKey(key);
       onChange(String(key));
       onSelect?.(String(key));
     }
@@ -98,6 +115,7 @@ export function ComboBoxField({
       className="selection-field combo-field"
       inputValue={value}
       onInputChange={onChange}
+      selectedKey={selectedKey}
       onSelectionChange={select}
       allowsCustomValue={allowsCustomValue}
       allowsEmptyCollection
@@ -112,9 +130,13 @@ export function ComboBoxField({
       </div>
       {description && <small className="field-description">{description}</small>}
       <Popover className="selection-popover">
-        <ListBox className="selection-list" items={options}>
+        <ListBox className="selection-list" items={items}>
           {(option) => (
-            <ListBoxItem className="selection-option" id={option.id} textValue={option.label}>
+            <ListBoxItem
+              className={`selection-option${option.action ? " selection-action" : ""}`}
+              id={option.id}
+              textValue={option.label}
+            >
               <span>
                 <strong>{option.label}</strong>
                 {option.description && <small>{option.description}</small>}

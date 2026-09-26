@@ -91,6 +91,7 @@ Chrome. Setup costs ~2.8 s per runner (section 4). Pick by surface:
 | `e2e/s5-continuous-lists.mjs` (`test:browser:s5`) | Base 0.8 S5 continuous lists: collection lens, record and relation panels, mapping lens and object picker over the Track S volume fixture (seeded by `backend/tests/volume_seed.py`, 10% by default, `S5_VOLUME_SCALE=1` for full volume) and the starter model; live, change-set and publication; scrollbar, page number, seek, URL anchor, keyboard, 1440px and 390px |
 | `e2e/s6-sidebar-tree.mjs` (`test:browser:s6`) | Base 0.8 S6 sidebar tree by parent over the Track S volume fixture (10% by default, `S6_VOLUME_SCALE=1` for full volume) and the starter model: top-level roots, each branch's own children and counts per child type, a 2,000-child branch scrolled end to end, an eight-level keyboard path, collapse releasing the branch, search with ancestor paths; live, change-set and publication; 1440px and 390px; axe on three tree states |
 | `e2e/s7-volume-acceptance.mjs` (`test:browser:s7`) | Base 0.8 S7 composed Track S acceptance over the volume fixture (10% by default, `S7_VOLUME_SCALE=1` for full volume) and the starter model: one lens journey per context (scroll, seek, scrollbar click, end, page number, copied URL), each landing checked against the context's API read, then a record deep in the tree (volume: search with its ancestor path; starter: keyboard across a tree window's edge); live, change-set and publication; 1440px and 390px; reports API read times as the browser saw them |
+| `e2e/w4-workspace-admin.mjs` (`test:browser:w4`) | Base 0.8 W4 workspace administration with the capability on and off: single-workspace label, Workspaces screen, create (keyboard, duplicate key), concurrent rename, switching in RDM Systems, dropdown Manage workspaces, set default (landing workspace, stale switch), retire and read-only opening; capability status on both screens; 1440px and 390px; axe on six states |
 | `e2e/sc15-model-version-acceptance.mjs` (`test:browser:sc15`) | WP-9 composed SC-15: C-DR-PIN and C-MOD-ACT with two same-schema releases and an incompatible one; refusals leave live, history and another workspace untouched |
 | `e2e/accessibility-gate.mjs` (`test:a11y`) | C-UI-A11Y, T5 build gate |
 | `e2e/visual-regression-gate.mjs` (`test:visual`) | C-UI-A11Y visual stability, T5 build gate |
@@ -136,7 +137,8 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | `src/ui/*` shared components | `vitest related` | `test:a11y`/`test:visual` scenario for the changed control only when focus, semantics or tokens change; full gates at WP-9 |
 | `src/features/objects/MappingGridView.tsx` and its `views/` host | `vitest related` (3 files) | `wp14-contextual-browser.mjs`, `wp13c-ui-states.mjs` |
 | `src/features/objects/**` other | the file's test and `vitest related` | the runner for the surface (section 1 table) |
-| `src/features/workspaces/**` | `src/features/workspaces` | `wp9-change-sets.mjs` or `wp9-publications.mjs`; `wp11-model-admin.mjs` and `wp13c-ui-states.mjs` for version selection |
+| `src/features/workspaces/**` | `src/features/workspaces` | `wp9-change-sets.mjs` or `wp9-publications.mjs`; `wp11-model-admin.mjs` and `wp13c-ui-states.mjs` for version selection; `w4-workspace-admin.mjs` for `WorkspaceAdmin` and `WorkspaceSelector` |
+| `src/features/administration/**` | `vitest related` | `w4-workspace-admin.mjs` |
 | `src/features/model-admin/**` | `src/features/model-admin` | `wp12-release-identity.mjs`, `wp11-model-admin.mjs` |
 | `src/styles*`, theme tokens | none at T1 | focused a11y/visual scenarios for affected pages, plus dark variants |
 
@@ -182,7 +184,8 @@ pytest processes at once: they share `backend/tests/test-rdm-engine.db`.
   && npm run test:browser:publications && npm run test:browser:wp11 && npm run test:browser:wp12 \
   && npm run test:browser:wp14 && npm run test:browser:wp13c \
   && npm run test:browser:sc07 && npm run test:browser:sc15 \
-  && npm run test:browser:s5 && npm run test:browser:s6 && npm run test:browser:s7)
+  && npm run test:browser:s5 && npm run test:browser:s6 && npm run test:browser:s7 \
+  && npm run test:browser:w4)
 (cd frontend && npm run test:a11y && npm run test:visual)
 ```
 

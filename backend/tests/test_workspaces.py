@@ -270,7 +270,8 @@ def test_workspace_mutations_can_be_removed_while_discovery_remains(monkeypatch)
             == 405
         )
         assert client.get("/api/v1/capabilities").json()["workspaceAdmin"] == {
-            "manageWorkspaces": False
+            "manageWorkspaces": False,
+            "setting": "WORKSPACE_ADMIN_MUTATIONS_ENABLED",
         }
 
 

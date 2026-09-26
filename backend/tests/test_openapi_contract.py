@@ -18,9 +18,10 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # publications in every route, parameter, field, schema and error code, and a publication names
     # its model release key and version. Re-baselined for W3: change-set and publication operations
     # carry the change-sets tag, since they no longer belong to workspace administration.
+    # Re-baselined for W4: each capability group names the deployment setting that controls it.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "15301d8b5bb7543b4582cf214a5b82bf7fc8cffe6ad8b0f97725e377559a87dc"
+        "19d0f7a13f5c5ab4188aff6b35541388fdcaa8baad603a113e415556e38b82e4"
     )
 
 

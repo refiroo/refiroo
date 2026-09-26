@@ -128,6 +128,9 @@ external access-control layer protects it. The flag removes workspace create, re
 default-switch routes; it is a deployment capability, not caller authorization. Workspace discovery
 and the change-set workflow (create, edit, validate, publish, discard, and publication withdrawal)
 remain available, retired workspaces remain readable, and all runtime mutations in them are rejected.
+With the flag on, the browser's **Workspaces** screen (header, beside **Models**) lists, creates,
+renames, retires and sets the default workspace; with it off, the screen is read only and names the
+setting.
 
 ### Model releases and rollback
 

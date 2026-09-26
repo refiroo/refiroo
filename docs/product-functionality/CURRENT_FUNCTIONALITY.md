@@ -68,19 +68,24 @@ in an invented or misspelled workspace.
 
 Users can select a known workspace by label, search the catalogue and retain the stable workspace key
 in the page address. One workspace is the default when a link omits the selection. Retired workspaces
-remain readable and are visibly read-only.
+remain readable and are visibly read-only. While only one workspace exists, the selector is a read-only
+label instead of a control.
 
-Workspace administrators can, through the API, create a workspace, change its label or status and
-atomically select the default. A workspace key cannot be renamed or deleted. The current default cannot
-be retired.
+Workspace administrators use the global **Workspaces** screen, beside **Models** in the header, or the
+**Manage workspaces** entry in the selector: it lists every workspace including retired ones, and
+creates, renames, retires, reactivates and sets the default, each with its version claim. A concurrent
+change is shown with the current state and nothing is retried. A workspace key cannot be changed or
+deleted, and the current default cannot be retired. Change sets and publications stay inside each
+workspace. The same operations remain available through the API.
 
 Safety and limits:
 
 - an unknown explicit key fails rather than silently falling back;
 - catalogue retirement is different from retiring a published data publication;
 - workspace administration is controlled by a deployment setting that defaults on in the current
-  pre-authentication product; this is not user authorization; and
-- no workspace-management screen is currently documented as complete.
+  pre-authentication product; this is not user authorization. When it is off, the header entry and
+  the selector's entry are absent, a direct link shows the catalogue read only, and the Models and
+  Workspaces screens name the setting in their capability status.
 
 The selected workspace is carried from the collection into the detail, history, child and relationship
 requests, so opening a record works in every workspace. The detail refuses a record that belongs to
@@ -88,6 +93,8 @@ another workspace rather than showing it under the wrong selection. The [WP9 nav
 the journey in a non-default workspace.
 
 Evidence: [workspace selector](../../frontend/src/features/workspaces/WorkspaceSelector.tsx),
+[workspace administration](../../frontend/src/features/workspaces/WorkspaceAdmin.tsx),
+[W4 browser runner](../../frontend/e2e/w4-workspace-admin.mjs),
 [workspace service](../../backend/app/services/workspaces.py), [ADR-019](../DECISIONS.md#adr-019--persist-and-retire-globally-scoped-workspaces).
 
 ## F03 — Find, filter, sort and page through records
@@ -366,7 +373,8 @@ draft, save it with conflict protection, validate and compile it, install an imm
 and activate a compatible release with fresh runtime-state claims.
 
 Installation never activates automatically. A historical release remains immutable. Mutating controls
-are absent unless the deployment enables them; the setting is a safety gate, not authorization.
+are absent unless the deployment enables them; the setting is a safety gate, not authorization, and the
+screen's capability status names it.
 Unsupported historical schemas retain metadata/raw JSON inspection and export while semantic comparison
 and activation are unavailable. Expected schema refusals are distinct from corrupt installed JSON, and
 unexpected failures provide a correlation reference without exposing framework/HTML responses in the UI.

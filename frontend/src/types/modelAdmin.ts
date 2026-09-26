@@ -8,13 +8,19 @@ export interface ModelAdminCapabilities {
   manageDrafts: boolean;
   install: boolean;
   activate: boolean;
+  /** The deployment setting that enables this group's mutations. */
+  setting: string;
+}
+
+export interface WorkspaceAdminCapabilities {
+  manageWorkspaces: boolean;
+  /** The deployment setting that enables workspace create, rename, retire and set default. */
+  setting: string;
 }
 
 export interface CapabilitiesResponse {
   modelAdmin: ModelAdminCapabilities;
-  workspaceAdmin: {
-    manageWorkspaces: boolean;
-  };
+  workspaceAdmin: WorkspaceAdminCapabilities;
 }
 
 export interface ModelDiagnostic {

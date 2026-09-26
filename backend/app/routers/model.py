@@ -47,9 +47,11 @@ def get_capabilities(request: Request) -> CapabilitiesResponse:
             manageDrafts=mutations_enabled,
             install=mutations_enabled,
             activate=mutations_enabled,
+            setting="MODEL_ADMIN_MUTATIONS_ENABLED",
         ),
         workspaceAdmin=WorkspaceAdminCapabilities(
-            manageWorkspaces=bool(request.app.state.workspace_admin_mutations_enabled)
+            manageWorkspaces=bool(request.app.state.workspace_admin_mutations_enabled),
+            setting="WORKSPACE_ADMIN_MUTATIONS_ENABLED",
         ),
     )
 

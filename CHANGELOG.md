@@ -74,6 +74,16 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Base 0.8 W4: a global **Workspaces** screen beside **Models**, in the same list-and-detail layout,
+  lists every workspace including retired ones and creates, renames, retires, reactivates and sets
+  the default with their version claims; a conflict shows the current state and is never retried.
+  It appears in the header, and as **Manage workspaces** in the workspace selector, only when
+  `workspaceAdmin.manageWorkspaces` is true. The selector is a read-only label while one workspace
+  exists. Models and Workspaces show the deployment capabilities read only, naming the setting of a
+  disabled group, which `GET /capabilities` now reports in each group's new `setting` field
+  (OpenAPI lock re-baselined). The narrow navigation drawer is titled for its screen. New browser
+  runner `test:browser:w4`; the a11y and visual gates gain `workspaces-admin` light and dark, and
+  every shell baseline was refreshed for the header entry and the single-workspace label.
 - Base 0.8 W3: `WORKSPACE_ADMIN_MUTATIONS_ENABLED` gates only workspace create, rename, retire and
   set default (ADR-031). Change-set create, update, delete, model-release change, validation and
   publish, and publication withdrawal, are always registered and still refused in a retired

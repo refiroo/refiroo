@@ -97,7 +97,9 @@ identity or guess which immutable snapshot to preserve.
 Operation groups are exposed per process by environment capabilities read at startup
 ([ADR-031](DECISIONS.md#adr-031--workspace-terminology-and-deployment-capability-boundaries)).
 A disabled group's routes are not registered. `GET /api/v1/capabilities` reports the effective
-values. These are deployment limits, not authorization; 0.10 authorization works within them.
+values and names each group's setting; the Models and Workspaces screens show that status read only,
+and the header offers Workspaces only when its group is enabled. These are deployment limits, not
+authorization; 0.10 authorization works within them.
 
 | Capability | Default | Group |
 | --- | --- | --- |

@@ -24,6 +24,7 @@
     "test:browser:s5": "node e2e/s5-continuous-lists.mjs",
     "test:browser:s6": "node e2e/s6-sidebar-tree.mjs",
     "test:browser:s7": "node e2e/s7-volume-acceptance.mjs",
+    "test:browser:w4": "node e2e/w4-workspace-admin.mjs",
     "test:gate-helpers": "node --test e2e/helpers/*.node-test.mjs",
     "test:a11y": "node e2e/accessibility-gate.mjs",
     "test:visual": "node e2e/visual-regression-gate.mjs",

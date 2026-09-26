@@ -359,6 +359,27 @@ fieldset.settings-section legend {
   width: 100%;
   min-width: 0;
 }
+.workspace-single {
+  display: grid;
+  gap: 2px;
+  padding: 0 6px;
+}
+.workspace-single-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.workspace-single strong {
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 600;
+}
+.workspace-single .workspace-manage {
+  justify-self: start;
+  margin: 4px 0 0 -8px;
+}
 .nav-label {
   margin: 0 10px 6px;
   color: var(--muted);

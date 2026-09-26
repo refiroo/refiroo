@@ -112,6 +112,21 @@ try {
   const changeSet2Detail = await api(`/change-sets/${changeSet2.id}`);
   await api(`/change-sets/${changeSet2.id}?expectedVersion=${changeSet2Detail.version}`, undefined, "DELETE");
 
+  // --- 11. Workspaces administration (Base 0.8 W4), last because a second workspace turns every
+  // earlier shell's single-workspace label into the selector ---
+  const retired = await api("/workspaces", { key: "archive", label: "Archive" });
+  await api("/workspaces/archive", { expectedVersion: retired.version, status: "retired" }, "PATCH");
+  await page.goto(`${uiUrl}/workspaces`);
+  await shown(page.getByRole("heading", { level: 2, name: "Default" }));
+  await shown(page.getByRole("button", { name: /Archive.*Retired/s }));
+  await capture(page, "workspaces-admin-light", output);
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto(`${uiUrl}/workspaces`);
+  await shown(page.getByRole("heading", { level: 2, name: "Default" }));
+  await shown(page.getByRole("button", { name: /Archive.*Retired/s }));
+  await capture(page, "workspaces-admin-dark", output);
+  await page.emulateMedia({ colorScheme: "light" });
+
   // Write report.
   const report = { checks, failures, passed: failures.length === 0 };
   await writeFile(resolve(output, "report.json"), JSON.stringify(report, null, 2));

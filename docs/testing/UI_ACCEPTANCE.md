@@ -79,6 +79,21 @@ refreshed after inspection for S6's tree heading and the footer fields. The dark
 footer's page and **Go to** fields on the browser's light field colours (contrast below AA); they
 now share the text-input treatment. `test:browser:s7` composes T1 and T4 in live, change-set and publication.
 
+### Surfaces added or materially changed in 0.8 Track W
+
+| # | Surface (package) | Navigation | Reference | Load | Populated / empty | Pending | Success | Invalid / refused | Conflict | Dependency failure → retry | Narrow | Keyboard / focus | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| W1 | Workspaces screen: catalogue including retired, detail, create, rename, set default, retire, reactivate (W4) | header **Workspaces**; `/workspaces/<key>` | Page surface (Models list-and-detail layout: S13), Dialog, Confirmation | C | **B** (one, two and a retired workspace; a catalogue is never empty, since one workspace always exists) | C (`Creating…`, `Saving…`, `Working…`) | **B** (create, rename, set default, retire; reactivate: C) | **B** (duplicate key kept in the dialog; default cannot be retired: disabled with its reason, refusal inside the confirmation: C) | **B** (concurrent rename and concurrent default switch reported with the current state, nothing retried) | C (`WorkspaceAdmin.test`: capability, catalogue and detail reads, Retry in place) | **B** (390px page, drawer catalogue, rename dialog) | **B** (header link, New workspace and dialog submit by keyboard) | `w4-workspace-admin`; gates: `workspaces-admin` light and dark |
+| W2 | Workspace selector: **Manage workspaces** option, read-only label for one workspace (W4) | sidebar **Workspace** | Field (`ui/Selection` combobox) | C | **B** (one workspace: label; two: combobox listing both after a switch) | — (a switch is a navigation) | **B** (switch in RDM Systems; Manage workspaces from the dropdown and from the label, by keyboard) | — (nothing to refuse) | — (read-only) | C (`WorkspaceSelector.test`: unknown workspace error) | B (shared sidebar at 390px, `wp9-navigation`) | **B** (label button by keyboard; option by pointer, the combobox keyboard contract is React Aria's and `wp9-navigation`'s) | `w4-workspace-admin`, `WorkspaceSelector.test`; every shell baseline shows the label |
+| W3 | Deployment capability status on Models and Workspaces (W4) | header **Models** or **Workspaces** | Notice-like status list | — (read with the screen) | **B** (model off and workspace on; model on and workspace off, direct `/workspaces` link read only) | — | — (read only) | — | — | C (Workspaces: failed capability read with Retry) | B | — (static text) | `w4-workspace-admin`, `ModelWorkbench.test`; gates: `model-workbench`, `workspaces-admin` |
+
+Not applicable, with reasons: the selector's switch and the capability status write nothing, so they
+have no pending, refused or conflict state. An axe scan with the selector's popover open covers the
+popover only: React Aria hides everything outside an open popover from assistive technology, so a
+whole-page scan at that moment reports the hidden shell rather than the options (`landmark-one-main`,
+`aria-hidden-focus` on the header and explorer). Reactivation and the in-dialog retirement refusal have
+component evidence only.
+
 ## 3. Selected focused browser checks
 
 Selected by risk to the user's job (losing an unsaved choice, silently overwriting a newer mapping,

@@ -12,6 +12,16 @@ describe("routes", () => {
     window.history.pushState({}, "", "/");
   });
 
+  it("round-trips the global Workspaces route with and without a selected workspace", () => {
+    const selected = { kind: "workspaces", selectedWorkspaceKey: "central-europe" } as const;
+    window.history.pushState({}, "", routePath(selected));
+    expect(routePath(selected)).toBe("/workspaces/central-europe");
+    expect(parseRoute(testModel)).toEqual(selected);
+    window.history.pushState({}, "", routePath({ kind: "workspaces" }));
+    expect(parseRoute(testModel)).toEqual({ kind: "workspaces" });
+    window.history.pushState({}, "", "/");
+  });
+
   it("normalizes an ambiguous Models URL to the editable draft", () => {
     window.history.pushState({}, "", "/models?releaseId=r1&draftId=d1");
     expect(parseRoute(testModel)).toEqual({ kind: "models", draftId: "d1" });

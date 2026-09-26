@@ -4,7 +4,7 @@
  * hand-edited or stale URL falls back to a valid route rather than rendering an empty screen.
  */
 
-import type { ApplicationDefinition, EngineModel, RouteState, ViewDefinition } from "@/types";
+import type { AdminRoute, ApplicationDefinition, EngineModel, RouteState, ViewDefinition } from "@/types";
 import { DEFAULT_COLLECTION_QUERY, DEFAULT_WORKSPACE } from "@/model/defaults";
 import { applicationFor, objectTypeFor } from "@/model/lookup";
 import { listSortFields } from "@/model/fields";
@@ -15,6 +15,10 @@ function viewDefaults(view: ViewDefinition | undefined) {
     sort: (view?.type === "table" ? view.config.defaultSort : undefined) ?? DEFAULT_COLLECTION_QUERY.sort,
     pageSize: view?.config.pageSize ?? DEFAULT_COLLECTION_QUERY.pageSize,
   };
+}
+
+export function isAdminRoute(route: RouteState): route is AdminRoute {
+  return route.kind === "models" || route.kind === "workspaces";
 }
 
 export function defaultRoute(
@@ -50,6 +54,8 @@ export function parseRoute(
     const draftId = query.get("draftId")?.trim() || undefined;
     return draftId ? { kind: "models", draftId } : { kind: "models", ...(releaseId ? { releaseId } : {}) };
   }
+  if (parts[0] === "workspaces")
+    return parts[1] ? { kind: "workspaces", selectedWorkspaceKey: parts[1] } : { kind: "workspaces" };
   if (parts[0] === "apps" && parts[2] === "views" && parts[3]) {
     const application = applicationFor(model, parts[1]);
     const view = application?.views.find((view) => view.key === parts[3]);
@@ -130,6 +136,8 @@ export function routePath(route: RouteState) {
     if (route.draftId) query.set("draftId", route.draftId);
     return `/models${query.size ? `?${query}` : ""}`;
   }
+  if (route.kind === "workspaces")
+    return `/workspaces${route.selectedWorkspaceKey ? `/${encodeURIComponent(route.selectedWorkspaceKey)}` : ""}`;
   const app = encodeURIComponent(route.applicationKey);
   const query = new URLSearchParams({ workspaceKey: route.workspaceKey });
   if (route.kind === "changeSets") return `/apps/${app}/change-sets?${query}`;
