@@ -2,21 +2,38 @@ from datetime import datetime
 from typing import Any, Literal
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic.json_schema import SkipJsonSchema
 
 
-class PageNavigation(BaseModel):
-    """Navigation fields every collection page carries (ADR-030).
+def _without_default(schema: dict[str, Any]) -> None:
+    schema.pop("default", None)
+
+
+def _omitted_when_none(value: object) -> bool:
+    return value is None
+
+
+def _requested_count() -> Any:
+    """A count present only when asked for: omitted from the body rather than null, and documented
+    as an optional integer."""
+    return Field(default=None, exclude_if=_omitted_when_none, json_schema_extra=_without_default)
+
+
+class CollectionPage[Item](BaseModel):
+    """One page of a collection (ADR-030): ``items`` first, then the navigation fields.
 
     ``nextCursor`` and ``prevCursor`` continue after the last and before the first row and are
     null at the end and the start; ``anchor`` reopens this page. ``totalCount`` and ``startIndex``
-    (the number of matching rows before the first row) are present only with ``includeTotal=true``.
+    (the number of matching rows before the first row) are present only with ``includeTotal=true``
+    and omitted otherwise.
     """
 
+    items: list[Item]
     nextCursor: str | None
     prevCursor: str | None = None
     anchor: str | None = None
-    totalCount: int | None = None
-    startIndex: int | None = None
+    totalCount: int | SkipJsonSchema[None] = _requested_count()
+    startIndex: int | SkipJsonSchema[None] = _requested_count()
 
 
 class ApiErrorBody(BaseModel):
@@ -109,8 +126,8 @@ class ObjectResponse(BaseModel):
     workspaceDraftVersion: int | None = None
 
 
-class ObjectPage(PageNavigation):
-    items: list[ObjectResponse]
+class ObjectPage(CollectionPage[ObjectResponse]):
+    pass
 
 
 class WorkspaceDraftCreate(BaseModel):
@@ -159,8 +176,8 @@ class WorkspaceDraftResponse(BaseModel):
     updatedAt: datetime
 
 
-class WorkspaceDraftPage(PageNavigation):
-    items: list[WorkspaceDraftResponse]
+class WorkspaceDraftPage(CollectionPage[WorkspaceDraftResponse]):
+    pass
 
 
 class WorkspaceRevisionResponse(BaseModel):
@@ -176,8 +193,8 @@ class WorkspaceRevisionResponse(BaseModel):
     retiredAt: datetime | None
 
 
-class WorkspaceRevisionPage(PageNavigation):
-    items: list[WorkspaceRevisionResponse]
+class WorkspaceRevisionPage(CollectionPage[WorkspaceRevisionResponse]):
+    pass
 
 
 class WorkspaceDraftObjectWrite(BaseModel):
@@ -346,8 +363,8 @@ class RelationTypeResponse(BaseModel):
     allowedPairs: list[AllowedObjectTypePair]
 
 
-class MetadataPage[ResponseItem](PageNavigation):
-    items: list[ResponseItem]
+class MetadataPage[ResponseItem](CollectionPage[ResponseItem]):
+    pass
 
 
 class ModelReleaseSummary(BaseModel):
@@ -365,8 +382,8 @@ class ModelReleaseResponse(ModelReleaseSummary):
     model: dict[str, Any] | None = None
 
 
-class ModelReleasePage(PageNavigation):
-    items: list[ModelReleaseSummary]
+class ModelReleasePage(CollectionPage[ModelReleaseSummary]):
+    pass
 
 
 class ModelReleaseActivationResponse(BaseModel):
@@ -379,8 +396,8 @@ class ModelReleaseActivationResponse(BaseModel):
     occurredAt: datetime
 
 
-class ModelReleaseActivationPage(PageNavigation):
-    items: list[ModelReleaseActivationResponse]
+class ModelReleaseActivationPage(CollectionPage[ModelReleaseActivationResponse]):
+    pass
 
 
 class ModelDocumentRequest(BaseModel):
@@ -478,8 +495,8 @@ class WorkspaceResponse(BaseModel):
     updatedAt: datetime
 
 
-class WorkspacePage(PageNavigation):
-    items: list[WorkspaceResponse]
+class WorkspacePage(CollectionPage[WorkspaceResponse]):
+    pass
 
 
 class WorkspaceRuntimeStateUpdate(BaseModel):
@@ -547,8 +564,8 @@ class ModelDraftResponse(BaseModel):
     updatedAt: datetime
 
 
-class ModelDraftPage(PageNavigation):
-    items: list[ModelDraftResponse]
+class ModelDraftPage(CollectionPage[ModelDraftResponse]):
+    pass
 
 
 class ModelCompilationResponse(BaseModel):
@@ -567,8 +584,8 @@ class RelationExpansion(BaseModel):
     object: ObjectResponse
 
 
-class RelationPage(PageNavigation):
-    items: list[RelationExpansion]
+class RelationPage(CollectionPage[RelationExpansion]):
+    pass
 
 
 class AuditEventResponse(BaseModel):
@@ -582,8 +599,8 @@ class AuditEventResponse(BaseModel):
     occurredAt: datetime
 
 
-class AuditEventPage(PageNavigation):
-    items: list[AuditEventResponse]
+class AuditEventPage(CollectionPage[AuditEventResponse]):
+    pass
 
 
 class MappingObjectSummary(BaseModel):
@@ -608,18 +625,17 @@ class MappingCoverageRow(BaseModel):
     targetsNextCursor: str | None
 
 
-class MappingCoveragePage(PageNavigation):
-    items: list[MappingCoverageRow]
+class MappingCoveragePage(CollectionPage[MappingCoverageRow]):
+    pass
 
 
-class MappingTargetPage(PageNavigation):
+class MappingTargetPage(CollectionPage[MappingTargetSummary]):
     mappingVersion: int
     targetCount: int
-    items: list[MappingTargetSummary]
 
 
-class MappingCandidatePage(PageNavigation):
-    items: list[MappingObjectSummary]
+class MappingCandidatePage(CollectionPage[MappingObjectSummary]):
+    pass
 
 
 class MappingListRow(BaseModel):
@@ -632,8 +648,8 @@ class MappingListRow(BaseModel):
     mappingVersion: int
 
 
-class MappingListPage(PageNavigation):
-    items: list[MappingListRow]
+class MappingListPage(CollectionPage[MappingListRow]):
+    pass
 
 
 class MappingReplacementRequest(BaseModel):

@@ -581,6 +581,19 @@ seeks by name in live, draft and history), the OpenAPI lock (the object `sort` d
 default). Both new tests fail against the previous services. Not measured: mapping coverage at volume,
 which no S1 scenario covers.
 
+**S4R5 delivered 2026-09-26.** Every page model derives from one generic `CollectionPage[Item]` in
+`models/api.py` (replacing `PageNavigation`, whose fields came before each subclass's `items`), so
+all 17 cursor-paged responses list `items` first, then `nextCursor`, `prevCursor`, `anchor` and, with
+`includeTotal=true`, `totalCount` and `startIndex`; the mapping target page adds `mappingVersion` and
+`targetCount` after them. The counts are excluded when unset (`exclude_if`) rather than serialized as
+`null`, and OpenAPI documents them as optional integers instead of nullable ones. No service changed:
+`Page.links()` still names every field and the response model drops the unset counts. The frontend
+types drop `null` from the counts; its readers already treated them as optional. Evidence:
+`test_paging_contract` (the exact key order of an object page with and without totals in live, draft
+and history), `test_openapi_contract` (every page schema starts with `items`, the counts are optional
+integers, and the re-baselined lock, whose diff is only those 17 schemas), and `test_model_lifecycle`
+(an empty activation page without totals).
+
 **Later package T1 — recorded timestamps in drafts and history.** Timestamp columns on draft,
 draft-base and revision object and relation rows (captured rows keep live values, draft writes set
 them), plus an internal creation ordinal so creation order is identical in every context. Backfill from

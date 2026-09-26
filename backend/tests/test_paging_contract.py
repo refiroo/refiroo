@@ -108,6 +108,9 @@ def _jumps(client, path: str, params: dict[str, Any], reference: list[str]) -> N
     assert _ids(landed["items"]) == reference[at : at + PAGE]
     assert (landed["startIndex"], landed["totalCount"]) == (at, len(reference))
     before = _get(client, path, {**params, "pageSize": PAGE, "cursor": landed["prevCursor"]})
+    # S4R5: items first; totals appear only when asked for, never as nulls.
+    assert list(landed) == ["items", "nextCursor", "prevCursor", "anchor", "totalCount", "startIndex"]
+    assert list(before) == ["items", "nextCursor", "prevCursor", "anchor"]
     assert _ids(before["items"]) == reference[at - PAGE : at]
     after = _get(client, path, {**params, "pageSize": PAGE, "cursor": landed["nextCursor"]})
     assert _ids(after["items"]) == reference[at + PAGE : at + 2 * PAGE]

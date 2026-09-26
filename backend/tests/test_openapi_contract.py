@@ -12,10 +12,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # (test_paging_openapi_inventory below states them). Re-baselined for the S4R3 revision: the
     # object and relation sort descriptions name every data field (scalar attributes, objectType,
     # relationship) instead of the sortable feature. Re-baselined for S4R4: the object sort
-    # description states that an omitted sort orders by name.
+    # description states that an omitted sort orders by name. Re-baselined for S4R5: pages list
+    # items first and document totalCount and startIndex as optional integers, omitted unless
+    # includeTotal=true.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "41cb88b69bd2513053f4baa20f24e9cb23fa26d674ac1d8f83c24b6029966923"
+        "f70e26388af786d4fc454c665c7c5bcdc5f0bce3ac4df85dcf71b2bb16b6efe0"
     )
 
 
@@ -39,6 +41,10 @@ def test_paging_openapi_inventory():
         name = schema["$ref"].rsplit("/", 1)[-1]
         properties = document["components"]["schemas"][name]["properties"]
         assert {"nextCursor", "prevCursor", "anchor", "totalCount", "startIndex"} <= set(properties)
+        # S4R5: items first; totals are optional integers, omitted rather than null.
+        assert next(iter(properties)) == "items", path
+        assert {"totalCount", "startIndex"}.isdisjoint(document["components"]["schemas"][name]["required"])
+        assert properties["totalCount"]["type"] == properties["startIndex"]["type"] == "integer"
     assert seekable <= paged and len(paged) == 17
     objects = {item["name"] for item in document["paths"]["/api/v1/objects/{object_type_key}"]["get"]["parameters"]}
     relations = {item["name"] for item in document["paths"]["/api/v1/relations"]["get"]["parameters"]}

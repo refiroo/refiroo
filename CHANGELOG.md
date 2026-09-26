@@ -105,6 +105,9 @@ All notable changes to this project are documented in this file. The format foll
   list by name and an unsorted list accepts `seek` by name. Mapping coverage and candidates list by
   name, and coverage `seek` takes a source name instead of an ID. Cursors issued for the former
   default orders are refused with `422 invalid_cursor`; reload from the first page.
+- Base 0.8 S4R5: every page lists `items` first, then its navigation fields. `totalCount` and
+  `startIndex` are omitted unless `includeTotal=true` instead of returned as `null`, and OpenAPI
+  documents them as optional integers. Clients that tested them for `null` should test for absence.
 
 ### Fixed
 

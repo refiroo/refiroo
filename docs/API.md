@@ -87,18 +87,18 @@ selects its page with **at most one** of these parameters; none reads the first 
 the same filters. Combining two selectors returns `422 conflicting_page_parameters` with the
 parameters in `details.parameters`; a negative `position` is `422 request_validation_error`.
 
-Every page returns, in list order:
+Every page returns its items in list order, followed by the navigation fields:
 
 ```json
 {
   "items": [],
   "nextCursor": null,
   "prevCursor": null,
-  "anchor": null,
-  "totalCount": null,
-  "startIndex": null
+  "anchor": null
 }
 ```
+
+With `includeTotal=true` the page adds `"totalCount"` and `"startIndex"` after `anchor`.
 
 - `nextCursor` continues after the last row and `prevCursor` before the first; each is `null` only
   at that end of the list. A backward read returns rows in list order, so walking back from the end
@@ -106,7 +106,7 @@ Every page returns, in list order:
 - `anchor` reopens this page from its first row: keep it (for example in a URL) instead of a trail of
   cursors. It is `null` for an empty page.
 - `totalCount` and `startIndex` (the number of matching rows before the first row) are present only
-  with `includeTotal=true`; otherwise they are `null` and cost nothing.
+  with `includeTotal=true`; otherwise they are omitted and cost nothing. They are never `null`.
 - A position at or past the end returns no items, `startIndex` equal to `totalCount`, and a
   `prevCursor` to the last page.
 
@@ -444,8 +444,8 @@ documented in the sections above.
 
 All metadata collection endpoints accept a `pageSize` from 1 to 500 (default 100) and the
 [collection paging](#collection-paging) parameters except `seek`, and return the standard page
-(`items`, `nextCursor`, `prevCursor`, `anchor`, `totalCount`, `startIndex`). Pass cursors back
-unchanged. Metadata cursors are derived from stable model keys, never database sequence IDs.
+(`items`, `nextCursor`, `prevCursor`, `anchor`, and with `includeTotal=true` `totalCount` and
+`startIndex`). Pass cursors back unchanged. Metadata cursors are derived from stable model keys, never database sequence IDs.
 
 ### Applications response
 
@@ -1276,7 +1276,7 @@ endpoint. Composed acceptance remains in WP-9. WP-1–WP-3 scopes remain frozen.
   and optional paired `applicationKey`/`viewKey` for view-specific projection, plus `sourceObjectId`, required nonnegative `mappingVersion`,
   optional `cursor`, `pageSize` (1–100; default 20), and one optional `workspaceDraftId` or
   `workspaceRevisionId`.
-  It returns `{mappingVersion, targetCount, items}` with the [paging fields](#collection-paging). An observed-version mismatch returns
+  It returns the page's `items` and [paging fields](#collection-paging), then `mappingVersion` and `targetCount`. An observed-version mismatch returns
   `409 mapping_version_conflict` with an instruction to refresh coverage and the current version in
   `error.details.mappingVersion`. A cursor for another version, anchor or context is `422 invalid_cursor`.
   Confirmed live/draft object cascade deletion advances both directional set versions for every

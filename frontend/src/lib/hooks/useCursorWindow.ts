@@ -11,8 +11,8 @@ export interface WindowedPage<T> {
   nextCursor: string | null;
   prevCursor?: string | null;
   anchor?: string | null;
-  totalCount?: number | null;
-  startIndex?: number | null;
+  totalCount?: number;
+  startIndex?: number;
 }
 
 interface HeldPage<T> {

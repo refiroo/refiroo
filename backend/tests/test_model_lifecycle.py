@@ -928,8 +928,6 @@ def test_release_activation_history_reads_recorded_predecessors_oldest_first(mon
             "nextCursor": None,
             "prevCursor": None,
             "anchor": None,
-            "totalCount": None,
-            "startIndex": None,
         }
 
         # original -> first -> second -> first (rollback) -> original (restores the shared database)
