@@ -13,14 +13,14 @@ frontend and real-browser package evidence; it is not WP-9 release acceptance. S
 | ID  | Function                                                  | Browser             | API            | Current assessment               |
 | --- | --------------------------------------------------------- | ------------------- | -------------- | -------------------------------- |
 | F01 | Model-defined applications                                | Implemented         | Available      | Contextual browser focused proof |
-| F02 | Workspace discovery and selection                         | Implemented         | Available      | Non-default detail gap           |
+| F02 | Workspace discovery and selection                         | Implemented         | Available      | Non-default detail repaired (0.6 WP9) |
 | F03 | Find, filter, sort and page through records               | Implemented         | Available      | Visible facets; WP9 full gate pending |
-| F04 | Inspect a record and its context                          | Default only        | Available      | Non-default context is dropped   |
+| F04 | Inspect a record and its context                          | Implemented         | Available      | Every workspace                  |
 | F05 | Maintain live records                                     | Temporarily unwired | Available      | WP9 must enable browser editing  |
 | F06 | Maintain typed field values                               | Components present  | Available      | Browser completion is WP9        |
 | F07 | Maintain containment and hierarchy                        | Components present  | Available      | Specialist tree is roadmap       |
 | F08 | Maintain ordinary relationships                           | Implemented         | Available      | Mapping lens focused proof; WP9 pending |
-| F09 | Maintain translations                                     | Components present  | Available      | Translation workspace is roadmap |
+| F09 | Maintain translations                                     | Components present  | Available      | Translation editor is roadmap    |
 | F10 | Preview and confirm dependent deletion                    | Components present  | Available      | Browser completion is WP9        |
 | F11 | Inspect record history                                    | Default only        | Available      | Non-default context is dropped   |
 | F12 | Prepare a workspace design draft                          | Unavailable         | Available      | Browser completion is WP9        |
@@ -82,11 +82,10 @@ Safety and limits:
   pre-authentication product; this is not user authorization; and
 - no workspace-management screen is currently documented as complete.
 
-Current browser limitation: selecting and listing a non-default workspace works, but opening a record
-does not currently carry that workspace into the detail, history or relationship requests. The backend
-then resolves the omitted context to the default workspace and rejects the mismatched record. Until WP9
-repairs the complete context handoff, the browser detail journey is reliable only for the default
-workspace.
+The selected workspace is carried from the collection into the detail, history, child and relationship
+requests, so opening a record works in every workspace. The detail refuses a record that belongs to
+another workspace rather than showing it under the wrong selection. The [WP9 navigation runner](../../frontend/e2e/wp9-navigation.mjs) exercises
+the journey in a non-default workspace.
 
 Evidence: [workspace selector](../../frontend/src/features/workspaces/WorkspaceSelector.tsx),
 [workspace service](../../backend/app/services/workspaces.py), [ADR-019](../DECISIONS.md#adr-019--persist-and-retire-globally-scoped-workspaces).
@@ -124,7 +123,7 @@ Evidence: [collection view](../../frontend/src/features/objects/CollectionView.t
 **User outcome:** A user can understand a record without reconstructing its meaning from separate raw
 tables.
 
-For the default workspace, the current browser can open a record from a collection or explorer and show
+In any workspace, the current browser can open a record from a collection or explorer and show
 model-defined:
 
 - breadcrumbs and parent path;
@@ -137,10 +136,6 @@ model-defined:
 
 Opening and returning retains the originating collection address so the user does not lose the search,
 filters or sort that led to the record. Failed reads have explicit retry and back actions.
-
-Current limitation: detail, history, attribute and relationship requests omit the selected workspace
-context. Opening a record from a non-default workspace therefore fails rather than completing this
-journey.
 
 Evidence: [object detail](../../frontend/src/features/objects/ObjectDetail.tsx),
 [panel registry](../../frontend/src/features/objects/panels/registry.tsx).

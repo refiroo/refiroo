@@ -45,7 +45,7 @@ preloaded demonstration data.
 
 | User goal | What the product should let the user do | Development position | Stories |
 | --- | --- | --- | --- |
-| Find the right information | Choose a named workspace, search and filter a list, inspect a record and return to the same place | Browser read flows exist; non-default detail context needs repair | US-D01–D05 |
+| Find the right information | Choose a named workspace, search and filter a list, inspect a record and return to the same place | Browser read flows available in every workspace | US-D01–D05 |
 | Keep a shared list accurate | Add, correct or remove a value and its fields, with clear validation and change history | Service and Base 0.6 browser authoring available; see the functionality catalogue for context limitations | US-D06–D08, US-D11–D12, US-D14 |
 | Organize and connect data | Choose a valid parent, connect related records and understand deletion impact | Service and Base 0.6 browser authoring available; see the functionality catalogue for context limitations | US-D09–D11 |
 | Work in several domains | Use the configured terminology, fields and views through familiar controls | Model-driven foundation exists | US-D13, US-P06 |

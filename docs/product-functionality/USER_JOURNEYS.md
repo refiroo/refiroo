@@ -7,8 +7,8 @@ availability. Concrete data and expected outcomes are in [acceptance scenarios](
 
 ## J01 — Find and inspect a reference value
 
-**Current channel:** Browser implementation for the default workspace and API for every workspace;
-composed-browser validation is pending.
+**Current channel:** Browser and API for every workspace; the [WP9 navigation runner](../../frontend/e2e/wp9-navigation.mjs) exercises this journey
+in a non-default workspace.
 
 1. Select a workspace by label.
 2. Select an application and view.
@@ -20,10 +20,6 @@ composed-browser validation is pending.
 Success means the user never needs a database ID, API knowledge or a second manual search. An empty
 relationship section is an empty result, not an error. A failed page or panel can retry without losing
 successful content.
-
-Known gap: a non-default workspace is carried by the collection but currently lost by the detail,
-history and relationship requests. That browser journey is not available until WP9 repairs the context
-handoff.
 
 ## J02 — Make one routine live correction
 

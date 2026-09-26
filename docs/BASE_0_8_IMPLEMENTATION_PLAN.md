@@ -1,8 +1,8 @@
 # Base 0.8 implementation plan
 
 **Status:** Draft plan, 2026-09-25. Track S (scalable browsing) starts first. Milestone A
-(translation workspace) and Milestone B (hierarchy workspace) from the
-[roadmap](ROADMAP.md#product-release-08--translation-and-hierarchy-workspaces) are broken into work
+(translation editor) and Milestone B (hierarchy editor) from the
+[roadmap](ROADMAP.md#product-release-08--translation-and-hierarchy-editors) are broken into work
 packages A1–A5 and B1–B4; Track W (W1–W5) delivers ADR-031 terminology and capability boundaries; R1
 owns build acceptance. Decisions D8–D19 are proposed, not yet accepted.
 
@@ -1212,7 +1212,7 @@ W2 lands before A2 and B2 so the new translation and hierarchy endpoints are wri
 names rather than renamed afterwards. A2 and B2 already wait for S5 and S6, so the extra wait is W2
 alone (D15).
 
-## Milestone A — Translation workspace
+## Milestone A — Translation editor
 
 ### Outcome
 
@@ -1380,7 +1380,7 @@ dark) and reviewed visual baselines. Record A2 measurements against budgets.
 [execution guide](testing/EXECUTION_GUIDE.md); US-L03 and US-L04 move to delivered in the
 functionality catalogue.
 
-## Milestone B — Hierarchy workspace
+## Milestone B — Hierarchy editor
 
 ### Outcome
 

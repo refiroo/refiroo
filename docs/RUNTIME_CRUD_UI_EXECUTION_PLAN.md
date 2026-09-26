@@ -382,6 +382,6 @@ All four commands must pass. A frontend production build is required in addition
 - Permissions/OIDC and model-configurable operation authorization.
 - Bulk object, attribute or relation mutation.
 - Atomic relation retargeting/safe remapping beyond documented delete-plus-create semantics.
-- Dedicated mapping-grid and hierarchy-tree workspaces.
+- Dedicated mapping-grid and hierarchy-tree editors.
 - Cursor-paged or batched relation expansion, unless accepted as a prerequisite in a revised plan.
 - Import/export, change feed, webhooks and database-level uniqueness hardening.

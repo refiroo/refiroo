@@ -34,7 +34,7 @@ keys. Do not edit `model/rdm-starter.json` merely to drive generic administratio
 ## Product outcome
 
 Base 0.5 makes the existing generic engine pleasant and safe to operate before specialized mapping and
-translation workspaces are added:
+translation editors are added:
 
 1. A user works in an explicit workspace and can find, filter, sort, page, inspect and act on objects
    with predictable loading, error and conflict behavior.

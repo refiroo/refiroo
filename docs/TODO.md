@@ -45,18 +45,18 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [x] S8 indexed search keeping "contains" matching in every context (D25): a trigram index over
     text values; a whole-type name search with its total in 37 / 73 / 40 ms (was 0.7–0.9 s).
 - [ ] 0.8 Track W — workspace terminology and capability boundaries ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#track-w--workspace-terminology-and-capability-boundaries), ADR-031):
-  - [ ] W1 glossary, roadmap and milestone names (translation/hierarchy editor); stale gap notes.
+  - [x] W1 glossary, roadmap and milestone names (translation/hierarchy editor); stale gap notes.
   - [ ] W2 rename workspace drafts/revisions to change sets/publications ("Publication N") in every layer.
   - [ ] W3 narrow `WORKSPACE_ADMIN_MUTATIONS_ENABLED` to catalogue administration.
   - [ ] W4 workspace administration screen, read-only single-workspace selector, capability status.
   - [ ] W5 test (and fix if confirmed) live writes committing across a model activation.
-- [ ] 0.8 Milestone A — translation workspace ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-a--translation-workspace)):
+- [ ] 0.8 Milestone A — translation editor ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-a--translation-editor)):
   - [ ] A1 schema 0.7 `translationMatrix` view contract (may run alongside Track S).
   - [ ] A2 translation coverage query with cell states and whole-list gap filter.
   - [ ] A3 writes from a cell: container lookup, create and edit, live or in a draft.
   - [ ] A4 translation matrix lens.
   - [ ] A5 Milestone A acceptance (SC-09 translation half).
-- [ ] 0.8 Milestone B — hierarchy workspace ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-b--hierarchy-workspace)):
+- [ ] 0.8 Milestone B — hierarchy editor ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-b--hierarchy-editor)):
   - [ ] B1 schema 0.7 `tree` view contract (may run alongside Track S).
   - [ ] B2 move targets with eligibility, and path context in every context.
   - [ ] B3 tree lens with add child, rename, availability and move.

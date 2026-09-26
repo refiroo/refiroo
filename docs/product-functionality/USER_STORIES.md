@@ -16,8 +16,8 @@ which governed dataset I am viewing or changing.
 **Accepted when:** The chosen label and stable key remain visible or recoverable from the page address;
 an unknown key is not silently accepted; a retired workspace is clearly read-only.
 
-**Coverage:** F02. **Status:** Browser selector/list implementation present and API available; opening
-detail from a non-default workspace is a known WP9 gap and composed-browser validation is pending.
+**Coverage:** F02. **Status:** Browser and API available; opening detail from a non-default workspace
+works and is exercised by the [WP9 navigation runner](../../frontend/e2e/wp9-navigation.mjs).
 
 ### US-D02 — Return to my working list
 
@@ -325,7 +325,7 @@ translations so that I can focus on gaps without opening every record.
 present only in history, including beyond the first displayed page. Historical content does not count
 as a completed current translation.
 
-**Coverage:** Planned translation workspace. **Status:** Roadmap 0.8.
+**Coverage:** Planned translation editor. **Status:** Roadmap 0.8.
 
 ### US-L04 — Correct or add a translation from its coverage cell
 
@@ -336,7 +336,7 @@ can fill a gap without selecting the same target and language again.
 translations are prevented and the cell reflects a successful save. Routine changes can be live;
 explicitly selected draft changes remain staged. Failed input is retained.
 
-**Coverage:** Planned translation workspace. **Status:** Roadmap 0.8. **Example:** SC-09.
+**Coverage:** Planned translation editor. **Status:** Roadmap 0.8. **Example:** SC-09.
 
 ## Mapping steward
 

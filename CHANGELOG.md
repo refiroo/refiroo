@@ -74,6 +74,15 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Base 0.8 W1: documentation adopts the ADR-031 terms. The glossary defines workspace, live, change
+  set, publication ("Publication N" and its per-workspace number), model draft, model release, and the
+  verbs publish, install, activate, withdraw and retire, with a diagram of one workspace's live data,
+  change sets and publications and a note on the old names the code keeps until W2. Milestones A and B
+  are renamed **Translation editor** and **Hierarchy editor** in the roadmap, TODO, the 0.8 plan and the
+  functionality catalogue. The stale "non-default workspace detail gap" notes in PRODUCT, the product
+  guide, user journeys, user stories and the functionality catalogue are corrected: 0.6 WP9 repaired
+  the context handoff, and the WP9 navigation runner opens detail, children, relationships and
+  history in a non-default workspace.
 - Base 0.8 S8: a draft list's total counts its base, less the rows the draft replaces, plus its own
   rows, instead of the union (a total at full volume in 19–31 ms, was 45–56 ms); a first or
   position page that reaches the end of its list returns its total without a count.

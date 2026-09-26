@@ -34,7 +34,7 @@ and supported task lenses; it does not reserve navigation or renderer branches f
 
 | Capability | Current development position | Product coverage |
 | --- | --- | --- |
-| Model-defined navigation, tables, search and record inspection | Browser foundation present; non-default workspace detail context needs repair | F01–F04, US-D01–D05, US-D13 |
+| Model-defined navigation, tables, search and record inspection | Browser available in every workspace, including record detail in a non-default workspace | F01–F04, US-D01–D05, US-D13 |
 | Live record, field, parent, relationship and basic translation maintenance | API and Base 0.6 browser authoring available; context limitations tracked in the functionality catalogue | F05–F11, US-D06–D14, US-L01–L02 |
 | Optional coordinated data changes | Current-live/history draft sources and delta merge available; mapping browser acceptance remains 0.7 work | F12–F14, US-W01–W08 |
 | Inspect, check, install and activate application definitions | JSON workbench and release APIs present; installation and activation are separate | F15, US-P01–P04, US-P06 |

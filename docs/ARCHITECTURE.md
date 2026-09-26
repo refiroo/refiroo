@@ -42,7 +42,7 @@ Definition models are frozen recursively, including nested collections, so cache
 changed without installing and selecting a different release.
 
 This global selection remains the runtime authority through the pre-production daily-operation and
-specialist-workspace releases. Product 0.10 may evolve it into workspace-scoped assignments: a request
+specialist-editor releases. Product 0.10 may evolve it into workspace-scoped assignments: a request
 must resolve its workspace first, then exactly one immutable release assigned to that workspace.
 Staged assignment requires executable data migration, atomic switching, cursor binding to release
 identity, protected administration, multi-node propagation and concurrent parser/runtime support for
@@ -415,7 +415,7 @@ relation keys.
 
 The 0.7 browser uses direct-parent scope because that contract already exists for object collections.
 Lazy arbitrary-depth traversal, bounded child queries and hierarchy mutation remain the typed product
-0.8 hierarchy workspace. Presentation must state direct scope honestly and must not client-filter a
+0.8 hierarchy editor. Presentation must state direct scope honestly and must not client-filter a
 partial tree as though it were complete.
 
 ## Scale direction

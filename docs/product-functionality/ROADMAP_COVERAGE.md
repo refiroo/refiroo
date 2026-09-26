@@ -115,7 +115,7 @@ managing low-level relationship records.
 - Parent/containment and required ownership relationships are not presented as independently mutable
   mappings.
 
-## Product 0.8 — Translation and hierarchy workspaces
+## Product 0.8 — Translation and hierarchy editors
 
 **Why here:** generic translation and parent editing already have a defined foundation; specialist
 views reduce repetitive navigation. These are separately gated outcomes and neither depends on using

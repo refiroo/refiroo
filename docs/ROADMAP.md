@@ -168,10 +168,10 @@ acceptance gates rather than per-package requirements. See the [implementation p
 - Direct-parent scope, declared typed filters and mapping coverage state are visible and server-side;
   their cursor continuations cannot be reused under another query context.
 
-## Product release 0.8 — Translation and hierarchy workspaces
+## Product release 0.8 — Translation and hierarchy editors
 
-The two independently gated milestones may ship together, but neither may weaken runtime revision
-semantics. Track S comes first because both milestones browse large, model-defined collections.
+The two independently gated milestones may ship together, but neither may weaken live, change-set
+or publication semantics. Track S comes first because both milestones browse large, model-defined collections.
 
 ### Track S — Scalable browsing
 
@@ -196,34 +196,34 @@ workflow and model administration
 Exit: no old name remains; disabling workspace administration leaves change sets working; a second
 workspace can be created, selected, made default and retired in the browser.
 
-### Milestone A — Translation workspace
+### Milestone A — Translation editor
 
 A localization steward works by target and language, sees missing coverage and edits translations
 without manually traversing containment.
 
 1. Define a typed translation view from model-declared object, language, containment and relation keys.
 2. Add a bounded matrix/coverage query rather than one request per cell.
-3. Create or update a translation live, or in an explicitly selected design draft, with the required
+3. Create or update a translation live, or in an explicitly selected change set, with the required
    parent and target relationships in one valid operation.
-4. Keep ordinary translation corrections direct; use workspace activation only for deliberately staged
+4. Keep ordinary translation corrections direct; publish a change set only for deliberately staged
    changes. Model changes retain their separate release lifecycle.
-5. Enforce target/language uniqueness during live writes and draft validation, and recheck the final
-   merged graph during activation.
+5. Enforce target/language uniqueness during live writes and change-set validation, and recheck the
+   final merged graph when the change set is published.
 
-Exit: missing candidate translations and translations present only in workspace history are
-distinguishable; conflicts preserve entered content and any selected draft; the matrix remains bounded for
+Exit: missing candidate translations and translations present only in earlier publications are
+distinguishable; conflicts preserve entered content and any selected change set; the matrix remains bounded for
 representative target/language volumes.
 
-### Milestone B — Hierarchy workspace
+### Milestone B — Hierarchy editor
 
 A steward browses and maintains deep model-defined hierarchies through lazy loading.
 
 1. Define a strict typed `tree` view contract.
 2. Add cursor-paged root/child traversal with bounded path context.
 3. Create children and perform rename, model-defined availability or parent changes live, with an
-   explicitly selected design draft as the coordinated alternative.
+   explicitly selected change set as the coordinated alternative.
 4. Validate cycles and update `parent_object_id` plus the typed edge atomically in the chosen context;
-   staged changes are revalidated with the merged live graph at activation.
+   staged changes are revalidated with the merged live graph when published.
 5. Exercise mixed-type containment and recursive self-hierarchy configurations.
 
 Exit: traversal is bounded; reparenting changes both representations or neither; keyboard navigation
