@@ -311,8 +311,8 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
 ## Remaining limitations
 
 - Automated accessibility gates (`npm run test:a11y`) and visual-regression gates
-  (`npm run test:visual`) are delivered. One known violation (WP1-002) is allowlisted by exact
-  target and bounded node count; WP1-001 was fixed on 2026-09-24. Light baselines cover the core
+  (`npm run test:visual`) are delivered. No violation is allowlisted: WP1-001 was fixed on
+  2026-09-24 and WP1-002 by Base 0.8 S5 (its exception was removed in S7). Light baselines cover the core
   page types and dark baselines a representative subset; the accessibility gate runs core pages
   and the settings menu in both themes.
 - Schema 0.6 supports strict table and `mappingGrid` collection lenses. Exact-binding relation-set

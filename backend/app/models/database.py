@@ -709,6 +709,14 @@ class SnapshotAttributeValue(Base):
             "owner_kind IN ('revision', 'base', 'draft')", name="ck_snapshot_attribute_owner_kind"
         ),
         Index("ix_snapshot_attribute_values_owner_key", "owner_id", "attribute_type_key"),
+        # A draft write's unique-value check seeks to the value (S2b, 20260926_02).
+        Index(
+            "ix_snapshot_attribute_values_owner_key_text",
+            "owner_id",
+            "attribute_type_key",
+            "text_value",
+            "object_id",
+        ),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

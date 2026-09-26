@@ -136,7 +136,7 @@ try {
     await wheel(page, table, -1200, 80);
     state = await windowState(table);
     assert.equal(state.first, 0, `${context}: scrolled back to the start`);
-    await page.getByText("Start of list", { exact: true }).waitFor();
+    await table.getByText("Start of list", { exact: true }).waitFor();
 
     // A scrollbar click and a drag each send exactly one position request.
     const scrollbar = table.locator("xpath=..").locator(".window-scrollbar");

@@ -202,10 +202,15 @@ parent relationship as one operation. The product rejects a wrong parent type, a
 edit the engine-managed parent relationship separately.
 
 The browser can inspect hierarchy through the explorer, breadcrumbs, hierarchy panels and child tables.
+The explorer's record tree reads by parent at any size (Base 0.8 S6): each root type pages its
+top-level records, and expanding a record pages each child type separately with its count, in live,
+draft and history. It scrolls every branch continuously and walks by keyboard to any depth; a search
+lists matching records of every type with their ancestor path.
 Generic parent selection exists in the record form but is not currently connected to a writable flow.
-Lazy specialist tree browsing and keyboard reparenting are planned for 0.8.
+The typed `tree` view, reparenting and child creation remain planned for 0.8 (Milestone B).
 
 Evidence: [explorer](../../frontend/src/features/objects/Explorer.tsx),
+[record tree](../../frontend/src/features/objects/RecordTree.tsx),
 [hierarchy panel](../../frontend/src/features/objects/panels/HierarchyPanel.tsx),
 [ADR-006](../DECISIONS.md#adr-006--maintain-containment-and-typed-parent-relations).
 

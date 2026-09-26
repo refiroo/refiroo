@@ -36,6 +36,7 @@ from volume_fixture import (
     GROUP_CONTAINS_ITEM,
     ITEM,
     ITEM_CITES_GROUP,
+    NODE,
     NODE_HAS_CHILD,
     RANK,
     WORKSPACE,
@@ -241,6 +242,10 @@ def _read_scenarios(
                 "sort": "ancestor:vol-node",
             },
         ),
+        # S7: a name search over a whole type, as the sidebar tree's search sends it (the browser
+        # runner saw it as the slowest tree read). A contains-match cannot use a name index.
+        ("objects: search by name, total", items, {**page, "search": "Item 00432", "includeTotal": True}),
+        ("record: deep node", f"/api/v1/objects/{NODE}/{dataset.deep_node_id}", base),
     ]
 
 

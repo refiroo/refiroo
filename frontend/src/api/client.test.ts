@@ -74,6 +74,15 @@ describe("API client", () => {
     expect(url.searchParams.get("sort")).toBe("-updatedAt");
   });
 
+  it("asks for top-level records only when requested", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => jsonResponse({ items: [], nextCursor: null }));
+    vi.stubGlobal("fetch", fetchMock);
+    await api.objects("domain", { workspaceKey: "west", topLevel: true });
+    await api.objects("domain", { workspaceKey: "west" });
+    expect(new URL(String(fetchMock.mock.calls[0][0])).searchParams.get("topLevel")).toBe("true");
+    expect(new URL(String(fetchMock.mock.calls[1][0])).searchParams.has("topLevel")).toBe(false);
+  });
+
   it("encodes repeatable typed table filters", async () => {
     const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ items: [], nextCursor: null }));
     vi.stubGlobal("fetch", fetchMock);

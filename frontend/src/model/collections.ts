@@ -27,11 +27,15 @@ export function collectionGroups(application: ApplicationDefinition): Collection
   }));
 }
 
-export function childCollectionGroups(
+/**
+ * Object types of the application whose records a record of `parentObjectTypeKey` can contain, in
+ * the application's type order. A parent is always in its child's application.
+ */
+export function childObjectTypeKeys(
   model: EngineModel,
   application: ApplicationDefinition,
   parentObjectTypeKey: string,
-): CollectionGroup[] {
+): string[] {
   const childTypes = new Set(
     model.objectTypeRelations.flatMap((binding) => {
       const relation = model.relationTypes.find((item) => item.key === binding.relationTypeKey);
@@ -46,5 +50,21 @@ export function childCollectionGroups(
         : [];
     }),
   );
+  return application.objectTypeKeys.filter((key) => childTypes.has(key));
+}
+
+/** Object types of the application whose records may stand without a parent (`rootCreatable`). */
+export function rootObjectTypeKeys(model: EngineModel, application: ApplicationDefinition): string[] {
+  return application.objectTypeKeys.filter(
+    (key) => model.objectTypes.find((item) => item.key === key)?.features.rootCreatable === true,
+  );
+}
+
+export function childCollectionGroups(
+  model: EngineModel,
+  application: ApplicationDefinition,
+  parentObjectTypeKey: string,
+): CollectionGroup[] {
+  const childTypes = new Set(childObjectTypeKeys(model, application, parentObjectTypeKey));
   return collectionGroups(application).filter((group) => childTypes.has(group.objectTypeKey));
 }

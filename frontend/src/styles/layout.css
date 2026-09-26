@@ -434,11 +434,43 @@ fieldset.settings-section legend {
   margin: 0 4px 4px;
   background: var(--surface);
 }
-.tree,
-.tree ul {
+.tree {
+  /* Each group scrolls in its own bounded window; a branch's windows are shorter. */
+  --tree-window: min(520px, calc(100vh - 340px));
+  display: grid;
+  gap: 4px;
+}
+.tree[hidden] {
+  display: none;
+}
+.tree-children {
+  --tree-window: 300px;
+}
+.tree-group .scroll-window {
+  --window-height: var(--tree-window);
+}
+.tree .scroll-window-viewport {
+  /* Reaching a branch's end scrolls the enclosing list on, as a tree reads as one list. */
+  overscroll-behavior: auto;
+}
+.tree .scroll-window-edge {
+  justify-content: flex-start;
+  min-height: 26px;
+  padding: 2px 10px 2px var(--tree-indent, 10px);
+  font-size: 12px;
+}
+.tree-rows {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+.tree-item:focus {
+  outline: none;
+}
+.tree-item:focus-visible > .tree-row {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  border-radius: var(--radius-control);
 }
 .tree-row {
   display: grid;
@@ -455,6 +487,7 @@ fieldset.settings-section legend {
   border-radius: 4px;
   background: transparent;
   color: var(--muted);
+  cursor: pointer;
 }
 .tree .tree-toggle:hover {
   background: var(--fill);
@@ -465,6 +498,7 @@ fieldset.settings-section legend {
   align-items: center;
   gap: 7px;
   width: 100%;
+  min-width: 0;
   min-height: 30px;
   padding: 4px 8px 4px 4px;
   border: 0;
@@ -473,6 +507,7 @@ fieldset.settings-section legend {
   color: var(--ink-2);
   text-align: left;
   font-size: 13px;
+  cursor: pointer;
 }
 .tree-node:hover {
   background: var(--fill);
@@ -492,12 +527,43 @@ fieldset.settings-section legend {
 }
 .tree-collection {
   color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.tree-heading .tree-node:not([title]) {
+  cursor: default;
+}
+.tree-label {
+  display: grid;
+  flex: 1;
+  min-width: 0;
 }
 .tree-name {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.tree-path {
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11.5px;
+  font-weight: 400;
+}
+.tree-count {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+.tree-note {
+  padding: 4px 8px 6px;
+  color: var(--muted);
+  font-size: 12px;
 }
 .explorer-empty {
   padding: 20px 10px;

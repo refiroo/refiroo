@@ -193,8 +193,11 @@ npm --prefix frontend run test:a11y
 ```
 
 Runs axe-core (WCAG 2.1 AA + best practices) on core page types: collection tables (Domain,
-System), record detail with panels, draft editing, history view, model workbench and the drafts
-list. Violations not covered by the explicit allowlist in `e2e/accessibility-gate.mjs` fail the
+System), record detail with panels, draft editing, history view, model workbench, the drafts
+list and, since Base 0.8 S7, the continuous list and record tree together: the codelist lens at page
+3 of 7 (window scrollbar, footer fields) beside a 60-codelist tree branch scrolling in its group,
+with focus on a row inside it, in light and dark. A self-check appends a control the tree may not
+own and requires the gate to reject it. Violations not covered by the explicit allowlist in `e2e/accessibility-gate.mjs` fail the
 gate. Exceptions require a tracked issue, an exact axe node target and a maximum node count;
 page-specific exceptions apply only to their named pages. Additional nodes and changed related-node
 sets still fail the gate. The runner also injects new
@@ -222,8 +225,10 @@ npm --prefix frontend run test:visual:update
 
 This captures new baselines. Review the updated PNGs in `e2e/baselines/`, then commit them.
 
-Dark variants (`*-dark`) cover the domain collection, domain detail, drafts list and model
-workbench. The gate switches with `page.emulateMedia({ colorScheme: "dark" })` and reloads before a
+`scrolling-list-tree-*` (Base 0.8 S7) captures the codelist lens mid-list with its window
+scrollbar and footer beside the expanded tree branch; its data (`helpers/acceptance-data.mjs`
+`seedLongList`) is seeded after the other light pages so they are unchanged. Dark variants (`*-dark`)
+cover the domain collection, domain detail, drafts list, model workbench and the list and tree. The gate switches with `page.emulateMedia({ colorScheme: "dark" })` and reloads before a
 capture so no colour transition is recorded. The accessibility gate repeats core pages and the
 settings menu in the dark theme.
 
@@ -271,3 +276,19 @@ integer relation attribute, enough master values for a second candidate page, a 
 row, and SC-15's candidate and incompatible releases. `bootHarness({ transformModel })` starts the
 backend on a model variant. Each runner checks browser results against API state, runs scoped axe checks,
 captures 1440px and 390px screenshots, and writes `report.json` to its printed evidence directory.
+
+## Base 0.8 S7: composed Track S acceptance
+
+```sh
+npm --prefix frontend run test:browser:s7
+S7_VOLUME_SCALE=1 npm --prefix frontend run test:browser:s7   # full volume
+```
+
+Over the generated volume fixture (seeded by `backend/tests/volume_seed.py`) and the starter model,
+in live, draft and history: one collection-lens journey per context (wheel scroll both ways, a
+scrollbar click from the start, seek by name, **Go to end**, a page number and a copied URL reopened
+at the same row), each landing checked against the same context's API read at that position; then a
+record deep in the tree (the volume model's deep node through the tree search and its ancestor path;
+the starter's master value by keyboard across the codelist window's edge). The lens journey repeats
+at 390px. `report.json` records the checks and each context's API read times as the browser saw
+them. The S5 and S6 runners keep the per-surface depth (panels, picker, mapping lens, heavy branch).

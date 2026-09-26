@@ -15,24 +15,36 @@ export async function checkHierarchySelection({ page, api, uiUrl, output, checks
     assert.equal(await page.getByRole("group", { name: "Navigation mode" }).count(), 0);
     await page.getByRole("navigation", { name: "RDM Master collections" }).waitFor();
     const explorer = page.getByRole("region", { name: "RDM Master explorer" });
-    await explorer.getByRole("textbox", { name: "Search this explorer", exact: true }).fill("Hierarchy");
+    // The open codelist's branch leads to it; search results list each match with its path (S6).
+    const tree = explorer.getByRole("tree", { name: "Browse records", exact: true });
+    const list = tree.getByRole("treeitem", { name: "Hierarchy list", exact: true });
+    await list.waitFor();
+    const branchValue = tree.getByRole("treeitem", { name: "Hierarchy value", exact: true });
     const recordUrl = page.url();
-    await explorer.getByRole("button", { name: "Collapse Hierarchy list", exact: true }).click();
-    assert.equal(await explorer.getByRole("button", { name: "Hierarchy value Master value", exact: true }).count(), 0);
+    // The previous width's pass leaves the branch open; this browser remembers it.
+    if ((await list.getAttribute("aria-expanded")) === "false") {
+      await list.locator(".tree-toggle").first().click();
+      await branchValue.waitFor();
+    }
+    await list.locator(".tree-toggle").first().click();
+    assert.equal(await branchValue.count(), 0);
     assert.equal(page.url(), recordUrl);
     await page.reload();
     if (width === 390) await page.getByRole("button", { name: "Browse application", exact: true }).click();
-    await explorer.getByRole("textbox", { name: "Search this explorer", exact: true }).fill("Hierarchy");
-    const expand = explorer.getByRole("button", { name: "Expand Hierarchy list", exact: true });
-    await expand.waitFor();
-    assert.equal(await expand.getAttribute("aria-expanded"), "false");
-    await expand.focus();
-    await page.keyboard.press("Enter");
+    await list.waitFor();
+    assert.equal(await list.getAttribute("aria-expanded"), "false");
+    await list.focus();
+    await page.keyboard.press("ArrowRight");
+    await branchValue.waitFor();
     await page.reload();
     if (width === 390) await page.getByRole("button", { name: "Browse application", exact: true }).click();
+    await branchValue.waitFor();
+    assert.equal(await list.getAttribute("aria-expanded"), "true");
     await explorer.getByRole("textbox", { name: "Search this explorer", exact: true }).fill("Hierarchy");
-    await explorer.getByRole("button", { name: "Collapse Hierarchy list", exact: true }).waitFor();
-    await explorer.getByRole("button", { name: "Hierarchy value Master value", exact: true }).click();
+    await tree
+      .getByRole("treeitem", { name: "Hierarchy value, in Hierarchy domain / Hierarchy list", exact: true })
+      .locator(".tree-node")
+      .click();
     await page.getByRole("heading", { name: value.name, level: 1, exact: true }).waitFor();
     assert.equal(await page.locator(".record-collection").count(), 0);
     assert.equal(await page.locator(".record-inspector").count(), 0);

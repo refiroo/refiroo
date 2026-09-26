@@ -375,9 +375,13 @@ def test_live_draft_and_history_return_the_same_rows_in_the_same_order(client):
         } == expected_relations, name
 
     entry = seeded["entries"][0]
+    live_path = _ok(client.get(f"/api/v1/objects/{ENTRY}/{entry['id']}", params=contexts["live"]))["path"]
+    assert [step["id"] for step in live_path][-1] == entry["id"] and len(live_path) >= 2
     for name, context in contexts.items():
         record = _ok(client.get(f"/api/v1/objects/{ENTRY}/{entry['id']}", params=context))
         assert _values(record) == _values(entry), name
+        # A single-record read carries its ancestor path in every context, as its pages do (S7).
+        assert record["path"] == live_path, name
         value = _ok(client.get(f"/api/v1/objects/{ENTRY}/{entry['id']}/attributes/par-amount", params=context))
         assert value["value"] == "2.5", name
 

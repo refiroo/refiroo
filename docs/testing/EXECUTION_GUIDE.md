@@ -28,18 +28,18 @@ cd backend && .venv/bin/python -m pytest -m mapping -q
 | --- | --- | --- | --- |
 | `model` | INV-01/02/03/04/06, compatibility classes | `test_model`, `test_model_diagnostics`, `test_model_independence`, `test_model_compatibility` | 109 |
 | `model_admin` | C-MOD-*, C-DR-PIN, C-MOD-ACT | `test_model_lifecycle`, `test_build07_wp11`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_model_compatibility`, `test_model_schema_upgrade`, `test_wp81a_context` | 93 |
-| `startup` | C-BOOT, C-MIG, C-SCHEMA-UP, INV-15 (startup) | `test_startup`, `test_migrations`, `test_wp8_audit_migration`, `test_model_schema_upgrade`, `test_snapshot_value_migration`, `test_page_index_migrations` | 30 |
+| `startup` | C-BOOT, C-MIG, C-SCHEMA-UP, INV-15 (startup) | `test_startup`, `test_migrations`, `test_wp8_audit_migration`, `test_model_schema_upgrade`, `test_snapshot_value_migration`, `test_page_index_migrations`, `test_snapshot_lookup_index_migration` | 33 |
 | `records` | C-OBJ-*, C-ATTR, C-REL, C-DEL, C-TR, C-HIST-OBJ, INV-05/10/12 (live) | `test_api`, `test_attributes`, `test_relations`, `test_translations`, `test_cascade_delete`, `test_query_foundations`, `test_wp8_review_regressions`, `test_relation_set_versions` | 113 |
 | `queries` | C-Q-FILTER, C-Q-SCOPE, INV-07/08/11 | `test_pagination`, `test_typed_table_queries`, `test_query_foundations`, `test_context_read_parity`, `test_paging_contract`, `test_draft_position_reads` | 84 |
 | `workspaces` | C-WS-*, C-PUB-RET, INV-14/16 | `test_workspaces`, `test_wp81a_context`, `test_request_scope`, `test_wp8_retirement`, `test_build07_wp9_acceptance` | 31 |
-| `drafts` | C-DR-*, C-REV, C-PUB-RET | `test_workspace_revisions`, `test_wp7_canonical_crud`, `test_wp8_*` (except audit migration), `test_wp81b_current_live_bases`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_typed_table_queries`, `test_mapping_replacement`, `test_wp8_retirement`, `test_context_read_parity`, `test_snapshot_value_migration`, `test_page_index_migrations`, `test_draft_position_reads` | 225 |
+| `drafts` | C-DR-*, C-REV, C-PUB-RET | `test_workspace_revisions`, `test_wp7_canonical_crud`, `test_wp8_*` (except audit migration), `test_wp81b_current_live_bases`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_typed_table_queries`, `test_mapping_replacement`, `test_wp8_retirement`, `test_context_read_parity`, `test_snapshot_value_migration`, `test_page_index_migrations`, `test_draft_position_reads`, `test_draft_write_lookups`, `test_snapshot_lookup_index_migration` | 200 |
 | `mapping` | C-MAP-R, C-MAP-W, C-MAP-SET | `test_mapping_coverage`, `test_mapping_replacement`, `test_relation_set_versions` | 115 |
 | `contract` | OpenAPI lock and route inventories | `test_openapi_contract`, `test_paging_contract` | 40 |
-| `volume` | Track S read and write budgets and the paging contract over the generated volume fixture (Base 0.8 S1, S3, S4, S4R1, S4R6) | `test_volume_baseline`, `test_paging_contract`, `test_draft_position_reads` | 49 |
+| `volume` | Track S read and write budgets and the paging contract over the generated volume fixture (Base 0.8 S1, S2b, S3, S4, S4R1, S4R6, S7) | `test_volume_baseline`, `test_paging_contract`, `test_draft_position_reads` | 49 |
 
 Counts are collected cases on 2026-09-24 (532 in total); group counts include the WP-9 composed
 SC-15 case. The full suite collected 534 cases at WP-9 build acceptance (2026-09-25). The `startup`,
-`queries`, `drafts` and `volume` counts were recollected at Base 0.8 S2 (2026-09-25, 546 in total), and the `startup`, `queries`, `drafts`, `contract` and `volume` counts at S3/S4 (2026-09-25, 584 in total) at S4R1 (2026-09-26, 588 in total), and the `queries`, `drafts`, `contract` and `volume` counts at S4R6 (2026-09-26, 622 in total). A module carries several markers when it is
+`queries`, `drafts` and `volume` counts were recollected at Base 0.8 S2 (2026-09-25, 546 in total), and the `startup`, `queries`, `drafts`, `contract` and `volume` counts at S3/S4 (2026-09-25, 584 in total) at S4R1 (2026-09-26, 588 in total), and the `queries`, `drafts`, `contract` and `volume` counts at S4R6 (2026-09-26, 622 in total), and the `startup` and `drafts` counts at S2b (2026-09-26, 625 in total). A module carries several markers when it is
 evidence for several groups, so groups overlap and their counts do not add up to the total.
 
 **Unclassified tests are refused.** A module missing from `TEST_GROUPS` fails collection with exit
@@ -89,6 +89,8 @@ Chrome. Setup costs ~2.8 s per runner (section 4). Pick by surface:
 | `e2e/wp13c-ui-states.mjs` (`test:browser:wp13c`) | C-MAP-UI and C-DR-PIN changed states: outage/retry, empty, conflict review, draft-context mapping, non-active-release draft, narrow layout ([UI acceptance](UI_ACCEPTANCE.md)) |
 | `e2e/sc07-mapping-acceptance.mjs` (`test:browser:sc07`) | WP-9 composed SC-07: C-MAP-UI/W/SET across the starter binding in both directions and an independent binding with a typed relation attribute; candidates beyond page one, large ambiguous sets, generic-write race, draft activation against a divergent live set |
 | `e2e/s5-continuous-lists.mjs` (`test:browser:s5`) | Base 0.8 S5 continuous lists: collection lens, record and relation panels, mapping lens and object picker over the Track S volume fixture (seeded by `backend/tests/volume_seed.py`, 10% by default, `S5_VOLUME_SCALE=1` for full volume) and the starter model; live, draft and history; scrollbar, page number, seek, URL anchor, keyboard, 1440px and 390px |
+| `e2e/s6-sidebar-tree.mjs` (`test:browser:s6`) | Base 0.8 S6 sidebar tree by parent over the Track S volume fixture (10% by default, `S6_VOLUME_SCALE=1` for full volume) and the starter model: top-level roots, each branch's own children and counts per child type, a 2,000-child branch scrolled end to end, an eight-level keyboard path, collapse releasing the branch, search with ancestor paths; live, draft and history; 1440px and 390px; axe on three tree states |
+| `e2e/s7-volume-acceptance.mjs` (`test:browser:s7`) | Base 0.8 S7 composed Track S acceptance over the volume fixture (10% by default, `S7_VOLUME_SCALE=1` for full volume) and the starter model: one lens journey per context (scroll, seek, scrollbar click, end, page number, copied URL), each landing checked against the context's API read, then a record deep in the tree (volume: search with its ancestor path; starter: keyboard across a tree window's edge); live, draft and history; 1440px and 390px; reports API read times as the browser saw them |
 | `e2e/sc15-model-version-acceptance.mjs` (`test:browser:sc15`) | WP-9 composed SC-15: C-DR-PIN and C-MOD-ACT with two same-schema releases and an incompatible one; refusals leave live, history and another workspace untouched |
 | `e2e/accessibility-gate.mjs` (`test:a11y`) | C-UI-A11Y, T5 build gate |
 | `e2e/visual-regression-gate.mjs` (`test:visual`) | C-UI-A11Y visual stability, T5 build gate |
@@ -115,7 +117,7 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | `services/deletion.py` | `records` | cascade or preview token changes | `mapping` (continuation invalidation), `drafts` (draft deletion) |
 | `services/pagination.py`, `cursors.py`, `routers/paging.py` | `queries` (`test_pagination`, `test_paging_contract`, `test_draft_position_reads`) | always | every group with a collection endpoint: `-m "queries or mapping or model_admin or workspaces"`; `volume` (read budgets) |
 | `services/workspaces.py`, `routers/workspaces.py` | `workspaces` | scope resolution changes | `mapping` (C-MAP-W authority), `drafts` |
-| `services/workspace_revisions.py`, `workspace_audit.py`, `audit.py` | `drafts` | overlay, activation or audit projection changes | `mapping` (draft coverage and replacement), `records` (history); `volume` when a draft or history read path changes |
+| `services/workspace_revisions.py`, `draft_lookups.py`, `workspace_audit.py`, `audit.py` | `drafts` | overlay, activation or audit projection changes | `mapping` (draft coverage and replacement), `records` (history); `volume` when a draft read or write path changes |
 | `services/snapshot_reads.py`, `snapshot_values.py`, `relation_queries.py` | `drafts` + `queries` (`test_context_read_parity`, `test_paging_contract`, `test_draft_position_reads`) | always | `volume` (draft and history read budgets); `startup` when the typed value index or its backfill changes |
 | `services/mapping.py`, `mapping_projection.py`, `routers/mapping.py` | `mapping` | never by default | `drafts` only if activation or draft overlay is touched |
 | `errors.py`, `routers/presenters.py` | the group of the changed error | error envelope shape changes | `contract`; `model_admin` (`test_build07_wp11` correlation IDs) |
@@ -127,7 +129,8 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | --- | --- | --- |
 | `src/api/*` | `npx vitest related <file> --run` (a change to `client.ts` selects 24 of 36 files) | the browser runner covering the consuming surface if request shape or error handling changes |
 | `src/routing/*`, `src/app/useRouter*` | `src/routing`, `src/app` | `wp9-navigation.mjs` for URL or history behavior |
-| `src/lib/hooks/useCursor*`, `src/ui/ScrollWindow.tsx`, `src/ui/ObjectLookup.tsx` | `vitest related` | `test:browser:s5`; scroll, landing or anchor changes also `test:browser` (record return and URL restoration) |
+| `src/lib/hooks/useCursor*`, `src/ui/ScrollWindow.tsx`, `src/ui/ObjectLookup.tsx` | `vitest related` | `test:browser:s5`; scroll, landing or anchor changes also `test:browser` (record return and URL restoration); nested windows or the `group` role also `test:browser:s6` |
+| `src/features/objects/Explorer.tsx`, `RecordTree.tsx`, `src/model/collections.ts` | `Explorer.test`, `vitest related` | `test:browser:s6`; `test:browser` (tree steps and `ui03b-hierarchy`) and `test:browser:wp14` (a heading opens a scoped collection) |
 | `src/model/*` | `--project unit`, `src/model` | `vitest related` when a read's result shape changes |
 | `src/ui/*` shared components | `vitest related` | `test:a11y`/`test:visual` scenario for the changed control only when focus, semantics or tokens change; full gates at WP-9 |
 | `src/features/objects/MappingGridView.tsx` and its `views/` host | `vitest related` (3 files) | `wp14-contextual-browser.mjs`, `wp13c-ui-states.mjs` |
@@ -177,7 +180,8 @@ pytest processes at once: they share `backend/tests/test-rdm-engine.db`.
 (cd frontend && npm run test:browser && npm run test:browser:authoring && npm run test:browser:drafts \
   && npm run test:browser:history && npm run test:browser:wp11 && npm run test:browser:wp12 \
   && npm run test:browser:wp14 && npm run test:browser:wp13c \
-  && npm run test:browser:sc07 && npm run test:browser:sc15)
+  && npm run test:browser:sc07 && npm run test:browser:sc15 \
+  && npm run test:browser:s5 && npm run test:browser:s6 && npm run test:browser:s7)
 (cd frontend && npm run test:a11y && npm run test:visual)
 ```
 

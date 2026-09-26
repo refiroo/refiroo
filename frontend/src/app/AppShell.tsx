@@ -141,6 +141,7 @@ export function AppShell({
                 application={application}
                 workspaceKey={activeRoute.workspaceKey}
                 activeObjectId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
+                activeObjectTypeKey={activeRoute.kind === "detail" ? activeRoute.objectTypeKey : undefined}
                 activeViewKey={activeRoute.kind === "list" ? activeRoute.viewKey : undefined}
                 refreshToken={refreshToken}
                 onOpen={(item) => {

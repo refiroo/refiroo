@@ -4,6 +4,7 @@ import { api } from "@/api/client";
 import { ApiError } from "@/api/errors";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import type { ApplicationDefinition } from "@/types";
+import { TREE_PAGE_SIZE } from "@/features/objects/RecordTree";
 import App from "./App";
 
 vi.mock("@/api/client", () => ({
@@ -167,7 +168,7 @@ describe("App", () => {
     fireEvent.click(within(table).getByRole("button", { name: other.name, hidden: true }));
     await screen.findByRole("heading", { name: other.name, level: 1 });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    fireEvent.click(within(table).getByRole("button", { name: "Name", hidden: true }));
+    fireEvent.click(within(table).getByRole("button", { name: "Name, sorted ascending", hidden: true }));
     expect(screen.getByRole("heading", { name: other.name, level: 1 })).toBeInTheDocument();
     expect(new URLSearchParams(window.history.state.rdmNavigation.collectionPath.split("?")[1]).get("sort")).toBe(
       "-name",
@@ -179,17 +180,20 @@ describe("App", () => {
     const first = render(<App />);
     const explorer = await screen.findByRole("region", { name: "Test App explorer" });
     expect(within(explorer).getByRole("navigation", { name: "Test App collections" })).toBeInTheDocument();
-    expect(within(explorer).getByRole("button", { name: `${domainObject.name}Domain` })).toBeInTheDocument();
+    expect(await within(explorer).findByRole("treeitem", { name: domainObject.name })).toBeInTheDocument();
     expect(within(explorer).queryByRole("group", { name: "Navigation mode" })).not.toBeInTheDocument();
     const location = window.location.href;
     first.unmount();
     render(<App />);
     expect(await screen.findByRole("navigation", { name: "Test App collections" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: `${domainObject.name}Domain` })).toBeInTheDocument();
+    expect(await screen.findByRole("treeitem", { name: domainObject.name })).toBeInTheDocument();
     expect(window.location.href).toBe(location);
   });
 
   it("opens hierarchy selections as full records without keeping an unrelated collection mounted", async () => {
+    const model = structuredClone(testModel);
+    model.relationTypes[0].features.parentOf = true;
+    vi.mocked(api.model).mockResolvedValue(model);
     vi.mocked(api.objects).mockImplementation(async (type) => ({
       items: type === "domain" ? [domainObject] : [codelistObject],
       nextCursor: null,
@@ -202,13 +206,17 @@ describe("App", () => {
     fireEvent.click(await within(table).findByRole("button", { name: domainObject.name }));
     expect(await screen.findByRole("article", { name: "Record details" })).not.toHaveClass("record-inspector");
     const explorer = await screen.findByRole("region", { name: "Test App explorer" });
-    fireEvent.click(await within(explorer).findByRole("button", { name: /Timetable types/ }));
+    // The active domain's branch opens on its own chevron, then the child opens as a full record.
+    const domain = await within(explorer).findByRole("treeitem", { name: domainObject.name });
+    fireEvent.click(domain.querySelector(".tree-toggle")!);
+    const child = await within(explorer).findByRole("treeitem", { name: codelistObject.name });
+    fireEvent.click(child.querySelector(".tree-node")!);
     await screen.findByRole("heading", { name: codelistObject.name, level: 1 });
     expect(screen.getByRole("article", { name: "Record details" })).not.toHaveClass("record-inspector");
     expect(screen.queryByRole("region", { name: "Domains table", hidden: true })).not.toBeInTheDocument();
     expect(window.history.state.rdmNavigation.collectionPath).toBeUndefined();
     expect(screen.queryByRole("button", { name: "Back to list" })).not.toBeInTheDocument();
-    fireEvent.click(within(explorer).getByRole("button", { name: /Connections/ }));
+    fireEvent.click(within(explorer).getByRole("treeitem", { name: domainObject.name }).querySelector(".tree-node")!);
     await screen.findByRole("heading", { name: domainObject.name, level: 1 });
     expect(screen.queryByRole("region", { name: "Domains table", hidden: true })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Back to list" })).not.toBeInTheDocument();
@@ -487,7 +495,8 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Back to list" }));
     await waitFor(() => expect(window.location.pathname).toContain("/views/domains"));
     expect(window.location.search).toContain("workspaceDraftId=draft-1");
-    const collectionCalls = vi.mocked(api.objects).mock.calls.filter(([, query]) => query.pageSize !== 30);
+    // The sidebar tree reads while the draft loads and again under it; the collection reads only under it.
+    const collectionCalls = vi.mocked(api.objects).mock.calls.filter(([, query]) => query.pageSize !== TREE_PAGE_SIZE);
     expect(collectionCalls.length).toBeGreaterThan(0);
     expect(collectionCalls.every(([, query]) => query.workspaceDraftId === "draft-1")).toBe(true);
     fireEvent.click(

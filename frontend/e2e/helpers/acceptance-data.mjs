@@ -145,3 +145,47 @@ export async function seedMappingData(api, records) {
   };
   return { codelist, masters, fillers, systemValues, multiCollection, aligned };
 }
+
+/**
+ * Base 0.8 S7 gate data: 60 codelists under the last seeded domain, so the codelist lens at ten a
+ * page holds part of its list (window scrollbar, page field) and the domain's tree branch scrolls.
+ * Records elsewhere, and so the other gate pages, are unchanged.
+ */
+export async function seedLongList(api, records) {
+  const domain = records.domain.at(-1);
+  for (let index = 0; index < 60; index++)
+    await api("/objects", {
+      applicationKey: "rdm-master",
+      workspaceKey: "default",
+      objectTypeKey: "codelist",
+      name: `Long codelist ${String(index).padStart(2, "0")}`,
+      parentObjectId: domain.id,
+      attributes: [{ attributeTypeKey: "codelist-code", value: `long-${index}` }],
+    });
+  return domain;
+}
+
+/**
+ * Opens the codelist lens at page 3 of 10-row pages (the middle of the list) with the long domain's
+ * tree branch expanded and focus on a codelist row inside it: one state for the scrolling list and
+ * the tree.
+ */
+export async function openLongList(page, uiUrl, domain) {
+  await page.goto(`${uiUrl}/apps/rdm-master/views/codelists?workspaceKey=default&pageSize=10`);
+  const table = page.getByRole("region", { name: "Codelists table" });
+  await table.locator("[data-row-focus]").first().waitFor();
+  const field = page.getByRole("spinbutton", { name: "Page", exact: true });
+  await field.fill("3");
+  await field.press("Enter");
+  await table.getByRole("button", { name: "Long codelist 18", exact: true }).waitFor();
+  const tree = page.getByRole("tree", { name: "Browse records", exact: true }).first();
+  const row = tree.getByRole("treeitem", { name: domain.name, exact: true });
+  await row.focus();
+  if ((await row.getAttribute("aria-expanded")) === "false") await page.keyboard.press("ArrowRight");
+  await tree.getByRole("treeitem", { name: `Codelists within ${domain.name}, 60`, exact: true }).waitFor();
+  await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("ArrowDown");
+  await page.waitForFunction(() => document.activeElement?.getAttribute("aria-label") === "Long codelist 00");
+  await page.waitForLoadState("networkidle");
+  return { table, tree };
+}

@@ -114,6 +114,8 @@ export interface ObjectQuery extends PageSelector {
   search?: string;
   pageSize?: number;
   parentObjectId?: string;
+  /** Only records without a parent; refused beside `parentObjectId`. */
+  topLevel?: boolean;
   sort?: ObjectSort;
   filters?: CollectionFilter[];
 }
@@ -177,6 +179,7 @@ function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
   if (query.search) params.set("search", query.search);
   setPaging(params, query);
   if (query.parentObjectId) params.set("parentObjectId", query.parentObjectId);
+  if (query.topLevel) params.set("topLevel", "true");
   if (query.sort) params.set("sort", query.sort);
   query.filters?.forEach(({ field, operator, value }) => params.append(`filter.${field}.${operator}`, value));
   return `/api/v1/objects/${encodeURIComponent(objectTypeKey)}?${params}`;

@@ -1109,12 +1109,13 @@ def _claim_mapping_set(session, workspace_key, draft_id, request, source_id):
         session.rollback()
         actual = _get_set_version(session, workspace_key, draft_id, request, source_id)
         if draft_id:
-            from .workspace_revisions import effective_draft_membership
+            from .draft_lookups import DraftLookup
 
-            membership = effective_draft_membership(session, draft_id)
-            objects = {item.object_id: item for item in membership.objects}
-            edges = _draft_edges(
-                membership, request, source_id, _source_target_types(request)[1], objects
+            edges, objects = _draft_edges(
+                DraftLookup.of(session, draft_id),
+                request,
+                source_id,
+                _source_target_types(request)[1],
             )
             _raise_draft_version_conflict(session, request, source_id, actual, edges, objects)
         edges = _live_edges(
@@ -1529,9 +1530,9 @@ def _execute_live_replace_new(
 def _replace_draft_mapping(
     session: Session, workspace_key: str, request: MappingReplacementRequest
 ) -> MappingReplacementResponse:
+    from .draft_lookups import DraftLookup
     from .workspace_revisions import (
         claim_draft_version,
-        effective_draft_membership,
         ensure_draft_writable,
         pinned_model,
         validate_draft_relation,
@@ -1546,21 +1547,20 @@ def _replace_draft_mapping(
     source_type, target_type = _source_target_types(request)
     _validate_clear_attributes(request)
 
-    membership = effective_draft_membership(session, draft_id)
-    objects = {item.object_id: item for item in membership.objects}
-    source = objects.get(str(request.sourceObjectId))
+    lookup = DraftLookup.of(session, draft_id)
+    source = lookup.object(str(request.sourceObjectId))
     if source is None or source.object_type_key != source_type:
         raise api_error(404, "mapping_endpoint_not_found", "Mapping source not found in draft")
     source_id = source.object_id
     target, target_id = None, None
     if request.targetObjectId:
-        target = objects.get(str(request.targetObjectId))
+        target = lookup.object(str(request.targetObjectId))
         if target is None or target.object_type_key != target_type:
             raise api_error(404, "mapping_endpoint_not_found", "Mapping target not found in draft")
         target_id = target.object_id
 
     actual_version = _get_set_version(session, workspace_key, draft_id, request, source_id)
-    edges = _draft_edges(membership, request, source_id, target_type, objects)
+    edges, objects = _draft_edges(lookup, request, source_id, target_type)
 
     if request.expectedMappingVersion != actual_version:
         _raise_draft_version_conflict(session, request, source_id, actual_version, edges, objects)
@@ -1589,12 +1589,10 @@ def _replace_draft_mapping(
             )
         claim_draft_version(session, draft, request.expectedWorkspaceDraftVersion)
         _claim_mapping_set(session, workspace_key, draft_id, request, source_id)
-        return _execute_draft_clear(
-            session, workspace_key, draft, request, source_id, edges, membership
-        )
+        return _execute_draft_clear(session, workspace_key, draft, request, source_id, edges)
 
     if _needs_cross_cardinality_check(allowed, request.direction):
-        _check_draft_cross_cardinality(membership, request, source_id, target_id, objects)
+        _check_draft_cross_cardinality(lookup, request, source_id, target_id)
 
     retained = next(
         (e for e in edges if _draft_edge_other_id(e, request.direction) == target_id), None
@@ -1605,7 +1603,7 @@ def _replace_draft_mapping(
     )
     validate_draft_relation(
         model,
-        membership,
+        lookup,
         request.relationTypeKey,
         from_id,
         to_id,
@@ -1644,7 +1642,6 @@ def _replace_draft_mapping(
             retained,
             obsolete,
             new_attrs,
-            membership,
         )
 
     claim_draft_version(session, draft, request.expectedWorkspaceDraftVersion)
@@ -1662,27 +1659,21 @@ def _replace_draft_mapping(
         target_id,
         obsolete,
         new_attrs,
-        membership,
     )
 
 
-def _draft_edges(membership, request, source_id, target_type, objects):
-    result = []
-    for relation in membership.relations:
-        if relation.relation_type_key != request.relationTypeKey:
-            continue
-        if request.direction == "outgoing":
-            if relation.from_object_id != source_id:
-                continue
-            other_id = relation.to_object_id
-        else:
-            if relation.to_object_id != source_id:
-                continue
-            other_id = relation.from_object_id
-        other = objects.get(other_id)
-        if other and other.object_type_key == target_type:
-            result.append(relation)
-    return result
+def _draft_edges(lookup, request, source_id, target_type):
+    """The source's relations of the mapping's type and direction to a record of the target type,
+    and the records at their other ends by ID."""
+    relations = lookup.relations([source_id], request.direction, [request.relationTypeKey])
+    others = lookup.objects(_draft_edge_other_id(item, request.direction) for item in relations)
+    edges = [
+        item
+        for item in relations
+        if (other := others.get(_draft_edge_other_id(item, request.direction))) is not None
+        and other.object_type_key == target_type
+    ]
+    return edges, others
 
 
 def _draft_edge_other_id(edge, direction: str) -> str:
@@ -1732,20 +1723,12 @@ def _raise_draft_version_conflict(session, request, source_id, actual_version, e
     )
 
 
-def _check_draft_cross_cardinality(membership, request, source_id, target_id, objects):
-    for relation in membership.relations:
-        if relation.relation_type_key != request.relationTypeKey:
-            continue
-        if request.direction == "outgoing":
-            if relation.to_object_id == target_id and relation.from_object_id != source_id:
-                raise api_error(
-                    409, "cardinality_violation", "Relation cardinality would be violated"
-                )
-        else:
-            if relation.from_object_id == target_id and relation.to_object_id != source_id:
-                raise api_error(
-                    409, "cardinality_violation", "Relation cardinality would be violated"
-                )
+def _check_draft_cross_cardinality(lookup, request, source_id, target_id):
+    # The target's relations of the type from its other side, other than to the source.
+    opposite = "incoming" if request.direction == "outgoing" else "outgoing"
+    for relation in lookup.relations([target_id], opposite, [request.relationTypeKey]):
+        if _draft_edge_other_id(relation, opposite) != source_id:
+            raise api_error(409, "cardinality_violation", "Relation cardinality would be violated")
 
 
 def _materialize_draft_relation(session, draft_id, base_relation):
@@ -1797,7 +1780,7 @@ def _record_draft_relation_change(session, draft_id, row, action):
     )
 
 
-def _execute_draft_clear(session, workspace_key, draft, request, source_id, edges, membership):
+def _execute_draft_clear(session, workspace_key, draft, request, source_id, edges):
     old_targets = [_draft_old_target_audit(e, request.direction) for e in edges]
     affected_ids: set[str] = set()
     for edge in edges:
@@ -1841,7 +1824,6 @@ def _execute_draft_replace_with_retained(
     retained,
     obsolete,
     new_attrs,
-    membership,
 ):
     old_targets = [_draft_old_target_audit(e, request.direction) for e in [retained, *obsolete]]
     affected_ids: set[str] = set()
@@ -1892,7 +1874,6 @@ def _execute_draft_replace_new(
     target_id,
     obsolete,
     new_attrs,
-    membership,
 ):
     old_targets = [_draft_old_target_audit(e, request.direction) for e in obsolete]
     affected_ids: set[str] = set()

@@ -6,9 +6,8 @@ rows per row of a full page, at either scale. Row counts vary by a few with page
 on one page can share a parent), so they are bounded rather than compared. Wall-time figures at full volume come from
 ``volume_baseline.py`` and are recorded in docs/BASE_0_8_IMPLEMENTATION_PLAN.md.
 
-Live reads meet the budgets, and since S2 so do draft and history reads, which answer in SQL. Draft
-writes still load the whole membership (D7), so their budget test is a strict expected failure
-until the scoped follow-up slice lands.
+Live reads meet the budgets, and since S2 so do draft and history reads, which answer in SQL. Since
+S2b draft writes do too: they read only the records and relations they touch.
 """
 
 import json
@@ -83,9 +82,6 @@ def test_draft_and_history_reads_hold_the_live_budget(baselines):
     assert not _over_budget(baselines, {"draft", "history"})
 
 
-@pytest.mark.xfail(
-    strict=True, reason="D7: draft writes load the whole membership; S2 scopes a follow-up"
-)
 def test_draft_writes_hold_the_live_budget(baselines):
     assert not _over_budget(baselines, {"draft"}, writes=True)
 

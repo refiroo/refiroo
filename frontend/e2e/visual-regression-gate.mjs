@@ -5,6 +5,7 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { compareScreenshot } from "./helpers/visual-regression.mjs";
+import { openLongList, seedLongList } from "./helpers/acceptance-data.mjs";
 
 let harness;
 const checks = [];
@@ -83,10 +84,17 @@ try {
   await shown(page.getByText("Second draft"));
   await capture(page, "drafts-list-light", output);
 
-  // --- 10. Dark theme (system preference) ---
+  // --- 10. Continuous list and record tree (Base 0.8 S5, S6), seeded after the pages above ---
+  // The codelist lens at page 3 of 7 (window scrollbar, footer with page field and Go to) beside
+  // the tree with a 60-codelist domain branch scrolling in its group, focus on its first row.
+  const longDomain = await seedLongList(api, records);
+  await openLongList(page, uiUrl, longDomain);
+  await capture(page, "scrolling-list-tree-light", output);
+
+  // --- 11. Dark theme (system preference) ---
   await page.emulateMedia({ colorScheme: "dark" });
-  // Reload so no colour transition from the light theme is captured mid-flight.
-  await page.reload();
+  // Load afresh so no colour transition from the light theme is captured mid-flight.
+  await page.goto(`${uiUrl}/apps/rdm-master/drafts?workspaceKey=default`);
   await shown(page.getByText("Second draft"));
   await capture(page, "drafts-list-dark", output);
   await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default`);
@@ -98,6 +106,8 @@ try {
   await page.goto(`${uiUrl}/models`);
   await shown(page.getByRole("heading", { name: "Models" }));
   await capture(page, "model-workbench-dark", output);
+  await openLongList(page, uiUrl, longDomain);
+  await capture(page, "scrolling-list-tree-dark", output);
   await page.emulateMedia({ colorScheme: "light" });
   const draft2Detail = await api(`/workspace-drafts/${draft2.id}`);
   await api(`/workspace-drafts/${draft2.id}?expectedVersion=${draft2Detail.version}`, undefined, "DELETE");

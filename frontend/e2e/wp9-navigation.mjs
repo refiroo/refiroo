@@ -234,9 +234,9 @@ try {
     const pageTwo = page.url();
     assert.equal(new URL(pageTwo).searchParams.getAll("cursor").length, 0);
     const explorer = page.getByRole("region", { name: `${model.applications.find((item) => item.key === app).name} explorer` });
-    await explorer.getByRole("button", { name: "Load more objects", exact: true }).click();
-    await shown(explorer.getByRole("button", { name: /^Record 31 / }));
-    await shown(explorer.getByRole("button", { name: /^Record 31 / }));
+    // The sidebar tree scrolls its root group (S6); nothing asks for more and the route stays put.
+    await shown(explorer.getByRole("treeitem", { name: "Record 31", exact: true }));
+    assert.equal(await explorer.getByRole("button", { name: "Load more objects" }).count(), 0);
     assert.equal(page.url(), pageTwo);
     await shown(table.getByRole("button", { name: "Record 10", exact: true }));
     const collections = page.getByRole("navigation", { name: `${model.applications.find((item) => item.key === app).name} collections` });
@@ -352,8 +352,8 @@ try {
   await shown(drawer);
   const explorerSearch = drawer.getByRole("textbox", { name: "Search this explorer" });
   await explorerSearch.fill("Record 10");
-  await shown(drawer.getByRole("button", { name: /^Record 10/ }));
-  await page.waitForFunction(() => document.querySelectorAll(".explorer .tree > li").length === 1);
+  await shown(drawer.getByRole("treeitem", { name: "Record 10", exact: true }));
+  await page.waitForFunction(() => document.querySelectorAll(".explorer .tree [data-row-key]").length === 1);
   await page.screenshot({ path: resolve(output, "narrow-keyboard.png") });
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => document.activeElement?.textContent.includes("Browse application"));
@@ -412,7 +412,7 @@ try {
   await page.setViewportSize({ width: 390, height: 844 });
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   await page.screenshot({ path: resolve(output, "mobile-models.png"), fullPage: true });
-  checks.push("Hierarchy continuation coexists with model-derived collection groups without changing the later-page URL; model administration remains reachable at desktop/mobile");
+  checks.push("The sidebar tree lists every root record in its scrolling group, with no Load more, beside model-derived collection groups and without changing the later-page URL; model administration remains reachable at desktop/mobile");
   await checkInspectorDeletion({ page, api, uiUrl, output, checks });
   await checkHierarchySelection({ page, api, uiUrl, output, checks });
   assert.deepEqual(failures, []);

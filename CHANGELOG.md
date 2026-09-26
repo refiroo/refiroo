@@ -49,6 +49,21 @@ All notable changes to this project are documented in this file. The format foll
   sort, by name by default), relation panels (which gain search and sort), the mapping lens, the
   mapping candidates and the object picker, now a search field over a listbox.
   `tests/volume_seed.py` seeds the volume fixture for the new `test:browser:s5` runner.
+- Base 0.8 S6: the sidebar record tree reads by parent. Each root (`rootCreatable`) type of the
+  application pages its top-level records (`topLevel=true`) in its own bounded, scrolling group;
+  expanding a record pages each child type separately with `parentObjectId`, headed by the type and
+  its count, and collapsing releases the branch. **Load more objects** and the global per-type load
+  are gone, and with them the record with an unloaded parent drawn at the top level. The tree is a
+  `role="tree"` with one tab stop, `aria-setsize` and `aria-posinset` from totals and arrow keys that
+  load across a window's edge. Search lists matching records of every type with their ancestor path.
+  `ui/ScrollWindow` reads only its own rows, so windows nest, and gains a `group` role for rows owned
+  by an enclosing widget. New runner `test:browser:s6`.
+- Base 0.8 S7: composed Track S acceptance. New runner `test:browser:s7` walks one collection-lens
+  journey per context (scroll, scrollbar click, seek, end, page number, copied URL) over the volume
+  fixture and the starter model, checks each landing against the same context's API read, and opens a
+  record deep in the tree; it passes at full volume (`S7_VOLUME_SCALE=1`). The accessibility and
+  visual gates gain a `scrolling-list-tree` scenario in light and dark, and every visual baseline was
+  refreshed after review. `volume_baseline.py` adds a whole-type name search and a deep record read.
 
 ### Changed
 
@@ -115,6 +130,17 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+- Base 0.8 S2b: a draft write no longer loads the whole draft. Object, attribute, relation and
+  mapping writes check only the records and relations they touch: the parent and its ancestors, the
+  relations at each end, the draft-wide holders of a unique value through the typed value index, and
+  for a deletion the subtree it removes. Renaming one record in a 100,000-record draft takes 7.5 ms
+  (was 4.9 s). Migration `20260926_02` adds a value lookup index on `snapshot_attribute_values`. A
+  unique attribute without a value no longer conflicts with records that lack it.
+- A draft or history single-record read returned an empty `path`, so the record page showed no
+  ancestors and the sidebar tree could not open the record's branch in those contexts. It now returns
+  the ancestor path, as live reads and draft and history pages do.
+- In the dark theme, a list footer's page field and **Go to** field kept the browser's light field
+  colours and failed contrast; they now use the shared text-input treatment.
 - Paging a list sorted by a boolean field past its first page returned a server error; keyset cursor
   positions are now bound as typed values. Keyset pages also seek to the cursor through the first sort
   key's index instead of scanning every earlier row.

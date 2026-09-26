@@ -9,7 +9,8 @@
  *
  * Children render the rows. Each row carries `data-row-key` (a stable identity) and
  * `data-row-index` (its absolute index); an element inside it marked `data-row-focus` receives
- * keyboard focus, otherwise the row itself does and needs `tabIndex={-1}`.
+ * keyboard focus, otherwise the row itself does and needs `tabIndex={-1}`. Windows may nest (a
+ * tree branch inside a row): each reads only the rows of its own viewport.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
@@ -28,6 +29,22 @@ function stuckHeader(viewport: HTMLElement) {
 }
 const format = (value: number) => numberFormat.format(value);
 
+/** The rows of this viewport, leaving out those of windows nested inside its rows. */
+function ownRows(viewport: HTMLElement) {
+  return Array.from(viewport.querySelectorAll<HTMLElement>("[data-row-key]")).filter(
+    (row) => row.closest(".scroll-window-viewport") === viewport,
+  );
+}
+
+/** The row of this viewport that holds `target`, which may sit inside a nested window. */
+function ownRow(viewport: HTMLElement, target: HTMLElement) {
+  for (let row = target.closest<HTMLElement>("[data-row-key]"); row;) {
+    if (row.closest(".scroll-window-viewport") === viewport) return row;
+    row = row.parentElement?.closest<HTMLElement>("[data-row-key]") ?? null;
+  }
+  return null;
+}
+
 interface Visible {
   first: number;
   last: number;
@@ -42,6 +59,9 @@ export function ScrollWindow<T>({
   seekLabel,
   rowNavigation = true,
   footer = true,
+  role = "region",
+  edgeMarkers = "always",
+  onAnnounce,
   onAnchorChange,
   children,
 }: {
@@ -57,6 +77,17 @@ export function ScrollWindow<T>({
   /** Arrow keys move focus between rows; off where the rows handle arrows themselves. */
   rowNavigation?: boolean;
   footer?: boolean;
+  /**
+   * "region": the viewport is a labelled region and a tab stop. "group": the rows belong to an
+   * enclosing widget, such as tree items within a tree, which owns only its items and groups.
+   * The viewport is then a labelled group, a tab stop only while it scrolls, its edge markers are
+   * presentational, and announcements go to `onAnnounce` instead of a live region of its own.
+   */
+  role?: "region" | "group";
+  /** Receives polite announcements in place of the window's own live region. */
+  onAnnounce?: (message: string) => void;
+  /** "partial" shows the start and end markers only for a list longer than one page. */
+  edgeMarkers?: "always" | "partial";
   /** Receives the cursor that reopens the viewport's page, for the URL. */
   onAnchorChange?: (anchor: string | undefined) => void;
   children: ReactNode;
@@ -64,6 +95,7 @@ export function ScrollWindow<T>({
   const viewport = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState<Visible>();
   const [announcement, setAnnouncement] = useState("");
+  const [overflowing, setOverflowing] = useState(false);
   const scrollAnchor = useRef<{ key: string; offset: number } | undefined>(undefined);
   // Set while the anchored row could not be placed because too few rows follow it yet; the next
   // page below completes the placement, and until then the anchor is not re-read from the screen.
@@ -86,6 +118,18 @@ export function ScrollWindow<T>({
     listRef.current = list;
     anchorCallback.current = onAnchorChange;
   });
+  const announceTo = useRef(onAnnounce);
+  useEffect(() => {
+    announceTo.current = onAnnounce;
+  });
+  useEffect(() => {
+    if (announcement) announceTo.current?.(announcement);
+  }, [announcement]);
+  // A presentational edge shows a failed read only visually; moving past the edge again retries.
+  const edgeError = role === "group" ? list.after.error || list.before.error : "";
+  useEffect(() => {
+    if (edgeError) announceTo.current?.(edgeError);
+  }, [edgeError]);
 
   const [singular, plural] = noun;
   const partial = list.hasPrevious || list.hasNext;
@@ -112,7 +156,7 @@ export function ScrollWindow<T>({
     // Only the header cells stick; the header row's own box scrolls away with the rows.
     const header = element.querySelector("thead")?.getBoundingClientRect();
     const top = Math.max(box.top + stuckHeader(element), header ? header.bottom : box.top);
-    const rows = element.querySelectorAll<HTMLElement>("[data-row-index]");
+    const rows = ownRows(element).filter((row) => row.dataset.rowIndex !== undefined);
     let first: number | undefined;
     let last: number | undefined;
     for (const row of rows) {
@@ -135,6 +179,7 @@ export function ScrollWindow<T>({
       );
       if (userMoved.current) follow(firstIndex);
     }
+    setOverflowing(element.scrollHeight > element.clientHeight + 1);
     if (current.loading || rows.length === 0) return;
     const pageHeight = (element.scrollHeight / rows.length) * pageSize;
     const below = element.scrollHeight - element.scrollTop - element.clientHeight;
@@ -208,7 +253,7 @@ export function ScrollWindow<T>({
       if (heldAnchor.current) scrollAnchor.current = { key: row.dataset.rowKey ?? "", offset };
     };
     const landing = list.landing;
-    const rows = () => Array.from(element.querySelectorAll<HTMLElement>("[data-row-key]"));
+    const rows = () => ownRows(element);
     if (landing && handledLanding.current !== landing.token && !list.loading) {
       handledLanding.current = landing.token;
       pendingFocus.current = undefined;
@@ -221,7 +266,7 @@ export function ScrollWindow<T>({
         setTop(element, element.scrollHeight);
         target = rows().at(-1);
       } else {
-        target = element.querySelector<HTMLElement>(`[data-row-index="${landing.target}"]`) ?? undefined;
+        target = rows().find((row) => row.dataset.rowIndex === String(landing.target));
         if (target) {
           const top = element.getBoundingClientRect().top + stuckHeader(element);
           const desired = element.scrollTop + target.getBoundingClientRect().top - top;
@@ -283,6 +328,8 @@ export function ScrollWindow<T>({
 
   function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     const target = event.target as HTMLElement;
+    // A window nested in one of the rows handled the key first.
+    if (event.defaultPrevented) return;
     if (target.closest("input, select, textarea, [contenteditable='true'], [role='menu']")) return;
     if ((event.ctrlKey || event.metaKey) && (event.key === "Home" || event.key === "End")) {
       event.preventDefault();
@@ -292,11 +339,11 @@ export function ScrollWindow<T>({
     }
     if (!rowNavigation || (event.key !== "ArrowDown" && event.key !== "ArrowUp")) return;
     const element = viewport.current;
-    const row = target.closest<HTMLElement>("[data-row-key]");
+    const row = element && ownRow(element, target);
     if (!element || !row) return;
     event.preventDefault();
     const step = event.key === "ArrowDown" ? 1 : -1;
-    const all = Array.from(element.querySelectorAll<HTMLElement>("[data-row-key]"));
+    const all = ownRows(element);
     const next = all[all.indexOf(row) + step];
     if (next) focusRow(next);
     else if (step === 1 && list.hasNext) {
@@ -309,7 +356,9 @@ export function ScrollWindow<T>({
   }
 
   const empty = list.items.length === 0;
-  const showStart = !list.hasPrevious && (total ?? 0) > pageSize;
+  const long = (total ?? list.items.length) > pageSize;
+  const showStart = !list.hasPrevious && long;
+  const showEnd = edgeMarkers === "always" || long || list.hasNext || list.after.loading || Boolean(list.after.error);
   const pageCount = total !== null ? Math.max(1, Math.ceil(total / pageSize)) : undefined;
   const firstVisible = visible?.first ?? list.startIndex;
   const lastVisible = visible?.last ?? list.startIndex + list.items.length - 1;
@@ -323,18 +372,19 @@ export function ScrollWindow<T>({
         <div
           ref={viewport}
           className={`scroll-window-viewport${partial && total !== null ? " has-window-scrollbar" : ""} ${className}`}
-          role="region"
+          role={role}
           aria-label={label}
-          tabIndex={0}
+          tabIndex={role === "region" || overflowing ? 0 : -1}
           onScroll={onScroll}
           onKeyDown={onKeyDown}
           onFocus={(event) => {
-            const key = (event.target as HTMLElement).closest<HTMLElement>("[data-row-key]")?.dataset.rowKey;
+            const key = viewport.current && ownRow(viewport.current, event.target as HTMLElement)?.dataset.rowKey;
             if (key) focusedKey.current = key;
           }}
         >
           {!empty && (list.hasPrevious || showStart) && (
             <Edge
+              presentational={role === "group"}
               status={list.before}
               waiting={`Loading earlier ${plural}…`}
               done={list.hasPrevious ? "" : "Start of list"}
@@ -342,8 +392,9 @@ export function ScrollWindow<T>({
             />
           )}
           {children}
-          {!empty && (
+          {!empty && showEnd && (
             <Edge
+              presentational={role === "group"}
               status={list.after}
               waiting={`Loading more ${plural}…`}
               done={
@@ -367,9 +418,11 @@ export function ScrollWindow<T>({
           />
         )}
       </div>
-      <span className="visually-hidden" role="status" aria-live="polite">
-        {announcement}
-      </span>
+      {!onAnnounce && (
+        <span className="visually-hidden" role="status" aria-live="polite">
+          {announcement}
+        </span>
+      )}
       {footer && (
         <div className="scroll-window-footer">
           <span className="scroll-window-range">
@@ -426,22 +479,28 @@ export function ScrollWindow<T>({
 }
 
 function Edge({
+  presentational,
   status,
   waiting,
   done,
   onRetry,
 }: {
+  /** Visual only; its news reaches assistive technology through the announcements. */
+  presentational: boolean;
   status: { loading: boolean; error: string };
   waiting: string;
   done: string;
   onRetry: () => void;
 }) {
   return (
-    <div className={`scroll-window-edge${status.loading ? " is-loading" : ""}`}>
+    <div
+      className={`scroll-window-edge${status.loading ? " is-loading" : ""}`}
+      aria-hidden={presentational || undefined}
+    >
       {status.error ? (
         <span className="scroll-window-edge-error">
           {status.error}{" "}
-          <button type="button" className="secondary" onClick={onRetry}>
+          <button type="button" className="secondary" tabIndex={presentational ? -1 : undefined} onClick={onRetry}>
             Retry
           </button>
         </span>

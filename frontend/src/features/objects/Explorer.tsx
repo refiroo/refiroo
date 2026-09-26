@@ -1,22 +1,17 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
+import { useState } from "react";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
-import { errorMessage } from "@/api/errors";
 import { objectTypeFor } from "@/model/lookup";
-import { childCollectionGroups, collectionGroups } from "@/model/collections";
-import type { ApplicationDefinition, EngineModel, ObjectItem, ObjectPage } from "@/types";
-import { InlineError } from "@/ui/InlineError";
+import { collectionGroups } from "@/model/collections";
+import type { ApplicationDefinition, EngineModel, ObjectItem } from "@/types";
 import { Icon, ModelIcon } from "@/ui/Icon";
-
-interface LoadedPage extends ObjectPage {
-  loaded: ObjectItem[];
-}
+import { RecordTree } from "@/features/objects/RecordTree";
 
 export function Explorer({
   model,
   application,
   workspaceKey,
   activeObjectId,
+  activeObjectTypeKey,
   activeViewKey,
   refreshToken,
   onOpen,
@@ -26,191 +21,15 @@ export function Explorer({
   application: ApplicationDefinition;
   workspaceKey: string;
   activeObjectId?: string;
+  activeObjectTypeKey?: string;
   activeViewKey?: string;
   refreshToken: number;
   onOpen: (item: ObjectItem) => void;
   onOpenCollection?: (viewKey: string, parent?: ObjectItem) => void;
 }) {
-  const api = useDataApi();
-  const storageKey = `rdm:hierarchy:v2:${JSON.stringify([workspaceKey, application.key])}`;
-  const [branchState, setBranchState] = useState(() => ({ key: storageKey, choices: readChoices(storageKey) }));
-  if (branchState.key !== storageKey) {
-    setBranchState({ key: storageKey, choices: readChoices(storageKey) });
-  }
-
   const [searchInput, setSearchInput] = useState("");
   const search = useDebouncedValue(searchInput.trim());
-  const [pages, setPages] = useState<Record<string, LoadedPage>>({});
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [retryToken, setRetryToken] = useState(0);
-  const [loadedSearch, setLoadedSearch] = useState<string>();
-  const [failedMore, setFailedMore] = useState(false);
-  const generation = useRef(0);
-
-  useEffect(() => {
-    let active = true;
-    const requestGeneration = ++generation.current;
-    setLoading(true);
-    setError("");
-    setFailedMore(false);
-    Promise.all(
-      application.objectTypeKeys.map(
-        async (key) =>
-          [
-            key,
-            await api.objects(key, { applicationKey: application.key, workspaceKey, search, pageSize: 30 }),
-          ] as const,
-      ),
-    )
-      .then((results) => {
-        if (!active || generation.current !== requestGeneration) return;
-        setLoadedSearch(search);
-        setPages(Object.fromEntries(results.map(([key, page]) => [key, { ...page, loaded: page.items }])));
-        setError("");
-      })
-      .catch((cause) => active && setError(errorMessage(cause)))
-      .finally(() => active && setLoading(false));
-    return () => {
-      active = false;
-      generation.current += 1;
-    };
-  }, [api, application.key, application.objectTypeKeys.join("|"), refreshToken, retryToken, search, workspaceKey]);
-
-  const objects = useMemo(
-    () => (loadedSearch === search ? Object.values(pages).flatMap((page) => page.loaded) : []),
-    [pages, loadedSearch, search],
-  );
-  const objectIds = new Set(objects.map((item) => item.id));
-  const byId = new Map(objects.map((item) => [item.id, item]));
-  const activeAncestors = new Set<string>();
-  for (let cursor = activeObjectId ? byId.get(activeObjectId)?.parentObjectId : undefined; cursor;) {
-    if (activeAncestors.has(cursor)) break;
-    activeAncestors.add(cursor);
-    cursor = byId.get(cursor)?.parentObjectId ?? undefined;
-  }
-
-  /**
-   * Branches start collapsed so a large hierarchy stays scannable. The active record's ancestors
-   * and search results open by default; an explicit choice always wins and persists per browser.
-   */
-  function isExpanded(id: string) {
-    return branchState.choices.get(id) ?? (Boolean(search) || activeAncestors.has(id));
-  }
-
-  function toggleBranch(id: string) {
-    const choices = new Map(branchState.choices);
-    choices.set(id, !isExpanded(id));
-    setBranchState({ key: storageKey, choices });
-    try {
-      window.localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(choices)));
-    } catch {
-      // Storage may be unavailable; keep this session's navigation usable.
-    }
-  }
-  const roots = objects
-    .filter((item) => !item.parentObjectId || !objectIds.has(item.parentObjectId))
-    .sort(comparePaths);
-  const children = new Map<string, ObjectItem[]>();
-  for (const item of objects) {
-    if (!item.parentObjectId || !objectIds.has(item.parentObjectId)) continue;
-    children.set(item.parentObjectId, [...(children.get(item.parentObjectId) ?? []), item]);
-  }
-  for (const values of children.values()) values.sort(comparePaths);
-  const canLoadMore = loadedSearch === search && Object.values(pages).some((page) => page.nextCursor);
   const groups = collectionGroups(application);
-
-  async function loadMore() {
-    if (loading || !canLoadMore) return;
-    const requestGeneration = generation.current;
-    setLoading(true);
-    setError("");
-    try {
-      const entries = await Promise.all(
-        Object.entries(pages).map(async ([key, page]) => {
-          if (!page.nextCursor) return [key, page] as const;
-          const next = await api.objects(key, {
-            applicationKey: application.key,
-            workspaceKey,
-            search,
-            cursor: page.nextCursor,
-            pageSize: 30,
-          });
-          return [key, { ...next, loaded: [...page.loaded, ...next.items] }] as [string, LoadedPage];
-        }),
-      );
-      if (generation.current !== requestGeneration) return;
-      setPages(Object.fromEntries(entries));
-    } catch (cause) {
-      if (generation.current !== requestGeneration) return;
-      setFailedMore(true);
-      setError(errorMessage(cause));
-    } finally {
-      if (generation.current === requestGeneration) setLoading(false);
-    }
-  }
-
-  function node(item: ObjectItem, depth: number): React.ReactNode {
-    const scopedGroups = childCollectionGroups(model, application, item.objectTypeKey);
-    const hasChildren = Boolean(children.get(item.id)?.length || scopedGroups.length);
-    const expanded = isExpanded(item.id);
-    const type = objectTypeFor(model, item.objectTypeKey);
-    return (
-      <li key={`${item.objectTypeKey}:${item.id}`}>
-        <div className="tree-row" style={{ paddingLeft: `${4 + depth * 14}px` }}>
-          {hasChildren ? (
-            <button
-              className="tree-toggle"
-              aria-label={`${expanded ? "Collapse" : "Expand"} ${item.name}`}
-              aria-expanded={expanded}
-              onClick={() => toggleBranch(item.id)}
-            >
-              <Icon name={expanded ? "chevron-down" : "chevron-right"} size={14} />
-            </button>
-          ) : (
-            <span className="tree-branch" />
-          )}
-          <button
-            className={`tree-node${item.id === activeObjectId ? " active" : ""}`}
-            aria-current={item.id === activeObjectId ? "page" : undefined}
-            title={`${item.name} · ${type?.name ?? item.objectTypeKey}`}
-            onClick={() => onOpen(item)}
-          >
-            <span className="tree-icon">
-              <ModelIcon name={type?.icon} size={14} />
-            </span>
-            <span className="tree-name">{item.name}</span>
-            <span className="visually-hidden"> {type?.name}</span>
-          </button>
-        </div>
-        {hasChildren && expanded ? (
-          <ul>
-            {scopedGroups.map((group) => {
-              const pluralName = objectTypeFor(model, group.objectTypeKey)?.pluralName ?? group.objectTypeKey;
-              return (
-                <li key={`collection:${item.id}:${group.objectTypeKey}`}>
-                  <div className="tree-row" style={{ paddingLeft: `${4 + (depth + 1) * 14}px` }}>
-                    <span className="tree-branch" />
-                    <button
-                      className="tree-node tree-collection"
-                      aria-label={`${pluralName} collection within ${item.name}`}
-                      onClick={() => onOpenCollection?.(group.defaultView.key, item)}
-                    >
-                      <span className="tree-icon">
-                        <Icon name="list" size={14} />
-                      </span>
-                      <span className="tree-name">All {pluralName.toLowerCase()}</span>
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-            {(children.get(item.id) ?? []).map((child) => node(child, depth + 1))}
-          </ul>
-        ) : null}
-      </li>
-    );
-  }
 
   return (
     <section className="explorer" aria-label={`${application.name} explorer`}>
@@ -252,49 +71,19 @@ export function Explorer({
             placeholder="Find a record"
           />
         </label>
-        {error && (
-          <InlineError message={error} onRetry={failedMore ? loadMore : () => setRetryToken((value) => value + 1)} />
-        )}
-        {roots.length ? (
-          <ul className="tree" aria-labelledby={`${application.key}-browse-label`}>
-            {roots.map((item) => node(item, search ? Math.max(0, item.path.length - 1) : 0))}
-          </ul>
-        ) : loading ? (
-          <div className="explorer-empty">Loading records…</div>
-        ) : !error ? (
-          <div className="explorer-empty">
-            {search ? "No matching records." : "No records in this application yet."}
-          </div>
-        ) : null}
-        {canLoadMore && !error && (
-          <button className="load-more" disabled={loading} onClick={loadMore}>
-            {loading ? "Loading…" : "Load more objects"}
-          </button>
-        )}
+        <RecordTree
+          model={model}
+          application={application}
+          workspaceKey={workspaceKey}
+          search={search}
+          activeObjectId={activeObjectId}
+          activeObjectTypeKey={activeObjectTypeKey}
+          refreshToken={refreshToken}
+          labelledBy={`${application.key}-browse-label`}
+          onOpen={onOpen}
+          onOpenCollection={onOpenCollection}
+        />
       </div>
     </section>
   );
-}
-
-function comparePaths(left: ObjectItem, right: ObjectItem) {
-  return (
-    left.path
-      .map((part) => part.name)
-      .join("/")
-      .localeCompare(right.path.map((part) => part.name).join("/")) || left.name.localeCompare(right.name)
-  );
-}
-
-function readChoices(key: string): Map<string, boolean> {
-  try {
-    const value: unknown = JSON.parse(window.localStorage.getItem(key) ?? "{}");
-    if (value && typeof value === "object" && !Array.isArray(value)) {
-      return new Map(
-        Object.entries(value).filter((entry): entry is [string, boolean] => typeof entry[1] === "boolean"),
-      );
-    }
-  } catch {
-    // Invalid or unavailable storage falls back to the default branch state.
-  }
-  return new Map();
 }

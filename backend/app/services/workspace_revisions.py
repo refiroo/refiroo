@@ -6,6 +6,7 @@ optional staged edits use the canonical routers with ``workspaceDraftId``. Activ
 changes into live data and records an immutable revision snapshot (ADR-026/027).
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -43,6 +44,7 @@ from .attributes import (
     validate_object_attribute_rules,
 )
 from .audit import record_audit_event
+from .draft_lookups import DraftLookup
 from .model.registry import resolve_pinned_release
 from .relation_set_versions import (
     delete_draft_set_versions,
@@ -522,7 +524,7 @@ def _normalize_relation(
 
 def validate_draft_relation(
     model: Any,
-    membership: EffectiveDraftMembership,
+    lookup: DraftLookup,
     relation_type_key: str,
     from_id: str,
     to_id: str,
@@ -531,8 +533,9 @@ def validate_draft_relation(
     exclude_id: str | None = None,
     exclude_ids: set[str] | None = None,
 ) -> dict[str, Any]:
-    objects = {item.object_id: item for item in membership.objects}
-    source, target = objects.get(from_id), objects.get(to_id)
+    """Check one candidate relation against the relations at its own ends (S2b)."""
+    endpoints = lookup.objects([from_id, to_id])
+    source, target = endpoints.get(from_id), endpoints.get(to_id)
     if source is None or target is None:
         raise api_error(
             422, "relation_endpoint_missing", "Relation endpoints must exist in the workspace draft"
@@ -558,56 +561,44 @@ def validate_draft_relation(
             "immutable_relation",
             "Engine-maintained containment relations are changed through object edits",
         )
-    existing = [
-        row
-        for row in membership.relations
-        if row.relation_id != exclude_id
-        and row.relation_id not in (exclude_ids or set())
-        and row.relation_type_key == relation_type_key
-    ]
-    if allowed.cardinality == "one-to-one" and any(
-        row.from_object_id == from_id or row.to_object_id == to_id for row in existing
+    excluded = {exclude_id, *(exclude_ids or set())}
+
+    def existing(object_id: str, direction: str) -> list[Any]:
+        return [
+            row
+            for row in lookup.relations([object_id], direction, [relation_type_key])
+            if row.relation_id not in excluded
+        ]
+
+    if allowed.cardinality == "one-to-one" and (
+        existing(from_id, "outgoing") or existing(to_id, "incoming")
     ):
         raise api_error(409, "cardinality_violation", "Relation cardinality would be violated")
-    if allowed.cardinality == "one-to-many" and any(row.to_object_id == to_id for row in existing):
+    if allowed.cardinality == "one-to-many" and existing(to_id, "incoming"):
         raise api_error(409, "cardinality_violation", "Relation cardinality would be violated")
     ancestor_type = allowed.features.get("uniqueToAncestorTypeKey")
     if ancestor_type:
         condition = allowed.features.get("uniqueWhenToAttributeEquals")
-        if (
-            condition
-            and (target.attributes or {}).get(condition["attributeTypeKey"]) != condition["value"]
-        ):
+
+        def in_scope(item: Any) -> bool:
+            return (
+                not condition
+                or (item.attributes or {}).get(condition["attributeTypeKey"]) == condition["value"]
+            )
+
+        if not in_scope(target):
             return normalized
-
-        def ancestor(item):
-            seen = set()
-            while item and item.object_id not in seen:
-                seen.add(item.object_id)
-                if item.object_type_key == ancestor_type:
-                    return item.object_id
-                item = objects.get(item.parent_object_id) if item.parent_object_id else None
-            return None
-
-        target_ancestor = ancestor(target)
+        target_ancestor = lookup.ancestor_of_type(target, ancestor_type)
         if target_ancestor is None:
             raise api_error(
                 422,
                 "relation_ancestor_required",
                 f"Related object must belong to an ancestor of type '{ancestor_type}'",
             )
-        if any(
-            row.from_object_id == from_id
-            and ancestor(objects.get(row.to_object_id)) == target_ancestor
-            and (
-                not condition
-                or (objects.get(row.to_object_id).attributes or {}).get(
-                    condition["attributeTypeKey"]
-                )
-                == condition["value"]
-            )
-            for row in existing
-        ):
+        # Only the source's own relations of this type can share the scope.
+        related = lookup.objects(row.to_object_id for row in existing(from_id, "outgoing"))
+        scoped = [item for item in related.values() if in_scope(item)]
+        if target_ancestor in lookup.ancestors_of_type(scoped, ancestor_type).values():
             raise api_error(
                 409,
                 "duplicate_relation_scope",
@@ -624,14 +615,12 @@ def put_draft_object(session: Session, draft_id: str, payload: Any) -> Workspace
         model, payload.objectTypeKey, payload.attributes, partial=False
     )
     validate_object_attribute_rules(model.object_type(payload.objectTypeKey), attributes)
-    membership = effective_draft_membership(session, draft_id)
-    if payload.parentObjectId is not None and not any(
-        item.object_id == str(payload.parentObjectId) for item in membership.objects
-    ):
+    lookup = DraftLookup.of(session, draft_id)
+    if payload.parentObjectId is not None and lookup.object(str(payload.parentObjectId)) is None:
         raise api_error(422, "parent_wrong_scope", "Parent must exist in the workspace draft")
     _claim_draft(session, draft, payload.expectedDraftVersion)
     object_id = str(payload.id) if payload.id else str(uuid4())
-    if any(item.object_id == object_id for item in membership.objects) or session.scalar(
+    if lookup.object(object_id) is not None or session.scalar(
         select(RdmObject.id).where(RdmObject.id == object_id)
     ):
         raise api_error(409, "object_already_exists", f"Object '{object_id}' already exists")
@@ -656,8 +645,8 @@ def put_draft_object(session: Session, draft_id: str, payload: Any) -> Workspace
             version=1,
         )
         session.add(row)
-    _validate_draft_attribute_uniqueness(model, membership, row.object_id, attributes)
-    _sync_draft_parent_relation(session, draft, model, row)
+    _validate_draft_attribute_uniqueness(model, lookup, row.object_id, attributes)
+    _sync_draft_parent_relation(session, draft, model, row, lookup)
     if getattr(payload, "initialRelations", None):
         identities = [
             (item.relationTypeKey, item.direction, str(item.otherObjectId))
@@ -667,29 +656,14 @@ def put_draft_object(session: Session, draft_id: str, payload: Any) -> Workspace
             raise api_error(
                 422, "duplicate_initial_relation", "Initial relationships must not repeat"
             )
-        objects = {
-            item.object_id: item for item in effective_draft_membership(session, draft_id).objects
-        }
-        objects[row.object_id] = row
-        candidate_relations = list(membership.relations)
+        # The new row and each relation added before the next are flushed into the lookups.
         for initial in payload.initialRelations:
             from_id = (
                 row.object_id if initial.direction == "outgoing" else str(initial.otherObjectId)
             )
             to_id = str(initial.otherObjectId) if initial.direction == "outgoing" else row.object_id
-            target = objects.get(to_id)
-            source = objects.get(from_id)
-            if source is None or target is None:
-                raise api_error(
-                    422,
-                    "relation_endpoint_missing",
-                    "Relation endpoints must exist in the workspace draft",
-                )
-            candidate = EffectiveDraftMembership(
-                draft, tuple(objects.values()), tuple(candidate_relations)
-            )
             attrs = validate_draft_relation(
-                model, candidate, initial.relationTypeKey, from_id, to_id, initial.attributes
+                model, lookup, initial.relationTypeKey, from_id, to_id, initial.attributes
             )
             relation = WorkspaceDraftRelation(
                 draft_id=draft.id,
@@ -700,7 +674,6 @@ def put_draft_object(session: Session, draft_id: str, payload: Any) -> Workspace
                 attributes=attrs,
                 version=1,
             )
-            candidate_relations.append(relation)
             session.add(relation)
     parent_keys = (
         set(
@@ -748,7 +721,7 @@ def update_draft_object(
 ) -> WorkspaceDraftObject:
     draft = _draft(session, draft_id, for_update=True)
     model = _draft_model(session, draft)
-    membership = effective_draft_membership(session, draft_id)
+    lookup = DraftLookup.of(session, draft_id)
     _claim_draft(session, draft, payload.expectedDraftVersion)
     row = session.scalar(
         select(WorkspaceDraftObject).where(
@@ -756,14 +729,7 @@ def update_draft_object(
         )
     )
     if row is None:
-        base = next(
-            (
-                item
-                for item in effective_draft_membership(session, draft_id).objects
-                if item.object_id == object_id
-            ),
-            None,
-        )
+        base = lookup.object(object_id)
         if base is None:
             raise api_error(404, "object_not_found", f"Object '{object_id}' not found in draft")
         row = WorkspaceDraftObject(
@@ -790,32 +756,26 @@ def update_draft_object(
                 model, row.object_type_key, payload.attributes, partial=True
             ),
         }
-    _validate_draft_attribute_uniqueness(model, membership, row.object_id, row.attributes or {})
-    candidate_objects = tuple(
-        row if item.object_id == row.object_id else item for item in membership.objects
+    _validate_draft_attribute_uniqueness(model, lookup, row.object_id, row.attributes or {})
+    # The edited row is flushed into the lookups: each relation into it is checked against it.
+    parent_keys = set(
+        (model.object_type(row.object_type_key).behavior or {}).get("parentRelationTypeKeys", [])
     )
-    candidate = EffectiveDraftMembership(draft, candidate_objects, membership.relations)
-    for relation in membership.relations:
-        if relation.to_object_id == row.object_id:
-            parent_keys = set(
-                (model.object_type(row.object_type_key).behavior or {}).get(
-                    "parentRelationTypeKeys", []
-                )
-            )
-            if relation.relation_type_key in parent_keys:
-                continue
-            validate_draft_relation(
-                model,
-                candidate,
-                relation.relation_type_key,
-                relation.from_object_id,
-                relation.to_object_id,
-                dict(relation.attributes or {}),
-                exclude_id=relation.relation_id,
-            )
+    for relation in lookup.relations([row.object_id], "incoming"):
+        if relation.relation_type_key in parent_keys:
+            continue
+        validate_draft_relation(
+            model,
+            lookup,
+            relation.relation_type_key,
+            relation.from_object_id,
+            relation.to_object_id,
+            dict(relation.attributes or {}),
+            exclude_id=relation.relation_id,
+        )
     row.version += 1
     row.is_deleted = False
-    _sync_draft_parent_relation(session, draft, model, row)
+    _sync_draft_parent_relation(session, draft, model, row, lookup)
     record_audit_event(
         session,
         aggregate_type="object-draft",
@@ -867,9 +827,8 @@ def delete_draft_object(
             else "Workspace draft version has changed"
         ),
     )
-    membership = effective_draft_membership(session, draft_id)
-    objects = {item.object_id: item for item in membership.objects}
-    root = objects.get(object_id)
+    lookup = DraftLookup.of(session, draft_id)
+    root = lookup.object(object_id)
     if root is None or root.object_type_key != object_type_key:
         if cascade and deletion_preview is not None:
             raise deletion_preview_changed()
@@ -882,25 +841,30 @@ def delete_draft_object(
         )
     _record_conflict(expected_record_version, root.version, "Object record")
 
-    planned_ids = {object_id}
+    # The walk reads the planned subtree level by level: its children, and the records its required
+    # owning relations reach. Its cost is the deleted subtree, not the draft.
+    objects: dict[str, Any] = {object_id: root}
     reasons: dict[str, str] = {object_id: "root"}
     frontier = [object_id]
     while frontier:
-        parent_id = frontier.pop()
-        children = [
-            item.object_id
-            for item in membership.objects
-            if item.parent_object_id == parent_id and item.object_id not in planned_ids
+        reached: list[str] = []
+        for child in lookup.children(frontier):
+            if child.object_id not in objects:
+                objects[child.object_id] = child
+                reasons[child.object_id] = "child"
+                reached.append(child.object_id)
+        outgoing = [
+            relation
+            for relation in lookup.relations(frontier, "outgoing")
+            if relation.to_object_id not in objects
         ]
-        planned_ids.update(children)
-        reasons.update({child: "child" for child in children})
-        frontier.extend(children)
-        for relation in membership.relations:
-            if relation.from_object_id != parent_id or relation.to_object_id in planned_ids:
+        targets = lookup.objects(relation.to_object_id for relation in outgoing)
+        for relation in outgoing:
+            if relation.to_object_id in objects:
                 continue
             source, target = (
                 objects.get(relation.from_object_id),
-                objects.get(relation.to_object_id),
+                targets.get(relation.to_object_id),
             )
             allowed = next(
                 (
@@ -922,14 +886,21 @@ def delete_draft_object(
                 and allowed.required
                 and allowed.cardinality in {"one-to-one", "one-to-many"}
             ):
-                planned_ids.add(target.object_id)
+                objects[target.object_id] = target
                 reasons[target.object_id] = "required-ownership"
-                frontier.append(target.object_id)
-    incident = [
-        relation
-        for relation in membership.relations
-        if relation.from_object_id in planned_ids or relation.to_object_id in planned_ids
-    ]
+                reached.append(target.object_id)
+        frontier = reached
+    planned_ids = set(objects)
+    incident = lookup.relations(planned_ids, "both")
+    # Relations leaving the subtree name records outside it: the set versions need their types.
+    objects.update(
+        lookup.objects(
+            end
+            for relation in incident
+            for end in (relation.from_object_id, relation.to_object_id)
+            if end not in objects
+        )
+    )
 
     def is_parent_relation(relation) -> bool:
         target = objects.get(relation.to_object_id)
@@ -947,11 +918,8 @@ def delete_draft_object(
         "objectId": object_id,
         "modelReleaseId": draft.model_release_id,
     }
-    object_identity = [
-        (item.object_id, item.version, item.parent_object_id)
-        for item in membership.objects
-        if item.object_id in planned_ids
-    ]
+    planned = [objects[key] for key in sorted(planned_ids)]
+    object_identity = [(item.object_id, item.version, item.parent_object_id) for item in planned]
     relation_identity = [
         (
             item.relation_id,
@@ -972,8 +940,8 @@ def delete_draft_object(
                 "parentObjectId": item.parent_object_id,
                 "reason": reasons[item.object_id],
             }
-            for item in membership.objects
-            if item.object_id in planned_ids and item.object_id != object_id
+            for item in planned
+            if item.object_id != object_id
         ]
         raise api_error(
             409,
@@ -1071,21 +1039,16 @@ def delete_draft_object(
 
 def _validate_draft_attribute_uniqueness(
     model: Any,
-    membership: EffectiveDraftMembership,
+    lookup: DraftLookup,
     object_id: str,
     attributes: dict[str, Any],
 ) -> None:
     for key, value in attributes.items():
         definition = model.attribute_type(key)
-        if definition is None or not definition.features.get("unique"):
+        if definition is None or not definition.features.get("unique") or value is None:
             continue
-        conflict = next(
-            (
-                item.object_id
-                for item in membership.objects
-                if item.object_id != object_id and (item.attributes or {}).get(key) == value
-            ),
-            None,
+        conflict = lookup.unique_value_holder(
+            key, definition.valueType, value, exclude_object_id=object_id
         )
         if conflict is not None:
             raise api_error(
@@ -1096,13 +1059,16 @@ def _validate_draft_attribute_uniqueness(
             )
 
 
-def _validate_candidate_parent(model: Any, row: Any, objects: dict[str, Any]) -> None:
+def _validate_candidate_parent(
+    model: Any, row: Any, find: Callable[[str | None], Any | None]
+) -> None:
+    """Check a record's parent; ``find`` reads a record of the same graph by ID, or ``None``."""
     object_type = model.object_type(row.object_type_key)
     if row.parent_object_id is None:
         if not object_type.features.get("rootCreatable", False):
             raise api_error(422, "parent_required", "This object type requires a parent")
         return
-    parent = objects.get(row.parent_object_id)
+    parent = find(row.parent_object_id)
     if parent is None or parent.application_key != row.application_key:
         raise api_error(
             422, "parent_wrong_scope", "Parent must be in the same application and workspace"
@@ -1125,20 +1091,27 @@ def _validate_candidate_parent(model: Any, row: Any, objects: dict[str, Any]) ->
         if current.object_id in seen:
             raise api_error(422, "parent_cycle", "Parent selection would create a cycle")
         seen.add(current.object_id)
-        current = objects.get(current.parent_object_id)
+        current = find(current.parent_object_id)
 
 
 def _sync_draft_parent_relation(
-    session: Session, draft: WorkspaceDraft, model: Any, row: WorkspaceDraftObject
+    session: Session,
+    draft: WorkspaceDraft,
+    model: Any,
+    row: WorkspaceDraftObject,
+    lookup: DraftLookup,
 ) -> None:
     """Maintain the typed containment edge with a draft object edit.
 
     The effective edge may come from the draft base; like a live update, an unchanged parent keeps
     that edge and its identity, and a changed parent tombstones it before adding the new one.
     """
-    membership = effective_draft_membership(session, draft.id)
-    objects = {item.object_id: item for item in membership.objects}
-    _validate_candidate_parent(model, row, objects)
+    # The ancestor walk is one lookup per level; the row itself is read as edited.
+    _validate_candidate_parent(
+        model,
+        row,
+        lambda object_id: row if object_id == row.object_id else lookup.object(object_id),
+    )
     keys = (
         set(
             (model.object_type(row.object_type_key).behavior or {}).get(
@@ -1150,11 +1123,7 @@ def _sync_draft_parent_relation(
     )
     if not keys:
         return
-    current = [
-        relation
-        for relation in membership.relations
-        if relation.to_object_id == row.object_id and relation.relation_type_key in keys
-    ]
+    current = lookup.relations([row.object_id], "incoming", sorted(keys))
     if [relation.from_object_id for relation in current] == (
         [row.parent_object_id] if row.parent_object_id else []
     ):
@@ -1183,7 +1152,7 @@ def _sync_draft_parent_relation(
             stored.is_deleted = True
             stored.version += 1
     if row.parent_object_id:
-        parent = objects.get(row.parent_object_id)
+        parent = lookup.object(row.parent_object_id)
         if parent is None:
             raise api_error(422, "parent_wrong_scope", "Parent must exist in the workspace draft")
         allowed = next(
@@ -1216,10 +1185,10 @@ def _sync_draft_parent_relation(
 def _increment_draft_relation_set_versions(
     session: Session,
     draft: WorkspaceDraft,
-    membership: EffectiveDraftMembership,
+    lookup: DraftLookup,
     row: WorkspaceDraftRelation,
 ) -> None:
-    objects = {item.object_id: item for item in membership.objects}
+    objects = lookup.objects([row.from_object_id, row.to_object_id])
     from_obj = objects.get(row.from_object_id)
     to_obj = objects.get(row.to_object_id)
     if from_obj is None or to_obj is None:
@@ -1239,7 +1208,7 @@ def _increment_draft_relation_set_versions(
 def put_draft_relation(session: Session, draft_id: str, payload: Any) -> WorkspaceDraftRelation:
     draft = _draft(session, draft_id, for_update=True)
     model = _draft_model(session, draft)
-    membership = effective_draft_membership(session, draft_id)
+    lookup = DraftLookup.of(session, draft_id)
     relation_id = str(payload.id) if payload.id else str(uuid4())
     row = session.scalar(
         select(WorkspaceDraftRelation).where(
@@ -1249,7 +1218,7 @@ def put_draft_relation(session: Session, draft_id: str, payload: Any) -> Workspa
     )
     attributes = validate_draft_relation(
         model,
-        membership,
+        lookup,
         payload.relationTypeKey,
         str(payload.fromObjectId),
         str(payload.toObjectId),
@@ -1284,7 +1253,7 @@ def put_draft_relation(session: Session, draft_id: str, payload: Any) -> Workspa
         changes={"attributes": attributes, "workspaceDraftId": draft.id},
         object_ids=[row.from_object_id, row.to_object_id],
     )
-    _increment_draft_relation_set_versions(session, draft, membership, row)
+    _increment_draft_relation_set_versions(session, draft, lookup, row)
     session.commit()
     return row
 
@@ -1300,15 +1269,9 @@ def update_draft_relation(
             WorkspaceDraftRelation.relation_id == relation_id,
         )
     )
+    lookup = DraftLookup.of(session, draft_id)
     if row is None:
-        base = next(
-            (
-                item
-                for item in effective_draft_membership(session, draft_id).relations
-                if item.relation_id == relation_id
-            ),
-            None,
-        )
+        base = lookup.relation(relation_id)
         if base is None:
             raise api_error(
                 404, "relation_not_found", f"Relation '{relation_id}' not found in draft"
@@ -1325,7 +1288,6 @@ def update_draft_relation(
         session.add(row)
         session.flush()
     _record_conflict(payload.expectedRecordVersion, row.version, "Relation record")
-    membership = effective_draft_membership(session, draft_id)
     relation_type = payload.relationTypeKey or row.relation_type_key
     from_id = str(payload.fromObjectId) if payload.fromObjectId else row.from_object_id
     to_id = str(payload.toObjectId) if payload.toObjectId else row.to_object_id
@@ -1333,7 +1295,7 @@ def update_draft_relation(
     if payload.attributes is not None:
         attrs = payload.attributes
     attrs = validate_draft_relation(
-        model, membership, relation_type, from_id, to_id, attrs, exclude_id=relation_id
+        model, lookup, relation_type, from_id, to_id, attrs, exclude_id=relation_id
     )
     _claim_draft(session, draft, payload.expectedDraftVersion)
     row.relation_type_key, row.from_object_id, row.to_object_id, row.attributes = (
@@ -1353,7 +1315,7 @@ def update_draft_relation(
         changes={"attributes": attrs, "workspaceDraftId": draft.id},
         object_ids=[row.from_object_id, row.to_object_id],
     )
-    _increment_draft_relation_set_versions(session, draft, membership, row)
+    _increment_draft_relation_set_versions(session, draft, lookup, row)
     session.commit()
     return row
 
@@ -1367,22 +1329,15 @@ def delete_draft_relation(
 ) -> None:
     draft = _draft(session, draft_id, for_update=True)
     model = _draft_model(session, draft)
-    membership = effective_draft_membership(session, draft_id)
     row = session.scalar(
         select(WorkspaceDraftRelation).where(
             WorkspaceDraftRelation.draft_id == draft_id,
             WorkspaceDraftRelation.relation_id == relation_id,
         )
     )
+    lookup = DraftLookup.of(session, draft_id)
     if row is None:
-        base = next(
-            (
-                item
-                for item in effective_draft_membership(session, draft_id).relations
-                if item.relation_id == relation_id
-            ),
-            None,
-        )
+        base = lookup.relation(relation_id)
         if base is None:
             raise api_error(
                 404, "relation_not_found", f"Relation '{relation_id}' not found in draft"
@@ -1398,7 +1353,7 @@ def delete_draft_relation(
         )
         session.add(row)
         session.flush()
-    objects = {item.object_id: item for item in membership.objects}
+    objects = lookup.objects([row.from_object_id, row.to_object_id])
     target = objects.get(row.to_object_id)
     if target is not None:
         parent_keys = set(
@@ -1430,7 +1385,7 @@ def delete_draft_relation(
     _claim_draft(session, draft, expected_draft_version)
     row.version += 1
     row.is_deleted = True
-    _increment_draft_relation_set_versions(session, draft, membership, row)
+    _increment_draft_relation_set_versions(session, draft, lookup, row)
     session.commit()
 
 
@@ -1444,8 +1399,8 @@ def patch_draft_attribute(
     expected_record_version: int,
 ) -> WorkspaceDraftObject:
     draft = _draft(session, draft_id, for_update=True)
-    membership = effective_draft_membership(session, draft_id)
-    base = next((item for item in membership.objects if item.object_id == object_id), None)
+    lookup = DraftLookup.of(session, draft_id)
+    base = lookup.object(object_id)
     if base is None:
         raise api_error(404, "object_not_found", f"Object '{object_id}' not found in draft")
     row = session.scalar(
@@ -1473,7 +1428,7 @@ def patch_draft_attribute(
     )
     _claim_draft(session, draft, expected_draft_version)
     row.attributes = {**(row.attributes or {}), **normalized}
-    _validate_draft_attribute_uniqueness(model, membership, row.object_id, row.attributes)
+    _validate_draft_attribute_uniqueness(model, lookup, row.object_id, row.attributes)
     row.version += 1
     record_audit_event(
         session,
@@ -1497,8 +1452,8 @@ def delete_draft_attribute(
     expected_record_version: int,
 ) -> WorkspaceDraftObject:
     draft = _draft(session, draft_id, for_update=True)
-    membership = effective_draft_membership(session, draft_id)
-    base = next((item for item in membership.objects if item.object_id == object_id), None)
+    lookup = DraftLookup.of(session, draft_id)
+    base = lookup.object(object_id)
     if base is None:
         raise api_error(404, "object_not_found", f"Object '{object_id}' not found in draft")
     row = session.scalar(
@@ -1588,7 +1543,7 @@ def _diagnostics(
             )
         else:
             try:
-                _validate_candidate_parent(model, item, objects)
+                _validate_candidate_parent(model, item, objects.get)
             except ApiError as exc:
                 errors.append(
                     {

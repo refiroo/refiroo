@@ -399,9 +399,9 @@ def get_object(
         item = find_object(session, context, object_id, object_type_key)
         if item is None:
             raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
-        return _draft_object_response(item, context.id, model).model_copy(
-            update={"workspaceKey": context.workspace_key}
-        )
+        return _draft_object_response(
+            item, context.id, model, path=object_path(session, context, item)
+        ).model_copy(update={"workspaceKey": context.workspace_key})
     selected_workspace_key = resolve_workspace(session, workspace_key).key
     item = load_active_projection(session, object_id, object_type_key)
     if item.workspace_key != selected_workspace_key:

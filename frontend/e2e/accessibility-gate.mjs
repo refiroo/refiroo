@@ -5,20 +5,13 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { runAxe, formatViolations } from "./helpers/axe-helper.mjs";
+import { openLongList, seedLongList } from "./helpers/acceptance-data.mjs";
 
 // Permitted known violations with tracked issue references.
 // Each entry must state the axe rule id and a tracking reference.
-const ALLOWLIST = [
-  {
-    rule: "landmark-unique",
-    target: ['.panel-tables > .embedded-table > .table-wrap.object-table[role="region"]'],
-    maxNodes: 1,
-    relatedTargets: [['.panel.surface:nth-child(2) > .embedded-table > .table-wrap.object-table[role="region"]']],
-    pages: ["detail-system", "dark-detail-system"],
-    issue:
-      "WP1-002: children/relation panels repeat aria-label='Objects' on nested tables; needs scoped labels per panel type",
-  },
-];
+// WP1-002 (duplicate "Objects" labels on panel tables) was resolved when S5 gave each panel's
+// scrolling region its own name; its entry matched nothing and was removed in Base 0.8 S7.
+const ALLOWLIST = [];
 
 let harness;
 const checks = [];
@@ -77,12 +70,12 @@ try {
   checks.push(`detail-system: ${result.violations.length} violations, ${result.allowed.length} allowed`);
   await page.screenshot({ path: resolve(output, "a11y-detail-system.png"), fullPage: true });
 
-  // A new duplicate landmark can be a related node of the existing violation.
+  // A new duplicate landmark must fail the gate: repeat the label of a region on the page.
   await page.evaluate(() => {
     const extra = document.createElement("section");
     extra.id = "wp1-unexpected-region";
     extra.setAttribute("role", "region");
-    extra.setAttribute("aria-label", "Objects");
+    extra.setAttribute("aria-label", document.querySelector("main [role='region'][aria-label]").getAttribute("aria-label"));
     extra.textContent = "Unexpected duplicate region";
     document.querySelector("main").append(extra);
   });
@@ -148,7 +141,29 @@ try {
   checks.push(`settings-menu: ${result.violations.length} violations, ${result.allowed.length} allowed`);
   await page.keyboard.press("Escape");
 
-  // --- 10. Dark theme: the same token contract must keep contrast on core page types ---
+  // --- 10. Continuous list and record tree (Base 0.8 S5, S6) ---
+  // The codelist lens holds part of its list (window scrollbar, page field, footer) and the tree
+  // holds a domain branch whose codelists scroll in their own group, focus on a row inside it.
+  const longDomain = await seedLongList(api, records);
+  await openLongList(page, uiUrl, longDomain);
+  result = await runAxe(page, ALLOWLIST, "scrolling-list-tree");
+  if (result.violations.length > 0) failures.push(`scrolling-list-tree:\n${formatViolations(result.violations)}`);
+  checks.push(`scrolling-list-tree: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  await page.screenshot({ path: resolve(output, "a11y-scrolling-list-tree.png"), fullPage: true });
+
+  // A tree may own only items and groups: a stray control inside it must fail the gate.
+  await page.evaluate(() => {
+    const extra = document.createElement("button");
+    extra.id = "s7-unexpected-tree-child";
+    extra.textContent = "Stray control";
+    document.querySelector("[role='tree']").append(extra);
+  });
+  result = await runAxe(page, ALLOWLIST, "scrolling-list-tree");
+  assert.ok(result.violations.some((violation) => violation.id === "aria-required-children"));
+  await page.locator("#s7-unexpected-tree-child").evaluate((element) => element.remove());
+  regressionChecks.push("a control the tree may not own is rejected");
+
+  // --- 11. Dark theme: the same token contract must keep contrast on core page types ---
   await page.emulateMedia({ colorScheme: "dark" });
   for (const [name, path, ready] of [
     ["dark-collection-domain", "/apps/rdm-master/views/domains?workspaceKey=default", () => page.getByRole("button", { name: "Domain 00", exact: true })],
@@ -165,6 +180,11 @@ try {
     checks.push(`${name}: ${result.violations.length} violations, ${result.allowed.length} allowed`);
     await page.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
   }
+  await openLongList(page, uiUrl, longDomain);
+  result = await runAxe(page, ALLOWLIST, "dark-scrolling-list-tree");
+  if (result.violations.length > 0) failures.push(`dark-scrolling-list-tree:\n${formatViolations(result.violations)}`);
+  checks.push(`dark-scrolling-list-tree: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+  await page.screenshot({ path: resolve(output, "a11y-dark-scrolling-list-tree.png"), fullPage: true });
   await page.getByRole("button", { name: "Settings", exact: true }).click();
   await shown(page.getByRole("dialog", { name: "Settings" }));
   result = await runAxe(page, ALLOWLIST, "dark-settings-menu");

@@ -374,7 +374,9 @@ button:not([class]):disabled {
 .toolbar-field select,
 .inline-attribute-editor input:not([type="checkbox"]):not([type="radio"]),
 .inline-attribute-editor textarea,
-.inline-attribute-editor select {
+.inline-attribute-editor select,
+.page-jump input,
+.seek-jump input {
   min-height: var(--control-height);
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-control);
@@ -396,7 +398,9 @@ button:not([class]):disabled {
 .toolbar-field select:focus,
 .inline-attribute-editor input:focus,
 .inline-attribute-editor textarea:focus,
-.inline-attribute-editor select:focus {
+.inline-attribute-editor select:focus,
+.page-jump input:focus,
+.seek-jump input:focus {
   border-color: var(--accent);
   box-shadow: var(--focus-ring);
 }

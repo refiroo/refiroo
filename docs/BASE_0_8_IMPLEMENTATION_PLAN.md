@@ -244,6 +244,49 @@ budget test passes without its expected-failure marker and a rename stays within
 the `drafts` and `mapping` groups pass unchanged. Whole-graph validation and activation stay as they
 are.
 
+**S2b delivered 2026-09-26.** `services/draft_lookups.DraftLookup` answers a draft write's checks
+over the draft's effective rows (`snapshot_reads`): records by ID, children of a set of parents,
+relations leaving, entering or touching a set of records (optionally by type), the nearest ancestor
+of a type, resolved level by level for a batch, and the draft-wide holder of a unique value.
+`object_projection` gains `parent_object_ids` and `relation_projection` gains `endpoint_ids` for the
+batched reads. Every draft write service uses it: object create, update and delete, attribute patch
+and delete, relation create, update and delete, the containment edge sync and draft mapping
+replacement (including its conflict and cross-cardinality checks). `validate_draft_relation` reads
+the relations at the candidate's own ends: cardinality from the source's outgoing and the target's
+incoming relations of the type, and the ancestor scope from the source's relations of the type.
+Deletion walks the subtree level by level, children and required-ownership targets, and reads the
+relations touching it, so its cost is the deleted subtree; previews list records and relations in ID
+order as before, so preview tokens are unchanged. `effective_draft_membership` remains for
+validation, activation and the validation audit's counts.
+
+A lookup statement flushes the write's pending rows first, so each check sees the edited record and
+any relation already added in the same request, as the candidate membership did. The unique check
+asks `snapshot_attribute_values` which base or draft rows hold the value and keeps those that are
+the effective row of their record: a base value replaced by a draft row, or a deleted record, holds
+nothing. Migration `20260926_02` adds (owner, attribute, text value, object) to that table so the
+check seeks to a text value; without it the check read all 100,000 codes of the draft (37.7 ms per
+rename). Other value types read the attribute's values; JSON values are compared after decoding.
+
+_Result_ (full volume, `volume_baseline.py --scale 1 --repeat 5`): **write: rename one record in the
+draft 7.5 ms · 29 statements · 8 rows** (S2: 4,855 ms · 30 · 216,944; live: 3.6 ms · 13 · 9).
+`test_draft_writes_hold_the_live_budget` passes without its expected-failure marker.
+
+_Evidence._ `test_draft_write_lookups` (unique values over a derived draft: a base holder, a base
+value freed by a draft row, a record's own value, a draft-only record before and after deletion, a
+deleted base record). `test_snapshot_lookup_index_migration`: a clean bootstrap creates the index; a
+database written at head, downgraded to `20260926_01`, upgrades through the lifespan across two
+restarts with draft and history reads unchanged; an index of another shape left by an interrupted
+run is rebuilt. The `drafts`, `mapping`, `records`, `startup` and `volume` groups and the full backend
+suite pass.
+
+_Behaviour change._ A unique attribute written without a value no longer conflicts with every draft
+record that lacks it; the membership comparison matched a missing value as equal to `null`.
+
+_Open:_ a unique check over a non-text value type reads every value of the attribute in the draft
+(no such unique attribute in the starter model). On PostgreSQL, a B-tree entry over about 2.7 KB
+fails, so a `longText` value that long in the index would need an expression or hash index when
+PostgreSQL hardening starts.
+
 #### S3: Cursor and position paging contract
 
 **Scope:** in the shared pagination helpers, so every collection endpoint gains it:
@@ -730,6 +773,66 @@ reparenting and child creation remain Milestone B.
 **Exit:** in the S1 fixture, every branch shows exactly its own children and their count, the
 20,000-child parent scrolls end to end, and a six-level path opens by keyboard.
 
+**Delivered 2026-09-26.** `features/objects/RecordTree` replaces the explorer's global load. Root
+types are the application's `rootCreatable` types (`model/collections.rootObjectTypeKeys`); a parent
+is always in its child's application, so top-level roots and parent branches reach every record once.
+Each root type pages `topLevel=true`, and an expanded record mounts one group per child type
+(`childObjectTypeKeys`, the model's `parentOf` bindings) paged with `parentObjectId`, both sorted by
+name, 50 rows a page. A group is a `useCursorWindow` in a `ScrollWindow` with a bounded height (a
+branch's is shorter), headed by an item naming the type and its total that opens the type's
+collection, scoped to the parent: the former **All …** row. A group without records draws nothing; a
+record whose groups are all empty says **Nothing inside**. Collapsing a record, or a row leaving its
+window, unmounts its groups and releases their pages; branch choices persist per browser as before,
+and the active record's ancestors (read once from its `path`) open by default. **Load more objects**
+and the per-type load of every type are gone, and so is the defect of a record with an unloaded
+parent drawn at the top level. A search pages each type of the application with `search` and shows
+each match's ancestor path; a match's own branch lists plain children.
+
+The tree follows the WAI-ARIA tree pattern: one tab stop (the last focused item, else the active
+record, else the first heading), `aria-level`, and `aria-setsize` and `aria-posinset` from each
+group's total, the heading counting as the set's first item. Up and Down move in document order;
+leaving a window that holds more rows beyond its edge loads them and moves on when they arrive, and
+entering a window that does not hold its first (or last) row jumps there. Right and Left expand,
+enter, collapse and return to the parent; Home and End; Ctrl+Home and Ctrl+End jump within a group;
+Enter opens a record or a heading's collection. axe allows a tree to own only items, groups and plain
+containers, so `ScrollWindow` gained `role="group"`: the viewport is the named group (a tab stop only
+while it scrolls, which `scrollable-region-focusable` needs), its edge markers are presentational
+and its announcements go to the tree's one live region. `ScrollWindow` also reads only its own rows,
+so windows nest, ignores keys a nested window handled, and can show start and end markers only for a
+list longer than a page.
+
+_Evidence._ `Explorer.test` (roots by `topLevel` with totals, each child type by parent, exactly a
+branch's own children with level, position and set size, release and re-read on collapse, **Nothing
+inside**, persisted choices, the active record's path, keyboard across a page edge with one tab stop,
+search over every type with paths, a failed group retried in place). `e2e/s6-sidebar-tree.mjs`
+(`test:browser:s6`) against a real backend: over the volume fixture, in live, draft and history, the
+root pages its 1,000 top-level groups; the 5-item group and the heavy group (2,000 items live and in
+history, 1,993 in the draft) show exactly their own first page and counts for both child types, as
+the API lists them in that context; the heavy branch scrolls end to end with the wheel, never holding
+more than 250 rows, and returns by Ctrl+Home; an eight-level path (the group and seven node levels)
+opens by keyboard alone (Ctrl+End, Down into the next window, Down and Right per level, level,
+position and set size checked), Enter opens the deep node and marks it current; collapsing releases
+the branch (122 items); every tree read is top-level, by parent or by search. At 390px the drawer's
+tree opens the heavy branch by touch, scrolls past its first page and expands by keyboard. Over the
+starter model it walks a domain and its codelists by keyboard, opens a record and a heading's scoped
+collection, searches with a path, and shows a system's one non-empty child group of two. axe is
+clean on the volume tree eight levels deep and on the master and systems trees. `wp9-navigation`
+(with `ui03b-hierarchy`), `wp14-contextual-browser` and `s5-continuous-lists` were updated for the
+tree items and pass; `test:visual` passes with the sidebar's added heading under threshold (history
+view 0.26%), baselines not refreshed.
+
+_Found on the way and fixed:_ in search mode, a match's expanded children also showed an ancestor
+path (the runner caught it; `Explorer.test` now covers it). `App.test`'s discard test looked for a
+**Name** header that S4R3 renamed "Name, sorted ascending", and failed before this package.
+
+It passes at the default 10% scale and at full volume (`S6_VOLUME_SCALE=1`: 10,000 roots, the
+20,000-child branch, 19,901 in the draft, scrolled end to end in every context; about 110 s).
+
+_Open:_ a record opened
+elsewhere reveals its ancestors' branches but does not scroll a long group to it. At eight levels the
+default 248px rail truncates names (the rail widens to 380px). Visual baselines and dedicated
+accessibility-gate scenarios for the tree remain S7 scope.
+
 #### S7: Composed volume acceptance
 
 **Scope:** a real-backend browser runner over the S1 fixture and the starter model that scrolls,
@@ -740,6 +843,113 @@ the S1 measurements again against the budgets.
 
 **Exit:** budgets met in all three contexts; accessibility and visual gates pass; the runner is
 registered in the [execution guide](testing/EXECUTION_GUIDE.md).
+
+**Delivered 2026-09-26, with the exit's budget clause open for three request kinds (below).**
+`e2e/s7-volume-acceptance.mjs` (`test:browser:s7`) composes the track in one journey per context. On
+the volume fixture's items lens and the starter's codelist lens (72 records, ten a page), in live,
+draft and history: scroll both ways with the wheel, a scrollbar click from the start, seek by name,
+**Go to end**, a page number, and the copied URL reopened at the same row. Each landing is checked
+against the same context's API read at that position, so draft renames, tombstones and new records
+are compared with what the draft holds. Then a record deep in the tree: the volume model's deep node
+(seven node levels under its group) found by the tree's search with every ancestor in its path and
+opened from the match; the starter's master value reached by keyboard alone, Ctrl+End crossing the
+codelists' first 50-row window to the 72nd codelist. The record opens in the same context and is
+marked current. The lens journey repeats at 390px for both models. The runner reports each context's
+API read times as the browser saw them. It passes at the default 10% scale and at full volume
+(`S7_VOLUME_SCALE=1`, about 115 s).
+
+The accessibility and visual gates gain `scrolling-list-tree`, light and dark: the codelist lens at
+page 3 of 7 (window scrollbar, footer fields) beside a 60-codelist tree branch scrolling in its
+group, focus on a row inside it (`helpers/acceptance-data.mjs`, seeded after the other gate pages
+so they are unchanged). The accessibility gate also rejects a control appended to the tree. All
+visual baselines were refreshed after inspection; the changes are S6's root-type heading in every
+sidebar and, in dark, the footer fields below.
+
+_Found and fixed._ A draft or history single-record read returned an empty `path` (pages and write
+responses had it since S4R1), so draft and history record pages showed no ancestor breadcrumb and
+the tree could not reveal the active record's branch. `get_object` now uses `snapshot_reads.object_path`,
+one lookup per level; `test_context_read_parity` compares the single-record path in every context
+with live, and fails without the fix. In the dark theme, the list footer's page and **Go to** fields
+kept the browser's light field colours with the footer's muted text (below AA contrast); they now
+share the text-input treatment in `base.css`. The accessibility gate's duplicate-landmark self-check
+injected the label `Objects`, which no panel has used since S5, so it no longer produced a duplicate
+and the gate failed before reaching its pages; it now repeats a label on the page. The `WP1-002`
+exception it guarded matched nothing and was removed.
+
+_Results_ (full volume, `volume_baseline.py --scale 1 --repeat 5`, same machine as S1; two rows are
+new in S7):
+
+| Request | Live | Draft | History |
+| --- | --- | --- | --- |
+| objects: first page | 3.0 ms · 5 · 79 | 5.1 ms · 6 · 4 | 3.9 ms · 5 · 3 |
+| objects: middle page | 3.6 ms · 6 · 81 | 5.8 ms · 7 · 4 | 4.8 ms · 6 · 3 |
+| objects: last page | 4.0 ms · 6 · 81 | 6.2 ms · 7 · 4 | 5.1 ms · 6 · 3 |
+| children: heavy parent, first page | 3.3 ms · 5 · 65 | 4.9 ms · 6 · 4 | 4.1 ms · 5 · 3 |
+| children: heavy parent, middle page | 3.4 ms · 6 · 66 | 5.9 ms · 7 · 4 | 4.8 ms · 6 · 3 |
+| children: small parent | 2.3 ms · 5 · 19 | 5.0 ms · 6 · 4 | 3.1 ms · 5 · 3 |
+| relations: 1,500-relation record | 7.5 ms · 7 · 103 | 11.2 ms · 8 · 4 | 9.2 ms · 7 · 3 |
+| relations: heavy parent | 41.4 ms · 7 · 85 | 74.2 ms · 8 · 4 | 63.9 ms · 7 · 3 |
+| record: single read | 1.9 ms · 5 · 7 | 2.9 ms · 6 · 4 | 2.2 ms · 5 · 3 |
+| objects: last page by from=end, total | 7.2 ms · 6 · 81 | 44.9 ms · 7 · 4 | 10.7 ms · 6 · 3 |
+| objects: backward page from the middle | 3.7 ms · 6 · 83 | 6.9 ms · 7 · 4 | 4.5 ms · 6 · 3 |
+| objects: seek by name, total | 8.1 ms · 8 · 83 | 45.8 ms · 9 · 4 | 10.8 ms · 8 · 3 |
+| objects: position ¾ deep, total | 12.5 ms · 6 · 81 | 55.8 ms · 10 · 4 | 15.7 ms · 6 · 3 |
+| children: heavy parent, position ¾ deep, total | 5.2 ms · 6 · 65 | 22.4 ms · 10 · 4 | 7.3 ms · 6 · 3 |
+| roots: top-level page, total | 3.4 ms · 5 · 64 | 8.5 ms · 6 · 4 | 4.6 ms · 5 · 3 |
+| relations: 1,500-relation record by name, total | 8.5 ms · 8 · 103 | 14.8 ms · 9 · 4 | 12.6 ms · 8 · 3 |
+| relations: 1,500-relation record, search | 6.8 ms · 7 · 102 | 11.2 ms · 8 · 4 | 9.9 ms · 7 · 3 |
+| relations: 1,500-relation record by rank | 9.5 ms · 7 · 101 | 16.7 ms · 8 · 4 | 16.5 ms · 7 · 3 |
+| relations: 1,500-relation record by group, total | 26.3 ms · 8 · 102 | 48.5 ms · 9 · 4 | 41.8 ms · 8 · 3 |
+| relations: heavy parent by rank | **85.0 ms** · 7 · 85 | **159.0 ms** · 8 · 4 | **161.6 ms** · 7 · 3 |
+| children: heavy parent by rank | 96.4 ms · 9 · 65 | **130.2 ms** · 10 · 4 | 88.9 ms · 9 · 3 |
+| relations: heavy parent by group | **101.6 ms** · 7 · 85 | **204.1 ms** · 8 · 4 | **186.6 ms** · 7 · 3 |
+| relations: deep node by top node | 6.8 ms · 12 · 14 | 10.6 ms · 13 · 4 | 6.3 ms · 12 · 3 |
+| objects: search by name, total (S7) | **884.4 ms** · 6 · 42 | **885.2 ms** · 7 · 4 | **702.5 ms** · 6 · 3 |
+| record: deep node (S7) | 2.6 ms · 11 · 13 | 7.5 ms · 12 · 4 | 3.3 ms · 11 · 3 |
+| write: rename one record | 3.7 ms · 13 · 9 | **4,855.2 ms** · 30 · 216,944 | — |
+
+_Against the budgets._ Budgets 1 and 2 hold for every read in every context (`pytest -m volume`,
+the new rows included); the single-record read in drafts and history gains one statement per
+hierarchy level for its path (a constant for a given record). Budget 3 holds for every S1 scenario
+and every S3/S4 read, and fails for three request kinds, all outside S7's scope to fix:
+
+1. **Draft write** (4.9 s): S2b, scoped and not yet delivered. _Resolved by S2b: 7.5 ms._
+2. **Attribute and ancestor sorts over the 20,000-child parent** (85–204 ms): the S4R1 open item;
+   precomputed sort keys are later storage work. _Deferred until after 0.9 (D26)._
+3. **Whole-type name search** (0.7–0.9 s, every context, live included), new in S7. A contains-match
+   cannot use the name index, and with fewer matches than a page the read scans the type; the total
+   adds a second scan. The tree's search (S6) sends one per type of the application, and the lens
+   and pickers search the same way. The browser runner saw it as the slowest tree read. It needs a
+   decision: an indexed search (SQLite FTS5 or PostgreSQL trigram), a prefix match for the tree, or
+   search without a total. _Decided: an indexed search (D25), scoped as S8._
+
+The browser runner's medians were 9–17 ms per read at full volume. A context's first lens load with
+its total took 0.6–1.3 s in the browser against about 45 ms warm in the baseline, which points to a
+cold SQLite page cache after server start; it is observed, not measured separately.
+
+_Open:_ budget items 2 and 3 above (item 1 closed by S2b); the S6 open item (a record opened elsewhere does not scroll a
+long group to it) is unchanged, so the volume runner opens the deep node through search rather than
+from a cleared tree. The edge loading marker is still covered by component state only.
+
+#### S8: Indexed name search
+
+**Scope (D25):**
+
+1. A search index over each record's name and its `searchable` fields, in live, revision,
+   draft-base and draft rows, kept by the same write paths as the typed value index (the flush hook
+   for snapshot rows, the live write services for live rows) and built by the migration.
+2. `search` keeps its meaning, a case-insensitive "contains" match over the same fields, and answers
+   from the index in every context, with and without a total. SQLite's FTS5 trigram tokenizer
+   matches substrings of three or more characters; how a one- or two-character search answers is
+   decided in the package (measured scan with a bound, or prefix match on the name index), and the
+   choice is stated in API.md.
+3. The draft arm applies the overlay rule as other draft reads do: a base match hidden by a draft
+   row does not count, a draft match counts unless deleted.
+4. Draft writes stay bounded (S2b): an index update costs the rows written.
+
+**Exit:** `objects: search by name, total` within 100 ms at full volume in all three contexts; the
+parity test covers search in every context; `%`, `_` and non-ASCII text match as before; the
+migration meets the AGENTS.md startup rules; the S6 tree search and the S7 runner pass.
 
 ## Track W — Workspace terminology and capability boundaries
 
@@ -855,6 +1065,8 @@ them, and "objects where attribute X = Y" belongs to the 0.9 advanced queries.
 
 #### P1: Cross-type object lookup
 
+_Moved to 0.9 (D20)._
+
 **Gap:** objects are listed only per type (`GET /objects/{objectTypeKey}`). A record whose type is not
 known, for example one found by name or external ID, cannot be looked up in one call.
 
@@ -867,6 +1079,8 @@ on type keys (principle 2); additive (principle 4).
 **Uses:** global search, a lookup field that accepts several types, admin and debugging.
 
 #### P2: Change set changes list
+
+_Scheduled into 0.8 as a package after W2 (D20); written with the ADR-031 names._
 
 **Gap:** a change-set read returns the complete graph as the change set sees it (base plus overlay
 and tombstones). No endpoint lists only what the change set changed, so reviewing it means scanning
@@ -881,6 +1095,8 @@ against current live content.
 
 #### P3: Relation edge list across the workspace
 
+_Moved to 0.9 (D20)._
+
 **Gap:** `GET /relations` needs `objectId`, because its items are expansions from that object
 (direction plus the other object). The flat edge list that exists, `GET /workspaces/{key}/mappings`,
 already returns edges of any relation type in live and change-set contexts. It has no publication
@@ -893,7 +1109,7 @@ anchored shape; one endpoint does not return two response shapes.
 ## Sequence and dependencies
 
 ```text
-Track S:      S1 → S2 → S3 ─┬─ S5 → S6 → S7
+Track S:      S1 → S2 → S3 ─┬─ S5 → S6 → S7 → S8
                             └─ S4 ─┘
 Milestone A:  A1 ──────────────┐
               S2, S3 ─────────→ A2 → A3 → A4 → A5
@@ -904,8 +1120,8 @@ Milestone B:  B1 ──────────────┐
 Track W:      W1, W5 (any time)
               S7 → W2 → W3 → W4
               W2 ─→ A2, B2
-Pending:      P1, P2, P3 decided (D20) ─→ R1
-Release:      S7, W4, W5, A5, B4 → R1
+Pending:      W2 → P2 (D20; P1, P3 in 0.9)
+Release:      S8, W4, W5, A5, B4, P2 → R1
 ```
 
 A1 and B1 depend only on 0.7 and may be delivered while Track S is in progress. Everything else in
@@ -1199,7 +1415,7 @@ US-H02 and US-D09 move to delivered in the functionality catalogue.
 
 ## R1: Build acceptance and release
 
-**Scope:** after S7, W4, W5, A5 and B4, and once P1–P3 are decided (D20): the full backend `pytest` suite, frontend `npm run test`, Ruff,
+**Scope:** after S8, W4, W5, A5, B4 and P2 (D20, D25): the full backend `pytest` suite, frontend `npm run test`, Ruff,
 format, lint and build, every browser runner, `test:a11y` and `test:visual`. Migration checks for the
 S2 typed value rows (clean bootstrap, upgrade from the 0.7 head, restart, interrupted migration,
 lifespan, smoke start on a copy of the development database). Confirm a schema 0.7 release installs
@@ -1218,7 +1434,7 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D4 | Does a view's `pageSize` keep its meaning? | Yes: it becomes the fetch size; no schema change | S5 |
 | D5 | Totals on every page or on request? | On request (`includeTotal`); the UI asks on first load, after a query change and with position jumps | S3 |
 | D6 | Relation sort keys | Related record's name and relation creation order; related-type fields later if needed | S4 |
-| D7 | Draft writes still load the whole membership | **Measured in S1:** over budget (7.6 s per rename at full volume). **S2:** 4.7 s after reads moved to SQL; follow-up slice S2b scoped | S2b |
+| D7 | Draft writes still load the whole membership | **Measured in S1:** over budget (7.6 s per rename at full volume). **S2:** 4.7 s after reads moved to SQL; follow-up slice S2b scoped. **S2b:** 7.5 ms | S2b |
 | D8 | A dedicated `translationMatrix` view type, or a generic coverage-matrix type? | `translationMatrix` with generic config keys. One real case exists; generalise after a second (AGENTS.md) | A1 |
 | D9 | Schema 0.7 if only one milestone ships | Each view type is added by its own package; a cut milestone's type is removed before release | A1, B1 |
 | D10 | Language columns | Explicit `languageIds` (at most 20) or the first page of languages; columns page with their own cursor | A2 |
@@ -1231,8 +1447,10 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D17 | Is split deployment (admin and public instance on one database) verified in 0.8? | **Accepted 2026-09-25:** no, it stays a documented, unsupported topology until 0.10 multi-node work; the suspected write-versus-activation race it exposed is investigated in 0.8 as W5 because it may affect one process too | W5 |
 | D18 | Verb for making a change set live | **Accepted 2026-09-25:** **publish**; **activate** is reserved for model releases, **install** for model drafts | W1, W2 |
 | D19 | Removing a publication's current designation | **Accepted 2026-09-25:** **withdraw** (status `withdrawn`); **retire** is reserved for workspaces | W1, W2 |
-| D20 | Are P1 (cross-type lookup), P2 (change set changes list) and P3 (workspace edge list) in 0.8? | **Pending, decide before R1.** Each is scheduled as a package after W2, moved to a later build, or dropped with a reason. A parameterless "list everything" and a flat attribute value list are rejected (export and change feed, 0.9) | R1 |
+| D20 | Are P1 (cross-type lookup), P2 (change set changes list) and P3 (workspace edge list) in 0.8? | **Accepted 2026-09-26:** P2 is in 0.8, as a package after W2; P1 and P3 move to 0.9 (integration APIs). A parameterless "list everything" and a flat attribute value list are rejected (export and change feed, 0.9) | P2, R1 |
 | D21 | Where relation panel sort options come from | **Accepted 2026-09-26:** declared on the relations panel (`sortFields`, `defaultSort`) in schema 0.7; no hardcoded options; 0.5/0.6 panels sort by name | S4R1–S4R3 |
 | D22 | Default list order across contexts | **Accepted 2026-09-26:** name order in live, draft and history; recorded draft and history timestamps are a later package (T1) | S4R4, T1 |
 | D23 | Ancestor sort on relation lists | **Accepted 2026-09-26:** included now, one walk per list rather than per row, measured at volume | S4R1 |
+| D25 | Whole-type name search is over budget (0.7–0.9 s, S7): indexed search, prefix match, or no total? | **Accepted 2026-09-26:** an indexed search that keeps "contains" matching, in every context (S8). SQLite first; the PostgreSQL equivalent (trigram) arrives with 0.10 hardening | S8 |
+| D26 | Attribute and ancestor sorts over the 20,000-child parent are over budget (85–204 ms, S4R1, S7) | **Accepted 2026-09-26:** deferred until after 0.9 (precomputed sort keys, 0.10 or later); recorded as a known budget exception for 0.8 | — |
 | D24 | Which columns sort | **Accepted 2026-09-26 (S4R3 review):** every data column sorts from its header, whatever the attribute's `sortable` flag, including Type and Relationship by their labels; every list shows the same toolbar Sort menu; D21's `sortFields` only add menu fields and `defaultSort` chooses the order. Exceptions: Actions, the computed path, JSON attributes and unrecorded timestamps | S4R3 |

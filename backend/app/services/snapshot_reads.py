@@ -5,8 +5,9 @@ private current-live base) that no draft row replaces, plus its non-deleted draf
 row, including a tombstone, hides the base row with the same public ID. Every read here states that
 rule as one statement, so a page or a record costs its own rows rather than the whole membership.
 
-Validation, activation and draft writes still resolve the whole graph through
-``workspace_revisions.effective_draft_membership``; they need all of it by definition.
+Validation and activation still resolve the whole graph through
+``workspace_revisions.effective_draft_membership``; they need all of it by definition. Draft writes
+check only the records they touch, through ``draft_lookups`` (S2b).
 """
 
 from collections.abc import Callable, Iterable, Sequence
@@ -124,6 +125,7 @@ def object_projection(
     object_type_key: str | None = None,
     application_key: str | None = None,
     parent_object_id: str | None = None,
+    parent_object_ids: Iterable[str] | None = None,
     top_level: bool = False,
     object_ids: Iterable[str] | None = None,
     part: DraftPart = "effective",
@@ -134,6 +136,7 @@ def object_projection(
     ``part`` selects one part of a draft's union instead (see :data:`DraftPart`).
     """
     ids = list(object_ids) if object_ids is not None else None
+    parents = list(parent_object_ids) if parent_object_ids is not None else None
 
     def arm(entity: Any, owner_id: str, *conditions: Any) -> Any:
         narrowing = []
@@ -143,6 +146,8 @@ def object_projection(
             narrowing.append(entity.application_key == application_key)
         if parent_object_id:
             narrowing.append(entity.parent_object_id == parent_object_id)
+        if parents is not None:
+            narrowing.append(entity.parent_object_id.in_(parents))
         if top_level:
             narrowing.append(entity.parent_object_id.is_(None))
         if part == "replaced":
@@ -180,13 +185,16 @@ def relation_projection(
     direction: str = "both",
     relation_type_keys: Sequence[str] | None = None,
     relation_ids: Iterable[str] | None = None,
+    endpoint_ids: Iterable[str] | None = None,
 ) -> Subquery:
     """The context's effective relation rows touching ``object_id`` in ``direction``.
 
     With ``object_id``, rows carry ``related_id``, the record at the other end. Each end is its own arm, so the (owner, from) and (owner, to) indexes serve it; one ``OR`` over
-    both ends would read every relation of the owner.
+    both ends would read every relation of the owner. ``endpoint_ids`` does the same for a set of
+    records, without ``related_id``.
     """
     ids = list(relation_ids) if relation_ids is not None else None
+    endpoints = list(endpoint_ids) if endpoint_ids is not None else None
 
     def arm(entity: Any, _owner_id: str, *conditions: Any) -> list[Any]:
         where = list(conditions)
@@ -208,6 +216,16 @@ def relation_projection(
                 if direction == "both":
                     incoming.append(entity.from_object_id != object_id)
                 ends.append((incoming, [entity.from_object_id.label("related_id")]))
+        elif endpoints is not None:
+            ends = []
+            if direction in {"outgoing", "both"}:
+                ends.append(([entity.from_object_id.in_(endpoints)], []))
+            if direction in {"incoming", "both"}:
+                # A relation between two listed records is already in the outgoing arm.
+                incoming = [entity.to_object_id.in_(endpoints)]
+                if direction == "both":
+                    incoming.append(~entity.from_object_id.in_(endpoints))
+                ends.append((incoming, []))
         return [
             select(
                 entity.relation_id,

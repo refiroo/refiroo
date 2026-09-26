@@ -182,7 +182,8 @@ database, relation search and sort, and a sidebar tree that loads by parent
 [plan](BASE_0_8_IMPLEMENTATION_PLAN.md)).
 
 Exit: a generated model with 100,000 records scrolls both ways with flat memory in live, draft and
-history contexts within recorded budgets.
+history contexts within recorded budgets, and name search answers from an index in every context
+(S8). Attribute and ancestor sorts over very large parents are a recorded exception until 0.10.
 
 ### Track W — Workspace terminology and capability boundaries
 
@@ -242,11 +243,14 @@ than UI endpoints or undocumented limits.
 3. Bounded live bulk creation, update and upsert, with an explicit optional staging mode, per-item
    outcomes, documented failure policy and safe retry/idempotency semantics.
 4. Asynchronous import/export with validation previews and resumable job status.
-5. Ordered change feed and retryable webhooks.
+5. Ordered change feed and retryable webhooks. Model-declared consumer events, subscriptions and
+   webhook delivery are specified in [CONSUMER_API.md](CONSUMER_API.md#change-events-and-webhooks).
 6. Bounded bulk relation/mapping operations with explicit concurrency semantics.
 7. Position (page-number) paging alongside cursors, with bidirectional cursors, totals and seek by
    value, arrives in 0.8 Track S (ADR-030).
-8. Consumer API ([CONSUMER_API.md](CONSUMER_API.md)): a read-only tier for systems that use reference
+8. Cross-type object lookup (`GET /objects` over built-in fields) and a general relation edge list
+   with publication context, moved from 0.8 (Base 0.8 plan P1, P3, D20).
+9. Consumer API ([CONSUMER_API.md](CONSUMER_API.md)): a read-only tier for systems that use reference
    data. Model-declared definitions give XREF lookup (search, resolve, get), lists and one shared
    object shape across object types, with a contract version independent of the management API. The
    production gateway XREF and list APIs are the functional baseline.
@@ -268,7 +272,10 @@ migrated between immutable model releases in controlled stages.
 
 ### Delivery scope
 
-- PostgreSQL deployment, model-derived indexes and representative performance tests
+- PostgreSQL deployment, model-derived indexes and representative performance tests, including the
+  trigram form of the 0.8 name search index
+- Precomputed sort keys, so attribute and ancestor sorts over very large parents meet the list
+  budget (deferred from 0.8, D26)
 - Database-backed uniqueness hardening
 - OIDC authentication and authorization for application, object-type and operation scopes
 - Audit identity, metrics, structured logging, health/readiness, backup and restore rehearsal

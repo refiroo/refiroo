@@ -16,7 +16,7 @@ from sqlalchemy import create_engine, inspect, text
 from test_context_read_parity import ENTRY, FOLDER, _seed, _walk
 from test_snapshot_value_migration import _app, _config, _version
 
-PRECEDING, HEAD = "20260925_01", "20260926_01"
+PRECEDING, HEAD = "20260925_01", "20260926_02"
 TABLES = {
     "workspace_revision_relations": "revision_id",
     "workspace_draft_base_relations": "base_id",

@@ -35,11 +35,14 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [ ] 0.8 Track S — scalable browsing ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md), ADR-030), first:
   - [x] S1 volume fixture and baseline over a generated model.
   - [x] S2 draft and history reads in the database (D1 accepted: typed value rows).
+  - [x] S2b bounded draft writes: a rename at full volume in 7.5 ms (was 4.9 s).
   - [x] S3 cursor and position paging: backward cursors, anchor, totals, seek by value, `position`.
   - [x] S4 top-level filter; relation search and sort.
   - [x] S5 shared continuous-scroll list with loading and end markers.
-  - [ ] S6 sidebar tree by parent, replacing **Load more objects**.
-  - [ ] S7 composed volume acceptance.
+  - [x] S6 sidebar tree by parent, replacing **Load more objects**.
+  - [x] S7 composed volume acceptance (open: attribute sorts over the 20,000-child parent, deferred
+    after 0.9 by D26).
+  - [ ] S8 indexed name search keeping "contains" matching in every context (D25).
 - [ ] 0.8 Track W — workspace terminology and capability boundaries ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#track-w--workspace-terminology-and-capability-boundaries), ADR-031):
   - [ ] W1 glossary, roadmap and milestone names (translation/hierarchy editor); stale gap notes.
   - [ ] W2 rename workspace drafts/revisions to change sets/publications ("Publication N") in every layer.
@@ -57,18 +60,23 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [ ] B2 move targets with eligibility, and path context in every context.
   - [ ] B3 tree lens with add child, rename, availability and move.
   - [ ] B4 Milestone B acceptance (SC-09 hierarchy half).
+- [ ] 0.8 P2 change set changes list, after W2 (D20).
 - [ ] 0.8 R1 build acceptance and release.
 - [ ] Integration-grade query expressions beyond daily-use filters.
 - [ ] Bounded live bulk object/relation/mapping operations with explicit optional staging, per-item
   outcomes and safe retry; do not require a draft merely because several records change (0.9).
 - [ ] Asynchronous CSV/Excel import and export with validation previews.
 - [ ] Ordered change feed and retryable webhooks.
+- [ ] Cross-type object lookup `GET /objects` (P1) and a general relation edge list with publication
+  context (P3), moved from 0.8 (D20).
 
 ## Later — production and self-service authoring
 
 - [ ] Complete the release licensing checklist in [LICENSING_TODO.md](LICENSING_TODO.md), including
   ownership, contribution, dependency, security, trademark and commercial-service documentation.
-- [ ] PostgreSQL performance and multi-writer uniqueness hardening.
+- [ ] PostgreSQL performance and multi-writer uniqueness hardening, including the trigram form of
+  the S8 search index.
+- [ ] Precomputed sort keys for attribute and ancestor sorts over very large parents (D26, after 0.9).
 - [ ] OIDC, application/object/operation authorization and audit identity.
 - [ ] Replace the pre-authentication, default-enabled workspace mutation posture with authenticated,
   authorized workspace administration; retain the capability gate as deployment defence in depth.
@@ -110,5 +118,5 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [x] WP1-001: the navigation resize separator now sits inside the navigation landmark (fixed
   2026-09-24); its allowlist entries were removed. Collection and settings popovers render inside a
   landmark so their dismiss controls are not stray page content.
-- [ ] WP1-002: give the child/relation table regions distinct accessible labels. The gate permits
-  one known duplicate-label target on the System detail page (light and dark) only.
+- [x] WP1-002: the child/relation table regions have distinct accessible labels since Base 0.8 S5
+  (each panel names its scrolling region); the gate's exception matched nothing and was removed in S7.
