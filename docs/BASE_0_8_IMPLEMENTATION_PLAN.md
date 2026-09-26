@@ -1188,6 +1188,23 @@ instances sharing a database. Unverified; found while documenting split deployme
 
 **Exit:** the test passes on SQLite; the caveat is either removed or restated precisely.
 
+**Delivered 2026-09-26.** Confirmed: with release A resolved and an incompatible B activated before
+the write continued, a live object create (B makes an omitted attribute required), an attribute
+delete (same) and a relation create (B tightens the pair to one-to-one) all committed; draft-base
+capture was already refused. Fix, recheck plus exclusion: `resolve_model_snapshot` binds the session
+to the release it resolved, and a `before_commit` hook flushes and rereads the active release in the
+write transaction, refusing with `409 model_release_changed` (nothing saved). Activation now starts
+with `BEGIN IMMEDIATE` (row lock elsewhere), so its compatibility check cannot miss a write that
+flushed first; `409 model_activation_retry` if the busy timeout expires. The hook covers every
+request that resolved the active release, including mapping writes, deletions and publishing,
+without changing service signatures; both locks are database-level, so the result holds across
+processes. ARCHITECTURE's caveat is replaced by the guarantee, and the publication-guard caveat is
+restated for reads only. Evidence: `test_w5_activation_write_race` (5 cases: three live writes, the
+reverse order where activation waits for a flushed write and then refuses, and capture as the
+reference); each half of the fix was removed once to confirm its test fails. Focused suites for
+activation, live records, relations, deletion, publish, mapping replacement, capture and the OpenAPI
+lock pass (238 cases); Ruff clean. Not exercised: two OS processes, and a non-SQLite database.
+
 #### W6: Delete an unused workspace
 
 **Background:** a workspace key cannot be renamed (ADR-019), so a typo in a new key stays forever;

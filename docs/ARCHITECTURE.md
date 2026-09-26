@@ -116,16 +116,26 @@ What holds today:
 - **Activation reaches other instances without a restart.** Every request reads the selected release
   from `model_runtime_state` and caches parsed models and metadata by release identity, so a public
   instance serves a newly activated release on its next request.
+- **A live write never commits under a release that is no longer active.** A request that resolves
+  the active release (`resolve_model_snapshot`) binds its session to it. Before that session commits,
+  it flushes its rows and rereads the active release in the same transaction; if another release was
+  activated meanwhile, nothing is saved and the request returns `409 model_release_changed`.
+  Activation starts with `BEGIN IMMEDIATE`, so its compatibility check and the switch exclude live
+  writes. SQLite has one writer at a time across every process on the database, so the two cannot
+  interleave in one process or across instances: a write that flushed first is seen by the
+  compatibility check, and a write that flushes after activation sees the new release. On a dialect
+  with row locks the write takes a shared lock on the `model_runtime_state` row and activation an
+  exclusive one. Change-set base capture keeps its own `BEGIN IMMEDIATE` check. Tested by
+  `test_w5_activation_write_race` (Base 0.8 W5).
 - **Instances must share `RDM_CURSOR_SIGNING_KEY`** if a load balancer can route one client's
   requests to different instances; otherwise cursors issued by one are refused by another.
 
 Open caveats before this is a supported topology:
 
-- **The publication guard is per process.** It keeps local requests out of the commit-to-publication
-  window, and even locally it covers only the moment a request resolves the release, not the whole
-  request. A live write resolved under the old release may commit after an incompatible activation,
-  within one process or across instances; only change-set base capture takes `BEGIN IMMEDIATE`. Not yet
-  verified; Base 0.8 W5 tests it and fixes it if confirmed.
+- **The publication guard is per process.** It only keeps local requests from resolving the release
+  between activation's commit and this process's registry refresh. Another instance serves the new
+  release from its next request, but a read already in flight there answers from the release it
+  resolved. Writes are not affected: they are protected by the commit-time recheck above.
 - **The single-process rule is checked per instance.** Startup rejects model administration with
   several workers, but cannot detect a second instance with model administration enabled on the same
   database.

@@ -321,6 +321,16 @@ reloads the database-selected release. Historical releases using an unsupported 
 unsupported_schema_version`; if a supported installed release fails reparsing, activation returns
 `500 invalid_installed_model`. Both failures leave runtime state unchanged.
 
+Activation and live writes exclude each other (Base 0.8 W5). Activation reserves the database writer
+(`BEGIN IMMEDIATE` on SQLite) before its compatibility check, so the check sees every live write that
+committed before the switch. A request that resolved the active release — a live object, attribute,
+relation or mapping write, a deletion, a publish or a change-set creation — rereads the active release
+inside its own transaction before committing. If another release was activated after the request
+resolved its model, nothing is saved and it returns `409 model_release_changed` with
+`details.resolvedReleaseId` and `details.activeReleaseId`; the client reloads the model and retries.
+If live writes keep the database busy past the connection's busy timeout, activation returns
+`409 model_activation_retry` and the selection is unchanged.
+
 #### Drafts, validation, compilation and installation
 
 - `GET /api/v1/model-drafts?pageSize=...&cursor=...`
@@ -423,7 +433,9 @@ are not mutation-gated. Lifecycle errors use:
   is not supported by the runtime (details include `releaseId`, `schemaVersion`,
   `supportedSchemaVersions` and `operation`; the schema value comes from the stored model document
   when compilation detects a metadata/document mismatch);
-- `409 activation_conflict` for stale runtime-state tokens; and
+- `409 activation_conflict` for stale runtime-state tokens;
+- `409 model_activation_retry` when live writes held the database for longer than the busy timeout;
+  the selection is unchanged and the activation may be retried;
 - `409 model_migration_required` when stored data prevents activation;
 - `500 invalid_installed_model` when persisted release JSON with a supported schema cannot be reparsed
   for diff or activation (distinguished from unsupported schema, which returns 422);
@@ -1151,6 +1163,8 @@ All API errors, including request validation and unmatched routes, return a unif
 with a machine-readable `code` and a human-readable `message`. Validation errors additionally include
 a `details` array. Unexpected internal errors use code `internal_error` and include a
 `correlationId` in `details`; the same identifier appears in server logs for operator diagnosis.
+A write validated under a model release that was replaced before it committed returns
+`409 model_release_changed` and saves nothing (see model activation).
 
 ```json
 {

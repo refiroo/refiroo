@@ -75,6 +75,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_search_index.py": ("queries", "change_sets", "startup"),
     "test_page_index_migrations.py": ("startup", "change_sets"),
     "test_change_set_rename_migration.py": ("startup", "change_sets"),
+    "test_w5_activation_write_race.py": ("model_admin", "records"),
 }
 
 

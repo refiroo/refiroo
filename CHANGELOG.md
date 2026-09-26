@@ -196,6 +196,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+- Base 0.8 W5: a live write validated under one model release could commit after another release
+  was activated, storing data the new release does not allow. The write now rereads the active
+  release inside its transaction and returns `409 model_release_changed`, saving nothing; activation
+  reserves the database writer before its compatibility check, and returns
+  `409 model_activation_retry` if live writes keep it busy. Holds in one process and across
+  instances sharing a SQLite database.
 - Base 0.8 S8 review: the trigram search index is SQLite-only. Migration `20260926_03` changes
   nothing on another dialect (it stopped a PostgreSQL upgrade), and a search there reads each
   record's values as before S8 instead of naming the missing index table.

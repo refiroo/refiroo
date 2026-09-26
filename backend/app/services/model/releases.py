@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from threading import Lock
 
 from sqlalchemy import select, update
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from ...models.database import (
@@ -37,6 +38,10 @@ class ReleaseIdentityConflict(Exception):
 class ActivationConflict(Exception):
     active_release_id: str
     runtime_version: int
+
+
+class ActivationBusy(Exception):
+    """Live writes held the database writer lock for longer than the connection's busy timeout."""
 
 
 @dataclass(frozen=True)
@@ -75,12 +80,28 @@ def activate_model_release(
     expected_runtime_version: int,
     expected_active_release_id: str,
 ) -> ActivatedRuntimeState:
-    """Validate and select an installed release in the current transaction."""
+    """Validate and select an installed release in the current transaction.
+
+    The transaction excludes live writes from the compatibility check until it commits (0.8 W5):
+    on SQLite it starts with ``BEGIN IMMEDIATE``, the database-wide writer reservation; elsewhere
+    the runtime-state row is locked for update. A live write rechecks the active release under the
+    same lock before it commits (``registry._require_resolved_release``).
+    """
+    if session.bind is not None and session.bind.dialect.name == "sqlite":
+        # Discard any read transaction so the check starts at the writer reservation.
+        session.rollback()
+        try:
+            session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+        except OperationalError as exc:
+            session.rollback()
+            raise ActivationBusy() from exc
     row = session.execute(
-        select(ModelRuntimeState, ModelRelease).join(
+        select(ModelRuntimeState, ModelRelease)
+        .join(
             ModelRelease,
             ModelRelease.id == ModelRuntimeState.active_model_release_id,
         )
+        .with_for_update(of=ModelRuntimeState)
     ).one_or_none()
     if row is None:
         raise RuntimeError("Model runtime state has no active installed release")

@@ -354,6 +354,26 @@ JSON workbench and lifecycle foundation.
   to draft, draft-base and revision rows (captured values keep the live timestamps; draft writes set
   their own). That needs a migration and a decision on what `updatedAt` means after activation (draft
   edit time or publication time). Not assigned to a release.
+- **Post-1.0 direction: MDM-lite.** Consolidating moderate-volume master domains (suppliers,
+  locations, legal entities, product catalogues) on the same engine: source records per system as
+  ordinary object types, mapped to a master record through the existing mapping mechanism, with
+  model-declared survivorship and rule-based match candidates presented as a lens. High-volume party
+  MDM with probabilistic matching stays out of scope, and RDM remains the design centre until an
+  explicit product decision changes the [boundaries](PRODUCT.md#boundaries). Nothing is scheduled.
+  Until then, designs touching these areas should keep the door open rather than close it:
+  - **Identity:** public IDs stay stable; do not rule out a later retired-ID redirect (tombstone)
+    for merged records, or a merge that can be undone.
+  - **Provenance:** do not assume an attribute value has exactly one author; leave room for
+    recording the source system a value came from.
+  - **Derived attributes:** do not assume every attribute value is entered directly; leave room for
+    model-declared values computed from related records.
+  - **History and erasure:** immutable history must not make targeted erasure of personal data
+    impossible by design (a redaction path that preserves the audit shape).
+  - **Inbound flow:** 0.9 bulk upsert and idempotency should serve continuous inbound feeds from
+    source systems, not only one-off loads.
+  - **Review queues:** the mapping lens's unmapped/ambiguous states and candidate search are the
+    pattern for a later match-review lens; keep them generic rather than mapping-specific where it
+    costs nothing.
 
 Earlier milestones are pre-production functionality; 0.10 is the gate for authenticated shared
 production operation. Release numbers specify sequence, not dates. Detailed format, query, validity,

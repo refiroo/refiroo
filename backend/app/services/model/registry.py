@@ -5,12 +5,12 @@ from threading import Condition
 from typing import Annotated
 
 from fastapi import Depends, Query
-from sqlalchemy import select
+from sqlalchemy import event, select
 from sqlalchemy.orm import Session
 
 from ...db import DbSession, SessionLocal
 from ...errors import api_error
-from ...models.database import ChangeSet, ModelRelease, Publication
+from ...models.database import ChangeSet, ModelRelease, ModelRuntimeState, Publication
 from ...models.schema import EngineModel
 from .compiler import SUPPORTED_SCHEMA_VERSIONS, parse_model
 from .diagnostics import ModelValidationError
@@ -174,15 +174,57 @@ class ModelRegistry:
 model_registry = ModelRegistry()
 
 
+_RESOLVED_ACTIVE_RELEASE = "resolved_active_model_release_db_id"
+
+
 def resolve_model_snapshot(session: DbSession) -> ModelSnapshot:
+    """Resolve the active model and bind this session's commits to it (see ``_require_resolved_release``)."""
     try:
-        return model_registry.resolve_active(session)
+        snapshot = model_registry.resolve_active(session)
     except ModelRegistryUnavailable as exc:
         raise api_error(
             503,
             "model_registry_unavailable",
             "The active model registry is unavailable",
         ) from exc
+    session.info[_RESOLVED_ACTIVE_RELEASE] = snapshot.release_db_id
+    return snapshot
+
+
+@event.listens_for(Session, "before_commit")
+def _require_resolved_release(session: Session) -> None:
+    """Refuse to commit a write validated under a release that is no longer active (0.8 W5).
+
+    The registry's publication guard covers only the moment of resolution, so a write resolved
+    under release A could otherwise commit after an incompatible release B activated, in this
+    process or another one sharing the database. The check runs inside the write transaction after
+    its rows are flushed: on SQLite the flush holds the database-wide writer lock, and activation
+    reserves that lock before its compatibility check, so the two cannot interleave. On a dialect
+    with row locks the shared lock on the runtime-state row conflicts with activation's update.
+    """
+    release_db_id = session.info.get(_RESOLVED_ACTIVE_RELEASE)
+    if release_db_id is None:
+        return
+    session.flush()
+    active = session.execute(
+        select(ModelRelease.id, ModelRelease.public_id)
+        .join(ModelRuntimeState, ModelRuntimeState.active_model_release_id == ModelRelease.id)
+        .where(ModelRuntimeState.id == 1)
+        .with_for_update(read=True, of=ModelRuntimeState)
+    ).one_or_none()
+    if active is None or active.id == release_db_id:
+        return
+    resolved = session.get(ModelRelease, release_db_id)
+    raise api_error(
+        409,
+        "model_release_changed",
+        "The active model release changed while this request was processed; nothing was saved. "
+        "Reload and retry against the current model",
+        {
+            "resolvedReleaseId": resolved.public_id if resolved is not None else None,
+            "activeReleaseId": active.public_id,
+        },
+    )
 
 
 ActiveModelSnapshot = Annotated[ModelSnapshot, Depends(resolve_model_snapshot)]
