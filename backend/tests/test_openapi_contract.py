@@ -11,10 +11,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # and mapping coverage gain seek; objects gain topLevel; relations gain search and sort
     # (test_paging_openapi_inventory below states them). Re-baselined for the S4R3 revision: the
     # object and relation sort descriptions name every data field (scalar attributes, objectType,
-    # relationship) instead of the sortable feature.
+    # relationship) instead of the sortable feature. Re-baselined for S4R4: the object sort
+    # description states that an omitted sort orders by name.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "468e19a42c1514cfd8cf6fa6d9fcc6d0fa4afc49086e0570eb02f98209d4469d"
+        "41cb88b69bd2513053f4baa20f24e9cb23fa26d674ac1d8f83c24b6029966923"
     )
 
 

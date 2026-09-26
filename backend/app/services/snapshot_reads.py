@@ -454,7 +454,6 @@ def snapshot_object_columns(projection: Subquery) -> ObjectColumns:
         ),
         builtin={"id": projection.c.object_id, "name": projection.c.name},
         object_type=projection.c.object_type_key,
-        default_sort="id",
         tiebreak=lambda descending: text_key(
             "id", projection.c.object_id, "object_id", descending=descending
         ),

@@ -561,6 +561,26 @@ relation panel sorts every header but Actions, that the never-flagged value name
 record panel's toolbar menu reaches a collapsed column at 390px. Baselines were re-inspected and
 updated for the lens, record, draft-detail and draft-editing surfaces.
 
+**S4R4 delivered 2026-09-26.** An object list without `sort` orders by name in every context: live
+used the internal creation sequence and drafts and history the record ID. `ObjectColumns` no longer
+carries a per-context default; `objects.DEFAULT_SORT` (`name`) serves object and relation lists alike,
+closed by each context's unique tiebreak (live sequence, record ID, relation). An unsorted list
+therefore seeks by name, and the "default order has no value to seek by" refusal is gone. Mapping
+coverage and candidates key by (name, ID) instead of ID, so coverage `seek` jumps to a source name.
+Pre-change cursors carry the former sort tokens (`sequenceId`, `id`) and are refused with
+`422 invalid_cursor` by the existing sort binding; no cursor code changed. No migration: the
+`*_type_name` and `*_parent_name` indexes from migration `20260925_03` and S2 already serve name order,
+and every S1 object scenario already requested `sort=name`, so the new default runs the measured
+path. The browser already requested `sort=name` on the lens and record panels; the object picker
+and Explorer search results, which sent no sort, now list by name. Evidence:
+`test_context_read_parity` (the parity walk compares default-order names in all four contexts; the default equals `sort=name` by ID, seek
+without a sort, and forged former-default cursors refused in live, draft and history, with a re-signed
+control accepted), `test_mapping_coverage` (coverage by name in live and draft, candidates by name,
+seek by source name, a former ID-order cursor refused), `test_paging_contract` (an unsorted volume list
+seeks by name in live, draft and history), the OpenAPI lock (the object `sort` description names the
+default). Both new tests fail against the previous services. Not measured: mapping coverage at volume,
+which no S1 scenario covers.
+
 **Later package T1 — recorded timestamps in drafts and history.** Timestamp columns on draft,
 draft-base and revision object and relation rows (captured rows keep live values, draft writes set
 them), plus an internal creation ordinal so creation order is identical in every context. Backfill from

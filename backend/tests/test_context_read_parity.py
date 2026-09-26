@@ -9,6 +9,8 @@ the same data as live through a mix of base rows, identical overlay rows and tom
 of the draft projection is exercised.
 """
 
+import base64
+import hmac
 import json
 from collections.abc import Iterator
 from typing import Any
@@ -17,7 +19,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 
-from app.config import reload_settings
+from app.config import cursor_signing_key, reload_settings
 from app.db import get_engine
 from app.main import create_app
 from app.models.database import (
@@ -300,12 +302,9 @@ def _seed(client) -> dict[str, Any]:
 def _order_key(item: dict[str, Any], sort: str | None) -> Any:
     """What a sort orders by; records that tie on it may come in any order.
 
-    Without a sort, live lists in creation order and drafts and history, which record none, by ID;
-    only the set of rows is comparable then.
+    Without a sort, every context lists by name (S4R4).
     """
-    field = (sort or "").removeprefix("-")
-    if not field:
-        return None
+    field = (sort or "name").removeprefix("-")
     if field == "name":
         return item["name"]
     return _values(item).get(field)
@@ -381,6 +380,47 @@ def test_live_draft_and_history_return_the_same_rows_in_the_same_order(client):
         assert _values(record) == _values(entry), name
         value = _ok(client.get(f"/api/v1/objects/{ENTRY}/{entry['id']}/attributes/par-amount", params=context))
         assert value["value"] == "2.5", name
+
+
+def reissue_cursor(cursor: str, **changes: Any) -> str:
+    """The cursor re-signed with ``changes``, such as the ``sort`` of a former default order."""
+    encoded = cursor.split(".")[0]
+    body = json.loads(base64.urlsafe_b64decode(encoded + "=" * (-len(encoded) % 4)))
+    payload = json.dumps({**body, **changes}, sort_keys=True, separators=(",", ":")).encode()
+    signature = hmac.digest(cursor_signing_key(), payload, "sha256")
+    return ".".join(
+        base64.urlsafe_b64encode(part).rstrip(b"=").decode() for part in (payload, signature)
+    )
+
+
+def test_default_order_is_name_in_every_context(client):
+    """S4R4 (D22): without a sort, live, draft and history list by name, which seek finds."""
+    seeded = _seed(client)
+    path = f"/api/v1/objects/{ENTRY}"
+    created = [name for name, _folder, _values in ENTRIES]
+    for name, context in seeded["contexts"].items():
+        items = _walk(client, path, context)
+        names = [item["name"] for item in items]
+        assert names == sorted(names) and names != created, name
+        by_name = _walk(client, path, {**context, "sort": "name"})
+        assert [item["id"] for item in items] == [item["id"] for item in by_name], name
+        sought = _ok(client.get(path, params={**context, "seek": "Echo", "pageSize": 2}))
+        assert [item["name"] for item in sought["items"]] == ["Echo", "Golf"], name
+
+    # A cursor issued for the former default (live creation sequence, draft and history record ID)
+    # is bound to that order and refused rather than read against the new one.
+    for name, context, former in (
+        ("live", seeded["contexts"]["live"], "sequenceId"),
+        ("draft", seeded["contexts"]["overlay draft"], "id"),
+        ("history", seeded["contexts"]["history"], "id"),
+    ):
+        first = _ok(client.get(path, params={**context, "pageSize": 2}))
+        # Control: re-signing alone keeps a cursor valid.
+        _ok(client.get(path, params={**context, "pageSize": 2, "cursor": reissue_cursor(first["nextCursor"])}))
+        stale = reissue_cursor(first["nextCursor"], sort=[former], position=["1"])
+        refused = client.get(path, params={**context, "pageSize": 2, "cursor": stale})
+        assert refused.status_code == 422, name
+        assert refused.json()["error"]["code"] == "invalid_cursor", name
 
 
 def test_snapshot_cursor_is_bound_to_its_context_and_query(client):

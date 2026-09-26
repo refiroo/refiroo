@@ -261,7 +261,8 @@ def list_objects(
         default=None,
         description=(
             "One field: name, id, objectType, (live only) createdAt or updatedAt, a scalar"
-            " attribute of the type, or ancestor:<type>; prefix '-' for descending"
+            " attribute of the type, or ancestor:<type>; prefix '-' for descending; name when"
+            " omitted"
         ),
     ),
 ) -> ObjectPage:

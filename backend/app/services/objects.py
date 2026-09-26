@@ -52,6 +52,9 @@ OBJECT_SORT_COLUMNS: dict[str, Any] = {
 }
 
 _SEQUENCE_FIELD = "sequenceId"
+# Every object and relation list defaults to name order in live, draft and history (D22), closed by
+# its context's unique tiebreak, so a default page can be sought by name.
+DEFAULT_SORT = "name"
 
 
 @dataclass(frozen=True)
@@ -92,7 +95,6 @@ class ObjectColumns:
     values: Any
     value_match: Callable[[Any], tuple[Any, ...]]
     builtin: dict[str, Any]
-    default_sort: str
     tiebreak: Callable[[bool], SortKey]
     select_sort_values: bool = False
     ancestor: Callable[[Select[Any], str], tuple[Select[Any], Any]] | None = None
@@ -107,7 +109,6 @@ LIVE_OBJECT_COLUMNS = ObjectColumns(
     values=AttributeValue,
     value_match=lambda values: (values.object_id == RdmObject.id,),
     builtin=OBJECT_SORT_COLUMNS,
-    default_sort=_SEQUENCE_FIELD,
     tiebreak=lambda descending: integer_key(
         _SEQUENCE_FIELD, RdmObject.sequence_id, "sequence_id", descending=descending
     ),
@@ -228,17 +229,15 @@ def refine_object_query(
 
 
 def _object_seek(
-    keys: tuple[SortKey, ...], seek_values: Callable[[str], list[Any]] | None, sort: str | None
+    keys: tuple[SortKey, ...], seek_values: Callable[[str], list[Any]], sort: str | None
 ) -> Callable[[str], Any]:
-    """Seek by the sorted field's value; an order by the tiebreak alone has no value to seek by."""
+    """Seek by the sorted field's value, which is the name when no sort is given."""
 
     def seek(raw: str) -> Any:
-        if seek_values is None:
-            raise seek_error("Seek requires a sort; the default order has no value to seek by")
         try:
             return seek_predicate(keys, seek_values(raw))
         except ValueError:
-            field_name = (sort or "").removeprefix("-") or keys[0].name
+            field_name = (sort or DEFAULT_SORT).removeprefix("-")
             raise seek_error(f"Invalid seek value for sort '{field_name}'") from None
 
     return seek
@@ -276,24 +275,22 @@ def _object_sort_keys(
     statement: Select[Any],
     object_types: Sequence[ObjectTypeDefinition],
     sort: str | None,
-) -> tuple[Select[Any], tuple[SortKey, ...], Callable[[str], list[Any]] | None]:
+) -> tuple[Select[Any], tuple[SortKey, ...], Callable[[str], list[Any]]]:
     """Sort keys for an object collection, always closed by the source's unique tiebreak.
 
-    Also returns how a ``seek`` value becomes the leading key values, or ``None`` when the order
-    has no public value to seek by. Attribute and ancestor sorts put records without a value last.
+    Also returns how a ``seek`` value becomes the leading key values. Attribute and ancestor sorts
+    put records without a value last.
     """
-    sort_name = sort or columns.default_sort
+    sort_name = sort or DEFAULT_SORT
     descending = sort_name.startswith("-")
     field_name = sort_name.removeprefix("-")
     tiebreak = columns.tiebreak(descending)
-    if sort is not None and (
-        field_name == _SEQUENCE_FIELD
-        or (field_name == tiebreak.name and field_name not in columns.builtin)
+    if field_name == _SEQUENCE_FIELD or (
+        field_name == tiebreak.name and field_name not in columns.builtin
     ):
         _query_error("invalid_sort", f"Unknown sort field '{field_name}'", "sort")
     if field_name == tiebreak.name:
-        seek_values = None if field_name == _SEQUENCE_FIELD else lambda raw: [tiebreak.parse(raw)]
-        return statement, (tiebreak,), seek_values
+        return statement, (tiebreak,), lambda raw: [tiebreak.parse(raw)]
 
     label_sort = _label_sort(model, columns, field_name)
     if label_sort is not None:

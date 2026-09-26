@@ -100,6 +100,12 @@ All notable changes to this project are documented in this file. The format foll
   instead of every attribute's text. Draft and history cursors issued before the upgrade are refused
   with `422 invalid_cursor`; restart from the first page.
 
+- Base 0.8 S4R4: object lists without `sort` order by name in live, draft and history (live used
+  creation order, drafts and history record ID), so the object picker and Explorer search results
+  list by name and an unsorted list accepts `seek` by name. Mapping coverage and candidates list by
+  name, and coverage `seek` takes a source name instead of an ID. Cursors issued for the former
+  default orders are refused with `422 invalid_cursor`; reload from the first page.
+
 ### Fixed
 
 - Paging a list sorted by a boolean field past its first page returned a server error; keyset cursor

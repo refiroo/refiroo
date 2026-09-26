@@ -119,12 +119,13 @@ over the skipped rows; `seek` is the fast jump in a very large list.
 
 Cursors stay signed, opaque and bound to their endpoint, ordering, filters and context; reusing one
 with another sort, filter or context returns `422 invalid_cursor`. Cursors issued before 0.8 continue
-forward as before.
+forward as before, except those of a changed default order (S4R4): object lists without `sort` and
+mapping coverage and candidates now list by name, so their earlier cursors are refused with
+`422 invalid_cursor`; reload the list from its first page.
 
 `seek` takes the lexical form of the sorted field (ISO 8601 for dates, `true`/`false` for booleans)
-and applies to the sort in effect; rows without a value, which sort last, follow the seeked rows. A
-seek value that does not parse, or a seek on an order that has no public value (the default live
-object order is the internal creation sequence; relation lists without `sort`), returns
+and applies to the sort in effect, which is the name when a list is not sorted; rows without a
+value, which sort last, follow the seeked rows. A seek value that does not parse returns
 `422 invalid_seek`.
 
 ## Model endpoints
@@ -814,9 +815,10 @@ Object collections accept the [collection paging](#collection-paging) parameters
 by name), live `createdAt`/`updatedAt`, or any attribute the type binds, flagged `sortable` or not
 (S4R3 revision). JSON attributes are excluded from both. Prefix a sort with
 `-` for descending order. Null and unset attribute values sort last in either direction, and every
-live ordering uses the internal sequence as a non-public final tie-breaker. Omitting `sort` preserves
-creation sequence order. Drafts and history record no creation sequence: there the record ID is the
-final tie-breaker, and omitting `sort` orders by ID. Page size defaults to 100 and has a documented
+live ordering uses the internal sequence as a non-public final tie-breaker; drafts and history record
+no creation sequence, so there the record ID is the final tie-breaker. Omitting `sort` orders by name
+in every context (S4R4); before 0.8 it listed live records in creation order and draft and history
+records by ID. Page size defaults to 100 and has a documented
 maximum of 500. `nextCursor` is null only when that traversal is complete.
 
 `topLevel=true` (Base 0.8 S4) lists only records without a parent, so a tree can page a root type
@@ -1316,7 +1318,8 @@ For example, a coverage page has this shape (cursor strings are opaque):
 ```
 
 The page also carries the [collection paging](#collection-paging) fields (omitted above).
-Coverage accepts `seek` by source ID, its sort; candidates and target details page without it.
+Coverage lists sources and candidates list targets by name, then ID (S4R4; previously by ID).
+Coverage accepts `seek` by source name; candidates and target details page without it.
 An ambiguous row reports the complete `targetCount`, up to 20 targets and `targetsNextCursor`.
 Pass that cursor to `mapping-targets` with the row's source ID and mapping version to continue beyond
 the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.

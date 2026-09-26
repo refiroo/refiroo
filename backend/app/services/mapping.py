@@ -501,7 +501,11 @@ def object_page(
     return paginate_statement(
         read.session,
         statement,
-        keys=(text_key("id", read.objects.c.id, "id"),),
+        # Sources and candidates list by name (D22), so ``seek`` jumps to a name.
+        keys=(
+            text_key("name", read.objects.c.name, "name"),
+            text_key("id", read.objects.c.id, "id"),
+        ),
         scope="mapping-candidates" if candidates else "mapping-coverage",
         filters=filters,
         page=page,

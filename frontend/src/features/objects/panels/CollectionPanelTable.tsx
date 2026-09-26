@@ -48,7 +48,7 @@ export function CollectionPanelTable({
   const [searchInput, setSearchInput] = useState("");
   const search = useDebouncedValue(searchInput.trim());
   const [creating, setCreating] = useState(false);
-  // Panels list by name unless the user sorts by another column; creation order means little here.
+  // Panels list by name, as every list does without a sort, until the user sorts by another column.
   const [sort, setSort] = useState("name");
   const sortFields = objectType ? listSortFields(model, [objectType], columns, [], !draft && !revision) : [];
   const pages = useCursorWindow<ObjectItem>(

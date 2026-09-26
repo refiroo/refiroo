@@ -365,10 +365,11 @@ def test_page_selection_and_cursor_binding_are_refused_explicitly(volume, contex
         error = _error(client, path, {**params, "search": "Item", "cursor": cursor})
         assert error["code"] == "invalid_cursor"
     assert _error(client, path, {**params, "position": -1})["code"] == "request_validation_error"
-    if context == "live":
-        # The default live order is the internal sequence, which has no public value to seek by.
-        default = {key: value for key, value in params.items() if key != "sort"}
-        assert _error(client, path, {**default, "seek": "Item"})["code"] == "invalid_seek"
+    # Every context lists by name without a sort (S4R4), so an unsorted list seeks a name.
+    default = {key: value for key, value in params.items() if key != "sort"}
+    sought = client.get(path, params={**default, "seek": "Item 0000"})
+    assert sought.status_code == 200, sought.text
+    assert sought.json()["items"][0]["name"].startswith("Item 0000")
     assert _error(client, path, {**params, "sort": RANK, "seek": "high"})["code"] == "invalid_seek"
 
 

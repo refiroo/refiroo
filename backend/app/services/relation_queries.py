@@ -92,7 +92,6 @@ def build_relation_query(
             "createdAt": related.created_at,
             "updatedAt": related.updated_at,
         },
-        default_sort="name",
         tiebreak=lambda descending: SortKey(
             name="relation",
             column=ObjectRelation.sequence_id,
@@ -173,7 +172,6 @@ def build_snapshot_relation_query(
             values.object_id == related_id,
         ),
         builtin={"id": related_id, "name": related_name},
-        default_sort="name",
         tiebreak=lambda descending: text_key(
             "relation", relations.c.relation_id, "relation_id", descending=descending
         ),

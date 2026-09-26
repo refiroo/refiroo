@@ -7,6 +7,7 @@ from threading import Event, Thread
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import event, select
+from test_context_read_parity import reissue_cursor
 from test_relation_set_versions import (
     _attr,
     _create_codelist,
@@ -253,6 +254,39 @@ def test_coverage_pagination_and_cursor_scope_validation(client):
         },
     )
     assert r.status_code == 422 and r.json()["error"]["code"] == "mapping_candidate_type_mismatch"
+
+
+def test_coverage_and_candidates_list_by_name_and_seek_a_name(client):
+    """S4R4 (D22): sources and candidates list by name in live and drafts, and seek finds a name."""
+    labels = ("zulu", "alpha", "mike", "bravo")
+    tag = _suffix()
+    sources = {label: _create_system_value(client, f"{label} {tag}") for label in labels}
+    targets = masters(client, 3)
+    draft = client.post(BASE + "/drafts", json={"source": "currentLive"}).json()
+    candidate_params = {
+        "applicationKey": OUT["applicationKey"],
+        "viewKey": OUT["viewKey"],
+        "objectTypeKey": "master-value",
+    }
+    for context in ({}, {"workspaceDraftId": draft["id"]}):
+        coverage = get(client, "/mapping-coverage", dict(OUT, search=tag, **context))["items"]
+        assert [row["source"]["id"] for row in coverage] == [
+            sources[label]["id"] for label in sorted(labels)
+        ], context
+        sought = get(
+            client, "/mapping-coverage", dict(OUT, search=tag, seek="SysVal m", pageSize=1, **context)
+        )
+        assert [row["source"]["id"] for row in sought["items"]] == [sources["mike"]["id"]], context
+        names = [row["name"] for row in get(client, "/mapping-candidates", dict(candidate_params, **context))["items"]]
+        assert names == sorted(names) and len(names) == len(targets), context
+
+    # A cursor bound to the former order, by source ID, is refused rather than read by name.
+    first = get(client, "/mapping-coverage", dict(OUT, search=tag, pageSize=1))
+    params = dict(OUT, search=tag, pageSize=1)
+    assert get(client, "/mapping-coverage", dict(params, cursor=reissue_cursor(first["nextCursor"])))
+    stale = reissue_cursor(first["nextCursor"], sort=["id"], position=[sources["alpha"]["id"]])
+    r = client.get(BASE + "/mapping-coverage", params=dict(params, cursor=stale))
+    assert r.status_code == 422 and r.json()["error"]["code"] == "invalid_cursor"
 
 
 def test_coverage_parent_and_state_filters_apply_before_pagination(client):
