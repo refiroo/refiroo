@@ -102,7 +102,8 @@ values. These are deployment limits, not authorization; 0.10 authorization works
 | Capability | Default | Group |
 | --- | --- | --- |
 | `MODEL_ADMIN_MUTATIONS_ENABLED` | off | Model drafts, install, activate; requires one process |
-| `WORKSPACE_ADMIN_MUTATIONS_ENABLED` | on | Workspace create, rename, retire, set default (Track W narrows it to this group; today it also gates the change-set workflow) |
+| `WORKSPACE_ADMIN_MUTATIONS_ENABLED` | on | Workspace create, rename, retire, set default |
+| — (always registered) | — | Change-set create, rename, delete, model-release change, validate and publish; publication withdrawal. Refused in a retired workspace |
 
 Because the capabilities are per process, several instances can share one database with different
 exposure. For example, an internal administration instance runs with model administration enabled and

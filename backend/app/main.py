@@ -21,6 +21,7 @@ from .errors import (
 from .models.api import ApiErrorResponse
 from .routers import (
     attributes,
+    change_sets,
     mapping,
     model,
     model_management,
@@ -155,6 +156,7 @@ def create_app() -> FastAPI:
     application.include_router(workspaces.read_router)
     if workspace_mutations_enabled:
         application.include_router(workspaces.admin_router)
+    application.include_router(change_sets.router)
     if mutations_enabled:
         application.include_router(model_management.router)
     application.include_router(objects.router)

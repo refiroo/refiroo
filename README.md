@@ -124,9 +124,10 @@ and inline validation remain available without the flag.
 
 Workspace administration is registered by default until authentication exists. Set
 `WORKSPACE_ADMIN_MUTATIONS_ENABLED=false` on an API exposed outside a trusted environment unless an
-external access-control layer protects it. The flag removes workspace create/update/default-switch
-routes; it is a deployment capability, not caller authorization. Workspace discovery remains
-available, retired workspaces remain readable, and all runtime mutations in them are rejected.
+external access-control layer protects it. The flag removes workspace create, rename, retire and
+default-switch routes; it is a deployment capability, not caller authorization. Workspace discovery
+and the change-set workflow (create, edit, validate, publish, discard, and publication withdrawal)
+remain available, retired workspaces remain readable, and all runtime mutations in them are rejected.
 
 ### Model releases and rollback
 

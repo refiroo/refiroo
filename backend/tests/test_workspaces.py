@@ -1,6 +1,16 @@
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from wp8_support import (
+    create_change_set,
+    create_domain,
+    create_workspace,
+    publish_change_set,
+    published_object,
+    unique_key,
+    validate_change_set,
+    withdraw_publication,
+)
 
 from app.main import app, create_app
 
@@ -262,3 +272,81 @@ def test_workspace_mutations_can_be_removed_while_discovery_remains(monkeypatch)
         assert client.get("/api/v1/capabilities").json()["workspaceAdmin"] == {
             "manageWorkspaces": False
         }
+
+
+def test_change_set_workflow_runs_end_to_end_without_workspace_administration(monkeypatch):
+    """W3 (ADR-031): the flag gates catalogue administration only, not the change-set workflow."""
+    workspace_key = _key("w3-flag-off")
+    with TestClient(app) as client:
+        create_workspace(client, workspace_key)
+        runtime_version = client.get("/api/v1/workspace-runtime-state").json()["version"]
+
+    monkeypatch.setenv("WORKSPACE_ADMIN_MUTATIONS_ENABLED", "false")
+    disabled_app = create_app()
+    paths = disabled_app.openapi()["paths"]
+    assert set(paths["/api/v1/workspaces/{workspace_key}"]) == {"get"}
+    assert set(paths["/api/v1/workspace-runtime-state"]) == {"get"}
+    assert set(paths["/api/v1/workspaces/{workspace_key}/change-sets"]) == {"get", "post"}
+    assert set(paths["/api/v1/publications/{publication_id}/withdrawal"]) == {"post"}
+    with TestClient(disabled_app) as client:
+        # Catalogue mutations are absent.
+        assert client.post(
+            "/api/v1/workspaces", json={"key": _key("absent"), "label": "Absent"}
+        ).status_code == 405
+        assert client.patch(
+            f"/api/v1/workspaces/{workspace_key}",
+            json={"label": "Renamed", "expectedVersion": 1},
+        ).status_code == 405
+        assert client.patch(
+            "/api/v1/workspace-runtime-state",
+            json={"defaultWorkspaceKey": workspace_key, "expectedVersion": runtime_version},
+        ).status_code == 405
+
+        # Create, rename, repin, edit, validate and publish a change set, then withdraw it.
+        change_set = create_change_set(client, workspace_key, name="flag off").json()
+        renamed = client.patch(
+            f"/api/v1/change-sets/{change_set['id']}",
+            json={"name": "renamed", "expectedVersion": change_set["version"]},
+        )
+        assert renamed.status_code == 200, renamed.text
+        repinned = client.patch(
+            f"/api/v1/change-sets/{change_set['id']}/model-release",
+            json={
+                "modelReleaseId": change_set["modelReleaseId"],
+                "expectedChangeSetVersion": renamed.json()["version"],
+            },
+        )
+        assert repinned.status_code == 200, repinned.text
+        change_set = repinned.json()
+        domain = create_domain(client, change_set, unique_key("w3"))
+        assert validate_change_set(client, change_set["id"])["valid"] is True
+        publication = publish_change_set(
+            client, change_set["id"], expected_change_set_version=change_set["version"]
+        ).json()
+        assert published_object(client, workspace_key, "domain", domain["id"]) is not None
+        withdraw_publication(client, publication["id"])
+        assert client.get(f"/api/v1/publications/{publication['id']}").json()["status"] == (
+            "withdrawn"
+        )
+
+        # A second change set is discarded.
+        discarded = create_change_set(client, workspace_key, name="discard").json()
+        deleted = client.delete(
+            f"/api/v1/change-sets/{discarded['id']}",
+            params={"expectedVersion": discarded["version"]},
+        )
+        assert deleted.status_code == 204, deleted.text
+
+    # Retirement stays a catalogue operation, and the workflow is still refused in a retired workspace.
+    monkeypatch.setenv("WORKSPACE_ADMIN_MUTATIONS_ENABLED", "true")
+    with TestClient(create_app()) as client:
+        version = client.get(f"/api/v1/workspaces/{workspace_key}").json()["version"]
+        retired = client.patch(
+            f"/api/v1/workspaces/{workspace_key}",
+            json={"status": "retired", "expectedVersion": version},
+        )
+        assert retired.status_code == 200, retired.text
+    monkeypatch.setenv("WORKSPACE_ADMIN_MUTATIONS_ENABLED", "false")
+    with TestClient(create_app()) as client:
+        refused = create_change_set(client, workspace_key, expected_status=409)
+        assert refused.json()["error"]["code"] == "workspace_retired"

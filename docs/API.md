@@ -609,6 +609,8 @@ cannot be retired, and there is no delete or rename route. Unknown explicit scop
 return `workspace_retired`.
 
 Create/update/default-switch routes are absent when `WORKSPACE_ADMIN_MUTATIONS_ENABLED=false`.
+The flag gates only this catalogue administration: the change-set and publication routes below are
+always registered and return `workspace_retired` in a retired workspace.
 The flag defaults to true only for the pre-authentication development posture; exposed deployments
 must disable it or protect the API with external access control.
 

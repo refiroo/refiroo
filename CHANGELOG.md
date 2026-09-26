@@ -74,6 +74,10 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Base 0.8 W3: `WORKSPACE_ADMIN_MUTATIONS_ENABLED` gates only workspace create, rename, retire and
+  set default (ADR-031). Change-set create, update, delete, model-release change, validation and
+  publish, and publication withdrawal, are always registered and still refused in a retired
+  workspace. Their OpenAPI tag is `change-sets`.
 - Base 0.8 W2: data drafts are **change sets** and workspace revisions are **publications** in every
   layer (ADR-031), with no aliases. Breaking API changes:
   - Routes: `/workspaces/{key}/drafts` → `/workspaces/{key}/change-sets`,

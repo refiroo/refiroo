@@ -16,10 +16,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # items first and document totalCount and startIndex as optional integers, omitted unless
     # includeTotal=true. Re-baselined for W2 (ADR-031): drafts and revisions are change sets and
     # publications in every route, parameter, field, schema and error code, and a publication names
-    # its model release key and version.
+    # its model release key and version. Re-baselined for W3: change-set and publication operations
+    # carry the change-sets tag, since they no longer belong to workspace administration.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "f0ae21f63a2d4e5b09d3052dc7c036ddd8592dd03593611d93bbe5944049a03e"
+        "15301d8b5bb7543b4582cf214a5b82bf7fc8cffe6ad8b0f97725e377559a87dc"
     )
 
 

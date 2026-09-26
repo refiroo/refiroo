@@ -1113,6 +1113,16 @@ create, rename, retire and set default. Update README, ARCHITECTURE's capability
 **Exit:** with the flag off, catalogue mutations return 404/405 and the change-set workflow passes end
 to end; with it on, both work; `MODEL_ADMIN_MUTATIONS_ENABLED` tests are unchanged.
 
+**Delivered 2026-09-26.** The change-set and publication routes moved from `routers/workspaces.py`
+to an always-registered `routers/change_sets.py` (OpenAPI tag `change-sets`); `workspaces.admin_router`
+keeps workspace create, update (rename, retire) and the default switch. The retired-workspace refusal
+lives in the change-set services and is unchanged. `test_change_set_workflow_runs_end_to_end_without_workspace_administration`
+runs with the flag off: catalogue mutations return 405, then a change set is created, renamed,
+repinned, edited, validated, published, its publication withdrawn and a second change set discarded;
+after retirement through a flag-on app, creation returns `workspace_retired`. The OpenAPI lock is
+re-baselined for the tag alone. The browser never gated the workflow on `manageWorkspaces`, so it is
+unchanged.
+
 #### W4: Workspace administration screen
 
 **Scope:**
