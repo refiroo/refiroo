@@ -9,12 +9,15 @@ per-record look-up it falls back to for common phrases, and in live, draft and h
 every write; FTS5's ``integrity-check`` compares each index with its table.
 """
 
+import importlib.util
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import test_context_read_parity
 from alembic import command
-from sqlalchemy import create_engine, event, text
+from sqlalchemy import create_engine, event, select, text
+from sqlalchemy.dialects import postgresql, sqlite
 from test_context_read_parity import (
     ENTRY,
     WORKSPACE,
@@ -28,9 +31,9 @@ from test_context_read_parity import (
 from test_snapshot_value_migration import _app, _config, _version
 
 from app.db import get_engine
-from app.models.database import Base
-from app.models.search_index import SEARCH_INDEXES
-from app.services import objects
+from app.models.database import Base, RdmObject, WorkspaceDraftBaseObject
+from app.models.search_index import SEARCH_INDEXES, match_phrase
+from app.services import objects, snapshot_reads
 
 PRECEDING, HEAD = "20260926_02", "20260926_03"
 # The parity model's app over a migrated database.
@@ -305,3 +308,46 @@ def test_upgrade_completes_after_an_interrupted_run(downgraded_database, monkeyp
         engine.dispose()
     assert _version(database) == PRECEDING
     _assert_upgraded(database, monkeypatch, seeded, reads)
+
+
+def _search_guards() -> list:
+    """The index guard of a live search and of a draft search over its base's rows."""
+    context = snapshot_reads.SnapshotContext(
+        "draft",
+        "draft-id",
+        WORKSPACE,
+        None,
+        snapshot_reads.SnapshotBase(WorkspaceDraftBaseObject, None, "base_id", "base-id"),
+    )
+    projection = snapshot_reads.object_projection(context, object_type_key=ENTRY)
+    snapshot = snapshot_reads._value_candidates(projection, context)(match_phrase("note"), ["n"])
+    return [
+        select(RdmObject.id).where(objects._live_value_candidates(match_phrase("note"), ["n"])),
+        select(projection.c.object_id).where(snapshot),
+    ]
+
+
+def test_search_reads_the_index_on_sqlite_only():
+    """PostgreSQL has no FTS5 index (its trigram form arrives with 0.10): a search there compiles
+    without the guard and looks every record's values up, as before S8."""
+    for statement in _search_guards():
+        on_sqlite = str(statement.compile(dialect=sqlite.dialect()))
+        on_postgresql = str(statement.compile(dialect=postgresql.dialect()))
+        assert "_text_search" in on_sqlite and "MATCH" in on_sqlite
+        # One parenthesized predicate, never a Boolean column compared with 1.
+        assert "WHERE ((SELECT count(*)" in on_sqlite and ") = 1" not in on_sqlite
+        assert "_text_search" not in on_postgresql and "MATCH" not in on_postgresql
+        assert "WHERE true" in on_postgresql
+
+
+def test_the_migration_changes_nothing_on_another_dialect(monkeypatch):
+    path = Path(objects.__file__).parents[1] / "migrations/versions/20260926_03_trigram_search_indexes.py"
+    spec = importlib.util.spec_from_file_location("trigram_search_indexes", path)
+    revision = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(revision)
+    executed: list = []
+    bind = SimpleNamespace(dialect=SimpleNamespace(name="postgresql"), execute=executed.append)
+    monkeypatch.setattr(revision.op, "get_bind", lambda: bind, raising=False)
+    revision.upgrade()
+    revision.downgrade()
+    assert executed == []

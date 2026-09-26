@@ -14,11 +14,18 @@ a search reads them from the (type, name) index it already walks, which costs ab
 
 ``alembic`` revision ``20260926_03`` creates these objects on upgrade with its own copy of the DDL;
 ``Base.metadata.create_all`` creates them through :func:`register` for databases built without it.
+
+The indexes exist on SQLite only; the PostgreSQL form (trigram GIN) arrives with 0.10. Until then a
+search on another dialect reads each record's values, through :class:`SqliteOnly`.
 """
 
 from dataclasses import dataclass
+from typing import Any, ClassVar
 
-from sqlalchemy import Connection, MetaData, column, event, table, text
+from sqlalchemy import Boolean, Connection, MetaData, column, event, table, text, true
+from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.sql.elements import ColumnElement
+from sqlalchemy.sql.visitors import InternalTraversal
 
 
 @dataclass(frozen=True)
@@ -86,6 +93,40 @@ MIN_INDEXED_LENGTH = 3
 def match_phrase(search: str) -> str:
     """An FTS5 query matching ``search`` as a literal substring: one quoted phrase."""
     return '"' + search.replace('"', '""') + '"'
+
+
+class SqliteOnly(ColumnElement[bool]):
+    """A predicate over the search indexes: itself on SQLite, ``true`` on a dialect without them.
+
+    A guard that narrows which records a search looks up, never which match, so dropping it
+    elsewhere keeps the result and only reads more rows.
+    """
+
+    inherit_cache = True
+    type = Boolean()
+    _traverse_internals: ClassVar = [("clause", InternalTraversal.dp_clauseelement)]
+
+    def __init__(self, clause: ColumnElement[bool]) -> None:
+        self.clause = clause
+
+    @property
+    def _from_objects(self) -> list[Any]:
+        return self.clause._from_objects
+
+    def self_group(self, against: Any = None) -> SqliteOnly:
+        # Rendered in its own parentheses, as a predicate: a Boolean column element would be
+        # compared with 1 on SQLite, ungrouped, and bind looser than a neighbouring AND.
+        return self
+
+
+@compiles(SqliteOnly)
+def _compile_elsewhere(element: SqliteOnly, compiler: Any, **kw: Any) -> str:
+    return compiler.process(true(), **kw)
+
+
+@compiles(SqliteOnly, "sqlite")
+def _compile_sqlite(element: SqliteOnly, compiler: Any, **kw: Any) -> str:
+    return f"({compiler.process(element.clause, **kw)})"
 
 
 def install(connection: Connection) -> None:

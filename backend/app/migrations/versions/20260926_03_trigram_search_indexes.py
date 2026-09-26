@@ -11,6 +11,9 @@ SQLite FTS5 index with the ``trigram`` tokenizer over the text values of live re
 No data changes. Every run drops whatever an interrupted run left and creates and fills the indexes
 again, so an interrupted upgrade completes on the next start. The DDL is copied here rather than
 imported, so this revision keeps its meaning when ``app/models/search_index.py`` changes.
+
+FTS5 is SQLite's. On another dialect the revision changes nothing and search reads each record's
+values as before; the PostgreSQL form (trigram GIN) arrives with 0.10.
 """
 
 from alembic import op
@@ -62,6 +65,8 @@ def _create(index: str, source: str, value: str) -> list[str]:
 
 def upgrade() -> None:
     bind = op.get_bind()
+    if bind.dialect.name != "sqlite":
+        return
     for index, source, value in _INDEXES:
         for statement in (*_drop(index), *_create(index, source, value)):
             bind.execute(text(statement))
@@ -69,6 +74,8 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     bind = op.get_bind()
+    if bind.dialect.name != "sqlite":
+        return
     for index, _source, _value in _INDEXES:
         for statement in _drop(index):
             bind.execute(text(statement))

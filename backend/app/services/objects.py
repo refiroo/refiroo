@@ -18,7 +18,13 @@ from ..models.api import (
 )
 from ..models.database import AttributeValue, ObjectRelation, RdmObject
 from ..models.schema import ApplicationDefinition, EngineModel, ObjectTypeDefinition
-from ..models.search_index import LIVE_VALUES, MIN_INDEXED_LENGTH, SearchIndex, match_phrase
+from ..models.search_index import (
+    LIVE_VALUES,
+    MIN_INDEXED_LENGTH,
+    SearchIndex,
+    SqliteOnly,
+    match_phrase,
+)
 from .attributes import (
     VALUE_COLUMNS,
     apply_attribute_values,
@@ -124,7 +130,8 @@ def indexed_value_match(
     ``candidates`` turns the matching value rows' sequence IDs into a predicate on the listed
     record. The count is bounded and uncorrelated, so SQLite evaluates it once per statement and
     reads at most ``INDEXED_VALUE_LIMIT + 1`` matches for it; with more, every record is looked up.
-    It comes first in an ``OR`` rather than a ``CASE``, which SQLite evaluated more slowly.
+    It comes first in an ``OR`` rather than a ``CASE``, which SQLite evaluated more slowly. On a
+    dialect without the index the guard compiles to ``true`` (:class:`SqliteOnly`).
     """
     fts = index.fts
     matches = select(fts.c.rowid).where(fts.c[index.column].match(phrase))
@@ -134,7 +141,7 @@ def indexed_value_match(
         .scalar_subquery()
         > INDEXED_VALUE_LIMIT
     )
-    return or_(many, candidates(matches))
+    return SqliteOnly(or_(many, candidates(matches)))
 
 
 def _live_value_candidates(phrase: str, attributes: list[str]) -> Any:

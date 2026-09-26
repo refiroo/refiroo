@@ -140,6 +140,9 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+- Base 0.8 S8 review: the trigram search index is SQLite-only. Migration `20260926_03` changes
+  nothing on another dialect (it stopped a PostgreSQL upgrade), and a search there reads each
+  record's values as before S8 instead of naming the missing index table.
 - Base 0.8 S2b: a draft write no longer loads the whole draft. Object, attribute, relation and
   mapping writes check only the records and relations they touch: the parent and its ancestors, the
   relations at each end, the draft-wide holders of a unique value through the typed value index, and

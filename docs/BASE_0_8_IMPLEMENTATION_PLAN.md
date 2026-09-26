@@ -1021,6 +1021,14 @@ base, such as a search matching few records, still checks every base row against
 the search (about 30 ms of the draft's 73 ms): SQLite evaluates the arm's own terms before a term
 pushed into it.
 
+_Review fix (2026-09-26)._ The migration and the search query assumed SQLite, while
+`docker-compose.yml` runs PostgreSQL: the upgrade would stop at `CREATE VIRTUAL TABLE … USING fts5`
+and every search of three or more characters would name a table that does not exist. The migration
+now changes nothing on another dialect, and the index guard is a `search_index.SqliteOnly` element
+that compiles to `true` there, so a PostgreSQL search reads each record's values as before S8, with
+the same results. `test_search_index` compiles a live and a draft search for both dialects and runs
+the migration against a PostgreSQL-named bind. Not exercised: a real PostgreSQL server.
+
 ## Track W — Workspace terminology and capability boundaries
 
 Delivers [ADR-031](DECISIONS.md#adr-031--workspace-terminology-and-deployment-capability-boundaries).

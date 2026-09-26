@@ -842,7 +842,8 @@ one- or two-character search has no trigram to look up and reads each record's v
 over 100,000 records when few names match); so does a phrase present in more than 10,000 text values,
 where reading the index would cost more than it saves (about 0.4 s when it is in every value and no
 name). The index narrows which records are read, never which match: every path returns the same
-records. A first page, or a `position` page, that reaches the end of the list reports its
+records. The index is SQLite's (FTS5); on PostgreSQL, until its trigram form arrives with
+0.10, a search reads each record's values with the same results. A first page, or a `position` page, that reaches the end of the list reports its
 `totalCount` without a second count.
 
 Drafts and history record no timestamps. In a `workspaceDraftId` or `workspaceRevisionId` context,
