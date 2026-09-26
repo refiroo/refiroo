@@ -35,6 +35,7 @@ from .audit import record_audit_event
 from .model.traversal import ancestor_type_keys
 from .model.validation.fields import ANCESTOR_FIELD_PREFIX
 from .pagination import (
+    Overlay,
     SortKey,
     datetime_key,
     integer_key,
@@ -62,12 +63,14 @@ class ObjectQuery:
     """A filtered object collection query with the keyset it must be paged by.
 
     ``seek`` turns a ``seek`` value into the predicate for rows at or after it in list order.
+    ``overlay`` names a draft list's parts, through which position reads resolve.
     """
 
     statement: Select[Any]
     keys: tuple[SortKey, ...]
     filters: dict[str, Any]
     seek: Callable[[str], Any]
+    overlay: Overlay | None = None
 
 
 @dataclass(frozen=True)

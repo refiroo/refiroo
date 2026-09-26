@@ -30,16 +30,16 @@ cd backend && .venv/bin/python -m pytest -m mapping -q
 | `model_admin` | C-MOD-*, C-DR-PIN, C-MOD-ACT | `test_model_lifecycle`, `test_build07_wp11`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_model_compatibility`, `test_model_schema_upgrade`, `test_wp81a_context` | 93 |
 | `startup` | C-BOOT, C-MIG, C-SCHEMA-UP, INV-15 (startup) | `test_startup`, `test_migrations`, `test_wp8_audit_migration`, `test_model_schema_upgrade`, `test_snapshot_value_migration`, `test_page_index_migrations` | 30 |
 | `records` | C-OBJ-*, C-ATTR, C-REL, C-DEL, C-TR, C-HIST-OBJ, INV-05/10/12 (live) | `test_api`, `test_attributes`, `test_relations`, `test_translations`, `test_cascade_delete`, `test_query_foundations`, `test_wp8_review_regressions`, `test_relation_set_versions` | 113 |
-| `queries` | C-Q-FILTER, C-Q-SCOPE, INV-07/08/11 | `test_pagination`, `test_typed_table_queries`, `test_query_foundations`, `test_context_read_parity`, `test_paging_contract` | 68 |
+| `queries` | C-Q-FILTER, C-Q-SCOPE, INV-07/08/11 | `test_pagination`, `test_typed_table_queries`, `test_query_foundations`, `test_context_read_parity`, `test_paging_contract`, `test_draft_position_reads` | 84 |
 | `workspaces` | C-WS-*, C-PUB-RET, INV-14/16 | `test_workspaces`, `test_wp81a_context`, `test_request_scope`, `test_wp8_retirement`, `test_build07_wp9_acceptance` | 31 |
-| `drafts` | C-DR-*, C-REV, C-PUB-RET | `test_workspace_revisions`, `test_wp7_canonical_crud`, `test_wp8_*` (except audit migration), `test_wp81b_current_live_bases`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_typed_table_queries`, `test_mapping_replacement`, `test_wp8_retirement`, `test_context_read_parity`, `test_snapshot_value_migration`, `test_page_index_migrations` | 200 |
+| `drafts` | C-DR-*, C-REV, C-PUB-RET | `test_workspace_revisions`, `test_wp7_canonical_crud`, `test_wp8_*` (except audit migration), `test_wp81b_current_live_bases`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_typed_table_queries`, `test_mapping_replacement`, `test_wp8_retirement`, `test_context_read_parity`, `test_snapshot_value_migration`, `test_page_index_migrations`, `test_draft_position_reads` | 225 |
 | `mapping` | C-MAP-R, C-MAP-W, C-MAP-SET | `test_mapping_coverage`, `test_mapping_replacement`, `test_relation_set_versions` | 115 |
-| `contract` | OpenAPI lock and route inventories | `test_openapi_contract`, `test_paging_contract` | 37 |
-| `volume` | Track S read and write budgets and the paging contract over the generated volume fixture (Base 0.8 S1, S3, S4, S4R1) | `test_volume_baseline`, `test_paging_contract` | 34 |
+| `contract` | OpenAPI lock and route inventories | `test_openapi_contract`, `test_paging_contract` | 40 |
+| `volume` | Track S read and write budgets and the paging contract over the generated volume fixture (Base 0.8 S1, S3, S4, S4R1, S4R6) | `test_volume_baseline`, `test_paging_contract`, `test_draft_position_reads` | 49 |
 
 Counts are collected cases on 2026-09-24 (532 in total); group counts include the WP-9 composed
 SC-15 case. The full suite collected 534 cases at WP-9 build acceptance (2026-09-25). The `startup`,
-`queries`, `drafts` and `volume` counts were recollected at Base 0.8 S2 (2026-09-25, 546 in total), and the `startup`, `queries`, `drafts`, `contract` and `volume` counts at S3/S4 (2026-09-25, 584 in total) and at S4R1 (2026-09-26, 588 in total). A module carries several markers when it is
+`queries`, `drafts` and `volume` counts were recollected at Base 0.8 S2 (2026-09-25, 546 in total), and the `startup`, `queries`, `drafts`, `contract` and `volume` counts at S3/S4 (2026-09-25, 584 in total) at S4R1 (2026-09-26, 588 in total), and the `queries`, `drafts`, `contract` and `volume` counts at S4R6 (2026-09-26, 622 in total). A module carries several markers when it is
 evidence for several groups, so groups overlap and their counts do not add up to the total.
 
 **Unclassified tests are refused.** A module missing from `TEST_GROUPS` fails collection with exit
@@ -113,10 +113,10 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | `services/objects.py`, `attributes.py`, `routers/objects.py`, `routers/attributes.py` | `records` | typed conversion or version claims change | `queries` (typed filters), `drafts` (draft writes use the same apply path) |
 | `services/relations.py`, `relation_set_versions.py`, `routers/relations.py` | `records` + `mapping` | always | `drafts` (draft relation writes, activation merge) |
 | `services/deletion.py` | `records` | cascade or preview token changes | `mapping` (continuation invalidation), `drafts` (draft deletion) |
-| `services/pagination.py`, `cursors.py`, `routers/paging.py` | `queries` (`test_pagination`, `test_paging_contract`) | always | every group with a collection endpoint: `-m "queries or mapping or model_admin or workspaces"`; `volume` (read budgets) |
+| `services/pagination.py`, `cursors.py`, `routers/paging.py` | `queries` (`test_pagination`, `test_paging_contract`, `test_draft_position_reads`) | always | every group with a collection endpoint: `-m "queries or mapping or model_admin or workspaces"`; `volume` (read budgets) |
 | `services/workspaces.py`, `routers/workspaces.py` | `workspaces` | scope resolution changes | `mapping` (C-MAP-W authority), `drafts` |
 | `services/workspace_revisions.py`, `workspace_audit.py`, `audit.py` | `drafts` | overlay, activation or audit projection changes | `mapping` (draft coverage and replacement), `records` (history); `volume` when a draft or history read path changes |
-| `services/snapshot_reads.py`, `snapshot_values.py`, `relation_queries.py` | `drafts` + `queries` (`test_context_read_parity`, `test_paging_contract`) | always | `volume` (draft and history read budgets); `startup` when the typed value index or its backfill changes |
+| `services/snapshot_reads.py`, `snapshot_values.py`, `relation_queries.py` | `drafts` + `queries` (`test_context_read_parity`, `test_paging_contract`, `test_draft_position_reads`) | always | `volume` (draft and history read budgets); `startup` when the typed value index or its backfill changes |
 | `services/mapping.py`, `mapping_projection.py`, `routers/mapping.py` | `mapping` | never by default | `drafts` only if activation or draft overlay is touched |
 | `errors.py`, `routers/presenters.py` | the group of the changed error | error envelope shape changes | `contract`; `model_admin` (`test_build07_wp11` correlation IDs) |
 | Any router signature, parameter or response model | the router's group | always | `contract` (re-baseline the OpenAPI lock only for intended changes) |

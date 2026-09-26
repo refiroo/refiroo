@@ -6,6 +6,10 @@ position. The two entry points here own that mechanism so each endpoint only dec
 * :func:`paginate_statement` pages a SQLAlchemy select over persisted rows;
 * :func:`paginate_sequence` pages an in-memory sequence of model definitions.
 
+A statement over a large indexed base overlaid by a few rows of its own (a draft over its base)
+can also name the parts it unions (:class:`Overlay`), so a position read resolves against the
+base's index instead of skipping every earlier row through the union.
+
 A request selects its page with at most one of ``cursor``, ``position``, ``seek`` or ``from=end``
 (:class:`PageRequest`); none means the first page. Whatever it used, a page returns ``nextCursor``
 and ``prevCursor`` to continue in either direction, an ``anchor`` that reopens the same page, and,
@@ -94,6 +98,30 @@ FIRST_PAGE = PageRequest()
 
 
 @dataclass(frozen=True)
+class Keyed:
+    """A statement and the keyset it is ordered by."""
+
+    statement: Any
+    keys: Sequence[SortKey]
+
+
+@dataclass(frozen=True)
+class Overlay:
+    """The parts of a statement whose rows are a base's, less those it replaces, plus its own.
+
+    ``base`` holds every base row, replaced or not, ``replaced`` the base rows the overlay
+    replaces or deletes, and ``added`` the overlay's own rows; each is filtered as the statement is
+    and keyed by the same sort, in the same order. A position read then resolves in the base alone,
+    where an index can skip the earlier rows, and corrects for the overlay rows before it (see
+    :func:`_locate`); an overlay costs in proportion to its own size, not the base's.
+    """
+
+    base: Keyed
+    replaced: Keyed
+    added: Keyed
+
+
+@dataclass(frozen=True)
 class Page[Item]:
     """One page in list order, with the cursors to continue from it."""
 
@@ -176,12 +204,14 @@ def paginate_statement[Row](
     message: str = "Cursor is invalid",
     rows: bool = False,
     seek: Callable[[str], Any] | None = None,
+    overlay: Overlay | None = None,
 ) -> Page[Row]:
     """Page a select with a lexicographic keyset predicate over ``keys``.
 
     A statement over one mapped entity returns its instances; with ``rows=True`` a statement over
     labelled columns (a draft or revision projection) returns result rows. ``seek`` turns a
-    ``seek`` value into a predicate; without it, seek applies to the first sort key.
+    ``seek`` value into a predicate; without it, seek applies to the first sort key. ``overlay``
+    names the parts of a base-plus-overlay statement, which position reads resolve through.
 
     Besides the page itself a read costs at most one probe for the opposite edge and, with totals,
     two counts: its statement count does not depend on the dataset.
@@ -193,10 +223,7 @@ def paginate_statement[Row](
         raise ValueError("Cursor sort tokens must match the keyset width")
 
     def fetch(where: Any, limit: int, *, backward: bool = False, offset: int = 0) -> list[Any]:
-        selected = statement if where is None else statement.where(where)
-        selected = selected.order_by(*(_order(key, backward) for key in keys)).limit(limit)
-        if offset:
-            selected = selected.offset(offset)
+        selected = _ordered(statement, keys, where, limit, backward=backward, offset=offset)
         return list(session.execute(selected).all() if rows else session.scalars(selected))
 
     positions: dict[int, tuple[str, ...]] = {}
@@ -234,7 +261,17 @@ def paginate_statement[Row](
         fetched = fetch((seek or leading_key_seek(keys))(page.seek), page_size + 1)
     elif page.position is not None:
         known_before = page.position
-        fetched = fetch(None, page_size + 1, offset=page.position)
+        located = (
+            _locate(session, overlay, page.position, rows=rows, message=message)
+            if overlay is not None
+            else None
+        )
+        if located is None:
+            fetched = fetch(None, page_size + 1, offset=page.position)
+        else:
+            values, skip = located
+            at = _keyset_predicate(keys, values, backward=False, inclusive=True)
+            fetched = fetch(at, page_size + 1, offset=skip)
     elif page.from_end:
         backward = True
         fetched = fetch(None, page_size + 1, backward=True)
@@ -360,6 +397,56 @@ def paginate_sequence[Item](
         total_count=count if page.include_total else None,
         start_index=min(start, count) if page.include_total else None,
     )
+
+
+def _locate(
+    session: Session, overlay: Overlay, position: int, *, rows: bool, message: str
+) -> tuple[list[Any], int] | None:
+    """A keyset position and the rows after it to skip to reach row ``position`` of the union.
+
+    With ``added`` overlay rows, at most ``added`` of them precede row ``position``, so the base
+    row at ``position - added`` precedes it, or is it. Its rank in the union is its base rank, less
+    the replaced base rows before it, plus the overlay rows before it; the remainder is at most
+    the overlay's size. Returns ``None`` when no such base row exists: a shallow position or one
+    past the base's end, which the caller reads by offset.
+    """
+    added = _count(session, overlay.added.statement)
+    start = position - added
+    if start < 0:
+        return None
+    base = overlay.base
+    selected = _ordered(base.statement, base.keys, None, 1, offset=start)
+    row = session.execute(selected).first() if rows else session.scalars(selected).first()
+    if row is None:
+        return None
+    values = _parse_position(base.keys, _row_position(session, base.keys, row), message)
+
+    def before(part: Keyed) -> Any:
+        where = _keyset_predicate(part.keys, values, backward=True, inclusive=False)
+        return (
+            select(func.count())
+            .select_from(part.statement.where(where).order_by(None).subquery())
+            .scalar_subquery()
+        )
+
+    replaced, preceding = session.execute(
+        select(before(overlay.replaced), before(overlay.added))
+    ).one()
+    return values, position - (start - replaced + preceding)
+
+
+def _ordered(
+    statement: Any,
+    keys: Sequence[SortKey],
+    where: Any,
+    limit: int,
+    *,
+    backward: bool = False,
+    offset: int = 0,
+) -> Any:
+    selected = statement if where is None else statement.where(where)
+    selected = selected.order_by(*(_order(key, backward) for key in keys)).limit(limit)
+    return selected.offset(offset) if offset else selected
 
 
 def _order(key: SortKey, backward: bool) -> Any:

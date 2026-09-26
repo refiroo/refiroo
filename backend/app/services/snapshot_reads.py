@@ -40,10 +40,16 @@ from .objects import (
     top_level_filter,
     validate_application_object_type,
 )
-from .pagination import text_key
+from .pagination import Keyed, Overlay, text_key
 
 # Draft and history rows record no timestamps; a query on them is refused, not matched as empty.
 UNRECORDED_TIMESTAMPS = {"createdAt": "Created", "updatedAt": "Updated"}
+
+
+# One part of a draft's union: every base row ("base"), the base rows its draft rows replace or
+# delete ("replaced"), its non-deleted draft rows ("added"), or the effective rows: base less
+# replaced, plus added.
+DraftPart = Literal["effective", "base", "replaced", "added"]
 
 
 @dataclass(frozen=True)
@@ -120,23 +126,28 @@ def object_projection(
     parent_object_id: str | None = None,
     top_level: bool = False,
     object_ids: Iterable[str] | None = None,
+    part: DraftPart = "effective",
 ) -> Subquery:
     """The context's effective object rows, narrowed inside each arm so indexes apply.
 
     ``values_owner_id`` names the owner of each row's typed values in ``snapshot_attribute_values``.
+    ``part`` selects one part of a draft's union instead (see :data:`DraftPart`).
     """
     ids = list(object_ids) if object_ids is not None else None
 
     def arm(entity: Any, owner_id: str, *conditions: Any) -> Any:
-        where = list(conditions)
+        narrowing = []
         if object_type_key is not None:
-            where.append(entity.object_type_key == object_type_key)
+            narrowing.append(entity.object_type_key == object_type_key)
         if application_key:
-            where.append(entity.application_key == application_key)
+            narrowing.append(entity.application_key == application_key)
         if parent_object_id:
-            where.append(entity.parent_object_id == parent_object_id)
+            narrowing.append(entity.parent_object_id == parent_object_id)
         if top_level:
-            where.append(entity.parent_object_id.is_(None))
+            narrowing.append(entity.parent_object_id.is_(None))
+        if part == "replaced":
+            narrowing = [_unindexed(condition) for condition in narrowing]
+        where = [*conditions, *narrowing]
         if ids is not None:
             where.append(entity.object_id.in_(ids))
         return select(
@@ -158,6 +169,7 @@ def object_projection(
         lambda base: getattr(base.objects, base.owner_column) == base.owner_id,
         lambda base: base.objects,
         name="snapshot_objects",
+        part=part,
     )
 
 
@@ -220,7 +232,14 @@ def relation_projection(
     )
 
 
-def _effective(context, overlay, identity, arm, base_filter, base_entity, *, name) -> Subquery:
+def _unindexed(condition: Any) -> Any:
+    """``condition`` as a term no index serves, so the planner looks rows up by another one."""
+    return case((condition, 1), else_=0) == 1
+
+
+def _effective(
+    context, overlay, identity, arm, base_filter, base_entity, *, name, part: DraftPart = "effective"
+) -> Subquery:
     """Union the context's arms; ``arm`` returns one select or a list of them per source."""
 
     def selects(result: Any) -> list[Any]:
@@ -231,24 +250,31 @@ def _effective(context, overlay, identity, arm, base_filter, base_entity, *, nam
     if context.kind == "revision":
         arms.extend(selects(arm(base_entity(base), base.owner_id, base_filter(base))))
     else:
-        if base is not None:
+        if base is not None and part != "added":
             entity = base_entity(base)
             overridden = select(getattr(overlay, identity)).where(overlay.draft_id == context.id)
+            conditions = [base_filter(base)]
+            if part == "effective":
+                conditions.append(~getattr(entity, identity).in_(overridden))
+            elif part == "replaced":
+                # Driven by the draft's IDs: the arm's other terms would otherwise let the
+                # planner walk the base's type or parent index across every base row.
+                conditions = [
+                    _unindexed(conditions[0]),
+                    getattr(entity, identity).in_(overridden),
+                ]
+            arms.extend(selects(arm(entity, base.owner_id, *conditions)))
+        if part in {"effective", "added"}:
             arms.extend(
                 selects(
                     arm(
-                        entity,
-                        base.owner_id,
-                        base_filter(base),
-                        ~getattr(entity, identity).in_(overridden),
+                        overlay,
+                        context.id,
+                        overlay.draft_id == context.id,
+                        overlay.is_deleted.is_(False),
                     )
                 )
             )
-        arms.extend(
-            selects(
-                arm(overlay, context.id, overlay.draft_id == context.id, overlay.is_deleted.is_(False))
-            )
-        )
     return (union_all(*arms) if len(arms) > 1 else arms[0]).subquery(name)
 
 
@@ -490,22 +516,32 @@ def build_snapshot_object_query(
             f"{UNRECORDED_TIMESTAMPS[sort_field]} is not recorded in drafts or history",
             "sort",
         )
-    projection = object_projection(
-        context,
-        object_type_key=object_type_key,
-        application_key=application_key,
-        parent_object_id=parent_object_id,
-        top_level=top_level,
-    )
-    statement, keys, seek, normalized_filters = refine_object_query(
-        model,
-        snapshot_object_columns(projection),
-        select(projection),
-        object_types=(object_type,),
-        search=search,
-        sort=sort,
-        field_filters=field_filters,
-    )
+
+    def refine(part: DraftPart) -> tuple[Any, Any, Any, Any]:
+        projection = object_projection(
+            context,
+            object_type_key=object_type_key,
+            application_key=application_key,
+            parent_object_id=parent_object_id,
+            top_level=top_level,
+            part=part,
+        )
+        return refine_object_query(
+            model,
+            snapshot_object_columns(projection),
+            select(projection),
+            object_types=(object_type,),
+            search=search,
+            sort=sort,
+            field_filters=field_filters,
+        )
+
+    statement, keys, seek, normalized_filters = refine("effective")
+    # A draft over a base resolves position reads in the base's index (Base 0.8 S4R6).
+    overlay = None
+    if context.kind == "draft" and context.base is not None:
+        parts = {part: Keyed(*refine(part)[:2]) for part in ("base", "replaced", "added")}
+        overlay = Overlay(parts["base"], parts["replaced"], parts["added"])
     owner = "draftId" if context.kind == "draft" else "revisionId"
     return ObjectQuery(
         statement=statement,
@@ -520,6 +556,7 @@ def build_snapshot_object_query(
             **top_level_filter(top_level),
         },
         seek=seek,
+        overlay=overlay,
     )
 
 

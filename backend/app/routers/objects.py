@@ -308,6 +308,7 @@ def list_objects(
             message="Object cursor is invalid",
             rows=True,
             seek=query.seek,
+            overlay=query.overlay,
         )
         paths = object_paths(session, context, page.items)
         return ObjectPage(

@@ -362,9 +362,8 @@ _Results_ (same machine, fixture and method as S1; `volume_baseline.py --scale 1
 Every read meets budgets 1–3 in every context except one: a draft position read three quarters into
 a whole 100,000-record type takes 175 ms (budget 100 ms; history 16 ms). SQLite skips 75,000 rows
 through the draft's base-plus-overlay union, then counts it. Position reads inside a branch, the S3
-exit case, stay within budget (43 ms in the 20,000-child parent). **Open:** to be resolved before
-S5 relies on scrollbar jumps over a whole large type in a draft, for example by resolving a deep
-position against the base's index and correcting for the overlay's rows before it. Totals
+exit case, stay within budget (43 ms in the 20,000-child parent). **Resolved by S4R6** (60 ms): a
+deep position resolves against the base's index and corrects for the overlay's rows before it. Totals
 cost most in drafts (the count runs over the base-plus-overlay union, about 40 ms over 100,000 items);
 the UI asks for them on first load, after a query change and with jumps (D5), not on every scroll.
 The draft write is unchanged (S2b).
@@ -594,6 +593,41 @@ and history), `test_openapi_contract` (every page schema starts with `items`, th
 integers, and the re-baselined lock, whose diff is only those 17 schemas), and `test_model_lifecycle`
 (an empty activation page without totals).
 
+**S4R6 delivered 2026-09-26.** A draft position read no longer offsets through the base-plus-overlay
+union, which SQLite can only skip row by row. `paginate_statement` takes an optional `Overlay`
+naming the union's parts, each filtered and sorted as the list is: every base row, the base rows the
+draft replaces or deletes, and the draft's own rows. `pagination._locate` counts the draft's own
+rows (`added`), reads the base row at `position - added` through the base's page index (it precedes
+the target row or is it, since at most `added` draft rows can come before), then counts the replaced
+and the draft rows before it in one statement. Its rank in the draft is its base rank, less the
+replaced rows before it, plus the draft rows before it; the page is read from that row forward,
+skipping the remainder, which is at most the draft's size. A position shallower than `added`, or
+past the base's end, still reads by offset. `snapshot_reads.object_projection` gains `part`
+(`effective`, `base`, `replaced`, `added`) and `build_snapshot_object_query` returns the overlay for a
+draft with a base; revisions and base-less drafts are unchanged. The replaced part keeps only its
+`object_id IN (draft IDs)` term indexable: SQLite otherwise walked the base's name index to count
+the replaced rows before the position (24 ms), and on a current-live base would have taken the
+single-column type or parent index. A position read costs three more statements (a constant: 10 in
+the draft, 6 live), and no migration is needed.
+
+_Results_ (full volume, `volume_baseline.py --scale 1 --repeat 5`, same machine as S1):
+
+| Request | Draft before | Draft after |
+| --- | --- | --- |
+| objects: position ¾ deep, total | 175.1 ms · 6 · 4 | 60.3 ms · 10 · 4 |
+| children: heavy parent, position ¾ deep, total | 43.0 ms · 6 · 4 | 21.4 ms · 10 · 4 |
+
+The whole-type read now costs the same at every depth (56–62 ms from a quarter to 99% deep, against
+81–190 ms before); about 40 ms of it is the total count over the union, which the S4 note above
+covers and which the UI asks for only on first load, after a query change and with jumps (D5).
+Evidence: `test_draft_position_reads` lands position reads across two drafts whose rows move (renames
+to the front, back and middle, new records at the front, the fixture's tombstones), on a revision base
+and a current-live base, over a whole type and inside a parent, by name, descending and by an
+attribute; each landing, its start index, total and both cursors match a cursor walk, and every read
+past the draft's own rows resolved in the base. Two mutations of the correction (dropping the
+replaced or the preceding draft rows) each fail it. `test_volume_baseline` holds the constant
+statement count across scales.
+
 **Later package T1 — recorded timestamps in drafts and history.** Timestamp columns on draft,
 draft-base and revision object and relation rows (captured rows keep live values, draft writes set
 them), plus an internal creation ordinal so creation order is identical in every context. Backfill from
@@ -672,7 +706,7 @@ window whose edge it continues); a landed page too short to fill the viewport ne
 list mounted hidden (a record reopened by reload) refreshed from its first page.
 
 _Open:_ the S4 draft position read three quarters into a whole 100,000-record type (175 ms, budget
-100 ms) is unchanged; the scrollbar works there at that cost. Visual baselines for the tables that
+100 ms) is unchanged; the scrollbar works there at that cost (resolved by S4R6: 60 ms). Visual baselines for the tables that
 lost their page buttons and dedicated accessibility-gate scenarios for the list remain S7 scope; the
 edge loading marker is covered by component state only, not a captured screenshot.
 

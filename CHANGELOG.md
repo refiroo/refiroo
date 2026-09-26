@@ -108,6 +108,10 @@ All notable changes to this project are documented in this file. The format foll
 - Base 0.8 S4R5: every page lists `items` first, then its navigation fields. `totalCount` and
   `startIndex` are omitted unless `includeTotal=true` instead of returned as `null`, and OpenAPI
   documents them as optional integers. Clients that tested them for `null` should test for absence.
+- Base 0.8 S4R6: a draft position read resolves in its base's index and corrects for the draft's
+  own rows, instead of skipping every earlier row through the base-plus-overlay union. Three quarters
+  into a whole 100,000-record type it takes 60 ms (was 175 ms; about 40 ms of it is the total count), and
+  its cost no longer grows with the position.
 
 ### Fixed
 
