@@ -3,10 +3,12 @@
 A relation page lists the relations touching an anchor record together with the record at the other
 end. Search, sort and seek apply to that related record through the object query builder
 (:func:`objects.refine_object_query`), so they mean what they mean on an object list: ``search``
-matches its name and searchable fields, and ``sort`` takes its name, a sortable attribute, an
-``ancestor:<type>`` name or, live, its timestamps. The default order is by name in every context,
-closed by the relation's unique key. Attribute and ancestor sorts need the related records to have
-one type, which the relation types, direction and anchor type decide.
+matches its name and searchable fields, and ``sort`` takes its name, a scalar attribute, an
+``ancestor:<type>`` name, ``objectType`` (its type's name) or, live, its timestamps, and
+``relationship`` orders by the relationship label the row shows. The default order is by name in
+every context, closed by the relation's unique key. An attribute sort puts records whose type lacks
+the attribute last; an ancestor sort needs the related records to have one type, which the relation
+types, direction and anchor type decide.
 
 Live, draft and history reads share this contract; each builder returns the statement, keyset,
 cursor filters and seek for ``pagination.paginate_statement``.
@@ -101,6 +103,9 @@ def build_relation_query(
         ),
         select_sort_values=True,
         ancestor=_ancestor_join(_live_lookup, related.parent_object_id),
+        object_type=related.object_type_key,
+        # The listed record is the relation's source when the anchor is its target.
+        relationship=(ObjectRelation.relation_type_key, ObjectRelation.from_object_id != object_id),
     )
     statement, keys, seek, _filters = refine_object_query(
         model,
@@ -177,6 +182,8 @@ def build_snapshot_relation_query(
             lambda record_id, column: effective_object_value(context, record_id, column)[0],
             related.column("parent_object_id"),
         ),
+        object_type=related.column("object_type_key"),
+        relationship=(relations.c.relation_type_key, relations.c.from_object_id != object_id),
     )
     statement, keys, seek, _filters = refine_object_query(
         model,

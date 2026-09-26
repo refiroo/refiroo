@@ -3,7 +3,12 @@
  * panel may offer for an object type.
  */
 
-import type { EngineModel, ObjectTypeRelationDefinition, RelationsPanelDefinition } from "@/types";
+import type {
+  EngineModel,
+  ObjectTypeDefinition,
+  ObjectTypeRelationDefinition,
+  RelationsPanelDefinition,
+} from "@/types";
 
 export function objectTypeFor(model: EngineModel, key: string) {
   return model.objectTypes.find((item) => item.key === key);
@@ -60,4 +65,26 @@ export function relationChoices(
 
 export function applicationFor(model: EngineModel, key: string) {
   return model.applications.find((item) => item.key === key);
+}
+
+/**
+ * The object types the model allows at the other end of an anchor's relations, as the relation
+ * query derives them; without relation type keys, every relation type counts.
+ */
+export function relatedObjectTypes(
+  model: EngineModel,
+  anchorTypeKey: string,
+  direction: "outgoing" | "incoming" | "both",
+  relationTypeKeys?: readonly string[],
+): ObjectTypeDefinition[] {
+  const keys: string[] = [];
+  for (const allowed of model.objectTypeRelations) {
+    if (relationTypeKeys?.length && !relationTypeKeys.includes(allowed.relationTypeKey)) continue;
+    if (direction !== "incoming" && allowed.fromObjectTypeKey === anchorTypeKey) keys.push(allowed.toObjectTypeKey);
+    if (direction !== "outgoing" && allowed.toObjectTypeKey === anchorTypeKey) keys.push(allowed.fromObjectTypeKey);
+  }
+  return [...new Set(keys)].flatMap((key) => {
+    const definition = objectTypeFor(model, key);
+    return definition ? [definition] : [];
+  });
 }

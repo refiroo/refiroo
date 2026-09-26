@@ -809,8 +809,10 @@ version rather than assuming every record read returns one.
 Object collections accept the [collection paging](#collection-paging) parameters (including `seek`),
 `pageSize`, `applicationKey`, `workspaceKey`, optional
 `workspaceDraftId` or `workspaceRevisionId`, `parentObjectId` or `topLevel`, `search`, one `sort` and typed filters named
-`filter.<field>.<operator>=<value>`. Built-in fields and model attributes with the corresponding
-`filterable` or `sortable` feature are available; JSON attributes are excluded. Prefix a sort with
+`filter.<field>.<operator>=<value>`. Filters take built-in fields and attributes with the
+`filterable` feature. `sort` takes `name`, `id`, `objectType` (ordered by the type's model name, then
+by name), live `createdAt`/`updatedAt`, or any attribute the type binds, flagged `sortable` or not
+(S4R3 revision). JSON attributes are excluded from both. Prefix a sort with
 `-` for descending order. Null and unset attribute values sort last in either direction, and every
 live ordering uses the internal sequence as a non-public final tie-breaker. Omitting `sort` preserves
 creation sequence order. Drafts and history record no creation sequence: there the record ID is the
@@ -1160,14 +1162,17 @@ the related record (the other end of each relation), in live, draft and history 
 - `relationTypeKey` may repeat to list several relation types together.
 - `search` matches the related record by name or by any attribute its type binds as `searchable`, as
   a literal, case-insensitive substring.
-- `sort` takes a field of the related record: `name`, an attribute its type binds whose attribute
-  type is `sortable`, or `ancestor:<type>`, the name of its ancestor of that type (as in its `path`;
-  a type met twice resolves to the one nearest the root). Prefix `-` for descending. Records without
+- `sort` takes a field of the related record: `name`, `objectType` (its type's model name), any
+  non-JSON attribute one of the related types binds, or `ancestor:<type>`, the name of its ancestor of
+  that type (as in its `path`; a type met twice resolves to the one nearest the root). `relationship`
+  orders by the label each row shows: the relation type's `name` when the anchor is the source, its
+  `reverseName` otherwise. Label sorts break ties by name. Prefix `-` for descending. Records without
   the value come last in either direction. `createdAt` and `updatedAt` (the related record's) are
   live only; drafts and history record no timestamps, so they answer `422 invalid_sort`.
-- Attribute and ancestor sorts need the listed relations to reach one object type, decided by the
-  anchor record's type, `direction` and `relationTypeKey` from the model's allowed relations;
-  otherwise `422 invalid_sort`. An `ancestor:<type>` the related type cannot sit under is refused too.
+- An attribute sort over several related types puts records whose type lacks the attribute last. An
+  ancestor sort needs the listed relations to reach one object type, decided by the anchor record's
+  type, `direction` and `relationTypeKey` from the model's allowed relations; otherwise
+  `422 invalid_sort`. An `ancestor:<type>` the related type cannot sit under is refused too.
 - Without `sort` the list is in name order in every context. Ties break on the relation.
 - `seek` takes a value of the sorted field (a name by default).
 

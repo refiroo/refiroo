@@ -1,8 +1,10 @@
 import type { LucideIcon } from "lucide-react";
 import {
+  ArrowDown,
   ArrowDownToLine,
   ArrowLeft,
   ArrowRight,
+  ArrowUp,
   ArrowUpDown,
   ArrowUpToLine,
   Blocks,
@@ -62,6 +64,8 @@ const icons = {
   search: Search,
   settings: Settings2,
   sort: ArrowUpDown,
+  "sort-ascending": ArrowUp,
+  "sort-descending": ArrowDown,
   sliders: SlidersHorizontal,
   sun: Sun,
   table: Table2,

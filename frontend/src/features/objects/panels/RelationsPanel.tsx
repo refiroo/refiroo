@@ -4,23 +4,18 @@ import { errorMessage, isApiError } from "@/api/errors";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import type { EngineModel, ObjectItem, RelationItem, RelationsPanelDefinition } from "@/types";
-import { isManagedRelation, relationChoices } from "@/model/lookup";
+import { isManagedRelation, relatedObjectTypes, relationChoices } from "@/model/lookup";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { RelationFormDialog } from "./RelationFormDialog";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { formatValue } from "@/ui/formatValue";
-import { attributeName, fieldValue } from "@/model/fields";
+import { attributeName, fieldValue, isQueryableField, listSortFields } from "@/model/fields";
 import { InlineError } from "@/ui/InlineError";
 import { Icon } from "@/ui/Icon";
 import { ScrollWindow } from "@/ui/ScrollWindow";
+import { SortAnnouncement, SortHeader, SortMenu, headerSort, useTableSort } from "@/ui/TableSort";
 
 const PAGE_SIZE = 50;
-const SORTS = [
-  { value: "name", label: "Name, A to Z", live: false },
-  { value: "-name", label: "Name, Z to A", live: false },
-  { value: "-createdAt", label: "Newest first", live: true },
-  { value: "createdAt", label: "Oldest first", live: true },
-];
 
 export function RelationsPanel({
   model,
@@ -42,7 +37,31 @@ export function RelationsPanel({
   const live = !draft && !revision;
   const [searchInput, setSearchInput] = useState("");
   const search = useDebouncedValue(searchInput.trim());
-  const [sort, setSort] = useState("name");
+  // Every data column sorts, as does the relationship label; the panel may add fields to the Sort
+  // menu (`sortFields`) and choose the initial order (`defaultSort`, schema 0.7), otherwise name.
+  const relationTypeKey = panel.config.relationTypeKeys.length === 1 ? panel.config.relationTypeKeys[0] : undefined;
+  const showRelationshipColumn = panel.config.showRelationshipColumn !== false;
+  const sortFields = useMemo(
+    () =>
+      listSortFields(
+        model,
+        // The types the request can list: one relation type is sent, several are not filtered.
+        relatedObjectTypes(
+          model,
+          object.objectTypeKey,
+          panel.config.direction,
+          relationTypeKey ? [relationTypeKey] : [],
+        ),
+        [...(showRelationshipColumn ? ["relationship"] : []), ...panel.config.columns],
+        panel.config.sortFields ?? [],
+        live,
+        { relationList: true },
+      ),
+    [model, object.objectTypeKey, panel.config, relationTypeKey, showRelationshipColumn, live],
+  );
+  const defaultSort =
+    panel.config.defaultSort && isQueryableField(panel.config.defaultSort, live) ? panel.config.defaultSort : "name";
+  const [sort, setSort] = useState<string>();
   const [removeError, setRemoveError] = useState("");
   const [creating, setCreating] = useState(false);
   const [creatingDependent, setCreatingDependent] = useState<{
@@ -53,7 +72,6 @@ export function RelationsPanel({
   const [editing, setEditing] = useState<RelationItem>();
   const [removing, setRemoving] = useState<RelationItem>();
   const [pending, setPending] = useState(false);
-  const relationTypeKey = panel.config.relationTypeKeys.length === 1 ? panel.config.relationTypeKeys[0] : undefined;
   const choices = useMemo(
     () => relationChoices(model, object.objectTypeKey, panel),
     [model, object.objectTypeKey, panel],
@@ -84,7 +102,13 @@ export function RelationsPanel({
     [model, object.objectTypeKey, panel.config.direction, panel.config.relationTypeKeys],
   );
 
-  const effectiveSort = live || !SORTS.find((option) => option.value === sort)?.live ? sort : "name";
+  const effectiveSort = sort && sortFields.includes(sort.replace(/^-/, "")) ? sort : defaultSort;
+  const sorting = useTableSort({
+    sort: effectiveSort,
+    fields: sortFields,
+    onSort: setSort,
+    labelFor: (field) => (field === "relationship" ? "Relationship" : attributeName(model, field)),
+  });
   const list = useCursorWindow<RelationItem>(
     (selector) =>
       api.relations(object.id, {
@@ -107,7 +131,6 @@ export function RelationsPanel({
       ? [{ item, index: list.startIndex + position }]
       : [],
   );
-  const showRelationshipColumn = panel.config.showRelationshipColumn !== false;
   const tableColumnCount = panel.config.columns.length + 1 + (showRelationshipColumn ? 1 : 0);
   const linkColumn = panel.config.columns.includes("name") ? "name" : panel.config.columns[0];
 
@@ -162,16 +185,7 @@ export function RelationsPanel({
             placeholder="Search related records"
           />
         </label>
-        <label className="toolbar-field">
-          Sort
-          <select value={effectiveSort} onChange={(event) => setSort(event.target.value)}>
-            {SORTS.filter((option) => live || !option.live).map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <SortMenu sorting={sorting} />
         {!readOnly &&
           dependentCreates.map((creation) => (
             <button
@@ -190,6 +204,7 @@ export function RelationsPanel({
         )}
       </div>
       {error && <InlineError message={error} onRetry={retry} />}
+      <SortAnnouncement sorting={sorting} />
       {(!error || relations.length > 0) && (
         <ScrollWindow
           list={list}
@@ -205,11 +220,17 @@ export function RelationsPanel({
             <caption className="visually-hidden">{panel.title}</caption>
             <thead>
               <tr aria-rowindex={1}>
-                {showRelationshipColumn && <th>Relationship</th>}
+                {showRelationshipColumn && (
+                  <th scope="col" aria-sort={headerSort(sorting, "relationship")}>
+                    <SortHeader field="relationship" label="Relationship" sorting={sorting} />
+                  </th>
+                )}
                 {panel.config.columns.map((column) => (
-                  <th key={column}>{attributeName(model, column)}</th>
+                  <th key={column} scope="col" aria-sort={headerSort(sorting, column)}>
+                    <SortHeader field={column} label={attributeName(model, column)} sorting={sorting} />
+                  </th>
                 ))}
-                <th>Actions</th>
+                <th scope="col">Actions</th>
               </tr>
             </thead>
             <tbody>

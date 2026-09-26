@@ -247,7 +247,9 @@ it.each(["domain", "codelist"])("preserves typed filters and query/display owner
   expect(latest!.anchor).toBeUndefined();
   fireEvent.click(within(display).getByRole("button", { name: "Done" }));
   expect(screen.queryByRole("columnheader", { name: "Code" })).not.toBeInTheDocument();
-  fireEvent.click(screen.getByRole("button", { name: /Name/ }));
+  // Hiding the Code column leaves it in the toolbar's sort menu.
+  expect(screen.getByRole("button", { name: "Sort: Name, ascending" })).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: "Name, sorted ascending" }));
   expect(latest!.sort).toBe("-name");
   expect(screen.getByRole("columnheader", { name: /Name/ })).toHaveAttribute("aria-sort", "descending");
 });
@@ -335,12 +337,13 @@ describe("timestamps outside live data (WP-10K)", () => {
     await screen.findByRole("combobox", { name: "Code operator" });
     expect(screen.queryByRole("combobox", { name: "Created operator" })).not.toBeInTheDocument();
     fireEvent.keyDown(screen.getByRole("dialog", { name: "Filter" }), { key: "Escape" });
-    fireEvent.click(await screen.findByRole("button", { name: /^Sort/ }));
-    fireEvent.keyDown(await screen.findByRole("button", { name: /name.*sort/i }), {
-      key: "ArrowDown",
-      code: "ArrowDown",
-    });
-    await screen.findByRole("option", { name: "Name (ascending)" });
-    expect(screen.queryByRole("option", { name: /Updated/ })).not.toBeInTheDocument();
+    // Name still sorts from its header and the menu; the unrecorded timestamp column is a plain
+    // header and absent from the menu.
+    expect(screen.getByRole("columnheader", { name: /Name/ })).toHaveAttribute("aria-sort", "ascending");
+    expect(screen.getByRole("button", { name: "Name, sorted ascending" })).toBeInTheDocument();
+    expect(within(screen.getByRole("columnheader", { name: /^Updated/ })).queryByRole("button")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Sort: Name, ascending" }));
+    expect(await screen.findByRole("menuitemradio", { name: "Name" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitemradio", { name: "Updated" })).not.toBeInTheDocument();
   });
 });

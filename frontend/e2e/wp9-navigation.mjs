@@ -179,15 +179,15 @@ try {
     await page.getByRole("button", { name: "Remove Count is 0", exact: true }).click();
     assert.equal(new URL(page.url()).searchParams.get("filter.qa-date.gte"), "2026-01-01");
     const collection = page.getByRole("region", { name: `${type === "domain" ? "Domains" : "Systems"} table` });
-    await collection.getByRole("button", { name: "Name", exact: true }).click();
+    await collection.getByRole("button", { name: "Name, sorted ascending", exact: true }).click();
     await shown(collection.getByRole("button", { name: "Record 31", exact: true }));
     assert.equal(new URL(page.url()).searchParams.get("sort"), "-name");
-    await page.getByRole("button", { name: "Sort", exact: true }).click();
-    const sortMenu = page.getByRole("dialog", { name: "Sort", exact: true });
-    await sortMenu.getByRole("button").filter({ hasText: "Name (descending)" }).click();
-    await page.getByRole("option", { name: "Name (ascending)", exact: true }).click();
-    await sortMenu.getByRole("button", { name: "Done" }).click();
+    // The headers are the sort control (S4R3); the toolbar no longer repeats them in a popover.
+    assert.equal(await page.getByRole("button", { name: "Sort", exact: true }).count(), 0);
+    await collection.getByRole("button", { name: "Name, sorted descending", exact: true }).focus();
+    await page.keyboard.press("Enter");
     await shown(collection.getByRole("button", { name: "Record 00", exact: true }));
+    assert.equal(new URL(page.url()).searchParams.get("sort"), "name");
     await page.getByRole("button", { name: "Display", exact: true }).click();
     const display = page.getByRole("dialog", { name: "Display", exact: true });
     await display.getByLabel("Count", { exact: true }).uncheck();
@@ -207,7 +207,8 @@ try {
     for (const column of model.applications.find((item) => item.key === app).views.find((item) => item.key === view).config.columns) {
       if (column === "qa-count") continue;
       const label = ["name", "id"].includes(column) ? column === "name" ? "Name" : "ID" : model.attributeTypes.find((item) => item.key === column)?.name;
-      if (label) await shown(collection.getByRole("columnheader", { name: label, exact: true }));
+      // The sorted header's name also states its order ("Name, sorted ascending").
+      if (label) await shown(collection.getByRole("columnheader", { name: new RegExp(`^${label}(, sorted|$| Resize)`) }));
     }
     assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
     await page.getByRole("button", { name: /^Filter/ }).tap();

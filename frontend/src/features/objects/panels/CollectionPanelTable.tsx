@@ -9,13 +9,14 @@ import { useState } from "react";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
-import { sortableColumns } from "@/model/fields";
+import { attributeName, listSortFields } from "@/model/fields";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { objectTypeFor } from "@/model/lookup";
 import type { ObjectItem } from "@/types";
 import { InlineError } from "@/ui/InlineError";
 import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
 import { ObjectTable } from "@/ui/ObjectTable";
+import { SortMenu, useTableSort } from "@/ui/TableSort";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { Icon } from "@/ui/Icon";
 import type { PanelProps } from "./types";
@@ -49,7 +50,7 @@ export function CollectionPanelTable({
   const [creating, setCreating] = useState(false);
   // Panels list by name unless the user sorts by another column; creation order means little here.
   const [sort, setSort] = useState("name");
-  const sortFields = objectType ? sortableColumns(model, objectType, columns, !draft && !revision) : [];
+  const sortFields = objectType ? listSortFields(model, [objectType], columns, [], !draft && !revision) : [];
   const pages = useCursorWindow<ObjectItem>(
     objectType
       ? (selector) =>
@@ -66,6 +67,12 @@ export function CollectionPanelTable({
     [application.key, object.workspaceKey, objectTypeKey, selectedPageSize, parentObjectId, search, sort],
   );
   const { error } = pages;
+  const sorting = useTableSort({
+    sort,
+    fields: sortFields,
+    onSort: setSort,
+    labelFor: (field) => attributeName(model, field),
+  });
 
   function refresh() {
     pages.reload();
@@ -99,6 +106,7 @@ export function CollectionPanelTable({
           defaultPageSize={pageSize}
           onPageSize={setPageSize}
         />
+        <SortMenu sorting={sorting} />
         {allowCreate && !readOnly && (
           <button className="secondary" onClick={() => setCreating(true)}>
             <Icon name="plus" /> Add {objectType.name}
@@ -114,9 +122,7 @@ export function CollectionPanelTable({
           columnWidths={display.widths}
           onColumnWidth={display.setWidth}
           identityColumn={display.identity}
-          sort={sort}
-          sortFields={sortFields}
-          onSort={setSort}
+          sorting={sorting}
           list={pages}
           pageSize={selectedPageSize}
           label={`${objectType.pluralName} of ${object.name}`}

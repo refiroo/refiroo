@@ -81,6 +81,9 @@ class ObjectColumns:
     attribute sort's value rather than looking it up per row. ``value_match`` relates a (possibly
     aliased) values table to the record. ``ancestor`` joins the
     name of each record's ``ancestor:<type>`` into a statement; lists without it cannot sort by one.
+    ``object_type`` is the record's object type key, which ``objectType`` sorts by its model name.
+    ``relationship`` maps a relation list's row to its relation type key and whether the listed
+    record is at the relation's far end, which ``relationship`` sorts by the label the row shows.
     """
 
     source: Any
@@ -93,6 +96,8 @@ class ObjectColumns:
     tiebreak: Callable[[bool], SortKey]
     select_sort_values: bool = False
     ancestor: Callable[[Select[Any], str], tuple[Select[Any], Any]] | None = None
+    object_type: Any = None
+    relationship: tuple[Any, Any] | None = None
 
 
 LIVE_OBJECT_COLUMNS = ObjectColumns(
@@ -106,6 +111,7 @@ LIVE_OBJECT_COLUMNS = ObjectColumns(
     tiebreak=lambda descending: integer_key(
         _SEQUENCE_FIELD, RdmObject.sequence_id, "sequence_id", descending=descending
     ),
+    object_type=RdmObject.object_type_key,
 )
 
 
@@ -205,7 +211,8 @@ def refine_object_query(
     """Add search and typed filters to an object statement and return its keyset and seek.
 
     ``object_types`` are the types the listed records can have: search covers the searchable
-    fields of all of them, while an attribute or ancestor field needs exactly one.
+    fields of all of them and sort any scalar attribute bound to one of them, while a filter or an
+    ancestor sort needs exactly one.
     """
     if search:
         statement = statement.where(_search_predicate(model, columns, object_types, search))
@@ -288,6 +295,22 @@ def _object_sort_keys(
         seek_values = None if field_name == _SEQUENCE_FIELD else lambda raw: [tiebreak.parse(raw)]
         return statement, (tiebreak,), seek_values
 
+    label_sort = _label_sort(model, columns, field_name)
+    if label_sort is not None:
+        label, extract = label_sort
+        label_key = SortKey(
+            name=field_name, column=label, attribute="", descending=descending, extract=extract
+        )
+        # Many records share a label, so the name orders them before the unique tiebreak.
+        name_key = SortKey(
+            name="name",
+            column=columns.name,
+            attribute="",
+            descending=descending,
+            extract=lambda _session, row: _row_name(row),
+        )
+        return statement, (label_key, name_key, tiebreak), lambda raw: [raw]
+
     if field_name.startswith(ANCESTOR_FIELD_PREFIX):
         statement, column = _query_ancestor(model, columns, statement, object_types, field_name)
         value_key = SortKey(
@@ -302,7 +325,7 @@ def _object_sort_keys(
 
     column = columns.builtin.get(field_name)
     if column is None:
-        definition = _query_attribute(model, object_types, field_name, "sortable", "sort")
+        definition = _sort_attribute(model, object_types, field_name)
         if columns.select_sort_values:
             # One outer join on the unique (record, attribute) key reads the value once per row.
             values = aliased(columns.values)
@@ -343,6 +366,50 @@ def _object_sort_keys(
     else:
         primary = text_key(field_name, column, column.key, descending=descending)
     return statement, (primary, tiebreak), lambda raw: [primary.parse(raw)]
+
+
+def _label_sort(
+    model: EngineModel, columns: ObjectColumns, field_name: str
+) -> tuple[Any, Callable[[Session, Any], Any]] | None:
+    """The label a ``objectType`` or ``relationship`` column shows, as an orderable expression.
+
+    Labels come from the model, so the list orders by what the user reads rather than by keys.
+    Returns the expression and how a record row's label is read back for its cursor position.
+    """
+    if field_name == "objectType" and columns.object_type is not None:
+        names = {item.key: item.name for item in model.objectTypes}
+        attribute = columns.object_type.key
+        return (
+            case(names, value=columns.object_type, else_=columns.object_type),
+            lambda _session, row: names.get(getattr(row, attribute), getattr(row, attribute)),
+        )
+    if field_name == "relationship" and columns.relationship is not None:
+        type_key, reverse = columns.relationship
+        forward = {item.key: item.name for item in model.relationTypes}
+        backward = {item.key: item.reverseName or item.name for item in model.relationTypes}
+        label = case(
+            *((and_(type_key == key, reverse), name) for key, name in backward.items()),
+            *((type_key == key, name) for key, name in forward.items()),
+            else_=type_key,
+        )
+        # Relation lists select sort values as columns, so no row extraction is needed.
+        return label, lambda _session, _row: None
+    return None
+
+
+def _row_name(row: Any) -> Any:
+    return row.name
+
+
+def _sort_attribute(model: EngineModel, object_types: Sequence[ObjectTypeDefinition], field: str):
+    """Any scalar attribute bound to a listed type sorts; records without it sort last."""
+    bound = {item.attributeTypeKey for object_type in object_types for item in object_type.attributes}
+    definition = model.attribute_type(field) if field in bound else None
+    if definition is None:
+        _query_error("invalid_sort", f"Unknown field '{field}'", "sort")
+    if definition.valueType == "json":
+        _query_error("invalid_sort", f"Field '{field}' holds JSON and cannot be sorted", "sort")
+    return definition
 
 
 def _null_rank_key(field_name: str, column: Any) -> SortKey:

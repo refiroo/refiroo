@@ -525,8 +525,9 @@ tbody tr:hover {
 .column-sort {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   border: 0;
+  border-radius: 4px;
   padding: 0;
   background: transparent;
   color: inherit;
@@ -536,8 +537,71 @@ tbody tr:hover {
 .column-sort:hover {
   color: var(--ink);
 }
-.object-table th[aria-sort] {
+.column-sort:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+/* A sortable header shows a quiet icon only on hover and focus; the sorted one keeps its arrow.
+   The icon sits in the header's right padding, so revealing it never widens a column. */
+.column-sort {
+  position: relative;
+}
+.column-sort-icon {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  margin-left: 2px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.column-sort:hover .column-sort-icon,
+.column-sort:focus-visible .column-sort-icon {
+  opacity: 1;
+}
+.column-sort.is-sorted .column-sort-icon {
+  color: var(--accent);
+  opacity: 1;
+}
+th[aria-sort] {
   color: var(--ink);
+}
+.table-controls {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 8px 12px 0;
+}
+/* Holds only what narrow widths need: the column toggle. */
+.table-controls-narrow {
+  display: none;
+}
+.tooltip {
+  max-width: 240px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--ink);
+  color: var(--surface);
+  font-size: 12px;
+  box-shadow: var(--shadow-md);
+}
+.action-menu-section + .action-menu-section,
+.action-menu-section + .action-menu-item {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--soft-line);
+}
+.action-menu-header {
+  padding: 6px 10px 2px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+.action-menu-item .icon {
+  color: var(--accent);
 }
 .object-table tbody tr:hover,
 .object-table tbody tr:focus-within {
@@ -737,6 +801,10 @@ tbody tr:hover {
 }
 .embedded-toolbar .search-box {
   max-width: 320px;
+}
+/* The search leads; display, sort and add group at the end, as in the collection toolbar. */
+.embedded-toolbar:not(.relation-toolbar) .search-box {
+  margin-right: auto;
 }
 .panel-state {
   padding: 20px 16px;

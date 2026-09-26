@@ -651,12 +651,10 @@ def test_panel_descending_default_sort_is_valid():
     [
         (["name", "name"], "name", "duplicate_key", "/sortFields", "unique"),
         (["name", "createdAt"], "name", "invalid_model", "/sortFields/1", "cannot sort by"),
-        (["value-name"], "value-name", "invalid_model", "/sortFields/0", "not sortable"),
-        (["translated-name"], "translated-name", "invalid_model", "/sortFields/0", "not attached"),
-        (["ancestor:language"], "ancestor:language", "invalid_reference", "/sortFields/0", "no ancestor"),
-        (["name"], "value-code", "invalid_model", "/defaultSort", "one of its sortFields"),
-        (["name"], None, "invalid_model", "/defaultSort", "must name its defaultSort"),
-        (None, "name", "invalid_model", "/defaultSort", "requires sortFields"),
+        (["translated-name"], "name", "invalid_model", "/sortFields/0", "not attached"),
+        (["ancestor:language"], "name", "invalid_reference", "/sortFields/0", "no ancestor"),
+        (["name"], "translated-name", "invalid_model", "/defaultSort", "not attached"),
+        (None, "-ancestor:language", "invalid_reference", "/defaultSort", "no ancestor"),
     ],
 )
 def test_panel_sort_options_are_validated_at_the_failing_node(
@@ -676,14 +674,34 @@ def test_panel_sort_options_are_validated_at_the_failing_node(
     assert message in result.diagnostics[0].message
 
 
-def test_panel_over_several_related_types_sorts_by_name_only():
+@pytest.mark.parametrize(
+    ("sort_fields", "default_sort"),
+    [
+        # Any scalar attribute of the related type, flagged sortable or not (S4R3 revision).
+        (["value-name", "external-id", "active"], "-value-name"),
+        (["objectType", "relationship"], "relationship"),
+        # defaultSort alone chooses the order; every column still sorts from its header.
+        (None, "value-code"),
+    ],
+)
+def test_panel_sorts_by_any_data_field(sort_fields, default_sort):
     source = load_model(MODEL_PATH).model_dump(mode="json")
-    config = _panel(source, "rdm-translations", "translation", "targets")["config"]
-    config["sortFields"] = ["name"]
-    config["defaultSort"] = "-name"
+    config = _system_panel(source)["config"]
+    config.pop("sortFields", None)
+    if sort_fields is not None:
+        config["sortFields"] = sort_fields
+    config["defaultSort"] = default_sort
     assert compile_model(source).valid
 
-    config["sortFields"] = ["name", "description"]
+
+def test_panel_over_several_related_types_sorts_by_attribute_but_not_ancestor():
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    config = _panel(source, "rdm-translations", "translation", "targets")["config"]
+    config["sortFields"] = ["name", "description", "objectType"]
+    config["defaultSort"] = "-description"
+    assert compile_model(source).valid
+
+    config["sortFields"] = ["name", "ancestor:domain"]
     result = compile_model(source)
     assert result.diagnostics[0].path.endswith("/targets/config/sortFields/1")
     assert "several related object types" in result.diagnostics[0].message

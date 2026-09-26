@@ -92,9 +92,10 @@ def list_relations(
     sort: str | None = Query(
         default=None,
         description=(
-            "A field of the related record, as on an object list: name, a sortable attribute,"
-            " ancestor:<type>, or (live only) createdAt or updatedAt; prefix '-' for descending."
-            " Attribute and ancestor sorts need the listed relations to reach one object type."
+            "A field of the related record, as on an object list: name, objectType, a scalar"
+            " attribute, ancestor:<type>, or (live only) createdAt or updatedAt; or relationship,"
+            " the label each row shows. Prefix '-' for descending. Records without the attribute"
+            " sort last; an ancestor sort needs the listed relations to reach one object type."
             " Omitted: name"
         ),
     ),

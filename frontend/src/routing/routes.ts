@@ -6,7 +6,8 @@
 
 import type { ApplicationDefinition, EngineModel, RouteState, ViewDefinition } from "@/types";
 import { DEFAULT_COLLECTION_QUERY, DEFAULT_WORKSPACE } from "@/model/defaults";
-import { applicationFor } from "@/model/lookup";
+import { applicationFor, objectTypeFor } from "@/model/lookup";
+import { listSortFields } from "@/model/fields";
 
 function viewDefaults(view: ViewDefinition | undefined) {
   return {
@@ -56,7 +57,15 @@ export function parseRoute(
       const candidateSort = query.get("sort");
       const requestedPageSize = Number(query.get("pageSize"));
       const tableConfig = view.type === "table" ? view.config : undefined;
-      const allowedSorts = new Set((tableConfig?.sortFields ?? []).flatMap((field) => [field, `-${field}`]));
+      // Every column sorts (S4R3 revision), plus the view's further declared sort fields.
+      const objectType =
+        view.type === "table" && view.objectTypeKey ? objectTypeFor(model, view.objectTypeKey) : undefined;
+      const allowedSorts = new Set(
+        (objectType && tableConfig
+          ? listSortFields(model, [objectType], tableConfig.columns, tableConfig.sortFields, true)
+          : []
+        ).flatMap((field) => [field, `-${field}`]),
+      );
       const filters = Array.from(query.entries())
         .filter(([key]) => key.startsWith("filter."))
         .flatMap(([key, value]) => {

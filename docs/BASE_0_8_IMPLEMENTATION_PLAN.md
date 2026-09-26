@@ -511,6 +511,56 @@ systems application's mappings panel declare nothing and list by name. The gener
 stays on schema 0.6 as the installed 0.6 case; S4R3 may give it sort options when its browser runner
 needs a second configuration. The frontend type carries the two fields; S4R3 consumes them.
 
+**S4R3 delivered 2026-09-26.** `ui/TableSort` is the one sort element. `useTableSort` holds a list's
+sort, its model-fed fields and the polite announcement; `SortHeader` renders a sortable header
+(Lucide `ArrowUpDown` shown quietly on hover and focus, accent `ArrowUp`/`ArrowDown` when sorted, the
+sorted button named "Name, sorted ascending"); `SortMenu` is an icon-only `ui/ActionMenu`, which gained
+radio sections, a trigger icon and a tooltip: a **Sort by** section with one radio item per field and
+an **Order** section. The menu appears only for a sortable field without a visible header. A declared
+field with no column, or a column hidden through Display, puts it in the surface's toolbar beside
+Filter and Display (`hasHeaderlessField`). `ObjectTable` shows it beside **Show all columns**, narrow
+widths only, while one of its collapsed columns is sortable. No starter list has headerless relation
+sort fields, so relation panels show headers only. The collection lens (`view.config.sortFields`),
+record panels (the listed type's sortable columns) and relation panels (`sortFields`, `defaultSort`,
+live-only timestamps dropped in drafts and history) use it. The lens's toolbar **Sort** popover and
+the relation panel's inline **Sort** select, with its fixed name and creation-time options, are gone.
+A relation panel without sort fields lists by name and its headers are plain. The volume model stays
+on schema 0.6 as that case; the starter's declared panels are the configured case.
+
+Evidence: `ObjectTable.test` (header states, toggling, announcement, menu only when needed, keyboard
+menu, narrow-only class), `RelationsPanel.test` (declared default, header toggle, menu for a headerless
+field, no sort without configuration, draft timestamps), `CollectionView.test`. The S5 runner's
+starter part sorts the relation panel (declared default, value code both ways), the record panel and
+the master-values lens (header, then the toolbar menu for Sort order) on a domain and a codelist in
+live, draft and history by keyboard. It checks the request, `aria-sort`, the announcement and the
+aligned relation toolbar. At 390px it sorts relation headers, uses the record panel's narrow menu until
+all columns show and uses the lens menu. The volume part checks the unconfigured relation panel in
+all three contexts. `wp9-navigation` toggles the lens header by keyboard. The `collection-table-*`,
+`record-detail-*` and `draft-detail-light` baselines were inspected and updated: no Sort popover, the
+relation toolbar's search and **Add relationship** at one height, accent arrows. They also absorb
+drift that predates S4R3: S4R2's "Model 0.8.0 · Schema 0.7" label, and S5's scroll-window footer
+replacing the page buttons.
+
+**S4R3 revised 2026-09-26 (D24).** In review, lists looked like a zebra: a few headers sorted, most
+did not, and the Sort button appeared on some lists only. Three causes compounded: each surface took
+its sort fields from a different source (view `sortFields`, panel `sortFields`, or the `sortable`
+attributes among a record panel's columns), the menu rule depended on layout, and the starter flagged
+only ten attribute types `sortable`. The revision applies one rule. The server sorts by any non-JSON
+attribute (`objects._sort_attribute`), across several related types with records lacking it last,
+and by `objectType` and `relationship` labels from the model, then by name (`_label_sort`). The UI
+derives every list's fields with `model/fields.listSortFields`: sortable columns in column order, then
+declared `sortFields`. `SortMenu` is always in the toolbar when a list has fields; the narrow-only
+menu is gone. The hidden header icon sits in the header padding (absolutely positioned) because as an
+inline element it widened columns and pushed the relation table's Actions column to the panel edge.
+Model validation relaxes to match, and a relations panel may declare `defaultSort` alone; no model
+content changed, so the installed 0.8.0 release keeps its hash. Evidence: `test_paging_contract`
+(label sorts walked, reversed and sought in live, draft and history; an attribute across two types),
+`test_model` (any-field panel sorts, the ancestor-over-several-types refusal), `test_typed_table_queries`,
+the OpenAPI lock, the unit suites above, and the S5 runner. The runner now checks that the volume
+relation panel sorts every header but Actions, that the never-flagged value name sorts, and that the
+record panel's toolbar menu reaches a collapsed column at 390px. Baselines were re-inspected and
+updated for the lens, record, draft-detail and draft-editing surfaces.
+
 **Later package T1 — recorded timestamps in drafts and history.** Timestamp columns on draft,
 draft-base and revision object and relation rows (captured rows keep live values, draft writes set
 them), plus an internal creation ordinal so creation order is identical in every context. Backfill from
@@ -1118,3 +1168,4 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D21 | Where relation panel sort options come from | **Accepted 2026-09-26:** declared on the relations panel (`sortFields`, `defaultSort`) in schema 0.7; no hardcoded options; 0.5/0.6 panels sort by name | S4R1–S4R3 |
 | D22 | Default list order across contexts | **Accepted 2026-09-26:** name order in live, draft and history; recorded draft and history timestamps are a later package (T1) | S4R4, T1 |
 | D23 | Ancestor sort on relation lists | **Accepted 2026-09-26:** included now, one walk per list rather than per row, measured at volume | S4R1 |
+| D24 | Which columns sort | **Accepted 2026-09-26 (S4R3 review):** every data column sorts from its header, whatever the attribute's `sortable` flag, including Type and Relationship by their labels; every list shows the same toolbar Sort menu; D21's `sortFields` only add menu fields and `defaultSort` chooses the order. Exceptions: Actions, the computed path, JSON attributes and unrecorded timestamps | S4R3 |

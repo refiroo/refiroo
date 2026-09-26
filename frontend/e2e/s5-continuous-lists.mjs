@@ -4,7 +4,11 @@
 // default: 10,000 items, a 2,000-child group, a group cited 150 times) and exercises the collection
 // lens, a record panel and a relation panel in live, draft and history contexts at 1440px and
 // 390px. Part 2 boots the starter model and exercises the collection lens, the mapping lens, a
-// relation panel and the object picker. Set S5_VOLUME_SCALE=1 for the full 100,000-item volume.
+// relation panel and the object picker, then S4R3's one sort element: the lens, a record panel and
+// a relation panel sorted by keyboard from their headers (and the menu where a field has no header)
+// for two object types in live, draft and history at 1440px and 390px. Every data column sorts
+// (the S4R3 revision), so the volume model's schema 0.6 relation panel, which declares no sort,
+// sorts from its headers too. Set S5_VOLUME_SCALE=1 for the full 100,000-item volume.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
@@ -217,7 +221,8 @@ try {
     assert.ok(Number(state.rowCount) > dataset.shape.heavy_items * 0.9, `${context}: panel rowcount ${state.rowCount}`);
     const names = await panel.locator("[data-row-focus]").allTextContents();
     assert.deepEqual(names, [...names].sort(), `${context}: panel lists by name by default`);
-    await panel.getByRole("button", { name: "Name", exact: true }).click();
+    await panel.getByRole("button", { name: "Name, sorted ascending", exact: true }).focus();
+    await page.keyboard.press("Enter");
     await page.waitForFunction(
       ([first]) => document.querySelector("[aria-sort='descending']") && !document.body.textContent.includes(first + "Actions"),
       [names[0]],
@@ -237,7 +242,7 @@ try {
     assert.ok(state.first < Number(state.rowCount) - 60, `${context}: panel scrolls back up (${state.first})`);
   }
   checks.push(
-    `volume live/draft/history: the ${dataset.shape.heavy_items.toLocaleString("en-US")}-child record panel lists by name, sorts descending from its header, reaches its end by Ctrl+End with ≤50 rows held and scrolls back`,
+    `volume live/draft/history: the ${dataset.shape.heavy_items.toLocaleString("en-US")}-child record panel lists by name, sorts descending from its header by keyboard, reaches its end by Ctrl+End with ≤50 rows held and scrolls back`,
   );
 
   // Relation panel: the group cited 150 times, searched and scrolled, in each context.
@@ -255,15 +260,24 @@ try {
     await panel.getByText("End · 1 relationship", { exact: true }).waitFor();
     state = await windowState(panel);
     assert.equal(state.rows, 1, `${context}: relation search narrows to one`);
-    if (context === "live") {
-      await page.getByRole("combobox", { name: "Sort" }).selectOption("-createdAt");
-      await settle(page);
-    } else {
-      assert.equal(await page.getByRole("option", { name: "Newest first" }).count(), 0);
-    }
+    // Schema 0.6 declares no relation sort: it lists by name, and every data column still sorts.
+    await page.getByRole("textbox", { name: "Search relationships" }).fill("");
+    await panel.getByText(`End · ${dataset.shape.citations.toLocaleString("en-US")} relationships`).waitFor({ state: "attached" }).catch(() => undefined);
+    await panel.locator("[data-row-focus]").first().waitFor();
+    await panel.locator("th[aria-sort='ascending']").filter({ hasText: "Name" }).waitFor();
+    const headers = await panel.locator("thead th").allTextContents();
+    const sortable = await panel.locator("thead th button").count();
+    // Actions is the only header without a sort (ancestor columns sort when one type is listed).
+    assert.equal(sortable, headers.length - 1, `${context}: sortable headers ${sortable} of ${headers.join(", ")}`);
+    const byRelationship = page.waitForResponse((item) => new URL(item.url()).searchParams.get("sort") === "relationship");
+    await panel.getByRole("button", { name: "Relationship", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await byRelationship;
+    await page.getByRole("button", { name: "Sort: Relationship, ascending" }).waitFor();
+    assert.equal(await page.getByRole("combobox", { name: "Sort" }).count(), 0, `${context}: no sort select`);
   }
   checks.push(
-    `volume live/draft/history: the ${dataset.shape.citations.toLocaleString("en-US")}-relation panel pages continuously, reaches its end by keyboard, searches by related name, and offers creation-time sort only live`,
+    `volume live/draft/history: the ${dataset.shape.citations.toLocaleString("en-US")}-relation panel pages continuously, reaches its end by keyboard, searches by related name, and without declared sort fields lists by name while every data column, the relationship label included, sorts from its header`,
   );
   await assertAccessible(page, "s5-volume-relations-panel");
 
@@ -313,15 +327,16 @@ try {
   const domain = records.domain[0];
   const system = records.system[0];
   const number = (value) => String(value).padStart(3, "0");
+  const codelists = [];
   for (let index = 0; index < 70; index++)
-    await api("/objects", {
+    codelists.push(await api("/objects", {
       applicationKey: "rdm-master",
       workspaceKey: "default",
       objectTypeKey: "codelist",
       name: `Bulk codelist ${number(index)}`,
       parentObjectId: domain.id,
       attributes: [{ attributeTypeKey: "codelist-code", value: `bulk-${index}` }],
-    });
+    }));
   const values = [];
   for (let index = 0; index < 70; index++)
     values.push(
@@ -425,6 +440,131 @@ try {
   await page.keyboard.press("Escape");
   checks.push("starter: the relation panel reaches its end by Ctrl+End and searches; the object picker moves through options across a page boundary by keyboard and chooses with Enter");
 
+  // S4R3: one sort element. The codelist also cites values and holds master values, so the
+  // domain and the codelist each show a declared-sort relation panel and a record panel.
+  const codelist = codelists[0];
+  // A value represents one reference (one-to-many), so the codelist cites the ten the domain does not.
+  for (const value of values.slice(60))
+    await api("/relations", {
+      relationTypeKey: "reference-has-system-representation",
+      fromObjectId: codelist.id,
+      toObjectId: value.id,
+    });
+  for (let index = 0; index < 4; index++)
+    await api("/objects", {
+      applicationKey: "rdm-master",
+      workspaceKey: "default",
+      objectTypeKey: "master-value",
+      name: `Master ${index}`,
+      parentObjectId: codelist.id,
+      attributes: [
+        { attributeTypeKey: "master-id", value: `M${index}` },
+        { attributeTypeKey: "value-code", value: `MV${3 - index}` },
+        { attributeTypeKey: "value-name", value: `Master ${index}` },
+        { attributeTypeKey: "sort-order", value: 10 - index },
+      ],
+    });
+  const published = await api(`/workspaces/default/drafts`, { name: "S4R3 publication", source: "currentLive" });
+  const revision = await api(`/workspace-drafts/${published.id}/activation`, {
+    expectedDraftVersion: published.version,
+    expectedActiveRevisionId: null,
+  });
+  const sortDraft = await api(`/workspaces/default/drafts`, { name: "S4R3 draft", source: "currentLive" });
+  const sortContexts = [
+    ["live", ""],
+    ["draft", `&workspaceDraftId=${sortDraft.id}`],
+    ["history", `&workspaceRevisionId=${revision.id}`],
+  ];
+  const listedSort = (response) => {
+    const url = new URL(response.url());
+    return url.pathname.startsWith("/api/v1/") ? url.searchParams.get("sort") : null;
+  };
+  /** Sorts from a header by keyboard; checks the request, aria-sort and the announcement. */
+  async function sortFromHeader(scope, label, expected) {
+    const direction = expected.startsWith("-") ? "descending" : "ascending";
+    const header = scope.locator("th").filter({ has: page.getByRole("button", { name: new RegExp(`^${label}`) }) });
+    const response = page.waitForResponse((item) => listedSort(item) === expected);
+    await header.getByRole("button").first().focus();
+    await page.keyboard.press("Enter");
+    await response;
+    await scope.locator(`th[aria-sort='${direction}']`).filter({ hasText: label }).waitFor();
+    await page.getByText(`Sorted by ${label}, ${direction}`, { exact: true }).waitFor({ state: "attached" });
+  }
+  async function sortedCells(scope, column) {
+    const index = await scope.locator("thead th").evaluateAll(
+      (cells, label) => cells.findIndex((cell) => cell.textContent.startsWith(label)),
+      column,
+    );
+    return scope.locator(`tbody tr[data-row-index] td:nth-child(${index + 1})`).allTextContents();
+  }
+  const sortTargets = [
+    ["domain", domain, "Codelists of", "Codelist code"],
+    ["codelist", codelist, "Master values of", "Value code"],
+  ];
+  for (const [context, suffix] of sortContexts) {
+    for (const [type, record, panelName, panelColumn] of sortTargets) {
+      await page.goto(`${uiUrl}/apps/rdm-master/objects/${type}/${record.id}?workspaceKey=default${suffix}`);
+      // Relation panel: sorted by its declared default (the system), then by value code both ways.
+      const related = page.getByRole("region", { name: "System representations", exact: true });
+      await related.locator("[data-row-focus]").first().waitFor();
+      await related.locator("th[aria-sort='ascending']").filter({ hasText: "System" }).waitFor();
+      await sortFromHeader(related, "Value code", "value-code");
+      let codes = await sortedCells(related, "Value code");
+      assert.deepEqual(codes, [...codes].sort(), `${context} ${type}: relations by value code`);
+      await sortFromHeader(related, "Value code", "-value-code");
+      codes = await sortedCells(related, "Value code");
+      assert.deepEqual(codes, [...codes].sort().reverse(), `${context} ${type}: relations by value code, descending`);
+      // Every data column sorts, including one the model never flagged sortable; Actions does not.
+      await sortFromHeader(related, "Value name", "value-name");
+      assert.equal(await related.locator("th").filter({ hasText: "Actions" }).getByRole("button").count(), 0);
+      assert.equal(await page.getByRole("combobox", { name: "Sort" }).count(), 0, `${context} ${type}: no sort select`);
+      const toolbar = page.locator(".relation-toolbar").first();
+      const search = await toolbar.locator(".search-box").boundingBox();
+      const add = toolbar.getByRole("button", { name: "Add relationship" });
+      if (context !== "history") {
+        const addBox = await add.boundingBox();
+        assert.ok(Math.abs(addBox.height - search.height) <= 1, `${context} ${type}: search ${search.height}px, add ${addBox.height}px`);
+        assert.ok(Math.abs(addBox.y + addBox.height / 2 - (search.y + search.height / 2)) <= 1, `${context} ${type}: toolbar aligned`);
+      } else assert.equal(await add.count(), 0);
+
+      // Record panel: sorted by name, then by a sortable attribute from its header.
+      const records = page.getByRole("region", { name: new RegExp(`^${panelName}`) });
+      await records.locator("[data-row-focus]").first().waitFor();
+      await records.locator("th[aria-sort='ascending']").filter({ hasText: "Name" }).waitFor();
+      await sortFromHeader(records, panelColumn, type === "domain" ? "codelist-code" : "value-code");
+      codes = await sortedCells(records, panelColumn);
+      assert.deepEqual(codes, [...codes].sort(), `${context} ${type}: record panel by ${panelColumn}`);
+      if (context === "live" && type === "codelist") {
+        await assertAccessible(page, "s4r3-record-sorting");
+        await page.screenshot({ path: resolve(harness.output, "s4r3-codelist-panels-1440.png"), fullPage: true });
+      }
+    }
+    // Lens: the header sorts; the menu offers the declared fields without a column.
+    await page.goto(`${uiUrl}/apps/rdm-master/views/master-values?workspaceKey=default${suffix}`);
+    const lens = page.getByRole("region", { name: "Master values table" });
+    await lens.locator("[data-row-focus]").first().waitFor();
+    await sortFromHeader(lens, "Value code", "value-code");
+    assert.equal(new URL(page.url()).searchParams.get("sort"), "value-code");
+    assert.equal(await page.getByRole("button", { name: "Sort", exact: true }).count(), 0, "no toolbar Sort popover");
+    // Sort order and Valid from have no column, so the toolbar carries the icon-only menu.
+    const menu = page.locator(".object-toolbar").getByRole("button", { name: "Sort: Value code, ascending" });
+    const response = page.waitForResponse((item) => listedSort(item) === "sort-order");
+    await menu.focus();
+    await page.keyboard.press("Enter");
+    const options = page.getByRole("menu", { name: "Sort: Value code, ascending" });
+    await options.getByRole("menuitemradio", { name: "Value code" }).waitFor();
+    assert.equal(await options.getByRole("menuitemradio", { name: "Value code" }).getAttribute("aria-checked"), "true");
+    await options.getByRole("menuitemradio", { name: "Sort order" }).focus();
+    await page.keyboard.press("Enter");
+    await response;
+    await page.getByRole("button", { name: "Sort: Sort order, ascending" }).waitFor();
+    assert.equal(await lens.locator("th[aria-sort]").count(), 0, `${context}: no header holds the menu's field`);
+    if (context === "live") await page.screenshot({ path: resolve(harness.output, "s4r3-lens-1440.png") });
+  }
+  checks.push(
+    "starter live/draft/history: for a domain and a codelist, the relation panel sorts by its declared default, by value code both ways and by the never-flagged value name from the header by keyboard, the record panel from its header, and the master-values lens from its header and, for a declared field without a column, from the toolbar sort menu; aria-sort and the announcement follow; no labelled sort control remains and the relation toolbar's search and Add relationship align",
+  );
+
   // 390px: mapping lens and picker at phone width.
   const narrow = await page.context().browser().newContext({ hasTouch: true, viewport: { width: 390, height: 844 } });
   const phone = await narrow.newPage();
@@ -443,8 +583,52 @@ try {
   await phone.getByRole("dialog", { name: "Connect an object" }).getByRole("listbox").getByRole("option").first().waitFor();
   assert.equal(await phone.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
   await phone.screenshot({ path: resolve(harness.output, "s5-starter-picker-390.png") });
+  await phone.keyboard.press("Escape");
+
+  // 390px sorting: the codelist's master values collapse their Sort order column, which the
+  // toolbar's menu still reaches; the lens menu works by keyboard.
+  for (const [type, record] of [["domain", domain], ["codelist", codelist]]) {
+    await phone.goto(`${uiUrl}/apps/rdm-master/objects/${type}/${record.id}?workspaceKey=default`);
+    const related = phone.getByRole("region", { name: "System representations", exact: true });
+    await related.locator("[data-row-focus]").first().waitFor();
+    const header = related.locator("th").filter({ has: phone.getByRole("button", { name: /^Value code/ }) });
+    const response = phone.waitForResponse((item) => listedSort(item) === "value-code");
+    await header.getByRole("button").focus();
+    await phone.keyboard.press("Enter");
+    await response;
+    assert.equal(await phone.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, `390px ${type}: no page scroll`);
+  }
+  const values390 = phone.getByRole("region", { name: /^Master values of/ });
+  await values390.locator("[data-row-focus]").first().waitFor();
+  const panelMenu = phone.getByRole("button", { name: "Sort: Name, ascending" });
+  assert.ok(await panelMenu.isVisible(), "390px: the record panel's toolbar menu reaches its collapsed Sort order column");
+  const toSortOrder = phone.waitForResponse((item) => listedSort(item) === "sort-order");
+  await panelMenu.focus();
+  await phone.keyboard.press("Enter");
+  await phone.getByRole("menuitemradio", { name: "Sort order" }).focus();
+  await phone.keyboard.press("Enter");
+  await toSortOrder;
+  await phone.screenshot({ path: resolve(harness.output, "s4r3-codelist-panels-390.png"), fullPage: true });
+  await phone.getByRole("button", { name: "Show all 5 columns" }).first().tap();
+  await values390.locator("th[aria-sort='ascending']").filter({ hasText: "Sort order" }).waitFor();
+  assert.ok(await phone.getByRole("button", { name: /^Sort: Sort order/ }).isVisible(), "390px: the menu stays in the toolbar");
+  await phone.goto(`${uiUrl}/apps/rdm-master/views/master-values?workspaceKey=default`);
+  const phoneLens = phone.getByRole("region", { name: "Master values table" });
+  await phoneLens.locator("[data-row-focus]").first().waitFor();
+  const toValidFrom = phone.waitForResponse((item) => listedSort(item) === "valid-from");
+  await phone.getByRole("button", { name: "Sort: Name, ascending" }).focus();
+  await phone.keyboard.press("Enter");
+  await phone.getByRole("menuitemradio", { name: "Valid from" }).focus();
+  await phone.keyboard.press("Enter");
+  await toValidFrom;
+  assert.equal(new URL(phone.url()).searchParams.get("sort"), "valid-from");
+  assert.equal(await phone.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
+  await phone.screenshot({ path: resolve(harness.output, "s4r3-lens-390.png") });
   await narrow.close();
   checks.push("starter 390px: the mapping lens scrolls to its end and the picker opens without horizontal page scroll");
+  checks.push(
+    "starter 390px: relation panels sort from their header by keyboard for a domain and a codelist; the record panel's toolbar menu sorts by its collapsed Sort order column; the lens menu sorts by a field without a column; no horizontal page scroll",
+  );
 } catch (error) {
   console.error(harness.log().slice(-3000));
   throw error;

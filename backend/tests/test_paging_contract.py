@@ -23,6 +23,7 @@ from volume_fixture import (
     WORKSPACE,
     scaled_shape,
     volume_app,
+    volume_model,
 )
 
 CONTEXTS = ("live", "draft", "history")
@@ -225,8 +226,10 @@ def test_relations_search_sort_seek_and_page_in_every_context(volume, context):
         assert "not recorded" in created.json()["error"]["message"]
     for refused in ("size", "relation", "sequenceId", "ancestor:vol-workspace"):
         assert _error(client, path, {**params, "sort": refused})["code"] == "invalid_sort"
-    # Without a relation type the group's relations can reach items and nodes: no attribute sort.
-    assert _error(client, path, {**params, "sort": RANK})["code"] == "invalid_sort"
+    # Without a relation type the group's relations reach items and nodes: an attribute still
+    # sorts (records without it last), an ancestor sort needs one type.
+    by_rank = _everything(client, path, {**params, "sort": RANK})
+    assert sorted(_ids(by_rank)) == sorted(_ids(by_name))
     assert _error(client, path, {**params, "sort": "ancestor:vol-group"})["code"] == "invalid_sort"
 
 
@@ -291,13 +294,56 @@ def test_relations_sort_by_the_related_types_attributes_and_ancestors(volume, co
     both = _get(client, path, {**heavy, "pageSize": 500, "includeTotal": True})
     kinds = {row["relation"]["relationTypeKey"] for row in both["items"]}
     assert kinds == {GROUP_CONTAINS_ITEM, GROUP_CONTAINS_NODE}
-    assert _error(client, path, {**heavy, "sort": RANK})["code"] == "invalid_sort"
+    # An attribute sorts across both types: typed values first, records without one last.
+    mixed = _get(client, path, {**heavy, "sort": RANK, "pageSize": 500})["items"]
+    ranks = [_value(row, RANK) for row in mixed]
+    present = [rank for rank in ranks if rank is not None]
+    assert present == sorted(present) and ranks[: len(present)] == present
+    assert _error(client, path, {**heavy, "sort": "ancestor:vol-group"})["code"] == "invalid_sort"
     only_nodes = _get(client, path, {**heavy, "relationTypeKey": GROUP_CONTAINS_NODE, "sort": RANK})
     assert {row["relation"]["relationTypeKey"] for row in only_nodes["items"]} == {GROUP_CONTAINS_NODE}
 
 
 def _value(row: dict[str, Any], key: str) -> Any:
     return next((a["value"] for a in row["object"]["attributes"] if a["attributeTypeKey"] == key), None)
+
+
+@pytest.mark.parametrize("context", CONTEXTS)
+def test_type_and_relationship_sort_by_the_labels_rows_show(volume, context):
+    """Every data column sorts (S4R3 revision): Type and Relationship order by their model labels,
+    then by name, and page, walk and seek like any other sort."""
+    client, dataset = volume
+    model = volume_model()
+    type_names = {item["key"]: item["name"] for item in model["objectTypes"]}
+    relation_types = {item["key"]: item for item in model["relationTypes"]}
+
+    def relationship(row: dict[str, Any]) -> str:
+        definition = relation_types[row["relation"]["relationTypeKey"]]
+        return definition["name"] if row["direction"] == "outgoing" else definition["reverseName"]
+
+    # The heavy group contains items and nodes and is cited, so both labels vary down the list.
+    path = "/api/v1/relations"
+    params = {**_context(context, dataset), "objectId": dataset.heavy_group_id}
+    for field, label in (
+        ("relationship", relationship),
+        ("objectType", lambda row: type_names[row["object"]["objectTypeKey"]]),
+    ):
+        rows = _everything(client, path, {**params, "sort": field})
+        keys = [(label(row), row["object"]["name"]) for row in rows]
+        assert len({key[0] for key in keys}) > 1, f"{field}: one label only"
+        assert keys == sorted(keys), field
+        _walk(client, path, {**params, "sort": field}, _ids(rows))
+        reverse = _everything(client, path, {**params, "sort": f"-{field}"})
+        assert [(label(row), row["object"]["name"]) for row in reverse] == sorted(keys, reverse=True)
+        target = keys[len(keys) // 2][0]
+        seeked = _get(client, path, {**params, "sort": field, "seek": target, "includeTotal": True})
+        assert seeked["startIndex"] == next(i for i, key in enumerate(keys) if key[0] >= target)
+
+    # On an object list every record has the list's type, so Type orders by name.
+    objects = f"/api/v1/objects/{ITEM}"
+    scope = {**_context(context, dataset), "parentObjectId": dataset.heavy_group_id}
+    by_name = _ids(_everything(client, objects, {**scope, "sort": "name"}))
+    _walk(client, objects, {**scope, "sort": "objectType"}, by_name)
 
 
 @pytest.mark.parametrize("context", CONTEXTS)

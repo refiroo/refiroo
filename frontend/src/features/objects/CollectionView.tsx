@@ -6,12 +6,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
-import { attributeName, isQueryableField } from "@/model/fields";
+import { attributeName, isQueryableField, listSortFields } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import { InlineError } from "@/ui/InlineError";
 import { Icon, ModelIcon } from "@/ui/Icon";
 import { ObjectTable } from "@/ui/ObjectTable";
 import { TableDisplay, useTableDisplay } from "@/ui/TableDisplay";
+import { SortMenu, useTableSort } from "@/ui/TableSort";
 import { ObjectToolbar } from "@/features/objects/ObjectToolbar";
 import { CollectionScope } from "@/features/objects/CollectionScope";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
@@ -124,6 +125,12 @@ export function ObjectCollectionView({
     ...(objectType?.attributes.slice(0, 4).map((item) => item.attributeTypeKey) ?? []),
   ];
   const display = useTableDisplay(columns, `${application.key}:${view.key}`);
+  const sorting = useTableSort({
+    sort: query.sort,
+    fields: objectType ? listSortFields(model, [objectType], columns, view.config.sortFields, live) : [],
+    onSort: (sort) => onQueryChange({ ...query, sort, anchor: undefined }),
+    labelFor: (field) => attributeName(model, field),
+  });
   if (!objectType) return <div className="empty-state">This configured view does not select an object type.</div>;
 
   return (
@@ -188,6 +195,7 @@ export function ObjectCollectionView({
               urlBacked
             />
           }
+          sortMenu={<SortMenu sorting={sorting} />}
           model={model}
           view={view}
           query={query}
@@ -203,9 +211,7 @@ export function ObjectCollectionView({
             columnWidths={display.widths}
             onColumnWidth={display.setWidth}
             identityColumn={display.identity}
-            sort={query.sort}
-            sortFields={view.config.sortFields}
-            onSort={(sort) => onQueryChange({ ...query, sort, anchor: undefined })}
+            sorting={sorting}
             list={pages}
             pageSize={query.pageSize}
             seekLabel={query.sort ? attributeName(model, query.sort.replace(/^-/, "")).toLowerCase() : undefined}

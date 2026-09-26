@@ -5,13 +5,12 @@ import { ScrollWindow } from "@/ui/ScrollWindow";
 import { formatValue } from "@/ui/formatValue";
 import { attributeName, fieldValue } from "@/model/fields";
 import { ResizeHandle } from "@/ui/ResizeHandle";
+import { SortAnnouncement, SortHeader, headerSort, type TableSort } from "@/ui/TableSort";
 
 export function ObjectTable({
   compact = false,
   identityColumn,
-  sort,
-  sortFields = [],
-  onSort,
+  sorting,
   model,
   columns,
   list,
@@ -29,9 +28,12 @@ export function ObjectTable({
 }: {
   compact?: boolean;
   identityColumn?: string;
-  sort?: string;
-  sortFields?: string[];
-  onSort?: (sort: string) => void;
+  /**
+   * The list's model-fed sort (`useTableSort`): a header sorts when its column is a sort field.
+   * The caller's toolbar carries the Sort menu, which also reaches columns collapsed at narrow
+   * widths or hidden through Display.
+   */
+  sorting?: TableSort;
   model: EngineModel;
   columns: string[];
   /** The continuous window of rows; the table scrolls it (ADR-030). */
@@ -58,14 +60,17 @@ export function ObjectTable({
   return (
     <>
       {columns.length > 3 && (
-        <button
-          className="secondary mobile-columns-toggle"
-          aria-expanded={allColumns}
-          onClick={() => setAllColumns(!allColumns)}
-        >
-          {allColumns ? "Show fewer columns" : `Show all ${columns.length} columns`}
-        </button>
+        <div className="table-controls table-controls-narrow">
+          <button
+            className="secondary mobile-columns-toggle"
+            aria-expanded={allColumns}
+            onClick={() => setAllColumns(!allColumns)}
+          >
+            {allColumns ? "Show fewer columns" : `Show all ${columns.length} columns`}
+          </button>
+        </div>
       )}
+      {sorting && <SortAnnouncement sorting={sorting} />}
       <ScrollWindow
         list={list}
         label={label}
@@ -87,20 +92,13 @@ export function ObjectTable({
                   key={column}
                   className={secondary(column)}
                   scope="col"
-                  aria-sort={
-                    sort?.replace(/^-/, "") === column ? (sort.startsWith("-") ? "descending" : "ascending") : undefined
-                  }
+                  aria-sort={sorting && headerSort(sorting, column)}
                   style={
                     columnWidths[column] ? { width: columnWidths[column], minWidth: columnWidths[column] } : undefined
                   }
                 >
-                  {onSort && sortFields.includes(column) ? (
-                    <button className="column-sort" onClick={() => onSort(sort === column ? `-${column}` : column)}>
-                      {attributeName(model, column)}
-                      {sort?.replace(/^-/, "") === column && (
-                        <span aria-hidden="true">{sort.startsWith("-") ? " ↓" : " ↑"}</span>
-                      )}
-                    </button>
+                  {sorting ? (
+                    <SortHeader field={column} label={attributeName(model, column)} sorting={sorting} />
                   ) : (
                     attributeName(model, column)
                   )}

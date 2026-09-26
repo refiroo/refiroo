@@ -71,6 +71,24 @@ All notable changes to this project are documented in this file. The format foll
   canonical document so earlier releases keep their hash. The starter model moves to schema 0.7,
   content release 0.8.0: its system panels sort by system, value code and name, its translation
   panels by language, translated name and name, and `translated-name` becomes sortable.
+- Base 0.8 S4R3: one sort element for table-shaped lists (`ui/TableSort`), and one rule: every data
+  column sorts. Column headers sort: a quiet sort icon on hover and focus (drawn in the header's
+  padding, so columns never widen), an accent up or down arrow on the sorted column, activation toggling
+  the direction, `aria-sort`, an accessible name stating the order and a polite announcement. Every
+  list with sort fields shows the same icon-only **Sort** menu in its toolbar (radio items per field
+  plus the direction, with a tooltip), which also reaches columns collapsed at 390px or hidden through
+  Display and fields a view or panel declares without a column. The collection lens, record panels and
+  relation panels use it. Removed: the lens toolbar's **Sort** popover and the relation panel's inline
+  **Sort** select with its fixed name and creation-time options. `ui/ActionMenu` gains radio sections,
+  a trigger icon and a tooltip.
+- Sorting no longer depends on the attribute type's `sortable` flag: object and relation lists sort by
+  any non-JSON attribute, and a relation list over several related types sorts by an attribute with
+  records whose type lacks it last. `objectType` sorts by the type's model name and, on relation
+  lists, `relationship` by the label each row shows, both then by name. The only data columns that do
+  not sort are the computed path, JSON attributes and, outside live data, the unrecorded timestamps.
+  Model validation follows: view and relations-panel sort fields accept any non-JSON attribute plus
+  `objectType` and (panels) `relationship`, and a relations panel may declare `defaultSort` alone.
+  The OpenAPI lock is re-baselined for the two `sort` descriptions.
 - Collection URLs hold one `anchor` cursor for the page at the top of the list instead of a
   `cursor` trail, written as the user scrolls without adding history entries. Older links with
   `cursor` parameters open at the start. Previous/Next page buttons and **Load more** in panels,

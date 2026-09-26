@@ -133,9 +133,15 @@
   .attribute-grid {
     grid-template-columns: minmax(0, 1fr);
   }
+  .table-controls {
+    justify-content: space-between;
+  }
+  .table-controls-narrow {
+    display: flex;
+  }
   .mobile-columns-toggle {
     display: block;
-    margin: 8px 12px;
+    margin-right: auto;
   }
   .object-table:not(.show-all-columns) .mobile-secondary-column,
   .mapping-table .mobile-secondary-column {

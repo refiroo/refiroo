@@ -259,7 +259,10 @@ def list_objects(
     search: str | None = None,
     sort: str | None = Query(
         default=None,
-        description="One built-in or model-declared sortable field; prefix '-' for descending",
+        description=(
+            "One field: name, id, objectType, (live only) createdAt or updatedAt, a scalar"
+            " attribute of the type, or ancestor:<type>; prefix '-' for descending"
+        ),
     ),
 ) -> ObjectPage:
     model = snapshot.model

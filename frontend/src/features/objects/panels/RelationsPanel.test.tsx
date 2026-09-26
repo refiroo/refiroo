@@ -1,8 +1,9 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "@/api/client";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
-import type { RelationsPanelDefinition } from "@/types";
+import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
+import type { RelationsPanelDefinition, WorkspaceDraft } from "@/types";
 import { RelationsPanel } from "@/features/objects/panels/RelationsPanel";
 
 vi.mock("@/api/client", () => ({ api: { relations: vi.fn(), deleteRelation: vi.fn() } }));
@@ -235,5 +236,94 @@ describe("RelationsPanel", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(screen.queryByText("Relationship delete unavailable")).not.toBeInTheDocument();
+  });
+
+  describe("sorting (S4R3)", () => {
+    const sorted: RelationsPanelDefinition = {
+      ...panel,
+      config: { ...panel.config, columns: ["name", "code"], sortFields: ["code", "name"], defaultSort: "-code" },
+    };
+    const lastSort = () => vi.mocked(api.relations).mock.lastCall?.[1]?.sort;
+    beforeEach(() => vi.restoreAllMocks());
+
+    it("sorts every data column and the relationship label without configuration", async () => {
+      render(
+        <RelationsPanel
+          model={testModel}
+          object={domainObject}
+          panel={{ ...panel, config: { ...panel.config, columns: ["name", "code", "active", "path"] } }}
+          onOpen={vi.fn()}
+        />,
+      );
+      await screen.findByText("Timetable types");
+      expect(lastSort()).toBe("name");
+      expect(screen.getByRole("columnheader", { name: /Name/ })).toHaveAttribute("aria-sort", "ascending");
+      // Active is not flagged sortable in the model, yet as a data column it sorts.
+      fireEvent.click(screen.getByRole("button", { name: "Active" }));
+      await waitFor(() => expect(lastSort()).toBe("active"));
+      fireEvent.click(screen.getByRole("button", { name: "Relationship" }));
+      await waitFor(() => expect(lastSort()).toBe("relationship"));
+      // The computed path is the one column the server cannot order.
+      expect(within(screen.getByRole("columnheader", { name: "Path" })).queryByRole("button")).toBeNull();
+      expect(screen.queryByRole("combobox", { name: "Sort" })).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Sort: Relationship, ascending" })).toBeInTheDocument();
+    });
+
+    it("sorts by the panel's declared default and toggles from the shared headers", async () => {
+      render(<RelationsPanel model={testModel} object={domainObject} panel={sorted} onOpen={vi.fn()} />);
+      await screen.findByText("Timetable types");
+      expect(lastSort()).toBe("-code");
+      expect(screen.getByRole("columnheader", { name: /Code/ })).toHaveAttribute("aria-sort", "descending");
+      fireEvent.click(screen.getByRole("button", { name: "Code, sorted descending" }));
+      await waitFor(() => expect(lastSort()).toBe("code"));
+      fireEvent.click(screen.getByRole("button", { name: "Name" }));
+      await waitFor(() => expect(lastSort()).toBe("name"));
+      expect(screen.getByText("Sorted by Name, ascending")).toHaveAttribute("role", "status");
+      // The same menu is present on every list with sort fields.
+      expect(screen.getByRole("button", { name: "Sort: Name, ascending" })).toBeInTheDocument();
+    });
+
+    it("offers declared fields without a column in the sort menu", async () => {
+      render(
+        <RelationsPanel
+          model={testModel}
+          object={domainObject}
+          panel={{ ...sorted, config: { ...sorted.config, columns: ["name"] } }}
+          onOpen={vi.fn()}
+        />,
+      );
+      await screen.findByText("Timetable types");
+      fireEvent.click(screen.getByRole("button", { name: "Sort: Code, descending" }));
+      fireEvent.click(await screen.findByRole("menuitemradio", { name: "Ascending" }));
+      await waitFor(() => expect(lastSort()).toBe("code"));
+    });
+
+    it("drops live-only timestamps from the declared fields in a draft", async () => {
+      vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+        api,
+        warning: "",
+        draft: { id: "d1" } as WorkspaceDraft,
+      });
+      render(
+        <RelationsPanel
+          model={testModel}
+          object={domainObject}
+          panel={{
+            ...sorted,
+            config: {
+              ...sorted.config,
+              columns: ["name", "updatedAt"],
+              sortFields: ["updatedAt", "name"],
+              defaultSort: "-updatedAt",
+            },
+          }}
+          onOpen={vi.fn()}
+        />,
+      );
+      await screen.findByText("Timetable types");
+      expect(lastSort()).toBe("name");
+      expect(within(screen.getByRole("columnheader", { name: "Updated" })).queryByRole("button")).toBeNull();
+      expect(screen.getByRole("columnheader", { name: /Name/ })).toHaveAttribute("aria-sort", "ascending");
+    });
   });
 });

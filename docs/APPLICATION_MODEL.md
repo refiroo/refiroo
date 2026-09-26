@@ -45,9 +45,11 @@ Features are typed JSON values. For example:
 Attribute-type features control engine behavior. `unique: true` enforces workspace-scoped uniqueness
 for the value at create and update (HTTP `409 duplicate_attribute_value`); it is not supported for
 `json` values and is rejected at model load. `searchable` includes the attribute in object search.
-`filterable` and `sortable` enable the schema 0.5 daily-use query grammar for non-JSON attributes.
-Table views select the subset exposed as controls; the API validates capability from the attribute
-definition itself.
+`filterable` enables the schema 0.5 daily-use filter grammar for non-JSON attributes; table views
+select the subset exposed as filter controls, and the API validates the capability from the attribute
+definition itself. Every non-JSON attribute sorts, whatever its `sortable` flag: every data column of
+a list sorts from its header (Base 0.8 S4R3 revision). `sortable` is still accepted and no longer
+changes behavior.
 `validation.minimum` and `validation.maximum` are numeric bounds and apply only to `integer` and
 `decimal` value types. Bounds must be finite numbers, and `minimum` cannot exceed `maximum`; invalid
 bounds or bounds declared on another value type are rejected at model load.
@@ -218,7 +220,9 @@ database IDs.
 ### Table view (`type: "table"`)
 
 Requires non-empty unique `columns`, `filterFields`, `sortFields`, a `defaultSort` selected from the
-declared sort fields and a `pageSize` from 1 to 100.
+declared sort fields and a `pageSize` from 1 to 100. Every column sorts regardless of `sortFields`;
+the declared fields add further fields (such as ones without a column) to the list's Sort menu. A sort
+field is a built-in (`id`, `name`, `objectType`, live timestamps) or a non-JSON attribute of the type.
 
 ### Mapping grid view (`type: "mappingGrid"`, schema 0.6)
 
@@ -344,15 +348,16 @@ Schema 0.7 lets a relations panel declare its sort options, as a table view does
 }
 ```
 
-`sortFields` and `defaultSort` are optional and declared together; a panel without them lists by name
-and offers no sort choice. The fields name the related record, and each must be one the relation list
-API accepts for every record the panel can list: `name`, a `sortable` non-JSON attribute attached to the
-related type, or `ancestor:<objectTypeKey>` for a type the related type can sit under through its
-`parentRelationTypeKeys`. An attribute or ancestor field needs the panel's relation types, direction and
-detail type to allow exactly one related object type; a panel over several sorts by `name` only.
-`defaultSort` names one of the fields, optionally prefixed with `-` for descending. The list must be
-non-empty and unique. A schema 0.5 or 0.6 model that declares either field is refused at the field's
-path. Timestamps are not panel sort options: they are recorded live only (D22).
+Every data column of a relations panel sorts from its header, as does the Relationship label, with or
+without these fields. `sortFields` (optional) adds fields to the panel's Sort menu; `defaultSort`
+(optional, alone or with `sortFields`) chooses the initial order, otherwise name. Each field names the
+related record and must be one the relation list API accepts: `name`, `objectType`, `relationship`, a
+non-JSON attribute attached to at least one related type (records without it sort last), or
+`ancestor:<objectTypeKey>` for a type the related type can sit under through its
+`parentRelationTypeKeys`; an ancestor field needs the panel's relation types, direction and detail type
+to allow exactly one related object type. `defaultSort` may be prefixed with `-` for descending.
+`sortFields` must be non-empty and unique. A schema 0.5 or 0.6 model that declares either field is
+refused at the field's path. Timestamps are not panel sort options: they are recorded live only (D22).
 
 Every panel has a type-specific configuration. Unknown properties are rejected. Startup validation
 also checks header and column fields, application membership, containment compatibility, relation

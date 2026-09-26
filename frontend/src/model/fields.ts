@@ -47,20 +47,40 @@ export function isQueryableField(field: string, live: boolean) {
 }
 
 /**
- * The columns of an object list the server can sort by in this context: the name, the recorded
- * timestamps (live only) and bound attributes whose type declares the `sortable` feature.
+ * Whether a list of records of `objectTypes` sorts by `field` in this data context: every data
+ * column does (S4R3 revision) — the name, the ID, the object type, a scalar attribute bound to one
+ * of the types, and an ancestor when the list holds one type. The exceptions are what the server
+ * cannot order: recorded timestamps outside live data, the computed path and JSON attributes. A
+ * relation list also sorts by the `relationship` label its rows show.
  */
-export function sortableColumns(
+export function isSortableField(
   model: EngineModel,
-  objectType: ObjectTypeDefinition,
-  columns: string[],
+  objectTypes: readonly ObjectTypeDefinition[],
+  field: string,
   live: boolean,
+  { relationList = false }: { relationList?: boolean } = {},
 ) {
-  return columns.filter((column) => {
-    if (column === "name") return true;
-    if (LIVE_ONLY_FIELDS.includes(column)) return live;
-    if (!objectType.attributes.some((binding) => binding.attributeTypeKey === column)) return false;
-    const definition = model.attributeTypes.find((item) => item.key === column);
-    return Boolean(definition && definition.valueType !== "json" && definition.features.sortable);
-  });
+  if (["name", "id", "objectType"].includes(field)) return true;
+  if (field === "relationship") return relationList;
+  if (LIVE_ONLY_FIELDS.includes(field)) return live;
+  if (field.startsWith("ancestor:")) return objectTypes.length === 1;
+  if (!objectTypes.some((type) => type.attributes.some((binding) => binding.attributeTypeKey === field))) return false;
+  return model.attributeTypes.find((item) => item.key === field)?.valueType !== "json";
+}
+
+/**
+ * The fields a list offers to sort by: its sortable columns in column order, then any further
+ * fields the model declares for the sort menu (`sortFields`) that are sortable here.
+ */
+export function listSortFields(
+  model: EngineModel,
+  objectTypes: readonly ObjectTypeDefinition[],
+  columns: readonly string[],
+  declared: readonly string[],
+  live: boolean,
+  options?: { relationList?: boolean },
+) {
+  return [...new Set([...columns, ...declared])].filter((field) =>
+    isSortableField(model, objectTypes, field, live, options),
+  );
 }

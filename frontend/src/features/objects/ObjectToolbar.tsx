@@ -2,7 +2,6 @@ import { useEffect, useState, type ReactNode } from "react";
 import { attributeName } from "@/model/fields";
 import type { CollectionQueryState, EngineModel, TableViewDefinition, ValueType } from "@/types";
 import { Icon } from "@/ui/Icon";
-import { SelectField } from "@/ui/Selection";
 import { ControlPopover } from "@/ui/ControlPopover";
 
 const OPERATOR_LABELS: Record<string, string> = {
@@ -24,8 +23,11 @@ export function ObjectToolbar({
   placeholder,
   onChange,
   display,
+  sortMenu,
 }: {
   display: ReactNode;
+  /** The sort menu, when a declared sort field has no visible column header. */
+  sortMenu?: ReactNode;
   model: EngineModel;
   view: TableViewDefinition;
   query: CollectionQueryState;
@@ -37,11 +39,6 @@ export function ObjectToolbar({
     const filters = input.value === "" ? remaining : [...remaining, { field, ...input }];
     onChange({ ...query, filters });
   }
-
-  const sorts = view.config.sortFields.flatMap((field) => [
-    { id: field, label: `${attributeName(model, field)} (ascending)` },
-    { id: `-${field}`, label: `${attributeName(model, field)} (descending)` },
-  ]);
 
   return (
     <>
@@ -77,16 +74,8 @@ export function ObjectToolbar({
             )}
           </ControlPopover>
         )}
-        <ControlPopover label="Sort" icon="sort">
-          <SelectField
-            className="toolbar-field"
-            label="Sort"
-            value={query.sort}
-            options={sorts}
-            onChange={(sort) => onChange({ ...query, sort })}
-          />
-        </ControlPopover>
         {display}
+        {sortMenu}
       </div>
       <div className="filter-chips" aria-label="Applied filters">
         {query.filters.map((filter, index) => (

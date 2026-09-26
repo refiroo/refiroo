@@ -139,7 +139,8 @@ def _check_query_capability(
     index: ModelIndex,
 ) -> None:
     built_in = {"id", "name", "createdAt", "updatedAt"}
-    if field in built_in:
+    # Any list sorts by its records' object type name; filters take stored fields only.
+    if field in built_in or (purpose == "sort" and field == "objectType"):
         return
     object_type = index.object_types[view.objectTypeKey]
     if field not in {binding.attributeTypeKey for binding in object_type.attributes}:
@@ -149,12 +150,18 @@ def _check_query_capability(
             f"Field '{field}' is not supported for table {purpose}",
         )
     attribute = index.attribute_types[field]
-    capability = "filterable" if purpose == "filter" else "sortable"
-    if attribute.valueType == "json" or not attribute.features.get(capability):
+    if attribute.valueType == "json":
         raise ModelReferenceError(
             "invalid_model",
             f"{view_path}/config/{purpose}Fields",
-            f"Attribute '{field}' is not {capability}",
+            f"Attribute '{field}' holds JSON and cannot be used to {purpose}",
+        )
+    # Every scalar attribute sorts (S4R3 revision); filtering stays opt-in per attribute type.
+    if purpose == "filter" and not attribute.features.get("filterable"):
+        raise ModelReferenceError(
+            "invalid_model",
+            f"{view_path}/config/{purpose}Fields",
+            f"Attribute '{field}' is not filterable",
         )
 
 

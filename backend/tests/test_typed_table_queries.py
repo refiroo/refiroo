@@ -195,8 +195,14 @@ def test_numeric_ranges_and_capability_errors_are_model_aware():
         assert response.status_code == 200
         assert [item["id"] for item in response.json()["items"]] == [dict(created)[5]]
 
+        # Every scalar attribute sorts, whether or not its type is flagged sortable.
+        by_value_name = client.get(
+            "/api/v1/objects/master-value", params={"search": token, "sort": "value-name"}
+        )
+        assert by_value_name.status_code == 200, by_value_name.text
+        # A field the type does not have is still refused at the parameter.
         invalid_sort = client.get(
-            "/api/v1/objects/master-value", params={"sort": "value-name"}
+            "/api/v1/objects/master-value", params={"sort": "translated-name"}
         )
         assert invalid_sort.status_code == 422
         assert invalid_sort.json()["error"]["code"] == "invalid_sort"

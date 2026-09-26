@@ -100,7 +100,8 @@ The browser provides model-defined collection tables with:
 
 - free-text search across names and configured searchable fields;
 - visible, model-labelled typed filter facets selected by the table definition;
-- one configured sort at a time, including descending order;
+- one sort at a time, including descending order, by any data column from its header or from the
+  list's icon-only Sort menu, which every table carries;
 - a declared page size and forward/backward cursor navigation;
 - empty and retryable error states; and
 - URL-backed workspace, search, filter, sort and page-size state.
