@@ -8,6 +8,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
+from model_support import MODEL_PATH, starter_at_schema
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
@@ -24,20 +25,13 @@ from app.services.model.registry import (
     model_registry,
 )
 
-MODEL_PATH = Path(__file__).resolve().parents[2] / "model" / "rdm-starter.json"
 
-
-def _schema_05_model_path(tmp_path: Path) -> Path:
-    """Create a schema 0.5 model file from the current starter for transition testing."""
-    source = json.loads(MODEL_PATH.read_text())
-    source["schemaVersion"] = "0.5"
-    source["release"]["version"] = "0.6.0"
-    source["applications"] = [
-        {**app, "views": [v for v in app["views"] if v["type"] == "table"]}
-        for app in source["applications"]
-    ]
-    path = tmp_path / "rdm-starter-05.json"
-    path.write_text(json.dumps(source))
+def _candidate_model_path(tmp_path: Path, schema_version: str) -> Path:
+    """The starter as a transition candidate at ``schema_version``."""
+    if schema_version == "0.7":
+        return MODEL_PATH
+    path = tmp_path / f"rdm-starter-{schema_version}.json"
+    path.write_text(json.dumps(starter_at_schema(schema_version)))
     return path
 
 
@@ -45,9 +39,7 @@ def _legacy_database(database_path: Path) -> str:
     config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
     config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
     command.upgrade(config, "head")
-    source = json.loads(MODEL_PATH.read_text())
-    for application in source["applications"]:
-        application["views"] = [view for view in application["views"] if view["type"] == "table"]
+    source = starter_at_schema("0.5")
     source["schemaVersion"] = "0.4"
     source["release"]["version"] = "0.5.0"
     engine = create_engine(f"sqlite:///{database_path}")
@@ -71,7 +63,7 @@ def _legacy_database(database_path: Path) -> str:
 def test_offline_schema_upgrade_installs_checks_and_atomically_selects_candidate(tmp_path, monkeypatch):
     database_path = tmp_path / "upgrade.db"
     old_release_id = _legacy_database(database_path)
-    model_05 = _schema_05_model_path(tmp_path)
+    model_05 = _candidate_model_path(tmp_path, "0.5")
     engine = create_engine(f"sqlite:///{database_path}")
     with Session(engine) as session, pytest.raises(
         UnsupportedSelectedModelSchema
@@ -96,7 +88,7 @@ def test_offline_schema_upgrade_installs_checks_and_atomically_selects_candidate
 def test_offline_schema_upgrade_rolls_back_installation_when_compatibility_fails(tmp_path, monkeypatch):
     database_path = tmp_path / "blocked.db"
     old_release_id = _legacy_database(database_path)
-    model_05 = _schema_05_model_path(tmp_path)
+    model_05 = _candidate_model_path(tmp_path, "0.5")
     diagnostic = ModelDiagnostic(
         severity="error",
         code="migration_needed",
@@ -127,7 +119,7 @@ def test_offline_schema_upgrade_rolls_back_installation_when_compatibility_fails
 def test_offline_schema_upgrade_rejects_a_selected_schema_05_release(tmp_path, monkeypatch):
     database_path = tmp_path / "already-upgraded.db"
     _legacy_database(database_path)
-    model_05 = _schema_05_model_path(tmp_path)
+    model_05 = _candidate_model_path(tmp_path, "0.5")
     with monkeypatch.context() as patch:
         patch.setenv("DATABASE_URL", f"sqlite:///{database_path}")
         reload_settings()
@@ -198,13 +190,13 @@ def test_schema_04_release_remains_listable_and_exportable_as_history():
         assert detail.json()["model"] == {"schemaVersion": "0.4", "historical": True}
 
 
-@pytest.mark.parametrize("candidate_schema", ["0.5", "0.6"])
+@pytest.mark.parametrize("candidate_schema", ["0.5", "0.6", "0.7"])
 def test_actual_startup_recovery_command_selects_supported_candidate_and_restarts(
     tmp_path, monkeypatch, candidate_schema
 ):
     database_path = tmp_path / "recovery.db"
     old_release_id = _legacy_database(database_path)
-    candidate_path = _schema_05_model_path(tmp_path) if candidate_schema == "0.5" else MODEL_PATH
+    candidate_path = _candidate_model_path(tmp_path, candidate_schema)
     with monkeypatch.context() as patch:
         patch.setenv("DATABASE_URL", f"sqlite:///{database_path}")
         patch.setenv("RDM_MODEL_PATH", str(candidate_path))

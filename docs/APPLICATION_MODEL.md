@@ -10,7 +10,7 @@ control presentation.
 
 ```json
 {
-  "schemaVersion": "0.6",
+  "schemaVersion": "0.7",
   "release": {},
   "product": {},
   "attributeTypes": [],
@@ -197,7 +197,7 @@ context; activation revalidates staged changes with current live content (ADR-02
 An application selects object types and exposes model-defined views. Object types may be shared across
 applications. Applications use immutable keys; names are presentation labels and are not API filters.
 
-ADR-029 distinguishes a declaration from its navigation placement. In schema 0.5/0.6, the frontend
+ADR-029 distinguishes a declaration from its navigation placement. In schema 0.5–0.7, the frontend
 groups views by their source object type and presents them as lenses of one contextual collection:
 
 - `table.objectTypeKey` is the source type;
@@ -332,6 +332,28 @@ from the related object's runtime path and derives its heading from that object 
 `ancestor:system` renders a `System` column for System Values contained directly by a System or nested
 under System Groups.
 
+Schema 0.7 lets a relations panel declare its sort options, as a table view does:
+
+```json
+"config": {
+  "relationTypeKeys": ["object-has-translation"],
+  "direction": "outgoing",
+  "columns": ["ancestor:language", "name", "translated-name", "active"],
+  "sortFields": ["ancestor:language", "translated-name", "name"],
+  "defaultSort": "ancestor:language"
+}
+```
+
+`sortFields` and `defaultSort` are optional and declared together; a panel without them lists by name
+and offers no sort choice. The fields name the related record, and each must be one the relation list
+API accepts for every record the panel can list: `name`, a `sortable` non-JSON attribute attached to the
+related type, or `ancestor:<objectTypeKey>` for a type the related type can sit under through its
+`parentRelationTypeKeys`. An attribute or ancestor field needs the panel's relation types, direction and
+detail type to allow exactly one related object type; a panel over several sorts by `name` only.
+`defaultSort` names one of the fields, optionally prefixed with `-` for descending. The list must be
+non-empty and unique. A schema 0.5 or 0.6 model that declares either field is refused at the field's
+path. Timestamps are not panel sort options: they are recorded live only (D22).
+
 Every panel has a type-specific configuration. Unknown properties are rejected. Startup validation
 also checks header and column fields, application membership, containment compatibility, relation
 existence and direction, unique detail/panel keys and page-size bounds. Configuration contains only
@@ -339,10 +361,11 @@ stable model keys and presentation semantics; the React API adapter owns all bac
 
 ## Versioning
 
-`schemaVersion` versions the model language; the starter content release `0.7.0` uses schema `0.6`.
+`schemaVersion` versions the model language; the starter content release `0.8.0` uses schema `0.7`.
 Schema 0.4 added object-level cross-field validation, required initial relationships and scoped
 relationship uniqueness to the 0.3 detail-composition contract. Schema 0.5 adds strict typed table
-views. Schema 0.6 adds the `mappingGrid` view type. `release.version` versions one model package.
+views. Schema 0.6 adds the `mappingGrid` view type. Schema 0.7 adds relations-panel sort options
+(`sortFields`, `defaultSort`). `release.version` versions one model package.
 Each distinct
 validated model is installed as an immutable database release identified by its content hash.
 
@@ -360,12 +383,15 @@ selection operation under ADR-027; it does not mutate an immutable model release
 
 ADR-021 reserves schema 0.5 for a strict `table` definition. Product 0.7 adds `mappingGrid` in
 schema 0.6; a schema 0.5 model remains valid and activatable under schema 0.6 (the `mappingGrid` view
-type is an addition, not a replacement). Stored schema 0.4 releases remain historical immutable JSON
+type is an addition, not a replacement). Product 0.8 adds schema 0.7, again a strict superset: schema
+0.5 and 0.6 models keep parsing and activating, and features added in a later schema are refused at their
+path. Absent 0.7 fields are omitted from the canonical document, so a 0.5 or 0.6 release keeps its
+content hash. Stored schema 0.4 releases remain historical immutable JSON
 but cannot be activated. `form`, `dashboard` and `tree` view types remain unimplemented. A future
 workspace-scoped release assignment may stage model and data migrations, but mixed schema-language
 operation requires explicit support for every concurrently served version.
 
-Development databases can reset and bootstrap the schema 0.6 starter. To preserve compatible runtime
+Development databases can reset and bootstrap the schema 0.7 starter. To preserve compatible runtime
 data, stop traffic and run from `backend/`:
 
 ```bash
@@ -379,6 +405,6 @@ environment so it targets the same `DATABASE_URL`; `/health` remains HTTP `503` 
 has succeeded and the API is restarted.
 
 The command reads the selected schema 0.4 release without starting the request runtime, validates and
-installs a supported schema 0.5 or 0.6 candidate, runs the normal compatibility analysis and atomically
+installs a supported schema 0.5, 0.6 or 0.7 candidate, runs the normal compatibility analysis and atomically
 changes runtime state.
 Any validation, compatibility or concurrency failure rolls the transaction back.

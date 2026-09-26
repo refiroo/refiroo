@@ -230,7 +230,7 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
 
 ## Implemented
 
-- `model/rdm-starter.json`: schema-language 0.6/content-release 0.7.0 model with 22 attributes, 9 object
+- `model/rdm-starter.json`: schema-language 0.7/content-release 0.8.0 model (Base 0.8 S4R2; relations panels declare sort options) with 22 attributes, 9 object
   types, 13 relation types, 16 allowed triples, three applications, table and mapping grid collection
   views and typed detail compositions. Domain
   and Codelist objects can have optional System Value representations without joining the independent

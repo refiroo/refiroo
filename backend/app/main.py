@@ -68,7 +68,7 @@ async def lifespan(_: FastAPI):
             model_registry.mark_unhealthy()
             logger.error(
                 "RDM Engine cannot serve model-backed requests: the database selects schema %s, "
-                "but this version supports schema 0.5 and 0.6.\n"
+                "but this version supports schema 0.5, 0.6 and 0.7.\n"
                 "Stop all RDM Engine processes using this database, run this exact command in the "
                 "same configured environment, then restart the API:\n  %s\n"
                 "Until the transition succeeds, /health returns HTTP 503.",

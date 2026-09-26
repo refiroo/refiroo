@@ -32,6 +32,7 @@ from .attributes import (
     validate_object_attribute_rules,
 )
 from .audit import record_audit_event
+from .model.traversal import ancestor_type_keys
 from .model.validation.fields import ANCESTOR_FIELD_PREFIX
 from .pagination import (
     SortKey,
@@ -389,26 +390,6 @@ def _query_ancestor(
             "sort",
         )
     return columns.ancestor(statement, ancestor_type_key)
-
-
-def ancestor_type_keys(model: EngineModel, object_type_key: str) -> set[str]:
-    """The object types a record of ``object_type_key`` can sit under, at any depth."""
-    found: set[str] = set()
-    pending = [object_type_key]
-    while pending:
-        child = model.object_type(pending.pop())
-        if child is None:
-            continue
-        parent_relations = set(child.behavior.get("parentRelationTypeKeys", []))
-        for allowed in model.objectTypeRelations:
-            if (
-                allowed.relationTypeKey in parent_relations
-                and allowed.toObjectTypeKey == child.key
-                and allowed.fromObjectTypeKey not in found
-            ):
-                found.add(allowed.fromObjectTypeKey)
-                pending.append(allowed.fromObjectTypeKey)
-    return found
 
 
 def _typed_filter_predicates(

@@ -128,6 +128,10 @@ export interface RelationsPanelDefinition extends PanelDefinitionBase {
     direction: "outgoing" | "incoming" | "both";
     columns: string[];
     showRelationshipColumn?: boolean;
+    /** Schema 0.7: the related-record fields the panel sorts by; absent lists by name. */
+    sortFields?: string[];
+    /** Schema 0.7, with `sortFields`: one of them, `-` prefixed for descending. */
+    defaultSort?: string;
   };
 }
 

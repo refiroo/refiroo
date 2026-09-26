@@ -191,6 +191,11 @@ class RelationsPanelConfig(ModelDefinition):
     direction: Literal["outgoing", "incoming", "both"] = "both"
     columns: tuple[str, ...] = ("name", "objectType")
     showRelationshipColumn: bool = True
+    # Schema 0.7. Omitted from the canonical document when absent, so 0.5 and 0.6 hashes hold.
+    sortFields: tuple[str, ...] | None = Field(
+        default=None, min_length=1, exclude_if=lambda value: value is None
+    )
+    defaultSort: str | None = Field(default=None, exclude_if=lambda value: value is None)
 
 
 class TablePanelConfig(ModelDefinition):
@@ -293,7 +298,7 @@ class ModelReleaseDefinition(ModelDefinition):
 class EngineModel(ModelDefinition):
     model_config = ConfigDict(extra="forbid")
 
-    schemaVersion: Literal["0.5", "0.6"]
+    schemaVersion: Literal["0.5", "0.6", "0.7"]
     release: ModelReleaseDefinition
     product: ProductDefinition
     attributeTypes: tuple[AttributeTypeDefinition, ...]

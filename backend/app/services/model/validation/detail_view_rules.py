@@ -12,7 +12,8 @@ from ....models.schema import (
     TablePanelDefinition,
 )
 from ..diagnostics import ModelReferenceError
-from .fields import check_fields, check_panel_object_types
+from ..traversal import ancestor_type_keys, related_object_types
+from .fields import ANCESTOR_FIELD_PREFIX, check_fields, check_panel_object_types, require_schema
 from .index import ModelIndex
 
 
@@ -180,3 +181,94 @@ def _check_relations_panel(
     check_fields(
         panel.config.columns, related_types, index.object_types, label=label, path=panel_path
     )
+    _check_relations_panel_sort(model, panel, detail, panel_path, label, index)
+
+
+def _check_relations_panel_sort(
+    model: EngineModel,
+    panel: RelationsPanelDefinition,
+    detail: DetailViewDefinition,
+    panel_path: str,
+    label: str,
+    index: ModelIndex,
+) -> None:
+    """Declared sort options must be ones the relation list accepts for every record it lists.
+
+    ``name`` sorts any list; a sortable attribute or a reachable ``ancestor:<type>`` needs the
+    panel to list one related object type, as the relation query does.
+    """
+    config = panel.config
+    config_path = f"{panel_path}/config"
+    if config.sortFields is None and config.defaultSort is None:
+        return
+    first_path = f"{config_path}/{'sortFields' if config.sortFields is not None else 'defaultSort'}"
+    require_schema(model, "0.7", first_path, f"{label} sort configuration")
+    if config.sortFields is None:
+        raise ModelReferenceError(
+            "invalid_model", f"{config_path}/defaultSort", f"{label} defaultSort requires sortFields"
+        )
+    if config.defaultSort is None:
+        raise ModelReferenceError(
+            "invalid_model",
+            f"{config_path}/defaultSort",
+            f"{label} declares sortFields and must name its defaultSort",
+        )
+    if len(config.sortFields) != len(set(config.sortFields)):
+        raise ModelReferenceError(
+            "duplicate_key", f"{config_path}/sortFields", f"{label} sortFields must be unique"
+        )
+
+    related_types = related_object_types(
+        model, detail.objectTypeKey, config.direction, config.relationTypeKeys
+    )
+    related_keys = sorted(related_type.key for related_type in related_types)
+    for position, field in enumerate(config.sortFields):
+        field_path = f"{config_path}/sortFields/{position}"
+        if field == "name":
+            continue
+        is_ancestor = field.startswith(ANCESTOR_FIELD_PREFIX)
+        if not is_ancestor and field not in index.attribute_types:
+            raise ModelReferenceError(
+                "invalid_model",
+                field_path,
+                f"{label} cannot sort by '{field}'; a relations panel sorts by name, a sortable "
+                "attribute or an ancestor",
+            )
+        if len(related_types) != 1:
+            raise ModelReferenceError(
+                "invalid_model",
+                field_path,
+                f"{label} cannot sort by '{field}': it lists several related object types "
+                f"{related_keys}, and only name sorts across types",
+            )
+        related_type = related_types[0]
+        if is_ancestor:
+            ancestor_key = field.removeprefix(ANCESTOR_FIELD_PREFIX)
+            if ancestor_key not in ancestor_type_keys(model, related_type.key):
+                raise ModelReferenceError(
+                    "invalid_reference",
+                    field_path,
+                    f"{label} cannot sort by '{field}': '{related_type.key}' has no ancestor of "
+                    f"type '{ancestor_key}'",
+                )
+            continue
+        if field not in {binding.attributeTypeKey for binding in related_type.attributes}:
+            raise ModelReferenceError(
+                "invalid_model",
+                field_path,
+                f"{label} cannot sort by '{field}': it is not attached to '{related_type.key}'",
+            )
+        attribute = index.attribute_types[field]
+        if attribute.valueType == "json" or not attribute.features.get("sortable"):
+            raise ModelReferenceError(
+                "invalid_model",
+                field_path,
+                f"{label} cannot sort by '{field}': attribute '{field}' is not sortable",
+            )
+
+    if config.defaultSort.removeprefix("-") not in config.sortFields:
+        raise ModelReferenceError(
+            "invalid_model",
+            f"{config_path}/defaultSort",
+            f"{label} defaultSort must name one of its sortFields",
+        )

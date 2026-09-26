@@ -11,6 +11,7 @@ from sqlalchemy import update
 from ..db import SessionLocal, create_database
 from ..models.database import AuditEvent, ModelRelease, ModelRuntimeState
 from ..services.model.compatibility import analyze_compatibility
+from ..services.model.compiler import SUPPORTED_SCHEMA_VERSIONS
 from ..services.model.diagnostics import ModelValidationError
 from ..services.model.legacy import parse_schema_04_for_transition
 from ..services.model.loader import load_model
@@ -20,8 +21,11 @@ from ..services.model.runtime import require_runtime_state
 
 def transition(model_path: Path) -> str:
     candidate = load_model(model_path)
-    if candidate.schemaVersion not in {"0.5", "0.6"}:
-        raise RuntimeError("The transition candidate must use schema version 0.5 or 0.6")
+    if candidate.schemaVersion not in SUPPORTED_SCHEMA_VERSIONS:
+        raise RuntimeError(
+            "The transition candidate must use schema version "
+            + ", ".join(sorted(SUPPORTED_SCHEMA_VERSIONS))
+        )
     create_database()
     with SessionLocal() as session:
         runtime_state, active_release = require_runtime_state(session)
@@ -86,13 +90,13 @@ def transition(model_path: Path) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Atomically select a compatible schema 0.5 or 0.6 model in an offline database"
+        description="Atomically select a compatible schema 0.5, 0.6 or 0.7 model in an offline database"
     )
     parser.add_argument(
         "--model",
         required=True,
         type=Path,
-        help="Path to the schema 0.5 or 0.6 model JSON to validate, install and select",
+        help="Path to the schema 0.5, 0.6 or 0.7 model JSON to validate, install and select",
     )
     args = parser.parse_args()
     try:

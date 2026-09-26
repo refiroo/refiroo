@@ -63,6 +63,14 @@ All notable changes to this project are documented in this file. The format foll
   relation page for a record the context does not hold answers `404` as it does live. Migration
   `20260926_01` rebuilds the draft and history relation endpoint indexes to cover the relation type
   and the other end. Relation cursors issued before the change are refused with `422 invalid_cursor`.
+- Base 0.8 S4R2: schema 0.7. The engine accepts `schemaVersion: "0.7"` beside 0.5 and 0.6 in
+  validation, the registry, releases, `model_schema_upgrade` and the startup message. Relations
+  panels may declare `sortFields` and `defaultSort` (D21), validated against what the relation list
+  accepts: `name`, a sortable attribute of the one related type, or an ancestor it can sit under;
+  a 0.5 or 0.6 model declaring them is refused at the field's path, and absent fields stay out of the
+  canonical document so earlier releases keep their hash. The starter model moves to schema 0.7,
+  content release 0.8.0: its system panels sort by system, value code and name, its translation
+  panels by language, translated name and name, and `translated-name` becomes sortable.
 - Collection URLs hold one `anchor` cursor for the page at the top of the list instead of a
   `cursor` trail, written as the user scrolls without adding history entries. Older links with
   `cursor` parameters open at the start. Previous/Next page buttons and **Load more** in panels,

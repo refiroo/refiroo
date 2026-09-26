@@ -1,8 +1,8 @@
 from copy import deepcopy
-from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from model_support import MODEL_PATH, starter_at_schema
 from sqlalchemy import func, select
 
 from app.db import SessionLocal
@@ -12,8 +12,6 @@ from app.models.schema import EngineModel
 from app.services.model.compiler import ModelValidationError, compile_model, parse_model
 from app.services.model.diff import semantic_diff
 from app.services.model.loader import load_model
-
-MODEL_PATH = Path(__file__).resolve().parents[2] / "model" / "rdm-starter.json"
 
 
 def test_starter_model_is_valid():
@@ -35,8 +33,8 @@ def test_starter_model_is_valid():
     ]
     assert model.applications[0].details[0].panels[0].type == "children"
     assert model.applications[0].details[1].panels[0].type == "children"
-    assert model.schemaVersion == "0.6"
-    assert model.release.version == "0.7.0"
+    assert model.schemaVersion == "0.7"
+    assert model.release.version == "0.8.0"
     assert {view.type for app in model.applications for view in app.views} == {"table", "mappingGrid"}
 
 
@@ -419,18 +417,12 @@ def test_minimum_must_not_exceed_maximum():
 
 
 def test_schema_05_model_still_parses_and_activates():
-    source = load_model(MODEL_PATH).model_dump(mode="json")
-    source["schemaVersion"] = "0.5"
-    source["applications"] = [
-        {**app, "views": [v for v in app["views"] if v["type"] == "table"]}
-        for app in source["applications"]
-    ]
-    model = parse_model(source)
+    model = parse_model(starter_at_schema("0.5"))
     assert model.schemaVersion == "0.5"
 
 
 def test_schema_06_mapping_grid_views_parse():
-    model = load_model(MODEL_PATH)
+    model = parse_model(starter_at_schema("0.6"))
     assert model.schemaVersion == "0.6"
     mapping_views = [
         view for app in model.applications for view in app.views if view.type == "mappingGrid"
@@ -551,7 +543,7 @@ def test_schema_05_rejects_mapping_grid_with_the_view_type_path():
 
 
 def test_schema_06_with_only_table_views_is_valid():
-    source = _mapping_grid_source()
+    source = starter_at_schema("0.6")
     for application in source["applications"]:
         application["views"] = [view for view in application["views"] if view["type"] == "table"]
     assert compile_model(source).valid
@@ -582,3 +574,132 @@ def test_schema_05_mapping_grid_is_refused_by_validation_and_draft_installation(
             f"/api/v1/model-drafts/{draft.json()['id']}", params={"expectedVersion": 1}
         )
         assert deleted.status_code == 204
+
+
+# --- Schema 0.7: relations panel sort options (Base 0.8 S4R2) ---
+
+_SYSTEM_PANEL = "/applications/rdm-master/details/domain/panels/system-representations/config"
+
+
+def _panel(source, app_key, detail_key, panel_key):
+    application = next(a for a in source["applications"] if a["key"] == app_key)
+    detail = next(d for d in application["details"] if d["objectTypeKey"] == detail_key)
+    return next(p for p in detail["panels"] if p["key"] == panel_key)
+
+
+def _system_panel(source):
+    return _panel(source, "rdm-master", "domain", "system-representations")
+
+
+def test_starter_relations_panels_declare_model_sort_options():
+    model = load_model(MODEL_PATH)
+    sorts = {
+        (application.key, detail.objectTypeKey, panel.key): (
+            panel.config.sortFields,
+            panel.config.defaultSort,
+        )
+        for application in model.applications
+        for detail in application.details
+        for panel in detail.panels
+        if panel.type == "relations"
+    }
+    systems = (("ancestor:system", "value-code", "name"), "ancestor:system")
+    translations = (("ancestor:language", "translated-name", "name"), "ancestor:language")
+    assert sorts[("rdm-master", "domain", "system-representations")] == systems
+    assert sorts[("rdm-master", "master-value", "mappings")] == systems
+    assert sorts[("rdm-master", "codelist", "translations")] == translations
+    # A panel over several related types declares no sort and lists by name.
+    assert sorts[("rdm-translations", "translation", "targets")] == (None, None)
+
+
+def test_schema_06_refuses_panel_sort_options_at_the_field_path():
+    source = starter_at_schema("0.6")
+    _system_panel(source)["config"]["sortFields"] = ["name"]
+    _system_panel(source)["config"]["defaultSort"] = "name"
+    result = compile_model(source)
+    assert [(item.code, item.path) for item in result.diagnostics] == [
+        ("invalid_model", f"{_SYSTEM_PANEL}/sortFields")
+    ]
+    assert "requires schema version 0.7" in result.diagnostics[0].message
+
+    del _system_panel(source)["config"]["sortFields"]
+    assert compile_model(source).diagnostics[0].path == f"{_SYSTEM_PANEL}/defaultSort"
+
+
+def test_panels_without_sort_options_keep_their_canonical_form():
+    """0.5 and 0.6 releases hash as before: absent sort options are not serialized."""
+    result = compile_model(starter_at_schema("0.6"))
+    assert result.valid
+    panels = [
+        panel["config"]
+        for application in result.canonical_model["applications"]
+        for detail in application["details"]
+        for panel in detail["panels"]
+        if panel["type"] == "relations"
+    ]
+    assert panels and all("sortFields" not in c and "defaultSort" not in c for c in panels)
+
+
+def test_panel_descending_default_sort_is_valid():
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    _system_panel(source)["config"]["defaultSort"] = "-value-code"
+    assert compile_model(source).valid
+
+
+@pytest.mark.parametrize(
+    ("sort_fields", "default_sort", "code", "path", "message"),
+    [
+        (["name", "name"], "name", "duplicate_key", "/sortFields", "unique"),
+        (["name", "createdAt"], "name", "invalid_model", "/sortFields/1", "cannot sort by"),
+        (["value-name"], "value-name", "invalid_model", "/sortFields/0", "not sortable"),
+        (["translated-name"], "translated-name", "invalid_model", "/sortFields/0", "not attached"),
+        (["ancestor:language"], "ancestor:language", "invalid_reference", "/sortFields/0", "no ancestor"),
+        (["name"], "value-code", "invalid_model", "/defaultSort", "one of its sortFields"),
+        (["name"], None, "invalid_model", "/defaultSort", "must name its defaultSort"),
+        (None, "name", "invalid_model", "/defaultSort", "requires sortFields"),
+    ],
+)
+def test_panel_sort_options_are_validated_at_the_failing_node(
+    sort_fields, default_sort, code, path, message
+):
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    config = _system_panel(source)["config"]
+    for key, value in (("sortFields", sort_fields), ("defaultSort", default_sort)):
+        if value is None:
+            config.pop(key, None)
+        else:
+            config[key] = value
+    result = compile_model(source)
+    assert [(item.code, item.path) for item in result.diagnostics] == [
+        (code, f"{_SYSTEM_PANEL}{path}")
+    ]
+    assert message in result.diagnostics[0].message
+
+
+def test_panel_over_several_related_types_sorts_by_name_only():
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    config = _panel(source, "rdm-translations", "translation", "targets")["config"]
+    config["sortFields"] = ["name"]
+    config["defaultSort"] = "-name"
+    assert compile_model(source).valid
+
+    config["sortFields"] = ["name", "description"]
+    result = compile_model(source)
+    assert result.diagnostics[0].path.endswith("/targets/config/sortFields/1")
+    assert "several related object types" in result.diagnostics[0].message
+
+
+def test_panel_sort_fields_must_not_be_empty():
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    _system_panel(source)["config"]["sortFields"] = []
+    result = compile_model(source)
+    # A shape error: Pydantic locates it by position and panel type.
+    assert result.diagnostics[0].path.endswith("/relations/config/sortFields")
+
+
+def test_generated_volume_model_still_validates_at_schema_06():
+    from volume_fixture import volume_model
+
+    source = volume_model()
+    assert source["schemaVersion"] == "0.6"
+    assert compile_model(source).valid

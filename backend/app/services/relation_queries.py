@@ -20,7 +20,8 @@ from sqlalchemy import Select, String, case, func, literal, or_, select
 from sqlalchemy.orm import aliased
 
 from ..models.database import AttributeValue, ObjectRelation, RdmObject, SnapshotAttributeValue
-from ..models.schema import EngineModel, ObjectTypeDefinition
+from ..models.schema import EngineModel
+from .model.traversal import related_object_types
 from .objects import ObjectColumns, _query_error, refine_object_query
 from .pagination import SortKey, text_key
 from .snapshot_reads import (
@@ -47,25 +48,6 @@ class RelationQuery:
     keys: tuple[SortKey, ...]
     filters: dict[str, Any]
     seek: Callable[[str], Any]
-
-
-def related_object_types(
-    model: EngineModel,
-    anchor_type_key: str,
-    direction: str,
-    relation_type_keys: Sequence[str] | None,
-) -> tuple[ObjectTypeDefinition, ...]:
-    """The object types the model allows at the other end of the anchor's listed relations."""
-    keys: list[str] = []
-    for allowed in model.objectTypeRelations:
-        if relation_type_keys and allowed.relationTypeKey not in relation_type_keys:
-            continue
-        if direction in {"outgoing", "both"} and allowed.fromObjectTypeKey == anchor_type_key:
-            keys.append(allowed.toObjectTypeKey)
-        if direction in {"incoming", "both"} and allowed.toObjectTypeKey == anchor_type_key:
-            keys.append(allowed.fromObjectTypeKey)
-    definitions = (model.object_type(key) for key in dict.fromkeys(keys))
-    return tuple(definition for definition in definitions if definition is not None)
 
 
 def build_relation_query(

@@ -1,9 +1,9 @@
 {
-  "schemaVersion": "0.6",
+  "schemaVersion": "0.7",
   "release": {
     "key": "rdm-starter",
     "name": "RDM Starter Model",
-    "version": "0.7.0"
+    "version": "0.8.0"
   },
   "product": {
     "name": "RDM Engine",
@@ -108,7 +108,7 @@
     {
       "key": "translated-name",
       "name": "Translated name",
-      "features": { "searchable": true }
+      "features": { "searchable": true, "sortable": true }
     },
     {
       "key": "translated-description",
@@ -414,8 +414,8 @@
           "header": { "titleField": "name", "subtitleField": "description", "showObjectType": true },
           "panels": [
             { "key": "codelists", "title": "Codelists", "type": "children", "region": "main", "order": 10, "config": { "objectTypeKeys": ["codelist"], "columns": ["name", "codelist-code", "hierarchical", "active"], "pageSize": 10 } },
-            { "key": "system-representations", "title": "System representations", "type": "relations", "region": "main", "order": 20, "config": { "relationTypeKeys": ["reference-has-system-representation"], "direction": "outgoing", "columns": ["ancestor:system", "name", "objectType", "value-code", "value-name", "external-id", "active"], "showRelationshipColumn": false } },
-            { "key": "translations", "title": "Translations", "type": "relations", "region": "main", "order": 30, "config": { "relationTypeKeys": ["object-has-translation"], "direction": "outgoing", "columns": ["ancestor:language", "name", "translated-name", "translated-description", "translated-value", "active"], "showRelationshipColumn": false } },
+            { "key": "system-representations", "title": "System representations", "type": "relations", "region": "main", "order": 20, "config": { "relationTypeKeys": ["reference-has-system-representation"], "direction": "outgoing", "columns": ["ancestor:system", "name", "objectType", "value-code", "value-name", "external-id", "active"], "showRelationshipColumn": false, "sortFields": ["ancestor:system", "value-code", "name"], "defaultSort": "ancestor:system" } },
+            { "key": "translations", "title": "Translations", "type": "relations", "region": "main", "order": 30, "config": { "relationTypeKeys": ["object-has-translation"], "direction": "outgoing", "columns": ["ancestor:language", "name", "translated-name", "translated-description", "translated-value", "active"], "showRelationshipColumn": false, "sortFields": ["ancestor:language", "translated-name", "name"], "defaultSort": "ancestor:language" } },
             { "key": "attributes", "title": "Domain details", "type": "attributes", "region": "side", "order": 10, "config": { "fields": ["domain-code", "description", "active"] } },
             { "key": "hierarchy", "title": "Hierarchy", "type": "hierarchy", "region": "side", "order": 20, "config": { "showParent": false, "showAncestors": true } }
           ]
@@ -426,8 +426,8 @@
           "header": { "titleField": "name", "subtitleField": "description", "showObjectType": true },
           "panels": [
             { "key": "values", "title": "Master values", "type": "children", "region": "main", "order": 10, "config": { "objectTypeKeys": ["master-value"], "columns": ["name", "master-id", "value-code", "sort-order", "active"], "pageSize": 10 } },
-            { "key": "system-representations", "title": "System representations", "type": "relations", "region": "main", "order": 20, "config": { "relationTypeKeys": ["reference-has-system-representation"], "direction": "outgoing", "columns": ["ancestor:system", "name", "objectType", "value-code", "value-name", "external-id", "active"], "showRelationshipColumn": false } },
-            { "key": "translations", "title": "Translations", "type": "relations", "region": "main", "order": 30, "config": { "relationTypeKeys": ["object-has-translation"], "direction": "outgoing", "columns": ["ancestor:language", "name", "translated-name", "translated-description", "translated-value", "active"], "showRelationshipColumn": false } },
+            { "key": "system-representations", "title": "System representations", "type": "relations", "region": "main", "order": 20, "config": { "relationTypeKeys": ["reference-has-system-representation"], "direction": "outgoing", "columns": ["ancestor:system", "name", "objectType", "value-code", "value-name", "external-id", "active"], "showRelationshipColumn": false, "sortFields": ["ancestor:system", "value-code", "name"], "defaultSort": "ancestor:system" } },
+            { "key": "translations", "title": "Translations", "type": "relations", "region": "main", "order": 30, "config": { "relationTypeKeys": ["object-has-translation"], "direction": "outgoing", "columns": ["ancestor:language", "name", "translated-name", "translated-description", "translated-value", "active"], "showRelationshipColumn": false, "sortFields": ["ancestor:language", "translated-name", "name"], "defaultSort": "ancestor:language" } },
             { "key": "attributes", "title": "Codelist details", "type": "attributes", "region": "side", "order": 10, "config": { "fields": ["codelist-code", "description", "hierarchical", "maximum-hierarchy-depth", "translations-enabled", "active"] } },
             { "key": "hierarchy", "title": "Hierarchy", "type": "hierarchy", "region": "side", "order": 20, "config": { "showParent": true, "showAncestors": true } }
           ]
@@ -438,8 +438,8 @@
           "header": { "titleField": "name", "subtitleField": "value-code", "showObjectType": true },
           "panels": [
             { "key": "children", "title": "Child values", "type": "children", "region": "main", "order": 10, "config": { "objectTypeKeys": ["master-value"], "columns": ["name", "master-id", "value-code", "sort-order", "active"], "pageSize": 10 } },
-            { "key": "mappings", "title": "Related system values", "type": "relations", "region": "main", "order": 20, "config": { "relationTypeKeys": ["system-value-maps-to-master"], "direction": "incoming", "columns": ["ancestor:system", "name", "objectType", "value-code", "value-name", "external-id", "active"], "showRelationshipColumn": false } },
-            { "key": "translations", "title": "Translations", "type": "relations", "region": "main", "order": 30, "config": { "relationTypeKeys": ["object-has-translation"], "direction": "outgoing", "columns": ["ancestor:language", "name", "translated-name", "translated-description", "translated-value", "active"], "showRelationshipColumn": false } },
+            { "key": "mappings", "title": "Related system values", "type": "relations", "region": "main", "order": 20, "config": { "relationTypeKeys": ["system-value-maps-to-master"], "direction": "incoming", "columns": ["ancestor:system", "name", "objectType", "value-code", "value-name", "external-id", "active"], "showRelationshipColumn": false, "sortFields": ["ancestor:system", "value-code", "name"], "defaultSort": "ancestor:system" } },
+            { "key": "translations", "title": "Translations", "type": "relations", "region": "main", "order": 30, "config": { "relationTypeKeys": ["object-has-translation"], "direction": "outgoing", "columns": ["ancestor:language", "name", "translated-name", "translated-description", "translated-value", "active"], "showRelationshipColumn": false, "sortFields": ["ancestor:language", "translated-name", "name"], "defaultSort": "ancestor:language" } },
             { "key": "attributes", "title": "Value details", "type": "attributes", "region": "side", "order": 10, "config": { "fields": ["master-id", "value-code", "value-name", "description", "sort-order", "active", "valid-from", "valid-to"] } },
             { "key": "hierarchy", "title": "Hierarchy", "type": "hierarchy", "region": "side", "order": 20, "config": { "showParent": true, "showAncestors": true } }
           ]

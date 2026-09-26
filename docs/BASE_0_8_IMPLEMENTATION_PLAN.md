@@ -493,6 +493,24 @@ budget. Closing the gap needs precomputed sort keys (an indexed sort value per r
 field, or a stored ancestor per record and containment type), which is storage work for a later
 package rather than S4R1.
 
+**S4R2 delivered 2026-09-26.** Schema 0.7 is accepted everywhere a supported version is checked
+(`SUPPORTED_SCHEMA_VERSIONS`, the `EngineModel` literal, `model_schema_upgrade`, the startup
+message); A1 item 1 is therefore done and A1 only adds its view type. The mapping grid's gate became
+"0.6 or later" through a shared `require_schema` rule. `RelationsPanelConfig` gains optional
+`sortFields` and `defaultSort`, declared together. Validation reads the panel's related types with
+the function the relation query uses (`related_object_types`, moved with `ancestor_type_keys` into
+the database-free `services/model/traversal.py`), so a declared field is exactly one the API accepts:
+`name`, or with one related type a sortable non-JSON attribute or a reachable ancestor. Failures
+point at `config/sortFields/<n>` or `config/defaultSort`. Absent fields are excluded from the
+canonical document, so 0.5 and 0.6 model hashes are unchanged and re-installing an existing release
+does not conflict. The starter is schema 0.7, content 0.8.0: the three system-value panels declare
+`ancestor:system`, `value-code`, `name` and the three translation panels `ancestor:language`,
+`translated-name`, `name`, each defaulting to its ancestor; `translated-name` became `sortable` to
+allow it. Panels over several related types (represented structures, translation targets) and the
+systems application's mappings panel declare nothing and list by name. The generated volume model
+stays on schema 0.6 as the installed 0.6 case; S4R3 may give it sort options when its browser runner
+needs a second configuration. The frontend type carries the two fields; S4R3 consumes them.
+
 **Later package T1 — recorded timestamps in drafts and history.** Timestamp columns on draft,
 draft-base and revision object and relation rows (captured rows keep live values, draft writes set
 them), plus an internal creation ordinal so creation order is identical in every context. Backfill from

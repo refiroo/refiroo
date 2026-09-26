@@ -6,10 +6,30 @@ location rather than the collection it was reached through.
 
 from collections.abc import Sequence
 
-from ....models.schema import DETAIL_FIELD_KEYS, ApplicationDefinition, ObjectTypeDefinition
+from ....models.schema import (
+    DETAIL_FIELD_KEYS,
+    ApplicationDefinition,
+    EngineModel,
+    ObjectTypeDefinition,
+)
 from ..diagnostics import ModelReferenceError
 
 ANCESTOR_FIELD_PREFIX = "ancestor:"
+
+
+def require_schema(model: EngineModel, minimum: str, path: str, feature: str) -> None:
+    """Refuse ``feature`` at ``path`` when the model's schema version predates ``minimum``."""
+    if _schema_version(model.schemaVersion) < _schema_version(minimum):
+        raise ModelReferenceError(
+            "invalid_model",
+            path,
+            f"{feature} requires schema version {minimum} or later; "
+            f"this model uses {model.schemaVersion}",
+        )
+
+
+def _schema_version(version: str) -> tuple[int, ...]:
+    return tuple(int(part) for part in version.split("."))
 
 
 def check_fields(
