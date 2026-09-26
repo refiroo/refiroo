@@ -245,6 +245,12 @@ def _read_scenarios(
         # S7: a name search over a whole type, as the sidebar tree's search sends it (the browser
         # runner saw it as the slowest tree read). A contains-match cannot use a name index.
         ("objects: search by name, total", items, {**page, "search": "Item 00432", "includeTotal": True}),
+        # S8: a value-only match read through the trigram index, a phrase in every record, whose
+        # value look-up falls back to each record, and a two-character search the index cannot
+        # serve.
+        ("objects: search by code, total", items, {**page, "search": "ITEM-0043", "includeTotal": True}),
+        ("objects: common search, total", items, {**page, "search": "Item", "includeTotal": True}),
+        ("objects: two-character search, total", items, {**page, "search": "m ", "includeTotal": True}),
         ("record: deep node", f"/api/v1/objects/{NODE}/{dataset.deep_node_id}", base),
     ]
 

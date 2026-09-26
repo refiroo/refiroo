@@ -42,7 +42,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [x] S6 sidebar tree by parent, replacing **Load more objects**.
   - [x] S7 composed volume acceptance (open: attribute sorts over the 20,000-child parent, deferred
     after 0.9 by D26).
-  - [ ] S8 indexed name search keeping "contains" matching in every context (D25).
+  - [x] S8 indexed search keeping "contains" matching in every context (D25): a trigram index over
+    text values; a whole-type name search with its total in 37 / 73 / 40 ms (was 0.7–0.9 s).
 - [ ] 0.8 Track W — workspace terminology and capability boundaries ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#track-w--workspace-terminology-and-capability-boundaries), ADR-031):
   - [ ] W1 glossary, roadmap and milestone names (translation/hierarchy editor); stale gap notes.
   - [ ] W2 rename workspace drafts/revisions to change sets/publications ("Publication N") in every layer.

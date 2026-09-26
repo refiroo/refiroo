@@ -64,9 +64,19 @@ All notable changes to this project are documented in this file. The format foll
   record deep in the tree; it passes at full volume (`S7_VOLUME_SCALE=1`). The accessibility and
   visual gates gain a `scrolling-list-tree` scenario in light and dark, and every visual baseline was
   refreshed after review. `volume_baseline.py` adds a whole-type name search and a deep record read.
+- Base 0.8 S8: indexed search (D25). Migration `20260926_03` adds SQLite FTS5 trigram indexes over
+  live and snapshot text values, kept equal to the values by triggers on every write. A search of
+  three or more characters looks up values only for the records the index names, and still decides
+  with the same case-insensitive "contains" match, so results are unchanged in every context. A
+  whole-type name search with its total at 100,000 records takes 37 ms live, 73 ms in a draft and
+  40 ms in history (was 0.7–0.9 s). Names stay on the (type, name) index; one- and two-character
+  searches, and phrases in more than 10,000 values, read each record as before.
 
 ### Changed
 
+- Base 0.8 S8: a draft list's total counts its base, less the rows the draft replaces, plus its own
+  rows, instead of the union (a total at full volume in 19–31 ms, was 45–56 ms); a first or
+  position page that reaches the end of its list returns its total without a count.
 - Base 0.8 S4R1: relation lists sort and search the related record through the object query
   builder, as object lists do. `sort` takes `name` (now the default in every context), any
   `sortable` attribute of the related type, `ancestor:<type>`, and live only the related record's

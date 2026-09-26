@@ -182,8 +182,8 @@ database, relation search and sort, and a sidebar tree that loads by parent
 [plan](BASE_0_8_IMPLEMENTATION_PLAN.md)).
 
 Exit: a generated model with 100,000 records scrolls both ways with flat memory in live, draft and
-history contexts within recorded budgets, and name search answers from an index in every context
-(S8). Attribute and ancestor sorts over very large parents are a recorded exception until 0.10.
+history contexts within recorded budgets, and search answers within budget in every context through a
+trigram index over text values (S8). Attribute and ancestor sorts over very large parents are a recorded exception until 0.10.
 
 ### Track W — Workspace terminology and capability boundaries
 

@@ -214,7 +214,8 @@ def paginate_statement[Row](
     names the parts of a base-plus-overlay statement, which position reads resolve through.
 
     Besides the page itself a read costs at most one probe for the opposite edge and, with totals,
-    two counts: its statement count does not depend on the dataset.
+    two counts: its statement count does not grow with the dataset. A first or position page
+    that reaches the end needs no count for its total.
     """
     if not keys:
         raise ValueError("Keyset pagination requires at least one sort key")
@@ -320,7 +321,11 @@ def paginate_statement[Row](
     )
     if not page.include_total:
         return result
-    total = _count(session, statement)
+    if known_before is not None and not more and (visible or known_before == 0):
+        # The page runs from a known position to the end: its rows are all that remain.
+        total = known_before + len(visible)
+    else:
+        total = _total(session, statement, overlay)
     if not visible:
         start = 0 if backward or known_before == 0 else total
     elif known_before is not None:
@@ -455,6 +460,29 @@ def _order(key: SortKey, backward: bool) -> Any:
 
 def _count(session: Session, statement: Any) -> int:
     return session.scalar(select(func.count()).select_from(statement.order_by(None).subquery()))
+
+
+def _total(session: Session, statement: Any, overlay: Overlay | None) -> int:
+    """The number of rows ``statement`` lists.
+
+    An overlay's total is its base's, less the base rows it replaces, plus its own rows, in one
+    statement. Each part reads its own index, where counting the union checks every base row
+    against the overlay (Base 0.8 S8).
+    """
+    if overlay is None:
+        return _count(session, statement)
+
+    def count(part: Keyed) -> Any:
+        return (
+            select(func.count())
+            .select_from(part.statement.order_by(None).subquery())
+            .scalar_subquery()
+        )
+
+    base, replaced, added = session.execute(
+        select(count(overlay.base), count(overlay.replaced), count(overlay.added))
+    ).one()
+    return base - replaced + added
 
 
 def _parse_position(

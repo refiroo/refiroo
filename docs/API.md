@@ -832,6 +832,19 @@ records that tie on the sort. `search` matches the record name and model attribu
 `searchable` feature, case-insensitively, in every context. A draft or history page costs its own
 rows, not the size of the draft or revision.
 
+`search` is a literal substring: `%`, `_` and quotes match themselves. Case folding covers ASCII
+letters only (SQLite's `LIKE`), so `Ü` matches `Ü` but not `ü`; this is unchanged by the search index.
+Since Base 0.8 S8 (D25), a search of three or more characters looks up attribute values through a
+trigram index over text values, reading only the records whose values contain the text; names are
+matched on the type's name index, about 20 ms per 100,000 records. A name search with its total over
+100,000 records takes about 35 ms in live and history and 75 ms in a draft (0.7–0.9 s before). A
+one- or two-character search has no trigram to look up and reads each record's values (0.4–0.7 s
+over 100,000 records when few names match); so does a phrase present in more than 10,000 text values,
+where reading the index would cost more than it saves (about 0.4 s when it is in every value and no
+name). The index narrows which records are read, never which match: every path returns the same
+records. A first page, or a `position` page, that reaches the end of the list reports its
+`totalCount` without a second count.
+
 Drafts and history record no timestamps. In a `workspaceDraftId` or `workspaceRevisionId` context,
 object and relation responses return `createdAt` and `updatedAt` as `null`, and a filter or sort on
 either field is refused with `422 invalid_filter` or `invalid_sort` (“Created is not recorded in drafts
@@ -1163,7 +1176,8 @@ the related record (the other end of each relation), in live, draft and history 
 
 - `relationTypeKey` may repeat to list several relation types together.
 - `search` matches the related record by name or by any attribute its type binds as `searchable`, as
-  a literal, case-insensitive substring.
+  a literal, case-insensitive substring. A relation list is bounded by its anchor, so it reads each
+  related record's values rather than the S8 trigram index.
 - `sort` takes a field of the related record: `name`, `objectType` (its type's model name), any
   non-JSON attribute one of the related types binds, or `ancestor:<type>`, the name of its ancestor of
   that type (as in its `path`; a type met twice resolves to the one nearest the root). `relationship`

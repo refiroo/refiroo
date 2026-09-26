@@ -32,11 +32,13 @@ from ..models.database import (
     WorkspaceRevisionRelation,
 )
 from ..models.schema import EngineModel
+from ..models.search_index import SNAPSHOT_VALUES
 from .objects import (
     ObjectColumns,
     ObjectQuery,
     _query_error,
     get_object_type,
+    indexed_value_match,
     refine_object_query,
     top_level_filter,
     validate_application_object_type,
@@ -132,7 +134,8 @@ def object_projection(
 ) -> Subquery:
     """The context's effective object rows, narrowed inside each arm so indexes apply.
 
-    ``values_owner_id`` names the owner of each row's typed values in ``snapshot_attribute_values``.
+    ``values_owner_id`` names the owner of each row's typed values in ``snapshot_attribute_values``;
+    ``row_sequence_id`` is the row's key in its own table, which its type and parent indexes hold.
     ``part`` selects one part of a draft's union instead (see :data:`DraftPart`).
     """
     ids = list(object_ids) if object_ids is not None else None
@@ -164,6 +167,7 @@ def object_projection(
             entity.attributes,
             entity.version,
             literal(owner_id, String).label("values_owner_id"),
+            entity.sequence_id.label("row_sequence_id"),
         ).where(*where)
 
     return _effective(
@@ -485,7 +489,10 @@ def object_paths(
     return {object_id: list(reversed(path)) for object_id, path in paths.items()}
 
 
-def snapshot_object_columns(projection: Subquery) -> ObjectColumns:
+def snapshot_object_columns(
+    projection: Subquery, context: SnapshotContext, *, search_index: bool = True
+) -> ObjectColumns:
+    """Columns of an object projection; ``search_index`` narrows a search through the index."""
     values = SnapshotAttributeValue
     return ObjectColumns(
         source=projection,
@@ -501,7 +508,51 @@ def snapshot_object_columns(projection: Subquery) -> ObjectColumns:
         tiebreak=lambda descending: text_key(
             "id", projection.c.object_id, "object_id", descending=descending
         ),
+        search_values=_value_candidates(projection, context) if search_index else None,
     )
+
+
+def _value_candidates(
+    projection: Subquery, context: SnapshotContext
+) -> Callable[[str, list[str]], Any]:
+    """Records with a value of ``attributes`` that the trigram index matches a phrase in.
+
+    Candidates are object rows of the context's owners, compared by ``row_sequence_id``, which
+    the type and parent indexes a search walks already hold. A draft's candidates come from its
+    base and its own rows alike: a replaced base value, or a base row and a draft row that share a
+    sequence number, may name a row that does not match, and the search's ``LIKE`` on the
+    effective row's values drops it (D25).
+    """
+    owners: list[tuple[Any, str, str]] = []
+    if context.base is not None:
+        owners.append((context.base.objects, context.base.owner_column, context.base.owner_id))
+    if context.kind == "draft":
+        owners.append((WorkspaceDraftObject, "draft_id", context.id))
+
+    def search_values(phrase: str, attributes: list[str]) -> Any:
+        value = aliased(SnapshotAttributeValue)
+
+        def candidates(matches: Select[Any]) -> Any:
+            # Driven by the matching rows: the (owner, attribute) index would read every value
+            # of the attribute in the base.
+            matched = select(value.object_id).where(
+                value.sequence_id.in_(matches),
+                _unindexed(value.owner_id.in_([owner_id for *_, owner_id in owners])),
+                _unindexed(value.attribute_type_key.in_(attributes)),
+            )
+            rows = []
+            for entity, owner_column, owner_id in owners:
+                row = aliased(entity)
+                rows.append(
+                    select(row.sequence_id).where(
+                        getattr(row, owner_column) == owner_id, row.object_id.in_(matched)
+                    )
+                )
+            return projection.c.row_sequence_id.in_(union_all(*rows) if len(rows) > 1 else rows[0])
+
+        return indexed_value_match(SNAPSHOT_VALUES, phrase, candidates)
+
+    return search_values
 
 
 def build_snapshot_object_query(
@@ -546,7 +597,9 @@ def build_snapshot_object_query(
         )
         return refine_object_query(
             model,
-            snapshot_object_columns(projection),
+            # The replaced and added parts are as small as the draft: looking up their values
+            # row by row costs less than reading the index (S8).
+            snapshot_object_columns(projection, context, search_index=part in {"effective", "base"}),
             select(projection),
             object_types=(object_type,),
             search=search,

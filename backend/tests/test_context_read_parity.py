@@ -63,6 +63,7 @@ ENTRIES: list[tuple[str, int, dict[str, Any]]] = [
                  "par-due": "2024-02-29", "par-seen": "2025-06-15T12:00:00-04:00"}),
     ("hotel", 1, {"par-code": "H-8", "par-note": "last", "par-count": 99, "par-amount": "3",
                   "par-due": "2026-01-09", "par-seen": None}),
+    ('Ünal "quoted"', 0, {"par-code": "Ü-10", "par-note": "Straße naïve"}),
 ]
 QUERIES: list[dict[str, str]] = [
     {"sort": "name"},
@@ -72,6 +73,16 @@ QUERIES: list[dict[str, str]] = [
     {"search": "a"},
     {"search": "%"},
     {"search": "_", "sort": "name"},
+    # Three or more characters read the trigram index (S8); the match is unchanged: literal % and
+    # _, a quote, non-ASCII text, and ASCII case folding on names and values.
+    {"search": "50%"},
+    {"search": "d_4"},
+    {"search": "t_s"},
+    {"search": '"quoted"'},
+    {"search": "Ünal"},
+    {"search": "STRAßE"},
+    {"search": "naïve"},
+    {"search": "-5"},
     {"filter.par-count.gte": "5", "sort": "par-count"},
     {"filter.par-count.lt": "0"},
     {"filter.par-amount.gt": "2.5", "sort": "-par-amount"},

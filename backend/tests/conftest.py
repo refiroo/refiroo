@@ -72,6 +72,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_draft_position_reads.py": ("volume", "queries", "drafts"),
     "test_draft_write_lookups.py": ("drafts",),
     "test_snapshot_lookup_index_migration.py": ("startup", "drafts"),
+    "test_search_index.py": ("queries", "drafts", "startup"),
     "test_page_index_migrations.py": ("startup", "drafts"),
 }
 

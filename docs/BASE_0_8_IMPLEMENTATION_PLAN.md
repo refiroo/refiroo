@@ -921,13 +921,13 @@ and every S3/S4 read, and fails for three request kinds, all outside S7's scope 
    adds a second scan. The tree's search (S6) sends one per type of the application, and the lens
    and pickers search the same way. The browser runner saw it as the slowest tree read. It needs a
    decision: an indexed search (SQLite FTS5 or PostgreSQL trigram), a prefix match for the tree, or
-   search without a total. _Decided: an indexed search (D25), scoped as S8._
+   search without a total. _Decided: an indexed search (D25), scoped as S8. Resolved by S8: 37 / 73 / 40 ms._
 
 The browser runner's medians were 9–17 ms per read at full volume. A context's first lens load with
 its total took 0.6–1.3 s in the browser against about 45 ms warm in the baseline, which points to a
 cold SQLite page cache after server start; it is observed, not measured separately.
 
-_Open:_ budget items 2 and 3 above (item 1 closed by S2b); the S6 open item (a record opened elsewhere does not scroll a
+_Open:_ budget item 2 above (item 1 closed by S2b, item 3 by S8); the S6 open item (a record opened elsewhere does not scroll a
 long group to it) is unchanged, so the volume runner opens the deep node through search rather than
 from a cleared tree. The edge loading marker is still covered by component state only.
 
@@ -950,6 +950,76 @@ from a cleared tree. The edge loading marker is still covered by component state
 **Exit:** `objects: search by name, total` within 100 ms at full volume in all three contexts; the
 parity test covers search in every context; `%`, `_` and non-ASCII text match as before; the
 migration meets the AGENTS.md startup rules; the S6 tree search and the S7 runner pass.
+
+**Delivered 2026-09-26, with the index over text values only (scope item 1 narrowed, below).**
+Migration `20260926_03` adds two SQLite FTS5 tables with the `trigram` tokenizer, over
+`attribute_values.text_value` (live) and `snapshot_attribute_values.text_value` (revision,
+draft-base and draft rows). Each is external content keyed by the value row's `sequence_id`, so it
+stores no text of its own, and three triggers per value table keep it equal to the column on every
+insert, update and delete. Every write path, ORM or bulk, therefore maintains it at the cost of the
+rows it writes (item 4); FTS5's `integrity-check` holds after live, draft, publication and discard
+writes. `Base.metadata.create_all` builds the same objects (`models/search_index.py`).
+
+_Why names are not indexed._ Measured at full volume, the S7 cost was not the name: a `LIKE` over
+the (type, name) index a search already walks takes about 20 ms per 100,000 records. The cost was
+the correlated look-up of each non-matching record's values (0.7–0.9 s). A search driven entirely
+from a trigram index over names and values answered a rare phrase in 5 ms but a common one
+("Item", every record) in 0.4–0.6 s, because it sorts every match; SQLite has no statistics to pick
+between the two plans. So a search keeps walking the name index and matches the name on the row,
+and looks a value up only for the records the value index names.
+
+_How a search reads the index_ (`objects._search_predicate`, `indexed_value_match`). For a search of
+three or more characters, a record's value look-up is guarded by "the record is among the
+candidates": the value rows whose text the index matches, mapped to the listed rows by sequence ID,
+which the type and parent indexes already hold. A bounded, uncorrelated count of the index's
+matches (at most 10,001) is evaluated once per statement; past 10,000 matches the guard is skipped
+and each record is looked up as before, which is then the cheaper plan. The `LIKE` decides in every
+case, so the index changes which records are read, never which match (item 2); a test forces the
+per-record path and compares every search in every context. One- and two-character searches have no
+trigram and read each record (item 2's short-search decision: a measured scan, stated in API.md).
+Relation lists, bounded by their anchor, keep the per-record look-up.
+
+_Draft overlay_ (item 3). A draft's candidates come from its base's values and its own. A base
+value the draft replaced, a tombstoned record, or a base and a draft row sharing a sequence number
+may name a row that does not match; the `LIKE` on the effective row's values drops it. The draft's
+replaced and added parts, as small as the draft, skip the index: two fixed trigram look-ups cost
+more than their few rows.
+
+_Two paging changes the budget needed._ A draft total counted the base-plus-overlay union, which
+checks every base row against the overlay (45–56 ms at full volume in S7, before any search). It is now the
+base part's count, less the replaced part's, plus the added part's, in one statement: the same parts
+S4R6 position reads use. And a first or position page that reaches the end of the list knows its
+total, so it runs no count. Both apply to every list, not only searches.
+
+_Results_ (full volume, `volume_baseline.py --scale 1 --repeat 5`; unchanged rows omitted, three
+rows new in S8):
+
+| Request | Live | Draft | History |
+| --- | --- | --- | --- |
+| objects: last page by from=end, total | 8.5 ms · 6 · 81 | 18.5 ms · 7 · 4 | 10.2 ms · 6 · 3 |
+| objects: seek by name, total | 9.5 ms · 8 · 83 | 20.5 ms · 9 · 4 | 10.8 ms · 8 · 3 |
+| objects: position ¾ deep, total | 13.2 ms · 6 · 81 | 31.1 ms · 10 · 4 | 16.0 ms · 6 · 3 |
+| objects: search by name, total | **36.7 ms** · 5 · 42 | **72.7 ms** · 6 · 4 | **39.5 ms** · 5 · 3 |
+| objects: search by code, total (S8) | 53.7 ms · 6 · 82 | 89.9 ms · 7 · 4 | 56.1 ms · 6 · 3 |
+| objects: common search, total (S8) | 32.0 ms · 6 · 79 | 42.9 ms · 7 · 4 | 36.0 ms · 6 · 3 |
+| objects: two-character search, total (S8) | 31.8 ms · 6 · 79 | 39.8 ms · 7 · 4 | 32.3 ms · 6 · 3 |
+
+The name search was 884 / 885 / 703 ms (S7). The other rows are within noise of S7, with the
+attribute and ancestor sorts over the heavy parent still the D26 exception. Outside the table, with
+`includeTotal` over 100,000 items: a two-character search that few names contain reads every
+record's values (0.4–0.7 s), as does a phrase in every code and no name (`ITEM-0`, 0.4–0.5 s, as
+before S8). The migration fills both indexes in about 2 s at full volume and adds about 12 MB; the
+volume fixture now seeds in about 45 s (was 25 s) because the triggers index its bulk inserts.
+
+_Open:_ names are matched by walking the type's name index, about 20 ms per 100,000 records, so a
+type of millions would need the name trigram index and a planner choice between the two plans; the
+PostgreSQL form (trigram GIN, with statistics) arrives with 0.10. The 10,000-match bound counts a
+phrase's matches in every revision, draft base and draft (the count stays bounded by not filtering
+them), so a workspace with many publications falls back to the per-record look-up at a lower share
+of its own records; the result is the same, only slower. A draft page that scans its whole
+base, such as a search matching few records, still checks every base row against the overlay before
+the search (about 30 ms of the draft's 73 ms): SQLite evaluates the arm's own terms before a term
+pushed into it.
 
 ## Track W — Workspace terminology and capability boundaries
 
@@ -1451,6 +1521,6 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D21 | Where relation panel sort options come from | **Accepted 2026-09-26:** declared on the relations panel (`sortFields`, `defaultSort`) in schema 0.7; no hardcoded options; 0.5/0.6 panels sort by name | S4R1–S4R3 |
 | D22 | Default list order across contexts | **Accepted 2026-09-26:** name order in live, draft and history; recorded draft and history timestamps are a later package (T1) | S4R4, T1 |
 | D23 | Ancestor sort on relation lists | **Accepted 2026-09-26:** included now, one walk per list rather than per row, measured at volume | S4R1 |
-| D25 | Whole-type name search is over budget (0.7–0.9 s, S7): indexed search, prefix match, or no total? | **Accepted 2026-09-26:** an indexed search that keeps "contains" matching, in every context (S8). SQLite first; the PostgreSQL equivalent (trigram) arrives with 0.10 hardening | S8 |
+| D25 | Whole-type name search is over budget (0.7–0.9 s, S7): indexed search, prefix match, or no total? | **Accepted 2026-09-26:** an indexed search that keeps "contains" matching, in every context (S8). SQLite first; the PostgreSQL equivalent (trigram) arrives with 0.10 hardening. **Delivered 2026-09-26** as a trigram index over text values; names stay on the (type, name) index, which measured cheaper than indexing them (S8) | S8 |
 | D26 | Attribute and ancestor sorts over the 20,000-child parent are over budget (85–204 ms, S4R1, S7) | **Accepted 2026-09-26:** deferred until after 0.9 (precomputed sort keys, 0.10 or later); recorded as a known budget exception for 0.8 | — |
 | D24 | Which columns sort | **Accepted 2026-09-26 (S4R3 review):** every data column sorts from its header, whatever the attribute's `sortable` flag, including Type and Relationship by their labels; every list shows the same toolbar Sort menu; D21's `sortFields` only add menu fields and `defaultSort` chooses the order. Exceptions: Actions, the computed path, JSON attributes and unrecorded timestamps | S4R3 |

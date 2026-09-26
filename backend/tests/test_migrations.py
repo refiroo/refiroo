@@ -8,6 +8,14 @@ from alembic.config import Config
 from sqlalchemy import create_engine, inspect, text
 
 from app.models.database import Base, WorkspaceRevision
+from app.models.search_index import SEARCH_INDEXES
+
+# An FTS5 index is a virtual table over four shadow tables (external content has no _content).
+SEARCH_TABLES = {
+    f"{index.name}{suffix}"
+    for index in SEARCH_INDEXES
+    for suffix in ("", "_data", "_idx", "_docsize", "_config")
+}
 
 
 def test_fresh_migration_provisions_the_complete_current_schema(tmp_path):
@@ -21,7 +29,9 @@ def test_fresh_migration_provisions_the_complete_current_schema(tmp_path):
     command.upgrade(config, "head")
 
     inspector = inspect(engine)
-    assert set(inspector.get_table_names()) == set(Base.metadata.tables) | {"alembic_version"}
+    assert set(inspector.get_table_names()) == (
+        set(Base.metadata.tables) | {"alembic_version"} | SEARCH_TABLES
+    )
     for table_name, table in Base.metadata.tables.items():
         assert {column["name"] for column in inspector.get_columns(table_name)} == {
             column.name for column in table.columns
@@ -52,7 +62,7 @@ def test_object_lifecycle_migration_recovers_empty_sqlite_ddl_from_interrupted_r
     inspector = inspect(engine)
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "20260926_02"
+            "20260926_03"
         )
     assert any(
         foreign_key["referred_table"] == "workspace_revisions"
@@ -156,7 +166,7 @@ def test_current_live_base_migration_preserves_existing_workspace_drafts(tmp_pat
                 "WHERE id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'"
             )
         ).one()
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20260926_02"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20260926_03"
     assert draft == ("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "keep me", 7, None)
     with engine.connect() as connection:
         historical = connection.execute(

@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from sqlalchemy import Select, and_, case, delete, exists, not_, or_, select, update
+from sqlalchemy import Select, and_, case, delete, exists, func, not_, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
@@ -18,6 +18,7 @@ from ..models.api import (
 )
 from ..models.database import AttributeValue, ObjectRelation, RdmObject
 from ..models.schema import ApplicationDefinition, EngineModel, ObjectTypeDefinition
+from ..models.search_index import LIVE_VALUES, MIN_INDEXED_LENGTH, SearchIndex, match_phrase
 from .attributes import (
     VALUE_COLUMNS,
     apply_attribute_values,
@@ -90,6 +91,9 @@ class ObjectColumns:
     ``object_type`` is the record's object type key, which ``objectType`` sorts by its model name.
     ``relationship`` maps a relation list's row to its relation type key and whether the listed
     record is at the relation's far end, which ``relationship`` sorts by the label the row shows.
+    ``search_values`` narrows a search's value look-up to records with a value of the given
+    attributes that the trigram index matches a phrase in (:func:`indexed_value_match`); a list
+    without it, such as a relation list bounded by its anchor, looks up each row's values.
     """
 
     source: Any
@@ -103,6 +107,51 @@ class ObjectColumns:
     ancestor: Callable[[Select[Any], str], tuple[Select[Any], Any]] | None = None
     object_type: Any = None
     relationship: tuple[Any, Any] | None = None
+    search_values: Callable[[str, list[str]], Any] | None = None
+
+
+# A value match read from the trigram index costs its matches; one looked up per record costs the
+# records whose name does not match. Past this many index matches, the per-record look-up is the
+# cheaper one (S8 measurements).
+INDEXED_VALUE_LIMIT = 10_000
+
+
+def indexed_value_match(
+    index: SearchIndex, phrase: str, candidates: Callable[[Select[Any]], Any]
+) -> Any:
+    """Restrict a value look-up to ``candidates`` of the index's matches, while they are few.
+
+    ``candidates`` turns the matching value rows' sequence IDs into a predicate on the listed
+    record. The count is bounded and uncorrelated, so SQLite evaluates it once per statement and
+    reads at most ``INDEXED_VALUE_LIMIT + 1`` matches for it; with more, every record is looked up.
+    It comes first in an ``OR`` rather than a ``CASE``, which SQLite evaluated more slowly.
+    """
+    fts = index.fts
+    matches = select(fts.c.rowid).where(fts.c[index.column].match(phrase))
+    many = (
+        select(func.count())
+        .select_from(matches.limit(INDEXED_VALUE_LIMIT + 1).subquery())
+        .scalar_subquery()
+        > INDEXED_VALUE_LIMIT
+    )
+    return or_(many, candidates(matches))
+
+
+def _live_value_candidates(phrase: str, attributes: list[str]) -> Any:
+    """Live records with a value of ``attributes`` that the trigram index matches ``phrase`` in.
+
+    Compared by sequence ID, which the (type, name) index a search walks already holds, so a
+    record whose name does not match is checked without reading its table row.
+    """
+    value, record = aliased(AttributeValue), aliased(RdmObject)
+
+    def candidates(matches: Select[Any]) -> Any:
+        matched = select(value.object_id).where(
+            value.sequence_id.in_(matches), value.attribute_type_key.in_(attributes)
+        )
+        return RdmObject.sequence_id.in_(select(record.sequence_id).where(record.id.in_(matched)))
+
+    return indexed_value_match(LIVE_VALUES, phrase, candidates)
 
 
 LIVE_OBJECT_COLUMNS = ObjectColumns(
@@ -116,6 +165,7 @@ LIVE_OBJECT_COLUMNS = ObjectColumns(
         _SEQUENCE_FIELD, RdmObject.sequence_id, "sequence_id", descending=descending
     ),
     object_type=RdmObject.object_type_key,
+    search_values=_live_value_candidates,
 )
 
 
@@ -252,6 +302,12 @@ def _search_predicate(
     object_types: Sequence[ObjectTypeDefinition],
     search: str,
 ) -> Any:
+    """A case-insensitive "contains" match on the name or a searchable attribute (D25).
+
+    The name is matched on the row. A value is looked up only for a record the trigram index
+    names, when the search is long enough to hold a trigram; the ``LIKE`` then decides, so the
+    index never changes the result, only which records are looked up.
+    """
     escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     searchable_attributes = list(
         dict.fromkeys(
@@ -269,6 +325,10 @@ def _search_predicate(
             values.text_value.ilike(f"%{escaped}%", escape="\\"),
         )
     )
+    indexable = searchable_attributes and len(search) >= MIN_INDEXED_LENGTH
+    if columns.search_values is not None and indexable:
+        indexed = columns.search_values(match_phrase(search), searchable_attributes)
+        attribute_match = and_(indexed, attribute_match)
     return or_(columns.name.ilike(f"%{escaped}%", escape="\\"), attribute_match)
 
 

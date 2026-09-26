@@ -23,6 +23,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
 
 from ..common.time import as_utc
+from .search_index import register as register_search_indexes
 
 
 class UTCDateTime(TypeDecorator[datetime]):
@@ -814,3 +815,7 @@ class AuditEventSubject(Base):
         ForeignKey("audit_events.sequence_id", ondelete="CASCADE"), nullable=False, index=True
     )
     object_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+
+
+# Trigram search indexes over attribute text values (Base 0.8 S8); not ORM tables.
+register_search_indexes(Base.metadata)
