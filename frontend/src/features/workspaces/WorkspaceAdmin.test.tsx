@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api } from "@/api/client";
-import type { CapabilitiesResponse, Workspace } from "@/types";
+import type { CapabilitiesResponse, WorkspaceDetail } from "@/types";
 import { WorkspaceAdmin } from "@/features/workspaces/WorkspaceAdmin";
 
 vi.mock("@/api/client", async (load) => {
@@ -10,29 +10,35 @@ vi.mock("@/api/client", async (load) => {
 });
 
 const time = "2026-09-26T08:00:00Z";
-const primary: Workspace = {
+const primary: WorkspaceDetail = {
   key: "default",
   label: "Default",
   status: "active",
   version: 1,
   createdAt: time,
   updatedAt: time,
+  deletable: false,
+  deleteBlockedBy: "default",
 };
-const retail: Workspace = {
+const retail: WorkspaceDetail = {
   key: "retail",
   label: "Retail",
   status: "active",
   version: 3,
   createdAt: time,
   updatedAt: time,
+  deletable: false,
+  deleteBlockedBy: "published",
 };
-const archive: Workspace = {
+const archive: WorkspaceDetail = {
   key: "archive",
   label: "Archive",
   status: "retired",
   version: 2,
   createdAt: time,
   updatedAt: time,
+  deletable: false,
+  deleteBlockedBy: "notEmpty",
 };
 const runtime = { defaultWorkspaceKey: "default", version: 4, updatedAt: time };
 
@@ -60,10 +66,12 @@ function renderAdmin(selectedWorkspaceKey?: string, overrides: Partial<Parameter
   return { ...render(<WorkspaceAdmin {...props} />), props };
 }
 
-const byKey = new Map([primary, retail, archive].map((item) => [item.key, item]));
+const byKey = new Map<string, WorkspaceDetail>();
 
 beforeEach(() => {
   vi.clearAllMocks();
+  byKey.clear();
+  for (const item of [primary, retail, archive]) byKey.set(item.key, item);
   vi.mocked(api.capabilities).mockResolvedValue(capabilities(true));
   vi.mocked(api.workspaceRuntimeState).mockResolvedValue(runtime);
   vi.mocked(api.workspaces).mockResolvedValue({ items: [archive, primary, retail], nextCursor: null });
@@ -250,6 +258,94 @@ describe("WorkspaceAdmin", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reactivate" }));
     expect(await screen.findByText("Workspace reactivated.")).toBeInTheDocument();
     expect(api.updateWorkspace).toHaveBeenCalledWith("archive", { expectedVersion: 2, status: "active" });
+  });
+
+  it("deletes an unused workspace after a confirmation that names its key", async () => {
+    const typo: WorkspaceDetail = { ...retail, key: "retial", label: "Retial", version: 1, deletable: true };
+    byKey.set("retial", typo);
+    vi.mocked(api.deleteWorkspace).mockResolvedValue(undefined);
+    const { props } = renderAdmin("retial", { onWorkspaceDeleted: vi.fn() });
+    fireEvent.click(await screen.findByRole("button", { name: "Delete…" }));
+    const confirm = await screen.findByRole("alertdialog", { name: "Delete Retial?" });
+    expect(within(confirm).getByText("retial")).toBeInTheDocument();
+    expect(within(confirm).getByRole("button", { name: "Cancel" })).toHaveFocus();
+    fireEvent.click(within(confirm).getByRole("button", { name: "Delete workspace" }));
+
+    expect(await screen.findByText(/Workspace Retial \(retial\) was deleted/)).toBeInTheDocument();
+    expect(api.deleteWorkspace).toHaveBeenCalledWith("retial", 1);
+    expect(props.onRouteChange).toHaveBeenCalledWith({ kind: "workspaces" });
+    expect(props.onWorkspaceDeleted).toHaveBeenCalledWith("retial");
+    expect(api.workspaces).toHaveBeenCalledTimes(2);
+  });
+
+  it.each([
+    ["default", undefined, /default workspace cannot be retired or deleted/],
+    ["retail", "retail", /has been published, so it cannot be deleted.*Retire it instead/],
+    ["archive", "archive", /Only an empty workspace can be deleted/],
+  ])("offers no deletion for the %s workspace and says why", async (_, key, reason) => {
+    renderAdmin(key);
+    expect(await screen.findByText(reason)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete…" })).not.toBeInTheDocument();
+  });
+
+  it("does not suggest retiring a retired published workspace", async () => {
+    byKey.set("archive", { ...archive, deleteBlockedBy: "published" });
+    renderAdmin("archive");
+    expect(await screen.findByText(/has been published, so it cannot be deleted/)).toBeInTheDocument();
+    expect(screen.queryByText(/Retire it instead/)).not.toBeInTheDocument();
+  });
+
+  it("offers no deletion when administration is disabled", async () => {
+    vi.mocked(api.capabilities).mockResolvedValue(capabilities(false));
+    byKey.set("retial", { ...retail, key: "retial", label: "Retial", deletable: true, deleteBlockedBy: null });
+    renderAdmin("retial");
+    expect(await screen.findByRole("heading", { level: 2, name: "Retial" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete…" })).not.toBeInTheDocument();
+  });
+
+  it("shows a refused deletion and the reason the workspace now has", async () => {
+    byKey.set("retial", { ...retail, key: "retial", label: "Retial", deletable: true, deleteBlockedBy: null });
+    vi.mocked(api.deleteWorkspace).mockRejectedValue(
+      new ApiError(409, "workspace_not_empty", "Workspace 'retial' still has objects or change sets", {
+        objectCount: 1,
+        changeSetCount: 0,
+      }),
+    );
+    const { props } = renderAdmin("retial");
+    fireEvent.click(await screen.findByRole("button", { name: "Delete…" }));
+    byKey.set("retial", { ...retail, key: "retial", label: "Retial", deletable: false, deleteBlockedBy: "notEmpty" });
+    const confirm = await screen.findByRole("alertdialog", { name: "Delete Retial?" });
+    fireEvent.click(within(confirm).getByRole("button", { name: "Delete workspace" }));
+
+    expect(await screen.findByText("Workspace 'retial' still has objects or change sets")).toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(screen.getByText(/Only an empty workspace can be deleted/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Delete…" })).not.toBeInTheDocument();
+    expect(props.onRouteChange).not.toHaveBeenCalled();
+  });
+
+  it("reports a concurrent change instead of deleting", async () => {
+    byKey.set("retial", { ...retail, key: "retial", label: "Retial", deletable: true, deleteBlockedBy: null });
+    vi.mocked(api.deleteWorkspace).mockRejectedValue(
+      new ApiError(409, "version_conflict", "Workspace version has changed"),
+    );
+    renderAdmin("retial");
+    fireEvent.click(await screen.findByRole("button", { name: "Delete…" }));
+    byKey.set("retial", {
+      ...retail,
+      key: "retial",
+      label: "Retail",
+      version: 2,
+      deletable: true,
+      deleteBlockedBy: null,
+    });
+    fireEvent.click(
+      within(await screen.findByRole("alertdialog", { name: "Delete Retial?" })).getByRole("button", {
+        name: "Delete workspace",
+      }),
+    );
+    expect(await screen.findByText(/It is now “Retail” and active/)).toBeInTheDocument();
+    expect(api.deleteWorkspace).toHaveBeenCalledTimes(1);
   });
 
   it("opens the selected workspace", async () => {

@@ -348,6 +348,10 @@ function AppContent({
               route={activeRoute}
               onRouteChange={(next) => navigate(next)}
               onDefaultChanged={defaultWorkspaceChanged}
+              onWorkspaceDeleted={(workspaceKey) => {
+                // Leaving the screen returns to the remembered collection; never to a deleted workspace.
+                if (lastCollection()?.workspaceKey === workspaceKey) rememberWorkspace(defaultWorkspaceKey);
+              }}
               onOpenWorkspace={(workspaceKey) => {
                 if (navigate(viewRoute(application, application.defaultView, workspaceKey))) {
                   rememberWorkspace(workspaceKey);

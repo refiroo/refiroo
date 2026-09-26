@@ -14,6 +14,7 @@ const defaultWorkspace = {
   version: 1,
   createdAt: "2026-09-05T00:00:00Z",
   updatedAt: "2026-09-05T00:00:00Z",
+  deletable: false,
 };
 
 describe("WorkspaceSelector", () => {

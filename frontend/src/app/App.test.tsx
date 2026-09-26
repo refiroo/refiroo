@@ -20,6 +20,7 @@ vi.mock("@/api/client", () => ({
     modelRuntimeState: vi.fn(),
     workspaceRuntimeState: vi.fn(),
     workspace: vi.fn(),
+    deleteWorkspace: vi.fn(),
     workspaces: vi.fn(),
     objects: vi.fn(),
     object: vi.fn(),
@@ -86,6 +87,7 @@ describe("App", () => {
       version: 1,
       createdAt: "2026-09-05T00:00:00Z",
       updatedAt: "2026-09-05T00:00:00Z",
+      deletable: false,
     }));
     vi.mocked(api.workspaces).mockResolvedValue({ items: [], nextCursor: null });
     vi.mocked(api.publications).mockResolvedValue({ items: [], nextCursor: null });
@@ -308,6 +310,39 @@ describe("App", () => {
     expect(window.location.pathname).toBe("/apps/test-app/views/domains");
   });
 
+  it("returns to the default workspace after deleting the one it came from", async () => {
+    const west = {
+      key: "west",
+      label: "west",
+      status: "active" as const,
+      version: 1,
+      createdAt: "2026-09-05T00:00:00Z",
+      updatedAt: "2026-09-05T00:00:00Z",
+    };
+    vi.mocked(api.workspaces).mockResolvedValue({ items: [west], nextCursor: null });
+    vi.mocked(api.workspace).mockImplementation(async (key) =>
+      key === "west"
+        ? { ...west, deletable: true, deleteBlockedBy: null }
+        : { ...west, key, label: "Default", deletable: false, deleteBlockedBy: "default" },
+    );
+    vi.mocked(api.deleteWorkspace).mockResolvedValue(undefined);
+    visit("/apps/test-app/views/domains?workspaceKey=west");
+    render(<App />);
+    fireEvent.click(await screen.findByRole("button", { name: "Workspaces" }));
+    fireEvent.click(await screen.findByRole("button", { name: /^west/ }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete…" }));
+    fireEvent.click(
+      within(await screen.findByRole("alertdialog", { name: "Delete west?" })).getByRole("button", {
+        name: "Delete workspace",
+      }),
+    );
+    expect(await screen.findByText(/Workspace west \(west\) was deleted/)).toBeInTheDocument();
+    await waitFor(() => expect(window.location.pathname).toBe("/workspaces"));
+
+    fireEvent.click(screen.getByRole("button", { name: / home$/ }));
+    await waitFor(() => expect(window.location.search).toContain("workspaceKey=default"));
+  });
+
   it("uses the catalogue runtime default when the URL omits a workspace", async () => {
     vi.mocked(api.workspaceRuntimeState).mockResolvedValue({
       defaultWorkspaceKey: "central-europe",
@@ -329,6 +364,7 @@ describe("App", () => {
       version: 2,
       createdAt: "2026-09-05T00:00:00Z",
       updatedAt: "2026-09-05T00:00:00Z",
+      deletable: false,
     });
     visit("/apps/test-app/views/domains?workspaceKey=archive");
     render(<App />);
@@ -347,6 +383,7 @@ describe("App", () => {
       version: 2,
       createdAt: "2026-09-05T00:00:00Z",
       updatedAt: "2026-09-05T00:00:00Z",
+      deletable: false,
     });
     vi.mocked(api.object).mockResolvedValue({ ...domainObject, workspaceKey: "archive" });
     vi.mocked(api.objectHistory).mockResolvedValue({ items: [], nextCursor: null });

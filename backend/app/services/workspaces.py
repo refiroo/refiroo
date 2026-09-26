@@ -1,20 +1,31 @@
 """Authoritative workspace catalogue and singleton default selection."""
 
 from datetime import UTC, datetime
+from typing import Literal
 
-from sqlalchemy import Select, or_, select, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy import Select, delete, event, func, or_, select, update
+from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.orm import Session
 
 from ..common.time import as_utc
-from ..errors import api_error
+from ..errors import ApiError, api_error
 from ..models.api import (
     WorkspaceCreate,
+    WorkspaceDetailResponse,
     WorkspaceResponse,
     WorkspaceRuntimeStateResponse,
     WorkspaceUpdate,
 )
-from ..models.database import Workspace, WorkspaceRuntimeState
+from ..models.database import (
+    ChangeSet,
+    Publication,
+    RdmObject,
+    RelationSetVersion,
+    Workspace,
+    WorkspaceRuntimeState,
+)
+
+DeleteBlocker = Literal["default", "published", "notEmpty"]
 
 
 def workspace_response(item: Workspace) -> WorkspaceResponse:
@@ -25,6 +36,15 @@ def workspace_response(item: Workspace) -> WorkspaceResponse:
         version=item.version,
         createdAt=as_utc(item.created_at),
         updatedAt=as_utc(item.updated_at),
+    )
+
+
+def workspace_detail_response(session: Session, item: Workspace) -> WorkspaceDetailResponse:
+    blocker, _ = _delete_blocker(
+        session, item.key, load_workspace_runtime_state(session).default_workspace_key
+    )
+    return WorkspaceDetailResponse(
+        **workspace_response(item).model_dump(), deletable=blocker is None, deleteBlockedBy=blocker
     )
 
 
@@ -66,13 +86,53 @@ def resolve_workspace(
         key if key is not None else load_workspace_runtime_state(session).default_workspace_key
     )
     item = load_workspace(session, effective_key)
-    if require_active and item.status == "retired":
+    if require_active:
+        _require_active(item)
+        session.info.setdefault(_RESOLVED_ACTIVE_WORKSPACES, set()).add(item.key)
+    return item
+
+
+_RESOLVED_ACTIVE_WORKSPACES = "resolved_active_workspace_keys"
+
+
+def _require_active(item: Workspace) -> None:
+    if item.status == "retired":
         raise api_error(
             409,
             "workspace_retired",
             f"Workspace '{item.key}' is retired and cannot be modified",
         )
-    return item
+
+
+@event.listens_for(Session, "before_commit")
+def _require_resolved_workspaces(session: Session) -> None:
+    """Refuse to commit a write into a workspace deleted or retired since it was resolved (0.8 W6).
+
+    A write resolves its workspace before it writes, so a deletion or retirement could otherwise
+    commit in between and leave rows under a missing or retired key; SQLite foreign keys are not
+    enforced at runtime. The reread runs after the flush, inside the write transaction, so on SQLite
+    it holds the writer lock that deletion also takes before its checks.
+    """
+    keys = session.info.get(_RESOLVED_ACTIVE_WORKSPACES)
+    if not keys:
+        return
+    session.flush()
+    for key in sorted(keys):
+        current = session.execute(
+            select(Workspace.key, Workspace.status).where(Workspace.key == key)
+        ).one_or_none()
+        if current is None:
+            raise api_error(
+                404,
+                "workspace_not_found",
+                f"Workspace '{key}' was deleted while this request was processed; nothing was saved",
+            )
+        if current.status == "retired":
+            raise api_error(
+                409,
+                "workspace_retired",
+                f"Workspace '{key}' was retired while this request was processed; nothing was saved",
+            )
 
 
 def build_workspace_query(
@@ -182,3 +242,90 @@ def set_default_workspace(
         )
     session.commit()
     return load_workspace_runtime_state(session)
+
+
+def _delete_blocker(
+    session: Session, key: str, default_key: str
+) -> tuple[DeleteBlocker | None, dict[str, int]]:
+    """Return why ``key`` may not be deleted, in the order the refusals are reported (D27)."""
+    if key == default_key:
+        return "default", {}
+    # Publications are withdrawn, never removed, so any row means the workspace was published.
+    if session.scalar(select(Publication.id).where(Publication.workspace_key == key).limit(1)):
+        return "published", {}
+    counts = {
+        "objectCount": session.scalar(
+            select(func.count()).select_from(RdmObject).where(RdmObject.workspace_key == key)
+        )
+        or 0,
+        "changeSetCount": session.scalar(
+            select(func.count()).select_from(ChangeSet).where(ChangeSet.workspace_key == key)
+        )
+        or 0,
+    }
+    if counts["objectCount"] or counts["changeSetCount"]:
+        return "notEmpty", counts
+    return None, counts
+
+
+def delete_workspace(session: Session, key: str, expected_version: int) -> None:
+    """Delete a workspace nothing refers to, so a mistyped key can be corrected (ADR-019, D27).
+
+    The checks and the delete run in one transaction under SQLite's database-wide writer
+    reservation (row locks elsewhere), so no object, change set or publication can be added between
+    them; a live write that resolved the workspace earlier rechecks it before it commits
+    (``_require_resolved_workspaces``). Foreign keys are not enforced on SQLite, so the cascading
+    relation-set versions are removed explicitly.
+    """
+    if session.bind is not None and session.bind.dialect.name == "sqlite":
+        session.rollback()
+        try:
+            session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+        except OperationalError as exc:
+            session.rollback()
+            raise api_error(
+                409,
+                "workspace_delete_retry",
+                "Other changes are being saved; retry deleting the workspace after they finish",
+            ) from exc
+    try:
+        _require_deletable(session, key, expected_version)
+    except ApiError:
+        session.rollback()  # Release the writer reservation; a refusal changes nothing.
+        raise
+    session.execute(delete(RelationSetVersion).where(RelationSetVersion.workspace_key == key))
+    session.execute(delete(Workspace).where(Workspace.key == key))
+    session.commit()
+
+
+def _require_deletable(session: Session, key: str, expected_version: int) -> None:
+    state = load_workspace_runtime_state(session, for_update=True)
+    workspace = load_workspace(session, key, for_update=True)
+    blocker, counts = _delete_blocker(session, key, state.default_workspace_key)
+    if blocker == "default":
+        raise api_error(
+            409,
+            "workspace_is_default",
+            "The default workspace cannot be deleted. Make another workspace the default first",
+        )
+    if blocker == "published":
+        raise api_error(
+            409,
+            "workspace_has_publications",
+            f"Workspace '{key}' has been published and cannot be deleted; retire it instead",
+        )
+    if blocker == "notEmpty":
+        raise api_error(
+            409,
+            "workspace_not_empty",
+            f"Workspace '{key}' still has objects or change sets. Delete its objects and discard "
+            "its change sets first, or retire it",
+            counts,
+        )
+    if workspace.version != expected_version:
+        raise api_error(
+            409,
+            "version_conflict",
+            "Workspace version has changed",
+            {"currentVersion": workspace.version},
+        )

@@ -1,6 +1,6 @@
 // Base 0.8 W4 browser evidence: the Workspaces administration screen, the selector's Manage
 // workspaces entry and single-workspace label, and read-only capability status, against a real
-// backend with workspace administration on and then off.
+// backend with workspace administration on and then off. W6 adds deleting a mistyped workspace.
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
@@ -60,6 +60,8 @@ try {
   expect(capabilityText.includes("MODEL_ADMIN_MUTATIONS_ENABLED"), "disabled model group names its setting");
   expect(/Workspace administration\s*Enabled/.test(capabilityText), `workspace group: ${capabilityText}`);
   expect(await page.getByRole("button", { name: "Retire…" }).isDisabled(), "default workspace retirable");
+  expect((await page.getByRole("button", { name: "Delete…" }).count()) === 0, "default workspace deletable");
+  await page.getByText("The default workspace cannot be retired or deleted.", { exact: false }).waitFor();
   await axe(page, "w4-workspaces-default");
   checks.push("Manage workspaces (keyboard) opens the default; capability status names the disabled setting");
 
@@ -188,7 +190,49 @@ try {
   await page.getByText("Read-only workspace").waitFor();
   checks.push("retirement after confirmation lists it as retired, offers reactivation and opens read only");
 
-  // 11. Narrow: the catalogue lives in the Browse workspaces drawer; no page overflow.
+  // 11. W6: a mistyped key is deleted by keyboard and the corrected key created.
+  await page.goto(`${uiUrl}/workspaces/default`);
+  await page.getByRole("button", { name: "New workspace" }).click();
+  await createDialog.getByRole("textbox", { name: "Name" }).fill("Nordics");
+  await createDialog.getByRole("textbox", { name: /^Key/ }).fill("nordcis");
+  await createDialog.getByRole("button", { name: "Create workspace" }).click();
+  await page.getByRole("heading", { level: 2, name: "Nordics" }).waitFor();
+  expect(new URL(page.url()).pathname === "/workspaces/nordcis", `mistyped url ${page.url()}`);
+  await page.getByRole("button", { name: "Delete…" }).focus();
+  await page.keyboard.press("Enter");
+  const deleteConfirm = page.getByRole("alertdialog", { name: "Delete Nordics?" });
+  await deleteConfirm.waitFor();
+  expect((await deleteConfirm.getByText("nordcis", { exact: true }).count()) === 1, "confirmation names the key");
+  await axe(page, "w6-delete-confirm");
+  await shot("w6-delete-confirm-wide");
+  // Cancel has focus; the destructive action is the deliberate second stop.
+  await page.keyboard.press("Tab");
+  await page.keyboard.press("Enter");
+  await page.getByText("Workspace Nordics (nordcis) was deleted.", { exact: false }).waitFor();
+  expect(new URL(page.url()).pathname === "/workspaces", `after delete url ${page.url()}`);
+  await page.getByRole("heading", { level: 2, name: defaultLabel }).waitFor();
+  expect((await catalogue.getByRole("button", { name: /nordcis/ }).count()) === 0, "deleted key still listed");
+  expect(
+    !(await api("/workspaces?status=all")).items.some((item) => item.key === "nordcis"),
+    "deleted key still stored",
+  );
+  await shot("w6-deleted-wide");
+  await page.goto(`${uiUrl}/workspaces/nordcis`);
+  await page.getByText("Workspace 'nordcis' not found").waitFor();
+  await page.getByRole("button", { name: "New workspace" }).click();
+  await createDialog.getByRole("textbox", { name: "Name" }).fill("Nordics");
+  expect((await createDialog.getByRole("textbox", { name: /^Key/ }).inputValue()) === "nordics", "corrected key");
+  await createDialog.getByRole("button", { name: "Create workspace" }).click();
+  await page.getByRole("heading", { level: 2, name: "Nordics" }).waitFor();
+  expect(new URL(page.url()).pathname === "/workspaces/nordics", `corrected url ${page.url()}`);
+  await page.goto(`${uiUrl}/apps/rdm-master/views/domains?workspaceKey=default`);
+  await page.getByRole("button", { name: "Show workspace options" }).click();
+  await page.getByRole("option", { name: /Nordics/ }).waitFor();
+  expect((await page.getByRole("option", { name: /nordcis/ }).count()) === 0, "selector offers the deleted key");
+  await page.keyboard.press("Escape");
+  checks.push("W6: mistyped workspace deleted by keyboard after a confirmation naming its key; stale URL is not found; corrected key created; selector drops it");
+
+  // 12. Narrow: the catalogue lives in the Browse workspaces drawer; no page overflow.
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`${uiUrl}/workspaces/central-europe`);
   await page.getByRole("heading", { level: 2, name: "Central Europe East" }).waitFor();

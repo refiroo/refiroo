@@ -5,8 +5,8 @@ from fastapi import APIRouter, Query, status
 from ..db import DbSession
 from ..models.api import (
     WorkspaceCreate,
+    WorkspaceDetailResponse,
     WorkspacePage,
-    WorkspaceResponse,
     WorkspaceRuntimeStateResponse,
     WorkspaceRuntimeStateUpdate,
     WorkspaceUpdate,
@@ -16,11 +16,13 @@ from ..services.pagination import paginate_statement, text_key
 from ..services.workspaces import (
     build_workspace_query,
     create_workspace,
+    delete_workspace,
     load_workspace,
     load_workspace_runtime_state,
     runtime_state_response,
     set_default_workspace,
     update_workspace,
+    workspace_detail_response,
     workspace_response,
 )
 from .paging import PageQuery
@@ -54,9 +56,9 @@ def list_workspaces(
     )
 
 
-@read_router.get("/workspaces/{workspace_key}", response_model=WorkspaceResponse)
-def get_workspace(workspace_key: str, session: DbSession) -> WorkspaceResponse:
-    return workspace_response(load_workspace(session, workspace_key))
+@read_router.get("/workspaces/{workspace_key}", response_model=WorkspaceDetailResponse)
+def get_workspace(workspace_key: str, session: DbSession) -> WorkspaceDetailResponse:
+    return workspace_detail_response(session, load_workspace(session, workspace_key))
 
 
 @read_router.get("/workspace-runtime-state", response_model=WorkspaceRuntimeStateResponse)
@@ -65,17 +67,26 @@ def get_workspace_runtime_state(session: DbSession) -> WorkspaceRuntimeStateResp
 
 
 @admin_router.post(
-    "/workspaces", response_model=WorkspaceResponse, status_code=status.HTTP_201_CREATED
+    "/workspaces", response_model=WorkspaceDetailResponse, status_code=status.HTTP_201_CREATED
 )
-def post_workspace(payload: WorkspaceCreate, session: DbSession) -> WorkspaceResponse:
-    return workspace_response(create_workspace(session, payload))
+def post_workspace(payload: WorkspaceCreate, session: DbSession) -> WorkspaceDetailResponse:
+    return workspace_detail_response(session, create_workspace(session, payload))
 
 
-@admin_router.patch("/workspaces/{workspace_key}", response_model=WorkspaceResponse)
+@admin_router.patch("/workspaces/{workspace_key}", response_model=WorkspaceDetailResponse)
 def patch_workspace(
     workspace_key: str, payload: WorkspaceUpdate, session: DbSession
-) -> WorkspaceResponse:
-    return workspace_response(update_workspace(session, workspace_key, payload))
+) -> WorkspaceDetailResponse:
+    return workspace_detail_response(session, update_workspace(session, workspace_key, payload))
+
+
+@admin_router.delete("/workspaces/{workspace_key}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_workspace_route(
+    workspace_key: str,
+    session: DbSession,
+    expected_version: int = Query(alias="expectedVersion", ge=1),
+) -> None:
+    delete_workspace(session, workspace_key, expected_version)
 
 
 @admin_router.patch("/workspace-runtime-state", response_model=WorkspaceRuntimeStateResponse)

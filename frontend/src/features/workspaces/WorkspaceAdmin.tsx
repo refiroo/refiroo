@@ -1,6 +1,7 @@
 /**
  * Workspace administration: the catalogue of every workspace, including retired ones, with create,
- * rename, retire, reactivate and set default. Laid out like the Models screen — the catalogue in the
+ * rename, retire, reactivate, set default and delete. Only a workspace nothing refers to can be
+ * deleted; the server says whether it can, and why not, so the screen never guesses. Laid out like the Models screen — the catalogue in the
  * shell sidebar and the selected workspace as the page.
  *
  * Every write carries the version it was based on. A conflict never retries silently: the current
@@ -14,7 +15,7 @@ import { errorMessage, isApiError } from "@/api/errors";
 import { CapabilityStatus } from "@/features/administration/CapabilityStatus";
 import { formatServerTime } from "@/lib/dates";
 import { useCursorFeed } from "@/lib/hooks/useCursorFeed";
-import type { CapabilitiesResponse, RouteState, Workspace, WorkspaceRuntimeState } from "@/types";
+import type { CapabilitiesResponse, RouteState, Workspace, WorkspaceDetail, WorkspaceRuntimeState } from "@/types";
 import { ConfirmDialog } from "@/ui/ConfirmDialog";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
@@ -42,16 +43,19 @@ export function WorkspaceAdmin({
   onRouteChange,
   onDefaultChanged,
   onOpenWorkspace,
+  onWorkspaceDeleted,
 }: {
   route: WorkspacesRoute;
   onRouteChange: (route: WorkspacesRoute) => void;
   onDefaultChanged?: (workspaceKey: string) => void;
   onOpenWorkspace: (workspaceKey: string) => void;
+  onWorkspaceDeleted?: (workspaceKey: string) => void;
 }) {
   const [capabilities, setCapabilities] = useState<CapabilitiesResponse>();
   const [runtime, setRuntime] = useState<WorkspaceRuntimeState>();
   const [loadError, setLoadError] = useState("");
   const [creating, setCreating] = useState(false);
+  const [deleted, setDeleted] = useState("");
   const newButtonRef = useRef<HTMLButtonElement>(null);
   const feed = useCursorFeed((cursor) => api.workspaces({ status: "all", cursor, pageSize: 100 }), []);
 
@@ -96,7 +100,10 @@ export function WorkspaceAdmin({
             key={workspace.key}
             className={selectedKey === workspace.key ? "active" : ""}
             aria-current={selectedKey === workspace.key ? "page" : undefined}
-            onClick={() => onRouteChange({ kind: "workspaces", selectedWorkspaceKey: workspace.key })}
+            onClick={() => {
+              setDeleted("");
+              onRouteChange({ kind: "workspaces", selectedWorkspaceKey: workspace.key });
+            }}
           >
             <Icon name="workspace" />
             <span className="catalogue-text">
@@ -141,8 +148,8 @@ export function WorkspaceAdmin({
           <div>
             <h1>Workspaces</h1>
             <p>
-              Create, rename and retire workspaces and choose the default. Each workspace keeps its own live data,
-              change sets and publications.
+              Create, rename, retire and delete workspaces and choose the default. Each workspace keeps its own live
+              data, change sets and publications.
             </p>
           </div>
         </div>
@@ -165,6 +172,11 @@ export function WorkspaceAdmin({
       )}
       {!capabilities && !loadError && <div className="panel-state">Loading workspace catalogue…</div>}
       {capabilities && <CapabilityStatus capabilities={capabilities} />}
+      {deleted && (
+        <Notice tone="success" focusOnMount>
+          {deleted}
+        </Notice>
+      )}
       <SidebarPortal>{catalogue}</SidebarPortal>
       <section className="surface model-detail">
         {selectedKey && capabilities && runtime ? (
@@ -180,6 +192,12 @@ export function WorkspaceAdmin({
             }}
             reloadRuntime={reloadRuntime}
             onOpen={onOpenWorkspace}
+            onDeleted={(workspace) => {
+              setDeleted(`Workspace ${workspace.label} (${workspace.key}) was deleted. Its key can be used again.`);
+              feed.reload();
+              onRouteChange({ kind: "workspaces" });
+              onWorkspaceDeleted?.(workspace.key);
+            }}
           />
         ) : (
           !loadError && <div className="panel-state">Choose a workspace.</div>
@@ -210,6 +228,7 @@ function WorkspaceDetail({
   onRuntimeChanged,
   reloadRuntime,
   onOpen,
+  onDeleted,
 }: {
   workspaceKey: string;
   runtime: WorkspaceRuntimeState;
@@ -218,12 +237,14 @@ function WorkspaceDetail({
   onRuntimeChanged: (state: WorkspaceRuntimeState) => void;
   reloadRuntime: () => Promise<WorkspaceRuntimeState>;
   onOpen: (workspaceKey: string) => void;
+  onDeleted: (workspace: Workspace) => void;
 }) {
-  const [workspace, setWorkspace] = useState<Workspace>();
+  const [workspace, setWorkspace] = useState<WorkspaceDetail>();
   const [loadError, setLoadError] = useState("");
   const [loadToken, setLoadToken] = useState(0);
   const [renaming, setRenaming] = useState(false);
   const [retiring, setRetiring] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [pending, setPending] = useState(false);
   const [actionError, setActionError] = useState("");
   const [conflict, setConflict] = useState("");
@@ -252,7 +273,7 @@ function WorkspaceDetail({
     return current;
   }
 
-  function stored(updated: Workspace, text: string) {
+  function stored(updated: WorkspaceDetail, text: string) {
     setWorkspace(updated);
     onChanged(updated);
     setMessage(text);
@@ -299,6 +320,8 @@ function WorkspaceDetail({
       const state = await api.setDefaultWorkspace(workspace.key, runtime.version);
       onRuntimeChanged(state);
       setMessage(`${workspace.label} is now the default workspace.`);
+      // The default cannot be deleted; reread why rather than deciding it here.
+      await reloadWorkspace().catch(() => undefined);
     } catch (cause) {
       if (isApiError(cause, "version_conflict")) {
         const state = await reloadRuntime().catch(() => runtime);
@@ -314,10 +337,51 @@ function WorkspaceDetail({
     }
   }
 
+  async function remove() {
+    if (!workspace) return;
+    setPending(true);
+    setActionError("");
+    setConflict("");
+    setMessage("");
+    try {
+      await api.deleteWorkspace(workspace.key, workspace.version);
+      setDeleting(false);
+      onDeleted(workspace);
+    } catch (cause) {
+      if (isApiError(cause, "version_conflict")) {
+        setDeleting(false);
+        const current = await reloadWorkspace().catch(() => workspace);
+        setConflict(
+          `This workspace changed while the page was open. It is now “${current.label}” and ${current.status}. Review it and choose again.`,
+        );
+      } else if (
+        isApiError(cause, "workspace_is_default") ||
+        isApiError(cause, "workspace_has_publications") ||
+        isApiError(cause, "workspace_not_empty")
+      ) {
+        // Something was added since the page loaded: show the refusal and the reason it now has.
+        setDeleting(false);
+        if (isApiError(cause, "workspace_is_default")) await reloadRuntime().catch(() => undefined);
+        await reloadWorkspace().catch(() => undefined);
+        setActionError(errorMessage(cause));
+      } else {
+        setActionError(errorMessage(cause));
+      }
+    } finally {
+      setPending(false);
+    }
+  }
+
   if (loadError) return <InlineError message={loadError} onRetry={() => setLoadToken((token) => token + 1)} />;
   if (!workspace) return <div className="panel-state">Loading workspace…</div>;
   const isDefault = runtime.defaultWorkspaceKey === workspace.key;
   const active = workspace.status === "active";
+  const deleteBlockedHint =
+    workspace.deleteBlockedBy === "published"
+      ? `This workspace has been published, so it cannot be deleted: publications are kept.${active ? " Retire it instead to take it out of use." : ""}`
+      : workspace.deleteBlockedBy === "notEmpty"
+        ? "Only an empty workspace can be deleted. Delete its objects and discard its change sets first, or retire it."
+        : undefined;
 
   return (
     <div className="model-editor-stack">
@@ -353,7 +417,7 @@ function WorkspaceDetail({
           {conflict}
         </Notice>
       )}
-      {actionError && !renaming && !retiring && (
+      {actionError && !renaming && !retiring && !deleting && (
         <Notice tone="error" title="The action could not be completed">
           {actionError}
         </Notice>
@@ -389,14 +453,27 @@ function WorkspaceDetail({
                 Reactivate
               </button>
             )}
+            {workspace.deletable && (
+              <button
+                className="danger-ghost"
+                disabled={pending}
+                onClick={() => {
+                  setActionError("");
+                  setDeleting(true);
+                }}
+              >
+                Delete…
+              </button>
+            )}
           </>
         )}
       </div>
       {canManage && isDefault && (
         <p id="workspace-retire-hint" className="admin-hint">
-          The default workspace cannot be retired. Make another workspace the default first.
+          The default workspace cannot be retired or deleted. Make another workspace the default first.
         </p>
       )}
+      {canManage && deleteBlockedHint && <p className="admin-hint">{deleteBlockedHint}</p>}
       <p className="admin-hint">
         {active
           ? "Change sets and publications belong to this workspace. Open it to work with them."
@@ -431,6 +508,24 @@ function WorkspaceDetail({
           <p>
             The workspace becomes read only. Its live data, change sets, publications and history stay available, and it
             can be reactivated later.
+          </p>
+        </ConfirmDialog>
+      )}
+      {deleting && (
+        <ConfirmDialog
+          title={`Delete ${workspace.label}?`}
+          confirmLabel="Delete workspace"
+          pending={pending}
+          error={actionError}
+          onCancel={() => {
+            setDeleting(false);
+            setActionError("");
+          }}
+          onConfirm={() => void remove()}
+        >
+          <p>
+            The workspace with key <strong>{workspace.key}</strong> is removed from the catalogue. It has no objects,
+            change sets or publications, so no data is lost, and the key can be created again.
           </p>
         </ConfirmDialog>
       )}
@@ -533,10 +628,10 @@ function RenameWorkspaceDialog({
   onClose,
   onRenamed,
 }: {
-  workspace: Workspace;
-  onReload: () => Promise<Workspace>;
+  workspace: WorkspaceDetail;
+  onReload: () => Promise<WorkspaceDetail>;
   onClose: () => void;
-  onRenamed: (workspace: Workspace) => void;
+  onRenamed: (workspace: WorkspaceDetail) => void;
 }) {
   const [label, setLabel] = useState(workspace.label);
   const [pending, setPending] = useState(false);

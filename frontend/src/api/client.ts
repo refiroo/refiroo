@@ -28,6 +28,7 @@ import type {
   ModelRuntimeState,
   ModelValidation,
   Workspace,
+  WorkspaceDetail,
   WorkspacePage,
   WorkspaceRuntimeState,
   MappingCoveragePage,
@@ -211,16 +212,21 @@ export const api = {
     if (options.cursor) params.set("cursor", options.cursor);
     return request<WorkspacePage>(`/api/v1/workspaces?${params}`);
   },
-  workspace: (workspaceKey: string) => request<Workspace>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}`),
+  workspace: (workspaceKey: string) =>
+    request<WorkspaceDetail>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}`),
   createWorkspace: (body: { key: string; label: string }) =>
-    request<Workspace>("/api/v1/workspaces", { method: "POST", body: JSON.stringify(body) }),
+    request<WorkspaceDetail>("/api/v1/workspaces", { method: "POST", body: JSON.stringify(body) }),
   updateWorkspace: (
     workspaceKey: string,
     body: { expectedVersion: number; label?: string; status?: Workspace["status"] },
   ) =>
-    request<Workspace>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}`, {
+    request<WorkspaceDetail>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}`, {
       method: "PATCH",
       body: JSON.stringify(body),
+    }),
+  deleteWorkspace: (workspaceKey: string, expectedVersion: number) =>
+    request<void>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}?expectedVersion=${expectedVersion}`, {
+      method: "DELETE",
     }),
   setDefaultWorkspace: (defaultWorkspaceKey: string, expectedVersion: number) =>
     request<WorkspaceRuntimeState>("/api/v1/workspace-runtime-state", {

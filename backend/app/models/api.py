@@ -495,6 +495,13 @@ class WorkspaceResponse(BaseModel):
     updatedAt: datetime
 
 
+class WorkspaceDetailResponse(WorkspaceResponse):
+    """One workspace and whether it may be deleted; computed for single-workspace responses only."""
+
+    deletable: bool
+    deleteBlockedBy: Literal["default", "published", "notEmpty"] | None = None
+
+
 class WorkspacePage(CollectionPage[WorkspaceResponse]):
     pass
 

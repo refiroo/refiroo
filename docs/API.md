@@ -615,18 +615,39 @@ parent/child combinations. The relation type's own `id` identifies the type itse
 - `GET /api/v1/workspaces/{workspaceKey}`
 - `POST /api/v1/workspaces`
 - `PATCH /api/v1/workspaces/{workspaceKey}`
+- `DELETE /api/v1/workspaces/{workspaceKey}?expectedVersion=N`
 - `GET /api/v1/workspace-runtime-state`
 - `PATCH /api/v1/workspace-runtime-state`
 
 Workspace keys are immutable and case-sensitive. Discovery defaults to active records and uses a
 filter-bound keyset cursor; detail reads include retired records. Updates claim the workspace version,
 and changing the default claims the independent singleton runtime-state version. The current default
-cannot be retired. A workspace is renamed by changing its `label`; there is no delete route and no
-way to change a key. Unknown explicit scopes return
+cannot be retired. A workspace is renamed by changing its `label`; there is no way to change a key.
+Unknown explicit scopes return
 `workspace_not_found`; retired scopes remain readable but all object, attribute and relation writes
 return `workspace_retired`.
 
-Create/update/default-switch routes are absent when `WORKSPACE_ADMIN_MUTATIONS_ENABLED=false`.
+**Deleting a workspace** ([ADR-019 amendment](DECISIONS.md#adr-019--persist-and-retire-globally-scoped-workspaces))
+corrects a mistyped key. `DELETE /workspaces/{workspaceKey}?expectedVersion=N` returns `204` when the
+workspace is not the default, was never published and has no objects and no change sets; active and
+retired workspaces follow the same rule, and the key can be created again. Refusals are checked in
+this order in one transaction and change nothing:
+
+| Status | Code | When |
+|---|---|---|
+| 404 | `workspace_not_found` | the key does not exist |
+| 409 | `workspace_is_default` | it is the current default |
+| 409 | `workspace_has_publications` | it has ever been published (withdrawn publications count); retire it instead |
+| 409 | `workspace_not_empty` | it has objects or change sets; `details` carries `objectCount` and `changeSetCount` |
+| 409 | `version_conflict` | `expectedVersion` is stale; `details.currentVersion` |
+| 409 | `workspace_delete_retry` | other writes held the database for longer than the busy timeout; retry |
+
+Single-workspace responses (`GET`, `POST` and `PATCH /workspaces/{workspaceKey}`) add `deletable` and,
+when it is false, `deleteBlockedBy`: `default`, `published` or `notEmpty`, in the refusal order above.
+The paged list omits both. A live write that resolved a workspace before it was deleted or retired is
+refused when it commits (`404 workspace_not_found` or `409 workspace_retired`), and nothing is saved.
+
+Create/update/delete/default-switch routes are absent when `WORKSPACE_ADMIN_MUTATIONS_ENABLED=false`.
 The flag gates only this catalogue administration: the change-set and publication routes below are
 always registered and return `workspace_retired` in a retired workspace.
 The flag defaults to true only for the pre-authentication development posture; exposed deployments

@@ -71,6 +71,13 @@ All notable changes to this project are documented in this file. The format foll
   whole-type name search with its total at 100,000 records takes 37 ms live, 73 ms in a draft and
   40 ms in history (was 0.7–0.9 s). Names stay on the (type, name) index; one- and two-character
   searches, and phrases in more than 10,000 values, read each record as before.
+- Base 0.8 W6: delete an unused workspace to correct a mistyped key (ADR-019 amendment, D27).
+  `DELETE /workspaces/{key}?expectedVersion=N` removes a workspace that is not the default, was never
+  published and has no objects or change sets, active or retired; the key can be created again. It
+  refuses with `workspace_is_default`, `workspace_has_publications`, `workspace_not_empty` (with
+  counts) or `version_conflict`, changing nothing, and is gated by `WORKSPACE_ADMIN_MUTATIONS_ENABLED`.
+  Single-workspace responses add `deletable` and `deleteBlockedBy` (OpenAPI lock re-baselined). The
+  Workspaces screen offers **Delete…** with a confirmation naming the key, or says why it cannot.
 
 ### Changed
 
@@ -196,6 +203,9 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+- Base 0.8 W6: a live write that resolved its workspace before the workspace was retired, or deleted,
+  could still commit into it. It now rereads the workspace inside its transaction and returns
+  `409 workspace_retired` or `404 workspace_not_found`, saving nothing.
 - Base 0.8 W5: a live write validated under one model release could commit after another release
   was activated, storing data the new release does not allow. The write now rereads the active
   release inside its transaction and returns `409 model_release_changed`, saving nothing; activation

@@ -1241,6 +1241,34 @@ deletion after the objects are deleted and the change set discarded, and 404/405
 the OpenAPI lock is re-baselined; component tests cover the deletable and each blocked state; the W4
 browser runner creates a workspace with a mistyped key, deletes it and creates the corrected one.
 
+**Delivered 2026-09-26.** `DELETE /workspaces/{key}` on `workspaces.admin_router` runs its checks and
+the delete under `BEGIN IMMEDIATE` (row locks elsewhere), in the specified order, and rolls back on
+any refusal; `workspace_delete_retry` covers a busy writer lock. Single-workspace responses (`GET`,
+`POST`, `PATCH`) share `WorkspaceDetailResponse` with `deletable` and `deleteBlockedBy`, so the
+screen keeps the reason current after rename, retire or set default; the paged list is unchanged.
+Discovery found that SQLite does not enforce the `workspaces.key` foreign keys at runtime, so neither
+`RESTRICT` nor the `relation_set_versions` cascade exists in practice: deletion removes relation-set
+versions itself, and `resolve_workspace(require_active=True)` now records the key for a
+`before_commit` recheck beside W5's. A live write resolved before its workspace was deleted then
+returns `404 workspace_not_found` instead of committing an orphan row (confirmed by removing the
+hook); a write resolved before retirement likewise returns `409 workspace_retired`, which closes the
+same window for retirement. The ADR-019 amendment, API.md, ARCHITECTURE, README, the functionality
+catalogue, the product guide, COVERAGE_MAP (C-WS-DEL), UI_ACCEPTANCE (W4 row) and the CHANGELOG
+are updated.
+
+Evidence: `test_w6_workspace_deletion` (8: empty, retired, re-create, default, published then
+withdrawn and emptied, objects and a change set then removed with relation-set versions cleaned up,
+stale version, flag off 405, held live write); adjacent workspace, OpenAPI, W5, relation, cascade,
+mapping, record CRUD, request-scope, context and withdrawal suites (179) and Ruff pass.
+`WorkspaceAdmin.test` (+7: delete, three blocked reasons, retired published, flag off, refusal,
+conflict), `App.test` (+1: leaving the screen after deleting the remembered workspace lands in the
+default), `WorkspaceSelector.test`; format, lint (0 errors) and build pass. `test:browser:w4` (21
+checks, step 11 new) deletes `nordcis` by keyboard, checks the stale URL, creates `nordics` and the
+selector; axe is clean on the delete confirmation. `test:visual` passes; `workspaces-admin` and
+`model-workbench` light and dark baselines were refreshed after review for the new capability and
+default-reason wording. Not exercised: `test:a11y` (left to R1), a published or non-empty workspace in
+the browser (component evidence only), two OS processes and a non-SQLite database.
+
 ## Pending items — revisit before R1
 
 Gaps in the read API found on 2026-09-25. They are not scheduled work packages. Each is decided at the

@@ -42,6 +42,14 @@ export interface Workspace {
   updatedAt: string;
 }
 
+/** One workspace as a single-item read returns it; the paged list omits the deletion fields. */
+export interface WorkspaceDetail extends Workspace {
+  /** True when nothing refers to the workspace, so it may be deleted rather than retired. */
+  deletable: boolean;
+  /** Why the workspace cannot be deleted, when `deletable` is false. */
+  deleteBlockedBy?: "default" | "published" | "notEmpty" | null;
+}
+
 export interface WorkspacePage {
   items: Workspace[];
   nextCursor: string | null;

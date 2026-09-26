@@ -21,7 +21,7 @@ export function CapabilityStatus({ capabilities }: { capabilities: CapabilitiesR
       name: "Workspace administration",
       enabled: capabilities.workspaceAdmin.manageWorkspaces,
       setting: capabilities.workspaceAdmin.setting,
-      scope: "creating, renaming and retiring workspaces and choosing the default",
+      scope: "creating, renaming, retiring and deleting workspaces and choosing the default",
     },
   ];
   return (

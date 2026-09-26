@@ -14,7 +14,7 @@ export interface ModelAdminCapabilities {
 
 export interface WorkspaceAdminCapabilities {
   manageWorkspaces: boolean;
-  /** The deployment setting that enables workspace create, rename, retire and set default. */
+  /** The deployment setting that enables workspace create, rename, retire, delete and set default. */
   setting: string;
 }
 

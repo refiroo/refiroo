@@ -73,15 +73,19 @@ label instead of a control.
 
 Workspace administrators use the global **Workspaces** screen, beside **Models** in the header, or the
 **Manage workspaces** entry in the selector: it lists every workspace including retired ones, and
-creates, renames, retires, reactivates and sets the default, each with its version claim. A concurrent
-change is shown with the current state and nothing is retried. A workspace key cannot be changed or
-deleted, and the current default cannot be retired. Change sets and publications stay inside each
+creates, renames, retires, reactivates, deletes and sets the default, each with its version claim. A
+concurrent change is shown with the current state and nothing is retried. A workspace key cannot be
+changed, and the current default cannot be retired or deleted. **Delete…** corrects a mistyped key: it
+is offered only for a workspace that has never been published and has no objects or change sets, asks
+for confirmation naming the key, and frees the key to be created again. Otherwise the screen says why
+(the default; published, so retire it instead; or not empty). Change sets and publications stay inside each
 workspace. The same operations remain available through the API.
 
 Safety and limits:
 
 - an unknown explicit key fails rather than silently falling back;
 - catalogue retirement is different from retiring a published data publication;
+- a published workspace can only be retired, never deleted, because publications are kept;
 - workspace administration is controlled by a deployment setting that defaults on in the current
   pre-authentication product; this is not user authorization. When it is off, the header entry and
   the selector's entry are absent, a direct link shows the catalogue read only, and the Models and

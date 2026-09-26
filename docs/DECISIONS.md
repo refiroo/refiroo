@@ -231,7 +231,7 @@ uses the internal sequence only as the final, non-public tie-breaker.
 
 ## ADR-019 — Persist and retire globally scoped workspaces
 
-**Status:** Accepted
+**Status:** Accepted; deletion of an unused workspace added by the 2026-09-26 amendment below (0.8 D27)
 
 Workspaces are runtime-owned, globally scoped database records rather than definitions in an immutable
 application-model release. A workspace administrator provisions them through a first-class
@@ -273,6 +273,20 @@ actions without treating the value as identity or permission evidence. The admin
 
 The singleton `workspace_runtime_state` row, rather than a mutable flag copied onto catalogue rows,
 owns the default key and its concurrency version. There is no workspace `DELETE` route.
+
+**Amendment (2026-09-26, Base 0.8 D27 / W6).** A key cannot be renamed, so a mistyped key otherwise
+stays forever. A workspace may therefore be deleted when it is not the default, has no objects and no
+change sets, and has never been published; everything else is retired. Publications are never
+removed, so a published workspace, even one whose publications are all withdrawn, can only be retired.
+`DELETE /api/v1/workspaces/{workspaceKey}?expectedVersion=N` sits behind the same
+`WORKSPACE_ADMIN_MUTATIONS_ENABLED` flag and refuses, in order, `404 workspace_not_found`,
+`409 workspace_is_default`, `409 workspace_has_publications`, `409 workspace_not_empty` (with
+`objectCount` and `changeSetCount`) and `409 version_conflict`, changing nothing. Retired workspaces
+follow the same rule. A deleted key may be created again. Like create, rename and retire, deletion
+records no audit event; audit events that named the key remain. Single-workspace responses state
+`deletable` and `deleteBlockedBy` (`default`, `published`, `notEmpty`) so clients do not infer the rule.
+The sentences above that say a workspace cannot be deleted and that there is no `DELETE` route are
+superseded by this amendment.
 
 ## ADR-020 — Version runtime objects through immutable revisions
 

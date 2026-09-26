@@ -44,12 +44,13 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     after 0.9 by D26).
   - [x] S8 indexed search keeping "contains" matching in every context (D25): a trigram index over
     text values; a whole-type name search with its total in 37 / 73 / 40 ms (was 0.7–0.9 s).
-- [ ] 0.8 Track W — workspace terminology and capability boundaries ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#track-w--workspace-terminology-and-capability-boundaries), ADR-031):
+- [x] 0.8 Track W — workspace terminology and capability boundaries ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#track-w--workspace-terminology-and-capability-boundaries), ADR-031):
   - [x] W1 glossary, roadmap and milestone names (translation/hierarchy editor); stale gap notes.
   - [x] W2 change sets and publications ("Publication N") carry their ADR-031 names in every layer.
   - [x] W3 narrow `WORKSPACE_ADMIN_MUTATIONS_ENABLED` to catalogue administration.
   - [x] W4 workspace administration screen, read-only single-workspace selector, capability status.
-  - [ ] W5 test (and fix if confirmed) live writes committing across a model activation.
+  - [x] W5 test (and fix if confirmed) live writes committing across a model activation.
+  - [x] W6 delete an unused workspace (D27): API, detail deletability, Workspaces screen action.
 - [ ] 0.8 Milestone A — translation editor ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-a--translation-editor)):
   - [ ] A1 schema 0.7 `translationMatrix` view contract (may run alongside Track S).
   - [ ] A2 translation coverage query with cell states and whole-list gap filter.

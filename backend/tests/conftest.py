@@ -49,6 +49,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_typed_table_queries.py": ("queries", "change_sets"),
     "test_query_foundations.py": ("queries", "records"),
     "test_workspaces.py": ("workspaces",),
+    "test_w6_workspace_deletion.py": ("workspaces",),
     "test_wp81a_context.py": ("workspaces", "model_admin"),
     "test_request_scope.py": ("workspaces",),
     "test_wp8_withdrawal.py": ("workspaces", "change_sets"),

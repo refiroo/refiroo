@@ -104,7 +104,7 @@ authorization; 0.10 authorization works within them.
 | Capability | Default | Group |
 | --- | --- | --- |
 | `MODEL_ADMIN_MUTATIONS_ENABLED` | off | Model drafts, install, activate; requires one process |
-| `WORKSPACE_ADMIN_MUTATIONS_ENABLED` | on | Workspace create, rename, retire, set default |
+| `WORKSPACE_ADMIN_MUTATIONS_ENABLED` | on | Workspace create, rename, retire, delete, set default |
 | — (always registered) | — | Change-set create, rename, delete, model-release change, validate and publish; publication withdrawal. Refused in a retired workspace |
 
 Because the capabilities are per process, several instances can share one database with different
@@ -127,6 +127,14 @@ What holds today:
   with row locks the write takes a shared lock on the `model_runtime_state` row and activation an
   exclusive one. Change-set base capture keeps its own `BEGIN IMMEDIATE` check. Tested by
   `test_w5_activation_write_race` (Base 0.8 W5).
+- **A live write never commits into a workspace deleted or retired after it resolved it.**
+  `resolve_workspace(require_active=True)` records the key on the session, and the same
+  `before_commit` point rereads it after the flush (`404 workspace_not_found` or
+  `409 workspace_retired`, nothing saved). Workspace deletion checks for objects, change sets and
+  publications under `BEGIN IMMEDIATE` and removes the row in that transaction. SQLite does not
+  enforce the `workspaces.key` foreign keys at runtime, so this recheck, not a `RESTRICT`, is what
+  keeps orphan rows out; deletion also removes the workspace's relation-set versions itself. Tested by
+  `test_w6_workspace_deletion` (Base 0.8 W6).
 - **Instances must share `RDM_CURSOR_SIGNING_KEY`** if a load balancer can route one client's
   requests to different instances; otherwise cursors issued by one are refused by another.
 

@@ -19,9 +19,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # its model release key and version. Re-baselined for W3: change-set and publication operations
     # carry the change-sets tag, since they no longer belong to workspace administration.
     # Re-baselined for W4: each capability group names the deployment setting that controls it.
+    # Re-baselined for W6: DELETE /workspaces/{key}, and single-workspace responses state deletable
+    # and deleteBlockedBy (WorkspaceDetailResponse).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "19d0f7a13f5c5ab4188aff6b35541388fdcaa8baad603a113e415556e38b82e4"
+        "6ecfe4a00bab0cac7f11b74b0c3f89be46adda698dc334f5f4ca3e316b6e3438"
     )
 
 
