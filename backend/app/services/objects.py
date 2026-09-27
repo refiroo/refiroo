@@ -4,7 +4,7 @@ from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from sqlalchemy import Select, and_, case, delete, exists, func, not_, or_, select, update
+from sqlalchemy import Select, and_, case, delete, exists, false, func, not_, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
@@ -213,8 +213,14 @@ def build_object_query(
     sort: str | None,
     field_filters: list[tuple[str, str, str]] | None = None,
     top_level: bool = False,
+    search_fields: Sequence[str] | None = None,
+    id_filter: Callable[[Any], Any] | None = None,
 ) -> ObjectQuery:
-    """Build the filtered statement, keyset and cursor filters for an object collection."""
+    """Build the filtered statement, keyset and cursor filters for an object collection.
+
+    ``search_fields`` limits ``search`` to those fields (``name`` or searchable attributes), as a
+    view declares them; ``id_filter`` restricts the records by a predicate on their public ID.
+    """
     object_type = get_object_type(model, object_type_key)
     if application_key:
         validate_application_object_type(model, application_key, object_type_key)
@@ -229,6 +235,8 @@ def build_object_query(
         statement = statement.where(RdmObject.parent_object_id == parent_object_id)
     if top_level:
         statement = statement.where(RdmObject.parent_object_id.is_(None))
+    if id_filter is not None:
+        statement = statement.where(id_filter(RdmObject.id))
     statement, keys, seek, normalized_filters = refine_object_query(
         model,
         LIVE_OBJECT_COLUMNS,
@@ -237,6 +245,7 @@ def build_object_query(
         search=search,
         sort=sort,
         field_filters=field_filters or [],
+        search_fields=search_fields,
     )
     return ObjectQuery(
         statement=statement,
@@ -268,15 +277,18 @@ def refine_object_query(
     search: str | None,
     sort: str | None,
     field_filters: list[tuple[str, str, str]],
+    search_fields: Sequence[str] | None = None,
 ) -> tuple[Select[Any], tuple[SortKey, ...], Callable[[str], Any], list[dict[str, str]]]:
     """Add search and typed filters to an object statement and return its keyset and seek.
 
     ``object_types`` are the types the listed records can have: search covers the searchable
-    fields of all of them and sort any scalar attribute bound to one of them, while a filter or an
-    ancestor sort needs exactly one.
+    fields of all of them, or only ``search_fields`` when given, and sort any scalar attribute
+    bound to one of them, while a filter or an ancestor sort needs exactly one.
     """
     if search:
-        statement = statement.where(_search_predicate(model, columns, object_types, search))
+        statement = statement.where(
+            _search_predicate(model, columns, object_types, search, search_fields)
+        )
     normalized_filters, predicates = _typed_filter_predicates(
         model, columns, object_types, field_filters
     )
@@ -308,12 +320,14 @@ def _search_predicate(
     columns: ObjectColumns,
     object_types: Sequence[ObjectTypeDefinition],
     search: str,
+    search_fields: Sequence[str] | None = None,
 ) -> Any:
     """A case-insensitive "contains" match on the name or a searchable attribute (D25).
 
     The name is matched on the row. A value is looked up only for a record the trigram index
     names, when the search is long enough to hold a trigram; the ``LIKE`` then decides, so the
-    index never changes the result, only which records are looked up.
+    index never changes the result, only which records are looked up. ``search_fields`` narrows
+    the match to the name and searchable attributes it names.
     """
     escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
     searchable_attributes = list(
@@ -322,8 +336,12 @@ def _search_predicate(
             for object_type in object_types
             for binding in object_type.attributes
             if model.attribute_type(binding.attributeTypeKey).features.get("searchable")
+            and (search_fields is None or binding.attributeTypeKey in search_fields)
         )
     )
+    name_match = columns.name.ilike(f"%{escaped}%", escape="\\")
+    if not searchable_attributes:
+        return name_match if search_fields is None or "name" in search_fields else false()
     values = columns.values
     attribute_match = exists(
         select(values.sequence_id).where(
@@ -336,7 +354,9 @@ def _search_predicate(
     if columns.search_values is not None and indexable:
         indexed = columns.search_values(match_phrase(search), searchable_attributes)
         attribute_match = and_(indexed, attribute_match)
-    return or_(columns.name.ilike(f"%{escaped}%", escape="\\"), attribute_match)
+    if search_fields is not None and "name" not in search_fields:
+        return attribute_match
+    return or_(name_match, attribute_match)
 
 
 def _object_sort_keys(

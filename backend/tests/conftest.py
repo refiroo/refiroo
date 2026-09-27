@@ -24,6 +24,7 @@ GROUP_DESCRIPTIONS = {
     "workspaces": "workspace catalogue, explicit scope, pinned contexts, retirement and withdrawal",
     "change_sets": "change sets: sources, edits, graph validation, publishing and publications",
     "mapping": "mapping coverage, atomic replacement and relation-set versions",
+    "matrix": "relation matrix reads: cells, states, row state filter and columns",
     "contract": "locked OpenAPI document and route inventories",
     "volume": "Track S volume fixture: read and write budgets as the dataset grows",
 }
@@ -77,6 +78,8 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_page_index_migrations.py": ("startup", "change_sets"),
     "test_change_set_rename_migration.py": ("startup", "change_sets"),
     "test_w5_activation_write_race.py": ("model_admin", "records"),
+    "test_relation_matrix.py": ("matrix", "queries", "change_sets"),
+    "test_relation_matrix_volume.py": ("matrix", "volume"),
 }
 
 

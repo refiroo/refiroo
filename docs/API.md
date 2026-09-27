@@ -1483,3 +1483,86 @@ the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
 WP-9 verifies generic-write/mapping races, both directional sets, independent bindings and change set
 activation versus live same-set changes. Confirmed missing foundation capabilities trigger a bounded
 WP-10 slice and block acceptance; they do not retroactively change WP-3 scope.
+
+## Product 0.8 relation matrix API (A2 delivered)
+
+`GET /api/v1/workspaces/{workspaceKey}/relation-matrix` reads a schema 0.7 `relationMatrix` view
+([model contract](APPLICATION_MODEL.md)): rows are records of the view's row type, columns are
+records of its column type, and a cell holds the row's related records, through the view's binding
+read from the row's end (`direction`), whose nearest ancestor of the column type is that column's
+record. Everything comes from the view and its binding.
+
+| Parameter | Meaning |
+| --- | --- |
+| `applicationKey`, `viewKey` | Required; an unknown view, or a view of another type, is `404 relation_matrix_view_not_found`. |
+| `changeSetId` or `publicationId` | Optional read context; both together are `422 mutually_exclusive_context`. |
+| `parentObjectId` | Only rows directly under this record. A record missing from the context is `404 relation_matrix_parent_not_found`; one whose type cannot contain the row type is `422 relation_matrix_parent_scope_mismatch`. |
+| `search` | Case-insensitive "contains" match on the view's `searchFields` only. |
+| `sort` | A row field as on an [object list](#collection-paging); name when omitted. |
+| `columnIds` | Repeated; the column records to show, in order, at most 20 (`422 too_many_columns`, `422 duplicate_column_ids`). An ID that is not a column-type record in the context is `404 relation_matrix_column_not_found` with the IDs in `details.columnIds`. |
+| `columnCursor`, `columnPageSize` | Without `columnIds`, the columns are a name-ordered page of the column type's records (`columnPageSize` 1–20, default 20); pass `columnsNextCursor` or `columnsPrevCursor` back as `columnCursor`. Naming both `columnIds` and `columnCursor` is `422 conflicting_column_parameters`. |
+| `state` | `one`, `several`, `inactive`, `historyOnly` or `none`: only rows with a cell in that state in any of `columnIds`, decided over every row before paging, so totals count the filtered rows. Requires `columnIds` (`422 relation_matrix_state_requires_columns`). |
+| `pageSize`, `cursor`, `from`, `position`, `seek`, `includeTotal` | Row paging, as every [collection](#collection-paging); `pageSize` 1–100 defaults to the view's. |
+
+Rows are every record of the row type in the workspace context, including records another
+application created: an application may list a type another one owns. Row cursors bind the context,
+model, view, parent scope, search, sort, `columnIds` and `state`; column cursors bind the context,
+model and view. A cursor used with other values is `422 invalid_cursor`.
+
+Each cell reports one state (D11), decided from the binding alone:
+
+- `one`: exactly one related record under the column meets the binding's
+  `uniqueWhenToAttributeEquals` condition (every record meets it when none is declared);
+- `several`: more than one does; `conflict` is `true` when the binding's `uniqueToAncestorTypeKey` is
+  the column type, which live writes refuse but a change set can hold until validation;
+- `inactive`: related records exist and none meets the condition;
+- `historyOnly`: none in the context, but an earlier publication of the workspace held one (every
+  publication for live and change set reads; those numbered before it for a publication read);
+- `none`: none of the above.
+
+The condition and uniqueness scope describe the binding's `to` end, so they apply only when the row
+is the `from` end (`direction: outgoing`); read `incoming`, every record meets the condition and
+`several` is never a conflict.
+
+```json
+{
+  "items": [{
+    "row": {"id": "row-id", "objectTypeKey": "master-value", "name": "M1",
+            "fields": {"name": "M1", "value-code": "VC-M1", "ancestor:codelist": "Codelist"}},
+    "relationSetVersion": 3,
+    "cells": [{
+      "columnId": "column-id",
+      "state": "one",
+      "conflict": false,
+      "recordCount": 2,
+      "matchingCount": 1,
+      "records": [{"id": "cell-record-id", "name": "M1 en", "version": 1, "relationId": "relation-id",
+                   "meetsCondition": true, "fields": {"translated-name": "…", "active": true}}],
+      "publication": null
+    }]
+  }],
+  "nextCursor": null,
+  "columns": [{"id": "column-id", "name": "Language en", "label": "en"}],
+  "columnsNextCursor": null,
+  "columnsPrevCursor": null
+}
+```
+
+The page carries the [collection paging](#collection-paging) fields (omitted above). `row.fields`
+holds the view's `rowColumns`, typed as record reads return them (`path`, `ancestor:<type>`,
+`objectType` and timestamps included; timestamps are `null` in change sets and publications).
+`label` is the column record's `columnLabelField`. A cell counts every record it holds
+(`recordCount`) and those meeting the condition (`matchingCount`), and lists at most five,
+those meeting the condition first, then by name. A `historyOnly` cell lists and counts the records of
+the latest earlier publication that held any, named by `publication` (`id`, `number`), read-only.
+`relationSetVersion` is the row's version of the view's relation set (ADR-022): the directional set
+anchored on the row for the view's binding, which a link or unlink from the row claims; `0` until
+first changed, and always `0` in a publication. Cell records carry their `version` and `relationId`
+for writes (A3).
+
+A page costs a fixed number of statements whatever the dataset holds: the rows through the object
+query, the columns, every cell of the page in one statement (the page rows' relations, their related
+records and one depth-bounded recursive walk up to the column record), the history evidence in one
+statement over the workspace's publications, and the field values and set versions. The state filter
+walks down once from the selected column records through the container types (D12). The read holds
+one database snapshot throughout.

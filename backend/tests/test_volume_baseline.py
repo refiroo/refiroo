@@ -17,6 +17,8 @@ import pytest
 from sqlalchemy import func, select
 from volume_baseline import PAGE_SIZE, run_scenarios
 from volume_fixture import (
+    CELL,
+    CELLS_PER_GROUP,
     GROUP,
     ITEM,
     ITEM_CITES_GROUP,
@@ -112,7 +114,7 @@ def test_fixture_matches_its_shape_and_is_reproducible(_migrated_template, tmp_p
                 )
                 == SMALL.citations
             )
-            # Publication 1 holds exactly the live membership.
+            # Publication 1 holds the live membership and the matrix cells deleted live since.
             live = set(
                 connection.execute(
                     select(RdmObject.id, RdmObject.name, RdmObject.parent_object_id)
@@ -127,8 +129,16 @@ def test_fixture_matches_its_shape_and_is_reproducible(_migrated_template, tmp_p
                     ).where(PublicationObject.publication_id == dataset.publication_id)
                 )
             )
-            assert live == publication
-            assert count(select(PublicationRelation)) == count(select(ObjectRelation))
+            retired = publication - live
+            assert live < publication and len(retired) == dataset.counts["matrixRetiredCells"] > 0
+            assert all(name.startswith("Cell ") for _, name, _ in retired)
+            assert count(select(PublicationRelation)) > count(select(ObjectRelation))
+            assert (
+                count(select(RdmObject).where(RdmObject.object_type_key == CELL))
+                + dataset.counts["matrixRetiredCells"]
+                == dataset.counts["matrixCells"]
+                >= (SMALL.groups - 3) * CELLS_PER_GROUP
+            )
 
         # The deep node's ancestor path is its group plus every hierarchy level.
         deep = client.get(

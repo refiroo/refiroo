@@ -8,6 +8,7 @@ from sqlalchemy import Select, String, cast, func, literal, or_, select, update
 from sqlalchemy.orm import Bundle, Session, aliased
 from sqlalchemy.sql.selectable import Subquery
 
+from ..db import begin_snapshot_read
 from ..errors import api_error
 from ..models.api import (
     MappingCandidatePage,
@@ -254,14 +255,8 @@ def open_mapping_read(
     publication_id: str | None = None,
     binding_config: MappingGridViewConfig | None = None,
 ) -> MappingRead:
-    # sqlite's legacy transaction mode does not BEGIN on SELECT. Begin before
-    # resolving authority so fields, edges, counts and tokens share a snapshot.
-    connection = session.connection()
-    if connection.dialect.name == "sqlite":
-        if not connection.connection.driver_connection.in_transaction:
-            connection.exec_driver_sql("BEGIN")
-    elif connection.dialect.name == "postgresql":
-        connection.exec_driver_sql("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+    # Begin before resolving authority so fields, edges, counts and tokens share a snapshot.
+    begin_snapshot_read(session)
     return _mapping_read_in_transaction(
         session,
         workspace_key,

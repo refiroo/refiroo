@@ -323,8 +323,12 @@ A cell action is refused at `…/config/cellActions/<n>` when it could never suc
 Every other failing rule points at the config field it concerns (`…/config/cellFields/1` for one
 entry). Uniqueness is not configured on the view: when the binding declares
 `uniqueToAncestorTypeKey` and `uniqueWhenToAttributeEquals`, writes already enforce them and the
-matrix reports cells that break them. The query, cell writes and renderer follow in Base 0.8 A2–A4;
-until A4 the browser shows the view as a placeholder lens labelled from the model.
+matrix reports cells that break them. A cell record's column is its nearest ancestor of the column
+type. The rows are every record of the row type in the workspace context, including records another
+application owns. The binding's condition and uniqueness scope describe its `to` end, so a matrix
+read `incoming` applies neither. Base 0.8 A2 delivers the
+[query](API.md#product-08-relation-matrix-api-a2-delivered); cell writes and the renderer follow in
+A3–A4, and until A4 the browser shows the view as a placeholder lens labelled from the model.
 
 ### Planned 0.7 consumption of the frozen mapping-grid contract
 

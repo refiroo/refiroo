@@ -734,11 +734,17 @@ def test_panel_sort_fields_must_not_be_empty():
     assert result.diagnostics[0].path.endswith("/relations/config/sortFields")
 
 
-def test_generated_volume_model_still_validates_at_schema_06():
+def test_generated_volume_model_validates_with_its_relation_matrices():
+    """The generated model holds a matrix in each direction since Base 0.8 A2."""
     from volume_fixture import volume_model
 
     source = volume_model()
-    assert source["schemaVersion"] == "0.6"
+    assert source["schemaVersion"] == "0.7"
+    views = [view for application in source["applications"] for view in application["views"]]
+    assert {view["config"]["direction"] for view in views if view["type"] == "relationMatrix"} == {
+        "outgoing",
+        "incoming",
+    }
     assert compile_model(source).valid
 
 

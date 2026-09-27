@@ -34,8 +34,9 @@ cd backend && .venv/bin/python -m pytest -m mapping -q
 | `workspaces` | C-WS-*, C-PUB-RET, INV-14/16 | `test_workspaces`, `test_wp81a_context`, `test_request_scope`, `test_wp8_withdrawal`, `test_build07_wp9_acceptance` | 31 |
 | `change_sets` | C-DR-*, C-REV, C-PUB-RET | `test_change_sets`, `test_wp7_canonical_crud`, `test_wp8_*` (except audit migration), `test_wp81b_current_live_bases`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_typed_table_queries`, `test_mapping_replacement`, `test_wp8_withdrawal`, `test_context_read_parity`, `test_snapshot_value_migration`, `test_page_index_migrations`, `test_change_set_position_reads`, `test_change_set_write_lookups`, `test_snapshot_lookup_index_migration`, `test_search_index`, `test_change_set_rename_migration` | 200 |
 | `mapping` | C-MAP-R, C-MAP-W, C-MAP-SET | `test_mapping_coverage`, `test_mapping_replacement`, `test_relation_set_versions` | 116 |
+| `matrix` | Relation matrix reads: cells, states, row state filter and columns (Base 0.8 A2) | `test_relation_matrix`, `test_relation_matrix_volume` | 14 |
 | `contract` | OpenAPI lock and route inventories | `test_openapi_contract`, `test_paging_contract` | 40 |
-| `volume` | Track S read and write budgets and the paging contract over the generated volume fixture (Base 0.8 S1, S2b, S3, S4, S4R1, S4R6, S7, S8) | `test_volume_baseline`, `test_paging_contract`, `test_change_set_position_reads` | 49 |
+| `volume` | Track S read and write budgets and the paging contract over the generated volume fixture (Base 0.8 S1, S2b, S3, S4, S4R1, S4R6, S7, S8, A2) | `test_volume_baseline`, `test_paging_contract`, `test_change_set_position_reads`, `test_relation_matrix_volume` | 55 |
 
 Counts are collected cases on 2026-09-24 (532 in total); group counts include the WP-9 composed
 SC-15 case. The full suite collected 534 cases at WP-9 build acceptance (2026-09-25). The `startup`,
@@ -122,6 +123,7 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | `services/snapshot_reads.py`, `snapshot_values.py`, `relation_queries.py` | `change_sets` + `queries` (`test_context_read_parity`, `test_paging_contract`, `test_change_set_position_reads`) | always | `volume` (change-set and publication read budgets); `startup` when the typed value index or its backfill changes |
 | `models/search_index.py`, the search predicate in `services/objects.py` | `queries` + `change_sets` (`test_search_index`, `test_context_read_parity`) | always | `startup` when the index DDL changes (a new migration, `test_search_index` upgrade and interrupted run); `volume` (search budgets) |
 | `services/mapping.py`, `mapping_projection.py`, `routers/mapping.py` | `mapping` | never by default | `change_sets` only if publishing or change set overlay is touched |
+| `services/relation_matrix.py`, `routers/relation_matrix.py` | `matrix` | always | `volume` (matrix read budgets, `test_volume_baseline`); `contract` when the route or page shape changes |
 | `errors.py`, `routers/presenters.py` | the group of the changed error | error envelope shape changes | `contract`; `model_admin` (`test_build07_wp11` correlation IDs) |
 | Any router signature, parameter or response model | the router's group | always | `contract` (re-baseline the OpenAPI lock only for intended changes) |
 

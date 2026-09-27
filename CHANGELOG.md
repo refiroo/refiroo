@@ -88,6 +88,19 @@ All notable changes to this project are documented in this file. The format foll
   placeholder until A4. The starter (still content 0.8.0) configures it three ways: codelist and
   master-value translations by language, codelists by system and master values by system; the
   translations and systems applications now include codelists.
+- Base 0.8 A2: `GET /api/v1/workspaces/{workspaceKey}/relation-matrix` reads a `relationMatrix` view in
+  live, change-set and publication contexts. Rows page like any collection (cursor, position, seek,
+  totals), searching the view's `searchFields`; columns are named with `columnIds` (at most 20) or
+  paged by name with their own cursor (D10). Each cell reports `one`, `several` (with `conflict` when
+  the binding's uniqueness scope is the column type), `inactive`, `historyOnly` or `none` (D11), with
+  counts, up to five records with their `cellFields`, versions and relation IDs, and each row its
+  relation-set version. `state` with `columnIds` filters rows across the whole list before paging, by
+  one recursive walk down from the selected columns (D12); at full volume the filter is over its time
+  budget (seconds), pending a D12 decision. A page costs a fixed number of statements.
+  The volume fixture gains a `vol-matrix` application (30 columns, a three-level container hierarchy,
+  150,000 cells at full scale, an outgoing conditioned and an incoming many-to-many matrix), measured
+  with the other reads; the generated model is now schema 0.7. Object query builders accept a
+  view's search fields and an ID predicate that also narrows a change set's overlay parts.
 
 ### Changed
 

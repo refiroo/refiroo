@@ -32,10 +32,13 @@ from sqlalchemy.orm import Session
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from volume_fixture import (
+    CELLS_BY_COLUMN,
     GROUP,
     GROUP_CONTAINS_ITEM,
     ITEM,
     ITEM_CITES_GROUP,
+    MARKS_BY_COLUMN,
+    MATRIX_APPLICATION,
     NODE,
     NODE_HAS_CHILD,
     RANK,
@@ -129,6 +132,54 @@ def object_cursor(
             ),
             total,
         )
+
+
+def _matrix_scenarios(
+    client, context: str, dataset: VolumeDataset
+) -> list[tuple[str, str, dict[str, Any]]]:
+    """Base 0.8 A2: relation matrix pages, whole and filtered by a cell state.
+
+    A filtered jump lands a quarter into the filtered rows, so the page is full and not the last
+    at every scale: an edge page costs a different number of statements.
+    """
+    path = f"/api/v1/workspaces/{WORKSPACE}/relation-matrix"
+    base = {
+        key: value for key, value in context_params(context, dataset).items() if key != "workspaceKey"
+    }
+    outgoing = {**base, "applicationKey": MATRIX_APPLICATION, "viewKey": CELLS_BY_COLUMN, "pageSize": PAGE_SIZE}
+    incoming = {**outgoing, "viewKey": MARKS_BY_COLUMN}
+    columns = dataset.matrix_column_ids
+
+    def quarter(params: dict[str, Any]) -> dict[str, Any]:
+        response = client.get(path, params={**params, "includeTotal": True})
+        assert response.status_code == 200, response.text
+        return {**params, "position": response.json()["totalCount"] // 4, "includeTotal": True}
+
+    return [
+        ("matrix: first page, 20 columns, total", path, {**outgoing, "includeTotal": True}),
+        ("matrix: position ¾ deep, total", path, {**outgoing, "position": dataset.shape.groups * 3 // 4, "includeTotal": True}),
+        (
+            "matrix: inactive in 10 columns, jump, total",
+            path,
+            quarter({**outgoing, "columnIds": columns[:10], "state": "inactive"}),
+        ),
+        (
+            "matrix: none in 3 columns, jump, total",
+            path,
+            quarter({**outgoing, "columnIds": columns[:3], "state": "none"}),
+        ),
+        (
+            "matrix: history only in 20 columns",
+            path,
+            {**outgoing, "columnIds": columns[:20], "state": "historyOnly"},
+        ),
+        ("matrix incoming: first page, total", path, {**incoming, "includeTotal": True}),
+        (
+            "matrix incoming: one in 1 column, jump, total",
+            path,
+            quarter({**incoming, "columnIds": columns[:1], "state": "one"}),
+        ),
+    ]
 
 
 def _read_scenarios(
@@ -282,7 +333,8 @@ def run_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int
     """Measure every read in each context, then one live and one change set write."""
     results = []
     for context in CONTEXTS:
-        for scenario, path, params in _read_scenarios(engine, context, dataset):
+        scenarios = _read_scenarios(engine, context, dataset) + _matrix_scenarios(client, context, dataset)
+        for scenario, path, params in scenarios:
             status, milliseconds, statements, rows = _timed(
                 engine, lambda path=path, params=params: client.get(path, params=params), repeat
             )

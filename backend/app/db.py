@@ -55,6 +55,21 @@ def get_session() -> Iterator[Session]:
 DbSession = Annotated[Session, Depends(get_session)]
 
 
+def begin_snapshot_read(session: Session) -> None:
+    """Hold one database snapshot for the rest of a multi-statement read.
+
+    SQLite's legacy transaction mode does not BEGIN on SELECT, so a read that resolves its model,
+    rows, counts and concurrency tokens in several statements begins explicitly; PostgreSQL reads
+    under repeatable read.
+    """
+    connection = session.connection()
+    if connection.dialect.name == "sqlite":
+        if not connection.connection.driver_connection.in_transaction:
+            connection.exec_driver_sql("BEGIN")
+    elif connection.dialect.name == "postgresql":
+        connection.exec_driver_sql("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+
+
 class DatabaseMigrationError(RuntimeError):
     """An operator-actionable database migration failure safe to show without a traceback."""
 

@@ -566,8 +566,13 @@ def build_snapshot_object_query(
     sort: str | None,
     field_filters: list[tuple[str, str, str]],
     top_level: bool = False,
+    search_fields: Sequence[str] | None = None,
+    id_filter: Callable[[Any], Any] | None = None,
 ) -> ObjectQuery:
-    """The change set or publication object collection query, with the same contract as a live one."""
+    """The change set or publication object collection query, with the same contract as a live one.
+
+    ``id_filter`` restricts each part of a change set's union alike, so position reads stay exact.
+    """
     object_type = get_object_type(model, object_type_key)
     if application_key:
         validate_application_object_type(model, application_key, object_type_key)
@@ -595,16 +600,20 @@ def build_snapshot_object_query(
             top_level=top_level,
             part=part,
         )
+        statement = select(projection)
+        if id_filter is not None:
+            statement = statement.where(id_filter(projection.c.object_id))
         return refine_object_query(
             model,
             # The replaced and added parts are as small as the change set: looking up their values
             # row by row costs less than reading the index (S8).
             snapshot_object_columns(projection, context, search_index=part in {"effective", "base"}),
-            select(projection),
+            statement,
             object_types=(object_type,),
             search=search,
             sort=sort,
             field_filters=field_filters,
+            search_fields=search_fields,
         )
 
     statement, keys, seek, normalized_filters = refine("effective")

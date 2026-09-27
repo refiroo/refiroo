@@ -108,6 +108,13 @@ def _make_model(
     )
     binding["cardinality"] = cardinality
     binding["required"] = required
+    if required:
+        # A required binding cannot be unlinked on its own, so no relation matrix may offer it (A1).
+        for application in model["applications"]:
+            for view in application["views"]:
+                config = view.get("config", {})
+                if view["type"] == "relationMatrix" and config["relationTypeKey"] == RELATION_TYPE:
+                    config["cellActions"] = [a for a in config["cellActions"] if a != "unlink"]
     next(row for row in model["relationTypes"] if row["key"] == RELATION_TYPE)["isOriented"] = (
         oriented
     )

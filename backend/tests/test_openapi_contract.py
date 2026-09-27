@@ -20,10 +20,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # carry the change-sets tag, since they no longer belong to workspace administration.
     # Re-baselined for W4: each capability group names the deployment setting that controls it.
     # Re-baselined for W6: DELETE /workspaces/{key}, and single-workspace responses state deletable
-    # and deleteBlockedBy (WorkspaceDetailResponse).
+    # and deleteBlockedBy (WorkspaceDetailResponse). Re-baselined for A2: GET
+    # /workspaces/{key}/relation-matrix and the RelationMatrix* schemas.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "6ecfe4a00bab0cac7f11b74b0c3f89be46adda698dc334f5f4ca3e316b6e3438"
+        "4b2fc2eedcef4aec10ee846d0ca8270c56022c02f45473bdb5049049ef66f37b"
     )
 
 
@@ -34,6 +35,7 @@ def test_paging_openapi_inventory():
         "/api/v1/objects/{object_type_key}",
         "/api/v1/relations",
         "/api/v1/workspaces/{workspace_key}/mapping-coverage",
+        "/api/v1/workspaces/{workspace_key}/relation-matrix",
     }
     paged = set()
     for path, operations in document["paths"].items():
@@ -51,7 +53,7 @@ def test_paging_openapi_inventory():
         assert next(iter(properties)) == "items", path
         assert {"totalCount", "startIndex"}.isdisjoint(document["components"]["schemas"][name]["required"])
         assert properties["totalCount"]["type"] == properties["startIndex"]["type"] == "integer"
-    assert seekable <= paged and len(paged) == 17
+    assert seekable <= paged and len(paged) == 18
     objects = {item["name"] for item in document["paths"]["/api/v1/objects/{object_type_key}"]["get"]["parameters"]}
     relations = {item["name"] for item in document["paths"]["/api/v1/relations"]["get"]["parameters"]}
     assert "topLevel" in objects and {"search", "sort"} <= relations

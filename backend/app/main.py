@@ -27,6 +27,7 @@ from .routers import (
     model_management,
     model_releases,
     objects,
+    relation_matrix,
     relations,
     workspaces,
 )
@@ -163,6 +164,7 @@ def create_app() -> FastAPI:
     application.include_router(attributes.router)
     application.include_router(relations.router)
     application.include_router(mapping.router)
+    application.include_router(relation_matrix.router)
     return application
 
 

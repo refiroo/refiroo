@@ -42,6 +42,9 @@ def _candidate_without_language_attribute(client, version: str) -> tuple[EngineM
             result = {key: scrub(item) for key, item in value.items()}
             if result.get("displayAttributeTypeKey") == binding:
                 result["displayAttributeTypeKey"] = "locale-code"
+            # A relation matrix labels its columns with one field (A1).
+            if result.get("columnLabelField") == binding:
+                result["columnLabelField"] = "name"
             return result
         return value
 

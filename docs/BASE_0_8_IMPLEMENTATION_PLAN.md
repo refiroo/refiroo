@@ -5,8 +5,9 @@
 (relation matrix) and Milestone B (hierarchy editor) from the
 [roadmap](ROADMAP.md#product-release-08--relation-matrix-and-hierarchy-editor) are broken into work
 packages A1–A5 and B1–B4; P2 is scheduled after W2 (D20); R1 owns build acceptance. A1 is delivered
-(2026-09-27) with D8 and D9 accepted; D10–D14 (Milestones A and B) are proposed, not yet accepted;
-see the [summary](#decisions-summary).
+(2026-09-27) with D8 and D9 accepted. A2 is implemented (2026-09-27) except its state-filter budget,
+which D12's measurement puts over budget; D10–D14 are proposed, not yet accepted; see the
+[summary](#decisions-summary).
 
 **Target:** Product 0.8.0. Track S does not change the schema language. Milestones A and B add
 schema language 0.7 (`relationMatrix` and `tree` views); the starter model becomes content release
@@ -1501,6 +1502,67 @@ runner for the placeholder, which A4 replaces with the real lens and its own run
 shapes and the generated model; a filtered page deep in the list is correct and within its recorded
 budget; the query count per page is constant; `historyOnly` never counts as `one`.
 
+**A2 implemented 2026-09-27; the filter budget is not met (open).** The route, its service
+(`services/relation_matrix.py`) and D10–D11 behave as scoped; D12 is implemented as recommended and
+measured over budget, so its fallback needs a decision before A2 closes. Found on the way:
+
+- Rows are every record of the row type in the workspace context, not only the view application's
+  own: the starter's translation and system matrices list codelists and master values that
+  `rdm-master` owns. Search covers the view's `searchFields` only; the object query builders gained
+  that option and an ID predicate that also narrows a change set's overlay parts, so position reads
+  stay exact under the state filter.
+- A binding's `uniqueWhenToAttributeEquals` and `uniqueToAncestorTypeKey` describe its `to` end, so
+  they apply only when the matrix reads it `outgoing`; read `incoming`, no cell is `inactive` or a
+  conflict. `historyOnly` looks in every publication of the workspace for live and change set reads,
+  and in earlier ones for a publication read; the cell lists the latest such publication's records.
+- Creating a record with `initialRelations` does not advance the relation-set versions (only generic
+  relation writes and cascades do). A3's create-from-cell relies on it: fix it there.
+- `change_set_objects` lacks the parent and type indexes its ORM model declares (migration drift);
+  the walk down uses an automatic index instead. A follow-up migration, not part of A2.
+- SQLite plans recursive steps and page edges badly unless steered: each step outer-joins its
+  children (a `CASE` keeps the join outer) with type and owner terms off the index, the page's cell
+  CTE is `MATERIALIZED`, and page edges and cell records are found from the page rows, not by type.
+- Two tests broken by A1 and already failing at HEAD were fixed: `test_mapping_replacement`
+  (a required binding cannot keep a matrix's `unlink`) and `test_wp81a_context` (the attribute scrub
+  now also clears `columnLabelField`).
+
+_Volume fixture extension._ A `vol-matrix` application in the generated model (now schema 0.7): 30
+columns, each over a three-level shelf hierarchy (8 leaf shelves), and 15 cells per group in the columns
+of the group's parity (150,100 cells at full scale, a tenth inactive, 3,002 deleted live after
+publication 1), a required conditioned binding scoped to the column read outgoing
+(`cells-by-column`) and a many-to-many binding read incoming (`marks-by-column`) over the same cells.
+The heavy, cited and small groups carry no matrix data, so every S1–S8 check reads what it did.
+Matrix data comes from its own random stream, so the catalogue's IDs are unchanged. The full-scale
+seed now takes about 17 minutes (was 18 s).
+
+_Measurements_ (full shape, median of 3, same machine as S1). The first full run, before the plan
+fixes above, gave unfiltered pages of 40–52 ms live and in change sets but 0.25–1.5 s in a
+publication, and state filters of 0.27–76 s. After the fixes, a page's slowest statement is 6–15 ms
+in every context and view (the page's cell statement; a publication count 32 ms), measured per
+statement on the same database; a full baseline rerun is still to be recorded. State filters remain
+over budget: over 10 columns (about 50,000 cells) the walk takes about 0.2 s and the pairs with their
+condition 0.4–0.6 s warm, several seconds cold on the 1.3 GB database, and a page evaluates the filter
+once per paging statement (page, count, position), so a filtered jump takes seconds.
+
+_Budgets._ Held by `test_volume_baseline.py` with the other reads: each matrix scenario's statement
+count is the same at both scales (11–16 by context) and it loads at most 45 ORM rows. The time budget
+of 100 ms holds for unfiltered pages and fails for state filters.
+
+_D12 outcome:_ over budget. The recommended fallback, a stored ancestor table, removes the walk but not
+the per-request pass over every cell under the selected columns; meeting the budget likely needs a
+stored per-cell state (row, column, counts) maintained by writes, a scoped follow-up with a migration.
+Decide before A2 closes.
+
+Checks: `pytest tests/test_relation_matrix.py` (8: the three starter shapes in live, change set and
+publication; every state; filters with totals; cursor, position and `from=end` paging; cursors bound
+to state and columns; column paging; row scope, search, sort, seek; set versions; refusals),
+`tests/test_relation_matrix_volume.py` (6: the filter equals the rows whose cells show each state,
+and a deep filtered page is the matching slice, in three contexts and both directions), and
+`-m "model or queries or change_sets or mapping or contract or matrix or volume or records or
+workspaces or model_admin"`, and `ruff check app/ tests/`. OpenAPI lock re-baselined; the paging
+inventory counts 18 collections, the matrix seekable. Not run: the full suite (R1), frontend (no
+frontend change).
+
 #### A3: Writes from a cell
 
 The existing object and relation APIs already create a record with its containment and initial
@@ -1713,9 +1775,9 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D7 | Draft writes still load the whole membership | **Measured in S1:** over budget (7.6 s per rename at full volume). **S2:** 4.7 s after reads moved to SQL; follow-up slice S2b scoped. **S2b:** 7.5 ms | S2b |
 | D8 | A view type for the translation task, or a generic one? | **Accepted 2026-09-27 (A1, corrected):** a generic `relationMatrix` — rows, columns of an ancestor type, cells of related records through one binding in either direction — with a closed `cellActions` set. Translations are one starter configuration; system representations and cross-system mapping are two more (COMPOSABLE_DOMAINS admission tests) | A1 |
 | D9 | Schema 0.7 if only one milestone ships | **Accepted 2026-09-27 (A1):** each view type is added by its own package; a cut milestone's type is removed before release | A1, B1 |
-| D10 | Matrix columns | Explicit `columnIds` (at most 20) or the first page of column records; columns page with their own cursor | A2 |
-| D11 | Cell states | `one`, `several` (a conflict only when the binding's uniqueness scope is the column type), `inactive` (only with a binding condition), `historyOnly`, `none`, all derived from the binding. `historyOnly` means a publication of this workspace held one | A2 |
-| D12 | Resolving a cell record's column for the row state filter | A recursive query down from the selected column records, measured in A2. A stored ancestor table only if the measurement is over budget, as a scoped follow-up | A2 |
+| D10 | Matrix columns | Explicit `columnIds` (at most 20) or the first page of column records; columns page with their own cursor. **Implemented in A2 as recommended (2026-09-27); acceptance pending** | A2 |
+| D11 | Cell states | `one`, `several` (a conflict only when the binding's uniqueness scope is the column type), `inactive` (only with a binding condition), `historyOnly`, `none`, all derived from the binding. `historyOnly` means a publication of this workspace held one. **Implemented in A2 (2026-09-27); acceptance pending.** Condition and conflict apply only read `outgoing` | A2 |
+| D12 | Resolving a cell record's column for the row state filter | A recursive query down from the selected column records, measured in A2. A stored ancestor table only if the measurement is over budget, as a scoped follow-up. **Measured in A2: over budget** (seconds over 50,000 cells); a stored ancestor table alone would not meet it, a stored per-cell state likely would. **Decision needed** | A2 |
 | D13 | Which container a new cell record goes into | The user picks the column record or a container under it; preselected when there is exactly one. No model default | A3, A4 |
 | D14 | Ineligible move targets | Listed but disabled, with a reason, so totals stay truthful and the user sees why | B2, B3 |
 | D15 | When does the W2 rename land? | **Accepted 2026-09-25:** after S7 (draft and revision tables stable after S2) and before A2 and B2, so new endpoints use the new names | W2, A2, B2 |
