@@ -362,6 +362,15 @@ JSON workbench and lifecycle foundation.
   capabilities and the doors current work keeps open (identity redirects, value provenance, derived
   values, redaction within immutable history, keyed inbound upsert, reusable matching and review
   vocabulary, additive value types).
+- **Workspace groups as owners of a model history.** A possible later step beyond 0.10's
+  workspace-scoped release assignment: a group of workspaces owns one model history, so teams in one
+  organisation can release their models independently (with dev/test/prod staged rollout inside a
+  group), and workspace keys and release identities become unique per group. It is not a tenancy
+  mechanism: hosting is one instance per organisation. Groups separate models, so data in different
+  groups cannot relate, which works against reference data being used by other domains. One model with
+  several applications stays the default. Consider groups only when a real case needs independent model
+  release cycles and can do without relations between the groups; relations across models would then
+  be a separate, larger feature. Not assigned to a release.
 
 Earlier milestones are pre-production functionality; 0.10 is the gate for authenticated shared
 production operation. Release numbers specify sequence, not dates. Detailed format, query, validity,
