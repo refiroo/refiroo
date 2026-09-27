@@ -73,7 +73,7 @@ def test_object_lifecycle_migration_recovers_empty_sqlite_ddl_from_interrupted_r
     inspector = inspect(engine)
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == (
-            "20260926_04"
+            "20260927_01"
         )
     assert any(
         foreign_key["referred_table"] == "publications"
@@ -177,7 +177,7 @@ def test_current_live_base_migration_preserves_existing_workspace_drafts(tmp_pat
                 "WHERE id = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'"
             )
         ).one()
-        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20260926_04"
+        assert connection.scalar(text("SELECT version_num FROM alembic_version")) == "20260927_01"
     assert draft == ("bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb", "keep me", 7, None)
     with engine.connect() as connection:
         historical = connection.execute(

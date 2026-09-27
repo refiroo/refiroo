@@ -26,8 +26,9 @@ from test_relation_matrix import (
 from wp8_support import create_change_set, publish_change_set, validate_change_set
 
 from app.config import reload_settings
-from app.db import get_engine
+from app.db import SessionLocal, get_engine
 from app.main import create_app
+from app.services import matrix_states
 from app.services.model.registry import model_registry
 
 BASE = "/api/v1/workspaces/default/relation-matrix"
@@ -44,6 +45,9 @@ def serve(model, tmp_path, monkeypatch, database_url):
     model_registry.clear()
     with TestClient(create_app()) as value:
         yield value
+        # A3b: after every test's writes, stored cell states equal states rebuilt from records.
+        with SessionLocal() as session:
+            assert matrix_states.verify(session) == []
     get_engine().dispose()
     monkeypatch.undo()
     reload_settings()

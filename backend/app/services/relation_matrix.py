@@ -50,8 +50,6 @@ from sqlalchemy import (
     Select,
     String,
     and_,
-    case,
-    exists,
     false,
     func,
     literal,
@@ -79,9 +77,6 @@ from ..models.api import (
 )
 from ..models.database import (
     AttributeValue,
-    ChangeSetObject,
-    ChangeSetRelation,
-    ObjectRelation,
     Publication,
     PublicationObject,
     PublicationRelation,
@@ -96,16 +91,25 @@ from ..models.schema import (
     RelationMatrixViewDefinition,
 )
 from .attributes import VALUE_COLUMNS, stored_json_value
+from .matrix_cells import (
+    MAX_DEPTH,
+    CellScope,
+    MatrixShape,
+    cell_columns,
+    cell_records,
+    id_rows,
+    view_binding,
+)
+from .matrix_cells import found as _found
+from .matrix_cells import unindexed as _unindexed
+from .matrix_states import listed, stored_row_filter
 from .model.registry import ModelSnapshot, resolve_request_model
 from .model.traversal import ancestor_type_keys, parent_type_keys
 from .objects import _object_paths, build_object_query
 from .pagination import Page, PageRequest, paginate_statement, text_key
 from .snapshot_reads import (
-    SnapshotContext,
     build_snapshot_object_query,
     change_set_context,
-    effective_object_value,
-    effective_record,
     find_objects,
     object_paths,
     publication_context,
@@ -114,58 +118,27 @@ from .workspaces import resolve_workspace
 
 MAX_COLUMNS = 20
 CELL_RECORD_LIMIT = 5
-# Containment is acyclic, but a walk along it stops here whatever the data holds.
-_MAX_DEPTH = 64
 
 STATES = ("one", "several", "inactive", "historyOnly", "none")
 # Ends each name in a container's sort path, so a record sorts before the records under it.
 _PATH_SEPARATOR = "\x01"
 
 
-@dataclass(frozen=True)
-class _Arm:
-    """One source of a context's effective rows: a table, its public ID column and the terms that
-    select its rows. ``owner`` names the owner of its rows' typed values in a change set or
-    publication."""
-
-    entity: Any
-    id: str
-    where: Callable[[Any], list[Any]]
-    owner: Any = None
-
-
 @dataclass
-class MatrixRead:
-    session: Session
-    workspace_key: str
-    application_key: str
-    view_key: str
-    snapshot: ModelSnapshot
-    config: RelationMatrixViewConfig
-    binding: ObjectTypeRelationDefinition
-    context: SnapshotContext | None
+class MatrixRead(CellScope):
+    """One view's read: its shape in the read's context, and what the view adds to it."""
+
+    application_key: str = ""
+    view_key: str = ""
+    snapshot: ModelSnapshot | None = None
+    config: RelationMatrixViewConfig | None = None
+    binding: ObjectTypeRelationDefinition | None = None
     # The publication read, whose history evidence comes from earlier publications only.
     publication_number: int | None = None
 
     @property
     def model(self) -> EngineModel:
         return self.snapshot.model
-
-    @property
-    def outgoing(self) -> bool:
-        return self.config.direction == "outgoing"
-
-    @property
-    def anchor_end(self) -> str:
-        return "from_object_id" if self.outgoing else "to_object_id"
-
-    @property
-    def other_end(self) -> str:
-        return "to_object_id" if self.outgoing else "from_object_id"
-
-    @property
-    def condition(self) -> dict[str, Any] | None:
-        return self.binding.features.get("uniqueWhenToAttributeEquals") if self.outgoing else None
 
     @property
     def conflict_scope(self) -> bool:
@@ -185,105 +158,6 @@ class MatrixRead:
             "viewKey": self.view_key,
         }
 
-    def object_arms(self) -> list[_Arm]:
-        context = self.context
-        if context is None:
-            workspace_key = self.workspace_key
-            return [_Arm(RdmObject, "id", lambda row: [row.workspace_key == workspace_key])]
-        # Only the walk down reads object arms: it finds change set rows by parent, which the
-        # change set's own index cannot serve.
-        return self._snapshot_arms(
-            context,
-            context.base and context.base.objects,
-            ChangeSetObject,
-            "object_id",
-            by_change_set=False,
-        )
-
-    def relation_arms(self) -> list[_Arm]:
-        context = self.context
-        if context is None:
-            return [_Arm(ObjectRelation, "id", lambda row: [])]
-        return self._snapshot_arms(
-            context, context.base and context.base.relations, ChangeSetRelation, "relation_id"
-        )
-
-    @staticmethod
-    def _snapshot_arms(
-        context: SnapshotContext,
-        base_entity: Any,
-        overlay: Any,
-        identity: str,
-        *,
-        by_change_set: bool = True,
-    ) -> list[_Arm]:
-        """A publication's rows, or a change set's base rows it does not replace and its own
-        non-deleted rows. ``by_change_set=False`` keeps the change set term off the index."""
-        base = context.base
-        arms = []
-        if base is not None:
-            owner_column, owner_id = base.owner_column, base.owner_id
-            replaced = aliased(overlay)
-            overridden = select(getattr(replaced, identity)).where(replaced.change_set_id == context.id)
-
-            def base_where(row: Any) -> list[Any]:
-                where = [getattr(row, owner_column) == owner_id]
-                if context.kind == "change_set":
-                    where.append(~getattr(row, identity).in_(overridden))
-                return where
-
-            arms.append(_Arm(base_entity, identity, base_where, literal(owner_id, String)))
-        if context.kind == "change_set":
-            arms.append(
-                _Arm(
-                    overlay,
-                    identity,
-                    lambda row: (
-                        [row.change_set_id == context.id, row.is_deleted.is_(False)]
-                        if by_change_set
-                        else [_unindexed(and_(row.change_set_id == context.id, row.is_deleted.is_(False)))]
-                    ),
-                    literal(context.id, String),
-                )
-            )
-        return arms
-
-    def lookup(self, object_id: Any, name: str) -> Any:
-        """One column of the context's record ``object_id`` (an expression), as a keyed lookup."""
-        if self.context is not None:
-            return effective_object_value(self.context, object_id, name)[0]
-        record = aliased(RdmObject)
-        return (
-            select(getattr(record, name))
-            .where(record.id == object_id)
-            .correlate_except(record)
-            .scalar_subquery()
-        )
-
-    def meets(self, object_id: Any, owner: Any, *, publication: bool = False) -> Any:
-        """1 when the record meets the binding's condition, else 0; always 1 without one."""
-        condition = self.condition
-        if not condition:
-            return literal(1)
-        attribute = self.model.attribute_type(condition["attributeTypeKey"])
-        if self.context is None and not publication:
-            value = aliased(AttributeValue)
-            match = [value.object_id == object_id]
-        else:
-            value = aliased(SnapshotAttributeValue)
-            match = [value.owner_id == owner, value.object_id == object_id]
-        typed = getattr(value, VALUE_COLUMNS[attribute.valueType])
-        held = exists(
-            select(value.sequence_id)
-            .where(
-                *match,
-                value.attribute_type_key == attribute.key,
-                typed == literal(condition["value"], typed.type),
-            )
-            .correlate_except(value)
-        )
-        return case((held, 1), else_=0)
-
     def container_types(self) -> set[str]:
         """Types that can hold the cell type, at some depth, and sit under the column type."""
         column_type, cell_type = self.config.columnObjectTypeKey, self.config.cellObjectTypeKey
@@ -292,11 +166,6 @@ class MatrixRead:
             for key in ancestor_type_keys(self.model, cell_type)
             if key != column_type and column_type in ancestor_type_keys(self.model, key)
         }
-
-    def walk_types(self) -> list[str]:
-        """The types a walk down from a column record passes: containers of the cell type that
-        can sit under the column type, and the cell type. Another column record ends a branch."""
-        return sorted(self.container_types() | {self.config.cellObjectTypeKey})
 
     def publications(self) -> Any:
         """The workspace's publications history evidence comes from, with their numbers."""
@@ -335,19 +204,7 @@ def open_matrix_read(
             {"applicationKey": application_key, "viewKey": view_key},
         )
     config = view.config
-    from_key, to_key = (
-        (config.rowObjectTypeKey, config.cellObjectTypeKey)
-        if config.direction == "outgoing"
-        else (config.cellObjectTypeKey, config.rowObjectTypeKey)
-    )
-    # Model validation guarantees the binding.
-    binding = next(
-        item
-        for item in snapshot.model.objectTypeRelations
-        if item.relationTypeKey == config.relationTypeKey
-        and item.fromObjectTypeKey == from_key
-        and item.toObjectTypeKey == to_key
-    )
+    binding = view_binding(snapshot.model, config)
     context = None
     publication_number = None
     if change_set_id:
@@ -360,13 +217,14 @@ def open_matrix_read(
     return MatrixRead(
         session,
         workspace.key,
-        application_key,
-        view_key,
-        snapshot,
-        config,
-        binding,
+        MatrixShape.of_view(snapshot.model, config, binding),
         context,
-        publication_number,
+        application_key=application_key,
+        view_key=view_key,
+        snapshot=snapshot,
+        config=config,
+        binding=binding,
+        publication_number=publication_number,
     )
 
 
@@ -497,7 +355,7 @@ def _object_types(read: MatrixRead, ids: Sequence[str]) -> dict[str, str]:
     return dict(
         read.session.execute(
             select(RdmObject.id, RdmObject.object_type_key).where(
-                RdmObject.workspace_key == read.workspace_key, RdmObject.id.in_(list(ids))
+                _unindexed(RdmObject.workspace_key == read.workspace_key), RdmObject.id.in_(list(ids))
             )
         ).all()
     )
@@ -526,7 +384,9 @@ def _named_columns(read: MatrixRead, column_ids: Sequence[str]) -> list[Any]:
             item.id: item
             for item in read.session.scalars(
                 select(RdmObject).where(
-                    RdmObject.workspace_key == read.workspace_key, RdmObject.id.in_(list(column_ids))
+                    # Found by ID: the workspace index would read every record of the workspace.
+                    _unindexed(RdmObject.workspace_key == read.workspace_key),
+                    RdmObject.id.in_(list(column_ids)),
                 )
             )
         }
@@ -732,96 +592,9 @@ def _ranked(cells: Any, resolved: Any, column_ids: list[str]) -> Select[Any]:
 
 def _cells(read: MatrixRead, row_ids: list[str], column_ids: list[str]) -> dict[tuple[str, str], list[Any]]:
     """The page's cells in one statement: relations, related records and the walk to columns."""
-    config = read.config
-    edges = []
-    for arm in read.relation_arms():
-        relation = aliased(arm.entity)
-        edges.append(
-            select(
-                getattr(relation, arm.id).label("relation_id"),
-                relation.version.label("relation_version"),
-                getattr(relation, read.anchor_end).label("row_id"),
-                getattr(relation, read.other_end).label("cell_id"),
-            ).where(
-                # The page's rows drive; the type index would read every relation of the type.
-                _unindexed(relation.relation_type_key == config.relationTypeKey),
-                getattr(relation, read.anchor_end).in_(row_ids),
-                *arm.where(relation),
-            )
-        )
-    edge = (union_all(*edges) if len(edges) > 1 else edges[0]).subquery("matrix_edges")
-    if read.context is None:
-        record = aliased(RdmObject)
-        statement = select(
-            edge.c.relation_id,
-            edge.c.relation_version,
-            edge.c.row_id,
-            edge.c.cell_id,
-            record.name.label("name"),
-            record.version.label("version"),
-            record.parent_object_id.label("parent_object_id"),
-            literal(None, String).label("owner"),
-            read.meets(edge.c.cell_id, None).label("meets"),
-        ).select_from(edge).join(
-            record,
-            and_(
-                record.id == edge.c.cell_id,
-                # Found by ID from each relation; a type index would read every cell record.
-                _unindexed(
-                    and_(
-                        record.workspace_key == read.workspace_key,
-                        record.object_type_key == config.cellObjectTypeKey,
-                    )
-                ),
-            ),
-        )
-    else:
-        found = effective_record(read.context, edge.c.cell_id)
-        statement = found.join(
-            select(
-                edge.c.relation_id,
-                edge.c.relation_version,
-                edge.c.row_id,
-                edge.c.cell_id,
-                found.column("name").label("name"),
-                found.column("version").label("version"),
-                found.column("parent_object_id").label("parent_object_id"),
-                found.values_owner.label("owner"),
-                read.meets(edge.c.cell_id, found.values_owner).label("meets"),
-            ).select_from(edge)
-        ).where(
-            found.present,
-            # A CASE keeps the outer joins, so the page's relations stay the outer loop.
-            case((found.column("object_type_key") == config.cellObjectTypeKey, 1), else_=0) == 1,
-        )
-    # Materialized: inlined into the walk's anchor, SQLite may read every relation of the owner
-    # instead of the page rows' own.
-    cells = statement.cte("matrix_cells").prefix_with("MATERIALIZED")
-
-    walk = (
-        select(
-            cells.c.cell_id,
-            cells.c.parent_object_id.label("node"),
-            literal(1).label("depth"),
-        )
-        .where(cells.c.parent_object_id.is_not(None))
-        .distinct()
-        .cte("matrix_walk", recursive=True)
-    )
-    walk = walk.union_all(
-        select(walk.c.cell_id, read.lookup(walk.c.node, "parent_object_id"), walk.c.depth + 1).where(
-            walk.c.node.is_not(None),
-            read.lookup(walk.c.node, "object_type_key") != config.columnObjectTypeKey,
-            walk.c.depth < _MAX_DEPTH,
-        )
-    )
-    resolved = (
-        select(walk.c.cell_id, walk.c.node.label("column_id"))
-        .where(read.lookup(walk.c.node, "object_type_key") == config.columnObjectTypeKey)
-        .subquery("matrix_columns")
-    )
+    cells = cell_records(read, row_ids)
     result: dict[tuple[str, str], list[Any]] = {}
-    for row in read.session.execute(_ranked(cells, resolved, column_ids)):
+    for row in read.session.execute(_ranked(cells, cell_columns(read, cells), column_ids)):
         result.setdefault((row.row_id, row.column_id), []).append(row)
     return result
 
@@ -895,7 +668,7 @@ def _history_cells(
         ).where(
             walk.c.node.is_not(None),
             lookup(walk.c.publication_id, walk.c.node, "object_type_key") != config.columnObjectTypeKey,
-            walk.c.depth < _MAX_DEPTH,
+            walk.c.depth < MAX_DEPTH,
         )
     )
     resolved = (
@@ -1010,7 +783,16 @@ def _set_versions(read: MatrixRead, row_ids: list[str]) -> dict[str, int]:
 
 
 def _state_filter(read: MatrixRead, column_ids: list[str], state: str) -> Callable[[Any], Any]:
-    """A predicate on a row's ID: some selected column's cell has ``state``, over every row."""
+    """A predicate on a row's ID: some selected column's cell has ``state``, over every row.
+
+    Stored cell states decide it once for the request (A3b): the matching row IDs are read by
+    index and every paging statement filters by that list. Where an owner the read needs has no
+    stored states, the cells are derived from records in each statement instead (D12).
+    """
+    stored = stored_row_filter(read, column_ids, state, read.publication_number)
+    if stored is not None:
+        ids, negated = stored
+        return lambda row_id: ~listed(read.session, row_id, ids) if negated else listed(read.session, row_id, ids)
     pairs = _current_pairs(read, column_ids)
     if state in {"one", "several", "inactive"}:
         matching = func.sum(pairs.c.meets)
@@ -1030,26 +812,10 @@ def _state_filter(read: MatrixRead, column_ids: list[str], state: str) -> Callab
     return predicate
 
 
-def _unindexed(condition: Any) -> Any:
-    """``condition`` as a term no index serves, so a child is found by its parent."""
-    return case((condition, 1), else_=0) == 1
-
-
-def _found(identity: Any) -> Any:
-    """An outer-joined child exists.
-
-    A recursive step joins one queued row to its children. As an inner join SQLite may loop over
-    the children's table and scan the queue for each row, reading every record of the walked
-    types per step; an outer join keeps the queued row outside, seeking its children by parent. A
-    ``CASE`` keeps the join outer, where ``IS NOT NULL`` would let SQLite make it inner again.
-    """
-    return case((identity.is_(None), 0), else_=1) == 1
-
-
 def _column_anchor(column_ids: list[str]) -> Any:
-    """The selected column IDs as rows; SQLite names no columns of a ``VALUES`` alias."""
-    rows = [select(literal(key, String).label("column_id")) for key in column_ids]
-    return (union_all(*rows) if len(rows) > 1 else rows[0]).subquery("matrix_selected_columns")
+    """The selected column IDs as rows."""
+    selected = id_rows(column_ids, "matrix_selected_columns")
+    return select(selected.c.id.label("column_id")).subquery("matrix_selected")
 
 
 def _current_pairs(read: MatrixRead, column_ids: list[str]) -> Any:
@@ -1083,7 +849,7 @@ def _current_pairs(read: MatrixRead, column_ids: list[str]) -> Any:
                     *arm.where(child),
                 ),
             )
-            .where(_found(getattr(child, arm.id)), walk.c.depth < _MAX_DEPTH)
+            .where(_found(getattr(child, arm.id)), walk.c.depth < MAX_DEPTH)
         )
     walk = walk.union_all(*steps)
     cells = (
@@ -1149,7 +915,7 @@ def _history_pairs(read: MatrixRead, column_ids: list[str]) -> Any:
                 _unindexed(child.object_type_key.in_(read.walk_types())),
             ),
         )
-        .where(_found(child.object_id), walk.c.depth < _MAX_DEPTH)
+        .where(_found(child.object_id), walk.c.depth < MAX_DEPTH)
     )
     relation = aliased(PublicationRelation)
     return (
@@ -1338,7 +1104,7 @@ def _walk_below(read: MatrixRead, column: Any, types: Sequence[str]) -> Any:
                     *arm.where(child),
                 ),
             )
-            .where(_found(getattr(child, arm.id)), walk.c.depth < _MAX_DEPTH)
+            .where(_found(getattr(child, arm.id)), walk.c.depth < MAX_DEPTH)
         )
     return walk.union_all(*steps)
 

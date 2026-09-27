@@ -7,7 +7,9 @@ on one page can share a parent), so they are bounded rather than compared. Wall-
 ``volume_baseline.py`` and are recorded in docs/BASE_0_8_IMPLEMENTATION_PLAN.md.
 
 Live reads meet the budgets, and since S2 so do change set and history reads, which answer in SQL. Since
-S2b change set writes do too: they read only the records and relations they touch.
+S2b change set writes do too: they read only the records and relations they touch. Since A3b the
+relation matrix's state filters read stored cell states, so a filtered page, its total and a
+position jump cost the same statements at both scales and meet the 100 ms budget at full volume.
 """
 
 import json

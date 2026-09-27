@@ -1580,8 +1580,10 @@ A page costs a fixed number of statements whatever the dataset holds: the rows t
 query, the columns, every cell of the page in one statement (the page rows' relations, their related
 records and one depth-bounded recursive walk up to the column record), the history evidence in one
 statement over the workspace's publications, and the field values and set versions. The state filter
-walks down once from the selected column records through the container types (D12). The read holds
-one database snapshot throughout.
+reads stored cell states (A3b, ADR-033): the matching rows are found once per request by index and
+the page, its total and a position jump filter by them. Where a context's states are not built yet
+(for example while a startup build is still running), it derives the cells from records instead,
+with the same result. The read holds one database snapshot throughout.
 
 ### Writes from a cell (A3)
 

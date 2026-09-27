@@ -20,6 +20,7 @@ from ...models.database import (
     ViewDefinitionMeta,
 )
 from ...models.schema import EngineModel
+from .. import matrix_states
 from .compatibility import CompatibilityResult, analyze_compatibility
 from .compiler import SUPPORTED_SCHEMA_VERSIONS, ModelDiagnostic, canonical_model, compile_model
 from .validation import require_valid_references
@@ -185,6 +186,8 @@ def activate_model_release(
         .values(is_active=True)
     )
     new_version = expected_runtime_version + 1
+    # Stored matrix cell states follow the newly active model's matrix shapes (A3b).
+    matrix_states.sync_all(session)
     session.add(
         AuditEvent(
             aggregate_type="model_runtime_state",

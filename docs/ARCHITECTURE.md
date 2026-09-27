@@ -336,6 +336,12 @@ that never address individual records.
   `app/services/snapshot_values.py` rewrites an object row's index whenever the ORM writes the row; bulk
   writes outside the ORM maintain it themselves. Validation, publishing and change set writes still resolve
   the whole graph through `effective_change_set_membership`.
+- **Stored relation matrix cell states (Base 0.8 A3b, ADR-033).** `matrix_cell_states` holds each
+  non-empty matrix cell's counts per owner (live, publication, change set base, change set overlay,
+  workspace history) and matrix shape; `app/services/matrix_states.py` builds missing owners at
+  startup and on activation, change set and publication creation, and recomputes touched rows from
+  records before each commit (an ORM flush hook plus explicit notes from Core statements). The row
+  state filter reads it; `app/services/matrix_cells.py` holds the cell SQL shared with the page.
 - **Validation.** `POST /api/v1/change-sets/{changeSetId}/validation` is side-effect-free over the
   effective graph: it validates attributes, containment, ownership, cardinality, ancestor-scoped
   uniqueness and model pinning, and records only a bounded outcome audit event (validity, deduplicated

@@ -14,7 +14,7 @@ from test_context_read_parity import _seed
 from test_page_index_migrations import _reads
 from test_snapshot_value_migration import _app, _config, _version
 
-PRECEDING, HEAD = "20260926_01", "20260926_04"
+PRECEDING, HEAD = "20260926_01", "20260927_01"
 TABLE = "snapshot_attribute_values"
 NAME = "ix_snapshot_attribute_values_owner_key_text"
 COLUMNS = ("owner_id", "attribute_type_key", "text_value", "object_id")

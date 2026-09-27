@@ -35,6 +35,7 @@ from ..models.database import (
     RelationSetVersion,
     Workspace,
 )
+from . import matrix_states
 from .attributes import (
     load_attribute_values,
     save_attribute_values,
@@ -271,6 +272,7 @@ def create_change_set(
         record_change_set_derived(session, change_set=change_set)
     else:
         record_change_set_created(session, change_set=change_set)
+    matrix_states.record_change_set(session, change_set)
     session.commit()
     session.refresh(change_set)
     return change_set
@@ -384,6 +386,7 @@ def _create_current_live_change_set(
                 source_release_id=base.model_release_id,
             )
         record_change_set_created(session, change_set=change_set)
+        matrix_states.record_change_set(session, change_set)
         session.commit()
         session.refresh(change_set)
         return change_set
@@ -440,6 +443,13 @@ def _delete_change_set_and_base(session: Session, change_set: ChangeSet) -> None
     base_id = change_set.base_id
     delete_change_set_relation_set_versions(session, change_set.id)
     delete_owner_values(session, change_set.id)
+    matrix_states.drop_owner(
+        session, matrix_states.Owner("change_set", change_set.id, change_set.workspace_key)
+    )
+    if base_id is not None:
+        matrix_states.drop_owner(
+            session, matrix_states.Owner("base", base_id, change_set.workspace_key)
+        )
     session.delete(change_set)
     session.flush()
     if base_id is None:
@@ -2005,6 +2015,9 @@ def set_change_set_model_release(
             },
             object_ids=(),
         )
+        session.flush()
+        # The change set's cells follow its new release's matrix shapes.
+        matrix_states.sync_workspace(session, change_set.workspace_key)
         session.commit()
         session.refresh(change_set)
         return change_set
@@ -2531,10 +2544,12 @@ def publish_change_set(
     # Apply only the delta onto the live projection: remove tombstoned rows, upsert the authored
     # objects and relations, and leave every untouched live row exactly as it is.
     if merged.removed_relation_ids:
+        matrix_states.note_relations_removed(session, merged.removed_relation_ids)
         session.execute(
             delete(ObjectRelation).where(ObjectRelation.id.in_(merged.removed_relation_ids))
         )
     if merged.removed_object_ids:
+        matrix_states.note_rows(session, merged.removed_object_ids)
         # The parent FK is RESTRICT; detach the removed rows from each other so bulk deletion cannot
         # trip the constraint regardless of parent/child ordering.
         # Surviving authored children may still point at a tombstoned parent.  Detach them before
@@ -2588,6 +2603,8 @@ def publish_change_set(
             live.name = authored.name
             live.version = authored.version
     session.flush()
+    # Attribute rows are replaced in Core below; their records' condition values may change.
+    matrix_states.note_cells(session, authored_objects)
     for object_id in sorted(authored_objects):
         authored = authored_objects[object_id]
         attribute_delete = delete(AttributeValue).where(AttributeValue.object_id == object_id)
@@ -2642,6 +2659,7 @@ def publish_change_set(
     workspace.active_publication_id = publication.id
     merge_change_set_relation_set_versions_to_live(session, change_set.id, change_set.workspace_key)
     _delete_change_set_and_base(session, change_set)
+    matrix_states.record_publication(session, publication)
     session.commit()
     return publication
 

@@ -787,6 +787,74 @@ class RelationSetVersion(Base):
     )
 
 
+class MatrixCellState(Base):
+    """Derived state of one relation matrix cell: (row, column) of one matrix shape in one owner.
+
+    Owners: live records of a workspace (``live``, owner = workspace key), a publication, a private
+    change set base (``base``), a change set's overlay (``change_set``) and a workspace's publication
+    history (``history``, owner = workspace key). A change set's rows for a row record replace all
+    the base's rows for it; its sentinel row (``column_id`` empty) marks the row as replaced. A
+    history row records the first publication that held a record in the cell. Records remain the
+    source of truth; ``services/matrix_states.py`` derives and maintains these rows (Base 0.8 A3b).
+    """
+
+    __tablename__ = "matrix_cell_states"
+    __table_args__ = (
+        UniqueConstraint(
+            "owner_kind", "owner_id", "shape_key", "row_id", "column_id", name="uq_matrix_cell_state"
+        ),
+        CheckConstraint(
+            "owner_kind IN ('live', 'history', 'publication', 'base', 'change_set')",
+            name="ck_matrix_cell_state_owner_kind",
+        ),
+        # The row state filter reads the selected columns of one owner and shape from this index.
+        Index(
+            "ix_matrix_cell_states_column",
+            "owner_kind",
+            "owner_id",
+            "shape_key",
+            "column_id",
+            "row_id",
+            "record_count",
+            "matching_count",
+            "first_publication_number",
+        ),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    owner_kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    owner_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    shape_key: Mapped[str] = mapped_column(String(32), nullable=False)
+    row_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    column_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    record_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    matching_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    first_publication_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+
+class MatrixStateBuild(Base):
+    """One owner's cell states of one matrix shape are complete and maintained (Base 0.8 A3b).
+
+    Reads use the stored states only when every owner they need has this row; otherwise they derive
+    the cells from records. ``shape`` holds the shape's definition, so maintenance needs no model.
+    """
+
+    __tablename__ = "matrix_state_builds"
+    __table_args__ = (
+        UniqueConstraint("owner_kind", "owner_id", "shape_key", name="uq_matrix_state_build"),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    workspace_key: Mapped[str] = mapped_column(String(160), nullable=False, index=True)
+    owner_kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    owner_id: Mapped[str] = mapped_column(String(160), nullable=False)
+    shape_key: Mapped[str] = mapped_column(String(32), nullable=False)
+    shape: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    built_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+
 class AuditEvent(Base):
     __tablename__ = "audit_events"
 

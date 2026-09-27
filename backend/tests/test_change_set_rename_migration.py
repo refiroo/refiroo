@@ -23,7 +23,7 @@ from test_snapshot_value_migration import _app, _config, _index, _version
 
 import app.main as main_module
 
-PRECEDING, HEAD = "20260926_03", "20260926_04"
+PRECEDING, HEAD = "20260926_03", "20260927_01"
 MIGRATION = (
     Path(__file__).resolve().parents[1]
     / "app/migrations/versions/20260926_04_change_sets_and_publications.py"

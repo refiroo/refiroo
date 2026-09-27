@@ -1117,3 +1117,54 @@ runtime is unaware of domain keys.
 - A door may be closed only by an explicit product decision recorded here.
 - Starter models for other domains are the evidence that the capabilities compose; they carry no
   runtime branch.
+
+## ADR-033 — Store relation matrix cell states as a derived, rebuildable index
+
+**Status:** Accepted, 2026-09-27 (Base 0.8 A3b; closes A2's D12 budget exception).
+
+### Motivation
+
+A relation matrix's row state filter decides over every row (D11, D12). Deriving each cell from
+records per request walks every cell record under the selected columns and pairs it with its row;
+at full volume that took seconds, once per paging statement. A stored ancestor table would remove the
+walk but not the pass over every cell.
+
+### Decision
+
+- `matrix_cell_states` stores, per owner and **matrix shape**, each non-empty cell's (row, column,
+  record count, count meeting the binding's condition). A shape is what a view declares and the model
+  derives: relation type and direction, row, column and cell types, the container types between column
+  and cell, and the condition. Its key hashes that definition, so views with the same shape share
+  states and nothing names a starter type, relation or application.
+- Owners: a workspace's `live` records, each `publication`, each private change set `base`, each
+  `change_set` overlay, and a per-workspace publication `history` holding the first publication that
+  held a record in each cell (for `historyOnly`, including a publication read's "earlier ones").
+- A change set stores rows only for the row records its changes touch; those replace **all** of the
+  base's rows for that record, marked by a sentinel row with an empty column. Chosen over a full copy
+  per change set, which would cost a whole workspace per change set.
+- `matrix_state_builds` records that one owner's states of one shape are complete, with the shape's
+  definition, so maintenance needs no model. Which owners need which shapes follows from the models in
+  use: live the active release's, a change set and its base the change set's release's, a
+  publication its own and those of change sets based on it, the history all of them. Building and
+  dropping is one idempotent sync, run at startup (each build committed separately), on model
+  activation, change set creation and release change, publishing and workspace creation or deletion.
+- Maintenance recomputes, never adjusts: an ORM `before_flush` hook notes relation ends, parent moves,
+  attribute values and change set rows a write touches; before commit the touched rows are recomputed
+  from records in each built shape. Core statements outside the ORM note their changes explicitly.
+  Publishing copies live's states to the new publication and extends the history.
+- A read uses stored states only when every owner it needs is built; otherwise it derives the cells
+  from records as before. The filter's matching rows are read once per request and every paging
+  statement filters by that list.
+- The migration creates the tables empty; the startup sync is the backfill. Keeping one builder avoids
+  a second implementation of the cell semantics in migration SQL, and a stopped build resumes.
+
+### Consequences
+
+- Records remain the only source of truth; `matrix_states.verify` rebuilds every stored owner and
+  shape from records and compares, and every matrix test runs it after its writes.
+- A missed maintenance path costs a wrong filter until the next rebuild, not an error, so each new
+  write path that bypasses the ORM must note its changes; the tests cover every current one.
+- Startup and activation take seconds at full volume when a shape is new; publishing adds one copy of
+  live's states.
+- Composable-domains doors (ADR-032): none affected; the table is a derived index over existing
+  records, like `snapshot_attribute_values`.

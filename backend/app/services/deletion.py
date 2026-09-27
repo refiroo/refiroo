@@ -12,6 +12,7 @@ from ..models.database import AttributeValue, ObjectRelation, RdmObject, Workspa
 from ..models.schema import EngineModel, ObjectTypeRelationDefinition
 from .audit import record_audit_event
 from .cursors import decode_cursor, encode_cursor
+from .matrix_states import note_rows
 from .relation_set_versions import increment_set_versions
 
 
@@ -409,6 +410,7 @@ def execute_delete_plan(session: Session, plan: DeletePlan) -> None:
                 from_object_id=source.id,
                 to_object_id=target.id,
             )
+        note_rows(session, endpoint_ids)
         session.execute(delete(ObjectRelation).where(ObjectRelation.id.in_(set(plan.relations))))
     session.execute(delete(AttributeValue).where(AttributeValue.object_id.in_(object_ids)))
     # RESTRICT parent FKs must be detached before SQLAlchemy flushes a mixed parent/child batch.

@@ -24,6 +24,7 @@ from ..models.database import (
     Workspace,
     WorkspaceRuntimeState,
 )
+from . import matrix_states
 
 DeleteBlocker = Literal["default", "published", "notEmpty"]
 
@@ -160,6 +161,8 @@ def create_workspace(session: Session, payload: WorkspaceCreate) -> Workspace:
     item = Workspace(key=key, label=label, status="active")
     session.add(item)
     try:
+        session.flush()
+        matrix_states.sync_workspace(session, key)
         session.commit()
     except IntegrityError:
         session.rollback()
@@ -294,6 +297,7 @@ def delete_workspace(session: Session, key: str, expected_version: int) -> None:
         session.rollback()  # Release the writer reservation; a refusal changes nothing.
         raise
     session.execute(delete(RelationSetVersion).where(RelationSetVersion.workspace_key == key))
+    matrix_states.drop_workspace(session, key)
     session.execute(delete(Workspace).where(Workspace.key == key))
     session.commit()
 

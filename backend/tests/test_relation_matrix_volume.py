@@ -1,7 +1,7 @@
-"""Base 0.8 A2: relation matrix row state filters over the generated volume fixture.
+"""Base 0.8 A2, A3b: relation matrix row state filters over the generated volume fixture.
 
-The filter decides by walking down from the selected column records (D12); a page's cells are
-resolved walking up from each related record. Over every row of the generated matrices, in each
+The filter reads stored cell states (A3b; before it, D12's walk down from the selected column
+records); a page's cells are resolved walking up from each related record, and are the oracle. Over every row of the generated matrices, in each
 context and both directions, a filtered list must hold exactly the rows whose unfiltered cells
 show the state, and a deep filtered page must be the matching slice. Budgets are held with the
 other volume reads in ``test_volume_baseline.py``.
@@ -16,6 +16,8 @@ from volume_fixture import (
     scaled_shape,
     volume_app,
 )
+
+from app.services import relation_matrix
 
 SHAPE = scaled_shape(0.01)
 PATH = f"/api/v1/workspaces/{WORKSPACE}/relation-matrix"
@@ -50,8 +52,13 @@ def _all_rows(client, params: dict) -> list[dict]:
 
 @pytest.mark.parametrize("view", [CELLS_BY_COLUMN, MARKS_BY_COLUMN])
 @pytest.mark.parametrize("context", ["live", "change_set", "publication"])
-def test_state_filter_matches_every_rows_cells(volume, context, view):
+def test_state_filter_matches_every_rows_cells(volume, context, view, monkeypatch):
     client, dataset = volume
+
+    def derived(*_args, **_kwargs):
+        raise AssertionError("the filter derived its cells instead of reading stored states")
+
+    monkeypatch.setattr(relation_matrix, "_current_pairs", derived)
     columns = dataset.matrix_column_ids[:10]
     params = {
         "applicationKey": MATRIX_APPLICATION,

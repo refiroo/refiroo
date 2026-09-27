@@ -31,6 +31,7 @@ from .routers import (
     relations,
     workspaces,
 )
+from .services.matrix_states import build_at_startup as build_matrix_states
 from .services.model.bootstrap import bootstrap_model
 from .services.model.loader import load_bootstrap_model
 from .services.model.registry import UnsupportedSelectedModelSchema, model_registry
@@ -66,6 +67,7 @@ async def lifespan(_: FastAPI):
     with SessionLocal() as session:
         try:
             model_registry.resolve_active(session)
+            build_matrix_states(session)
         except UnsupportedSelectedModelSchema as exc:
             model_registry.mark_unhealthy()
             logger.error(

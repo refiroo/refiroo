@@ -111,6 +111,13 @@ All notable changes to this project are documented in this file. The format foll
   (`expectedRelationSetVersion`, `relationSetDirection`) and refuse a stale one with
   `409 relation_set_version_conflict`; a claimed create returns the set's new version. Cell records
   carry `relationVersion`. OpenAPI lock re-baselined; the paging inventory counts 20 collections.
+- Base 0.8 A3b: stored relation matrix cell states (ADR-033). Migration `20260927_01` adds
+  `matrix_cell_states` and `matrix_state_builds`; the application builds every missing owner (live,
+  publication, change set base, change set overlay, publication history) and matrix shape at startup,
+  on model activation and when change sets and publications are created, and recomputes the rows a
+  write touches before it commits. The row state filter reads them by index, once per request, and
+  derives cells from records only where a context is not built. The API contract is unchanged.
+  `matrix_states.verify` rebuilds and compares every stored state; matrix tests run it after each test.
 
 ### Changed
 

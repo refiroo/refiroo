@@ -1689,6 +1689,69 @@ all three contexts and both directions; a filtered page, count and position jump
 full volume in every context (recorded in `test_volume_baseline.py`); the migration and startup checks
 pass.
 
+**A3b delivered 2026-09-27.** `services/matrix_states.py` owns the stored states (ADR-033);
+`services/matrix_cells.py` now holds the cell SQL that the page and the states share (the shape, the
+context's arms, the walk up), so both derive cells identically. Decisions made on the way:
+
+- Item 4 (change sets): the recommended overlay, at row granularity. A change set stores rows only for
+  the row records its changes touch, and those replace all of the base's rows for that record (a
+  sentinel row with an empty column marks it), so a removed cell needs no per-cell tombstone.
+- Item 2 (`historyOnly`): a per-workspace `history` owner keeps, per cell, the first publication that
+  held a record, extended at each publish; a publication read compares with its own number. Reading
+  every publication's states instead would grow with the number of publications.
+- Item 7 (backfill): the migration `20260927_01` creates the two tables empty, and the startup sync
+  builds every missing (owner, shape), committing each build. Deriving the states in migration SQL
+  would duplicate the cell semantics; a stopped build resumes on the next start. Until an owner is
+  built, reads derive its cells from records (A2's walk), which is correct but slower.
+- Which owners keep which shapes follows from the models in use; one idempotent sync builds and drops
+  them at startup, on activation, change set creation and release change, publishing and workspace
+  creation or deletion. `matrix_state_builds` stores each shape's definition, so maintenance needs no
+  model.
+- The filter reads each selected column's rows from the column index and combines columns by
+  `UNION`, `EXCEPT` and `INTERSECT`, which SQLite merges in index order; it is pinned to that index
+  (`INDEXED BY`) because without statistics SQLite scanned the owner's whole shape. The matching IDs
+  are read once per request and passed to the paging statements as one JSON value.
+- Found on the way: `_named_columns` looked columns up through the workspace index, reading every
+  record of the workspace (20 ms at full volume on every `columnIds` request); it now seeks by ID.
+  `session.get(ChangeSet, …)` takes the sequence key, not the public ID, a trap worth knowing.
+
+_Measurements_ (full shape, median of 5, same machine as S1; live · change set · publication):
+
+| Request | After |
+| --- | --- |
+| matrix: inactive in 10 columns, jump, total | 52.9 · 74.4 · 44.1 ms |
+| matrix: none in 3 columns, jump, total | 41.7 · 62.7 · 32.5 ms |
+| matrix: history only in 20 columns | 71.7 · 86.8 · 22.4 ms |
+| matrix incoming: one in 1 column, jump, total | 38.1 · 55.0 · 28.5 ms |
+| matrix: first page, 20 columns, total (unfiltered) | 36.2 · 46.9 · 24.9 ms |
+
+A2 measured the state filters at 0.27–76 s on its first full run and several seconds warm after its
+plan fixes, per request.
+
+Statement counts are unchanged at both scales (11–18 by context). Building every owner and shape from
+scratch at full volume (12 builds over two workspaces, a publication and a change set) takes 74 s;
+`verify` over them takes 77 s and finds none differing.
+
+Checks: `pytest tests/test_matrix_states.py` (9: live create, condition edits, a container move, cell
+and row deletion; links and unlinks in both directions and a group moved to another column; change
+set create, edit, move and delete, then publish, with the history; a publication-derived change set
+and discard; activation and a change set's release change dropping a removed shape; workspace create
+and delete; startup build, a failed build that logs and falls back, restart; upgrade from
+`20260926_04` and restart; an interrupted upgrade recreating the derived tables and refusing an
+unknown one; a long ID list), each step checked by `verify` and by every state filter against the
+unfiltered cells with the derived filter disabled; `test_relation_matrix.py` and
+`test_relation_matrix_writes.py` now run `verify` after every test; `test_relation_matrix_volume.py`
+unchanged in its oracle and now refusing the derived filter; the full backend suite (714) before the
+final filter and column-lookup changes, then `-m "matrix or volume"` (81) after them, and
+`ruff check app/ tests/`. A smoke start on a copy of the development database (already at the new
+head, so a restart) and on a copy downgraded to `20260926_04` (an upgrade): healthy, states built and
+verified. Not run: frontend (no frontend change); the comprehensive suites belong to R1.
+
+Limits: activation builds the states of a new shape inside its transaction, which at full volume
+holds the writer reservation for several seconds per shape; startup does the same outside requests.
+A write path added later that bypasses the ORM must note its changes (`note_rows`, `note_cells`),
+or the filter drifts until the next rebuild; `verify` finds it.
+
 #### A4: Relation matrix lens
 
 **Scope:**

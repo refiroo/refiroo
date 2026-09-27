@@ -42,6 +42,7 @@ from app.models.database import (
     RdmObject,
     Workspace,
 )
+from app.services import matrix_states
 from app.services.snapshot_values import insert_value_rows, release_value_types, value_rows
 
 APPLICATION = "vol-catalogue"
@@ -560,6 +561,11 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
         ),
     )
     _bulk_insert(engine, ChangeSetRelation, change_set_relations)
+
+    # The bulk rows bypass the ORM hooks that maintain stored matrix cell states: build them (A3b).
+    with Session(engine) as session:
+        matrix_states.sync_all(session)
+        session.commit()
 
     touched = edited_items | set(deleted) | cited_items
     untouched = next(item for item in items if item not in touched)
