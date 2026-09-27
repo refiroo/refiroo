@@ -211,6 +211,7 @@ export function WorkspaceAdmin({
           }}
           onCreated={(workspace) => {
             setCreating(false);
+            setDeleted("");
             feed.reload();
             onRouteChange({ kind: "workspaces", selectedWorkspaceKey: workspace.key });
           }}

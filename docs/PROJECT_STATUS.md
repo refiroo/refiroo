@@ -16,9 +16,13 @@ delivered; WP-10E/F/G closed on 2026-09-25. **WP-9 composed build acceptance pas
 SC-07 and SC-15 run as composed browser + API journeys (`test:browser:sc07`, `test:browser:sc15`,
 `test_build07_wp9_acceptance.py`), the full backend/frontend suites, all browser runners and the
 accessibility and visual gates are green, and WP-10H/I/J found on the way are closed. The draft
-timestamp decision it surfaced is delivered as WP-10K (not recorded in drafts and history). Next is
-0.8: scalable browsing first ([Track S](BASE_0_8_IMPLEMENTATION_PLAN.md), ADR-030), then lazy tree browsing to any depth and
-specialised translation screens. Residual gaps are listed in the
+timestamp decision it surfaced is delivered as WP-10K (not recorded in drafts and history).
+
+**0.8 in progress.** [Track S](BASE_0_8_IMPLEMENTATION_PLAN.md#work-packages--track-s) (S1–S8,
+scalable browsing, ADR-030) and [Track W](BASE_0_8_IMPLEMENTATION_PLAN.md#track-w--workspace-terminology-and-capability-boundaries)
+(W1–W6, ADR-031 terminology and capability boundaries) were delivered on 2026-09-26. Next are the
+Translation editor (Milestone A) and Hierarchy editor (Milestone B), whose decisions D8–D14 still need
+acceptance, and P2, then R1 build acceptance. Residual 0.7 gaps are listed in the
 [plan's WP-9 record](BASE_0_7_IMPLEMENTATION_PLAN.md#wp-9-composed-product-validation--sc-07-and-sc-15).
 
 The generic model defines applications, object types, reusable fields, allowed relationships and views.
@@ -37,12 +41,13 @@ GAP-01–GAP-08 answers and distinguishes accepted targets from implementation e
 | Optional change sets | Complete: current-live and historical source selection, shared browser editing, validation and delta merge | — |
 | Historical data | Complete: newest-first browser discovery, pinned-model immutable reads and historical draft derivation | — |
 | Publication withdrawal | Complete: truthful browser confirmation removes only the designation while retaining live data/history | — |
+| Workspace administration | Complete (0.8 W3–W6): Workspaces screen to create, rename, retire, reactivate, delete an unused workspace and choose the default, gated by `WORKSPACE_ADMIN_MUTATIONS_ENABLED`; the change-set workflow is always available | — |
 | Model administration | Complete: immutable releases, JSON drafts, validation/diff/install/activation workbench | Browser administration acceptance (0.7+) |
 | UI foundation | Complete: catalogue selection, typed tables, generic panels, redesigned navigation/collections/inspector/inline editing, automated accessibility and visual-regression gates (UI-07); 0.7 redesign (header application tabs, Live/Drafts/History control, record tree, Filter popover), dark mode and settings menu; WP-9 a11y/visual acceptance passed | — |
 | Specialist workflows | Schema 0.6 `mappingGrid` contract, live/draft/revision coverage, target-detail, candidate APIs, atomic replacement and contextual mapping lens with in-context target creation delivered; SC-07 composed acceptance passed | Lazy arbitrary-depth hierarchy/translation specializations 0.8; integration 0.9 |
 | Production and model migration | Basic readiness and actionable startup refusal | Authenticated production, staged assignments and reviewed historical model migration 0.10 |
 
-Ordinary live saves create neither a draft nor a revision. Draft activation applies authored changes
+Ordinary live saves create neither a change set nor a publication. Publishing a change set applies authored changes
 over current live data, preserves unrelated live work and publishes nothing on a touched-record conflict
 or divergent touched mutable relation set, or invalid merged graph. Historical derivation is not a direct restore. Publication withdrawal does
 not withdraw live data or make the workspace read-only; catalogue retirement is the read-only control.
@@ -359,9 +364,9 @@ Read `AGENTS.md`, the product stories/scenarios, ADR-027, `ROADMAP.md`, `API.md`
 Base 0.7 is released (2026-09-25): WP-1–WP-9, WP-10A–K, WP-11, WP-12, WP-13A/B/C and WP-14, plus the
 2026-09-24 frontend redesign and dark mode. WP-13A's [coverage map](testing/COVERAGE_MAP.md), WP-13B's
 [execution guide](testing/EXECUTION_GUIDE.md) and WP-13C's [UI acceptance](testing/UI_ACCEPTANCE.md)
-supply the audited selections. **Next: 0.8**, scalable browsing first
-([Track S](BASE_0_8_IMPLEMENTATION_PLAN.md)), then lazy tree browsing to any depth and specialised
-translation screens ([roadmap](ROADMAP.md)).
+supply the audited selections. **0.8 in progress**: Tracks S and W are delivered; next are the
+Translation editor and Hierarchy editor milestones, P2 and R1
+([plan](BASE_0_8_IMPLEMENTATION_PLAN.md), [roadmap](ROADMAP.md)).
 Use one implementation owner per slice, focused verification and appropriate review. Do not commit
 unless explicitly requested. Summarize each completed batch while work continues so scope can be
 corrected before the entire task finishes.

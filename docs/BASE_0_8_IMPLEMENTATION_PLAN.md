@@ -1,10 +1,11 @@
 # Base 0.8 implementation plan
 
-**Status:** Draft plan, 2026-09-25. Track S (scalable browsing) starts first. Milestone A
+**Status:** In progress; plan drafted 2026-09-25. Track S (scalable browsing, S1–S8) and Track W
+(W1–W6, ADR-031 terminology and capability boundaries) are delivered (2026-09-26). Milestone A
 (translation editor) and Milestone B (hierarchy editor) from the
 [roadmap](ROADMAP.md#product-release-08--translation-and-hierarchy-editors) are broken into work
-packages A1–A5 and B1–B4; Track W (W1–W5) delivers ADR-031 terminology and capability boundaries; R1
-owns build acceptance. Decisions D8–D19 are proposed, not yet accepted.
+packages A1–A5 and B1–B4; P2 is scheduled after W2 (D20); R1 owns build acceptance. Decisions D8–D14
+(Milestones A and B) are proposed, not yet accepted; see the [summary](#decisions-summary).
 
 **Target:** Product 0.8.0. Track S does not change the schema language. Milestones A and B add
 schema language 0.7 (`translationMatrix` and `tree` views); the starter model becomes content release

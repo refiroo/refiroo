@@ -203,6 +203,8 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+- Base 0.8 W6 review: on the Workspaces screen, creating a workspace after deleting one no longer
+  leaves the "was deleted" notice above the new workspace.
 - Base 0.8 W6: a live write that resolved its workspace before the workspace was retired, or deleted,
   could still commit into it. It now rereads the workspace inside its transaction and returns
   `409 workspace_retired` or `404 workspace_not_found`, saving nothing.

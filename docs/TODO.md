@@ -6,8 +6,9 @@ release plan and changelog rather than accumulating it here.
 
 ## Now — Product 0.8
 
-Base 0.7 is released (2026-09-25). Next: 0.8 Track S (scalable browsing), then arbitrary-depth tree
-browsing and translation screens. See [Next — 0.8 and beyond](#next--08-and-beyond).
+Base 0.7 is released (2026-09-25). 0.8 Track S (scalable browsing) and Track W (workspace terminology
+and capability boundaries) are delivered (2026-09-26). Next: the translation editor and hierarchy editor
+milestones, P2, then R1. See [Next — 0.8 and beyond](#next--08-and-beyond).
 
 ## Open decisions
 
@@ -32,7 +33,7 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 
 ## Next — 0.8 and beyond
 
-- [ ] 0.8 Track S — scalable browsing ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md), ADR-030), first:
+- [x] 0.8 Track S — scalable browsing ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md), ADR-030), first:
   - [x] S1 volume fixture and baseline over a generated model.
   - [x] S2 change-set and publication reads in the database (D1 accepted: typed value rows).
   - [x] S2b bounded change set writes: a rename at full volume in 7.5 ms (was 4.9 s).
@@ -64,6 +65,11 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [ ] B4 Milestone B acceptance (SC-09 hierarchy half).
 - [ ] 0.8 P2 change set changes list, after W2 (D20).
 - [ ] 0.8 R1 build acceptance and release.
+- [ ] Enforce foreign keys on SQLite (`PRAGMA foreign_keys=ON` per connection) or document that every
+  `ondelete` rule is advisory there. 0.8 W6 found none of them, not only the `workspaces.key` ones, are
+  enforced at runtime; services delete dependants explicitly and W6 rechecks the workspace at commit.
+  Enabling it needs a data check for existing violations and must keep the table-rebuild migrations,
+  which require it off, working.
 - [ ] Integration-grade query expressions beyond daily-use filters.
 - [ ] Bounded live bulk object/relation/mapping operations with explicit optional staging, per-item
   outcomes and safe retry; do not require a change set merely because several records change (0.9).

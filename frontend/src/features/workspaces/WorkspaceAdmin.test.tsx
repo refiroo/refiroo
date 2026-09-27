@@ -276,6 +276,15 @@ describe("WorkspaceAdmin", () => {
     expect(props.onRouteChange).toHaveBeenCalledWith({ kind: "workspaces" });
     expect(props.onWorkspaceDeleted).toHaveBeenCalledWith("retial");
     expect(api.workspaces).toHaveBeenCalledTimes(2);
+
+    // Creating the corrected key replaces the deletion notice rather than showing it above the new workspace.
+    vi.mocked(api.createWorkspace).mockResolvedValue({ ...typo, key: "retail-eu", label: "Retail EU" });
+    fireEvent.click(screen.getByRole("button", { name: /New workspace/ }));
+    const dialog = await screen.findByRole("dialog", { name: "New workspace" });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Name" }), { target: { value: "Retail EU" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create workspace" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "New workspace" })).not.toBeInTheDocument());
+    expect(screen.queryByText(/was deleted/)).not.toBeInTheDocument();
   });
 
   it.each([
