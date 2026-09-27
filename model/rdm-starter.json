@@ -452,13 +452,15 @@
       "description": "System-specific reference values and their mappings",
       "icon": "network",
       "color": "#167d78",
-      "objectTypeKeys": ["system", "system-group", "system-value", "master-value"],
+      "objectTypeKeys": ["system", "system-group", "system-value", "codelist", "master-value"],
       "defaultView": "systems",
       "settings": { "importEnabled": true, "exportEnabled": true },
       "views": [
         { "key": "systems", "name": "Systems", "type": "table", "objectTypeKey": "system", "config": { "columns": ["name", "system-code", "system-type", "description", "active"], "filterFields": ["system-type", "active"], "sortFields": ["name", "system-code"], "defaultSort": "name", "pageSize": 20 } },
         { "key": "system-values", "name": "System values", "type": "table", "objectTypeKey": "system-value", "config": { "columns": ["name", "value-code", "value-name", "external-id", "active"], "filterFields": ["value-code", "active"], "sortFields": ["name", "value-code"], "defaultSort": "name", "pageSize": 20 } },
-        { "key": "system-to-master-mapping", "name": "System → Master mapping", "type": "mappingGrid", "config": { "relationTypeKey": "system-value-maps-to-master", "fromObjectTypeKey": "system-value", "toObjectTypeKey": "master-value", "direction": "outgoing", "sourceColumns": ["name", "value-code", "value-name"], "targetDisplayColumns": ["name", "value-code", "value-name"], "candidateSearchFields": ["name", "value-code", "value-name"], "pageSize": 20 } }
+        { "key": "system-to-master-mapping", "name": "System → Master mapping", "type": "mappingGrid", "config": { "relationTypeKey": "system-value-maps-to-master", "fromObjectTypeKey": "system-value", "toObjectTypeKey": "master-value", "direction": "outgoing", "sourceColumns": ["name", "value-code", "value-name"], "targetDisplayColumns": ["name", "value-code", "value-name"], "candidateSearchFields": ["name", "value-code", "value-name"], "pageSize": 20 } },
+        { "key": "codelists-by-system", "name": "Codelists by system", "type": "relationMatrix", "config": { "relationTypeKey": "reference-has-system-representation", "direction": "outgoing", "rowObjectTypeKey": "codelist", "columnObjectTypeKey": "system", "cellObjectTypeKey": "system-value", "rowColumns": ["name", "codelist-code"], "columnLabelField": "system-code", "cellFields": ["value-code", "value-name", "active"], "searchFields": ["name", "codelist-code"], "cellActions": ["create", "edit", "link", "unlink"], "pageSize": 20 } },
+        { "key": "master-values-by-system", "name": "Master values by system", "type": "relationMatrix", "config": { "relationTypeKey": "system-value-maps-to-master", "direction": "incoming", "rowObjectTypeKey": "master-value", "columnObjectTypeKey": "system", "cellObjectTypeKey": "system-value", "rowColumns": ["name", "value-code", "ancestor:codelist"], "columnLabelField": "system-code", "cellFields": ["value-code", "value-name", "active"], "searchFields": ["name", "value-code", "value-name"], "cellActions": ["edit", "link", "unlink"], "pageSize": 20 } }
       ],
       "details": [
         {
@@ -490,12 +492,14 @@
       "description": "Languages and translated representations of reference values",
       "icon": "languages",
       "color": "#c66b2c",
-      "objectTypeKeys": ["language", "translation-group", "translation", "master-value"],
+      "objectTypeKeys": ["language", "translation-group", "translation", "codelist", "master-value"],
       "defaultView": "languages",
       "settings": { "importEnabled": true, "exportEnabled": true },
       "views": [
         { "key": "languages", "name": "Languages", "type": "table", "objectTypeKey": "language", "config": { "columns": ["name", "language-code", "locale-code", "active"], "filterFields": ["language-code", "active"], "sortFields": ["name", "language-code"], "defaultSort": "name", "pageSize": 20 } },
-        { "key": "translations", "name": "Translations", "type": "table", "objectTypeKey": "translation", "config": { "columns": ["name", "translated-name", "translated-description", "translated-value", "active"], "filterFields": ["active"], "sortFields": ["name"], "defaultSort": "name", "pageSize": 20 } }
+        { "key": "translations", "name": "Translations", "type": "table", "objectTypeKey": "translation", "config": { "columns": ["name", "translated-name", "translated-description", "translated-value", "active"], "filterFields": ["active"], "sortFields": ["name"], "defaultSort": "name", "pageSize": 20 } },
+        { "key": "codelist-translations", "name": "Codelist translations", "type": "relationMatrix", "config": { "relationTypeKey": "object-has-translation", "direction": "outgoing", "rowObjectTypeKey": "codelist", "columnObjectTypeKey": "language", "cellObjectTypeKey": "translation", "rowColumns": ["name", "codelist-code"], "columnLabelField": "language-code", "cellFields": ["translated-name", "translated-description", "active"], "searchFields": ["name", "codelist-code", "description"], "cellActions": ["create", "edit"], "pageSize": 20 } },
+        { "key": "master-value-translations", "name": "Master value translations", "type": "relationMatrix", "config": { "relationTypeKey": "object-has-translation", "direction": "outgoing", "rowObjectTypeKey": "master-value", "columnObjectTypeKey": "language", "cellObjectTypeKey": "translation", "rowColumns": ["name", "value-code", "ancestor:codelist"], "columnLabelField": "language-code", "cellFields": ["translated-name", "translated-value", "active"], "searchFields": ["name", "value-code", "value-name"], "cellActions": ["create", "edit"], "pageSize": 20 } }
       ],
       "details": [
         {

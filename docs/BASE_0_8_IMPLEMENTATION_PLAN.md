@@ -2,13 +2,14 @@
 
 **Status:** In progress; plan drafted 2026-09-25. Track S (scalable browsing, S1–S8) and Track W
 (W1–W6, ADR-031 terminology and capability boundaries) are delivered (2026-09-26). Milestone A
-(translation editor) and Milestone B (hierarchy editor) from the
-[roadmap](ROADMAP.md#product-release-08--translation-and-hierarchy-editors) are broken into work
-packages A1–A5 and B1–B4; P2 is scheduled after W2 (D20); R1 owns build acceptance. Decisions D8–D14
-(Milestones A and B) are proposed, not yet accepted; see the [summary](#decisions-summary).
+(relation matrix) and Milestone B (hierarchy editor) from the
+[roadmap](ROADMAP.md#product-release-08--relation-matrix-and-hierarchy-editor) are broken into work
+packages A1–A5 and B1–B4; P2 is scheduled after W2 (D20); R1 owns build acceptance. A1 is delivered
+(2026-09-27) with D8 and D9 accepted; D10–D14 (Milestones A and B) are proposed, not yet accepted;
+see the [summary](#decisions-summary).
 
 **Target:** Product 0.8.0. Track S does not change the schema language. Milestones A and B add
-schema language 0.7 (`translationMatrix` and `tree` views); the starter model becomes content release
+schema language 0.7 (`relationMatrix` and `tree` views); the starter model becomes content release
 0.8.0 on schema 0.7.
 
 **Depends on:** Product 0.7.0 released.
@@ -1354,173 +1355,228 @@ W2 lands before A2 and B2 so the new translation and hierarchy endpoints are wri
 names rather than renamed afterwards. A2 and B2 already wait for S5 and S6, so the extra wait is W2
 alone (D15).
 
-## Milestone A — Translation editor
+## Milestone A — Relation matrix
 
 ### Outcome
 
-A localization steward opens a target collection (for example the values of one codelist) as a
-translation matrix: targets as rows, languages as columns. Each cell says whether a usable current
-translation exists, whether one exists but is unavailable, whether one exists only in history, or
-whether none exists. The steward filters to targets missing any selected language across the whole
-list, not only the loaded page, and fills or corrects a translation in the cell. Routine edits are
-live; a selected design draft stages them. Stories US-L03 and US-L04, scenario SC-09 (translation half).
+A steward opens a collection as a matrix: its records as rows, the records of an ancestor type as
+columns, and in each cell the row's related records that sit under that column's record. Each cell
+says whether it holds one related record, several, only ones that fail the binding's condition, one
+only in history, or none. The steward filters to rows with a given cell state in any selected column
+across the whole list, not only the loaded page, and acts in the cell as the view allows: create a
+related record, edit it, link an existing one or unlink it. Routine edits are live; a selected change
+set stages them.
 
-### Model facts this milestone relies on
+The engine builds the capability, not a domain. The starter model configures it three ways, each a
+real task, so no one shape defines the contract:
 
-- A translation record is contained by a group type, which is contained, possibly recursively, by
-  the language type. The language is an ancestor, not a field.
-- The target owns the translation through a required one-to-many binding whose
-  `uniqueToAncestorTypeKey` names the language type and whose `uniqueWhenToAttributeEquals` names
-  the availability predicate (ADR-014). Live writes, draft validation and activation already enforce
-  it.
+| Starter view | Rows | Columns | Cells (relation, direction, binding) | Actions |
+| --- | --- | --- | --- | --- |
+| Codelist / Master value translations | codelists, master values | language | translation via `object-has-translation`, outgoing, required one-to-many, one per language | create, edit |
+| Codelists by system | codelists | system | system value via `reference-has-system-representation`, outgoing, optional one-to-many | create, edit, link, unlink |
+| Master values by system | master values | system | system value via `system-value-maps-to-master`, incoming, many-to-many | edit, link, unlink |
+
+A catalogue model (price per market, listing per channel) is the same shape. The translation views
+serve stories US-L03 and US-L04 and scenario SC-09 (translation half).
+
+### Model facts the matrix relies on
+
+- A cell record reaches its column record through containment: the column type can contain the cell
+  type at some depth, possibly through recursive container types (translation groups, system groups).
+  The column is an ancestor, not a field.
+- The row and the cell record are joined by one declared binding, read from either end
+  (`direction`). The binding may be required or optional and of any cardinality.
+- When the binding declares `uniqueToAncestorTypeKey` (and optionally `uniqueWhenToAttributeEquals`),
+  live writes, change-set validation and publishing already enforce at most one matching record per
+  scope (ADR-014); the matrix reports a breach rather than enforcing it again.
 - No ancestor path is stored. Ancestry is walked through `parent_object_id`, so a read that needs a
-  translation's language costs the hierarchy depth per translation.
+  cell record's column costs the hierarchy depth per record.
 
-All of these come from the model. The matrix reads the binding, its uniqueness feature and the
-containment chain; it never names `translation`, `language` or `object-has-translation`.
+All of these come from the model. The matrix reads the binding, its features and the containment
+chain; runtime code never names a starter type or relation.
 
-#### A1: Schema 0.7 — `translationMatrix` view contract
+#### A1: Schema 0.7 — `relationMatrix` view contract
 
 **Scope:**
 
-1. Accept `schemaVersion: "0.7"` beside 0.5 and 0.6 in `models/schema.py`, `compiler.py`
-   (`SUPPORTED_SCHEMA_VERSIONS`), registry, releases and `cli/model_schema_upgrade.py`. Schema 0.7 is a
-   strict superset; 0.5 and 0.6 models keep parsing and activating, and reject the new view type at
-   the view's `type` path.
-2. Add `TranslationMatrixViewDefinition` (type `translationMatrix`) to the `ViewDefinition` union
-   with config:
-   `relationTypeKey`, `targetObjectTypeKey`, `translationObjectTypeKey`, `languageObjectTypeKey`,
-   `targetColumns`, `languageLabelField`, `cellFields` (translated fields shown and edited in a cell),
-   `searchFields` and `pageSize` (1–100).
+1. Accept `schemaVersion: "0.7"` (done by S4R2). Schema 0.5 and 0.6 models reject the new view type
+   at the view's `type` path.
+2. Add `RelationMatrixViewDefinition` (type `relationMatrix`) to the `ViewDefinition` union with
+   config: `relationTypeKey`, `direction` (`outgoing`: the row is the binding's `from` end;
+   `incoming`: its `to` end), `rowObjectTypeKey`, `columnObjectTypeKey`, `cellObjectTypeKey`,
+   `rowColumns`, `columnLabelField`, `cellFields` (cell-record fields shown and edited in a cell),
+   `searchFields`, `cellActions` (a subset of `create`, `edit`, `link`, `unlink`; empty or absent is
+   read-only) and `pageSize` (1–100).
 3. Validation rules in `services/model/validation/application_rules.py`, each raising
    `ModelReferenceError` at the failing node:
-   - a binding `relationTypeKey` from `targetObjectTypeKey` to `translationObjectTypeKey` exists, is
-     required and one-to-many, and is not containment;
-   - its `uniqueToAncestorTypeKey` equals `languageObjectTypeKey`;
-   - the language type is reachable from the translation type through `parentRelationTypeKeys`;
-   - `cellFields` are attached to the translation type and at least one is required or meaningful;
-     `targetColumns` and `searchFields` are attached to the target type; lists are unique;
-   - all three object types belong to the application.
-4. Lens grouping (ADR-029): a `translationMatrix` groups under its `targetObjectTypeKey`, so it
-   appears as a lens beside the target's table rather than as a new sidebar destination.
-5. Starter model: schema 0.7, content release 0.8.0, with `translationMatrix` views for two target
-   types (master values and codelists) in the translations application. Existing views are unchanged.
-6. Frontend: extend the `ViewDefinition` union in `src/types/model.ts` and register a placeholder in
-   `features/objects/views/registry.ts`; A4 replaces it.
+   - the three object types exist and belong to the application;
+   - the relation type exists, is not containment, and has a declared binding in the configured
+     direction;
+   - the column type can contain the cell type at some depth through `parentRelationTypeKeys`;
+   - `rowColumns` are fields of the row type; `columnLabelField` is `name` or a scalar attribute of
+     the column type; `cellFields` are attached to the cell type; `searchFields` are `name` or
+     searchable row attributes; lists are unique;
+   - each cell action can succeed for this model: `edit` needs a writable cell field; `unlink` is
+     refused on a required binding, which the engine never lets go on its own; `create` needs every
+     required cell attribute without a default among `cellFields`, and no required relation into the
+     cell type besides the view's own relation.
+4. Lens grouping (ADR-029): a `relationMatrix` groups under its `rowObjectTypeKey`, beside that type's
+   table when the application has one.
+5. Starter model: the four views above, in the applications that hold their column and cell types.
+6. Frontend: extend the `ViewDefinition` union in `src/types/model.ts` and register a generic
+   placeholder whose labels come from the model; A4 replaces it.
 7. Document the contract and its validation rules in `APPLICATION_MODEL.md`.
 
 View definitions persist as JSON with a `view_type` string, so no database migration is needed.
 
 **Exit:** a schema 0.7 model with the view parses, installs and activates; 0.5 and 0.6 models still
-do; each rule above rejects an invalid configuration with a precise JSON pointer; the starter model
-and the generated S1 model (extended in A2) both validate. Focused `model` group tests and the
-frontend build pass.
+do; each rule rejects an invalid configuration with a precise JSON pointer; all three binding shapes
+validate, and so does the starter with every type and relation key renamed; the generated S1 model
+(extended in A2) validates. Focused `model` group tests and the frontend build pass.
 
-#### A2: Translation coverage query
+**A1 delivered 2026-09-27, corrected the same day.** The first delivery added a `translationMatrix`
+type whose keys and rules (a required one-to-many binding scoped to the column type, translation and
+language vocabulary) fitted translations only; it was replaced before commit by the contract above.
+`_check_relation_matrix_view` applies the rules in the order listed and `_cell_action_refusal` the
+action rules; a required relation counts as satisfied by the view's own relation key, as the engine
+checks it on create. The starter's translations application holds the two translation views (and now
+includes `codelist`); the systems application holds the two system views (and now includes
+`codelist`). Neither application has a table for those row types, so each row type appears there as
+a sidebar collection whose only lens is its matrix. The placeholder names the row, column and cell
+types from the model. The content release stays 0.8.0, so a database that installed the S4R2 0.8.0
+content refuses to start with a release identity conflict until it is re-bootstrapped. Found on the
+way: `mappingGrid` duplicate-field errors pointed at `…/config/config/<field>`; fixed with a
+regression test.
+
+Checks: `pytest tests/test_model.py` (every rule with its exact pointer over the three shapes, a
+column several containment levels above the cell, strict shape, read-only views, a renamed-keys model,
+the 0.5/0.6 starters and the 0.6 generated model), `-m "model or contract"`,
+`test_model_schema_upgrade.py`, `test_translations.py` and `ruff check app/ tests/`; Vitest
+`model.test.ts` (grouping in both directions) and `CollectionView.test.tsx` (the placeholder lens for
+two row types); frontend format, lint (0 errors, the 8 recorded warnings) and build. `test:visual` passes; the
+`collection-table-system` and `record-detail-system` baselines were updated after inspection for the
+systems sidebar's two new collections. A one-off harness check opened both starter matrix
+placeholders by keyboard at 1440px and 390px (no overflow, axe clean) and its screenshots were
+inspected; the placeholder's UI acceptance row records it. Not run: `test:a11y` and a registered
+runner for the placeholder, which A4 replaces with the real lens and its own runner.
+
+#### A2: Relation matrix query
 
 **Scope:**
 
-1. `GET /api/v1/workspaces/{workspaceKey}/translation-coverage` with `applicationKey`, `viewKey`,
-   optional `parentObjectId` scope, `search`, `sort`, one of `workspaceDraftId` or
-   `workspaceRevisionId`, and the S3 paging parameters (`cursor`, `from`, `includeTotal`, `seek`,
-   `position`) for rows.
-2. Columns: `languageIds` (explicit, at most 20) or, when omitted, the first language page in the
-   language's sort order; the response carries a `languagesNextCursor` so the UI can page columns
-   (D10). Languages are records of the configured type in the same context.
-3. Each cell reports one state (D11):
-   - `current` — exactly one translation whose availability predicate holds;
-   - `unavailable` — translations exist but none satisfies the predicate;
-   - `historyOnly` — nothing in the current context, but a published revision of this workspace held
-     one for the same target and language;
-   - `missing` — none of the above;
-   - `duplicate` — more than one available translation, which a draft can hold before validation.
-   A cell also returns its translation's id, version, `cellFields` values and a relation-set version
-   for writes, and a count when several exist.
-4. `state=missing|unavailable|historyOnly|duplicate` together with `languageIds` filters rows before
-   pagination: a row matches when any selected language's cell has that state. Totals count the
-   filtered rows.
-5. Implementation: page targets first; then fetch their translations through the binding in one
-   query; resolve each translation's language with one recursive query up the containment chain
-   (depth-bounded); fetch the `historyOnly` evidence in one query over revision relations for the
-   page's targets. No per-row or per-cell requests. Draft and history contexts use the S2
-   base-plus-overlay and revision SQL.
-6. The row state filter must decide across all targets, not a page. Resolve it with one recursive
-   query from the selected languages down through container types to translations (D12), and
-   measure it against an S1 fixture extension: 10,000 targets, 30 languages, a three-level group
-   hierarchy under each language and 150,000 translations, a tenth of them unavailable.
-7. Cursors bind view, context, scope, selected languages, state filter and sort.
+1. `GET /api/v1/workspaces/{workspaceKey}/relation-matrix` with `applicationKey`, `viewKey`, optional
+   `parentObjectId` scope for rows, `search`, `sort`, one of `changeSetId` or `publicationId`, and the
+   S3 paging parameters (`cursor`, `from`, `includeTotal`, `seek`, `position`) for rows.
+2. Columns: `columnIds` (explicit, at most 20) or, when omitted, the first page of column records in
+   name order; the response carries a `columnsNextCursor` so the UI can page columns (D10). Columns
+   are records of the column type in the same context.
+3. Each cell reports one state (D11), from the binding alone:
+   - `one` — exactly one related record under the column that meets the binding's
+     `uniqueWhenToAttributeEquals` condition (every record meets it when none is declared);
+   - `several` — more than one such record, with `conflict: true` when the binding's
+     `uniqueToAncestorTypeKey` is the column type in the outgoing direction (a change set can hold
+     one before validation); otherwise several is an ordinary state;
+   - `inactive` — related records exist, none meets the condition (only with a condition);
+   - `historyOnly` — nothing in the current context, but a publication of this workspace held a
+     related record under the same row and column;
+   - `none` — none of the above.
+   A cell returns each record's id, version, `cellFields` values and the relation's id and set
+   version for writes, up to a bounded number of records with the count beyond it.
+4. `state=<state>` together with `columnIds` filters rows before pagination: a row matches when any
+   selected column's cell has that state. Totals count the filtered rows.
+5. Implementation: page rows first; fetch their related records through the binding in one query;
+   resolve each record's column with one recursive query up the containment chain (depth-bounded);
+   fetch the `historyOnly` evidence in one query over publication relations for the page's rows. No
+   per-row or per-cell requests. Change-set and publication contexts use the S2 base-plus-overlay
+   and snapshot SQL. Both directions share one query, choosing the binding's end.
+6. The row state filter decides across all rows, not a page. Resolve it with one recursive query
+   from the selected column records down through container types to cell records (D12), and
+   measure it against an S1 fixture extension with its own keys: 10,000 rows, 30 column records, a
+   three-level container hierarchy under each column record and 150,000 cell records, a tenth failing
+   the condition; plus a many-to-many incoming matrix over the same records.
+7. Cursors bind view, context, scope, selected columns, state filter and sort.
 8. Update API.md and the OpenAPI lock.
 
-**Exit:** each state is produced in live, draft and history contexts over both starter target types
-and the generated model; a missing-filter page deep in the list is correct and within its recorded
-budget; the query count per page is constant; `historyOnly` never counts as covered.
+**Exit:** each state is produced in live, change-set and publication contexts for the three starter
+shapes and the generated model; a filtered page deep in the list is correct and within its recorded
+budget; the query count per page is constant; `historyOnly` never counts as `one`.
 
 #### A3: Writes from a cell
 
-The existing create and update APIs already save a translation, its containment and its target
-relation in one transaction, live or in a draft (ADR-014). This package adds what a cell needs to
-call them without asking the user for context they already chose.
+The existing object and relation APIs already create a record with its containment and initial
+relations, edit it, and create or remove a relation, live or in a change set, in one transaction each
+(ADR-014, ADR-022). This package adds what a cell needs to call them without asking the user for
+context they already chose, for whichever `cellActions` the view declares.
 
 **Scope:**
 
-1. `GET /api/v1/workspaces/{workspaceKey}/translation-containers` with `applicationKey`, `viewKey`,
-   `languageId`, context, `search` and cursor: the records under that language whose type can
-   directly contain the translation type, with their path below the language. A language with
-   exactly one container is marked as the default (D13).
-2. Create from a `missing`, `unavailable` or `historyOnly` cell: `POST /objects` with the chosen
-   container as parent, the target through `initialRelations` and `cellFields` as attributes. The
-   name defaults from the target and language names; the user may change it.
-3. Edit from a `current` or `unavailable` cell: `PATCH` with `expectedVersion`, changing `cellFields`
-   or the availability field. Making a second translation available returns the existing duplicate
-   error with the conflicting translation's id, so the cell can point to it.
-4. Tests for the matrix path at the real boundaries: live create and edit; draft create, validation
-   and activation; a duplicate created in a draft and the same language filled live, refused at
-   activation with the draft kept; a draft that moves a translation's group to another language,
-   rechecked at activation (ADR-014); a stale `expectedVersion`. Each refusal leaves nothing partial.
+1. `GET /api/v1/workspaces/{workspaceKey}/relation-matrix/containers` with `applicationKey`,
+   `viewKey`, `columnId`, context, `search` and cursor: the column record and the records under it
+   whose type can directly contain the cell type, with their path below the column record. A column
+   with exactly one container is marked as the default (D13).
+2. `GET /api/v1/workspaces/{workspaceKey}/relation-matrix/link-candidates` with `applicationKey`,
+   `viewKey`, `rowId`, `columnId`, context, `search` and cursor: cell-type records under the column
+   record, each with `eligible` and, when false, a machine-readable reason (`alreadyLinked`, or the
+   binding's cardinality would be exceeded), listed rather than hidden so totals stay truthful.
+3. `create` from a `none`, `inactive` or `historyOnly` cell: `POST /objects` with the chosen container
+   as parent, the row through `initialRelations` in the view's direction and `cellFields` as
+   attributes. The name defaults from the row and column names; the user may change it.
+4. `edit`: `PATCH` with `expectedVersion`, changing `cellFields`. A uniqueness breach returns the
+   existing duplicate error with the conflicting record's id, so the cell can point to it.
+5. `link` and `unlink`: create or remove the relation with the relation-set version from A2, so a
+   concurrent change is refused rather than overwritten.
+6. Tests at the real boundaries, over the translation and mapping shapes: live create, edit, link and
+   unlink; change-set create, validation and publishing; a uniqueness breach staged in a change set
+   and the same cell filled live, refused at publishing with the change set kept; a change set that
+   moves a container to another column record, rechecked at publishing (ADR-014); a stale
+   `expectedVersion` or relation-set version. Each refusal leaves nothing partial.
 
-**Exit:** every write a cell performs succeeds or fails whole in live and draft contexts, with
+**Exit:** every write a cell performs succeeds or fails whole in live and change-set contexts, with
 machine-readable errors that carry enough context for the cell to keep the user's input.
 
-#### A4: Translation matrix lens
+#### A4: Relation matrix lens
 
 **Scope:**
 
-1. Replace the A1 placeholder with a generic `TranslationMatrixView` that receives the view definition.
-   Rows scroll through the S5 hook; the target column and the language header stay pinned; language
-   columns page horizontally with the column cursor.
+1. Replace the A1 placeholder with a generic `RelationMatrixView` that receives the view definition
+   and takes every label from the model. Rows scroll through the S5 hook; the row columns and the
+   column header stay pinned; columns page horizontally with the column cursor.
 2. Grid semantics: `role="grid"` with row and column counts from totals, arrow keys across cells and
-   row pages, Enter to edit, Escape to cancel. Each state has a text label and an icon, not colour
+   row pages, Enter to act, Escape to cancel. Each state has a text label and an icon, not colour
    alone, and a legend.
-3. Filters in the Filter popover: languages to show (searchable, from the language list) and the
-   coverage state. Both live in the URL with the S5 anchor.
-4. Cell editor in a popover: a `missing` cell offers a create form with the target and language fixed,
-   the container preselected when there is one and a searchable container picker otherwise; a
-   `current` or `unavailable` cell edits `cellFields` and availability; a `historyOnly` cell shows the
-   last published content, read-only, with **Create from this** that prefills it; a `duplicate` cell
-   lists the translations and opens their records.
-5. After a save, only the affected cell refreshes. A failure keeps the entered text and shows the
-   error through `errorMessage`; a duplicate conflict links to the conflicting translation.
-6. Context: in a draft the lens shows the draft badge and writes to it; in history it is read-only.
+3. Filters in the Filter popover: columns to show (searchable, from the column type's records) and
+   the cell state. Both live in the URL with the S5 anchor.
+4. Cell popover, offering only the view's `cellActions`: a `none` cell offers create (row and column
+   fixed, container preselected when there is one, a searchable container picker otherwise) and link
+   (searchable candidates with reasons); a `one` or `inactive` cell edits `cellFields` and offers
+   unlink; a `historyOnly` cell shows the last published record, read-only, with **Create from this**
+   that prefills it; a `several` cell lists its records, marks a conflict, and opens or unlinks them.
+5. After a save, only the affected cell refreshes. A failure keeps the entered values and shows the
+   error through `errorMessage`; a uniqueness conflict links to the conflicting record.
+6. Context: in a change set the lens shows its badge and writes to it; in a publication it is
+   read-only, as is a view without `cellActions`.
 7. Add the lens to the UI acceptance state inventory (loading, empty, filtered-empty, error, read-only
-   history, draft, 390px).
+   publication, change set, 390px).
 
 **Reference pattern:** the mapping lens (`MappingGridView`) for the pinned-column grid and inline
 action, and `ui/Modal` rules for the popover focus trap.
 
-**Exit:** a steward fills a missing cell, corrects a current one and filters to gaps across the whole
-list, by keyboard alone, for two target types at 1440px and 390px in live and draft contexts.
+**Exit:** a steward fills an empty translation cell, corrects one and filters to gaps across the whole
+list, and links and unlinks a system value in the mapping matrix, by keyboard alone, for two row types
+at 1440px and 390px in live and change-set contexts.
 
 #### A5: Milestone A acceptance
 
-**Scope:** a real-backend browser runner for the SC-09 translation half on the starter model:
-Delivery Methods by language with a current Czech cell, a missing English cell and a history-only
-cell; fill English live; reject a duplicate; stage a change in a draft and activate it. Repeat the
-fill on the generated model. Add accessibility scenarios for the matrix and its editor (light and
-dark) and reviewed visual baselines. Record A2 measurements against budgets.
+**Scope:** a real-backend browser runner on the starter model: for SC-09's translation half, Delivery
+Methods by language with a present Czech cell, an empty English cell and a history-only cell; fill
+English live; reject a duplicate; stage a change in a change set and publish it. For the mapping
+shape, link and unlink a system value in **Master values by system**. Repeat a fill on the generated
+model. Add accessibility scenarios for the matrix and its popover (light and dark) and reviewed
+visual baselines. Record A2 measurements against budgets.
 
-**Exit:** SC-09 translation half passes; budgets hold; the runner is registered in the
-[execution guide](testing/EXECUTION_GUIDE.md); US-L03 and US-L04 move to delivered in the
-functionality catalogue.
+**Exit:** SC-09 translation half and the mapping-shape journey pass; budgets hold; the runner is
+registered in the [execution guide](testing/EXECUTION_GUIDE.md); US-L03 and US-L04 move to delivered
+in the functionality catalogue.
 
 ## Milestone B — Hierarchy editor
 
@@ -1655,12 +1711,12 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D5 | Totals on every page or on request? | On request (`includeTotal`); the UI asks on first load, after a query change and with position jumps | S3 |
 | D6 | Relation sort keys | Related record's name and relation creation order; related-type fields later if needed | S4 |
 | D7 | Draft writes still load the whole membership | **Measured in S1:** over budget (7.6 s per rename at full volume). **S2:** 4.7 s after reads moved to SQL; follow-up slice S2b scoped. **S2b:** 7.5 ms | S2b |
-| D8 | A dedicated `translationMatrix` view type, or a generic coverage-matrix type? | `translationMatrix` with generic config keys. One real case exists; generalise after a second (AGENTS.md) | A1 |
-| D9 | Schema 0.7 if only one milestone ships | Each view type is added by its own package; a cut milestone's type is removed before release | A1, B1 |
-| D10 | Language columns | Explicit `languageIds` (at most 20) or the first page of languages; columns page with their own cursor | A2 |
-| D11 | Cell states | `current`, `unavailable`, `historyOnly`, `missing`, `duplicate`; only `current` counts as covered. `historyOnly` means a published revision of this workspace held one | A2 |
-| D12 | Resolving language ancestry for the gap filter | A recursive query down from the selected languages, measured in A2. A stored ancestor table only if the measurement is over budget, as a scoped follow-up | A2 |
-| D13 | Which group a new translation goes into | The user picks a container under the language; preselected when there is exactly one. No model default | A3, A4 |
+| D8 | A view type for the translation task, or a generic one? | **Accepted 2026-09-27 (A1, corrected):** a generic `relationMatrix` — rows, columns of an ancestor type, cells of related records through one binding in either direction — with a closed `cellActions` set. Translations are one starter configuration; system representations and cross-system mapping are two more (COMPOSABLE_DOMAINS admission tests) | A1 |
+| D9 | Schema 0.7 if only one milestone ships | **Accepted 2026-09-27 (A1):** each view type is added by its own package; a cut milestone's type is removed before release | A1, B1 |
+| D10 | Matrix columns | Explicit `columnIds` (at most 20) or the first page of column records; columns page with their own cursor | A2 |
+| D11 | Cell states | `one`, `several` (a conflict only when the binding's uniqueness scope is the column type), `inactive` (only with a binding condition), `historyOnly`, `none`, all derived from the binding. `historyOnly` means a publication of this workspace held one | A2 |
+| D12 | Resolving a cell record's column for the row state filter | A recursive query down from the selected column records, measured in A2. A stored ancestor table only if the measurement is over budget, as a scoped follow-up | A2 |
+| D13 | Which container a new cell record goes into | The user picks the column record or a container under it; preselected when there is exactly one. No model default | A3, A4 |
 | D14 | Ineligible move targets | Listed but disabled, with a reason, so totals stay truthful and the user sees why | B2, B3 |
 | D15 | When does the W2 rename land? | **Accepted 2026-09-25:** after S7 (draft and revision tables stable after S2) and before A2 and B2, so new endpoints use the new names | W2, A2, B2 |
 | D16 | Name of the snapshot a change set publishes | **Accepted 2026-09-25:** **Publication**, referred to as "Publication N" by its per-workspace counter, which continues across model releases; date and model release are secondary. "Version" is avoided because record, change-set and model-release versions already use it | W1, W2 |

@@ -78,6 +78,16 @@ All notable changes to this project are documented in this file. The format foll
   counts) or `version_conflict`, changing nothing, and is gated by `WORKSPACE_ADMIN_MUTATIONS_ENABLED`.
   Single-workspace responses add `deletable` and `deleteBlockedBy` (OpenAPI lock re-baselined). The
   Workspaces screen offers **Delete…** with a confirmation naming the key, or says why it cannot.
+- Base 0.8 A1: the schema 0.7 `relationMatrix` view contract (D8, D9). Rows are records of one type,
+  columns the records of a type that can contain the cell type at some depth, and a cell the row's
+  related records through one binding, read from either end (`direction`), required or optional, of
+  any cardinality. A view declares `rowColumns`, `columnLabelField`, `cellFields`, `searchFields` and a
+  closed `cellActions` set (`create`, `edit`, `link`, `unlink`); an action that could never succeed for
+  the model is refused. Each failure points at the failing config node, and schema 0.5 and 0.6 models
+  refuse the view at its `type`. The view groups as a lens of its row type's collection and renders a
+  placeholder until A4. The starter (still content 0.8.0) configures it three ways: codelist and
+  master-value translations by language, codelists by system and master values by system; the
+  translations and systems applications now include codelists.
 
 ### Changed
 
@@ -203,6 +213,9 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+- Base 0.8 A1: a duplicate `mappingGrid` `sourceColumns`, `targetDisplayColumns` or
+  `candidateSearchFields` entry was reported at `…/config/config/<field>`, a pointer to no node in
+  the model; it is now `…/config/<field>`.
 - Base 0.8 W6 review: on the Workspaces screen, creating a workspace after deleting one no longer
   leaves the "was deleted" notice above the new workspace.
 - Base 0.8 W6: a live write that resolved its workspace before the workspace was retired, or deleted,

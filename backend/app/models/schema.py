@@ -148,8 +148,38 @@ class MappingGridViewDefinition(ModelDefinition):
     config: MappingGridViewConfig
 
 
+RelationMatrixCellAction = Literal["create", "edit", "link", "unlink"]
+
+
+class RelationMatrixViewConfig(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
+
+    relationTypeKey: str
+    direction: MappingDirection
+    rowObjectTypeKey: str
+    columnObjectTypeKey: str
+    cellObjectTypeKey: str
+    rowColumns: tuple[str, ...] = Field(min_length=1)
+    columnLabelField: str
+    cellFields: tuple[str, ...] = Field(min_length=1)
+    searchFields: tuple[str, ...] = Field(min_length=1)
+    cellActions: tuple[RelationMatrixCellAction, ...] = ()
+    pageSize: int = Field(ge=1, le=100)
+
+
+class RelationMatrixViewDefinition(ModelDefinition):
+    """Schema 0.7: each row's related records, in columns by the ancestor record they sit under."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    name: str
+    type: Literal["relationMatrix"]
+    config: RelationMatrixViewConfig
+
+
 ViewDefinition = Annotated[
-    TableViewDefinition | MappingGridViewDefinition,
+    TableViewDefinition | MappingGridViewDefinition | RelationMatrixViewDefinition,
     Field(discriminator="type"),
 ]
 

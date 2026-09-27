@@ -52,12 +52,12 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [x] W4 workspace administration screen, read-only single-workspace selector, capability status.
   - [x] W5 test (and fix if confirmed) live writes committing across a model activation.
   - [x] W6 delete an unused workspace (D27): API, detail deletability, Workspaces screen action.
-- [ ] 0.8 Milestone A — translation editor ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-a--translation-editor)):
-  - [ ] A1 schema 0.7 `translationMatrix` view contract (may run alongside Track S).
-  - [ ] A2 translation coverage query with cell states and whole-list gap filter.
-  - [ ] A3 writes from a cell: container lookup, create and edit, live or in a change set.
-  - [ ] A4 translation matrix lens.
-  - [ ] A5 Milestone A acceptance (SC-09 translation half).
+- [ ] 0.8 Milestone A — relation matrix ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-a--relation-matrix)):
+  - [x] A1 schema 0.7 `relationMatrix` view contract.
+  - [ ] A2 relation matrix query with cell states and whole-list state filter.
+  - [ ] A3 writes from a cell: container and link-candidate lookups, create, edit, link and unlink, live or in a change set.
+  - [ ] A4 relation matrix lens.
+  - [ ] A5 Milestone A acceptance (SC-09 translation half and the mapping-shape journey).
 - [ ] 0.8 Milestone B — hierarchy editor ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-b--hierarchy-editor)):
   - [ ] B1 schema 0.7 `tree` view contract (may run alongside Track S).
   - [ ] B2 move targets with eligibility, and path context in every context.

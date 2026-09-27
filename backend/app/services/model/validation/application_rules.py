@@ -1,15 +1,22 @@
 """Rules for applications and the views they expose."""
 
+from collections.abc import Sequence
+
 from ....common.json_pointer import pointer_segment
 from ....models.schema import (
     BUILT_IN_COLUMNS,
     ApplicationDefinition,
     EngineModel,
     MappingGridViewDefinition,
+    ObjectTypeAttributeDefinition,
+    ObjectTypeRelationDefinition,
+    RelationMatrixViewConfig,
+    RelationMatrixViewDefinition,
     TableViewDefinition,
     ViewDefinition,
 )
 from ..diagnostics import ModelReferenceError
+from ..traversal import ancestor_type_keys
 from .detail_view_rules import check_details
 from .fields import check_fields, require_schema
 from .index import ModelIndex
@@ -34,6 +41,9 @@ def check(model: EngineModel, index: ModelIndex) -> None:
             elif isinstance(view, MappingGridViewDefinition):
                 require_schema(model, "0.6", f"{view_path}/type", "The mappingGrid view type")
                 _check_mapping_grid_view(application, view, view_path, model, index)
+            elif isinstance(view, RelationMatrixViewDefinition):
+                require_schema(model, "0.7", f"{view_path}/type", "The relationMatrix view type")
+                _check_relation_matrix_view(application, view, view_path, model, index)
         check_details(model, application, application_path, index)
 
 
@@ -249,7 +259,7 @@ def _check_mapping_grid_view(
         label=f"Mapping grid '{application.key}.{view.key}' sourceColumns",
         path=f"{config_path}/sourceColumns",
     )
-    _check_unique_fields(config.sourceColumns, config_path, "sourceColumns")
+    _check_unique_fields(config.sourceColumns, view_path, "sourceColumns")
 
     target_type_key = (
         config.toObjectTypeKey
@@ -264,7 +274,7 @@ def _check_mapping_grid_view(
         label=f"Mapping grid '{application.key}.{view.key}' targetDisplayColumns",
         path=f"{config_path}/targetDisplayColumns",
     )
-    _check_unique_fields(config.targetDisplayColumns, config_path, "targetDisplayColumns")
+    _check_unique_fields(config.targetDisplayColumns, view_path, "targetDisplayColumns")
 
     target_attached = {
         binding.attributeTypeKey for binding in target_type.attributes
@@ -288,4 +298,192 @@ def _check_mapping_grid_view(
                 f"Mapping grid '{application.key}.{view.key}' candidateSearchFields references "
                 f"'{field}' which is not searchable",
             )
-    _check_unique_fields(config.candidateSearchFields, config_path, "candidateSearchFields")
+    _check_unique_fields(config.candidateSearchFields, view_path, "candidateSearchFields")
+
+
+
+def _check_relation_matrix_view(
+    application: ApplicationDefinition,
+    view: RelationMatrixViewDefinition,
+    view_path: str,
+    model: EngineModel,
+    index: ModelIndex,
+) -> None:
+    """Rows are records of one type; a cell holds a row's related records under one column record.
+
+    The binding may be optional or required, of any cardinality, and read from either end; the
+    column type is any type that can contain the cell type at some depth.
+    """
+    config = view.config
+    config_path = f"{view_path}/config"
+    label = f"Relation matrix '{application.key}.{view.key}'"
+
+    for field in ("rowObjectTypeKey", "columnObjectTypeKey", "cellObjectTypeKey"):
+        key = getattr(config, field)
+        if key not in index.object_types:
+            raise ModelReferenceError(
+                "unknown_object_type",
+                f"{config_path}/{field}",
+                f"{label} references unknown object type '{key}'",
+            )
+        if key not in application.objectTypeKeys:
+            raise ModelReferenceError(
+                "invalid_model",
+                f"{config_path}/{field}",
+                f"{label} uses object type '{key}' outside application '{application.key}'",
+            )
+
+    relation_path = f"{config_path}/relationTypeKey"
+    if config.relationTypeKey not in index.relation_types:
+        raise ModelReferenceError(
+            "unknown_relation_type",
+            relation_path,
+            f"{label} references unknown relation type '{config.relationTypeKey}'",
+        )
+    if index.relation_types[config.relationTypeKey].features.get("parentOf"):
+        raise ModelReferenceError(
+            "invalid_model",
+            relation_path,
+            f"{label} cannot use containment relation type '{config.relationTypeKey}'",
+        )
+    from_key, to_key = (
+        (config.rowObjectTypeKey, config.cellObjectTypeKey)
+        if config.direction == "outgoing"
+        else (config.cellObjectTypeKey, config.rowObjectTypeKey)
+    )
+    binding = next(
+        (
+            allowed
+            for allowed in model.objectTypeRelations
+            if allowed.relationTypeKey == config.relationTypeKey
+            and allowed.fromObjectTypeKey == from_key
+            and allowed.toObjectTypeKey == to_key
+        ),
+        None,
+    )
+    if binding is None:
+        raise ModelReferenceError(
+            "invalid_reference",
+            relation_path,
+            f"{label} references a relation binding ({config.relationTypeKey}, {from_key} → "
+            f"{to_key}) that is not declared in objectTypeRelations",
+        )
+
+    if config.columnObjectTypeKey not in ancestor_type_keys(model, config.cellObjectTypeKey):
+        raise ModelReferenceError(
+            "invalid_model",
+            f"{config_path}/columnObjectTypeKey",
+            f"{label} column type '{config.columnObjectTypeKey}' cannot contain "
+            f"'{config.cellObjectTypeKey}' through parentRelationTypeKeys",
+        )
+
+    row_type = index.object_types[config.rowObjectTypeKey]
+    check_fields(
+        config.rowColumns,
+        [row_type],
+        index.object_types,
+        label=f"{label} rowColumns",
+        path=f"{config_path}/rowColumns",
+    )
+
+    column_type = index.object_types[config.columnObjectTypeKey]
+    if config.columnLabelField != "name" and config.columnLabelField not in _scalar_fields(
+        column_type.attributes, index
+    ):
+        raise ModelReferenceError(
+            "invalid_model",
+            f"{config_path}/columnLabelField",
+            f"{label} columnLabelField '{config.columnLabelField}' is not 'name' or a "
+            f"scalar attribute attached to '{config.columnObjectTypeKey}'",
+        )
+
+    _check_unique_fields(config.cellFields, view_path, "cellFields")
+    cell_type = index.object_types[config.cellObjectTypeKey]
+    cell_bindings = {binding.attributeTypeKey: binding for binding in cell_type.attributes}
+    for position, field in enumerate(config.cellFields):
+        if field not in cell_bindings:
+            raise ModelReferenceError(
+                "invalid_model",
+                f"{config_path}/cellFields/{position}",
+                f"{label} cellFields references '{field}', which is not attached to "
+                f"'{config.cellObjectTypeKey}'",
+            )
+
+    _check_unique_fields(config.searchFields, view_path, "searchFields")
+    searchable = {
+        binding.attributeTypeKey
+        for binding in row_type.attributes
+        if index.attribute_types[binding.attributeTypeKey].features.get("searchable")
+    }
+    for position, field in enumerate(config.searchFields):
+        if field != "name" and field not in searchable:
+            raise ModelReferenceError(
+                "invalid_model",
+                f"{config_path}/searchFields/{position}",
+                f"{label} searchFields references '{field}', which is not 'name' or a "
+                f"searchable attribute attached to '{config.rowObjectTypeKey}'",
+            )
+
+    _check_unique_fields(config.cellActions, view_path, "cellActions")
+    for position, action in enumerate(config.cellActions):
+        reason = _cell_action_refusal(action, config, binding, cell_bindings, model, index)
+        if reason:
+            raise ModelReferenceError(
+                "invalid_model",
+                f"{config_path}/cellActions/{position}",
+                f"{label} cannot offer '{action}': {reason}",
+            )
+
+
+def _cell_action_refusal(
+    action: str,
+    config: RelationMatrixViewConfig,
+    binding: ObjectTypeRelationDefinition,
+    cell_bindings: dict[str, ObjectTypeAttributeDefinition],
+    model: EngineModel,
+    index: ModelIndex,
+) -> str | None:
+    """Why a cell action could never succeed for this model, so no view offers it."""
+    if action == "edit" and all(cell_bindings[field].readOnly for field in config.cellFields):
+        return "every cellFields entry is read-only"
+    if action == "unlink" and binding.required:
+        return f"'{config.relationTypeKey}' is required and cannot be removed on its own"
+    if action != "create":
+        return None
+    # A cell record is created with its cellFields and this one relation, so it must need no more.
+    missing = [
+        field
+        for field, cell_binding in cell_bindings.items()
+        if cell_binding.required
+        and field not in config.cellFields
+        and index.attribute_types[field].default is None
+    ]
+    if missing:
+        return f"required fields {missing} of '{config.cellObjectTypeKey}' are not cellFields"
+    cell_type = index.object_types[config.cellObjectTypeKey]
+    parent_relations = set(cell_type.behavior.get("parentRelationTypeKeys", []))
+    other_required = sorted(
+        {
+            allowed.relationTypeKey
+            for allowed in model.objectTypeRelations
+            if allowed.toObjectTypeKey == config.cellObjectTypeKey
+            and allowed.required
+            and allowed.relationTypeKey not in parent_relations
+            # The engine checks a required relation by its key, which the cell's own one satisfies.
+            and not (
+                config.direction == "outgoing"
+                and allowed.relationTypeKey == config.relationTypeKey
+            )
+        }
+    )
+    if other_required:
+        return f"'{config.cellObjectTypeKey}' also requires relations {other_required}"
+    return None
+
+
+def _scalar_fields(bindings: Sequence[ObjectTypeAttributeDefinition], index: ModelIndex) -> set[str]:
+    return {
+        binding.attributeTypeKey
+        for binding in bindings
+        if index.attribute_types[binding.attributeTypeKey].valueType != "json"
+    }

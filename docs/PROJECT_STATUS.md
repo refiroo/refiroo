@@ -21,7 +21,8 @@ timestamp decision it surfaced is delivered as WP-10K (not recorded in drafts an
 **0.8 in progress.** [Track S](BASE_0_8_IMPLEMENTATION_PLAN.md#work-packages--track-s) (S1–S8,
 scalable browsing, ADR-030) and [Track W](BASE_0_8_IMPLEMENTATION_PLAN.md#track-w--workspace-terminology-and-capability-boundaries)
 (W1–W6, ADR-031 terminology and capability boundaries) were delivered on 2026-09-26. Next are the
-Translation editor (Milestone A) and Hierarchy editor (Milestone B), whose decisions D8–D14 still need
+relation matrix (Milestone A, a generic rows × ancestor-columns view; A1 schema 0.7 `relationMatrix`
+contract delivered 2026-09-27) and hierarchy editor (Milestone B), whose decisions D10–D14 still need
 acceptance, and P2, then R1 build acceptance. Residual 0.7 gaps are listed in the
 [plan's WP-9 record](BASE_0_7_IMPLEMENTATION_PLAN.md#wp-9-composed-product-validation--sc-07-and-sc-15).
 

@@ -347,3 +347,63 @@ describe("timestamps outside live data (WP-10K)", () => {
     expect(screen.queryByRole("menuitemradio", { name: "Updated" })).not.toBeInTheDocument();
   });
 });
+
+describe("relation matrix lens (Base 0.8 A1)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it.each([
+    ["domain", "codelist", "domains by codelist, showing their codelists"],
+    ["codelist", "domain", "codelists by domain, showing their domains"],
+  ])("renders a %s matrix as a placeholder lens beside the row type's table", (row, other, text) => {
+    const model = structuredClone(testModel);
+    const application = model.applications[0];
+    application.views = [
+      ...application.views,
+      {
+        key: "codelists",
+        name: "Codelists",
+        type: "table",
+        objectTypeKey: "codelist",
+        config: { columns: ["name"], filterFields: ["name"], sortFields: ["name"], defaultSort: "name", pageSize: 20 },
+      },
+      {
+        key: "matrix",
+        name: "Records matrix",
+        type: "relationMatrix",
+        config: {
+          relationTypeKey: "domain-contains-codelist",
+          direction: "outgoing",
+          rowObjectTypeKey: row,
+          columnObjectTypeKey: other,
+          cellObjectTypeKey: other,
+          rowColumns: ["name"],
+          columnLabelField: "name",
+          cellFields: ["code"],
+          searchFields: ["name"],
+          pageSize: 20,
+        },
+      },
+    ];
+    const onViewChange = vi.fn();
+    render(
+      <CollectionView
+        model={model}
+        application={application}
+        view={application.views[2]}
+        workspaceKey="west"
+        query={{ search: "", sort: "name", pageSize: 20, filters: [] }}
+        onQueryChange={vi.fn()}
+        onViewChange={onViewChange}
+        onOpen={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("heading", { level: 1, name: "Records matrix" })).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(`A matrix of ${text}, is not`))).toBeInTheDocument();
+    const lenses = screen.getByRole("navigation", { name: "Collection lenses" });
+    expect(within(lenses).getByRole("button", { name: "Records matrix" })).toHaveAttribute("aria-current", "page");
+    const table = row === "domain" ? "Domains" : "Codelists";
+    fireEvent.click(within(lenses).getByRole("button", { name: table }));
+    expect(onViewChange).toHaveBeenCalledWith(table.toLowerCase());
+    expect(api.objects).not.toHaveBeenCalled();
+  });
+});

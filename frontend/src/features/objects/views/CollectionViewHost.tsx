@@ -6,7 +6,14 @@
 import { viewComponentRegistry } from "./registry";
 import type { ViewComponentProps } from "./types";
 import { collectionGroups, viewSourceObjectTypeKey } from "@/model/collections";
-import { Icon } from "@/ui/Icon";
+import type { ViewDefinition } from "@/types";
+import { Icon, type IconName } from "@/ui/Icon";
+
+const lensIcons: Record<ViewDefinition["type"], IconName> = {
+  table: "table",
+  mappingGrid: "mapping",
+  relationMatrix: "matrix",
+};
 
 export function CollectionView(props: ViewComponentProps) {
   const Component = viewComponentRegistry[props.view.type];
@@ -22,7 +29,7 @@ export function CollectionView(props: ViewComponentProps) {
             aria-current={view.key === props.view.key ? "page" : undefined}
             onClick={() => props.onViewChange?.(view.key)}
           >
-            <Icon name={view.type === "mappingGrid" ? "mapping" : "table"} size={15} />
+            <Icon name={lensIcons[view.type]} size={15} />
             {view.name}
           </button>
         ))}

@@ -89,7 +89,29 @@ export interface MappingGridViewDefinition {
   };
 }
 
-export type ViewDefinition = TableViewDefinition | MappingGridViewDefinition;
+export type RelationMatrixCellAction = "create" | "edit" | "link" | "unlink";
+
+/** Schema 0.7: each row's related records, in columns by the ancestor record they sit under. */
+export interface RelationMatrixViewDefinition {
+  key: string;
+  name: string;
+  type: "relationMatrix";
+  config: {
+    relationTypeKey: string;
+    direction: "outgoing" | "incoming";
+    rowObjectTypeKey: string;
+    columnObjectTypeKey: string;
+    cellObjectTypeKey: string;
+    rowColumns: string[];
+    columnLabelField: string;
+    cellFields: string[];
+    searchFields: string[];
+    cellActions?: RelationMatrixCellAction[];
+    pageSize: number;
+  };
+}
+
+export type ViewDefinition = TableViewDefinition | MappingGridViewDefinition | RelationMatrixViewDefinition;
 
 export interface BreadcrumbDefinition {
   showApplication: boolean;

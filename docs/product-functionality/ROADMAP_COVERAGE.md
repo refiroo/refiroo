@@ -256,7 +256,7 @@ Source: [delivery roadmap](../ROADMAP.md), [current queue](../TODO.md),
 | --- | --- | --- |
 | Optional change sets | Direct daily maintenance | Can I still correct a live label with one save? |
 | Mapping grid | Ordinary relationship and target-record editing | Can I use the generic flow, and does it preserve mapping safety? |
-| Translation matrix and tree | Generic translation creation and parent editing | Can I complete the task without adopting the specialist view? |
+| Relation matrix and tree | Generic related-record creation (translations among them) and parent editing | Can I complete the task without adopting the specialist view? |
 | Bulk/import | Validation, scope and conflict protection | Do the same rules apply to every submitted item? |
 | Identity and permissions | Permitted ordinary maintenance | Do authorized users still have a direct route to their task? |
 | Structured designer | Inspectable, reproducible definitions and safe release controls | Can I understand and recover the active definition without opaque tooling? |

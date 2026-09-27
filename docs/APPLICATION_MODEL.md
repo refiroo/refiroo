@@ -204,7 +204,8 @@ groups views by their source object type and presents them as lenses of one cont
 
 - `table.objectTypeKey` is the source type;
 - an outgoing `mappingGrid` uses `fromObjectTypeKey`;
-- an incoming `mappingGrid` uses `toObjectTypeKey`.
+- an incoming `mappingGrid` uses `toObjectTypeKey`;
+- a `relationMatrix` uses `rowObjectTypeKey`.
 
 This is a backwards-compatible presentation rule, not a new model field. It lets an arbitrary
 application expose several configured tasks for one collection without multiplying primary navigation.
@@ -213,7 +214,7 @@ interaction still requires a typed generic view contract and renderer. Explicit 
 composition is deferred until real models show that source-type grouping is insufficient.
 
 Schema 0.5 supports the strict `table` contract. Schema 0.6 adds the `mappingGrid` contract for
-mapping coverage views. Each view type has an extra-forbidden configuration that rejects unknown
+mapping coverage views, and schema 0.7 the `relationMatrix` contract. Each view type has an extra-forbidden configuration that rejects unknown
 properties. Configuration refers to stable object, attribute and relation keys—never backend URLs or
 database IDs.
 
@@ -266,6 +267,64 @@ binding.
 Validation rejects containment relations (`parentOf: true`) and required-ownership bindings
 (`required: true` with `one-to-one` or `one-to-many` cardinality), since mapping replacement is
 designed for voluntary association relations.
+
+### Relation matrix view (`type: "relationMatrix"`, schema 0.7)
+
+A relation matrix lists the records of one type as rows and the records of an ancestor type as
+columns. A cell holds the row's related records, through one declared binding, that sit under the
+column's record at any depth. The same contract serves values by language (a required, uniquely
+scoped translation per cell), codelists by system (an optional representation) and master values by
+system (a many-to-many mapping read from its target end); a catalogue's prices per market or
+listings per channel are the same shape. Configuration:
+
+```json
+{
+  "key": "master-values-by-system",
+  "name": "Master values by system",
+  "type": "relationMatrix",
+  "config": {
+    "relationTypeKey": "system-value-maps-to-master",
+    "direction": "incoming",
+    "rowObjectTypeKey": "master-value",
+    "columnObjectTypeKey": "system",
+    "cellObjectTypeKey": "system-value",
+    "rowColumns": ["name", "value-code", "ancestor:codelist"],
+    "columnLabelField": "system-code",
+    "cellFields": ["value-code", "value-name", "active"],
+    "searchFields": ["name", "value-code", "value-name"],
+    "cellActions": ["edit", "link", "unlink"],
+    "pageSize": 20
+  }
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `relationTypeKey` | A non-containment relation type with a binding declared in `objectTypeRelations` between the row and cell types in the configured direction; required or optional, any cardinality |
+| `direction` | `outgoing` when the row is the binding's `from` end, `incoming` when it is the `to` end |
+| `rowObjectTypeKey` | The rows' object type; must belong to the application |
+| `columnObjectTypeKey` | The columns' object type; must belong to the application and be able to contain the cell type at some depth through `parentRelationTypeKeys` |
+| `cellObjectTypeKey` | The related records' object type; must belong to the application |
+| `rowColumns` | Built-in, attached or `ancestor:<type>` fields of the row type; non-empty and unique |
+| `columnLabelField` | `name` or a non-JSON attribute attached to the column type; labels the column headers |
+| `cellFields` | Attributes attached to the cell type, shown and edited in a cell; non-empty and unique |
+| `searchFields` | `name` or searchable attributes attached to the row type; non-empty and unique |
+| `cellActions` | Optional, unique, from `create`, `edit`, `link`, `unlink`; absent or empty is read-only |
+| `pageSize` | 1–100 |
+
+A cell action is refused at `…/config/cellActions/<n>` when it could never succeed for the model:
+
+- `edit` when every `cellFields` entry is read-only;
+- `unlink` when the binding is `required`, because a required relation cannot be removed on its own;
+- `create` when a required cell attribute without a default is not among `cellFields`, or when the
+  cell type requires another relation besides the view's own (a cell record is created with its
+  `cellFields`, its container and that one relation).
+
+Every other failing rule points at the config field it concerns (`…/config/cellFields/1` for one
+entry). Uniqueness is not configured on the view: when the binding declares
+`uniqueToAncestorTypeKey` and `uniqueWhenToAttributeEquals`, writes already enforce them and the
+matrix reports cells that break them. The query, cell writes and renderer follow in Base 0.8 A2–A4;
+until A4 the browser shows the view as a placeholder lens labelled from the model.
 
 ### Planned 0.7 consumption of the frozen mapping-grid contract
 
@@ -370,7 +429,7 @@ stable model keys and presentation semantics; the React API adapter owns all bac
 Schema 0.4 added object-level cross-field validation, required initial relationships and scoped
 relationship uniqueness to the 0.3 detail-composition contract. Schema 0.5 adds strict typed table
 views. Schema 0.6 adds the `mappingGrid` view type. Schema 0.7 adds relations-panel sort options
-(`sortFields`, `defaultSort`). `release.version` versions one model package.
+(`sortFields`, `defaultSort`) and the `relationMatrix` view type. `release.version` versions one model package.
 Each distinct
 validated model is installed as an immutable database release identified by its content hash.
 

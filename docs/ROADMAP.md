@@ -4,8 +4,8 @@ This roadmap sequences product outcomes rather than isolated screens or endpoint
 model-driven, exercises at least two object or relation configurations, preserves typed values and
 optimistic concurrency, and keeps public collections cursor-paged.
 
-The release train is 0.6 for daily live operations and optional coordinated design, 0.7 for core mapping, 0.8 for translation and
-hierarchy, 0.9 for integration APIs, 0.10 for production hardening and staged workspace model rollout,
+The release train is 0.6 for daily live operations and optional coordinated design, 0.7 for core mapping, 0.8 for the relation matrix
+(translations among its uses) and hierarchy editing, 0.9 for integration APIs, 0.10 for production hardening and staged workspace model rollout,
 and 1.0 for self-service model authoring and extensions.
 
 ## Current development baseline — Base 0.7 released, Base 0.8 next
@@ -168,7 +168,7 @@ acceptance gates rather than per-package requirements. See the [implementation p
 - Direct-parent scope, declared typed filters and mapping coverage state are visible and server-side;
   their cursor continuations cannot be reused under another query context.
 
-## Product release 0.8 — Translation and hierarchy editors
+## Product release 0.8 — Relation matrix and hierarchy editor
 
 The two independently gated milestones may ship together, but neither may weaken live, change-set
 or publication semantics. Track S comes first because both milestones browse large, model-defined collections.
@@ -196,23 +196,27 @@ workflow and model administration
 Exit: no old name remains; disabling workspace administration leaves change sets working; a second
 workspace can be created, selected, made default and retired in the browser.
 
-### Milestone A — Translation editor
+### Milestone A — Relation matrix
 
-A localization steward works by target and language, sees missing coverage and edits translations
-without manually traversing containment.
+A steward works through a collection against the records of an ancestor type — values by language,
+values by system — sees missing and conflicting cells across the whole list and acts in the cell
+without manually traversing containment. The capability is generic; the starter's translation and
+system views are configurations of it.
 
-1. Define a typed translation view from model-declared object, language, containment and relation keys.
-2. Add a bounded matrix/coverage query rather than one request per cell.
-3. Create or update a translation live, or in an explicitly selected change set, with the required
-   parent and target relationships in one valid operation.
-4. Keep ordinary translation corrections direct; publish a change set only for deliberately staged
-   changes. Model changes retain their separate release lifecycle.
-5. Enforce target/language uniqueness during live writes and change-set validation, and recheck the
-   final merged graph when the change set is published.
+1. Define a typed `relationMatrix` view from model-declared row, column and cell object types, the
+   binding that joins rows to cell records (either direction, any cardinality) and a closed set of
+   cell actions.
+2. Add a bounded matrix query with cell states rather than one request per cell.
+3. Create, edit, link or unlink a cell's record live, or in an explicitly selected change set, with
+   the required parent and relationships in one valid operation.
+4. Keep ordinary corrections direct; publish a change set only for deliberately staged changes. Model
+   changes retain their separate release lifecycle.
+5. Where the binding declares a uniqueness scope, enforce it during live writes and change-set
+   validation, and recheck the final merged graph when the change set is published.
 
-Exit: missing candidate translations and translations present only in earlier publications are
-distinguishable; conflicts preserve entered content and any selected change set; the matrix remains bounded for
-representative target/language volumes.
+Exit: empty cells and cells present only in earlier publications are distinguishable; conflicts
+preserve entered content and any selected change set; the matrix remains bounded for representative
+row and column volumes; the translation and mapping configurations both work.
 
 ### Milestone B — Hierarchy editor
 

@@ -1,3 +1,4 @@
+import json
 from copy import deepcopy
 
 import pytest
@@ -35,7 +36,11 @@ def test_starter_model_is_valid():
     assert model.applications[0].details[1].panels[0].type == "children"
     assert model.schemaVersion == "0.7"
     assert model.release.version == "0.8.0"
-    assert {view.type for app in model.applications for view in app.views} == {"table", "mappingGrid"}
+    assert {view.type for app in model.applications for view in app.views} == {
+        "table",
+        "mappingGrid",
+        "relationMatrix",
+    }
 
 
 def test_schema_dispatch_and_strict_table_shape_are_explicit():
@@ -531,6 +536,20 @@ def test_mapping_grid_rejects_duplicate_source_columns():
     assert not result.valid
 
 
+def test_mapping_grid_reports_duplicate_candidate_fields_at_their_config_path():
+    """Regression: the pointer carried ``/config/config/`` and named no node in the model."""
+    source = _mapping_grid_source()
+    view = _find_mapping_view(source, "rdm-systems", "system-to-master-mapping")
+    view["config"]["candidateSearchFields"] = ["name", "name"]
+    result = compile_model(source)
+    assert [(item.code, item.path) for item in result.diagnostics] == [
+        (
+            "duplicate_key",
+            "/applications/rdm-systems/views/system-to-master-mapping/config/candidateSearchFields",
+        )
+    ]
+
+
 def test_schema_05_rejects_mapping_grid_with_the_view_type_path():
     source = _mapping_grid_source()
     source["schemaVersion"] = "0.5"
@@ -721,3 +740,311 @@ def test_generated_volume_model_still_validates_at_schema_06():
     source = volume_model()
     assert source["schemaVersion"] == "0.6"
     assert compile_model(source).valid
+
+
+# --- Schema 0.7: relationMatrix view contract (Base 0.8 A1) ---
+
+
+def _matrix(source, app_key="rdm-translations", view_key="master-value-translations"):
+    application = next(a for a in source["applications"] if a["key"] == app_key)
+    return next(v for v in application["views"] if v["key"] == view_key)
+
+
+def _matrix_path(app_key, view_key):
+    return f"/applications/{app_key}/views/{view_key}"
+
+
+def _binding(source, relation_type_key, from_key):
+    return next(
+        b
+        for b in source["objectTypeRelations"]
+        if b["relationTypeKey"] == relation_type_key and b["fromObjectTypeKey"] == from_key
+    )
+
+
+def _attribute(source, object_type_key, attribute_type_key):
+    object_type = next(o for o in source["objectTypes"] if o["key"] == object_type_key)
+    return next(a for a in object_type["attributes"] if a["attributeTypeKey"] == attribute_type_key)
+
+
+def test_starter_relation_matrices_cover_three_binding_shapes():
+    """One view type serves owned translations, optional representations and a many-to-many map."""
+    model = load_model(MODEL_PATH)
+    matrices = {
+        (application.key, view.key): view.config
+        for application in model.applications
+        for view in application.views
+        if view.type == "relationMatrix"
+    }
+    shapes = {
+        key: (
+            config.relationTypeKey,
+            config.direction,
+            config.rowObjectTypeKey,
+            config.columnObjectTypeKey,
+            config.cellObjectTypeKey,
+            config.cellActions,
+        )
+        for key, config in matrices.items()
+    }
+    owned = ("create", "edit")
+    assert shapes == {
+        ("rdm-translations", "codelist-translations"): (
+            "object-has-translation", "outgoing", "codelist", "language", "translation", owned
+        ),
+        ("rdm-translations", "master-value-translations"): (
+            "object-has-translation", "outgoing", "master-value", "language", "translation", owned
+        ),
+        ("rdm-systems", "codelists-by-system"): (
+            "reference-has-system-representation",
+            "outgoing",
+            "codelist",
+            "system",
+            "system-value",
+            ("create", "edit", "link", "unlink"),
+        ),
+        ("rdm-systems", "master-values-by-system"): (
+            "system-value-maps-to-master",
+            "incoming",
+            "master-value",
+            "system",
+            "system-value",
+            ("edit", "link", "unlink"),
+        ),
+    }
+
+
+def test_starter_relation_matrices_are_installed_and_active():
+    """The lifespan installs and activates the starter; its matrices reach the served model."""
+    with TestClient(create_app()) as client:
+        served = client.get("/api/v1/model").json()
+    matrix = _matrix(served, "rdm-systems", "master-values-by-system")
+    assert matrix["type"] == "relationMatrix"
+    assert matrix["config"]["direction"] == "incoming"
+
+
+def test_schema_06_refuses_relation_matrix_at_the_view_type_path():
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    source["schemaVersion"] = "0.6"
+    for application in source["applications"]:
+        for detail in application["details"]:
+            for panel in detail["panels"]:
+                panel["config"].pop("sortFields", None)
+                panel["config"].pop("defaultSort", None)
+    result = compile_model(source)
+    assert [(item.code, item.path) for item in result.diagnostics] == [
+        ("invalid_model", f"{_matrix_path('rdm-systems', 'codelists-by-system')}/type")
+    ]
+    assert "requires schema version 0.7" in result.diagnostics[0].message
+
+
+@pytest.mark.parametrize("schema_version", ["0.5", "0.6"])
+def test_earlier_schema_starters_without_the_matrix_still_validate(schema_version):
+    assert compile_model(starter_at_schema(schema_version)).valid
+
+
+def _set(target, key, value):
+    target[key] = value
+
+
+_TRANSLATIONS = ("rdm-translations", "master-value-translations")
+_REPRESENTATIONS = ("rdm-systems", "codelists-by-system")
+_MAPPINGS = ("rdm-systems", "master-values-by-system")
+
+
+@pytest.mark.parametrize(
+    ("view", "change", "code", "path", "message"),
+    [
+        (
+            _TRANSLATIONS,
+            lambda s, c: _set(c, "relationTypeKey", "nonexistent"),
+            "unknown_relation_type",
+            "/config/relationTypeKey",
+            "unknown relation type",
+        ),
+        (
+            _TRANSLATIONS,
+            lambda s, c: _set(c, "rowObjectTypeKey", "nonexistent"),
+            "unknown_object_type",
+            "/config/rowObjectTypeKey",
+            "unknown object type",
+        ),
+        (
+            _TRANSLATIONS,
+            lambda s, c: _set(c, "rowObjectTypeKey", "domain"),
+            "invalid_model",
+            "/config/rowObjectTypeKey",
+            "outside application",
+        ),
+        (
+            _MAPPINGS,
+            lambda s, c: _set(c, "relationTypeKey", "system-contains-value"),
+            "invalid_model",
+            "/config/relationTypeKey",
+            "containment",
+        ),
+        (
+            # The mapping binding runs cell → row; read the other way it is not declared.
+            _MAPPINGS,
+            lambda s, c: _set(c, "direction", "outgoing"),
+            "invalid_reference",
+            "/config/relationTypeKey",
+            "not declared in objectTypeRelations",
+        ),
+        (
+            _REPRESENTATIONS,
+            lambda s, c: _set(c, "columnObjectTypeKey", "codelist"),
+            "invalid_model",
+            "/config/columnObjectTypeKey",
+            "cannot contain",
+        ),
+        (
+            _TRANSLATIONS,
+            lambda s, c: _set(c, "rowColumns", ["name", "translated-name"]),
+            "invalid_model",
+            "/config/rowColumns",
+            "unavailable fields",
+        ),
+        (
+            _TRANSLATIONS,
+            lambda s, c: _set(c, "rowColumns", ["name", "name"]),
+            "duplicate_key",
+            "/config/rowColumns",
+            "duplicate",
+        ),
+        (
+            _MAPPINGS,
+            lambda s, c: _set(c, "columnLabelField", "value-code"),
+            "invalid_model",
+            "/config/columnLabelField",
+            "columnLabelField",
+        ),
+        (
+            _MAPPINGS,
+            lambda s, c: _set(c, "cellFields", ["value-code", "master-id"]),
+            "invalid_model",
+            "/config/cellFields/1",
+            "not attached",
+        ),
+        (
+            _TRANSLATIONS,
+            lambda s, c: _set(c, "cellFields", ["translated-name", "translated-name"]),
+            "duplicate_key",
+            "/config/cellFields",
+            "unique",
+        ),
+        (
+            _REPRESENTATIONS,
+            lambda s, c: _set(c, "searchFields", ["name", "hierarchical"]),
+            "invalid_model",
+            "/config/searchFields/1",
+            "searchable",
+        ),
+        (
+            _TRANSLATIONS,
+            lambda s, c: _set(c, "cellActions", ["edit", "edit"]),
+            "duplicate_key",
+            "/config/cellActions",
+            "unique",
+        ),
+        (
+            # A required relation cannot be removed on its own, so no view offers to.
+            _TRANSLATIONS,
+            lambda s, c: _set(c, "cellActions", ["edit", "unlink"]),
+            "invalid_model",
+            "/config/cellActions/1",
+            "is required",
+        ),
+        (
+            _REPRESENTATIONS,
+            lambda s, c: _set(c, "cellFields", ["value-code", "active"]),
+            "invalid_model",
+            "/config/cellActions/0",
+            "required fields ['value-name']",
+        ),
+        (
+            _MAPPINGS,
+            lambda s, c: _set(c, "cellActions", ["create"]),
+            "invalid_model",
+            "/config/cellActions/0",
+            "also requires relations ['reference-has-system-representation']",
+        ),
+    ],
+)
+def test_relation_matrix_rules_reject_at_the_failing_node(view, change, code, path, message):
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    if view == _MAPPINGS and "requires relations" in message:
+        # A cell created here would also need a representation it is not given.
+        _binding(source, "reference-has-system-representation", "codelist")["required"] = True
+        _matrix(source, *_REPRESENTATIONS)["config"]["cellActions"] = ["create", "edit", "link"]
+    change(source, _matrix(source, *view)["config"])
+    result = compile_model(source)
+    assert [(item.code, item.path) for item in result.diagnostics] == [
+        (code, f"{_matrix_path(*view)}{path}")
+    ]
+    assert message in result.diagnostics[0].message
+
+
+def test_relation_matrix_edit_needs_one_writable_cell_field():
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    for field in ("value-code", "value-name", "active"):
+        _attribute(source, "system-value", field)["readOnly"] = True
+    result = compile_model(source)
+    assert [(item.code, item.path) for item in result.diagnostics] == [
+        ("invalid_model", f"{_matrix_path(*_REPRESENTATIONS)}/config/cellActions/1")
+    ]
+    assert "read-only" in result.diagnostics[0].message
+
+
+def test_relation_matrix_is_read_only_without_cell_actions():
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    _binding(source, "system-value-maps-to-master", "system-value")["required"] = True
+    del _matrix(source, *_MAPPINGS)["config"]["cellActions"]
+    # Nothing is offered, so a required binding and read-only fields are no obstacle.
+    assert compile_model(source).valid
+
+
+def test_relation_matrix_column_may_sit_several_levels_above_the_cell():
+    """A system value under a recursive group hierarchy still falls in its system's column."""
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    system_value = next(o for o in source["objectTypes"] if o["key"] == "system-value")
+    system_value["behavior"]["parentRelationTypeKeys"] = ["system-group-contains-value"]
+    assert compile_model(source).valid
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("pageSize", 0),
+        ("pageSize", 101),
+        ("cellFields", []),
+        ("cellActions", ["delete"]),
+        ("direction", "both"),
+        ("endpoint", "/internal"),
+    ],
+)
+def test_relation_matrix_shape_is_strict(field, value):
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    _matrix(source)["config"][field] = value
+    result = compile_model(source)
+    assert not result.valid
+    assert f"/relationMatrix/config/{field}" in result.diagnostics[0].path
+
+
+def test_relation_matrix_accepts_a_differently_keyed_model():
+    """Nothing in the rules names the starter's keys: rename them all and every matrix holds."""
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    renames = {
+        "language": "market",
+        "translation": "price",
+        "master-value": "item",
+        "object-has-translation": "item-has-price",
+        "system": "channel",
+        "system-value": "listing",
+    }
+    text = json.dumps(source)
+    for old, new in renames.items():
+        text = text.replace(f'"{old}"', f'"{new}"').replace(f'"ancestor:{old}"', f'"ancestor:{new}"')
+    renamed = json.loads(text)
+    assert compile_model(renamed).valid
+    assert _matrix(renamed)["config"]["columnObjectTypeKey"] == "market"

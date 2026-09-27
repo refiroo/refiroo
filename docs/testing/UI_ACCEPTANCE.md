@@ -95,6 +95,19 @@ whole-page scan at that moment reports the hidden shell rather than the options 
 `aria-hidden-focus` on the header and explorer). Reactivation and the in-dialog retirement refusal have
 component evidence only.
 
+### Surfaces added or materially changed in 0.8 Milestone A
+
+| # | Surface (package) | Navigation | Reference | Load | Populated / empty | Pending | Success | Invalid / refused | Conflict | Dependency failure → retry | Narrow | Keyboard / focus | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| A1 | Relation matrix placeholder lens (A1; replaced by the real lens in A4) | sidebar **Master values** in RDM Translations, **Codelists** in RDM Systems; `/apps/<app>/views/<relationMatrix view>` | Page surface (mapping lens heading), `empty-state` | — (no read) | **B** (the model-named note for two row types and two binding shapes) | — | — | — | — | — | **B** (390px, no page overflow) | **B** (collection opened by keyboard from the sidebar and the drawer; lens switch: C) | `CollectionView.test` (two row types), `model.test` (grouping in both directions); A1 browser check, not a registered runner; gates: `collection-table-system`, `record-detail-system` (sidebar entries) |
+
+The placeholder reads nothing and writes nothing, so it has no load, pending, success, refused,
+conflict or retry state. Its browser evidence is a one-off harness check (2026-09-27): the two starter
+views opened by keyboard at 1440px and 390px, no horizontal overflow, and axe clean at both widths;
+it is not kept as a runner because A4 replaces the surface and owns its runner, accessibility and
+visual scenarios. The two systems shell baselines were updated for the sidebar's new **Codelists**
+and **Master values** entries after inspection; no other baseline changed beyond noise.
+
 ## 3. Selected focused browser checks
 
 Selected by risk to the user's job (losing an unsaved choice, silently overwriting a newer mapping,
