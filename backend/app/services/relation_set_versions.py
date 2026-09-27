@@ -1,9 +1,101 @@
+from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Literal
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.orm import Session
 
+from ..errors import api_error
 from ..models.database import RelationSetVersion
+
+
+@dataclass(frozen=True)
+class SetClaim:
+    """A write's claim on one end's set: the version its caller read for the set anchored at that
+    end, in ``direction`` (``outgoing`` anchors at the relation's from end)."""
+
+    direction: Literal["outgoing", "incoming"]
+    expected: int
+
+
+def set_claim(expected: int | None, direction: str | None) -> SetClaim | None:
+    """The claim a request names, or none; half a claim is refused."""
+    if expected is None and direction is None:
+        return None
+    if expected is None or direction is None:
+        raise api_error(
+            422,
+            "relation_set_claim_incomplete",
+            "expectedRelationSetVersion and relationSetDirection are given together",
+            {"parameters": ["expectedRelationSetVersion", "relationSetDirection"]},
+        )
+    return SetClaim(direction, expected)  # type: ignore[arg-type]
+
+
+def advance_set_versions(
+    session: Session,
+    *,
+    workspace_key: str,
+    change_set_id: str | None,
+    relation_type_key: str,
+    from_object_type_key: str,
+    to_object_type_key: str,
+    from_object_id: str,
+    to_object_id: str,
+    claim: SetClaim | None = None,
+) -> int | None:
+    """Advance both ends' sets by one for a relation write; with ``claim``, the claimed end's set
+    advances only from the version the caller read, otherwise the write is refused whole.
+
+    Returns the claimed set's new version, or ``None`` without a claim.
+    """
+    if claim is None:
+        increment_set_versions(
+            session,
+            workspace_key=workspace_key,
+            change_set_id=change_set_id,
+            relation_type_key=relation_type_key,
+            from_object_type_key=from_object_type_key,
+            to_object_type_key=to_object_type_key,
+            from_object_id=from_object_id,
+            to_object_id=to_object_id,
+        )
+        return None
+    binding = {
+        "workspace_key": workspace_key,
+        "change_set_id": change_set_id,
+        "relation_type_key": relation_type_key,
+        "from_object_type_key": from_object_type_key,
+        "to_object_type_key": to_object_type_key,
+    }
+    anchor, other, opposite = (
+        (from_object_id, to_object_id, "incoming")
+        if claim.direction == "outgoing"
+        else (to_object_id, from_object_id, "outgoing")
+    )
+    if not claim_set_version(
+        session, expected=claim.expected, **binding, anchor_object_id=anchor, direction=claim.direction
+    ):
+        actual = session.scalar(
+            select(RelationSetVersion.version).where(
+                # ``== None`` renders IS NULL for the live set.
+                *(getattr(RelationSetVersion, key) == value for key, value in binding.items()),
+                RelationSetVersion.anchor_object_id == anchor,
+                RelationSetVersion.direction == claim.direction,
+            )
+        )
+        raise api_error(
+            409,
+            "relation_set_version_conflict",
+            "The relation set has changed since it was read; refresh it before retrying",
+            {
+                "anchorObjectId": anchor,
+                "direction": claim.direction,
+                "relationSetVersion": actual or 0,
+            },
+        )
+    _increment_one(session, **binding, anchor_object_id=other, direction=opposite)
+    return claim.expected + 1
 
 
 def increment_set_versions(

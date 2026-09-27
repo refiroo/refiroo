@@ -394,9 +394,9 @@ def test_rows_scope_search_sort_and_set_versions(client, translations):
     assert names(matrix(client, TRANSLATIONS, seek="M3")) == ["M3", "M4"]
     live = matrix(client, TRANSLATIONS, columnIds=translations["columns"])
     versions = {row["row"]["name"]: row["relationSetVersion"] for row in live["items"]}
-    # The row's outgoing set version. Creating a record with initial relations leaves it (A3
-    # follow-up); the cascade that deleted M3's published translation advanced it.
-    assert versions == {"M1": 0, "M2": 0, "M3": 1, "M4": 0}
+    # The row's outgoing set version: one per translation created with it as an initial relation
+    # (A3); M3's was staged, merged at publishing, then removed by a cascade.
+    assert versions == {"M1": 2, "M2": 2, "M3": 2, "M4": 0}
 
 
 def test_codelists_by_system_optional_binding_without_condition(client):

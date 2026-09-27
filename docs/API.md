@@ -1214,7 +1214,7 @@ Internal error example:
 - `GET /api/v1/relations?objectId={id}&direction={outgoing|incoming|both}&relationTypeKey={key}` (`relationTypeKey` repeatable)
 - `GET /api/v1/relations/{relationId}`
 - `PATCH /api/v1/relations/{relationId}`
-- `DELETE /api/v1/relations/{relationId}?expectedVersion={n}&changeSetId={id}&expectedChangeSetVersion={n}`
+- `DELETE /api/v1/relations/{relationId}?expectedVersion={n}&changeSetId={id}&expectedChangeSetVersion={n}&expectedRelationSetVersion={n}&relationSetDirection={outgoing|incoming}`
 
 Relation GET routes accept optional `changeSetId` or `publicationId` under the same
 mutually exclusive content-context rules as object reads. POST/PATCH use optional change set fields in
@@ -1285,6 +1285,22 @@ Engine-maintained parent-containment and hierarchy relations — those named in 
 `behavior.parentRelationTypeKeys` and written atomically on parent changes — are read-only through this
 API. Creating, updating or deleting them directly returns `422 immutable_relation`; changing them is
 done through object parent operations.
+
+Create and delete may also claim one end's relation set (ADR-022, Base 0.8 A3): with
+`expectedRelationSetVersion` and `relationSetDirection` (body fields on `POST`, query parameters on
+`DELETE`), the write succeeds only while the set anchored at that end — `outgoing` is the from end's,
+`incoming` the to end's, for the relation's exact binding and context — is still at the version the
+caller read, such as a relation matrix row's `relationSetVersion`. A newer set refuses the whole write
+with `409 relation_set_version_conflict` and `details` `anchorObjectId`, `direction` and the current
+`relationSetVersion`; naming only one of the two is `422 relation_set_claim_incomplete`. A claimed
+create responds with the set's new `relationSetVersion`. Without a claim, a write still advances both
+ends' sets, as does every relation an object create adds through `initialRelations`.
+
+A breach of a binding's `uniqueToAncestorTypeKey` scope, on a relation create, an object create with
+`initialRelations`, an object edit or a move, returns `409 duplicate_relation_scope` with `details`
+`ancestorObjectTypeKey`, `ancestorObjectId`, and the record already in the scope as
+`conflictingObjectId` with its relation `conflictingRelationId`. Change set validation and
+publishing report the same code as a diagnostic with `conflictingObjectId`.
 
 A required non-parent relation returns `422 required_relation` when independently deleted. It is part
 of the dependent graph's validity and ownership semantics; delete or replace the dependent object
@@ -1484,7 +1500,7 @@ WP-9 verifies generic-write/mapping races, both directional sets, independent bi
 activation versus live same-set changes. Confirmed missing foundation capabilities trigger a bounded
 WP-10 slice and block acceptance; they do not retroactively change WP-3 scope.
 
-## Product 0.8 relation matrix API (A2 delivered)
+## Product 0.8 relation matrix API (A2 and A3 delivered)
 
 `GET /api/v1/workspaces/{workspaceKey}/relation-matrix` reads a schema 0.7 `relationMatrix` view
 ([model contract](APPLICATION_MODEL.md)): rows are records of the view's row type, columns are
@@ -1537,7 +1553,7 @@ is the `from` end (`direction: outgoing`); read `incoming`, every record meets t
       "recordCount": 2,
       "matchingCount": 1,
       "records": [{"id": "cell-record-id", "name": "M1 en", "version": 1, "relationId": "relation-id",
-                   "meetsCondition": true, "fields": {"translated-name": "…", "active": true}}],
+                   "relationVersion": 1, "meetsCondition": true, "fields": {"translated-name": "…", "active": true}}],
       "publication": null
     }]
   }],
@@ -1557,8 +1573,8 @@ those meeting the condition first, then by name. A `historyOnly` cell lists and 
 the latest earlier publication that held any, named by `publication` (`id`, `number`), read-only.
 `relationSetVersion` is the row's version of the view's relation set (ADR-022): the directional set
 anchored on the row for the view's binding, which a link or unlink from the row claims; `0` until
-first changed, and always `0` in a publication. Cell records carry their `version` and `relationId`
-for writes (A3).
+first changed, and always `0` in a publication. Cell records carry their `version`, `relationId`
+and `relationVersion` for writes (A3).
 
 A page costs a fixed number of statements whatever the dataset holds: the rows through the object
 query, the columns, every cell of the page in one statement (the page rows' relations, their related
@@ -1566,3 +1582,56 @@ records and one depth-bounded recursive walk up to the column record), the histo
 statement over the workspace's publications, and the field values and set versions. The state filter
 walks down once from the selected column records through the container types (D12). The read holds
 one database snapshot throughout.
+
+### Writes from a cell (A3)
+
+A cell writes through the generic APIs, live or with `changeSetId` in a change set, each write in one
+transaction; the view's `cellActions` say which a client offers:
+
+| Action | Request |
+| --- | --- |
+| `create` | `POST /api/v1/objects` of the cell type, `parentObjectId` a container from the read below, the row in `initialRelations` (`direction` `incoming` when the view reads `outgoing`, and the reverse), and `cellFields` as `attributes`. The name is the client's to propose. |
+| `edit` | `PATCH /api/v1/objects/{cellType}/{id}` with the cell record's `version` as `expectedVersion`, changing `cellFields`. |
+| `link` | `POST /api/v1/relations` between the row and a candidate, claiming the row's set: `expectedRelationSetVersion` is the row's `relationSetVersion`, `relationSetDirection` the view's `direction`. |
+| `unlink` | `DELETE /api/v1/relations/{relationId}` with the cell record's `relationVersion` as `expectedVersion` and the same claim. |
+
+A stale record, relation or set version is `409 version_conflict` or `409
+relation_set_version_conflict`; a uniqueness breach is `409 duplicate_relation_scope` naming the
+record already in the scope (`conflictingObjectId`). A breach staged in a change set, including one a
+moved container brings under another column record, shows as a `several` cell with `conflict` and is
+reported by validation and refused at publishing (`422 workspace_graph_invalid`), leaving the
+change set in place.
+
+`GET /api/v1/workspaces/{workspaceKey}/relation-matrix/containers` lists where a new cell record can
+go: the column record and the records under it whose type can directly contain the cell type, walked
+through the container types only, in path order.
+
+| Parameter | Meaning |
+| --- | --- |
+| `applicationKey`, `viewKey` | Required, as for the matrix. A view without `create` in `cellActions` is `422 relation_matrix_action_not_allowed`. |
+| `columnId` | Required; a column-type record in the context, else `404 relation_matrix_column_not_found`. |
+| `changeSetId` | Optional; writes happen live or in a change set, so there is no publication context. |
+| `search` | Case-insensitive "contains" match on the container's name. |
+| `pageSize` (1–100, default 50), `cursor`, `from`, `position`, `includeTotal` | [Collection paging](#collection-paging). Cursors bind the context, view, column and search. |
+
+Each item has `id`, `objectTypeKey`, `name` and `path`, the records from below the column record down
+to the container (empty for the column record itself). `defaultContainerId` names the column's only
+container, whatever the search and page, and is `null` when it has none or several (D13).
+
+`GET /api/v1/workspaces/{workspaceKey}/relation-matrix/link-candidates` lists the cell-type records
+under a column record that a row could be linked to, in name order, with the same parameters plus
+`rowId` (a row-type record in the context, else `404 relation_matrix_row_not_found`); a view without
+`link` is `422 relation_matrix_action_not_allowed`. Each item has `id`, `objectTypeKey`, `name`,
+`version`, `path`, the view's `cellFields` as `fields`, and `eligible`. An ineligible candidate is
+listed, so totals stay truthful, with a `reason`:
+
+- `alreadyLinked`: the row already relates to it;
+- `rowCardinality` or `candidateCardinality`: the binding's cardinality allows no further relation of
+  its relation type at that end, as relation creation counts it;
+- `scopeTaken`: the binding's `uniqueToAncestorTypeKey` is the column type (read `outgoing`), the
+  candidate meets its condition, and the row already holds a record in the column that does. A scope
+  of another type is left to the write.
+
+The page carries the row's `relationSetVersion`, which the link claims. A page costs a fixed number of
+statements: one walk down from the column record, the page's values and paths (one lookup per
+hierarchy level), and for candidates their relations and the row's cell.

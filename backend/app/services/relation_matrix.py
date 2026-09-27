@@ -43,6 +43,7 @@ in one recursive term (0.10 hardening, with D25).
 
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from types import SimpleNamespace
 from typing import Any
 
 from sqlalchemy import (
@@ -66,7 +67,12 @@ from ..models.api import (
     RelationMatrixCell,
     RelationMatrixCellRecord,
     RelationMatrixColumn,
+    RelationMatrixContainer,
+    RelationMatrixContainerPage,
+    RelationMatrixLinkCandidate,
+    RelationMatrixLinkCandidatePage,
     RelationMatrixPage,
+    RelationMatrixPathPart,
     RelationMatrixPublicationReference,
     RelationMatrixRecord,
     RelationMatrixRow,
@@ -91,9 +97,9 @@ from ..models.schema import (
 )
 from .attributes import VALUE_COLUMNS, stored_json_value
 from .model.registry import ModelSnapshot, resolve_request_model
-from .model.traversal import ancestor_type_keys
+from .model.traversal import ancestor_type_keys, parent_type_keys
 from .objects import _object_paths, build_object_query
-from .pagination import Page, PageRequest, paginate_statement
+from .pagination import Page, PageRequest, paginate_statement, text_key
 from .snapshot_reads import (
     SnapshotContext,
     build_snapshot_object_query,
@@ -112,6 +118,8 @@ CELL_RECORD_LIMIT = 5
 _MAX_DEPTH = 64
 
 STATES = ("one", "several", "inactive", "historyOnly", "none")
+# Ends each name in a container's sort path, so a record sorts before the records under it.
+_PATH_SEPARATOR = "\x01"
 
 
 @dataclass(frozen=True)
@@ -276,16 +284,19 @@ class MatrixRead:
         )
         return case((held, 1), else_=0)
 
-    def walk_types(self) -> list[str]:
-        """The types a walk down from a column record passes: containers of the cell type that
-        can sit under the column type, and the cell type. Another column record ends a branch."""
+    def container_types(self) -> set[str]:
+        """Types that can hold the cell type, at some depth, and sit under the column type."""
         column_type, cell_type = self.config.columnObjectTypeKey, self.config.cellObjectTypeKey
-        containers = {
+        return {
             key
             for key in ancestor_type_keys(self.model, cell_type)
             if key != column_type and column_type in ancestor_type_keys(self.model, key)
         }
-        return sorted(containers | {cell_type})
+
+    def walk_types(self) -> list[str]:
+        """The types a walk down from a column record passes: containers of the cell type that
+        can sit under the column type, and the cell type. Another column record ends a branch."""
+        return sorted(self.container_types() | {self.config.cellObjectTypeKey})
 
     def publications(self) -> Any:
         """The workspace's publications history evidence comes from, with their numbers."""
@@ -666,6 +677,7 @@ def _rows(
                             name=record.name,
                             version=record.version,
                             relationId=record.relation_id,
+                            relationVersion=record.relation_version,
                             meetsCondition=bool(record.meets),
                             fields={
                                 field: cell_values.get((record.owner, record.cell_id), {}).get(field)
@@ -727,6 +739,7 @@ def _cells(read: MatrixRead, row_ids: list[str], column_ids: list[str]) -> dict[
         edges.append(
             select(
                 getattr(relation, arm.id).label("relation_id"),
+                relation.version.label("relation_version"),
                 getattr(relation, read.anchor_end).label("row_id"),
                 getattr(relation, read.other_end).label("cell_id"),
             ).where(
@@ -741,6 +754,7 @@ def _cells(read: MatrixRead, row_ids: list[str], column_ids: list[str]) -> dict[
         record = aliased(RdmObject)
         statement = select(
             edge.c.relation_id,
+            edge.c.relation_version,
             edge.c.row_id,
             edge.c.cell_id,
             record.name.label("name"),
@@ -766,6 +780,7 @@ def _cells(read: MatrixRead, row_ids: list[str], column_ids: list[str]) -> dict[
         statement = found.join(
             select(
                 edge.c.relation_id,
+                edge.c.relation_version,
                 edge.c.row_id,
                 edge.c.cell_id,
                 found.column("name").label("name"),
@@ -824,6 +839,7 @@ def _history_cells(
             relation.publication_id.label("publication_id"),
             publications.c.publication_number.label("publication_number"),
             relation.relation_id.label("relation_id"),
+            relation.version.label("relation_version"),
             getattr(relation, read.anchor_end).label("row_id"),
             getattr(relation, read.other_end).label("cell_id"),
             record.name.label("name"),
@@ -1150,3 +1166,251 @@ def _history_pairs(read: MatrixRead, column_ids: list[str]) -> Any:
         .where(walk.c.object_type_key == config.cellObjectTypeKey)
         .cte("matrix_history_pairs")
     )
+
+
+# Writes from a cell (A3). A cell writes through the generic object and relation APIs; these reads
+# supply what it needs without asking the user again for what the row and column already say.
+
+
+def matrix_containers(
+    read: MatrixRead,
+    *,
+    column_id: str,
+    search: str | None,
+    page: PageRequest,
+    page_size: int,
+) -> RelationMatrixContainerPage:
+    """The column record and the records under it that can directly hold a new cell record, in
+    path order; the column's only container is its default (D13)."""
+    _require_action(read, "create")
+    column = _named_columns(read, [column_id])[0]
+    walk = _walk_below(read, column, sorted(read.container_types()))
+    direct = sorted(parent_type_keys(read.model, read.config.cellObjectTypeKey))
+    statement = select(walk.c.object_id, walk.c.object_type_key, walk.c.name, walk.c.sort_path).where(
+        walk.c.object_type_key.in_(direct)
+    )
+    first_two = list(read.session.scalars(statement.with_only_columns(walk.c.object_id).limit(2)))
+    if search:
+        statement = statement.where(func.lower(walk.c.name).contains(search.lower(), autoescape=True))
+    found = paginate_statement(
+        read.session,
+        statement,
+        keys=[
+            text_key("path", walk.c.sort_path, "sort_path"),
+            text_key("id", walk.c.object_id, "object_id"),
+        ],
+        scope="relation-matrix-containers",
+        filters={**read.filters(), "columnId": column_id, "search": search},
+        page=page,
+        page_size=page_size,
+        message="Relation matrix container cursor is invalid",
+        rows=True,
+    )
+    paths = _paths_below(read, [item.object_id for item in found.items], column_id)
+    return RelationMatrixContainerPage(
+        items=[
+            RelationMatrixContainer(
+                id=item.object_id,
+                objectTypeKey=item.object_type_key,
+                name=item.name,
+                path=paths.get(item.object_id, []),
+            )
+            for item in found.items
+        ],
+        **found.links(),
+        defaultContainerId=first_two[0] if len(first_two) == 1 else None,
+    )
+
+
+def matrix_link_candidates(
+    read: MatrixRead,
+    *,
+    row_id: str,
+    column_id: str,
+    search: str | None,
+    page: PageRequest,
+    page_size: int,
+) -> RelationMatrixLinkCandidatePage:
+    """Cell-type records under the column record in name order, each marked eligible or with the
+    reason a link from the row would be refused. Ineligible ones are listed so totals stay true."""
+    _require_action(read, "link")
+    if _object_types(read, [row_id]).get(row_id) != read.config.rowObjectTypeKey:
+        raise api_error(
+            404,
+            "relation_matrix_row_not_found",
+            f"Rows must be '{read.config.rowObjectTypeKey}' records in the selected context",
+            {"rowId": row_id, "rowObjectTypeKey": read.config.rowObjectTypeKey},
+        )
+    column = _named_columns(read, [column_id])[0]
+    walk = _walk_below(read, column, read.walk_types())
+    meets = read.meets(walk.c.object_id, walk.c.owner) if read.conflict_scope else literal(1)
+    statement = select(
+        walk.c.object_id,
+        walk.c.object_type_key,
+        walk.c.name,
+        walk.c.version,
+        walk.c.owner,
+        meets.label("meets"),
+    ).where(walk.c.object_type_key == read.config.cellObjectTypeKey)
+    if search:
+        statement = statement.where(func.lower(walk.c.name).contains(search.lower(), autoescape=True))
+    found = paginate_statement(
+        read.session,
+        statement,
+        keys=[text_key("name", walk.c.name, "name"), text_key("id", walk.c.object_id, "object_id")],
+        scope="relation-matrix-link-candidates",
+        filters={**read.filters(), "rowId": row_id, "columnId": column_id, "search": search},
+        page=page,
+        page_size=page_size,
+        message="Relation matrix candidate cursor is invalid",
+        rows=True,
+    )
+    items = found.items
+    ids = [item.object_id for item in items]
+    paths = _paths_below(read, ids, column_id)
+    values = _cell_values(
+        read, [[SimpleNamespace(cell_id=item.object_id, owner=item.owner) for item in items]]
+    )
+    refusals = _link_refusals(read, row_id, column_id, items) if items else {}
+    return RelationMatrixLinkCandidatePage(
+        items=[
+            RelationMatrixLinkCandidate(
+                id=item.object_id,
+                objectTypeKey=item.object_type_key,
+                name=item.name,
+                version=item.version,
+                path=paths.get(item.object_id, []),
+                fields={
+                    field: values.get((item.owner, item.object_id), {}).get(field)
+                    for field in read.config.cellFields
+                },
+                eligible=refusals.get(item.object_id) is None,
+                reason=refusals.get(item.object_id),
+            )
+            for item in items
+        ],
+        **found.links(),
+        relationSetVersion=_set_versions(read, [row_id]).get(row_id, 0),
+    )
+
+
+def _require_action(read: MatrixRead, action: str) -> None:
+    if action not in read.config.cellActions:
+        raise api_error(
+            422,
+            "relation_matrix_action_not_allowed",
+            f"The view does not offer '{action}' in its cells",
+            {"viewKey": read.view_key, "action": action},
+        )
+
+
+def _walk_below(read: MatrixRead, column: Any, types: Sequence[str]) -> Any:
+    """The column record and the records of ``types`` under it, in the read's context, each with
+    a sort path of lower-cased names from below the column record."""
+    walk = select(
+        literal(_record_id(column), String).label("object_id"),
+        literal(read.config.columnObjectTypeKey, String).label("object_type_key"),
+        literal(column.name, String).label("name"),
+        literal(column.version).label("version"),
+        literal(None, String).label("owner"),
+        literal("", String).label("sort_path"),
+        literal(0).label("depth"),
+    ).cte("matrix_below", recursive=True)
+    steps = []
+    for arm in read.object_arms():
+        child = aliased(arm.entity)
+        steps.append(
+            select(
+                getattr(child, arm.id),
+                child.object_type_key,
+                child.name,
+                child.version,
+                arm.owner if arm.owner is not None else literal(None, String),
+                walk.c.sort_path + func.lower(child.name) + literal(_PATH_SEPARATOR, String),
+                walk.c.depth + 1,
+            )
+            .select_from(walk)
+            .outerjoin(
+                child,
+                and_(
+                    child.parent_object_id == walk.c.object_id,
+                    _unindexed(child.object_type_key.in_(types)),
+                    *arm.where(child),
+                ),
+            )
+            .where(_found(getattr(child, arm.id)), walk.c.depth < _MAX_DEPTH)
+        )
+    return walk.union_all(*steps)
+
+
+def _paths_below(
+    read: MatrixRead, ids: Sequence[str], column_id: str
+) -> dict[str, list[RelationMatrixPathPart]]:
+    """Each record's path from below the column record down to the record itself."""
+    if not ids:
+        return {}
+    if read.context is None:
+        records = list(read.session.scalars(select(RdmObject).where(RdmObject.id.in_(list(ids)))))
+        paths = _object_paths(read.session, records)
+    else:
+        paths = object_paths(
+            read.session, read.context, find_objects(read.session, read.context, ids).values()
+        )
+    result = {}
+    for key, path in paths.items():
+        parts = [part["id"] for part in path]
+        start = parts.index(column_id) + 1 if column_id in parts else 0
+        result[key] = [RelationMatrixPathPart(**part) for part in path[start:]]
+    return result
+
+
+def _link_refusals(
+    read: MatrixRead, row_id: str, column_id: str, candidates: Sequence[Any]
+) -> dict[str, str | None]:
+    """Why a link from the row to each candidate would be refused, or ``None``.
+
+    Mirrors the relation writes: cardinality counts relations of the binding's relation type at an
+    end, whatever the other end's type. The uniqueness scope is checked when it is the column; a
+    scope of another type is left to the write.
+    """
+    config = read.config
+    ends = [row_id, *(item.object_id for item in candidates)]
+    parts = []
+    for arm in read.relation_arms():
+        relation = aliased(arm.entity)
+        parts.append(
+            select(relation.from_object_id, relation.to_object_id).where(
+                relation.relation_type_key == config.relationTypeKey,
+                or_(relation.from_object_id.in_(ends), relation.to_object_id.in_(ends)),
+                *arm.where(relation),
+            )
+        )
+    edges = read.session.execute(union_all(*parts) if len(parts) > 1 else parts[0]).all()
+    pairs = {(edge.from_object_id, edge.to_object_id) for edge in edges}
+    sources = {edge.from_object_id for edge in edges}
+    targets = {edge.to_object_id for edge in edges}
+    cardinality = read.binding.cardinality
+    scope_taken = False
+    if read.conflict_scope:
+        held = _cells(read, [row_id], [column_id]).get((row_id, column_id))
+        scope_taken = bool(held and held[0].matching_count)
+    result: dict[str, str | None] = {}
+    for item in candidates:
+        from_id, to_id = (row_id, item.object_id) if read.outgoing else (item.object_id, row_id)
+        taken = set()
+        if cardinality == "one-to-one" and from_id in sources:
+            taken.add(from_id)
+        if cardinality in {"one-to-one", "one-to-many"} and to_id in targets:
+            taken.add(to_id)
+        if (from_id, to_id) in pairs:
+            reason = "alreadyLinked"
+        elif row_id in taken:
+            reason = "rowCardinality"
+        elif taken:
+            reason = "candidateCardinality"
+        elif scope_taken and item.meets:
+            reason = "scopeTaken"
+        else:
+            reason = None
+        result[item.object_id] = reason
+    return result

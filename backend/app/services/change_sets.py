@@ -47,6 +47,8 @@ from .audit import record_audit_event
 from .change_set_lookups import ChangeSetLookup
 from .model.registry import resolve_pinned_release
 from .relation_set_versions import (
+    SetClaim,
+    advance_set_versions,
     delete_change_set_relation_set_versions,
     increment_set_versions,
     merge_change_set_relation_set_versions_to_live,
@@ -596,13 +598,25 @@ def validate_change_set_relation(
                 f"Related object must belong to an ancestor of type '{ancestor_type}'",
             )
         # Only the source's own relations of this type can share the scope.
-        related = lookup.objects(row.to_object_id for row in existing(from_id, "outgoing"))
+        outgoing = existing(from_id, "outgoing")
+        related = lookup.objects(row.to_object_id for row in outgoing)
         scoped = [item for item in related.values() if in_scope(item)]
-        if target_ancestor in lookup.ancestors_of_type(scoped, ancestor_type).values():
+        ancestors = lookup.ancestors_of_type(scoped, ancestor_type)
+        conflicting = sorted(key for key, value in ancestors.items() if value == target_ancestor)
+        if conflicting:
             raise api_error(
                 409,
                 "duplicate_relation_scope",
                 "A related object already exists for this ancestor scope",
+                {
+                    "ancestorObjectTypeKey": ancestor_type,
+                    "ancestorObjectId": target_ancestor,
+                    # The record already in the scope, so a caller can point to it.
+                    "conflictingObjectId": conflicting[0],
+                    "conflictingRelationId": min(
+                        row.relation_id for row in outgoing if row.to_object_id == conflicting[0]
+                    ),
+                },
             )
     return normalized
 
@@ -675,6 +689,7 @@ def put_change_set_object(session: Session, change_set_id: str, payload: Any) ->
                 version=1,
             )
             session.add(relation)
+            _increment_change_set_relation_set_versions(session, change_set, lookup, relation)
     parent_keys = (
         set(
             (model.object_type(row.object_type_key).behavior or {}).get(
@@ -1187,13 +1202,14 @@ def _increment_change_set_relation_set_versions(
     change_set: ChangeSet,
     lookup: ChangeSetLookup,
     row: ChangeSetRelation,
-) -> None:
+    claim: SetClaim | None = None,
+) -> int | None:
     objects = lookup.objects([row.from_object_id, row.to_object_id])
     from_obj = objects.get(row.from_object_id)
     to_obj = objects.get(row.to_object_id)
     if from_obj is None or to_obj is None:
-        return
-    increment_set_versions(
+        return None
+    return advance_set_versions(
         session,
         workspace_key=change_set.workspace_key,
         change_set_id=change_set.id,
@@ -1202,10 +1218,15 @@ def _increment_change_set_relation_set_versions(
         to_object_type_key=to_obj.object_type_key,
         from_object_id=row.from_object_id,
         to_object_id=row.to_object_id,
+        claim=claim,
     )
 
 
-def put_change_set_relation(session: Session, change_set_id: str, payload: Any) -> ChangeSetRelation:
+def put_change_set_relation(
+    session: Session, change_set_id: str, payload: Any, claim: SetClaim | None = None
+) -> tuple[ChangeSetRelation, int | None]:
+    """Stage a relation; with ``claim``, only while the claimed end's set in the change set is at
+    the version the caller read. Returns the row and the claimed set's new version."""
     change_set = _change_set(session, change_set_id, for_update=True)
     model = _change_set_model(session, change_set)
     lookup = ChangeSetLookup.of(session, change_set_id)
@@ -1253,9 +1274,11 @@ def put_change_set_relation(session: Session, change_set_id: str, payload: Any) 
         changes={"attributes": attributes, "changeSetId": change_set.id},
         object_ids=[row.from_object_id, row.to_object_id],
     )
-    _increment_change_set_relation_set_versions(session, change_set, lookup, row)
+    set_version = _increment_change_set_relation_set_versions(
+        session, change_set, lookup, row, claim
+    )
     session.commit()
-    return row
+    return row, set_version
 
 
 def update_change_set_relation(
@@ -1326,6 +1349,7 @@ def delete_change_set_relation(
     relation_id: str,
     expected_change_set_version: int,
     expected_record_version: int,
+    claim: SetClaim | None = None,
 ) -> None:
     change_set = _change_set(session, change_set_id, for_update=True)
     model = _change_set_model(session, change_set)
@@ -1385,7 +1409,7 @@ def delete_change_set_relation(
     _claim_change_set(session, change_set, expected_change_set_version)
     row.version += 1
     row.is_deleted = True
-    _increment_change_set_relation_set_versions(session, change_set, lookup, row)
+    _increment_change_set_relation_set_versions(session, change_set, lookup, row, claim)
     session.commit()
 
 
@@ -1741,6 +1765,7 @@ def _diagnostics(
                         "details": {
                             "relationId": relation.relation_id,
                             "conflictingRelationId": other.relation_id,
+                            "conflictingObjectId": other.to_object_id,
                             "objectId": relation.from_object_id,
                             "ancestorObjectId": target_ancestor,
                         },

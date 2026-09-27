@@ -96,13 +96,29 @@ All notable changes to this project are documented in this file. The format foll
   counts, up to five records with their `cellFields`, versions and relation IDs, and each row its
   relation-set version. `state` with `columnIds` filters rows across the whole list before paging, by
   one recursive walk down from the selected columns (D12); at full volume the filter is over its time
-  budget (seconds), pending a D12 decision. A page costs a fixed number of statements.
+  budget (seconds), a temporary exception that A3b's stored cell state removes (D12). A page costs a fixed number of statements.
   The volume fixture gains a `vol-matrix` application (30 columns, a three-level container hierarchy,
   150,000 cells at full scale, an outgoing conditioned and an incoming many-to-many matrix), measured
   with the other reads; the generated model is now schema 0.7. Object query builders accept a
   view's search fields and an ID predicate that also narrows a change set's overlay parts.
+- Base 0.8 A3: writes from a relation matrix cell, live or in a change set, through the generic
+  object and relation APIs. `GET …/relation-matrix/containers` lists where a new cell record can go
+  (the column record and the records under it that can directly contain the cell type, with their
+  path), naming the column's only container as `defaultContainerId` (D13).
+  `GET …/relation-matrix/link-candidates` lists the cell-type records under a column record for a
+  row, the ineligible ones with a reason (`alreadyLinked`, `rowCardinality`, `candidateCardinality`,
+  `scopeTaken`). Relation create and delete accept an optional relation-set claim
+  (`expectedRelationSetVersion`, `relationSetDirection`) and refuse a stale one with
+  `409 relation_set_version_conflict`; a claimed create returns the set's new version. Cell records
+  carry `relationVersion`. OpenAPI lock re-baselined; the paging inventory counts 20 collections.
 
 ### Changed
+
+- Base 0.8 A3: relations an object create adds through `initialRelations` now advance both ends'
+  relation-set versions, live and in change sets, like every other relation write (ADR-022); a
+  matrix row's `relationSetVersion` therefore counts them. `409 duplicate_relation_scope` on relation
+  and object writes names the record already in the scope (`conflictingObjectId`,
+  `conflictingRelationId`); the change set diagnostic adds `conflictingObjectId`.
 
 - Base 0.8 W4: a global **Workspaces** screen beside **Models**, in the same list-and-detail layout,
   lists every workspace including retired ones and creates, renames, retires, reactivates and sets

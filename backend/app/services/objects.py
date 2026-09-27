@@ -50,6 +50,7 @@ from .pagination import (
     seek_predicate,
     text_key,
 )
+from .relation_set_versions import increment_set_versions
 
 OBJECT_SORT_COLUMNS: dict[str, Any] = {
     "id": RdmObject.id,
@@ -798,20 +799,16 @@ def create_object_record(session: Session, model: EngineModel, payload: ObjectCr
             )
         )
     for initial in payload.initialRelations:
-        if initial.direction == "outgoing":
-            from_id, to_id = item.id, str(initial.otherObjectId)
-            from_object, to_object = item, None
-        else:
-            from_id, to_id = str(initial.otherObjectId), item.id
-            from_object, to_object = None, item
+        other = load_object(session, str(initial.otherObjectId))
+        from_object, to_object = (item, other) if initial.direction == "outgoing" else (other, item)
         try:
             create_relation_instance(
                 session,
                 model,
                 RelationCreate(
                     relationTypeKey=initial.relationTypeKey,
-                    fromObjectId=from_id,
-                    toObjectId=to_id,
+                    fromObjectId=from_object.id,
+                    toObjectId=to_object.id,
                     attributes=initial.attributes,
                 ),
                 from_object=from_object,
@@ -820,6 +817,17 @@ def create_object_record(session: Session, model: EngineModel, payload: ObjectCr
         except IntegrityError:
             session.rollback()
             raise api_error(409, "duplicate_relation", "Relation already exists") from None
+        # Like any relation write, an initial relation advances both ends' sets (ADR-022).
+        increment_set_versions(
+            session,
+            workspace_key=workspace_key,
+            change_set_id=None,
+            relation_type_key=initial.relationTypeKey,
+            from_object_type_key=from_object.object_type_key,
+            to_object_type_key=to_object.object_type_key,
+            from_object_id=from_object.id,
+            to_object_id=to_object.id,
+        )
     record_audit_event(
         session,
         aggregate_type="object",

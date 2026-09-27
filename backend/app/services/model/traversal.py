@@ -9,23 +9,27 @@ from collections.abc import Sequence
 from ...models.schema import EngineModel, ObjectTypeDefinition
 
 
+def parent_type_keys(model: EngineModel, object_type_key: str) -> set[str]:
+    """The object types that can directly contain a record of ``object_type_key``."""
+    child = model.object_type(object_type_key)
+    if child is None:
+        return set()
+    parent_relations = set(child.behavior.get("parentRelationTypeKeys", []))
+    return {
+        allowed.fromObjectTypeKey
+        for allowed in model.objectTypeRelations
+        if allowed.relationTypeKey in parent_relations and allowed.toObjectTypeKey == child.key
+    }
+
+
 def ancestor_type_keys(model: EngineModel, object_type_key: str) -> set[str]:
     """The object types a record of ``object_type_key`` can sit under, at any depth."""
     found: set[str] = set()
     pending = [object_type_key]
     while pending:
-        child = model.object_type(pending.pop())
-        if child is None:
-            continue
-        parent_relations = set(child.behavior.get("parentRelationTypeKeys", []))
-        for allowed in model.objectTypeRelations:
-            if (
-                allowed.relationTypeKey in parent_relations
-                and allowed.toObjectTypeKey == child.key
-                and allowed.fromObjectTypeKey not in found
-            ):
-                found.add(allowed.fromObjectTypeKey)
-                pending.append(allowed.fromObjectTypeKey)
+        for parent in parent_type_keys(model, pending.pop()) - found:
+            found.add(parent)
+            pending.append(parent)
     return found
 
 

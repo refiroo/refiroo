@@ -11,7 +11,7 @@ from ..models.database import ObjectRelation, RdmObject
 from ..models.schema import EngineModel, ObjectTypeRelationDefinition
 from .attributes import current_attribute_values, normalize_value
 from .audit import record_audit_event
-from .relation_set_versions import increment_set_versions
+from .relation_set_versions import SetClaim, advance_set_versions, increment_set_versions
 
 
 def find_allowed_relation(model: EngineModel, relation_type_key: str, from_type: str, to_type: str):
@@ -159,7 +159,7 @@ def validate_unique_to_ancestor(
             "relation_ancestor_required",
             f"Related object must belong to an ancestor of type '{ancestor_type_key}'",
         )
-    statement = select(ObjectRelation.to_object_id).where(
+    statement = select(ObjectRelation.id, ObjectRelation.to_object_id).where(
         ObjectRelation.relation_type_key == payload.relationTypeKey,
         ObjectRelation.from_object_id == str(payload.fromObjectId),
     )
@@ -167,23 +167,33 @@ def validate_unique_to_ancestor(
         statement = statement.where(ObjectRelation.id != exclude_relation_id)
     if exclude_relation_ids:
         statement = statement.where(ObjectRelation.id.not_in(exclude_relation_ids))
-    existing_target_ids = list(session.scalars(statement))
-    if not existing_target_ids:
+    existing_relations = dict(session.execute(statement).all())
+    if not existing_relations:
         return
     existing_targets = session.scalars(
-        select(RdmObject).where(RdmObject.id.in_(existing_target_ids))
+        select(RdmObject)
+        .where(RdmObject.id.in_(set(existing_relations.values())))
+        .order_by(RdmObject.id)
     )
-    if any(
-        _matches_unique_condition(session, allowed, existing)
-        and _ancestor_id(session, existing, ancestor_type_key) == ancestor_id
-        for existing in existing_targets
-    ):
-        raise api_error(
-            409,
-            "duplicate_relation_scope",
-            "A related object already exists for this ancestor scope",
-            {"ancestorObjectTypeKey": ancestor_type_key, "ancestorObjectId": ancestor_id},
-        )
+    for existing in existing_targets:
+        if (
+            _matches_unique_condition(session, allowed, existing)
+            and _ancestor_id(session, existing, ancestor_type_key) == ancestor_id
+        ):
+            raise api_error(
+                409,
+                "duplicate_relation_scope",
+                "A related object already exists for this ancestor scope",
+                {
+                    "ancestorObjectTypeKey": ancestor_type_key,
+                    "ancestorObjectId": ancestor_id,
+                    # The record already in the scope, so a caller can point to it.
+                    "conflictingObjectId": existing.id,
+                    "conflictingRelationId": min(
+                        key for key, target in existing_relations.items() if target == existing.id
+                    ),
+                },
+            )
 
 
 def _matches_unique_condition(session: Session, allowed, item: RdmObject) -> bool:
@@ -317,9 +327,13 @@ def claim_relation_version(
 
 
 def create_live_relation(
-    session: Session, model: EngineModel, payload: RelationCreate
-) -> ObjectRelation:
-    """Create a relation in the live object store and commit the transaction."""
+    session: Session, model: EngineModel, payload: RelationCreate, claim: SetClaim | None = None
+) -> tuple[ObjectRelation, int | None]:
+    """Create a relation in the live object store and commit the transaction.
+
+    With ``claim``, the claimed end's set must still be at the version the caller read; the new
+    version is returned with the relation.
+    """
     from .objects import load_object
 
     from_object = load_object(session, str(payload.fromObjectId))
@@ -327,7 +341,7 @@ def create_live_relation(
     relation = create_relation_instance(
         session, model, payload, from_object=from_object, to_object=to_object
     )
-    increment_set_versions(
+    set_version = advance_set_versions(
         session,
         workspace_key=from_object.workspace_key,
         change_set_id=None,
@@ -336,9 +350,10 @@ def create_live_relation(
         to_object_type_key=to_object.object_type_key,
         from_object_id=from_object.id,
         to_object_id=to_object.id,
+        claim=claim,
     )
     session.commit()
-    return relation
+    return relation, set_version
 
 
 def update_live_relation(
@@ -390,9 +405,14 @@ def update_live_relation(
 
 
 def delete_live_relation(
-    session: Session, model: EngineModel, relation_id: str, expected_version: int
+    session: Session,
+    model: EngineModel,
+    relation_id: str,
+    expected_version: int,
+    claim: SetClaim | None = None,
 ) -> None:
-    """Delete a live relation that is not engine-maintained and not required."""
+    """Delete a live relation that is not engine-maintained and not required; with ``claim``, only
+    while the claimed end's set is at the version the caller read."""
     from .objects import load_object
     from .workspaces import resolve_workspace
 
@@ -422,7 +442,7 @@ def delete_live_relation(
         },
         object_ids=[relation.from_object_id, relation.to_object_id],
     )
-    increment_set_versions(
+    advance_set_versions(
         session,
         workspace_key=from_object.workspace_key,
         change_set_id=None,
@@ -431,6 +451,7 @@ def delete_live_relation(
         to_object_type_key=to_object.object_type_key,
         from_object_id=relation.from_object_id,
         to_object_id=relation.to_object_id,
+        claim=claim,
     )
     session.delete(relation)
     session.commit()

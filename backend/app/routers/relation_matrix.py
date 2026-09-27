@@ -1,4 +1,5 @@
-"""Relation matrix reads; the view, its binding and the query live in the service."""
+"""Relation matrix reads, and what a cell's writes need; the view, its binding and the queries
+live in the service. The writes themselves go through the object and relation APIs."""
 
 from typing import Literal
 
@@ -6,9 +7,19 @@ from fastapi import APIRouter, Query
 
 from ..db import DbSession
 from ..errors import api_error
-from ..models.api import RelationMatrixPage
-from ..services.relation_matrix import MAX_COLUMNS, open_matrix_read, relation_matrix_page
-from .paging import SeekablePageQuery
+from ..models.api import (
+    RelationMatrixContainerPage,
+    RelationMatrixLinkCandidatePage,
+    RelationMatrixPage,
+)
+from ..services.relation_matrix import (
+    MAX_COLUMNS,
+    matrix_containers,
+    matrix_link_candidates,
+    open_matrix_read,
+    relation_matrix_page,
+)
+from .paging import PageQuery, SeekablePageQuery
 
 _COLUMN_IDS = Query(
     default=None,
@@ -74,4 +85,46 @@ def get_relation_matrix(
         column_cursor=column_cursor,
         column_page_size=column_page_size,
         state=state,
+    )
+
+
+@router.get("/relation-matrix/containers", response_model=RelationMatrixContainerPage)
+def get_relation_matrix_containers(
+    workspace_key: str,
+    session: DbSession,
+    paging: PageQuery,
+    application_key: str = Query(alias="applicationKey"),
+    view_key: str = Query(alias="viewKey", description="A relationMatrix view offering create"),
+    column_id: str = Query(alias="columnId", description="The column record of the cell"),
+    change_set_id: str | None = Query(default=None, alias="changeSetId"),
+    search: str | None = Query(default=None, max_length=500, description="Matches the name"),
+    page_size: int = Query(default=50, ge=1, le=100, alias="pageSize"),
+) -> RelationMatrixContainerPage:
+    read = open_matrix_read(session, workspace_key, application_key, view_key, change_set_id, None)
+    return matrix_containers(
+        read, column_id=column_id, search=search or None, page=paging, page_size=page_size
+    )
+
+
+@router.get("/relation-matrix/link-candidates", response_model=RelationMatrixLinkCandidatePage)
+def get_relation_matrix_link_candidates(
+    workspace_key: str,
+    session: DbSession,
+    paging: PageQuery,
+    application_key: str = Query(alias="applicationKey"),
+    view_key: str = Query(alias="viewKey", description="A relationMatrix view offering link"),
+    row_id: str = Query(alias="rowId", description="The row record of the cell"),
+    column_id: str = Query(alias="columnId", description="The column record of the cell"),
+    change_set_id: str | None = Query(default=None, alias="changeSetId"),
+    search: str | None = Query(default=None, max_length=500, description="Matches the name"),
+    page_size: int = Query(default=50, ge=1, le=100, alias="pageSize"),
+) -> RelationMatrixLinkCandidatePage:
+    read = open_matrix_read(session, workspace_key, application_key, view_key, change_set_id, None)
+    return matrix_link_candidates(
+        read,
+        row_id=row_id,
+        column_id=column_id,
+        search=search or None,
+        page=paging,
+        page_size=page_size,
     )

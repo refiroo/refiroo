@@ -5,9 +5,10 @@
 (relation matrix) and Milestone B (hierarchy editor) from the
 [roadmap](ROADMAP.md#product-release-08--relation-matrix-and-hierarchy-editor) are broken into work
 packages A1–A5 and B1–B4; P2 is scheduled after W2 (D20); R1 owns build acceptance. A1 is delivered
-(2026-09-27) with D8 and D9 accepted. A2 is implemented (2026-09-27) except its state-filter budget,
-which D12's measurement puts over budget; D10–D14 are proposed, not yet accepted; see the
-[summary](#decisions-summary).
+(2026-09-27) with D8 and D9 accepted. A2 and A3 are delivered (2026-09-27) with D10, D11 and D13
+accepted; A2's row state filter is correct but over its time budget at full volume, a temporary
+exception that A3b (a stored per-cell state, D12) removes before A4. D14 is proposed, not yet
+accepted; see the [summary](#decisions-summary).
 
 **Target:** Product 0.8.0. Track S does not change the schema language. Milestones A and B add
 schema language 0.7 (`relationMatrix` and `tree` views); the starter model becomes content release
@@ -1334,8 +1335,8 @@ anchored shape; one endpoint does not return two response shapes.
 Track S:      S1 → S2 → S3 ─┬─ S5 → S6 → S7 → S8
                             └─ S4 ─┘
 Milestone A:  A1 ──────────────┐
-              S2, S3 ─────────→ A2 → A3 → A4 → A5
-              S5 ─────────────────────────↗
+              S2, S3 ─────────→ A2 → A3 → A3b → A4 → A5
+              S5 ──────────────────────────────↗
 Milestone B:  B1 ──────────────┐
               S3, S4 ─────────→ B2 → B3 → B4
               S6 ────────────────────↗
@@ -1502,9 +1503,11 @@ runner for the placeholder, which A4 replaces with the real lens and its own run
 shapes and the generated model; a filtered page deep in the list is correct and within its recorded
 budget; the query count per page is constant; `historyOnly` never counts as `one`.
 
-**A2 implemented 2026-09-27; the filter budget is not met (open).** The route, its service
-(`services/relation_matrix.py`) and D10–D11 behave as scoped; D12 is implemented as recommended and
-measured over budget, so its fallback needs a decision before A2 closes. Found on the way:
+**A2 delivered 2026-09-27, closed with a temporary budget exception.** The route, its service
+(`services/relation_matrix.py`) and D10–D11 behave as scoped. D12 is implemented as recommended and
+measured over budget; the filter's results are correct and stay the oracle, and its time budget is
+met by [A3b](#a3b-stored-cell-state-for-the-row-state-filter) before A4 (decided 2026-09-27). Found
+on the way:
 
 - Rows are every record of the row type in the workspace context, not only the view application's
   own: the starter's translation and system matrices list codelists and master values that
@@ -1551,7 +1554,8 @@ of 100 ms holds for unfiltered pages and fails for state filters.
 _D12 outcome:_ over budget. The recommended fallback, a stored ancestor table, removes the walk but not
 the per-request pass over every cell under the selected columns; meeting the budget likely needs a
 stored per-cell state (row, column, counts) maintained by writes, a scoped follow-up with a migration.
-Decide before A2 closes.
+**Decided 2026-09-27:** A2 closes with the filter as a temporary exception; the stored per-cell state
+is scheduled as A3b, after A3 and before A4.
 
 Checks: `pytest tests/test_relation_matrix.py` (8: the three starter shapes in live, change set and
 publication; every state; filters with totals; cursor, position and `from=end` paging; cursors bound
@@ -1595,6 +1599,95 @@ context they already chose, for whichever `cellActions` the view declares.
 
 **Exit:** every write a cell performs succeeds or fails whole in live and change-set contexts, with
 machine-readable errors that carry enough context for the cell to keep the user's input.
+
+**A3 delivered 2026-09-27.** Both reads are in `services/relation_matrix.py` (`matrix_containers`,
+`matrix_link_candidates`) over one walk down from the column record in the read's context, and
+require the view to offer `create` or `link` (`422 relation_matrix_action_not_allowed`); they take
+`changeSetId` but no publication, since nothing is written there. Decisions made on the way:
+
+- The link and unlink claim is a generic addition to the relation API rather than a matrix endpoint:
+  `POST /relations` and `DELETE /relations/{id}` take an optional `expectedRelationSetVersion` with
+  `relationSetDirection`, claimed through `relation_set_versions.advance_set_versions` (the claimed end
+  from the version read, the other end advanced once), live and in a change set. The mapping
+  replacement remains the atomic set replacement; this is a conditional single write.
+- Unlink needs the relation's own version, which A2's cell records did not carry: they now carry
+  `relationVersion`.
+- Candidate reasons mirror the writes: cardinality counts relations of the relation type at an end
+  whatever the other end's type (as `validate_cardinality` and the change-set check do); `scopeTaken`
+  is checked only when the uniqueness scope is the column type, other scopes are left to the write.
+- The initial-relations gap found in A2 is fixed in both contexts, so A2's set versions changed.
+- `duplicate_relation_scope` names the record already in the scope on every write path and in the
+  publish diagnostic (`conflictingObjectId`, plus `conflictingRelationId` on writes).
+- Found on the way: a change set's scope conflicts surface at publishing as `422
+  workspace_graph_invalid` with the diagnostic in `details`, which the matrix cell can show; nothing
+  new was needed there.
+
+Checks: `pytest tests/test_relation_matrix_writes.py` (9: containers over nested, single and empty
+columns, a column that holds cells directly, search, cursors, a change set's added and moved
+containers; candidate reasons for one-to-many outgoing and many-to-many incoming bindings, and
+`scopeTaken` on a model with a column-scoped binding; live create, duplicate, edit, stale version and
+activation breach on the translation shape; live link and unlink with fresh, stale and half claims in
+both directions; change-set create, a staged duplicate, claimed link, unlink and relink, validation
+and publish; a staged translation filled live, refused at publishing with the change set kept; a
+container moved to another column, refused live and staged then refused at publishing), `-m "matrix
+or mapping or change_sets or records or contract or queries"` (after updating the A2 set-version
+expectation and the OpenAPI lock and inventory), `test_volume_baseline.py` and
+`test_relation_matrix_volume.py` (statement and row budgets hold with `relationVersion` read on the
+page edges), and `ruff check app/ tests/`. Not run: the full suite (R1), frontend (no frontend
+change; A4 consumes these reads), and a full-scale timing rerun of the page with the added relation
+version column.
+
+#### A3b: Stored cell state for the row state filter
+
+_Scheduled 2026-09-27 (D12): after A3, before A4. Closes A2's temporary budget exception._
+
+**Gap:** A2's row state filter walks down from the selected column records to every cell record and
+pairs each with its row on every request, and once per paging statement (page, count, position). At
+full volume it takes seconds against a 100 ms budget, so filtering to gaps across a whole list, the
+matrix's main task, is slow exactly where it is used. A stored ancestor table would remove the walk
+but not the pass over every cell, so it is not pursued.
+
+**Outcome:** the filter reads a stored state per (row, column) instead of deriving it, so a filtered
+page, its total and a position jump cost an indexed lookup whatever the number of cells, in live,
+change-set and publication contexts, with results identical to A2's.
+
+**Scope:**
+
+1. A derived table of cell states, keyed by workspace, context owner (live, a publication or a change
+   set), matrix shape, row record and column record, holding the cell's record count and the count
+   meeting the binding's condition. A matrix shape is what a view declares and the model derives:
+   relation type, direction, row, column and cell types, and the binding's condition. Views with the
+   same shape share rows; nothing names a starter type, relation or application.
+2. `historyOnly` from stored state too: a publication's states are computed once when it is published
+   and never change, so "an earlier publication held one" is a lookup over publication states.
+3. Maintenance in the same transaction as every write that can change a state: object create and
+   delete (cascades included), an edit of the condition attribute, relation create and delete, a
+   parent move (which can move many cells between columns), and publishing. Each write recomputes the
+   (row, column) pairs it touches from the records rather than adjusting counts, so a missed update
+   cannot accumulate drift. One service owns the recomputation, in the manner of
+   `services/snapshot_values.py`; bulk inserts outside the ORM call it explicitly.
+4. Change sets, decided at the start of the package: a change set's own state rows for the pairs its
+   changes touch, read over the base's states as objects are (recommended), or a full copy per change
+   set. Discarding or publishing a change set removes or merges its rows.
+5. Model changes: activating a model release, or changing a change set's release, builds the states
+   of shapes it adds or changes and drops those it removes.
+6. The filter's SQL reads the table; the page's own cells keep A2's walk up, which is within budget.
+   The filter is decided once per request rather than once per paging statement.
+7. Migration with a backfill of every existing workspace, publication and change set. The startup and
+   migration checks in `AGENTS.md` apply: clean bootstrap, upgrade from the preceding revision,
+   restart, interrupted-migration recovery or refusal, the lifespan against a real temporary
+   database and a smoke start against a copy of the development database.
+8. An ADR for the derived-state choice (what is stored, who maintains it, how it is rebuilt), and
+   API.md and ARCHITECTURE notes. The API contract does not change.
+
+Composable-domains doors (ADR-032): none affected; the table is a derived index over existing records,
+like `snapshot_attribute_values`, not a new identity or attribute storage.
+
+**Exit:** `test_relation_matrix_volume.py` holds unchanged with A2's walk as the oracle, and a
+rebuild-and-compare check finds stored states equal to derived ones after each write path's test, in
+all three contexts and both directions; a filtered page, count and position jump are within 100 ms at
+full volume in every context (recorded in `test_volume_baseline.py`); the migration and startup checks
+pass.
 
 #### A4: Relation matrix lens
 
@@ -1775,10 +1868,10 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D7 | Draft writes still load the whole membership | **Measured in S1:** over budget (7.6 s per rename at full volume). **S2:** 4.7 s after reads moved to SQL; follow-up slice S2b scoped. **S2b:** 7.5 ms | S2b |
 | D8 | A view type for the translation task, or a generic one? | **Accepted 2026-09-27 (A1, corrected):** a generic `relationMatrix` — rows, columns of an ancestor type, cells of related records through one binding in either direction — with a closed `cellActions` set. Translations are one starter configuration; system representations and cross-system mapping are two more (COMPOSABLE_DOMAINS admission tests) | A1 |
 | D9 | Schema 0.7 if only one milestone ships | **Accepted 2026-09-27 (A1):** each view type is added by its own package; a cut milestone's type is removed before release | A1, B1 |
-| D10 | Matrix columns | Explicit `columnIds` (at most 20) or the first page of column records; columns page with their own cursor. **Implemented in A2 as recommended (2026-09-27); acceptance pending** | A2 |
-| D11 | Cell states | `one`, `several` (a conflict only when the binding's uniqueness scope is the column type), `inactive` (only with a binding condition), `historyOnly`, `none`, all derived from the binding. `historyOnly` means a publication of this workspace held one. **Implemented in A2 (2026-09-27); acceptance pending.** Condition and conflict apply only read `outgoing` | A2 |
-| D12 | Resolving a cell record's column for the row state filter | A recursive query down from the selected column records, measured in A2. A stored ancestor table only if the measurement is over budget, as a scoped follow-up. **Measured in A2: over budget** (seconds over 50,000 cells); a stored ancestor table alone would not meet it, a stored per-cell state likely would. **Decision needed** | A2 |
-| D13 | Which container a new cell record goes into | The user picks the column record or a container under it; preselected when there is exactly one. No model default | A3, A4 |
+| D10 | Matrix columns | Explicit `columnIds` (at most 20) or the first page of column records; columns page with their own cursor. **Accepted 2026-09-27 as delivered in A2** | A2 |
+| D11 | Cell states | `one`, `several` (a conflict only when the binding's uniqueness scope is the column type), `inactive` (only with a binding condition), `historyOnly`, `none`, all derived from the binding. `historyOnly` means a publication of this workspace held one. **Accepted 2026-09-27 as delivered in A2.** Condition and conflict apply only read `outgoing` | A2 |
+| D12 | Resolving a cell record's column for the row state filter | A recursive query down from the selected column records, measured in A2. A stored ancestor table only if the measurement is over budget, as a scoped follow-up. **Measured in A2: over budget** (seconds over 50,000 cells); a stored ancestor table alone would not meet it, a stored per-cell state likely would. **Decided 2026-09-27:** A2 closes with the recursive filter as a temporary budget exception; a stored per-cell state maintained by writes replaces it in A3b, before A4 | A2, A3b |
+| D13 | Which container a new cell record goes into | The user picks the column record or a container under it; preselected when there is exactly one. No model default. **Accepted 2026-09-27 as delivered in A3** (`defaultContainerId` on the containers read); the preselection is A4's | A3, A4 |
 | D14 | Ineligible move targets | Listed but disabled, with a reason, so totals stay truthful and the user sees why | B2, B3 |
 | D15 | When does the W2 rename land? | **Accepted 2026-09-25:** after S7 (draft and revision tables stable after S2) and before A2 and B2, so new endpoints use the new names | W2, A2, B2 |
 | D16 | Name of the snapshot a change set publishes | **Accepted 2026-09-25:** **Publication**, referred to as "Publication N" by its per-workspace counter, which continues across model releases; date and model release are secondary. "Version" is avoided because record, change-set and model-release versions already use it | W1, W2 |

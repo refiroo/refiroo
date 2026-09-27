@@ -24,6 +24,7 @@ from ..services.model.registry import RequestModelSnapshot, resolve_model_snapsh
 from ..services.objects import build_object_responses, load_active_projection
 from ..services.pagination import paginate_statement
 from ..services.relation_queries import build_relation_query, build_snapshot_relation_query
+from ..services.relation_set_versions import set_claim
 from ..services.relations import (
     build_relation_response,
     create_live_relation,
@@ -60,13 +61,14 @@ def _ctx(change_set: str, expected: int | None) -> int:
 
 @router.post("/relations", response_model=RelationResponse, status_code=status.HTTP_201_CREATED)
 def create_relation(payload: RelationCreate, session: DbSession) -> RelationResponse:
+    claim = set_claim(payload.expectedRelationSetVersion, payload.relationSetDirection)
     if payload.changeSetId:
         change_set = str(payload.changeSetId)
         expected = _ctx(change_set, payload.expectedChangeSetVersion)
-        row = put_change_set_relation(session, change_set, ChangeSetRelationWrite(id=None, relationTypeKey=payload.relationTypeKey, fromObjectId=payload.fromObjectId, toObjectId=payload.toObjectId, attributes=payload.attributes, expectedChangeSetVersion=expected, expectedRecordVersion=None))
-        return _change_set_response(row).model_copy(update={"changeSetVersion": change_set_context(session, change_set).change_set.version})
-    row = create_live_relation(session, resolve_model_snapshot(session).model, payload)
-    return build_relation_response(row)
+        row, set_version = put_change_set_relation(session, change_set, ChangeSetRelationWrite(id=None, relationTypeKey=payload.relationTypeKey, fromObjectId=payload.fromObjectId, toObjectId=payload.toObjectId, attributes=payload.attributes, expectedChangeSetVersion=expected, expectedRecordVersion=None), claim)
+        return _change_set_response(row).model_copy(update={"changeSetVersion": change_set_context(session, change_set).change_set.version, "relationSetVersion": set_version})
+    row, set_version = create_live_relation(session, resolve_model_snapshot(session).model, payload, claim)
+    return build_relation_response(row).model_copy(update={"relationSetVersion": set_version})
 
 @router.get("/relations", response_model=RelationPage)
 def list_relations(
@@ -166,10 +168,13 @@ def update_relation(relation_id: str, payload: RelationUpdate, session: DbSessio
 def remove_relation(relation_id: str, session: DbSession,
                     change_set_id: str | None = Query(default=None, alias="changeSetId"),
                     expected_change_set_version: int | None = Query(default=None, alias="expectedChangeSetVersion", ge=1),
-                    expected_version: int = Query(alias="expectedVersion", ge=1)) -> Response:
+                    expected_version: int = Query(alias="expectedVersion", ge=1),
+                    expected_set_version: int | None = Query(default=None, alias="expectedRelationSetVersion", ge=0, description="With relationSetDirection: delete only while that end's relation set is at this version"),
+                    set_direction: Literal["outgoing", "incoming"] | None = Query(default=None, alias="relationSetDirection", description="The claimed set: outgoing is the from end's")) -> Response:
+    claim = set_claim(expected_set_version, set_direction)
     if change_set_id:
         _ctx(change_set_id, expected_change_set_version)
-        delete_change_set_relation(session, change_set_id, relation_id, expected_change_set_version, expected_version)
+        delete_change_set_relation(session, change_set_id, relation_id, expected_change_set_version, expected_version, claim)
     else:
-        delete_live_relation(session, resolve_model_snapshot(session).model, relation_id, expected_version)
+        delete_live_relation(session, resolve_model_snapshot(session).model, relation_id, expected_version, claim)
     return Response(status_code=204)

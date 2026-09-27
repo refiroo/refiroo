@@ -254,6 +254,13 @@ class ChangeSetValidation(BaseModel):
 
 
 class RelationCreate(BaseModel):
+    """A relation to create.
+
+    ``expectedRelationSetVersion`` with ``relationSetDirection`` claims one end's relation set
+    (ADR-022): the write succeeds only while that set is still at the version the caller read, such
+    as a relation matrix row's ``relationSetVersion``. ``outgoing`` names the from end's set.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
     relationTypeKey: str
@@ -262,6 +269,8 @@ class RelationCreate(BaseModel):
     attributes: dict[str, Any] = Field(default_factory=dict)
     changeSetId: UUID4 | None = None
     expectedChangeSetVersion: int | None = Field(default=None, ge=1)
+    expectedRelationSetVersion: int | None = Field(default=None, ge=0)
+    relationSetDirection: Literal["outgoing", "incoming"] | None = None
 
 
 class RelationUpdate(BaseModel):
@@ -280,6 +289,8 @@ class RelationResponse(RelationCreate):
     createdAt: datetime | None
     updatedAt: datetime | None
     changeSetVersion: int | None = None
+    # The claimed set's new version, when the write claimed one.
+    relationSetVersion: int | None = None
 
 
 class ApplicationResponse(BaseModel):
@@ -703,13 +714,15 @@ class RelationMatrixCellRecord(BaseModel):
     """A related record in a cell, with the relation that joins it to the row.
 
     ``meetsCondition`` is whether it meets the binding's ``uniqueWhenToAttributeEquals`` condition
-    (always true without one); ``fields`` holds the view's ``cellFields``.
+    (always true without one); ``fields`` holds the view's ``cellFields``. ``version`` is the
+    record's and ``relationVersion`` the relation's, which an edit and an unlink claim.
     """
 
     id: str
     name: str
     version: int
     relationId: str
+    relationVersion: int
     meetsCondition: bool
     fields: dict[str, Any]
 
@@ -758,3 +771,53 @@ class RelationMatrixPage(CollectionPage[RelationMatrixRow]):
     columns: list[RelationMatrixColumn]
     columnsNextCursor: str | None = None
     columnsPrevCursor: str | None = None
+
+
+class RelationMatrixPathPart(BaseModel):
+    id: str
+    name: str
+    objectTypeKey: str
+
+
+class RelationMatrixContainer(BaseModel):
+    """A record a new cell record can go into: the column record or a record under it whose type
+    can directly contain the cell type. ``path`` runs from below the column record to this record,
+    so it is empty for the column record itself."""
+
+    id: str
+    objectTypeKey: str
+    name: str
+    path: list[RelationMatrixPathPart]
+
+
+class RelationMatrixContainerPage(CollectionPage[RelationMatrixContainer]):
+    """Containers in path order. ``defaultContainerId`` names the column's only container, whatever
+    the search, and is null when it has none or several (D13)."""
+
+    defaultContainerId: str | None
+
+
+class RelationMatrixLinkCandidate(BaseModel):
+    """A cell-type record under the column record that the row could be linked to.
+
+    An ineligible candidate is listed, not hidden, with ``reason``: ``alreadyLinked`` (the row
+    already relates to it), ``rowCardinality`` or ``candidateCardinality`` (the binding's
+    cardinality allows no further relation at that end), or ``scopeTaken`` (the binding's
+    uniqueness scope is the column and the row already holds a record in it that meets the
+    condition, as this one does).
+    """
+
+    id: str
+    objectTypeKey: str
+    name: str
+    version: int
+    path: list[RelationMatrixPathPart]
+    fields: dict[str, Any]
+    eligible: bool
+    reason: Literal["alreadyLinked", "rowCardinality", "candidateCardinality", "scopeTaken"] | None
+
+
+class RelationMatrixLinkCandidatePage(CollectionPage[RelationMatrixLinkCandidate]):
+    """Candidates in name order, with the row's ``relationSetVersion`` a link claims."""
+
+    relationSetVersion: int
