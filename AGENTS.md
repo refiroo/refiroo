@@ -35,6 +35,10 @@ Master, Systems and Translations are starter applications, not hardcoded modules
 - Updates use optimistic concurrency. Never silently overwrite a newer version.
 - Model releases are immutable snapshots; schema-language and content-release versions are separate.
 - Keep vendor-specific source exports and internal numeric identifiers outside this repository.
+- Other domains (MDM-lite, small product catalogues) are modelled, never built in. Add no capability
+  only one domain can use, and keep the doors in `docs/COMPOSABLE_DOMAINS.md` open: a plan touching
+  identity, attribute storage, audit/history, bulk APIs, the consumer API `match` declaration or
+  mapping coverage states in one line whether a door is affected (ADR-032).
 
 ## Working method
 

@@ -2,7 +2,7 @@
 
 ## ADR-001 — Focus on RDM
 
-**Status:** Accepted
+**Status:** Accepted; clarified by ADR-032 (other domains only through generic, composable capabilities)
 
 The engine supports configurable applications but is optimized for reference data, mapping,
 translation, hierarchy and integration—not general enterprise data governance.
@@ -1082,3 +1082,38 @@ the open caveats.
 - With `WORKSPACE_ADMIN_MUTATIONS_ENABLED=false`, catalogue mutations are absent and the change-set
   workflow still works end to end.
 - `MODEL_ADMIN_MUTATIONS_ENABLED` behavior is unchanged.
+
+## ADR-032 — Reach other domains only through generic, composable capabilities
+
+**Status:** Accepted, 2026-09-26. Clarifies ADR-001; nothing is scheduled
+([composable domains](COMPOSABLE_DOMAINS.md)).
+
+### Motivation
+
+The model-driven core, with live editing, change sets pinned to a chosen model release, delta-merge
+publishing and immutable publications, also fits MDM-lite (moderate-volume master domains consolidated
+from source systems) and small, specific product catalogues. Growing toward them by adding
+domain-specific features would split the engine into several products and break the rule that the
+runtime is unaware of domain keys.
+
+### Decision
+
+- RDM remains the design centre (ADR-001). MDM-lite and small catalogues are applications modelled on
+  the engine, not modules built into it.
+- A capability motivated by another domain is admitted only when it passes the admission tests in
+  [COMPOSABLE_DOMAINS.md](COMPOSABLE_DOMAINS.md#admission-tests-for-a-new-capability): nameable without
+  the domain word, two real cases, a closed declarative vocabulary, composition with the full data and
+  model lifecycle, and a starter model that shows it.
+- High-volume party MDM, a full PIM and a general rules language in the model are out of scope.
+- Current work keeps the doors listed in
+  [COMPOSABLE_DOMAINS.md](COMPOSABLE_DOMAINS.md#doors-to-keep-open) open: record identity and
+  redirects, value provenance, derived values, redaction within immutable history, keyed inbound
+  upsert, reusable matching and review vocabulary, and additive value types.
+
+### Consequences
+
+- Plans touching identity, attribute storage, audit or history, bulk APIs, the consumer API `match`
+  declaration or mapping coverage state whether a door is affected.
+- A door may be closed only by an explicit product decision recorded here.
+- Starter models for other domains are the evidence that the capabilities compose; they carry no
+  runtime branch.

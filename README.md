@@ -186,6 +186,7 @@ delete partial lifecycle data or an unfamiliar schema.
 | `frontend/src/App.tsx` | Model-driven application and form renderer |
 | `docs/PROJECT_STATUS.md` | Current implementation and next work |
 | `docs/ROADMAP.md` | Sequenced product milestones and release criteria |
+| `docs/COMPOSABLE_DOMAINS.md` | Unscheduled direction: MDM-lite and catalogues modelled from generic capabilities |
 | `docs/TODO.md` | Prioritized active delivery queue |
 | `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` | Ordered Base 0.5 coding handoff and acceptance criteria |
 | `docs/BASE_0_6_IMPLEMENTATION_PLAN.md` | Ordered Base 0.6 decisions, work packages and acceptance criteria |

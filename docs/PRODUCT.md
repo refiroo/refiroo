@@ -80,6 +80,12 @@ business glossary, lineage scanner or enterprise governance suite. Generic appli
 where the same object/attribute/relation/view model is genuinely useful, but RDM integration remains the design
 centre.
 
+Neighbouring domains such as MDM-lite and small, specific product catalogues are modelled on the engine,
+not built into it. A capability they motivate must be generic, have a second real use and compose with
+live data, change sets, publications and model releases (ADR-032). The
+[composable domains](COMPOSABLE_DOMAINS.md) direction records the admission tests and the design doors
+current work keeps open.
+
 ## Success and recurring acceptance
 
 An administrator can define and release another reference-data application without changing Python

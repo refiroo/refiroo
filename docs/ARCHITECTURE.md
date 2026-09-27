@@ -455,6 +455,13 @@ The path builder resolves ancestor chains in level order (one query per depth le
 object), removing the N+1 traversal for typical hierarchies. Recursive CTEs or a maintained path
 representation remain the direction for very deep, high-volume hierarchies.
 
+## Domain extension direction
+
+MDM-lite and small product catalogues are reached only through generic capabilities composed in a
+model (ADR-032). The architecture keeps room for retired-ID redirects, per-value provenance, derived
+values, redaction within immutable history, keyed inbound upsert and additive value types; see
+[composable domains](COMPOSABLE_DOMAINS.md#doors-to-keep-open).
+
 ## Security direction
 
 Authentication and authorization remain deferred through the pre-production 0.9 feature releases.
