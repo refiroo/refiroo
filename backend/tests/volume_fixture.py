@@ -778,6 +778,197 @@ def _matrix_data(shape: VolumeShape, groups: list[str], now: datetime) -> _Matri
     return data
 
 
+@dataclass(frozen=True)
+class ReviewChangeSet:
+    """A change set touching about a tenth of the catalogue (Base 0.8 P2a), and what it holds."""
+
+    change_set_id: str
+    counts: dict[str, int]
+
+
+def seed_review_change_set(engine: Engine, dataset: VolumeDataset) -> ReviewChangeSet:
+    """Derive a second change set from publication 1 with every kind of change over two types.
+
+    Items are changed, moved (their containment edge removed and a new one added), removed with
+    their edge (never a cited item, so the graph stays whole) and added with an edge; groups are
+    changed and added; every fifth citation is saved unchanged, a ``changed`` relation with no
+    changed field. At full volume that is about 12,000 records and 8,000 relations. Seeded apart
+    from :func:`seed_volume`, so only the change list checks pay for it, and from its own random
+    stream (the matrix data has ``seed + 1``). Its stored matrix cell states are not built:
+    nothing reads a matrix in it.
+
+    Changed groups, added items and removed items each fill more than a 20-row page at every
+    scale, so a measured first, last or filtered page holds the same kind of rows at both scales.
+    """
+    shape = dataset.shape
+    rng = random.Random(f"review-{shape.seed}")
+
+    def new_id() -> str:
+        return str(UUID(int=rng.getrandbits(128), version=4))
+
+    publication = dataset.publication_id
+    with Session(engine) as session:
+        release_id = session.scalar(select(ModelRuntimeState.active_model_release_id))
+        change_set = ChangeSet(
+            id=new_id(),
+            workspace_key=WORKSPACE,
+            model_release_id=release_id,
+            derived_from_publication_id=publication,
+            name="Volume review change set",
+        )
+        session.add(change_set)
+        session.commit()
+        change_set_id = change_set.id
+
+        def published(object_type: str) -> list[PublicationObject]:
+            return list(
+                session.scalars(
+                    select(PublicationObject)
+                    .where(
+                        PublicationObject.publication_id == publication,
+                        PublicationObject.object_type_key == object_type,
+                    )
+                    .order_by(PublicationObject.object_id)
+                )
+            )
+
+        def edges(relation_type: str) -> list[PublicationRelation]:
+            return list(
+                session.scalars(
+                    select(PublicationRelation)
+                    .where(
+                        PublicationRelation.publication_id == publication,
+                        PublicationRelation.relation_type_key == relation_type,
+                    )
+                    .order_by(PublicationRelation.relation_id)
+                )
+            )
+
+        items, groups = published(ITEM), published(GROUP)
+        containment = {row.to_object_id: row for row in edges(GROUP_CONTAINS_ITEM)}
+        citations = edges(ITEM_CITES_GROUP)
+        session.expunge_all()
+
+    cited = {row.from_object_id for row in citations}
+    objects: list[dict[str, Any]] = []
+    relations: list[dict[str, Any]] = []
+
+    def own(row: PublicationObject, **changes: Any) -> dict[str, Any]:
+        return {
+            "change_set_id": change_set_id,
+            "object_id": row.object_id,
+            "application_key": row.application_key,
+            "object_type_key": row.object_type_key,
+            "name": row.name,
+            "parent_object_id": row.parent_object_id,
+            "attributes": dict(row.attributes),
+            "version": row.version + 1,
+            "is_deleted": False,
+            **changes,
+        }
+
+    def own_edge(row: PublicationRelation, **changes: Any) -> dict[str, Any]:
+        return {
+            "change_set_id": change_set_id,
+            "relation_id": row.relation_id,
+            "relation_type_key": row.relation_type_key,
+            "from_object_id": row.from_object_id,
+            "to_object_id": row.to_object_id,
+            "attributes": dict(row.attributes or {}),
+            "version": row.version + 1,
+            "is_deleted": False,
+            **changes,
+        }
+
+    def new_edge(relation_type: str, source: str, target: str) -> dict[str, Any]:
+        return {
+            "change_set_id": change_set_id,
+            "relation_id": new_id(),
+            "relation_type_key": relation_type,
+            "from_object_id": source,
+            "to_object_id": target,
+            "attributes": {},
+            "version": 1,
+            "is_deleted": False,
+        }
+
+    counts = dict.fromkeys(("changed", "moved", "removed", "added", "groupsChanged", "groupsAdded"), 0)
+    for index, item in enumerate(items):
+        if index % 25 == 0:
+            attributes = {**item.attributes, RANK: item.attributes[RANK] + 1}
+            objects.append(own(item, name=f"{item.name} (reviewed)", attributes=attributes))
+            counts["changed"] += 1
+        elif index % 50 == 1:
+            target = groups[(index * 7) % len(groups)].object_id
+            if target == item.parent_object_id:
+                continue
+            objects.append(own(item, parent_object_id=target))
+            relations.append(own_edge(containment[item.object_id], is_deleted=True))
+            relations.append(new_edge(GROUP_CONTAINS_ITEM, target, item.object_id))
+            counts["moved"] += 1
+        elif index % 40 == 2 and item.object_id not in cited:
+            objects.append(own(item, is_deleted=True))
+            relations.append(own_edge(containment[item.object_id], is_deleted=True))
+            counts["removed"] += 1
+    for index, group in enumerate(groups):
+        if index % 5 == 0:
+            objects.append(own(group, name=f"{group.name} (reviewed)"))
+            counts["groupsChanged"] += 1
+    new_groups = []
+    for number in range(max(2, len(groups) // 100)):
+        group_id = new_id()
+        new_groups.append(group_id)
+        objects.append(
+            {
+                "change_set_id": change_set_id,
+                "object_id": group_id,
+                "application_key": APPLICATION,
+                "object_type_key": GROUP,
+                "name": f"Group review {number:06d}",
+                "parent_object_id": None,
+                "attributes": {CODE: f"GROUP-REVIEW-{number:06d}", RANK: number % 1000},
+                "version": 1,
+                "is_deleted": False,
+            }
+        )
+        counts["groupsAdded"] += 1
+    for number in range(max(25, len(items) * 3 // 200)):
+        parent = new_groups[number % len(new_groups)] if number % 3 == 0 else groups[rng.randrange(len(groups))].object_id
+        item_id = new_id()
+        objects.append(
+            {
+                "change_set_id": change_set_id,
+                "object_id": item_id,
+                "application_key": APPLICATION,
+                "object_type_key": ITEM,
+                "name": f"Item review {number:06d}",
+                "parent_object_id": parent,
+                "attributes": {CODE: f"ITEM-REVIEW-{number:06d}", RANK: number % 1000},
+                "version": 1,
+                "is_deleted": False,
+            }
+        )
+        relations.append(new_edge(GROUP_CONTAINS_ITEM, parent, item_id))
+        counts["added"] += 1
+    touched_citations = [own_edge(row) for index, row in enumerate(citations) if index % 5 == 0]
+    relations += touched_citations
+
+    _bulk_insert(engine, ChangeSetObject, objects)
+    _index_values(
+        engine,
+        "change_set",
+        release_id,
+        ((change_set_id, row["object_id"], row["attributes"]) for row in objects if not row["is_deleted"]),
+    )
+    _bulk_insert(engine, ChangeSetRelation, relations)
+    counts.update(
+        objects=len(objects),
+        relations=len(relations),
+        citationsChanged=len(touched_citations),
+    )
+    return ReviewChangeSet(change_set_id, counts)
+
+
 def _attribute_rows(
     attributes: dict[str, dict[str, Any]], new_id, key: str
 ) -> Iterator[dict[str, Any]]:

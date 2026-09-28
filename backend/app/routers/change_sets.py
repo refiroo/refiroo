@@ -4,6 +4,7 @@ from sqlalchemy import select
 from ..db import DbSession
 from ..errors import ApiError, api_error
 from ..models.api import (
+    ChangeKind,
     ChangeSetCreate,
     ChangeSetModelReleaseUpdate,
     ChangeSetPage,
@@ -11,10 +12,25 @@ from ..models.api import (
     ChangeSetResponse,
     ChangeSetUpdate,
     ChangeSetValidation,
+    ObjectChange,
+    ObjectChangePage,
+    ObjectChangeState,
+    ObjectPathPart,
     PublicationPage,
     PublicationResponse,
+    RelationChange,
+    RelationChangeEnd,
+    RelationChangePage,
+    RelationChangeState,
 )
 from ..models.database import ChangeSet, ModelRelease, Publication
+from ..services.change_lists import (
+    ObjectChangeEntry,
+    RelationChangeEntry,
+    RelationEnd,
+    list_object_changes,
+    list_relation_changes,
+)
 from ..services.change_sets import (
     create_change_set,
     discard_change_set,
@@ -27,12 +43,18 @@ from ..services.change_sets import (
     validate_change_set,
     withdraw_publication,
 )
-from ..services.model.registry import ActiveModelSnapshot, resolve_model_snapshot
+from ..services.model.registry import (
+    ActiveModelSnapshot,
+    resolve_model_snapshot,
+    resolve_pinned_release,
+)
 from ..services.model.runtime import load_runtime_state
 from ..services.pagination import integer_key, paginate_sequence, paginate_statement, text_key
+from ..services.snapshot_reads import change_set_context
 from ..services.workspace_audit import record_change_set_validated
 from ..services.workspaces import load_workspace
 from .paging import PageQuery
+from .presenters import snapshot_attributes
 
 # The change-set workflow is an ordinary steward operation like a live edit (ADR-031): always
 # registered, and refused in a retired workspace by the services it calls. Only workspace catalogue
@@ -186,6 +208,135 @@ def delete_change_set(
     change_set_id: str, session: DbSession, expected_version: int = Query(alias="expectedVersion", ge=1)
 ) -> None:
     discard_change_set(session, change_set_id, expected_version)
+
+
+_KIND = Query(
+    default=None,
+    description="Only these kinds (repeatable): added, changed or removed; every kind when omitted",
+)
+_OBJECT_TYPE_KEY = Query(
+    default=None,
+    alias="objectTypeKey",
+    description="Only records of these types (repeatable), under the change set's model",
+)
+_RELATION_TYPE_KEY = Query(
+    default=None,
+    alias="relationTypeKey",
+    description="Only relations of these types (repeatable), under the change set's model",
+)
+
+
+def _pinned_model(session, context):
+    """The change set's pinned model, from the change set row its context already read."""
+    return resolve_pinned_release(
+        session, context.change_set.model_release_id, require_ready=False
+    ).model
+
+
+def _object_change(model, entry: ObjectChangeEntry) -> ObjectChange:
+    def state(side) -> ObjectChangeState | None:
+        if side is None:
+            return None
+        return ObjectChangeState(
+            name=side.name,
+            parentObjectId=side.parent_object_id,
+            attributes=snapshot_attributes(model, entry.object_id, side.attributes),
+            version=side.version,
+        )
+
+    return ObjectChange(
+        kind=entry.kind,
+        objectId=entry.object_id,
+        objectTypeKey=entry.object_type_key,
+        applicationKey=entry.application_key,
+        before=state(entry.before),
+        after=state(entry.after),
+        changedFields=entry.changed_fields,
+        path=[ObjectPathPart(**part) for part in entry.path],
+    )
+
+
+def _relation_end(end: RelationEnd) -> RelationChangeEnd:
+    return RelationChangeEnd(objectId=end.object_id, objectTypeKey=end.object_type_key, name=end.name)
+
+
+def _relation_change(entry: RelationChangeEntry) -> RelationChange:
+    def state(side) -> RelationChangeState | None:
+        if side is None:
+            return None
+        return RelationChangeState(attributes=side.attributes, version=side.version)
+
+    return RelationChange(
+        kind=entry.kind,
+        relationId=entry.relation_id,
+        relationTypeKey=entry.relation_type_key,
+        containment=entry.containment,
+        fromObject=_relation_end(entry.from_end),
+        toObject=_relation_end(entry.to_end),
+        before=state(entry.before),
+        after=state(entry.after),
+        changedFields=entry.changed_fields,
+    )
+
+
+@router.get("/change-sets/{change_set_id}/object-changes", response_model=ObjectChangePage)
+def get_object_changes(
+    change_set_id: str,
+    session: DbSession,
+    paging: PageQuery,
+    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    kind: list[ChangeKind] | None = _KIND,
+    object_type_key: list[str] | None = _OBJECT_TYPE_KEY,
+) -> ObjectChangePage:
+    """The records the change set adds, changes or removes against its source (Base 0.8 P2a)."""
+    context = change_set_context(session, change_set_id)
+    model = _pinned_model(session, context)
+    page = list_object_changes(
+        session,
+        context,
+        model,
+        kinds=kind,
+        object_type_keys=object_type_key,
+        page=paging,
+        page_size=page_size,
+    )
+    return ObjectChangePage(
+        items=[_object_change(model, entry) for entry in page.items], **page.links()
+    )
+
+
+@router.get("/change-sets/{change_set_id}/relation-changes", response_model=RelationChangePage)
+def get_relation_changes(
+    change_set_id: str,
+    session: DbSession,
+    paging: PageQuery,
+    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    kind: list[ChangeKind] | None = _KIND,
+    relation_type_key: list[str] | None = _RELATION_TYPE_KEY,
+    containment: bool | None = Query(
+        default=None,
+        description=(
+            "true lists only engine-maintained parent edges, false leaves them out; both when"
+            " omitted"
+        ),
+    ),
+) -> RelationChangePage:
+    """The relations the change set adds, changes or removes against its source (Base 0.8 P2a)."""
+    context = change_set_context(session, change_set_id)
+    model = _pinned_model(session, context)
+    page = list_relation_changes(
+        session,
+        context,
+        model,
+        kinds=kind,
+        relation_type_keys=relation_type_key,
+        containment=containment,
+        page=paging,
+        page_size=page_size,
+    )
+    return RelationChangePage(
+        items=[_relation_change(entry) for entry in page.items], **page.links()
+    )
 
 
 @router.post(

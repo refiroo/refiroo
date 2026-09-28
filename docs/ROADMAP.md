@@ -260,12 +260,20 @@ than UI endpoints or undocumented limits.
    data. Model-declared definitions give XREF lookup (search, resolve, get), lists and one shared
    object shape across object types, with a contract version independent of the management API. The
    production gateway XREF and list APIs are the functional baseline.
+10. Built-in API reference with [Scalar](https://github.com/scalar/scalar) (MIT) at `/docs`, replacing
+    FastAPI's default Swagger UI and ReDoc. One page lists the management API and every active
+    consumer API contract version as separate OpenAPI sources. The Scalar standalone script is pinned
+    and bundled with the engine by default, so the page works without internet access; a setting
+    switches to loading it from a CDN instead. The page route stays outside the OpenAPI document, so
+    the OpenAPI locks are unaffected. Authentication in the "try it" console follows OIDC in 0.10.
 
 ### Exit gate
 
 - Every collection and job result is bounded or resumable.
 - Partial failures and lifecycle stages are machine-readable.
 - Bulk contracts are first-class services, not loops over UI calls.
+- The built-in API reference serves every published OpenAPI document with the bundled script and no
+  outbound network access, and with the CDN script when so configured.
 - A consumer API definition alone reproduces the reference XREF and list responses (CONSUMER_API.md
   C8), with no runtime branch on object-type or relation keys.
 

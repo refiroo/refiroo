@@ -226,6 +226,76 @@ class PublicationPage(CollectionPage[PublicationResponse]):
     pass
 
 
+ChangeKind = Literal["added", "changed", "removed"]
+
+
+class ObjectChangeState(BaseModel):
+    """A record as the change set's source holds it (``before``) or as the change set does (``after``)."""
+
+    name: str
+    parentObjectId: str | None
+    attributes: list[AttributeOutput]
+    version: int
+
+
+class ObjectChange(BaseModel):
+    """What a change set does to one record (Base 0.8 P2a, D31).
+
+    ``changedFields`` names what differs between ``before`` and ``after`` (``name``, ``parent``
+    and attribute keys); a missing side counts as holding nothing, so an added or removed record
+    names every field it holds. A ``changed`` entry may name none: its version still advanced, and
+    publishing still claims it against live.
+    """
+
+    kind: ChangeKind
+    objectId: str
+    objectTypeKey: str
+    applicationKey: str
+    before: ObjectChangeState | None
+    after: ObjectChangeState | None
+    changedFields: list[str]
+    path: list[ObjectPathPart]
+
+
+class ObjectChangePage(CollectionPage[ObjectChange]):
+    """A change set's record changes by type, name and ID."""
+
+
+class RelationChangeEnd(BaseModel):
+    """One end of a changed relation, read in the change set, or in its source for a removed end."""
+
+    objectId: str
+    objectTypeKey: str | None
+    name: str | None
+
+
+class RelationChangeState(BaseModel):
+    attributes: dict[str, Any]
+    version: int
+
+
+class RelationChange(BaseModel):
+    """What a change set does to one relation (Base 0.8 P2a, D31).
+
+    ``containment`` marks an engine-maintained parent edge (D32): its type is one of the ``to``
+    end type's parent relations under the change set's model.
+    """
+
+    kind: ChangeKind
+    relationId: str
+    relationTypeKey: str
+    containment: bool
+    fromObject: RelationChangeEnd
+    toObject: RelationChangeEnd
+    before: RelationChangeState | None
+    after: RelationChangeState | None
+    changedFields: list[str]
+
+
+class RelationChangePage(CollectionPage[RelationChange]):
+    """A change set's relation changes by type and ID."""
+
+
 class ChangeSetObjectWrite(BaseModel):
     model_config = ConfigDict(extra="forbid")
     id: UUID4 | None = None

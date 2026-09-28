@@ -46,23 +46,13 @@ from ..services.snapshot_reads import (
 )
 from ..services.workspaces import resolve_workspace
 from .paging import PageQuery, SeekablePageQuery
+from .presenters import snapshot_attributes
 
 router = APIRouter(prefix="/api/v1", tags=["objects"])
 
 
 def _change_set_object_response(item, change_set_id: str, model, *, path=None) -> ObjectResponse:
-    attrs = []
-    for key, value in (item.attributes or {}).items():
-        definition = model.attribute_type(key)
-        attrs.append(
-            {
-                "id": f"{item.object_id}:{key}",
-                "attributeTypeKey": key,
-                "name": definition.name if definition else key,
-                "valueType": definition.valueType if definition else "text",
-                "value": value,
-            }
-        )
+    attrs = snapshot_attributes(model, item.object_id, item.attributes)
     return ObjectResponse(
         id=item.object_id,
         workspaceKey=(getattr(item, "workspace_key", None) or ""),

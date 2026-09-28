@@ -44,9 +44,11 @@ from volume_fixture import (
     RANK,
     SHELF,
     WORKSPACE,
+    ReviewChangeSet,
     VolumeDataset,
     measure,
     scaled_shape,
+    seed_review_change_set,
     seed_volume,
     volume_model,
 )
@@ -466,6 +468,35 @@ def known_exceptions(client, engine: Engine, dataset: VolumeDataset, *, repeat: 
     return results
 
 
+def change_list_scenarios(client, engine: Engine, review: ReviewChangeSet, *, repeat: int) -> list[Measurement]:
+    """P2a: both change lists of the review change set, paged every way a reviewer reaches a row."""
+    results = []
+    for records, extra in (("object", {}), ("relation", {"containment": "false"})):
+        path = f"/api/v1/change-sets/{review.change_set_id}/{records}-changes"
+        page = {"pageSize": PAGE_SIZE}
+        total = client.get(path, params={**page, "includeTotal": True}).json()["totalCount"]
+        middle = client.get(path, params={**page, "position": total // 2}).json()["prevCursor"]
+        scenarios = [
+            ("first page", page),
+            ("last page by from=end, total", {**page, "from": "end", "includeTotal": True}),
+            ("backward page from the middle", {**page, "cursor": middle}),
+            ("position ¾ deep, total", {**page, "position": total * 3 // 4, "includeTotal": True}),
+            ("kind filter (removed), total", {**page, "kind": "removed", "includeTotal": True}),
+        ]
+        if extra:
+            scenarios.append(("containment edges left out, total", {**page, **extra, "includeTotal": True}))
+        for scenario, params in scenarios:
+            status, milliseconds, statements, rows = _timed(
+                engine, lambda path=path, params=params: client.get(path, params=params), repeat
+            )
+            results.append(
+                Measurement(
+                    "change_set", f"{records} changes: {scenario}", status, milliseconds, statements, rows
+                )
+            )
+    return results
+
+
 def markdown_table(results: list[Measurement]) -> str:
     """One row per scenario, one ``ms · statements · rows`` column per context."""
     scenarios = list(dict.fromkeys(item.scenario for item in results))
@@ -493,6 +524,11 @@ def main() -> None:
     parser.add_argument("--repeat", type=int, default=5, help="timed runs per request")
     parser.add_argument("--workdir", type=Path, default=None, help="keep the database here")
     parser.add_argument("--json", type=Path, default=None, help="also write results as JSON")
+    parser.add_argument(
+        "--only-change-lists",
+        action="store_true",
+        help="measure only the P2a change lists over the review change set",
+    )
     arguments = parser.parse_args()
 
     workdir = arguments.workdir or Path(tempfile.mkdtemp(prefix="rdm-volume-"))
@@ -514,8 +550,15 @@ def main() -> None:
         started = time.perf_counter()
         dataset = seed_volume(engine, scaled_shape(arguments.scale))
         seeded = time.perf_counter() - started
-        results = run_scenarios(client, engine, dataset, repeat=arguments.repeat)
-        results += known_exceptions(client, engine, dataset, repeat=arguments.repeat)
+        results = [] if arguments.only_change_lists else run_scenarios(
+            client, engine, dataset, repeat=arguments.repeat
+        )
+        # Seeded after the other scenarios, so none of them runs beside it.
+        review = seed_review_change_set(engine, dataset)
+        dataset.counts.update({f"review.{key}": value for key, value in review.counts.items()})
+        results += change_list_scenarios(client, engine, review, repeat=arguments.repeat)
+        if not arguments.only_change_lists:
+            results += known_exceptions(client, engine, dataset, repeat=arguments.repeat)
 
     print(
         f"Scale {arguments.scale} · {dataset.counts} · seeded in {seeded:.1f} s · "

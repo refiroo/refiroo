@@ -6,9 +6,29 @@ router's internals.
 
 from typing import Any
 
-from ..models.api import ModelChangeResponse, ModelDiagnosticResponse
+from ..models.api import AttributeOutput, ModelChangeResponse, ModelDiagnosticResponse
+from ..models.schema import EngineModel
 from ..services.model.compiler import ModelDiagnostic
 from ..services.model.diff import SemanticChange
+
+
+def snapshot_attributes(
+    model: EngineModel, object_id: str, attributes: dict[str, Any] | None
+) -> list[AttributeOutput]:
+    """A change set or publication row's JSON values in the object read's attribute shape."""
+    outputs = []
+    for key, value in (attributes or {}).items():
+        definition = model.attribute_type(key)
+        outputs.append(
+            AttributeOutput(
+                id=f"{object_id}:{key}",
+                attributeTypeKey=key,
+                name=definition.name if definition else key,
+                valueType=definition.valueType if definition else "text",
+                value=value,
+            )
+        )
+    return outputs
 
 
 def diagnostic_response(item: ModelDiagnostic) -> ModelDiagnosticResponse:

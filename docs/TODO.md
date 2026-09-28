@@ -96,6 +96,10 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [ ] Ordered change feed and retryable webhooks.
 - [ ] Cross-type object lookup `GET /objects` (P1) and a general relation edge list with publication
   context (P3), moved from 0.8 (D20).
+- [ ] Built-in Scalar API reference at `/docs` replacing Swagger UI and ReDoc (0.9): management API plus
+  each consumer API contract version as sources; pinned script bundled by default, CDN loading by
+  setting; route excluded from the OpenAPI document; tests for page, bundled script and unchanged
+  OpenAPI digest.
 
 ## Later — production and self-service authoring
 

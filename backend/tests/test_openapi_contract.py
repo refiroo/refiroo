@@ -26,10 +26,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # optional relation-set claim (expectedRelationSetVersion, relationSetDirection) on relation
     # create and delete, whose response states the claimed set's relationSetVersion. Re-baselined
     # for B2: GET /objects/{type}/{id}/parent-candidates and the ParentCandidate* and ObjectPathPart
-    # schemas; no existing path or schema changed.
+    # schemas; no existing path or schema changed. Re-baselined for P2a: GET
+    # /change-sets/{id}/object-changes and /relation-changes and the ObjectChange* and
+    # RelationChange* schemas; no existing path or schema changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "a4bc78be0ec82fecf46e9fc20dde2adf297135564bd56ccdcf725b1e6e42a730"
+        "28aeca92f0b6b7a84c334c31cb651ae5be29eeb64cb0af08745a0c1839c71d11"
     )
 
 
@@ -58,7 +60,7 @@ def test_paging_openapi_inventory():
         assert next(iter(properties)) == "items", path
         assert {"totalCount", "startIndex"}.isdisjoint(document["components"]["schemas"][name]["required"])
         assert properties["totalCount"]["type"] == properties["startIndex"]["type"] == "integer"
-    assert seekable <= paged and len(paged) == 21
+    assert seekable <= paged and len(paged) == 23
     objects = {item["name"] for item in document["paths"]["/api/v1/objects/{object_type_key}"]["get"]["parameters"]}
     relations = {item["name"] for item in document["paths"]["/api/v1/relations"]["get"]["parameters"]}
     assert "topLevel" in objects and {"search", "sort"} <= relations

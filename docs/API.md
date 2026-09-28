@@ -725,6 +725,39 @@ set or publication is addressed flat by its global ID (`/change-sets/{changeSetI
   including model defaults, are valid publication content and are checked for their declared types and
   constraints; ordinary writes and attribute deletion still enforce the binding's read-only
   restriction.
+- `GET /api/v1/change-sets/{changeSetId}/object-changes` and
+  `GET /api/v1/change-sets/{changeSetId}/relation-changes` (Base 0.8 P2a) list only what the change set
+  changes, one entry per record or relation it touched, read against its **source** (its current-live
+  base or publication; nothing for an empty root). They are read-only entries about records, not a
+  record dialect. Each entry has a `kind` (D31): `added` (no source row), `changed` (a source row) or
+  `removed` (deleted, with a source row). A record created and deleted inside the change set is left
+  out, as publishing skips it. `before` is the record as the source holds it and `after` as the change
+  set does; each is `null` where the kind has none. *Before* is not current live: whether live moved
+  since is what validation and publishing report (`version_conflict`).
+  - An object entry carries `kind`, `objectId`, `objectTypeKey`, `applicationKey`, `before`/`after`
+    (`name`, `parentObjectId`, typed `attributes` in the object read's shape, `version`),
+    `changedFields` and `path`: where the change set puts an added or changed record, or where the
+    source held a removed one. `changedFields` names what differs between the sides (`name`,
+    `parent`, then attribute keys in binding order); a missing side holds nothing, so an added or
+    removed record names every field it holds. A `changed` entry can name none — edited back to its
+    source values — and is still listed: its version advanced and publishing claims it against live.
+    A move is `changed` with `parent`.
+  - A relation entry carries `kind`, `relationId`, `relationTypeKey`, `containment`, `fromObject` and
+    `toObject` (`objectId`, `objectTypeKey`, `name`: as the change set holds the record, or the source
+    for a removed end), `before`/`after` (`attributes`, `version`) and `changedFields` (attribute
+    keys). `containment` marks an engine-maintained parent edge: its type is one of the `to` end
+    type's `parentRelationTypeKeys` under the change set's model. The lists include these edges so an
+    integration sees every row that publishes (D32); a move lists one removed and one added edge.
+  - Filters: repeatable `kind`; repeatable `objectTypeKey` on objects; repeatable `relationTypeKey` and
+    `containment` (`true` only parent edges, `false` none; both when omitted) on relations. A type key
+    not in the change set's model returns `422 unknown_object_type` or `422 unknown_relation_type`
+    with `details.path` and `details.key`; an unknown kind is a request validation error. There is no
+    search.
+  - Objects list by (`objectTypeKey`, name, `objectId`), the change set's name (a removed record keeps
+    its name); relations by (`relationTypeKey`, `relationId`). Both page as every collection does
+    ([Collection paging](#collection-paging)), `pageSize` 1–500 (default 100); cursors are bound to
+    the change set and filters. An unknown change set returns `404 change_set_not_found`. There is no
+    publication context: what a publication changed against its predecessor is the 0.9 change feed.
 - `GET /api/v1/workspaces/{workspaceKey}/publications` and `GET /api/v1/publications/{publicationId}`
   list and read publications. A publication carries `publicationNumber`, its `status` (`active` while
   it is the workspace's current publication, otherwise `withdrawn`), `publishedAt`, `withdrawnAt`,

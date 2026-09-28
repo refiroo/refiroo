@@ -176,6 +176,17 @@ All notable changes to this project are documented in this file. The format foll
   published. The accessibility and visual gates gain the tree lens and its move dialog in light and
   dark, with four reviewed baselines. The tree lens's keyboard helpers are shared by both runners
   (`e2e/helpers/tree.mjs`).
+- Base 0.8 P2a: change lists. `GET /api/v1/change-sets/{id}/object-changes` and
+  `/relation-changes` list only what a change set changes, read against its source: each record or
+  relation it touched as `added`, `changed` or `removed` (D31), with `before` (the source's row) and
+  `after` (the change set's), typed values in the object read's shape, `changedFields` and, for
+  records, the path. A record created and deleted inside the change set is left out, as publishing
+  skips it; one edited back to its source values stays listed with no changed fields. Relation
+  entries name both ends and mark engine-maintained parent edges with `containment` (D32), so a move
+  is a `changed` record with `parent` plus one removed and one added edge. Filters by kind, type and
+  containment; every paging mode. The volume fixture gains a review change set touching 12,073
+  records and 8,273 relations at full volume, where every measured page takes 3–52 ms in 4–6
+  statements.
 
 ### Changed
 

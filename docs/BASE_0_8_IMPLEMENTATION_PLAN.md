@@ -10,7 +10,7 @@ accepted; A3b's stored cell states closed A2's budget exception for the row stat
 are delivered (2026-09-28), and A6 (snapshot table index drift, found in A2) with D28 accepted
 (2026-09-28), which completes Milestone A. B1–B4 are delivered (2026-09-28), which completes Milestone B; D14 is accepted (2026-09-28),
 D30 decides one of A6's two open measurements and B2 decides the other (D29, a known budget exception);
-P2 is planned (2026-09-28) as P2a (change lists API) and P2b (review screen), with D31–D33 accepted (2026-09-28); see the [summary](#decisions-summary).
+P2 is planned (2026-09-28) as P2a (change lists API) and P2b (review screen), with D31–D33 accepted (2026-09-28); P2a is delivered (2026-09-28); see the [summary](#decisions-summary).
 
 **Target:** Product 0.8.0. Track S does not change the schema language. Milestones A and B add
 schema language 0.7 (`relationMatrix` and `tree` views); the starter model becomes content release
@@ -1384,6 +1384,57 @@ the containment edge as one removed and one added entry with `containment: true`
 `before` and `after`; each filter; paging both ways, position and totals over a list that holds all
 three kinds; an entry list that agrees with what publishing then does to live; `404` and `422`
 refusals. The volume rows meet budget.
+
+**Delivered 2026-09-28.** `services/change_lists.py` reads each list as one statement over the change
+set's own rows, outer-joined to their source rows on the unique (owner, ID) key, with the kind a
+`CASE` over the tombstone flag and the source row's presence (a `WHERE` on the join's null side
+would let SQLite reorder the outer join into a walk of the base). Objects order on
+`ix_change_set_objects_type_name`. Paths and relation ends read the change set's records and its
+source's in one statement per hierarchy level, driven by the listed IDs (`matrix_cells.unindexed` on
+the owner term: the owner's covering indexes otherwise tempted the planner to walk the whole
+publication, 46–53 ms at full volume, now under 1 ms), so a page costs the same whether or not it
+lists a removal. `changedFields` compares the stored JSON of both sides per page; a missing side holds
+nothing, so an added or removed record names every field it holds, attributes in binding order.
+The containment filter is decided by relation type key when every permitted pair of the key is (or is
+not) a parent pair, and reads the `to` end's type only for a key used both ways. The routes resolve
+the pinned model from the change set row the context read. API.md, the OpenAPI lock (23 paged
+collections), CURRENT_FUNCTIONALITY (F13), COVERAGE_MAP (C-CS-CHANGES), the execution guide and
+the CHANGELOG are updated.
+
+Volume: `seed_review_change_set` derives a second change set from publication 1 (its own random
+stream; `seed + 1` belonged to the matrix data and first collided): at full volume 4,000 changed,
+2,000 moved, 2,473 removed and 1,500 added items and 2,000 changed and 100 added groups (12,073
+records), with 8,273 relations (moved and removed edges, new edges, 300 citations saved unchanged).
+Changed groups, added items and removed items each fill more than a page at every scale, so each
+measured page holds the same kind of rows at 1× and 4×. `volume_baseline.py --scale 1 --repeat 5
+--only-change-lists` (median of 5, page size 20, SQLite 3.53.4, Apple silicon), ms · statements ·
+ORM rows:
+
+| Request | Object changes | Relation changes |
+| --- | --- | --- |
+| First page | 3.2 · 4 · 3 | 22.2 · 5 · 3 |
+| Last page by `from=end`, total | 19.8 · 6 · 3 | 41.0 · 6 · 3 |
+| Backward page from the middle | 6.2 · 6 · 3 | 22.8 · 6 · 3 |
+| Position ¾ deep, total | 40.7 · 6 · 3 | 52.2 · 6 · 3 |
+| Kind filter (`removed`), total | 24.2 · 6 · 3 | 38.6 · 6 · 3 |
+| Containment edges left out, total | — | 8.2 · 6 · 3 |
+
+Every request meets budgets 1–3. The relation order sorts the change set's own relations in a
+temporary B-tree (no index leads with the relation type inside a change set); at 8,273 relations it
+stays within budget, so the `(change_set_id, relation_type_key, relation_id)` index and its migration
+were not added.
+
+Evidence: `test_change_lists` (9: every kind in current-live, publication-sourced and empty-root
+change sets; created-then-deleted left out; edited-back kept with no fields; a move as `parent` plus a
+removed and an added `containment` edge; typed boolean, integer and date values on both sides; each
+filter, including a relation type that a model variant makes a parent edge to one type and a plain
+relation to another; paging both ways, positions, anchors and totals over all three kinds; the lists
+agree with live after publishing; `404`, `422` and a filter-bound cursor); `test_change_lists_volume` (2:
+statements equal at 1× and 4×, ORM rows bounded, per-kind and per-containment totals equal the seeded
+change set); the `change_sets`, `records` and `contract` groups (426, before the mixed-key case was
+added) and Ruff pass. Not exercised: the mixed-key containment filter reading a `to` end's type from
+a source row (the case uses an empty-root change set), a non-SQLite database, and the other volume
+scenarios (`seed_volume` and `run_scenarios` are unchanged).
 
 ##### P2b: Change set review screen
 
