@@ -8,8 +8,8 @@ release plan and changelog rather than accumulating it here.
 
 Base 0.7 is released (2026-09-25). 0.8 Track S (scalable browsing) and Track W (workspace terminology
 and capability boundaries) are delivered (2026-09-26), and Milestone A's relation matrix (A1–A5) is
-delivered (2026-09-28), closed by A6 (snapshot table index drift, 2026-09-28). Next: the hierarchy
-editor milestone (B1–B4), P2, then R1. See
+delivered (2026-09-28), closed by A6 (snapshot table index drift, 2026-09-28). The hierarchy editor's
+`tree` contract (B1) is delivered (2026-09-28). Next: B2–B4, P2, then R1. See
 [Next — 0.8 and beyond](#next--08-and-beyond).
 
 ## Open decisions
@@ -17,9 +17,11 @@ editor milestone (B1–B4), P2, then R1. See
 Offset/limit pagination is closed by ADR-030 (accepted 2026-09-25): each request pages with a
 cursor or a position; the UI scrolls with cursors and jumps with positions. Delivered in 0.8 Track S.
 
-Milestone A decisions D8–D13 and D28 (A6) are accepted. D14 (ineligible move targets, Milestone B) is
-proposed in the [0.8 plan](BASE_0_8_IMPLEMENTATION_PLAN.md#decisions-summary) and needs acceptance
-before B2.
+Milestone A decisions D8–D13 and D28 (A6) are accepted. D14 (ineligible move targets listed disabled
+with a reason) is accepted (2026-09-28), as are D2–D6 as delivered in Track S. A6's two open
+measurements are decided (2026-09-28): the container move in a change set is measured in B2 (D29),
+and the link candidate page is a known 0.8 budget exception (D30). No 0.8 decision is open; see the
+[0.8 plan](BASE_0_8_IMPLEMENTATION_PLAN.md#decisions-summary).
 
 See `ROADMAP.md` for the delivery scope, exit gates and full milestone sequence.
 
@@ -64,12 +66,14 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [x] A5 Milestone A acceptance (SC-09 translation half and the mapping-shape journey).
   - [x] A6 snapshot table index drift (D28): change set objects gain the owner-leading page indexes,
     the other eight declarations are removed, and a schema drift test holds a migrated database equal
-    to the ORM. Open, found by its measurements: moving a container that holds about 2,500 matrix
-    cells in a change set takes 5–9 s (A3b state recompute, about 110 statements), and a link
-    candidate page over a 5,000-cell column takes 92 ms live and 160 ms in a change set.
+    to the ORM. Found by its measurements: moving a container that holds about 2,500 matrix
+    cells in a change set takes 5–9 s (A3b state recompute, about 110 statements; measured in B2,
+    D29), and a link candidate page over a 5,000-cell column takes 92 ms live and 160 ms in a change
+    set (known 0.8 budget exception, D30).
 - [ ] 0.8 Milestone B — hierarchy editor ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-b--hierarchy-editor)):
-  - [ ] B1 schema 0.7 `tree` view contract (may run alongside Track S).
-  - [ ] B2 move targets with eligibility, and path context in every context.
+  - [x] B1 schema 0.7 `tree` view contract.
+  - [ ] B2 move targets with eligibility (D14), and path context in every context; measure the
+    matrix container move (D29).
   - [ ] B3 tree lens with add child, rename, availability and move.
   - [ ] B4 Milestone B acceptance (SC-09 hierarchy half).
 - [ ] 0.8 P2 change set changes list, after W2 (D20).

@@ -9,6 +9,7 @@ export interface CollectionGroup {
 export function viewSourceObjectTypeKey(view: ViewDefinition): string {
   if (view.type === "table") return view.objectTypeKey;
   if (view.type === "relationMatrix") return view.config.rowObjectTypeKey;
+  if (view.type === "tree") return view.config.rootObjectTypeKeys[0];
   return view.config.direction === "outgoing" ? view.config.fromObjectTypeKey : view.config.toObjectTypeKey;
 }
 

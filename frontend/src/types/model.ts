@@ -111,7 +111,28 @@ export interface RelationMatrixViewDefinition {
   };
 }
 
-export type ViewDefinition = TableViewDefinition | MappingGridViewDefinition | RelationMatrixViewDefinition;
+export type TreeAction = "createChild" | "rename" | "move" | "setAvailability";
+
+/** Schema 0.7: a containment hierarchy as a tree, from its root types down through its node types. */
+export interface TreeViewDefinition {
+  key: string;
+  name: string;
+  type: "tree";
+  config: {
+    rootObjectTypeKeys: string[];
+    objectTypeKeys: string[];
+    labelField: string;
+    secondaryField?: string | null;
+    /** A branch's order per child type, as a list `sort` value; types without one sort by name. */
+    childSort?: Record<string, string>;
+    pageSize: number;
+    actions?: TreeAction[];
+    availabilityField?: string | null;
+  };
+}
+
+export type ViewDefinition =
+  TableViewDefinition | MappingGridViewDefinition | RelationMatrixViewDefinition | TreeViewDefinition;
 
 export interface BreadcrumbDefinition {
   showApplication: boolean;

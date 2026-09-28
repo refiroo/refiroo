@@ -5,18 +5,22 @@ from collections.abc import Sequence
 from ....common.json_pointer import pointer_segment
 from ....models.schema import (
     BUILT_IN_COLUMNS,
+    DETAIL_FIELD_KEYS,
     ApplicationDefinition,
     EngineModel,
     MappingGridViewDefinition,
     ObjectTypeAttributeDefinition,
+    ObjectTypeDefinition,
     ObjectTypeRelationDefinition,
     RelationMatrixViewConfig,
     RelationMatrixViewDefinition,
     TableViewDefinition,
+    TreeViewConfig,
+    TreeViewDefinition,
     ViewDefinition,
 )
 from ..diagnostics import ModelReferenceError
-from ..traversal import ancestor_type_keys
+from ..traversal import ancestor_type_keys, parent_type_keys
 from .detail_view_rules import check_details
 from .fields import check_fields, require_schema
 from .index import ModelIndex
@@ -44,6 +48,9 @@ def check(model: EngineModel, index: ModelIndex) -> None:
             elif isinstance(view, RelationMatrixViewDefinition):
                 require_schema(model, "0.7", f"{view_path}/type", "The relationMatrix view type")
                 _check_relation_matrix_view(application, view, view_path, model, index)
+            elif isinstance(view, TreeViewDefinition):
+                require_schema(model, "0.7", f"{view_path}/type", "The tree view type")
+                _check_tree_view(application, view, view_path, model, index)
         check_details(model, application, application_path, index)
 
 
@@ -478,6 +485,169 @@ def _cell_action_refusal(
     )
     if other_required:
         return f"'{config.cellObjectTypeKey}' also requires relations {other_required}"
+    return None
+
+
+# Built-in fields a tree branch can sort by, as the list query does.
+_TREE_SORT_BUILT_INS = {"id", "name", "createdAt", "updatedAt"}
+
+
+def _check_tree_view(
+    application: ApplicationDefinition,
+    view: TreeViewDefinition,
+    view_path: str,
+    model: EngineModel,
+    index: ModelIndex,
+) -> None:
+    """A tree shows records of its node types, from root records down through their containers.
+
+    Every node type must be reachable from a root type through containers the tree also shows, so no
+    record of a listed type is unreachable by expanding branches.
+    """
+    config = view.config
+    config_path = f"{view_path}/config"
+    label = f"Tree '{application.key}.{view.key}'"
+
+    _check_unique_fields(config.objectTypeKeys, view_path, "objectTypeKeys")
+    for position, key in enumerate(config.objectTypeKeys):
+        if key not in index.object_types:
+            raise ModelReferenceError(
+                "unknown_object_type",
+                f"{config_path}/objectTypeKeys/{position}",
+                f"{label} references unknown object type '{key}'",
+            )
+        if key not in application.objectTypeKeys:
+            raise ModelReferenceError(
+                "invalid_model",
+                f"{config_path}/objectTypeKeys/{position}",
+                f"{label} uses object type '{key}' outside application '{application.key}'",
+            )
+    node_types = set(config.objectTypeKeys)
+
+    _check_unique_fields(config.rootObjectTypeKeys, view_path, "rootObjectTypeKeys")
+    for position, key in enumerate(config.rootObjectTypeKeys):
+        root_path = f"{config_path}/rootObjectTypeKeys/{position}"
+        if key not in node_types:
+            raise ModelReferenceError(
+                "invalid_model",
+                root_path,
+                f"{label} root type '{key}' is not one of its objectTypeKeys",
+            )
+        if not index.object_types[key].features.get("rootCreatable"):
+            raise ModelReferenceError(
+                "invalid_model",
+                root_path,
+                f"{label} root type '{key}' cannot exist without a parent (rootCreatable)",
+            )
+
+    reached = set(config.rootObjectTypeKeys)
+    containers = {key: parent_type_keys(model, key) & node_types for key in node_types}
+    while grown := {key for key in node_types - reached if containers[key] & reached}:
+        reached |= grown
+    for position, key in enumerate(config.objectTypeKeys):
+        if key not in reached:
+            raise ModelReferenceError(
+                "invalid_model",
+                f"{config_path}/objectTypeKeys/{position}",
+                f"{label} node type '{key}' is not reachable from its root types through "
+                "parentRelationTypeKeys of the types it shows",
+            )
+
+    nodes = [index.object_types[key] for key in config.objectTypeKeys]
+    shared_scalars = set.intersection(*(_scalar_fields(node.attributes, index) for node in nodes))
+    if config.labelField != "name" and config.labelField not in shared_scalars:
+        raise ModelReferenceError(
+            "invalid_model",
+            f"{config_path}/labelField",
+            f"{label} labelField '{config.labelField}' is not 'name' or a scalar attribute "
+            "attached to every node type",
+        )
+    if (
+        config.secondaryField is not None
+        and config.secondaryField not in DETAIL_FIELD_KEYS
+        and config.secondaryField not in shared_scalars
+    ):
+        raise ModelReferenceError(
+            "invalid_model",
+            f"{config_path}/secondaryField",
+            f"{label} secondaryField '{config.secondaryField}' is not a built-in field or a "
+            "scalar attribute attached to every node type",
+        )
+
+    for key, sort in config.childSort.items():
+        sort_path = f"{config_path}/childSort/{pointer_segment(key)}"
+        if key not in node_types:
+            raise ModelReferenceError(
+                "invalid_model",
+                sort_path,
+                f"{label} childSort names '{key}', which is not one of its objectTypeKeys",
+            )
+        field = sort.removeprefix("-")
+        if field not in _TREE_SORT_BUILT_INS and field not in _scalar_fields(
+            index.object_types[key].attributes, index
+        ):
+            raise ModelReferenceError(
+                "invalid_model",
+                sort_path,
+                f"{label} cannot sort '{key}' by '{field}': it is not a sortable built-in field "
+                "or a scalar attribute attached to that type",
+            )
+
+    _check_unique_fields(config.actions, view_path, "actions")
+    if config.availabilityField is not None:
+        if "setAvailability" not in config.actions:
+            raise ModelReferenceError(
+                "invalid_model",
+                f"{config_path}/availabilityField",
+                f"{label} declares availabilityField without the setAvailability action",
+            )
+        for node in nodes:
+            binding = next(
+                (item for item in node.attributes if item.attributeTypeKey == config.availabilityField),
+                None,
+            )
+            if (
+                binding is None
+                or index.attribute_types[config.availabilityField].valueType != "boolean"
+            ):
+                raise ModelReferenceError(
+                    "invalid_model",
+                    f"{config_path}/availabilityField",
+                    f"{label} availabilityField '{config.availabilityField}' is not a boolean "
+                    f"attribute attached to '{node.key}'",
+                )
+    for position, action in enumerate(config.actions):
+        reason = _tree_action_refusal(action, config, nodes, containers)
+        if reason:
+            raise ModelReferenceError(
+                "invalid_model",
+                f"{config_path}/actions/{position}",
+                f"{label} cannot offer '{action}': {reason}",
+            )
+
+
+def _tree_action_refusal(
+    action: str,
+    config: TreeViewConfig,
+    nodes: Sequence[ObjectTypeDefinition],
+    containers: dict[str, set[str]],
+) -> str | None:
+    """Why a tree action could never succeed for this model, so no view offers it."""
+    if action in {"createChild", "move"} and not any(containers.values()):
+        return "no node type can contain another"
+    if action == "setAvailability":
+        if config.availabilityField is None:
+            return "it needs availabilityField"
+        return _read_only_on(config.availabilityField, nodes)
+    if action == "rename" and config.labelField != "name":
+        return _read_only_on(config.labelField, nodes)
+    return None
+
+
+def _read_only_on(field: str, nodes: Sequence[ObjectTypeDefinition]) -> str | None:
+    for node in nodes:
+        if any(item.attributeTypeKey == field and item.readOnly for item in node.attributes):
+            return f"'{field}' is read-only on '{node.key}'"
     return None
 
 

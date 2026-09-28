@@ -135,6 +135,18 @@ All notable changes to this project are documented in this file. The format foll
   a cell on the generated volume model. The accessibility and visual gates gain the relation matrix,
   its cell dialog and Filter popover in light and dark, with four reviewed baselines. Full-volume
   matrix reads measure 23–82 ms in every context, within the 100 ms budget.
+- Base 0.8 B1: the schema 0.7 `tree` view contract (D9). A tree declares its `rootObjectTypeKeys`, the
+  node types it shows (`objectTypeKeys`), a `labelField`, an optional `secondaryField`, a `childSort`
+  per node type, a `pageSize` and a closed `actions` set (`createChild`, `rename`, `move`,
+  `setAvailability`, the last with a boolean `availabilityField`). A node type unreachable from the
+  roots through the types the tree shows, a root type that cannot stand without a parent, a field
+  missing from a node type and an action that could never succeed are each refused at the failing
+  config node; schema 0.5 and 0.6 models refuse the view at its `type`. The view groups as a lens of
+  its first root type's collection and renders a placeholder until B3. The starter (still content
+  0.8.0) adds a system hierarchy (systems, recursive system groups, system values) and a domain
+  hierarchy (domains, codelists, master values); the generated volume model adds one over its groups,
+  items and deep node self-hierarchy. The Domains and Systems tables gain a lens switch; four visual
+  baselines were updated after inspection.
 
 ### Changed
 

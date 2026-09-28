@@ -178,8 +178,38 @@ class RelationMatrixViewDefinition(ModelDefinition):
     config: RelationMatrixViewConfig
 
 
+TreeAction = Literal["createChild", "rename", "move", "setAvailability"]
+
+
+class TreeViewConfig(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
+
+    rootObjectTypeKeys: tuple[str, ...] = Field(min_length=1)
+    objectTypeKeys: tuple[str, ...] = Field(min_length=1)
+    labelField: str
+    secondaryField: str | None = None
+    childSort: Mapping[str, str] = Field(default_factory=dict)
+    pageSize: int = Field(ge=1, le=100)
+    actions: tuple[TreeAction, ...] = ()
+    availabilityField: str | None = None
+
+
+class TreeViewDefinition(ModelDefinition):
+    """Schema 0.7: a containment hierarchy as a tree, from its root types down through its node types."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    name: str
+    type: Literal["tree"]
+    config: TreeViewConfig
+
+
 ViewDefinition = Annotated[
-    TableViewDefinition | MappingGridViewDefinition | RelationMatrixViewDefinition,
+    TableViewDefinition
+    | MappingGridViewDefinition
+    | RelationMatrixViewDefinition
+    | TreeViewDefinition,
     Field(discriminator="type"),
 ]
 

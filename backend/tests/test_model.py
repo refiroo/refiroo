@@ -40,6 +40,7 @@ def test_starter_model_is_valid():
         "table",
         "mappingGrid",
         "relationMatrix",
+        "tree",
     }
 
 
@@ -553,6 +554,8 @@ def test_mapping_grid_reports_duplicate_candidate_fields_at_their_config_path():
 def test_schema_05_rejects_mapping_grid_with_the_view_type_path():
     source = _mapping_grid_source()
     source["schemaVersion"] = "0.5"
+    for application in source["applications"]:
+        application["views"] = [view for view in application["views"] if view["type"] != "tree"]
     result = compile_model(source)
     assert not result.valid
     diagnostic = result.diagnostics[0]
@@ -734,8 +737,8 @@ def test_panel_sort_fields_must_not_be_empty():
     assert result.diagnostics[0].path.endswith("/relations/config/sortFields")
 
 
-def test_generated_volume_model_validates_with_its_relation_matrices():
-    """The generated model holds a matrix in each direction since Base 0.8 A2."""
+def test_generated_volume_model_validates_with_its_relation_matrices_and_tree():
+    """The generated model holds a matrix in each direction since Base 0.8 A2 and a tree since B1."""
     from volume_fixture import volume_model
 
     source = volume_model()
@@ -745,6 +748,8 @@ def test_generated_volume_model_validates_with_its_relation_matrices():
         "outgoing",
         "incoming",
     }
+    (tree,) = [view for view in views if view["type"] == "tree"]
+    assert tree["config"]["objectTypeKeys"] == ["vol-group", "vol-item", "vol-node"]
     assert compile_model(source).valid
 
 
@@ -829,23 +834,35 @@ def test_starter_relation_matrices_are_installed_and_active():
     assert matrix["config"]["direction"] == "incoming"
 
 
-def test_schema_06_refuses_relation_matrix_at_the_view_type_path():
+@pytest.mark.parametrize(
+    ("kept", "path", "feature"),
+    [
+        ("relationMatrix", _matrix_path("rdm-systems", "codelists-by-system"), "relationMatrix"),
+        ("tree", _matrix_path("rdm-master", "domain-hierarchy"), "tree"),
+    ],
+)
+def test_schema_06_refuses_each_07_view_type_at_its_type_path(kept, path, feature):
     source = load_model(MODEL_PATH).model_dump(mode="json")
     source["schemaVersion"] = "0.6"
     for application in source["applications"]:
+        application["views"] = [
+            view
+            for view in application["views"]
+            if view["type"] not in {"relationMatrix", "tree"} or view["type"] == kept
+        ]
         for detail in application["details"]:
             for panel in detail["panels"]:
                 panel["config"].pop("sortFields", None)
                 panel["config"].pop("defaultSort", None)
     result = compile_model(source)
     assert [(item.code, item.path) for item in result.diagnostics] == [
-        ("invalid_model", f"{_matrix_path('rdm-systems', 'codelists-by-system')}/type")
+        ("invalid_model", f"{path}/type")
     ]
-    assert "requires schema version 0.7" in result.diagnostics[0].message
+    assert f"The {feature} view type requires schema version 0.7" in result.diagnostics[0].message
 
 
 @pytest.mark.parametrize("schema_version", ["0.5", "0.6"])
-def test_earlier_schema_starters_without_the_matrix_still_validate(schema_version):
+def test_earlier_schema_starters_without_the_07_views_still_validate(schema_version):
     assert compile_model(starter_at_schema(schema_version)).valid
 
 
@@ -856,6 +873,8 @@ def _set(target, key, value):
 _TRANSLATIONS = ("rdm-translations", "master-value-translations")
 _REPRESENTATIONS = ("rdm-systems", "codelists-by-system")
 _MAPPINGS = ("rdm-systems", "master-values-by-system")
+_DOMAINS = ("rdm-master", "domain-hierarchy")
+_SYSTEMS = ("rdm-systems", "system-hierarchy")
 
 
 @pytest.mark.parametrize(
@@ -993,6 +1012,9 @@ def test_relation_matrix_rules_reject_at_the_failing_node(view, change, code, pa
 
 def test_relation_matrix_edit_needs_one_writable_cell_field():
     source = load_model(MODEL_PATH).model_dump(mode="json")
+    # The system tree's availability toggle would fail first on a read-only 'active'.
+    del _matrix(source, *_SYSTEMS)["config"]["actions"]
+    del _matrix(source, *_SYSTEMS)["config"]["availabilityField"]
     for field in ("value-code", "value-name", "active"):
         _attribute(source, "system-value", field)["readOnly"] = True
     result = compile_model(source)
@@ -1054,3 +1076,273 @@ def test_relation_matrix_accepts_a_differently_keyed_model():
     renamed = json.loads(text)
     assert compile_model(renamed).valid
     assert _matrix(renamed)["config"]["columnObjectTypeKey"] == "market"
+
+
+# --- Schema 0.7: tree view contract (Base 0.8 B1) ---
+
+def _tree(source, app_key="rdm-systems", view_key="system-hierarchy"):
+    return _matrix(source, app_key, view_key)
+
+
+def test_starter_trees_cover_a_recursive_mixed_hierarchy_and_a_typed_chain():
+    model = load_model(MODEL_PATH)
+    trees = {
+        (application.key, view.key): view.config
+        for application in model.applications
+        for view in application.views
+        if view.type == "tree"
+    }
+    assert {key: (c.rootObjectTypeKeys, c.objectTypeKeys) for key, c in trees.items()} == {
+        _DOMAINS: (("domain",), ("domain", "codelist", "master-value")),
+        _SYSTEMS: (("system",), ("system", "system-group", "system-value")),
+    }
+    for config in trees.values():
+        assert config.actions == ("createChild", "rename", "move", "setAvailability")
+        assert config.availabilityField == "active"
+
+
+def test_starter_trees_are_installed_and_active():
+    """The lifespan installs and activates the starter; its trees reach the served model."""
+    with TestClient(create_app()) as client:
+        served = client.get("/api/v1/model").json()
+    tree = _tree(served)
+    assert tree["type"] == "tree"
+    assert tree["config"]["childSort"] == {"system": "system-code", "system-value": "value-code"}
+
+
+@pytest.mark.parametrize(
+    ("view", "change", "code", "path", "message"),
+    [
+        (
+            _SYSTEMS,
+            lambda s, c: _set(c, "objectTypeKeys", ["system", "nonexistent"]),
+            "unknown_object_type",
+            "/config/objectTypeKeys/1",
+            "unknown object type",
+        ),
+        (
+            _SYSTEMS,
+            lambda s, c: _set(c, "objectTypeKeys", ["system", "system-group", "language"]),
+            "invalid_model",
+            "/config/objectTypeKeys/2",
+            "outside application",
+        ),
+        (
+            _SYSTEMS,
+            lambda s, c: _set(c, "objectTypeKeys", ["system", "system", "system-group"]),
+            "duplicate_key",
+            "/config/objectTypeKeys",
+            "unique",
+        ),
+        (
+            _SYSTEMS,
+            lambda s, c: _set(c, "rootObjectTypeKeys", ["codelist"]),
+            "invalid_model",
+            "/config/rootObjectTypeKeys/0",
+            "not one of its objectTypeKeys",
+        ),
+        (
+            _SYSTEMS,
+            lambda s, c: _set(c, "rootObjectTypeKeys", ["system", "system-group"]),
+            "invalid_model",
+            "/config/rootObjectTypeKeys/1",
+            "cannot exist without a parent",
+        ),
+        (
+            # Master values sit under codelists, which this tree does not show.
+            _DOMAINS,
+            lambda s, c: _set(c, "objectTypeKeys", ["domain", "master-value"]),
+            "invalid_model",
+            "/config/objectTypeKeys/1",
+            "not reachable from its root types",
+        ),
+        (
+            # A type from the application that no shown type contains.
+            _SYSTEMS,
+            lambda s, c: _set(c, "objectTypeKeys", ["system", "system-group", "codelist"]),
+            "invalid_model",
+            "/config/objectTypeKeys/2",
+            "not reachable from its root types",
+        ),
+        (
+            # Every node type needs the label; system codes are on systems only.
+            _SYSTEMS,
+            lambda s, c: _set(c, "labelField", "system-code"),
+            "invalid_model",
+            "/config/labelField",
+            "attached to every node type",
+        ),
+        (
+            _SYSTEMS,
+            lambda s, c: _set(c, "labelField", "objectType"),
+            "invalid_model",
+            "/config/labelField",
+            "is not 'name'",
+        ),
+        (
+            _SYSTEMS,
+            lambda s, c: _set(c, "secondaryField", "description"),
+            "invalid_model",
+            "/config/secondaryField",
+            "attached to every node type",
+        ),
+        (
+            _SYSTEMS,
+            lambda s, c: c["childSort"].update({"codelist": "name"}),
+            "invalid_model",
+            "/config/childSort/codelist",
+            "not one of its objectTypeKeys",
+        ),
+        (
+            _SYSTEMS,
+            lambda s, c: c["childSort"].update({"system-group": "-value-code"}),
+            "invalid_model",
+            "/config/childSort/system-group",
+            "cannot sort 'system-group' by 'value-code'",
+        ),
+        (
+            _SYSTEMS,
+            lambda s, c: c["childSort"].update({"system-group": "path"}),
+            "invalid_model",
+            "/config/childSort/system-group",
+            "by 'path'",
+        ),
+        (
+            _SYSTEMS,
+            lambda s, c: _set(c, "actions", ["move", "move"]),
+            "duplicate_key",
+            "/config/actions",
+            "unique",
+        ),
+        (
+            _SYSTEMS,
+            lambda s, c: _set(c, "actions", ["rename"]),
+            "invalid_model",
+            "/config/availabilityField",
+            "without the setAvailability action",
+        ),
+        (
+            _SYSTEMS,
+            lambda s, c: c.pop("availabilityField"),
+            "invalid_model",
+            "/config/actions/3",
+            "needs availabilityField",
+        ),
+        (
+            _SYSTEMS,
+            lambda s, c: _set(c, "availabilityField", "system-type"),
+            "invalid_model",
+            "/config/availabilityField",
+            "not a boolean attribute attached to 'system'",
+        ),
+        (
+            # Hierarchical is a boolean of codelists only.
+            _DOMAINS,
+            lambda s, c: _set(c, "availabilityField", "hierarchical"),
+            "invalid_model",
+            "/config/availabilityField",
+            "attached to 'domain'",
+        ),
+    ],
+)
+def test_tree_rules_reject_at_the_failing_node(view, change, code, path, message):
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    change(source, _tree(source, *view)["config"])
+    result = compile_model(source)
+    assert [(item.code, item.path) for item in result.diagnostics] == [
+        (code, f"{_matrix_path(*view)}{path}")
+    ]
+    assert message in result.diagnostics[0].message
+
+
+def test_tree_node_type_reachable_only_through_a_recursive_container_is_accepted():
+    """System values under groups only still reach the system root through the group hierarchy."""
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    system_value = next(o for o in source["objectTypes"] if o["key"] == "system-value")
+    system_value["behavior"]["parentRelationTypeKeys"] = ["system-group-contains-value"]
+    assert compile_model(source).valid
+    _tree(source)["config"]["objectTypeKeys"] = ["system", "system-value"]
+    result = compile_model(source)
+    assert [(item.code, item.path) for item in result.diagnostics] == [
+        ("invalid_model", f"{_matrix_path(*_SYSTEMS)}/config/objectTypeKeys/1")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("action", "field", "position"),
+    [("rename", "value-code", 1), ("setAvailability", "active", 3)],
+)
+def test_tree_edit_actions_need_a_writable_field_on_every_node_type(action, field, position):
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    config = _tree(source)["config"]
+    config["objectTypeKeys"] = ["system", "system-value"]
+    config["childSort"] = {}
+    config["rootObjectTypeKeys"] = ["system"]
+    if action == "rename":
+        # A label other than the name is renamed through its attribute.
+        config["labelField"] = "value-code"
+        system = next(o for o in source["objectTypes"] if o["key"] == "system")
+        system["attributes"].append({"attributeTypeKey": "value-code", "order": 90})
+    _attribute(source, "system-value", field)["readOnly"] = True
+    result = compile_model(source)
+    assert [(item.code, item.path) for item in result.diagnostics] == [
+        ("invalid_model", f"{_matrix_path(*_SYSTEMS)}/config/actions/{position}")
+    ]
+    assert f"'{field}' is read-only on 'system-value'" in result.diagnostics[0].message
+
+
+def test_tree_of_roots_alone_is_read_only_or_rename_only():
+    """With no containment among its types, a tree cannot add children or move records."""
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    config = _tree(source)["config"]
+    config.update(objectTypeKeys=["system"], childSort={}, actions=["rename", "move"])
+    del config["availabilityField"]
+    result = compile_model(source)
+    assert [(item.code, item.path) for item in result.diagnostics] == [
+        ("invalid_model", f"{_matrix_path(*_SYSTEMS)}/config/actions/1")
+    ]
+    assert "no node type can contain another" in result.diagnostics[0].message
+    config["actions"] = ["rename"]
+    assert compile_model(source).valid
+    del config["actions"]
+    config.pop("secondaryField")
+    assert compile_model(source).valid
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("pageSize", 0),
+        ("pageSize", 101),
+        ("rootObjectTypeKeys", []),
+        ("objectTypeKeys", []),
+        ("actions", ["delete"]),
+        ("endpoint", "/internal"),
+    ],
+)
+def test_tree_shape_is_strict(field, value):
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    _tree(source)["config"][field] = value
+    result = compile_model(source)
+    assert not result.valid
+    assert f"/tree/config/{field}" in result.diagnostics[0].path
+
+
+def test_tree_accepts_a_differently_keyed_model():
+    """Nothing in the rules names the starter's keys: rename them all and both trees hold."""
+    source = load_model(MODEL_PATH).model_dump(mode="json")
+    renames = {
+        "system": "channel",
+        "system-group": "channel-folder",
+        "system-value": "listing",
+        "domain": "department",
+        "codelist": "catalogue",
+        "master-value": "item",
+    }
+    text = json.dumps(source)
+    for old, new in renames.items():
+        text = text.replace(f'"{old}"', f'"{new}"').replace(f'"ancestor:{old}"', f'"ancestor:{new}"')
+    renamed = json.loads(text)
+    assert compile_model(renamed).valid
+    assert _tree(renamed)["config"]["objectTypeKeys"] == ["channel", "channel-folder", "listing"]
+    assert _tree(renamed, *_DOMAINS)["config"]["rootObjectTypeKeys"] == ["department"]

@@ -410,4 +410,49 @@ describe("relation matrix lens grouping (Base 0.8 A1, A4)", () => {
     expect(onViewChange).toHaveBeenCalledWith(table.toLowerCase());
     expect(api.objects).not.toHaveBeenCalled();
   });
+
+  it.each([
+    ["domain", ["domain", "codelist"], "A tree of domains and codelists is not available yet."],
+    ["codelist", ["codelist"], "A tree of codelists is not available yet."],
+  ])("renders a tree rooted at %s as a placeholder lens beside that type's table", (root, nodes, text) => {
+    const model = structuredClone(testModel);
+    const application = model.applications[0];
+    application.views = [
+      ...application.views,
+      {
+        key: "codelists",
+        name: "Codelists",
+        type: "table",
+        objectTypeKey: "codelist",
+        config: { columns: ["name"], filterFields: ["name"], sortFields: ["name"], defaultSort: "name", pageSize: 20 },
+      },
+      {
+        key: "tree",
+        name: "Records tree",
+        type: "tree",
+        config: { rootObjectTypeKeys: [root], objectTypeKeys: nodes, labelField: "name", pageSize: 50 },
+      },
+    ];
+    const onViewChange = vi.fn();
+    render(
+      <CollectionView
+        model={model}
+        application={application}
+        view={application.views[2]}
+        workspaceKey="west"
+        query={{ search: "", sort: "name", pageSize: 20, filters: [] }}
+        onQueryChange={vi.fn()}
+        onViewChange={onViewChange}
+        onOpen={vi.fn()}
+      />,
+    );
+    expect(screen.getByRole("heading", { level: 1, name: "Records tree" })).toBeInTheDocument();
+    expect(screen.getByText(text)).toBeInTheDocument();
+    const lenses = screen.getByRole("navigation", { name: "Collection lenses" });
+    expect(within(lenses).getByRole("button", { name: "Records tree" })).toHaveAttribute("aria-current", "page");
+    const table = root === "domain" ? "Domains" : "Codelists";
+    fireEvent.click(within(lenses).getByRole("button", { name: table }));
+    expect(onViewChange).toHaveBeenCalledWith(table.toLowerCase());
+    expect(api.objects).not.toHaveBeenCalled();
+  });
 });

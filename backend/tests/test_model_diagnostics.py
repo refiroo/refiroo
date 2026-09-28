@@ -225,6 +225,8 @@ def _detail_not_available_in_application(m):
     app = next(a for a in m["applications"] if a.get("details"))
     keys = [k for k in app["objectTypeKeys"] if k != app["details"][0]["objectTypeKey"]]
     app["objectTypeKeys"] = keys
+    # A tree over the removed type would fail first, at its own node type.
+    app["views"] = [v for v in app["views"] if v["type"] != "tree"]
 
 
 def _detail_header_duplicate_fields(m):

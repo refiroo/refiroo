@@ -13,6 +13,7 @@ const lensIcons: Record<ViewDefinition["type"], IconName> = {
   table: "table",
   mappingGrid: "mapping",
   relationMatrix: "matrix",
+  tree: "tree",
 };
 
 export function CollectionView(props: ViewComponentProps) {

@@ -8,7 +8,8 @@ packages A1–A5 and B1–B4; P2 is scheduled after W2 (D20); R1 owns build acce
 (2026-09-27) with D8 and D9 accepted. A2, A3 and A3b are delivered (2026-09-27) with D10–D13
 accepted; A3b's stored cell states closed A2's budget exception for the row state filter. A4 and A5
 are delivered (2026-09-28), and A6 (snapshot table index drift, found in A2) with D28 accepted
-(2026-09-28), which completes Milestone A. D14 (Milestone B) is proposed, not yet accepted; see the [summary](#decisions-summary).
+(2026-09-28), which completes Milestone A. B1 is delivered (2026-09-28); D14 is accepted (2026-09-28), and
+D29 and D30 decide A6's two open measurements; see the [summary](#decisions-summary).
 
 **Target:** Product 0.8.0. Track S does not change the schema language. Milestones A and B add
 schema language 0.7 (`relationMatrix` and `tree` views); the starter model becomes content release
@@ -2036,8 +2037,9 @@ _Found on the way, not index drift, left open:_ moving a first-level container (
 the outgoing matrix under it) in a change set takes 5–9 s; the time is A3b's recompute of the cell
 states of every affected row, about 110 statements of which the slowest take 0.5–0.8 s each. A link
 candidate page over a column of about 5,000 cells takes 92 ms live and 160 ms in a change set,
-because its name order and total read every cell under the column. Neither was in a budget before;
-both are recorded in `TODO.md` for scheduling.
+because its name order and total read every cell under the column. Neither was in a budget before.
+**Decided 2026-09-28:** the move is measured in B2 (D29); the candidate page is a known 0.8 budget
+exception (D30).
 
 Checks: `tests/test_schema_drift.py` (3: the migrated database equals the ORM, the search indexes
 equal `create_all`'s, and the comparison names a dropped and an undeclared index) and
@@ -2097,6 +2099,35 @@ the tree.
 **Exit:** as A1, for the tree contract; a view whose node type is unreachable from its roots is
 rejected at that type's pointer.
 
+**B1 delivered 2026-09-28.** `_check_tree_view` applies the rules; reachability is a walk down from
+the root types over containers the tree itself shows, so a type the application holds but no shown
+type contains is refused at its `objectTypeKeys` entry. Decided on the way, within the scope above,
+and confirmed 2026-09-28:
+root types must be listed among `objectTypeKeys` and be `rootCreatable`; `labelField`,
+`secondaryField` and `availabilityField` must be available on every node type; `availabilityField`
+without `setAvailability` is refused rather than ignored. "Declared sortable" for `childSort` means
+what the list query sorts by (built-ins and non-JSON attributes of that type), because D24 retired the
+`sortable` flag. Actions follow A1's "could it ever succeed" rule: `createChild` and `move` need a node
+type that contains another, and `rename` and `setAvailability` a field writable on every node type.
+The starter trees are `rdm-master.domain-hierarchy` and `rdm-systems.system-hierarchy`; the volume
+model's is `vol-catalogue.hierarchy` (no availability action: its types have no boolean). The content
+release stays 0.8.0, so a database that installed the earlier 0.8.0 content refuses to start with a
+release identity conflict until it is re-bootstrapped, as after A1. Three existing tests whose
+mutations now trip a tree first were narrowed to keep testing their own rule.
+
+Checks: `pytest tests/test_model.py` (each rule with its exact pointer over both starter trees, a node
+type reachable only through a recursive container, writable-field refusals, a tree of roots alone,
+strict shape, a renamed-keys model, 0.6 refusing each 0.7 view type, the 0.5/0.6 starters, the served
+starter and the generated model), `-m "model or contract"` (229 passed, OpenAPI lock unchanged),
+`test_model_schema_upgrade.py`, `test_translations.py` and `ruff check app/ tests/`; Vitest
+`model.test.ts` (grouping under the first root type) and `CollectionView.test.tsx` (the placeholder
+lens for two root types); frontend format, lint (0 errors, the 8 recorded warnings) and build.
+`test:visual` passes after the `collection-table-domain-light`/`-dark`,
+`collection-table-system-light` and `change-set-editing-light` baselines were updated for the new lens
+switch after inspection. A one-off harness check opened both starter tree placeholders by keyboard at
+1440px and 390px (no overflow, axe clean) and its screenshots were inspected. Not run: `test:a11y` and
+a registered runner for the placeholder, which B3 replaces with the real lens and B4 covers.
+
 #### B2: Move targets and path context
 
 **Scope:**
@@ -2112,7 +2143,9 @@ rejected at that type's pointer.
 4. Confirm that `path` on object reads is correct in draft and history contexts after S2, including a
    record whose parent changed in the draft; fix it if not.
 5. Moving a record with 20,000 descendants (S1 fixture) stays within the single-record write budget,
-   live and in a draft, because only the moved record's parent and edge change.
+   live and in a draft, because only the moved record's parent and edge change. Measure also a move
+   of a container that holds about 2,500 relation matrix cells, live and in a change set, and fix it
+   or record it as a known budget exception (D29).
 6. Tests: every refusal reason; a draft move that the draft makes valid but live makes cyclic,
    refused at activation with the draft kept; moving across types in a mixed hierarchy. Update API.md
    and the OpenAPI lock.
@@ -2178,11 +2211,11 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | ID | Question | Recommendation | Blocking |
 | --- | --- | --- | --- |
 | D1 | Typed values for draft/history queries: JSON extraction or typed value rows? | **Accepted 2026-09-25:** typed value rows, mirroring live | S2 |
-| D2 | Window size and prefetch distance | 5 pages kept; prefetch one page from either edge; a code constant, not model configuration | S5 |
-| D3 | Branch with several child types: mixed endpoint or one list per type? | One list per child-type group, matching the existing collection groups | S4, S6 |
-| D4 | Does a view's `pageSize` keep its meaning? | Yes: it becomes the fetch size; no schema change | S5 |
-| D5 | Totals on every page or on request? | On request (`includeTotal`); the UI asks on first load, after a query change and with position jumps | S3 |
-| D6 | Relation sort keys | Related record's name and relation creation order; related-type fields later if needed | S4 |
+| D2 | Window size and prefetch distance | **Accepted 2026-09-28 as delivered in S5:** 5 pages kept; prefetch one page from either edge; a code constant, not model configuration | S5 |
+| D3 | Branch with several child types: mixed endpoint or one list per type? | **Accepted 2026-09-28 as delivered in S4 and S6:** one list per child-type group, matching the existing collection groups | S4, S6 |
+| D4 | Does a view's `pageSize` keep its meaning? | **Accepted 2026-09-28 as delivered in S5:** yes, it becomes the fetch size; no schema change | S5 |
+| D5 | Totals on every page or on request? | **Accepted 2026-09-28 as delivered in S3:** on request (`includeTotal`); the UI asks on first load, after a query change and with position jumps | S3 |
+| D6 | Relation sort keys | **Accepted 2026-09-28 as delivered in S4:** related record's name and relation creation order; related-type fields later if needed | S4 |
 | D7 | Draft writes still load the whole membership | **Measured in S1:** over budget (7.6 s per rename at full volume). **S2:** 4.7 s after reads moved to SQL; follow-up slice S2b scoped. **S2b:** 7.5 ms | S2b |
 | D8 | A view type for the translation task, or a generic one? | **Accepted 2026-09-27 (A1, corrected):** a generic `relationMatrix` — rows, columns of an ancestor type, cells of related records through one binding in either direction — with a closed `cellActions` set. Translations are one starter configuration; system representations and cross-system mapping are two more (COMPOSABLE_DOMAINS admission tests) | A1 |
 | D9 | Schema 0.7 if only one milestone ships | **Accepted 2026-09-27 (A1):** each view type is added by its own package; a cut milestone's type is removed before release | A1, B1 |
@@ -2190,7 +2223,7 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D11 | Cell states | `one`, `several` (a conflict only when the binding's uniqueness scope is the column type), `inactive` (only with a binding condition), `historyOnly`, `none`, all derived from the binding. `historyOnly` means a publication of this workspace held one. **Accepted 2026-09-27 as delivered in A2.** Condition and conflict apply only read `outgoing` | A2 |
 | D12 | Resolving a cell record's column for the row state filter | A recursive query down from the selected column records, measured in A2. A stored ancestor table only if the measurement is over budget, as a scoped follow-up. **Measured in A2: over budget** (seconds over 50,000 cells); a stored ancestor table alone would not meet it, a stored per-cell state likely would. **Decided 2026-09-27:** A2 closes with the recursive filter as a temporary budget exception; a stored per-cell state maintained by writes replaces it in A3b, before A4 | A2, A3b |
 | D13 | Which container a new cell record goes into | The user picks the column record or a container under it; preselected when there is exactly one. No model default. **Accepted 2026-09-27 as delivered in A3** (`defaultContainerId` on the containers read); the preselection is A4's | A3, A4 |
-| D14 | Ineligible move targets | Listed but disabled, with a reason, so totals stay truthful and the user sees why | B2, B3 |
+| D14 | Ineligible move targets | **Accepted 2026-09-28:** listed but disabled, with a machine-readable reason (`self`, `descendant`, `currentParent`), so totals stay truthful and the user sees why | B2, B3 |
 | D15 | When does the W2 rename land? | **Accepted 2026-09-25:** after S7 (draft and revision tables stable after S2) and before A2 and B2, so new endpoints use the new names | W2, A2, B2 |
 | D16 | Name of the snapshot a change set publishes | **Accepted 2026-09-25:** **Publication**, referred to as "Publication N" by its per-workspace counter, which continues across model releases; date and model release are secondary. "Version" is avoided because record, change-set and model-release versions already use it | W1, W2 |
 | D17 | Is split deployment (admin and public instance on one database) verified in 0.8? | **Accepted 2026-09-25:** no, it stays a documented, unsupported topology until 0.10 multi-node work; the suspected write-versus-activation race it exposed is investigated in 0.8 as W5 because it may affect one process too | W5 |
@@ -2205,3 +2238,5 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D27 | Can a workspace be deleted? (ADR-019 said never) | **Accepted 2026-09-26:** yes, to correct a mistyped key, when it is not the default, has no objects and no change sets, and was never published; a published workspace is retired instead because publications are never removed. No audit event, matching the unaudited create, rename and retire; the key may be reused | W6 |
 | D28 | Index declarations that no migration creates on the snapshot tables (A6) | Per index: create it, replace it with an owner-leading composite the reads need, or drop the declaration where an existing index serves it, decided from query plans and the volume baseline; a drift test keeps a migrated schema equal to the ORM. **Accepted 2026-09-28 as delivered in A6:** change set objects gain (owner, type, name, object) and (owner, parent, type, name, object); the other eight declarations are removed because owner-leading indexes already serve every read | A6 |
 | D24 | Which columns sort | **Accepted 2026-09-26 (S4R3 review):** every data column sorts from its header, whatever the attribute's `sortable` flag, including Type and Relationship by their labels; every list shows the same toolbar Sort menu; D21's `sortFields` only add menu fields and `defaultSort` chooses the order. Exceptions: Actions, the computed path, JSON attributes and unrecorded timestamps | S4R3 |
+| D29 | Moving a container of about 2,500 matrix cells in a change set takes 5–9 s (A3b cell state recompute, found in A6) | **Accepted 2026-09-28:** measured in B2 beside its deep-move budget, because a tree move of a container (a system group to another system) takes the same path; B2 either brings it within the single-record write budget or records it as a known 0.8 budget exception | B2 |
+| D30 | A link candidate page over a column of about 5,000 cells takes 92 ms live and 160 ms in a change set (found in A6) | **Accepted 2026-09-28:** a known 0.8 budget exception, as D26; the name order and total read every cell under the column only at an unusual column size. Revisit with precomputed sort keys (0.10 or later) | — |

@@ -69,6 +69,27 @@ describe("collection lens helpers", () => {
     expect(groups[0].defaultView.key).toBe("domains");
   });
 
+  it("groups a tree under its first root type, beside that type's table", () => {
+    const application = structuredClone(testModel.applications[0]);
+    for (const roots of [
+      ["domain", "codelist"],
+      ["codelist", "domain"],
+    ]) {
+      application.views.push({
+        key: `${roots[0]}-tree`,
+        name: `${roots[0]} tree`,
+        type: "tree",
+        config: { rootObjectTypeKeys: roots, objectTypeKeys: ["domain", "codelist"], labelField: "name", pageSize: 50 },
+      });
+    }
+    const groups = collectionGroups(application);
+    expect(groups.map((group) => [group.objectTypeKey, group.views.map((view) => view.key)])).toEqual([
+      ["domain", ["domains", "domain-tree"]],
+      ["codelist", ["codelist-tree"]],
+    ]);
+    expect(groups[0].defaultView.key).toBe("domains");
+  });
+
   it("derives contextual child collections only from configured containment", () => {
     const model = structuredClone(testModel);
     model.relationTypes[0].features.parentOf = true;

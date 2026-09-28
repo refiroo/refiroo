@@ -253,7 +253,26 @@ def volume_model() -> dict[str, Any]:
                 "name": "Volume catalogue",
                 "objectTypeKeys": [GROUP, ITEM, NODE],
                 "defaultView": "groups",
-                "views": [table("groups", GROUP), table("items", ITEM), table("nodes", NODE)],
+                "views": [
+                    table("groups", GROUP),
+                    {
+                        # Base 0.8 B1: mixed types under a group, then the deep node self-hierarchy.
+                        "key": "hierarchy",
+                        "name": "hierarchy",
+                        "type": "tree",
+                        "config": {
+                            "rootObjectTypeKeys": [GROUP],
+                            "objectTypeKeys": [GROUP, ITEM, NODE],
+                            "labelField": "name",
+                            "secondaryField": CODE,
+                            "childSort": {NODE: RANK},
+                            "pageSize": 50,
+                            "actions": ["createChild", "rename", "move"],
+                        },
+                    },
+                    table("items", ITEM),
+                    table("nodes", NODE),
+                ],
             },
             {
                 "key": MATRIX_APPLICATION,

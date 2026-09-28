@@ -205,7 +205,8 @@ groups views by their source object type and presents them as lenses of one cont
 - `table.objectTypeKey` is the source type;
 - an outgoing `mappingGrid` uses `fromObjectTypeKey`;
 - an incoming `mappingGrid` uses `toObjectTypeKey`;
-- a `relationMatrix` uses `rowObjectTypeKey`.
+- a `relationMatrix` uses `rowObjectTypeKey`;
+- a `tree` uses its first `rootObjectTypeKeys` entry.
 
 This is a backwards-compatible presentation rule, not a new model field. It lets an arbitrary
 application expose several configured tasks for one collection without multiplying primary navigation.
@@ -214,7 +215,7 @@ interaction still requires a typed generic view contract and renderer. Explicit 
 composition is deferred until real models show that source-type grouping is insufficient.
 
 Schema 0.5 supports the strict `table` contract. Schema 0.6 adds the `mappingGrid` contract for
-mapping coverage views, and schema 0.7 the `relationMatrix` contract. Each view type has an extra-forbidden configuration that rejects unknown
+mapping coverage views, and schema 0.7 the `relationMatrix` and `tree` contracts. Each view type has an extra-forbidden configuration that rejects unknown
 properties. Configuration refers to stable object, attribute and relation keys—never backend URLs or
 database IDs.
 
@@ -332,6 +333,56 @@ browser lens: a grid of the rows by the column records, each cell's state with a
 a Filter popover for the columns shown and a cell state, and a cell dialog offering only the view's
 `cellActions`.
 
+### Tree view (`type: "tree"`, schema 0.7)
+
+A tree shows a containment hierarchy: records of its root types that have no parent, and beneath each
+record its children of the node types the tree shows, one branch list per child type. The same
+contract serves a recursive self-hierarchy with values beneath it (systems and system groups), a chain
+of different types (domains, codelists, master values) and a catalogue's category tree.
+Configuration:
+
+```json
+{
+  "key": "system-hierarchy",
+  "name": "System hierarchy",
+  "type": "tree",
+  "config": {
+    "rootObjectTypeKeys": ["system"],
+    "objectTypeKeys": ["system", "system-group", "system-value"],
+    "labelField": "name",
+    "secondaryField": "objectType",
+    "childSort": { "system": "system-code", "system-value": "value-code" },
+    "pageSize": 50,
+    "actions": ["createChild", "rename", "move", "setAvailability"],
+    "availabilityField": "active"
+  }
+}
+```
+
+| Field | Description |
+| --- | --- |
+| `rootObjectTypeKeys` | Non-empty and unique; each is one of `objectTypeKeys` and `rootCreatable`, so its records can stand without a parent |
+| `objectTypeKeys` | The node types shown; non-empty and unique, each belonging to the application and reachable from a root type through `parentRelationTypeKeys` of types the tree shows |
+| `labelField` | `name` or a non-JSON attribute attached to every node type |
+| `secondaryField` | Optional; a built-in field (`id`, `name`, `path`, `objectType`, timestamps) or a non-JSON attribute attached to every node type |
+| `childSort` | Optional map from a node type to a list `sort` value for its branches: `id`, `name`, `createdAt`, `updatedAt` or a non-JSON attribute of that type, `-` for descending. A type without an entry sorts by name (D22) |
+| `pageSize` | 1–100; the branch fetch size |
+| `actions` | Optional, unique, from `createChild`, `rename`, `move`, `setAvailability`; absent or empty is read-only |
+| `availabilityField` | A boolean attribute attached to every node type; required by, and only allowed with, `setAvailability` |
+
+An action is refused at `…/config/actions/<n>` when it could never succeed for the model:
+
+- `createChild` and `move` when no node type can contain another;
+- `rename` when `labelField` is an attribute that is read-only on a node type (renaming a `name`
+  label edits the name);
+- `setAvailability` without `availabilityField`, or when that field is read-only on a node type.
+
+Every other failing rule points at the config field it concerns (`…/config/objectTypeKeys/2` for an
+unreachable node type, `…/config/childSort/<type>` for one sort). The sortable built-ins and
+attributes are exactly those a list sorts by; an attribute's `sortable` flag is not consulted (D24).
+Base 0.8 B1 delivers the contract with a placeholder lens; B2 adds the move-target query and B3 the
+tree lens with its actions.
+
 ### Planned 0.7 consumption of the frozen mapping-grid contract
 
 WP-4 identifies `applicationKey`/`viewKey` under the effective live or change-set-pinned model to resolve
@@ -435,7 +486,7 @@ stable model keys and presentation semantics; the React API adapter owns all bac
 Schema 0.4 added object-level cross-field validation, required initial relationships and scoped
 relationship uniqueness to the 0.3 detail-composition contract. Schema 0.5 adds strict typed table
 views. Schema 0.6 adds the `mappingGrid` view type. Schema 0.7 adds relations-panel sort options
-(`sortFields`, `defaultSort`) and the `relationMatrix` view type. `release.version` versions one model package.
+(`sortFields`, `defaultSort`) and the `relationMatrix` and `tree` view types. `release.version` versions one model package.
 Each distinct
 validated model is installed as an immutable database release identified by its content hash.
 

@@ -108,6 +108,18 @@ it is not kept as a runner because A4 replaces the surface and owns its runner, 
 visual scenarios. The two systems shell baselines were updated for the sidebar's new **Codelists**
 and **Master values** entries after inspection; no other baseline changed beyond noise.
 
+### Surfaces added or materially changed in 0.8 Milestone B
+
+| # | Surface (package) | Navigation | Reference | Load | Populated / empty | Pending | Success | Invalid / refused | Conflict | Dependency failure → retry | Narrow | Keyboard / focus | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| B1 | Tree lens placeholder (replaced by B3) | lens switch on the **Domains** (RDM Master) or **Systems** (RDM Systems) collection; `/apps/<app>/views/<tree view>` | The A1 matrix placeholder: page heading, lens switch, empty-state message naming the node types from the model | n/a (reads nothing) | n/a | n/a | n/a | n/a | n/a | n/a | **B** (390px, no overflow) | **B** (lens opened by keyboard) | `CollectionView.test` (two root types), `model.test` (grouping); one-off harness check below; `test:visual` baselines `collection-table-domain-*`, `collection-table-system-light`, `change-set-editing-light` updated for the lens switch |
+
+The placeholder reads nothing and writes nothing, so it has no load, pending, success, refused,
+conflict or retry state. Its browser evidence is a one-off harness check (2026-09-28): both starter
+trees opened by keyboard from their table's lens switch at 1440px and 390px, no horizontal overflow,
+and axe clean at both widths. It is not kept as a runner because B3 replaces the surface and B4 owns
+its runner, accessibility and visual scenarios.
+
 ## 3. Selected focused browser checks
 
 Selected by risk to the user's job (losing an unsaved choice, silently overwriting a newer mapping,
