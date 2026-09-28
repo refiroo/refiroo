@@ -50,6 +50,8 @@ WORKSPACE = "vol-workspace"
 GROUP, ITEM, NODE = "vol-group", "vol-item", "vol-node"
 GROUP_CONTAINS_ITEM = "vol-group-contains-item"
 GROUP_CONTAINS_NODE = "vol-group-contains-node"
+# Base 0.8 B2: groups may nest, so the heavy group and its 20,000 items can move.
+GROUP_HAS_CHILD = "vol-group-has-child"
 NODE_HAS_CHILD = "vol-node-has-child"
 ITEM_CITES_GROUP = "vol-item-cites-group"
 CODE, RANK = "vol-code", "vol-rank"
@@ -167,7 +169,7 @@ def volume_model() -> dict[str, Any]:
             },
         ],
         "objectTypes": [
-            object_type(GROUP, [], True),
+            object_type(GROUP, [GROUP_HAS_CHILD], True),
             object_type(ITEM, [GROUP_CONTAINS_ITEM], False),
             object_type(NODE, [GROUP_CONTAINS_NODE, NODE_HAS_CHILD], False),
             object_type(COLUMN, [], True),
@@ -177,6 +179,7 @@ def volume_model() -> dict[str, Any]:
         "relationTypes": [
             relation_type(GROUP_CONTAINS_ITEM, parentOf=True),
             relation_type(GROUP_CONTAINS_NODE, parentOf=True),
+            relation_type(GROUP_HAS_CHILD, parentOf=True, hierarchical=True),
             relation_type(NODE_HAS_CHILD, parentOf=True, hierarchical=True),
             relation_type(ITEM_CITES_GROUP),
             relation_type(COLUMN_CONTAINS_SHELF, parentOf=True),
@@ -190,6 +193,12 @@ def volume_model() -> dict[str, Any]:
                 "relationTypeKey": GROUP_CONTAINS_ITEM,
                 "fromObjectTypeKey": GROUP,
                 "toObjectTypeKey": ITEM,
+                "cardinality": "one-to-many",
+            },
+            {
+                "relationTypeKey": GROUP_HAS_CHILD,
+                "fromObjectTypeKey": GROUP,
+                "toObjectTypeKey": GROUP,
                 "cardinality": "one-to-many",
             },
             {

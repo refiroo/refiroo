@@ -22,9 +22,9 @@ builds what is missing and drops the rest, at startup, on model activation and w
 publications are created. A read uses stored states only when every owner it needs is built, and
 otherwise derives its cells from records, so a missing build costs time, never correctness.
 
-Maintenance: an ORM flush hook notes the records a write touches (relations of any type, parent
-changes, attribute values and change set rows), and before the transaction commits the touched rows
-are recomputed from records in each built shape. Nothing adjusts a count, so a missed update cannot
+Maintenance: an ORM flush hook notes the records a write touches (relation ends by relation type,
+parent changes, attribute values and change set rows), and before the transaction commits the touched
+rows are recomputed from records in each built shape; a relation's ends only in shapes of its type. Nothing adjusts a count, so a missed update cannot
 accumulate drift. Core statements that bypass the ORM note their changes with :func:`note_rows` and
 :func:`note_cells`.
 """
@@ -542,6 +542,15 @@ class _Changes:
     moved: set[str] = field(default_factory=set)
     attributes: set[tuple[str, str]] = field(default_factory=set)
     new_rows: set[str] = field(default_factory=set)
+    # Ends of relations the ORM wrote, by relation type: only a shape of that type recomputes
+    # them, so a containment edge a move writes costs no shape a recompute of its ends (B2).
+    typed_rows: dict[str, set[str]] = field(default_factory=dict)
+
+    def all_rows(self) -> set[str]:
+        return self.rows.union(*self.typed_rows.values())
+
+    def rows_for(self, shape: MatrixShape) -> set[str]:
+        return self.rows | self.typed_rows.get(shape.relation_type_key, set())
 
 
 def _changes(session: Session, change_set_id: str | None = None) -> _Changes:
@@ -574,6 +583,12 @@ def note_relations_removed(session: Session, relation_ids: Iterable[str]) -> Non
             note_rows(session, (from_id, to_id))
 
 
+def _note_relation(session: Session, item: Any, change_set_id: str | None = None) -> None:
+    """A relation the ORM wrote: its ends' cells change only in shapes of its type."""
+    typed = _changes(session, change_set_id).typed_rows
+    typed.setdefault(item.relation_type_key, set()).update((item.from_object_id, item.to_object_id))
+
+
 def _changed(item: Any, *names: str) -> bool:
     state = attributes.instance_state(item)
     return any(state.attrs[name].history.has_changes() for name in names)
@@ -589,7 +604,7 @@ def _note_flushed_changes(session: Session, _context: Any, _instances: Any) -> N
     for item in session.new:
         kind = type(item)
         if kind is ObjectRelation:
-            note_rows(session, (item.from_object_id, item.to_object_id))
+            _note_relation(session, item)
         elif kind is AttributeValue:
             _changes(session).attributes.add((item.object_id, item.attribute_type_key))
         elif kind is ChangeSetObject:
@@ -597,7 +612,7 @@ def _note_flushed_changes(session: Session, _context: Any, _instances: Any) -> N
             changes.cells.add(item.object_id)
             changes.new_rows.add(item.object_id)
         elif kind is ChangeSetRelation:
-            note_rows(session, (item.from_object_id, item.to_object_id), item.change_set_id)
+            _note_relation(session, item, item.change_set_id)
     for item in session.dirty:
         kind = type(item)
         if kind not in _TRACKED or not session.is_modified(item):
@@ -621,8 +636,11 @@ def _note_flushed_changes(session: Session, _context: Any, _instances: Any) -> N
             if _changed(item, "attributes", "object_type_key", "is_deleted"):
                 changes.cells.add(item.object_id)
         elif kind is ChangeSetRelation:
-            ends = ("from_object_id", "to_object_id", "relation_type_key", "is_deleted")
-            if _changed(item, *ends):
+            ends = ("from_object_id", "to_object_id", "relation_type_key")
+            if not _changed(item, *ends) and _changed(item, "is_deleted"):
+                # Tombstoned or restored in place: its ends and type are those it had.
+                _note_relation(session, item, item.change_set_id)
+            elif _changed(item, *ends):
                 note_rows(
                     session,
                     {item.from_object_id, item.to_object_id} | _previous(item, "from_object_id", "to_object_id"),
@@ -633,7 +651,7 @@ def _note_flushed_changes(session: Session, _context: Any, _instances: Any) -> N
         if kind is RdmObject:
             note_rows(session, (item.id,))
         elif kind is ObjectRelation:
-            note_rows(session, (item.from_object_id, item.to_object_id))
+            _note_relation(session, item)
         elif kind is AttributeValue:
             _changes(session).attributes.add((item.object_id, item.attribute_type_key))
         elif kind is ChangeSetObject:
@@ -641,7 +659,7 @@ def _note_flushed_changes(session: Session, _context: Any, _instances: Any) -> N
             changes.cells.add(item.object_id)
             changes.moved.add(item.object_id)
         elif kind is ChangeSetRelation:
-            note_rows(session, (item.from_object_id, item.to_object_id), item.change_set_id)
+            _note_relation(session, item, item.change_set_id)
 
 
 _TRACKED = {RdmObject, ObjectRelation, AttributeValue, ChangeSetObject, ChangeSetRelation}
@@ -683,7 +701,7 @@ def _apply_live(session: Session, changes: _Changes) -> None:
         return
     conditions = {shape.condition[0] for shapes in built.values() for shape in shapes if shape.condition}
     cells = changes.cells | {object_id for object_id, key in changes.attributes if key in conditions}
-    touched = changes.rows | cells | changes.moved
+    touched = changes.all_rows() | cells | changes.moved
     workspace_of: dict[str, str] = {}
     for chunk in _chunks(touched):
         workspace_of.update(
@@ -692,7 +710,7 @@ def _apply_live(session: Session, changes: _Changes) -> None:
             ).all()
         )
     # A deleted row keeps no cells in any workspace.
-    for chunk in _chunks(changes.rows - workspace_of.keys()):
+    for chunk in _chunks(changes.all_rows() - workspace_of.keys()):
         session.execute(
             delete(_TABLE).where(_TABLE.c.owner_kind == "live", _TABLE.c.row_id.in_(chunk))
         )
@@ -702,11 +720,12 @@ def _apply_live(session: Session, changes: _Changes) -> None:
         def of_workspace(ids: set[str], workspace_key: str = workspace_key) -> set[str]:
             return {item for item in ids if workspace_of.get(item) == workspace_key}
 
-        rows, cells_here, moved = of_workspace(changes.rows), of_workspace(cells), of_workspace(changes.moved)
-        if not (rows or cells_here or moved):
+        cells_here, moved = of_workspace(cells), of_workspace(changes.moved)
+        if not (of_workspace(changes.all_rows()) or cells_here or moved):
             continue
         for shape in shapes:
             scope = _scope(session, owner, shape)
+            rows = of_workspace(changes.rows_for(shape))
             _recompute(session, owner, scope, rows | _resolve(scope, cells_here, moved))
 
 
@@ -721,7 +740,7 @@ def _apply_change_set(session: Session, change_set_id: str, changes: _Changes) -
     moved = changes.moved | _moved_from_base(session, change_set, changes.new_rows)
     for shape in shapes:
         scope = _scope(session, owner, shape)
-        _recompute(session, owner, scope, changes.rows | _resolve(scope, changes.cells, moved))
+        _recompute(session, owner, scope, changes.rows_for(shape) | _resolve(scope, changes.cells, moved))
 
 
 def _moved_from_base(session: Session, change_set: ChangeSet, object_ids: set[str]) -> set[str]:
@@ -763,8 +782,12 @@ def _resolve(scope: CellScope, cells: set[str], moved: set[str]) -> set[str]:
     """The rows related to the listed records and, for moved ones, to the records under them."""
     session, shape = scope.session, scope.shape
     candidates = cells | moved
-    # A column record takes its cells with it: moving it changes none of their columns.
-    walk_from = moved - {key for key, kind in _object_types(scope, moved).items() if kind == shape.column_type}
+    # Only a container or a cell can change the column of the cells under it: a column record
+    # takes its cells with it, and a record of any other type holds no cell below a column (B2:
+    # moving it walks none of its children, however many). A record not found, such as a
+    # tombstone, is walked from.
+    types = _object_types(scope, moved)
+    walk_from = {key for key in moved if types.get(key, shape.cell_type) in shape.walk_types}
     for chunk in _chunks(walk_from):
         candidates |= set(session.scalars(descendants(scope, chunk, shape.walk_types)))
     rows: set[str] = set()

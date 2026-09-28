@@ -157,11 +157,13 @@ Select them from the changed boundary with [the execution guide](docs/testing/EX
 `TEST_GROUPS` in `backend/tests/conftest.py` and a new browser runner in that guide.
 
 - Backend code: run focused tests while iterating, then the affected test files or cases and
-  `ruff check app/ tests/` after the final backend change. Do not run the full `pytest` suite
-  for each work package.
+  `ruff check app/ tests/` after the final backend change. Never run the full `pytest` suite in a
+  work package, not even for a change on a shared path such as a flush hook or a write service
+  many routes use: such a change selects its boundary's direct and expansion groups from the
+  execution guide, and that selection is the ceiling.
 - Frontend code: run focused tests for changed behavior, then `npm run format`, `npm run lint`
-  and `npm run build` after the final frontend change. Do not run the full `npm run test` suite
-  for each work package. Lint must report zero errors; justified warnings are listed in
+  and `npm run build` after the final frontend change. Never run the full `npm run test` suite in
+  a work package. Lint must report zero errors; justified warnings are listed in
   `eslint.config.js`.
 - Cross-stack behavior or a public contract: exercise the changed API boundary, relevant contract
   checks and affected consumer behavior. A contract change alone does not require both full suites.
@@ -201,9 +203,14 @@ affects theme tokens or a new surface. Do not update baselines merely to hide an
 
 ### Execution discipline
 
-- Run comprehensive suites once at build acceptance, rather than after every package or edit.
-  Broaden a package check only for a concrete uncovered risk or an explicit user request; state
-  the reason before running the broader check.
+- Run comprehensive suites (the full `pytest` and `npm run test` suites, `test:a11y`,
+  `test:visual`, every browser runner) only at build acceptance, never in a work package. Only an
+  explicit user request overrides this.
+- A concrete uncovered risk adds the specific module or test case that exercises it, named with
+  the risk before it runs; it never widens a check to a whole suite or to groups the execution
+  guide does not select for the changed boundary.
+- Test what changed. A group whose covered code has not changed since it last passed is not
+  rerun; after a later edit, rerun only the tests for the boundary that edit touched.
 - After a failure and fix, rerun the failing cases and affected adjacent boundary. Rerun a full
   acceptance suite only when the fix has broad impact or the failure remains unexplained.
 - Reuse passing checks while their relevant code remains unchanged. A change elsewhere does not

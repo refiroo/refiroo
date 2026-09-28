@@ -5,7 +5,11 @@ IDs, tiers T0–T5, risk). **Consumers:** every work package choosing focused ch
 
 This guide answers one question: *I changed this production boundary — which checks do I run?* Pick the
 direct group for the boundary you changed, apply the listed shared-boundary expansion, and run
-nothing broader unless a concrete uncovered risk says so ([AGENTS.md](../../AGENTS.md#work-package-validation)).
+nothing broader. The selection is the ceiling for a work package, also for a shared path such as the
+matrix state hook: a concrete uncovered risk adds the one module or case that covers it, never a whole
+suite. The full suites run once, at build acceptance
+([AGENTS.md](../../AGENTS.md#work-package-validation)). A group that passed after the last edit to
+its boundary is not rerun.
 Selection is transparent and manual. No tool here promises perfect impact detection; `vitest related`
 follows imports only, and the backend groups are declared, not inferred.
 
@@ -29,14 +33,14 @@ cd backend && .venv/bin/python -m pytest -m mapping -q
 | `model` | INV-01/02/03/04/06, compatibility classes | `test_model`, `test_model_diagnostics`, `test_model_independence`, `test_model_compatibility` | 125 |
 | `model_admin` | C-MOD-*, C-DR-PIN, C-MOD-ACT | `test_model_lifecycle`, `test_build07_wp11`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_model_compatibility`, `test_model_schema_upgrade`, `test_wp81a_context`, `test_w5_activation_write_race` | 99 |
 | `startup` | C-BOOT, C-MIG, C-SCHEMA-UP, INV-15 (startup) | `test_startup`, `test_migrations`, `test_wp8_audit_migration`, `test_model_schema_upgrade`, `test_snapshot_value_migration`, `test_page_index_migrations`, `test_snapshot_lookup_index_migration`, `test_search_index`, `test_change_set_rename_migration`, `test_matrix_states`, `test_schema_drift`, `test_change_set_object_index_migration` | 61 |
-| `records` | C-OBJ-*, C-ATTR, C-REL, C-DEL, C-TR, C-HIST-OBJ, INV-05/10/12 (live) | `test_api`, `test_attributes`, `test_relations`, `test_translations`, `test_cascade_delete`, `test_query_foundations`, `test_wp8_review_regressions`, `test_relation_set_versions`, `test_w5_activation_write_race`, `test_matrix_states` | 137 |
-| `queries` | C-Q-FILTER, C-Q-SCOPE, INV-07/08/11 | `test_pagination`, `test_typed_table_queries`, `test_query_foundations`, `test_context_read_parity`, `test_paging_contract`, `test_change_set_position_reads`, `test_search_index` | 92 |
+| `records` | C-OBJ-*, C-ATTR, C-REL, C-DEL, C-TR, C-HIST-OBJ, INV-05/10/12 (live) | `test_api`, `test_attributes`, `test_relations`, `test_translations`, `test_cascade_delete`, `test_query_foundations`, `test_wp8_review_regressions`, `test_relation_set_versions`, `test_w5_activation_write_race`, `test_matrix_states`, `test_parent_candidates` | 146 |
+| `queries` | C-Q-FILTER, C-Q-SCOPE, INV-07/08/11 | `test_pagination`, `test_typed_table_queries`, `test_query_foundations`, `test_context_read_parity`, `test_paging_contract`, `test_change_set_position_reads`, `test_search_index`, `test_parent_candidates` | 109 |
 | `workspaces` | C-WS-*, C-PUB-RET, INV-14/16 | `test_workspaces`, `test_wp81a_context`, `test_request_scope`, `test_wp8_withdrawal`, `test_build07_wp9_acceptance` | 31 |
-| `change_sets` | C-DR-*, C-REV, C-PUB-RET | `test_change_sets`, `test_wp7_canonical_crud`, `test_wp8_*` (except audit migration), `test_wp81b_current_live_bases`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_typed_table_queries`, `test_mapping_replacement`, `test_wp8_withdrawal`, `test_context_read_parity`, `test_snapshot_value_migration`, `test_page_index_migrations`, `test_change_set_position_reads`, `test_change_set_write_lookups`, `test_snapshot_lookup_index_migration`, `test_search_index`, `test_change_set_rename_migration`, `test_matrix_states`, `test_change_set_object_index_migration` | 200 |
+| `change_sets` | C-DR-*, C-REV, C-PUB-RET | `test_change_sets`, `test_wp7_canonical_crud`, `test_wp8_*` (except audit migration), `test_wp81b_current_live_bases`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_typed_table_queries`, `test_mapping_replacement`, `test_wp8_withdrawal`, `test_context_read_parity`, `test_snapshot_value_migration`, `test_page_index_migrations`, `test_change_set_position_reads`, `test_change_set_write_lookups`, `test_snapshot_lookup_index_migration`, `test_search_index`, `test_change_set_rename_migration`, `test_matrix_states`, `test_change_set_object_index_migration`, `test_parent_candidates` | 200 |
 | `mapping` | C-MAP-R, C-MAP-W, C-MAP-SET | `test_mapping_coverage`, `test_mapping_replacement`, `test_relation_set_versions` | 116 |
 | `matrix` | Relation matrix reads, cell writes and stored cell states: cells, states, row state filter, columns, containers, candidates, maintenance on every write path (Base 0.8 A2, A3, A3b) | `test_relation_matrix`, `test_relation_matrix_volume`, `test_relation_matrix_writes`, `test_matrix_states` | 32 |
 | `contract` | OpenAPI lock and route inventories | `test_openapi_contract`, `test_paging_contract` | 40 |
-| `volume` | Track S read and write budgets and the paging contract over the generated volume fixture (Base 0.8 S1, S2b, S3, S4, S4R1, S4R6, S7, S8, A2) | `test_volume_baseline`, `test_paging_contract`, `test_change_set_position_reads`, `test_relation_matrix_volume` | 55 |
+| `volume` | Track S read and write budgets and the paging contract over the generated volume fixture (Base 0.8 S1, S2b, S3, S4, S4R1, S4R6, S7, S8, A2, B2) | `test_volume_baseline`, `test_paging_contract`, `test_change_set_position_reads`, `test_relation_matrix_volume` | 55 |
 
 Counts are collected cases on 2026-09-24 (532 in total); group counts include the WP-9 composed
 SC-15 case. The full suite collected 534 cases at WP-9 build acceptance (2026-09-25). The `startup`,

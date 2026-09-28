@@ -147,9 +147,25 @@ All notable changes to this project are documented in this file. The format foll
   hierarchy (domains, codelists, master values); the generated volume model adds one over its groups,
   items and deep node self-hierarchy. The Domains and Systems tables gain a lens switch; four visual
   baselines were updated after inspection.
+- Base 0.8 B2: move targets. `GET /api/v1/objects/{type}/{id}/parent-candidates` lists every record of
+  a type that can contain the record, in its application and workspace, live or in a change set, in
+  name order with search, cursors, positions and totals. A candidate the move would refuse or not
+  change stays listed with `eligible: false` and a `reason` (`self`, `descendant`, `currentParent`;
+  D14), and every candidate carries its root-first `path`. The generated volume model lets groups
+  nest, so a record with 20,000 records under it can move.
 
 ### Changed
 
+- Base 0.8 B2: moving a record costs about what a rename does, however much lies under it. A live
+  update re-checked ancestor-scoped uniqueness for every relation into the record's whole subtree on
+  every write, rename included; it now checks nothing for a rename, the record's own relations for a
+  value change, and after a move only the records below whose scope record is above the moved one,
+  for bindings that declare a scope. Stored matrix cell states no longer walk down from a moved
+  record that can hold no cell below a column, recompute a written relation's ends only in shapes of
+  its relation type, and find a cell record's rows by its own endpoint index. Moving the
+  20,000-descendant record at full volume takes 6 ms live (was 773 ms) and 13 ms in a change set (was
+  53 ms), and a change set rename 8 ms (was 17 ms). Moving a container of about 2,500 matrix cells
+  stays seconds in both contexts and is a known 0.8 budget exception (D29).
 - Base 0.8 A6: a migrated database now has the schema the ORM declares (D28). Ten single-column
   indexes declared on publication and change set tables were never created by a migration. Migration
   `20260928_01` gives `change_set_objects` the (owner, type, name, object) and (owner, parent, type,

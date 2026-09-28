@@ -10,6 +10,7 @@ from ..models.api import (
     ObjectPage,
     ObjectResponse,
     ObjectUpdate,
+    ParentCandidatePage,
 )
 from ..services.audit import list_object_history
 from ..services.change_sets import (
@@ -33,6 +34,7 @@ from ..services.objects import (
     update_object_record,
 )
 from ..services.pagination import paginate_statement
+from ..services.parent_candidates import parent_candidates
 from ..services.snapshot_reads import (
     build_snapshot_object_query,
     change_set_context,
@@ -407,6 +409,46 @@ def get_object(
     if item.workspace_key != selected_workspace_key:
         raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
     return build_object_responses(session, model, [item])[0]
+
+
+@router.get(
+    "/objects/{object_type_key}/{object_id}/parent-candidates", response_model=ParentCandidatePage
+)
+def get_parent_candidates(
+    object_type_key: str,
+    object_id: str,
+    session: DbSession,
+    snapshot: RequestModelSnapshot,
+    paging: PageQuery,
+    page_size: int = Query(default=50, ge=1, le=100, alias="pageSize"),
+    workspace_key: str | None = Query(default=None, alias="workspaceKey"),
+    change_set_id: str | None = Query(default=None, alias="changeSetId"),
+    parent_object_type_key: str | None = Query(
+        default=None,
+        alias="parentObjectTypeKey",
+        description="Only candidates of this type, one of those that can contain the record",
+    ),
+    search: str | None = Query(
+        default=None, max_length=500, description="Matches the name or a searchable field"
+    ),
+) -> ParentCandidatePage:
+    """Records the record could move under, live or in a change set, in name order (Base 0.8 B2).
+
+    Every record of a type the model allows as the record's parent is listed, in its application
+    and workspace; one the move would refuse is marked ineligible with its reason (D14).
+    """
+    return parent_candidates(
+        session,
+        snapshot.model,
+        object_type_key=object_type_key,
+        object_id=object_id,
+        workspace_key=workspace_key,
+        change_set_id=change_set_id or None,
+        parent_object_type_key=parent_object_type_key or None,
+        search=search or None,
+        page=paging,
+        page_size=page_size,
+    )
 
 
 @router.get("/objects/{object_type_key}/{object_id}/history", response_model=AuditEventPage)

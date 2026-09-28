@@ -859,7 +859,7 @@ def update_object_record(
     payload: ObjectUpdate,
 ) -> RdmObject:
     """Apply a partial live object update under optimistic concurrency."""
-    from .relations import validate_scoped_relations_for_subtree
+    from .relations import validate_scoped_relations
     from .workspaces import resolve_workspace
 
     object_type = get_object_type(model, object_type_key)
@@ -902,7 +902,10 @@ def update_object_record(
         save_attribute_values(session, model, item.id, attributes)
         changes["attributes"] = attributes
 
-    validate_scoped_relations_for_subtree(session, model, item)
+    # A name changes no scope; values change the record's own conditions; a move, the scopes
+    # of the records under it.
+    if "parentObjectId" in changes or attributes is not None:
+        validate_scoped_relations(session, model, item, moved="parentObjectId" in changes)
 
     record_audit_event(
         session,

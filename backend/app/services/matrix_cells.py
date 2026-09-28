@@ -481,10 +481,15 @@ def related_rows(scope: CellScope, cell_ids: Sequence[str]) -> Select[Any]:
     parts = []
     for arm in scope.relation_arms():
         relation = aliased(arm.entity)
+        of_type = relation.relation_type_key == scope.shape.relation_type_key
+        if scope.other_end == "to_object_id":
+            # Live, the (type, from, to) key would otherwise read every relation of the binding
+            # to find the listed records at its ``to`` end; their own endpoint index reads theirs.
+            of_type = unindexed(of_type)
         parts.append(
             select(getattr(relation, scope.anchor_end).label("row_id")).where(
                 getattr(relation, scope.other_end).in_(cell_ids),
-                relation.relation_type_key == scope.shape.relation_type_key,
+                of_type,
                 *arm.where(relation),
             )
         )

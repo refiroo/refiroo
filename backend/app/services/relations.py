@@ -11,6 +11,7 @@ from ..models.database import ObjectRelation, RdmObject
 from ..models.schema import EngineModel, ObjectTypeRelationDefinition
 from .attributes import current_attribute_values, normalize_value
 from .audit import record_audit_event
+from .model.traversal import ancestor_type_keys
 from .relation_set_versions import SetClaim, advance_set_versions, increment_set_versions
 
 
@@ -204,28 +205,50 @@ def _matches_unique_condition(session: Session, allowed, item: RdmObject) -> boo
     return values.get(condition["attributeTypeKey"]) == condition["value"]
 
 
-def validate_scoped_relations_for_subtree(
-    session: Session, model: EngineModel, root: RdmObject
+def validate_scoped_relations(
+    session: Session, model: EngineModel, root: RdmObject, *, moved: bool
 ) -> None:
-    object_ids = _subtree_ids(session, root.id)
-    relations = list(
-        session.scalars(select(ObjectRelation).where(ObjectRelation.to_object_id.in_(object_ids)))
-    )
+    """Re-check ancestor-scoped uniqueness for the relations a write to ``root`` can affect.
+
+    A binding's ``uniqueToAncestorTypeKey`` scope is the nearest record of that type at or above
+    the related record, and its condition reads the related record's own values. An attribute
+    write can change only ``root``'s own conditions. A move (``moved``) also changes the scope of
+    each record under ``root`` whose scope record is above ``root``; one with a scope record at or
+    below ``root`` keeps it. So the check reads only relations of scoped bindings, into ``root``
+    and, after a move, into the records under it that such a binding can reach, and a move under
+    which no scoped binding can apply reads nothing below ``root``, however large its subtree.
+    """
+    scoped = [
+        allowed
+        for allowed in model.objectTypeRelations
+        if allowed.features.get("uniqueToAncestorTypeKey")
+    ]
+    if not scoped:
+        return
+    targets = _scoped_subtree(session, model, root, scoped) if moved else {root.id}
+    relation_types = sorted({allowed.relationTypeKey for allowed in scoped})
+    relations = [
+        relation
+        for chunk in _chunked(targets)
+        for relation in session.scalars(
+            select(ObjectRelation).where(
+                ObjectRelation.to_object_id.in_(chunk),
+                ObjectRelation.relation_type_key.in_(relation_types),
+            )
+        )
+    ]
     if not relations:
         return
     objects = {
         item.id: item
-        for item in session.scalars(
-            select(RdmObject).where(
-                RdmObject.id.in_(
-                    {
-                        object_id
-                        for relation in relations
-                        for object_id in (relation.from_object_id, relation.to_object_id)
-                    }
-                )
-            )
+        for chunk in _chunked(
+            {
+                object_id
+                for relation in relations
+                for object_id in (relation.from_object_id, relation.to_object_id)
+            }
         )
+        for item in session.scalars(select(RdmObject).where(RdmObject.id.in_(chunk)))
     }
     for relation in relations:
         from_object = objects[relation.from_object_id]
@@ -250,16 +273,56 @@ def validate_scoped_relations_for_subtree(
         )
 
 
-def _subtree_ids(session: Session, root_id: str) -> set[str]:
-    result = {root_id}
-    frontier = {root_id}
-    while frontier:
-        children = set(
-            session.scalars(select(RdmObject.id).where(RdmObject.parent_object_id.in_(frontier)))
-        )
-        frontier = children - result
-        result.update(frontier)
-    return result
+def _scoped_subtree(
+    session: Session, model: EngineModel, root: RdmObject, scoped: list[ObjectTypeRelationDefinition]
+) -> set[str]:
+    """``root`` and the records under it whose scope in some scoped binding a move of ``root``
+    changes: a binding's related type with no record of its scope type between it and ``root``.
+
+    The walk goes down level by level through types that can hold a related type, and leaves a
+    branch once every binding it could reach has its scope inside the branch.
+    """
+    # (related type, scope type) per binding, and for each type a walk can pass through, the
+    # bindings whose related type it is or can hold.
+    pairs = {
+        (allowed.toObjectTypeKey, allowed.features["uniqueToAncestorTypeKey"]) for allowed in scoped
+    }
+    scope_types = {scope for _related, scope in pairs}
+    reaching: dict[str, set[tuple[str, str]]] = {}
+    for pair in pairs:
+        for type_key in (pair[0], *ancestor_type_keys(model, pair[0])):
+            reaching.setdefault(type_key, set()).add(pair)
+    walkable = sorted(reaching)
+    targets: set[str] = set()
+    # Records to descend from, with the scope types met from ``root`` down to each.
+    level: dict[str, frozenset[str]] = {}
+
+    def visit(object_id: str, type_key: str, met: frozenset[str]) -> None:
+        met = met | ({type_key} & scope_types)
+        if any(related == type_key and scope not in met for related, scope in pairs):
+            targets.add(object_id)
+        if any(scope not in met for _related, scope in reaching.get(type_key, ())):
+            level[object_id] = met
+
+    visit(root.id, root.object_type_key, frozenset())
+    seen = {root.id}
+    while level:
+        parents, level = level, {}
+        for chunk in _chunked(parents):
+            for child_id, type_key, parent_id in session.execute(
+                select(RdmObject.id, RdmObject.object_type_key, RdmObject.parent_object_id).where(
+                    RdmObject.parent_object_id.in_(chunk), RdmObject.object_type_key.in_(walkable)
+                )
+            ):
+                if child_id not in seen:
+                    seen.add(child_id)
+                    visit(child_id, type_key, parents[parent_id])
+    return targets
+
+
+def _chunked(ids: set[str], size: int = 500) -> list[list[str]]:
+    ordered = sorted(ids)
+    return [ordered[index : index + size] for index in range(0, len(ordered), size)]
 
 
 def _ancestor_id(session: Session, item: RdmObject, object_type_key: str) -> str | None:

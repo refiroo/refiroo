@@ -130,6 +130,33 @@ class ObjectPage(CollectionPage[ObjectResponse]):
     pass
 
 
+class ObjectPathPart(BaseModel):
+    id: str
+    name: str
+    objectTypeKey: str
+
+
+class ParentCandidate(BaseModel):
+    """A record the model allows as the moved record's parent (Base 0.8 B2).
+
+    ``path`` runs from the root to the candidate itself, so same-named candidates can be told
+    apart. An ineligible candidate is listed, not hidden, so pages and totals stay truthful (D14),
+    with ``reason``: ``self`` (the record itself, when its type may contain its own), ``descendant``
+    (a record under it, which would make a cycle) or ``currentParent`` (where it already is).
+    """
+
+    id: str
+    objectTypeKey: str
+    name: str
+    path: list[ObjectPathPart]
+    eligible: bool
+    reason: Literal["self", "descendant", "currentParent"] | None
+
+
+class ParentCandidatePage(CollectionPage[ParentCandidate]):
+    """Candidates of every permitted parent type in name order."""
+
+
 class ChangeSetCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str | None = Field(default=None, max_length=300)

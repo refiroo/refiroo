@@ -8,8 +8,9 @@ packages A1–A5 and B1–B4; P2 is scheduled after W2 (D20); R1 owns build acce
 (2026-09-27) with D8 and D9 accepted. A2, A3 and A3b are delivered (2026-09-27) with D10–D13
 accepted; A3b's stored cell states closed A2's budget exception for the row state filter. A4 and A5
 are delivered (2026-09-28), and A6 (snapshot table index drift, found in A2) with D28 accepted
-(2026-09-28), which completes Milestone A. B1 is delivered (2026-09-28); D14 is accepted (2026-09-28), and
-D29 and D30 decide A6's two open measurements; see the [summary](#decisions-summary).
+(2026-09-28), which completes Milestone A. B1 and B2 are delivered (2026-09-28); D14 is accepted (2026-09-28),
+D30 decides one of A6's two open measurements and B2 decides the other (D29, a known budget exception);
+see the [summary](#decisions-summary).
 
 **Target:** Product 0.8.0. Track S does not change the schema language. Milestones A and B add
 schema language 0.7 (`relationMatrix` and `tree` views); the starter model becomes content release
@@ -2153,6 +2154,90 @@ a registered runner for the placeholder, which B3 replaces with the real lens an
 **Exit:** the candidate query and a deep move meet budget in each context; cycles are refused at the
 query, the write and activation.
 
+**B2 delivered 2026-09-28.** `GET /objects/{type}/{id}/parent-candidates`
+(`services/parent_candidates.py`) lists the records of every type the model allows as the record's
+parent, in its application and workspace, live (`workspaceKey`) or in a change set (`changeSetId`),
+through the object query builder: name order, `search` with the object list's meaning (name or a
+searchable field, trigram-indexed), cursors, positions and totals. Decided on the way, within the
+scope above: the candidate type filter is `parentObjectTypeKey`, because `objectTypeKey` beside the
+path's `{objectTypeKey}` would name two types with one word; a type that cannot contain the record
+is `422 invalid_parent_type` with the `permitted` types; a publication has no move targets and the
+route does not take `publicationId`, as the matrix's container and candidate reads do not. Each
+candidate carries its root-first `path`, and `descendant` is read from that path, so it costs one
+lookup per hierarchy level for the page, and a change set's own moves count. `object_projection`
+gains `object_type_keys` for the mixed-type change set list.
+
+Path context (item 4): single reads and pages already resolve `path` in the request's context; a
+record whose parent changed in a change set, its untouched child, the child's page and the new
+publication after publishing were each checked, and needed no fix.
+
+The deep move (item 5) needed three fixes, each found by measuring:
+
+- A live update re-checked ancestor-scoped uniqueness (`uniqueToAncestorTypeKey`) for every relation
+  into the record's whole subtree, on every write, a rename included: 773 ms and 40,517 ORM rows to
+  move the 20,000-descendant group. `relations.validate_scoped_relations` now checks nothing for a
+  rename, the record's own relations for a value change (a condition reads only the related record's
+  values), and after a move only relations of scoped bindings into the records below whose scope
+  record is above the moved one, walking only types that can hold such a record. A move under which
+  no scoped binding can apply reads nothing below the record.
+- Stored matrix cell states (A3b) walked down from any moved record. Only a container or a cell can
+  change the column of a cell under it, so `_resolve` now walks from those types only (and from a
+  record it cannot find, such as a tombstone).
+- The flush hook noted the ends of every relation written, of any type, as rows to recompute in every
+  shape, so the move's new containment edge recomputed its two groups' cells. The ORM hook now notes
+  a relation's ends under its type, and a shape recomputes only those of its binding type; rows noted
+  by Core statements (`note_rows`) and relations whose ends or type changed still apply to every
+  shape. Also, a live cell's rows were found through the (type, from, to) key, which read every
+  relation of the binding when the cell is the `to` end; `related_rows` now reads that end's own index.
+
+The generated volume model gains `vol-group-has-child`, so groups nest and the heavy group can move.
+
+_Measurements_ (`volume_baseline.py --scale 1 --repeat 5`, same machine as S1; ms · statements ·
+ORM rows). The new rows join the scenarios `test_volume_baseline.py` holds at two scales, except the
+container move, which the script alone measures (`known_exceptions`):
+
+| Request | Live | Change set |
+| --- | --- | --- |
+| parent candidates: 20,000-descendant record, total | 5.3 · 6 · 25 | 13.0 · 8 · 4 |
+| parent candidates: search, total | 8.6 · 5 · 14 | 18.8 · 7 · 4 |
+| parent candidates: deep node, two types, total | 17.9 · 6 · 25 | 13.8 · 8 · 4 |
+| parent candidates: deep node, position ¾ deep | 22.8 · 6 · 25 | 25.5 · 11 · 4 |
+| write: move a 20,000-descendant record (before: 773 · 38 · 40,517 and 53 · 51 · 11) | 5.8 · 22 · 8 | 13.0 · 43 · 11 |
+| write: rename one record (before: 4.2 · 12 · 7 and 16.5 · 35 · 10) | 3.4 · 12 · 7 | 8.3 · 35 · 10 |
+| write: move a container of ~2,500 cells | 19,650 · 155,848 · 251,134 | 4,552 · 114 · 11 |
+
+Every other row is within noise of A5 and A6, the D26 sorts included.
+
+_The container move (D29), a known 0.8 budget exception._ Moving a first-level container of the
+outgoing matrix (about 2,500 cells) to the next column takes 4.6–7.9 s in a change set and 20–24 s
+live. In a change set the time is A3b's recompute of every affected row's states in each shape. Live,
+about 84% is the scoped uniqueness check, which B2 no longer runs for the unaffected records but
+still runs one relation at a time for the 2,500 whose scope moves (about 60 lookups each); the rest
+is the recompute. Bringing either within the write budget means a set-based scope check for a moved
+subtree and a recompute limited to the old and new column, neither small. Recorded as a known
+exception; a steward moving a container of thousands of matrix cells waits seconds, and B3's move
+dialog must show progress rather than assume an instant answer.
+
+Also fixed on the way: `test_build07_wp6.py`'s `parent` case made `domain` not root-creatable, which
+B1's tree rule now refuses first; its mutation now also drops the tree rooted at domains, as B1 did
+for three other tests.
+
+Composable-domains doors (ADR-032): none affected; a read over existing identity and hierarchy, no
+new attribute storage, audit or bulk API.
+
+Checks: `tests/test_parent_candidates.py` (9: every reason with paths, one type, search by name and
+code, cursors and a position with ineligible candidates in place; the write agreeing with each
+reason and moving the edge; a move across types in the mixed system hierarchy; the master value
+hierarchy and a type with no parent types; refusals; a change set move with the moved record's and
+its untouched child's paths, candidates, a refused cycle and the publication's paths; a move live
+made cyclic refused at publication with `containment_cycle`, live and the change set kept; a
+translation group taking a translation into a language that holds one, refused, and a move within
+the language accepted; the OpenAPI route; `matrix_states.verify` after each), the OpenAPI lock
+re-baselined after checking that only the new path and its three schemas changed, and the paging
+inventory at 21 routes; the guide's groups for the changed boundaries (`records`, `matrix`,
+`change_sets`, `volume`, `contract`) and `ruff check app/ tests/`. The full backend suite was also run
+(763 passed), which the execution guide does not select for a package; `AGENTS.md` now rules that out. Not run: frontend (no frontend change); B3 builds the lens.
+
 #### B3: Tree lens with maintenance actions
 
 **Scope:**
@@ -2238,5 +2323,5 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D27 | Can a workspace be deleted? (ADR-019 said never) | **Accepted 2026-09-26:** yes, to correct a mistyped key, when it is not the default, has no objects and no change sets, and was never published; a published workspace is retired instead because publications are never removed. No audit event, matching the unaudited create, rename and retire; the key may be reused | W6 |
 | D28 | Index declarations that no migration creates on the snapshot tables (A6) | Per index: create it, replace it with an owner-leading composite the reads need, or drop the declaration where an existing index serves it, decided from query plans and the volume baseline; a drift test keeps a migrated schema equal to the ORM. **Accepted 2026-09-28 as delivered in A6:** change set objects gain (owner, type, name, object) and (owner, parent, type, name, object); the other eight declarations are removed because owner-leading indexes already serve every read | A6 |
 | D24 | Which columns sort | **Accepted 2026-09-26 (S4R3 review):** every data column sorts from its header, whatever the attribute's `sortable` flag, including Type and Relationship by their labels; every list shows the same toolbar Sort menu; D21's `sortFields` only add menu fields and `defaultSort` chooses the order. Exceptions: Actions, the computed path, JSON attributes and unrecorded timestamps | S4R3 |
-| D29 | Moving a container of about 2,500 matrix cells in a change set takes 5–9 s (A3b cell state recompute, found in A6) | **Accepted 2026-09-28:** measured in B2 beside its deep-move budget, because a tree move of a container (a system group to another system) takes the same path; B2 either brings it within the single-record write budget or records it as a known 0.8 budget exception | B2 |
+| D29 | Moving a container of about 2,500 matrix cells in a change set takes 5–9 s (A3b cell state recompute, found in A6) | **Accepted 2026-09-28:** measured in B2 beside its deep-move budget, because a tree move of a container (a system group to another system) takes the same path; B2 either brings it within the single-record write budget or records it as a known 0.8 budget exception. **Decided in B2 (2026-09-28):** a known 0.8 budget exception, 4.6–7.9 s in a change set and 20–24 s live; the deep move meets the budget (6 ms live, 13 ms in a change set) | — |
 | D30 | A link candidate page over a column of about 5,000 cells takes 92 ms live and 160 ms in a change set (found in A6) | **Accepted 2026-09-28:** a known 0.8 budget exception, as D26; the name order and total read every cell under the column only at an unusual column size. Revisit with precomputed sort keys (0.10 or later) | — |

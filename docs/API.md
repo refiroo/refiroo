@@ -1115,6 +1115,43 @@ return HTTP 409. Live payloads do not accept `workspaceKey`.
 For a change set update, add `changeSetId` and `expectedChangeSetVersion` to the same payload.
 The preceding example is a normal live correction and does not create a publication.
 
+### Moving a record (Base 0.8 B2)
+
+A `PATCH` with `parentObjectId` moves the record: its parent and its typed containment relation
+change together, live or in a change set. The new parent must be of a type the record's
+`parentRelationTypeKeys` allow, in the same application and workspace (`422 invalid_parent_type`,
+`422 parent_wrong_scope`); `null` makes it a root where its type is `rootCreatable`
+(`422 parent_required` otherwise). The record itself or a record under it is refused as
+`422 parent_cycle`. Publishing a change set revalidates the merged graph, so a move the change set
+made valid but live has since made cyclic is refused as `422 workspace_graph_invalid` with a
+`containment_cycle` diagnostic, and the change set and live data stay as they were.
+
+Only the moved record's parent and edge are written, so a move costs about what a rename does
+however many records lie under it. A live move re-checks ancestor-scoped uniqueness
+(`uniqueToAncestorTypeKey`) for the records under the moved one whose scope record is above it, and
+only for bindings that can reach them (`409 duplicate_relation_scope`). Moving a container of many
+relation matrix cells recomputes their rows' stored cell states and is a known 0.8 budget exception
+(D29).
+
+`GET /api/v1/objects/{objectTypeKey}/{objectId}/parent-candidates` lists where the record could move:
+every record of a type that can contain it, in its application and workspace, in name order. It
+takes `workspaceKey` (live) or `changeSetId`, `parentObjectTypeKey` to list one of those types
+(another is `422 invalid_parent_type` with the `permitted` types), `search` (the name or a
+searchable field, as on an object list) and the paging parameters (`pageSize` 1–100, default 50).
+A record not in the context is `404 object_not_found`. Publications are read-only and have no move
+targets.
+
+Each item has `id`, `objectTypeKey`, `name`, `path` (root first, ending with the candidate) and
+`eligible`. A candidate the move would refuse or would not change stays in the list, so pages and
+totals stay truthful (D14), with a `reason`:
+
+- `self`: the record itself, listed when its type may contain its own;
+- `descendant`: a record under it, which would make a cycle;
+- `currentParent`: where it already is.
+
+`descendant` is read from the candidate's path in the request's context, so a change set's own moves
+count. A page costs a fixed number of statements plus one per hierarchy level for the paths.
+
 ### Attribute value endpoints
 
 Attribute values are child resources of an object, addressable one at a time. An object can carry at

@@ -84,6 +84,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_relation_matrix_volume.py": ("matrix", "volume"),
     "test_relation_matrix_writes.py": ("matrix", "mapping", "change_sets", "records"),
     "test_matrix_states.py": ("matrix", "change_sets", "records", "startup"),
+    "test_parent_candidates.py": ("records", "queries", "change_sets"),
 }
 
 

@@ -125,6 +125,7 @@ def object_projection(
     context: SnapshotContext,
     *,
     object_type_key: str | None = None,
+    object_type_keys: Iterable[str] | None = None,
     application_key: str | None = None,
     parent_object_id: str | None = None,
     parent_object_ids: Iterable[str] | None = None,
@@ -134,17 +135,22 @@ def object_projection(
 ) -> Subquery:
     """The context's effective object rows, narrowed inside each arm so indexes apply.
 
+    ``object_type_keys`` narrows to several types, as ``object_type_key`` does to one.
+
     ``values_owner_id`` names the owner of each row's typed values in ``snapshot_attribute_values``;
     ``row_sequence_id`` is the row's key in its own table, which its type and parent indexes hold.
     ``part`` selects one part of a change set's union instead (see :data:`ChangeSetPart`).
     """
     ids = list(object_ids) if object_ids is not None else None
     parents = list(parent_object_ids) if parent_object_ids is not None else None
+    types = sorted(object_type_keys) if object_type_keys is not None else None
 
     def arm(entity: Any, owner_id: str, *conditions: Any) -> Any:
         narrowing = []
         if object_type_key is not None:
             narrowing.append(entity.object_type_key == object_type_key)
+        if types is not None:
+            narrowing.append(entity.object_type_key.in_(types))
         if application_key:
             narrowing.append(entity.application_key == application_key)
         if parent_object_id:

@@ -131,11 +131,11 @@ def apply_attribute_values(
     stops a caller from performing the write while skipping one of the checks.  The caller is
     responsible for claiming the object's optimistic-concurrency version first.
     """
-    from .relations import validate_scoped_relations_for_subtree
+    from .relations import validate_scoped_relations
 
     validate_attribute_change(session, model, object_type, item, attributes)
     save_attribute_values(session, model, item.id, attributes)
-    validate_scoped_relations_for_subtree(session, model, item)
+    validate_scoped_relations(session, model, item, moved=False)
 
 
 def current_attribute_values(session: Session, object_id: str) -> dict[str, Any]:

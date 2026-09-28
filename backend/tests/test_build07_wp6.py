@@ -421,6 +421,13 @@ def test_target_constraints_check_inherited_complete_graph(rule, code):
                 next(x for x in model["objectTypes"] if x["key"] == "domain")["features"][
                     "rootCreatable"
                 ] = False
+                # A tree rooted at domains would refuse the model first, at its own root type.
+                for application in model["applications"]:
+                    application["views"] = [
+                        view
+                        for view in application["views"]
+                        if "domain" not in view.get("config", {}).get("rootObjectTypeKeys", [])
+                    ]
             elif rule == "parentSemantics":
                 next(x for x in model["relationTypes"] if x["key"] == "domain-contains-codelist")[
                     "features"

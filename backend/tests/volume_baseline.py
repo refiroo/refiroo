@@ -42,6 +42,7 @@ from volume_fixture import (
     NODE,
     NODE_HAS_CHILD,
     RANK,
+    SHELF,
     WORKSPACE,
     VolumeDataset,
     measure,
@@ -306,6 +307,46 @@ def _read_scenarios(
     ]
 
 
+def _move_scenarios(context: str, dataset: VolumeDataset) -> list[tuple[str, str, dict[str, Any]]]:
+    """Base 0.8 B2: move targets, in the contexts a move can write to."""
+    if context == "history":
+        return []
+    base = {**context_params(context, dataset), "pageSize": PAGE_SIZE}
+    group = f"/api/v1/objects/{GROUP}/{dataset.heavy_group_id}/parent-candidates"
+    node = f"/api/v1/objects/{NODE}/{dataset.deep_node_id}/parent-candidates"
+    return [
+        ("parent candidates: 20,000-descendant record, total", group, {**base, "includeTotal": True}),
+        ("parent candidates: search, total", group, {**base, "search": "Group 00043", "includeTotal": True}),
+        ("parent candidates: deep node, two types, total", node, {**base, "includeTotal": True}),
+        (
+            "parent candidates: deep node, position ¾ deep",
+            node,
+            {**base, "position": dataset.shape.groups * 3 // 4, "includeTotal": True},
+        ),
+    ]
+
+
+def _move(client, dataset: VolumeDataset, context: str, object_type: str, object_id: str, parents: list[str]):
+    """Setup and write callables that move a record between ``parents``, one step per call."""
+    path = f"/api/v1/objects/{object_type}/{object_id}"
+    state: dict[str, Any] = {"step": 0}
+
+    def before() -> None:
+        params = context_params(context, dataset)
+        state["body"] = {
+            "parentObjectId": parents[state["step"] % len(parents)],
+            "expectedVersion": client.get(path, params=params).json()["version"],
+        }
+        if context == "change_set":
+            change_set = client.get(f"/api/v1/change-sets/{dataset.change_set_id}").json()
+            state["body"].update(
+                changeSetId=dataset.change_set_id, expectedChangeSetVersion=change_set["version"]
+            )
+        state["step"] += 1
+
+    return before, lambda: client.patch(path, json=state["body"])
+
+
 def _timed(
     engine: Engine, call: Callable[[], Any], repeat: int, before: Callable[[], None] | None = None
 ) -> tuple[int, float, int, int]:
@@ -333,7 +374,11 @@ def run_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int
     """Measure every read in each context, then one live and one change set write."""
     results = []
     for context in CONTEXTS:
-        scenarios = _read_scenarios(engine, context, dataset) + _matrix_scenarios(client, context, dataset)
+        scenarios = (
+            _read_scenarios(engine, context, dataset)
+            + _matrix_scenarios(client, context, dataset)
+            + _move_scenarios(context, dataset)
+        )
         for scenario, path, params in scenarios:
             status, milliseconds, statements, rows = _timed(
                 engine, lambda path=path, params=params: client.get(path, params=params), repeat
@@ -378,6 +423,46 @@ def run_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int
 
     status, milliseconds, statements, rows = _timed(engine, live_write, repeat, live_version)
     results.append(Measurement("live", "write: rename one record", status, milliseconds, statements, rows))
+
+    # B2: only the moved record's parent and edge change, whatever lies under it.
+    for context in ("live", "change_set"):
+        before, write = _move(
+            client, dataset, context, GROUP, dataset.heavy_group_id,
+            [dataset.small_group_id, dataset.cited_group_id],
+        )
+        status, milliseconds, statements, rows = _timed(engine, write, repeat, before)
+        results.append(
+            Measurement(context, "write: move a 20,000-descendant record", status, milliseconds, statements, rows)
+        )
+    return results
+
+
+def known_exceptions(client, engine: Engine, dataset: VolumeDataset, *, repeat: int) -> list[Measurement]:
+    """Requests recorded over budget (D29), measured by the script, not held by the tests.
+
+    A first-level container of the outgoing matrix moves to the next column and back: each move
+    recomputes the stored cell states of the rows of about 2,500 cells (A3b), and live it also
+    re-checks their ancestor-scoped uniqueness one relation at a time.
+    """
+    from app.models.database import RdmObject
+
+    with Session(engine) as session:
+        first_column = dataset.matrix_column_ids[0]
+        shelf = session.scalar(
+            select(RdmObject.id)
+            .where(RdmObject.object_type_key == SHELF, RdmObject.parent_object_id == first_column)
+            .order_by(RdmObject.id)
+            .limit(1)
+        )
+    results = []
+    for context in ("live", "change_set"):
+        before, write = _move(
+            client, dataset, context, SHELF, shelf, [dataset.matrix_column_ids[1], first_column]
+        )
+        status, milliseconds, statements, rows = _timed(engine, write, repeat, before)
+        results.append(
+            Measurement(context, "write: move a container of ~2,500 cells", status, milliseconds, statements, rows)
+        )
     return results
 
 
@@ -430,6 +515,7 @@ def main() -> None:
         dataset = seed_volume(engine, scaled_shape(arguments.scale))
         seeded = time.perf_counter() - started
         results = run_scenarios(client, engine, dataset, repeat=arguments.repeat)
+        results += known_exceptions(client, engine, dataset, repeat=arguments.repeat)
 
     print(
         f"Scale {arguments.scale} · {dataset.counts} · seeded in {seeded:.1f} s · "

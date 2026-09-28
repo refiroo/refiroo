@@ -9,7 +9,7 @@ release plan and changelog rather than accumulating it here.
 Base 0.7 is released (2026-09-25). 0.8 Track S (scalable browsing) and Track W (workspace terminology
 and capability boundaries) are delivered (2026-09-26), and Milestone A's relation matrix (A1–A5) is
 delivered (2026-09-28), closed by A6 (snapshot table index drift, 2026-09-28). The hierarchy editor's
-`tree` contract (B1) is delivered (2026-09-28). Next: B2–B4, P2, then R1. See
+`tree` contract (B1) and move targets (B2) are delivered (2026-09-28). Next: B3, B4, P2, then R1. See
 [Next — 0.8 and beyond](#next--08-and-beyond).
 
 ## Open decisions
@@ -19,8 +19,8 @@ cursor or a position; the UI scrolls with cursors and jumps with positions. Deli
 
 Milestone A decisions D8–D13 and D28 (A6) are accepted. D14 (ineligible move targets listed disabled
 with a reason) is accepted (2026-09-28), as are D2–D6 as delivered in Track S. A6's two open
-measurements are decided (2026-09-28): the container move in a change set is measured in B2 (D29),
-and the link candidate page is a known 0.8 budget exception (D30). No 0.8 decision is open; see the
+measurements are decided (2026-09-28): the container move, measured in B2, is a known 0.8 budget
+exception (D29), and the link candidate page is a known 0.8 budget exception (D30). No 0.8 decision is open; see the
 [0.8 plan](BASE_0_8_IMPLEMENTATION_PLAN.md#decisions-summary).
 
 See `ROADMAP.md` for the delivery scope, exit gates and full milestone sequence.
@@ -72,8 +72,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     set (known 0.8 budget exception, D30).
 - [ ] 0.8 Milestone B — hierarchy editor ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-b--hierarchy-editor)):
   - [x] B1 schema 0.7 `tree` view contract.
-  - [ ] B2 move targets with eligibility (D14), and path context in every context; measure the
-    matrix container move (D29).
+  - [x] B2 move targets with eligibility (D14) and path context in every context; a deep move meets
+    the write budget live and in a change set; the matrix container move is a known 0.8 budget
+    exception (D29).
   - [ ] B3 tree lens with add child, rename, availability and move.
   - [ ] B4 Milestone B acceptance (SC-09 hierarchy half).
 - [ ] 0.8 P2 change set changes list, after W2 (D20).
