@@ -46,6 +46,8 @@ class ObjectChangeEntry:
     after: ObjectState | None
     changed_fields: list[str]
     path: list[dict[str, Any]]
+    # Where the source held a moved record (a ``changed`` entry whose parent differs); else None.
+    before_path: list[dict[str, Any]] | None = None
 
 
 @dataclass(frozen=True)
@@ -215,7 +217,8 @@ def list_object_changes(
 
     states = [(row, before(row), after(row)) for row in result.items]
     # Added and changed records sit where the change set puts them; a removed one where its source
-    # held it.
+    # held it. A moved record is also followed on its source side, in the same walk, so the review
+    # can say where it came from.
     paths = _paths(
         session,
         context,
@@ -224,6 +227,13 @@ def list_object_changes(
             if after_state is None
             else ("change_set", _PathRow.of(row, after_state))
             for row, before_state, after_state in states
+        ]
+        + [
+            ("source", _PathRow.of(row, before_state))
+            for row, before_state, after_state in states
+            if before_state is not None
+            and after_state is not None
+            and before_state.parent_object_id != after_state.parent_object_id
         ],
     )
     orders: dict[str, dict[str, int]] = {}
@@ -251,7 +261,12 @@ def list_object_changes(
                 before=before_state,
                 after=after_state,
                 changed_fields=changed,
-                path=paths.get(row.object_id, []),
+                path=paths.get(("source" if after_state is None else "change_set", row.object_id), []),
+                before_path=(
+                    paths.get(("source", row.object_id), [])
+                    if after_state is not None and "parent" in changed
+                    else None
+                ),
             )
         )
     return replace(result, items=entries)
@@ -332,34 +347,34 @@ def _read_records(
 
 def _paths(
     session: Session, context: SnapshotContext, items: list[tuple[str, _PathRow]]
-) -> dict[str, list[dict[str, Any]]]:
-    """Root-first paths, each followed on its item's side; one statement per hierarchy level, as
-    ``snapshot_reads.object_paths`` resolves one context."""
+) -> dict[tuple[str, str], list[dict[str, Any]]]:
+    """Root-first paths by (side, ID), each followed on its item's side; one statement per
+    hierarchy level, as ``snapshot_reads.object_paths`` resolves one context."""
 
     def part(record: Any) -> dict[str, Any]:
         return {"id": record.object_id, "name": record.name, "objectTypeKey": record.object_type_key}
 
-    paths = {row.object_id: [part(row)] for _, row in items}
-    visited = {row.object_id: {row.object_id} for _, row in items}
+    paths = {(side, row.object_id): [part(row)] for side, row in items}
+    visited = {(side, row.object_id): {row.object_id} for side, row in items}
     frontier = {
-        row.object_id: (side, row.parent_object_id) for side, row in items if row.parent_object_id
+        (side, row.object_id): row.parent_object_id for side, row in items if row.parent_object_id
     }
     while frontier:
         wanted: dict[str, set[str]] = {}
-        for side, parent_id in frontier.values():
+        for (side, _), parent_id in frontier.items():
             wanted.setdefault(side, set()).add(parent_id)
         found = _read_records(session, context, wanted)
-        next_frontier: dict[str, tuple[str, str]] = {}
-        for object_id, (side, parent_id) in frontier.items():
-            parent = found.get((side, parent_id))
-            if parent is None or parent.object_id in visited[object_id]:
+        next_frontier: dict[tuple[str, str], str] = {}
+        for item, parent_id in frontier.items():
+            parent = found.get((item[0], parent_id))
+            if parent is None or parent.object_id in visited[item]:
                 continue
-            visited[object_id].add(parent.object_id)
-            paths[object_id].append(part(parent))
+            visited[item].add(parent.object_id)
+            paths[item].append(part(parent))
             if parent.parent_object_id:
-                next_frontier[object_id] = (side, parent.parent_object_id)
+                next_frontier[item] = parent.parent_object_id
         frontier = next_frontier
-    return {object_id: list(reversed(path)) for object_id, path in paths.items()}
+    return {item: list(reversed(path)) for item, path in paths.items()}
 
 
 def containment_pairs(model: EngineModel) -> set[tuple[str, str]]:

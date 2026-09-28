@@ -199,6 +199,12 @@ context; activation revalidates staged changes with current live content (ADR-02
 An application selects object types and exposes model-defined views. Object types may be shared across
 applications. Applications use immutable keys; names are presentation labels and are not API filters.
 
+Every view type is available to every application. Validation checks a view against its type's
+contract and the structure it names (object types, relations, containment, attributes), never against
+the application that declares it. Two applications differ only in what their declarations say. The
+example model's applications declare different view sets as a demonstration, not as a rule
+([EXAMPLE_MODEL.md](EXAMPLE_MODEL.md)).
+
 ADR-029 distinguishes a declaration from its navigation placement. In schema 0.5–0.7, the frontend
 groups views by their source object type and presents them as lenses of one contextual collection:
 

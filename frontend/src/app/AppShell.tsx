@@ -14,7 +14,7 @@ import { api } from "@/api/client";
 import type { CSSProperties, ReactNode } from "react";
 import { Explorer } from "@/features/objects/Explorer";
 import { WorkspaceSelector } from "@/features/workspaces/WorkspaceSelector";
-import { isAdminRoute, viewRoute } from "@/routing/routes";
+import { isAdminRoute, routeChangeSetId, viewRoute } from "@/routing/routes";
 import type { ApplicationDefinition, EngineModel, ObjectItem, RouteState, Workspace } from "@/types";
 import { Icon, ModelIcon } from "@/ui/Icon";
 import { NavigationDrawer } from "@/ui/NavigationDrawer";
@@ -69,8 +69,7 @@ export function AppShell({
       active = false;
     };
   }, []);
-  const changeSetId =
-    activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.changeSetId : undefined;
+  const changeSetId = routeChangeSetId(activeRoute);
   const publicationId =
     activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.publicationId : undefined;
 

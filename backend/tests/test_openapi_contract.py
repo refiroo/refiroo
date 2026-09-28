@@ -28,10 +28,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # for B2: GET /objects/{type}/{id}/parent-candidates and the ParentCandidate* and ObjectPathPart
     # schemas; no existing path or schema changed. Re-baselined for P2a: GET
     # /change-sets/{id}/object-changes and /relation-changes and the ObjectChange* and
-    # RelationChange* schemas; no existing path or schema changed.
+    # RelationChange* schemas; no existing path or schema changed. Re-baselined for P2b: the
+    # optional ObjectChange.beforePath (where the source held a moved record).
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "28aeca92f0b6b7a84c334c31cb651ae5be29eeb64cb0af08745a0c1839c71d11"
+        "4150605b73f8241e7c0e3537479e57d3417f2bab749ad0f55fdde2ecdce7cd5c"
     )
 
 

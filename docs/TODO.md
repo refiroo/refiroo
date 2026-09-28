@@ -10,7 +10,7 @@ Base 0.7 is released (2026-09-25). 0.8 Track S (scalable browsing) and Track W (
 and capability boundaries) are delivered (2026-09-26), and Milestone A's relation matrix (A1–A5) is
 delivered (2026-09-28), closed by A6 (snapshot table index drift, 2026-09-28). The hierarchy editor's
 `tree` contract (B1), move targets (B2), tree lens (B3) and acceptance (B4) are delivered (2026-09-28),
-closing Milestone B. Next: P2a (change lists API), then P2b (review screen), then R1. See
+closing Milestone B. P2 (change lists API, P2a; review screen, P2b) is delivered (2026-09-28). Next: R1. See
 [Next — 0.8 and beyond](#next--08-and-beyond).
 
 ## Open decisions
@@ -80,9 +80,10 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     `test:browser:b3` on both starter trees and the generated tree, live and in a change set.
   - [x] B4 Milestone B acceptance (SC-09 hierarchy half); `test:browser:b4`, tree lens and move dialog
     in the a11y and visual gates.
-- [ ] 0.8 P2 change set changes list, after W2 (D20); planned 2026-09-28 with D31–D33 accepted.
-  - [ ] P2a change lists API: `object-changes` and `relation-changes`, kinds, before/after, volume budgets.
-  - [ ] P2b change set review screen.
+- [x] 0.8 P2 change set changes list, after W2 (D20); planned 2026-09-28 with D31–D33 accepted.
+  - [x] P2a change lists API: `object-changes` and `relation-changes`, kinds, before/after, volume budgets.
+  - [x] P2b change set review screen: Records and Relationships, kind and type filters, parent links on
+    request, before/after rows, `beforePath` for moves; `test:browser:p2`, review in the a11y and visual gates.
 - [ ] 0.8 R1 build acceptance and release.
 - [ ] Enforce foreign keys on SQLite (`PRAGMA foreign_keys=ON` per connection) or document that every
   `ondelete` rule is advisory there. 0.8 W6 found none of them, not only the `workspaces.key` ones, are

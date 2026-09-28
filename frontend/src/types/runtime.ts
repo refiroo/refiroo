@@ -358,3 +358,68 @@ export interface MappingReplacementResponse {
   relationId: string | null;
   changeSetVersion: number | null;
 }
+
+/** What a change set does to a record or relation against its source (Base 0.8 P2a, D31). */
+export type ChangeKind = "added" | "changed" | "removed";
+
+export interface ObjectChangeState {
+  name: string;
+  parentObjectId: string | null;
+  attributes: ObjectAttributeValue[];
+  version: number;
+}
+
+export interface ObjectPathPart {
+  id: string;
+  name: string;
+  objectTypeKey: string;
+}
+
+export interface ObjectChange {
+  kind: ChangeKind;
+  objectId: string;
+  objectTypeKey: string;
+  applicationKey: string;
+  /** Null for an added record. */
+  before: ObjectChangeState | null;
+  /** Null for a removed record. */
+  after: ObjectChangeState | null;
+  /** `name`, `parent` and attribute keys that differ between the sides. */
+  changedFields: string[];
+  /** Root first, ending with the record: where the change set puts it, or where the source held a removed one. */
+  path: ObjectPathPart[];
+  /** Where the source held a moved record; null unless `parent` changed. */
+  beforePath?: ObjectPathPart[] | null;
+}
+
+export interface ObjectChangePage extends PageNavigation {
+  items: ObjectChange[];
+}
+
+export interface RelationChangeEnd {
+  objectId: string;
+  objectTypeKey: string | null;
+  name: string | null;
+}
+
+export interface RelationChangeState {
+  attributes: Record<string, unknown>;
+  version: number;
+}
+
+export interface RelationChange {
+  kind: ChangeKind;
+  relationId: string;
+  relationTypeKey: string;
+  /** An engine-maintained parent edge (D32). */
+  containment: boolean;
+  fromObject: RelationChangeEnd;
+  toObject: RelationChangeEnd;
+  before: RelationChangeState | null;
+  after: RelationChangeState | null;
+  changedFields: string[];
+}
+
+export interface RelationChangePage extends PageNavigation {
+  items: RelationChange[];
+}

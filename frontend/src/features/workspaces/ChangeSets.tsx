@@ -218,10 +218,16 @@ export function ChangeSetDiagnostics({ items }: { items: Array<Record<string, un
 
 export function ChangeSetActions({
   readOnly,
+  reviewing = false,
+  onReview,
   onExit,
   onModelChanged,
 }: {
   readOnly: boolean;
+  /** The review screen is open, so the bar does not offer it again. */
+  reviewing?: boolean;
+  /** Opens the change set's review (Base 0.8 P2b). */
+  onReview?: () => void;
   onExit: (message: string) => void;
   onModelChanged: () => Promise<void>;
 }) {
@@ -354,39 +360,50 @@ export function ChangeSetActions({
             </span>
           </span>
         </div>
-        {!readOnly && (
+        {(!readOnly || (onReview && !reviewing)) && (
           <div className="change-set-bar-actions">
-            <button
-              className="secondary"
-              disabled={pending}
-              onClick={check}
-              title="Check the full change set graph against the current publication"
-            >
-              Validate change set
-            </button>
-            <button
-              className="primary"
-              disabled={pending || modelMismatch || !validation?.result.valid || validation.version !== current.version}
-              title={
-                modelMismatch
-                  ? "Change set model version differs from the active release. Change the version or wait until this release is activated."
-                  : "Publishing is available after a successful validation."
-              }
-              onClick={() => setConfirm("publish")}
-            >
-              Publish change set
-            </button>
-            <details className="change-set-secondary-actions">
-              <summary>More change set actions</summary>
-              <div className="change-set-secondary-menu">
-                <button className="secondary" disabled={pending} onClick={openVersionChange}>
-                  Change model version
+            {onReview && !reviewing && (
+              <button className="secondary" onClick={onReview}>
+                Review changes
+              </button>
+            )}
+            {!readOnly && (
+              <>
+                <button
+                  className="secondary"
+                  disabled={pending}
+                  onClick={check}
+                  title="Check the full change set graph against the current publication"
+                >
+                  Validate change set
                 </button>
-                <button className="danger-ghost" disabled={pending} onClick={() => setConfirm("discard")}>
-                  Discard change set
+                <button
+                  className="primary"
+                  disabled={
+                    pending || modelMismatch || !validation?.result.valid || validation.version !== current.version
+                  }
+                  title={
+                    modelMismatch
+                      ? "Change set model version differs from the active release. Change the version or wait until this release is activated."
+                      : "Publishing is available after a successful validation."
+                  }
+                  onClick={() => setConfirm("publish")}
+                >
+                  Publish change set
                 </button>
-              </div>
-            </details>
+                <details className="change-set-secondary-actions">
+                  <summary>More change set actions</summary>
+                  <div className="change-set-secondary-menu">
+                    <button className="secondary" disabled={pending} onClick={openVersionChange}>
+                      Change model version
+                    </button>
+                    <button className="danger-ghost" disabled={pending} onClick={() => setConfirm("discard")}>
+                      Discard change set
+                    </button>
+                  </div>
+                </details>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -494,6 +511,22 @@ export function ChangeSetActions({
               Apply authored changes from change set v{validation?.version} over current live data and create the next
               publication. Unrelated live changes are preserved. Conflicts or an invalid merged graph publish nothing.
               Current publication to replace: {validation?.activePublicationId ?? "none"}.
+              {onReview && !reviewing && (
+                <>
+                  {" "}
+                  <button
+                    type="button"
+                    className="inline-link"
+                    onClick={() => {
+                      setConfirm(undefined);
+                      onReview();
+                    }}
+                  >
+                    Review changes
+                  </button>{" "}
+                  before publishing.
+                </>
+              )}
             </p>
           ) : (
             <p>

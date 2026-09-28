@@ -47,6 +47,36 @@ describe("API client", () => {
     expect(Object.fromEntries(staged.searchParams)).toEqual({ changeSetId: "cs/1", position: "40" });
   });
 
+  it("reads a change set's record and relationship changes with repeatable filters", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => jsonResponse({ items: [], nextCursor: null }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.objectChanges("cs/1", {
+      kinds: ["added", "removed"],
+      objectTypeKeys: ["codelist"],
+      pageSize: 50,
+      includeTotal: true,
+    });
+    await api.relationChanges("cs/1", { kinds: [], containment: false, cursor: "next" });
+    await api.relationChanges("cs/1", { relationTypeKeys: ["maps-to"], fromEnd: true });
+
+    const records = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(records.pathname).toBe("/api/v1/change-sets/cs%2F1/object-changes");
+    expect([...records.searchParams]).toEqual([
+      ["kind", "added"],
+      ["kind", "removed"],
+      ["pageSize", "50"],
+      ["includeTotal", "true"],
+      ["objectTypeKey", "codelist"],
+    ]);
+    const relations = new URL(String(fetchMock.mock.calls[1][0]));
+    expect(relations.pathname).toBe("/api/v1/change-sets/cs%2F1/relation-changes");
+    expect(Object.fromEntries(relations.searchParams)).toEqual({ cursor: "next", containment: "false" });
+    // Parent links are listed with the rest when the filter is left out.
+    const all = new URL(String(fetchMock.mock.calls[2][0]));
+    expect(Object.fromEntries(all.searchParams)).toEqual({ from: "end", relationTypeKey: "maps-to" });
+  });
+
   it("preserves structured errors", async () => {
     vi.stubGlobal(
       "fetch",

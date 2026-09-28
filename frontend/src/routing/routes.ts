@@ -4,7 +4,7 @@
  * hand-edited or stale URL falls back to a valid route rather than rendering an empty screen.
  */
 
-import type { AdminRoute, ApplicationDefinition, EngineModel, RouteState, ViewDefinition } from "@/types";
+import type { AdminRoute, ApplicationDefinition, ChangeKind, EngineModel, RouteState, ViewDefinition } from "@/types";
 import { DEFAULT_COLLECTION_QUERY, DEFAULT_WORKSPACE } from "@/model/defaults";
 import { applicationFor, objectTypeFor } from "@/model/lookup";
 import { listSortFields } from "@/model/fields";
@@ -29,6 +29,52 @@ function viewDefaults(view: ViewDefinition | undefined) {
     sort: (view?.type === "table" ? view.config.defaultSort : undefined) ?? DEFAULT_COLLECTION_QUERY.sort,
     pageSize: view?.config.pageSize ?? DEFAULT_COLLECTION_QUERY.pageSize,
   };
+}
+
+const CHANGE_KINDS: readonly ChangeKind[] = ["added", "changed", "removed"];
+
+/**
+ * A change set review from its URL. The type is checked against the model the URL is parsed with;
+ * the change set's pinned model may differ, and the screen drops a type that model lacks.
+ */
+function changeReviewRoute(
+  model: EngineModel,
+  applicationKey: string,
+  workspaceKey: string,
+  changeSetId: string,
+  query: URLSearchParams,
+): Extract<RouteState, { kind: "changeSetChanges" }> {
+  const tab = query.get("tab") === "relationships" ? "relationships" : "records";
+  const typeKey = query.get("type") ?? undefined;
+  const knownType =
+    typeKey && (tab === "records" ? model.objectTypes : model.relationTypes).some((type) => type.key === typeKey);
+  return {
+    kind: "changeSetChanges",
+    applicationKey,
+    workspaceKey,
+    changeSetId,
+    tab,
+    changeKinds: CHANGE_KINDS.filter((kind) => query.getAll("kind").includes(kind)),
+    ...(knownType ? { typeKey } : {}),
+    ...(tab === "relationships" && query.get("containment") === "true" ? { containment: true } : {}),
+    ...(query.get("anchor") ? { anchor: query.get("anchor")! } : {}),
+  };
+}
+
+/** A change set review opened on its records, with no filter. */
+export function changeReviewFor(
+  applicationKey: string,
+  workspaceKey: string,
+  changeSetId: string,
+): Extract<RouteState, { kind: "changeSetChanges" }> {
+  return { kind: "changeSetChanges", applicationKey, workspaceKey, changeSetId, tab: "records", changeKinds: [] };
+}
+
+/** The change set a route shows its data in, if any. */
+export function routeChangeSetId(route: RouteState) {
+  return route.kind === "list" || route.kind === "detail" || route.kind === "changeSetChanges"
+    ? route.changeSetId
+    : undefined;
 }
 
 export function isAdminRoute(route: RouteState): route is AdminRoute {
@@ -59,6 +105,14 @@ export function parseRoute(
   const workspaceKey = query.get("workspaceKey")?.trim() || defaultWorkspaceKey;
   const changeSetId = query.get("changeSetId")?.trim() || undefined;
   const publicationId = changeSetId ? undefined : query.get("publicationId")?.trim() || undefined;
+  if (
+    parts[0] === "apps" &&
+    parts[2] === "change-sets" &&
+    parts[3] &&
+    parts[4] === "changes" &&
+    applicationFor(model, parts[1])
+  )
+    return changeReviewRoute(model, parts[1], workspaceKey, parts[3], query);
   if (parts[0] === "apps" && parts[2] === "change-sets" && applicationFor(model, parts[1]))
     return { kind: "changeSets", applicationKey: parts[1], workspaceKey };
   if (parts[0] === "apps" && parts[2] === "publications" && applicationFor(model, parts[1]))
@@ -156,6 +210,14 @@ export function routePath(route: RouteState) {
   const app = encodeURIComponent(route.applicationKey);
   const query = new URLSearchParams({ workspaceKey: route.workspaceKey });
   if (route.kind === "changeSets") return `/apps/${app}/change-sets?${query}`;
+  if (route.kind === "changeSetChanges") {
+    if (route.tab !== "records") query.set("tab", route.tab);
+    route.changeKinds.forEach((kind) => query.append("kind", kind));
+    if (route.typeKey) query.set("type", route.typeKey);
+    if (route.containment) query.set("containment", "true");
+    if (route.anchor) query.set("anchor", route.anchor);
+    return `/apps/${app}/change-sets/${encodeURIComponent(route.changeSetId)}/changes?${query}`;
+  }
   if (route.kind === "publications") return `/apps/${app}/publications?${query}`;
   if (route.changeSetId) query.set("changeSetId", route.changeSetId);
   if (route.publicationId) query.set("publicationId", route.publicationId);

@@ -1003,7 +1003,11 @@ coordinated data changes.
 | Editable model JSON | **Model draft** | unchanged; now the only "draft" |
 | Immutable installed model | **Model release** | unchanged |
 | Removing a publication's current designation | **Withdraw** (status `withdrawn`) | publication retirement |
-| 0.8 steward screens | **Translation editor**, **Hierarchy editor** | translation/hierarchy workspace |
+| 0.8 steward screens | **Relation matrix**, **Hierarchy editor** | translation/hierarchy workspace, Translation editor |
+
+_Amended 2026-09-28:_ Milestone A was first named "Translation editor". It is the **Relation
+matrix**, a generic lens that any application may declare; translations by language is one example
+configuration of it ([EXAMPLE_MODEL.md](EXAMPLE_MODEL.md)).
 
 A workspace has live data, change sets and publications, and runs on one model release. Live, a
 change set and a publication are ways of viewing one workspace, not workspaces themselves.

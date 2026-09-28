@@ -4,14 +4,21 @@ RDM Engine is an API-first, model-driven platform for reference data. Applicatio
 global attribute types, relation types, allowed object-type relationships and UI views are described
 by a versioned JSON model rather than hardcoded into the product.
 
-The starter model contains three configured applications:
+The engine is model-independent. Every application gets the same feature set: any view type (table,
+mapping grid, relation matrix, tree), any relation pattern and the same live, change-set and
+publication behaviour. The engine never branches on an application, object-type or relation key.
+
+The bundled example model (`model/rdm-starter.json`) shows these capabilities with one
+reference-data use case, split into three applications:
 
 - RDM Master — domains, codelists and canonical values
 - RDM Systems — external-system values, groups, master mappings and Domain/Codelist representations
 - RDM Translations — languages, groups and translated values
 
-They are starter definitions, not reserved engine modules. A model can replace them or add entirely
-different applications.
+They are examples, not engine modules and not a template to follow. A model can rename, reshape or
+replace them, or add applications for entirely different domains. The views each example application
+declares differ only because the example declares them that way; see
+[docs/EXAMPLE_MODEL.md](docs/EXAMPLE_MODEL.md).
 
 ## Current state — Base 0.7 released
 
@@ -177,7 +184,7 @@ delete partial lifecycle data or an unfamiliar schema.
 
 | Path | Purpose |
 | --- | --- |
-| `model/rdm-starter.json` | Independent starter application model |
+| `model/rdm-starter.json` | Example model: three applications showing the engine's capabilities ([explained](docs/EXAMPLE_MODEL.md)) |
 | `backend/app/models/schema.py` | Executable model contract and cross-reference validation |
 | `backend/app/models/database.py` | Metadata, object, attribute, relation and audit persistence |
 | `backend/app/routers` | Model and runtime API routes |

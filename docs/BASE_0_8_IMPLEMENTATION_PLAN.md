@@ -10,7 +10,7 @@ accepted; A3b's stored cell states closed A2's budget exception for the row stat
 are delivered (2026-09-28), and A6 (snapshot table index drift, found in A2) with D28 accepted
 (2026-09-28), which completes Milestone A. B1–B4 are delivered (2026-09-28), which completes Milestone B; D14 is accepted (2026-09-28),
 D30 decides one of A6's two open measurements and B2 decides the other (D29, a known budget exception);
-P2 is planned (2026-09-28) as P2a (change lists API) and P2b (review screen), with D31–D33 accepted (2026-09-28); P2a is delivered (2026-09-28); see the [summary](#decisions-summary).
+P2 is planned (2026-09-28) as P2a (change lists API) and P2b (review screen), with D31–D33 accepted (2026-09-28); P2a and P2b are delivered (2026-09-28), which completes P2; see the [summary](#decisions-summary).
 
 **Target:** Product 0.8.0. Track S does not change the schema language. Milestones A and B add
 schema language 0.7 (`relationMatrix` and `tree` views); the starter model becomes content release
@@ -1054,7 +1054,8 @@ independent and may run at any time. W6 adds deletion to the W4 screen (D27).
 **Scope:** update the [glossary](product-functionality/GLOSSARY.md) to the ADR-031 terms and add the
 Live / change set / publication relationship to one workspace. Rename Milestones A and B to
 **Translation editor** and **Hierarchy editor** in ROADMAP, TODO, this plan and the functionality
-catalogue. Correct the stale "non-default workspace detail gap" notes in PRODUCT and USER_JOURNEYS
+catalogue. (_Superseded 2026-09-28:_ Milestone A is the **Relation matrix**, a generic lens; a milestone
+is not named after an example domain. See [EXAMPLE_MODEL.md](EXAMPLE_MODEL.md).) Correct the stale "non-default workspace detail gap" notes in PRODUCT and USER_JOURNEYS
 after checking the current behavior.
 
 **Exit:** no document uses "workspace" for the 0.8 screens; the glossary defines every ADR-031 term.
@@ -1467,6 +1468,45 @@ clean on the screen; new light and dark baselines are inspected before they are 
 Composable-domains doors (ADR-032): none affected. A read over existing change-set rows; no new
 identity, attribute storage, audit event or bulk API. It keeps before/after values out of audit
 payloads (History and erasure), and its kinds are the vocabulary a later inbound-flow review can reuse.
+
+**Delivered 2026-09-28.** `features/workspaces/ChangeSetReview.tsx` renders the route
+`changeSetChanges` (`/apps/{app}/change-sets/{id}/changes`; tab, kinds, one type, parent links and
+the anchor in the query), in the change set's context, so the shell's change set bar sits above it and
+every label comes from the pinned model. Each tab is a `ScrollWindow` over `useCursorWindow` whose rows
+are disclosures: a summary line (kind badge in words, name, type, path or both ends' names and types,
+changed fields) and, on request, a before/after table of the changed fields rendered with
+`formatValue`, as the record screen renders values. The Filter popover holds the kinds, the type (the
+model's object or relation types, one at a time, which the API's repeatable filter allows) and, on
+Relationships, **Show parent links** (D32: `containment=false` unless asked). An empty list says
+"No changes yet" unless kinds or a type narrow it ("Nothing matches"); showing parent links widens
+the list, so it does not count as narrowing. **Review changes** sits on the change set bar, read-only
+change sets included, and in the publish confirmation.
+
+One addition to P2a's contract: a moved record's entry carries `beforePath`, where the source held
+it. Without it the review could name the old parent only by ID. It is read in the same per-level walk
+as `path` (the walk is keyed by side and ID), so a page's statement count is unchanged; the OpenAPI
+lock is re-baselined for the optional field.
+
+Evidence: `ChangeSetReview.test` (14: each kind with badge, type, path and fields; the link only for
+added and changed; the expand with typed values and both parents, added and removed sides and the
+edited-back note; the kind and type filters through the route and to the API; empty and
+filtered-empty; a type the pinned model lacks dropped; a load failure retried with the same filter;
+parent links hidden and shown; tab switching; the bar's entry, hidden while reviewing, and the publish
+confirmation's link); `routes.test` (round trip, unknown kinds and types dropped); `client.test`
+(repeatable filters and `containment`); `test_change_lists` (9, `beforePath` on the move and `null`
+elsewhere) and `test_openapi_contract`; `test:browser:p2` (9 checks, above; axe on seven states in
+light and dark, clean). The runner found two defects before delivery, both fixed: an expanded row's
+table widened the page at 390px (the context page's grid track and the global `nowrap` table cells),
+and its own focus check read focus before React Aria restores it to the Filter button. The
+`test:visual` gate gained `change-set-review-light` and `-dark`, and `change-set-editing-light` and
+`change-set-detail-light` changed only in the bar's button row; all four were inspected and accepted,
+every other baseline matched. The `test:a11y` gate gained the review and relationships in light and
+dark, not run in this package (build acceptance). Groups: Vitest `src/routing`, `src/app`,
+`src/features/workspaces`, `src/api` (139 passing before the client case was added), backend
+`test_change_lists`, `test_change_lists_volume`, `test_openapi_contract`, Ruff, frontend format, lint
+(0 errors) and build. Not exercised: a change set large enough to page the review in the browser (the
+list is the S5 `ScrollWindow`, measured at volume in P2a's API budgets), and a change to a relation's
+attributes (the starter mapping carries none; the component test covers relation before/after values).
 
 #### P3: Relation edge list across the workspace
 

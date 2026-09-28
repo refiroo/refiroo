@@ -115,11 +115,15 @@ managing low-level relationship records.
 - Parent/containment and required ownership relationships are not presented as independently mutable
   mappings.
 
-## Product 0.8 — Translation and hierarchy editors
+## Product 0.8 — Relation matrix and hierarchy editor
 
 **Why here:** generic translation and parent editing already have a defined foundation; specialist
 views reduce repetitive navigation. These are separately gated outcomes and neither depends on using
 the other. **Acceptance:** SC-09, stories US-L03–L04 and US-H01–H02.
+
+Both outcomes are generic lenses that any application may declare. The translation and hierarchy
+outcomes below describe how the example model's applications demonstrate them, not features reserved
+for those applications ([example model](../EXAMPLE_MODEL.md)).
 
 ### Translation outcome
 

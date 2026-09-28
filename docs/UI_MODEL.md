@@ -93,7 +93,8 @@ help text and visibility. The renderer supplies accessible defaults when hints a
 ADR-029 makes the model-driven application browser the single data-navigation surface. It combines
 virtual collection entries with runtime containment records instead of asking users to switch between
 `Browse hierarchy` and `Views`. The browser works for contained, recursive and flat application
-models; the starter applications supply examples, not reserved navigation sections.
+models; the example applications supply examples, not reserved navigation sections or a required
+shape ([EXAMPLE_MODEL.md](EXAMPLE_MODEL.md)).
 
 The main workspace distinguishes:
 

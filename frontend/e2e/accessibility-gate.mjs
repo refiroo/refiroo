@@ -6,11 +6,14 @@ import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { runAxe, formatViolations } from "./helpers/axe-helper.mjs";
 import {
+  expandChangeReviewRow,
+  openChangeReview,
   openLongList,
   openSystemHierarchy,
   openTranslationCell,
   openTranslationMatrix,
   openTreeMoveDialog,
+  seedChangeReview,
   seedHierarchy,
   seedLongList,
   seedTranslationMatrix,
@@ -253,6 +256,34 @@ try {
     }
     await page.keyboard.press("Escape");
     await page.getByRole("dialog").waitFor({ state: "detached" });
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // --- 13b. Change set review (Base 0.8 P2b), light and dark: records of every kind with a move
+  // expanded to its before/after table, and relationships with parent links shown ---
+  const review = await seedChangeReview(api, records);
+  for (const scheme of ["light", "dark"]) {
+    const prefix = scheme === "dark" ? "dark-" : "";
+    await page.emulateMedia({ colorScheme: scheme });
+    for (const [name, open] of [
+      [
+        `${prefix}change-set-review`,
+        async () => {
+          await openChangeReview(page, uiUrl, review.changeSet);
+          await expandChangeReviewRow(page, "Home courier");
+        },
+      ],
+      [
+        `${prefix}change-set-review-relationships`,
+        () => openChangeReview(page, uiUrl, review.changeSet, "tab=relationships&containment=true"),
+      ],
+    ]) {
+      await open();
+      result = await runAxe(page, ALLOWLIST, name);
+      if (result.violations.length > 0) failures.push(`${name}:\n${formatViolations(result.violations)}`);
+      checks.push(`${name}: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+      await page.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
+    }
   }
   await page.emulateMedia({ colorScheme: "light" });
 

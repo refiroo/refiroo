@@ -28,7 +28,7 @@ delivered 2026-09-28; A6, the snapshot table index drift found in A2, delivered 
 and hierarchy editor (Milestone B; B1 schema 0.7 `tree` contract delivered 2026-09-28; B2 move targets with
 D14 eligibility delivered 2026-09-28, the matrix container move a known budget exception, D29; B3 tree
 lens and B4 acceptance delivered 2026-09-28, closing Milestone B),
-and P2 (P2a change lists API delivered 2026-09-28; P2b review screen next; D31–D33 accepted), then R1 build
+and P2 (P2a change lists API and P2b review screen delivered 2026-09-28; D31–D33 accepted), then R1 build
 acceptance. Residual 0.7 gaps are listed in the
 [plan's WP-9 record](BASE_0_7_IMPLEMENTATION_PLAN.md#wp-9-composed-product-validation--sc-07-and-sc-15).
 
@@ -372,7 +372,7 @@ Base 0.7 is released (2026-09-25): WP-1–WP-9, WP-10A–K, WP-11, WP-12, WP-13A
 2026-09-24 frontend redesign and dark mode. WP-13A's [coverage map](testing/COVERAGE_MAP.md), WP-13B's
 [execution guide](testing/EXECUTION_GUIDE.md) and WP-13C's [UI acceptance](testing/UI_ACCEPTANCE.md)
 supply the audited selections. **0.8 in progress**: Tracks S and W are delivered; next are the
-Translation editor and Hierarchy editor milestones, P2 and R1
+Relation matrix and Hierarchy editor milestones, P2 and R1
 ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md), [roadmap](ROADMAP.md)).
 Use one implementation owner per slice, focused verification and appropriate review. Do not commit
 unless explicitly requested. Summarize each completed batch while work continues so scope can be

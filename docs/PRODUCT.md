@@ -28,8 +28,9 @@ APIs without writing application-specific code.
 
 The product provides a reusable definition of applications, record types, typed fields, relationships
 and views. Data owners use that definition to organize codes, maintain representations and connect
-values according to the selected model. Starter applications are examples of configuration, never
-special runtime modules. The browser composes a model-defined application from contextual collections
+values according to the selected model. Every application gets the same capabilities; the example
+applications (RDM Master, RDM Systems, RDM Translations) show one way to configure them and are never
+special runtime modules or a required shape ([example model](EXAMPLE_MODEL.md)). The browser composes a model-defined application from contextual collections
 and supported task lenses; it does not reserve navigation or renderer branches for the starter model.
 
 | Capability | Current development position | Product coverage |
@@ -39,7 +40,7 @@ and supported task lenses; it does not reserve navigation or renderer branches f
 | Optional coordinated data changes | Current-live/history change set sources and delta merge available; mapping browser acceptance remains 0.7 work | F12–F14, US-W01–W08 |
 | Inspect, check, install and activate application definitions | JSON workbench and release APIs present; installation and activation are separate | F15, US-P01–P04, US-P06 |
 | Stable paged integration reads | Available; larger exchange and advanced query planned for 0.9 | F16, US-I01–I09 |
-| Contextual collections and specialist lenses | Unified application browser and mapping lens 0.7; translation and hierarchy lenses 0.8 | US-D01–D05, US-M01–M04, US-L03–L04, US-H01–H02 |
+| Contextual collections and specialist lenses | Unified application browser and mapping lens 0.7; relation matrix and tree lenses 0.8, available to any application | US-D01–D05, US-M01–M04, US-L03–L04, US-H01–H02 |
 | Authenticated shared production operation | Production hardening and staged model rollout planned for 0.10 | US-S01, US-O03–O06, US-P07 |
 | Structured model authoring and reusable definitions | Planned for 1.0, retaining existing validation and release protections | US-P05, US-P08 |
 

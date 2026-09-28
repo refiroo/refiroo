@@ -49,7 +49,7 @@ preloaded demonstration data.
 | Keep a shared list accurate | Add, correct or remove a value and its fields, with clear validation and change history | Service and Base 0.6 browser authoring available; see the functionality catalogue for context limitations | US-D06–D08, US-D11–D12, US-D14 |
 | Organize and connect data | Choose a valid parent, connect related records and understand deletion impact | Service and Base 0.6 browser authoring available; see the functionality catalogue for context limitations | US-D09–D11 |
 | Work in several domains | Use the configured terminology, fields and views through familiar controls | Model-driven foundation exists | US-D13, US-P06 |
-| Prepare a coordinated change | Work in an optional change set, check it and apply its changes together while preserving unrelated live work | Current-live/history API available; browser gaps remain | US-W01–W08 |
+| Prepare a coordinated change | Work in an optional change set, review what it adds, changes and removes, check it and apply its changes together while preserving unrelated live work | Current-live/history API available; review screen and change lists (0.8 P2); browser gaps remain | US-W01–W08 |
 | Maintain translations | Enter a target, language and translated content together; prevent conflicting active translations | Basic API and Base 0.6 browser flows available; specialist coverage view remains 0.8 | US-L01–L04 |
 | Manage system equivalences | See missing or conflicting mappings and choose, replace or clear a target in one action | WP-8/WP-14 browser lens and APIs implemented with focused proof; composed WP-9 acceptance remains | US-M01–M04 |
 | Navigate a deep hierarchy | Expand the relevant branch, add a child or move a record without losing context | Tree lens (0.8), SC-09 hierarchy half accepted | US-H01–H02 |
@@ -80,6 +80,9 @@ agreed query; the engine must not silently invent that business policy.
 
 A steward is reorganizing delivery options and related system mappings. The team chooses a design
 change set, makes the changes away from live users, checks the result and publishes the coordinated change.
+Before publishing, **Review changes** lists exactly what the change set adds, changes and removes,
+record by record, with each changed field's value before and after; a moved record names where it came
+from and where it goes.
 Another steward can still correct an unrelated live value. That correction must survive activation.
 If both change the same record, activation must stop without losing either person's work.
 

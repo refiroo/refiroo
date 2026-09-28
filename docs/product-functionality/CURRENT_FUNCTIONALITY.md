@@ -354,12 +354,21 @@ Before publishing, an integration or reviewer can list only what the change set 
 P2a): its records and relations as added, changed or removed, each with its values in the change set's
 source and in the change set, the fields that differ and where the record sits. A record created and
 deleted inside the change set is not listed, since it never reaches live. The list shows what the
-change set does, not whether live moved since; that is what validation and publishing report. The
-browser review screen is P2b; until then the lists are API only.
+change set does, not whether live moved since; that is what validation and publishing report.
+
+In the browser (Base 0.8 P2b), **Review changes** on the change set bar, or in the publish
+confirmation, opens the same lists as a review screen: records and relationships on two tabs, each
+change marked Added, Changed or Removed, with the record's type, where it sits and which fields
+changed. A row opens to a before/after table; a moved record names both parents. Added and changed
+records open in the change set from the list. The review filters by kind and type, and hides the
+parent links that follow a move unless asked, since the record's Parent change already shows it. The
+screen only reads; publishing stays on the change set bar.
 
 Evidence: [activation merge tests](../../backend/tests/test_wp8_publish_merge.py),
 [whole-graph validation tests](../../backend/tests/test_wp8_graph_validation.py),
 [change list tests](../../backend/tests/test_change_lists.py),
+[review screen tests](../../frontend/src/features/workspaces/ChangeSetReview.test.tsx),
+[review browser runner](../../frontend/e2e/p2-change-review.mjs),
 [ADR-026 activation decision](../DECISIONS.md#resolved-decision--activation-is-a-delta-merge-over-live-content).
 
 ## F14 — Browse workspace history and retire publication

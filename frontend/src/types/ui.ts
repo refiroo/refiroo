@@ -5,6 +5,8 @@
  * declarative model the engine serves, and no backend response carries them.
  */
 
+import type { ChangeKind } from "@/types/runtime";
+
 export type ObjectSort = string;
 
 export interface CollectionFilter {
@@ -56,6 +58,22 @@ export type RouteState =
       publicationId?: string;
     }
   | { kind: "changeSets"; applicationKey: string; workspaceKey: string; changeSetId?: undefined }
+  | {
+      /** A change set's review: the records and relationships it changes (Base 0.8 P2b). */
+      kind: "changeSetChanges";
+      applicationKey: string;
+      workspaceKey: string;
+      changeSetId: string;
+      tab: "records" | "relationships";
+      /** Only these kinds; every kind when empty. */
+      changeKinds: ChangeKind[];
+      /** Only this object type (records) or relation type (relationships). */
+      typeKey?: string;
+      /** Relationships: also list engine-maintained parent links, hidden by default (D32). */
+      containment?: boolean;
+      /** Cursor that reopens the shown list at the top of the viewport (ADR-030). */
+      anchor?: string;
+    }
   | { kind: "publications"; applicationKey: string; workspaceKey: string }
   | { kind: "models"; releaseId?: string; draftId?: string }
   | { kind: "workspaces"; selectedWorkspaceKey?: string };

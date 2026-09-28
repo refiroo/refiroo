@@ -6,11 +6,14 @@ import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { compareScreenshot } from "./helpers/visual-regression.mjs";
 import {
+  expandChangeReviewRow,
+  openChangeReview,
   openLongList,
   openSystemHierarchy,
   openTranslationCell,
   openTranslationMatrix,
   openTreeMoveDialog,
+  seedChangeReview,
   seedHierarchy,
   seedLongList,
   seedTranslationMatrix,
@@ -149,6 +152,18 @@ try {
     await capture(page, `tree-move-dialog-${scheme}`, output);
     await page.keyboard.press("Escape");
     await page.getByRole("dialog").waitFor({ state: "detached" });
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // --- 13b. Change set review (Base 0.8 P2b), light and dark: records of every kind in RDM Master
+  // and RDM Systems with the move expanded to its before/after table ---
+  const review = await seedChangeReview(api, records);
+  for (const scheme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await openChangeReview(page, uiUrl, review.changeSet);
+    await expandChangeReviewRow(page, "Home courier");
+    await page.mouse.move(0, 0);
+    await capture(page, `change-set-review-${scheme}`, output);
   }
   await page.emulateMedia({ colorScheme: "light" });
 

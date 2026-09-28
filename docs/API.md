@@ -741,7 +741,8 @@ set or publication is addressed flat by its global ID (`/change-sets/{changeSetI
     `parent`, then attribute keys in binding order); a missing side holds nothing, so an added or
     removed record names every field it holds. A `changed` entry can name none — edited back to its
     source values — and is still listed: its version advanced and publishing claims it against live.
-    A move is `changed` with `parent`.
+    A move is `changed` with `parent`, and carries `beforePath`: where the source held the record
+    (root first, ending with the record); `beforePath` is `null` on every other entry (Base 0.8 P2b).
   - A relation entry carries `kind`, `relationId`, `relationTypeKey`, `containment`, `fromObject` and
     `toObject` (`objectId`, `objectTypeKey`, `name`: as the change set holds the record, or the source
     for a removed end), `before`/`after` (`attributes`, `version`) and `changedFields` (attribute

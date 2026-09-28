@@ -5,6 +5,9 @@ import type {
   Publication,
   PublicationPage,
   ChangeSetValidation,
+  ChangeKind,
+  ObjectChangePage,
+  RelationChangePage,
   InitialRelationInput,
   ObjectAttributeInput,
   ObjectItem,
@@ -124,6 +127,19 @@ export interface ObjectQuery extends PageSelector {
   topLevel?: boolean;
   sort?: ObjectSort;
   filters?: CollectionFilter[];
+}
+
+export interface ChangeListQuery extends PageSelector {
+  kinds?: ChangeKind[];
+  pageSize?: number;
+}
+
+function changeListParams(query: ChangeListQuery) {
+  const params = new URLSearchParams();
+  query.kinds?.forEach((kind) => params.append("kind", kind));
+  if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
+  setPaging(params, query);
+  return params;
 }
 
 export interface ObjectDeleteOptions {
@@ -322,6 +338,23 @@ export const api = {
     const query = new URLSearchParams({ pageSize: "50" });
     if (cursor) query.set("cursor", cursor);
     return request<PublicationPage>(`/api/v1/workspaces/${encodeURIComponent(workspaceKey)}/publications?${query}`);
+  },
+  /** What a change set adds, changes and removes against its source (Base 0.8 P2a). */
+  objectChanges: (changeSetId: string, query: ChangeListQuery & { objectTypeKeys?: string[] }) => {
+    const params = changeListParams(query);
+    query.objectTypeKeys?.forEach((key) => params.append("objectTypeKey", key));
+    return request<ObjectChangePage>(`/api/v1/change-sets/${encodeURIComponent(changeSetId)}/object-changes?${params}`);
+  },
+  relationChanges: (
+    changeSetId: string,
+    query: ChangeListQuery & { relationTypeKeys?: string[]; containment?: boolean },
+  ) => {
+    const params = changeListParams(query);
+    query.relationTypeKeys?.forEach((key) => params.append("relationTypeKey", key));
+    if (query.containment !== undefined) params.set("containment", String(query.containment));
+    return request<RelationChangePage>(
+      `/api/v1/change-sets/${encodeURIComponent(changeSetId)}/relation-changes?${params}`,
+    );
   },
   publication: (id: string) => request<Publication>(`/api/v1/publications/${encodeURIComponent(id)}`),
   withdrawPublication: (publicationId: string) =>

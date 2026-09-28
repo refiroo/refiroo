@@ -1,7 +1,8 @@
 // @vitest-environment jsdom
 import { describe, expect, it } from "vitest";
 import { domainObject, testModel } from "@/test/fixtures";
-import { defaultRoute, parseRoute, routePath } from "@/routing/routes";
+import type { RouteState } from "@/types";
+import { changeReviewFor, defaultRoute, parseRoute, routePath } from "@/routing/routes";
 
 describe("routes", () => {
   it("round-trips the global Models route outside application navigation", () => {
@@ -19,6 +20,43 @@ describe("routes", () => {
     expect(parseRoute(testModel)).toEqual(selected);
     window.history.pushState({}, "", routePath({ kind: "workspaces" }));
     expect(parseRoute(testModel)).toEqual({ kind: "workspaces" });
+    window.history.pushState({}, "", "/");
+  });
+
+  it("round-trips a change set review with its tab, filters and anchor (P2b)", () => {
+    const review: RouteState = {
+      ...changeReviewFor("test-app", "west", "change/set"),
+      tab: "relationships",
+      changeKinds: ["added", "removed"],
+      typeKey: "domain-contains-codelist",
+      containment: true,
+      anchor: "cursor-1",
+    };
+    expect(routePath(review)).toBe(
+      "/apps/test-app/change-sets/change%2Fset/changes?workspaceKey=west&tab=relationships&kind=added&kind=removed&type=domain-contains-codelist&containment=true&anchor=cursor-1",
+    );
+    window.history.pushState({}, "", routePath(review));
+    expect(parseRoute(testModel)).toEqual(review);
+    // The records tab and no filter keep the link short.
+    expect(routePath(changeReviewFor("test-app", "west", "cs"))).toBe(
+      "/apps/test-app/change-sets/cs/changes?workspaceKey=west",
+    );
+    window.history.pushState({}, "", "/");
+  });
+
+  it("drops a review filter the model or the tab does not know", () => {
+    window.history.pushState(
+      {},
+      "",
+      "/apps/test-app/change-sets/cs/changes?kind=moved&kind=changed&type=domain-contains-codelist&containment=true",
+    );
+    // A relation type on the records tab, an unknown kind, and parent links outside relationships.
+    expect(parseRoute(testModel)).toEqual({
+      ...changeReviewFor("test-app", "default", "cs"),
+      changeKinds: ["changed"],
+    });
+    window.history.pushState({}, "", "/apps/test-app/change-sets?workspaceKey=west");
+    expect(parseRoute(testModel)).toEqual({ kind: "changeSets", applicationKey: "test-app", workspaceKey: "west" });
     window.history.pushState({}, "", "/");
   });
 

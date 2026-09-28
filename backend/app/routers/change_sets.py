@@ -253,6 +253,11 @@ def _object_change(model, entry: ObjectChangeEntry) -> ObjectChange:
         after=state(entry.after),
         changedFields=entry.changed_fields,
         path=[ObjectPathPart(**part) for part in entry.path],
+        beforePath=(
+            None
+            if entry.before_path is None
+            else [ObjectPathPart(**part) for part in entry.before_path]
+        ),
     )
 
 

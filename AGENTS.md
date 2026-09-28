@@ -15,7 +15,9 @@ changes or reopens product, architecture or model-contract decisions. Prefer tar
 searches and relevant sections over loading complete documents into the session.
 
 Do not infer the product from one screen or object type. This is a generic model-driven engine. RDM
-Master, Systems and Translations are starter applications, not hardcoded modules.
+Master, Systems and Translations are applications in the example model: they show what the engine can
+do, are not hardcoded modules and are not a template other models must follow
+([docs/EXAMPLE_MODEL.md](docs/EXAMPLE_MODEL.md)).
 
 ## Product invariants
 
@@ -26,6 +28,13 @@ Master, Systems and Translations are starter applications, not hardcoded modules
 - Relation types define forward/reverse semantics separately from permitted source/target combinations.
 - Parent containment is both an object hierarchy and a typed relation, maintained atomically.
 - UI renderers may implement generic view types but must not branch on application or object-type keys.
+- Every application gets the same feature set. Any application may declare any view type, and a
+  declaration is valid or invalid only because of the structure it refers to. When the example
+  applications differ (one has a tree, another doesn't), the reason is that the example model doesn't
+  declare it. Never explain or design a difference as belonging to an application or its domain.
+- When a plan, milestone or scenario names an example domain (translations, systems, master data),
+  treat the domain as the demonstration. Design the generic capability first and show the example as
+  one configuration of it.
 - Every model reference is validated at startup and should fail with a precise path and reason.
 - Public APIs never use an undocumented result cap. Collections page with cursors or positions
   (ADR-030): the UI scrolls with cursors and jumps with positions.

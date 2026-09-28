@@ -187,9 +187,26 @@ All notable changes to this project are documented in this file. The format foll
   containment; every paging mode. The volume fixture gains a review change set touching 12,073
   records and 8,273 relations at full volume, where every measured page takes 3–52 ms in 4–6
   statements.
+- Base 0.8 P2b: change set review screen. **Review changes** on the change set bar (and a link in the
+  publish confirmation) opens `/apps/{app}/change-sets/{id}/changes`: **Records** and
+  **Relationships** tabs, each a continuous list of what the change set adds, changes and removes, with
+  a kind badge in words, the type and model labels from the change set's model, the path or both
+  ends, and the changed fields. A row expands to a before/after table of those fields with typed
+  values as the record screen shows them; a moved record names its old and new parent. Added and
+  changed records open in the change set. Filter by kind and type; parent links are hidden from
+  Relationships unless asked for (D32). Tab, filters and scroll position live in the URL. The object
+  change entry gains `beforePath`, where the source held a moved record, read in the same walk as
+  `path`. New runner `test:browser:p2`; the accessibility and visual gates gain the review in light
+  and dark.
 
 ### Changed
 
+- Documentation: the bundled model is described as an example set. `docs/EXAMPLE_MODEL.md` explains
+  how engine, model and application relate, lists the views each example application declares and
+  explains why they differ (only the example's declarations, never the application). It also shows
+  what each gap would take. README, AGENTS, PRODUCT, APPLICATION_MODEL, UI_MODEL and the functionality
+  catalogue state that every application gets the same feature set. Milestone A is named the Relation
+  matrix throughout, with ADR-031 and the W1 note amended.
 - Base 0.8 B3: the sidebar tree's tab stop returns to the open record once it is drawn, unless the
   user has since focused another item; it also gains type-ahead. A record's inspector re-reads the
   record when the collection beside it writes, and a narrow inspector wraps the record's actions

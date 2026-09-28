@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
 import { ObjectDetail } from "@/features/objects/ObjectDetail";
 import { ModelWorkbench } from "@/features/model-admin/ModelWorkbench";
-import { defaultRoute, isAdminRoute, viewRoute } from "@/routing/routes";
+import { changeReviewFor, defaultRoute, isAdminRoute, routeChangeSetId, viewRoute } from "@/routing/routes";
 import { WorkspaceAdmin } from "@/features/workspaces/WorkspaceAdmin";
 import { applicationFor } from "@/model/lookup";
 import type { ApplicationDefinition, CollectionQueryState, ObjectItem, Workspace } from "@/types";
@@ -10,6 +10,7 @@ import { AppShell } from "./AppShell";
 import { useRouter, type Router } from "./useRouter";
 import { WorkspaceDataProvider, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { ChangeSetActions, ChangeSets } from "@/features/workspaces/ChangeSets";
+import { ChangeSetReview } from "@/features/workspaces/ChangeSetReview";
 import { PublicationBanner, Publications } from "@/features/workspaces/Publications";
 import { Notice } from "@/ui/Notice";
 import { ResizeHandle } from "@/ui/ResizeHandle";
@@ -20,7 +21,7 @@ export default function App() {
   const [message, setMessage] = useState("");
   const { model, route, error } = router;
   if (!model || !route) return <div className="center-message">{error || "Loading the model…"}</div>;
-  const changeSetId = route.kind === "list" || route.kind === "detail" ? route.changeSetId : undefined;
+  const changeSetId = routeChangeSetId(route);
   const publicationId = route.kind === "list" || route.kind === "detail" ? route.publicationId : undefined;
   return (
     <WorkspaceDataProvider
@@ -64,7 +65,10 @@ function AppContent({
   const contextLoading =
     !data.model &&
     !data.loadingError &&
-    !!(route && (route.kind === "list" || route.kind === "detail") && (route.changeSetId || route.publicationId));
+    !!(
+      route &&
+      (routeChangeSetId(route) || ((route.kind === "list" || route.kind === "detail") && route.publicationId))
+    );
   const [workspace, setWorkspace] = useState<Workspace>();
   const actionSequence = useRef(0);
   const inspectorWidth = useLocalNumberPreference(
@@ -99,8 +103,7 @@ function AppContent({
   // from the declaration rather than from the narrowing performed by the guard above.
   const activeModel = model;
 
-  const changeSetId =
-    activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.changeSetId : undefined;
+  const changeSetId = routeChangeSetId(activeRoute);
   const publicationId =
     activeRoute.kind === "list" || activeRoute.kind === "detail" ? activeRoute.publicationId : undefined;
   const readOnly =
@@ -227,6 +230,9 @@ function AppContent({
       );
     } else if (activeRoute.kind === "changeSets" || activeRoute.kind === "publications") {
       changed = navigate({ ...activeRoute, workspaceKey });
+    } else if (activeRoute.kind === "changeSetChanges") {
+      // A change set belongs to one workspace; another workspace opens its live data.
+      changed = navigate(viewRoute(application, application.defaultView, workspaceKey));
     } else {
       changed = navigate({
         ...activeRoute,
@@ -303,19 +309,17 @@ function AppContent({
         </div>
       ) : contextLoading ? (
         <div className="surface panel">
-          <p>
-            Loading{" "}
-            {route && (route.kind === "list" || route.kind === "detail") && route.changeSetId
-              ? "change set"
-              : "publication"}
-            …
-          </p>
+          <p>Loading {route && routeChangeSetId(route) ? "change set" : "publication"}…</p>
         </div>
       ) : (
         <>
           {data.changeSet && (
             <ChangeSetActions
               readOnly={readOnly}
+              reviewing={activeRoute.kind === "changeSetChanges"}
+              onReview={() =>
+                navigate(changeReviewFor(application.key, data.changeSet!.workspaceKey, data.changeSet!.id))
+              }
               onExit={(result) => {
                 setMessage(result);
                 navigate({ ...viewRoute(application, application.defaultView, data.changeSet!.workspaceKey) });
@@ -361,6 +365,32 @@ function AppContent({
                   setRefreshToken((value) => value + 1);
                 }
               }}
+            />
+          ) : activeRoute.kind === "changeSetChanges" ? (
+            <ChangeSetReview
+              model={model}
+              route={activeRoute}
+              refreshToken={refreshToken}
+              onRouteChange={(next) => navigate(next)}
+              onAnchorChange={(anchor) => {
+                if (anchor !== activeRoute.anchor) replaceRoute({ ...activeRoute, anchor });
+              }}
+              onOpenRecord={(change) =>
+                navigate({
+                  kind: "detail",
+                  applicationKey: change.applicationKey,
+                  objectTypeKey: change.objectTypeKey,
+                  objectId: change.objectId,
+                  workspaceKey: activeRoute.workspaceKey,
+                  changeSetId: activeRoute.changeSetId,
+                })
+              }
+              onBack={() =>
+                navigate({
+                  ...viewRoute(application, application.defaultView, activeRoute.workspaceKey),
+                  changeSetId: activeRoute.changeSetId,
+                })
+              }
             />
           ) : activeRoute.kind === "changeSets" ? (
             <ChangeSets

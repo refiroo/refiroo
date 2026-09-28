@@ -244,7 +244,8 @@ class ObjectChange(BaseModel):
     ``changedFields`` names what differs between ``before`` and ``after`` (``name``, ``parent``
     and attribute keys); a missing side counts as holding nothing, so an added or removed record
     names every field it holds. A ``changed`` entry may name none: its version still advanced, and
-    publishing still claims it against live.
+    publishing still claims it against live. ``beforePath`` is where the source held a moved
+    record (a ``changed`` entry naming ``parent``, Base 0.8 P2b); ``null`` otherwise.
     """
 
     kind: ChangeKind
@@ -255,6 +256,7 @@ class ObjectChange(BaseModel):
     after: ObjectChangeState | None
     changedFields: list[str]
     path: list[ObjectPathPart]
+    beforePath: list[ObjectPathPart] | None = None
 
 
 class ObjectChangePage(CollectionPage[ObjectChange]):

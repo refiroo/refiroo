@@ -344,3 +344,97 @@ export async function openTreeMoveDialog(page, name) {
   await dialog.getByRole("radio").first().waitFor();
   return dialog;
 }
+
+/**
+ * Base 0.8 P2b review data on the starter model, through the real API. Live: two master values in
+ * Codelist Alpha (RDM Master), two system values under System 00 (RDM Systems) and a mapping between
+ * them. Then one change set that makes a change of every kind in both applications: a master value
+ * and a system value added with a mapping between them, a master value's name attribute changed, a
+ * master value moved to Codelist Beta (a parent change plus a removed and an added parent link), a
+ * system value removed, and the live mapping removed. Codes are prefixed so the seed sits beside
+ * the other gate data, whose codes are unique per workspace.
+ */
+export async function seedChangeReview(api, records) {
+  const codelists = (await api("/objects/codelist?workspaceKey=default&applicationKey=rdm-master&pageSize=20")).items;
+  const alpha = codelists.find((item) => item.name === "Codelist Alpha");
+  const beta = codelists.find((item) => item.name === "Codelist Beta");
+  const system = records.system[0];
+  const attributes = (values) => Object.entries(values).map(([attributeTypeKey, value]) => ({ attributeTypeKey, value }));
+  const master = (name, code) => ({
+    applicationKey: "rdm-master",
+    workspaceKey: "default",
+    objectTypeKey: "master-value",
+    name,
+    parentObjectId: alpha.id,
+    attributes: attributes({ "master-id": `RV-${code}`, "value-code": `RV-${code}`, "value-name": name }),
+  });
+  const systemValue = (name, code) => ({
+    applicationKey: "rdm-systems",
+    workspaceKey: "default",
+    objectTypeKey: "system-value",
+    name,
+    parentObjectId: system.id,
+    attributes: attributes({ "value-code": `RV-SV-${code}`, "value-name": name }),
+  });
+  const mapping = "system-value-maps-to-master";
+  const collect = await api("/objects", master("Click and collect", "COLLECT"));
+  const courier = await api("/objects", master("Home courier", "COURIER"));
+  const pickup = await api("/objects", systemValue("SV Pickup", "PICKUP"));
+  const home = await api("/objects", systemValue("SV Home", "HOME"));
+  const liveMapping = await api("/relations", { relationTypeKey: mapping, fromObjectId: home.id, toObjectId: courier.id });
+
+  const changeSet = await api("/workspaces/default/change-sets", { name: "Spring delivery review", source: "currentLive" });
+  const claim = async () => ({
+    changeSetId: changeSet.id,
+    expectedChangeSetVersion: (await api(`/change-sets/${changeSet.id}`)).version,
+  });
+  const express = await api("/objects", { ...master("Express", "EXPRESS"), ...(await claim()) });
+  const svExpress = await api("/objects", { ...systemValue("SV Express", "EXPRESS"), ...(await claim()) });
+  const newMapping = await api("/relations", {
+    relationTypeKey: mapping,
+    fromObjectId: svExpress.id,
+    toObjectId: express.id,
+    ...(await claim()),
+  });
+  await api(
+    `/objects/master-value/${collect.id}`,
+    { ...(await claim()), expectedVersion: collect.version, attributes: attributes({ "value-name": "Collection point" }) },
+    "PATCH",
+  );
+  await api(
+    `/objects/master-value/${courier.id}`,
+    { ...(await claim()), expectedVersion: courier.version, parentObjectId: beta.id },
+    "PATCH",
+  );
+  let current = await claim();
+  await api(
+    `/relations/${liveMapping.id}?changeSetId=${changeSet.id}&expectedChangeSetVersion=${current.expectedChangeSetVersion}&expectedVersion=${liveMapping.version}`,
+    undefined,
+    "DELETE",
+  );
+  current = await claim();
+  await api(
+    `/objects/system-value/${pickup.id}?changeSetId=${changeSet.id}&expectedChangeSetVersion=${current.expectedChangeSetVersion}&expectedVersion=${pickup.version}`,
+    undefined,
+    "DELETE",
+  );
+  return { changeSet, alpha, beta, system, collect, courier, pickup, home, express, svExpress, liveMapping, newMapping };
+}
+
+/** Opens a change set's review, records first unless `query` says otherwise; waits for its rows. */
+export async function openChangeReview(page, uiUrl, changeSet, query = "") {
+  await page.goto(
+    `${uiUrl}/apps/rdm-master/change-sets/${changeSet.id}/changes?workspaceKey=default${query ? `&${query}` : ""}`,
+  );
+  await page.getByRole("heading", { level: 1, name: "Review changes" }).waitFor();
+  await page.locator(".change-row").first().waitFor();
+  await page.waitForLoadState("networkidle");
+}
+
+/** Expands the named row of an open change set review; returns its before/after table. */
+export async function expandChangeReviewRow(page, name) {
+  await page.getByRole("button", { name: `Details of ${name}` }).click();
+  const table = page.getByRole("table", { name: `Changes to ${name}` });
+  await table.waitFor();
+  return table;
+}

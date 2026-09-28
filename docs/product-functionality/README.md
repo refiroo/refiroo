@@ -22,7 +22,9 @@ values and relationships; localization stewards maintain translations; integrati
 stable interfaces; and administrators evolve the application definition through controlled releases.
 
 RDM Master, RDM Systems and RDM Translations demonstrate the product. They are not fixed product
-modules.
+modules and not a required shape: every application has the same capabilities, and the stories use
+these example applications only to make the capabilities concrete
+([example model](../EXAMPLE_MODEL.md)).
 
 ## Read this first: the four different things users manage
 

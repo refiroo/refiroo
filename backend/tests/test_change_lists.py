@@ -290,6 +290,9 @@ def test_object_changes_list_every_kind_with_before_and_after(edited):
     assert moved["before"]["parentObjectId"] == records["system_1"]["id"]
     assert moved["after"]["parentObjectId"] == records["system_2"]["id"]
     assert [part["name"] for part in moved["path"]] == ["System 2", "Value moved"]
+    # ...and where its source held it, so a review names both parents (P2b).
+    assert [part["name"] for part in moved["beforePath"]] == ["System 1", "Value moved"]
+    assert renamed["beforePath"] is None
 
     # Edited back: its version advanced and publishing claims it, so it stays with no fields.
     reverted = listed[records["system_2"]["id"]]
@@ -301,6 +304,7 @@ def test_object_changes_list_every_kind_with_before_and_after(edited):
     assert removed["after"] is None and removed["before"]["name"] == "Value removed"
     assert removed["changedFields"][:2] == ["name", "parent"]
     assert [part["name"] for part in removed["path"]] == ["System 1", "Value removed"]
+    assert removed["beforePath"] is None
 
 
 def test_relation_changes_list_every_kind_and_mark_containment(edited):

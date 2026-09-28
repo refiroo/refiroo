@@ -129,6 +129,20 @@ retained since UI-03, and now kept across history), which is where its visual ev
 title in the narrow inspector wraps its actions below it. `test:a11y` and `test:visual` scenarios for
 the lens and move dialog, light and dark, are B4's.
 
+### Surfaces added or materially changed in 0.8 P2
+
+| # | Surface (package) | Navigation | Reference | Load | Populated / empty | Pending | Success | Invalid / refused | Conflict | Dependency failure → retry | Narrow | Keyboard / focus | Evidence |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| P2 | Change set review: **Records** and **Relationships** tabs, filter, expandable before/after rows (P2b); **Review changes** on the change set bar and in the publish confirmation | change set bar **Review changes**; `/apps/<app>/change-sets/<id>/changes` (tab, kinds, type, parent links and anchor in the URL) | Page surface (`CollectionView`) with `ui/Tabs`; Continuous list (`ScrollWindow`, `useCursorWindow`) of disclosure rows; Filter in `ui/ControlPopover`; Empty state; Load failure (`InlineError`) | **C** (Loading changes…) | **B** every kind in RDM Master and RDM Systems (added, changed, moved, removed records; added and removed mappings; five parent links on request), **B** empty change set, **B** filtered-empty | n/a (reads only; edge loading is T1's) | **B** (rows match the API entry for entry; expand an edit and a move; open a changed and an added record in the change set; reload keeps tab and filter) | n/a (the screen writes nothing; an unknown type in the URL is dropped: C) | n/a (read-only; a later write refreshes the lists through the shell's refresh) | **C** (a failed read keeps the header and tabs; Retry repeats the same filtered request) | **B** (390px: expanded move and relationships with parent links, no page overflow) | **B** (bar button, arrow keys between rows, Enter/Space expand, filter popover with Escape back to Filter, tab arrows, link Enter) | `ChangeSetReview.test` (14), `routes.test` (2), `client.test` (1); `test:browser:p2` (9 checks, axe on seven states: records, expanded, relationships, 390px, dark records and relationships, empty); gates `test:a11y` (review and relationships, light and dark) and `test:visual` (`change-set-review-*`; `change-set-editing-light` and `change-set-detail-light` updated for the bar's new button) |
+
+The review only reads, so it has no pending, refused or conflict state of its own. It opens in the
+change set's context, so the shell reads the change set and its pinned model, and every type,
+relationship and field label comes from that model. Parent links are hidden from Relationships by
+default (D32); the note beside the filter says so and the record's Parent change shows the move. The
+publish confirmation's link is exercised in `ChangeSetReview.test`, not in a browser, because a
+browser publish is SC-06's (`wp9-change-sets`). Two baselines changed only in the change set bar's
+button row (the new **Review changes** before Validate); both were inspected before being accepted.
+
 ## 3. Selected focused browser checks
 
 Selected by risk to the user's job (losing an unsaved choice, silently overwriting a newer mapping,
