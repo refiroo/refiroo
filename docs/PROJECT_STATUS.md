@@ -28,7 +28,7 @@ delivered 2026-09-28; A6, the snapshot table index drift found in A2, delivered 
 and hierarchy editor (Milestone B; B1 schema 0.7 `tree` contract delivered 2026-09-28; B2 move targets with
 D14 eligibility delivered 2026-09-28, the matrix container move a known budget exception, D29; B3 tree
 lens and B4 acceptance delivered 2026-09-28, closing Milestone B),
-and P2, then R1 build
+and P2 (P2a change lists API, P2b review screen; planned with D31–D33 accepted), then R1 build
 acceptance. Residual 0.7 gaps are listed in the
 [plan's WP-9 record](BASE_0_7_IMPLEMENTATION_PLAN.md#wp-9-composed-product-validation--sc-07-and-sc-15).
 

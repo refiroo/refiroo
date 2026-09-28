@@ -10,7 +10,7 @@ accepted; A3b's stored cell states closed A2's budget exception for the row stat
 are delivered (2026-09-28), and A6 (snapshot table index drift, found in A2) with D28 accepted
 (2026-09-28), which completes Milestone A. B1–B4 are delivered (2026-09-28), which completes Milestone B; D14 is accepted (2026-09-28),
 D30 decides one of A6's two open measurements and B2 decides the other (D29, a known budget exception);
-see the [summary](#decisions-summary).
+P2 is planned (2026-09-28) as P2a (change lists API) and P2b (review screen), with D31–D33 accepted (2026-09-28); see the [summary](#decisions-summary).
 
 **Target:** Product 0.8.0. Track S does not change the schema language. Milestones A and B add
 schema language 0.7 (`relationMatrix` and `tree` views); the starter model becomes content release
@@ -1311,12 +1311,111 @@ _Scheduled into 0.8 as a package after W2 (D20); written with the ADR-031 names.
 and tombstones). No endpoint lists only what the change set changed, so reviewing it means scanning
 every record.
 
-**Shape to evaluate:** a paged list of the change set's own object and relation entries, each with
-its kind (`added`, `changed`, `removed`), the record's identity and type, and its before and after
-versions. Field-level differences only if cheap. Validation and publication remain the only checks
-against current live content.
+**Shape evaluated (2026-09-28):** a paged list of the change set's own object and relation entries,
+each with its kind (`added`, `changed`, `removed`), the record's identity and type, and its before and
+after versions. Field-level differences only if cheap. Validation and publication remain the only
+checks against current live content.
 
 **Uses:** reviewing before publish, the change-set screen, and integrations that stage changes.
+
+**What already exists.** A change set is its source (`base`: a private current-live base, a
+publication, or for legacy change sets the empty root) plus its own rows in `change_set_objects` and
+`change_set_relations`, one per touched record, with `is_deleted` for a tombstone. The first edit of a
+source record copies it with its version and increments it; a deletion writes a tombstone with the
+next version; a parent change tombstones the typed containment edge and adds a new one
+(`_sync_change_set_parent_relation`). Publishing skips a tombstone with no source row ("created then
+deleted inside the change set: never reached live") and claims every other row's source version
+against live. `snapshot_reads` already splits a change set into the parts `base`, `replaced` and
+`added`, and both own-row tables carry owner-leading indexes (A6). So the list is a read over rows
+that exist, with no new storage.
+
+**Before and after.** *Before* is the record as the change set's source holds it, not current live:
+the list says what this change set does, and whether live moved since is what validation and
+publishing report (a `version_conflict` names the record). *After* is the change set's own row.
+
+The package is delivered in two slices, each independently shippable.
+
+##### P2a: Change lists API
+
+**Scope:**
+
+1. Two read-only collections on the flat change-set path (API.md route shape), one response shape each
+   (D33): `GET /api/v1/change-sets/{changeSetId}/object-changes` and
+   `GET /api/v1/change-sets/{changeSetId}/relation-changes`. They are entries about records, not
+   records, so they do not reopen the rejected `/change-sets/{id}/objects` CRUD dialect; no write
+   goes through them. S3 paging through `routers/paging.PageQuery` (cursors both ways, position,
+   `from=end`, `includeTotal`). An unknown change set is `404 change_set_not_found`. There is no
+   publication context: what a publication changed against its predecessor is the 0.9 change feed.
+2. Kinds, from the own row and its source row (D31): `added` (own row, not a tombstone, no source
+   row); `changed` (own row, not a tombstone, source row); `removed` (tombstone with a source row). A
+   tombstone with no source row is left out, matching what publishing does. A `changed` entry whose
+   values equal the source is kept with empty `changedFields`: its version still advanced, and
+   publishing still claims it against live, so a reviewer must see it.
+3. An object entry carries `kind`, `objectId`, `objectTypeKey`, `applicationKey`, `before` and
+   `after` (each `null` where the kind has none; otherwise `name`, `parentObjectId`, typed
+   `attributes` in the object read's shape, and `version`), `changedFields` (`name`, `parent`,
+   attribute keys; computed per page in Python from the two rows the page already reads) and `path`:
+   the change set's effective path for `added` and `changed`, the source's for `removed` (the `base`
+   part). A relation entry carries `kind`, `relationId`, `relationTypeKey`, `containment` (the type is
+   one of the `to` end type's `parentRelationTypeKeys` under the pinned model), each end's `objectId`,
+   `objectTypeKey` and `name` (read in the change set, or the source for a removed end, batched per
+   page), `before`/`after` (`attributes`, `version`) and `changedFields`.
+4. Filters: repeatable `kind`; repeatable `objectTypeKey` on objects; repeatable `relationTypeKey`
+   and `containment` (boolean; absent lists both) on relations. An unknown type key under the pinned
+   model is `422` with the existing code for that case. No search: a change set's own rows are few
+   next to the dataset, and a name search is added only when review needs it.
+5. Order: objects by (`objectTypeKey`, `name`, `objectId`), the own row's name (a tombstone keeps
+   the removed record's name), on `ix_change_set_objects_type_name`. Relations by
+   (`relationTypeKey`, `relationId`). Measure it; if the sort over a change set's own relations is
+   over budget, add `(change_set_id, relation_type_key, relation_id)` with a migration and the A6
+   drift test rather than changing the order.
+6. Volume: add a change set that touches about 10,000 records and their relations (added, changed,
+   removed and moved, spread over two types) to the volume fixture, and measure first, last and
+   backward pages, a deep position, a kind filter and totals for both lists. They meet budgets 1–3
+   (statement count constant in the change set's size, at most 6 ORM rows per listed row, 100 ms
+   median at full volume) or the package records why not.
+7. API.md (change-set section), the OpenAPI lock, the paging inventory, CURRENT_FUNCTIONALITY,
+   COVERAGE_MAP (new C-CS-CHANGES row) and the CHANGELOG.
+
+**Exit:** backend tests cover every kind for objects and relations in a current-live change set, a
+publication-sourced change set and an empty-root change set; created-then-deleted left out;
+edited-back kept with empty `changedFields`; a move listing the object as `changed` (`parent`) and
+the containment edge as one removed and one added entry with `containment: true`; typed values kept in
+`before` and `after`; each filter; paging both ways, position and totals over a list that holds all
+three kinds; an entry list that agrees with what publishing then does to live; `404` and `422`
+refusals. The volume rows meet budget.
+
+##### P2b: Change set review screen
+
+**Scope:**
+
+1. A **Review changes** action on the change-set bar (`ChangeSetActions`) opens a screen for the
+   open change set: a new `RouteState` kind `changeSetChanges` with the change set ID in the URL,
+   so the review is linkable and survives reload.
+2. Reference patterns: Page surface (`CollectionView`) with `ui/Tabs` for **Records** and
+   **Relationships**, each a Continuous list (`ui/ScrollWindow` through `useCursorWindow`, one
+   `anchor` in the URL); a toolbar filter for kind and type. Rows show a kind badge (text, not colour
+   alone), the type's label, the name or both ends' names, the path and the changed fields by their
+   model labels from the change set's pinned model. Engine-maintained containment edges are hidden
+   from Relationships by default (`containment=false`, D32) because the record's `parent` change
+   shows the move; a filter shows them.
+3. A row expands (Disclosure) to a before/after table of the changed fields, with typed values
+   rendered as the record screen renders them. An added or changed record opens in the change-set
+   context; a removed one has no link and shows its source values.
+4. Empty states: "No changes yet" for a change set with none, and "Nothing matches" under a filter.
+   Load failure through `InlineError`. Read-only when the change set is opened read-only.
+5. The publish confirmation gains a **Review changes** link; publishing stays where it is.
+6. UI_ACCEPTANCE (state-inventory row), PRODUCT_GUIDE, CURRENT_FUNCTIONALITY and the CHANGELOG.
+
+**Exit:** component tests cover each kind, the filters, the expand, the empty and filtered-empty
+states and a load failure; a real-backend browser runner (`test:browser:p2`) makes changes of every
+kind in the starter RDM Master and Systems applications (two object types and a mapping relation),
+reviews them by keyboard, opens a changed record from the list, and checks the 390px layout; axe is
+clean on the screen; new light and dark baselines are inspected before they are committed.
+
+Composable-domains doors (ADR-032): none affected. A read over existing change-set rows; no new
+identity, attribute storage, audit event or bulk API. It keeps before/after values out of audit
+payloads (History and erasure), and its kinds are the vocabulary a later inbound-flow review can reuse.
 
 #### P3: Relation edge list across the workspace
 
@@ -1345,7 +1444,7 @@ Milestone B:  B1 ──────────────┐
 Track W:      W1, W5 (any time)
               S7 → W2 → W3 → W4 → W6
               W2 ─→ A2, B2
-Pending:      W2 → P2 (D20; P1, P3 in 0.9)
+Pending:      W2 → P2a → P2b (D20; P1, P3 in 0.9)
 Release:      S8, W6, W5, A6, B4, P2 → R1
 ```
 
@@ -2426,4 +2525,7 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D28 | Index declarations that no migration creates on the snapshot tables (A6) | Per index: create it, replace it with an owner-leading composite the reads need, or drop the declaration where an existing index serves it, decided from query plans and the volume baseline; a drift test keeps a migrated schema equal to the ORM. **Accepted 2026-09-28 as delivered in A6:** change set objects gain (owner, type, name, object) and (owner, parent, type, name, object); the other eight declarations are removed because owner-leading indexes already serve every read | A6 |
 | D24 | Which columns sort | **Accepted 2026-09-26 (S4R3 review):** every data column sorts from its header, whatever the attribute's `sortable` flag, including Type and Relationship by their labels; every list shows the same toolbar Sort menu; D21's `sortFields` only add menu fields and `defaultSort` chooses the order. Exceptions: Actions, the computed path, JSON attributes and unrecorded timestamps | S4R3 |
 | D29 | Moving a container of about 2,500 matrix cells in a change set takes 5–9 s (A3b cell state recompute, found in A6) | **Accepted 2026-09-28:** measured in B2 beside its deep-move budget, because a tree move of a container (a system group to another system) takes the same path; B2 either brings it within the single-record write budget or records it as a known 0.8 budget exception. **Decided in B2 (2026-09-28):** a known 0.8 budget exception, 4.6–7.9 s in a change set and 20–24 s live; the deep move meets the budget (6 ms live, 13 ms in a change set) | — |
+| D31 | Which change set rows are changes? | **Accepted 2026-09-28:** `added`, `changed`, `removed` from the own row and its source row; a created-then-deleted record is left out (publishing skips it); an edited-back record stays `changed` with empty `changedFields`, because publishing still claims its version | P2a |
+| D32 | Engine-maintained containment edges in the relation changes | **Accepted 2026-09-28:** the API lists them with `containment: true` and a `containment` filter, so integrations see every row that publishes; the review screen hides them by default because the record's `parent` change shows the move | P2a, P2b |
+| D33 | One mixed changes list or one per record kind? | **Accepted 2026-09-28:** `object-changes` and `relation-changes`, one response shape each (as P3 settled for relations), each ordered on its own index | P2a |
 | D30 | A link candidate page over a column of about 5,000 cells takes 92 ms live and 160 ms in a change set (found in A6) | **Accepted 2026-09-28:** a known 0.8 budget exception, as D26; the name order and total read every cell under the column only at an unusual column size. Revisit with precomputed sort keys (0.10 or later) | — |
