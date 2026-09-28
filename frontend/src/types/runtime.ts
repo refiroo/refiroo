@@ -141,6 +141,24 @@ export interface ObjectPage extends PageNavigation {
   items: ObjectItem[];
 }
 
+/**
+ * A record a record could move under (Base 0.8 B2). An ineligible one stays listed, so pages and
+ * totals remain truthful (D14), with why the move would refuse it or change nothing.
+ */
+export interface ParentCandidate {
+  id: string;
+  objectTypeKey: string;
+  name: string;
+  /** Root first, ending with the candidate itself. */
+  path: Array<{ id: string; name: string; objectTypeKey: string }>;
+  eligible: boolean;
+  reason: "self" | "descendant" | "currentParent" | null;
+}
+
+export interface ParentCandidatePage extends PageNavigation {
+  items: ParentCandidate[];
+}
+
 export interface AuditEventItem {
   id: string;
   aggregateType: string;

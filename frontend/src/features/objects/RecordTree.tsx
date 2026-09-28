@@ -9,11 +9,20 @@
  *
  * The tree follows the WAI-ARIA tree pattern with one tab stop. Positions and set sizes come from
  * the groups' totals, and arrow keys that cross the edge of a group's window load the next page
- * first, so keyboard users walk a branch of any size.
+ * first, so keyboard users walk a branch of any size. Typing a name's first letters moves to the
+ * next loaded record that starts with them.
+ *
+ * Revealing a record (the active one, or one a caller asks to focus) reads its `path` and opens each
+ * ancestor's branch at that record with `seek`, so a record deep in a large branch is reached
+ * without loading the rows before it; unrelated branches stay as they are.
+ *
+ * The `tree` lens (Base 0.8 B3) configures the same tree: its own root and node types, a sort and
+ * page size per type, labels, per-row extras and item key handling.
  */
 
 import {
   createContext,
+  type KeyboardEvent,
   useCallback,
   useContext,
   useEffect,
@@ -26,6 +35,7 @@ import {
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow, type CursorWindow } from "@/lib/hooks/useCursorWindow";
 import { childObjectTypeKeys, collectionGroups, rootObjectTypeKeys } from "@/model/collections";
+import { fieldValue } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import type { ApplicationDefinition, EngineModel, ObjectItem } from "@/types";
 import { Icon, ModelIcon } from "@/ui/Icon";
@@ -45,17 +55,68 @@ interface GroupReport {
   failure?: { message: string; retry: () => void };
 }
 
+/** Where a revealed record sits in one branch list, and the value that list seeks it by. */
+interface RevealStep {
+  id: string;
+  /** The record's value of the list's sort field; undefined when it has none to seek. */
+  seek?: string;
+}
+
+/** Asks the tree to reveal a record, open the branches above it and move focus to it. */
+export interface TreeFocusRequest {
+  objectId: string;
+  objectTypeKey: string;
+  /** A new token repeats the request for the same record. */
+  token: number;
+  /** False only opens the branches above the record, leaving focus where it is. */
+  focus?: boolean;
+}
+
+/** How a tree other than the sidebar's reads and draws its records; every part is optional. */
+export interface TreeConfiguration {
+  /** Types listed at the top, records without a parent; defaults to the root-creatable types. */
+  rootTypes?: string[];
+  /** Types a search lists matches of; defaults to every type of the application. */
+  searchTypes?: string[];
+  /** Said when the tree has no records at all. */
+  emptyText?: string;
+  /** Types listed under a record of `objectTypeKey`; defaults to every type it can contain. */
+  childTypesOf?: (objectTypeKey: string) => string[];
+  /** A list `sort` value per type; defaults to the name. */
+  sortOf?: (objectTypeKey: string) => string;
+  pageSize?: number;
+  /** Separates remembered branch choices from other trees of the same application. */
+  storageScope?: string;
+  /** The record's label, read by type-ahead and assistive technology; defaults to its name. */
+  labelOf?: (item: ObjectItem) => string;
+  /** Replaces the drawn label, for example with an inline editor. */
+  renderLabel?: (item: ObjectItem, label: string) => ReactNode;
+  /** Drawn after the label in the row, outside the label's own click target. */
+  renderExtras?: (item: ObjectItem) => ReactNode;
+  /** Extra words the item's accessible name ends with, such as a state its extras show. */
+  describe?: (item: ObjectItem) => string;
+  /** Runs first for a key on a record's item; preventing the default skips the tree's handling. */
+  onItemKeyDown?: (event: KeyboardEvent<HTMLElement>, item: ObjectItem) => void;
+}
+
 interface TreeState {
   model: EngineModel;
   application: ApplicationDefinition;
   workspaceKey: string;
   search: string;
   refreshToken: number;
+  config: TreeConfiguration;
+  childTypesOf: (objectTypeKey: string) => string[];
+  /** The step of the revealed record's path listed under `parentId` ("" at the top) as `objectTypeKey`. */
+  revealIn: (parentId: string, objectTypeKey: string) => RevealStep | undefined;
+  revealToken: number;
   activeObjectId?: string;
   /** The item that holds the tree's single tab stop. */
   focusKey?: string;
   isExpanded: (objectId: string) => boolean;
   toggle: (objectId: string, expanded: boolean) => void;
+  /** True while a type-ahead is in progress; Space then extends it rather than opening. */
+  typing: () => boolean;
   register: (groupKey: string, list: CursorWindow<ObjectItem> | undefined) => void;
   rowsChanged: () => void;
   announce: (message: string) => void;
@@ -82,6 +143,8 @@ export function RecordTree({
   activeObjectTypeKey,
   refreshToken,
   labelledBy,
+  config = NO_CONFIGURATION,
+  focusRequest,
   onOpen,
   onOpenCollection,
 }: {
@@ -93,25 +156,81 @@ export function RecordTree({
   activeObjectTypeKey?: string;
   refreshToken: number;
   labelledBy: string;
+  config?: TreeConfiguration;
+  focusRequest?: TreeFocusRequest;
   onOpen: (item: ObjectItem) => void;
   onOpenCollection?: (viewKey: string, parent?: ObjectItem) => void;
 }) {
   const api = useDataApi();
-  const storageKey = `rdm:hierarchy:v2:${JSON.stringify([workspaceKey, application.key])}`;
+  const storageKey = `rdm:${config.storageScope ?? "hierarchy"}:v2:${JSON.stringify([workspaceKey, application.key])}`;
   const [branchState, setBranchState] = useState(() => ({ key: storageKey, choices: readChoices(storageKey) }));
   if (branchState.key !== storageKey) {
     setBranchState({ key: storageKey, choices: readChoices(storageKey) });
   }
+  const { childTypesOf: configuredChildTypes, sortOf } = config;
+  const childTypesOf = useCallback(
+    (objectTypeKey: string) =>
+      configuredChildTypes?.(objectTypeKey) ?? childObjectTypeKeys(model, application, objectTypeKey),
+    [configuredChildTypes, model, application],
+  );
 
-  // The active record's ancestors open by default, so the tree leads to it.
-  const [activePath, setActivePath] = useState<{ id: string; ancestors: Set<string> }>();
+  /**
+   * The record to reveal: one a caller asked to focus, else the active record. Its ancestors open by
+   * default (a focus request opens them explicitly), and each list on its path seeks to it.
+   */
+  const target = focusRequest;
+  const revealId = target?.objectId ?? activeObjectId;
+  const revealType = target?.objectTypeKey ?? activeObjectTypeKey;
+  const revealToken = target?.token ?? 0;
+  const focusing = Boolean(target);
+  const moveFocus = target?.focus !== false;
+  const [reveal, setReveal] = useState<{
+    id: string;
+    token: number;
+    ancestors: Set<string>;
+    steps: RevealStep[];
+    path: ObjectItem["path"];
+  }>();
+  const pendingFocus = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (!activeObjectId || !activeObjectTypeKey) return;
+    if (!revealId || !revealType) return;
     let current = true;
+    const sortFor = (objectTypeKey: string) => sortOf?.(objectTypeKey) ?? "name";
     api
-      .object(activeObjectTypeKey, activeObjectId, workspaceKey)
-      .then((item) => {
-        if (current) setActivePath({ id: item.id, ancestors: new Set(item.path.slice(0, -1).map((part) => part.id)) });
+      .object(revealType, revealId, workspaceKey)
+      .then(async (item) => {
+        // A list sorted by name seeks by the path's names; any other sort needs the record's value.
+        const steps = await Promise.all(
+          item.path.map(async (part): Promise<RevealStep> => {
+            const sort = sortFor(part.objectTypeKey).replace(/^-/, "");
+            if (sort === "name") return { id: part.id, seek: part.name };
+            if (sort === "id") return { id: part.id, seek: part.id };
+            const record =
+              part.id === item.id
+                ? item
+                : await api.object(part.objectTypeKey, part.id, workspaceKey).catch(() => undefined);
+            return { id: part.id, seek: record ? seekValue(fieldValue(record, sort, model)) : undefined };
+          }),
+        );
+        if (!current) return;
+        const ancestors = new Set(item.path.slice(0, -1).map((part) => part.id));
+        if (focusing) {
+          // A focus request opens every branch above its record, whatever was chosen before.
+          if (moveFocus) pendingFocus.current = item.id;
+          setBranchState((previous) => {
+            if (previous.key !== storageKey || [...ancestors].every((id) => previous.choices.get(id) === true))
+              return previous;
+            const choices = new Map(previous.choices);
+            for (const id of ancestors) choices.set(id, true);
+            try {
+              window.localStorage.setItem(storageKey, JSON.stringify(Object.fromEntries(choices)));
+            } catch {
+              // Storage may be unavailable; keep this session's navigation usable.
+            }
+            return { key: storageKey, choices };
+          });
+        }
+        setReveal({ id: item.id, token: revealToken, ancestors, steps, path: item.path });
       })
       .catch(() => {
         // The record page reports its own failure; the tree only keeps its branches as they are.
@@ -119,8 +238,22 @@ export function RecordTree({
     return () => {
       current = false;
     };
-  }, [api, activeObjectId, activeObjectTypeKey, workspaceKey]);
-  const activeAncestors = activePath?.id === activeObjectId ? activePath?.ancestors : undefined;
+  }, [api, revealId, revealType, revealToken, focusing, moveFocus, storageKey, workspaceKey, sortOf, model]);
+  const shownReveal = reveal?.id === revealId && reveal?.token === revealToken ? reveal : undefined;
+  const activeAncestors = shownReveal && !target ? shownReveal.ancestors : undefined;
+
+  const revealIn = useCallback(
+    (parentId: string, objectTypeKey: string) => {
+      if (!shownReveal) return undefined;
+      const index = shownReveal.path.findIndex(
+        (part, position) =>
+          part.objectTypeKey === objectTypeKey &&
+          (position === 0 ? parentId === "" : shownReveal.path[position - 1].id === parentId),
+      );
+      return index < 0 ? undefined : shownReveal.steps[index];
+    },
+    [shownReveal],
+  );
 
   /**
    * Branches start collapsed so a large hierarchy stays scannable; the active record's ancestors
@@ -148,6 +281,11 @@ export function RecordTree({
   const lists = useRef(new Map<string, CursorWindow<ObjectItem>>());
   const pending = useRef<{ key: string; step: 1 | -1 } | undefined>(undefined);
   const [focusKey, setFocusKey] = useState<string>();
+  // Whether the tab stop is where the user put it; a newly active record takes it back.
+  const focusChosen = useRef(false);
+  useEffect(() => {
+    focusChosen.current = false;
+  }, [activeObjectId]);
   // One live region outside the tree, which may own only its items and groups.
   const [announcement, setAnnouncement] = useState("");
 
@@ -195,24 +333,56 @@ export function RecordTree({
 
   const rowsChanged = useCallback(() => {
     const all = treeItems();
+    const wanted = pendingFocus.current && all.find((item) => item.dataset.objectId === pendingFocus.current);
+    if (wanted) {
+      pendingFocus.current = undefined;
+      pending.current = undefined;
+      focusItem(wanted);
+      setFocusKey(wanted.dataset.treeKey);
+      return;
+    }
     const waiting = pending.current;
     if (waiting) {
       const from = all.find((item) => item.dataset.treeKey === waiting.key);
       pending.current = undefined;
       if (from) move(from, waiting.step);
     }
-    // Keep one tab stop: the focused item while it is held, else the active record or the first.
+    // Keep one tab stop: the item the user focused while it is held, else the active record once
+    // it is drawn, else the item held before, else the first.
+    const active = all.find((item) => item.hasAttribute("aria-current"));
     setFocusKey((current) =>
-      current !== undefined && all.some((item) => item.dataset.treeKey === current)
+      current !== undefined && all.some((item) => item.dataset.treeKey === current) && (focusChosen.current || !active)
         ? current
-        : (all.find((item) => item.hasAttribute("aria-current")) ?? all[0])?.dataset.treeKey,
+        : (active ?? all[0])?.dataset.treeKey,
     );
   }, [move, treeItems]);
+
+  // A focused record may already be drawn, in which case no list reports new rows.
+  useEffect(() => {
+    if (focusing && shownReveal) rowsChanged();
+  }, [focusing, shownReveal, rowsChanged]);
 
   const register = useCallback((groupKey: string, list: CursorWindow<ObjectItem> | undefined) => {
     if (list) lists.current.set(groupKey, list);
     else lists.current.delete(groupKey);
   }, []);
+
+  const typed = useRef({ text: "", at: 0 });
+  /** Whether letters typed a moment ago are still being matched, so Space continues them. */
+  const typing = useCallback(() => typed.current.text !== "" && Date.now() - typed.current.at < TYPE_AHEAD_MS, []);
+  /** Moves to the next loaded record whose label starts with the letters typed in quick succession. */
+  function typeAhead(item: HTMLElement, key: string) {
+    const now = Date.now();
+    const text = (now - typed.current.at < TYPE_AHEAD_MS ? typed.current.text : "") + key.toLowerCase();
+    typed.current = { text, at: now };
+    const records = treeItems().filter((candidate) => candidate.dataset.objectId);
+    const from = records.indexOf(item);
+    // A repeated single letter cycles; a longer prefix may match the current record itself.
+    const start = text.length === 1 ? from + 1 : Math.max(from, 0);
+    const ordered = [...records.slice(start), ...records.slice(0, start)];
+    const match = ordered.find((candidate) => (candidate.dataset.typeAhead ?? "").startsWith(text));
+    if (match) focusItem(match);
+  }
 
   function onKeyDown(event: React.KeyboardEvent<HTMLDivElement>) {
     // A group's window handled Ctrl+Home or Ctrl+End within its own rows.
@@ -220,6 +390,17 @@ export function RecordTree({
     const item = event.target as HTMLElement;
     if (item.getAttribute("role") !== "treeitem") return;
     pending.current = undefined;
+    if (
+      event.key.length === 1 &&
+      (event.key !== " " || typing()) &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey
+    ) {
+      typeAhead(item, event.key);
+      event.preventDefault();
+      return;
+    }
     const expanded = item.getAttribute("aria-expanded");
     const objectId = item.dataset.objectId;
     switch (event.key) {
@@ -275,10 +456,15 @@ export function RecordTree({
       workspaceKey,
       search,
       refreshToken,
+      config,
+      childTypesOf,
+      revealIn,
+      revealToken,
       activeObjectId,
       focusKey,
       isExpanded,
       toggle,
+      typing,
       register,
       rowsChanged,
       announce: setAnnouncement,
@@ -291,10 +477,15 @@ export function RecordTree({
       workspaceKey,
       search,
       refreshToken,
+      config,
+      childTypesOf,
+      revealIn,
+      revealToken,
       activeObjectId,
       focusKey,
       isExpanded,
       toggle,
+      typing,
       register,
       rowsChanged,
       onOpen,
@@ -302,7 +493,9 @@ export function RecordTree({
     ],
   );
 
-  const types = search ? application.objectTypeKeys : rootObjectTypeKeys(model, application);
+  const types = search
+    ? (config.searchTypes ?? application.objectTypeKeys)
+    : (config.rootTypes ?? rootObjectTypeKeys(model, application));
   return (
     <TreeContext.Provider value={state}>
       <TreeGroups
@@ -310,7 +503,7 @@ export function RecordTree({
         level={1}
         parentKey={search ? "search" : "root"}
         loadingText="Loading records…"
-        emptyText={search ? "No matching records." : "No records in this application yet."}
+        emptyText={search ? "No matching records." : (config.emptyText ?? "No records in this application yet.")}
         noteClassName="explorer-empty"
         wrap={(children, shown) => (
           <div
@@ -322,7 +515,9 @@ export function RecordTree({
             onKeyDown={onKeyDown}
             onFocus={(event) => {
               const key = (event.target as HTMLElement).dataset.treeKey;
-              if (key) setFocusKey(key);
+              if (!key) return;
+              focusChosen.current = true;
+              setFocusKey(key);
             }}
           >
             {children}
@@ -418,22 +613,36 @@ function TreeGroup({
 }) {
   const tree = useTree();
   const api = useDataApi();
-  const { model, application, workspaceKey, search, register, rowsChanged } = tree;
+  const { model, application, workspaceKey, search, register, rowsChanged, config } = tree;
   const groupKey = `${parentKey}|${objectTypeKey}`;
   const scope = parent ? { parentObjectId: parent.id } : search ? { search } : { topLevel: true };
+  const sort = (!parent && search ? undefined : config.sortOf?.(objectTypeKey)) ?? "name";
+  const pageSize = config.pageSize ?? TREE_PAGE_SIZE;
   const list = useCursorWindow<ObjectItem>(
     (selector) =>
       api.objects(objectTypeKey, {
         applicationKey: application.key,
         workspaceKey,
-        sort: "name",
+        sort,
         ...scope,
         ...selector,
-        pageSize: TREE_PAGE_SIZE,
+        pageSize,
       }),
-    [application.key, workspaceKey, objectTypeKey, parent?.id ?? null, parent ? "" : search],
+    [application.key, workspaceKey, objectTypeKey, parent?.id ?? null, parent ? "" : search, sort, pageSize],
     { refreshToken: tree.refreshToken },
   );
+
+  // Opens this list at the revealed record when it is not among the rows already held.
+  const step = !parent && search ? undefined : tree.revealIn(parent?.id ?? "", objectTypeKey);
+  const sought = useRef("");
+  const { seek, loading, error: listError, items } = list;
+  useEffect(() => {
+    if (!step || loading || listError) return;
+    const request = `${tree.revealToken}:${step.id}`;
+    if (sought.current === request) return;
+    sought.current = request;
+    if (step.seek !== undefined && !items.some((item) => item.id === step.id)) seek(step.seek);
+  }, [step, loading, listError, items, seek, tree.revealToken]);
   const status: GroupStatus = list.items.length ? "shown" : list.loading ? "loading" : list.error ? "failed" : "empty";
   const type = objectTypeFor(model, objectTypeKey);
   const plural = type?.pluralName ?? objectTypeKey;
@@ -474,6 +683,7 @@ function TreeGroup({
         tabIndex={tree.focusKey === headingKey ? 0 : -1}
         onKeyDown={(event) => {
           if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return;
+          if (event.key === " " && tree.typing()) return;
           event.preventDefault();
           open?.();
         }}
@@ -497,7 +707,7 @@ function TreeGroup({
         list={list}
         label={label}
         noun={["record", "records"]}
-        pageSize={TREE_PAGE_SIZE}
+        pageSize={pageSize}
         rowNavigation={false}
         footer={false}
         role="group"
@@ -541,10 +751,10 @@ function TreeNode({
   const tree = useTree();
   const key = `${parentKey}/${item.id}`;
   const type = objectTypeFor(tree.model, item.objectTypeKey);
-  const childTypes = useMemo(
-    () => childObjectTypeKeys(tree.model, tree.application, item.objectTypeKey),
-    [tree.model, tree.application, item.objectTypeKey],
-  );
+  const { childTypesOf, config } = tree;
+  const childTypes = useMemo(() => childTypesOf(item.objectTypeKey), [childTypesOf, item.objectTypeKey]);
+  const label = config.labelOf?.(item) ?? item.name;
+  const description = config.describe?.(item);
   const expandable = childTypes.length > 0;
   const expanded = expandable && tree.isExpanded(item.id);
   const active = item.id === tree.activeObjectId;
@@ -567,10 +777,14 @@ function TreeNode({
       aria-posinset={index + 2}
       aria-expanded={expandable ? expanded : undefined}
       aria-current={active ? "page" : undefined}
-      aria-label={ancestors ? `${item.name}, in ${ancestors}` : item.name}
+      aria-label={[label, ancestors && `in ${ancestors}`, description].filter(Boolean).join(", ")}
+      data-type-ahead={label.toLowerCase()}
       tabIndex={tree.focusKey === key ? 0 : -1}
       onKeyDown={(event) => {
-        if (event.target !== event.currentTarget || (event.key !== "Enter" && event.key !== " ")) return;
+        if (event.target !== event.currentTarget) return;
+        config.onItemKeyDown?.(event, item);
+        if (event.defaultPrevented || (event.key !== "Enter" && event.key !== " ")) return;
+        if (event.key === " " && tree.typing()) return;
         event.preventDefault();
         tree.onOpen(item);
       }}
@@ -597,10 +811,11 @@ function TreeNode({
             <ModelIcon name={type?.icon} size={14} />
           </span>
           <span className="tree-label">
-            <span className="tree-name">{item.name}</span>
+            {config.renderLabel ? config.renderLabel(item, label) : <span className="tree-name">{label}</span>}
             {ancestors && <span className="tree-path">{ancestors}</span>}
           </span>
         </span>
+        {config.renderExtras?.(item)}
       </div>
       {expanded && (
         <TreeGroups
@@ -641,6 +856,17 @@ function focusItem(item: HTMLElement) {
   item.focus({ preventScroll: true });
   // The row, not the item, which also holds the expanded branch below it.
   item.querySelector<HTMLElement>(".tree-row")?.scrollIntoView?.({ block: "nearest" });
+}
+
+const NO_CONFIGURATION: TreeConfiguration = {};
+
+/** How long after a letter the next one extends the same type-ahead. */
+const TYPE_AHEAD_MS = 700;
+
+/** The lexical form a list seeks by (API `seek`): text as is, numbers and booleans as written. */
+function seekValue(value: unknown): string | undefined {
+  if (value === null || value === undefined || typeof value === "object") return undefined;
+  return String(value);
 }
 
 function readChoices(key: string): Map<string, boolean> {

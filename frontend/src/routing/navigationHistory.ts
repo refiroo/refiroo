@@ -29,7 +29,7 @@ export function navigationEntry(state: unknown, path: string): NavigationEntry |
     index: entry.index as number,
     path,
     ...("hierarchy" in entry && entry.hierarchy === true ? { hierarchy: true } : {}),
-    ...("fullPage" in entry && entry.fullPage === true ? { fullPage: true } : {}),
+    ...("fullPage" in entry && typeof entry.fullPage === "boolean" ? { fullPage: entry.fullPage } : {}),
     ...("collectionPath" in entry && typeof entry.collectionPath === "string"
       ? { collectionPath: entry.collectionPath }
       : {}),
@@ -61,7 +61,12 @@ export function restoreOrigin(route: RouteState, entry: NavigationEntry | undefi
       sameDataContext(collection, route) &&
       new URL(routePath(collection), window.location.origin).pathname === url.pathname
     ) {
-      return { ...route, collectionOrigin: collection, ...(entry.fullPage ? { fullPage: true } : {}) };
+      // A record opened beside its collection (a tree lens) returns beside it; `true` stays full page.
+      return {
+        ...route,
+        collectionOrigin: collection,
+        ...(entry.fullPage !== undefined ? { fullPage: entry.fullPage } : {}),
+      };
     }
   } catch {
     /* Corrupt or obsolete history must not prevent opening a valid record link. */
@@ -75,7 +80,7 @@ export function historyState(route: RouteState, index: number): { rdmNavigation:
       index,
       path: routePath(route),
       ...(route.kind === "detail" && route.collectionOrigin === null ? { hierarchy: true } : {}),
-      ...(route.kind === "detail" && route.fullPage ? { fullPage: true } : {}),
+      ...(route.kind === "detail" && route.fullPage !== undefined ? { fullPage: route.fullPage } : {}),
       ...(route.kind === "detail" && route.collectionOrigin
         ? { collectionPath: routePath(route.collectionOrigin) }
         : {}),

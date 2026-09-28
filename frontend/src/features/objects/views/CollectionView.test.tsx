@@ -412,9 +412,9 @@ describe("relation matrix lens grouping (Base 0.8 A1, A4)", () => {
   });
 
   it.each([
-    ["domain", ["domain", "codelist"], "A tree of domains and codelists is not available yet."],
-    ["codelist", ["codelist"], "A tree of codelists is not available yet."],
-  ])("renders a tree rooted at %s as a placeholder lens beside that type's table", (root, nodes, text) => {
+    ["domain", ["domain", "codelist"]],
+    ["codelist", ["codelist"]],
+  ])("renders a tree rooted at %s as a lens beside that type's table", async (root, nodes) => {
     const model = structuredClone(testModel);
     const application = model.applications[0];
     application.views = [
@@ -447,12 +447,13 @@ describe("relation matrix lens grouping (Base 0.8 A1, A4)", () => {
       />,
     );
     expect(screen.getByRole("heading", { level: 1, name: "Records tree" })).toBeInTheDocument();
-    expect(screen.getByText(text)).toBeInTheDocument();
+    expect(await screen.findByRole("tree", { name: "Records tree" })).toBeInTheDocument();
+    // The tree reads its root type's records without a parent, not the table's query.
+    expect(api.objects).toHaveBeenCalledWith(root, expect.objectContaining({ topLevel: true, sort: "name" }));
     const lenses = screen.getByRole("navigation", { name: "Collection lenses" });
     expect(within(lenses).getByRole("button", { name: "Records tree" })).toHaveAttribute("aria-current", "page");
     const table = root === "domain" ? "Domains" : "Codelists";
     fireEvent.click(within(lenses).getByRole("button", { name: table }));
     expect(onViewChange).toHaveBeenCalledWith(table.toLowerCase());
-    expect(api.objects).not.toHaveBeenCalled();
   });
 });

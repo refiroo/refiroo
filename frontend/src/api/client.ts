@@ -9,6 +9,7 @@ import type {
   ObjectAttributeInput,
   ObjectItem,
   ObjectPage,
+  ParentCandidatePage,
   AttributeValueResponse,
   RelationCreateInput,
   RelationPage,
@@ -398,6 +399,29 @@ export const api = {
         publicationId,
       ),
     ),
+  /** Where a record could move, live or in a change set; publications have no move targets. */
+  parentCandidates: (
+    objectTypeKey: string,
+    objectId: string,
+    query: PageSelector & {
+      workspaceKey?: string;
+      changeSetId?: string;
+      parentObjectTypeKey?: string;
+      search?: string;
+      pageSize?: number;
+    },
+  ) => {
+    const params = new URLSearchParams();
+    if (query.changeSetId) params.set("changeSetId", query.changeSetId);
+    else if (query.workspaceKey) params.set("workspaceKey", query.workspaceKey);
+    if (query.parentObjectTypeKey) params.set("parentObjectTypeKey", query.parentObjectTypeKey);
+    if (query.search) params.set("search", query.search);
+    if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
+    setPaging(params, query);
+    return request<ParentCandidatePage>(
+      `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}/parent-candidates?${params}`,
+    );
+  },
   createObject: (
     objectTypeKey: string,
     payload: ChangeSetWriteContext & {

@@ -2268,6 +2268,63 @@ child creation; `ui/Modal` for the move dialog.
 **Exit:** on both starter trees and the generated six-level tree, a steward finds a nested record,
 adds a child, renames it and moves it, by keyboard alone, at 1440px and 390px, live and in a draft.
 
+**B3 delivered 2026-09-28.** `features/objects/TreeView.tsx` replaces the placeholder. Decided on the
+way, within the scope above:
+
+- _One tree, configured._ The lens is S6's `RecordTree`, which gains a `TreeConfiguration` (root,
+  search and child types, a sort and page size per type, label, extras, item keys) rather than a
+  second tree. Both trees gain the reveal by `seek` (item 2), type-ahead, and a tab stop that
+  returns to the open record once it is drawn unless the user has since focused another item. A
+  `childSort` field recorded only live (`createdAt`, `updatedAt`) sorts by name in a change set or
+  publication, where the list query refuses it.
+- _Beside the detail._ Records open with `fullPage: false`, the inspector split kept in code since
+  UI-03; history now records `false` as well as `true`, so reload, Back and Forward keep the split.
+  Below 1080px the existing responsive rule gives the record the whole view, and Back returns to the
+  tree as it was. The inspector re-reads its record when the collection beside it writes, and a
+  narrow inspector wraps the record's actions below its title (found in the screenshots: titles broke
+  mid-word). Item 2's "opening a URL" is the record open beside the tree, including after a reload or
+  history move; a bare record link has no collection origin by design (UI-03) and opens full width.
+- _Actions._ A node's menu (`ui/AnchoredMenu`, a new wrapper: React Aria's `Popover` and `Menu`
+  anchored to the row) opens with Shift+F10, the context menu key or the row's ⋯, so the tree keeps
+  one tab stop. It lists Open, **Add <type>** for each type the node can contain among the tree's
+  node types (the choice of child type), Rename (also F2), **Mark (not) <field>** and **Move to…**,
+  each only where the view's `actions` include it. The availability switch and ⋯ on the row are
+  pointer shortcuts hidden from assistive technology; the item's name says when a record is not
+  available. A search result reveals the record with its branches opened explicitly, and focus goes
+  to the record it opens.
+- _Move dialog._ `TreeMoveDialog` lists the B2 candidates with the matrix link dialog's list
+  (search, `ScrollWindow`, radios), each with its path and, when several types are listed, its type;
+  ineligible ones are disabled with the reason (`Current location`, `Inside the record`, `The record
+  itself`). While the write runs it says **Moving…** with a status line that a large branch can take
+  seconds (D29). A refused move keeps the dialog, the choice and the reason; a version conflict reads
+  the record again so a retry claims its new version.
+- _Type-ahead and Space._ Space opens a record, so a space typed while a type-ahead is in progress
+  continues it instead, as the ARIA tree pattern allows; names with spaces are reachable by typing.
+
+Composable-domains doors (ADR-032): none affected; a lens over existing reads and writes.
+
+Checks: Vitest `views/TreeView.test` (11: two configurations' types, order, labels and read-only
+rows; the reveal seeking a branch past its first page; F2 rename refused then saved with focus
+back; the node menu's entries and availability; add child; move with ineligible candidates, a refused
+move keeping the dialog, then the move; type-ahead with a space; empty workspace; a refused
+availability change; read-only), `CollectionView.test`, `Explorer.test` (the sidebar unchanged),
+`ObjectDetail.test`, `useRouter.test` (the split kept across reload and history), `client.test` (the
+candidates request live and in a change set), `src/routing`, `src/app`, `src/features/objects`;
+format, lint (0 errors, the 8 recorded warnings) and build. `test:browser:b3` (21 checks, below),
+`test:browser:s6`, `test:browser` and `test:browser:wp14` for the shared tree and history.
+
+`test:browser:b3` drives three trees by keyboard alone: the starter system hierarchy live at 1440px
+(Sodium found three levels down and revealed with Boat left closed; a group added under Chemistry,
+renamed, marked not active and moved to Boat; Lab group's descendant Chemistry listed disabled),
+the domain hierarchy in a change set at 390px (a codelist added, renamed, marked not active and moved
+to another domain, none of it in live data; the publication then read-only), and the generated
+volume tree at 2% scale, live at 1440px and in its change set at 390px (the node seven levels down
+revealed reading only its ancestors' branches, one by seek; a node added, renamed and moved to its
+grandparent). Every write is checked against the API in its context. Axe found no violations on the
+eight states scanned. Screenshots inspected: the system tree with the record beside it, the move
+dialog, the domain tree at 390px, the volume tree at both widths. Not run: `test:a11y` and
+`test:visual` scenarios for the lens (B4), and the full suites (R1).
+
 #### B4: Milestone B acceptance
 
 **Scope:** a real-backend browser runner for the SC-09 hierarchy half: find a nested system group

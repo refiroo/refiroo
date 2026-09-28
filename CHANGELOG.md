@@ -153,9 +153,27 @@ All notable changes to this project are documented in this file. The format foll
   change stays listed with `eligible: false` and a `reason` (`self`, `descendant`, `currentParent`;
   D14), and every candidate carries its root-first `path`. The generated volume model lets groups
   nest, so a record with 20,000 records under it can move.
+- Base 0.8 B3: the tree lens replaces the B1 placeholder. It shows the view's root types, and under
+  each record one branch per child type the tree shows, ordered by the view's `childSort` and paged by
+  its `pageSize`, with the `labelField`, `secondaryField` and, where declared, the availability field.
+  It reuses the sidebar tree (S6): bounded scrolling branches, totals, one tab stop and arrow keys, plus
+  type-ahead (a space typed mid-word continues it). A search result, and the record open beside the
+  tree (also after a reload, Back or Forward), is revealed where it sits: each branch on its path
+  opens at it with `seek`, and unrelated branches stay closed. Records open in the inspector beside
+  the tree (the retained split view), full width below 1080px. The view's `actions` come from a node's menu
+  (Shift+F10, the context menu key or the row's ⋯): add a child of each type the node can contain (the
+  new node appears in its branch with focus), rename in place (F2), set availability (also the row's
+  switch) and **Move to…**, a dialog over the B2 candidates where ineligible targets are listed
+  disabled with their reason; a move keeps focus on the moved node and refreshes both branches. A
+  refused write keeps the user's input and place. Writes go to the selected change set; a
+  publication's tree is read-only. New browser runner `test:browser:b3`.
 
 ### Changed
 
+- Base 0.8 B3: the sidebar tree's tab stop returns to the open record once it is drawn, unless the
+  user has since focused another item; it also gains type-ahead. A record's inspector re-reads the
+  record when the collection beside it writes, and a narrow inspector wraps the record's actions
+  below its title.
 - Base 0.8 B2: moving a record costs about what a rename does, however much lies under it. A live
   update re-checked ancestor-scoped uniqueness for every relation into the record's whole subtree on
   every write, rename included; it now checks nothing for a rename, the record's own relations for a

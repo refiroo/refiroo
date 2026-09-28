@@ -113,12 +113,21 @@ and **Master values** entries after inspection; no other baseline changed beyond
 | # | Surface (package) | Navigation | Reference | Load | Populated / empty | Pending | Success | Invalid / refused | Conflict | Dependency failure → retry | Narrow | Keyboard / focus | Evidence |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | B1 | Tree lens placeholder (replaced by B3) | lens switch on the **Domains** (RDM Master) or **Systems** (RDM Systems) collection; `/apps/<app>/views/<tree view>` | The A1 matrix placeholder: page heading, lens switch, empty-state message naming the node types from the model | n/a (reads nothing) | n/a | n/a | n/a | n/a | n/a | n/a | **B** (390px, no overflow) | **B** (lens opened by keyboard) | `CollectionView.test` (two root types), `model.test` (grouping); one-off harness check below; `test:visual` baselines `collection-table-domain-*`, `collection-table-system-light`, `change-set-editing-light` updated for the lens switch |
+| B3 | Tree lens (B1 placeholder replaced by B3) | lens switch on **Domains** (RDM Master), **Systems** (RDM Systems) or a generated model's root collection; `/apps/<app>/views/<tree view>`; records open in the inspector beside it | Page surface; the S6 tree (T4) for loading, windows and keyboard; `ui/AnchoredMenu` for the node menu; `ObjectFormDialog` for a child; move dialog `ui/Modal` with the matrix link-candidate list | **C** (tree loading note, as T4) | **B** populated on three trees (two starter shapes, the seven-level generated tree); **C** empty workspace (the view's root type named) | **B** (move dialog: **Moving…** with a status line while the write runs, D29; not asserted); gap (switch dimmed while availability saves) | **B** (add child, rename, availability, move; live and change set; the new or moved node focused, both branches' counts reloaded) | **B** (current parent and descendant listed disabled with their reason); **C** (rename refused keeps the typed name with the reason; a refused move keeps the dialog, choice and reason) | **C** (an availability conflict re-reads the tree so a retry claims the new version); gap (the same for rename and move, untested) | **C** (a failed branch shows Retry without collapsing its siblings, as T4; a refused availability change is a dismissible notice above the tree) | **B** (390px: search, add, rename, availability, move; the record opens full width and Back returns to the tree; no page overflow) | **B** (whole journey by keyboard: search, arrows and type-ahead, Shift+F10 menu, F2, dialogs, focus back on the node after each write and after Escape) | `views/TreeView.test` (11), `CollectionView.test`, `useRouter.test`, `client.test`; `test:browser:b3` (21 checks, axe on eight states: the system tree, both trees after writes, four move dialogs, the volume tree); read-only publication **B**. B4 adds the SC-09 runner and the gate scenarios |
 
 The placeholder reads nothing and writes nothing, so it has no load, pending, success, refused,
 conflict or retry state. Its browser evidence is a one-off harness check (2026-09-28): both starter
 trees opened by keyboard from their table's lens switch at 1440px and 390px, no horizontal overflow,
 and axe clean at both widths. It is not kept as a runner because B3 replaces the surface and B4 owns
 its runner, accessibility and visual scenarios.
+
+B3's lens is the tree the sidebar uses (T4), configured by the view, so it inherits T4's window,
+edge and retry states; its own states are the actions. The availability switch and the row's ⋯ are
+pointer shortcuts hidden from assistive technology: the node menu offers both, and the item's name
+states availability. Opening a record from the tree keeps the tree beside it (the inspector split
+retained since UI-03, and now kept across history), which is where its visual evidence is: a record
+title in the narrow inspector wraps its actions below it. `test:a11y` and `test:visual` scenarios for
+the lens and move dialog, light and dark, are B4's.
 
 ## 3. Selected focused browser checks
 

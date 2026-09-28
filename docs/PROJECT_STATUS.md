@@ -26,7 +26,8 @@ contract delivered 2026-09-27; A2 relation matrix query, A3 writes from a cell a
 states for the row state filter (ADR-033) delivered 2026-09-27; the A4 lens and A5 acceptance
 delivered 2026-09-28; A6, the snapshot table index drift found in A2, delivered 2026-09-28)
 and hierarchy editor (Milestone B; B1 schema 0.7 `tree` contract delivered 2026-09-28; B2 move targets with
-D14 eligibility delivered 2026-09-28, the matrix container move a known budget exception, D29; next B3),
+D14 eligibility delivered 2026-09-28, the matrix container move a known budget exception, D29; B3 tree
+lens delivered 2026-09-28; next B4),
 and P2, then R1 build
 acceptance. Residual 0.7 gaps are listed in the
 [plan's WP-9 record](BASE_0_7_IMPLEMENTATION_PLAN.md#wp-9-composed-product-validation--sc-07-and-sc-15).

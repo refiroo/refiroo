@@ -66,6 +66,7 @@ export function createChangeSetClient(
     relationMatrix: (query) => api.relationMatrix({ ...query, changeSetId: initial.id }),
     relationMatrixContainers: (query) => api.relationMatrixContainers({ ...query, changeSetId: initial.id }),
     relationMatrixLinkCandidates: (query) => api.relationMatrixLinkCandidates({ ...query, changeSetId: initial.id }),
+    parentCandidates: (type, id, query) => api.parentCandidates(type, id, { ...query, changeSetId: initial.id }),
     replaceMapping: (workspaceKey, body) =>
       write((context) => api.replaceMapping(workspaceKey, { ...body, ...context })),
     createObject: (type, payload) => write((context) => api.createObject(type, { ...payload, ...context })),

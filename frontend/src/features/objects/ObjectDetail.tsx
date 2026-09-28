@@ -28,6 +28,7 @@ export function ObjectDetail({
   onExpand,
   initialAction,
   readOnly = true,
+  refreshToken = 0,
   onChanged = () => undefined,
 }: {
   model: EngineModel;
@@ -42,6 +43,8 @@ export function ObjectDetail({
   onExpand?: () => void;
   initialAction?: "edit" | "delete";
   readOnly?: boolean;
+  /** Changes when the collection beside the inspector wrote, so the record is read again. */
+  refreshToken?: number;
   onChanged?: () => void;
 }) {
   const api = useDataApi();
@@ -101,6 +104,27 @@ export function ObjectDetail({
     // The effect repeats loadObject rather than calling it, because it must ignore a response that
     // arrives after the route moved on and loadObject has no cancellation of its own.
   }, [api, application.key, objectId, objectTypeKey, workspaceKey]);
+
+  // A write beside the record (a tree lens renaming or moving it) re-reads it in place, without the
+  // loading state, so focus stays where the user is working.
+  const lastRefresh = useRef(refreshToken);
+  useEffect(() => {
+    if (lastRefresh.current === refreshToken) return;
+    lastRefresh.current = refreshToken;
+    let active = true;
+    api
+      .object(objectTypeKey, objectId, workspaceKey)
+      .then((loaded) => {
+        if (!active) return;
+        setObject(loaded);
+        setPanelRefresh((value) => value + 1);
+        setHistoryRefresh((value) => value + 1);
+      })
+      .catch((cause) => active && setError(errorMessage(cause)));
+    return () => {
+      active = false;
+    };
+  }, [api, objectId, objectTypeKey, workspaceKey, refreshToken]);
 
   useEffect(() => {
     if (!loading && !initialAction) titleRef.current?.focus();

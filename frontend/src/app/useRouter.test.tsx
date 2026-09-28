@@ -76,6 +76,30 @@ describe("record navigation", () => {
     },
   );
 
+  it("keeps a record opened beside its collection beside it across reload and history", async () => {
+    const first = renderHook(useRouter);
+    await waitFor(() => expect(first.result.current.route?.kind).toBe("list"));
+    act(() => first.result.current.navigate({ ...detail, fullPage: false }));
+    act(() => first.result.current.navigate({ ...detail, objectId: "full", fullPage: true }));
+    first.unmount();
+    const reloaded = renderHook(useRouter);
+    await waitFor(() =>
+      expect(reloaded.result.current.route).toMatchObject({
+        objectId: "full",
+        fullPage: true,
+        collectionOrigin: collection,
+      }),
+    );
+    act(() => window.history.back());
+    await waitFor(() =>
+      expect(reloaded.result.current.route).toMatchObject({
+        objectId: "one",
+        fullPage: false,
+        collectionOrigin: collection,
+      }),
+    );
+  });
+
   it("retains standalone hierarchy navigation through related records, reload and browser history", async () => {
     const first = renderHook(useRouter);
     await waitFor(() => expect(first.result.current.route?.kind).toBe("list"));

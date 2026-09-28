@@ -169,8 +169,9 @@ no renderer branches on an application or object-type key.
   applied before first paint. Dark mode redefines the same semantic tokens, so renderers never
   branch on the theme.
 
-Records opened from a collection keep the full-width presentation chosen in UI-03; the inspector
-split view remains available in code but is not the default.
+Records opened from a collection keep the full-width presentation chosen in UI-03. The inspector
+split view is used by the tree lens (0.8 B3), which keeps the hierarchy beside the record it opens,
+and survives reload, Back and Forward; below 1080px the record takes the whole view.
 
 ## Established CRUD UI contract and WP9 recovery target
 

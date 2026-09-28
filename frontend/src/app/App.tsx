@@ -59,6 +59,8 @@ function AppContent({
   const data = useWorkspaceData();
   const model = data.model ?? currentModel;
   const [refreshToken, setRefreshToken] = useState(0);
+  // Writes made in the collection beside an open record; the record's own writes do not count.
+  const [collectionWrites, setCollectionWrites] = useState(0);
   const contextLoading =
     !data.model &&
     !data.loadingError &&
@@ -133,7 +135,7 @@ function AppContent({
   function openObject(
     item: Pick<ObjectItem, "applicationKey" | "objectTypeKey" | "id" | "workspaceKey">,
     action?: "edit" | "delete",
-    source?: "hierarchy",
+    source?: "hierarchy" | "beside",
   ) {
     navigate({
       kind: "detail",
@@ -141,6 +143,7 @@ function AppContent({
       objectTypeKey: item.objectTypeKey,
       objectId: item.id,
       ...(source === "hierarchy" ? { collectionOrigin: null } : {}),
+      ...(source === "beside" ? { fullPage: false } : {}),
       ...(action ? { actionRequest: { action, key: ++actionSequence.current } } : {}),
       workspaceKey: isAdminRoute(activeRoute) ? item.workspaceKey : activeRoute.workspaceKey,
       changeSetId,
@@ -406,7 +409,11 @@ function AppContent({
                     readOnly={readOnly}
                     refreshToken={refreshToken}
                     selectedId={activeRoute.kind === "detail" ? activeRoute.objectId : undefined}
-                    onChanged={() => setRefreshToken((value) => value + 1)}
+                    selectedObjectTypeKey={activeRoute.kind === "detail" ? activeRoute.objectTypeKey : undefined}
+                    onChanged={() => {
+                      setRefreshToken((value) => value + 1);
+                      setCollectionWrites((value) => value + 1);
+                    }}
                     query={collection}
                     onQueryChange={(query: CollectionQueryState) =>
                       navigate(
@@ -434,7 +441,7 @@ function AppContent({
                         parentObjectTypeKey: collection.parentObjectTypeKey,
                       });
                     }}
-                    onOpen={openObject}
+                    onOpen={(item, action, options) => openObject(item, action, options?.beside ? "beside" : undefined)}
                   />
                 </div>
               )}
@@ -463,6 +470,7 @@ function AppContent({
                     initialAction={activeRoute.actionRequest?.action}
                     onExpand={inspector ? () => navigate({ ...activeRoute, fullPage: true }) : undefined}
                     readOnly={readOnly}
+                    refreshToken={collectionWrites}
                     onChanged={() => setRefreshToken((value) => value + 1)}
                     onOpen={openObjectById}
                     showBackToList={activeRoute.collectionOrigin !== null}

@@ -1060,6 +1060,10 @@ th[aria-sort] {
 .record-inspector .side-panels {
   position: static;
 }
+/* A narrow inspector wraps the record's actions below its title rather than squeezing the title. */
+.record-inspector .detail-title {
+  flex: 1 1 14rem;
+}
 .properties-resizer::before,
 .inspector-resizer::before {
   content: "";
@@ -2687,4 +2691,139 @@ form .admin-hint {
 }
 .matrix-table tbody tr:last-child th {
   border-bottom: 0;
+}
+
+/* Tree lens (Base 0.8 B3): the S6 tree with room for a whole hierarchy and per-row actions. */
+.tree-lens .tree {
+  --tree-window: max(320px, calc(100vh - 330px));
+}
+.tree-lens .tree-children {
+  --tree-window: min(480px, calc(100vh - 360px));
+}
+.tree-lens-body {
+  padding: 6px 8px 10px;
+}
+.tree-lens-body > .explorer-empty + .notice,
+.tree-lens-body > .notice {
+  margin: 8px;
+}
+.tree-lens-level {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.tree-lens-hint {
+  margin: 0 0 0 auto;
+  font-size: 12px;
+}
+.tree-lens kbd,
+.action-menu .menu-hint {
+  padding: 0 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  font: inherit;
+  font-size: 11px;
+}
+.action-menu .menu-hint {
+  margin-left: auto;
+  color: var(--muted);
+}
+.tree-lens .tree-row {
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+}
+.tree-extras {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-right: 4px;
+}
+.tree-menu-trigger {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+}
+.tree-item:focus > .tree-row .tree-menu-trigger,
+.tree-row:hover .tree-menu-trigger {
+  opacity: 1;
+}
+.tree-menu-trigger:hover {
+  background: var(--fill);
+  color: var(--ink);
+}
+.tree-availability {
+  color: var(--muted);
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+.tree-availability[title*="click"] {
+  cursor: pointer;
+}
+.tree-availability.busy {
+  opacity: 0.5;
+  cursor: progress;
+}
+.tree-switch {
+  position: relative;
+  display: block;
+  width: 26px;
+  height: 15px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--fill);
+}
+.tree-switch::after {
+  content: "";
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--faint);
+  transition: transform 120ms ease;
+}
+.tree-availability.on .tree-switch {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.tree-availability.on .tree-switch::after {
+  background: var(--accent);
+  transform: translateX(11px);
+}
+.tree-rename {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.tree-rename input {
+  width: 100%;
+  min-width: 0;
+  padding: 2px 6px;
+  font-size: 13px;
+}
+.tree-rename-error {
+  color: var(--danger);
+  font-size: 12px;
+  white-space: normal;
+}
+.tree-move-progress {
+  font-size: 12.5px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .tree-switch::after {
+    transition: none;
+  }
+}
+@media (max-width: 720px) {
+  .tree-lens-hint {
+    display: none;
+  }
+  .tree-menu-trigger {
+    opacity: 1;
+  }
 }

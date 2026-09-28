@@ -15,6 +15,8 @@ export interface ViewComponentProps {
   onChanged?: () => void;
   refreshToken?: number;
   selectedId?: string;
+  /** The type of the record `selectedId` names, so a lens can read it without searching. */
+  selectedObjectTypeKey?: string;
   query: CollectionQueryState;
   onQueryChange: (query: CollectionQueryState) => void;
   /** Records the scroll anchor in the route without a history entry or a reload. */
@@ -22,9 +24,13 @@ export interface ViewComponentProps {
   onViewChange?: (viewKey: string) => void;
   /** Sibling lenses of the same source collection, placed by the renderer below its heading. */
   lenses?: ReactNode;
-  /** Opens a record; a lens that holds only a record's identity passes just that. */
+  /**
+   * Opens a record; a lens that holds only a record's identity passes just that. `beside` keeps the
+   * lens on screen with the record in the inspector beside it, where the viewport is wide enough.
+   */
   onOpen: (
     item: Pick<ObjectItem, "id" | "objectTypeKey" | "applicationKey" | "workspaceKey">,
     action?: "edit" | "delete",
+    options?: { beside?: boolean },
   ) => void;
 }

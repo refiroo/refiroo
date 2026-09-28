@@ -9,7 +9,8 @@ release plan and changelog rather than accumulating it here.
 Base 0.7 is released (2026-09-25). 0.8 Track S (scalable browsing) and Track W (workspace terminology
 and capability boundaries) are delivered (2026-09-26), and Milestone A's relation matrix (A1–A5) is
 delivered (2026-09-28), closed by A6 (snapshot table index drift, 2026-09-28). The hierarchy editor's
-`tree` contract (B1) and move targets (B2) are delivered (2026-09-28). Next: B3, B4, P2, then R1. See
+`tree` contract (B1), move targets (B2) and tree lens (B3) are delivered (2026-09-28). Next: B4, P2,
+then R1. See
 [Next — 0.8 and beyond](#next--08-and-beyond).
 
 ## Open decisions
@@ -75,7 +76,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [x] B2 move targets with eligibility (D14) and path context in every context; a deep move meets
     the write budget live and in a change set; the matrix container move is a known 0.8 budget
     exception (D29).
-  - [ ] B3 tree lens with add child, rename, availability and move.
+  - [x] B3 tree lens with add child, rename, availability and move, beside the record's detail;
+    `test:browser:b3` on both starter trees and the generated tree, live and in a change set.
   - [ ] B4 Milestone B acceptance (SC-09 hierarchy half).
 - [ ] 0.8 P2 change set changes list, after W2 (D20).
 - [ ] 0.8 R1 build acceptance and release.

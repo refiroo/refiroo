@@ -20,6 +20,33 @@ describe("API client", () => {
     expect(url.searchParams.get("publicationId")).toBe("publication/id");
   });
 
+  it("reads move targets live or in a change set, with search, a type and paging", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => jsonResponse({ items: [], nextCursor: null }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await api.parentCandidates("system group", "id/1", {
+      workspaceKey: "west",
+      parentObjectTypeKey: "system",
+      search: "lab",
+      pageSize: 20,
+      cursor: "next",
+    });
+    await api.parentCandidates("group", "id", { workspaceKey: "west", changeSetId: "cs/1", position: 40 });
+
+    const live = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(live.pathname).toBe("/api/v1/objects/system%20group/id%2F1/parent-candidates");
+    expect(Object.fromEntries(live.searchParams)).toEqual({
+      workspaceKey: "west",
+      parentObjectTypeKey: "system",
+      search: "lab",
+      pageSize: "20",
+      cursor: "next",
+    });
+    // A change set names the context on its own, as the route takes one or the other.
+    const staged = new URL(String(fetchMock.mock.calls[1][0]));
+    expect(Object.fromEntries(staged.searchParams)).toEqual({ changeSetId: "cs/1", position: "40" });
+  });
+
   it("preserves structured errors", async () => {
     vi.stubGlobal(
       "fetch",

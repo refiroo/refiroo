@@ -370,6 +370,14 @@ Configuration:
 | `actions` | Optional, unique, from `createChild`, `rename`, `move`, `setAvailability`; absent or empty is read-only |
 | `availabilityField` | A boolean attribute attached to every node type; required by, and only allowed with, `setAvailability` |
 
+The browser renders a tree as a lens beside the selected record (Base 0.8 B3): branches load by
+parent and child type in the `childSort` order, a record found by search or open beside the tree is
+revealed by seeking each branch on its path, and the `actions` are offered from a node's menu, with
+F2 to rename. `createChild` offers each type the node can contain among the tree's node types; `move`
+lists the records of every type that can contain the node (`GET …/parent-candidates`), ineligible
+ones disabled with their reason. `childSort` fields recorded only in live data (`createdAt`,
+`updatedAt`) sort by name in a change set or publication, where they are not recorded.
+
 An action is refused at `…/config/actions/<n>` when it could never succeed for the model:
 
 - `createChild` and `move` when no node type can contain another;
@@ -508,7 +516,7 @@ type is an addition, not a replacement). Product 0.8 adds schema 0.7, again a st
 0.5 and 0.6 models keep parsing and activating, and features added in a later schema are refused at their
 path. Absent 0.7 fields are omitted from the canonical document, so a 0.5 or 0.6 release keeps its
 content hash. Stored schema 0.4 releases remain historical immutable JSON
-but cannot be activated. `form`, `dashboard` and `tree` view types remain unimplemented. A future
+but cannot be activated. `form` and `dashboard` view types remain unimplemented. A future
 workspace-scoped release assignment may stage model and data migrations, but mixed schema-language
 operation requires explicit support for every concurrently served version.
 
