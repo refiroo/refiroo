@@ -412,11 +412,20 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
   });
 
   it("keeps the entered value and links to the conflicting record when an edit breaks uniqueness", async () => {
-    vi.mocked(api.updateObject).mockRejectedValue(
-      new ApiError(409, "duplicate_relation_scope", "Connections already has an active note under EA.", {
-        conflictingObjectId: "n7",
-      }),
-    );
+    // Without the scope, the API's message; with it, the row, column and condition in the view's terms.
+    vi.mocked(api.updateObject)
+      .mockRejectedValueOnce(
+        new ApiError(409, "duplicate_relation_scope", "A related object already exists for this ancestor scope", {
+          conflictingObjectId: "n7",
+        }),
+      )
+      .mockRejectedValueOnce(
+        new ApiError(409, "duplicate_relation_scope", "A related object already exists for this ancestor scope", {
+          conflictingObjectId: "n7",
+          ancestorObjectTypeKey: "region",
+          ancestorObjectId: "c-east",
+        }),
+      );
     const { onOpen } = renderMatrix(notesView);
     await screen.findByRole("grid");
     fireEvent.click(gridCell("Connections", 1));
@@ -425,7 +434,15 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     expect(code).toHaveValue("CL-EA");
     fireEvent.change(code, { target: { value: "CL-EA-2" } });
     fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
-    expect(await within(dialog).findByText("Connections already has an active note under EA.")).toBeInTheDocument();
+    expect(
+      await within(dialog).findByText("A related object already exists for this ancestor scope"),
+    ).toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+    expect(
+      await within(dialog).findByText(
+        "Connections already has a note in EA where Active is Yes, and only one may count there.",
+      ),
+    ).toBeInTheDocument();
     expect(api.updateObject).toHaveBeenCalledWith("note", "n1", {
       expectedVersion: 2,
       attributes: [{ attributeTypeKey: "code", value: "CL-EA-2" }],

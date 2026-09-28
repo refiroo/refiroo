@@ -1850,6 +1850,67 @@ visual baselines. Record A2 measurements against budgets.
 registered in the [execution guide](testing/EXECUTION_GUIDE.md); US-L03 and US-L04 move to delivered
 in the functionality catalogue.
 
+**A5 delivered 2026-09-28.** `e2e/a5-matrix-acceptance.mjs` (`test:browser:a5`) runs the milestone by
+keyboard alone against a real backend in two model configurations. The SC-09 data is a shared helper
+(`seedTranslationMatrix` in `e2e/helpers/acceptance-data.mjs`) so the runner and both gates show the
+same records: Delivery Methods with a current Czech translation beside a superseded inactive one, no
+English one, and a German one that publication 1 holds and live no longer does. Decisions made on the
+way:
+
+- "Reject a duplicate" is the steward's real mistake in this view: reactivating the superseded Czech
+  translation while the current one counts. The translation views offer create only in `none`,
+  `inactive` and `historyOnly` cells, so a second active record cannot be created from a `one` cell;
+  the edit path is where the uniqueness rule meets the user.
+- The change set is staged from the matrix (German restored with **Create from this**) and published
+  from the change set screen (**Open change set**, **Validate change set**, **Publish change set**),
+  so the journey crosses the one place publishing lives rather than calling the API.
+- The generated model's fill takes the first row with an empty cell on the first page of columns, as
+  the API reads it, so the runner does not depend on the fixture's arithmetic; its column offers 14
+  places (every shelf can hold a cell), so the container picker is exercised by arrow keys.
+- Found on the way: the refusal read "A related object already exists for this ancestor scope", the
+  API's generic wording. The cell dialog now says it in the view's terms when the binding is read
+  outgoing and the error names its scope: "Delivery Methods already has a translation in cs where
+  Active is Yes, and only one may count there." (or "under the same …" when the scope is not the
+  column); otherwise the API message stays. The API is unchanged.
+- The gates' matrix scenarios run after the pages whose baselines already exist, since seeding the
+  history publishes a second time (the publications baseline shows one).
+
+_A2 measurements against budgets_ (`volume_baseline.py --scale 1 --repeat 5`, same machine as S1,
+median ms · statements · ORM rows; live · change set · history). The full rerun A2 left open, with
+A3's `relationVersion` and A3b's stored states in place. The seed now takes 189 s at full volume.
+
+| Request | Live | Change set | History |
+| --- | --- | --- | --- |
+| matrix: first page, 20 columns, total | 37.7 · 12 · 45 | 47.0 · 13 · 5 | 26.4 · 12 · 4 |
+| matrix: position ¾ deep, total | 36.4 · 12 · 45 | 52.6 · 16 · 5 | 26.4 · 12 · 4 |
+| matrix: inactive in 10 columns, jump, total | 54.2 · 14 · 34 | 72.7 · 18 · 5 | 44.3 · 14 · 4 |
+| matrix: none in 3 columns, jump, total | 41.9 · 14 · 27 | 64.1 · 18 · 5 | 32.3 · 14 · 4 |
+| matrix: history only in 20 columns | 72.3 · 13 · 44 | 81.9 · 11 · 5 | 23.2 · 11 · 4 |
+| matrix incoming: first page, total | 37.8 · 12 · 45 | 44.9 · 13 · 5 | 26.0 · 12 · 4 |
+| matrix incoming: one in 1 column, jump, total | 36.8 · 14 · 25 | 53.7 · 18 · 5 | 30.1 · 14 · 4 |
+
+Every matrix request is within the 100 ms budget in every context, at most 45 ORM rows, and with the
+statement counts `test_volume_baseline.py` holds at both scales; the filters are within noise of A3b.
+The rest of the table is within noise of S8, with the heavy parent's attribute and ancestor sorts
+still the D26 exception (94–226 ms). Through the browser, the runner's 23 matrix reads (starter model
+and the generated one at 10%) took at most 91 ms, a containers read.
+
+Checks: `test:browser:a5` (7: SC-09's three starting states against the API's, including that the
+history-only German cell does not count as `one`; fill English live; the refused reactivation with
+its message, the checkbox still set, the stored record unchanged and **Open the translation already
+here** landing on the current Czech one; German restored in the change set and absent from live;
+validate and publish by keyboard, then all three languages `one` in live and in the new publication;
+link and unlink in Master values by system at 390px; the generated model's fill through the picker,
+checked in live and in the chosen place), `test:browser:a4` (10, for the dialog change),
+`views/RelationMatrixView.test.tsx` (12; the breach case now checks both messages), `test:a11y`
+(26 scenarios, 0 violations; new: the matrix, a history-only cell's dialog and the Filter popover,
+light and dark), `test:visual` (21; four new reviewed baselines, `relation-matrix-{light,dark}` and
+`relation-matrix-cell-{light,dark}`, every existing one matching), `test:gate-helpers`, format, lint
+(0 errors, the 8 recorded warnings) and build. Screenshots were inspected: the grid at both themes,
+the refusal, the published grid, the mapping cell at 390px and the generated model's picker; a hover
+highlight caught in the first dark baseline was removed by moving the mouse away before capture.
+Not run: the backend suites (no backend change) and the comprehensive suites (R1).
+
 ## Milestone B — Hierarchy editor
 
 ### Outcome

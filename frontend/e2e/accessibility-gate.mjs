@@ -5,7 +5,13 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { runAxe, formatViolations } from "./helpers/axe-helper.mjs";
-import { openLongList, seedLongList } from "./helpers/acceptance-data.mjs";
+import {
+  openLongList,
+  openTranslationCell,
+  openTranslationMatrix,
+  seedLongList,
+  seedTranslationMatrix,
+} from "./helpers/acceptance-data.mjs";
 
 // Permitted known violations with tracked issue references.
 // Each entry must state the axe rule id and a tracking reference.
@@ -193,7 +199,38 @@ try {
   await page.keyboard.press("Escape");
   await page.emulateMedia({ colorScheme: "light" });
 
-  // --- 12. Workspaces administration (Base 0.8 W4), light and dark, with a retired workspace ---
+  // --- 12. Relation matrix (Base 0.8 A5), light and dark: the grid with every starter state it can
+  // show (one, none, history only), a history-only cell's dialog and the Filter popover ---
+  await seedTranslationMatrix(api, records);
+  for (const scheme of ["light", "dark"]) {
+    const prefix = scheme === "dark" ? "dark-" : "";
+    await page.emulateMedia({ colorScheme: scheme });
+    await openTranslationMatrix(page, uiUrl);
+    const scenarios = [
+      [`${prefix}relation-matrix`, async () => {}],
+      [`${prefix}relation-matrix-cell`, () => openTranslationCell(page, "de")],
+      [
+        `${prefix}relation-matrix-filter`,
+        async () => {
+          await page.getByRole("button", { name: "Filter", exact: true }).click();
+          await shown(page.getByRole("dialog", { name: "Filter" }));
+        },
+      ],
+    ];
+    for (const [name, open] of scenarios) {
+      await open();
+      await page.waitForLoadState("networkidle");
+      result = await runAxe(page, ALLOWLIST, name);
+      if (result.violations.length > 0) failures.push(`${name}:\n${formatViolations(result.violations)}`);
+      checks.push(`${name}: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+      await page.screenshot({ path: resolve(output, `a11y-${name}.png`), fullPage: true });
+      await page.keyboard.press("Escape");
+      await page.getByRole("dialog").waitFor({ state: "detached" });
+    }
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // --- 13. Workspaces administration (Base 0.8 W4), light and dark, with a retired workspace ---
   const retired = await api("/workspaces", { key: "archive", label: "Archive" });
   await api("/workspaces/archive", { expectedVersion: retired.version, status: "retired" }, "PATCH");
   for (const [name, scheme] of [

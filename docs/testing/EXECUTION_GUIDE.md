@@ -94,6 +94,7 @@ Chrome. Setup costs ~2.8 s per runner (section 4). Pick by surface:
 | `e2e/s7-volume-acceptance.mjs` (`test:browser:s7`) | Base 0.8 S7 composed Track S acceptance over the volume fixture (10% by default, `S7_VOLUME_SCALE=1` for full volume) and the starter model: one lens journey per context (scroll, seek, scrollbar click, end, page number, copied URL), each landing checked against the context's API read, then a record deep in the tree (volume: search with its ancestor path; starter: keyboard across a tree window's edge); live, change-set and publication; 1440px and 390px; reports API read times as the browser saw them |
 | `e2e/w4-workspace-admin.mjs` (`test:browser:w4`) | Base 0.8 W4 workspace administration with the capability on and off: single-workspace label, Workspaces screen, create (keyboard, duplicate key), concurrent rename, switching in RDM Systems, dropdown Manage workspaces, set default (landing workspace, stale switch), retire and read-only opening; W6 deletion of a mistyped key by keyboard, stale URL, re-creation and the selector; capability status on both screens; 1440px and 390px; axe on seven states |
 | `e2e/a4-relation-matrix.mjs` (`test:browser:a4`) | Base 0.8 A4 relation matrix lens on the starter model, by keyboard alone: fill an empty translation cell in its only container, correct one and filter to gaps across the list (codelists, live); fill a master value's translation through the container picker in a change set; link and unlink a system value in the incoming matrix (master values, live) and the outgoing one (codelists, change set); the publication read-only; each write checked against the API in its context; 1440px and 390px; axe on five states |
+| `e2e/a5-matrix-acceptance.mjs` (`test:browser:a5`) | Base 0.8 A5 Milestone A acceptance by keyboard alone: SC-09's translation half on the starter model (Delivery Methods by language with a current Czech, an empty English and a history-only German cell; fill English live; a superseded Czech translation's reactivation refused with the input kept and the current one linked; German restored from history in a change set and published from the change set screen, checked in live and the new publication); link and unlink in Master values by system at 390px; a fill through the container picker on the generated volume model (10% by default, `A5_VOLUME_SCALE=1` for full volume); reports the matrix reads' times as the browser saw them |
 | `e2e/sc15-model-version-acceptance.mjs` (`test:browser:sc15`) | WP-9 composed SC-15: C-DR-PIN and C-MOD-ACT with two same-schema releases and an incompatible one; refusals leave live, history and another workspace untouched |
 | `e2e/accessibility-gate.mjs` (`test:a11y`) | C-UI-A11Y, T5 build gate |
 | `e2e/visual-regression-gate.mjs` (`test:visual`) | C-UI-A11Y visual stability, T5 build gate |
@@ -140,7 +141,7 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | `src/model/*` | `--project unit`, `src/model` | `vitest related` when a read's result shape changes |
 | `src/ui/*` shared components | `vitest related` | `test:a11y`/`test:visual` scenario for the changed control only when focus, semantics or tokens change; full gates at WP-9 |
 | `src/features/objects/MappingGridView.tsx` and its `views/` host | `vitest related` (3 files) | `wp14-contextual-browser.mjs`, `wp13c-ui-states.mjs` |
-| `src/features/objects/RelationMatrix*.tsx`, `relationMatrixStates.tsx` | `views/RelationMatrixView.test`, `vitest related` | `test:browser:a4` |
+| `src/features/objects/RelationMatrix*.tsx`, `relationMatrixStates.tsx` | `views/RelationMatrixView.test`, `vitest related` | `test:browser:a4`; `test:browser:a5` for the cell dialog, create, link or publishing paths; the `relation-matrix*` a11y and visual scenarios when the grid or dialog renders differently |
 | `src/features/objects/**` other | the file's test and `vitest related` | the runner for the surface (section 1 table) |
 | `src/features/workspaces/**` | `src/features/workspaces` | `wp9-change-sets.mjs` or `wp9-publications.mjs`; `wp11-model-admin.mjs` and `wp13c-ui-states.mjs` for version selection; `w4-workspace-admin.mjs` for `WorkspaceAdmin` and `WorkspaceSelector` |
 | `src/features/administration/**` | `vitest related` | `w4-workspace-admin.mjs` |
@@ -190,7 +191,7 @@ pytest processes at once: they share `backend/tests/test-rdm-engine.db`.
   && npm run test:browser:wp14 && npm run test:browser:wp13c \
   && npm run test:browser:sc07 && npm run test:browser:sc15 \
   && npm run test:browser:s5 && npm run test:browser:s6 && npm run test:browser:s7 \
-  && npm run test:browser:w4)
+  && npm run test:browser:w4 && npm run test:browser:a4 && npm run test:browser:a5)
 (cd frontend && npm run test:a11y && npm run test:visual)
 ```
 

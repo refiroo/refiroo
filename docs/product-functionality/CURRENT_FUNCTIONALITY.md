@@ -20,7 +20,7 @@ frontend and real-browser package evidence; it is not WP-9 release acceptance. S
 | F06 | Maintain typed field values                               | Components present  | Available      | Browser completion is WP9        |
 | F07 | Maintain containment and hierarchy                        | Components present  | Available      | Specialist tree is roadmap       |
 | F08 | Maintain ordinary relationships                           | Implemented         | Available      | Mapping lens focused proof; WP9 pending |
-| F09 | Maintain translations                                     | Components present  | Available      | Translation editor is roadmap    |
+| F09 | Maintain translations                                     | Implemented         | Available      | Relation matrix; SC-09 translation half accepted (0.8 A5) |
 | F10 | Preview and confirm dependent deletion                    | Components present  | Available      | Browser completion is WP9        |
 | F11 | Inspect record history                                    | Default only        | Available      | Non-default context is dropped   |
 | F12 | Prepare a workspace change set                          | Unavailable         | Available      | Browser completion is WP9        |
@@ -265,10 +265,15 @@ A translation can be created with its group, target and content in one valid ope
 model allows Domain, Codelist and Master Value targets, requires meaningful translated content and
 prevents duplicate business-active target/language combinations.
 
-Backend behavior is available and generic interface components exist, but there is no complete writable
-browser journey. A coverage matrix and translation-focused workflow are planned for 0.8.
+Since Base 0.8 (A4, accepted in A5 on 2026-09-28) the starter configures the generic relation matrix
+for translations: records by language, each cell current, missing, inactive or held only in history
+(which does not count as current), filtered to gaps across the whole list. From a cell the steward
+creates a translation in its language's group, corrects one, or restores one from history, live or in a
+selected change set; a second active translation for the same target and language is refused with the
+input kept and the current one a step away. The same lens maps system values (link and unlink).
 
-Evidence: [translation tests](../../backend/tests/test_translations.py),
+Evidence: [A5 runner](../../frontend/e2e/a5-matrix-acceptance.mjs),
+[translation tests](../../backend/tests/test_translations.py),
 [ADR-014](../DECISIONS.md#adr-014--create-required-translation-targets-atomically).
 
 ## F10 — Preview and confirm dependent deletion

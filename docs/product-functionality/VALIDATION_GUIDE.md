@@ -57,7 +57,7 @@ acceptance evidence.
 | US-W07 | F12-F14 historical-source change set      | E2 change-set/publication/publishing tests                   | 0.6 WP9/WP10                     |
 | US-L01 | F09 translation creation          | E2 translation tests + disconnected generic UI      | 0.6 WP9/WP10                     |
 | US-L02 | F09 translation uniqueness        | E2 translation/graph tests                          | 0.6 WP10                         |
-| US-L03 | Translation coverage matrix       | E5 roadmap                                          | 0.8                              |
+| US-L03 | Translation coverage matrix       | E1 `test:browser:a5` (SC-09), `test:browser:a4`     | Delivered 0.8 A5                 |
 | US-M01 | Mapping coverage                  | E5 roadmap/ADR-022                                  | 0.7                              |
 | US-M02 | Atomic mapping replacement        | E5 roadmap/ADR-022                                  | 0.7                              |
 | US-M03 | Ambiguity resolution              | E5 roadmap/ADR-022                                  | 0.7                              |
@@ -90,7 +90,7 @@ acceptance evidence.
 | US-W08 | Fresh live change set starting view | Accepted decision; source gap GAP-02 | SC-05 / 0.6 |
 | US-W09 | Change set model-version selection | Accepted decision; global selection today | SC-15 / 0.7 with schema 0.6 |
 | US-M04 | Missing mapping target creation | Roadmap; no completed specialist flow | SC-07 / 0.7 |
-| US-L04 | In-context translation edit | Roadmap; generic service is not matrix proof | SC-09 / 0.8 |
+| US-L04 | In-context translation edit | E1 `test:browser:a5`: fill, refused duplicate, change set, publish | SC-09 / delivered 0.8 A5 |
 | US-H01 | Large hierarchy navigation | Roadmap | SC-09 / 0.8 |
 | US-H02 | Contextual hierarchy maintenance | Generic service exists; specialist interaction planned | SC-09 / 0.8 |
 | US-I07 | File validation preview | Roadmap; format/policy decisions pending | SC-10 / 0.9 |

@@ -325,7 +325,8 @@ translations so that I can focus on gaps without opening every record.
 present only in history, including beyond the first displayed page. Historical content does not count
 as a completed current translation.
 
-**Coverage:** Planned translation editor. **Status:** Roadmap 0.8.
+**Coverage:** F09, relation matrix lens (`relationMatrix` view). **Status:** Delivered 0.8 (A4, accepted
+in A5 through SC-09).
 
 ### US-L04 — Correct or add a translation from its coverage cell
 
@@ -336,7 +337,8 @@ can fill a gap without selecting the same target and language again.
 translations are prevented and the cell reflects a successful save. Routine changes can be live;
 explicitly selected change set changes remain staged. Failed input is retained.
 
-**Coverage:** Planned translation editor. **Status:** Roadmap 0.8. **Example:** SC-09.
+**Coverage:** F09, relation matrix cell dialog. **Status:** Delivered 0.8 (A4, accepted in A5).
+**Example:** SC-09.
 
 ## Mapping steward
 

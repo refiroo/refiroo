@@ -5,7 +5,13 @@ import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
 import { compareScreenshot } from "./helpers/visual-regression.mjs";
-import { openLongList, seedLongList } from "./helpers/acceptance-data.mjs";
+import {
+  openLongList,
+  openTranslationCell,
+  openTranslationMatrix,
+  seedLongList,
+  seedTranslationMatrix,
+} from "./helpers/acceptance-data.mjs";
 
 let harness;
 const checks = [];
@@ -112,7 +118,22 @@ try {
   const changeSet2Detail = await api(`/change-sets/${changeSet2.id}`);
   await api(`/change-sets/${changeSet2.id}?expectedVersion=${changeSet2Detail.version}`, undefined, "DELETE");
 
-  // --- 11. Workspaces administration (Base 0.8 W4), last because a second workspace turns every
+  // --- 12. Relation matrix (Base 0.8 A5): SC-09's Delivery Methods by language (one, none and
+  // history-only cells, the legend) and the history-only cell's dialog, light and dark ---
+  await seedTranslationMatrix(api, records);
+  for (const scheme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await openTranslationMatrix(page, uiUrl);
+    await page.mouse.move(0, 0); // no hover left from the previous pass's click
+    await capture(page, `relation-matrix-${scheme}`, output);
+    await openTranslationCell(page, "de");
+    await capture(page, `relation-matrix-cell-${scheme}`, output);
+    await page.keyboard.press("Escape");
+    await page.getByRole("dialog").waitFor({ state: "detached" });
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // --- 13. Workspaces administration (Base 0.8 W4), last because a second workspace turns every
   // earlier shell's single-workspace label into the selector ---
   const retired = await api("/workspaces", { key: "archive", label: "Archive" });
   await api("/workspaces/archive", { expectedVersion: retired.version, status: "retired" }, "PATCH");

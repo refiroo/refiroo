@@ -129,9 +129,19 @@ All notable changes to this project are documented in this file. The format foll
   cannot be linked) and unlink, live or in the selected change set, and read-only in a publication.
   A save re-reads only that cell. `ScrollWindow` keeps a grid cell's column on Up and Down. New
   browser runner `test:browser:a4`.
+- Base 0.8 A5: Milestone A acceptance. Browser runner `test:browser:a5` runs SC-09's translation half
+  by keyboard (fill a missing translation live, a refused duplicate, restore one from history in a
+  change set and publish it from the change set screen), links and unlinks a system value, and fills
+  a cell on the generated volume model. The accessibility and visual gates gain the relation matrix,
+  its cell dialog and Filter popover in light and dark, with four reviewed baselines. Full-volume
+  matrix reads measure 23–82 ms in every context, within the 100 ms budget.
 
 ### Changed
 
+- Base 0.8 A5: a relation matrix cell refused for uniqueness says so in the view's terms, naming the
+  row, the column (or the scope) and the condition, for example "Delivery Methods already has a
+  translation in cs where Active is Yes, and only one may count there.", instead of the API's generic
+  "A related object already exists for this ancestor scope". The API is unchanged.
 - Base 0.8 A3: relations an object create adds through `initialRelations` now advance both ends'
   relation-set versions, live and in change sets, like every other relation write (ADR-022); a
   matrix row's `relationSetVersion` therefore counts them. `409 duplicate_relation_scope` on relation

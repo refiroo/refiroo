@@ -189,3 +189,88 @@ export async function openLongList(page, uiUrl, domain) {
   await page.waitForLoadState("networkidle");
   return { table, tree };
 }
+
+/**
+ * Base 0.8 A5 SC-09 translation half: Delivery Methods under the first seeded domain, with Czech,
+ * English and German columns in the codelist translation matrix. Czech holds a current translation
+ * and a superseded inactive one; English is empty; German was published (publication `number`) and
+ * then deleted live, so its cell is history only. Everything goes through the real API.
+ */
+export async function seedTranslationMatrix(api, records) {
+  async function create(applicationKey, objectTypeKey, name, attributes, extra = {}) {
+    return api("/objects", {
+      applicationKey,
+      workspaceKey: "default",
+      objectTypeKey,
+      name,
+      attributes: Object.entries(attributes).map(([attributeTypeKey, value]) => ({ attributeTypeKey, value })),
+      ...extra,
+    });
+  }
+  const deliveryMethods = await create(
+    "rdm-master",
+    "codelist",
+    "Delivery Methods",
+    { "codelist-code": "delivery-methods" },
+    { parentObjectId: records.domain[0].id },
+  );
+  const languages = {};
+  const groups = {};
+  for (const [label, code] of [["Czech", "cs"], ["English", "en"], ["German", "de"]]) {
+    languages[code] = await create("rdm-translations", "language", label, { "language-code": code });
+    groups[code] = await create("rdm-translations", "translation-group", `${code.toUpperCase()} core`, {
+      "group-code": `${code}-core`,
+    }, { parentObjectId: languages[code].id });
+  }
+  const translate = (code, name, text, active) =>
+    create("rdm-translations", "translation", name, { "translated-name": text, active }, {
+      parentObjectId: groups[code].id,
+      initialRelations: [
+        { relationTypeKey: "object-has-translation", direction: "incoming", otherObjectId: deliveryMethods.id },
+      ],
+    });
+  const czech = await translate("cs", "Delivery Methods cs", "Způsoby doručení", true);
+  const superseded = await translate("cs", "Delivery Methods cs (old)", "Doprava", false);
+  const german = await translate("de", "Delivery Methods de", "Lieferarten", true);
+  // Publish the German translation, then delete it live: only history holds it.
+  const changeSet = await api("/workspaces/default/change-sets", { name: "Translations baseline", source: "currentLive" });
+  await api(`/change-sets/${changeSet.id}/validation`, undefined, "POST");
+  const current = await api(`/change-sets/${changeSet.id}`);
+  const latest = (await api("/workspaces/default/publications?pageSize=1")).items[0];
+  const publication = await api(`/change-sets/${changeSet.id}/publication`, {
+    expectedChangeSetVersion: current.version,
+    expectedActivePublicationId: latest?.status === "active" ? latest.id : null,
+  });
+  // A live deletion that removes relations is previewed first (409 with a token), then confirmed.
+  const deletion = `/objects/translation/${german.id}?expectedVersion=${german.version}`;
+  const preview = await api(deletion, undefined, "DELETE").then(
+    () => {
+      throw new Error("deleting a related translation was not previewed");
+    },
+    (error) => JSON.parse(error.message.slice(error.message.indexOf("{"))).error.details.deletionPreviewToken,
+  );
+  await api(`${deletion}&cascade=true&deletionPreviewToken=${encodeURIComponent(preview)}`, undefined, "DELETE");
+  return { deliveryMethods, languages, groups, czech, superseded, german, publication };
+}
+
+/** Opens the codelist translation matrix searched to Delivery Methods, with its cells loaded. */
+export async function openTranslationMatrix(page, uiUrl, query = "") {
+  await page.goto(
+    `${uiUrl}/apps/rdm-translations/views/codelist-translations?workspaceKey=default&search=Delivery${query}`,
+  );
+  await page.getByRole("rowheader", { name: /Delivery Methods/ }).waitFor();
+  await page.waitForFunction(() => !document.querySelector('[role="grid"][aria-busy="true"]'));
+  return page.getByRole("grid");
+}
+
+/** Opens the Delivery Methods cell under the language column labelled `code`; returns its dialog. */
+export async function openTranslationCell(page, code) {
+  const column = await page.evaluate((label) => {
+    const headers = Array.from(document.querySelectorAll('[role="grid"] thead th'));
+    return headers.findIndex((th) => th.querySelector(".matrix-column-label")?.textContent === label);
+  }, code);
+  await page.locator(`[role="grid"] tbody tr:has(.matrix-row-name) [data-grid-col="${column}"]`).first().click();
+  const dialog = page.getByRole("dialog", { name: `Delivery Methods · ${code}` });
+  await dialog.waitFor();
+  return dialog;
+}

@@ -58,7 +58,7 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [x] A3 writes from a cell: container and link-candidate lookups, create, edit, link and unlink, live or in a change set.
   - [x] A3b stored cell states for the row state filter (ADR-033).
   - [x] A4 relation matrix lens.
-  - [ ] A5 Milestone A acceptance (SC-09 translation half and the mapping-shape journey).
+  - [x] A5 Milestone A acceptance (SC-09 translation half and the mapping-shape journey).
 - [ ] 0.8 Milestone B — hierarchy editor ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-b--hierarchy-editor)):
   - [ ] B1 schema 0.7 `tree` view contract (may run alongside Track S).
   - [ ] B2 move targets with eligibility, and path context in every context.

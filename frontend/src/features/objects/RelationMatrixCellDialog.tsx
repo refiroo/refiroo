@@ -91,6 +91,22 @@ export function RelationMatrixCellDialog({
   const [error, setError] = useState<{ message: string; conflictingObjectId?: string; stale?: boolean }>();
   const heading = `${row.row.name} · ${columnLabel(column)}`;
 
+  /**
+   * A uniqueness refusal in the steward's terms: the row already has a counting record in this
+   * column, or under the same record of the scope's type. Read outgoing, the row is the binding's
+   * from end and the cell records its to end, which is what the scope limits; otherwise the API's
+   * own message is kept.
+   */
+  function duplicateMessage(details?: { ancestorObjectId?: string; ancestorObjectTypeKey?: string }) {
+    if (config.direction !== "outgoing" || !details?.ancestorObjectId) return undefined;
+    const scope =
+      details.ancestorObjectId === column.id
+        ? `in ${columnLabel(column)}`
+        : `under the same ${(objectTypeFor(model, details.ancestorObjectTypeKey ?? "")?.name ?? "record").toLowerCase()}`;
+    const condition = binding.conditionText ? ` where ${binding.conditionText}` : "";
+    return `${row.row.name} already has a ${cellType.name.toLowerCase()} ${scope}${condition}, and only one may count there.`;
+  }
+
   async function run(perform: () => Promise<unknown>) {
     setSaving(true);
     setError(undefined);
@@ -100,8 +116,12 @@ export function RelationMatrixCellDialog({
       await onSaved();
     } catch (cause) {
       if (isApiError(cause, "duplicate_relation_scope")) {
-        const details = cause.details as { conflictingObjectId?: string } | undefined;
-        setError({ message: errorMessage(cause), conflictingObjectId: details?.conflictingObjectId });
+        const details = cause.details as
+          { conflictingObjectId?: string; ancestorObjectId?: string; ancestorObjectTypeKey?: string } | undefined;
+        setError({
+          message: duplicateMessage(details) ?? errorMessage(cause),
+          conflictingObjectId: details?.conflictingObjectId,
+        });
       } else if (isApiError(cause, "version_conflict") || isApiError(cause, "relation_set_version_conflict")) {
         setError({ message: errorMessage(cause), stale: true });
         await onRefresh();
