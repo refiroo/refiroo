@@ -9,6 +9,20 @@ import { DEFAULT_COLLECTION_QUERY, DEFAULT_WORKSPACE } from "@/model/defaults";
 import { applicationFor, objectTypeFor } from "@/model/lookup";
 import { listSortFields } from "@/model/fields";
 
+const MATRIX_STATES = ["one", "several", "inactive", "historyOnly", "none"] as const;
+/** The relation matrix shows at most this many named columns at once (D10). */
+export const MATRIX_MAX_COLUMNS = 20;
+
+/** A matrix's shown columns and state filter; the state needs named columns, as the API does. */
+function matrixQuery(query: URLSearchParams) {
+  const columnIds = [...new Set(query.getAll("matrixColumn").filter(Boolean))].slice(0, MATRIX_MAX_COLUMNS);
+  const state = MATRIX_STATES.find((value) => value === query.get("matrixState"));
+  return {
+    ...(columnIds.length ? { matrixColumnIds: columnIds } : {}),
+    ...(columnIds.length && state ? { matrixState: state } : {}),
+  };
+}
+
 function viewDefaults(view: ViewDefinition | undefined) {
   return {
     ...DEFAULT_COLLECTION_QUERY,
@@ -108,6 +122,7 @@ export function parseRoute(
         ...(view.type === "mappingGrid" && ["mapped", "unmapped", "ambiguous"].includes(query.get("mappingState") ?? "")
           ? { mappingState: query.get("mappingState") as "mapped" | "unmapped" | "ambiguous" }
           : {}),
+        ...(view.type === "relationMatrix" ? matrixQuery(query) : {}),
         ...(query.get("anchor") ? { anchor: query.get("anchor")! } : {}),
       };
     }
@@ -154,6 +169,8 @@ export function routePath(route: RouteState) {
       query.set("parentObjectTypeKey", route.parentObjectTypeKey);
     }
     if (route.mappingState) query.set("mappingState", route.mappingState);
+    route.matrixColumnIds?.forEach((id) => query.append("matrixColumn", id));
+    if (route.matrixState && route.matrixColumnIds?.length) query.set("matrixState", route.matrixState);
     if (route.anchor) query.set("anchor", route.anchor);
     return `/apps/${app}/views/${encodeURIComponent(route.viewKey)}?${query}`;
   }

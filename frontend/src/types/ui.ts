@@ -23,6 +23,10 @@ export interface CollectionQueryState {
   parentObjectTypeKey?: string;
   /** Mapping-only coverage state; ignored by other renderer types. */
   mappingState?: "mapped" | "unmapped" | "ambiguous";
+  /** Relation-matrix-only: the column records shown, in order; absent pages the column type. */
+  matrixColumnIds?: string[];
+  /** Relation-matrix-only: rows with a cell in this state in any shown column. */
+  matrixState?: "one" | "several" | "inactive" | "historyOnly" | "none";
   /** Cursor that reopens the page at the top of the list (ADR-030); omitted on the first page. */
   anchor?: string;
 }

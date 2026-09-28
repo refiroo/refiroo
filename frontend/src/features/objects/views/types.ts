@@ -22,5 +22,9 @@ export interface ViewComponentProps {
   onViewChange?: (viewKey: string) => void;
   /** Sibling lenses of the same source collection, placed by the renderer below its heading. */
   lenses?: ReactNode;
-  onOpen: (item: ObjectItem, action?: "edit" | "delete") => void;
+  /** Opens a record; a lens that holds only a record's identity passes just that. */
+  onOpen: (
+    item: Pick<ObjectItem, "id" | "objectTypeKey" | "applicationKey" | "workspaceKey">,
+    action?: "edit" | "delete",
+  ) => void;
 }

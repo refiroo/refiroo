@@ -36,6 +36,10 @@ import type {
   MappingCandidatePage,
   MappingReplacementRequest,
   MappingReplacementResponse,
+  RelationMatrixPage,
+  RelationMatrixContainerPage,
+  RelationMatrixLinkCandidatePage,
+  RelationSetClaim,
 } from "@/types";
 
 import { ApiError } from "@/api/errors";
@@ -169,6 +173,48 @@ export interface MappingCandidateQuery extends PageSelector {
   publicationId?: string;
   search?: string;
   pageSize?: number;
+}
+
+/** What every relation matrix read names: the view and, optionally, a change set or publication. */
+export interface RelationMatrixViewQuery {
+  workspaceKey: string;
+  applicationKey: string;
+  viewKey: string;
+  changeSetId?: string;
+  publicationId?: string;
+}
+
+export interface RelationMatrixQuery extends RelationMatrixViewQuery, PageSelector {
+  parentObjectId?: string;
+  search?: string;
+  sort?: string;
+  /** The column records to show, at most 20; without them the column type pages by `columnCursor`. */
+  columnIds?: string[];
+  columnCursor?: string;
+  state?: "one" | "several" | "inactive" | "historyOnly" | "none";
+  pageSize?: number;
+}
+
+export interface RelationMatrixCellQuery extends RelationMatrixViewQuery, PageSelector {
+  columnId: string;
+  search?: string;
+  pageSize?: number;
+}
+
+function relationMatrixPath(route: string, query: RelationMatrixViewQuery, params: URLSearchParams) {
+  params.set("applicationKey", query.applicationKey);
+  params.set("viewKey", query.viewKey);
+  if (query.changeSetId) params.set("changeSetId", query.changeSetId);
+  if (query.publicationId) params.set("publicationId", query.publicationId);
+  return `/api/v1/workspaces/${encodeURIComponent(query.workspaceKey)}/relation-matrix${route}?${params}`;
+}
+
+function relationMatrixCellParams(query: RelationMatrixCellQuery) {
+  const params = new URLSearchParams({ columnId: query.columnId });
+  if (query.search) params.set("search", query.search);
+  setPaging(params, query);
+  if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
+  return params;
 }
 
 function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
@@ -483,10 +529,19 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
-  deleteRelation: (relationId: string, expectedVersion: number, context: ChangeSetWriteContext = {}) =>
-    request<void>(`/api/v1/relations/${encodeURIComponent(relationId)}?${writeQuery(expectedVersion, context)}`, {
-      method: "DELETE",
-    }),
+  deleteRelation: (
+    relationId: string,
+    expectedVersion: number,
+    context: ChangeSetWriteContext = {},
+    claim?: RelationSetClaim,
+  ) => {
+    const params = writeQuery(expectedVersion, context);
+    if (claim) {
+      params.set("expectedRelationSetVersion", String(claim.expectedRelationSetVersion));
+      params.set("relationSetDirection", claim.relationSetDirection);
+    }
+    return request<void>(`/api/v1/relations/${encodeURIComponent(relationId)}?${params}`, { method: "DELETE" });
+  },
   objectHistory: (objectTypeKey: string, objectId: string, options: { cursor?: string; pageSize?: number } = {}) => {
     const params = new URLSearchParams({ pageSize: String(options.pageSize ?? 20) });
     if (options.cursor) params.set("cursor", options.cursor);
@@ -534,6 +589,25 @@ export const api = {
       method: "PUT",
       body: JSON.stringify(body),
     }),
+  relationMatrix: (query: RelationMatrixQuery) => {
+    const params = new URLSearchParams();
+    if (query.parentObjectId) params.set("parentObjectId", query.parentObjectId);
+    if (query.search) params.set("search", query.search);
+    if (query.sort) params.set("sort", query.sort);
+    query.columnIds?.forEach((id) => params.append("columnIds", id));
+    if (query.columnCursor) params.set("columnCursor", query.columnCursor);
+    if (query.state) params.set("state", query.state);
+    setPaging(params, query);
+    if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
+    return request<RelationMatrixPage>(relationMatrixPath("", query, params));
+  },
+  relationMatrixContainers: (query: RelationMatrixCellQuery) =>
+    request<RelationMatrixContainerPage>(relationMatrixPath("/containers", query, relationMatrixCellParams(query))),
+  relationMatrixLinkCandidates: (query: RelationMatrixCellQuery & { rowId: string }) => {
+    const params = relationMatrixCellParams(query);
+    params.set("rowId", query.rowId);
+    return request<RelationMatrixLinkCandidatePage>(relationMatrixPath("/link-candidates", query, params));
+  },
   mappingTargets: (query: MappingTargetQuery) => {
     const params = new URLSearchParams({
       relationTypeKey: query.relationTypeKey,

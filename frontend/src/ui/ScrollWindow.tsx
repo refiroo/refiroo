@@ -9,8 +9,10 @@
  *
  * Children render the rows. Each row carries `data-row-key` (a stable identity) and
  * `data-row-index` (its absolute index); an element inside it marked `data-row-focus` receives
- * keyboard focus, otherwise the row itself does and needs `tabIndex={-1}`. Windows may nest (a
- * tree branch inside a row): each reads only the rows of its own viewport.
+ * keyboard focus, otherwise the row itself does and needs `tabIndex={-1}`. In a grid, cells marked
+ * `data-grid-col` keep their column: Up and Down from one focus the same column of the next row,
+ * across page edges too. Windows may nest (a tree branch inside a row): each reads only the rows of
+ * its own viewport.
  */
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
@@ -101,7 +103,7 @@ export function ScrollWindow<T>({
   // page below completes the placement, and until then the anchor is not re-read from the screen.
   const heldAnchor = useRef(false);
   const handledLanding = useRef<number | undefined>(undefined);
-  const pendingFocus = useRef<{ key: string; step: 1 | -1 } | undefined>(undefined);
+  const pendingFocus = useRef<{ key: string; step: 1 | -1; column?: string } | undefined>(undefined);
   const focusedKey = useRef<string | undefined>(undefined);
   const frame = useRef(0);
   const listRef = useRef(list);
@@ -237,8 +239,9 @@ export function ScrollWindow<T>({
   }, []);
 
   const focusRow = useCallback(
-    (row: HTMLElement) => {
-      (row.querySelector<HTMLElement>("[data-row-focus]") ?? row).focus({ preventScroll: true });
+    (row: HTMLElement, column?: string) => {
+      const cell = column === undefined ? null : row.querySelector<HTMLElement>(`[data-grid-col="${column}"]`);
+      (cell ?? row.querySelector<HTMLElement>("[data-row-focus]") ?? row).focus({ preventScroll: true });
       reveal(row);
     },
     [reveal],
@@ -292,13 +295,13 @@ export function ScrollWindow<T>({
       } else heldAnchor.current = false;
     }
     if (pendingFocus.current) {
-      const { key, step } = pendingFocus.current;
+      const { key, step, column } = pendingFocus.current;
       const all = rows();
       const index = all.findIndex((item) => item.dataset.rowKey === key);
       const next = index >= 0 ? all[index + step] : undefined;
       if (next) {
         pendingFocus.current = undefined;
-        focusRow(next);
+        focusRow(next, column);
       }
     }
     // A focused row evicted from the window leaves focus with the list rather than the page.
@@ -343,14 +346,15 @@ export function ScrollWindow<T>({
     if (!element || !row) return;
     event.preventDefault();
     const step = event.key === "ArrowDown" ? 1 : -1;
+    const column = target.closest<HTMLElement>("[data-grid-col]")?.dataset.gridCol;
     const all = ownRows(element);
     const next = all[all.indexOf(row) + step];
-    if (next) focusRow(next);
+    if (next) focusRow(next, column);
     else if (step === 1 && list.hasNext) {
-      pendingFocus.current = { key: row.dataset.rowKey ?? "", step };
+      pendingFocus.current = { key: row.dataset.rowKey ?? "", step, column };
       list.loadNext();
     } else if (step === -1 && list.hasPrevious) {
-      pendingFocus.current = { key: row.dataset.rowKey ?? "", step };
+      pendingFocus.current = { key: row.dataset.rowKey ?? "", step, column };
       list.loadPrevious();
     }
   }

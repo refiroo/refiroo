@@ -1783,6 +1783,60 @@ action, and `ui/Modal` rules for the popover focus trap.
 list, and links and unlinks a system value in the mapping matrix, by keyboard alone, for two row types
 at 1440px and 390px in live and change-set contexts.
 
+**A4 delivered 2026-09-28.** `features/objects/RelationMatrixView` replaces the A1 placeholder in the
+view registry; `RelationMatrixCellDialog`, `RelationMatrixFilter` and `relationMatrixStates` hold the
+cell dialog, the Filter popover and the state vocabulary. Every label comes from the view, its binding
+and the column records; nothing names a starter type. Decisions made on the way:
+
+- Pinned row columns (item 1): the row header cell is the one sticky column and carries the view's
+  `rowColumns` under the name (hidden at 390px as other secondary columns are), so there is no
+  stack of sticky offsets to keep aligned. Columns named by the user come from `columnIds`;
+  otherwise the column type pages sideways with **Previous** and **Next** and the column cursor,
+  which is component state, not URL state.
+- Grid (item 2): `role="grid"` with `aria-rowcount` from the total, `aria-colcount`, one roving tab
+  stop, Left/Right/Home/End within a row and Enter or Space to open. Up and Down stay with
+  `ui/ScrollWindow`, which gained one generic rule: a focused `data-grid-col` cell keeps its column in
+  the next row, across page edges too. Ctrl+Home/End jump as on every list. Each state has an icon
+  and a text label in the cell and a legend that lists only the states the binding can produce
+  (`inactive` and conflict only when the condition and scope apply, read outgoing).
+- Filters (item 3): `matrixColumn` (repeated) and `matrixState` in the URL beside the anchor. The
+  API decides a state over named columns, so choosing a state while the matrix pages its columns
+  names the columns on screen; a state without columns is dropped when a URL is parsed.
+- The cell dialog is a `ui/Modal` (item 4). A single `one` or `inactive` record opens straight into
+  its fields; `create` is offered in `none`, `inactive` and `historyOnly` cells, `link` in every
+  state (candidates carry their reasons, so an unusable one says why), `unlink` with a confirmation.
+  **Create from this** prefills from the last published record. Link and unlink claim the row's
+  `relationSetVersion`; the client gained that claim on `createRelation` and `deleteRelation`,
+  including through the change-set client.
+- Refreshing one cell (item 5): the API has no row-ID filter, so the cell is re-read with
+  `columnIds=[column]` and `seek=<row name>` without the search or state filter, and the row is found
+  in that short page; if it is not there, the page reloads. The re-read cell overrides the loaded
+  page until the list reloads. The rest of the page, the search and a state filter the row no longer
+  meets are left alone until the next reload.
+- Found on the way: after a save the dialog's submit button is disabled, which drops focus to the
+  page before React Aria can restore it, so the lens returns focus to the cell itself; the runner
+  caught it.
+
+Checks: `views/RelationMatrixView.test.tsx` (12: two row types and both binding shapes, every state
+label and the legend, keyboard across cells and rows and Enter/Escape, the state filter naming the
+shown columns and the filtered-empty state, choosing columns from a search, column paging, create in the only container with a
+one-cell refresh, a uniqueness breach keeping input and opening the conflicting record, link with
+the row's claim and an ineligible candidate's reason, unlink with a stale claim, the load failure
+retrying the same request, read-only), `CollectionView.test` (the lens beside the row type's table),
+`routes.test` (matrix URL round-trip), `client.test`, `changeSetClient.test`,
+`publicationClient.test`; `vitest related` over every changed module (273) plus `src/routing` and
+`src/app` (49); format, lint (0 errors, the 8 recorded warnings) and build. `test:browser:a4`
+(10 checks, registered in the execution guide) runs the exit journey by keyboard alone against a
+real backend: fill, correct and filter to gaps on codelist translations live at 1440px; a master
+value translation in a change set through the container picker at 390px; link and unlink on master
+values by system live at 1440px and on codelists by system in a change set at 390px; the published
+change set read-only. Each write is checked against the API in its context and the gap filter
+against the API's filtered page and total; axe is clean on the grid, the cell dialog, the Filter
+popover, the narrow grid and the link candidates. Screenshots were inspected at both widths.
+`test:browser:s5` passes for the `ScrollWindow` change. Not run: `test:a11y` and `test:visual`
+(matrix scenarios and baselines are A5 scope; no existing page's styles changed), the full suites
+(R1). Pending labels (**Saving…**, **Linking…**) are not asserted in the browser.
+
 #### A5: Milestone A acceptance
 
 **Scope:** a real-backend browser runner on the starter model: for SC-09's translation half, Delivery

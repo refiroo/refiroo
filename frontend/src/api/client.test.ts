@@ -211,6 +211,37 @@ it("encodes canonical change-set reads, mutations and explicit current-live life
   });
 });
 
+it("encodes relation matrix reads and a claimed unlink as the A2/A3 contract names them", async () => {
+  const fetchMock = vi.fn().mockImplementation(async () => jsonResponse({}));
+  vi.stubGlobal("fetch", fetchMock);
+  const view = { workspaceKey: "west/1", applicationKey: "app", viewKey: "matrix" };
+  await api.relationMatrix({ ...view, columnIds: ["c1", "c2"], state: "historyOnly", search: "a&b", position: 40 });
+  await api.relationMatrix({ ...view, columnCursor: "next", publicationId: "pub" });
+  await api.relationMatrixContainers({ ...view, columnId: "c1", changeSetId: "cs" });
+  await api.relationMatrixLinkCandidates({ ...view, columnId: "c1", rowId: "r1", search: "x" });
+  await api.deleteRelation("rel", 2, {}, { expectedRelationSetVersion: 5, relationSetDirection: "outgoing" });
+  const urls = fetchMock.mock.calls.map(([url]) => new URL(url));
+  expect(urls[0].pathname).toBe("/api/v1/workspaces/west%2F1/relation-matrix");
+  expect(urls[0].searchParams.getAll("columnIds")).toEqual(["c1", "c2"]);
+  expect(Object.fromEntries(urls[0].searchParams)).toMatchObject({
+    applicationKey: "app",
+    viewKey: "matrix",
+    state: "historyOnly",
+    search: "a&b",
+    position: "40",
+  });
+  expect(Object.fromEntries(urls[1].searchParams)).toMatchObject({ columnCursor: "next", publicationId: "pub" });
+  expect(urls[2].pathname).toBe("/api/v1/workspaces/west%2F1/relation-matrix/containers");
+  expect(Object.fromEntries(urls[2].searchParams)).toMatchObject({ columnId: "c1", changeSetId: "cs" });
+  expect(urls[3].pathname).toBe("/api/v1/workspaces/west%2F1/relation-matrix/link-candidates");
+  expect(Object.fromEntries(urls[3].searchParams)).toMatchObject({ columnId: "c1", rowId: "r1", search: "x" });
+  expect(Object.fromEntries(urls[4].searchParams)).toEqual({
+    expectedVersion: "2",
+    expectedRelationSetVersion: "5",
+    relationSetDirection: "outgoing",
+  });
+});
+
 describe("HTML and non-JSON response hardening", () => {
   it("does not expose HTML error bodies as messages", async () => {
     vi.stubGlobal(

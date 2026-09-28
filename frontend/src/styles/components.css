@@ -2428,3 +2428,263 @@ form .admin-hint {
   font-size: 13px;
   font-weight: 600;
 }
+
+/* Relation matrix (Base 0.8 A4): rows pinned at the left, one column per column record. */
+.matrix-table table {
+  width: auto;
+  min-width: 100%;
+}
+.matrix-table th,
+.matrix-table td {
+  vertical-align: top;
+}
+.matrix-table thead th:first-child,
+.matrix-table .matrix-row-header {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 180px;
+  max-width: 260px;
+  background: var(--surface);
+  box-shadow: 1px 0 0 var(--line);
+}
+.matrix-table thead th:first-child {
+  z-index: 2;
+  background: var(--surface-subtle);
+}
+.matrix-table tbody .matrix-row-header {
+  padding: 9px 14px;
+  border-bottom: 1px solid var(--soft-line);
+  color: var(--ink);
+  font-size: var(--text-body);
+  font-weight: 400;
+  text-align: left;
+  white-space: normal;
+  cursor: pointer;
+}
+.matrix-row-name {
+  display: block;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.matrix-row-field {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+.matrix-table thead th:not(:first-child) {
+  min-width: 132px;
+}
+.matrix-column-label {
+  display: block;
+  color: var(--ink);
+}
+.matrix-column-name {
+  display: block;
+  font-weight: 400;
+}
+.matrix-cell {
+  min-width: 132px;
+  max-width: 220px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+.matrix-cell:hover {
+  background: var(--surface-hover);
+}
+.matrix-table [data-grid-col]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.matrix-cell-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.matrix-cell-record {
+  display: block;
+  margin-top: 2px;
+  overflow: hidden;
+  color: var(--ink);
+  text-overflow: ellipsis;
+}
+.matrix-mark {
+  display: inline-flex;
+  flex: none;
+  color: var(--faint);
+}
+.matrix-mark-one {
+  color: var(--success);
+}
+.matrix-mark-several {
+  color: var(--info);
+}
+.matrix-mark-conflict,
+.matrix-mark-inactive {
+  color: var(--warning);
+}
+.matrix-mark-historyOnly {
+  color: var(--muted);
+}
+.matrix-state-none .matrix-cell-state,
+.matrix-state-historyOnly .matrix-cell-state {
+  color: var(--muted);
+  font-weight: 500;
+}
+.matrix-conflict {
+  background: var(--warning-soft);
+}
+.matrix-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  margin: 0;
+  padding: 8px 16px;
+  border-bottom: 1px solid var(--soft-line);
+  color: var(--muted);
+  font-size: 12.5px;
+  list-style: none;
+}
+.matrix-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.matrix-legend strong {
+  color: var(--ink-2);
+}
+.matrix-read-only,
+.matrix-no-columns {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+  padding: 8px 16px;
+}
+.matrix-column-paging {
+  display: inline-flex;
+  gap: 4px;
+}
+.matrix-context {
+  align-self: center;
+}
+.matrix-filter fieldset {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.matrix-filter legend {
+  margin-bottom: 4px;
+  color: var(--ink);
+  font-weight: 600;
+}
+.matrix-filter .muted-text {
+  margin: 0 0 4px;
+}
+.matrix-filter label.radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 32px;
+}
+.matrix-column-choices {
+  max-height: 220px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-control);
+}
+.matrix-column-choice {
+  min-height: 36px;
+  padding: 6px 10px;
+}
+.matrix-column-choice small {
+  color: var(--muted);
+}
+.matrix-cell-dialog {
+  display: grid;
+  gap: 12px;
+  padding: 18px 22px 20px;
+}
+/* The cell dialog pads its body once; the forms inside it share that padding. */
+.dialog .matrix-cell-dialog form {
+  padding: 0;
+}
+.matrix-cell-dialog .dialog-actions {
+  padding-top: 4px;
+}
+.matrix-cell-dialog-state {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+}
+.matrix-cell-records {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.matrix-cell-records li {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.matrix-record-name {
+  color: var(--ink);
+  font-weight: 600;
+}
+.matrix-record-summary dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 2px 12px;
+  margin: 6px 0 0;
+  font-size: 13px;
+}
+.matrix-record-summary dl > div {
+  display: contents;
+}
+.matrix-record-summary dt {
+  color: var(--muted);
+}
+.matrix-record-summary dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.matrix-cell-record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.matrix-cell-form {
+  display: grid;
+  gap: 12px;
+}
+.dialog form .matrix-create-for {
+  margin: 0 0 14px;
+}
+.matrix-containers legend {
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+.dialog form .candidate.is-disabled {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.field-error {
+  margin: 4px 0 0;
+  color: var(--danger);
+  font-size: 13px;
+}
+.matrix-table tbody tr:last-child th {
+  border-bottom: 0;
+}

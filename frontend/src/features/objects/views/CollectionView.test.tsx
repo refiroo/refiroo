@@ -10,7 +10,7 @@ import type { ChangeSet, Publication } from "@/types";
 
 vi.mock("@/api/client", () => ({
   ApiError: class ApiError extends Error {},
-  api: { objects: vi.fn(), object: vi.fn() },
+  api: { objects: vi.fn(), object: vi.fn(), relationMatrix: vi.fn() },
 }));
 
 describe("CollectionView", () => {
@@ -348,13 +348,16 @@ describe("timestamps outside live data (WP-10K)", () => {
   });
 });
 
-describe("relation matrix lens (Base 0.8 A1)", () => {
-  beforeEach(() => vi.clearAllMocks());
+describe("relation matrix lens grouping (Base 0.8 A1, A4)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(api.relationMatrix).mockResolvedValue({ items: [], nextCursor: null, columns: [] });
+  });
 
   it.each([
-    ["domain", "codelist", "domains by codelist, showing their codelists"],
-    ["codelist", "domain", "codelists by domain, showing their domains"],
-  ])("renders a %s matrix as a placeholder lens beside the row type's table", (row, other, text) => {
+    ["domain", "codelist"],
+    ["codelist", "domain"],
+  ])("renders a %s matrix as a lens beside the row type's table", async (row, other) => {
     const model = structuredClone(testModel);
     const application = model.applications[0];
     application.views = [
@@ -398,7 +401,8 @@ describe("relation matrix lens (Base 0.8 A1)", () => {
       />,
     );
     expect(screen.getByRole("heading", { level: 1, name: "Records matrix" })).toBeInTheDocument();
-    expect(screen.getByText(new RegExp(`A matrix of ${text}, is not`))).toBeInTheDocument();
+    expect(await screen.findByRole("grid", { name: /Records matrix/ })).toBeInTheDocument();
+    expect(api.relationMatrix).toHaveBeenCalledWith(expect.objectContaining({ viewKey: "matrix" }));
     const lenses = screen.getByRole("navigation", { name: "Collection lenses" });
     expect(within(lenses).getByRole("button", { name: "Records matrix" })).toHaveAttribute("aria-current", "page");
     const table = row === "domain" ? "Domains" : "Codelists";

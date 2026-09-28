@@ -327,8 +327,10 @@ matrix reports cells that break them. A cell record's column is its nearest ance
 type. The rows are every record of the row type in the workspace context, including records another
 application owns. The binding's condition and uniqueness scope describe its `to` end, so a matrix
 read `incoming` applies neither. Base 0.8 A2 delivers the
-[query](API.md#product-08-relation-matrix-api-a2-delivered); cell writes and the renderer follow in
-A3–A4, and until A4 the browser shows the view as a placeholder lens labelled from the model.
+[query](API.md#product-08-relation-matrix-api-a2-and-a3-delivered), A3 the cell writes and A4 the
+browser lens: a grid of the rows by the column records, each cell's state with an icon and a label,
+a Filter popover for the columns shown and a cell state, and a cell dialog offering only the view's
+`cellActions`.
 
 ### Planned 0.7 consumption of the frozen mapping-grid contract
 

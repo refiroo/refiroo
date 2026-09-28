@@ -45,6 +45,26 @@ describe("change set record context", () => {
     });
     expect(changed).toHaveBeenCalledWith(expect.objectContaining({ version: 5 }));
   });
+  it("reads a relation matrix in the change set and stages a claimed unlink in it", async () => {
+    const controller = createChangeSetClient(changeSet, vi.fn(), vi.fn());
+    vi.spyOn(api, "changeSet").mockResolvedValue({ ...changeSet, version: 5 });
+    const matrix = vi.spyOn(api, "relationMatrix").mockResolvedValue({ items: [], nextCursor: null, columns: [] });
+    const remove = vi.spyOn(api, "deleteRelation").mockResolvedValue();
+    await controller.client.relationMatrix({ workspaceKey: "west", applicationKey: "app", viewKey: "matrix" });
+    await controller.client.deleteRelation(
+      "relation",
+      2,
+      {},
+      { expectedRelationSetVersion: 3, relationSetDirection: "incoming" },
+    );
+    expect(matrix).toHaveBeenCalledWith(expect.objectContaining({ changeSetId: "changeSet" }));
+    expect(remove).toHaveBeenCalledWith(
+      "relation",
+      2,
+      { changeSetId: "changeSet", expectedChangeSetVersion: 4 },
+      { expectedRelationSetVersion: 3, relationSetDirection: "incoming" },
+    );
+  });
   it("refreshes after an aggregate conflict without replaying the user's mutation", async () => {
     const controller = createChangeSetClient(changeSet, vi.fn(), vi.fn());
     const conflict = new ApiError(409, "change_set_version_conflict", "Change set changed");

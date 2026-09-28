@@ -10,6 +10,12 @@ import {
   Blocks,
   Box,
   Check,
+  CircleCheck,
+  CircleDashed,
+  CircleOff,
+  Copy,
+  History,
+  TriangleAlert,
   ChevronDown,
   ChevronRight,
   CircleDot,
@@ -74,6 +80,12 @@ const icons = {
   sun: Sun,
   table: Table2,
   user: UserRound,
+  "state-one": CircleCheck,
+  "state-several": Copy,
+  "state-conflict": TriangleAlert,
+  "state-inactive": CircleOff,
+  "state-history": History,
+  "state-none": CircleDashed,
 } satisfies Record<string, LucideIcon>;
 
 /**

@@ -118,6 +118,17 @@ All notable changes to this project are documented in this file. The format foll
   write touches before it commits. The row state filter reads them by index, once per request, and
   derives cells from records only where a context is not built. The API contract is unchanged.
   `matrix_states.verify` rebuilds and compares every stored state; matrix tests run it after each test.
+- Base 0.8 A4: the relation matrix lens replaces the A1 placeholder. Rows scroll as every list does,
+  the row header stays pinned with the view's row columns, and columns are the ones chosen in the
+  Filter popover or a page of the column type, paged sideways. Each cell shows its state with an icon
+  and a label, explained by a legend of the states the binding can produce. The Filter popover chooses
+  the columns (searchable) and a cell state; both live in the URL. The grid is keyboard operable
+  (arrow keys across cells and pages, Enter to open). A cell's dialog offers only the view's
+  `cellActions`: create (the column's only container preselected, otherwise a searchable picker;
+  **Create from this** for a history-only cell), edit, link (candidates listed with the reason any
+  cannot be linked) and unlink, live or in the selected change set, and read-only in a publication.
+  A save re-reads only that cell. `ScrollWindow` keeps a grid cell's column on Up and Down. New
+  browser runner `test:browser:a4`.
 
 ### Changed
 

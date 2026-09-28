@@ -98,6 +98,8 @@ export interface RelationRecord {
   /** Null in change sets and history, which do not record timestamps. */
   createdAt?: string | null;
   updatedAt?: string | null;
+  /** The claimed set's new version, on a create that claimed one. */
+  relationSetVersion?: number | null;
 }
 
 export interface RelationItem {
@@ -119,6 +121,15 @@ export interface RelationCreateInput {
   fromObjectId: string;
   toObjectId: string;
   attributes: Record<string, unknown>;
+  /** With `relationSetDirection`: the write succeeds only while that end's set is at this version. */
+  expectedRelationSetVersion?: number;
+  relationSetDirection?: "outgoing" | "incoming";
+}
+
+/** A claim on one end's relation set (ADR-022), which a conditional single write names. */
+export interface RelationSetClaim {
+  expectedRelationSetVersion: number;
+  relationSetDirection: "outgoing" | "incoming";
 }
 
 export interface RelationUpdateInput {
@@ -238,6 +249,88 @@ export interface MappingReplacementRequest {
   attributes?: Record<string, unknown>;
   changeSetId?: string;
   expectedChangeSetVersion?: number;
+}
+
+export type RelationMatrixCellState = "one" | "several" | "inactive" | "historyOnly" | "none";
+
+export interface RelationMatrixCellRecord {
+  id: string;
+  name: string;
+  version: number;
+  relationId: string;
+  relationVersion: number;
+  /** Whether it meets the binding's condition; always true without one. */
+  meetsCondition: boolean;
+  /** The view's `cellFields`. */
+  fields: Record<string, unknown>;
+}
+
+export interface RelationMatrixCell {
+  columnId: string;
+  state: RelationMatrixCellState;
+  conflict: boolean;
+  recordCount: number;
+  matchingCount: number;
+  /** At most five, those meeting the condition first. */
+  records: RelationMatrixCellRecord[];
+  /** The publication a `historyOnly` cell's records come from. */
+  publication?: { id: string; number: number } | null;
+}
+
+export interface RelationMatrixRow {
+  row: MappingObjectSummary;
+  /** The row's version of the view's relation set, which a link or unlink from the row claims. */
+  relationSetVersion: number;
+  cells: RelationMatrixCell[];
+}
+
+export interface RelationMatrixColumn {
+  id: string;
+  name: string;
+  /** The column record's `columnLabelField` value. */
+  label: unknown;
+}
+
+export interface RelationMatrixPage extends PageNavigation {
+  items: RelationMatrixRow[];
+  columns: RelationMatrixColumn[];
+  columnsNextCursor?: string | null;
+  columnsPrevCursor?: string | null;
+}
+
+export interface RelationMatrixPathPart {
+  id: string;
+  name: string;
+  objectTypeKey: string;
+}
+
+export interface RelationMatrixContainer {
+  id: string;
+  objectTypeKey: string;
+  name: string;
+  /** From below the column record down to this record; empty for the column record itself. */
+  path: RelationMatrixPathPart[];
+}
+
+export interface RelationMatrixContainerPage extends PageNavigation {
+  items: RelationMatrixContainer[];
+  defaultContainerId: string | null;
+}
+
+export interface RelationMatrixLinkCandidate {
+  id: string;
+  objectTypeKey: string;
+  name: string;
+  version: number;
+  path: RelationMatrixPathPart[];
+  fields: Record<string, unknown>;
+  eligible: boolean;
+  reason: "alreadyLinked" | "rowCardinality" | "candidateCardinality" | "scopeTaken" | null;
+}
+
+export interface RelationMatrixLinkCandidatePage extends PageNavigation {
+  items: RelationMatrixLinkCandidate[];
+  relationSetVersion: number;
 }
 
 export interface MappingReplacementResponse {

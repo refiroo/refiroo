@@ -30,6 +30,16 @@ describe("historical record context", () => {
       updatedAt: "",
     });
     const coverage = vi.spyOn(api, "mappingCoverage").mockResolvedValue({ items: [], nextCursor: null });
+    const matrix = vi.spyOn(api, "relationMatrix").mockResolvedValue({ items: [], nextCursor: null, columns: [] });
+    await client.relationMatrix({
+      workspaceKey: "west",
+      applicationKey: "app",
+      viewKey: "matrix",
+      changeSetId: "ignored",
+    });
+    expect(matrix).toHaveBeenCalledWith(
+      expect.objectContaining({ changeSetId: undefined, publicationId: "publication/id" }),
+    );
     const targets = vi
       .spyOn(api, "mappingTargets")
       .mockResolvedValue({ mappingVersion: 0, targetCount: 0, items: [], nextCursor: null });

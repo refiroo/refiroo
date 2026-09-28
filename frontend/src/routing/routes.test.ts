@@ -96,6 +96,41 @@ describe("routes", () => {
     expect(parseRoute(model)).toEqual(route);
   });
 
+  it("round-trips a relation matrix's chosen columns and cell state, and drops a state without columns", () => {
+    const model = structuredClone(testModel);
+    model.applications[0].views.push({
+      key: "matrix",
+      name: "Matrix",
+      type: "relationMatrix",
+      config: {
+        relationTypeKey: "domain-contains-codelist",
+        direction: "outgoing",
+        rowObjectTypeKey: "domain",
+        columnObjectTypeKey: "domain",
+        cellObjectTypeKey: "codelist",
+        rowColumns: ["name"],
+        columnLabelField: "name",
+        cellFields: ["code"],
+        searchFields: ["name"],
+        pageSize: 20,
+      },
+    });
+    window.history.replaceState(
+      {},
+      "",
+      "/apps/test-app/views/matrix?workspaceKey=west&matrixColumn=c1&matrixColumn=c2&matrixColumn=c1&matrixState=none&mappingState=mapped",
+    );
+    const route = parseRoute(model);
+    expect(route).toMatchObject({ matrixColumnIds: ["c1", "c2"], matrixState: "none" });
+    expect(route).not.toHaveProperty("mappingState");
+    window.history.replaceState({}, "", routePath(route));
+    expect(parseRoute(model)).toEqual(route);
+    window.history.replaceState({}, "", "/apps/test-app/views/matrix?workspaceKey=west&matrixState=none");
+    expect(parseRoute(model)).not.toHaveProperty("matrixState");
+    window.history.replaceState({}, "", "/apps/test-app/views/domains?workspaceKey=west&matrixColumn=c1");
+    expect(parseRoute(model)).not.toHaveProperty("matrixColumnIds");
+  });
+
   it("restores supported collection controls and drops legacy object-state filters", () => {
     window.history.pushState(
       {},
