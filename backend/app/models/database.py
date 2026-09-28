@@ -505,9 +505,10 @@ class PublicationObject(Base):
     )
     object_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     application_key: Mapped[str] = mapped_column(String(160))
-    object_type_key: Mapped[str] = mapped_column(String(160), index=True)
+    # Type and parent are read inside one publication through the indexes above (A6, D28).
+    object_type_key: Mapped[str] = mapped_column(String(160))
     name: Mapped[str] = mapped_column(String(500))
-    parent_object_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    parent_object_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     version: Mapped[int] = mapped_column(Integer, default=1)
 
@@ -541,9 +542,10 @@ class PublicationRelation(Base):
         ForeignKey("publications.id", ondelete="CASCADE"), nullable=False, index=True
     )
     relation_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
-    relation_type_key: Mapped[str] = mapped_column(String(160), index=True)
-    from_object_id: Mapped[str] = mapped_column(String(36), index=True)
-    to_object_id: Mapped[str] = mapped_column(String(36), index=True)
+    # Ends and type are read inside one publication through the indexes above (A6, D28).
+    relation_type_key: Mapped[str] = mapped_column(String(160))
+    from_object_id: Mapped[str] = mapped_column(String(36))
+    to_object_id: Mapped[str] = mapped_column(String(36))
     attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     version: Mapped[int] = mapped_column(Integer, default=1)
 
@@ -639,7 +641,27 @@ class ChangeSetBaseRelation(Base):
 
 class ChangeSetObject(Base):
     __tablename__ = "change_set_objects"
-    __table_args__ = (UniqueConstraint("change_set_id", "object_id", name="uq_change_set_object"),)
+    __table_args__ = (
+        UniqueConstraint("change_set_id", "object_id", name="uq_change_set_object"),
+        # The page indexes of the publication and base object tables, so a change set's own rows
+        # are found by type and by parent inside it; walks down seek children by (change set,
+        # parent) (migration 20260928_01, A6).
+        Index(
+            "ix_change_set_objects_type_name",
+            "change_set_id",
+            "object_type_key",
+            "name",
+            "object_id",
+        ),
+        Index(
+            "ix_change_set_objects_parent_name",
+            "change_set_id",
+            "parent_object_id",
+            "object_type_key",
+            "name",
+            "object_id",
+        ),
+    )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     change_set_id: Mapped[str] = mapped_column(
@@ -647,9 +669,9 @@ class ChangeSetObject(Base):
     )
     object_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     application_key: Mapped[str] = mapped_column(String(160))
-    object_type_key: Mapped[str] = mapped_column(String(160), index=True)
+    object_type_key: Mapped[str] = mapped_column(String(160))
     name: Mapped[str] = mapped_column(String(500))
-    parent_object_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    parent_object_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     version: Mapped[int] = mapped_column(Integer, default=1)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -684,9 +706,10 @@ class ChangeSetRelation(Base):
         ForeignKey("change_sets.id", ondelete="CASCADE"), nullable=False, index=True
     )
     relation_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
-    relation_type_key: Mapped[str] = mapped_column(String(160), index=True)
-    from_object_id: Mapped[str] = mapped_column(String(36), index=True)
-    to_object_id: Mapped[str] = mapped_column(String(36), index=True)
+    # Ends and type are read inside one change set through the indexes above (A6, D28).
+    relation_type_key: Mapped[str] = mapped_column(String(160))
+    from_object_id: Mapped[str] = mapped_column(String(36))
+    to_object_id: Mapped[str] = mapped_column(String(36))
     attributes: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
     version: Mapped[int] = mapped_column(Integer, default=1)
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

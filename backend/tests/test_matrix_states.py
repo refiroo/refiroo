@@ -54,7 +54,7 @@ systems = writes.systems
 
 BASE = "/api/v1/workspaces/default/relation-matrix"
 STATES = ("one", "several", "inactive", "historyOnly", "none")
-PRECEDING, HEAD = "20260926_04", "20260927_01"
+PRECEDING, HEAD = "20260926_04", "20260928_01"
 
 
 @pytest.fixture

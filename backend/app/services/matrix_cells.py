@@ -212,14 +212,9 @@ class CellScope:
         if context is None:
             workspace_key = self.workspace_key
             return [_Arm(RdmObject, "id", lambda row: [row.workspace_key == workspace_key])]
-        # Only walks down read object arms: they find change set rows by parent, which the
-        # change set's own index cannot serve.
+        # Only walks down read object arms: they seek each owner's rows by (owner, parent).
         return self._snapshot_arms(
-            context,
-            context.base and context.base.objects,
-            ChangeSetObject,
-            "object_id",
-            by_change_set=False,
+            context, context.base and context.base.objects, ChangeSetObject, "object_id"
         )
 
     def relation_arms(self) -> list[_Arm]:
@@ -232,15 +227,10 @@ class CellScope:
 
     @staticmethod
     def _snapshot_arms(
-        context: SnapshotContext,
-        base_entity: Any,
-        overlay: Any,
-        identity: str,
-        *,
-        by_change_set: bool = True,
+        context: SnapshotContext, base_entity: Any, overlay: Any, identity: str
     ) -> list[_Arm]:
         """A publication's rows, or a change set's base rows it does not replace and its own
-        non-deleted rows. ``by_change_set=False`` keeps the change set term off the index."""
+        non-deleted rows."""
         base = context.base
         arms = []
         if base is not None:
@@ -260,11 +250,7 @@ class CellScope:
                 _Arm(
                     overlay,
                     identity,
-                    lambda row: (
-                        [row.change_set_id == context.id, row.is_deleted.is_(False)]
-                        if by_change_set
-                        else [unindexed(and_(row.change_set_id == context.id, row.is_deleted.is_(False)))]
-                    ),
+                    lambda row: [row.change_set_id == context.id, row.is_deleted.is_(False)],
                     literal(context.id, String),
                 )
             )

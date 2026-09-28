@@ -35,7 +35,7 @@ from app.models.database import Base, ChangeSetBaseObject, RdmObject
 from app.models.search_index import SEARCH_INDEXES, match_phrase
 from app.services import objects, snapshot_reads
 
-PRECEDING, HEAD = "20260926_02", "20260927_01"
+PRECEDING, HEAD = "20260926_02", "20260928_01"
 # The parity model's app over a migrated database.
 client = test_context_read_parity.client
 SEARCHES = ("note", "50%", "d_4", "t_s", '"quoted"', "Ünal", "STRAßE", "naïve", "F-", "-10", "zzz")

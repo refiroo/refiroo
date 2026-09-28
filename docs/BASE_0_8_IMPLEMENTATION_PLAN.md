@@ -7,8 +7,8 @@
 packages A1–A5 and B1–B4; P2 is scheduled after W2 (D20); R1 owns build acceptance. A1 is delivered
 (2026-09-27) with D8 and D9 accepted. A2, A3 and A3b are delivered (2026-09-27) with D10–D13
 accepted; A3b's stored cell states closed A2's budget exception for the row state filter. A4 and A5
-are delivered (2026-09-28). A6 (snapshot table index drift, found in A2) is scheduled before R1, with
-D28 proposed. D14 (Milestone B) is proposed, not yet accepted; see the [summary](#decisions-summary).
+are delivered (2026-09-28), and A6 (snapshot table index drift, found in A2) with D28 accepted
+(2026-09-28), which completes Milestone A. D14 (Milestone B) is proposed, not yet accepted; see the [summary](#decisions-summary).
 
 **Target:** Product 0.8.0. Track S does not change the schema language. Milestones A and B add
 schema language 0.7 (`relationMatrix` and `tree` views); the starter model becomes content release
@@ -1990,6 +1990,67 @@ attribute storage or API.
 holds with statement counts unchanged; the matrix walks no longer depend on an automatic index; the
 migration checks pass. API contract unchanged.
 
+**A6 delivered 2026-09-28.** D28 was decided from the query plans of every volume scenario, captured
+with `EXPLAIN QUERY PLAN` on the full-volume fixture before and after:
+
+| Index declared, never created | Decision | Why |
+| --- | --- | --- |
+| `publication_objects` parent, type | declaration removed | every read names the publication; (publication, parent, type, name, object) and (publication, type, name, object) serve it |
+| `publication_relations` from, to, type | declaration removed | every read names the publication; the S4R1 (publication, end, type, relation, other end) indexes serve it |
+| `change_set_relations` from, to, type | declaration removed | the same, per change set |
+| `change_set_objects` parent, type | replaced by (change set, type, name, object) and (change set, parent, type, name, object) | the table had only an owner index; the walks down found a change set's children by parent through an automatic index built per statement |
+
+The change set object table now has the two page indexes the publication and base object tables
+have, so the three owner tables of `object_projection` arms are indexed alike. The matrix walks
+(`matrix_cells.descendants`, `relation_matrix._current_pairs` and `_walk_below`) no longer keep the
+change set term off the index (`by_change_set=False` is gone): each step seeks
+`ix_change_set_objects_parent_name (change_set_id=? AND parent_object_id=?)`. Migration
+`20260928_01` creates the two indexes, keeps one of the expected shape and rebuilds one of another
+(an interrupted run), and drops the ten removed indexes where a pre-A6 `create_all` database has
+them, so every starting point ends with the ORM's schema. The change set base tables keep their
+single-column indexes: they are declared and created, so they are not drift, and no plan measured
+here depends on them either way.
+
+`tests/test_schema_drift.py` migrates an empty database to head and compares it with
+`Base.metadata` through Alembic's `compare_metadata` (tables, columns with types and nullability,
+indexes, unique constraints, foreign keys; not CHECK constraints, which Alembic does not compare),
+naming each difference by table, index and columns; the trigram search index tables and triggers are
+compared with those `create_all` builds. Before this package it reported exactly the ten indexes.
+
+_Measurements_ (full volume, median of 5, same machine as S1; a copy of one seeded database per
+run, upgraded through the lifespan for "after"). Statement counts and ORM rows are identical in
+every scenario and context; times are within noise of the before run and of A5's table. The only
+plan changes are change set overlay reads: walks down seek the new parent index instead of an
+automatic one, and type- and parent-narrowed page arms seek the new indexes instead of the owner
+index. No automatic index is built on a table in any scenario; the remaining automatic indexes are
+on recursive CTE queues (`matrix_walk`, `matrix_history_walk`, `ancestors`), which no table index can
+serve. Scenarios added to the measurement for the walks down (live · change set):
+
+| Request | Before | After |
+| --- | --- | --- |
+| matrix: containers of a column | 4.9 · 11.8 ms | 4.9 · 9.8 ms |
+| matrix: link candidates in a column | 90.6 · 156.5 ms | 92.0 · 160.8 ms |
+| write: move a container to another column (change set) | 7,307 ms · 114 | 7,410 ms · 114 |
+
+_Found on the way, not index drift, left open:_ moving a first-level container (about 2,500 cells of
+the outgoing matrix under it) in a change set takes 5–9 s; the time is A3b's recompute of the cell
+states of every affected row, about 110 statements of which the slowest take 0.5–0.8 s each. A link
+candidate page over a column of about 5,000 cells takes 92 ms live and 160 ms in a change set,
+because its name order and total read every cell under the column. Neither was in a budget before;
+both are recorded in `TODO.md` for scheduling.
+
+Checks: `tests/test_schema_drift.py` (3: the migrated database equals the ORM, the search indexes
+equal `create_all`'s, and the comparison names a dropped and an undeclared index) and
+`tests/test_change_set_object_index_migration.py` (4: clean bootstrap; data written at head,
+downgraded to `20260927_01` and upgraded through the lifespan across two restarts with object and
+relation pages in every context unchanged; an interrupted run with one index kept and one rebuilt;
+a pre-A6 `create_all` database losing its ten indexes; downgrade), each ending with no drift;
+`-m "startup or matrix or change_sets or volume or queries or mapping or model_admin"` (480, with the
+Alembic head updated in eight migration tests), and `ruff check app/ tests/`. A smoke start on a copy
+of the development database (the running dev server had already upgraded it: a restart) and on a
+copy downgraded to `20260927_01` (an upgrade): healthy across two starts, no drift. Not run: the full
+suite and frontend (no frontend change); R1 owns them.
+
 ## Milestone B — Hierarchy editor
 
 ### Outcome
@@ -2142,5 +2203,5 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D25 | Whole-type name search is over budget (0.7–0.9 s, S7): indexed search, prefix match, or no total? | **Accepted 2026-09-26:** an indexed search that keeps "contains" matching, in every context (S8). SQLite first; the PostgreSQL equivalent (trigram) arrives with 0.10 hardening. **Delivered 2026-09-26** as a trigram index over text values; names stay on the (type, name) index, which measured cheaper than indexing them (S8) | S8 |
 | D26 | Attribute and ancestor sorts over the 20,000-child parent are over budget (85–204 ms, S4R1, S7) | **Accepted 2026-09-26:** deferred until after 0.9 (precomputed sort keys, 0.10 or later); recorded as a known budget exception for 0.8 | — |
 | D27 | Can a workspace be deleted? (ADR-019 said never) | **Accepted 2026-09-26:** yes, to correct a mistyped key, when it is not the default, has no objects and no change sets, and was never published; a published workspace is retired instead because publications are never removed. No audit event, matching the unaudited create, rename and retire; the key may be reused | W6 |
-| D28 | Index declarations that no migration creates on the snapshot tables (A6) | Per index: create it, replace it with an owner-leading composite the reads need, or drop the declaration where an existing index serves it, decided from query plans and the volume baseline; a drift test keeps a migrated schema equal to the ORM. **Proposed 2026-09-28** | A6 |
+| D28 | Index declarations that no migration creates on the snapshot tables (A6) | Per index: create it, replace it with an owner-leading composite the reads need, or drop the declaration where an existing index serves it, decided from query plans and the volume baseline; a drift test keeps a migrated schema equal to the ORM. **Accepted 2026-09-28 as delivered in A6:** change set objects gain (owner, type, name, object) and (owner, parent, type, name, object); the other eight declarations are removed because owner-leading indexes already serve every read | A6 |
 | D24 | Which columns sort | **Accepted 2026-09-26 (S4R3 review):** every data column sorts from its header, whatever the attribute's `sortable` flag, including Type and Relationship by their labels; every list shows the same toolbar Sort menu; D21's `sortFields` only add menu fields and `defaultSort` chooses the order. Exceptions: Actions, the computed path, JSON attributes and unrecorded timestamps | S4R3 |

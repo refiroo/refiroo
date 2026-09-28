@@ -16,7 +16,7 @@ from sqlalchemy import create_engine, inspect, text
 from test_context_read_parity import ENTRY, FOLDER, _seed, _walk
 from test_snapshot_value_migration import _app, _config, _version
 
-PRECEDING, HEAD = "20260925_01", "20260927_01"
+PRECEDING, HEAD = "20260925_01", "20260928_01"
 # Relation tables by name at head (``20260926_04`` renamed them) and at the preceding revision.
 TABLES = {
     "publication_relations": "publication_id",

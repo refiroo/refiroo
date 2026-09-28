@@ -138,6 +138,15 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Base 0.8 A6: a migrated database now has the schema the ORM declares (D28). Ten single-column
+  indexes declared on publication and change set tables were never created by a migration. Migration
+  `20260928_01` gives `change_set_objects` the (owner, type, name, object) and (owner, parent, type,
+  name, object) indexes the publication and base object tables have, so relation matrix walks through
+  a change set seek children by parent instead of building an automatic index per statement; the
+  other eight declarations are removed because owner-leading indexes already serve every read, and a
+  database built by an earlier `create_all` loses them on upgrade. New `test_schema_drift` fails on
+  any difference between a migrated head and the metadata. Volume budgets and statement counts are
+  unchanged.
 - Base 0.8 A5: a relation matrix cell refused for uniqueness says so in the view's terms, naming the
   row, the column (or the scope) and the condition, for example "Delivery Methods already has a
   translation in cs where Active is Yes, and only one may count there.", instead of the API's generic

@@ -8,8 +8,8 @@ release plan and changelog rather than accumulating it here.
 
 Base 0.7 is released (2026-09-25). 0.8 Track S (scalable browsing) and Track W (workspace terminology
 and capability boundaries) are delivered (2026-09-26), and Milestone A's relation matrix (A1–A5) is
-delivered (2026-09-28). Next: A6 (snapshot table index drift), the hierarchy editor milestone (B1–B4),
-P2, then R1. See
+delivered (2026-09-28), closed by A6 (snapshot table index drift, 2026-09-28). Next: the hierarchy
+editor milestone (B1–B4), P2, then R1. See
 [Next — 0.8 and beyond](#next--08-and-beyond).
 
 ## Open decisions
@@ -17,9 +17,9 @@ P2, then R1. See
 Offset/limit pagination is closed by ADR-030 (accepted 2026-09-25): each request pages with a
 cursor or a position; the UI scrolls with cursors and jumps with positions. Delivered in 0.8 Track S.
 
-Milestone A decisions D8–D13 are accepted. D28 (A6, how to resolve each drifted index) and D14
-(ineligible move targets, Milestone B) are proposed in the
-[0.8 plan](BASE_0_8_IMPLEMENTATION_PLAN.md#decisions-summary); D28 needs acceptance before A6, D14 before B2.
+Milestone A decisions D8–D13 and D28 (A6) are accepted. D14 (ineligible move targets, Milestone B) is
+proposed in the [0.8 plan](BASE_0_8_IMPLEMENTATION_PLAN.md#decisions-summary) and needs acceptance
+before B2.
 
 See `ROADMAP.md` for the delivery scope, exit gates and full milestone sequence.
 
@@ -55,14 +55,18 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [x] W4 workspace administration screen, read-only single-workspace selector, capability status.
   - [x] W5 test (and fix if confirmed) live writes committing across a model activation.
   - [x] W6 delete an unused workspace (D27): API, detail deletability, Workspaces screen action.
-- [ ] 0.8 Milestone A — relation matrix ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-a--relation-matrix)):
+- [x] 0.8 Milestone A — relation matrix ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-a--relation-matrix)):
   - [x] A1 schema 0.7 `relationMatrix` view contract.
   - [x] A2 relation matrix query with cell states and whole-list state filter.
   - [x] A3 writes from a cell: container and link-candidate lookups, create, edit, link and unlink, live or in a change set.
   - [x] A3b stored cell states for the row state filter (ADR-033).
   - [x] A4 relation matrix lens.
   - [x] A5 Milestone A acceptance (SC-09 translation half and the mapping-shape journey).
-  - [ ] A6 snapshot table index drift: ten ORM-declared indexes no migration creates; decide each (D28), migrate, and add a schema drift test.
+  - [x] A6 snapshot table index drift (D28): change set objects gain the owner-leading page indexes,
+    the other eight declarations are removed, and a schema drift test holds a migrated database equal
+    to the ORM. Open, found by its measurements: moving a container that holds about 2,500 matrix
+    cells in a change set takes 5–9 s (A3b state recompute, about 110 statements), and a link
+    candidate page over a 5,000-cell column takes 92 ms live and 160 ms in a change set.
 - [ ] 0.8 Milestone B — hierarchy editor ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-b--hierarchy-editor)):
   - [ ] B1 schema 0.7 `tree` view contract (may run alongside Track S).
   - [ ] B2 move targets with eligibility, and path context in every context.
