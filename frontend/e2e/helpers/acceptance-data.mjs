@@ -274,3 +274,73 @@ export async function openTranslationCell(page, code) {
   await dialog.waitFor();
   return dialog;
 }
+
+/**
+ * Base 0.8 B4 SC-09 hierarchy half, on the harness seed. Under System 00: Lab group › Chemistry ›
+ * Electrolytes (the nested system group, holding Sodium) and Lab group › Haematology, beside Boat.
+ * Under Domain 00's codelists: Codelist Alpha › Courier › Same day (a nested master value) and
+ * Codelist Beta › Pickup point. Everything goes through the real API.
+ */
+export async function seedHierarchy(api, records) {
+  const create = (applicationKey, objectTypeKey, name, parent, attributes) =>
+    api("/objects", {
+      applicationKey,
+      workspaceKey: "default",
+      objectTypeKey,
+      name,
+      parentObjectId: parent.id,
+      attributes: Object.entries(attributes).map(([attributeTypeKey, value]) => ({ attributeTypeKey, value })),
+    });
+  const group = (name, parent, code) => create("rdm-systems", "system-group", name, parent, { "group-code": code });
+  const master = (name, parent, code) =>
+    create("rdm-master", "master-value", name, parent, {
+      "master-id": `MV-${code}`,
+      "value-code": code,
+      "value-name": name,
+    });
+  const system = records.system[0];
+  const lab = await group("Lab group", system, "LAB");
+  const chemistry = await group("Chemistry", lab, "CHEM");
+  const electrolytes = await group("Electrolytes", chemistry, "ELEC");
+  const sodium = await create("rdm-systems", "system-value", "Sodium", electrolytes, {
+    "value-code": "NA",
+    "value-name": "Sodium",
+  });
+  const haematology = await group("Haematology", lab, "HAEM");
+  const boat = await group("Boat", system, "IMG");
+  const codelists = (await api("/objects/codelist?workspaceKey=default&applicationKey=rdm-master&pageSize=20")).items;
+  const alpha = codelists.find((item) => item.name === "Codelist Alpha");
+  const beta = codelists.find((item) => item.name === "Codelist Beta");
+  const courier = await master("Courier", alpha, "COURIER");
+  const sameDay = await master("Same day", courier, "SAME");
+  const pickup = await master("Pickup point", beta, "PICKUP");
+  return { system, lab, chemistry, electrolytes, sodium, haematology, boat, alpha, beta, courier, sameDay, pickup };
+}
+
+/**
+ * Opens the system hierarchy tree lens with Electrolytes found through the lens search and open in
+ * the inspector beside it: its ancestors' branches open, Boat closed.
+ */
+export async function openSystemHierarchy(page, uiUrl) {
+  await page.goto(`${uiUrl}/apps/rdm-systems/views/system-hierarchy?workspaceKey=default`);
+  const lens = page.locator(".tree-lens");
+  await lens.getByRole("treeitem", { name: /^System 00/ }).waitFor();
+  await lens.getByRole("textbox", { name: /^Search / }).fill("Electrolytes");
+  await lens.getByRole("treeitem", { name: /^Electrolytes, in / }).click();
+  await page.getByRole("heading", { level: 1, name: "Electrolytes" }).waitFor();
+  // The matches give way to the tree once the cleared search settles; Chemistry is not a match.
+  await lens.getByRole("treeitem", { name: /^Chemistry(,|$)/ }).waitFor();
+  await lens.getByRole("treeitem", { name: /^Electrolytes(,|$)/ }).waitFor();
+  await page.waitForLoadState("networkidle");
+  return lens;
+}
+
+/** Opens the move dialog for `name` in the tree lens from the row's actions; returns the dialog. */
+export async function openTreeMoveDialog(page, name) {
+  const row = page.locator(".tree-lens").getByRole("treeitem", { name: new RegExp(`^${name}(,|$)`) });
+  await row.locator(".tree-menu-trigger").first().click();
+  await page.getByRole("menuitem", { name: "Move to…" }).click();
+  const dialog = page.getByRole("dialog", { name: `Move ${name}` });
+  await dialog.getByRole("radio").first().waitFor();
+  return dialog;
+}

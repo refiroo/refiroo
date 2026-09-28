@@ -191,7 +191,8 @@ and rejects changes. Business unavailability of one record is a third, separate 
 ## SC-09 — Fill translation gaps and maintain a deep hierarchy
 
 **Stories:** US-L03–L04, US-H01–H02. **Target:** two separately accepted 0.8 workflows; the
-translation half is accepted (0.8 A5, `test:browser:a5`, 2026-09-28), the hierarchy half is planned (B4).
+translation half is accepted (0.8 A5, `test:browser:a5`, 2026-09-28), the hierarchy half is accepted
+(0.8 B4, `test:browser:b4`, 2026-09-28).
 
 For translation, show Delivery Methods by the configured target languages. Include a current Czech
 translation, a missing English translation and a translation found only in history. From the missing

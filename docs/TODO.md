@@ -9,8 +9,8 @@ release plan and changelog rather than accumulating it here.
 Base 0.7 is released (2026-09-25). 0.8 Track S (scalable browsing) and Track W (workspace terminology
 and capability boundaries) are delivered (2026-09-26), and Milestone A's relation matrix (A1–A5) is
 delivered (2026-09-28), closed by A6 (snapshot table index drift, 2026-09-28). The hierarchy editor's
-`tree` contract (B1), move targets (B2) and tree lens (B3) are delivered (2026-09-28). Next: B4, P2,
-then R1. See
+`tree` contract (B1), move targets (B2), tree lens (B3) and acceptance (B4) are delivered (2026-09-28),
+closing Milestone B. Next: P2, then R1. See
 [Next — 0.8 and beyond](#next--08-and-beyond).
 
 ## Open decisions
@@ -71,14 +71,15 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     cells in a change set takes 5–9 s (A3b state recompute, about 110 statements; measured in B2,
     D29), and a link candidate page over a 5,000-cell column takes 92 ms live and 160 ms in a change
     set (known 0.8 budget exception, D30).
-- [ ] 0.8 Milestone B — hierarchy editor ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-b--hierarchy-editor)):
+- [x] 0.8 Milestone B — hierarchy editor ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-b--hierarchy-editor)):
   - [x] B1 schema 0.7 `tree` view contract.
   - [x] B2 move targets with eligibility (D14) and path context in every context; a deep move meets
     the write budget live and in a change set; the matrix container move is a known 0.8 budget
     exception (D29).
   - [x] B3 tree lens with add child, rename, availability and move, beside the record's detail;
     `test:browser:b3` on both starter trees and the generated tree, live and in a change set.
-  - [ ] B4 Milestone B acceptance (SC-09 hierarchy half).
+  - [x] B4 Milestone B acceptance (SC-09 hierarchy half); `test:browser:b4`, tree lens and move dialog
+    in the a11y and visual gates.
 - [ ] 0.8 P2 change set changes list, after W2 (D20).
 - [ ] 0.8 R1 build acceptance and release.
 - [ ] Enforce foreign keys on SQLite (`PRAGMA foreign_keys=ON` per connection) or document that every

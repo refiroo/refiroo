@@ -12,7 +12,7 @@ The technical roadmap needs the reconciliations in [planning handoff](PLANNING_H
 | Base 0.5     | Establish stable bounded APIs and the application-model release lifecycle   | US-I01-I02, US-P01-P04                     | Completed foundation                           |
 | Product 0.6  | Complete model-driven daily browser use and optional workspace design       | US-D01–D14, US-W01–W08, US-L01–L02, US-P06, US-U01 | Current-live change set API available; browser gaps remain for WP9/WP10 |
 | Product 0.7  | Review mapping coverage and replace one mapping atomically                  | US-M01–M04, US-W09                         | Roadmap                                        |
-| Product 0.8  | Work efficiently with translation coverage and deep hierarchies             | US-L03–L04, US-H01–H02   | Translation half delivered (A5); hierarchy B   |
+| Product 0.8  | Work efficiently with translation coverage and deep hierarchies             | US-L03–L04, US-H01–H02   | Delivered: translation (A5), hierarchy (B4)    |
 | Product 0.9  | Exchange and synchronize data at integration scale                          | US-I03–I09                                 | Roadmap                                        |
 | Product 0.10 | Operate securely and reliably with multiple writers/nodes and staged models | US-S01, US-O03–O06, US-P07                     | Roadmap                                        |
 | Product 1.0  | Author models through structured, reference-aware tools                     | US-P05, US-P08                             | Roadmap                                        |

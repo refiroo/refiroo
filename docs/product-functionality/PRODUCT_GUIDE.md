@@ -52,7 +52,7 @@ preloaded demonstration data.
 | Prepare a coordinated change | Work in an optional change set, check it and apply its changes together while preserving unrelated live work | Current-live/history API available; browser gaps remain | US-W01–W08 |
 | Maintain translations | Enter a target, language and translated content together; prevent conflicting active translations | Basic API and Base 0.6 browser flows available; specialist coverage view remains 0.8 | US-L01–L04 |
 | Manage system equivalences | See missing or conflicting mappings and choose, replace or clear a target in one action | WP-8/WP-14 browser lens and APIs implemented with focused proof; composed WP-9 acceptance remains | US-M01–M04 |
-| Navigate a deep hierarchy | Expand the relevant branch, add a child or move a record without losing context | Specialist workflow planned for 0.8 | US-H01–H02 |
+| Navigate a deep hierarchy | Expand the relevant branch, add a child or move a record without losing context | Tree lens (0.8), SC-09 hierarchy half accepted | US-H01–H02 |
 | Exchange larger datasets | Import with a preview, export a chosen scope, track results and resume synchronization | Basic reading available; bulk exchange and feeds planned for 0.9 | US-I01–I09 |
 | Manage working areas | Create and label a workspace, select the default, retain read-only access to retired areas and delete an unused one created with a mistyped key | Workspaces screen and API available (0.8 W4, W6); a published workspace is retired, never deleted | US-A01–A03 |
 | Evolve application definitions | Inspect, edit, check, compare, install and activate a definition safely | JSON-based workbench exists; structured designer planned for 1.0 | US-P01–P08 |

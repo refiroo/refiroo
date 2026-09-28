@@ -8,7 +8,7 @@ packages A1–A5 and B1–B4; P2 is scheduled after W2 (D20); R1 owns build acce
 (2026-09-27) with D8 and D9 accepted. A2, A3 and A3b are delivered (2026-09-27) with D10–D13
 accepted; A3b's stored cell states closed A2's budget exception for the row state filter. A4 and A5
 are delivered (2026-09-28), and A6 (snapshot table index drift, found in A2) with D28 accepted
-(2026-09-28), which completes Milestone A. B1 and B2 are delivered (2026-09-28); D14 is accepted (2026-09-28),
+(2026-09-28), which completes Milestone A. B1–B4 are delivered (2026-09-28), which completes Milestone B; D14 is accepted (2026-09-28),
 D30 decides one of A6's two open measurements and B2 decides the other (D29, a known budget exception);
 see the [summary](#decisions-summary).
 
@@ -2336,6 +2336,51 @@ lens and move dialog (light and dark) and reviewed visual baselines.
 
 **Exit:** SC-09 hierarchy half passes; the runner is registered in the execution guide; US-H01,
 US-H02 and US-D09 move to delivered in the functionality catalogue.
+
+**B4 delivered 2026-09-28.** `e2e/b4-hierarchy-acceptance.mjs` (`test:browser:b4`) runs the milestone
+by keyboard alone against a real backend. The SC-09 data is a shared helper (`seedHierarchy` in
+`e2e/helpers/acceptance-data.mjs`) so the runner and both gates show the same records: Lab group ›
+Chemistry › Electrolytes (holding Sodium) and Lab group › Haematology beside Boat under System 00,
+and Codelist Alpha › Courier › Same day beside Codelist Beta › Pickup point under Domain 00. Decided on
+the way:
+
+- _The descendant refusal needs a descendant._ The journey adds a child and a grandchild under the
+  found record, so "a move beneath the child's own descendant" is the child's own grandchild. The
+  dialog lists it disabled (**Inside the record**), and the runner also sends that move to the API,
+  which refuses it with `422 parent_cycle` and leaves the parent unchanged. Both are the boundary the
+  user meets.
+- _Different record types._ The domain tree's repeat moves a nested master value (master values nest
+  through `master-value-has-child`) into a master value under another codelist, at 390px. The change
+  set move takes Haematology from Lab group to System 01, so the containment relation type itself
+  changes (`system-group-has-child` to `system-contains-group`). Live keeps the old parent and edge
+  until the change set is published from the change set screen; afterwards live and the new
+  publication hold exactly one containment edge, from System 01.
+- _"Unrelated branches alone"_ is checked against every drawn branch's open state before and after
+  the move, except the moved records, the old parent and the target's path (which opens to show the
+  moved record where it now sits).
+- _Shared keyboard driver._ B3's tree helpers move to `e2e/helpers/tree.mjs`. The move dialog helper
+  now waits for the response to the typed search before choosing: the dialog searches 250 ms after
+  typing stops and shows the previous list until then, so a target already on the unfiltered first
+  page was found while Tab still ran through the old list (a runner race, not a product defect).
+- _Found, not fixed: a very fast Back at narrow width._ Below 1080px a search result opens full width
+  while the hidden tree reveals it with a read of its own. A Back within a fraction of a second, before
+  that read lands, returns to the tree with the record not revealed (its ancestors closed). A pause of
+  a second, as any user takes, reveals it correctly. The runner waits for the reveal's stored branch
+  choices before Back. Recorded rather than fixed because no human pace reaches it.
+
+Composable-domains doors (ADR-032): none affected; acceptance tests over existing reads and writes.
+
+Checks: `test:browser:b4` (13 checks, run twice, both passing: the system journey's reveal, adds,
+refusal, move, path and breadcrumb; the domain journey's at 390px; the change set move, its publication
+and the live tree; axe on two states, 0 violations), `test:browser:b3` (21, for the shared driver),
+`test:a11y` (30 scenarios, 0 violations; new: `tree-lens` and `tree-move-dialog`, light and dark),
+`test:visual` (25; four new reviewed baselines `tree-lens-{light,dark}` and
+`tree-move-dialog-{light,dark}`, every existing one matching), `test:gate-helpers` (5). Screenshots
+inspected: the moved group with its breadcrumb at 1440px, the moved master value at 390px, the live tree
+after publishing, and the four baselines. The first `tree-lens` capture showed the lens still in search
+results (the cleared search had not settled); the opener now waits for the revealed tree, and the
+adopted baselines show it. Not run: the backend suites, Vitest, format, lint and build (no application
+code changed) and the comprehensive suites (R1).
 
 ## R1: Build acceptance and release
 

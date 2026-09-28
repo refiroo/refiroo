@@ -43,7 +43,7 @@ acceptance evidence.
 | US-D06 | F05 live create                   | E2 live-write tests; E3 disconnected form           | 0.6 WP9/WP10                     |
 | US-D07 | F05/F17 live update               | E2 live-write/conflict tests; E3 disconnected form  | 0.6 WP9/WP10                     |
 | US-D08 | F06 value semantics               | E2 attribute tests + E3 panel/editor tests          | 0.6 WP9/WP10                     |
-| US-D09 | F07 hierarchy maintenance         | E2 containment/cycle tests + E3 disconnected form   | 0.6 generic; 0.8 specialist tree |
+| US-D09 | F07 hierarchy maintenance         | E1 `test:browser:b4` (move, cycle refusal, change set) | Delivered 0.8 B4                 |
 | US-D10 | F08 relation maintenance          | E2 relation tests + E3 disconnected panel           | 0.6 WP9/WP10                     |
 | US-D11 | F10 deletion impact               | E2 cascade tests + E3 disconnected dialog           | 0.6 WP9/WP10                     |
 | US-D12 | F11 record history                | E2 audit + E3 default-workspace history panel       | WP9 context fix; E1 in WP10      |
@@ -91,8 +91,8 @@ acceptance evidence.
 | US-W09 | Change set model-version selection | Accepted decision; global selection today | SC-15 / 0.7 with schema 0.6 |
 | US-M04 | Missing mapping target creation | Roadmap; no completed specialist flow | SC-07 / 0.7 |
 | US-L04 | In-context translation edit | E1 `test:browser:a5`: fill, refused duplicate, change set, publish | SC-09 / delivered 0.8 A5 |
-| US-H01 | Large hierarchy navigation | Roadmap | SC-09 / 0.8 |
-| US-H02 | Contextual hierarchy maintenance | Generic service exists; specialist interaction planned | SC-09 / 0.8 |
+| US-H01 | Large hierarchy navigation | E1 `test:browser:b4` (ancestors-only reveal), `test:browser:b3` (seven-level tree) | SC-09 / delivered 0.8 B4 |
+| US-H02 | Contextual hierarchy maintenance | E1 `test:browser:b4`: add child, move, refused descendant, change set published | SC-09 / delivered 0.8 B4 |
 | US-I07 | File validation preview | Roadmap; format/policy decisions pending | SC-10 / 0.9 |
 | US-I08 | Scoped export | Roadmap | SC-10 / 0.9 |
 | US-P06 | New domain without bespoke software | Model/workbench source; composed authoring proof pending | SC-12 / 0.6 foundation |

@@ -104,8 +104,7 @@ relationships remain consistent.
 **Accepted when:** The move changes the parent path and typed containment relationship together, rejects
 cycles or invalid parent types, and cannot be bypassed by editing the relationship separately.
 
-**Coverage:** F07. **Status:** API available; browser editor is present but not connected. Specialist
-tree interaction is planned for 0.8.
+**Coverage:** F07, tree lens move dialog. **Status:** Delivered 0.8 (B3, accepted in B4 through SC-09).
 
 ### US-D10 — Manage an ordinary relationship
 
@@ -403,7 +402,8 @@ work in a deep hierarchy without loading or navigating every item.
 navigation is supported and retry keeps already loaded branches. Both mixed record types and repeated
 levels of one type work when configured.
 
-**Coverage:** F07 plus planned specialist tree. **Status:** Roadmap 0.8. **Example:** SC-09.
+**Coverage:** F07, tree lens (`tree` view). **Status:** Delivered 0.8 (B3, accepted in B4). **Example:**
+SC-09.
 
 ### US-H02 — Add or move a hierarchy item from its branch
 
@@ -414,8 +414,8 @@ reorganize reference data without managing hidden connections.
 and parent relationship change together, and a move into the item's own descendants is rejected.
 Routine edits stay live unless I explicitly choose a change set; my place and input survive failure.
 
-**Coverage:** F07 plus planned specialist tree. **Status:** Generic service available; specialist
-browser flow roadmap 0.8. **Example:** SC-09.
+**Coverage:** F07, tree lens node menu and move dialog. **Status:** Delivered 0.8 (B3, accepted in B4).
+**Example:** SC-09.
 
 ## Integration consumer and data exchange operator
 

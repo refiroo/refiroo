@@ -13,6 +13,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bootHarness } from "./helpers/harness.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
+import { escapeRegExp as escape, treeDriver } from "./helpers/tree.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const scale = process.env.B3_VOLUME_SCALE ?? "0.02";
@@ -22,8 +23,6 @@ const screenshots = [];
 const accessibility = [];
 const evidence = [];
 
-const escape = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
 function expect(condition, message) {
   if (!condition) failures.push(message);
 }
@@ -32,15 +31,8 @@ function expect(condition, message) {
 function helpers(harness) {
   const { page, output } = harness;
   page.on("pageerror", (error) => failures.push(`page error: ${error.message}`));
-  const focused = () =>
-    page.evaluate(() => ({
-      role: document.activeElement?.closest(".tree-lens")
-        ? (document.activeElement.getAttribute("role") ?? document.activeElement.tagName.toLowerCase())
-        : "outside the lens",
-      label: document.activeElement?.getAttribute("aria-label") ?? document.activeElement?.textContent ?? "",
-    }));
   return {
-    focused,
+    ...treeDriver(page, (message) => failures.push(message)),
     async shot(name) {
       await page.screenshot({ path: resolve(output, `${name}.png`), fullPage: true });
       screenshots.push(`${name}.png`);
@@ -53,71 +45,6 @@ function helpers(harness) {
     async noHorizontalScroll(label) {
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
       expect(overflow <= 0, `${label}: page scrolls horizontally by ${overflow}px`);
-    },
-    /** Presses `key` until focus is on a tree item: the keyboard path back into the tree. */
-    async keyIntoTree(key = "Shift+Tab", limit = 60) {
-      for (let step = 0; step < limit; step++) {
-        if ((await focused()).role === "treeitem") return;
-        await page.keyboard.press(key);
-      }
-      throw new Error(`${key} never reached the tree`);
-    },
-    /** Moves focus through the tree with Up and Down until the item's label starts with `name`. */
-    async arrowTo(name, limit = 120) {
-      const start = await focused();
-      if (start.role === "treeitem" && !start.label.startsWith(name)) {
-        // Type-ahead first: typing the label's start moves to the next loaded record it begins.
-        await page.keyboard.type(name.toLowerCase());
-        await page.waitForTimeout(750);
-      }
-      for (let step = 0; step < limit; step++) {
-        const at = await focused();
-        if (at.role !== "treeitem") throw new Error(`focus left the tree looking for ${name}`);
-        if (at.label.startsWith(name)) return;
-        const below = await page.evaluate((prefix) => {
-          const target = Array.from(document.querySelectorAll(".tree-lens [role='treeitem']")).find((item) =>
-            (item.getAttribute("aria-label") ?? "").startsWith(prefix),
-          );
-          // Not drawn yet: it lies further down a branch that loads as focus moves on.
-          return !target || Boolean(document.activeElement.compareDocumentPosition(target) & Node.DOCUMENT_POSITION_FOLLOWING);
-        }, name);
-        await page.keyboard.press(below ? "ArrowDown" : "ArrowUp");
-        await page.waitForTimeout(30);
-      }
-      throw new Error(`the arrow keys never reached ${name} from ${start.label}; focus is on ${JSON.stringify(await focused())}`);
-    },
-    /** Types into the lens search, arrows to the match and opens it with Enter. */
-    async findBySearch(search, name) {
-      const box = page.locator(".tree-lens").getByRole("textbox", { name: /^Search / });
-      await box.focus();
-      await page.keyboard.type(search);
-      await page.locator(".tree-lens").getByRole("treeitem", { name: new RegExp(`^${escape(name)}, in `) }).first().waitFor();
-      await page.keyboard.press("Tab");
-      await this.arrowTo(name);
-      await page.keyboard.press("Enter");
-    },
-    /** Opens the focused item's menu with Shift+F10 and chooses `item` by arrowing to it. */
-    async menu(item) {
-      await page.keyboard.press("Shift+F10");
-      const menu = page.getByRole("menu");
-      await menu.waitFor();
-      for (let step = 0; step < 12; step++) {
-        const text = await page.evaluate(() => document.activeElement?.textContent ?? "");
-        if (text.startsWith(item)) {
-          await page.keyboard.press("Enter");
-          await menu.waitFor({ state: "detached" });
-          return;
-        }
-        await page.keyboard.press("ArrowDown");
-      }
-      throw new Error(`the menu has no ${item}`);
-    },
-    async expectFocus(name, label) {
-      await page.waitForFunction(
-        (prefix) => document.activeElement?.getAttribute("role") === "treeitem" && document.activeElement.closest(".tree-lens") && (document.activeElement.getAttribute("aria-label") ?? "").startsWith(prefix),
-        name,
-        { timeout: 10000 },
-      ).catch(async () => failures.push(`${label}: focus is on ${JSON.stringify(await focused())}, not ${name}`));
     },
   };
 }

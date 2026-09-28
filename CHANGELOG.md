@@ -167,6 +167,15 @@ All notable changes to this project are documented in this file. The format foll
   disabled with their reason; a move keeps focus on the moved node and refreshes both branches. A
   refused write keeps the user's input and place. Writes go to the selected change set; a
   publication's tree is read-only. New browser runner `test:browser:b3`.
+- Base 0.8 B4: Milestone B acceptance. Browser runner `test:browser:b4` runs SC-09's hierarchy half by
+  keyboard on the system hierarchy (live, 1440px) and the domain hierarchy's nested master values
+  (live, 390px): find a nested record reading only its ancestors' branches, add a child and a
+  grandchild, be refused the move beneath the grandchild in the dialog and by the API, move the child
+  and see its new path in the tree and breadcrumb with its containment edge changed and unrelated
+  branches unchanged. A move staged in a change set reaches live only when the change set is
+  published. The accessibility and visual gates gain the tree lens and its move dialog in light and
+  dark, with four reviewed baselines. The tree lens's keyboard helpers are shared by both runners
+  (`e2e/helpers/tree.mjs`).
 
 ### Changed
 

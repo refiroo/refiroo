@@ -7,8 +7,11 @@ import { bootHarness } from "./helpers/harness.mjs";
 import { compareScreenshot } from "./helpers/visual-regression.mjs";
 import {
   openLongList,
+  openSystemHierarchy,
   openTranslationCell,
   openTranslationMatrix,
+  openTreeMoveDialog,
+  seedHierarchy,
   seedLongList,
   seedTranslationMatrix,
 } from "./helpers/acceptance-data.mjs";
@@ -133,7 +136,23 @@ try {
   }
   await page.emulateMedia({ colorScheme: "light" });
 
-  // --- 13. Workspaces administration (Base 0.8 W4), last because a second workspace turns every
+  // --- 13. Tree lens (Base 0.8 B4), light and dark: the system hierarchy with Electrolytes revealed
+  // and open beside it, then the move dialog for Chemistry with its three disabled reasons ---
+  await seedHierarchy(api, records);
+  for (const scheme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await openSystemHierarchy(page, uiUrl);
+    await page.mouse.move(0, 0); // no hover left on the clicked search result
+    await capture(page, `tree-lens-${scheme}`, output);
+    await openTreeMoveDialog(page, "Chemistry");
+    await page.mouse.move(0, 0);
+    await capture(page, `tree-move-dialog-${scheme}`, output);
+    await page.keyboard.press("Escape");
+    await page.getByRole("dialog").waitFor({ state: "detached" });
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // --- 14. Workspaces administration (Base 0.8 W4), last because a second workspace turns every
   // earlier shell's single-workspace label into the selector ---
   const retired = await api("/workspaces", { key: "archive", label: "Archive" });
   await api("/workspaces/archive", { expectedVersion: retired.version, status: "retired" }, "PATCH");

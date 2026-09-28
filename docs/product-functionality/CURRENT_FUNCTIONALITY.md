@@ -18,7 +18,7 @@ frontend and real-browser package evidence; it is not WP-9 release acceptance. S
 | F04 | Inspect a record and its context                          | Implemented         | Available      | Every workspace                  |
 | F05 | Maintain live records                                     | Temporarily unwired | Available      | WP9 must enable browser editing  |
 | F06 | Maintain typed field values                               | Components present  | Available      | Browser completion is WP9        |
-| F07 | Maintain containment and hierarchy                        | Components present  | Available      | Specialist tree is roadmap       |
+| F07 | Maintain containment and hierarchy                        | Implemented         | Available      | Tree lens; SC-09 hierarchy half accepted (0.8 B4) |
 | F08 | Maintain ordinary relationships                           | Implemented         | Available      | Mapping lens focused proof; WP9 pending |
 | F09 | Maintain translations                                     | Implemented         | Available      | Relation matrix; SC-09 translation half accepted (0.8 A5) |
 | F10 | Preview and confirm dependent deletion                    | Components present  | Available      | Browser completion is WP9        |
@@ -212,10 +212,17 @@ The explorer's record tree reads by parent at any size (Base 0.8 S6): each root 
 top-level records, and expanding a record pages each child type separately with its count, in live,
 change-set and publication. It scrolls every branch continuously and walks by keyboard to any depth; a search
 lists matching records of every type with their ancestor path.
-Generic parent selection exists in the record form but is not currently connected to a writable flow.
-The typed `tree` view, reparenting and child creation remain planned for 0.8 (Milestone B).
+Since Base 0.8 (B3, accepted in B4 on 2026-09-28) the starter configures the generic `tree` view for
+the domain and system hierarchies: the tree beside the selected record, where a search reveals a nested
+record by opening only its ancestors' branches. From a node's menu, by keyboard or pointer, the steward
+adds a child of any type the node may contain, renames it, changes its availability and moves it through
+a searchable list of valid parents. The current parent, the record itself and anything inside it are
+listed disabled with the reason, and the API refuses a move beneath the record's own descendant. A move
+changes the path and the typed containment relation together, carries the record's branch with it and
+leaves other branches as they were. It is live, or staged in a selected change set until that is
+published; a publication shows the tree read-only.
 
-Evidence: [explorer](../../frontend/src/features/objects/Explorer.tsx),
+Evidence: [B4 runner](../../frontend/e2e/b4-hierarchy-acceptance.mjs), [explorer](../../frontend/src/features/objects/Explorer.tsx),
 [record tree](../../frontend/src/features/objects/RecordTree.tsx),
 [hierarchy panel](../../frontend/src/features/objects/panels/HierarchyPanel.tsx),
 [ADR-006](../DECISIONS.md#adr-006--maintain-containment-and-typed-parent-relations).
