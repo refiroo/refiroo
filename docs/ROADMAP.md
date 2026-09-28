@@ -279,7 +279,8 @@ migrated between immutable model releases in controlled stages.
 ### Delivery scope
 
 - PostgreSQL deployment, model-derived indexes and representative performance tests, including the
-  trigram form of the 0.8 name search index
+  trigram form of the 0.8 name search index and PostgreSQL forms of the relation matrix's change set
+  walk and stored state filter
 - Precomputed sort keys, so attribute and ancestor sorts over very large parents meet the list
   budget (deferred from 0.8, D26)
 - Database-backed uniqueness hardening

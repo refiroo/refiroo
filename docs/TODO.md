@@ -7,16 +7,19 @@ release plan and changelog rather than accumulating it here.
 ## Now — Product 0.8
 
 Base 0.7 is released (2026-09-25). 0.8 Track S (scalable browsing) and Track W (workspace terminology
-and capability boundaries) are delivered (2026-09-26). Next: the translation editor and hierarchy editor
-milestones, P2, then R1. See [Next — 0.8 and beyond](#next--08-and-beyond).
+and capability boundaries) are delivered (2026-09-26), and Milestone A's relation matrix (A1–A5) is
+delivered (2026-09-28). Next: A6 (snapshot table index drift), the hierarchy editor milestone (B1–B4),
+P2, then R1. See
+[Next — 0.8 and beyond](#next--08-and-beyond).
 
 ## Open decisions
 
 Offset/limit pagination is closed by ADR-030 (accepted 2026-09-25): each request pages with a
 cursor or a position; the UI scrolls with cursors and jumps with positions. Delivered in 0.8 Track S.
 
-Milestone A and B decisions D8–D14 are proposed in the
-[0.8 plan](BASE_0_8_IMPLEMENTATION_PLAN.md#decisions-summary) and need acceptance before A1/B1.
+Milestone A decisions D8–D13 are accepted. D28 (A6, how to resolve each drifted index) and D14
+(ineligible move targets, Milestone B) are proposed in the
+[0.8 plan](BASE_0_8_IMPLEMENTATION_PLAN.md#decisions-summary); D28 needs acceptance before A6, D14 before B2.
 
 See `ROADMAP.md` for the delivery scope, exit gates and full milestone sequence.
 
@@ -59,6 +62,7 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [x] A3b stored cell states for the row state filter (ADR-033).
   - [x] A4 relation matrix lens.
   - [x] A5 Milestone A acceptance (SC-09 translation half and the mapping-shape journey).
+  - [ ] A6 snapshot table index drift: ten ORM-declared indexes no migration creates; decide each (D28), migrate, and add a schema drift test.
 - [ ] 0.8 Milestone B — hierarchy editor ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-b--hierarchy-editor)):
   - [ ] B1 schema 0.7 `tree` view contract (may run alongside Track S).
   - [ ] B2 move targets with eligibility, and path context in every context.
@@ -84,7 +88,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [ ] Complete the release licensing checklist in [LICENSING_TODO.md](LICENSING_TODO.md), including
   ownership, contribution, dependency, security, trademark and commercial-service documentation.
 - [ ] PostgreSQL performance and multi-writer uniqueness hardening, including the trigram form of
-  the S8 search index.
+  the S8 search index and the relation matrix's SQLite-only statements: the change set walk down
+  (two recursive arms, which PostgreSQL needs in one recursive term) and the stored state filter's
+  row list, read through `json_each` on SQLite and as a plain `IN` list elsewhere (0.8 A2, A3b).
 - [ ] Precomputed sort keys for attribute and ancestor sorts over very large parents (D26, after 0.9).
 - [ ] OIDC, application/object/operation authorization and audit identity.
 - [ ] Replace the pre-authentication, default-enabled workspace mutation posture with authenticated,

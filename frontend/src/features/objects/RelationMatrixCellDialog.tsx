@@ -135,6 +135,16 @@ export function RelationMatrixCellDialog({
 
   const editing = mode.kind === "edit" ? cell.records.find((record) => record.id === mode.recordId) : undefined;
   const unlinking = mode.kind === "unlink" ? cell.records.find((record) => record.id === mode.recordId) : undefined;
+  // A re-read after a stale write can drop the record being edited or unlinked; the cell is shown
+  // again rather than an empty dialog, and the notice says why.
+  const orphaned = (mode.kind === "edit" && !editing) || (mode.kind === "unlink" && !unlinking);
+  const showing = orphaned ? "view" : mode.kind;
+  /** Starts another action from the cell; a notice about an earlier one no longer applies. */
+  const choose = (next: Mode) => {
+    setMode(next);
+    setError(undefined);
+    setDirty(false);
+  };
   const back = () => {
     setMode({ kind: "view" });
     setError(undefined);
@@ -142,7 +152,7 @@ export function RelationMatrixCellDialog({
   };
 
   return (
-    <Modal title={heading} eyebrow={view.name} busy={saving} dirty={dirty} onClose={onClose}>
+    <Modal title={heading} eyebrow={view.name} busy={saving} dirty={dirty && !orphaned} onClose={onClose}>
       <div className="matrix-cell-dialog">
         <p className="matrix-cell-dialog-state">
           <StateMark state={cell.state} conflict={cell.conflict} />
@@ -158,7 +168,7 @@ export function RelationMatrixCellDialog({
           </span>
         </p>
 
-        {mode.kind === "view" && (
+        {showing === "view" && (
           <>
             {cell.records.length > 0 && (
               <ul className="matrix-cell-records" aria-label={`${cellType.pluralName} in this cell`}>
@@ -175,7 +185,7 @@ export function RelationMatrixCellDialog({
                         <button
                           type="button"
                           className="secondary"
-                          onClick={() => setMode({ kind: "edit", recordId: record.id })}
+                          onClick={() => choose({ kind: "edit", recordId: record.id })}
                         >
                           Edit<span className="visually-hidden"> {record.name}</span>
                         </button>
@@ -184,7 +194,7 @@ export function RelationMatrixCellDialog({
                         <button
                           type="button"
                           className="danger-ghost"
-                          onClick={() => setMode({ kind: "unlink", recordId: record.id })}
+                          onClick={() => choose({ kind: "unlink", recordId: record.id })}
                         >
                           Unlink<span className="visually-hidden"> {record.name}</span>
                         </button>
@@ -193,7 +203,7 @@ export function RelationMatrixCellDialog({
                         <button
                           type="button"
                           className="secondary"
-                          onClick={() => setMode({ kind: "create", prefill: { name: record.name, ...record.fields } })}
+                          onClick={() => choose({ kind: "create", prefill: { name: record.name, ...record.fields } })}
                         >
                           Create from this
                         </button>
@@ -215,12 +225,12 @@ export function RelationMatrixCellDialog({
             {!actions.length && <p className="muted-text">This cell is read-only here.</p>}
             <div className="dialog-actions">
               {can("create") && (cell.state === "none" || cell.state === "inactive" || history) && (
-                <button type="button" className="primary" onClick={() => setMode({ kind: "create" })}>
+                <button type="button" className="primary" onClick={() => choose({ kind: "create" })}>
                   <Icon name="plus" size={15} /> Create {cellType.name.toLowerCase()}
                 </button>
               )}
               {can("link") && (
-                <button type="button" className="secondary" onClick={() => setMode({ kind: "link" })}>
+                <button type="button" className="secondary" onClick={() => choose({ kind: "link" })}>
                   Link existing {cellType.name.toLowerCase()}
                 </button>
               )}
@@ -366,7 +376,12 @@ export function RelationMatrixCellDialog({
             focusOnMount
           >
             <p>{error.message}</p>
-            {error.stale && <p>This cell now shows the current state. Your input is kept; review it and try again.</p>}
+            {error.stale &&
+              (orphaned ? (
+                <p>This cell now shows the current state; the record you were changing is no longer in it.</p>
+              ) : (
+                <p>This cell now shows the current state. Your input is kept; review it and try again.</p>
+              ))}
             {error.conflictingObjectId && (
               <button
                 type="button"

@@ -270,6 +270,13 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+- Base 0.8 A review: when a relation matrix cell's edit or unlink was refused as stale and the re-read
+  cell no longer held that record, the cell dialog went blank with no way on but Escape. It now shows
+  the cell again with its actions and says the record is no longer in it. Starting another action
+  from the cell clears the earlier notice.
+- Base 0.8 A review: a relation matrix kept showing cells re-read after earlier saves over a page it
+  had reloaded, so a cell changed elsewhere since could stay stale. The reloaded rows now replace
+  them.
 - Base 0.8 A1: a duplicate `mappingGrid` `sourceColumns`, `targetDisplayColumns` or
   `candidateSearchFields` entry was reported at `…/config/config/<field>`, a pointer to no node in
   the model; it is now `…/config/<field>`.

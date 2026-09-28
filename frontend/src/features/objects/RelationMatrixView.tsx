@@ -66,6 +66,8 @@ export function RelationMatrixView({
   const [patches, setPatches] = useState<{ key: string; rows: Record<string, RowPatch> }>({ key: "", rows: {} });
   const grid = useRef<HTMLTableElement>(null);
   const restoreTo = useRef<{ rowId: string; columnId: string } | undefined>(undefined);
+  // Set while a reload is in flight: its rows supersede every cell re-read since the list loaded.
+  const reloadPending = useRef(false);
 
   const rowType = objectTypeFor(model, config.rowObjectTypeKey);
   const columnType = objectTypeFor(model, config.columnObjectTypeKey);
@@ -130,6 +132,10 @@ export function RelationMatrixView({
               pageSize,
             })
             .then((page) => {
+              if (reloadPending.current) {
+                reloadPending.current = false;
+                setPatches({ key: "", rows: {} });
+              }
               if (requestKey === columnsKeyRef.current)
                 setColumnPage({
                   key: requestKey,
@@ -172,6 +178,12 @@ export function RelationMatrixView({
     });
   }, [pages.items, patches, listKey]);
 
+  /** Re-reads the page where the cell alone cannot be; the fresh rows replace the patched cells. */
+  const reloadRows = useCallback(() => {
+    reloadPending.current = true;
+    pages.reload();
+  }, [pages]);
+
   /** Re-reads one cell after a write, so the rest of the matrix keeps its place and data. */
   const refreshCell = useCallback(
     async (row: RelationMatrixRow, columnId: string) => {
@@ -190,7 +202,7 @@ export function RelationMatrixView({
         const fresh = page.items.find((item) => item.row.id === row.row.id);
         const cell = fresh?.cells.find((item) => item.columnId === columnId);
         if (!fresh || !cell) {
-          pages.reload();
+          reloadRows();
           return;
         }
         setPatches((previous) => {
@@ -208,10 +220,10 @@ export function RelationMatrixView({
           };
         });
       } catch {
-        pages.reload();
+        reloadRows();
       }
     },
-    [api, workspaceKey, application.key, view.key, query.parentObjectId, pages, listKey],
+    [api, workspaceKey, application.key, view.key, query.parentObjectId, reloadRows, listKey],
   );
 
   if (!rowType || !columnType || !cellType) {

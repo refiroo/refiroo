@@ -98,6 +98,11 @@ errors explicit and machine-readable.
   which is for whole-graph validation, publishing and writes. Publication, change-set base and change-set object
   rows keep a typed value index (`snapshot_attribute_values`) that an ORM flush hook maintains; a bulk
   insert or delete of those rows outside the ORM must update it through `services/snapshot_values.py`.
+- Relation matrix cell states (`matrix_cell_states`, ADR-033) follow objects, relations, attribute
+  values and change set rows through an ORM flush hook. A Core insert, update or delete of those rows
+  must note what it changed with `services/matrix_states.note_rows`, `note_cells` or
+  `note_relations_removed`, or the matrix state filter drifts until the next rebuild; the write path's
+  test runs `matrix_states.verify`.
 - Model shape lives in `models/schema.py`; cross-reference rules live in
   `services/model/validation/`. A rule raises `ModelReferenceError` with the JSON pointer of the
   failing node — never reconstruct a path from a message.

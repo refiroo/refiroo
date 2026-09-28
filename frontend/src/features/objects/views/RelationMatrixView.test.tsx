@@ -411,6 +411,52 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
     expect(gridCell("Finance", 2)).toHaveTextContent("History only");
   });
 
+  it("lets a reload replace cells re-read after earlier saves", async () => {
+    vi.mocked(api.relationMatrixContainers).mockResolvedValue({
+      items: [{ id: "g1", objectTypeKey: "region", name: "Region West", path: [] }],
+      nextCursor: null,
+      defaultContainerId: "g1",
+      totalCount: 1,
+      startIndex: 0,
+    });
+    vi.mocked(api.createObject).mockResolvedValue({} as never);
+    renderMatrix(notesView);
+    await screen.findByRole("grid");
+    // A first save re-reads its cell alone.
+    fireEvent.click(gridCell("Connections", 2));
+    let dialog = await screen.findByRole("dialog", { name: "Connections · WE" });
+    fireEvent.click(within(dialog).getByRole("button", { name: /Create note/ }));
+    await within(dialog).findByText("Region West");
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Code" }), { target: { value: "CL-WE" } });
+    vi.mocked(api.relationMatrix).mockResolvedValueOnce({
+      ...notesPage,
+      items: [
+        row("d1", "domain", "Connections", [
+          cell("c-west", "one", {
+            recordCount: 1,
+            matchingCount: 1,
+            records: [noteRecord("n9", "Connections WE", "CL-WE")],
+          }),
+        ]),
+      ],
+      columns: [columns[1]],
+    });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create note" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(gridCell("Connections", 2)).toHaveTextContent("Connections WE");
+    // A second save cannot find its row in the short re-read, so the page reloads; meanwhile the
+    // first cell's record was removed elsewhere, and the reload must show that.
+    fireEvent.click(gridCell("Finance", 2));
+    dialog = await screen.findByRole("dialog", { name: "Finance · WE" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create from this" }));
+    await within(dialog).findByText("Region West");
+    vi.mocked(api.relationMatrix).mockResolvedValueOnce({ ...notesPage, items: [], columns: [columns[1]] });
+    fireEvent.click(within(dialog).getByRole("button", { name: "Create note" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    await waitFor(() => expect(gridCell("Connections", 2)).toHaveTextContent("None"));
+    expect(gridCell("Connections", 2)).not.toHaveTextContent("Connections WE");
+  });
+
   it("keeps the entered value and links to the conflicting record when an edit breaks uniqueness", async () => {
     // Without the scope, the API's message; with it, the row, column and condition in the view's terms.
     vi.mocked(api.updateObject)
@@ -526,6 +572,26 @@ describe("relation matrix lens (Base 0.8 A4)", () => {
       { expectedRelationSetVersion: 7, relationSetDirection: "incoming" },
     );
     expect(await within(dialog).findByText(/This cell now shows the current state/)).toBeInTheDocument();
+  });
+
+  it("shows the cell again when a stale edit's record was removed elsewhere", async () => {
+    vi.mocked(api.updateObject).mockRejectedValue(new ApiError(409, "version_conflict", "Object version has changed"));
+    renderMatrix(notesView);
+    await screen.findByRole("grid");
+    fireEvent.click(gridCell("Connections", 1));
+    const dialog = await screen.findByRole("dialog", { name: "Connections · EA" });
+    fireEvent.change(within(dialog).getByRole("textbox", { name: "Code" }), { target: { value: "CL-EA-2" } });
+    // The re-read finds the note gone from the cell.
+    vi.mocked(api.relationMatrix).mockResolvedValueOnce({
+      ...notesPage,
+      items: [row("d1", "domain", "Connections", [cell("c-east", "none")], 5)],
+      columns: [columns[0]],
+    });
+    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Save" })));
+    expect(await within(dialog).findByText(/no longer in it/)).toBeInTheDocument();
+    expect(within(dialog).queryByRole("textbox", { name: "Code" })).toBeNull();
+    expect(within(dialog).getByRole("button", { name: /Create note/ })).toBeInTheDocument();
+    expect(within(dialog).getByText("Close", { selector: "button.secondary" })).toBeInTheDocument();
   });
 
   it("keeps the page when the matrix read fails and retries the same request", async () => {

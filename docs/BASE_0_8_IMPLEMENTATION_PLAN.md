@@ -5,10 +5,10 @@
 (relation matrix) and Milestone B (hierarchy editor) from the
 [roadmap](ROADMAP.md#product-release-08--relation-matrix-and-hierarchy-editor) are broken into work
 packages A1–A5 and B1–B4; P2 is scheduled after W2 (D20); R1 owns build acceptance. A1 is delivered
-(2026-09-27) with D8 and D9 accepted. A2 and A3 are delivered (2026-09-27) with D10, D11 and D13
-accepted; A2's row state filter is correct but over its time budget at full volume, a temporary
-exception that A3b (a stored per-cell state, D12) removes before A4. D14 is proposed, not yet
-accepted; see the [summary](#decisions-summary).
+(2026-09-27) with D8 and D9 accepted. A2, A3 and A3b are delivered (2026-09-27) with D10–D13
+accepted; A3b's stored cell states closed A2's budget exception for the row state filter. A4 and A5
+are delivered (2026-09-28). A6 (snapshot table index drift, found in A2) is scheduled before R1, with
+D28 proposed. D14 (Milestone B) is proposed, not yet accepted; see the [summary](#decisions-summary).
 
 **Target:** Product 0.8.0. Track S does not change the schema language. Milestones A and B add
 schema language 0.7 (`relationMatrix` and `tree` views); the starter model becomes content release
@@ -1335,7 +1335,7 @@ anchored shape; one endpoint does not return two response shapes.
 Track S:      S1 → S2 → S3 ─┬─ S5 → S6 → S7 → S8
                             └─ S4 ─┘
 Milestone A:  A1 ──────────────┐
-              S2, S3 ─────────→ A2 → A3 → A3b → A4 → A5
+              S2, S3 ─────────→ A2 → A3 → A3b → A4 → A5 → A6
               S5 ──────────────────────────────↗
 Milestone B:  B1 ──────────────┐
               S3, S4 ─────────→ B2 → B3 → B4
@@ -1344,7 +1344,7 @@ Track W:      W1, W5 (any time)
               S7 → W2 → W3 → W4 → W6
               W2 ─→ A2, B2
 Pending:      W2 → P2 (D20; P1, P3 in 0.9)
-Release:      S8, W6, W5, A5, B4, P2 → R1
+Release:      S8, W6, W5, A6, B4, P2 → R1
 ```
 
 A1 and B1 depend only on 0.7 and may be delivered while Track S is in progress. Everything else in
@@ -1521,7 +1521,8 @@ on the way:
 - Creating a record with `initialRelations` does not advance the relation-set versions (only generic
   relation writes and cascades do). A3's create-from-cell relies on it: fix it there.
 - `change_set_objects` lacks the parent and type indexes its ORM model declares (migration drift);
-  the walk down uses an automatic index instead. A follow-up migration, not part of A2.
+  the walk down uses an automatic index instead. A follow-up migration, not part of A2; scheduled as
+  [A6](#a6-snapshot-table-index-drift), which found the drift on all four snapshot tables.
 - SQLite plans recursive steps and page edges badly unless steered: each step outer-joins its
   children (a `CASE` keeps the join outer) with type and owner terms off the index, the page's cell
   CTE is `MATERIALIZED`, and page edges and cell records are found from the page rows, not by type.
@@ -1911,6 +1912,84 @@ the refusal, the published grid, the mapping cell at 390px and the generated mod
 highlight caught in the first dark baseline was removed by moving the mouse away before capture.
 Not run: the backend suites (no backend change) and the comprehensive suites (R1).
 
+_Review fixes (2026-09-28)._ A review of A1–A5 found two defects in the lens:
+
+- When an edit or unlink was refused as stale and the re-read cell no longer held that record, the
+  cell dialog rendered nothing but the notice. It now shows the cell's records and actions again,
+  says the record is gone, and starting another action clears the earlier notice.
+- A cell re-read after a save stayed over the page when the lens later reloaded it (a refresh that
+  could not find its row falls back to a reload), so a cell changed elsewhere since could show stale
+  data. The reloaded rows now replace every such cell.
+
+Each has a regression test in `views/RelationMatrixView.test.tsx` that fails without its fix. Found
+on the way and fixed in the docs: `AGENTS.md` now states the matrix state rule for Core writes
+(`note_rows`, `note_cells`, `note_relations_removed`, with `verify` in the write path's test), and the
+0.10 PostgreSQL hardening in `TODO.md` and `ROADMAP.md` now names the matrix's SQLite-only statements.
+Checks: `-m "matrix or mapping or change_sets or records or contract or queries or model"` (618),
+Vitest (304), format, lint (0 errors, the 8 recorded warnings) and build. The plan header and
+`TODO.md` now record A1–A5 as delivered; the index drift A2 left open is scheduled as
+[A6](#a6-snapshot-table-index-drift). Not re-run: `test:browser:a4`/`a5` and the gates
+(the dialog's rendering on the paths they cover is unchanged).
+
+#### A6: Snapshot table index drift
+
+_Scheduled 2026-09-28 from the A review: after A5, before R1. Found in A2, which left it as a
+follow-up migration without scheduling one._
+
+**Gap:** the ORM declares ten single-column indexes on the snapshot tables that no migration creates,
+so a migrated database, which is every real one and the one the tests and `volume_baseline.py`
+build, has none of them. Measured on 2026-09-28 by migrating an empty database to `20260927_01`
+and comparing it with `Base.metadata`:
+
+| Table | Declared, never created |
+| --- | --- |
+| `publication_objects` | `parent_object_id`, `object_type_key` |
+| `publication_relations` | `from_object_id`, `to_object_id`, `relation_type_key` |
+| `change_set_objects` | `parent_object_id`, `object_type_key` |
+| `change_set_relations` | `from_object_id`, `to_object_id`, `relation_type_key` |
+
+The drift dates from 0.6, when the revision and draft tables (now publication and change set tables,
+ADR-031) were created by migrations that never had these indexes; the W2 rename carried the gap over.
+Nothing checks that a migrated schema matches the ORM, so it went unnoticed until A2 read the plan of
+a change set's walk down, which finds children by parent through an automatic index SQLite builds
+per statement. The tests that build their schema with `metadata.create_all` get the indexes, so they
+run on a different schema from production.
+
+**Why it is not a plain "add the indexes":** every S and A budget was measured and every query plan
+was steered (`unindexed`, `found`, `MATERIALIZED`, `INDEXED BY`) on the schema without them. The
+relation tables already have covering (owner, endpoint, type, ID, other end) indexes (S4, S4R1), which
+make the single-column endpoint and type indexes redundant at best. A new index SQLite prefers could
+undo a plan those packages chose deliberately.
+
+**Scope:**
+
+1. For each of the ten indexes, decide (D28): create it in a migration, replace it with an
+   owner-leading composite the reads actually need (for example (`change_set_id`,
+   `parent_object_id`) for walks down a change set), or remove the declaration from the ORM because
+   an existing index already serves it. Decide from the query plans and the measurements in item 3,
+   not from the declaration.
+2. One Alembic migration after `20260927_01` for what item 1 adds, idempotent over a database that
+   already has an index of the same name (one built with `create_all`); the ORM declarations changed
+   to match exactly.
+3. Measure `volume_baseline.py --scale 1` before and after for the S, S8 and A2 rows, with the change
+   set and publication contexts in particular: every row within its budget and no statement-count
+   change, or the index reconsidered. Check the plans of the walks in `matrix_cells.py` and
+   `relation_matrix.py`: they should seek their children by an index, not build an automatic one.
+4. A schema drift test: migrate an empty database to head and compare its tables, columns, indexes
+   and unique constraints with `Base.metadata`, failing with each difference named. The search index
+   tables that `models/search_index.py` registers separately are compared too. Once it passes, a
+   future ORM declaration without a migration fails the suite.
+5. The migration checks in `AGENTS.md`: clean bootstrap, upgrade from `20260927_01`, restart,
+   interrupted migration recovery or refusal, the lifespan against a real temporary database, and a
+   smoke start on a copy of the development database.
+
+Composable-domains doors (ADR-032): none affected; indexes over existing tables, no new identity,
+attribute storage or API.
+
+**Exit:** a migrated database matches the ORM, and the drift test holds that; every volume budget
+holds with statement counts unchanged; the matrix walks no longer depend on an automatic index; the
+migration checks pass. API contract unchanged.
+
 ## Milestone B — Hierarchy editor
 
 ### Outcome
@@ -2024,7 +2103,7 @@ US-H02 and US-D09 move to delivered in the functionality catalogue.
 
 ## R1: Build acceptance and release
 
-**Scope:** after S8, W6, W5, A5, B4 and P2 (D20, D25, D27): the full backend `pytest` suite, frontend `npm run test`, Ruff,
+**Scope:** after S8, W6, W5, A6, B4 and P2 (D20, D25, D27, D28): the full backend `pytest` suite, frontend `npm run test`, Ruff,
 format, lint and build, every browser runner, `test:a11y` and `test:visual`. Migration checks for the
 S2 typed value rows (clean bootstrap, upgrade from the 0.7 head, restart, interrupted migration,
 lifespan, smoke start on a copy of the development database). Confirm a schema 0.7 release installs
@@ -2063,4 +2142,5 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D25 | Whole-type name search is over budget (0.7–0.9 s, S7): indexed search, prefix match, or no total? | **Accepted 2026-09-26:** an indexed search that keeps "contains" matching, in every context (S8). SQLite first; the PostgreSQL equivalent (trigram) arrives with 0.10 hardening. **Delivered 2026-09-26** as a trigram index over text values; names stay on the (type, name) index, which measured cheaper than indexing them (S8) | S8 |
 | D26 | Attribute and ancestor sorts over the 20,000-child parent are over budget (85–204 ms, S4R1, S7) | **Accepted 2026-09-26:** deferred until after 0.9 (precomputed sort keys, 0.10 or later); recorded as a known budget exception for 0.8 | — |
 | D27 | Can a workspace be deleted? (ADR-019 said never) | **Accepted 2026-09-26:** yes, to correct a mistyped key, when it is not the default, has no objects and no change sets, and was never published; a published workspace is retired instead because publications are never removed. No audit event, matching the unaudited create, rename and retire; the key may be reused | W6 |
+| D28 | Index declarations that no migration creates on the snapshot tables (A6) | Per index: create it, replace it with an owner-leading composite the reads need, or drop the declaration where an existing index serves it, decided from query plans and the volume baseline; a drift test keeps a migrated schema equal to the ORM. **Proposed 2026-09-28** | A6 |
 | D24 | Which columns sort | **Accepted 2026-09-26 (S4R3 review):** every data column sorts from its header, whatever the attribute's `sortable` flag, including Type and Relationship by their labels; every list shows the same toolbar Sort menu; D21's `sortFields` only add menu fields and `defaultSort` chooses the order. Exceptions: Actions, the computed path, JSON attributes and unrecorded timestamps | S4R3 |
