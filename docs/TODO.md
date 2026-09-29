@@ -11,8 +11,8 @@ and capability boundaries) are delivered (2026-09-26), and Milestone A's relatio
 delivered (2026-09-28), closed by A6 (snapshot table index drift, 2026-09-28). The hierarchy editor's
 `tree` contract (B1), move targets (B2), tree lens (B3) and acceptance (B4) are delivered (2026-09-28);
 B5 (drag and drop in the tree lens) and its amendment B5b (move to the top level) were added in the
-Milestone B review and close Milestone B when delivered. P2 (change lists API, P2a; review screen, P2b)
-is delivered (2026-09-28). R1 passed (2026-09-28); B5 is delivered (2026-09-29); now B5b and the build acceptance R1b. Milestone C (structure
+Milestone B review and are delivered (2026-09-29), which closes Milestone B. P2 (change lists API, P2a; review screen, P2b)
+is delivered (2026-09-28). R1 passed (2026-09-28); B5 and B5b are delivered (2026-09-29); now the build acceptance R1b. Milestone C (structure
 refactoring, C0–C5, with R2 as its build acceptance) was added (2026-09-28) and is delivered before 0.9;
 its decisions D37–D43, including release timing, are open. See
 [Next — 0.8 and beyond](#next--08-and-beyond).
@@ -90,8 +90,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   - [x] B5 drag and drop in the tree lens (added in review, D34, D35; delivered 2026-09-29): onto a node, into a gap or onto
     a type heading, checked by the model's containment rule, glowing green or red with the reason,
     confirmed in the existing move dialog; mouse and pen (touch drag in 0.10). One record at a time.
-  - [ ] B5b move to the top level (amendment to B5, D36): a **Top level** option in Move to… and
-    top-level drop targets, for the tree's root types; others refused with `notRoot`.
+  - [x] B5b move to the top level (amendment to B5, D36; delivered 2026-09-29): a **Top level** option in
+    Move to… and top-level drop targets, for the tree's root types; others refused with `notRoot`.
 - [x] 0.8 P2 change set changes list, after W2 (D20); planned 2026-09-28 with D31–D33 accepted.
   - [x] P2a change lists API: `object-changes` and `relation-changes`, kinds, before/after, volume budgets.
   - [x] P2b change set review screen: Records and Relationships, kind and type filters, parent links on
@@ -118,7 +118,7 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   Enabling it needs a data check for existing violations and must keep the table-rebuild migrations,
   which require it off, working.
 - [ ] 0.9 planning ([plan](BASE_0_9_IMPLEMENTATION_PLAN.md), [integration design](INTEGRATION_API.md)): document
-  set accepted 2026-09-28; section P drafted; decisions D1–D14 and CONSUMER_API C-D2–C-D12 open;
+  set accepted 2026-09-28; section P drafted; decisions D1–D14 and CONSUMER_API C-D2–C-D16 open;
   security moved to the 0.11 release (C-D1).
 - [ ] Integration-grade query expressions beyond daily-use filters.
 - [ ] Bounded live bulk object/relation/mapping operations with explicit optional staging, per-item

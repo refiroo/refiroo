@@ -5,7 +5,9 @@
  * The pointer names a target on each move: the middle of a record's row is that record; the middle
  * of a type heading is the heading's parent; the top or bottom quarter of a row is the gap beside it,
  * which drops into the branch the gap belongs to, the pointer's horizontal position choosing among
- * branches that end there. The caller's rule says whether the target accepts and, if not, why.
+ * branches that end there. Where the tree shows its top level, its headings and the gaps between its
+ * rows name the top level, a `null` parent (B5b, D36); a search's results have no top level to drop
+ * into. The caller's rule says whether the target accepts and, if not, why.
  * Hovering over a collapsed branch opens it; near a window's top or bottom edge the window scrolls,
  * faster towards the edge. Escape, a cancelled pointer or a release outside an accepted target ends
  * the drag without a drop.
@@ -19,16 +21,23 @@ import type { ObjectItem } from "@/types";
 export interface TreeDragConfiguration {
   /** Whether the record's row starts a drag. */
   canDrag: (item: ObjectItem) => boolean;
-  /** Why the record cannot move into `parent`, in words shown beside the pointer; undefined accepts. */
-  refusal: (item: ObjectItem, parent: ObjectItem) => string | undefined;
+  /**
+   * Why the record cannot move into `parent` (`null` is the top level), in words shown beside the
+   * pointer; undefined accepts.
+   */
+  refusal: (item: ObjectItem, parent: ObjectItem | null) => string | undefined;
   /** A release over a target that accepts. */
-  onDrop: (item: ObjectItem, parent: ObjectItem) => void;
+  onDrop: (item: ObjectItem, parent: ObjectItem | null) => void;
 }
 
 /** The target under the pointer: the parent it names and the rows that show it. */
 export interface TreeDropTarget {
-  parent: ObjectItem;
-  /** Tree keys of the rows that glow: the parent's, and a heading dropped on. */
+  /** The new parent, or `null` for the top level. */
+  parent: ObjectItem | null;
+  /**
+   * Tree keys of the rows that glow: the parent's, and a heading dropped on. At the top level, the
+   * heading of the record's own top-level group, where it will be listed.
+   */
   rows: string[];
   refusal?: string;
   /** A gap's drop line, in viewport coordinates, indented to the chosen branch. */
@@ -70,6 +79,7 @@ export function useTreeDrag({
   config,
   records,
   indentOf,
+  topLevelRows,
   expand,
 }: {
   tree: RefObject<HTMLElement | null>;
@@ -78,17 +88,19 @@ export function useTreeDrag({
   records: Map<string, ObjectItem>;
   /** Where a level's rows start, from the row's left edge. */
   indentOf: (level: number) => number;
+  /** The rows that show the top level for a dragged record; without it the top level takes no drop. */
+  topLevelRows?: (item: ObjectItem) => string[];
   expand: (objectId: string) => void;
 }) {
   const [state, setState] = useState<TreeDragState>();
   const preview = useRef<HTMLDivElement>(null);
   const session = useRef<Session | undefined>(undefined);
-  const latest = useRef({ config, expand, indentOf });
+  const latest = useRef({ config, expand, indentOf, topLevelRows });
   useLayoutEffect(() => {
-    latest.current = { config, expand, indentOf };
+    latest.current = { config, expand, indentOf, topLevelRows };
   });
 
-  /** The target at a point, or undefined outside the tree's rows or at the top level. */
+  /** The target at a point, or undefined outside the tree's rows or at a top level it cannot take. */
   const targetAt = useCallback(
     (x: number, y: number, dragged: ObjectItem): TreeDropTarget | undefined => {
       const root = tree.current;
@@ -100,8 +112,23 @@ export function useTreeDrag({
       const rect = row.getBoundingClientRect();
       const edge = rect.height / 4;
       const zone = y < rect.top + edge ? -1 : y > rect.bottom - edge ? 1 : 0;
-      const target = (parentItem: HTMLElement | undefined, rows: string[], line?: TreeDropTarget["line"]) => {
-        const parent = parentItem && records.get(keyOf(parentItem));
+      const target = (
+        parentItem: HTMLElement | null,
+        rows: string[],
+        line?: TreeDropTarget["line"],
+      ): TreeDropTarget | undefined => {
+        if (!parentItem) {
+          // No parent item: the top level, where the tree shows one.
+          const topRows = latest.current.topLevelRows?.(dragged);
+          if (!topRows) return undefined;
+          return {
+            parent: null,
+            rows: [...new Set([...rows, ...topRows])],
+            refusal: latest.current.config?.refusal(dragged, null),
+            line,
+          };
+        }
+        const parent = records.get(keyOf(parentItem));
         if (!parent) return undefined;
         return {
           parent,
@@ -110,7 +137,8 @@ export function useTreeDrag({
           line,
         };
       };
-      if (zone === 0) return item.dataset.objectId ? target(item, []) : target(parentItemOf(item), [keyOf(item)]);
+      if (zone === 0)
+        return item.dataset.objectId ? target(item, []) : target(parentItemOf(item) ?? null, [keyOf(item)]);
       const all = Array.from(root.querySelectorAll<HTMLElement>(ITEM));
       const index = all.indexOf(item);
       const [above, below] = zone < 0 ? [all[index - 1], item] : [item, all[index + 1]];
@@ -151,9 +179,9 @@ export function useTreeDrag({
       setState({ item: current.item, target });
     }
     // Resting on a collapsed branch opens it, unless it is the dragged record.
-    const node = target && !target.line && target.rows.length === 1 ? target : undefined;
+    const node = target?.parent && !target.line && target.rows.length === 1 ? target : undefined;
     const collapsed =
-      node &&
+      node?.parent &&
       node.parent.id !== current.item.id &&
       tree.current
         ?.querySelector(`${ITEM}[data-tree-key="${CSS.escape(node.rows[0])}"]`)

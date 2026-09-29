@@ -10,6 +10,10 @@
  * A drop in the tree (B5) opens the same dialog with its target chosen. The candidates have no seek,
  * so the search starts at the target's name to list it, selected, and Enter confirms the move. The
  * listed candidate replaces the dropped one once it arrives, so the server's judgement of it holds.
+ *
+ * The tree can also offer its top level (B5b, D36) as one more choice above the candidates, enabled
+ * or disabled with the tree's reason. It is not a candidate, so the list's totals stay truthful;
+ * choosing it writes no parent.
  */
 
 import { useState } from "react";
@@ -28,12 +32,16 @@ import { ScrollWindow } from "@/ui/ScrollWindow";
 
 const PAGE_SIZE = 20;
 
+/** The top level as a choice: no parent. */
+const TOP_LEVEL = "top-level";
+
 export function TreeMoveDialog({
   model,
   item: initial,
   label,
   workspaceKey,
   target,
+  topLevel,
   onClose,
   onMoved,
 }: {
@@ -41,8 +49,10 @@ export function TreeMoveDialog({
   item: ObjectItem;
   label: string;
   workspaceKey: string;
-  /** A parent chosen before the dialog opens, such as a drop target. */
-  target?: Pick<ObjectItem, "id" | "objectTypeKey" | "name" | "path">;
+  /** A parent chosen before the dialog opens, such as a drop target; `null` is the top level. */
+  target?: Pick<ObjectItem, "id" | "objectTypeKey" | "name" | "path"> | null;
+  /** Offers the top level, refused with the reason in words when `refusal` is set. */
+  topLevel?: { refusal?: string };
   onClose: () => void;
   onMoved: (moved: ObjectItem) => void;
 }) {
@@ -50,15 +60,17 @@ export function TreeMoveDialog({
   const [item, setItem] = useState(initial);
   const [search, setSearch] = useState(target?.name ?? "");
   const debounced = useDebouncedValue(search.trim());
-  const [chosen, setSelected] = useState<ParentCandidate | undefined>(
-    target && {
-      id: target.id,
-      objectTypeKey: target.objectTypeKey,
-      name: target.name,
-      path: target.path,
-      eligible: true,
-      reason: null,
-    },
+  const [chosen, setSelected] = useState<ParentCandidate | typeof TOP_LEVEL | undefined>(
+    target === null
+      ? TOP_LEVEL
+      : target && {
+          id: target.id,
+          objectTypeKey: target.objectTypeKey,
+          name: target.name,
+          path: target.path,
+          eligible: true,
+          reason: null,
+        },
   );
   const [moving, setMoving] = useState(false);
   const [error, setError] = useState("");
@@ -72,7 +84,10 @@ export function TreeMoveDialog({
       }),
     [item.objectTypeKey, item.id, workspaceKey, debounced],
   );
-  const selected = candidates.items.find((candidate) => candidate.id === chosen?.id) ?? chosen;
+  const top = chosen === TOP_LEVEL;
+  const selected =
+    chosen === TOP_LEVEL ? undefined : (candidates.items.find((candidate) => candidate.id === chosen?.id) ?? chosen);
+  const eligible = top ? Boolean(topLevel && !topLevel.refusal) : Boolean(selected?.eligible);
   const types = new Set(candidates.items.map((candidate) => candidate.objectTypeKey));
   const where = item.path
     .slice(0, -1)
@@ -80,13 +95,13 @@ export function TreeMoveDialog({
     .join(" / ");
 
   async function move() {
-    if (!selected?.eligible) return;
+    if (!eligible) return;
     setMoving(true);
     setError("");
     try {
       const moved = await api.updateObject(item.objectTypeKey, item.id, {
         expectedVersion: item.version,
-        parentObjectId: selected.id,
+        parentObjectId: top ? null : (selected?.id ?? null),
       });
       onMoved(moved);
     } catch (cause) {
@@ -123,6 +138,25 @@ export function TreeMoveDialog({
         </label>
         <fieldset className="candidate-list" aria-busy={candidates.loading || undefined} disabled={moving}>
           <legend className="visually-hidden">Choose where to move {label}</legend>
+          {topLevel && (
+            <label
+              className={`candidate candidate-top-level${top ? " selected" : ""}${topLevel.refusal ? " is-disabled" : ""}`}
+            >
+              <input
+                type="radio"
+                name="tree-move-target"
+                value=""
+                checked={top}
+                disabled={Boolean(topLevel.refusal)}
+                onChange={() => setSelected(TOP_LEVEL)}
+              />
+              <span className="candidate-text">
+                <span className="candidate-name">Top level</span>
+                <small>No parent</small>
+              </span>
+              {topLevel.refusal && <span className="pill">{topLevel.refusal}</span>}
+            </label>
+          )}
           <ScrollWindow
             list={candidates}
             label="New locations"
@@ -166,7 +200,11 @@ export function TreeMoveDialog({
             {candidates.loading && !candidates.items.length && <p className="candidate-state">Loading…</p>}
             {!candidates.loading && !candidates.error && !candidates.items.length && (
               <p className="candidate-state">
-                {debounced ? `No location matches “${debounced}”.` : `${label} cannot move anywhere else.`}
+                {debounced
+                  ? `No location matches “${debounced}”.`
+                  : topLevel && !topLevel.refusal
+                    ? `No other record can contain ${label}.`
+                    : `${label} cannot move anywhere else.`}
               </p>
             )}
           </ScrollWindow>
@@ -190,8 +228,8 @@ export function TreeMoveDialog({
           <button type="button" className="secondary" disabled={moving} onClick={onClose}>
             Cancel
           </button>
-          <button className="primary" disabled={moving || !selected?.eligible}>
-            {moving ? "Moving…" : selected ? `Move to ${selected.name}` : "Move"}
+          <button className="primary" disabled={moving || !eligible}>
+            {moving ? "Moving…" : top ? "Move to the top level" : selected ? `Move to ${selected.name}` : "Move"}
           </button>
         </div>
       </form>

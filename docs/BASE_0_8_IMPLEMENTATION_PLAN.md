@@ -8,7 +8,7 @@ packages A1–A5, B1–B5 and C0–C5; P2 is scheduled after W2 (D20); R1 owns b
 (2026-09-27) with D8 and D9 accepted. A2, A3 and A3b are delivered (2026-09-27) with D10–D13
 accepted; A3b's stored cell states closed A2's budget exception for the row state filter. A4 and A5
 are delivered (2026-09-28), and A6 (snapshot table index drift, found in A2) with D28 accepted
-(2026-09-28), which completes Milestone A. B1–B4 are delivered (2026-09-28); B5 (drag and drop in the tree lens, D34, D35) was added in the Milestone B review (2026-09-28) with its amendment B5b (move to the top level, D36); B5 is delivered (2026-09-29), and B5b completes Milestone B when delivered, with R1b as their build acceptance; Milestone C (structure refactoring, C0–C5, D37–D43 open) was added after the Milestone B review (2026-09-28), with R2 as its build acceptance; D14 is accepted (2026-09-28),
+(2026-09-28), which completes Milestone A. B1–B4 are delivered (2026-09-28); B5 (drag and drop in the tree lens, D34, D35) was added in the Milestone B review (2026-09-28) with its amendment B5b (move to the top level, D36); B5 is delivered (2026-09-29), and B5b is delivered (2026-09-29), which completes Milestone B, with R1b as their build acceptance; Milestone C (structure refactoring, C0–C5, D37–D43 open) was added after the Milestone B review (2026-09-28), with R2 as its build acceptance; D14 is accepted (2026-09-28),
 D30 decides one of A6's two open measurements and B2 decides the other (D29, a known budget exception);
 P2 is planned (2026-09-28) as P2a (change lists API) and P2b (review screen), with D31–D33 accepted (2026-09-28); P2a and P2b are delivered (2026-09-28), which completes P2. R1 build acceptance of the build without B5 passed (2026-09-28); 0.8.0 releases after B5 and R1b; see the [summary](#decisions-summary).
 
@@ -2763,6 +2763,59 @@ API, model or schema change.
 **Exit:** a nested record of a tree root type moves to the top level by keyboard (Move to…) and by
 drag, live and in a change set. A type that the tree does not show at the top is refused with its
 reason, and nothing is written.
+
+**B5b delivered 2026-09-29.** No API, model or schema change; frontend only. The top level is a `null`
+parent throughout: `moveRefusal` takes the tree's `rootObjectTypeKeys` and answers a `null` parent with
+`currentParent` (already at the top) or `notRoot` (**Not shown at the top of this tree**; a type that
+is not a root of the tree, whether or not it is `rootCreatable`), else accepts. `gapBranches` now
+returns the level-1 branch with a `null` parent, so a gap between top-level rows, and the left end of
+a gap that ends branches down to the top level, name the top level. `useTreeDrag` takes
+`topLevelRows`, the rows that show the top level for a dragged record: `RecordTree` passes the heading
+of the record's own top-level group, and nothing during a search, whose matches have no top level to
+drop into. A top-level heading's middle is therefore the top level too. `TreeMoveDialog` takes
+`topLevel` (offered, with the tree's refusal in words or none) and a `null` target; **Top level**
+("No parent") is a radio before the candidates' `ScrollWindow`, outside the paged list, and confirming
+sends `parentObjectId: null` through the same write, **Moving…**, refusal and conflict handling. When
+the top level is open and no candidate is listed, the empty state reads **No other record can contain
+…** instead of **… cannot move anywhere else**. Decided on the way:
+
+- _Where the glow goes._ The top level has no parent row, so an accepted or refused top-level target
+  glows the heading of the group the record would be listed in (`root|<type>#`), plus the heading
+  dropped on; a refused type that the tree has no top-level group for shows only the red drop line
+  and preview.
+- _Keyboard._ **Top level** is the first radio of the dialog's group, so with nothing chosen and the
+  top level open, Tab lands on it and the arrows move to the candidates, as in any radio group. Where
+  it is disabled (every starter tree's non-root types), Tab skips it as before; the B3 and B4 journeys
+  are unchanged.
+- _Resting on a top-level heading scrolls._ The heading is drawn above its group's window, so the
+  pointer resting on it is past the window's top edge and the window scrolls towards its start (B5
+  item 6). The drop still goes to the top level. It is left as it is; the runner brings the next
+  dragged row back into view.
+- _Runner._ The volume seed has no nested group, so `test:browser:b3` creates one under the small group
+  through the API, live and in the seeded change set, and reveals it with the lens search, whose
+  matches give way to the tree before the nested row is checked at level 2.
+
+Composable-domains doors (ADR-032): none affected; the existing move with no parent.
+
+Checks: Vitest `model/treeDrop.test` (8: a nested root-type record accepted, `currentParent` at the
+top, `notRoot` for a non-root type and for a root type the tree does not show, over the volume and
+starter system trees; the top level as a gap's `null` branch, picked at a branch end by the pointer)
+and `views/TreeView.test` (4 new, 21 in all: **Top level** offered and chosen, confirming sends `null`,
+a server refusal keeping the dialog and the choice; disabled with **Not shown at the top of this
+tree** and with **Current location**; a drop on a top-level heading opening the dialog with **Top
+level** chosen and an empty search, Enter sending `null`; a top-level gap refused with its reason,
+nothing requested); format, lint (0 errors, the 8 recorded warnings), build. `test:browser:b3` (29
+checks; new, on the generated volume tree at 1440px: live, Move to… on a nested group offers **Top
+level**, Tab, Space and Enter move it, the API holds no parent and no `vol-group-has-child` edge, the
+top-level count rises by one, focus stays on the moved row now at level 1, axe on the dialog 0
+violations; in the change set, an item beside the group dragged onto the top-level heading glows red
+with **Not shown at the top of this tree** and writes nothing, then the group dragged there glows
+green, opens the dialog with **Top level** chosen, and Enter moves it in the change set only, live not
+holding it), `test:browser:b4` (13 checks, shared move dialog). Screenshots inspected: the dialog with
+**Top level** chosen, the accepted and the refused top-level drags. Not run: the backend suites (no
+backend change), full Vitest, `test:a11y` and `test:visual` (R1b; no baseline shows the move dialog's
+top-level option or a top-level drag, so none changes), `test:browser:s6` (the sidebar passes no drag;
+`RecordTree` changed only in the drag configuration).
 
 ## Milestone C — Structure refactoring
 

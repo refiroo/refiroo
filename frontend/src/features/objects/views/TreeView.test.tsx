@@ -4,7 +4,14 @@ import { ApiError, api, type ObjectQuery } from "@/api/client";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
 import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
-import type { EngineModel, ObjectItem, ObjectPage, ParentCandidatePage, Publication } from "@/types";
+import type {
+  EngineModel,
+  ObjectItem,
+  ObjectPage,
+  ParentCandidatePage,
+  Publication,
+  TreeViewDefinition,
+} from "@/types";
 
 beforeEach(() => {
   const values = new Map<string, string>();
@@ -182,6 +189,14 @@ function lens(
   );
 }
 
+/** The test tree with codelists, which nest, among its roots too (B5b): a nested one can move to the top. */
+function nestedRootsModel(): EngineModel {
+  const model = treeModel();
+  const view = model.applications[0].views.find((candidate) => candidate.key === "hierarchy")!;
+  (view as TreeViewDefinition).config.rootObjectTypeKeys = ["domain", "codelist"];
+  return model;
+}
+
 const item = (name: string | RegExp) => screen.findByRole("treeitem", { name });
 const toggle = (element: HTMLElement) => fireEvent.click(element.querySelector(".tree-toggle")!);
 const key = (element: HTMLElement, name: string, init: KeyboardEventInit = {}) =>
@@ -348,6 +363,73 @@ describe("TreeView", () => {
       parentObjectId: finance.id,
     });
     expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("offers the top level above the candidates for a nested record of a root type", async () => {
+    serve();
+    const onChanged = vi.fn();
+    const candidates = vi.spyOn(api, "parentCandidates").mockResolvedValue({
+      items: [],
+      nextCursor: null,
+      totalCount: 0,
+      startIndex: 0,
+    } satisfies ParentCandidatePage);
+    const update = vi
+      .spyOn(api, "updateObject")
+      .mockRejectedValueOnce(new ApiError(422, "duplicate_name", "A top-level codelist has this name."))
+      .mockResolvedValueOnce({ ...urgent, parentObjectId: null, path: [urgent.path[2]] });
+    vi.spyOn(api, "object").mockResolvedValue(urgent);
+    render(lens({ model: nestedRootsModel(), selected: urgent, onChanged }));
+    key(await item(/^Urgent tariffs/), "ContextMenu");
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Move to…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Move Urgent tariffs" });
+    await waitFor(() => expect(candidates).toHaveBeenCalled());
+    // Not a candidate: the list's count and empty state are the candidates' own.
+    expect(await within(dialog).findByText("No other record can contain Urgent tariffs.")).toBeVisible();
+    const top = within(dialog).getByRole("radio", { name: /Top level/ });
+    expect(top).toBeEnabled();
+    fireEvent.click(top);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Move to the top level" }));
+    expect(await within(dialog).findByText("A top-level codelist has this name.")).toBeVisible();
+    expect(within(dialog).getByRole("radio", { name: /Top level/ })).toBeChecked();
+
+    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Move to the top level" })));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(update).toHaveBeenLastCalledWith("codelist", urgent.id, { expectedVersion: 1, parentObjectId: null });
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("shows the top level disabled with its reason where the tree refuses it", async () => {
+    const loose = record(codelistObject, "loose", "Loose codelist");
+    serve([...all, loose]);
+    vi.spyOn(api, "parentCandidates").mockResolvedValue({
+      items: [],
+      nextCursor: null,
+      totalCount: 0,
+      startIndex: 0,
+    } satisfies ParentCandidatePage);
+    const cases = [
+      // Codelists are not a root of the view's tree, so one moved to the top would leave it.
+      {
+        model: treeModel(),
+        name: /^Timetable types/,
+        open: /^Connections/,
+        reason: "Not shown at the top of this tree",
+      },
+      // A codelist already at the top is where it would go.
+      { model: nestedRootsModel(), name: /^Loose codelist/, reason: "Current location" },
+    ];
+    for (const { model, name, open, reason } of cases) {
+      const view = render(lens({ model }));
+      if (open) toggle(await item(open));
+      key(await item(name), "ContextMenu");
+      fireEvent.click(await screen.findByRole("menuitem", { name: "Move to…" }));
+      const dialog = await screen.findByRole("dialog");
+      const top = within(dialog).getByRole("radio", { name: new RegExp(`Top level.*${reason}`) });
+      expect(top).toBeDisabled();
+      expect(await within(dialog).findByText(/cannot move anywhere else/)).toBeVisible();
+      view.unmount();
+    }
   });
 
   it("moves between loaded records by typing the start of their labels", async () => {
@@ -568,6 +650,55 @@ describe("TreeView dragging", () => {
     await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Move to Connections" })));
     expect(await within(dialog).findByText("Connections already holds a codelist with this name.")).toBeVisible();
     expect(within(dialog).getByRole("radio", { name: /Connections/ })).toBeChecked();
+  });
+
+  it("drops onto a top-level heading to move a nested record of a root type to the top", async () => {
+    serve();
+    vi.spyOn(api, "object").mockResolvedValue(urgent);
+    const candidates = vi.spyOn(api, "parentCandidates").mockResolvedValue(candidatePage(finance));
+    const update = vi
+      .spyOn(api, "updateObject")
+      .mockResolvedValue({ ...urgent, parentObjectId: null, path: [urgent.path[2]] });
+    render(lens({ model: nestedRootsModel(), selected: urgent }));
+    const node = await item(/^Urgent tariffs/);
+    const heading = screen.getByRole("treeitem", { name: "Domains, 2" });
+
+    press(node);
+    moveOver(heading);
+    expect(row(heading)).toHaveClass("drop-accepted");
+    expect(preview()).toHaveClass("accepted");
+    release();
+
+    const dialog = await screen.findByRole("dialog", { name: "Move Urgent tariffs" });
+    expect(within(dialog).getByRole("radio", { name: /Top level/ })).toBeChecked();
+    expect(within(dialog).getByRole("textbox", { name: "Search new locations" })).toHaveValue("");
+    await waitFor(() => expect(candidates).toHaveBeenCalled());
+    await act(async () =>
+      fireEvent.submit(within(dialog).getByRole("button", { name: "Move to the top level" }).closest("form")!),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(update).toHaveBeenCalledWith("codelist", urgent.id, { expectedVersion: 1, parentObjectId: null });
+  });
+
+  it("refuses the top level at a gap for a type the tree does not show there", async () => {
+    serve();
+    const candidates = vi.spyOn(api, "parentCandidates");
+    render(lens());
+    toggle(await item(/^Connections/));
+    const node = await item(/^Timetable types/);
+    const financeRow = screen.getByRole("treeitem", { name: /^Finance/ });
+    row(financeRow).getBoundingClientRect = () => box(100);
+
+    press(node);
+    // The top quarter of Finance: the gap below Connections's branch, whose left end is the top level.
+    hit = financeRow.querySelector(".tree-node");
+    fireEvent.pointerMove(window, { ...pointer(), clientX: 0, clientY: 102 });
+    expect(preview()).toHaveClass("refused");
+    expect(preview()).toHaveTextContent("Not shown at the top of this tree");
+    expect(document.querySelector(".tree-drop-line")).toHaveClass("refused");
+    release();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(candidates).not.toHaveBeenCalled();
   });
 
   it("cancels on Escape without a write", async () => {

@@ -57,7 +57,7 @@ delivery; the contracts live in design documents that the packages reference ins
 | Document | Holds | State |
 | --- | --- | --- |
 | This plan | Outcome, principles, tracks, packages, sequence, decisions, delivery records, acceptance | Draft; document set accepted 2026-09-28 |
-| [CONSUMER_API.md](CONSUMER_API.md) | Read-only consumer tier: `consumerApis` definitions, XREF, lists, read index, consumer events, subscriptions, webhook delivery, packages C1–C13, decisions C-D1–C-D12 | Proposed; C-D1 decided (security in 0.11), others open |
+| [CONSUMER_API.md](CONSUMER_API.md) | Read-only consumer tier: `consumerApis` definitions, XREF, lists, read index, batch resolve, crosswalk, `asOf`, publications, API index, consumer events, subscriptions, webhook delivery, packages C1–C16, decisions C-D1–C-D16 | Proposed; C-D1 decided (security in 0.11), others open |
 | [INTEGRATION_API.md](INTEGRATION_API.md) | Management-side integration contracts: shared primitives (idempotency keys, item outcomes, failure policies, job lifecycle), bulk writes and upsert keys, bulk relations and mapping, import/export jobs and the file format contract, the raw change feed, advanced query, cross-type lookup (0.8 P1) and the workspace edge list (0.8 P3) | Section P drafted; B, J, F, Q to write |
 | [APPLICATION_MODEL.md](APPLICATION_MODEL.md) | Schema language additions: effective-period declaration, `consumerApis`, any upsert key declaration | Section per addition |
 | [DECISIONS.md](DECISIONS.md) | ADRs for durable choices: the job and idempotency model; the audit log as the ordered outbox for both feeds; effective dating | One ADR per choice, when accepted |
@@ -113,8 +113,9 @@ Track B.
 position, retention and `410` recovery (D5, D8). Consumer events and webhooks (CONSUMER_API C9–C13)
 derive from the same sequence (C-D11), so positions compare.
 
-**Track C — consumer API.** CONSUMER_API C1–C6 and C8 (read tier), then events C9–C13 without signing;
-C7 access control moved to 0.11 (C-D1). Its open decisions C-D2–C-D12 are settled first.
+**Track C — consumer API.** CONSUMER_API C1–C6 and C8 (read tier), batch resolve (C14), crosswalk (C15)
+and `asOf` (C16, after Track Q's effective periods), then events C9–C13 without signing; C7 access
+control moved to 0.11 (C-D1). Its open decisions C-D2–C-D16 are settled first.
 
 **Track D — API reference.** Scalar at `/docs`, bundled script by default, CDN by setting, management
 and every active consumer contract as separate OpenAPI sources; the route stays outside the OpenAPI
@@ -191,5 +192,5 @@ To settle before the named track's packages are written. The recommendation is t
 
 1. Review INTEGRATION_API section P and settle D1, D10, D11, D13 and D14, which it rests on.
 2. Settle D2 and D9, then write section B.
-3. Settle CONSUMER_API C-D2–C-D12 (C-D1 decided).
+3. Settle CONSUMER_API C-D2–C-D16 (C-D1 decided).
 4. Write packages for Track Q's P1 and P3 and Track D, which have no open decisions.

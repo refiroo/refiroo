@@ -86,7 +86,7 @@ describe("moveRefusal", () => {
     const sodium = placed("sodium", "system-value", chemistry);
     const xray = placed("x-ray", "system-value", system);
     const foreign = placed("master-group", "system-group", undefined, "rdm-master");
-    const refusal = (record: Placed, parent: Placed) => moveRefusal(starterModel, systems, record, parent);
+    const refusal = (record: Placed, parent: Placed) => moveRefusal(starterModel, systems, record, parent, ["system"]);
 
     expect(refusal(lab, lab)).toBe("self");
     expect(refusal(lab, chemistry)).toBe("descendant");
@@ -111,7 +111,7 @@ describe("moveRefusal", () => {
     const courier = placed("courier", "master-value", alpha);
     const sameDay = placed("same-day", "master-value", courier);
     const pickup = placed("pickup", "master-value", beta);
-    const refusal = (record: Placed, parent: Placed) => moveRefusal(starterModel, master, record, parent);
+    const refusal = (record: Placed, parent: Placed) => moveRefusal(starterModel, master, record, parent, ["domain"]);
 
     expect(refusal(courier, beta)).toBeUndefined();
     expect(refusal(sameDay, pickup)).toBeUndefined();
@@ -131,7 +131,7 @@ describe("moveRefusal", () => {
     let node = placed("node-1", "vol-node", group);
     const top = node;
     for (let level = 2; level <= 7; level += 1) node = placed(`node-${level}`, "vol-node", node);
-    const refusal = (record: Placed, parent: Placed) => moveRefusal(model, catalogue, record, parent);
+    const refusal = (record: Placed, parent: Placed) => moveRefusal(model, catalogue, record, parent, ["vol-group"]);
 
     expect(refusal(node, sibling)).toBeUndefined();
     expect(refusal(node, top)).toBeUndefined();
@@ -140,6 +140,30 @@ describe("moveRefusal", () => {
     expect(refusal(item, top)).toBe("type");
     expect(refusal(item, sibling)).toBeUndefined();
     expect(refusal(sibling, group)).toBeUndefined();
+  });
+
+  it("lets a nested record of a tree root type move to the top level, and no other", () => {
+    const model = volumeModel();
+    const catalogue = model.applications[0];
+    const group = placed("group-0", "vol-group", undefined, "vol-catalogue");
+    const nested = placed("group-0-0", "vol-group", group);
+    const item = placed("item-0", "vol-item", group);
+    const top = (record: Placed, roots = ["vol-group"]) => moveRefusal(model, catalogue, record, null, roots);
+
+    expect(top(nested)).toBeUndefined();
+    expect(top(group)).toBe("currentParent");
+    expect(top(item)).toBe("notRoot");
+    // A root type the tree does not show at the top would leave the tree.
+    expect(top(nested, ["vol-node"])).toBe("notRoot");
+    expect(moveRefusalText(model, "notRoot", nested)).toBe("Not shown at the top of this tree");
+    expect(moveRefusalText(model, "currentParent", group)).toBe("Current location");
+
+    // The starter system tree: a group is not a root of it; a system is already at the top.
+    const systems = application(starterModel, "rdm-systems");
+    const system = placed("system-00", "system", undefined, "rdm-systems");
+    const lab = placed("lab-group", "system-group", system);
+    expect(moveRefusal(starterModel, systems, lab, null, ["system"])).toBe("notRoot");
+    expect(moveRefusal(starterModel, systems, system, null, ["system"])).toBe("currentParent");
   });
 });
 
@@ -174,13 +198,22 @@ describe("gapBranches", () => {
     expect(chooseGapBranch(branches, 0, indentOf)?.parent).toBe(system);
   });
 
-  it("never offers the top level, which has no parent to move into", () => {
-    expect(gapBranches(row(), row())).toEqual([]);
-    expect(gapBranches(row(system), undefined)).toEqual([{ level: 2, parent: system }]);
-    expect(gapBranches(row(system, lab), row())).toEqual([
+  it("offers the top level as the branch without a parent", () => {
+    expect(gapBranches(row(), row())).toEqual([{ level: 1, parent: null }]);
+    expect(gapBranches(undefined, row())).toEqual([{ level: 1, parent: null }]);
+    expect(gapBranches(row(system), undefined)).toEqual([
+      { level: 2, parent: system },
+      { level: 1, parent: null },
+    ]);
+    // A branch that ends back at the top level: the pointer at the far left picks the top level.
+    const branches = gapBranches(row(system, lab), row());
+    expect(branches).toEqual([
       { level: 3, parent: lab },
       { level: 2, parent: system },
+      { level: 1, parent: null },
     ]);
+    expect(chooseGapBranch(branches, indentOf(2), indentOf)?.parent).toBe(system);
+    expect(chooseGapBranch(branches, 0, indentOf)?.parent).toBeNull();
     expect(chooseGapBranch([], 100, indentOf)).toBeUndefined();
   });
 });

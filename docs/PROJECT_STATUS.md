@@ -28,8 +28,8 @@ delivered 2026-09-28; A6, the snapshot table index drift found in A2, delivered 
 and hierarchy editor (Milestone B; B1 schema 0.7 `tree` contract delivered 2026-09-28; B2 move targets with
 D14 eligibility delivered 2026-09-28, the matrix container move a known budget exception, D29; B3 tree
 lens and B4 acceptance delivered 2026-09-28; B5 drag and drop in the tree lens, added in the Milestone B
-review, delivered 2026-09-29; its amendment B5b (move to the top level) closes Milestone B when
-delivered; D34–D36 accepted),
+review, delivered 2026-09-29; its amendment B5b (move to the top level) delivered 2026-09-29, which
+closes Milestone B; D34–D36 accepted),
 and P2 (P2a change lists API and P2b review screen delivered 2026-09-28; D31–D33 accepted), then R1 build
 acceptance (passed 2026-09-28, without B5; [record](BASE_0_8_IMPLEMENTATION_PLAN.md#r1-build-acceptance-and-release))
 and its amendment R1b for B5 and B5b; 0.8.0 releases when both pass. Milestone C (structure

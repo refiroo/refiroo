@@ -2336,6 +2336,10 @@ form .admin-hint {
 .dialog form .candidate.selected {
   background: var(--accent-soft);
 }
+.dialog form .candidate-top-level {
+  box-shadow: 0 1px 0 var(--line);
+  margin-bottom: 3px;
+}
 .candidate input {
   flex: none;
   margin: 0;

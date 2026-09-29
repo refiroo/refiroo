@@ -16,6 +16,10 @@
  * node, into a gap between rows or onto a type heading. A target the model's containment rule or the
  * move's refusals exclude glows red with the reason and takes no drop; an accepted one opens the move
  * dialog with the target chosen, so the move is confirmed and written exactly as Move to… does.
+ *
+ * Both paths also move a record to the top level (B5b, D36): Move to… lists it above the candidates,
+ * and the top-level headings and the gaps between top-level rows take a drop. Only a record of one
+ * of the tree's root types goes there, since the tree shows no other type at the top.
  */
 
 import { useCallback, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
@@ -74,7 +78,7 @@ export function TreeView({
   const [menu, setMenu] = useState<{ item: ObjectItem }>();
   const menuAnchor = useRef<HTMLElement | null>(null);
   const [adding, setAdding] = useState<{ parent: ObjectItem; objectType: ObjectTypeDefinition }>();
-  const [moving, setMoving] = useState<{ item: ObjectItem; target?: ObjectItem }>();
+  const [moving, setMoving] = useState<{ item: ObjectItem; target?: ObjectItem | null }>();
   // A request to focus a record the lens just wrote, kept only while the same record stays open.
   const [focusRequest, setFocusRequest] = useState<TreeFocusRequest & { selectedId?: string }>();
   const requests = useRef(0);
@@ -91,6 +95,14 @@ export function TreeView({
     (objectTypeKey: string) =>
       application.objectTypeKeys.some((key) => childObjectTypeKeys(model, application, key).includes(objectTypeKey)),
     [model, application],
+  );
+  /** Why the record cannot move into `parent` (`null` is the top level), in words; undefined allows it. */
+  const refusalOf = useCallback(
+    (item: ObjectItem, parent: ObjectItem | null) => {
+      const reason = moveRefusal(model, application, item, parent, config.rootObjectTypeKeys);
+      return reason && moveRefusalText(model, reason, item);
+    },
+    [model, application, config.rootObjectTypeKeys],
   );
   const labelAttribute =
     config.labelField === "name" ? undefined : model.attributeTypes.find((item) => item.key === config.labelField);
@@ -300,10 +312,7 @@ export function TreeView({
     drag: actions.has("move")
       ? {
           canDrag: (item) => movable(item.objectTypeKey) && renaming !== item.id && busy !== item.id,
-          refusal: (item, parent) => {
-            const reason = moveRefusal(model, application, item, parent);
-            return reason && moveRefusalText(model, reason, item);
-          },
+          refusal: refusalOf,
           onDrop: (item, parent) => setMoving({ item, target: parent }),
         }
       : undefined,
@@ -445,6 +454,7 @@ export function TreeView({
           label={labelOf(moving.item)}
           workspaceKey={workspaceKey}
           target={moving.target}
+          topLevel={{ refusal: refusalOf(moving.item, null) }}
           onClose={() => {
             const id = moving.item.id;
             setMoving(undefined);

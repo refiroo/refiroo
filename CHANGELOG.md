@@ -210,6 +210,14 @@ All notable changes to this project are documented in this file. The format foll
   sidebar tree and publications never drag (touch drag in 0.10, D35). `test:browser:b3` gains the
   drags; the accessibility and visual gates gain a drag over an accepted and a refused target, light
   and dark.
+- Base 0.8 B5b: moving a record to the top level from the tree lens, by both paths (D36). **Move to…**
+  lists **Top level** above the candidates, outside the paged list, and confirming writes no parent.
+  Dragging onto a top-level heading, into a gap between top-level rows or to the left end of a gap
+  that ends branches down to the top level offers it too, and the drop opens the dialog with **Top
+  level** chosen. Only a nested record of one of the tree's root types goes there; any other type is
+  refused as **Not shown at the top of this tree**, and a record already there as **Current
+  location**. A search's matches offer no top level. `test:browser:b3` moves a nested group of the
+  generated volume tree to the top live by Move to… and in a change set by a drag.
 
 ### Changed
 

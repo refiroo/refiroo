@@ -414,7 +414,7 @@ reorganize reference data without managing hidden connections.
 and parent relationship change together, and a move into the item's own descendants is rejected.
 Routine edits stay live unless I explicitly choose a change set; my place and input survive failure.
 
-**Coverage:** F07, tree lens node menu and move dialog; with mouse or pen, also by dragging the record (B5). **Status:** Delivered 0.8 (B3, accepted in B4; drag in B5).
+**Coverage:** F07, tree lens node menu and move dialog; with mouse or pen, also by dragging the record (B5); to the top level for a tree root type by either path (B5b). **Status:** Delivered 0.8 (B3, accepted in B4; drag in B5; top level in B5b).
 **Example:** SC-09.
 
 ## Integration consumer and data exchange operator

@@ -9,6 +9,9 @@
 // Part 3 (Base 0.8 B5) drags with the mouse: onto a collapsed node that opens under the pointer, into
 // a gap between another group's values, onto the record's own descendant (refused in red, nothing
 // written) and cancelled with Escape, live; then between another codelist's values in a change set.
+// Part 2 ends with B5b on the volume tree, whose root type nests under itself: a nested group moves
+// to the top level by Move to… live and by a drag onto the top-level heading in the change set, where
+// an item dragged there first is refused with its reason.
 // The state inventory is docs/testing/UI_ACCEPTANCE.md.
 import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
@@ -359,6 +362,124 @@ try {
     await h.shot(`b3-volume-${context === "live" ? "live" : "change-set"}-${width}`);
   }
   await h.axe("b3-volume-tree");
+
+  // ---- B5b: a nested group to the top level, by Move to… live and by a drag in the change set ----
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const writes = [];
+  page.on("request", (request) => {
+    if (request.method() !== "GET" && request.url().includes("/api/v1/")) writes.push(`${request.method()} ${request.url()}`);
+  });
+  const topHeading = page.locator(".tree-lens [role='treeitem'][data-tree-key='root|vol-group#']");
+  const topCount = async () => Number((await topHeading.getAttribute("aria-label"))?.split(", ").at(-1)?.replace(/\D/g, ""));
+  for (const [context, suffix] of [
+    ["live", ""],
+    ["change set", `&changeSetId=${dataset.change_set_id}`],
+  ]) {
+    const staged = context !== "live";
+    const name = `B5b ${staged ? "staged" : "live"} group`;
+    const changeSet = staged ? await api(`/change-sets/${dataset.change_set_id}`) : undefined;
+    const nested = await api("/objects", {
+      applicationKey: "vol-catalogue",
+      workspaceKey: "vol-workspace",
+      objectTypeKey: "vol-group",
+      name,
+      parentObjectId: dataset.small_group_id,
+      attributes: [{ attributeTypeKey: "vol-code", value: staged ? "B5B-S" : "B5B-L" }],
+      ...(staged ? { changeSetId: dataset.change_set_id, expectedChangeSetVersion: changeSet.version } : {}),
+    });
+    const read = () => api(`/objects/vol-group/${nested.id}?workspaceKey=vol-workspace${suffix}`);
+    const edges = async () =>
+      (await api(`/relations?objectId=${nested.id}&direction=incoming&relationTypeKey=vol-group-has-child&workspaceKey=vol-workspace${suffix}`)).items;
+    await page.goto(`${uiUrl}/apps/vol-catalogue/views/hierarchy?workspaceKey=vol-workspace${suffix}`);
+    await page.getByRole("tree", { name: "hierarchy" }).waitFor();
+    await page.locator(".tree-lens [role='treeitem'][data-object-id]").first().waitFor();
+    await h.findBySearch(name, name);
+    // The search's matches give way to the tree, revealing the group in its parent's branch.
+    await page
+      .locator(`.tree-lens [role='treeitem'][data-object-id="${nested.id}"][aria-level="2"]`)
+      .waitFor()
+      .catch(() => failures.push(`B5b ${context}: ${name} is not drawn nested`));
+    await topHeading.waitFor();
+    const countBefore = await topCount();
+    const before = writes.length;
+
+    if (!staged) {
+      await h.keyIntoTree();
+      await h.arrowTo(name);
+      await h.menu("Move to…");
+      const dialog = page.getByRole("dialog", { name: `Move ${name}` });
+      await dialog.waitFor();
+      const top = dialog.getByRole("radio", { name: /^Top level/ });
+      await top.waitFor();
+      expect(await top.isEnabled(), `B5b live: Top level is not offered for ${name}`);
+      for (let step = 0; step < 8 && !(await top.evaluate((radio) => radio === document.activeElement)); step++)
+        await page.keyboard.press("Tab");
+      await page.keyboard.press("Space");
+      expect(await top.isChecked(), "B5b live: the keyboard did not choose Top level");
+      const confirm = dialog.getByRole("button", { name: "Move to the top level" });
+      for (let step = 0; step < 6 && !(await confirm.evaluate((button) => button === document.activeElement)); step++)
+        await page.keyboard.press("Tab");
+      await h.axe("b3-move-top-level-dialog");
+      await h.shot("b3-move-top-level-dialog");
+      await page.keyboard.press("Enter");
+      await dialog.waitFor({ state: "detached", timeout: 20000 });
+    } else {
+      // An item: not a root of this tree, so the top level refuses it with its reason.
+      const item = page
+        .locator(`.tree-lens [role='treeitem'][data-object-id="${dataset.small_group_id}"] [data-tree-group$='|vol-item'] [role='treeitem'][data-object-id]`)
+        .first();
+      await item.locator(".tree-row").first().scrollIntoViewIfNeeded();
+      await dragFrom(page, item);
+      await dragOver(page, topHeading);
+      let state = await dragState(page);
+      expect(state.tone === "refused", `B5b change set: the top level is not refused for an item (${JSON.stringify(state)})`);
+      expect(state.text.includes("Not shown at the top of this tree"), `B5b change set: the refusal gives no reason (${state.text})`);
+      await h.shot("b3-drag-top-level-refused-1440");
+      await page.mouse.up();
+      await page.locator(".tree-drag-preview").waitFor({ state: "detached" });
+      await page.waitForTimeout(400);
+      expect(!(await page.getByRole("dialog").count()), "B5b change set: a refused top-level drop opened the dialog");
+      expect(writes.length === before, `B5b change set: a refused drop wrote: ${writes.slice(before).join(", ")}`);
+      checks.push("B5b volume (change set, 1440px): an item dragged onto the top-level heading glows red with “Not shown at the top of this tree”; the release opens nothing and writes nothing");
+
+      // Resting above the top-level window scrolled it towards its start; bring the group back.
+      await h.item(name).locator(".tree-row").first().scrollIntoViewIfNeeded();
+      await dragFrom(page, h.item(name));
+      await dragOver(page, topHeading);
+      state = await dragState(page);
+      expect(state.tone === "accepted", `B5b change set: the top level is not accepted for ${name} (${JSON.stringify(state)})`);
+      expect(state.glowing.some((label) => label.startsWith("vol-groups")), `B5b change set: the top-level heading does not glow (${state.glowing})`);
+      await h.shot("b3-drag-top-level-1440");
+      await page.mouse.up();
+      const dialog = page.getByRole("dialog", { name: `Move ${name}` });
+      await dialog.waitFor();
+      const top = dialog.getByRole("radio", { name: /^Top level/ });
+      await top.waitFor();
+      expect(await top.isChecked(), "B5b change set: the dialog did not open with Top level chosen");
+      expect(writes.length === before, `B5b change set: the drop wrote before it was confirmed: ${writes.slice(before).join(", ")}`);
+      await page.keyboard.press("Enter");
+      await dialog.waitFor({ state: "detached", timeout: 20000 });
+    }
+    await h.expectFocus(name, `B5b ${context}: the moved group`);
+    await page
+      .waitForFunction((id) => document.querySelector(`.tree-lens [role='treeitem'][data-object-id="${id}"]`)?.getAttribute("aria-level") === "1", nested.id, { timeout: 10000 })
+      .catch(() => failures.push(`B5b ${context}: ${name} is not drawn at the top level after the move`));
+    const countAfter = await topCount();
+    expect(countAfter === countBefore + 1, `B5b ${context}: the top-level count went from ${countBefore} to ${countAfter}`);
+    const moved = await read();
+    expect(moved.parentObjectId === null, `B5b ${context}: the API still holds a parent (${moved.parentObjectId})`);
+    const remaining = await edges();
+    expect(remaining.length === 0, `B5b ${context}: a containment edge remains (${JSON.stringify(remaining)})`);
+    if (staged) {
+      const live = await api(`/objects/vol-group/${nested.id}?workspaceKey=vol-workspace`).catch(() => undefined);
+      expect(!live, "B5b change set: the group staged in the change set reached live data");
+    }
+    checks.push(
+      staged
+        ? `B5b volume (change set, 1440px): ${name}, nested in a group, dragged onto the top-level heading glows green; the drop opens Move with Top level chosen, nothing written until Enter; the change set holds it with no parent and no containment edge, the top-level count rises by one, focus on the moved row; live does not have it`
+        : `B5b volume (live, 1440px): Move to… on ${name}, nested in a group, offers Top level above the candidates; Tab, Space and Enter move it (API: no parent, no containment edge); the top-level count rises by one and focus stays on the moved row`,
+    );
+  }
 } catch (error) {
   await harness?.page.screenshot({ path: `${harness.output}/failure.png`, fullPage: true }).catch(() => {});
   failures.push(`volume: ${error.stack ?? error}`);
@@ -530,6 +651,7 @@ const report = {
     "Domain hierarchy (domains, codelists, master values; availability; change set, then publication)",
     `Generated volume tree (groups, items, seven-level nodes sorted by rank; scale ${scale}; live and change set)`,
     "Pointer drags (B5): system hierarchy live, domain hierarchy in a change set",
+    "Top level (B5b): the generated volume tree, Move to… live and a drag in the change set",
   ],
   checks,
   accessibility,

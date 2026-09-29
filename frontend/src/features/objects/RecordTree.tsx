@@ -18,7 +18,8 @@
  *
  * The `tree` lens (Base 0.8 B3) configures the same tree: its own root and node types, a sort and
  * page size per type, labels, per-row extras and item key handling, and (B5) dragging a record to a
- * new parent with mouse or pen (`useTreeDrag`). The sidebar passes no drag, so its rows never drag.
+ * new parent with mouse or pen (`useTreeDrag`), including (B5b) to the top level. The sidebar passes
+ * no drag, so its rows never drag.
  */
 
 import {
@@ -306,6 +307,8 @@ export function RecordTree({
     config: config.drag,
     records,
     indentOf: rowStart,
+    // A search lists matches from every level, so only the tree itself has a top level to drop into.
+    topLevelRows: search ? undefined : (item) => [`root|${item.objectTypeKey}#`],
     expand: (objectId) => toggle(objectId, true),
   });
 

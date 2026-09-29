@@ -277,8 +277,9 @@ than UI endpoints or undocumented limits.
 8. Cross-type object lookup (`GET /objects` over built-in fields) and a general relation edge list
    with publication context, moved from 0.8 (Base 0.8 plan P1, P3, D20).
 9. Consumer API ([CONSUMER_API.md](CONSUMER_API.md)): a read-only tier for systems that use reference
-   data. Model-declared definitions give XREF lookup (search, resolve, get), lists and one shared
-   object shape across object types, with a contract version independent of the management API. The
+   data. Model-declared definitions give XREF lookup (search, resolve, get), batch resolve, crosswalk
+   between representations, `asOf` reads, lists (with or without a parent), publication discovery and
+   one shared object shape across object types, with a contract version independent of the management API. The
    production gateway XREF and list APIs are the functional baseline.
 10. Built-in API reference with [Scalar](https://github.com/scalar/scalar) (MIT) at `/docs`, replacing
     FastAPI's default Swagger UI and ReDoc. One page lists the management API and every active
