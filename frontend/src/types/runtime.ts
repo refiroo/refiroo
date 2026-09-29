@@ -153,6 +153,11 @@ export interface ParentCandidate {
   path: Array<{ id: string; name: string; objectTypeKey: string }>;
   eligible: boolean;
   reason: "self" | "descendant" | "currentParent" | null;
+  /**
+   * With `includeTypeChanges` in a change set (C3): the types the record would be under the
+   * candidate, its own where the candidate's type already contains it.
+   */
+  objectTypeKeys?: string[];
 }
 
 export interface ParentCandidatePage extends PageNavigation {
@@ -363,6 +368,8 @@ export interface MappingReplacementResponse {
 export type ChangeKind = "added" | "changed" | "removed";
 
 export interface ObjectChangeState {
+  /** The side's type; it differs between the sides of a reclassified record (C1). */
+  objectTypeKey: string;
   name: string;
   parentObjectId: string | null;
   attributes: ObjectAttributeValue[];
@@ -384,7 +391,7 @@ export interface ObjectChange {
   before: ObjectChangeState | null;
   /** Null for a removed record. */
   after: ObjectChangeState | null;
-  /** `name`, `parent` and attribute keys that differ between the sides. */
+  /** `objectType` (first), `name`, `parent` and attribute keys that differ between the sides. */
   changedFields: string[];
   /** Root first, ending with the record: where the change set puts it, or where the source held a removed one. */
   path: ObjectPathPart[];
@@ -422,4 +429,172 @@ export interface RelationChange {
 
 export interface RelationChangePage extends PageNavigation {
   items: RelationChange[];
+}
+
+/* Restructuring (Base 0.8 Milestone C, ADR-034): a plan previewed, then applied in a change set. */
+
+export type RestructuringOperation =
+  | { kind: "move"; objectId: string; parentObjectId: string | null; objectTypeKey?: string }
+  | { kind: "changeType"; objectId: string; objectTypeKey: string }
+  | {
+      kind: "insertLevel";
+      parentObjectId: string | null;
+      childObjectIds: string[];
+      objectTypeKey: string;
+      name: string;
+    }
+  | { kind: "removeLevel"; objectId: string }
+  | { kind: "changeTypeUnder"; objectId: string; fromObjectTypeKey: string; objectTypeKey: string };
+
+export interface RestructuringTypeChoice {
+  objectTypeKey: string;
+  parentObjectTypeKey: string | null;
+  newObjectTypeKey: string;
+}
+
+export interface RestructuringMappingChoice {
+  fromObjectTypeKey: string;
+  toObjectTypeKey: string;
+  /** `from` names a source attribute type, or null for no source; unlisted ones keep the suggestion. */
+  attributes: { attributeTypeKey: string; from: string | null }[];
+  restore: boolean;
+}
+
+export interface RestructuringRelationInput {
+  relationTypeKey: string;
+  direction: "outgoing" | "incoming";
+  objectId: string;
+}
+
+export interface RestructuringInput {
+  /** A record's ID, or `new` for the record `insertLevel` creates. */
+  objectId: string;
+  attributes: { attributeTypeKey: string; value: unknown }[];
+  relations: RestructuringRelationInput[];
+}
+
+export interface RestructuringRequest {
+  operation: RestructuringOperation;
+  choices: { types: RestructuringTypeChoice[]; mappings: RestructuringMappingChoice[] };
+  inputs: RestructuringInput[];
+}
+
+export type RestructuringOutcomeFilter =
+  "typeChanged" | "moved" | "withoutPlace" | "restored" | "needsInput" | "refused";
+
+export interface RestructuringSummary {
+  recordCount: number;
+  typeChangeCount: number;
+  moveCount: number;
+  createdCount: number;
+  removedCount: number;
+  valuesWithoutPlaceCount: number;
+  relationshipsWithoutPlaceCount: number;
+  restoredCount: number;
+  inputsNeededCount: number;
+  refusalCount: number;
+}
+
+export interface RestructuringRefusal {
+  code: string;
+  message: string;
+  objectId?: string | null;
+  conflictingObjectId?: string | null;
+  details?: Record<string, unknown> | null;
+}
+
+export interface RestructuringTypeQuestion {
+  objectTypeKey: string;
+  parentObjectTypeKey: string | null;
+  options: string[];
+  chosen: string | null;
+  recordCount: number;
+}
+
+export interface RestructuringPairAttribute {
+  attributeTypeKey: string;
+  from: string | null;
+  rule: "sameType" | "display" | "uniqueRequired" | "choice" | "none";
+  alternatives: string[];
+  kept: number;
+  mapped: number;
+  restored: number;
+  inputs: number;
+  empty: number;
+}
+
+export interface RestructuringPair {
+  fromObjectTypeKey: string;
+  toObjectTypeKey: string;
+  recordCount: number;
+  restore: boolean;
+  attributes: RestructuringPairAttribute[];
+  withoutPlace: { attributeTypeKey: string; count: number }[];
+  relations: {
+    relationTypeKey: string;
+    direction: "outgoing" | "incoming";
+    outcome: "kept" | "withoutPlace";
+    count: number;
+  }[];
+}
+
+export interface RestructuringRelationship {
+  relationId: string;
+  relationTypeKey: string;
+  direction: "outgoing" | "incoming";
+  objectId: string;
+  objectTypeKey: string;
+  name: string;
+}
+
+export interface RestructuringInputNeeded {
+  kind: "attribute" | "relation";
+  key: string;
+  reason: "required" | "invalidValue" | "atLeastOneOf" | "requiredRelation";
+}
+
+export interface RestructuringRecord {
+  objectId: string;
+  name: string;
+  path: ObjectPathPart[];
+  /** Null for the record `insertLevel` creates. */
+  before: { objectTypeKey: string | null; parentObjectId: string | null } | null;
+  /** Null for the record `removeLevel` deletes; its type is null while its question is open. */
+  after: { objectTypeKey: string | null; parentObjectId: string | null } | null;
+  outcomes: ("typeChanged" | "moved" | "created" | "removed")[];
+  attributes: {
+    attributeTypeKey: string;
+    from: string | null;
+    outcome: "kept" | "mapped" | "restored" | "input" | "default" | "empty";
+    value: unknown;
+  }[];
+  withoutPlace: {
+    attributes: { attributeTypeKey: string; value: unknown }[];
+    relationships: RestructuringRelationship[];
+  };
+  restoredRelationships: RestructuringRelationship[];
+  inputsNeeded: RestructuringInputNeeded[];
+  refusals: RestructuringRefusal[];
+}
+
+export interface RestructuringPreview extends PageNavigation {
+  changeSetId: string;
+  changeSetVersion: number;
+  planDigest: string;
+  status: "ready" | "needsInput" | "refused";
+  summary: RestructuringSummary;
+  typeQuestions: RestructuringTypeQuestion[];
+  pairs: RestructuringPair[];
+  refusals: RestructuringRefusal[];
+  refusalCount: number;
+  refusalsTruncated: boolean;
+  records: RestructuringRecord[];
+}
+
+export interface RestructuringResult {
+  operationId: string;
+  changeSetId: string;
+  changeSetVersion: number;
+  summary: RestructuringSummary;
+  createdObjectId: string | null;
 }

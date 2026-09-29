@@ -55,6 +55,7 @@ from .change_sets import (
     validate_change_set_relation,
     write_new_change_set_object,
 )
+from .model.placements import application_type_keys, possible_types
 from .pagination import Page, PageRequest, paginate_sequence
 from .type_changes import (
     KEEP_PARENT,
@@ -735,38 +736,6 @@ def _run(
 def _chunks(ids: Sequence[str]) -> Iterable[list[str]]:
     for start in range(0, len(ids), _CHUNK):
         yield list(ids[start : start + _CHUNK])
-
-
-def possible_types(
-    model: EngineModel, application_types: Iterable[str], parent_type: str | None
-) -> tuple[str, ...]:
-    """The application's types a parent of ``parent_type`` may contain (``None``: the top level):
-    those it contains through exactly one parent relation, or those ``rootCreatable``."""
-    result = []
-    for key in application_types:
-        object_type = model.object_type(key)
-        if object_type is None:
-            continue
-        if parent_type is None:
-            if object_type.features.get("rootCreatable", False):
-                result.append(key)
-            continue
-        keys = parent_relation_keys(model, key)
-        matches = [
-            item
-            for item in model.objectTypeRelations
-            if item.relationTypeKey in keys
-            and item.fromObjectTypeKey == parent_type
-            and item.toObjectTypeKey == key
-        ]
-        if len(matches) == 1:
-            result.append(key)
-    return tuple(result)
-
-
-def application_type_keys(model: EngineModel, application_key: str) -> tuple[str, ...]:
-    application = next((item for item in model.applications if item.key == application_key), None)
-    return tuple(application.objectTypeKeys) if application else ()
 
 
 def _path_part(object_id: str, object_type_key: str, name: str) -> dict[str, Any]:

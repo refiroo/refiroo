@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { api, type ObjectQuery } from "@/api/client";
 import { Explorer } from "@/features/objects/Explorer";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
+import { applicationPlacements } from "@/test/placements";
 import type { EngineModel, ObjectItem, ObjectPage } from "@/types";
 
 beforeEach(() => {
@@ -48,6 +49,15 @@ function treeModel(): EngineModel {
     pluralName: "Units",
     behavior: { parentRelationTypeKeys: ["domain-contains-unit"] },
   });
+  model.placements = {
+    applications: [
+      applicationPlacements("test-app", ["domain"], {
+        domain: ["codelist", "unit"],
+        codelist: ["codelist"],
+        unit: [],
+      }),
+    ],
+  };
   const application = model.applications[0];
   application.objectTypeKeys = ["domain", "codelist", "unit"];
   const domains = application.views[0];
@@ -184,7 +194,13 @@ describe("Explorer", () => {
     await waitFor(() =>
       expect(screen.getByRole("treeitem", { name: "Connections" })).toHaveAttribute("aria-expanded", "false"),
     );
-    again.rerender(explorer({ model, application: { ...model.applications[0], key: "another-app" } }));
+    // Another application with the same shape, as the engine would serve its placements.
+    const [places] = model.placements!.applications;
+    const other = {
+      ...model,
+      placements: { applications: [places, { ...places, applicationKey: "another-app" }] },
+    };
+    again.rerender(explorer({ model: other, application: { ...model.applications[0], key: "another-app" } }));
     await waitFor(() =>
       expect(screen.getByRole("treeitem", { name: "Connections" })).toHaveAttribute("aria-expanded", "false"),
     );

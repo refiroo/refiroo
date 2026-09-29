@@ -28,6 +28,7 @@
     "test:browser:a5": "node e2e/a5-matrix-acceptance.mjs",
     "test:browser:b3": "node e2e/b3-tree-lens.mjs",
     "test:browser:b4": "node e2e/b4-hierarchy-acceptance.mjs",
+    "test:browser:c4": "node e2e/c4-restructuring.mjs",
     "test:browser:p2": "node e2e/p2-change-review.mjs",
     "test:browser:w4": "node e2e/w4-workspace-admin.mjs",
     "test:gate-helpers": "node --test e2e/helpers/*.node-test.mjs",

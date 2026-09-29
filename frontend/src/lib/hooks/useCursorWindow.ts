@@ -241,7 +241,13 @@ export function useCursorWindow<T>(
     const index = viewportIndex.current;
     const page = held.pages.find((item) => index >= item.startIndex && index < item.startIndex + item.items.length);
     const cursor = page && page.prevCursor ? (page.anchor ?? undefined) : undefined;
-    replace(cursor ? { cursor } : {}, (start) => (cursor ? Math.max(start, index) : index > 0 ? index : "start"));
+    // A list whose cursors bind its content (a restructuring plan) can outlive them: reopen at the start.
+    replace(
+      cursor ? { cursor } : {},
+      (start) => (cursor ? Math.max(start, index) : index > 0 ? index : "start"),
+      undefined,
+      true,
+    );
   }, [replace]);
 
   const refreshToken = options.refreshToken ?? 0;

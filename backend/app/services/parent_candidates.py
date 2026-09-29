@@ -14,6 +14,11 @@ In a change set, ``includeTypeChanges`` (Base 0.8 C3) also lists the records a m
 the record's type could go under: those of types that can contain another type of the record's
 application, as the restructuring planner decides it. Each candidate then names the types the
 record would be there.
+
+``withinObjectTypeKey`` (Base 0.8 C4) keeps the list to a set of types, as a client that shows only
+some types (a tree view) needs: candidates of those types only, and with ``includeTypeChanges`` only
+those types as what the record would become, a candidate left with none dropped. The server filters,
+so totals and positions stay truthful.
 """
 
 from typing import Any
@@ -26,6 +31,7 @@ from ..errors import api_error
 from ..models.api import ObjectPathPart, ParentCandidate, ParentCandidatePage
 from ..models.database import RdmObject
 from ..models.schema import EngineModel
+from .model.placements import application_type_keys, possible_types
 from .model.traversal import parent_type_keys
 from .objects import (
     LIVE_OBJECT_COLUMNS,
@@ -35,7 +41,6 @@ from .objects import (
     refine_object_query,
 )
 from .pagination import Keyed, Overlay, PageRequest, paginate_statement
-from .restructuring import application_type_keys, possible_types
 from .snapshot_reads import (
     SnapshotContext,
     change_set_context,
@@ -60,6 +65,7 @@ def parent_candidates(
     page: PageRequest,
     page_size: int,
     include_type_changes: bool = False,
+    within_object_type_keys: list[str] | None = None,
 ) -> ParentCandidatePage:
     begin_snapshot_read(session)
     get_object_type(model, object_type_key)
@@ -83,15 +89,32 @@ def parent_candidates(
             raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
         application_key, current_parent = item.application_key, item.parent_object_id
 
+    within = set(within_object_type_keys) if within_object_type_keys else None
+    unknown = sorted(key for key in within or () if model.object_type(key) is None)
+    if unknown:
+        raise api_error(
+            422,
+            "unknown_object_type",
+            f"withinObjectTypeKey names object types the model does not have: {unknown}",
+            {"parameter": "withinObjectTypeKey", "objectTypeKeys": unknown},
+        )
     own_parents = parent_type_keys(model, object_type_key)
+    if within is not None:
+        own_parents = own_parents & within
     becomes: dict[str, list[str]] = {}
     if include_type_changes:
         application_types = application_type_keys(model, application_key)
         for key in application_types:
+            if within is not None and key not in within:
+                continue
             if key in own_parents:
                 becomes[key] = [object_type_key]
-            elif options := possible_types(model, application_types, key):
-                becomes[key] = list(options)
+            elif options := [
+                option
+                for option in possible_types(model, application_types, key)
+                if within is None or option in within
+            ]:
+                becomes[key] = options
     types = sorted(own_parents | set(becomes))
     if parent_object_type_key is not None:
         if parent_object_type_key not in types:
@@ -109,6 +132,7 @@ def parent_candidates(
         "parentObjectTypeKey": parent_object_type_key,
         "search": search,
         **({"includeTypeChanges": True} if include_type_changes else {}),
+        **({"withinObjectTypeKey": sorted(within)} if within is not None else {}),
     }
 
     if context is None:

@@ -26,6 +26,8 @@ export interface TreeDragConfiguration {
    * pointer; undefined accepts.
    */
   refusal: (item: ObjectItem, parent: ObjectItem | null) => string | undefined;
+  /** What an accepted target does beyond a move, in words beside the pointer (C4: “Becomes …”). */
+  note?: (item: ObjectItem, parent: ObjectItem | null) => string | undefined;
   /** A release over a target that accepts. */
   onDrop: (item: ObjectItem, parent: ObjectItem | null) => void;
 }
@@ -40,6 +42,8 @@ export interface TreeDropTarget {
    */
   rows: string[];
   refusal?: string;
+  /** Set on an accepted target that does more than move the record. */
+  note?: string;
   /** A gap's drop line, in viewport coordinates, indented to the chosen branch. */
   line?: { top: number; left: number; width: number };
 }
@@ -117,25 +121,19 @@ export function useTreeDrag({
         rows: string[],
         line?: TreeDropTarget["line"],
       ): TreeDropTarget | undefined => {
+        const judge = (parent: ObjectItem | null) => {
+          const refusal = latest.current.config?.refusal(dragged, parent);
+          return { refusal, note: refusal ? undefined : latest.current.config?.note?.(dragged, parent) };
+        };
         if (!parentItem) {
           // No parent item: the top level, where the tree shows one.
           const topRows = latest.current.topLevelRows?.(dragged);
           if (!topRows) return undefined;
-          return {
-            parent: null,
-            rows: [...new Set([...rows, ...topRows])],
-            refusal: latest.current.config?.refusal(dragged, null),
-            line,
-          };
+          return { parent: null, rows: [...new Set([...rows, ...topRows])], ...judge(null), line };
         }
         const parent = records.get(keyOf(parentItem));
         if (!parent) return undefined;
-        return {
-          parent,
-          rows: [keyOf(parentItem), ...rows],
-          refusal: latest.current.config?.refusal(dragged, parent),
-          line,
-        };
+        return { parent, rows: [keyOf(parentItem), ...rows], ...judge(parent), line };
       };
       if (zone === 0)
         return item.dataset.objectId ? target(item, []) : target(parentItemOf(item) ?? null, [keyOf(item)]);
@@ -171,7 +169,9 @@ export function useTreeDrag({
     const current = session.current;
     if (!current?.started) return;
     const target = targetAt(current.at.x, current.at.y, current.item);
-    const signature = JSON.stringify(target ? [target.rows, target.refusal ?? "", target.line ?? ""] : "");
+    const signature = JSON.stringify(
+      target ? [target.rows, target.refusal ?? "", target.note ?? "", target.line ?? ""] : "",
+    );
     if (signature !== current.signature) {
       current.signature = signature;
       current.target = target;

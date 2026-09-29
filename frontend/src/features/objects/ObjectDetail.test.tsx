@@ -1,6 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { api } from "@/api/client";
+import { ApiError, api } from "@/api/client";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
 import { ObjectDetail } from "@/features/objects/ObjectDetail";
 
@@ -50,6 +50,32 @@ describe("ObjectDetail lifecycle controls", () => {
       expect(input).toHaveValue("unsaved");
     },
   );
+  it("follows a record whose type changed to its current type (D42)", async () => {
+    const read = vi.spyOn(api, "object").mockRejectedValue(
+      new ApiError(409, "object_type_changed", "The record is a domain in this change set.", {
+        objectId: codelistObject.id,
+        objectTypeKey: "domain",
+        requestedObjectTypeKey: "codelist",
+      }),
+    );
+    const onTypeChanged = vi.fn();
+    render(
+      <ObjectDetail
+        model={testModel}
+        application={testModel.applications[0]}
+        objectTypeKey="codelist"
+        objectId={codelistObject.id}
+        workspaceKey="default"
+        onOpen={vi.fn()}
+        onBack={vi.fn()}
+        onTypeChanged={onTypeChanged}
+      />,
+    );
+    await waitFor(() => expect(onTypeChanged).toHaveBeenCalledWith("domain"));
+    expect(read).toHaveBeenCalledWith("codelist", codelistObject.id, "default");
+    expect(screen.queryByText("Object unavailable")).not.toBeInTheDocument();
+  });
+
   it.each([domainObject, codelistObject])("retries $objectTypeKey in the selected workspace", async (object) => {
     const read = vi
       .spyOn(api, "object")

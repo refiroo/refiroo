@@ -3,6 +3,19 @@ import type { EngineModel, ObjectItem } from "@/types";
 // A minimal two-object-type model used to exercise the generic renderers and helpers. The point of
 // the fixture is to prove the code path is model-driven, not to mirror the starter application.
 export const testModel: EngineModel = {
+  // As `GET /model/placements` serves this model: domains stand at the top and contain codelists.
+  placements: {
+    applications: [
+      {
+        applicationKey: "test-app",
+        topLevelObjectTypeKeys: ["domain"],
+        parents: [
+          { objectTypeKey: "domain", childObjectTypeKeys: ["codelist"], possibleObjectTypeKeys: ["codelist"] },
+          { objectTypeKey: "codelist", childObjectTypeKeys: [], possibleObjectTypeKeys: [] },
+        ],
+      },
+    ],
+  },
   schemaVersion: "0.5",
   release: { key: "test", name: "Test", version: "0.3.0" },
   product: { name: "Test Engine" },
@@ -58,7 +71,7 @@ export const testModel: EngineModel = {
       name: "Contains",
       reverseName: "Belongs to",
       isOriented: true,
-      features: {},
+      features: { parentOf: true },
     },
   ],
   objectTypeRelations: [

@@ -10,8 +10,9 @@
 // a gap between another group's values, onto the record's own descendant (refused in red, nothing
 // written) and cancelled with Escape, live; then between another codelist's values in a change set.
 // Part 2 ends with B5b on the volume tree, whose root type nests under itself: a nested group moves
-// to the top level by Move to… live and by a drag onto the top-level heading in the change set, where
-// an item dragged there first is refused with its reason.
+// to the top level by Move to… live and by a drag onto the top-level heading in the change set. An
+// item dragged there first is refused with its reason live, and in the change set says it becomes a
+// group (C4) before the drag is cancelled.
 // The state inventory is docs/testing/UI_ACCEPTANCE.md.
 import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
@@ -403,6 +404,34 @@ try {
     const countBefore = await topCount();
     const before = writes.length;
 
+    // An item: not a root of this tree. Live, the top level refuses it with its reason; in a change
+    // set it becomes a group there (C4), which c4-restructuring covers, so here the drag is cancelled.
+    const item = page
+      .locator(`.tree-lens [role='treeitem'][data-object-id="${dataset.small_group_id}"] [data-tree-group$='|vol-item'] [role='treeitem'][data-object-id]`)
+      .first();
+    await item.locator(".tree-row").first().scrollIntoViewIfNeeded();
+    await dragFrom(page, item);
+    await dragOver(page, topHeading);
+    const itemState = await dragState(page);
+    if (!staged) {
+      expect(itemState.tone === "refused", `B5b live: the top level is not refused for an item (${JSON.stringify(itemState)})`);
+      expect(itemState.text.includes("Not shown at the top of this tree"), `B5b live: the refusal gives no reason (${itemState.text})`);
+      await h.shot("b3-drag-top-level-refused-1440");
+      await page.mouse.up();
+      await page.locator(".tree-drag-preview").waitFor({ state: "detached" });
+      await page.waitForTimeout(400);
+      expect(!(await page.getByRole("dialog").count()), "B5b live: a refused top-level drop opened the dialog");
+      expect(writes.length === before, `B5b live: a refused drop wrote: ${writes.slice(before).join(", ")}`);
+      checks.push("B5b volume (live, 1440px): an item dragged onto the top-level heading glows red with “Not shown at the top of this tree”; the release opens nothing and writes nothing");
+    } else {
+      expect(itemState.tone === "accepted" && itemState.text.includes("Becomes vol-group"), `B5b change set: an item at the top level does not say it becomes a group (${JSON.stringify(itemState)})`);
+      await cancelDrag(page);
+      expect(writes.length === before, `B5b change set: a cancelled drag wrote: ${writes.slice(before).join(", ")}`);
+      checks.push("B5b volume (change set, 1440px): an item dragged onto the top-level heading glows green with “Becomes vol-group” (C4); Escape cancels and nothing is written");
+    }
+    // Resting above the top-level window scrolled it towards its start; bring the group back.
+    await h.item(name).locator(".tree-row").first().scrollIntoViewIfNeeded();
+
     if (!staged) {
       await h.keyIntoTree();
       await h.arrowTo(name);
@@ -424,29 +453,9 @@ try {
       await page.keyboard.press("Enter");
       await dialog.waitFor({ state: "detached", timeout: 20000 });
     } else {
-      // An item: not a root of this tree, so the top level refuses it with its reason.
-      const item = page
-        .locator(`.tree-lens [role='treeitem'][data-object-id="${dataset.small_group_id}"] [data-tree-group$='|vol-item'] [role='treeitem'][data-object-id]`)
-        .first();
-      await item.locator(".tree-row").first().scrollIntoViewIfNeeded();
-      await dragFrom(page, item);
-      await dragOver(page, topHeading);
-      let state = await dragState(page);
-      expect(state.tone === "refused", `B5b change set: the top level is not refused for an item (${JSON.stringify(state)})`);
-      expect(state.text.includes("Not shown at the top of this tree"), `B5b change set: the refusal gives no reason (${state.text})`);
-      await h.shot("b3-drag-top-level-refused-1440");
-      await page.mouse.up();
-      await page.locator(".tree-drag-preview").waitFor({ state: "detached" });
-      await page.waitForTimeout(400);
-      expect(!(await page.getByRole("dialog").count()), "B5b change set: a refused top-level drop opened the dialog");
-      expect(writes.length === before, `B5b change set: a refused drop wrote: ${writes.slice(before).join(", ")}`);
-      checks.push("B5b volume (change set, 1440px): an item dragged onto the top-level heading glows red with “Not shown at the top of this tree”; the release opens nothing and writes nothing");
-
-      // Resting above the top-level window scrolled it towards its start; bring the group back.
-      await h.item(name).locator(".tree-row").first().scrollIntoViewIfNeeded();
       await dragFrom(page, h.item(name));
       await dragOver(page, topHeading);
-      state = await dragState(page);
+      const state = await dragState(page);
       expect(state.tone === "accepted", `B5b change set: the top level is not accepted for ${name} (${JSON.stringify(state)})`);
       expect(state.glowing.some((label) => label.startsWith("vol-groups")), `B5b change set: the top-level heading does not glow (${state.glowing})`);
       await h.shot("b3-drag-top-level-1440");

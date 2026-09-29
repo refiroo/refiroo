@@ -9,15 +9,24 @@ function jsonResponse(body: unknown, status = 200) {
 
 describe("API client", () => {
   it("requests the exact model for a workspace context", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({}));
+    const placements = { applications: [] };
+    const fetchMock = vi
+      .fn()
+      .mockImplementation(async (url: string) =>
+        jsonResponse(url.includes("/placements") ? placements : { schemaVersion: "0.7" }),
+      );
     vi.stubGlobal("fetch", fetchMock);
 
-    await api.model({ workspaceKey: "West & East", publicationId: "publication/id" });
+    const model = await api.model({ workspaceKey: "West & East", publicationId: "publication/id" });
 
-    const url = new URL(String(fetchMock.mock.calls[0][0]));
-    expect(url.pathname).toBe("/api/v1/model");
-    expect(url.searchParams.get("workspaceKey")).toBe("West & East");
-    expect(url.searchParams.get("publicationId")).toBe("publication/id");
+    // The model and where it lets records stand, read in the same context (C4).
+    const urls = fetchMock.mock.calls.map(([url]) => new URL(String(url)));
+    expect(urls.map((url) => url.pathname)).toEqual(["/api/v1/model", "/api/v1/model/placements"]);
+    for (const url of urls) {
+      expect(url.searchParams.get("workspaceKey")).toBe("West & East");
+      expect(url.searchParams.get("publicationId")).toBe("publication/id");
+    }
+    expect(model).toEqual({ schemaVersion: "0.7", placements });
   });
 
   it("reads move targets live or in a change set, with search, a type and paging", async () => {
@@ -45,6 +54,19 @@ describe("API client", () => {
     // A change set names the context on its own, as the route takes one or the other.
     const staged = new URL(String(fetchMock.mock.calls[1][0]));
     expect(Object.fromEntries(staged.searchParams)).toEqual({ changeSetId: "cs/1", position: "40" });
+  });
+
+  it("asks for move targets that change the type, kept to repeatable types (C4)", async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => jsonResponse({ items: [], nextCursor: null }));
+    vi.stubGlobal("fetch", fetchMock);
+    await api.parentCandidates("group", "id", {
+      changeSetId: "cs",
+      includeTypeChanges: true,
+      withinObjectTypeKeys: ["system", "system group"],
+    });
+    const url = new URL(String(fetchMock.mock.calls[0][0]));
+    expect(url.searchParams.get("includeTypeChanges")).toBe("true");
+    expect(url.searchParams.getAll("withinObjectTypeKey")).toEqual(["system", "system group"]);
   });
 
   it("reads a change set's record and relationship changes with repeatable filters", async () => {
@@ -300,14 +322,16 @@ it("encodes relation matrix reads and a claimed unlink as the A2/A3 contract nam
 });
 
 describe("HTML and non-JSON response hardening", () => {
+  // Loading a model reads the model and its placements, so each read gets a response of its own.
   it("does not expose HTML error bodies as messages", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response("<!DOCTYPE html><html><body>Vite dev page</body></html>", {
-          status: 502,
-          headers: { "content-type": "text/html" },
-        }),
+      vi.fn().mockImplementation(
+        async () =>
+          new Response("<!DOCTYPE html><html><body>Vite dev page</body></html>", {
+            status: 502,
+            headers: { "content-type": "text/html" },
+          }),
       ),
     );
     const request = api.model();
@@ -323,11 +347,12 @@ describe("HTML and non-JSON response hardening", () => {
   it("rejects unexpected HTML 200 responses", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response("<html><body>OK</body></html>", {
-          status: 200,
-          headers: { "content-type": "text/html" },
-        }),
+      vi.fn().mockImplementation(
+        async () =>
+          new Response("<html><body>OK</body></html>", {
+            status: 200,
+            headers: { "content-type": "text/html" },
+          }),
       ),
     );
     await expect(api.model()).rejects.toEqual(
@@ -343,8 +368,8 @@ describe("HTML and non-JSON response hardening", () => {
       "fetch",
       vi
         .fn()
-        .mockResolvedValue(
-          new Response("Service unavailable", { status: 503, headers: { "content-type": "text/plain" } }),
+        .mockImplementation(
+          async () => new Response("Service unavailable", { status: 503, headers: { "content-type": "text/plain" } }),
         ),
     );
     const request = api.model();
@@ -362,11 +387,12 @@ describe("HTML and non-JSON response hardening", () => {
   it("does not expose an HTML fragment that omits document tags", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response("<body>upstream failure</body>", {
-          status: 500,
-          headers: { "content-type": "text/plain" },
-        }),
+      vi.fn().mockImplementation(
+        async () =>
+          new Response("<body>upstream failure</body>", {
+            status: 500,
+            headers: { "content-type": "text/plain" },
+          }),
       ),
     );
     await expect(api.model()).rejects.toEqual(

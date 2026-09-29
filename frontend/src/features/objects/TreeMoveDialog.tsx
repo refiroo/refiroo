@@ -14,6 +14,13 @@
  * The tree can also offer its top level (B5b, D36) as one more choice above the candidates, enabled
  * or disabled with the tree's reason. It is not a candidate, so the list's totals stay truthful;
  * choosing it writes no parent.
+ *
+ * In a change set the dialog can also offer places where the record's type cannot stand but another
+ * type can (C4, ADR-034): the candidates then carry the types the record would become, and such a
+ * place says “Becomes <type>”. Choosing one does not move the record here; it hands the place to
+ * the restructuring preview, which shows what changes before anything is written. A caller that shows
+ * only some types keeps the candidates to them (`withinObjectTypeKeys`), and the server filters, so
+ * the list's totals stay truthful.
  */
 
 import { useState } from "react";
@@ -22,6 +29,7 @@ import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { objectTypeFor } from "@/model/lookup";
+import { typeNames } from "@/model/restructuring";
 import { MOVE_REFUSAL_TEXT } from "@/model/treeDrop";
 import type { EngineModel, ObjectItem, ParentCandidate } from "@/types";
 import { Icon } from "@/ui/Icon";
@@ -42,8 +50,11 @@ export function TreeMoveDialog({
   workspaceKey,
   target,
   topLevel,
+  typeChanges = false,
+  withinObjectTypeKeys,
   onClose,
   onMoved,
+  onTypeChange,
 }: {
   model: EngineModel;
   item: ObjectItem;
@@ -51,10 +62,19 @@ export function TreeMoveDialog({
   workspaceKey: string;
   /** A parent chosen before the dialog opens, such as a drop target; `null` is the top level. */
   target?: Pick<ObjectItem, "id" | "objectTypeKey" | "name" | "path"> | null;
-  /** Offers the top level, refused with the reason in words when `refusal` is set. */
-  topLevel?: { refusal?: string };
+  /**
+   * Offers the top level, refused with the reason in words when `refusal` is set; `becomes` names the
+   * types the record would become there, where its own cannot stand.
+   */
+  topLevel?: { refusal?: string; becomes?: string[] };
+  /** Also offers places that change the record's type (in a change set only, D38). */
+  typeChanges?: boolean;
+  /** Keeps candidates, and the types the record would become, to these types. */
+  withinObjectTypeKeys?: readonly string[];
   onClose: () => void;
   onMoved: (moved: ObjectItem) => void;
+  /** A place that changes the record's type was chosen; `null` is the top level. */
+  onTypeChange?: (parent: ParentCandidate | null) => void;
 }) {
   const api = useDataApi();
   const [item, setItem] = useState(initial);
@@ -79,15 +99,23 @@ export function TreeMoveDialog({
       api.parentCandidates(item.objectTypeKey, item.id, {
         workspaceKey,
         search: debounced || undefined,
+        includeTypeChanges: typeChanges || undefined,
+        withinObjectTypeKeys,
         ...selector,
         pageSize: PAGE_SIZE,
       }),
-    [item.objectTypeKey, item.id, workspaceKey, debounced],
+    [item.objectTypeKey, item.id, workspaceKey, debounced, typeChanges, withinObjectTypeKeys?.join(",")],
   );
+  /** The types the record would become under a candidate, when its own cannot stand there. */
+  const becomes = (candidate: ParentCandidate) =>
+    candidate.objectTypeKeys && !candidate.objectTypeKeys.includes(item.objectTypeKey)
+      ? candidate.objectTypeKeys
+      : undefined;
   const top = chosen === TOP_LEVEL;
   const selected =
     chosen === TOP_LEVEL ? undefined : (candidates.items.find((candidate) => candidate.id === chosen?.id) ?? chosen);
   const eligible = top ? Boolean(topLevel && !topLevel.refusal) : Boolean(selected?.eligible);
+  const changesType = top ? Boolean(topLevel?.becomes) : Boolean(selected && becomes(selected));
   const types = new Set(candidates.items.map((candidate) => candidate.objectTypeKey));
   const where = item.path
     .slice(0, -1)
@@ -96,6 +124,10 @@ export function TreeMoveDialog({
 
   async function move() {
     if (!eligible) return;
+    if (changesType) {
+      onTypeChange?.(top ? null : selected!);
+      return;
+    }
     setMoving(true);
     setError("");
     try {
@@ -155,6 +187,9 @@ export function TreeMoveDialog({
                 <small>No parent</small>
               </span>
               {topLevel.refusal && <span className="pill">{topLevel.refusal}</span>}
+              {!topLevel.refusal && topLevel.becomes && (
+                <span className="pill active-pill">Becomes {typeNames(model, topLevel.becomes)}</span>
+              )}
             </label>
           )}
           <ScrollWindow
@@ -172,6 +207,7 @@ export function TreeMoveDialog({
                 .map((part) => part.name)
                 .join(" / ");
               const typeName = types.size > 1 ? objectTypeFor(model, candidate.objectTypeKey)?.name : undefined;
+              const newTypes = candidate.eligible ? becomes(candidate) : undefined;
               return (
                 <label
                   key={candidate.id}
@@ -194,6 +230,7 @@ export function TreeMoveDialog({
                   {!candidate.eligible && candidate.reason && (
                     <span className="pill">{MOVE_REFUSAL_TEXT[candidate.reason]}</span>
                   )}
+                  {newTypes && <span className="pill active-pill">Becomes {typeNames(model, newTypes)}</span>}
                 </label>
               );
             })}
@@ -229,7 +266,15 @@ export function TreeMoveDialog({
             Cancel
           </button>
           <button className="primary" disabled={moving || !eligible}>
-            {moving ? "Moving…" : top ? "Move to the top level" : selected ? `Move to ${selected.name}` : "Move"}
+            {moving
+              ? "Moving…"
+              : changesType
+                ? "Preview the type change"
+                : top
+                  ? "Move to the top level"
+                  : selected
+                    ? `Move to ${selected.name}`
+                    : "Move"}
           </button>
         </div>
       </form>

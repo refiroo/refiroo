@@ -136,6 +136,28 @@ class ObjectPathPart(BaseModel):
     objectTypeKey: str
 
 
+class ModelPlacementParent(BaseModel):
+    """A type of the application as a parent: the types it contains, and the types a record can
+    become under it (a restructuring's possible types, ADR-034)."""
+
+    objectTypeKey: str
+    childObjectTypeKeys: list[str]
+    possibleObjectTypeKeys: list[str]
+
+
+class ModelApplicationPlacements(BaseModel):
+    applicationKey: str
+    topLevelObjectTypeKeys: list[str]
+    parents: list[ModelPlacementParent]
+
+
+class ModelPlacements(BaseModel):
+    """Where the model lets records stand, per application (Base 0.8 C4): the engine's one rule,
+    served so clients read it instead of re-deriving it."""
+
+    applications: list[ModelApplicationPlacements]
+
+
 class ParentCandidate(BaseModel):
     """A record the model allows as the moved record's parent (Base 0.8 B2).
 

@@ -67,7 +67,8 @@ export function treeDriver(page, fail) {
     await page.keyboard.press("Shift+F10");
     const opened = page.getByRole("menu");
     await opened.waitFor();
-    for (let step = 0; step < 12; step++) {
+    // A change set's node menu adds the restructurings (C4), so it can be long.
+    for (let step = 0; step < 20; step++) {
       const text = await page.evaluate(() => document.activeElement?.textContent ?? "");
       if (text.startsWith(item)) {
         await page.keyboard.press("Enter");

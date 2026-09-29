@@ -1204,6 +1204,9 @@ th[aria-sort] {
 .compact-dialog {
   width: min(520px, 100%);
 }
+.wide-dialog {
+  width: min(860px, 100%);
+}
 .dialog-body {
   padding: 16px 22px 0;
   color: var(--ink-2);
@@ -2899,6 +2902,12 @@ form .admin-hint {
   font-size: 12px;
   font-weight: 600;
 }
+/* An accepted target that changes the record's type (C4) says what it becomes. */
+.tree-drag-note {
+  color: var(--success);
+  font-size: 12px;
+  font-weight: 600;
+}
 body.tree-dragging,
 body.tree-dragging * {
   cursor: grabbing !important;
@@ -3100,4 +3109,187 @@ body.tree-drag-refused * {
     padding-left: 14px;
     overflow-x: auto;
   }
+}
+
+/* Restructuring preview (Base 0.8 C4): the plan by record and by type pair, inside a wide dialog. */
+.restructuring-dialog .notice {
+  margin-bottom: 14px;
+}
+/* A long plan scrolls under the actions, which stay in reach at the dialog's foot. */
+form.restructuring-plan-form .dialog-actions {
+  position: sticky;
+  bottom: -20px;
+  margin: 0 -22px -20px;
+  padding: 12px 22px 20px;
+  border-top: 1px solid var(--soft-line);
+  background: var(--surface);
+}
+.restructuring-updating {
+  margin: -6px 0 10px;
+  font-size: 12.5px;
+}
+.restructuring-refusals {
+  margin: 0;
+  padding-left: 18px;
+}
+.restructuring-questions {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.restructuring-question {
+  margin: 0;
+  padding: 10px 14px 2px;
+  border: 1px solid var(--warning-line);
+  border-radius: var(--radius-control);
+  background: var(--warning-soft);
+}
+.restructuring-question legend {
+  padding: 0 4px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+}
+.dialog form .restructuring-question label {
+  display: inline-flex !important;
+  margin: 0 18px 8px 0;
+}
+.restructuring-records,
+.restructuring-pairs {
+  padding-top: 12px;
+}
+.dialog form .restructuring-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.dialog form .restructuring-filter select {
+  width: auto;
+  margin-top: 0;
+}
+.restructuring-scroll {
+  max-height: 46vh;
+}
+.restructuring-record-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.restructuring-record {
+  padding: 10px 2px;
+  border-bottom: 1px solid var(--soft-line);
+  font-size: 13px;
+}
+.restructuring-record-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+.restructuring-record-head strong {
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.restructuring-record .change-row-path {
+  margin: 2px 0 6px;
+  color: var(--muted);
+}
+.danger-pill {
+  background: var(--danger-soft);
+  color: var(--danger-ink);
+}
+.restructuring-values {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 4px 16px;
+  margin: 0 0 6px;
+}
+.restructuring-values div {
+  min-width: 0;
+}
+.restructuring-values dt {
+  color: var(--muted);
+  font-size: 12px;
+}
+.restructuring-values dd {
+  margin: 0;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.dialog form .restructuring-note,
+.restructuring-note {
+  margin: 4px 0;
+  color: var(--ink-2);
+  font-size: 12.5px;
+}
+.dialog form .restructuring-refusal,
+.restructuring-refusal {
+  margin: 4px 0;
+  color: var(--danger-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.restructuring-inputs {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding: 10px 12px 0;
+  border: 1px solid var(--warning-line);
+  border-radius: var(--radius-control);
+}
+.restructuring-input {
+  min-width: 0;
+}
+.dialog form .restructuring-input label {
+  margin-bottom: 4px;
+}
+.restructuring-reason {
+  display: block;
+  margin-bottom: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.restructuring-pair {
+  margin-bottom: 18px;
+}
+.restructuring-pair h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 650;
+}
+.dialog form .restructuring-mapping select {
+  display: inline-block;
+  width: auto;
+  max-width: 100%;
+  margin-top: 0;
+}
+.dialog form .restructuring-pair .checkbox {
+  margin: 8px 0 0;
+}
+.restructuring-siblings {
+  margin: 0 0 14px;
+  padding: 0;
+  border: 0;
+}
+.restructuring-siblings legend {
+  margin-bottom: 6px;
+  color: var(--ink-2);
+  font-size: 13px;
+  font-weight: 550;
+}
+.restructuring-sibling-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0 12px;
+}
+.restructuring-sibling-controls > label:not(.search-box) {
+  flex: 0 0 auto;
+}
+.restructuring-sibling-controls > .search-box {
+  flex: 1 1 220px;
+}
+.restructuring-siblings .candidate-scroll {
+  max-height: 180px;
 }

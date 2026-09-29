@@ -472,6 +472,18 @@ function AppContent({
                       });
                     }}
                     onOpen={(item, action, options) => openObject(item, action, options?.beside ? "beside" : undefined)}
+                    onReviewChanges={
+                      data.changeSet
+                        ? () =>
+                            navigate(
+                              changeReviewFor(
+                                collectionApplication.key,
+                                data.changeSet!.workspaceKey,
+                                data.changeSet!.id,
+                              ),
+                            )
+                        : undefined
+                    }
                   />
                 </div>
               )}
@@ -503,6 +515,7 @@ function AppContent({
                     refreshToken={collectionWrites}
                     onChanged={() => setRefreshToken((value) => value + 1)}
                     onOpen={openObjectById}
+                    onTypeChanged={(objectTypeKey) => navigate({ ...activeRoute, objectTypeKey }, true)}
                     showBackToList={activeRoute.collectionOrigin !== null}
                     onBack={backToCollection}
                   />

@@ -130,6 +130,9 @@ errors explicit and machine-readable.
   `modelAdmin.ts` for model drafts and releases, and `ui.ts` for state the browser owns such as
   `RouteState` — that is not a model contract and does not belong beside one.
 - Generic renderers receive model definitions as input.
+- Read where records may stand (the types a parent contains, the types at the top, the types a
+  record can become) through `model/placements`, which reads the engine's served placements
+  (`GET /model/placements`, D45). Never derive containment from the model in the browser.
 - Do not embed object-specific columns, labels or forms in components.
 - Resolve a declared view or panel type through its registry in `features/objects/views/` or
   `features/objects/panels/`, and render the result as an element. Calling it as a function puts

@@ -37,3 +37,13 @@ export function isApiError(cause: unknown, code?: string): cause is ApiError {
 export function errorMessage(cause: unknown): string {
   return cause instanceof Error ? cause.message : String(cause);
 }
+
+/**
+ * The type a record has now, when a request named another (D42, `409 object_type_changed`): its
+ * type changed in the selected change set. A route follows the record to this type.
+ */
+export function changedObjectType(cause: unknown): string | undefined {
+  if (!isApiError(cause, "object_type_changed")) return undefined;
+  const current = (cause.details as { objectTypeKey?: unknown } | undefined)?.objectTypeKey;
+  return typeof current === "string" ? current : undefined;
+}

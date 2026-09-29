@@ -439,3 +439,47 @@ def test_requests_that_repeat_a_record_are_refused(volume, field):  # noqa: F811
         body["inputs"] = [{"objectId": "new"}, {"objectId": "new"}]
     response = client.post(f"/api/v1/change-sets/{change_set['id']}/restructurings/preview", json=body)
     assert response.status_code == 422, response.text
+
+
+def test_parent_candidates_within_types(starter):  # noqa: F811
+    """C4: ``withinObjectTypeKey`` keeps candidates, and the types the record would become, to a
+    set, filtered by the server so totals stay truthful."""
+    client, k = starter
+    systems = k("rdm-systems")
+    target = create(client, systems, k("system"), "S", [attr(k("system-code"), "s")])
+    group = create(client, systems, k("system-group"), "G", [attr(k("group-code"), "g")], target)
+    moved = create(client, systems, k("system"), "T", [attr(k("system-code"), "t")])
+    change_set = start_change_set(client)
+    url = f"/api/v1/objects/{k('system')}/{moved['id']}/parent-candidates"
+
+    def listed(*within, include=True):
+        params = [("changeSetId", change_set["id"]), ("includeTotal", "true")]
+        params += [("includeTypeChanges", "true")] if include else []
+        params += [("withinObjectTypeKey", key) for key in within]
+        response = client.get(url, params=params)
+        assert response.status_code == 200, response.text
+        page = response.json()
+        return {item["id"]: item.get("objectTypeKeys") for item in page["items"]}, page["totalCount"]
+
+    everything, total = listed()
+    assert everything[target["id"]] == [k("system-group"), k("system-value")]
+    assert everything[group["id"]] == [k("system-group"), k("system-value")]
+    # Groups can stand here, values cannot: both candidates stay, each becoming a group only.
+    groups, total = listed(k("system"), k("system-group"))
+    assert groups == {
+        target["id"]: [k("system-group")],
+        moved["id"]: [k("system-group")],
+        group["id"]: [k("system-group")],
+    }
+    assert total == 3
+    # Groups are not among the types: no group is a candidate, and a system holds only values.
+    values, total = listed(k("system"), k("system-value"))
+    assert values == {target["id"]: [k("system-value")], moved["id"]: [k("system-value")]}
+    assert total == 2
+    # Without type changes the filter keeps the candidate types only: a system holds no system.
+    assert listed(k("system"), k("system-group"), include=False) == ({}, 0)
+
+    unknown = client.get(url, params={"changeSetId": change_set["id"], "withinObjectTypeKey": "nope"})
+    assert unknown.status_code == 422, unknown.text
+    assert unknown.json()["error"]["code"] == "unknown_object_type"
+    assert unknown.json()["error"]["details"]["objectTypeKeys"] == ["nope"]

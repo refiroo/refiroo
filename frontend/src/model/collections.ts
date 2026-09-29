@@ -1,3 +1,4 @@
+import { childObjectTypeKeys } from "@/model/placements";
 import type { ApplicationDefinition, EngineModel, ViewDefinition } from "@/types";
 
 export interface CollectionGroup {
@@ -27,32 +28,6 @@ export function collectionGroups(application: ApplicationDefinition): Collection
       views.find((view) => view.type === "table") ??
       views[0],
   }));
-}
-
-/**
- * Object types of the application whose records a record of `parentObjectTypeKey` can contain, in
- * the application's type order. A parent is always in its child's application.
- */
-export function childObjectTypeKeys(
-  model: EngineModel,
-  application: ApplicationDefinition,
-  parentObjectTypeKey: string,
-): string[] {
-  const childTypes = new Set(
-    model.objectTypeRelations.flatMap((binding) => {
-      const relation = model.relationTypes.find((item) => item.key === binding.relationTypeKey);
-      const child = model.objectTypes.find((item) => item.key === binding.toObjectTypeKey);
-      const parentRelations = Array.isArray(child?.behavior.parentRelationTypeKeys)
-        ? child.behavior.parentRelationTypeKeys
-        : [];
-      return binding.fromObjectTypeKey === parentObjectTypeKey &&
-        relation?.features.parentOf === true &&
-        parentRelations.includes(binding.relationTypeKey)
-        ? [binding.toObjectTypeKey]
-        : [];
-    }),
-  );
-  return application.objectTypeKeys.filter((key) => childTypes.has(key));
 }
 
 /** Object types of the application whose records may stand without a parent (`rootCreatable`). */

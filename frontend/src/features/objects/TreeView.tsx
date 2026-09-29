@@ -20,18 +20,29 @@
  * Both paths also move a record to the top level (B5b, D36): Move to… lists it above the candidates,
  * and the top-level headings and the gaps between top-level rows take a drop. Only a record of one
  * of the tree's root types goes there, since the tree shows no other type at the top.
+ *
+ * In a change set, where the view allows moves, the lens also restructures (C4, ADR-034, D38). A
+ * place where the record's type cannot stand but another type of the tree can is a target too: Move
+ * to… marks it and a drag glows green with “Becomes <type>”, and choosing it opens the restructuring
+ * preview instead of moving. The node menu adds Change type…, Insert level above…, Remove this
+ * level… and Change type of all <type> in here…, each only where the model makes it possible
+ * (`model/restructuring`). Every one of them is previewed, then applied to the change set. Both paths
+ * keep to the tree's types: Move to… asks the server for candidates of those types only. Live, a
+ * place refused only for the record's type says that a change set can change it.
  */
 
 import { useCallback, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
-import { errorMessage, isApiError } from "@/api/errors";
+import { changedObjectType, errorMessage, isApiError } from "@/api/errors";
 import { useDataApi, useWorkspaceData } from "@/features/workspaces/WorkspaceDataContext";
 import { ObjectFormDialog } from "@/features/objects/ObjectFormDialog";
 import { RecordTree, type TreeConfiguration, type TreeFocusRequest } from "@/features/objects/RecordTree";
+import { RestructuringDialog, type RestructuringSetup } from "@/features/objects/RestructuringDialog";
 import { TreeMoveDialog } from "@/features/objects/TreeMoveDialog";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
-import { childObjectTypeKeys } from "@/model/collections";
 import { attributeName, fieldValue, isQueryableField } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
+import { childObjectTypeKeys } from "@/model/placements";
+import { parentTypeOf, placeTypes, restructuringChoices, typeNames, type TreeTypes } from "@/model/restructuring";
 import { moveRefusal, moveRefusalText } from "@/model/treeDrop";
 import type { AttributeTypeDefinition, ObjectItem, ObjectTypeDefinition, TreeViewDefinition } from "@/types";
 import { parseAttributeValue } from "@/ui/attributeForm";
@@ -60,6 +71,7 @@ export function TreeView({
   lenses,
   onChanged,
   onOpen,
+  onReviewChanges,
 }: ViewComponentProps) {
   const view = rawView as TreeViewDefinition;
   const { config } = view;
@@ -79,30 +91,74 @@ export function TreeView({
   const menuAnchor = useRef<HTMLElement | null>(null);
   const [adding, setAdding] = useState<{ parent: ObjectItem; objectType: ObjectTypeDefinition }>();
   const [moving, setMoving] = useState<{ item: ObjectItem; target?: ObjectItem | null }>();
+  const [restructuring, setRestructuring] = useState<RestructuringSetup>();
+  const restructured = useRef(false);
   // A request to focus a record the lens just wrote, kept only while the same record stays open.
   const [focusRequest, setFocusRequest] = useState<TreeFocusRequest & { selectedId?: string }>();
   const requests = useRef(0);
   const container = useRef<HTMLDivElement>(null);
 
   const nodeTypes = useMemo(() => new Set(config.objectTypeKeys), [config.objectTypeKeys]);
+  // A type changes only in a change set (D38), and only where the view lets records move.
+  const typeChanges = Boolean(changeSet) && actions.has("move");
+  const treeTypes = useMemo<TreeTypes>(
+    () => ({ nodeTypes, rootTypes: config.rootObjectTypeKeys }),
+    [nodeTypes, config.rootObjectTypeKeys],
+  );
   const childTypesOf = useCallback(
     (objectTypeKey: string) =>
       childObjectTypeKeys(model, application, objectTypeKey).filter((key) => nodeTypes.has(key)),
     [model, application, nodeTypes],
   );
-  /** Whether a record of the type can move at all: some type of the application contains it. */
+  /**
+   * Whether a record of the type can move at all: some type of the application contains it, or, where
+   * types can change, it can become one that stands somewhere.
+   */
   const movable = useCallback(
     (objectTypeKey: string) =>
+      typeChanges ||
       application.objectTypeKeys.some((key) => childObjectTypeKeys(model, application, key).includes(objectTypeKey)),
-    [model, application],
+    [model, application, typeChanges],
   );
-  /** Why the record cannot move into `parent` (`null` is the top level), in words; undefined allows it. */
-  const refusalOf = useCallback(
+  /**
+   * The types the record would become under `parent` (`null` is the top level), where its own type
+   * cannot stand there but another type of the tree can; undefined otherwise.
+   */
+  const typeChangeAt = useCallback(
     (item: ObjectItem, parent: ObjectItem | null) => {
       const reason = moveRefusal(model, application, item, parent, config.rootObjectTypeKeys);
-      return reason && moveRefusalText(model, reason, item);
+      if (reason !== "type" && reason !== "notRoot") return undefined;
+      const types = placeTypes(model, application, treeTypes, parent?.objectTypeKey ?? null);
+      return types.length ? types : undefined;
     },
-    [model, application, config.rootObjectTypeKeys],
+    [model, application, config.rootObjectTypeKeys, treeTypes],
+  );
+  const becomesAt = useCallback(
+    (item: ObjectItem, parent: ObjectItem | null) => (typeChanges ? typeChangeAt(item, parent) : undefined),
+    [typeChanges, typeChangeAt],
+  );
+  /**
+   * Why the record cannot move into `parent` (`null` is the top level), in words; undefined allows it.
+   * Live, a place refused only for the record's type says a change set could change it (D38).
+   */
+  const refusalOf = useCallback(
+    (item: ObjectItem, parent: ObjectItem | null) => {
+      if (becomesAt(item, parent)) return undefined;
+      const reason = moveRefusal(model, application, item, parent, config.rootObjectTypeKeys);
+      if (!reason) return undefined;
+      const text = moveRefusalText(model, reason, item);
+      return live && actions.has("move") && typeChangeAt(item, parent)
+        ? `${text} · a change set can change its type`
+        : text;
+    },
+    [model, application, config.rootObjectTypeKeys, becomesAt, typeChangeAt, live, actions],
+  );
+  const becomesText = useCallback(
+    (item: ObjectItem, parent: ObjectItem | null) => {
+      const types = becomesAt(item, parent);
+      return types && `Becomes ${typeNames(model, types)}`;
+    },
+    [becomesAt, model],
   );
   const labelAttribute =
     config.labelField === "name" ? undefined : model.attributeTypes.find((item) => item.key === config.labelField);
@@ -200,8 +256,73 @@ export function TreeView({
       });
     if (actions.has("move") && movable(item.objectTypeKey))
       entries.push({ id: "move", label: "Move to…", run: () => setMoving({ item }) });
+    if (typeChanges) {
+      const choices = restructuringChoices(model, application, treeTypes, item);
+      if (choices.changeType.length)
+        entries.push({
+          id: "changeType",
+          label: "Change type…",
+          run: () => setRestructuring({ kind: "changeType", item, options: choices.changeType }),
+        });
+      if (choices.insertLevel.length)
+        entries.push({
+          id: "insertLevel",
+          label: "Insert level above…",
+          run: () =>
+            setRestructuring({
+              kind: "insertLevel",
+              item,
+              options: choices.insertLevel,
+              siblingTypes: placeTypes(model, application, treeTypes, parentTypeOf(item)),
+            }),
+        });
+      if (choices.removeLevel)
+        entries.push({
+          id: "removeLevel",
+          label: "Remove this level…",
+          run: () => setRestructuring({ kind: "removeLevel", item }),
+        });
+      for (const under of choices.changeTypeUnder)
+        entries.push({
+          id: `changeTypeUnder:${under.fromObjectTypeKey}`,
+          label: `Change type of all ${(objectTypeFor(model, under.fromObjectTypeKey)?.pluralName ?? under.fromObjectTypeKey).toLowerCase()} in here…`,
+          run: () =>
+            setRestructuring({
+              kind: "changeTypeUnder",
+              item,
+              fromObjectTypeKey: under.fromObjectTypeKey,
+              options: under.objectTypeKeys,
+            }),
+        });
+    }
     return entries;
   };
+
+  /**
+   * Focuses a record after a restructuring, under the type it has now (D42): a record whose type
+   * changed answers its old type with its new one. A record no longer there focuses its parent.
+   */
+  const focusAfterRestructuring = useCallback(
+    async (item: ObjectItem, removed: boolean) => {
+      const parentId = item.path.at(-2)?.id;
+      if (removed) {
+        if (parentId) focusNode(parentId);
+        return;
+      }
+      // The read takes a moment; a user who went elsewhere meanwhile keeps their place.
+      const stillHere = () =>
+        document.activeElement === document.body || Boolean(container.current?.contains(document.activeElement));
+      try {
+        const current = await api.object(item.objectTypeKey, item.id, workspaceKey);
+        requestFocus(current, stillHere());
+      } catch (cause) {
+        const objectTypeKey = changedObjectType(cause);
+        if (objectTypeKey) requestFocus({ id: item.id, objectTypeKey }, stillHere());
+        else if (parentId && stillHere()) focusNode(parentId);
+      }
+    },
+    [api, workspaceKey, requestFocus, focusNode],
+  );
 
   const onItemKeyDown = useCallback(
     (event: KeyboardEvent<HTMLElement>, item: ObjectItem) => {
@@ -313,7 +434,11 @@ export function TreeView({
       ? {
           canDrag: (item) => movable(item.objectTypeKey) && renaming !== item.id && busy !== item.id,
           refusal: refusalOf,
-          onDrop: (item, parent) => setMoving({ item, target: parent }),
+          note: becomesText,
+          onDrop: (item, parent) =>
+            becomesAt(item, parent)
+              ? setRestructuring({ kind: "move", item, parent })
+              : setMoving({ item, target: parent }),
         }
       : undefined,
   };
@@ -454,7 +579,13 @@ export function TreeView({
           label={labelOf(moving.item)}
           workspaceKey={workspaceKey}
           target={moving.target}
-          topLevel={{ refusal: refusalOf(moving.item, null) }}
+          topLevel={{ refusal: refusalOf(moving.item, null), becomes: becomesAt(moving.item, null) }}
+          typeChanges={typeChanges}
+          withinObjectTypeKeys={config.objectTypeKeys}
+          onTypeChange={(parent) => {
+            setMoving(undefined);
+            setRestructuring({ kind: "move", item: moving.item, parent });
+          }}
           onClose={() => {
             const id = moving.item.id;
             setMoving(undefined);
@@ -464,6 +595,26 @@ export function TreeView({
             setMoving(undefined);
             onChanged?.();
             requestFocus(moved);
+          }}
+        />
+      )}
+      {restructuring && (
+        <RestructuringDialog
+          model={model}
+          workspaceKey={workspaceKey}
+          setup={restructuring}
+          label={labelOf(restructuring.item)}
+          onApplied={() => {
+            restructured.current = true;
+            onChanged?.();
+          }}
+          onReview={onReviewChanges}
+          onClose={() => {
+            const { item, kind } = restructuring;
+            setRestructuring(undefined);
+            if (restructured.current) void focusAfterRestructuring(item, kind === "removeLevel");
+            else focusNode(item.id);
+            restructured.current = false;
           }}
         />
       )}

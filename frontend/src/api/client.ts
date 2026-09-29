@@ -13,6 +13,7 @@ import type {
   ObjectItem,
   ObjectPage,
   ParentCandidatePage,
+  ModelPlacements,
   AttributeValueResponse,
   RelationCreateInput,
   RelationPage,
@@ -44,6 +45,10 @@ import type {
   RelationMatrixContainerPage,
   RelationMatrixLinkCandidatePage,
   RelationSetClaim,
+  RestructuringOutcomeFilter,
+  RestructuringPreview,
+  RestructuringRequest,
+  RestructuringResult,
 } from "@/types";
 
 import { ApiError } from "@/api/errors";
@@ -105,6 +110,12 @@ export interface PageSelector {
   fromEnd?: boolean;
   seek?: string;
   includeTotal?: boolean;
+}
+
+function restructuringsPath(changeSetId: string | undefined) {
+  if (!changeSetId)
+    throw new Error("A type change or restructuring is made in a change set. Open one, then try again.");
+  return `/api/v1/change-sets/${encodeURIComponent(changeSetId)}/restructurings`;
 }
 
 function setPaging(params: URLSearchParams, selector: PageSelector) {
@@ -250,13 +261,20 @@ function objectQueryPath(objectTypeKey: string, query: ObjectQuery) {
 }
 
 export const api = {
-  model: (context: { workspaceKey?: string; changeSetId?: string; publicationId?: string } = {}) => {
+  /** The context's model, with where it lets records stand attached (`placements`, C4). */
+  model: async (
+    context: { workspaceKey?: string; changeSetId?: string; publicationId?: string } = {},
+  ): Promise<EngineModel> => {
     const params = new URLSearchParams();
     if (context.workspaceKey) params.set("workspaceKey", context.workspaceKey);
     if (context.changeSetId) params.set("changeSetId", context.changeSetId);
     if (context.publicationId) params.set("publicationId", context.publicationId);
-    const query = params.toString();
-    return request<EngineModel>(`/api/v1/model${query ? `?${query}` : ""}`);
+    const query = params.toString() ? `?${params}` : "";
+    const [model, placements] = await Promise.all([
+      request<EngineModel>(`/api/v1/model${query}`),
+      request<ModelPlacements>(`/api/v1/model/placements${query}`),
+    ]);
+    return { ...model, placements };
   },
   capabilities: () => request<CapabilitiesResponse>("/api/v1/capabilities"),
   workspaces: (
@@ -442,12 +460,18 @@ export const api = {
       parentObjectTypeKey?: string;
       search?: string;
       pageSize?: number;
+      /** In a change set, also targets a type change makes possible (C3). */
+      includeTypeChanges?: boolean;
+      /** Keeps candidates, and the types the record would become, to these types (C4). */
+      withinObjectTypeKeys?: readonly string[];
     },
   ) => {
     const params = new URLSearchParams();
     if (query.changeSetId) params.set("changeSetId", query.changeSetId);
     else if (query.workspaceKey) params.set("workspaceKey", query.workspaceKey);
     if (query.parentObjectTypeKey) params.set("parentObjectTypeKey", query.parentObjectTypeKey);
+    if (query.includeTypeChanges) params.set("includeTypeChanges", "true");
+    query.withinObjectTypeKeys?.forEach((key) => params.append("withinObjectTypeKey", key));
     if (query.search) params.set("search", query.search);
     if (query.pageSize != null) params.set("pageSize", String(query.pageSize));
     setPaging(params, query);
@@ -455,6 +479,41 @@ export const api = {
       `/api/v1/objects/${encodeURIComponent(objectTypeKey)}/${encodeURIComponent(objectId)}/parent-candidates?${params}`,
     );
   },
+  /**
+   * Plans a restructuring in a change set and returns a page of its records (Base 0.8 C3); writes
+   * nothing. A restructuring has no live form (D38), so the change set is required.
+   */
+  previewRestructuring: (
+    body: RestructuringRequest,
+    query: PageSelector & {
+      changeSetId?: string;
+      expectedChangeSetVersion?: number;
+      outcome?: RestructuringOutcomeFilter[];
+      pageSize?: number;
+    },
+  ) =>
+    request<RestructuringPreview>(`${restructuringsPath(query.changeSetId)}/preview`, {
+      method: "POST",
+      body: JSON.stringify({
+        ...body,
+        ...(query.expectedChangeSetVersion ? { expectedChangeSetVersion: query.expectedChangeSetVersion } : {}),
+        ...(query.outcome?.length ? { outcome: query.outcome } : {}),
+        ...(query.pageSize ? { pageSize: query.pageSize } : {}),
+        ...(query.cursor ? { cursor: query.cursor } : {}),
+        ...(query.position !== undefined ? { position: query.position } : {}),
+        ...(query.fromEnd ? { from: "end" } : {}),
+        ...(query.includeTotal ? { includeTotal: true } : {}),
+      }),
+    }),
+  /** Applies a previewed restructuring, claimed by the version the preview read and its digest. */
+  applyRestructuring: (
+    body: RestructuringRequest & { expectedChangeSetVersion: number; planDigest: string },
+    context: ChangeSetWriteContext = {},
+  ) =>
+    request<RestructuringResult>(restructuringsPath(context.changeSetId), {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   createObject: (
     objectTypeKey: string,
     payload: ChangeSetWriteContext & {

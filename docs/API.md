@@ -1888,6 +1888,19 @@ when it is not effective, its other end exists and the model binds it to the new
   there are several. `parentObjectTypeKey` may then name any of those types. Without it, the list is
   unchanged and candidates carry no `objectTypeKeys`; with it outside a change set, `422
   type_changes_need_change_set` (a type changes only in a change set, D38).
+- **Placements (C4, D45).** `GET /api/v1/model/placements` (the same `workspaceKey`, `changeSetId` or
+  `publicationId` context as `GET /model`, with its `ETag`) answers where the context's model lets
+  records stand: per application, `topLevelObjectTypeKeys` (the `rootCreatable` types) and `parents`,
+  one per type of the application with `childObjectTypeKeys` (the types it contains) and
+  `possibleObjectTypeKeys` (the types a record can become under it: those it contains through exactly
+  one parent relation, as the planner decides). It is the engine's one rule; clients read it instead
+  of re-deriving containment from the model.
+- **Parent candidates within types (C4).** `withinObjectTypeKey` (repeatable, live or in a change set)
+  keeps the list to a set of types, for a client that shows only some types, such as a tree view:
+  only candidates of those types, and with `includeTypeChanges` only those types in each candidate's
+  `objectTypeKeys`; a candidate left with none is not listed. The server filters, so `totalCount`,
+  positions and cursors (which bind the set) mean what they mean without it. A type the model lacks
+  is `422 unknown_object_type` with `details.objectTypeKeys`.
 
 ### Publishing
 

@@ -4,12 +4,15 @@ import { ApiError, api, type ObjectQuery } from "@/api/client";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
 import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
+import { applicationPlacements } from "@/test/placements";
 import type {
+  ChangeSet,
   EngineModel,
   ObjectItem,
   ObjectPage,
   ParentCandidatePage,
   Publication,
+  RestructuringPreview,
   TreeViewDefinition,
 } from "@/types";
 
@@ -61,6 +64,15 @@ function treeModel(): EngineModel {
   });
   const application = model.applications[0];
   application.objectTypeKeys = ["domain", "codelist", "unit"];
+  model.placements = {
+    applications: [
+      applicationPlacements("test-app", ["domain"], {
+        domain: ["codelist", "unit"],
+        codelist: ["codelist"],
+        unit: [],
+      }),
+    ],
+  };
   application.views.push(
     {
       key: "hierarchy",
@@ -694,7 +706,8 @@ describe("TreeView dragging", () => {
     hit = financeRow.querySelector(".tree-node");
     fireEvent.pointerMove(window, { ...pointer(), clientX: 0, clientY: 102 });
     expect(preview()).toHaveClass("refused");
-    expect(preview()).toHaveTextContent("Not shown at the top of this tree");
+    // Live, the reason says a change set could make it a domain there (C4, D38).
+    expect(preview()).toHaveTextContent("Not shown at the top of this tree · a change set can change its type");
     expect(document.querySelector(".tree-drop-line")).toHaveClass("refused");
     release();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
@@ -746,5 +759,268 @@ describe("TreeView dragging", () => {
       view.unmount();
     }
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("in a change set, glows green with what a record becomes and opens the preview on release (C4)", async () => {
+    serve();
+    inChangeSet();
+    const candidates = vi.spyOn(api, "parentCandidates");
+    const planned = vi.spyOn(api, "previewRestructuring").mockResolvedValue(emptyPlan());
+    render(lens());
+    const node = await item(/^Finance/);
+    const target = screen.getByRole("treeitem", { name: /^Connections/ });
+    press(node);
+    moveOver(target);
+    expect(row(target)).toHaveClass("drop-accepted");
+    expect(preview()).toHaveClass("accepted");
+    expect(preview()).toHaveTextContent("Becomes Codelist");
+    release();
+    const dialog = await screen.findByRole("dialog", { name: "Move Finance" });
+    expect(within(dialog).getByText(/moves under Connections, where its type cannot stand/)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(planned.mock.calls[0][0].operation).toEqual({
+        kind: "move",
+        objectId: finance.id,
+        parentObjectId: connections.id,
+      }),
+    );
+    expect(candidates).not.toHaveBeenCalled();
+  });
+
+  it("live, starts no drag of a record no place holds without a type change (D38)", async () => {
+    serve();
+    render(lens());
+    const node = await item(/^Finance/);
+    press(node);
+    moveOver(screen.getByRole("treeitem", { name: /^Connections/ }));
+    expect(preview()).toBeNull();
+    release();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+});
+
+/** The open change set: restructurings are offered only here (D38). */
+function inChangeSet() {
+  vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+    api,
+    warning: "",
+    changeSet: { id: "cs-1", workspaceKey: "west", version: 4 } as ChangeSet,
+  });
+}
+
+function emptyPlan(overrides: Partial<RestructuringPreview> = {}): RestructuringPreview {
+  return {
+    changeSetId: "cs-1",
+    changeSetVersion: 4,
+    planDigest: "d",
+    status: "ready",
+    summary: {
+      recordCount: 1,
+      typeChangeCount: 1,
+      moveCount: 1,
+      createdCount: 0,
+      removedCount: 0,
+      valuesWithoutPlaceCount: 0,
+      relationshipsWithoutPlaceCount: 0,
+      restoredCount: 0,
+      inputsNeededCount: 0,
+      refusalCount: 0,
+    },
+    typeQuestions: [],
+    pairs: [],
+    refusals: [],
+    refusalCount: 0,
+    refusalsTruncated: false,
+    records: [],
+    nextCursor: null,
+    totalCount: 0,
+    startIndex: 0,
+    ...overrides,
+  };
+}
+
+/** The code hierarchy with every branch on one page, so each record is listed without scrolling. */
+function onePageModel(): EngineModel {
+  const model = treeModel();
+  const view = model.applications[0].views.find((candidate) => candidate.key === "hierarchy") as TreeViewDefinition;
+  view.config.pageSize = 20;
+  return model;
+}
+
+/** The code hierarchy showing units too, so a domain's place holds two types. */
+function unitsInTreeModel(): EngineModel {
+  const model = onePageModel();
+  const view = model.applications[0].views.find((candidate) => candidate.key === "hierarchy") as TreeViewDefinition;
+  view.config.objectTypeKeys = ["domain", "codelist", "unit"];
+  return model;
+}
+
+describe("TreeView restructuring (C4)", () => {
+  // Branch state outlives a render within a test, so a branch opens only when it is closed.
+  const expand = (node: HTMLElement) => node.getAttribute("aria-expanded") === "false" && toggle(node);
+  const menuItems = async (name: RegExp, model = onePageModel()) => {
+    const view = render(lens({ model }));
+    const domain = await item(/^Connections/);
+    expand(domain);
+    const node = name.test("Connections") ? domain : await item(name);
+    key(node, "ContextMenu");
+    const labels = (await screen.findAllByRole("menuitem")).map((entry) => entry.textContent);
+    // Closed before the next render: an open menu hides everything outside it.
+    fireEvent.keyDown(screen.getByRole("menu"), { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("menu")).not.toBeInTheDocument());
+    return { labels, view };
+  };
+  const restructurings = (labels: (string | null)[]) =>
+    labels.filter((label) => /Change type|Insert level|Remove this level/.test(label ?? ""));
+
+  it("offers restructurings in a change set only, each where the model makes it possible", async () => {
+    serve();
+    const live = await menuItems(/^Zones/);
+    expect(restructurings(live.labels)).toEqual([]);
+    live.view.unmount();
+
+    inChangeSet();
+    const codelist = await menuItems(/^Zones/);
+    // A domain holds only codelists here, so a codelist has no other type in place.
+    expect(restructurings(codelist.labels)).toEqual(["Insert level above…", "Remove this level…"]);
+    codelist.view.unmount();
+
+    const withUnits = await menuItems(/^Zones/, unitsInTreeModel());
+    expect(restructurings(withUnits.labels)).toEqual(["Change type…", "Insert level above…", "Remove this level…"]);
+    withUnits.view.unmount();
+
+    const domain = await menuItems(/^Connections/, unitsInTreeModel());
+    expect(restructurings(domain.labels)).toEqual([
+      "Insert level above…",
+      "Remove this level…",
+      "Change type of all codelists in here…",
+      "Change type of all units in here…",
+    ]);
+  });
+
+  it("opens each refactoring's preview from the node menu", async () => {
+    serve();
+    inChangeSet();
+    const planned = vi.spyOn(api, "previewRestructuring").mockResolvedValue(emptyPlan());
+    const cases = [
+      ["Change type…", "Change the type of Zones", { kind: "changeType", objectId: zones.id, objectTypeKey: "unit" }],
+      ["Remove this level…", "Remove Zones as a level", { kind: "removeLevel", objectId: zones.id }],
+    ] as const;
+    for (const [entry, title, operation] of cases) {
+      const view = render(lens({ model: unitsInTreeModel() }));
+      expand(await item(/^Connections/));
+      key(await item(/^Zones/), "ContextMenu");
+      fireEvent.click(await screen.findByRole("menuitem", { name: entry }));
+      await screen.findByRole("dialog", { name: title });
+      await waitFor(() => expect(planned.mock.calls.at(-1)![0].operation).toEqual(operation));
+      view.unmount();
+    }
+    render(lens({ model: unitsInTreeModel() }));
+    key(await item(/^Connections/), "ContextMenu");
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Change type of all units in here…" }));
+    await screen.findByRole("dialog", { name: "Change Units in Connections" });
+    await waitFor(() =>
+      expect(planned.mock.calls.at(-1)![0].operation).toEqual({
+        kind: "changeTypeUnder",
+        objectId: connections.id,
+        fromObjectTypeKey: "unit",
+        objectTypeKey: "codelist",
+      }),
+    );
+  });
+
+  it("marks places that change the type in Move to…, and previews the one chosen", async () => {
+    serve();
+    inChangeSet();
+    const candidates = vi.spyOn(api, "parentCandidates").mockResolvedValue({
+      items: [
+        {
+          id: finance.id,
+          objectTypeKey: "domain",
+          name: "Finance",
+          path: finance.path,
+          eligible: true,
+          reason: null,
+          objectTypeKeys: ["codelist"],
+        },
+        {
+          id: tariffs.id,
+          objectTypeKey: "codelist",
+          name: "Tariffs",
+          path: tariffs.path,
+          eligible: true,
+          reason: null,
+          objectTypeKeys: ["codelist"],
+        },
+      ],
+      nextCursor: null,
+      totalCount: 2,
+      startIndex: 0,
+    });
+    const planned = vi.spyOn(api, "previewRestructuring").mockResolvedValue(emptyPlan());
+    const update = vi.spyOn(api, "updateObject");
+    render(lens({ model: onePageModel() }));
+    toggle(await item(/^Connections/));
+    key(await item(/^Zones/), "ContextMenu");
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Move to…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Move Zones" });
+    expect(candidates).toHaveBeenCalledWith(
+      "codelist",
+      zones.id,
+      // The tree keeps the candidates to its own types; the server filters, so totals hold.
+      expect.objectContaining({ includeTypeChanges: true, withinObjectTypeKeys: ["domain", "codelist"] }),
+    );
+    // A codelist at the top would be a domain; a codelist under a codelist stays one.
+    const top = within(dialog).getByRole("radio", { name: /Top level/ });
+    expect(top.closest("label")).toHaveTextContent("Becomes Domain");
+    const tariffsChoice = await within(dialog).findByRole("radio", { name: /Tariffs/ });
+    expect(tariffsChoice.closest("label")).not.toHaveTextContent("Becomes");
+    expect(
+      within(dialog)
+        .getByRole("radio", { name: /Finance/ })
+        .closest("label"),
+    ).not.toHaveTextContent("Becomes");
+
+    fireEvent.click(top);
+    fireEvent.click(within(dialog).getByRole("button", { name: "Preview the type change" }));
+    await screen.findByRole("dialog", { name: "Move Zones" });
+    await waitFor(() =>
+      expect(planned.mock.calls.at(-1)![0].operation).toEqual({
+        kind: "move",
+        objectId: zones.id,
+        parentObjectId: null,
+      }),
+    );
+    expect(screen.getByText(/moves to the top level, where its type cannot stand/)).toBeInTheDocument();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("marks a candidate whose type cannot hold the record with what it becomes", async () => {
+    serve();
+    inChangeSet();
+    vi.spyOn(api, "parentCandidates").mockResolvedValue({
+      items: [
+        {
+          id: connections.id,
+          objectTypeKey: "domain",
+          name: "Connections",
+          path: connections.path,
+          eligible: true,
+          reason: null,
+          objectTypeKeys: ["codelist"],
+        },
+      ],
+      nextCursor: null,
+      totalCount: 1,
+      startIndex: 0,
+    });
+    render(lens());
+    key(await item(/^Finance/), "ContextMenu");
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Move to…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Move Finance" });
+    const connectionsChoice = await within(dialog).findByRole("radio", { name: /Connections/ });
+    expect(connectionsChoice.closest("label")).toHaveTextContent("Becomes Codelist");
+    // Finance is already at the top level.
+    expect(within(dialog).getByRole("radio", { name: /Top level/ })).toBeDisabled();
   });
 });

@@ -12,6 +12,7 @@ from ..models.api import (
     MetadataPage,
     ModelAdminCapabilities,
     ModelDocumentRequest,
+    ModelPlacements,
     ModelRuntimeStateResponse,
     ModelValidationResponse,
     ObjectTypeRelationResponse,
@@ -28,6 +29,7 @@ from ..services.model.metadata import (
     build_object_type_responses,
     build_relation_type_responses,
 )
+from ..services.model.placements import model_placements
 from ..services.model.registry import RequestModelSnapshot
 from ..services.model.runtime import load_runtime_state
 from ..services.objects import get_application, get_object_type
@@ -77,6 +79,15 @@ def get_model(response: Response, snapshot: RequestModelSnapshot) -> dict[str, A
     response.headers["ETag"] = f'"{snapshot.model_hash}"'
     response.headers["X-Model-Release-Id"] = snapshot.release_id
     return snapshot.model.model_dump(mode="json")
+
+
+@router.get("/model/placements", response_model=ModelPlacements)
+def get_model_placements(response: Response, snapshot: RequestModelSnapshot) -> ModelPlacements:
+    """Where the context's model lets records stand, per application (Base 0.8 C4): the types at the
+    top level and, per type as a parent, the types it contains and the types a record can become
+    under it. Derived from the same model as ``GET /model`` in the same context, with its ETag."""
+    response.headers["ETag"] = f'"{snapshot.model_hash}"'
+    return ModelPlacements.model_validate(model_placements(snapshot.model))
 
 
 @router.get("/model-runtime-state", response_model=ModelRuntimeStateResponse)

@@ -67,6 +67,10 @@ export function createChangeSetClient(
     relationMatrixContainers: (query) => api.relationMatrixContainers({ ...query, changeSetId: initial.id }),
     relationMatrixLinkCandidates: (query) => api.relationMatrixLinkCandidates({ ...query, changeSetId: initial.id }),
     parentCandidates: (type, id, query) => api.parentCandidates(type, id, { ...query, changeSetId: initial.id }),
+    previewRestructuring: (body, query) => api.previewRestructuring(body, { ...query, changeSetId: initial.id }),
+    // The body carries the preview's version and digest, the claim the apply is bound to.
+    applyRestructuring: (body) =>
+      write((context) => api.applyRestructuring(body, { changeSetId: context.changeSetId })),
     replaceMapping: (workspaceKey, body) =>
       write((context) => api.replaceMapping(workspaceKey, { ...body, ...context })),
     createObject: (type, payload) => write((context) => api.createObject(type, { ...payload, ...context })),

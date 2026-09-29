@@ -28,7 +28,7 @@ export function Modal({
   onClose: () => void;
   /** While true the dialog refuses to close, so an in-flight write is not abandoned half way. */
   busy?: boolean;
-  size?: "compact" | "confirm" | "navigation";
+  size?: "compact" | "confirm" | "navigation" | "wide";
   role?: "dialog" | "alertdialog";
   showClose?: boolean;
   /**

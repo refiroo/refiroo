@@ -1,0 +1,87 @@
+{
+  "applications": [
+    {
+      "applicationKey": "rdm-master",
+      "topLevelObjectTypeKeys": ["domain"],
+      "parents": [
+        {
+          "objectTypeKey": "domain",
+          "childObjectTypeKeys": ["codelist"],
+          "possibleObjectTypeKeys": ["codelist"]
+        },
+        {
+          "objectTypeKey": "codelist",
+          "childObjectTypeKeys": ["master-value"],
+          "possibleObjectTypeKeys": ["master-value"]
+        },
+        {
+          "objectTypeKey": "master-value",
+          "childObjectTypeKeys": ["master-value"],
+          "possibleObjectTypeKeys": ["master-value"]
+        }
+      ]
+    },
+    {
+      "applicationKey": "rdm-systems",
+      "topLevelObjectTypeKeys": ["system"],
+      "parents": [
+        {
+          "objectTypeKey": "system",
+          "childObjectTypeKeys": ["system-group", "system-value"],
+          "possibleObjectTypeKeys": ["system-group", "system-value"]
+        },
+        {
+          "objectTypeKey": "system-group",
+          "childObjectTypeKeys": ["system-group", "system-value"],
+          "possibleObjectTypeKeys": ["system-group", "system-value"]
+        },
+        {
+          "objectTypeKey": "system-value",
+          "childObjectTypeKeys": [],
+          "possibleObjectTypeKeys": []
+        },
+        {
+          "objectTypeKey": "codelist",
+          "childObjectTypeKeys": ["master-value"],
+          "possibleObjectTypeKeys": ["master-value"]
+        },
+        {
+          "objectTypeKey": "master-value",
+          "childObjectTypeKeys": ["master-value"],
+          "possibleObjectTypeKeys": ["master-value"]
+        }
+      ]
+    },
+    {
+      "applicationKey": "rdm-translations",
+      "topLevelObjectTypeKeys": ["language"],
+      "parents": [
+        {
+          "objectTypeKey": "language",
+          "childObjectTypeKeys": ["translation-group"],
+          "possibleObjectTypeKeys": ["translation-group"]
+        },
+        {
+          "objectTypeKey": "translation-group",
+          "childObjectTypeKeys": ["translation-group", "translation"],
+          "possibleObjectTypeKeys": ["translation-group", "translation"]
+        },
+        {
+          "objectTypeKey": "translation",
+          "childObjectTypeKeys": [],
+          "possibleObjectTypeKeys": []
+        },
+        {
+          "objectTypeKey": "codelist",
+          "childObjectTypeKeys": ["master-value"],
+          "possibleObjectTypeKeys": ["master-value"]
+        },
+        {
+          "objectTypeKey": "master-value",
+          "childObjectTypeKeys": ["master-value"],
+          "possibleObjectTypeKeys": ["master-value"]
+        }
+      ]
+    }
+  ]
+}

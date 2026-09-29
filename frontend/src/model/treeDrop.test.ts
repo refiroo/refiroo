@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
-import starter from "../../../model/rdm-starter.json";
 import { chooseGapBranch, gapBranches, moveRefusal, moveRefusalText, type RowPlace } from "@/model/treeDrop";
+import { applicationPlacements, starterModel } from "@/test/placements";
 import type { ApplicationDefinition, EngineModel, ObjectItem } from "@/types";
 
-const starterModel = starter as unknown as EngineModel;
 const application = (model: EngineModel, key: string) =>
   model.applications.find((candidate) => candidate.key === key) as ApplicationDefinition;
 
@@ -73,6 +72,15 @@ function volumeModel(): EngineModel {
         views: [],
       },
     ],
+    placements: {
+      applications: [
+        applicationPlacements("vol-catalogue", ["vol-group"], {
+          "vol-group": ["vol-group", "vol-item", "vol-node"],
+          "vol-item": [],
+          "vol-node": ["vol-node"],
+        }),
+      ],
+    },
   } as unknown as EngineModel;
 }
 

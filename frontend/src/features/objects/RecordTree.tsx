@@ -37,7 +37,8 @@ import {
 import { createPortal } from "react-dom";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow, type CursorWindow } from "@/lib/hooks/useCursorWindow";
-import { childObjectTypeKeys, collectionGroups, rootObjectTypeKeys } from "@/model/collections";
+import { collectionGroups, rootObjectTypeKeys } from "@/model/collections";
+import { childObjectTypeKeys } from "@/model/placements";
 import { fieldValue } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
 import type { ApplicationDefinition, EngineModel, ObjectItem } from "@/types";
@@ -581,6 +582,7 @@ export function RecordTree({
                 </span>
               </span>
               {drag.target?.refusal && <span className="tree-drag-reason">{drag.target.refusal}</span>}
+              {drag.target?.note && <span className="tree-drag-note">{drag.target.note}</span>}
             </div>
           </>,
           document.body,

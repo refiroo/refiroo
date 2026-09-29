@@ -40,7 +40,10 @@ and D37–D43 accepted; C1, a record's type change in the engine with the D42 re
 refusals, the plan digest), is delivered 2026-09-29; its dry run took 48 s at C0's 5,000-record limit, so D44 lowers
 the D41 limit to 500 records (a 2.8 s preview); C3, the restructuring API (preview and apply for `move`,
 `changeType`, `insertLevel`, `removeLevel` and `changeTypeUnder`, parent candidates' `includeTypeChanges`),
-is delivered 2026-09-29. 0.8.0 releases when R1b and R2 pass (D43). Residual 0.7 gaps are listed in the
+is delivered 2026-09-29; C4, restructuring in the tree lens (Move to… and drag to places that change
+the type, Change type…, Insert level above…, Remove this level…, Change type of all … in here…, the
+preview by record and by type pair, the review's type change and the browser following D42), is
+delivered 2026-09-29. 0.8.0 releases when R1b and R2 pass (D43). Residual 0.7 gaps are listed in the
 [plan's WP-9 record](BASE_0_7_IMPLEMENTATION_PLAN.md#wp-9-composed-product-validation--sc-07-and-sc-15).
 
 The generic model defines applications, object types, reusable fields, allowed relationships and views.

@@ -8,7 +8,7 @@
  * types may move there. Another type, even one the model lets stand at the top, would leave the tree.
  */
 
-import { childObjectTypeKeys } from "@/model/collections";
+import { childObjectTypeKeys } from "@/model/placements";
 import { objectTypeFor } from "@/model/lookup";
 import type { ApplicationDefinition, EngineModel, ObjectItem } from "@/types";
 

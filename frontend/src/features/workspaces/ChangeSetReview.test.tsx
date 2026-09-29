@@ -64,7 +64,13 @@ const objectChanges: ObjectChange[] = [
     objectTypeKey: "codelist",
     applicationKey: "test-app",
     before: null,
-    after: { name: "Currencies", parentObjectId: "d2", attributes: [code("CUR")], version: 1 },
+    after: {
+      objectTypeKey: "codelist",
+      name: "Currencies",
+      parentObjectId: "d2",
+      attributes: [code("CUR")],
+      version: 1,
+    },
     changedFields: ["name", "parent", "code"],
     path: [part("d2", "Finance", "domain"), part("added", "Currencies", "codelist")],
   },
@@ -73,8 +79,20 @@ const objectChanges: ObjectChange[] = [
     objectId: "moved",
     objectTypeKey: "codelist",
     applicationKey: "test-app",
-    before: { name: "Countries", parentObjectId: "d1", attributes: [code("CTY"), active(true)], version: 2 },
-    after: { name: "Countries", parentObjectId: "d2", attributes: [code("CTY"), active(false)], version: 3 },
+    before: {
+      objectTypeKey: "codelist",
+      name: "Countries",
+      parentObjectId: "d1",
+      attributes: [code("CTY"), active(true)],
+      version: 2,
+    },
+    after: {
+      objectTypeKey: "codelist",
+      name: "Countries",
+      parentObjectId: "d2",
+      attributes: [code("CTY"), active(false)],
+      version: 3,
+    },
     changedFields: ["parent", "active"],
     path: [part("d2", "Finance", "domain"), part("moved", "Countries", "codelist")],
     beforePath: [part("d1", "Geography", "domain"), part("moved", "Countries", "codelist")],
@@ -84,8 +102,8 @@ const objectChanges: ObjectChange[] = [
     objectId: "reverted",
     objectTypeKey: "domain",
     applicationKey: "test-app",
-    before: { name: "Finance", parentObjectId: null, attributes: [], version: 1 },
-    after: { name: "Finance", parentObjectId: null, attributes: [], version: 2 },
+    before: { objectTypeKey: "domain", name: "Finance", parentObjectId: null, attributes: [], version: 1 },
+    after: { objectTypeKey: "domain", name: "Finance", parentObjectId: null, attributes: [], version: 2 },
     changedFields: [],
     path: [part("reverted", "Finance", "domain")],
     beforePath: null,
@@ -95,7 +113,13 @@ const objectChanges: ObjectChange[] = [
     objectId: "removed",
     objectTypeKey: "codelist",
     applicationKey: "test-app",
-    before: { name: "Languages", parentObjectId: "d1", attributes: [code("LNG")], version: 5 },
+    before: {
+      objectTypeKey: "codelist",
+      name: "Languages",
+      parentObjectId: "d1",
+      attributes: [code("LNG")],
+      version: 5,
+    },
     after: null,
     changedFields: ["name", "parent", "code"],
     path: [part("d1", "Geography", "domain"), part("removed", "Languages", "codelist")],
@@ -225,6 +249,42 @@ describe("ChangeSetReview records", () => {
     // Saved back to its source values: no table, the reason it is still listed.
     fireEvent.click(screen.getByRole("button", { name: "Details of Finance" }));
     expect(screen.getByText(/No field differs from the source/)).toBeVisible();
+  });
+
+  it("shows a record whose type changed with both types (C4)", async () => {
+    vi.mocked(api.objectChanges).mockResolvedValue(
+      page<ObjectChange>([
+        {
+          kind: "changed",
+          objectId: "reclassified",
+          objectTypeKey: "domain",
+          applicationKey: "test-app",
+          before: {
+            objectTypeKey: "codelist",
+            name: "Regions",
+            parentObjectId: "d1",
+            attributes: [code("REG")],
+            version: 2,
+          },
+          after: { objectTypeKey: "domain", name: "Regions", parentObjectId: null, attributes: [], version: 3 },
+          changedFields: ["objectType", "parent", "code"],
+          path: [part("reclassified", "Regions", "domain")],
+          beforePath: [part("d1", "Geography", "domain"), part("reclassified", "Regions", "codelist")],
+        },
+      ]),
+    );
+    renderReview();
+    const [row] = await screen.findAllByRole("listitem");
+    expect(within(row).getByText("Codelist → Domain")).toBeInTheDocument();
+    expect(within(row).getByText("Changed: Type, Parent, Code")).toBeInTheDocument();
+    fireEvent.click(within(row).getByRole("button", { name: "Details of Regions" }));
+    const [, type] = within(screen.getByRole("table", { name: "Changes to Regions" })).getAllByRole("row");
+    expect(within(type).getByRole("rowheader")).toHaveTextContent("Type");
+    expect(
+      within(type)
+        .getAllByRole("cell")
+        .map((cell) => cell.textContent),
+    ).toEqual(["Codelist", "Domain"]);
   });
 
   it("filters by kind and type through the route, and requests what the route says", async () => {

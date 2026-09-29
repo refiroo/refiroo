@@ -35,9 +35,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for C3: POST /change-sets/{id}/restructurings/preview and /restructurings and
     # the Restructuring* schemas, and parent candidates' includeTypeChanges parameter with the
     # optional ParentCandidate.objectTypeKeys; no existing path or schema otherwise changed.
+    # Re-baselined for C4: parent candidates' repeatable withinObjectTypeKey parameter, and GET
+    # /model/placements with the ModelPlacements, ModelApplicationPlacements and ModelPlacementParent
+    # schemas; nothing else.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "3c2383fabd93623d984748dfa265df61a1f3697b846926eb80114397755eeea8"
+        "469ae4d0258d24e674487f6d61dbd265790b6f57418e79ea66dc6c06b76ddede"
     )
 
 

@@ -220,8 +220,14 @@ function location(path: ObjectPathPart[]) {
   return ancestors.length ? ancestors.map((part) => part.name).join(" / ") : "Top level";
 }
 
-function objectValue(field: string, side: ObjectChangeState | null, path: ObjectPathPart[] | null | undefined) {
+function objectValue(
+  model: EngineModel,
+  field: string,
+  side: ObjectChangeState | null,
+  path: ObjectPathPart[] | null | undefined,
+) {
   if (!side) return formatValue(undefined);
+  if (field === "objectType") return endType(model, side.objectTypeKey);
   if (field === "name") return side.name;
   if (field === "parent") return !side.parentObjectId ? "Top level" : path ? location(path) : side.parentObjectId;
   return formatValue(side.attributes.find((attribute) => attribute.attributeTypeKey === field)?.value);
@@ -370,7 +376,10 @@ function ObjectChanges({
             <ul className="change-rows" aria-busy={list.loading || undefined}>
               {list.items.map((item, position) => {
                 const name = item.after?.name ?? item.before?.name ?? item.objectId;
-                const type = objectTypeFor(model, item.objectTypeKey)?.name ?? item.objectTypeKey;
+                // A reclassified record (C1) names its type on both sides.
+                const type = item.changedFields.includes("objectType")
+                  ? `${endType(model, item.before?.objectTypeKey ?? null)} → ${endType(model, item.after?.objectTypeKey ?? null)}`
+                  : (objectTypeFor(model, item.objectTypeKey)?.name ?? item.objectTypeKey);
                 const where = location(item.path);
                 return (
                   <ChangeRow
@@ -409,11 +418,12 @@ function ObjectChanges({
                           key: field,
                           label: fieldLabel(model, field),
                           before: objectValue(
+                            model,
                             field,
                             item.before,
                             item.kind === "removed" ? item.path : item.beforePath,
                           ),
-                          after: objectValue(field, item.after, item.path),
+                          after: objectValue(model, field, item.after, item.path),
                         }))}
                       />
                     )}

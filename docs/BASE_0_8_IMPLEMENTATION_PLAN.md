@@ -3247,6 +3247,113 @@ browser follows `409 object_type_changed` to the record's current route.
 trees and the generated tree: a move that changes type, each refactoring, a round trip restoring
 values, and publishing.
 
+**Delivered 2026-09-29.** The tree lens restructures in a change set, where its view allows `move`
+(the view's `move` action gates it; no new action key, so no schema change). Live, nothing changes (D38).
+
+- _Where the model makes it possible._ `model/restructuring.ts` mirrors the planner's rule (a
+  parent's type contains a type through exactly one parent relation, or `rootCreatable` at the top),
+  kept to the types the tree shows. A place where the record's type cannot stand but such a type can
+  is a target: the drag glows green with **Becomes <type>** (`useTreeDrag` gained an accepted target's
+  `note`) and the release opens the preview; **Move to…** asks for `includeTypeChanges`, marks such a
+  candidate (and **Top level**) with the same pill, and its button becomes **Preview the type change**.
+  The node menu adds **Change type…** (other types the parent's place holds), **Insert level above…**
+  (types the place holds that hold something), **Remove this level…** (a type
+  that holds something) and **Change type of all <type> in here…** (per type found below the record,
+  the types its places hold).
+- _The preview._ `RestructuringDialog` renders the C3 plan in a wide `Modal`: the operation's own
+  choices (the new type; the new level's name, without which nothing is planned), the status
+  (**Ready to apply**, **Some answers are needed**, **This cannot be applied** with each refusal's
+  reason), type questions as radio groups, and `Tabs`: **By record**, a `ScrollWindow` over the plan's
+  records filtered by outcome (new type and place, each value and its origin, what has no place, what
+  is restored, refusals, and the inputs asked for in place, a relationship through `ObjectLookup`), and
+  **By type**, each pair's mapping with each attribute's source changeable in place, its rule, the
+  counts, what has no place and the restore choice. Every change re-plans once typing pauses. The
+  operation and choices key the record list; inputs re-plan in place (`reload`), and a given field
+  stays, so the field being typed in keeps focus. Apply sends the previewed version and digest
+  (through the change set client's write, so the change set version refreshes); a moved-on plan
+  (`restructuring_plan_changed`, `change_set_version_conflict`, `restructuring_not_ready`) re-plans
+  and says nothing was applied. After applying, **Review the change set** (the new optional
+  `onReviewChanges` view prop) and **Done**, which returns focus to the record under its new type, or
+  to a removed level's parent.
+- _Review and D42._ The review names a type change on the record's row (**Master value → Codelist**)
+  and as **Type** in its table. `ObjectDetail` follows `409 object_type_changed` to the record's
+  current type (`changedObjectType` in `api/errors`), replacing the route; that mount keeps focus where
+  the user is, and the lens's own refocus after a restructuring moves focus only if it is still in the
+  tree.
+- _Shared changes._ `useCursorWindow.reload` reopens at the start when its anchor cursor is no longer
+  valid, as the first read already did; a plan's cursors bind its digest. `Modal` gained a `wide` size.
+  The B3 runner's B5b step now checks an item's top-level drag refused live, and in the change set says
+  it becomes a group (C4) before cancelling.
+
+Found and fixed on the way: the lens's refocus after a type change arrived after the user had moved on
+and took focus from the search field; the followed detail's title took focus from the dialog's
+**Done**; and the preview dimmed while updating, which axe measured below AA contrast.
+
+Closed in the package after review (2026-09-29):
+
+- _Move to… within the tree's types._ The C3 candidates could include a parent of a type the tree does
+  not show, where the record's application holds such a type, and a new type the tree does not show,
+  while the drag offers only the tree's types. Parent candidates gained a repeatable
+  `withinObjectTypeKey` ([API.md](API.md#changes-to-existing-reads)): candidates of those types only,
+  and with `includeTypeChanges` only those as the types the record would become, a candidate left
+  with none dropped; an unknown type is `422 unknown_object_type`. The server filters, so totals and
+  positions stay truthful (ADR-030), and the cursor binds the set. The tree lens passes its types, live
+  and in a change set. (In the starter model the gap cannot occur, since a parent is in its child's
+  application and no codelist can stand in RDM Systems; it can in a model whose application holds
+  types its tree does not show.)
+- _One rule for where records stand (D45)._ The planner's possible types and the parent-type rule
+  moved into `services/model/placements.py`, served by `GET /model/placements` (the context's model,
+  with its ETag). `api.model` loads it with the model and attaches it as `placements`; the browser's
+  `model/placements` reads it and derives nothing, replacing the frontend's copies in
+  `model/collections` (`childObjectTypeKeys`, B3), `model/restructuring` (C4) and `ObjectFormDialog`'s
+  parent types. Test models state their placements as data; the starter's is generated from the
+  engine (`frontend/src/test/starterPlacements.json`), which `test_model_placements` keeps equal. The
+  fixture model's containment relation gained `parentOf`, since the two frontend copies had disagreed
+  about it (the tree rule required it, the form's did not).
+- _Live says a change set can change the type._ Live, a place refused only for the record's type adds
+  **· a change set can change its type** to the drag's and Move to…'s reason.
+- _Required relationship inputs, checked once._ A one-off real-backend run (not kept in the suite, as
+  decided) added a tree to RDM Translations in its own copy of the model and changed a nested
+  translation group into a translation: the preview asked for the required **Translates object**
+  relationship, the lookup chose a codelist, and the apply wrote the translation with that incoming
+  relationship.
+- _Insert level above… groups siblings._ The dialog lists the record's siblings under the same parent
+  (or at the top level), searchable and paged, one type at a time where the place holds several of the
+  tree's types, with the record chosen; the choices become `childObjectIds`, kept across searches and
+  types, and with none chosen nothing is planned.
+
+Composable-domains doors (ADR-032): none affected beyond C1–C3 (the UI names no type or
+application; identity, attribute storage and audit/history as ADR-034 states). No migration.
+
+Checks: backend `test_model_placements` (4: the rule on the starter model and its renamed copy, a
+type contained through two parent relations not being a possible type, the route in live and
+change-set context with the model's ETag, and the frontend fixture equal to the served placements),
+`test_restructuring_api::test_parent_candidates_within_types` on the starter model and
+its renamed copy (the filter on candidates and on the types the record would become, totals, the
+filter without type changes, an unknown type), then the guide's groups for the service and route,
+`-m "model or contract or queries or change_sets or records or matrix"` (692 passed; `contract` after
+re-baselining the OpenAPI lock, whose only changes against HEAD are the parameter, the placements
+route and its three schemas, checked by diffing the document) and `ruff check app/ tests/`. Vitest `model/restructuring.test` (6: the served placements read over both
+starter trees, no place without them, the tree's types at the top, the menu's choices, helpers),
+`RestructuringDialog.test` (8: siblings chosen across two types into `childObjectIds`, and none
+chosen planning nothing; and a type change previewed by record and by pair, applied with the version and digest, the review
+link and Done; a mapping changed in place; a type question and an input re-planning with the typed
+field kept; a refused plan; a moved-on plan re-read with nothing applied; a new level waiting for its
+name and a request error; the summary), `views/TreeView.test` (5 new: the menu live and in a change
+set on two tree configurations; each refactoring's preview from the menu; Move to… marking
+**Becomes** on a candidate and the top level and previewing; the drag in a change set; no drag live
+of a record no place holds; Move to… sending the tree's types), `client.test` (the repeatable
+parameter), `ChangeSetReview.test` (the type change row), `ObjectDetail.test` (the
+D42 follow); then the guide's selection: `vitest related` over the changed modules (33 files, 316
+passed) and `src/features/workspaces` (61 passed). `npm run format`, `npm run lint` (0 errors; the 8
+warnings HEAD has) and `npm run build`. Browser: `test:browser:c4` (12 checks, the insert step
+choosing a sibling by keyboard; twice clean after the last change; axe clean on the ready, inputs and
+390px previews; screenshots of the drag, both tabs, the inputs with the sibling list, the restored
+values, the review row and 390px inspected), `test:browser:b3` (30 checks, with the B5b change-set step updated for C4), `test:browser:b4` (13), `test:browser:p2` (9, the review screen) and `test:browser:s5` (13, for the `useCursorWindow` reload change), all passed. After the placements change (D45), which every screen's model load and every tree reads: `test:browser:c4` (12), `b3` (30), `b4` (13), `s6` (10), `test:browser` (navigation and tree steps), `wp14` and `test:browser:authoring` (the object form's parent types), all passed. Not run: the backend (no backend change), the
+full frontend suite, the sidebar tree runners (`RecordTree` gained only the drag note, which the
+sidebar never renders), and the `test:a11y`/`test:visual` gates (C5 adds the preview and dialogs to
+them; the gated tree-drag scenarios are live and render as before).
+
 #### C5: Milestone C acceptance
 
 **Scope:** a real-backend runner for the whole journey:
@@ -3411,4 +3518,5 @@ is then ready to release (D43).
 | D42 | What does a read or write naming the old type return? | **Accepted 2026-09-29 (C0, ADR-034):** `409 object_type_changed` with the current type, for any record found under another type in the selected context; the UI follows it to the new route. Routes keep their type segment | C0 |
 | D43 | Release timing | **Accepted 2026-09-29 (C0):** (a) hold 0.8.0 until R2 passes; Milestone C ships in 0.8.0 | C0 |
 | D44 | Can a 5,000-record operation be previewed interactively? | **Accepted 2026-09-29: (a)** lower D41's limit to 500. Why: planning 4,772 records takes 0.35 s, but the preview's dry run through the C1 write path takes 48 s (about 10 ms a record) and applying as long again; at 479 records the preview takes 2.8 s. The alternatives were (b) keep 5,000 with a set-wise write path for plans, a second write path to keep in step with C1, and (c) dry-run only below a threshold, which breaks ADR-034's promise that the preview refuses what applying would. A set-wise write path is how a later build raises the limit | C2 |
+| D45 | Where does the browser get the rule for where records may stand? | **Accepted 2026-09-29 (C4):** from the engine. `services/model/placements.py` holds the one rule (the types a parent contains, and the types a record can become there), `GET /model/placements` serves it in the model's context, and the browser's `model/placements` only reads it. The frontend's two copies (C4's possible types and B3's `childObjectTypeKeys`) are gone; Add child, the sidebar tree, the object form's parent types, the drag and Move to…, and restructuring read the served placements. Alternative: embedding them in `GET /model`, which would stop that response being exactly the declarative document | C4 |
 | D30 | A link candidate page over a column of about 5,000 cells takes 92 ms live and 160 ms in a change set (found in A6) | **Accepted 2026-09-28:** a known 0.8 budget exception, as D26; the name order and total read every cell under the column only at an unusual column size. Revisit with precomputed sort keys (0.11 or later) | — |

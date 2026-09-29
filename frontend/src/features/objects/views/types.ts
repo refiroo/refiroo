@@ -22,6 +22,8 @@ export interface ViewComponentProps {
   /** Records the scroll anchor in the route without a history entry or a reload. */
   onAnchorChange?: (anchor: string | undefined) => void;
   onViewChange?: (viewKey: string) => void;
+  /** Opens the open change set's review, for a lens that wrote several records at once (C4). */
+  onReviewChanges?: () => void;
   /** Sibling lenses of the same source collection, placed by the renderer below its heading. */
   lenses?: ReactNode;
   /**

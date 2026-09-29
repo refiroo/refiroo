@@ -403,6 +403,17 @@ def get_object(
     return build_object_responses(session, model, [item])[0]
 
 
+_WITHIN_OBJECT_TYPE_KEY = Query(
+    default=None,
+    alias="withinObjectTypeKey",
+    description=(
+        "Keep to these types (repeatable): only candidates of these types and, with"
+        " includeTypeChanges, only these as the types the record would become; a candidate left"
+        " with none is not listed (Base 0.8 C4)"
+    ),
+)
+
+
 @router.get(
     "/objects/{object_type_key}/{object_id}/parent-candidates", response_model=ParentCandidatePage
 )
@@ -432,6 +443,7 @@ def get_parent_candidates(
             " there (Base 0.8 C3)"
         ),
     ),
+    within_object_type_keys: list[str] | None = _WITHIN_OBJECT_TYPE_KEY,
 ) -> ParentCandidatePage:
     """Records the record could move under, live or in a change set, in name order (Base 0.8 B2).
 
@@ -452,6 +464,7 @@ def get_parent_candidates(
         page=paging,
         page_size=page_size,
         include_type_changes=include_type_changes,
+        within_object_type_keys=within_object_type_keys,
     )
 
 

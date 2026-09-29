@@ -221,7 +221,33 @@ export interface ApplicationDefinition {
   settings: Record<string, unknown>;
 }
 
+/** A type of an application as a parent (Base 0.8 C4, `GET /model/placements`). */
+export interface ModelPlacementParent {
+  objectTypeKey: string;
+  /** The types a record of this type contains. */
+  childObjectTypeKeys: string[];
+  /** The types a record can become under one of this type (a restructuring, ADR-034). */
+  possibleObjectTypeKeys: string[];
+}
+
+export interface ModelApplicationPlacements {
+  applicationKey: string;
+  topLevelObjectTypeKeys: string[];
+  parents: ModelPlacementParent[];
+}
+
+/** Where the model lets records stand: the engine's one rule, served beside the model. */
+export interface ModelPlacements {
+  applications: ModelApplicationPlacements[];
+}
+
 export interface EngineModel {
+  /**
+   * Served by `GET /model/placements` and attached when the model is loaded (`api.model`); not part
+   * of the declarative document. Every read of where records may stand goes through
+   * `model/placements`, which reads this and derives nothing.
+   */
+  placements?: ModelPlacements;
   schemaVersion: string;
   release: { key: string; name: string; version: string };
   product: { name: string; description?: string };

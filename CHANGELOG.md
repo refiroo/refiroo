@@ -254,8 +254,30 @@ All notable changes to this project are documented in this file. The format foll
   the standard page links, filtered by `outcome`; cursors bind the change set version and the plan.
   Parent candidates take `includeTypeChanges=true` in a change set, listing the records a move with a
   type change could go under, each with `objectTypeKeys`.
+- Base 0.8 C4: restructuring in the tree lens, in a change set only. **Move to…** and a drag also
+  offer places where the record's type cannot stand but another type of the tree can: the candidate
+  and the drag say **Becomes <type>**, and choosing one opens a preview instead of moving. The node
+  menu adds **Change type…**, **Insert level above…**, **Remove this level…** and **Change type of all
+  <type> in here…**, each only where the model makes it possible. The preview shows the plan by
+  record (new type and place, each value's origin, what has no place, what is restored, inputs asked
+  in place) and by type pair (each attribute's source changeable in place), answers type questions,
+  lists refusals, applies the reviewed plan and links to the change set's review. **Insert level
+  above…** lists the record's siblings to choose more records to group under the new level.
+- Base 0.8 C4 (D45): `GET /api/v1/model/placements` serves where the context's model lets records
+  stand, per application: the types at the top and, per parent type, the types it contains and the
+  types a record can become under it. It is the engine's one rule (`services/model/placements.py`);
+  the browser loads it with the model and no longer derives containment itself.
+- Base 0.8 C4: parent candidates take a repeatable `withinObjectTypeKey`, keeping the candidates and,
+  with `includeTypeChanges`, the types the record would become to a set of types; the server filters,
+  so totals stay truthful. The tree lens passes its types, so Move to… offers what the drag offers.
 
 ### Changed
+- Base 0.8 C4: the change set review names a record's type change on its row and as **Type** in its
+  before/after table. The browser follows a record opened under a type it no longer has to its
+  current route (D42), replacing the old route and keeping focus. In a change set, a tree lens record
+  dragged to a place its type cannot stand, such as an item to the top level, now becomes a type that
+  can (B5b refused it); live, such a place's reason adds that a change set can change the type. A
+  cursor list's reload whose anchor went stale reopens at the start instead of failing.
 - Base 0.8 C1 (D42): every `/objects/{objectTypeKey}/{objectId}` route answers
   `409 object_type_changed` with the record's current type for a record found under another type in
   the selected context, live, in a change set or in a publication, where it answered `404

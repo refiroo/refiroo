@@ -9,6 +9,7 @@ import { attributeValueFromForm } from "@/ui/attributeForm";
 import { Modal } from "@/ui/Modal";
 import { Notice } from "@/ui/Notice";
 import { CurrentObjectContent } from "@/features/objects/CurrentObjectContent";
+import { parentObjectTypeKeys } from "@/model/placements";
 import { ObjectLookup } from "@/ui/ObjectLookup";
 
 export function ObjectFormDialog({
@@ -66,17 +67,14 @@ export function ObjectFormDialog({
     .slice()
     .sort((a, b) => a.order - b.order);
   const parentRelationKeys = new Set(objectType.behavior.parentRelationTypeKeys ?? []);
+  // Where the model lets this type stand, in any application, and in the record's own one: a parent
+  // must belong to the record's application, so only those are offered.
   const modelParentTypeKeys = Array.from(
-    new Set(
-      model.objectTypeRelations
-        .filter(
-          (relation) => relation.toObjectTypeKey === objectType.key && parentRelationKeys.has(relation.relationTypeKey),
-        )
-        .map((relation) => relation.fromObjectTypeKey),
-    ),
+    new Set(model.applications.flatMap((application) => parentObjectTypeKeys(model, application, objectType.key))),
   );
-  // A parent must belong to the record's own application, so offer only the types it contains.
-  const parentTypeKeys = modelParentTypeKeys.filter((key) => !owner || owner.objectTypeKeys.includes(key));
+  const parentTypeKeys = owner
+    ? parentObjectTypeKeys(model, owner, objectType.key).filter((key) => modelParentTypeKeys.includes(key))
+    : modelParentTypeKeys;
   const parentRequired = objectType.features.rootCreatable !== true;
   const noPermittedParent =
     !object && !parentObjectId && parentRequired && modelParentTypeKeys.length > 0 && parentTypeKeys.length === 0;

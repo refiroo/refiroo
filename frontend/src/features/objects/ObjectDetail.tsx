@@ -3,7 +3,7 @@ import { useLocalNumberPreference } from "@/lib/localPreference";
 import { ResizeHandle } from "@/ui/ResizeHandle";
 import { RecordActionMenu } from "@/features/objects/RecordActionMenu";
 import { useWorkspaceData, useDataApi } from "@/features/workspaces/WorkspaceDataContext";
-import { errorMessage } from "@/api/errors";
+import { changedObjectType, errorMessage } from "@/api/errors";
 import { fallbackDetail } from "@/model/defaults";
 import { fieldValue } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
@@ -14,6 +14,12 @@ import { HistoryPanel } from "./panels/HistoryPanel";
 import { Icon, ModelIcon } from "@/ui/Icon";
 import { panelComponentRegistry } from "./panels/registry";
 import type { PanelProps } from "./panels/types";
+
+/**
+ * The record a detail followed to its current type (D42). Its next mount is the same record under a
+ * new route, not a navigation the user made, so it leaves focus where the user is working.
+ */
+let followedObjectId: string | undefined;
 
 export function ObjectDetail({
   model,
@@ -30,6 +36,7 @@ export function ObjectDetail({
   readOnly = true,
   refreshToken = 0,
   onChanged = () => undefined,
+  onTypeChanged,
 }: {
   model: EngineModel;
   application: ApplicationDefinition;
@@ -46,6 +53,11 @@ export function ObjectDetail({
   /** Changes when the collection beside the inspector wrote, so the record is read again. */
   refreshToken?: number;
   onChanged?: () => void;
+  /**
+   * The record has another type in this context (D42): a restructuring changed it. The route
+   * follows it there, replacing the old route so Back does not return to it.
+   */
+  onTypeChanged?: (objectTypeKey: string) => void;
 }) {
   const api = useDataApi();
   const { changeSet, publication } = useWorkspaceData();
@@ -83,8 +95,15 @@ export function ObjectDetail({
     setError("");
   }
 
+  // Read through a ref, so a new callback from the parent does not read the record again.
+  const typeChanged = useRef(onTypeChanged);
+  useEffect(() => {
+    typeChanged.current = onTypeChanged;
+  });
+
   useEffect(() => {
     let active = true;
+    let following = false;
     setLoading(true);
     api
       .object(objectTypeKey, objectId, workspaceKey)
@@ -96,8 +115,17 @@ export function ObjectDetail({
         setObject(loaded);
         setError("");
       })
-      .catch((cause) => active && setError(errorMessage(cause)))
-      .finally(() => active && setLoading(false));
+      .catch((cause) => {
+        if (!active) return;
+        const current = changedObjectType(cause);
+        if (current && typeChanged.current) {
+          // Still loading: the route opens the record under its current type.
+          following = true;
+          followedObjectId = objectId;
+          typeChanged.current(current);
+        } else setError(errorMessage(cause));
+      })
+      .finally(() => active && !following && setLoading(false));
     return () => {
       active = false;
     };
@@ -120,15 +148,27 @@ export function ObjectDetail({
         setPanelRefresh((value) => value + 1);
         setHistoryRefresh((value) => value + 1);
       })
-      .catch((cause) => active && setError(errorMessage(cause)));
+      .catch((cause) => {
+        if (!active) return;
+        const current = changedObjectType(cause);
+        if (current && typeChanged.current) {
+          followedObjectId = objectId;
+          typeChanged.current(current);
+        } else setError(errorMessage(cause));
+      });
     return () => {
       active = false;
     };
   }, [api, objectId, objectTypeKey, workspaceKey, refreshToken]);
 
+  // Read once per mount: whether this mount only followed the record to its current type.
+  const [followed] = useState(() => followedObjectId === objectId);
   useEffect(() => {
-    if (!loading && !initialAction) titleRef.current?.focus();
-  }, [loading, objectId, inspector, initialAction]);
+    if (followed) followedObjectId = undefined;
+  }, [followed]);
+  useEffect(() => {
+    if (!loading && !initialAction && !followed) titleRef.current?.focus();
+  }, [loading, objectId, inspector, initialAction, followed]);
 
   if (loading) return <div className="page-loading">Loading object…</div>;
   if (error || !object || !objectType || !detail)
