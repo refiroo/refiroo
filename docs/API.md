@@ -1324,6 +1324,8 @@ Internal error example:
 - `POST /api/v1/relations`
 - `GET /api/v1/relations?objectId={id}&direction={outgoing|incoming|both}&relationTypeKey={key}` (`relationTypeKey` repeatable)
 - `GET /api/v1/relations/{relationId}`
+- `GET /api/v1/workspaces/{workspaceKey}/relations`: every edge in a workspace, in live data, a change
+  set or a publication ([workspace edge list](#workspace-edge-list-mapping-list-base-09-q2))
 - `PATCH /api/v1/relations/{relationId}`
 - `DELETE /api/v1/relations/{relationId}?expectedVersion={n}&changeSetId={id}&expectedChangeSetVersion={n}&expectedRelationSetVersion={n}&relationSetDirection={outgoing|incoming}`
 
@@ -1525,9 +1527,13 @@ An ambiguous row reports the complete `targetCount`, up to 20 targets and `targe
 Pass that cursor to `mapping-targets` with the row's source ID and mapping version to continue beyond
 the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
 
-### Mapping list
+### Workspace edge list (mapping list; Base 0.9 Q2)
 
-- `GET /api/v1/workspaces/{workspaceKey}/mappings` returns a flat, cursor-paged list of mapping edges.
+- `GET /api/v1/workspaces/{workspaceKey}/relations` and `GET /api/v1/workspaces/{workspaceKey}/mappings`
+  are one edge list published under two names: a flat, cursor-paged list of the workspace's edges of
+  any relation type. `/relations` is the name integrators look for; `/mappings` remains for the mapping
+  views. Both take the same parameters and return the same pages; each route's cursors are its own
+  (`422 invalid_cursor` on the other). `GET /api/v1/relations` keeps its anchored shape.
   All filter parameters are optional:
   - `relationTypeKey` — filter to one relation type.
   - `fromObjectTypeKey`, `toObjectTypeKey` — filter to a specific object-type pair.
@@ -1537,12 +1543,14 @@ the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
   - `applicationKey` + `viewKey` — both required together; controls column projection only (the view's
     source/target display columns enrich the `fields` dict). Without a view, default projection returns
     `id`, `objectTypeKey`, `name` and an empty `fields` dict.
-  - `changeSetId` — read from a change set snapshot instead of live data.
+  - `changeSetId` or `publicationId` — read a change set or an immutable publication instead of live
+    data; both together are `422 mutually_exclusive_context`. A cursor binds its context.
   - `search` — case-insensitive substring on source or target name (max 500 characters).
   - `cursor`, `pageSize` (1–100; defaults to 20 without a view, or the view's configured page size).
 - Returns the standard page. Each item contains `relationId`, `relationTypeKey`, `direction`
   (`"outgoing"` or `"incoming"`), `source` and `target` object summaries, the stored relation
-  `attributes` and the source anchor's `mappingVersion`.
+  `attributes` and the source anchor's `mappingVersion` (always `0` in a publication, which is
+  immutable, as in mapping coverage).
 - Pages with the [collection paging](#collection-paging) parameters except `seek`.
 - Unlike coverage, the list shows only existing edges — unmapped sources do not appear. This is useful
   for export, integration, flat-list views, and ad-hoc exploration where the source-anchored grouping

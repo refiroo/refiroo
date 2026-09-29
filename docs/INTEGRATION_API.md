@@ -456,10 +456,12 @@ serve it. The budget holds over the fixture's 258,000 records: see the
 ### Q2: Workspace edge list (0.8 P3)
 
 `GET /api/v1/workspaces/{workspaceKey}/mappings` already lists edges of any relation type. It gains
-`publicationId` (exclusive with `changeSetId`), and the same handler is published as
+`publicationId` (exclusive with `changeSetId`: `422 mutually_exclusive_context`, the code every other
+read uses), and the same handler is published as
 `GET /api/v1/workspaces/{workspaceKey}/relations`, the name integrators look for. Both routes return
 the one edge shape; `/mappings` remains for the mapping views. `GET /api/v1/relations` keeps its
-anchored shape.
+anchored shape. Each route's cursors are its own. Delivered in 0.9 Q2; the contract is in
+[API.md](API.md#workspace-edge-list-mapping-list-base-09-q2).
 
 ### Q3: Model-aware query (D4)
 

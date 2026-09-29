@@ -6,7 +6,7 @@ accepted (2026-09-28). All [decisions](#decisions) D1–D16 and CONSUMER_API C-D
 section and ADR-036–038 are drafted (2026-09-29). Work packages Q1–Q4, B1–B3, F1–F2, C1–C16, V1–V2,
 J1–J4 and R are specified (2026-09-29) and delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
-**Delivered:** [Q1](#q1-cross-type-lookup) (2026-09-29).
+**Delivered:** [Q1](#q1-cross-type-lookup) (2026-09-29), [Q2](#q2-workspace-edge-list) (2026-09-29).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -188,7 +188,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 0 | — | 0.8.0 released | C5, R1b and R2 pass |
 | 1 | [Q1](#q1-cross-type-lookup) | — | `GET /objects` across types — **delivered 2026-09-29** |
 | 1a | [E1–E3](BACKEND_BOUNDARIES_PLAN.md) | Q1 | Backend tiers, one rule set, one write path; no contract change — **delivered 2026-09-29** |
-| 2 | [Q2](#q2-workspace-edge-list) | — | Edge list with publication context, published as `/workspaces/{key}/relations` |
+| 2 | [Q2](#q2-workspace-edge-list) | — | Edge list with publication context, published as `/workspaces/{key}/relations` — **delivered 2026-09-29** |
 | 3 | [V1](#v1-api-reference-page) | — | Scalar at `/docs` with the management API |
 | 4 | [C1](#track-c--consumer-api) | — | `consumerApis` schema and validation; opens schema 0.8 |
 | 5 | [Q3](#q3-model-aware-query) | Q1 | `POST …/queries/objects`: criteria, one relation hop, `select`, `expand` |
@@ -342,7 +342,7 @@ nothing in the frontend changed. The full suites wait for R.
 **Design:** §Q2 (0.8 P3). **Needs:** 0.8.0.
 
 **Scope:** `publicationId` on `GET /workspaces/{key}/mappings` (exclusive with `changeSetId`, `422
-conflicting_context`), and the same handler published at `GET /workspaces/{key}/relations`. One
+mutually_exclusive_context`), and the same handler published at `GET /workspaces/{key}/relations`. One
 response shape; `GET /relations` unchanged.
 
 **Tests:** the three contexts, both routes returning the same pages, cursor binding per route and
@@ -351,6 +351,36 @@ context.
 **Groups:** `mapping`, `queries`, `contract`.
 
 **Exit:** both routes documented as one edge list in API.md.
+
+**Delivered 2026-09-29.** `GET /api/v1/workspaces/{key}/relations` and `/mappings` are one edge list
+([API.md](API.md#workspace-edge-list-mapping-list-base-09-q2)): both routes take one query dependency
+(`EdgeListQuery` in `management/routers/mapping.py`) and call `list_mappings`, which now reads a
+publication through the same `context_projection` (live, change set or publication) the mapping
+coverage, candidate and target reads use. Differences from the design and the scope above:
+
+- The scope named `422 conflicting_context`; every other read, this router's included, answers
+  `422 mutually_exclusive_context`, so the edge list does too (§Q2 amended).
+- A publication's rows carry `mappingVersion: 0`, as mapping coverage does for an immutable set.
+- The route passes its cursor scope (`mapping-list`, `workspace-relations`), and the cursor binds
+  `publicationId`, so a cursor is refused on the other route and in another context.
+- `/relations` carries the `mapping` and `relations` tags. The `/mappings` operation changes only by the
+  added `publicationId` parameter; no schema changed.
+- **Found on the way:** `list_mappings` began its snapshot by hand and imported `union_all` inside the
+  function; it now calls `begin_snapshot_read` and imports at module level (AGENTS.md).
+
+**Checks:** `test_workspace_edge_list` (new, `mapping` + `queries`; 6 passed) — a publication, live
+data changed after it and a later change set each holding different edges; both routes walked page by
+page giving identical items and totals in each context; the publication read through a view (fields
+from its stored attributes, `mappingVersion` 0); both contexts together and an unknown publication
+refused on both routes; cursors refused on the other route and in each other context. Groups
+`mapping`, `queries` and `contract` together (`-m "mapping or queries or contract"`): 281 passed, with
+the re-baselined OpenAPI lock (checked by diffing the document against HEAD: `/mappings` gains
+`publicationId`, `/relations` is added with identical parameters and responses, components unchanged)
+and the paging inventory at 25 collections. `ruff check app/ tests/` clean.
+
+Not run: `change_sets` beyond the modules these groups include, since the change-set projection is
+unchanged and only moved behind `context_projection`; `startup`, since there is no migration; `volume`,
+since no query changed; frontend checks, since nothing in the frontend changed. The full suites wait for R.
 
 #### Q3: Model-aware query
 

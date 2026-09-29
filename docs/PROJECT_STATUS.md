@@ -8,7 +8,9 @@ the change set review (P2) and hierarchy restructuring (Milestone C). The starte
 release 0.8.0 on schema language 0.7. Next is 0.9, integration-grade APIs
 ([plan](BASE_0_9_IMPLEMENTATION_PLAN.md)): **Q1, the cross-type lookup `GET /objects`, is delivered
 (2026-09-29)**, and so is the backend boundaries refactor E1–E3 ([record](BACKEND_BOUNDARIES_PLAN.md):
-tiers, one rule set for live data and change sets, one write path; no contract change); Q2 is next.
+tiers, one rule set for live data and change sets, one write path; no contract change), and so is
+**Q2, the workspace edge list** (`publicationId` on `/mappings`, the same list at
+`/workspaces/{key}/relations`, 2026-09-29); V1 is next.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

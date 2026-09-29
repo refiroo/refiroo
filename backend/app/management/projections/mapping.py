@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import Select, String, cast, func, literal, or_, select
+from sqlalchemy import Select, String, cast, func, literal, or_, select, union_all
 from sqlalchemy.orm import Bundle, Session
 from sqlalchemy.sql.selectable import Subquery
 
@@ -233,6 +233,41 @@ class MappingRead:
         ]
 
 
+def context_projection(
+    session: Session,
+    workspace_key: str,
+    change_set_id: str | None,
+    publication_id: str | None,
+) -> tuple[Subquery, Subquery]:
+    """The objects and relations of live data, a change set or a publication, in one shape."""
+    if change_set_id:
+        return change_set_mapping_projection(session, change_set_id)
+    if publication_id:
+        return publication_mapping_projection(session, publication_id)
+    objects = (
+        select(
+            RdmObject.id,
+            RdmObject.application_key,
+            RdmObject.object_type_key,
+            RdmObject.name,
+            RdmObject.parent_object_id,
+            literal(None).label("attributes"),
+            RdmObject.created_at,
+            RdmObject.updated_at,
+        )
+        .where(RdmObject.workspace_key == workspace_key)
+        .subquery("mapping_objects")
+    )
+    relations = select(
+        ObjectRelation.id,
+        ObjectRelation.relation_type_key,
+        ObjectRelation.from_object_id,
+        ObjectRelation.to_object_id,
+        ObjectRelation.attributes,
+    ).subquery("mapping_relations")
+    return objects, relations
+
+
 def open_mapping_read(
     session: Session,
     workspace_key: str,
@@ -280,32 +315,9 @@ def _mapping_read_in_transaction(
         raise api_error(
             404, "mapping_view_not_found", "Mapping view not found in the selected model"
         )
-    if change_set_id:
-        objects, relations = change_set_mapping_projection(session, change_set_id)
-    elif publication_id:
-        objects, relations = publication_mapping_projection(session, publication_id)
-    else:
-        objects = (
-            select(
-                RdmObject.id,
-                RdmObject.application_key,
-                RdmObject.object_type_key,
-                RdmObject.name,
-                RdmObject.parent_object_id,
-                literal(None).label("attributes"),
-                RdmObject.created_at,
-                RdmObject.updated_at,
-            )
-            .where(RdmObject.workspace_key == workspace_key)
-            .subquery("mapping_objects")
-        )
-        relations = select(
-            ObjectRelation.id,
-            ObjectRelation.relation_type_key,
-            ObjectRelation.from_object_id,
-            ObjectRelation.to_object_id,
-            ObjectRelation.attributes,
-        ).subquery("mapping_relations")
+    objects, relations = context_projection(
+        session, workspace_key, change_set_id, publication_id
+    )
     config = binding_config or view.config
     return MappingRead(
         session,
@@ -615,7 +627,9 @@ def list_mappings(
     session: Session,
     workspace_key: str,
     *,
+    scope: str,
     change_set_id: str | None = None,
+    publication_id: str | None = None,
     application_key: str | None = None,
     view_key: str | None = None,
     relation_type_key: str | None = None,
@@ -626,15 +640,13 @@ def list_mappings(
     page: PageRequest = FIRST_PAGE,
     page_size: int | None = None,
 ) -> MappingListPage:
-    connection = session.connection()
-    if connection.dialect.name == "sqlite":
-        if not connection.connection.driver_connection.in_transaction:
-            connection.exec_driver_sql("BEGIN")
-    elif connection.dialect.name == "postgresql":
-        connection.exec_driver_sql("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+    """The workspace edge list, published as ``/mappings`` and ``/relations``.
 
+    ``scope`` names the route, so neither accepts the other's cursors.
+    """
+    begin_snapshot_read(session)
     resolve_workspace(session, workspace_key)
-    snapshot = resolve_request_model(session, workspace_key, change_set_id, None)
+    snapshot = resolve_request_model(session, workspace_key, change_set_id, publication_id)
 
     config = None
     if application_key is not None and view_key is not None:
@@ -658,30 +670,9 @@ def list_mappings(
             "Both applicationKey and viewKey are required when either is supplied",
         )
 
-    if change_set_id:
-        objects, relations = change_set_mapping_projection(session, change_set_id)
-    else:
-        objects = (
-            select(
-                RdmObject.id,
-                RdmObject.application_key,
-                RdmObject.object_type_key,
-                RdmObject.name,
-                RdmObject.parent_object_id,
-                literal(None).label("attributes"),
-                RdmObject.created_at,
-                RdmObject.updated_at,
-            )
-            .where(RdmObject.workspace_key == workspace_key)
-            .subquery("mapping_objects")
-        )
-        relations = select(
-            ObjectRelation.id,
-            ObjectRelation.relation_type_key,
-            ObjectRelation.from_object_id,
-            ObjectRelation.to_object_id,
-            ObjectRelation.attributes,
-        ).subquery("mapping_relations")
+    objects, relations = context_projection(
+        session, workspace_key, change_set_id, publication_id
+    )
 
     directions = [direction] if direction else ["outgoing", "incoming"]
     parts = []
@@ -721,14 +712,13 @@ def list_mappings(
             )
         parts.append(part)
 
-    from sqlalchemy import union_all as sa_union_all
-
-    combined = sa_union_all(*parts).subquery("mapping_list")
+    combined = union_all(*parts).subquery("mapping_list")
     statement = select(projection_bundle(combined))
     effective_size = page_size or (config.pageSize if config else DEFAULT_LIST_PAGE_SIZE)
     cursor_filters = {
         "workspaceKey": workspace_key,
         "changeSetId": change_set_id,
+        "publicationId": publication_id,
         "relationTypeKey": relation_type_key,
         "fromObjectTypeKey": from_object_type_key,
         "toObjectTypeKey": to_object_type_key,
@@ -742,7 +732,7 @@ def list_mappings(
             text_key("relationId", combined.c.relation_id, "relation_id"),
             text_key("direction", combined.c.direction, "direction"),
         ),
-        scope="mapping-list",
+        scope=scope,
         filters=cursor_filters,
         page=page,
         page_size=effective_size,
@@ -761,7 +751,7 @@ def list_mappings(
             session,
             workspace_key,
             change_set_id,
-            None,
+            publication_id,
             snapshot,
             config,
             {},
@@ -786,7 +776,8 @@ def list_mappings(
                 row.direction,
             )
         )
-    if anchor_keys:
+    # A publication is immutable, so its sets carry version 0, as in MappingRead.versions.
+    if anchor_keys and publication_id is None:
         version_rows = session.scalars(
             select(RelationSetVersion).where(
                 RelationSetVersion.workspace_key == workspace_key,

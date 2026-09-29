@@ -39,9 +39,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # /model/placements with the ModelPlacements, ModelApplicationPlacements and ModelPlacementParent
     # schemas; nothing else. Re-baselined for 0.9 Q1: GET /objects, the cross-type lookup, added to
     # the existing /objects path beside POST; no existing operation or schema changed.
+    # Re-baselined for 0.9 Q2: publicationId on GET /workspaces/{key}/mappings, and the same edge
+    # list published as GET /workspaces/{key}/relations; no schema changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "f0638f413df4dbfdfbb98f8a531a1257a8ff09f8f65e78300d6d956fc7e0d1f2"
+        "032f4b14be17f41f3f5c4489153ebb5b0756a0d8759f2956387ae4762520431f"
     )
 
 
@@ -71,7 +73,7 @@ def test_paging_openapi_inventory():
         assert next(iter(properties)) == "items", path
         assert {"totalCount", "startIndex"}.isdisjoint(document["components"]["schemas"][name]["required"])
         assert properties["totalCount"]["type"] == properties["startIndex"]["type"] == "integer"
-    assert seekable <= paged and len(paged) == 24
+    assert seekable <= paged and len(paged) == 25
     objects = {item["name"] for item in document["paths"]["/api/v1/objects/{object_type_key}"]["get"]["parameters"]}
     relations = {item["name"] for item in document["paths"]["/api/v1/relations"]["get"]["parameters"]}
     assert "topLevel" in objects and {"search", "sort"} <= relations
@@ -234,6 +236,10 @@ def test_wp4_mapping_query_inventory_and_required_context():
     mappings_path = "/api/v1/workspaces/{workspace_key}/mappings"
     assert "get" in paths[mappings_path]
     list_op = paths[mappings_path]["get"]
+    # 0.9 Q2: the workspace edge list is published under both names, with one contract.
+    relations_op = paths["/api/v1/workspaces/{workspace_key}/relations"]["get"]
+    assert relations_op["parameters"] == list_op["parameters"]
+    assert relations_op["responses"] == list_op["responses"]
     assert list_op["responses"]["200"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/MappingListPage"
     }
@@ -245,6 +251,8 @@ def test_wp4_mapping_query_inventory_and_required_context():
         "fromObjectTypeKey",
         "toObjectTypeKey",
         "direction",
+        "changeSetId",
+        "publicationId",
     ):
         assert key in list_params
         assert not list_params[key].get("required", False)

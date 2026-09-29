@@ -15,6 +15,11 @@ All notable changes to this project are documented in this file. The format foll
   (`422 invalid_filter` or `invalid_sort`) with the per-type route that answers it. Items have the
   per-type list's shape. Over the 258,000-record volume fixture a first page takes 5–9 ms and a name
   search with its total 72–80 ms in every context.
+- Base 0.9 Q2: the workspace edge list. `GET /api/v1/workspaces/{key}/mappings` takes `publicationId`
+  (with `changeSetId` it is `422 mutually_exclusive_context`), and the same list is published as
+  `GET /api/v1/workspaces/{key}/relations`: every edge of any relation type in live data, a change set
+  or a publication, with one response shape. Each route's cursors are its own. A publication's rows
+  carry `mappingVersion` 0. `GET /api/v1/relations` is unchanged.
 
 ### Changed
 
