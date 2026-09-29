@@ -671,20 +671,20 @@ function PlanStatus({ preview }: { preview: RestructuringPreview }) {
         {summary}.
       </Notice>
     );
-  if (preview.status === "needsInput")
+  if (preview.status === "needsInput") {
+    const asks = [
+      preview.typeQuestions.some((question) => !question.chosen) && "choose the types asked for below",
+      preview.summary.inputsNeededCount &&
+        `give the ${count(preview.summary.inputsNeededCount, "value")} the records need (Show: Needing input)`,
+    ]
+      .filter(Boolean)
+      .join(", and ");
     return (
       <Notice tone="warning" title="Some answers are needed">
-        {summary}.{" "}
-        {[
-          preview.typeQuestions.some((question) => !question.chosen) && "Choose the types asked for below",
-          preview.summary.inputsNeededCount &&
-            `give the ${count(preview.summary.inputsNeededCount, "value")} the records need (Show: Needing input)`,
-        ]
-          .filter(Boolean)
-          .join(", and ")}
-        .
+        {summary}. {asks.charAt(0).toUpperCase() + asks.slice(1)}.
       </Notice>
     );
+  }
   return (
     <Notice tone="error" title="This cannot be applied">
       <ul className="restructuring-refusals">
@@ -1023,8 +1023,10 @@ function parseInput(attribute: Parameters<typeof parseAttributeValue>[0], target
   }
 }
 
+/** A value as text within a sentence, shown as `formatValue` shows it: a boolean as Yes or No. */
 function plain(value: unknown) {
   if (value === null || value === undefined) return "";
+  if (typeof value === "boolean") return value ? "Yes" : "No";
   return typeof value === "object" ? JSON.stringify(value) : String(value);
 }
 

@@ -256,6 +256,9 @@ later ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-c--structure-refactoring
 Exit: the journey passes on two models; identities, history and permitted relationships survive a type
 change; nothing is lost without being shown in the preview; nothing names a type or application.
 
+C0–C5 delivered 2026-09-29; the journey is accepted on the starter and generated models by
+`test:browser:c5` (SC-17, US-H03). 0.8.0 waits for R1b and R2.
+
 ## Product release 0.9 — Integration-grade APIs
 
 ### Product outcome

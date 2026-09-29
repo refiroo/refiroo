@@ -43,7 +43,11 @@ the D41 limit to 500 records (a 2.8 s preview); C3, the restructuring API (previ
 is delivered 2026-09-29; C4, restructuring in the tree lens (Move to… and drag to places that change
 the type, Change type…, Insert level above…, Remove this level…, Change type of all … in here…, the
 preview by record and by type pair, the review's type change and the browser following D42), is
-delivered 2026-09-29. 0.8.0 releases when R1b and R2 pass (D43). Residual 0.7 gaps are listed in the
+delivered 2026-09-29. C5, the milestone acceptance (`test:browser:c5` on the starter and generated
+models, SC-17, US-H03; the preview and dialogs in both gates), is delivered 2026-09-29, which completes
+Milestone C; on the way it made change set validation linear (D46; 125 s → 1.4 s at 2% volume) and
+fixed a reclassified-then-removed record in the review and the lens's late refocus. 0.8.0 releases
+when R1b and R2 pass (D43). Residual 0.7 gaps are listed in the
 [plan's WP-9 record](BASE_0_7_IMPLEMENTATION_PLAN.md#wp-9-composed-product-validation--sc-07-and-sc-15).
 
 The generic model defines applications, object types, reusable fields, allowed relationships and views.

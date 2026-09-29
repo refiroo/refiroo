@@ -105,13 +105,17 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   change set. D37–D43 accepted in C0.
   - [x] C0 design (2026-09-29): ADR-034 and the restructuring API design in API.md; D37–D42 as
     recommended, D43 holds 0.8.0 until R2; no migration needed.
-  - [ ] C1 type change in the engine (values, containment edge, relationships, derived state, audit,
-    publishing).
-  - [ ] C2 planner: possible types, mapping suggestions, cascade, the way back, size limit.
-  - [ ] C3 restructuring API: preview and apply for move, change type, insert and remove a level,
-    change type under a record.
-  - [ ] C4 refactoring in the tree lens, reusing B5's dialog, list and drag.
-  - [ ] C5 Milestone C acceptance.
+  - [x] C1 type change in the engine (values, containment edge, relationships, derived state, audit,
+    publishing) (2026-09-29).
+  - [x] C2 planner: possible types, mapping suggestions, cascade, the way back, size limit
+    (2026-09-29; D44 lowers the limit to 500).
+  - [x] C3 restructuring API: preview and apply for move, change type, insert and remove a level,
+    change type under a record (2026-09-29).
+  - [x] C4 refactoring in the tree lens, reusing B5's dialog, list and drag (2026-09-29; D45).
+  - [x] C5 Milestone C acceptance (2026-09-29): `test:browser:c5` on the starter and generated
+    models, the preview and dialogs in both gates, US-H03 and SC-17; fixed on the way: linear change
+    set validation, a reclassified-then-removed record in the change lists and review, and the lens's
+    late refocus after a restructuring.
 - [ ] 0.8 R2 Milestone C build acceptance; 0.8.0 releases after it (D43).
 - [ ] Enforce foreign keys on SQLite (`PRAGMA foreign_keys=ON` per connection) or document that every
   `ondelete` rule is advisory there. 0.8 W6 found none of them, not only the `workspaces.key` ones, are
@@ -119,8 +123,10 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   Enabling it needs a data check for existing violations and must keep the table-rebuild migrations,
   which require it off, working.
 - [ ] 0.9 planning ([plan](BASE_0_9_IMPLEMENTATION_PLAN.md), [integration design](INTEGRATION_API.md)): document
-  set accepted 2026-09-28; section P drafted; decisions D1–D14 and CONSUMER_API C-D2–C-D16 open;
-  security moved to the 0.12 release (C-D1).
+  set accepted 2026-09-28; decisions D1–D16 and CONSUMER_API C-D1–C-D16 accepted 2026-09-29;
+  INTEGRATION_API sections P, B, F, Q and J, the schema 0.8 section and ADR-036–038 drafted
+  2026-09-29; work packages and the delivery queue specified 2026-09-29. Open: review of the drafts;
+  implementation after 0.8.0, starting with Q1.
 - [ ] Integration-grade query expressions beyond daily-use filters.
 - [ ] Bounded live bulk object/relation/mapping operations with explicit optional staging, per-item
   outcomes and safe retry; do not require a change set merely because several records change (0.9).

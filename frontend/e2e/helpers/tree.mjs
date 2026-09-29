@@ -192,10 +192,22 @@ export async function dragFrom(page, item) {
   if (!dragged.startsWith(name)) throw new Error(`pressed on ${name}, but the drag is of ${dragged}`);
 }
 
-/** Moves the held pointer over `item`'s row (`middle`) or the gap `above` or `below` it. */
+/**
+ * Moves the held pointer over `item`'s row (`middle`) or the gap `above` or `below` it. A branch still
+ * opening above the row (a reveal) can move it from under the pointer, so the pointer follows it
+ * until it holds still. The pointer never rests anywhere else meanwhile: resting on a collapsed
+ * branch would open it.
+ */
 export async function dragOver(page, item, where = "middle") {
-  const { x, y } = await pointOn(item, where);
-  await page.mouse.move(x, y, { steps: 8 });
+  let point = await pointOn(item, where);
+  await page.mouse.move(point.x, point.y, { steps: 8 });
+  for (let attempt = 0; attempt < 10; attempt++) {
+    await page.waitForTimeout(50);
+    const again = await pointOn(item, where);
+    if (again.x === point.x && again.y === point.y) return;
+    point = again;
+    await page.mouse.move(point.x, point.y, { steps: 2 });
+  }
 }
 
 /** The drag's state as the page shows it: the preview's tone and text, and the glowing rows. */

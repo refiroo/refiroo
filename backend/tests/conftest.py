@@ -91,6 +91,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_type_changes.py": ("change_sets", "records", "matrix"),
     "test_restructuring_planner.py": ("change_sets", "records", "matrix"),
     "test_restructuring_volume.py": ("volume", "change_sets"),
+    "test_graph_validation_scale.py": ("change_sets", "volume"),
     "test_restructuring_api.py": ("change_sets", "records", "matrix"),
 }
 

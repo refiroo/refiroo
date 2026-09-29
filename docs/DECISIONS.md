@@ -1311,3 +1311,129 @@ the hard parts are mapping the workbook onto the model, validation and reviewing
 - Composable-domains doors (ADR-032): identity and inbound flow use 0.9 upsert keys; provenance gains a
   natural source name (the profile); value types convert through the attribute registry; `match` and
   mapping coverage are not touched.
+
+## ADR-036 — A batch is a job: one mechanism for bulk writes, imports and exports
+
+**Status:** Accepted, 2026-09-29 (Base 0.9 design; decides D1, D10–D14). The design is in
+[INTEGRATION_API.md](INTEGRATION_API.md) sections P, B and J.
+
+### Motivation
+
+Bulk writes, imports and exports each need outcomes per item, safe retries, cancellation, resumption
+after a restart, retention and a cause recorded on the changes they make. Built per feature, these
+would be defined three times with three sets of edge cases, and a synchronous bulk call whose
+response is lost could not be read back at all.
+
+### Decision
+
+- **Every bulk write, import and export is a persisted job** with its parameters, state, stage,
+  progress and one outcome per item. A synchronous batch is a job run inline within the synchronous
+  limit; everything else runs in the background. The caller chooses (`run`), never the size.
+- **Items go through the single-write services.** A bulk item is validated and written exactly as the
+  equivalent single write, with the same error codes; bulk adds addressing by key, upsert and
+  relation-set replacement, not a second validation path.
+- **Two failure policies, named per request:** `atomic` (all or nothing, bounded) and `independent`
+  (each item in its own savepoint, committed in chunks). No default, and no "stop at first error".
+- **Outcomes** are `applied` (with `created`, `updated`, `unchanged` or `deleted`), `rejected` (with
+  the single-write code) or `unprocessed` (with a reason). A processed batch answers `200`; its
+  `result` says whether everything applied.
+- **No silent overwrite.** Updates need `expectedVersion`; an upsert that finds a record needs one too
+  unless the request declares `onExisting: "overwrite"`, which is audited.
+- **Idempotency keys** replay a finished job's response and refuse a reused key with a different body.
+- **Chunks commit with their outcomes and the job's checkpoint**, so a resumed job never repeats or
+  skips an item; a lease lets 0.11 run workers on several nodes without a contract change.
+- **A job pins the model release** at creation and fails with `model_release_changed` when it moves.
+- **Staging is the change set.** A job targets live data or a named change set (ADR-026); there is no
+  separate staging store.
+- **Limits are settings**, reported by capabilities and named in the refusal. Files live in a
+  configured directory, not in database rows; jobs, outcomes, files and idempotency keys share one
+  retention.
+- **Job creation is a deployment capability group** (`INTEGRATION_JOBS_ENABLED`, ADR-031), on by
+  default; reads are ungated until 0.12.
+
+### Consequences
+
+- The job table, outcome table, worker and lease are delivered with the first bulk package, not as an
+  unused layer.
+- Every applied item records the job as the cause of its audit entries, which the feed and consumer
+  events report and a later value-source field builds on (ADR-032, provenance).
+- Imports are batches built from a file: an import profile turns rows into batch items, and the
+  preview runs those items in a rolled-back transaction, so preview and execution share code.
+
+## ADR-037 — The audit log is the ordered source of the change feed and consumer events
+
+**Status:** Accepted, 2026-09-29 (Base 0.9 design; decides D5, D8, D15, D16, C-D8, C-D11). The design
+is in [INTEGRATION_API.md](INTEGRATION_API.md#f-change-feed) section F.
+
+### Motivation
+
+Integrations need an ordered, resumable stream of changes, and consumers need events about the objects
+they read. The audit log is already written in the same transaction as every change, so it can serve
+as the outbox without a second write path. Two gaps stood in the way, found against the code on
+2026-09-29: the audit `sequence_id` is allocated at insert, not at commit, so on PostgreSQL two live
+writers can commit out of sequence order; and a publish wrote one event without the records it
+changed, whose edits had been audited earlier as change-set edits.
+
+### Decision
+
+- **One source.** The raw feed reads the audit log; consumer events are derived from the feed. Both
+  are positioned by the same number, so their positions compare.
+- **A per-workspace feed position in commit order.** Every audit entry that changes live data takes the
+  next position from a counter on the workspace row, locked until commit. A live write takes that lock
+  before any record row, as publish already does. Positions are gapless and never commit out of
+  order, on SQLite and PostgreSQL alike. Writes in one workspace serialize; workspaces stay
+  independent. Change-set edits, validation and model administration take no position.
+- **A publish records what it changes.** It writes one audit entry per record it applies to live, each
+  with a position and the publish as its cause, then the `published` entry. A publication's
+  `feedPosition` is that entry's position, and the publication equals live data there, which makes a
+  publication a valid re-sync baseline.
+- **Entries carry identity and changed keys, never values**, including for `reclassified`, whose full
+  before state stays in the audit log only. Readers fetch values when they need them; a redaction
+  never rewrites the feed.
+- **Retention is a setting** (30 days by default) shared by the raw feed and consumer events; an
+  expired position answers `410` with the baselines to recover from (a publication or an export, each
+  with its position). The setting does not prune the audit log.
+
+### Consequences
+
+- Migration adds `workspace_key` and `feed_position` to `audit_events` and a counter to `workspaces`;
+  the feed starts empty, with no backfill.
+- Every live write path acquires the workspace lock first; the first F package audits the write paths
+  for this order and measures its cost against the 0.8 budgets.
+- A publish of many records writes many audit entries, bounded like the equivalent single writes; the
+  "publishing never amplifies events per object" rule is withdrawn.
+- A visibility watermark over transaction IDs is not needed, and 0.11 exercises the same mechanism on
+  PostgreSQL rather than a new one.
+
+## ADR-038 — Business validity is a declared effective period, separate from history and publications
+
+**Status:** Accepted, 2026-09-29 (Base 0.9 design; decides D6, D7, C-D14). The model language is in
+[APPLICATION_MODEL.md](APPLICATION_MODEL.md#effective-period-effectiveperiod), reads in
+[INTEGRATION_API Q4](INTEGRATION_API.md#q4-effective-periods-and-asof).
+
+### Motivation
+
+Reference data often has business validity: a code valid from one date, retired on another. It is
+easy to confuse with record history ("what did the record say then") and with publications ("what did
+we release then"). SC-11 requires the three to stay separate, and the engine must not hard-code which
+attributes carry validity.
+
+### Decision
+
+- **Declared, not inferred.** An object type declares at most one `effectivePeriod` over two `date`
+  attributes it binds. Nothing else carries business validity.
+- **Semantics.** Inclusive start, exclusive end, either may be empty (since always, open); dates have
+  no time zone; overlaps between records are allowed and all are returned. An end not after its start
+  is refused.
+- **`asOf` is a filter over values.** It combines with any content context (live, change set,
+  publication) and never selects one; a publication read never applies business dates unless `asOf`
+  is also given.
+- **Types without a period** refuse `asOf` (`as_of_not_supported`), except in a lookup across types,
+  which filters the types that declare one and names them in `asOfApplied`.
+- **One schema step.** The declaration and consumer API definitions arrive together in schema 0.8.
+
+### Consequences
+
+- Validity is ordinary attribute data: it is edited, versioned, audited, published and fed like any
+  other value, and history and publications need no change.
+- `dateTime` periods, several periods per type and period-aware uniqueness wait for a real case.

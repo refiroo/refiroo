@@ -494,13 +494,70 @@ also checks header and column fields, application membership, containment compat
 existence and direction, unique detail/panel keys and page-size bounds. Configuration contains only
 stable model keys and presentation semantics; the React API adapter owns all backend routes.
 
+## Schema 0.8 additions (planned, Product 0.9)
+
+Designed for [Base 0.9](BASE_0_9_IMPLEMENTATION_PLAN.md) (D7); the starter becomes content release
+0.9.0 on schema 0.8. Schema 0.8 is a strict superset of 0.7, as each earlier step was: 0.5–0.7 models
+keep parsing and activating, absent 0.8 fields are omitted from the canonical document so earlier
+releases keep their content hash, and a 0.8 field in an older schema is refused at its path.
+
+### Effective period (`effectivePeriod`)
+
+An object type may declare one business validity period:
+
+```json
+{
+  "key": "master-value",
+  "effectivePeriod": {
+    "startAttributeTypeKey": "valid-from",
+    "endAttributeTypeKey": "valid-to"
+  }
+}
+```
+
+- Both keys name `date` attributes the type binds, and they differ. A `dateTime` period is refused
+  until a real case needs one.
+- The start is inclusive and the end exclusive; an empty start means "since always" and an empty end
+  "open". Periods of different records may overlap.
+- Writes, live and in a change set, refuse an end that is not after its start with
+  `422 invalid_effective_period`; change-set validation and publishing report the same code as a
+  diagnostic.
+- Reads accept `asOf` on the types that declare a period ([INTEGRATION_API Q4](INTEGRATION_API.md#q4-effective-periods-and-asof)).
+  The period is business validity: it is independent of record versions, change history and
+  publications (SC-11).
+- Adding or removing a declaration changes no stored data. Removing one makes `asOf` on that type
+  `422 as_of_not_supported`; the consumer API's breaking-change check (package C1) counts that as a
+  contract change for a definition that exposes the type.
+
+### Consumer API definitions (`consumerApis`)
+
+A new optional top-level array of read-only consumer API definitions. Their shape, validation and
+contract rules are specified in [CONSUMER_API.md](CONSUMER_API.md#definition-shape); in summary:
+
+- Each definition has a `key` (the `apiKey`), a `name` and its own `contractVersion`, and declares the
+  exposed object types, output fields, projections, lists, XREF parameters and scoring, and events.
+- A `projection` parameter may declare `"targetable": true`, which enables crosswalk reads
+  (`to.{parameter}`). Only a `projection` parameter can be targetable.
+- Every reference to a type, attribute, relation binding or ancestor is validated against the same
+  release, with the model's path-and-reason errors.
+- Installation compares each definition with the previously installed release and refuses a breaking
+  change that does not raise `contractVersion` (C-D2): removing or retyping an output field, changing
+  a projection's shape, changing scoring weights (C-D4), or removing or narrowing an event.
+- Definitions change no stored data and no management API behaviour.
+
+### Upsert keys
+
+Schema 0.8 adds no declaration for upsert keys. A batch or import upserts by public ID or by an
+attribute already declared `unique` (D2); the uniqueness declaration is the key declaration.
+
 ## Versioning
 
 `schemaVersion` versions the model language; the starter content release `0.8.0` uses schema `0.7`.
 Schema 0.4 added object-level cross-field validation, required initial relationships and scoped
 relationship uniqueness to the 0.3 detail-composition contract. Schema 0.5 adds strict typed table
 views. Schema 0.6 adds the `mappingGrid` view type. Schema 0.7 adds relations-panel sort options
-(`sortFields`, `defaultSort`) and the `relationMatrix` and `tree` view types. `release.version` versions one model package.
+(`sortFields`, `defaultSort`) and the `relationMatrix` and `tree` view types. Schema 0.8 (planned,
+Product 0.9) adds `effectivePeriod` and `consumerApis` ([above](#schema-08-additions-planned-product-09)). `release.version` versions one model package.
 Each distinct
 validated model is installed as an immutable database release identified by its content hash.
 

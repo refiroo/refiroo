@@ -8,7 +8,7 @@ packages A1–A5, B1–B5 and C0–C5; P2 is scheduled after W2 (D20); R1 owns b
 (2026-09-27) with D8 and D9 accepted. A2, A3 and A3b are delivered (2026-09-27) with D10–D13
 accepted; A3b's stored cell states closed A2's budget exception for the row state filter. A4 and A5
 are delivered (2026-09-28), and A6 (snapshot table index drift, found in A2) with D28 accepted
-(2026-09-28), which completes Milestone A. B1–B4 are delivered (2026-09-28); B5 (drag and drop in the tree lens, D34, D35) was added in the Milestone B review (2026-09-28) with its amendment B5b (move to the top level, D36); B5 is delivered (2026-09-29), and B5b is delivered (2026-09-29), which completes Milestone B, with R1b as their build acceptance; Milestone C (structure refactoring, C0–C5) was added after the Milestone B review (2026-09-28), with R2 as its build acceptance; C0 is delivered (2026-09-29) with ADR-034 and D37–D43 accepted; D14 is accepted (2026-09-28),
+(2026-09-28), which completes Milestone A. B1–B4 are delivered (2026-09-28); B5 (drag and drop in the tree lens, D34, D35) was added in the Milestone B review (2026-09-28) with its amendment B5b (move to the top level, D36); B5 is delivered (2026-09-29), and B5b is delivered (2026-09-29), which completes Milestone B, with R1b as their build acceptance; Milestone C (structure refactoring, C0–C5) was added after the Milestone B review (2026-09-28), with R2 as its build acceptance; C0 is delivered (2026-09-29) with ADR-034 and D37–D43 accepted; C1–C4 are delivered (2026-09-29, D44 and D45), and C5 is delivered (2026-09-29) with D46, which completes Milestone C; D14 is accepted (2026-09-28),
 D30 decides one of A6's two open measurements and B2 decides the other (D29, a known budget exception);
 P2 is planned (2026-09-28) as P2a (change lists API) and P2b (review screen), with D31–D33 accepted (2026-09-28); P2a and P2b are delivered (2026-09-28), which completes P2. R1 build acceptance of the build without B5 passed (2026-09-28); 0.8.0 releases after R1b and R2 (D43); see the [summary](#decisions-summary).
 
@@ -3370,6 +3370,93 @@ dialogs to the accessibility and visual gates (light and dark).
 **Exit:** the journey passes on two models (the example model and the generated one); nothing in the
 engine or the UI names a type or application.
 
+**C5 delivered 2026-09-29.** `e2e/c5-restructuring-acceptance.mjs` (`test:browser:c5`) runs the
+milestone journey (SC-17, US-H03) against a real backend, previewing every operation, applying it to a
+change set and checking it against the API, mostly by keyboard.
+
+- _Starter domain hierarchy_ (`seedRestructuring` in `e2e/helpers/acceptance-data.mjs`, shared with
+  both gates; 1440px). Logistics is a top-level domain holding the codelist Carriers (with a
+  description and two flags) › Road (› Truck, Van), Rail and Air. **Move to…** takes Logistics under
+  Domain 00 (**Becomes Codelist**): Logistics becomes a codelist and Carriers a master value, a
+  two-level cascade, while Road keeps its type and its containment edge is re-typed. The preview asks
+  for Carriers' Master ID and Value code: one answer is given **by type** (Master ID from Codelist
+  code, chosen by type-ahead in the select) and one in Carriers' row. **Insert level above…** Road adds
+  Surface with Rail chosen and its three values given in place; **Remove this level…** on Road moves
+  Truck and Van up. **Review the change set** (reached by Shift+Tab from **Done**) names both type
+  changes, the added and the removed level and the moved records. The change set is validated and
+  published by keyboard from the change set screen. Live, the new publication and both records'
+  histories hold the result; in the browser, the live tree, Carriers' breadcrumb, its history panel
+  (**Record reclassified**), and its old codelist route following to the master value (D42). In a
+  second change set, **Move to…** Domain 01 turns Carriers back into a codelist, with both flags shown
+  as **restored**; published, live holds them and the first publication still holds the master value.
+- _Generated volume tree_ (2% by default, `C5_VOLUME_SCALE`). A group holding a group, an item and an
+  item citing a group is dragged onto a node: four records become nodes, and the citation is kept in
+  history. A level is inserted above the nested node (its Code given in place) and the nested node is
+  removed as a level. The review lists the type changes, the removed level (as live holds it) and, on
+  **Relationships**, the removed citation. After publishing from the change set screen, both the
+  citing record's and the cited group's histories list the reclassification. The way back takes two
+  steps, because a group may hold nodes: **Move to…** a group (a plain move), then **Change type…** to
+  an item, which restores the citation under its former ID.
+
+The gates add, light and dark: `tree-move-type-change`, `restructuring-preview`,
+`restructuring-preview-by-type`, `restructuring-insert-level` and `restructuring-remove-level` in both
+gates, and `restructuring-change-type` in `test:a11y` (the system hierarchy, since in the domain
+hierarchy each place holds one type, so nothing there offers **Change type…**).
+
+Found and fixed on the way:
+
+- _Validation was quadratic (D46)._ Validating a change set over the generated model at 2% volume
+  (about 5,400 records and 12,000 relations) took 125 s, even with nothing changed, so the journey
+  could not publish there. The uniqueness, parent-edge, cardinality, scoped-uniqueness and
+  required-relation checks in `change_sets._diagnostics` scanned every record or relation once per
+  record or relation. They now read indexes built once: 1.4 s at 2% (20 s → 0.4 s at 0.5%), linear.
+  `test_graph_validation_scale` pins the answers the indexes must give (a missing attribute read as
+  `None`, JSON values by equality, both cardinality sides, the earlier relation named in a scope
+  conflict); it passes unchanged on the old scans. It also holds validating and publishing at 2%
+  within 10 s and 20 s.
+- _A reclassified record removed later._ The change lists compared a removed record's source type
+  with its change set row's, so a record whose type changed and which was then removed listed
+  `objectType` with no after side, and the review showed **vol-group → Unknown type**. A removed
+  record now names only the fields its source holds, in its source type's order, and the review names
+  it by the side it has. Regressions: `test_type_changes::test_a_reclassified_record_removed_later_lists_no_type_change`
+  (starter and renamed) and `ChangeSetReview.test`.
+- _The lens's late refocus._ After a restructuring, the lens focused the record once the tree's own
+  reveal read returned, even when the user had gone on to the lens search meanwhile, so the rest of
+  what they typed went to the tree (the runner hit it about 100 ms after **Done**). `RecordTree` now
+  applies a pending focus only while focus is still in the tree or nowhere, and otherwise makes the
+  record the tab stop. Regression: `views/TreeView.test` (fails without the fix).
+- _Preview text._ The needs-input status began its second sentence in lower case, and values without
+  a place printed booleans as `true` rather than **Yes**/**No**.
+- _Runner race._ The shared `dragOver` measured its target once; a branch still opening above it
+  moved the row from under the pointer (seen once in `test:browser:c4`). It now follows the row until
+  it holds still. A first version waited before moving, which left the pointer resting on a collapsed
+  branch that then opened (`test:browser:b3`'s gap drop failed); the pointer now moves at once and
+  only corrects.
+
+Baselines: the ten new captures and `tree-move-dialog-{light,dark}` were reviewed and accepted. The
+latter changed because of the **Top level** row (B5b, disabled with its reason for a non-root type)
+and C4's "· a change set can change its type", neither of which was in a baseline yet (B5b deferred
+its gates to R1b, C4 to C5). Full-page runner screenshots of an open dialog show a band above the
+backdrop: that is how a full-page capture renders a scroll-locked page, and the gates' viewport
+captures show the dialog as a user sees it.
+
+Composable-domains doors (ADR-032): none changed. Validation keeps its diagnostics, and the change
+lists drop only a field a removed record never had. No migration.
+
+Checks: backend `test_graph_validation_scale` (2; the semantics test also run on the old scans),
+`test_type_changes` (the new case, starter and renamed), then the guide's groups for `change_lists.py`
+and `change_sets.py`: `-m "change_sets or mapping or records or volume"` (513 passed) and `ruff check
+app/ tests/`. Vitest `RestructuringDialog.test` (8), `views/TreeView.test` (28), `ChangeSetReview.test`
+(16), then `vitest related` over `RecordTree`, `RestructuringDialog` and `ChangeSetReview` (8 files,
+141 passed); `npm run format`, `npm run lint` (0 errors, the 8 recorded warnings), `npm run build`.
+Browser: `test:browser:c5` (13 checks, axe clean on three states), `c4` (12), `b3` (30), `b4` (13) and
+`p2` (9), all passed after the last change (b4 and p2 before the `dragOver` change, which neither
+uses). Gates: `test:a11y` (50 scenarios, no unexpected violations) and `test:visual` (41 captures, all
+matching after the reviewed baselines). Screenshots inspected: each runner capture and each new
+baseline. Not run: the full backend suite and full Vitest, and the sidebar tree runners (`s6`,
+`test:browser`, `wp14`: the changed `RecordTree` branch runs only on a lens focus request, which the
+sidebar never makes). These are R2's.
+
 ## R1: Build acceptance and release
 
 **Scope:** after S8, W6, W5, A6, B4 and P2 (D20, D25, D27, D28): the full backend `pytest` suite, frontend `npm run test`, Ruff,
@@ -3519,4 +3606,5 @@ is then ready to release (D43).
 | D43 | Release timing | **Accepted 2026-09-29 (C0):** (a) hold 0.8.0 until R2 passes; Milestone C ships in 0.8.0 | C0 |
 | D44 | Can a 5,000-record operation be previewed interactively? | **Accepted 2026-09-29: (a)** lower D41's limit to 500. Why: planning 4,772 records takes 0.35 s, but the preview's dry run through the C1 write path takes 48 s (about 10 ms a record) and applying as long again; at 479 records the preview takes 2.8 s. The alternatives were (b) keep 5,000 with a set-wise write path for plans, a second write path to keep in step with C1, and (c) dry-run only below a threshold, which breaks ADR-034's promise that the preview refuses what applying would. A set-wise write path is how a later build raises the limit | C2 |
 | D45 | Where does the browser get the rule for where records may stand? | **Accepted 2026-09-29 (C4):** from the engine. `services/model/placements.py` holds the one rule (the types a parent contains, and the types a record can become there), `GET /model/placements` serves it in the model's context, and the browser's `model/placements` only reads it. The frontend's two copies (C4's possible types and B3's `childObjectTypeKeys`) are gone; Add child, the sidebar tree, the object form's parent types, the drag and Move to…, and restructuring read the served placements. Alternative: embedding them in `GET /model`, which would stop that response being exactly the declarative document | C4 |
+| D46 | Where is the quadratic change set validation found in C5 fixed? | **Accepted 2026-09-29 (C5):** in C5, because the milestone journey publishes the generated model at 2%, where validation took 125 s. `_diagnostics` reads indexes built once, with the same diagnostics in the same order (pinned by a test that passes on the old scans too), plus a volume budget for validating and publishing. Alternative: track it separately and run C5's generated journey at 0.5% (20 s) | C5 |
 | D30 | A link candidate page over a column of about 5,000 cells takes 92 ms live and 160 ms in a change set (found in A6) | **Accepted 2026-09-28:** a known 0.8 budget exception, as D26; the name order and total read every cell under the column only at an unusual column size. Revisit with precomputed sort keys (0.11 or later) | — |

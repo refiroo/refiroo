@@ -6,6 +6,7 @@ staged edits use the canonical routers with ``changeSetId``. Publishing merges a
 live data and records an immutable publication (ADR-026/027/031).
 """
 
+from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -1651,6 +1652,13 @@ def _diagnostics(
             }
         )
     effective_attributes: dict[str, dict[str, Any]] = {}
+    # Indexes keep every check linear in the graph (C5): each answers what a scan of every record or
+    # relation answered, with the same diagnostics in the same order.
+    holders = _ValueHolders(membership.objects)
+    parent_edges = {
+        (relation.from_object_id, relation.to_object_id, relation.relation_type_key)
+        for relation in relation_rows
+    }
     for item in membership.objects:
         object_type = model.object_type(item.object_type_key)
         if object_type is None:
@@ -1704,10 +1712,9 @@ def _diagnostics(
             ):
                 if definition and definition.features.get("unique"):
                     same = [
-                        other.object_id
-                        for other in membership.objects
-                        if other.object_id != item.object_id
-                        and (other.attributes or {}).get(key) == (item.attributes or {}).get(key)
+                        other_id
+                        for other_id in holders.of(key, (item.attributes or {}).get(key))
+                        if other_id != item.object_id
                     ]
                     if same:
                         errors.append(
@@ -1734,7 +1741,7 @@ def _diagnostics(
                 )
                 break
             seen.add(parent.object_id)
-            if not _parent_pair_exists(model, current, parent, relation_rows):
+            if not _parent_pair_exists(model, current, parent, parent_edges):
                 errors.append(
                     {
                         "code": "containment_relation_missing",
@@ -1793,16 +1800,20 @@ def _diagnostics(
             )
         else:
             valid_relations.append((relation, allowed))
+    # How many valid relations of each type leave or enter each record, by relation id.
+    leaving: dict[tuple[str, str], Counter[str]] = defaultdict(Counter)
+    entering: dict[tuple[str, str], Counter[str]] = defaultdict(Counter)
+    for relation, allowed in valid_relations:
+        leaving[(allowed.relationTypeKey, relation.from_object_id)][relation.relation_id] += 1
+        entering[(allowed.relationTypeKey, relation.to_object_id)][relation.relation_id] += 1
+
+    def another(counts: Counter[str], relation_id: str) -> bool:
+        return counts.total() > counts[relation_id]
+
     for relation, allowed in valid_relations:
         if allowed.cardinality in {"one-to-one", "one-to-many", "many-to-one"}:
-            same = [
-                other
-                for other, other_allowed in valid_relations
-                if other_allowed.relationTypeKey == allowed.relationTypeKey
-                and other.relation_id != relation.relation_id
-            ]
-            if allowed.cardinality in {"one-to-one", "many-to-one"} and any(
-                other.from_object_id == relation.from_object_id for other in same
+            if allowed.cardinality in {"one-to-one", "many-to-one"} and another(
+                leaving[(allowed.relationTypeKey, relation.from_object_id)], relation.relation_id
             ):
                 errors.append(
                     {
@@ -1811,8 +1822,8 @@ def _diagnostics(
                         "details": {"relationId": relation.relation_id},
                     }
                 )
-            if allowed.cardinality in {"one-to-one", "one-to-many"} and any(
-                other.to_object_id == relation.to_object_id for other in same
+            if allowed.cardinality in {"one-to-one", "one-to-many"} and another(
+                entering[(allowed.relationTypeKey, relation.to_object_id)], relation.relation_id
             ):
                 errors.append(
                     {
@@ -1823,7 +1834,11 @@ def _diagnostics(
                 )
     # Ancestor-scoped uniqueness (language/target uniqueness for translations): a scoped relation may
     # appear once per source object per ancestor scope while the optional target-attribute condition
-    # holds. Mirrors the change set write path in validate_change_set_relation.
+    # holds. Mirrors the change set write path in validate_change_set_relation. Only relations of the
+    # same type from the same source can conflict, so each looks among those, in list order.
+    by_source: dict[tuple[str, str], list[tuple[Any, Any]]] = defaultdict(list)
+    for relation, allowed in valid_relations:
+        by_source[(allowed.relationTypeKey, relation.from_object_id)].append((relation, allowed))
     for relation, allowed in valid_relations:
         ancestor_type_key = allowed.features.get("uniqueToAncestorTypeKey")
         if not ancestor_type_key:
@@ -1836,11 +1851,8 @@ def _diagnostics(
         target_ancestor = _ancestor_object_id(objects, target, ancestor_type_key)
         if target_ancestor is None:
             continue
-        for other, other_allowed in valid_relations:
-            if (
-                other.relation_id >= relation.relation_id
-                or other_allowed.relationTypeKey != allowed.relationTypeKey
-            ):
+        for other, _other_allowed in by_source[(allowed.relationTypeKey, relation.from_object_id)]:
+            if other.relation_id >= relation.relation_id:
                 continue
             other_target = objects.get(other.to_object_id)
             other_values = effective_attributes.get(
@@ -1878,15 +1890,17 @@ def _diagnostics(
             required_by_target.setdefault((pair.relationTypeKey, pair.toObjectTypeKey), set()).add(
                 pair.fromObjectTypeKey
             )
+    incoming = {
+        (rel.to_object_id, rel.relation_type_key, objects[rel.from_object_id].object_type_key)
+        for rel, _allowed in valid_relations
+    }
     for target in membership.objects:
         for (relation_key, target_type), source_types in sorted(required_by_target.items()):
             if target_type != target.object_type_key:
                 continue
             satisfied = any(
-                rel.to_object_id == target.object_id
-                and rel.relation_type_key == relation_key
-                and objects[rel.from_object_id].object_type_key in source_types
-                for rel, _allowed in valid_relations
+                (target.object_id, relation_key, source_type) in incoming
+                for source_type in source_types
             )
             if not satisfied:
                 errors.append(
@@ -1911,18 +1925,46 @@ def _validate_application_diagnostic(errors: list[dict[str, Any]], model: Any, i
         )
 
 
-def _parent_pair_exists(model: Any, child: Any, parent: Any, relations: list[Any]) -> bool:
+def _parent_pair_exists(
+    model: Any, child: Any, parent: Any, edges: set[tuple[str, str, str]]
+) -> bool:
+    """Whether ``edges`` (source, target, relation type) hold one of ``child``'s parent relations."""
     keys = (
         set(model.object_type(child.object_type_key).behavior.get("parentRelationTypeKeys", []))
         if model.object_type(child.object_type_key)
         else set()
     )
-    return not keys or any(
-        r.from_object_id == parent.object_id
-        and r.to_object_id == child.object_id
-        and r.relation_type_key in keys
-        for r in relations
-    )
+    return not keys or any((parent.object_id, child.object_id, key) in edges for key in keys)
+
+
+class _ValueHolders:
+    """Records by attribute value, per attribute type, built once per attribute type asked for.
+
+    ``of(key, value)`` lists, in membership order, the records whose ``key`` equals ``value`` by
+    ``==`` (a record without ``key`` holds ``None``), as a scan comparing every record would. Values
+    that cannot be hashed (JSON lists and objects) are compared one by one among themselves.
+    """
+
+    def __init__(self, objects: Any) -> None:
+        self._objects = list(objects)
+        self._by_key: dict[str, tuple[dict[Any, list[str]], list[tuple[Any, str]]]] = {}
+
+    def of(self, key: str, value: Any) -> list[str]:
+        if key not in self._by_key:
+            hashed: dict[Any, list[str]] = {}
+            unhashable: list[tuple[Any, str]] = []
+            for other in self._objects:
+                held = (other.attributes or {}).get(key)
+                try:
+                    hashed.setdefault(held, []).append(other.object_id)
+                except TypeError:
+                    unhashable.append((held, other.object_id))
+            self._by_key[key] = (hashed, unhashable)
+        hashed, unhashable = self._by_key[key]
+        try:
+            return hashed.get(value, [])
+        except TypeError:
+            return [object_id for held, object_id in unhashable if held == value]
 
 
 def _is_parent_pair(model: Any, pair: Any) -> bool:

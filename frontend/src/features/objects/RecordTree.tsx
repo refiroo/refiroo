@@ -361,7 +361,10 @@ export function RecordTree({
     if (wanted) {
       pendingFocus.current = undefined;
       pending.current = undefined;
-      focusItem(wanted);
+      // The record's reveal reads first; a user who went elsewhere meanwhile (the lens search, the
+      // inspector) keeps their place, and the record only becomes the tab stop.
+      const active = document.activeElement;
+      if (!active || active === document.body || tree.current?.contains(active)) focusItem(wanted);
       setFocusKey(wanted.dataset.treeKey);
       return;
     }

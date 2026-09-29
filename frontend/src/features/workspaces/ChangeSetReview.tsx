@@ -376,10 +376,13 @@ function ObjectChanges({
             <ul className="change-rows" aria-busy={list.loading || undefined}>
               {list.items.map((item, position) => {
                 const name = item.after?.name ?? item.before?.name ?? item.objectId;
-                // A reclassified record (C1) names its type on both sides.
-                const type = item.changedFields.includes("objectType")
-                  ? `${endType(model, item.before?.objectTypeKey ?? null)} → ${endType(model, item.after?.objectTypeKey ?? null)}`
-                  : (objectTypeFor(model, item.objectTypeKey)?.name ?? item.objectTypeKey);
+                // A reclassified record (C1) names its type on both sides; an added or removed one
+                // the type of the side it has, so a removed record is named as its source holds it.
+                const ownType = (item.after ?? item.before)?.objectTypeKey ?? item.objectTypeKey;
+                const type =
+                  item.before && item.after && item.changedFields.includes("objectType")
+                    ? `${endType(model, item.before.objectTypeKey)} → ${endType(model, item.after.objectTypeKey)}`
+                    : (objectTypeFor(model, ownType)?.name ?? ownType);
                 const where = location(item.path);
                 return (
                   <ChangeRow

@@ -1,7 +1,7 @@
 # Consumer API (Product 0.9)
 
-Status: proposed scope for 0.9, alongside the integration items already listed in ROADMAP.md.
-Decisions still open are listed at the end (C-D1 to C-D16).
+Status: accepted scope for 0.9, alongside the integration items already listed in ROADMAP.md.
+All decisions (C-D1 to C-D16) are accepted as of 2026-09-29 and listed at the end.
 
 ## Security (0.12)
 
@@ -540,17 +540,17 @@ DELETE /api/v1/consumer-subscriptions/{id}
 
 ### Delivery
 
-- **Per-change mode:** one POST carries a batch of up to 100 events in sequence order, so a bulk job
+- **Per-change mode:** one POST carries a batch of up to 100 events in position order, so a bulk job
   or a large publication becomes a few requests, not thousands.
 - **Coalesced mode:** one POST says "this scope changed" after `debounceSeconds` without new
   matching events, or after at most 10 minutes of continuous change. This fits "run an export when
   data changes".
-- **Ordering:** each subscription delivers in sequence order. A batch goes out only after the
+- **Ordering:** each subscription delivers in feed-position order (INTEGRATION_API F3). A batch goes out only after the
   previous one is acknowledged.
 - **Acknowledgement and retry:** any `2xx` acknowledges. Anything else, or a timeout (10 s), is
   retried with exponential backoff and jitter for up to 24 hours. After that the subscription is
   **suspended**. `resume` continues from the first unacknowledged event; nothing is skipped.
-- **At-least-once:** receivers deduplicate by `eventId`. The event sequence tells them whether they
+- **At-least-once:** receivers deduplicate by `eventId`. The event `position` tells them whether they
   are behind.
 - **Headers:** `RDM-Delivery-Id` and `RDM-Timestamp`. From 0.12 also
   `RDM-Signature: sha256=<HMAC of "{timestamp}.{body}">`; receivers then verify it and reject stale
@@ -565,7 +565,7 @@ Per-change body:
   "subscriptionId": "…",
   "apiKey": "rdm", "contractVersion": 1, "workspaceKey": "main",
   "events": [{
-    "eventId": "…", "sequence": 184223, "occurredAt": "2026-09-26T10:14:03Z",
+    "eventId": "…", "position": 184223, "occurredAt": "2026-09-26T10:14:03Z",
     "event": "reference-data-changed", "change": "updated",
     "objectType": "TimetableType", "id": "…", "code": "…", "name": "…",
     "changed": ["systemVariants"],
@@ -581,7 +581,7 @@ Coalesced body:
   "deliveryId": "…", "subscriptionId": "…",
   "apiKey": "rdm", "contractVersion": 1, "workspaceKey": "main",
   "event": "reference-data-changed",
-  "fromSequence": 184100, "toSequence": 184223, "eventCount": 124,
+  "fromPosition": 184100, "toPosition": 184223, "eventCount": 124,
   "objectTypes": ["TimetableType", "Location"],
   "occurredFrom": "…", "occurredTo": "…"
 }
@@ -594,20 +594,22 @@ cheap and avoids delivering a snapshot that is already stale (C-D7).
 ### Pull feed
 
 ```text
-GET /api/consumer/{apiKey}/v{contractVersion}/events?event=…&after={sequence}&pageSize=…&{parameters}
+GET /api/consumer/{apiKey}/v{contractVersion}/events?event=…&after={position}&cursor=…&pageSize=…&{parameters}
 ```
 
-The same events, paged in sequence order, filtered with the definition's parameters. It serves
+The same events, paged in position order, filtered with the definition's parameters. It serves
 receivers that prefer polling, catch-up after downtime or a suspension, and verification. Events are
-retained for a configurable period, 30 days by default (C-D9). A request for a sequence older than
+retained for a configurable period, 30 days by default (C-D9). A request for a position older than
 retention answers `410 EVENTS_EXPIRED`: the receiver re-syncs by reading its lists pinned to a
 publication and resuming the feed from that publication's `eventSequence` (C-D15).
 
 ### How events are produced
 
-The audit log (`audit_events`) is already written in the same transaction as every data change, in
-order. It serves as the outbox. An event deriver reads new audit entries after commit, evaluates
-them against the installed definitions and appends consumer events (C-D8):
+The audit log (`audit_events`) is already written in the same transaction as every data change. It
+serves as the outbox. Every entry that changes live data carries a per-workspace feed position
+assigned in commit order (Base 0.9 D5, INTEGRATION_API F3), and a publish writes one entry per record
+it applies (D15). An event deriver reads new entries in position order after commit, evaluates them
+against the installed definitions and appends consumer events (C-D8):
 
 - a rolled-back write leaves no audit entry, so no event is produced;
 - a write never waits on event evaluation or delivery;
@@ -630,7 +632,7 @@ coordination is 0.11 work.
 | C7 | _Moved to 0.12 (C-D1):_ OAuth 2.0 client access per definition, webhook signing keys, UI administration of both |
 | C8 | Parity acceptance: a test-only fixture model extending the starter with locations, availability and a single-valued self relation (fixture content, not product scope), a fixture dataset, and a definition that reproduces the reference response for the scenarios below; volume budgets |
 | C9 | Event definitions: `events` schema and validation, contract rules for events |
-| C10 | Event deriver over the audit sequence: owning-object resolution through projections, `watch` evaluation, event store, retention, pull feed |
+| C10 | Event deriver over the workspace change feed (INTEGRATION_API F6): owning-object resolution through projections, `watch` evaluation, event store, retention, pull feed |
 | C11 | Subscription administration: API, filters through definition parameters, host allowlist, suspension on model change (signing keys and rotation in 0.12) |
 | C12 | Dispatcher: per-change batches, coalesced debounce, ordering, retry with backoff, suspension and resume (signing in 0.12) |
 | C13 | Event acceptance: the scenarios below, plus a bulk-volume delivery budget |
@@ -696,23 +698,25 @@ table under "Behavior the engine does not carry over" says otherwise:
     `as_of_not_supported` for a type with no declared period (SC-11, with C16);
 16. the API index lists every installed definition and its OpenAPI URL.
 
-## Open decisions
+## Decisions
 
-| # | Question | Recommendation |
+C-D1 decided 2026-09-29; C-D2–C-D16 accepted 2026-09-29 as recommended, with the notes below.
+
+| # | Question | Decision |
 | --- | --- | --- |
 | C-D1 | Authentication for an external API | **Decided 2026-09-29:** no API-key credentials and no credential in a URL (the route's `apiKey` is a definition name). The 0.12 security release provides OAuth 2.0 with JWT access tokens for the backend, frontend and consumer APIs, HMAC-signed webhooks, and UI administration of both. 0.9 is unauthenticated (C7 moved to 0.12) |
 | C-D2 | How strict the breaking-change check is | Removing or retyping an output field, or changing a projection's shape, needs a new `contractVersion`. Adding fields does not |
 | C-D3 | Serve several contract versions of one definition at once | Not in 0.9. One installed version per definition; the gateway handles overlap |
-| C-D4 | Are the scoring weights part of the contract | Yes. Weights change ranking, and flows depend on ranking, so a weight change needs a new `contractVersion` |
+| C-D4 | Are the scoring weights part of the contract | Yes. Weights change ranking, and flows depend on ranking, so a weight change needs a new `contractVersion`. Because of C-D3 (one installed version at a time), tuning weights is a contract release for every consumer of the definition; that cost is accepted |
 | C-D5 | Route compatibility for existing consumers | The existing gateway maps routes. The engine does not accept free-form route templates in 0.9 |
 | C-D6 | Consumer reads in change-set (change set) context | No. Consumers read live or a publication, never unpublished work |
 | C-D7 | Include the full object in per-change events | No in 0.9. Identity plus changed outputs; receivers read the object. An opt-in snapshot can come later if receivers need the state at the time of the change |
-| C-D8 | Outbox: the existing audit log, or a separate event table written in the same transaction | The audit log. It is already transactional and ordered, and it keeps the write path unchanged. Revisit only if deriving events from it proves too slow |
+| C-D8 | Outbox: the existing audit log, or a separate event table written in the same transaction | The audit log. It is already transactional and ordered, and it keeps the write path unchanged. Revisit only if deriving events from it proves too slow. Holds with Base 0.9 D15: a publish writes one audit entry per record it applies to live, so the deriver sees publish changes at the publish position |
 | C-D9 | Event retention | 30 days by default, configurable per deployment. Past retention, receivers re-sync with lists or an export job |
 | C-D10 | Who manages subscriptions before 0.12 | The subscription API in 0.9 is a deployment capability group (ADR-031), off by default, like model administration; 0.12 authorization and the UI replace it as the way to manage them |
-| C-D11 | Relation to the general 0.9 change feed | The general feed exposes raw record changes for management and sync tools. Consumer events are the consumer-shaped view. Both use the audit sequence, so positions compare |
-| C-D12 | Webhooks before 0.12 signing | Deliver unsigned in 0.9 and keep the host allowlist, which protects the engine rather than authenticating anyone. The signature header arrives in 0.12 as an additive header. The alternative is to sign already in 0.9, since a receiver cannot otherwise tell a forged event from a real one |
+| C-D11 | Relation to the general 0.9 change feed | The general feed exposes raw record changes for management and sync tools. Consumer events are the consumer-shaped view. Both are positioned by the workspace **feed position** (Base 0.9 D5, INTEGRATION_API F3), so positions compare; `eventSequence` is that position |
+| C-D12 | Webhooks before 0.12 signing | Deliver unsigned in 0.9 and keep the host allowlist, which protects the engine rather than authenticating anyone. A forged event can at most make a receiver re-read, since events carry identity only (C-D7) and the API it re-reads is itself unauthenticated in 0.9. The signature header arrives in 0.12 as an additive header |
 | C-D13 | Batch resolve maximum | 1,000 items per request, a setting reported by capabilities, like the integration API's synchronous batch (Base 0.9 D13); confirmed by C14's volume budget |
 | C-D14 | `asOf` in an XREF that spans types with and without a declared period | Filter the types that declare one, leave the others unfiltered and name the filtered types in `asOfApplied`. The alternative, refusing the request, would make `asOf` unusable in a mixed lookup |
-| C-D15 | Re-sync baseline after `410` | A publication's lists plus its `eventSequence`. This holds only if a publication reflects live data exactly at that position; to verify against ADR-024 and ADR-026 before C6. If it does not, the baseline is a list read at a stated event position instead |
-| C-D16 | Which workspace a consumer read addresses | Not yet specified (the consumer index is per workspace). Recommended: a reserved `workspace` parameter, defaulting to the deployment's default workspace, so one definition serves every workspace |
+| C-D15 | Re-sync baseline after `410` | A publication's lists plus its `eventSequence`. **Verified 2026-09-29:** publish builds the publication from the whole live graph plus the change-set delta and writes that delta to live in the same transaction (`change_sets.publish_change_set`), so at commit the publication equals live data. The position is the feed position of the `published` event, stored on the publication by C6. On PostgreSQL this relies on Base 0.9 D5 (publish and live writes serialize on the workspace row) |
+| C-D16 | Which workspace a consumer read addresses | A reserved `workspace` parameter, defaulting to the deployment's default workspace, so one definition serves every workspace. The default workspace can be changed (the workspace runtime state's `defaultWorkspaceKey`), which would move consumers silently, so every response names the resolved workspace, as it names a resolved `publication=latest` |

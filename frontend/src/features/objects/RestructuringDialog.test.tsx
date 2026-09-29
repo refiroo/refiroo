@@ -48,7 +48,13 @@ function planRecord(overrides: Partial<RestructuringRecord> = {}): Restructuring
       { attributeTypeKey: "group-code", from: "value-code", outcome: "mapped", value: "NA" },
       { attributeTypeKey: "active", from: "active", outcome: "kept", value: true },
     ],
-    withoutPlace: { attributes: [{ attributeTypeKey: "value-name", value: "Sodium" }], relationships: [] },
+    withoutPlace: {
+      attributes: [
+        { attributeTypeKey: "value-name", value: "Sodium" },
+        { attributeTypeKey: "active", value: false },
+      ],
+      relationships: [],
+    },
     restoredRelationships: [],
     inputsNeeded: [],
     refusals: [],
@@ -132,7 +138,10 @@ describe("RestructuringDialog", () => {
     const record = within(dialog).getByRole("listitem");
     expect(within(record).getByText("System value → System group")).toBeInTheDocument();
     expect(within(record).getByText("from Value code")).toBeInTheDocument();
-    expect(within(record).getByText(/Without a place, kept in history: Value name “Sodium”/)).toBeInTheDocument();
+    // A boolean reads as it does everywhere else, not as `false` (C5).
+    expect(
+      within(record).getByText(/Without a place, kept in history: Value name “Sodium”, Active “No”$/),
+    ).toBeInTheDocument();
 
     // By type: the pair's mapping, with the rule that suggested it.
     fireEvent.click(within(dialog).getByRole("tab", { name: "By type (1)" }));
@@ -199,6 +208,10 @@ describe("RestructuringDialog", () => {
     const apply = vi.spyOn(api, "applyRestructuring");
     open({ kind: "move", item: sodium, parent: { ...system, path: [system] } });
     expect(await screen.findByText("Some answers are needed")).toBeInTheDocument();
+    // What is asked starts its own sentence (C5).
+    expect(screen.getByText("Some answers are needed").closest(".notice")).toHaveTextContent(
+      /\. Choose the types asked for below, and give the 1 value the records need \(Show: Needing input\)\.$/,
+    );
     expect(screen.getByRole("button", { name: "Apply to the change set" })).toBeDisabled();
     expect(lastRequest(preview).operation).toEqual({ kind: "move", objectId: sodium.id, parentObjectId: system.id });
 

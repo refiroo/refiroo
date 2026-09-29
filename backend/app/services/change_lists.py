@@ -254,9 +254,16 @@ def list_object_changes(
     orders: dict[str, dict[str, int]] = {}
     entries = []
     for row, before_state, after_state in states:
-        order = orders.setdefault(row.object_type_key, _attribute_order(model, row.object_type_key))
+        # A removed record's fields are its source's, in its source type's order.
+        own_type = (after_state or before_state).object_type_key
+        order = orders.setdefault(own_type, _attribute_order(model, own_type))
         changed = []
-        if before_state is not None and before_state.object_type_key != row.object_type_key:
+        # A type change needs both sides: a removed record names only what its source holds.
+        if (
+            before_state is not None
+            and after_state is not None
+            and before_state.object_type_key != after_state.object_type_key
+        ):
             changed.append("objectType")
             # The old type's attributes order after the new type's.
             order = {

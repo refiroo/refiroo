@@ -9,14 +9,20 @@ import {
   expandChangeReviewRow,
   holdTreeDrag,
   openChangeReview,
+  openDomainHierarchy,
   openLongList,
+  openRestructuring,
   openSystemHierarchy,
+  openTypeChangeMove,
   openTranslationCell,
   openTranslationMatrix,
   openTreeMoveDialog,
+  previewTypeChangeMove,
+  revealInTree,
   seedChangeReview,
   seedHierarchy,
   seedLongList,
+  seedRestructuring,
   seedTranslationMatrix,
 } from "./helpers/acceptance-data.mjs";
 import { cancelDrag } from "./helpers/tree.mjs";
@@ -292,6 +298,54 @@ try {
     }
   }
   await page.emulateMedia({ colorScheme: "light" });
+
+  // --- 13c. Restructuring (Base 0.8 C5), light and dark, in one change set. The domain hierarchy:
+  // Move to… marking a place that changes the type, that move's preview by record (a two-level cascade
+  // asking for values in place) and by type pair, Insert level above… with its sibling list and the
+  // new record's inputs, and Remove this level…; the system hierarchy, where a place holds two types:
+  // Change type… ---
+  await seedRestructuring(api);
+  const restructuring = await api("/workspaces/default/change-sets", { name: "Restructuring gate", source: "currentLive" });
+  const closeDialog = async () => {
+    await page.keyboard.press("Escape");
+    await page.getByRole("dialog").waitFor({ state: "detached" });
+  };
+  for (const scheme of ["light", "dark"]) {
+    const prefix = scheme === "dark" ? "dark-" : "";
+    await page.emulateMedia({ colorScheme: scheme });
+    const scan = async (name) => {
+      await page.waitForLoadState("networkidle");
+      result = await runAxe(page, ALLOWLIST, `${prefix}${name}`);
+      if (result.violations.length > 0) failures.push(`${prefix}${name}:\n${formatViolations(result.violations)}`);
+      checks.push(`${prefix}${name}: ${result.violations.length} violations, ${result.allowed.length} allowed`);
+      await page.screenshot({ path: resolve(output, `a11y-${prefix}${name}.png`), fullPage: true });
+    };
+    await openDomainHierarchy(page, uiUrl, restructuring);
+    await revealInTree(page, "Road");
+    const dialog = await openTypeChangeMove(page);
+    await scan("tree-move-type-change");
+    await previewTypeChangeMove(page, dialog);
+    await scan("restructuring-preview");
+    await dialog.getByRole("tab", { name: /^By type/ }).click();
+    await dialog.getByRole("combobox", { name: "Master ID: value from" }).waitFor();
+    await scan("restructuring-preview-by-type");
+    await closeDialog();
+    await openRestructuring(page, "Road", "Insert level above…", "Insert a level above Road", "Surface");
+    await scan("restructuring-insert-level");
+    await closeDialog();
+    await openRestructuring(page, "Road", "Remove this level…", "Remove Road as a level");
+    await scan("restructuring-remove-level");
+    await closeDialog();
+    await page.goto(`${uiUrl}/apps/rdm-systems/views/system-hierarchy?workspaceKey=default&changeSetId=${restructuring.id}`);
+    await page.locator(".tree-lens").getByRole("treeitem", { name: /^System 00/ }).waitFor();
+    await revealInTree(page, "Sodium");
+    await openRestructuring(page, "Sodium", "Change type…", "Change the type of Sodium");
+    await scan("restructuring-change-type");
+    await closeDialog();
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+  const restructuringDetail = await api(`/change-sets/${restructuring.id}`);
+  await api(`/change-sets/${restructuring.id}?expectedVersion=${restructuringDetail.version}`, undefined, "DELETE");
 
   // --- 14. Workspaces administration (Base 0.8 W4), light and dark, with a retired workspace ---
   const retired = await api("/workspaces", { key: "archive", label: "Archive" });

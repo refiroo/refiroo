@@ -18,7 +18,7 @@ frontend and real-browser package evidence; it is not WP-9 release acceptance. S
 | F04 | Inspect a record and its context                          | Implemented         | Available      | Every workspace                  |
 | F05 | Maintain live records                                     | Temporarily unwired | Available      | WP9 must enable browser editing  |
 | F06 | Maintain typed field values                               | Components present  | Available      | Browser completion is WP9        |
-| F07 | Maintain containment and hierarchy                        | Implemented         | Available      | Tree lens; SC-09 hierarchy half accepted (0.8 B4) |
+| F07 | Maintain containment and hierarchy                        | Implemented         | Available      | Tree lens; SC-09 hierarchy half accepted (0.8 B4); restructuring, SC-17 accepted (0.8 C5) |
 | F08 | Maintain ordinary relationships                           | Implemented         | Available      | Mapping lens focused proof; WP9 pending |
 | F09 | Maintain translations                                     | Implemented         | Available      | Relation matrix; SC-09 translation half accepted (0.8 A5) |
 | F10 | Preview and confirm dependent deletion                    | Components present  | Available      | Browser completion is WP9        |
@@ -222,7 +222,18 @@ changes the path and the typed containment relation together, carries the record
 leaves other branches as they were. It is live, or staged in a selected change set until that is
 published; a publication shows the tree read-only.
 
-Evidence: [B4 runner](../../frontend/e2e/b4-hierarchy-acceptance.mjs), [explorer](../../frontend/src/features/objects/Explorer.tsx),
+Since Base 0.8 Milestone C (C1–C4, accepted in C5 on 2026-09-29) a change set can also reshape the
+hierarchy (ADR-034). **Move to…** and a drag offer places where the record's type cannot stand but
+another type can (**Becomes <type>**), and the node menu adds **Change type…**, **Insert level
+above…**, **Remove this level…** and **Change type of all <type> in here…**, each only where the model
+makes it possible. The engine derives the possible types and each value's source from the model; the
+records below follow level by level. A preview shows every record's new type, values and origin,
+what has no place (kept in history) and the values still needed, which the steward answers there;
+applying writes the whole operation to the change set, and its review names each type change.
+Records keep their IDs and history, and a later type change offers back what an earlier one kept in
+history. Live never changes type until the change set is published (D38).
+
+Evidence: [C5 runner](../../frontend/e2e/c5-restructuring-acceptance.mjs), [B4 runner](../../frontend/e2e/b4-hierarchy-acceptance.mjs), [explorer](../../frontend/src/features/objects/Explorer.tsx),
 [record tree](../../frontend/src/features/objects/RecordTree.tsx),
 [hierarchy panel](../../frontend/src/features/objects/panels/HierarchyPanel.tsx),
 [ADR-006](../DECISIONS.md#adr-006--maintain-containment-and-typed-parent-relations).

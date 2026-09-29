@@ -449,6 +449,121 @@ export async function expandChangeReviewRow(page, name) {
 }
 
 /**
+ * Base 0.8 C5 restructuring data on the harness seed, through the real API: a top-level domain
+ * Logistics › codelist Carriers (with a description and two flags a master value has no place for) ›
+ * master values Road (holding Truck and Van), Rail and Air. Moving Logistics under another domain
+ * makes it a codelist and Carriers a master value that needs its Master ID and Value code.
+ */
+export async function seedRestructuring(api) {
+  const create = (objectTypeKey, name, parent, attributes) =>
+    api("/objects", {
+      applicationKey: "rdm-master",
+      workspaceKey: "default",
+      objectTypeKey,
+      name,
+      parentObjectId: parent?.id ?? null,
+      attributes: Object.entries(attributes).map(([attributeTypeKey, value]) => ({ attributeTypeKey, value })),
+    });
+  const master = (name, parent, code) =>
+    create("master-value", name, parent, { "master-id": `MV-${code}`, "value-code": code, "value-name": name });
+  const logistics = await create("domain", "Logistics", undefined, { "domain-code": "LOG", description: "Moving goods" });
+  const carriers = await create("codelist", "Carriers", logistics, {
+    "codelist-code": "carriers",
+    description: "Carrier services",
+    "translations-enabled": true,
+    hierarchical: true,
+  });
+  const road = await master("Road", carriers, "ROAD");
+  const truck = await master("Truck", road, "TRUCK");
+  const van = await master("Van", road, "VAN");
+  const rail = await master("Rail", carriers, "RAIL");
+  const air = await master("Air", carriers, "AIR");
+  return { logistics, carriers, road, truck, van, rail, air };
+}
+
+/** Opens the domain hierarchy in `changeSet` with its first rows drawn. */
+export async function openDomainHierarchy(page, uiUrl, changeSet) {
+  await page.goto(`${uiUrl}/apps/rdm-master/views/domain-hierarchy?workspaceKey=default&changeSetId=${changeSet.id}`);
+  const lens = page.locator(".tree-lens");
+  await lens.getByRole("treeitem", { name: /^Logistics(,|$)/ }).waitFor();
+  await page.waitForLoadState("networkidle");
+  return lens;
+}
+
+/**
+ * Reveals `name` in the open tree lens through its search (the record opens beside the tree) and
+ * waits until the cleared search gives way to the tree with the record drawn in its branch.
+ */
+export async function revealInTree(page, name) {
+  const lens = page.locator(".tree-lens");
+  await lens.getByRole("textbox", { name: /^Search / }).fill(name);
+  await lens.getByRole("treeitem", { name: new RegExp(`^${name}, in `) }).first().click();
+  await page.getByRole("heading", { level: 1, name }).waitFor();
+  await lens.getByRole("treeitem", { name: new RegExp(`^${name}(,|$)`) }).first().waitFor();
+  await page.waitForLoadState("networkidle");
+}
+
+/** Chooses `item` from the actions menu of `name`'s row in the tree lens. */
+export async function treeRowAction(page, name, item) {
+  const row = page.locator(".tree-lens").getByRole("treeitem", { name: new RegExp(`^${name}(,|$)`) }).first();
+  await row.locator(".tree-menu-trigger").first().click();
+  await page.getByRole("menuitem", { name: item }).click();
+}
+
+/** Waits until an open restructuring preview shows a settled plan; returns its status line. */
+export async function settledPlan(dialog) {
+  const status = dialog.locator(".notice").filter({ hasText: /Ready to apply|Some answers are needed|This cannot be applied/ });
+  await status.first().waitFor({ timeout: 20000 });
+  await dialog.locator(".restructuring-plan:not([aria-busy])").waitFor({ timeout: 20000 });
+  return (await status.first().textContent()) ?? "";
+}
+
+/**
+ * Opens Move to… for Logistics in the open domain hierarchy (a change set) and searches Domain 00,
+ * which the dialog marks **Becomes Codelist**; returns the dialog.
+ */
+export async function openTypeChangeMove(page) {
+  await treeRowAction(page, "Logistics", "Move to…");
+  const dialog = page.getByRole("dialog", { name: "Move Logistics" });
+  await dialog.getByRole("radio").first().waitFor();
+  const listed = page.waitForResponse(
+    (response) => response.url().includes("/parent-candidates") && new URL(response.url()).searchParams.get("search") === "Domain 00",
+  );
+  await dialog.getByLabel("Search new locations").fill("Domain 00");
+  await listed;
+  await dialog.locator("fieldset:not([aria-busy])").waitFor();
+  await dialog.getByRole("radio", { name: /^Domain 00/ }).first().waitFor();
+  await page.mouse.move(0, 0);
+  return dialog;
+}
+
+/**
+ * From the open Move to… dialog, previews Logistics moving under Domain 00: the two-level cascade
+ * (Domain → Codelist, Codelist → Master value) asking for Carriers' values. Returns the preview.
+ */
+export async function previewTypeChangeMove(page, dialog) {
+  await dialog.getByRole("radio", { name: /^Domain 00/ }).first().check();
+  await dialog.getByRole("button", { name: "Preview the type change" }).click();
+  await dialog.locator(".restructuring-dialog").waitFor();
+  await settledPlan(dialog);
+  return dialog;
+}
+
+/**
+ * Opens a restructuring from `name`'s row actions and waits for its settled plan; an insert names
+ * its new level `levelName` first. Returns the dialog titled `title`.
+ */
+export async function openRestructuring(page, name, item, title, levelName) {
+  await treeRowAction(page, name, item);
+  const dialog = page.getByRole("dialog", { name: title });
+  await dialog.waitFor();
+  if (levelName) await dialog.getByRole("textbox", { name: "Name of the new level" }).fill(levelName);
+  await settledPlan(dialog);
+  await page.mouse.move(0, 0);
+  return dialog;
+}
+
+/**
  * Holds a drag in the open system hierarchy (Base 0.8 B5): `name`'s row pressed and resting on
  * Chemistry, which is open already, so no branch opens under the pointer while a gate captures it.
  * Haematology is accepted there; Lab group, Chemistry's parent, is refused as inside the record.

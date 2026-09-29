@@ -9,14 +9,20 @@ import {
   expandChangeReviewRow,
   holdTreeDrag,
   openChangeReview,
+  openDomainHierarchy,
   openLongList,
+  openRestructuring,
   openSystemHierarchy,
+  openTypeChangeMove,
   openTranslationCell,
   openTranslationMatrix,
   openTreeMoveDialog,
+  previewTypeChangeMove,
+  revealInTree,
   seedChangeReview,
   seedHierarchy,
   seedLongList,
+  seedRestructuring,
   seedTranslationMatrix,
 } from "./helpers/acceptance-data.mjs";
 import { cancelDrag } from "./helpers/tree.mjs";
@@ -177,6 +183,41 @@ try {
     await capture(page, `change-set-review-${scheme}`, output);
   }
   await page.emulateMedia({ colorScheme: "light" });
+
+  // --- 13c. Restructuring (Base 0.8 C5), light and dark, in a change set of the domain hierarchy:
+  // Move to… marking Domain 00 “Becomes Codelist” for Logistics, that move's preview by record (a
+  // two-level cascade asking for Carriers' values) and by type pair, Insert level above… Road named
+  // Surface with its sibling list and inputs, and Remove this level… on Road ---
+  await seedRestructuring(api);
+  const restructuring = await api("/workspaces/default/change-sets", { name: "Restructuring gate", source: "currentLive" });
+  for (const scheme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await openDomainHierarchy(page, uiUrl, restructuring);
+    await revealInTree(page, "Road");
+    const dialog = await openTypeChangeMove(page);
+    await capture(page, `tree-move-type-change-${scheme}`, output);
+    await previewTypeChangeMove(page, dialog);
+    await page.mouse.move(0, 0);
+    await capture(page, `restructuring-preview-${scheme}`, output);
+    await dialog.getByRole("tab", { name: /^By type/ }).click();
+    await dialog.getByRole("combobox", { name: "Master ID: value from" }).waitFor();
+    await page.mouse.move(0, 0);
+    await capture(page, `restructuring-preview-by-type-${scheme}`, output);
+    await page.keyboard.press("Escape");
+    await page.getByRole("dialog").waitFor({ state: "detached" });
+    for (const [name, item, title, level] of [
+      ["restructuring-insert-level", "Insert level above…", "Insert a level above Road", "Surface"],
+      ["restructuring-remove-level", "Remove this level…", "Remove Road as a level"],
+    ]) {
+      await openRestructuring(page, "Road", item, title, level);
+      await capture(page, `${name}-${scheme}`, output);
+      await page.keyboard.press("Escape");
+      await page.getByRole("dialog").waitFor({ state: "detached" });
+    }
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+  const restructuringDetail = await api(`/change-sets/${restructuring.id}`);
+  await api(`/change-sets/${restructuring.id}?expectedVersion=${restructuringDetail.version}`, undefined, "DELETE");
 
   // --- 14. Workspaces administration (Base 0.8 W4), last because a second workspace turns every
   // earlier shell's single-workspace label into the selector ---

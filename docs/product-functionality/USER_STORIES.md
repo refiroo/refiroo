@@ -417,6 +417,25 @@ Routine edits stay live unless I explicitly choose a change set; my place and in
 **Coverage:** F07, tree lens node menu and move dialog; with mouse or pen, also by dragging the record (B5); to the top level for a tree root type by either path (B5b). **Status:** Delivered 0.8 (B3, accepted in B4; drag in B5; top level in B5b).
 **Example:** SC-09.
 
+### US-H03 — Reshape a hierarchy without recreating its records
+
+**Story:** As a data steward, I want to move a record to a place its type cannot stand, add or remove
+a level, or change a record's type, so that I can reorganize reference data without recreating
+records, re-importing them or losing what they held.
+
+**Accepted when:** the places and types offered are the ones the model allows, with nothing declared
+for restructuring; a record below a changed record follows level by level; before anything is written
+a preview shows each record's new type, where each value comes from, what the new type has no place
+for, and what is still needed, and the needed values can be given there; applying stays in a change
+set and the review shows each type change; records keep their IDs and history; what had no place is
+kept in history and offered back when a later type change gives it a place again. Everything works by
+keyboard, and a phone gets the same dialogs without drag.
+
+**Coverage:** F07, tree lens node menu (**Change type…**, **Insert level above…**, **Remove this
+level…**, **Change type of all … in here…**), **Move to…** and drag to a place that changes the type,
+the restructuring preview, the change set review; the restructuring API (ADR-034). **Status:**
+Delivered 0.8 (C1–C4, accepted in C5). **Example:** SC-17.
+
 ## Integration consumer and data exchange operator
 
 ### US-I01 — Use stable public identities

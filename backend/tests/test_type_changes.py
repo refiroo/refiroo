@@ -510,6 +510,44 @@ def test_group_moves_to_the_top_level_as_a_system_and_its_children_follow(starte
     assert read(client, k("system"), group["id"], workspaceKey=WORKSPACE)["parentObjectId"] is None
 
 
+def test_a_reclassified_record_removed_later_lists_no_type_change(starter, systems):
+    """Found in C5: removed after its type changed, the entry named ``objectType`` with no after side."""
+    client, k = starter
+    value = systems["V"]
+    change_set = start_change_set(client)
+    change_type(
+        client,
+        change_set,
+        TypeChange(
+            object_id=value["id"],
+            object_type_key=k("system-group"),
+            mapping={k("group-code"): k("value-code")},
+        ),
+    )
+    group = read(client, k("system-group"), value["id"], changeSetId=change_set["id"])
+    response = client.delete(
+        f"/api/v1/objects/{k('system-group')}/{value['id']}",
+        params={
+            "changeSetId": change_set["id"],
+            "expectedChangeSetVersion": version(client, change_set),
+            "expectedVersion": group["version"],
+        },
+    )
+    assert response.status_code == 204, response.text
+    (entry,) = object_changes(client, change_set)
+    assert entry["kind"] == "removed"
+    assert entry["before"]["objectTypeKey"] == k("system-value")
+    assert entry["after"] is None
+    # A removed record names the fields its source holds; a type change needs both sides.
+    assert entry["changedFields"][:2] == ["name", "parent"]
+    assert "objectType" not in entry["changedFields"]
+    # The source type still finds it.
+    assert [
+        item["objectId"]
+        for item in object_changes(client, change_set, objectTypeKey=k("system-value"))
+    ] == [value["id"]]
+
+
 def test_refusals_leave_nothing_behind(starter, systems):
     client, k = starter
     change_set = start_change_set(client)

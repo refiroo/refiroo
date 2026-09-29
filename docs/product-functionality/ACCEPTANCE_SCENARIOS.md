@@ -366,6 +366,33 @@ selector depends on the three starter applications or their object/relation keys
 **Simplicity check:** choose application and governing parent once; do not switch navigation modes or
 reconstruct context to move between record and mapping work.
 
+## SC-17 — Reshape a hierarchy and change a record back
+
+**Stories:** US-H03, US-H02. **Target:** 0.8 Milestone C; accepted (0.8 C5,
+`test:browser:c5`, 2026-09-29).
+
+In a change set, move a top-level record holding a subtree under another top-level record of its own
+type, where only a lower type can stand: it changes type, and the records below it follow level by
+level where their types cannot stay. The preview names each record's new type, the values each
+takes and from where, what the new type has no place for (kept in history) and the values still
+needed. Answer one for every record of a type pair by choosing its source, and another by typing it
+into the record's row. Insert a level above a record, taking a sibling with it and giving the new
+record's values in place; remove another level, moving its children up. Review the change set: each
+type change is named with both types, the added level, the removed level and the moved records.
+Publish it: live and the new publication hold the new shape, the records keep their IDs, and each
+reclassified record's history lists the type change (and so does the history of a record whose
+relationship it lost).
+
+In a second change set, change a record back to its former type: the preview offers back the values
+and relationships its first type change kept in history, and applying restores them (a relationship
+under its former ID). The earlier publication still holds the record as it was published.
+
+Repeat on a hierarchy of different record types, including a record that loses a relationship.
+
+**Simplicity check:** the user starts from the record in its tree and never recreates a record, types
+a value the engine already holds, or declares anything for the restructuring; nothing is written before
+the preview is applied.
+
 ## Repeated usability measurements
 
 For a first walkthrough, record a baseline rather than inventing completion-time promises. On later

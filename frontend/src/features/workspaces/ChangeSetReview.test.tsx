@@ -287,6 +287,36 @@ describe("ChangeSetReview records", () => {
     ).toEqual(["Codelist", "Domain"]);
   });
 
+  it("names a removed record by the type its source holds, even after a type change in the change set (C5)", async () => {
+    vi.mocked(api.objectChanges).mockResolvedValue(
+      page<ObjectChange>([
+        {
+          kind: "removed",
+          objectId: "reclassified",
+          // The change set row changed type before it was removed.
+          objectTypeKey: "domain",
+          applicationKey: "test-app",
+          before: {
+            objectTypeKey: "codelist",
+            name: "Regions",
+            parentObjectId: "d1",
+            attributes: [code("REG")],
+            version: 2,
+          },
+          after: null,
+          changedFields: ["name", "parent", "code"],
+          path: [part("d1", "Geography", "domain"), part("reclassified", "Regions", "codelist")],
+          beforePath: null,
+        },
+      ]),
+    );
+    renderReview();
+    const [row] = await screen.findAllByRole("listitem");
+    expect(within(row).getByText("Codelist")).toBeInTheDocument();
+    expect(within(row).queryByText(/→/)).not.toBeInTheDocument();
+    expect(within(row).queryByText(/Unknown type/)).not.toBeInTheDocument();
+  });
+
   it("filters by kind and type through the route, and requests what the route says", async () => {
     const { onRouteChange } = renderReview({ anchor: "somewhere" });
     await screen.findAllByRole("listitem");

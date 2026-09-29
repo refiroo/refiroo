@@ -270,6 +270,13 @@ All notable changes to this project are documented in this file. The format foll
 - Base 0.8 C4: parent candidates take a repeatable `withinObjectTypeKey`, keeping the candidates and,
   with `includeTypeChanges`, the types the record would become to a set of types; the server filters,
   so totals stay truthful. The tree lens passes its types, so Move to… offers what the drag offers.
+- Base 0.8 C5: Milestone C acceptance. `test:browser:c5` runs the restructuring journey on the starter
+  model and the generated model against a real backend: a move that reshapes a subtree across two
+  levels of types, answering the preview in place, inserting and removing a level, the review,
+  publishing from the change set screen, live, the publication and both ends' history, then changing a
+  record back in a second change set with its values or its relationship restored. The accessibility
+  and visual gates add Move to… with a type change, the preview by record and by type, and the insert,
+  remove and change type dialogs, light and dark. User story US-H03 and scenario SC-17.
 
 ### Changed
 - Base 0.8 C4: the change set review names a record's type change on its row and as **Type** in its
@@ -286,6 +293,22 @@ All notable changes to this project are documented in this file. The format foll
   `changedFields` when it changed, and the `objectTypeKey` filter matches either side; a relation
   entry is `containment` by the type its `to` end has on either side.
 
+- Design: Base 0.9 integration APIs. Decisions D1–D16 and CONSUMER_API C-D2–C-D16 are accepted. A code
+  check revised D5: the feed is positioned by a per-workspace counter taken under the workspace lock
+  until commit, so feed order is commit order on PostgreSQL too; and added D15 (a publish writes one
+  audit entry per record it applies to live) and D16 (feeds carry keys, never the `reclassified`
+  before state). `docs/INTEGRATION_API.md` gains sections B (batches with record references, upsert,
+  relation items and relation-set replacement), F (the workspace change feed, position, retention and
+  `410` recovery), Q (cross-type lookup, `/workspaces/{key}/relations`, the model-aware query and
+  `asOf`) and J (import with preview and confirm, the file contract, the import profile with a generic
+  `relatedRecord` binding, and export). APPLICATION_MODEL describes schema 0.8 (`effectivePeriod`,
+  `consumerApis`). ADR-036 (a batch is a job), ADR-037 (the audit log orders the feed and consumer
+  events) and ADR-038 (effective periods) are accepted.
+- Planning: the Base 0.9 plan follows the 0.8 layout: how a package is delivered, a numbered delivery
+  queue with dependencies and the D9 cut line, and work packages Q1–Q4, B1–B3, F1–F2, V1–V2 and
+  J1–J4 with design references, scope, tests, budgets, test groups and exits, the C1–C16 table and R
+  build acceptance. New test groups `jobs`, `feed` and `consumer` and runners `test:browser:v1` and
+  `test:browser:j4` are planned. The API reference track is renamed V.
 - Design: Product 0.10 is model authoring and spreadsheet onboarding (ADR-035,
   `docs/MODEL_AUTHORING.md`): one editor for the model and the import mapping, where every edit is a
   validated operation on a model draft, inference from an uploaded workbook proposes operations, and
@@ -476,6 +499,22 @@ All notable changes to this project are documented in this file. The format foll
   its cost no longer grows with the position.
 
 ### Fixed
+
+- Base 0.8 C5: change set validation, which publishing also runs, rescanned every record or relation
+  for each record or relation in its uniqueness, parent-edge, cardinality, scoped-uniqueness and
+  required-relation checks. Over the generated model at 2% volume (about 5,400 records) it took 125 s
+  for an unchanged change set; it now reads indexes built once and takes about 1.4 s, with the same
+  diagnostics in the same order.
+- Base 0.8 C5: a record whose type changed and which was then removed in the same change set was
+  listed in `object-changes` with `objectType` among its changed fields although it has no after side,
+  and the review showed it as **<type> → Unknown type**. A removed record now names only the fields its
+  source holds, in its source type's order, and the review names it by the type its source holds.
+- Base 0.8 C5: after a restructuring, the tree lens moved focus to the restructured record once its
+  reveal read returned, even when the user had gone on to the lens search meanwhile, so the rest of
+  what they typed went to the tree. The record now becomes the tree's tab stop without taking focus
+  unless focus is still in the tree.
+- Base 0.8 C5: the restructuring preview's needs-input status began its second sentence in lower case,
+  and values without a place showed booleans as `true`/`false` instead of Yes/No.
 
 - Base 0.8 R1 review: the change lists (`object-changes`, `relation-changes`) read their page, then
   its paths and relation ends in further statements without holding one snapshot, so a change set

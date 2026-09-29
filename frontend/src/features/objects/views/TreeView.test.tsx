@@ -995,6 +995,41 @@ describe("TreeView restructuring (C4)", () => {
     expect(update).not.toHaveBeenCalled();
   });
 
+  it("leaves focus in the lens search when the user went there before the record's reveal read (C5)", async () => {
+    serve();
+    inChangeSet();
+    vi.spyOn(api, "previewRestructuring").mockResolvedValue(emptyPlan());
+    vi.spyOn(api, "applyRestructuring").mockResolvedValue({
+      operationId: "op-1",
+      changeSetId: "cs-1",
+      changeSetVersion: 5,
+      summary: emptyPlan().summary,
+      createdObjectId: null,
+    });
+    // The lens reads the record under its new type, then the tree reads it to reveal it; that read
+    // lands only after the user has moved on.
+    let revealed: (item: ObjectItem) => void = () => {};
+    const reads = vi
+      .spyOn(api, "object")
+      .mockResolvedValueOnce({ ...zones, objectTypeKey: "unit" })
+      .mockImplementationOnce(() => new Promise<ObjectItem>((resolve) => (revealed = resolve)));
+    render(lens({ model: unitsInTreeModel() }));
+    expand(await item(/^Connections/));
+    key(await item(/^Zones/), "ContextMenu");
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Change type…" }));
+    const dialog = await screen.findByRole("dialog", { name: "Change the type of Zones" });
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Apply to the change set" }));
+    fireEvent.click(await within(dialog).findByRole("button", { name: "Done" }));
+    await waitFor(() => expect(reads).toHaveBeenCalledTimes(2));
+    const search = screen.getByRole("textbox", { name: /^Search / });
+    search.focus();
+    revealed({ ...zones, objectTypeKey: "unit" });
+    // The row becomes the tree's tab stop without taking focus.
+    await waitFor(() => expect((screen.getByRole("treeitem", { name: /^Zones/ }) as HTMLElement).tabIndex).toBe(0));
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(document.activeElement).toBe(search);
+  });
+
   it("marks a candidate whose type cannot hold the record with what it becomes", async () => {
     serve();
     inChangeSet();

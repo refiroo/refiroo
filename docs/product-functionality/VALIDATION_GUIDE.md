@@ -95,6 +95,7 @@ acceptance evidence.
 | US-L04 | In-context translation edit | E1 `test:browser:a5`: fill, refused duplicate, change set, publish | SC-09 / delivered 0.8 A5 |
 | US-H01 | Large hierarchy navigation | E1 `test:browser:b4` (ancestors-only reveal), `test:browser:b3` (seven-level tree) | SC-09 / delivered 0.8 B4 |
 | US-H02 | Contextual hierarchy maintenance | E1 `test:browser:b4`: add child, move, refused descendant, change set published | SC-09 / delivered 0.8 B4 |
+| US-H03 | Hierarchy restructuring | E1 `test:browser:c5`: a type-changing subtree move, insert and remove a level, review, publish, change back with values restored; starter and generated models | SC-17 / delivered 0.8 C5 |
 | US-I07 | File validation preview | Roadmap; format/policy decisions pending | SC-10 / 0.9 |
 | US-I08 | Scoped export | Roadmap | SC-10 / 0.9 |
 | US-P06 | New domain without bespoke software | Model/workbench source; composed authoring proof pending | SC-12 / 0.6 foundation |
