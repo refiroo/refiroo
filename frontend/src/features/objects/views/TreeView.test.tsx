@@ -2,8 +2,9 @@ import { act, fireEvent, render, screen, waitFor, within } from "@testing-librar
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, api, type ObjectQuery } from "@/api/client";
 import { CollectionView } from "@/features/objects/views/CollectionViewHost";
+import * as workspaceContext from "@/features/workspaces/WorkspaceDataContext";
 import { codelistObject, domainObject, testModel } from "@/test/fixtures";
-import type { EngineModel, ObjectItem, ObjectPage, ParentCandidatePage } from "@/types";
+import type { EngineModel, ObjectItem, ObjectPage, ParentCandidatePage, Publication } from "@/types";
 
 beforeEach(() => {
   const values = new Map<string, string>();
@@ -405,5 +406,214 @@ describe("TreeView", () => {
     key(node, "ContextMenu");
     expect(screen.queryByRole("textbox", { name: /Rename/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+});
+
+describe("TreeView dragging", () => {
+  // jsdom lays nothing out: the tests name the element under the pointer and give its row a box.
+  let hit: Element | null = null;
+  beforeEach(() => {
+    hit = null;
+    Object.defineProperty(document, "elementFromPoint", { configurable: true, value: () => hit });
+  });
+  afterEach(() => {
+    Reflect.deleteProperty(document, "elementFromPoint");
+  });
+
+  const pointer = (pointerType = "mouse") => ({ pointerId: 1, pointerType, button: 0 });
+  const press = (node: HTMLElement, pointerType?: string) =>
+    fireEvent.pointerDown(node.querySelector(".tree-node")!, { ...pointer(pointerType), clientX: 10, clientY: 10 });
+  const moveOver = (target: HTMLElement, pointerType?: string, clientY = 60) => {
+    hit = target.querySelector(".tree-node");
+    // A row the test gave no box of its own spans the pointer, so the pointer is on its middle.
+    const hitRow = row(target);
+    if (!Object.hasOwn(hitRow, "getBoundingClientRect")) hitRow.getBoundingClientRect = () => box(clientY - 10);
+    fireEvent.pointerMove(window, { ...pointer(pointerType), clientX: 200, clientY });
+  };
+  const box = (top: number) => {
+    const rect = { top, bottom: top + 20, left: 0, right: 300, height: 20, width: 300, x: 0, y: top };
+    return { ...rect, toJSON: () => rect };
+  };
+  const release = (pointerType?: string) =>
+    fireEvent.pointerUp(window, { ...pointer(pointerType), clientX: 200, clientY: 60 });
+  const row = (node: HTMLElement) => node.querySelector(".tree-row")!;
+  const preview = () => document.querySelector(".tree-drag-preview");
+  const candidatePage = (...records: ObjectItem[]): ParentCandidatePage => ({
+    items: records.map((parent) => ({
+      id: parent.id,
+      objectTypeKey: parent.objectTypeKey,
+      name: parent.name,
+      path: parent.path,
+      eligible: true,
+      reason: null,
+    })),
+    nextCursor: null,
+    totalCount: records.length,
+    startIndex: 0,
+  });
+
+  it("drops onto a node and confirms in the move dialog with the target chosen", async () => {
+    serve();
+    const candidates = vi.spyOn(api, "parentCandidates").mockResolvedValue(candidatePage(finance));
+    const update = vi.spyOn(api, "updateObject").mockResolvedValue({ ...timetables, parentObjectId: finance.id });
+    vi.spyOn(api, "object").mockResolvedValue({ ...timetables, path: [...finance.path, timetables.path[1]] });
+    const onChanged = vi.fn();
+    render(lens({ onChanged }));
+    toggle(await item(/^Connections/));
+    const node = await item(/^Timetable types/);
+    const target = screen.getByRole("treeitem", { name: /^Finance/ });
+
+    press(node);
+    moveOver(target);
+    // The dragged row dims in place; the target and the preview glow green, and nothing is written.
+    expect(row(node)).toHaveClass("dragging");
+    expect(row(target)).toHaveClass("drop-accepted");
+    expect(preview()).toHaveClass("accepted");
+    expect(preview()).toHaveTextContent("Timetable typesCodelist");
+    expect(document.body).toHaveClass("tree-dragging");
+    expect(candidates).not.toHaveBeenCalled();
+
+    release();
+    expect(preview()).toBeNull();
+    expect(document.body).not.toHaveClass("tree-dragging");
+    const dialog = await screen.findByRole("dialog", { name: "Move Timetable types" });
+    expect(within(dialog).getByRole("textbox", { name: "Search new locations" })).toHaveValue("Finance");
+    expect(await within(dialog).findByRole("radio", { name: /Finance/ })).toBeChecked();
+    expect(candidates).toHaveBeenCalledWith(
+      "codelist",
+      timetables.id,
+      expect.objectContaining({ workspaceKey: "west", search: "Finance" }),
+    );
+    // Enter in the dialog confirms, with the request Move to… sends.
+    await act(async () =>
+      fireEvent.submit(within(dialog).getByRole("button", { name: "Move to Finance" }).closest("form")!),
+    );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(update).toHaveBeenCalledWith("codelist", timetables.id, {
+      expectedVersion: 1,
+      parentObjectId: finance.id,
+    });
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("glows red with the reason over a refused target and sends nothing on release", async () => {
+    serve();
+    vi.spyOn(api, "object").mockResolvedValue(urgent);
+    const candidates = vi.spyOn(api, "parentCandidates");
+    const update = vi.spyOn(api, "updateObject");
+    render(lens({ selected: urgent }));
+    const inner = await item(/^Urgent tariffs/);
+    const node = screen.getByRole("treeitem", { name: /^Zones/ });
+
+    press(node);
+    moveOver(inner);
+    expect(row(inner)).toHaveClass("drop-refused");
+    expect(preview()).toHaveClass("refused");
+    expect(preview()).toHaveTextContent("Inside the record");
+    expect(document.body).toHaveClass("tree-drag-refused");
+    moveOver(node);
+    expect(preview()).toHaveTextContent("The record itself");
+    moveOver(screen.getByRole("treeitem", { name: /^Connections/ }));
+    expect(preview()).toHaveTextContent("Current location");
+
+    release();
+    expect(preview()).toBeNull();
+    expect(document.body).not.toHaveClass("tree-drag-refused");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(candidates).not.toHaveBeenCalled();
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("drops into a gap's branch with a drop line indented to it", async () => {
+    serve();
+    render(lens());
+    toggle(await item(/^Connections/));
+    const above = await item(/^Timetable types/);
+    const node = screen.getByRole("treeitem", { name: /^Tariffs/ });
+    row(above).getBoundingClientRect = () => box(100);
+
+    press(node);
+    // The bottom quarter of Timetable types: the gap before Tariffs, in Connections's branch.
+    moveOver(above, undefined, 118);
+    expect(row(screen.getByRole("treeitem", { name: /^Connections/ }))).toHaveClass("drop-refused");
+    expect(row(above)).not.toHaveClass("drop-refused");
+    const line = document.querySelector<HTMLElement>(".tree-drop-line")!;
+    expect(line).toHaveClass("refused");
+    expect([line.style.top, line.style.left]).toEqual(["120px", "40px"]);
+    expect(preview()).toHaveTextContent("Current location");
+    release();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("drops onto a type heading as its parent and keeps the dialog when the server refuses", async () => {
+    serve();
+    vi.spyOn(api, "object").mockResolvedValue(urgent);
+    vi.spyOn(api, "parentCandidates").mockResolvedValue(candidatePage(connections));
+    vi.spyOn(api, "updateObject").mockRejectedValue(
+      new ApiError(422, "duplicate_name", "Connections already holds a codelist with this name."),
+    );
+    render(lens({ selected: urgent }));
+    const node = await item(/^Urgent tariffs/);
+    const heading = screen.getByRole("treeitem", { name: "Codelists within Connections, 3" });
+
+    press(node);
+    moveOver(heading);
+    expect(row(heading)).toHaveClass("drop-accepted");
+    expect(row(screen.getByRole("treeitem", { name: /^Connections/ }))).toHaveClass("drop-accepted");
+    release();
+
+    const dialog = await screen.findByRole("dialog", { name: "Move Urgent tariffs" });
+    const choice = await within(dialog).findByRole("radio", { name: /Connections/ });
+    expect(choice).toBeChecked();
+    await act(async () => fireEvent.click(within(dialog).getByRole("button", { name: "Move to Connections" })));
+    expect(await within(dialog).findByText("Connections already holds a codelist with this name.")).toBeVisible();
+    expect(within(dialog).getByRole("radio", { name: /Connections/ })).toBeChecked();
+  });
+
+  it("cancels on Escape without a write", async () => {
+    serve();
+    const candidates = vi.spyOn(api, "parentCandidates");
+    render(lens());
+    toggle(await item(/^Connections/));
+    const node = await item(/^Timetable types/);
+    press(node);
+    moveOver(screen.getByRole("treeitem", { name: /^Finance/ }));
+    expect(preview()).not.toBeNull();
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(preview()).toBeNull();
+    expect(row(node)).not.toHaveClass("dragging");
+    release();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(candidates).not.toHaveBeenCalled();
+  });
+
+  it("starts no drag from a touch pointer, in a read-only context or in a publication", async () => {
+    serve();
+    const { unmount } = render(lens());
+    toggle(await item(/^Connections/));
+    const node = await item(/^Timetable types/);
+    const finances = screen.getByRole("treeitem", { name: /^Finance/ });
+    press(node, "touch");
+    moveOver(finances, "touch");
+    expect(preview()).toBeNull();
+    release("touch");
+    unmount();
+
+    for (const context of ["readOnly", "publication"] as const) {
+      if (context === "publication")
+        vi.spyOn(workspaceContext, "useWorkspaceData").mockReturnValue({
+          api,
+          warning: "",
+          publication: { id: "r1" } as Publication,
+        });
+      const view = render(lens({ readOnly: context === "readOnly" }));
+      const domain = await item(/^Finance/);
+      press(domain);
+      moveOver(screen.getByRole("treeitem", { name: /^Connections/ }));
+      expect(preview(), context).toBeNull();
+      release();
+      view.unmount();
+    }
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });

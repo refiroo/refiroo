@@ -6,7 +6,8 @@ optimistic concurrency, and keeps public collections cursor-paged.
 
 The release train is 0.6 for daily live operations and optional coordinated design, 0.7 for core mapping, 0.8 for the relation matrix
 (translations among its uses) and hierarchy editing, 0.9 for integration APIs, 0.10 for production hardening and staged workspace model rollout,
-and 1.0 for self-service model authoring and extensions.
+0.11 for security (authentication and authorization across the backend, frontend and APIs), and 1.0 for
+self-service model authoring and extensions.
 
 ## Current development baseline — Base 0.7 released, Base 0.8 next
 
@@ -229,9 +230,28 @@ A steward browses and maintains deep model-defined hierarchies through lazy load
 4. Validate cycles and update `parent_object_id` plus the typed edge atomically in the chosen context;
    staged changes are revalidated with the merged live graph when published.
 5. Exercise mixed-type containment and recursive self-hierarchy configurations.
+6. Move by drag and drop with mouse or pen (B5, added in the Milestone B review): onto a node, into a
+   gap between rows or onto a type heading. Drops are accepted or refused by the model's containment
+   rules, the target glows green or red with the reason, and the move is confirmed in the same dialog
+   as Move to…. A record of a tree root type can also be moved to the top level, by either path
+   (B5b, D36). Touch drag follows in 0.10 (D35).
 
 Exit: traversal is bounded; reparenting changes both representations or neither; keyboard navigation
-and focus/loading/error behavior are covered.
+and focus/loading/error behavior are covered; a drop never writes without the move dialog's
+confirmation, and a refused target never writes.
+
+### Milestone C — Structure refactoring
+
+Added 2026-09-28; delivered before 0.9. A steward reshapes a hierarchy without recreating records.
+Moving a record to a place where only another type is allowed changes its type, and its descendants
+follow level by level. Named refactorings (change type, insert a level, remove a level, change the
+type of all records of one type under a record) run as a preview, then an apply, in a change set.
+Nothing is declared in the model: possible types and the attribute mapping are derived from it, and the
+user confirms them. Values a new type cannot hold stay in the record's history and are offered back
+later ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-c--structure-refactoring)).
+
+Exit: the journey passes on two models; identities, history and permitted relationships survive a type
+change; nothing is lost without being shown in the preview; nothing names a type or application.
 
 ## Product release 0.9 — Integration-grade APIs
 
@@ -265,7 +285,11 @@ than UI endpoints or undocumented limits.
     consumer API contract version as separate OpenAPI sources. The Scalar standalone script is pinned
     and bundled with the engine by default, so the page works without internet access; a setting
     switches to loading it from a CDN instead. The page route stays outside the OpenAPI document, so
-    the OpenAPI locks are unaffected. Authentication in the "try it" console follows OIDC in 0.10.
+    the OpenAPI locks are unaffected. Authentication in the "try it" console follows in 0.11.
+
+Security is not part of 0.9: its APIs are unauthenticated like the management API, and no 0.9
+contract uses API keys or puts a credential in a URL. The 0.11 security release covers them
+([CONSUMER_API.md](CONSUMER_API.md#security-011)).
 
 ### Exit gate
 
@@ -281,8 +305,8 @@ than UI endpoints or undocumented limits.
 
 ### Product outcome
 
-The engine runs safely with multiple writers, authenticated administrators and workspaces that can be
-migrated between immutable model releases in controlled stages.
+The engine runs safely with multiple writers and nodes, and workspaces can be migrated between
+immutable model releases in controlled stages. Authentication and authorization follow in 0.11.
 
 ### Delivery scope
 
@@ -292,10 +316,11 @@ migrated between immutable model releases in controlled stages.
 - Precomputed sort keys, so attribute and ancestor sorts over very large parents meet the list
   budget (deferred from 0.8, D26)
 - Database-backed uniqueness hardening
-- OIDC authentication and authorization for application, object-type and operation scopes
-- Audit identity, metrics, structured logging, health/readiness, backup and restore rehearsal
-- Multi-node immutable-snapshot propagation and protected model/workspace administration
+- Metrics, structured logging, health/readiness, backup and restore rehearsal
+- Multi-node immutable-snapshot propagation
 - Executable workspace-scoped data migration plans
+- Touch drag in the tree lens (deferred from 0.8 B5, D35): long-press drag that does not conflict with
+  scrolling or with opening a record, tested on iOS Safari and Android Chrome
 - Historical-draft model replacement targeting one workspace and a named installed immutable release
   (normally the historical pin), with a preview of incompatibilities and potential data loss,
   confirmation bound to the exact reviewed versions or cancel, and atomic model/data application;
@@ -312,8 +337,9 @@ migrated between immutable model releases in controlled stages.
 
 ### Exit gate
 
-- Authorization cannot be bypassed through administrative or bulk APIs.
 - Multi-writer concurrency and uniqueness invariants hold in production-like tests.
+- A tree node can be moved by touch drag on a phone without breaking scrolling or opening a record,
+  confirmed in the same move dialog as with a mouse (D35).
 - Workspace migration, release switch and operator backup recovery are rehearsed without mixed-model
   requests. Historical change sets are not direct dataset restore operations.
 - Confirmed historical migration validates transformed data, preserves immutable history, affects only
@@ -331,6 +357,34 @@ compatibility: every version that can be chosen must have a parser and data path
 supports, and content written under one version cannot be served under another until it is checked or
 converted. Activating is never just choosing a version: a draft activates only once its version
 matches the active release, which the existing guarded release-activation path establishes.
+
+## Product release 0.11 — Security, authentication and authorization
+
+### Product outcome
+
+Once every earlier capability works, one release secures the backend, the frontend and the consumer
+APIs together: every caller is authenticated, every operation is authorized, and changes are attributed
+to a proven identity.
+
+### Delivery scope
+
+- OAuth 2.0 provided by the engine, issuing JWT access tokens, for the management API, the frontend and
+  the consumer APIs. No API keys, and no credential in a URL
+- Authorization for application, object-type and operation scopes, and per consumer API definition for
+  OAuth clients
+- HMAC signing keys for webhook subscriptions, shown once and rotatable; the `RDM-Signature` header
+  added to deliveries (CONSUMER_API C-D12)
+- UI administration of OAuth clients and their access, and of webhook subscriptions and their keys
+- Audit identity: changes record the authenticated actor
+- Protected model and workspace administration, replacing the default-enabled workspace mutation
+  posture; deployment capability flags stay as defence in depth (ADR-031)
+- Authentication in the API reference "try it" console
+
+### Exit gate
+
+- Authorization cannot be bypassed through administrative, bulk, job, feed or consumer APIs.
+- Administrative, ordinary and bulk paths enforce the same authenticated scope (US-S01).
+- Webhook receivers can verify every delivery, and a rotated key stops verifying.
 
 ## Product release 1.0 — Self-service model authoring and extensions
 
@@ -359,7 +413,8 @@ JSON workbench and lifecycle foundation.
 | 0.7 mapping | US-M01–M04, US-W09 | SC-07, SC-15 | Complete generic record/relationship flows; live and draft conflict protection |
 | 0.8 translation/hierarchy | US-L03–L04, US-H01–H02 | SC-09, separately gated workflows | Generic translation and parent editing remain usable |
 | 0.9 integration | US-I03–I09 | SC-10–SC-11 and advanced-query extension | Same validation and workspace rules as individual writes |
-| 0.10 production | US-S01, US-O03–O06, US-P07 | SC-13 | Protected operation, measured recovery and consistent model selection |
+| 0.10 production | US-O03–O04, US-O06, US-P07 | SC-13 | Measured recovery and consistent model selection |
+| 0.11 security | US-S01, US-O05 | SC-13 identity attribution | Same authenticated scope on every path; existing capability flags retained |
 | 1.0 authoring | US-P05, US-P08 | SC-12 through structured tools and reuse cases | Existing immutable definitions, validation and release safety |
 
 ### Unscheduled
@@ -385,8 +440,8 @@ JSON workbench and lifecycle foundation.
   release cycles and can do without relations between the groups; relations across models would then
   be a separate, larger feature. Not assigned to a release.
 
-Earlier milestones are pre-production functionality; 0.10 is the gate for authenticated shared
-production operation. Release numbers specify sequence, not dates. Detailed format, query, validity,
+Earlier milestones are pre-production functionality; 0.10 (hardening) and 0.11 (security) together
+are the gate for authenticated shared production operation. Release numbers specify sequence, not dates. Detailed format, query, validity,
 recovery and reuse contracts must be recorded before their implementation packages. Unscheduled
 research candidates do not become release scope merely by appearing in benchmark notes.
 

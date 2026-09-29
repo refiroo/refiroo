@@ -2814,6 +2814,100 @@ form .admin-hint {
 .tree-move-progress {
   font-size: 12.5px;
 }
+
+/* Dragging in the tree lens (Base 0.8 B5): the dragged row dims in place and the target glows,
+   green where it accepts and red where it refuses, with the reason as text beside the pointer. */
+/* Dimmed by colour, not opacity, so its text keeps its contrast. */
+.tree-row.dragging {
+  border-radius: var(--radius-control);
+  background: var(--surface-subtle);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.tree-row.dragging .tree-node {
+  color: var(--muted);
+}
+.tree-row.dragging .tree-icon {
+  opacity: 0.5;
+}
+.tree-row.drop-accepted,
+.tree-row.drop-refused {
+  border-radius: var(--radius-control);
+  background: var(--success-soft);
+  box-shadow: inset 0 0 0 1px var(--success-line);
+}
+.tree-row.drop-refused {
+  background: var(--danger-soft);
+  box-shadow: inset 0 0 0 1px var(--danger-line);
+}
+.tree-drop-line {
+  position: fixed;
+  z-index: 110;
+  height: 4px;
+  margin-top: -2px;
+  border: 1px solid var(--success-line);
+  border-radius: 2px;
+  background: var(--success-soft);
+  pointer-events: none;
+}
+.tree-drop-line.refused {
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+}
+.tree-drag-preview {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 111;
+  display: grid;
+  gap: 2px;
+  max-width: 320px;
+  padding: 6px 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 13px;
+  opacity: 0.94;
+  box-shadow: 0 6px 18px rgba(14, 26, 21, 0.16);
+  pointer-events: none;
+}
+.tree-drag-preview.accepted {
+  border-color: var(--success-line);
+  background: var(--success-soft);
+}
+.tree-drag-preview.refused {
+  border-color: var(--danger-line);
+  background: var(--danger-soft);
+}
+.tree-drag-record {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+.tree-drag-type {
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.tree-drag-reason {
+  color: var(--danger-ink);
+  font-size: 12px;
+  font-weight: 600;
+}
+body.tree-dragging,
+body.tree-dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+/* The pointer's hover fill would cover the target's glow. */
+body.tree-dragging .tree-node:hover {
+  background: transparent;
+}
+body.tree-drag-refused,
+body.tree-drag-refused * {
+  cursor: no-drop !important;
+}
 @media (prefers-reduced-motion: reduce) {
   .tree-switch::after {
     transition: none;

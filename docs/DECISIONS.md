@@ -1045,7 +1045,7 @@ authentication. They answer "does this installation expose the operation at all"
 | Layer | Lives in | Set by | Arrives |
 | --- | --- | --- | --- |
 | Deployment capability | Environment, read at startup | Operator | Now |
-| Authorization | Database, managed in the UI | Authorized administrator | 0.10 |
+| Authorization | Database, managed in the UI | Authorized administrator | 0.11 (moved from 0.10, 2026-09-29) |
 
 They are environment settings rather than UI settings because:
 
@@ -1076,7 +1076,7 @@ the open caveats.
 - ADR-026 and other earlier text saying "activation" of a draft reads as "publishing" a change set.
 - A browser screen for workspace administration becomes possible and is shown only when the
   capability is enabled; until a second workspace exists the selector is read-only.
-- The 0.10 authorization work adds roles within these three groups; it does not remove the flags.
+- The 0.11 authorization work adds roles within these three groups; it does not remove the flags.
 
 ### Acceptance
 

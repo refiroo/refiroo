@@ -27,9 +27,15 @@ states for the row state filter (ADR-033) delivered 2026-09-27; the A4 lens and 
 delivered 2026-09-28; A6, the snapshot table index drift found in A2, delivered 2026-09-28)
 and hierarchy editor (Milestone B; B1 schema 0.7 `tree` contract delivered 2026-09-28; B2 move targets with
 D14 eligibility delivered 2026-09-28, the matrix container move a known budget exception, D29; B3 tree
-lens and B4 acceptance delivered 2026-09-28, closing Milestone B),
+lens and B4 acceptance delivered 2026-09-28; B5 drag and drop in the tree lens, added in the Milestone B
+review, delivered 2026-09-29; its amendment B5b (move to the top level) closes Milestone B when
+delivered; D34–D36 accepted),
 and P2 (P2a change lists API and P2b review screen delivered 2026-09-28; D31–D33 accepted), then R1 build
-acceptance. Residual 0.7 gaps are listed in the
+acceptance (passed 2026-09-28, without B5; [record](BASE_0_8_IMPLEMENTATION_PLAN.md#r1-build-acceptance-and-release))
+and its amendment R1b for B5 and B5b; 0.8.0 releases when both pass. Milestone C (structure
+refactoring: type changes derived from the model, with preview and history as the way back; C0–C5 and
+R2) was added 2026-09-28 for delivery before 0.9, with D37–D43 open, including whether 0.8.0 waits for
+it (D43). Residual 0.7 gaps are listed in the
 [plan's WP-9 record](BASE_0_7_IMPLEMENTATION_PLAN.md#wp-9-composed-product-validation--sc-07-and-sc-15).
 
 The generic model defines applications, object types, reusable fields, allowed relationships and views.
@@ -52,7 +58,7 @@ GAP-01–GAP-08 answers and distinguishes accepted targets from implementation e
 | Model administration | Complete: immutable releases, JSON drafts, validation/diff/install/activation workbench | Browser administration acceptance (0.7+) |
 | UI foundation | Complete: catalogue selection, typed tables, generic panels, redesigned navigation/collections/inspector/inline editing, automated accessibility and visual-regression gates (UI-07); 0.7 redesign (header application tabs, Live/Drafts/History control, record tree, Filter popover), dark mode and settings menu; WP-9 a11y/visual acceptance passed | — |
 | Specialist workflows | Schema 0.6 `mappingGrid` contract, live/draft/revision coverage, target-detail, candidate APIs, atomic replacement and contextual mapping lens with in-context target creation delivered; SC-07 composed acceptance passed | Lazy arbitrary-depth hierarchy/translation specializations 0.8; integration 0.9 |
-| Production and model migration | Basic readiness and actionable startup refusal | Authenticated production, staged assignments and reviewed historical model migration 0.10 |
+| Production and model migration | Basic readiness and actionable startup refusal | Production hardening, staged assignments and reviewed historical model migration 0.10; authentication and authorization 0.11 |
 
 Ordinary live saves create neither a change set nor a publication. Publishing a change set applies authored changes
 over current live data, preserves unrelated live work and publishes nothing on a touched-record conflict

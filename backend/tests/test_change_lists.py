@@ -9,6 +9,8 @@ and an empty-root change set cover the other sources.
 """
 
 import json
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 from uuid import uuid4
 
@@ -19,6 +21,7 @@ from wp8_support import create_change_set, publish_change_set
 from app.config import reload_settings
 from app.db import get_engine
 from app.main import create_app
+from app.services import change_lists
 from app.services.model.registry import model_registry
 
 STARTER = Path(__file__).resolve().parents[2] / "model/rdm-starter.json"
@@ -502,6 +505,44 @@ def test_an_empty_root_change_set_lists_only_additions(client):
         ("added", True, "Root value (edited)")
     ]
     assert every(client, change_set["id"], kind=["changed", "removed"]) == []
+
+
+def test_a_page_and_its_paths_read_one_snapshot(edited, monkeypatch):
+    """A write committed between the page's statement and its path walk does not reach the page.
+
+    Without a held snapshot, SQLite releases its read lock between statements, so a rename landing
+    in between showed the renamed parent in paths beside that parent's own entry under its old name.
+    """
+    client, change_set, records = edited["client"], edited["change_set"], edited["records"]
+    database = get_engine().url.database
+    attempts: list[str] = []
+    walk = change_lists._paths
+
+    def rename_between_statements(*args, **kwargs):
+        if not attempts:
+            with closing(sqlite3.connect(database, timeout=0.2)) as other:
+                try:
+                    with other:
+                        other.execute(
+                            "UPDATE change_set_objects SET name = 'Renamed meanwhile'"
+                            " WHERE change_set_id = ? AND object_id = ?",
+                            (change_set["id"], records["system_2"]["id"]),
+                        )
+                    attempts.append("committed")
+                except sqlite3.OperationalError as error:
+                    attempts.append(str(error))
+        return walk(*args, **kwargs)
+
+    monkeypatch.setattr(change_lists, "_paths", rename_between_statements)
+    listed = by_id(changes(client, change_set["id"], pageSize=500)["items"])
+    # The writer waited for the read to finish rather than changing what it was reading.
+    assert attempts == ["database is locked"]
+    assert listed[records["system_2"]["id"]]["after"]["name"] == "System 2"
+    for record in ("added", "moved"):
+        assert [part["name"] for part in listed[records[record]["id"]]["path"]] == [
+            "System 2",
+            records[record]["name"],
+        ]
 
 
 def test_refusals(client):

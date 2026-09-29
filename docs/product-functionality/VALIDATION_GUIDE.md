@@ -79,7 +79,7 @@ acceptance evidence.
 | US-O01 | F19 actionable startup refusal    | E2 real temporary-database lifespan/migration tests | Current                          |
 | US-O02 | F15/F19 older model activation    | E2/E3 compatibility and activation tests            | Current boundary                 |
 | US-O04 | Application/database restore      | E5 roadmap and current unrehearsed runbook          | 0.10                             |
-| US-S01 | Authentication/authorization      | E5 roadmap                                          | 0.10                             |
+| US-S01 | Authentication/authorization      | E5 roadmap                                          | 0.11                             |
 | US-O03 | Multi-writer/multi-node operation | E5 roadmap                                          | 0.10                             |
 
 ## Additional story traceability (2026-09-08)
@@ -97,7 +97,7 @@ acceptance evidence.
 | US-I08 | Scoped export | Roadmap | SC-10 / 0.9 |
 | US-P06 | New domain without bespoke software | Model/workbench source; composed authoring proof pending | SC-12 / 0.6 foundation |
 | US-P07 | Staged assignment and reviewed historical migration | Accepted GAP-02/GAP-08; global selection today | SC-13 confirm/cancel/loss variants / 0.10 |
-| US-O05 | Authenticated change attribution | Roadmap; current audit is not identity proof | SC-13 / 0.10 |
+| US-O05 | Authenticated change attribution | Roadmap; current audit is not identity proof | SC-13 / 0.11 |
 | US-I09 | Advanced integration query | Roadmap; query grammar requires agreement | SC-10 extension / 0.9 |
 | US-O06 | Service observability | Health foundation; production measures planned | SC-13 / 0.10 |
 | US-P08 | Reusable definition package | Roadmap; two reuse cases required | SC-12 extension / 1.0 |

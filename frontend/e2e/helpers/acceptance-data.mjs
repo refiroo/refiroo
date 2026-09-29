@@ -1,5 +1,6 @@
 // Base 0.7 WP-9 acceptance data: model variants and records for SC-07 and SC-15, created through
 // the real API on top of the harness seed. The browser runners use starter keys as fixtures only.
+import { dragFrom, dragOver } from "./tree.mjs";
 
 /**
  * An independent relation binding with its own labels, direction and typed relation attribute
@@ -78,6 +79,14 @@ export function incompatibleReleaseModel(active, version) {
   model.objectTypes
     .find((type) => type.key === "system-value")
     .attributes.find((binding) => binding.attributeTypeKey === "external-id").required = true;
+  // A matrix that creates system values must now ask for the field too, or the release is refused
+  // as a model before its data is ever compared (schema 0.7 `cellActions`).
+  for (const view of model.applications.flatMap((application) => application.views ?? [])) {
+    const config = view.type === "relationMatrix" ? view.config : undefined;
+    if (config?.cellObjectTypeKey === "system-value" && config.cellActions?.includes("create")) {
+      config.cellFields = [...new Set([...config.cellFields, "external-id"])];
+    }
+  }
   return model;
 }
 
@@ -437,4 +446,18 @@ export async function expandChangeReviewRow(page, name) {
   const table = page.getByRole("table", { name: `Changes to ${name}` });
   await table.waitFor();
   return table;
+}
+
+/**
+ * Holds a drag in the open system hierarchy (Base 0.8 B5): `name`'s row pressed and resting on
+ * Chemistry, which is open already, so no branch opens under the pointer while a gate captures it.
+ * Haematology is accepted there; Lab group, Chemistry's parent, is refused as inside the record.
+ * End it with `cancelDrag` from `helpers/tree.mjs`.
+ */
+export async function holdTreeDrag(page, name) {
+  const lens = page.locator(".tree-lens");
+  const item = (label) => lens.getByRole("treeitem", { name: new RegExp(`^${label}(,|$)`) }).first();
+  await dragFrom(page, item(name));
+  await dragOver(page, item("Chemistry"));
+  await page.locator(".tree-drag-preview.accepted, .tree-drag-preview.refused").waitFor();
 }

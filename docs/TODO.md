@@ -9,8 +9,12 @@ release plan and changelog rather than accumulating it here.
 Base 0.7 is released (2026-09-25). 0.8 Track S (scalable browsing) and Track W (workspace terminology
 and capability boundaries) are delivered (2026-09-26), and Milestone A's relation matrix (A1–A5) is
 delivered (2026-09-28), closed by A6 (snapshot table index drift, 2026-09-28). The hierarchy editor's
-`tree` contract (B1), move targets (B2), tree lens (B3) and acceptance (B4) are delivered (2026-09-28),
-closing Milestone B. P2 (change lists API, P2a; review screen, P2b) is delivered (2026-09-28). Next: R1. See
+`tree` contract (B1), move targets (B2), tree lens (B3) and acceptance (B4) are delivered (2026-09-28);
+B5 (drag and drop in the tree lens) and its amendment B5b (move to the top level) were added in the
+Milestone B review and close Milestone B when delivered. P2 (change lists API, P2a; review screen, P2b)
+is delivered (2026-09-28). R1 passed (2026-09-28); B5 is delivered (2026-09-29); now B5b and the build acceptance R1b. Milestone C (structure
+refactoring, C0–C5, with R2 as its build acceptance) was added (2026-09-28) and is delivered before 0.9;
+its decisions D37–D43, including release timing, are open. See
 [Next — 0.8 and beyond](#next--08-and-beyond).
 
 ## Open decisions
@@ -21,7 +25,10 @@ cursor or a position; the UI scrolls with cursors and jumps with positions. Deli
 Milestone A decisions D8–D13 and D28 (A6) are accepted. D14 (ineligible move targets listed disabled
 with a reason) is accepted (2026-09-28), as are D2–D6 as delivered in Track S. A6's two open
 measurements are decided (2026-09-28): the container move, measured in B2, is a known 0.8 budget
-exception (D29), and the link candidate page is a known 0.8 budget exception (D30). No 0.8 decision is open; see the
+exception (D29), and the link candidate page is a known 0.8 budget exception (D30). B5's D34 (drop
+targets and confirmation) and D35 (touch drag deferred to 0.10), and B5b's D36 (move to the top
+level), are accepted (2026-09-28). No 0.8
+decision is open; see the
 [0.8 plan](BASE_0_8_IMPLEMENTATION_PLAN.md#decisions-summary).
 
 See `ROADMAP.md` for the delivery scope, exit gates and full milestone sequence.
@@ -71,7 +78,7 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     cells in a change set takes 5–9 s (A3b state recompute, about 110 statements; measured in B2,
     D29), and a link candidate page over a 5,000-cell column takes 92 ms live and 160 ms in a change
     set (known 0.8 budget exception, D30).
-- [x] 0.8 Milestone B — hierarchy editor ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-b--hierarchy-editor)):
+- [ ] 0.8 Milestone B — hierarchy editor ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-b--hierarchy-editor)):
   - [x] B1 schema 0.7 `tree` view contract.
   - [x] B2 move targets with eligibility (D14) and path context in every context; a deep move meets
     the write budget live and in a change set; the matrix container move is a known 0.8 budget
@@ -80,16 +87,39 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     `test:browser:b3` on both starter trees and the generated tree, live and in a change set.
   - [x] B4 Milestone B acceptance (SC-09 hierarchy half); `test:browser:b4`, tree lens and move dialog
     in the a11y and visual gates.
+  - [x] B5 drag and drop in the tree lens (added in review, D34, D35; delivered 2026-09-29): onto a node, into a gap or onto
+    a type heading, checked by the model's containment rule, glowing green or red with the reason,
+    confirmed in the existing move dialog; mouse and pen (touch drag in 0.10). One record at a time.
+  - [ ] B5b move to the top level (amendment to B5, D36): a **Top level** option in Move to… and
+    top-level drop targets, for the tree's root types; others refused with `notRoot`.
 - [x] 0.8 P2 change set changes list, after W2 (D20); planned 2026-09-28 with D31–D33 accepted.
   - [x] P2a change lists API: `object-changes` and `relation-changes`, kinds, before/after, volume budgets.
   - [x] P2b change set review screen: Records and Relationships, kind and type filters, parent links on
     request, before/after rows, `beforePath` for moves; `test:browser:p2`, review in the a11y and visual gates.
-- [ ] 0.8 R1 build acceptance and release.
+- [x] 0.8 R1 build acceptance of the build without B5 (2026-09-28): every gate green; the change lists
+  read one snapshot; `sc15` and `wp13c` runner data follows the 0.8.0 starter. Release waits for R1b.
+- [ ] 0.8 R1b B5 and B5b build acceptance (amendment to R1, after both); 0.8.0 releases when R1 and R1b pass.
+- [ ] 0.8 Milestone C — structure refactoring ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-c--structure-refactoring)):
+  a record's type changes when it moves where only another type is allowed, derived from the model
+  with a preview. Nothing is lost (history offers values back), and named refactorings run in a
+  change set. Open: D37–D43.
+  - [ ] C0 design, ADR-034 and API design; settle D37–D43.
+  - [ ] C1 type change in the engine (values, containment edge, relationships, derived state, audit,
+    publishing).
+  - [ ] C2 planner: possible types, mapping suggestions, cascade, the way back, size limit.
+  - [ ] C3 restructuring API: preview and apply for move, change type, insert and remove a level,
+    change type under a record.
+  - [ ] C4 refactoring in the tree lens, reusing B5's dialog, list and drag.
+  - [ ] C5 Milestone C acceptance.
+- [ ] 0.8 R2 Milestone C build acceptance; release timing per D43.
 - [ ] Enforce foreign keys on SQLite (`PRAGMA foreign_keys=ON` per connection) or document that every
   `ondelete` rule is advisory there. 0.8 W6 found none of them, not only the `workspaces.key` ones, are
   enforced at runtime; services delete dependants explicitly and W6 rechecks the workspace at commit.
   Enabling it needs a data check for existing violations and must keep the table-rebuild migrations,
   which require it off, working.
+- [ ] 0.9 planning ([plan](BASE_0_9_IMPLEMENTATION_PLAN.md), [integration design](INTEGRATION_API.md)): document
+  set accepted 2026-09-28; section P drafted; decisions D1–D14 and CONSUMER_API C-D2–C-D12 open;
+  security moved to the 0.11 release (C-D1).
 - [ ] Integration-grade query expressions beyond daily-use filters.
 - [ ] Bounded live bulk object/relation/mapping operations with explicit optional staging, per-item
   outcomes and safe retry; do not require a change set merely because several records change (0.9).
@@ -111,8 +141,10 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   (two recursive arms, which PostgreSQL needs in one recursive term) and the stored state filter's
   row list, read through `json_each` on SQLite and as a plain `IN` list elsewhere (0.8 A2, A3b).
 - [ ] Precomputed sort keys for attribute and ancestor sorts over very large parents (D26, after 0.9).
-- [ ] OIDC, application/object/operation authorization and audit identity.
-- [ ] Replace the pre-authentication, default-enabled workspace mutation posture with authenticated,
+- [ ] 0.11 security: engine-provided OAuth 2.0 with JWT for backend, frontend and consumer APIs (no API
+  keys, no credential in a URL), application/object/operation authorization, audit identity,
+  HMAC-signed webhooks, and UI administration of OAuth clients and webhook subscriptions.
+- [ ] 0.11: replace the pre-authentication, default-enabled workspace mutation posture with authenticated,
   authorized workspace administration; retain the capability gate as deployment defence in depth.
 - [ ] Multi-node active-model propagation and protected publication; verify split deployment
   (administration and public instances on one database) against the caveats in ARCHITECTURE.

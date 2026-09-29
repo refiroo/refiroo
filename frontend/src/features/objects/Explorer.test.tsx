@@ -299,4 +299,26 @@ describe("Explorer", () => {
     expect(await item("Connections")).toBeInTheDocument();
     expect(read).toHaveBeenCalledTimes(2);
   });
+
+  it("never starts a drag, since the sidebar tree is for navigation only", async () => {
+    serve();
+    const onOpen = vi.fn();
+    render(explorer({ onOpen }));
+    const connectionsItem = await item("Connections");
+    toggle(connectionsItem);
+    const node = await item("Timetable types");
+    const target = screen.getByRole("treeitem", { name: "Finance" });
+    Object.defineProperty(document, "elementFromPoint", {
+      configurable: true,
+      value: () => target.querySelector(".tree-node"),
+    });
+    const pointer = { pointerId: 1, pointerType: "mouse", button: 0 };
+    fireEvent.pointerDown(node.querySelector(".tree-node")!, { ...pointer, clientX: 10, clientY: 10 });
+    fireEvent.pointerMove(window, { ...pointer, clientX: 200, clientY: 60 });
+    expect(document.querySelector(".tree-drag-preview")).toBeNull();
+    expect(node.querySelector(".tree-row")).not.toHaveClass("dragging");
+    fireEvent.pointerUp(window, { ...pointer, clientX: 200, clientY: 60 });
+    expect(document.body).not.toHaveClass("tree-dragging");
+    Reflect.deleteProperty(document, "elementFromPoint");
+  });
 });

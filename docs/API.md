@@ -1394,6 +1394,9 @@ identity, type and workspace; mismatches return `422 invalid_cursor`.
 
 ## Planned integration endpoints
 
+Designed in [INTEGRATION_API.md](INTEGRATION_API.md) and sequenced in the
+[Base 0.9 plan](BASE_0_9_IMPLEMENTATION_PLAN.md); each contract moves here when its package is delivered.
+
 - Model-aware query with explicit `select` and `expand`
 - Bounded bulk create/update/upsert with per-item results
 - Asynchronous import/export jobs

@@ -14,7 +14,8 @@ The technical roadmap needs the reconciliations in [planning handoff](PLANNING_H
 | Product 0.7  | Review mapping coverage and replace one mapping atomically                  | US-M01–M04, US-W09                         | Roadmap                                        |
 | Product 0.8  | Work efficiently with translation coverage and deep hierarchies             | US-L03–L04, US-H01–H02   | Delivered: translation (A5), hierarchy (B4)    |
 | Product 0.9  | Exchange and synchronize data at integration scale                          | US-I03–I09                                 | Roadmap                                        |
-| Product 0.10 | Operate securely and reliably with multiple writers/nodes and staged models | US-S01, US-O03–O06, US-P07                     | Roadmap                                        |
+| Product 0.10 | Operate reliably with multiple writers/nodes and staged models              | US-O03–O04, US-O06, US-P07                 | Roadmap                                        |
+| Product 0.11 | Authenticate every caller and authorize every operation                     | US-S01, US-O05                             | Roadmap                                        |
 | Product 1.0  | Author models through structured, reference-aware tools                     | US-P05, US-P08                             | Roadmap                                        |
 
 ## Product 0.6 — Finish daily operations
@@ -189,21 +190,20 @@ rather than loops over user-interface operations or undocumented unlimited respo
 
 ## Product 0.10 — Production hardening and staged model rollout
 
-**Why it matters:** this is the gate for authenticated shared production use, not optional polish.
-Earlier milestones are pre-production capabilities. **Acceptance:** SC-13, stories US-S01, US-O03–O06
-and US-P07, with measured operating and recovery targets agreed before validation.
+**Why it matters:** with 0.11, this is the gate for authenticated shared production use, not optional
+polish. Earlier milestones are pre-production capabilities. **Acceptance:** SC-13, stories US-O03–O04,
+US-O06 and US-P07, with measured operating and recovery targets agreed before validation.
 
 ### User outcome
 
-Authenticated teams operate safely with multiple writers and nodes, while workspaces move between
-immutable models through controlled migrations.
+Teams operate safely with multiple writers and nodes, while workspaces move between immutable models
+through controlled migrations.
 
 ### Planned functions
 
 - PostgreSQL deployment and representative performance evidence;
 - database-backed hardening of uniqueness under concurrent writers;
-- OIDC authentication and application/record-type/operation authorization;
-- authenticated audit identity, metrics and structured logs;
+- metrics and structured logs;
 - rehearsed backup, restore and rollback;
 - multi-node propagation of an activated immutable model;
 - executable data-migration plans;
@@ -215,6 +215,25 @@ immutable models through controlled migrations.
 Workspace model assignment is not merely a pin. The product must resolve the workspace before its
 model, migrate its data, keep every permitted schema executable and prevent one request from combining
 different model snapshots.
+
+## Product 0.11 — Security, authentication and authorization
+
+**Why it matters:** the security release, after everything else works; with 0.10 it gates shared
+production use. **Acceptance:** stories US-S01 and US-O05, the identity part of SC-13.
+
+### User outcome
+
+Every person and system is authenticated, every operation is authorized in the same scope on every
+path, and changes are attributed to a proven identity.
+
+### Planned functions
+
+- engine-provided OAuth 2.0 with JWT access tokens for the backend, frontend and consumer APIs; no API
+  keys and no credential in a URL;
+- application/record-type/operation authorization and per-definition consumer API access;
+- HMAC-signed webhooks with rotatable keys;
+- UI administration of OAuth clients and webhook subscriptions; and
+- authenticated audit identity.
 
 ## Product 1.0 — Self-service model authoring and extensions
 

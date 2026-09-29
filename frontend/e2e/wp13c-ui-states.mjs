@@ -168,9 +168,29 @@ try {
       JSON.stringify(["RDM Master", "RDM Systems", "RDM Translations"]),
     "application choice does not list every application containing master values",
   );
+  // The parent types offered are exactly the master value's parent types the owner application
+  // contains, read from the active model rather than assumed.
+  const activeModel = await api("/model");
+  const masterValue = activeModel.objectTypes.find((type) => type.key === "master-value");
+  const systemsTypes = activeModel.applications.find((application) => application.key === "rdm-systems").objectTypeKeys;
+  const ownParentTypes = [
+    ...new Set(
+      activeModel.objectTypeRelations
+        .filter(
+          (relation) =>
+            relation.toObjectTypeKey === "master-value" &&
+            masterValue.behavior.parentRelationTypeKeys.includes(relation.relationTypeKey) &&
+            systemsTypes.includes(relation.fromObjectTypeKey),
+        )
+        .map((relation) => activeModel.objectTypes.find((type) => type.key === relation.fromObjectTypeKey).name),
+    ),
+  ].sort();
+  const parentTypeChoice = createDialog.getByRole("combobox", { name: "Parent type" });
+  const offeredParentTypes =
+    (await parentTypeChoice.count()) === 0 ? [] : (await parentTypeChoice.locator("option").allTextContents()).sort();
   expect(
-    (await createDialog.getByRole("combobox", { name: "Parent type" }).count()) === 0,
-    "RDM Systems offers a Codelist parent it does not contain",
+    JSON.stringify(offeredParentTypes) === JSON.stringify(ownParentTypes.length > 1 ? ownParentTypes : []),
+    `RDM Systems offers parent types ${JSON.stringify(offeredParentTypes)}, not those it contains ${JSON.stringify(ownParentTypes)}`,
   );
   expect(
     (await createDialog.getByText(/is not available in application/).count()) === 0,

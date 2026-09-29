@@ -198,9 +198,33 @@ All notable changes to this project are documented in this file. The format foll
   change entry gains `beforePath`, where the source held a moved record, read in the same walk as
   `path`. New runner `test:browser:p2`; the accessibility and visual gates gain the review in light
   and dark.
+- Base 0.8 B5: drag and drop in the tree lens, a second way to **Move to…** for mouse and pen where
+  the view allows moves, live and in a change set. Drop onto a record, into a gap between rows (the
+  branch the gap belongs to; at a branch end the pointer's horizontal position picks the level, shown
+  by the drop line's indent) or onto a type heading (its parent). While dragging, the record's row is
+  dimmed and a preview names it; an accepted target glows green, a refused one red with its reason as
+  text (**The record itself**, **Inside the record**, **Current location**, **Can't contain …**,
+  **In another application**) and a no-drop cursor. Resting on a collapsed record opens it, and the
+  tree scrolls near its edges. A drop opens the move dialog with the target chosen, so Enter confirms
+  the same write as Move to…; Escape or a release elsewhere writes nothing. Touch pointers, the
+  sidebar tree and publications never drag (touch drag in 0.10, D35). `test:browser:b3` gains the
+  drags; the accessibility and visual gates gain a drag over an accepted and a refused target, light
+  and dark.
 
 ### Changed
 
+- Planning: Base 0.8 Milestone C, structure refactoring (C0–C5, R2 build acceptance), for delivery before
+  0.9. A record's type changes when it moves where only another type is allowed. The new type and the
+  attribute mapping are derived from the model, with no declarations, and confirmed in a preview.
+  Values without a place stay in history and are offered back later. Named refactorings (change type,
+  insert or remove a level, change type under a record) run in a change set. D37–D43 are open.
+- Planning: Base 0.8 B5, drag and drop in the tree lens, added in the Milestone B review. Records can be
+  dropped onto a node, into a gap between rows or onto a type heading. Drops are accepted by the
+  model's containment rules, show a green or red glow with the reason, and are confirmed in the
+  existing move dialog. D34 decides the targets and the confirmation; D35 defers touch drag to 0.10.
+  B5b, an amendment to B5, adds moving a record to the top level in Move to… and by drag, for the
+  tree's root types (D36). R1b is added as an amendment to R1: the build acceptance for B5 and B5b,
+  required before 0.8.0 releases. One record is moved at a time.
 - Documentation: the bundled model is described as an example set. `docs/EXAMPLE_MODEL.md` explains
   how engine, model and application relate, lists the views each example application declares and
   explains why they differ (only the example's declarations, never the application). It also shows
@@ -362,6 +386,17 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+- Base 0.8 R1 review: the change lists (`object-changes`, `relation-changes`) read their page, then
+  its paths and relation ends in further statements without holding one snapshot, so a change set
+  write committed in between could mix two states in one page (a renamed parent in paths beside its
+  own entry under the old name; after a concurrent publish, parent links without their end's type).
+  Both routes now read one snapshot, as the relation matrix and parent candidates do.
+- Base 0.8 R1: two browser runners no 0.8 package selected had drifted from the 0.8.0 starter model.
+  `test:browser:sc15`'s incompatible candidate (a newly required `external-id`) was refused as a model
+  because the `codelists-by-system` matrix offers `create` without it; the candidate now also asks for
+  the field there, so it is refused for its data again. `test:browser:wp13c` asserted that RDM Systems
+  offers no Codelist parent for a new master value, which the 0.8.0 model changes by adding codelists
+  to RDM Systems; it now expects exactly the parent types the application contains, read from the model.
 - Base 0.8 A review: when a relation matrix cell's edit or unlink was refused as stale and the re-read
   cell no longer held that record, the cell dialog went blank with no way on but Escape. It now shows
   the cell again with its actions and says the record is no longer in it. Starting another action

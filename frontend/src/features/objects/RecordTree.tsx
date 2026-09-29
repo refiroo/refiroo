@@ -17,7 +17,8 @@
  * without loading the rows before it; unrelated branches stay as they are.
  *
  * The `tree` lens (Base 0.8 B3) configures the same tree: its own root and node types, a sort and
- * page size per type, labels, per-row extras and item key handling.
+ * page size per type, labels, per-row extras and item key handling, and (B5) dragging a record to a
+ * new parent with mouse or pen (`useTreeDrag`). The sidebar passes no drag, so its rows never drag.
  */
 
 import {
@@ -32,6 +33,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
 import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow, type CursorWindow } from "@/lib/hooks/useCursorWindow";
 import { childObjectTypeKeys, collectionGroups, rootObjectTypeKeys } from "@/model/collections";
@@ -41,6 +43,7 @@ import type { ApplicationDefinition, EngineModel, ObjectItem } from "@/types";
 import { Icon, ModelIcon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
 import { ScrollWindow } from "@/ui/ScrollWindow";
+import { useTreeDrag, type TreeDragConfiguration, type TreeDragState } from "./useTreeDrag";
 
 /** Rows a tree group reads per request; its window holds at most five pages (D2). */
 export const TREE_PAGE_SIZE = 50;
@@ -97,6 +100,8 @@ export interface TreeConfiguration {
   describe?: (item: ObjectItem) => string;
   /** Runs first for a key on a record's item; preventing the default skips the tree's handling. */
   onItemKeyDown?: (event: KeyboardEvent<HTMLElement>, item: ObjectItem) => void;
+  /** Moving records by dragging them onto a new parent; without it no row drags. */
+  drag?: TreeDragConfiguration;
 }
 
 interface TreeState {
@@ -122,6 +127,10 @@ interface TreeState {
   announce: (message: string) => void;
   onOpen: (item: ObjectItem) => void;
   onOpenCollection?: (viewKey: string, parent?: ObjectItem) => void;
+  /** The drawn records by tree key, which a drag reads its targets from. */
+  records: Map<string, ObjectItem>;
+  drag?: TreeDragState;
+  startDrag?: (event: React.PointerEvent<HTMLElement>, item: ObjectItem) => void;
 }
 
 const TreeContext = createContext<TreeState | null>(null);
@@ -133,6 +142,8 @@ function useTree() {
 }
 
 const indent = (level: number) => ({ paddingLeft: `${4 + (level - 1) * 14}px` });
+/** Where a level's rows start their icon and label, after the indent and the toggle column. */
+const rowStart = (level: number) => 4 + (level - 1) * 14 + 22;
 
 export function RecordTree({
   model,
@@ -288,6 +299,15 @@ export function RecordTree({
   }, [activeObjectId]);
   // One live region outside the tree, which may own only its items and groups.
   const [announcement, setAnnouncement] = useState("");
+
+  const [records] = useState(() => new Map<string, ObjectItem>());
+  const { drag, startDrag, preview } = useTreeDrag({
+    tree,
+    config: config.drag,
+    records,
+    indentOf: rowStart,
+    expand: (objectId) => toggle(objectId, true),
+  });
 
   const treeItems = useCallback(
     () => Array.from(tree.current?.querySelectorAll<HTMLElement>("[role='treeitem']") ?? []),
@@ -470,6 +490,9 @@ export function RecordTree({
       announce: setAnnouncement,
       onOpen,
       onOpenCollection,
+      records,
+      drag,
+      startDrag,
     }),
     [
       model,
@@ -490,6 +513,9 @@ export function RecordTree({
       rowsChanged,
       onOpen,
       onOpenCollection,
+      records,
+      drag,
+      startDrag,
     ],
   );
 
@@ -527,6 +553,35 @@ export function RecordTree({
       <span className="visually-hidden" role="status" aria-live="polite">
         {announcement}
       </span>
+      {drag &&
+        createPortal(
+          <>
+            {drag.target?.line && (
+              <div
+                aria-hidden="true"
+                className={`tree-drop-line ${drag.target.refusal ? "refused" : "accepted"}`}
+                style={{ top: drag.target.line.top, left: drag.target.line.left, width: drag.target.line.width }}
+              />
+            )}
+            <div
+              ref={preview}
+              aria-hidden="true"
+              className={`tree-drag-preview${drag.target ? (drag.target.refusal ? " refused" : " accepted") : ""}`}
+            >
+              <span className="tree-drag-record">
+                <span className="tree-icon">
+                  <ModelIcon name={objectTypeFor(model, drag.item.objectTypeKey)?.icon} size={14} />
+                </span>
+                <span className="tree-name">{config.labelOf?.(drag.item) ?? drag.item.name}</span>
+                <span className="tree-drag-type">
+                  {objectTypeFor(model, drag.item.objectTypeKey)?.name ?? drag.item.objectTypeKey}
+                </span>
+              </span>
+              {drag.target?.refusal && <span className="tree-drag-reason">{drag.target.refusal}</span>}
+            </div>
+          </>,
+          document.body,
+        )}
     </TreeContext.Provider>
   );
 }
@@ -688,7 +743,7 @@ function TreeGroup({
           open?.();
         }}
       >
-        <div className="tree-row" style={indent(level)}>
+        <div className={`tree-row${dropClass(tree.drag, headingKey)}`} style={indent(level)}>
           <span className="tree-branch" />
           <span
             className="tree-node tree-collection"
@@ -758,6 +813,13 @@ function TreeNode({
   const expandable = childTypes.length > 0;
   const expanded = expandable && tree.isExpanded(item.id);
   const active = item.id === tree.activeObjectId;
+  const { records, startDrag } = tree;
+  useLayoutEffect(() => {
+    records.set(key, item);
+    return () => {
+      if (records.get(key) === item) records.delete(key);
+    };
+  }, [records, key, item]);
   const ancestors = match
     ? item.path
         .slice(0, -1)
@@ -789,7 +851,11 @@ function TreeNode({
         tree.onOpen(item);
       }}
     >
-      <div className="tree-row" style={indent(level)}>
+      <div
+        className={`tree-row${tree.drag?.item.id === item.id ? " dragging" : ""}${dropClass(tree.drag, key)}`}
+        style={indent(level)}
+        onPointerDown={startDrag && ((event) => startDrag(event, item))}
+      >
         {expandable ? (
           <span
             className="tree-toggle"
@@ -835,6 +901,12 @@ function TreeNode({
       )}
     </li>
   );
+}
+
+/** How a row shows the drag's target: glowing when it is the target's parent or heading. */
+function dropClass(drag: TreeDragState | undefined, key: string) {
+  if (!drag?.target?.rows.includes(key)) return "";
+  return drag.target.refusal ? " drop-refused" : " drop-accepted";
 }
 
 /** The groups that hold `element`, innermost first. */

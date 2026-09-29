@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Query, status
 from sqlalchemy import select
 
-from ..db import DbSession
+from ..db import DbSession, begin_snapshot_read
 from ..errors import ApiError, api_error
 from ..models.api import (
     ChangeKind,
@@ -294,6 +294,9 @@ def get_object_changes(
     object_type_key: list[str] | None = _OBJECT_TYPE_KEY,
 ) -> ObjectChangePage:
     """The records the change set adds, changes or removes against its source (Base 0.8 P2a)."""
+    # The page, its paths and the pinned model read one snapshot: a write landing between them
+    # would otherwise mix two states of the change set in one page.
+    begin_snapshot_read(session)
     context = change_set_context(session, change_set_id)
     model = _pinned_model(session, context)
     page = list_object_changes(
@@ -327,6 +330,7 @@ def get_relation_changes(
     ),
 ) -> RelationChangePage:
     """The relations the change set adds, changes or removes against its source (Base 0.8 P2a)."""
+    begin_snapshot_read(session)
     context = change_set_context(session, change_set_id)
     model = _pinned_model(session, context)
     page = list_relation_changes(

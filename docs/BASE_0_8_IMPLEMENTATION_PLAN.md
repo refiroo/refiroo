@@ -4,13 +4,13 @@
 (W1–W6, ADR-031 terminology and capability boundaries) are delivered (2026-09-26). Milestone A
 (relation matrix) and Milestone B (hierarchy editor) from the
 [roadmap](ROADMAP.md#product-release-08--relation-matrix-and-hierarchy-editor) are broken into work
-packages A1–A5 and B1–B4; P2 is scheduled after W2 (D20); R1 owns build acceptance. A1 is delivered
+packages A1–A5, B1–B5 and C0–C5; P2 is scheduled after W2 (D20); R1 owns build acceptance. A1 is delivered
 (2026-09-27) with D8 and D9 accepted. A2, A3 and A3b are delivered (2026-09-27) with D10–D13
 accepted; A3b's stored cell states closed A2's budget exception for the row state filter. A4 and A5
 are delivered (2026-09-28), and A6 (snapshot table index drift, found in A2) with D28 accepted
-(2026-09-28), which completes Milestone A. B1–B4 are delivered (2026-09-28), which completes Milestone B; D14 is accepted (2026-09-28),
+(2026-09-28), which completes Milestone A. B1–B4 are delivered (2026-09-28); B5 (drag and drop in the tree lens, D34, D35) was added in the Milestone B review (2026-09-28) with its amendment B5b (move to the top level, D36); B5 is delivered (2026-09-29), and B5b completes Milestone B when delivered, with R1b as their build acceptance; Milestone C (structure refactoring, C0–C5, D37–D43 open) was added after the Milestone B review (2026-09-28), with R2 as its build acceptance; D14 is accepted (2026-09-28),
 D30 decides one of A6's two open measurements and B2 decides the other (D29, a known budget exception);
-P2 is planned (2026-09-28) as P2a (change lists API) and P2b (review screen), with D31–D33 accepted (2026-09-28); P2a and P2b are delivered (2026-09-28), which completes P2; see the [summary](#decisions-summary).
+P2 is planned (2026-09-28) as P2a (change lists API) and P2b (review screen), with D31–D33 accepted (2026-09-28); P2a and P2b are delivered (2026-09-28), which completes P2. R1 build acceptance of the build without B5 passed (2026-09-28); 0.8.0 releases after B5 and R1b; see the [summary](#decisions-summary).
 
 **Target:** Product 0.8.0. Track S does not change the schema language. Milestones A and B add
 schema language 0.7 (`relationMatrix` and `tree` views); the starter model becomes content release
@@ -2572,6 +2572,370 @@ results (the cleared search had not settled); the opener now waits for the revea
 adopted baselines show it. Not run: the backend suites, Vitest, format, lint and build (no application
 code changed) and the comprehensive suites (R1).
 
+#### B5: Drag and drop in the tree lens
+
+Added 2026-09-28 during the Milestone B review. It is a second way to trigger the tree lens's
+**Move to…** action (B3), for mouse and pen. It adds no API, model or schema change: the move is the
+same `PATCH` with `parentObjectId`, validated by the server as before, and the keyboard path stays
+Move to… (WCAG 2.2 criterion 2.5.7, Dragging Movements).
+
+**Scope:**
+
+1. _Where._ Only in the tree lens (`TreeView`), only where the view's `actions` include `move`, live
+   and in a change set. A publication's tree is read-only and offers no drag. The sidebar tree is for
+   navigation only and never offers drag, although it shares `RecordTree`.
+2. _Drop targets (D34)._
+   - **Onto a node:** the node becomes the record's parent.
+   - **Between rows:** the record becomes a child of the branch the gap belongs to, a sibling of the
+     rows beside it. Where a gap ends one or more branches (the next row is shallower), the pointer's
+     horizontal position chooses among the levels that end there, and the indent of the drop line
+     shows the chosen level.
+   - **A branch's type heading** (for example "System values 9"): the heading's parent.
+   - **Position within the branch:** the model has no manual order; children are ordered by the view's
+     `childSort`. The drop line therefore shows the branch the record goes into, not a slot, and the
+     record lands in its sorted place. The move changes only the parent and its typed containment
+     edge, as Move to… does, so nothing else about the record or its descendants changes. A manual
+     order would be model configuration (an order attribute used as `childSort`), not B5.
+   - **Top level:** B5b adds it to both paths (Move to… and drag) together.
+3. _Which targets accept (D34)._ One pure function in `src/model` decides, for the record being
+   dragged and a target parent, whether to accept the drop and, if not, why. It reuses the model rule
+   Add child uses (`childObjectTypeKeys`: a `parentOf` relation the child type lists in
+   `parentRelationTypeKeys`, allowed by `objectTypeRelations`). Refusal reasons use B2's words where
+   they exist:
+   - `self` (**The record itself**);
+   - `descendant` (**Inside the record**), decided from the target's drawn ancestors, which are always
+     loaded for a visible row;
+   - `currentParent` (**Current location**);
+   - new: `type` (**Can't contain <type>**), because a tree shows parents of every type while the
+     candidate list only shows allowed ones;
+   - new: `application`, a target in another application, which the server refuses too.
+
+   The server remains the authority: a drop it refuses is reported in the dialog, as a refused
+   Move to… is. A drag happens within one tree, so within one workspace, one context (live or one
+   change set) and one model. The check uses the model the tree is drawn with, which in a change set
+   is the change set's pinned release (ADR-028), not the active one.
+4. _Confirmation (D34)._ A drop onto an accepted target opens the existing `TreeMoveDialog` with the
+   target already chosen and shown selected, so Enter confirms. It keeps the same components and
+   behaviour: search, the candidate list, **Moving…** with the D29 status line, a refused move keeping
+   the dialog, and a version conflict re-reading the record. Nothing new is built for confirmation.
+   After the move, focus and the reveal behave as after Move to….
+5. _Look._ While dragging, the record's row is dimmed in place, and a translucent drag preview shows
+   its label and type. Over an accepted target, the preview and the target (the row, or the drop line
+   with its branch's parent row) glow green, using the existing `--success-soft` fill and
+   `--success-line` edge. Over a refused target they glow red (`--danger-soft`, `--danger-line`), the
+   cursor shows no-drop, and the reason is shown as text next to the preview, so colour is never the
+   only signal (WCAG 1.4.1). Light and dark themes use the existing tokens. With reduced motion, the
+   glow is static and nothing animates.
+6. _Reach._ Hovering over a collapsed branch opens it after a short delay. Near the top or bottom of
+   the tree's `ScrollWindow` the tree scrolls, and the speed grows towards the edge. Escape, or a drop
+   outside the tree, cancels the drag and nothing is written. Far targets remain easier to reach with
+   Move to…'s search; the drag does not try to replace it.
+7. _Pointer types (D35)._ Mouse and pen only. A touch pointer does not start a drag, so on phones a
+   tap still opens a record and a swipe still scrolls; Move to… is the complete path there (B3 and B4
+   run it at 390px). Touch drag is deferred to 0.10; see D35 for why and when.
+8. _Implementation._ React Aria's `useDrag` and `useDrop` (the `react-aria` package, added as a direct
+   dependency in the same release line as `react-aria-components`), or pointer events. No new
+   drag-and-drop library. The dimmed row, preview and glow are classes in `components.css` built on
+   the existing tokens.
+
+**Reference pattern:** `TreeMoveDialog` and its B2 candidates for the move and its failures;
+`childObjectTypeKeys` for the model rule; B3's reveal for focus after the move.
+
+**Tests:**
+
+- Vitest: the acceptance function for every reason and for gaps (between siblings; at a branch end
+  with several levels; a type heading), over the system, domain and generated trees. `TreeView`:
+  - a drop opens the dialog with the target chosen, and confirming sends the same request as Move to…;
+  - a refused drop sends no request;
+  - a server refusal keeps the dialog;
+  - no drag in a publication, in the sidebar or from a touch pointer;
+  - Escape cancels.
+- `test:browser:b3` gains pointer drags. In the starter system hierarchy, live at 1440px:
+  - a group onto another group;
+  - a system value into a gap between another group's values;
+  - a refused drop onto the record's own descendant, which glows red, shows its reason and sends no
+    write;
+  - a hover that opens a collapsed branch;
+  - Escape cancelling a drag.
+
+  In the domain hierarchy, in a change set: a master value dropped between the values of another
+  codelist, with nothing written to live. Every write is checked against the API in its context.
+- `test:a11y`: the tree lens with a drag in progress, accepted and refused, light and dark.
+  `test:visual`: new baselines `tree-drag-accepted-{light,dark}` and `tree-drag-refused-{light,dark}`
+  after inspection, and the existing tree baselines unchanged.
+
+**Exit:** a steward moves a record by dragging it onto a node, into a gap or onto a type heading, in
+both starter trees, live and in a change set, and confirms in the existing dialog. A refused target
+glows red with its reason and never writes. The keyboard and touch paths are unchanged. The tree's
+existing browser, accessibility and visual gates still pass.
+
+**B5 delivered 2026-09-29.** Pointer events, no new dependency: `features/objects/useTreeDrag.ts` is
+the gesture, which `RecordTree` runs only when its configuration has a `drag` (the tree lens passes
+one where the view's `actions` include `move`; the sidebar never does). `model/treeDrop.ts` holds the
+pure rule: `moveRefusal` (in order `self`, `descendant` from the target's `path`, `currentParent`,
+`application`, `type` through `childObjectTypeKeys` over the tree's model), `gapBranches` and
+`chooseGapBranch` for gaps, and the refusal words, which `TreeMoveDialog` now shares. Decided on the
+way:
+
+- _Hit zones._ The middle half of a row is the row (a record, or a heading's parent); its top and
+  bottom quarters are the gap above or below. At a gap that ends branches, the deepest branch whose
+  rows start left of the pointer is chosen, else the shallowest; the top level is left out (B5b).
+- _Showing the target chosen._ The candidates API has no `seek`, so the dialog starts its search at
+  the target's name, which lists the target selected; once the list arrives, the listed candidate
+  replaces the dropped one, so a server refusal (a disabled radio with its reason) holds. Enter
+  confirms. No backend change.
+- _Dimming without losing contrast._ An `opacity` dim took the dragged row's text below AA (axe
+  `color-contrast`, found by `test:browser:b3`); the row is dimmed with the muted text colour, a subtle
+  fill and an edge instead. The hover fill is suppressed while dragging so the target's glow covers
+  its whole row.
+- _Details._ A drag starts after 5 px, so a click still opens; the click after a release is swallowed.
+  A drag never starts from the rename field, the row's switch or ⋯, or the toggle. Resting 700 ms on a
+  collapsed record opens it. The window under the pointer scrolls within 40 px of its edge, up to 16 px
+  a frame. Escape (captured before the lens's own handlers), a cancelled pointer or a release outside
+  an accepted target ends the drag with nothing written. Nothing animates, so reduced motion needs no
+  variant.
+- _Runner races found, not product defects._ `dragFrom` measured a row while the tree still re-laid
+  out after the previous move, so the press landed on another record; it now waits for a settled box
+  and checks the preview names the pressed record. B3's domain step pressed Back before the hidden
+  tree's reveal read landed (the race recorded in B4); it failed two runs in four with this build and
+  passed six of six in isolation, so B3 now waits for the stored branch choice as B4 does.
+
+Composable-domains doors (ADR-032): none affected; a second path to the existing move.
+
+Checks: Vitest `model/treeDrop.test` (7: every reason over the starter system and domain trees and the
+generated volume shape; gaps between siblings, above a heading, at a branch end with three levels
+and the pointer's choice, the top level left out), `views/TreeView.test` (6 new, 17 in all: a drop
+onto a node confirmed with the request Move to… sends; refused targets red with their reasons and
+no request; a gap's drop line and branch; a type heading's parent with a server refusal keeping the
+dialog; Escape; no drag from touch, read-only or a publication), `Explorer.test` (the sidebar never
+drags); `src/features/objects`, `src/model`, `src/app`, `src/routing` (20 files, 201 tests); format,
+lint (0 errors, the 8 recorded warnings), build. `test:browser:b3` (26 checks, passing twice after the
+fixes above; new: Haematology onto collapsed Boat, which opens under the pointer, confirmed by
+Enter; Sodium into the gap between Boat's values; Lab group over its descendant Chemistry, red
+with **Inside the record** and a no-drop cursor, nothing opened or written; Escape; Same day between
+Codelist Beta's values in a change set, live unchanged; axe on the refused drag, 0 violations),
+`test:browser:b4` and `test:browser:s6` (shared tree and helpers), `test:a11y` (38 scenarios, 0
+violations; new `tree-drag-accepted` and `tree-drag-refused`, light and dark), `test:visual` (31;
+four new baselines `tree-drag-{accepted,refused}-{light,dark}` adopted after inspection, every
+existing one matching, largest diff 0.10%), `test:gate-helpers` (5). Screenshots inspected: the
+accepted, gap and refused drags at 1440px and the four baselines. Not run: the backend suites (no
+backend change; `git diff` shows only R1's earlier fix under `backend/`), full Vitest (R1b).
+
+#### B5b: Move to the top level (amendment to B5)
+
+Added 2026-09-28 while B5 is being implemented. The move API already accepts `parentObjectId: null`
+for a type that is `rootCreatable`, live and in a change set (`validate_parent`,
+`_validate_candidate_parent`). The tree lens offers the same move, in both of its paths. This adds no
+API, model or schema change.
+
+**Scope:**
+
+1. _Who can move to the top level (D36)._ A record whose type is one of the tree's
+   `rootObjectTypeKeys` (B1 already requires those to be `rootCreatable`) and which currently has a
+   parent. The tree only shows its root types at the top level. A type that is `rootCreatable` but not
+   a root of this tree would disappear from the tree after the move, so the tree refuses it with the
+   reason `notRoot` (**Not shown at the top of this tree**). The API still accepts that move from
+   the record's detail. A record already at the top level gets `currentParent` (**Current location**).
+2. _Move to…_ `TreeMoveDialog` shows a **Top level** option above the B2 candidate list, as one more
+   radio in the same list style, when point 1 allows it, or disabled with its reason when point 1
+   refuses it. It is not part of the paged candidates, so the list's totals stay truthful (D14).
+   Confirming sends `parentObjectId: null` through the same write, with the same **Moving…**, refusal
+   and conflict behaviour.
+3. _Drag (B5)._ The tree's top-level heading row and the gaps between top-level rows become drop
+   targets meaning "top level", accepted or refused by point 1 with the same green or red glow and
+   reason. At a gap that ends branches down to the top level, the pointer's horizontal position can
+   pick the top level, as with any level (B5 item 2). A drop opens the dialog with **Top level**
+   chosen.
+4. _After the move._ The record appears at its `childSort` place among the top-level records, the old
+   branch's count drops, the top-level count rises, and focus stays on the moved record, as after any
+   move.
+
+**Tests:**
+
+- Vitest: the acceptance function's top-level cases (a root type with a parent; already at the top
+  level; `notRoot`), and the dialog's **Top level** option (offered, disabled with each reason,
+  confirming sends `null`, refused by the server and kept open).
+- `test:browser:b3`, on the generated volume tree, whose root type `vol-group` also nests under
+  itself: a nested group moved to the top level by Move to… live, and by a drag in its change set,
+  each checked against the API (parent `null`, no containment edge). The starter model has no type
+  that is both a tree root and nestable, so it is not used here.
+
+**Exit:** a nested record of a tree root type moves to the top level by keyboard (Move to…) and by
+drag, live and in a change set. A type that the tree does not show at the top is refused with its
+reason, and nothing is written.
+
+## Milestone C — Structure refactoring
+
+Added 2026-09-28 after the Milestone B review. Accepted ideas 1–3: a type change derived from the
+model, values kept for the way back, and named hierarchy refactorings. Delivered before 0.9.
+
+### Outcome
+
+A modeller or steward reshapes a hierarchy without recreating records or re-importing them. Moving a
+record to a place its type is not allowed, where another type is, changes its type. Its descendants
+follow level by level, and the subtree keeps its identities, history and relationships wherever the
+new types allow them. Nothing is declared in the model for this: the engine derives the possible
+types and the attribute mapping from the model it already has, and the user confirms a preview.
+Values a new type has no place for are kept in the record's history and offered back when a later
+type change gives them a place again.
+
+The milestone is generic. It works over object types, attribute bindings, containment and relation
+bindings. It names no application or type, and the example model is only its demonstration
+([EXAMPLE_MODEL.md](EXAMPLE_MODEL.md)).
+
+### What already exists
+
+- The move (`PATCH` with `parentObjectId`) changes a record's parent and its typed containment edge
+  together, live and in a change set, and refuses cycles (B2). Publishing a change set revalidates the
+  merged graph.
+- Attribute types are global. Two object types that bind the same attribute type share that value's
+  meaning.
+- Every object type declares `displayAttributeTypeKey`. Attribute bindings carry `required` and the
+  attribute types carry `unique` and a value type.
+- Audit events hold each change's before and after; the P2 review screen lists a change set's changes.
+- Nothing changes a record's type today: every read and write route carries the type
+  (`/objects/{type}/{id}`), and no update accepts a new type.
+
+### Principles
+
+1. _Derived, not declared._ The possible new types at a place are the types the model allows there.
+   The attribute mapping is suggested by these rules, in order (D40):
+   - the same attribute type is kept;
+   - display attribute to display attribute;
+   - a `unique` and `required` attribute to the one attribute of the other type that is also both,
+     when there is exactly one;
+   - the built-in `name` always.
+
+   A mapping pairs attributes of the same value type, or a widening that loses nothing (D40). The user
+   can change any suggestion in the preview. One choice per pair of types applies to every record of
+   that pair in the operation.
+2. _Preview, then apply._ Every operation first returns a plan: each record's new type, and each value
+   and relationship as kept, mapped, restored or without a place. It also returns the inputs still
+   needed (a required attribute without a value) and refusals. Applying claims the reviewed plan
+   (bound to the versions it read) and runs atomically.
+3. _Nothing silently lost._ A value or relationship that the new type has no place for is listed in the
+   preview and kept in the record's history (a `reclassified` audit event with the full before state).
+   A later type change of the same record offers values from its reclassification history back, when
+   the new type binds them again.
+4. _Same rules as single writes._ Uniqueness, required relations, uniqueness scopes, cycles and
+   concurrency are checked by the existing services, in the same transaction. Derived state (the
+   typed value index, matrix cell states, relation set versions, the search index) is updated as for
+   any write.
+5. _Staged._ Operations run in a change set, and the P2 review screen shows them before publishing
+   (D38).
+
+### Composable domains check (ADR-032)
+
+This milestone touches three doors, so it records how each stays open:
+
+- **Identity:** a record keeps its ID across a type change (D37).
+- **Attribute storage:** values are moved or mapped between bindings, never converted lossily
+  (D40), and dropped values stay in history.
+- **Audit/history:** a new `reclassified` event kind. The 0.9 change feed and consumer API must carry
+  it; noted in the 0.9 plan.
+
+Bulk APIs, the consumer API's `match` and effective dates are not touched.
+
+#### C0: Design and ADR-034
+
+**Scope:** write ADR-034 (a record's type can change, identity kept, derived mapping, preview and
+apply, history as the way back) and an API design section in API.md. Settle D37–D43. Specify:
+
+- the plan format and its paging;
+- the claim that binds apply to a preview;
+- the `reclassified` audit event;
+- how publishing applies a staged type change, including conflicts with a live edit of the same record
+  since the change set's base;
+- what reads with the old type in the route return (D42).
+
+**Exit:** ADR-034 accepted; D37–D43 decided; C1–C5 scopes confirmed or adjusted.
+
+#### C1: Type change in the engine
+
+**Scope:** one service that changes a record's type in a change set, with a given attribute mapping:
+
+- values are moved, mapped or dropped;
+- the containment edge is re-typed to the relation the model allows between the parent and the new
+  type;
+- relationships the new type may not have are removed;
+- uniqueness and required relations are checked;
+- derived state is updated;
+- a `reclassified` audit event records the full before state.
+
+Publishing applies it to live and rechecks the merged graph. A publication read keeps the old type.
+Reads and writes that name the old type follow D42.
+
+**Tests:** each part above on its own, and a record with values, cross-references, a uniqueness scope
+and a matrix cell. Publishing, conflicts with a live edit of the same record, and publication reads.
+Run over the example model, the same model with every key renamed, and the generated model.
+
+#### C2: Planner — mapping, cascade and the way back
+
+**Scope:** the preview planner for one record and its subtree:
+
+- the possible types at a target;
+- the D40 mapping suggestions and per-pair choices;
+- the cascade, where each descendant level becomes a type the new parent can contain. When several
+  types are possible, the plan asks once per type pair;
+- losses and required inputs;
+- values offered back from the record's reclassification history;
+- refusals (a level with no possible type, a cycle, another application).
+
+The planner is bounded (D41) and measured on the volume fixture.
+
+**Tests:** the rules in order, ambiguous and missing mappings, a cascade over three levels, restore
+after a round trip, the size limit, and the budget.
+
+#### C3: Restructuring API
+
+**Scope:** `POST …/restructurings/preview` and `POST …/restructurings` with the operation kinds:
+
+- `move` with a type change;
+- `changeType` (in place, under the same parent);
+- `insertLevel` (a new parent created between a record's parent and chosen children);
+- `removeLevel` (a record removed and its children moved to its parent, changing type where needed);
+- `changeTypeUnder` (every record of one type under a given record).
+
+Every operation takes a change set and its version, choices per type pair and required inputs. Apply
+claims the preview. Update the OpenAPI lock and API.md.
+
+**Tests:** each kind, a stale claim, a changed change set, a refused operation leaving nothing
+behind, and per-record outcomes in the plan.
+
+#### C4: Refactoring in the tree lens
+
+**Scope:** reuse B5's dialog, list and drag, adding a type-change preview built from the existing
+`Modal`, the move dialog's list and the P2 review rows:
+
+- **Move to…** and drag also offer targets that need a type change. The drop glows green with
+  "Becomes <type>".
+- The node menu gains **Change type…**, **Insert level above…**, **Remove this level…** and
+  **Change type of all <type> in here…**, each only where the model makes it possible.
+- The preview shows the plan by record and by type pair, with each mapping changeable in place and
+  required inputs asked for there. It links to the change set's review after applying.
+
+The keyboard path covers everything, and phones get the same dialogs (without drag, D35).
+
+**Tests:** Vitest for the dialog states and each entry point. `test:browser:c4` on the example
+trees and the generated tree: a move that changes type, each refactoring, a round trip restoring
+values, and publishing.
+
+#### C5: Milestone C acceptance
+
+**Scope:** a real-backend runner for the whole journey:
+
+- reshape a subtree with a move that changes types;
+- insert and remove a level;
+- review the change set;
+- publish and check live, the publication and the history;
+- change a record back and restore its values.
+
+Add a user story and scenario to the functionality catalogue. Add the preview and the refactoring
+dialogs to the accessibility and visual gates (light and dark).
+
+**Exit:** the journey passes on two models (the example model and the generated one); nothing in the
+engine or the UI names a type or application.
+
 ## R1: Build acceptance and release
 
 **Scope:** after S8, W6, W5, A6, B4 and P2 (D20, D25, D27, D28): the full backend `pytest` suite, frontend `npm run test`, Ruff,
@@ -2582,6 +2946,95 @@ and activates on a Base 0.7 database that holds schema 0.6 releases. Update PROJ
 TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 
 **Exit:** all gates pass, or each failure is explained and tracked; Base 0.8.0 is ready to release.
+
+**R1 delivered 2026-09-28.** A review of the packages without an earlier review pass (B1–B4, P2a,
+P2b) and the full gate set. One review finding and two runner drifts were fixed; every gate then
+passed.
+
+- _Change lists read one snapshot._ `object-changes` and `relation-changes` read their page, then its
+  paths and relation ends in further statements. SQLite in rollback-journal mode releases the read
+  lock between statements, so a change set write could commit in between and mix two states in one
+  page (reproduced: a parent renamed between the statements appeared renamed in the paths beside its
+  own entry under the old name; a publish in between would leave parent links without their end's
+  type). Both routes now call `begin_snapshot_read`, as the relation matrix and parent candidates do.
+  Regression: `test_change_lists::test_a_page_and_its_paths_read_one_snapshot` makes the write from a
+  second connection between the statements; the writer now waits and the page is consistent.
+- _`test:browser:sc15` and `test:browser:wp13c` had drifted from the 0.8.0 starter model_ (no 0.8
+  package selected them). SC-15's incompatible candidate makes `external-id` required, which A1's
+  rule refuses as a model because `codelists-by-system` offers `create` without it; the helper now adds
+  the field to such a matrix's `cellFields`, so the candidate is refused for its data as SC-15 intends.
+  WP-13C expected no Codelist parent for a master value created in RDM Systems, but 0.8.0 adds
+  codelists to RDM Systems for its matrix; it now expects exactly the parent types the owner
+  application contains, read from the active model. Neither was a product defect.
+- _Reviewed without change:_ `change_lists` kinds, tombstones, containment filter and `beforePath`
+  sides; `parent_candidates` refusal reasons and the live and change set cycle checks; the review
+  screen's before/after parents; the tree lens and move dialog (no type-key branches).
+- The comprehensive command set in the execution guide gains `test:browser:p2`.
+
+_Migration checks._ A Base 0.7.0 database was built with the released v0.7.0 code (a worktree of the
+tag) and populated through its own API: typed live values (integer, boolean, date), a mapping,
+publication 1 and an open change set with a move, a cascade removal and an addition, at `20260912_01`.
+The current backend upgraded it at startup to `20260928_01`; live values kept their types, the change set
+listed through `object-changes` (added, changed with `beforePath`, removed) and `relation-changes`
+(both parent links of the move, the cascade's mapping), and trigram search answered in live, change
+set and publication. The schema 0.7 release (content 0.8.0) installed and activated over the schema
+0.6 release; the change set, still on 0.7.0, was refused the new matrix view
+(`relation_matrix_view_not_found`), moved onto 0.8.0, then showed the removed mapping as
+`historyOnly` under the state filter, validated and published (publication 2, live updated).
+`matrix_states.verify` found no drift after activation and after publishing. A restart served the same
+state. An upgrade stopped at `20260926_03` resumed at startup to the head. The smoke start on a copy of
+the development database served health, runtime state, the 0.8.0/0.7 model, records and change sets
+with no matrix drift. Clean bootstrap, lifespan and interrupted runs of each 0.8 revision are the
+suite's `test_startup`, `test_migrations` and per-migration `*_after_an_interrupted_run` cases.
+
+_Gates._ Backend: Ruff clean; `pytest` 774 passed before the fix, then the changed boundary
+(`test_change_lists` 10, `test_change_lists_volume` 2, `test_openapi_contract` 8, the lock re-baselined
+unchanged) passed. Frontend: format check, lint (0 errors, 8 existing warnings, none in
+0.8 files), `tsc -b && vite build`, Vitest 40 files / 337 tests, gate helpers 5/5 (no application
+source changed after them). Browser: all 19 runners pass (`test:browser`, `:authoring`,
+`:change-sets`, `:publications`, `:wp11`, `:wp12`, `:wp14`, `:wp13c`, `:sc07`, `:sc15`, `:s5`, `:s6`,
+`:s7`, `:w4`, `:a4`, `:a5`, `:b3`, `:b4`, `:p2`; `wp13c` and `sc15` after the fixes above, volume
+runners at their default scale). `test:a11y` passes with no unexpected violations, light and dark;
+`test:visual` matches all 27 baselines (largest diff 0.03%), none updated. `git diff --check` is clean.
+
+_Residual gaps (tracked):_ the known budget exceptions D26, D29 and D30; the very fast Back at narrow
+width found in B4; SQLite foreign keys not enforced (TODO); PostgreSQL forms of the search index and
+matrix reads (0.10); P1 and P3 (0.9). Not exercised: a non-SQLite database, the volume runners at full
+scale, and a change set large enough to page the review screen in the browser.
+
+### R1b: B5 and B5b build acceptance (amendment to R1)
+
+Added 2026-09-28, while R1 runs. R1's scope and exit are unchanged; R1 accepts the build without B5.
+R1b accepts the B5 and B5b increment on top of it, after both are delivered, so B5 goes through the same
+release acceptance without restarting R1.
+
+**Scope:** run the gates that B5's change reaches:
+
+- frontend `npm run test`, format, lint and build;
+- `test:browser:b3`, `test:browser:b4` and `test:browser:s6` (the lens, the milestone journey, and the
+  sidebar tree that shares `RecordTree` and must stay free of drag);
+- `test:a11y` and `test:visual` in full, because the new drag states sit in the shared tree and style
+  sheets.
+
+Backend suites are not rerun, because B5 changes no backend code. Instead, confirm with `git diff`
+against the R1 build that nothing under `backend/` or the OpenAPI lock changed, and rerun the
+backend's affected groups if anything did. Review the B5 and B5b delivery notes against their exits,
+and update PROJECT_STATUS, ROADMAP, TODO, CHANGELOG and the functionality catalogue for them.
+
+**Exit:** R1 and R1b both pass, or each failure is explained and tracked; only then is Base 0.8.0
+ready to release.
+
+### R2: Milestone C build acceptance
+
+Added 2026-09-28. It runs after C5, as R1 does for the rest of 0.8:
+- the full backend `pytest` suite (C1–C3 change the engine and the API);
+- frontend `npm run test`, format, lint and build;
+- every browser runner, `test:a11y` and `test:visual`;
+- a migration check if C1 adds columns or tables.
+
+Update PROJECT_STATUS, ROADMAP, TODO, CHANGELOG, API.md and the functionality catalogue.
+
+**Exit:** all gates pass, or each failure is explained and tracked. Release timing follows D43.
 
 ## Decisions summary
 
@@ -2619,4 +3072,14 @@ TODO, CHANGELOG, API.md and the functionality catalogue; record residual gaps.
 | D31 | Which change set rows are changes? | **Accepted 2026-09-28:** `added`, `changed`, `removed` from the own row and its source row; a created-then-deleted record is left out (publishing skips it); an edited-back record stays `changed` with empty `changedFields`, because publishing still claims its version | P2a |
 | D32 | Engine-maintained containment edges in the relation changes | **Accepted 2026-09-28:** the API lists them with `containment: true` and a `containment` filter, so integrations see every row that publishes; the review screen hides them by default because the record's `parent` change shows the move | P2a, P2b |
 | D33 | One mixed changes list or one per record kind? | **Accepted 2026-09-28:** `object-changes` and `relation-changes`, one response shape each (as P3 settled for relations), each ordered on its own index | P2a |
+| D34 | Drag and drop in the tree lens: targets and confirmation | **Accepted 2026-09-28:** drops onto a node, into a gap between rows (the branch the gap belongs to; at a branch end the pointer's horizontal position picks the level) or onto a type heading. The record lands in its `childSort` place, since the model has no manual order. The top level is added to both paths by B5b (D36). Acceptance is decided by the model's containment rule plus B2's reasons and two new ones (`type`, `application`). A drop is confirmed in the existing `TreeMoveDialog` with the target chosen. Mouse and pen only | B5 |
+| D35 | Touch drag in the tree lens | **Accepted 2026-09-28: deferred to 0.10.** Why: on a windowed tree, a long-press drag competes with scrolling and with the tap that opens a record, and doing it well needs testing on real iOS and Android devices, which the 0.8 gates (desktop Chromium) do not cover. Phones already have the complete path through Move to… (B3, B4 at 390px). When: 0.10, listed in its roadmap delivery scope and exit | B5 |
+| D36 | Moving a record to the top level from the tree | **Accepted 2026-09-28:** offered in Move to… and by drag, because the API supports it. Allowed for a record of one of the tree's root types that has a parent. A `rootCreatable` type the tree does not show at the top is refused (`notRoot`), because it would disappear from the tree; the record's detail can still move it | B5b |
+| D37 | Does a record keep its ID when its type changes? | **Open. Recommendation:** yes. History, relationships and integrations stay linked, and the 0.9 feed reports the change as a `reclassified` event, not as a delete and a create | C0 |
+| D38 | Live, or change set only? | **Open. Recommendation:** change set only. It is a structural operation over many records, and the P2 review screen shows it before it takes effect. This is a stated exception to ADR-026's "live by default", recorded in ADR-034 | C0 |
+| D39 | Can a record change to a type of another application? | **Open. Recommendation:** no. The new type must belong to the record's application, as the move already requires for parents | C0 |
+| D40 | Which values can be mapped? | **Open. Recommendation:** the same value type, plus widenings that lose nothing (`text` to `longText`, `integer` to `decimal`). No lossy conversion; anything else is listed as having no place and kept in history | C0 |
+| D41 | How large can one operation be? | **Open. Recommendation:** a documented limit, 5,000 records per operation in 0.8, measured on the volume fixture in C2. A larger subtree is refused with the limit in the error, never cut short | C0, C2 |
+| D42 | What does a read or write naming the old type return? | **Open. Recommendation:** `409 object_type_changed` with the current type, and the UI follows it to the new route. Routes keep their type segment | C0 |
+| D43 | Release timing | **Open.** (a) Hold 0.8.0 until R2 passes. (b) Release 0.8.0 after R1b and deliver Milestone C as 0.8.1, still before 0.9 | C0 |
 | D30 | A link candidate page over a column of about 5,000 cells takes 92 ms live and 160 ms in a change set (found in A6) | **Accepted 2026-09-28:** a known 0.8 budget exception, as D26; the name order and total read every cell under the column only at an unusual column size. Revisit with precomputed sort keys (0.10 or later) | — |

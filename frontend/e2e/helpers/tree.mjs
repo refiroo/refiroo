@@ -150,3 +150,73 @@ export function treeDriver(page, fail) {
 
   return { lens, item, focused, keyIntoTree, arrowTo, findBySearch, menu, expectFocus, addChild, searchCandidates, chooseAndMove };
 }
+
+// Pointer drags in the tree lens (Base 0.8 B5). A drag is pressed on a row, moved over a target in
+// steps as a hand would, and released by the caller, so the drag's state can be checked first.
+
+/** The row a tree item draws for itself, not the rows of its open branch. */
+const ownRow = (item) => item.locator(".tree-row").first();
+
+/** Where on `item`'s row the pointer rests: its middle, or the gap just above or below it. */
+async function pointOn(item, where = "middle") {
+  const box = await ownRow(item).boundingBox();
+  if (!box) throw new Error("the drag target has no box on the page");
+  const y = where === "above" ? box.y + 2 : where === "below" ? box.y + box.height - 2 : box.y + box.height / 2;
+  return { x: box.x + box.width * 0.6, y };
+}
+
+/**
+ * Presses the mouse on `item`'s row and moves it far enough to start a drag. The row is measured
+ * once the tree has settled (a write re-reads it and reveals the written record), and the drag must
+ * be of that row's record.
+ */
+export async function dragFrom(page, item) {
+  const node = item.locator(".tree-node").first();
+  await page.waitForLoadState("networkidle");
+  let box = await node.boundingBox();
+  for (let attempt = 0; attempt < 20; attempt++) {
+    await page.waitForTimeout(50);
+    const again = await node.boundingBox();
+    if (box && again && box.x === again.x && box.y === again.y) break;
+    box = again;
+  }
+  if (!box) throw new Error("the dragged row has no box on the page");
+  await page.mouse.move(box.x + box.width / 3, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 3 + 10, box.y + box.height / 2 + 6, { steps: 3 });
+  const preview = page.locator(".tree-drag-preview");
+  await preview.waitFor();
+  const name = (await item.getAttribute("aria-label"))?.split(",")[0] ?? "";
+  const dragged = (await preview.textContent()) ?? "";
+  if (!dragged.startsWith(name)) throw new Error(`pressed on ${name}, but the drag is of ${dragged}`);
+}
+
+/** Moves the held pointer over `item`'s row (`middle`) or the gap `above` or `below` it. */
+export async function dragOver(page, item, where = "middle") {
+  const { x, y } = await pointOn(item, where);
+  await page.mouse.move(x, y, { steps: 8 });
+}
+
+/** The drag's state as the page shows it: the preview's tone and text, and the glowing rows. */
+export function dragState(page) {
+  return page.evaluate(() => {
+    const preview = document.querySelector(".tree-drag-preview");
+    return {
+      dragging: Boolean(preview),
+      tone: preview?.classList.contains("refused") ? "refused" : preview?.classList.contains("accepted") ? "accepted" : "",
+      text: preview?.textContent ?? "",
+      line: Boolean(document.querySelector(".tree-drop-line")),
+      cursor: getComputedStyle(document.body).cursor,
+      glowing: Array.from(document.querySelectorAll(".tree-row.drop-accepted, .tree-row.drop-refused")).map(
+        (row) => row.closest("[role='treeitem']")?.getAttribute("aria-label") ?? "",
+      ),
+    };
+  });
+}
+
+/** Ends a held drag with Escape and releases the mouse, so nothing is dropped. */
+export async function cancelDrag(page) {
+  await page.keyboard.press("Escape");
+  await page.mouse.up();
+  await page.locator(".tree-drag-preview").waitFor({ state: "detached" });
+}

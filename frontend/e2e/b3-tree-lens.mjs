@@ -6,6 +6,9 @@
 // its branch with focus; rename it in place; move it through the move dialog, where ineligible
 // targets are listed disabled with their reason; and, where the view allows it, set availability.
 // Every write is checked against the API in its context; a publication shows the tree read-only.
+// Part 3 (Base 0.8 B5) drags with the mouse: onto a collapsed node that opens under the pointer, into
+// a gap between another group's values, onto the record's own descendant (refused in red, nothing
+// written) and cancelled with Escape, live; then between another codelist's values in a change set.
 // The state inventory is docs/testing/UI_ACCEPTANCE.md.
 import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
@@ -13,7 +16,8 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { bootHarness } from "./helpers/harness.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
-import { escapeRegExp as escape, treeDriver } from "./helpers/tree.mjs";
+import { openSystemHierarchy, seedHierarchy } from "./helpers/acceptance-data.mjs";
+import { cancelDrag, dragFrom, dragOver, dragState, escapeRegExp as escape, treeDriver } from "./helpers/tree.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const scale = process.env.B3_VOLUME_SCALE ?? "0.02";
@@ -213,6 +217,19 @@ try {
   await h.findBySearch("Beta", "Codelist Beta");
   // The record takes the whole view at this width; Back returns to the tree with its branch open.
   await page.getByRole("heading", { level: 1, name: "Codelist Beta" }).waitFor();
+  // The hidden tree reveals the record with a read of its own and stores the branch it opens; a
+  // Back before that lands (a fraction of a second, B4) finds the tree as it was.
+  await page.waitForFunction(
+    (id) =>
+      Object.keys(localStorage).some((key) => {
+        try {
+          return JSON.parse(localStorage.getItem(key))?.[id] === true;
+        } catch {
+          return false;
+        }
+      }),
+    domains[0].id,
+  );
   await page.goBack();
   await page.locator(".tree-lens").getByRole("treeitem", { name: /^Codelist Beta/ }).waitFor();
   expect(
@@ -349,12 +366,170 @@ try {
   harness?.cleanup();
 }
 
+// ---------------------------------------------------------------------------------------------
+// Part 3: pointer drags (Base 0.8 B5) — system hierarchy live, domain hierarchy in a change set
+// ---------------------------------------------------------------------------------------------
+try {
+  harness = await bootHarness({ modelAdmin: false, workspaceAdmin: true });
+  evidence.push(harness.output);
+  const { page, uiUrl, api, records } = harness;
+  const h = helpers(harness);
+  const seed = await seedHierarchy(api, records);
+  const attributes = (values) => Object.entries(values).map(([attributeTypeKey, value]) => ({ attributeTypeKey, value }));
+  const systemValue = (name, parent, code) =>
+    api("/objects", {
+      applicationKey: "rdm-systems",
+      workspaceKey: "default",
+      objectTypeKey: "system-value",
+      name,
+      parentObjectId: parent.id,
+      attributes: attributes({ "value-code": code, "value-name": name }),
+    });
+  await systemValue("Ferry", seed.boat, "US");
+  await systemValue("X-ray", seed.boat, "XR");
+  await api("/objects", {
+    applicationKey: "rdm-master",
+    workspaceKey: "default",
+    objectTypeKey: "master-value",
+    name: "Parcel locker",
+    parentObjectId: seed.beta.id,
+    attributes: attributes({ "master-id": "MV-LOCKER", "value-code": "LOCKER", "value-name": "Parcel locker" }),
+  });
+  const writes = [];
+  page.on("request", (request) => {
+    if (request.method() !== "GET" && request.url().includes("/api/v1/")) writes.push(`${request.method()} ${request.url()}`);
+  });
+  const read = (type, id, context = "workspaceKey=default") => api(`/objects/${type}/${id}?${context}`);
+  const expanded = async (name) => (await h.item(name).getAttribute("aria-expanded")) === "true";
+  const openBranch = async (name) => {
+    if (!(await expanded(name))) await h.item(name).locator(".tree-toggle").first().click();
+    await page.waitForFunction(
+      (label) =>
+        Array.from(document.querySelectorAll(".tree-lens [role='treeitem']")).some(
+          (item) => (item.getAttribute("aria-label") ?? "").startsWith(label) && item.getAttribute("aria-expanded") === "true",
+        ),
+      name,
+    );
+  };
+  /** Releases over an accepted target and confirms the dialog it opens with Enter, `target` chosen. */
+  const dropAndConfirm = async (label, name, target) => {
+    const before = writes.length;
+    await page.mouse.up();
+    const dialog = page.getByRole("dialog", { name: `Move ${name}` });
+    await dialog.waitFor();
+    const choice = dialog.getByRole("radio", { name: new RegExp(`^${escape(target)}\\b`) }).first();
+    await choice.waitFor();
+    expect(await choice.isChecked(), `${label}: the dialog did not open with ${target} chosen`);
+    expect(writes.length === before, `${label}: the drop wrote before it was confirmed: ${writes.slice(before).join(", ")}`);
+    await page.keyboard.press("Enter");
+    await dialog.waitFor({ state: "detached", timeout: 20000 });
+    await h.expectFocus(name, `${label}: the moved record`);
+  };
+
+  // ---- 1. System hierarchy, live, 1440px ----
+  await openSystemHierarchy(page, uiUrl);
+  expect(!(await expanded("Boat")), "drag: Boat is open before the drag");
+  await dragFrom(page, h.item("Haematology"));
+  await dragOver(page, h.item("Boat"));
+  let state = await dragState(page);
+  expect(state.tone === "accepted", `drag: Boat is not accepted for Haematology (${JSON.stringify(state)})`);
+  expect(state.glowing.some((label) => label.startsWith("Boat")), "drag: Boat does not glow");
+  expect(state.text.startsWith("Haematology"), `drag: the preview does not name the record (${state.text})`);
+  await page
+    .waitForFunction(() =>
+      Array.from(document.querySelectorAll(".tree-lens [role='treeitem']")).some(
+        (item) => (item.getAttribute("aria-label") ?? "").startsWith("Boat") && item.getAttribute("aria-expanded") === "true",
+      ),
+    )
+    .catch(() => failures.push("drag: resting on Boat did not open it"));
+  await h.shot("b3-drag-accepted-1440");
+  await dropAndConfirm("drag onto a node", "Haematology", "Boat");
+  const haematology = await read("system-group", seed.haematology.id);
+  expect(haematology.parentObjectId === seed.boat.id, "drag: Haematology did not move to Boat");
+  checks.push("drag (system, live, 1440px): Haematology dragged onto collapsed Boat glows green and opens Boat after a rest; the drop opens Move Haematology with Boat chosen, nothing written until Enter moves it (API parent Boat), focus on the moved row");
+
+  await openBranch("Electrolytes");
+  await h.item("Sodium").waitFor();
+  await h.item("X-ray").waitFor();
+  await dragFrom(page, h.item("Sodium"));
+  await dragOver(page, h.item("Ferry"), "below");
+  state = await dragState(page);
+  expect(state.tone === "accepted" && state.line, `drag: the gap between Boat's values is not an accepted drop line (${JSON.stringify(state)})`);
+  expect(state.glowing.some((label) => label.startsWith("Boat")), `drag: the gap's branch parent Boat does not glow (${state.glowing})`);
+  await h.shot("b3-drag-gap-1440");
+  await dropAndConfirm("drag into a gap", "Sodium", "Boat");
+  const sodium = await read("system-value", seed.sodium.id);
+  expect(sodium.parentObjectId === seed.boat.id, "drag: Sodium did not move into Boat's values");
+  checks.push("drag (system, live, 1440px): Sodium dragged into the gap between Boat's values Ferry and X-ray shows a drop line in Boat's branch; confirmed, its parent is Boat");
+
+  let before = writes.length;
+  await dragFrom(page, h.item("Lab group"));
+  await dragOver(page, h.item("Chemistry"));
+  state = await dragState(page);
+  expect(state.tone === "refused", `drag: Chemistry is not refused for Lab group (${JSON.stringify(state)})`);
+  expect(state.text.includes("Inside the record"), `drag: the refusal gives no reason (${state.text})`);
+  expect(state.cursor === "no-drop", `drag: the cursor over a refused target is ${state.cursor}`);
+  expect(state.glowing.some((label) => label.startsWith("Chemistry")), "drag: Chemistry does not glow");
+  await h.axe("b3-drag-refused");
+  await h.shot("b3-drag-refused-1440");
+  await page.mouse.up();
+  await page.locator(".tree-drag-preview").waitFor({ state: "detached" });
+  await page.waitForTimeout(400);
+  expect(!(await page.getByRole("dialog").count()), "drag: a refused drop opened the dialog");
+  expect(writes.length === before, `drag: a refused drop wrote: ${writes.slice(before).join(", ")}`);
+  expect((await read("system-group", seed.lab.id)).parentObjectId === seed.system.id, "drag: Lab group moved");
+  checks.push("drag (system, live, 1440px): Lab group over its own descendant Chemistry glows red with “Inside the record” and a no-drop cursor; the release opens nothing and writes nothing");
+
+  before = writes.length;
+  await dragFrom(page, h.item("Chemistry"));
+  await dragOver(page, h.item("Boat"));
+  expect((await dragState(page)).tone === "accepted", "drag: Boat is not accepted for Chemistry");
+  await cancelDrag(page);
+  await page.waitForTimeout(400);
+  expect(!(await page.getByRole("dialog").count()), "drag: Escape left a dialog");
+  expect(writes.length === before, `drag: a cancelled drag wrote: ${writes.slice(before).join(", ")}`);
+  expect((await read("system-group", seed.chemistry.id)).parentObjectId === seed.lab.id, "drag: Chemistry moved");
+  checks.push("drag (system, live, 1440px): Escape cancels a drag over an accepted target; the release opens nothing and writes nothing");
+
+  // ---- 2. Domain hierarchy, change set, 1440px ----
+  const changeSet = await api("/workspaces/default/change-sets", { name: "B5 drag", source: "currentLive" });
+  await page.goto(`${uiUrl}/apps/rdm-master/views/domain-hierarchy?workspaceKey=default&changeSetId=${changeSet.id}`);
+  await h.item("Domain 00").waitFor();
+  for (const name of ["Domain 00", "Codelist Alpha", "Courier", "Codelist Beta"]) await openBranch(name);
+  for (const name of ["Same day", "Pickup point", "Parcel locker"]) await h.item(name).waitFor();
+  const values = await page.evaluate(() =>
+    Array.from(document.querySelectorAll(".tree-lens [role='treeitem']"))
+      .map((item) => item.getAttribute("aria-label") ?? "")
+      .filter((label) => /^(Pickup point|Parcel locker)(,|$)/.test(label)),
+  );
+  expect(values.length === 2, `drag: Codelist Beta does not show its two values (${values})`);
+  const first = values[0].split(",")[0];
+  await dragFrom(page, h.item("Same day"));
+  await dragOver(page, h.item(first), "below");
+  state = await dragState(page);
+  expect(state.tone === "accepted" && state.line, `drag: the gap between Beta's values is not accepted (${JSON.stringify(state)})`);
+  expect(state.glowing.some((label) => label.startsWith("Codelist Beta")), `drag: Codelist Beta does not glow (${state.glowing})`);
+  await dropAndConfirm("drag in a change set", "Same day", "Codelist Beta");
+  const staged = await read("master-value", seed.sameDay.id, `changeSetId=${changeSet.id}`);
+  const live = await read("master-value", seed.sameDay.id);
+  expect(staged.parentObjectId === seed.beta.id, "drag: the change set does not hold Same day under Codelist Beta");
+  expect(live.parentObjectId === seed.courier.id, "drag: the change set's move reached live data");
+  checks.push("drag (domain, change set, 1440px): Same day dragged between Codelist Beta's values and confirmed moves in the change set; live keeps it under Courier");
+  await h.shot("b3-drag-change-set-1440");
+} catch (error) {
+  await harness?.page.screenshot({ path: `${harness.output}/failure.png`, fullPage: true }).catch(() => {});
+  failures.push(`drag: ${error.stack ?? error}`);
+} finally {
+  harness?.cleanup();
+}
+
 const report = {
   viewports: ["1440x900", "390x844"],
   configurations: [
     "System hierarchy (systems, recursive groups, values; availability; live)",
     "Domain hierarchy (domains, codelists, master values; availability; change set, then publication)",
     `Generated volume tree (groups, items, seven-level nodes sorted by rank; scale ${scale}; live and change set)`,
+    "Pointer drags (B5): system hierarchy live, domain hierarchy in a change set",
   ],
   checks,
   accessibility,

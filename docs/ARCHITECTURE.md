@@ -99,7 +99,7 @@ Operation groups are exposed per process by environment capabilities read at sta
 A disabled group's routes are not registered. `GET /api/v1/capabilities` reports the effective
 values and names each group's setting; the Models and Workspaces screens show that status read only,
 and the header offers Workspaces only when its group is enabled. These are deployment limits, not
-authorization; 0.10 authorization works within them.
+authorization; 0.11 authorization works within them.
 
 | Capability | Default | Group |
 | --- | --- | --- |
@@ -470,9 +470,11 @@ values, redaction within immutable history, keyed inbound upsert and additive va
 
 ## Security direction
 
-Authentication and authorization remain deferred through the pre-production 0.9 feature releases.
-Product 0.10 introduces OIDC authentication plus model-configurable application, object-type and
-operation permissions before replacing the default-enabled workspace-administration posture.
+Authentication and authorization remain deferred through the 0.9 feature release and 0.10 production
+hardening. The 0.11 security release introduces OAuth 2.0 with engine-issued JWT access tokens for the
+backend, frontend and consumer APIs, model-configurable application, object-type and operation
+permissions, HMAC-signed webhooks and UI administration of clients and subscriptions, before replacing
+the default-enabled workspace-administration posture. No API keys, and no credential in a URL.
 Record-level rules should be introduced only for demonstrated RDM needs.
 
 ## Reviewed historical schema replacement (product 0.10)

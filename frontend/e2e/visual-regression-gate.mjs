@@ -7,6 +7,7 @@ import { bootHarness } from "./helpers/harness.mjs";
 import { compareScreenshot } from "./helpers/visual-regression.mjs";
 import {
   expandChangeReviewRow,
+  holdTreeDrag,
   openChangeReview,
   openLongList,
   openSystemHierarchy,
@@ -18,6 +19,7 @@ import {
   seedLongList,
   seedTranslationMatrix,
 } from "./helpers/acceptance-data.mjs";
+import { cancelDrag } from "./helpers/tree.mjs";
 
 let harness;
 const checks = [];
@@ -140,13 +142,22 @@ try {
   await page.emulateMedia({ colorScheme: "light" });
 
   // --- 13. Tree lens (Base 0.8 B4), light and dark: the system hierarchy with Electrolytes revealed
-  // and open beside it, then the move dialog for Chemistry with its three disabled reasons ---
+  // and open beside it; a drag held over Chemistry, accepted for Haematology and refused for its
+  // parent Lab group (B5); then the move dialog for Chemistry with its three disabled reasons ---
   await seedHierarchy(api, records);
   for (const scheme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme: scheme });
     await openSystemHierarchy(page, uiUrl);
     await page.mouse.move(0, 0); // no hover left on the clicked search result
     await capture(page, `tree-lens-${scheme}`, output);
+    for (const [dragged, state] of [
+      ["Haematology", "accepted"],
+      ["Lab group", "refused"],
+    ]) {
+      await holdTreeDrag(page, dragged);
+      await capture(page, `tree-drag-${state}-${scheme}`, output);
+      await cancelDrag(page);
+    }
     await openTreeMoveDialog(page, "Chemistry");
     await page.mouse.move(0, 0);
     await capture(page, `tree-move-dialog-${scheme}`, output);

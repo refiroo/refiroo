@@ -41,7 +41,7 @@ and supported task lenses; it does not reserve navigation or renderer branches f
 | Inspect, check, install and activate application definitions | JSON workbench and release APIs present; installation and activation are separate | F15, US-P01–P04, US-P06 |
 | Stable paged integration reads | Available; larger exchange and advanced query planned for 0.9 | F16, US-I01–I09 |
 | Contextual collections and specialist lenses | Unified application browser and mapping lens 0.7; relation matrix and tree lenses 0.8, available to any application | US-D01–D05, US-M01–M04, US-L03–L04, US-H01–H02 |
-| Authenticated shared production operation | Production hardening and staged model rollout planned for 0.10 | US-S01, US-O03–O06, US-P07 |
+| Authenticated shared production operation | Production hardening and staged model rollout planned for 0.10; authentication and authorization for 0.11 | US-S01, US-O03–O06, US-P07 |
 | Structured model authoring and reusable definitions | Planned for 1.0, retaining existing validation and release protections | US-P05, US-P08 |
 
 “API available” does not mean a complete browser task. Current top-level views support strict tables;

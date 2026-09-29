@@ -11,6 +11,11 @@
  * parent. In a change set the actions write to it; in a publication the tree is read-only. A failed
  * write keeps the user's place and input: the rename field stays open, the move dialog stays open
  * with the error, and loaded branches stay loaded.
+ *
+ * Where the view allows moves, a record can also be dragged with mouse or pen (B5, D34): onto a
+ * node, into a gap between rows or onto a type heading. A target the model's containment rule or the
+ * move's refusals exclude glows red with the reason and takes no drop; an accepted one opens the move
+ * dialog with the target chosen, so the move is confirmed and written exactly as Move to… does.
  */
 
 import { useCallback, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
@@ -23,6 +28,7 @@ import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { childObjectTypeKeys } from "@/model/collections";
 import { attributeName, fieldValue, isQueryableField } from "@/model/fields";
 import { objectTypeFor } from "@/model/lookup";
+import { moveRefusal, moveRefusalText } from "@/model/treeDrop";
 import type { AttributeTypeDefinition, ObjectItem, ObjectTypeDefinition, TreeViewDefinition } from "@/types";
 import { parseAttributeValue } from "@/ui/attributeForm";
 import { AnchoredMenu } from "@/ui/AnchoredMenu";
@@ -68,7 +74,7 @@ export function TreeView({
   const [menu, setMenu] = useState<{ item: ObjectItem }>();
   const menuAnchor = useRef<HTMLElement | null>(null);
   const [adding, setAdding] = useState<{ parent: ObjectItem; objectType: ObjectTypeDefinition }>();
-  const [moving, setMoving] = useState<ObjectItem>();
+  const [moving, setMoving] = useState<{ item: ObjectItem; target?: ObjectItem }>();
   // A request to focus a record the lens just wrote, kept only while the same record stays open.
   const [focusRequest, setFocusRequest] = useState<TreeFocusRequest & { selectedId?: string }>();
   const requests = useRef(0);
@@ -181,7 +187,7 @@ export function TreeView({
         run: () => void toggleAvailability(item),
       });
     if (actions.has("move") && movable(item.objectTypeKey))
-      entries.push({ id: "move", label: "Move to…", run: () => setMoving(item) });
+      entries.push({ id: "move", label: "Move to…", run: () => setMoving({ item }) });
     return entries;
   };
 
@@ -291,6 +297,16 @@ export function TreeView({
       </span>
     ),
     onItemKeyDown,
+    drag: actions.has("move")
+      ? {
+          canDrag: (item) => movable(item.objectTypeKey) && renaming !== item.id && busy !== item.id,
+          refusal: (item, parent) => {
+            const reason = moveRefusal(model, application, item, parent);
+            return reason && moveRefusalText(model, reason, item);
+          },
+          onDrop: (item, parent) => setMoving({ item, target: parent }),
+        }
+      : undefined,
   };
 
   const rootNames = config.objectTypeKeys.map((key) => objectTypeFor(model, key)?.pluralName ?? key);
@@ -425,11 +441,12 @@ export function TreeView({
       {moving && (
         <TreeMoveDialog
           model={model}
-          item={moving}
-          label={labelOf(moving)}
+          item={moving.item}
+          label={labelOf(moving.item)}
           workspaceKey={workspaceKey}
+          target={moving.target}
           onClose={() => {
-            const id = moving.id;
+            const id = moving.item.id;
             setMoving(undefined);
             focusNode(id);
           }}

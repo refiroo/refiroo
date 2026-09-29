@@ -6,6 +6,10 @@
  *
  * Moving a record that holds many related records can take seconds (D29), so the dialog says it is
  * moving until the write returns, and a refused move leaves it open with the reason.
+ *
+ * A drop in the tree (B5) opens the same dialog with its target chosen. The candidates have no seek,
+ * so the search starts at the target's name to list it, selected, and Enter confirms the move. The
+ * listed candidate replaces the dropped one once it arrives, so the server's judgement of it holds.
  */
 
 import { useState } from "react";
@@ -14,6 +18,7 @@ import { useDataApi } from "@/features/workspaces/WorkspaceDataContext";
 import { useCursorWindow } from "@/lib/hooks/useCursorWindow";
 import { useDebouncedValue } from "@/lib/hooks/useDebouncedValue";
 import { objectTypeFor } from "@/model/lookup";
+import { MOVE_REFUSAL_TEXT } from "@/model/treeDrop";
 import type { EngineModel, ObjectItem, ParentCandidate } from "@/types";
 import { Icon } from "@/ui/Icon";
 import { InlineError } from "@/ui/InlineError";
@@ -23,17 +28,12 @@ import { ScrollWindow } from "@/ui/ScrollWindow";
 
 const PAGE_SIZE = 20;
 
-const REASONS: Record<NonNullable<ParentCandidate["reason"]>, string> = {
-  self: "The record itself",
-  descendant: "Inside the record",
-  currentParent: "Current location",
-};
-
 export function TreeMoveDialog({
   model,
   item: initial,
   label,
   workspaceKey,
+  target,
   onClose,
   onMoved,
 }: {
@@ -41,14 +41,25 @@ export function TreeMoveDialog({
   item: ObjectItem;
   label: string;
   workspaceKey: string;
+  /** A parent chosen before the dialog opens, such as a drop target. */
+  target?: Pick<ObjectItem, "id" | "objectTypeKey" | "name" | "path">;
   onClose: () => void;
   onMoved: (moved: ObjectItem) => void;
 }) {
   const api = useDataApi();
   const [item, setItem] = useState(initial);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(target?.name ?? "");
   const debounced = useDebouncedValue(search.trim());
-  const [selected, setSelected] = useState<ParentCandidate>();
+  const [chosen, setSelected] = useState<ParentCandidate | undefined>(
+    target && {
+      id: target.id,
+      objectTypeKey: target.objectTypeKey,
+      name: target.name,
+      path: target.path,
+      eligible: true,
+      reason: null,
+    },
+  );
   const [moving, setMoving] = useState(false);
   const [error, setError] = useState("");
   const candidates = useCursorWindow<ParentCandidate>(
@@ -61,6 +72,7 @@ export function TreeMoveDialog({
       }),
     [item.objectTypeKey, item.id, workspaceKey, debounced],
   );
+  const selected = candidates.items.find((candidate) => candidate.id === chosen?.id) ?? chosen;
   const types = new Set(candidates.items.map((candidate) => candidate.objectTypeKey));
   const where = item.path
     .slice(0, -1)
@@ -145,7 +157,9 @@ export function TreeMoveDialog({
                     <span className="candidate-name">{candidate.name}</span>
                     <small>{[typeName, ancestors].filter(Boolean).join(" · ")}</small>
                   </span>
-                  {!candidate.eligible && candidate.reason && <span className="pill">{REASONS[candidate.reason]}</span>}
+                  {!candidate.eligible && candidate.reason && (
+                    <span className="pill">{MOVE_REFUSAL_TEXT[candidate.reason]}</span>
+                  )}
                 </label>
               );
             })}

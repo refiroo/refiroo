@@ -414,7 +414,7 @@ reorganize reference data without managing hidden connections.
 and parent relationship change together, and a move into the item's own descendants is rejected.
 Routine edits stay live unless I explicitly choose a change set; my place and input survive failure.
 
-**Coverage:** F07, tree lens node menu and move dialog. **Status:** Delivered 0.8 (B3, accepted in B4).
+**Coverage:** F07, tree lens node menu and move dialog; with mouse or pen, also by dragging the record (B5). **Status:** Delivered 0.8 (B3, accepted in B4; drag in B5).
 **Example:** SC-09.
 
 ## Integration consumer and data exchange operator
@@ -718,7 +718,7 @@ display name; record, relationship and administrative changes remain traceable t
 history. Access to history follows the agreed permissions.
 
 **Coverage:** F11 plus authenticated audit. **Status:** Change history exists; authenticated attribution
-is roadmap 0.10. **Example:** SC-13.
+is roadmap 0.11. **Example:** SC-13.
 
 ### US-O06 — Detect and investigate service degradation
 
@@ -742,4 +742,4 @@ and operations so that deployment flags are not mistaken for user access control
 **Accepted when:** administrative, ordinary and bulk paths enforce the same authenticated scope and
 cannot be bypassed through a less-visible API.
 
-**Coverage:** Planned production hardening. **Status:** Roadmap 0.10.
+**Coverage:** Planned security release. **Status:** Roadmap 0.11.
