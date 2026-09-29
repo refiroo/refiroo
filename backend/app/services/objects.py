@@ -330,7 +330,7 @@ def _search_predicate(
     index never changes the result, only which records are looked up. ``search_fields`` narrows
     the match to the name and searchable attributes it names.
     """
-    escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    escaped = _escape_like(search)
     searchable_attributes = list(
         dict.fromkeys(
             binding.attributeTypeKey
@@ -340,7 +340,7 @@ def _search_predicate(
             and (search_fields is None or binding.attributeTypeKey in search_fields)
         )
     )
-    name_match = columns.name.ilike(f"%{escaped}%", escape="\\")
+    name_match = name_contains(columns.name, search)
     if not searchable_attributes:
         return name_match if search_fields is None or "name" in search_fields else false()
     values = columns.values
@@ -358,6 +358,11 @@ def _search_predicate(
     if search_fields is not None and "name" not in search_fields:
         return attribute_match
     return or_(name_match, attribute_match)
+
+
+def name_contains(column: Any, search: str) -> Any:
+    """A case-insensitive literal "contains" match of ``search`` in a name column."""
+    return column.ilike(f"%{_escape_like(search)}%", escape="\\")
 
 
 def _object_sort_keys(
@@ -1221,9 +1226,18 @@ def _object_paths(session: Session, objects: list[RdmObject]) -> dict[str, list[
         parent_ids = {parent_id for parent_id in frontier.values() if parent_id}
         if not parent_ids:
             break
+        # Only the columns a path shows: a page of deep records reads each ancestor once per
+        # level, and whole records would cost more than the page itself (0.9 Q1).
         parent_map = {
             row.id: row
-            for row in session.scalars(select(RdmObject).where(RdmObject.id.in_(parent_ids)))
+            for row in session.execute(
+                select(
+                    RdmObject.id,
+                    RdmObject.name,
+                    RdmObject.object_type_key,
+                    RdmObject.parent_object_id,
+                ).where(RdmObject.id.in_(parent_ids))
+            )
         }
         next_frontier: dict[str, str | None] = {}
         for object_id, parent_id in frontier.items():

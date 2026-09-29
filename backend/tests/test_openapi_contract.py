@@ -37,10 +37,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # optional ParentCandidate.objectTypeKeys; no existing path or schema otherwise changed.
     # Re-baselined for C4: parent candidates' repeatable withinObjectTypeKey parameter, and GET
     # /model/placements with the ModelPlacements, ModelApplicationPlacements and ModelPlacementParent
-    # schemas; nothing else.
+    # schemas; nothing else. Re-baselined for 0.9 Q1: GET /objects, the cross-type lookup, added to
+    # the existing /objects path beside POST; no existing operation or schema changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "469ae4d0258d24e674487f6d61dbd265790b6f57418e79ea66dc6c06b76ddede"
+        "f0638f413df4dbfdfbb98f8a531a1257a8ff09f8f65e78300d6d956fc7e0d1f2"
     )
 
 
@@ -48,6 +49,7 @@ def test_paging_openapi_inventory():
     """Base 0.8 S3: every cursor-paged collection pages both ways, by position and with totals."""
     document = app.openapi()
     seekable = {
+        "/api/v1/objects",
         "/api/v1/objects/{object_type_key}",
         "/api/v1/relations",
         "/api/v1/workspaces/{workspace_key}/mapping-coverage",
@@ -69,7 +71,7 @@ def test_paging_openapi_inventory():
         assert next(iter(properties)) == "items", path
         assert {"totalCount", "startIndex"}.isdisjoint(document["components"]["schemas"][name]["required"])
         assert properties["totalCount"]["type"] == properties["startIndex"]["type"] == "integer"
-    assert seekable <= paged and len(paged) == 23
+    assert seekable <= paged and len(paged) == 24
     objects = {item["name"] for item in document["paths"]["/api/v1/objects/{object_type_key}"]["get"]["parameters"]}
     relations = {item["name"] for item in document["paths"]["/api/v1/relations"]["get"]["parameters"]}
     assert "topLevel" in objects and {"search", "sort"} <= relations
@@ -86,7 +88,8 @@ def test_wp6_openapi_removes_rejected_object_lifecycle_and_direct_writes():
         "/api/v1/workspace-drafts/{draft_id}/relations",
     }
     assert not (set(paths) & forbidden)
-    assert set(paths["/api/v1/objects"]) == {"post"}
+    # 0.9 Q1: GET /objects is the cross-type lookup, a read beside the canonical create.
+    assert set(paths["/api/v1/objects"]) == {"get", "post"}
     assert set(paths["/api/v1/objects/{object_type_key}"]) == {"get"}
     assert set(paths["/api/v1/objects/{object_type_key}/{object_id}"]) == {"get", "patch", "delete"}
     assert set(paths["/api/v1/relations"]) == {"get", "post"}
@@ -134,7 +137,7 @@ def test_wp8_openapi_inventory_locks_workspace_lifecycle_and_record_crud():
 
     # Canonical record CRUD remains the way objects, typed attribute values and relations are
     # addressed; containment and translation are ordinary object types/edges inside those records.
-    assert methods("/api/v1/objects") == {"post"}
+    assert methods("/api/v1/objects") == {"get", "post"}  # GET: the 0.9 Q1 cross-type lookup
     assert methods("/api/v1/objects/{object_type_key}") == {"get"}
     assert methods("/api/v1/objects/{object_type_key}/{object_id}") == {"get", "patch", "delete"}
     attribute_path = "/api/v1/objects/{object_type_key}/{object_id}/attributes/{attribute_type_key}"

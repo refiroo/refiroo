@@ -6,7 +6,8 @@
 capability boundaries (Track W), the relation matrix (Milestone A), the hierarchy editor (Milestone B),
 the change set review (P2) and hierarchy restructuring (Milestone C). The starter model is content
 release 0.8.0 on schema language 0.7. Next is 0.9, integration-grade APIs
-([plan](BASE_0_9_IMPLEMENTATION_PLAN.md)).
+([plan](BASE_0_9_IMPLEMENTATION_PLAN.md)): **Q1, the cross-type lookup `GET /objects`, is delivered
+(2026-09-29)**; Q2 is next.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

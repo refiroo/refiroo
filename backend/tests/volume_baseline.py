@@ -306,6 +306,14 @@ def _read_scenarios(
         ("objects: common search, total", items, {**page, "search": "Item", "includeTotal": True}),
         ("objects: two-character search, total", items, {**page, "search": "m ", "includeTotal": True}),
         ("record: deep node", f"/api/v1/objects/{NODE}/{dataset.deep_node_id}", base),
+        # 0.9 Q1: the cross-type lookup over every record of the workspace, and over two types.
+        ("lookup: first page, every type", "/api/v1/objects", page),
+        ("lookup: search by name, total", "/api/v1/objects", {**page, "search": "Item 00432", "includeTotal": True}),
+        (
+            "lookup: two types, first page",
+            "/api/v1/objects",
+            {**page, "objectTypeKey": [GROUP, ITEM]},
+        ),
     ]
 
 

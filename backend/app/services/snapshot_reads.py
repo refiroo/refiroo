@@ -11,7 +11,7 @@ check only the records they touch, through ``change_set_lookups`` (S2b).
 """
 
 from collections.abc import Callable, Iterable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any, Literal
 
 from sqlalchemy import Row, Select, String, and_, case, exists, literal, select, union_all
@@ -31,7 +31,7 @@ from ..models.database import (
     PublicationRelation,
     SnapshotAttributeValue,
 )
-from ..models.schema import EngineModel
+from ..models.schema import EngineModel, ObjectTypeDefinition
 from ..models.search_index import SNAPSHOT_VALUES
 from .objects import (
     ObjectColumns,
@@ -39,6 +39,7 @@ from .objects import (
     _query_error,
     get_object_type,
     indexed_value_match,
+    name_contains,
     object_type_changed,
     refine_object_query,
     top_level_filter,
@@ -132,11 +133,16 @@ def object_projection(
     parent_object_ids: Iterable[str] | None = None,
     top_level: bool = False,
     object_ids: Iterable[str] | None = None,
+    name_search: str | None = None,
     part: ChangeSetPart = "effective",
 ) -> Subquery:
     """The context's effective object rows, narrowed inside each arm so indexes apply.
 
     ``object_type_keys`` narrows to several types, as ``object_type_key`` does to one.
+    ``name_search`` keeps rows whose name contains it. It is written first in each arm: SQLite
+    evaluates a row's terms in the order written, so the match discards a row before the change set's
+    anti-join probes it. Matched outside the projection, it is pushed down after the anti-join,
+    which then probes every base row (0.9 Q1: 130 ms against 68 ms over 260,000 records).
 
     ``values_owner_id`` names the owner of each row's typed values in ``snapshot_attribute_values``;
     ``row_sequence_id`` is the row's key in its own table, which its type and parent indexes hold.
@@ -162,7 +168,8 @@ def object_projection(
             narrowing.append(entity.parent_object_id.is_(None))
         if part == "replaced":
             narrowing = [_unindexed(condition) for condition in narrowing]
-        where = [*conditions, *narrowing]
+        first = [name_contains(entity.name, name_search)] if name_search else []
+        where = [*first, *conditions, *narrowing]
         if ids is not None:
             where.append(entity.object_id.in_(ids))
         return select(
@@ -587,6 +594,51 @@ def build_snapshot_object_query(
     object_type = get_object_type(model, object_type_key)
     if application_key:
         validate_application_object_type(model, application_key, object_type_key)
+    return snapshot_object_query(
+        model,
+        context,
+        object_types=(object_type,),
+        narrowing={
+            "object_type_key": object_type_key,
+            "application_key": application_key,
+            "parent_object_id": parent_object_id,
+            "top_level": top_level,
+        },
+        filters={
+            "applicationKey": application_key,
+            "objectTypeKey": object_type_key,
+            "parentObjectId": parent_object_id,
+            "search": search,
+            **top_level_filter(top_level),
+        },
+        search=search,
+        sort=sort,
+        field_filters=field_filters,
+        search_fields=search_fields,
+        id_filter=id_filter,
+    )
+
+
+def snapshot_object_query(
+    model: EngineModel,
+    context: SnapshotContext,
+    *,
+    object_types: Sequence[ObjectTypeDefinition],
+    narrowing: dict[str, Any],
+    filters: dict[str, Any],
+    search: str | None,
+    sort: str | None,
+    field_filters: list[tuple[str, str, str]],
+    search_fields: Sequence[str] | None = None,
+    id_filter: Callable[[Any], Any] | None = None,
+    builtin: Callable[[Subquery], dict[str, Any]] | None = None,
+) -> ObjectQuery:
+    """A change set or publication object query over ``object_types``.
+
+    ``narrowing`` is passed to :func:`object_projection`; ``filters`` are bound into cursors with
+    the context and the normalized typed filters. ``builtin`` adds built-in fields read from the
+    projection, for a list that filters by more of them than the per-type list does.
+    """
     for field, operator, _raw in field_filters:
         if field in UNRECORDED_TIMESTAMPS:
             _query_error(
@@ -603,24 +655,22 @@ def build_snapshot_object_query(
         )
 
     def refine(part: ChangeSetPart) -> tuple[Any, Any, Any, Any]:
-        projection = object_projection(
-            context,
-            object_type_key=object_type_key,
-            application_key=application_key,
-            parent_object_id=parent_object_id,
-            top_level=top_level,
-            part=part,
-        )
+        projection = object_projection(context, **narrowing, part=part)
         statement = select(projection)
         if id_filter is not None:
             statement = statement.where(id_filter(projection.c.object_id))
+        # The replaced and added parts are as small as the change set: looking up their values
+        # row by row costs less than reading the index (S8).
+        columns = snapshot_object_columns(
+            projection, context, search_index=part in {"effective", "base"}
+        )
+        if builtin is not None:
+            columns = replace(columns, builtin={**columns.builtin, **builtin(projection)})
         return refine_object_query(
             model,
-            # The replaced and added parts are as small as the change set: looking up their values
-            # row by row costs less than reading the index (S8).
-            snapshot_object_columns(projection, context, search_index=part in {"effective", "base"}),
+            columns,
             statement,
-            object_types=(object_type,),
+            object_types=object_types,
             search=search,
             sort=sort,
             field_filters=field_filters,
@@ -637,15 +687,7 @@ def build_snapshot_object_query(
     return ObjectQuery(
         statement=statement,
         keys=keys,
-        filters={
-            owner: context.id,
-            "applicationKey": application_key,
-            "objectTypeKey": object_type_key,
-            "parentObjectId": parent_object_id,
-            "search": search,
-            "typedFilters": normalized_filters,
-            **top_level_filter(top_level),
-        },
+        filters={owner: context.id, **filters, "typedFilters": normalized_filters},
         seek=seek,
         overlay=overlay,
     )

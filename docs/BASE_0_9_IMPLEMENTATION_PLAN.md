@@ -5,8 +5,8 @@ accepted (2026-09-28). All [decisions](#decisions) D1–D16 and CONSUMER_API C-D
 (2026-09-29). [INTEGRATION_API.md](INTEGRATION_API.md) sections P, B, F, Q and J, the schema 0.8
 section and ADR-036–038 are drafted (2026-09-29). Work packages Q1–Q4, B1–B3, F1–F2, C1–C16, V1–V2,
 J1–J4 and R are specified (2026-09-29) and delivered in the order of the
-[delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered). None is
-delivered yet.
+[delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
+**Delivered:** [Q1](#q1-cross-type-lookup) (2026-09-29).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -186,7 +186,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | # | Package | Needs | Scope in one line |
 | --- | --- | --- | --- |
 | 0 | — | 0.8.0 released | C5, R1b and R2 pass |
-| 1 | [Q1](#q1-cross-type-lookup) | — | `GET /objects` across types |
+| 1 | [Q1](#q1-cross-type-lookup) | — | `GET /objects` across types — **delivered 2026-09-29** |
 | 2 | [Q2](#q2-workspace-edge-list) | — | Edge list with publication context, published as `/workspaces/{key}/relations` |
 | 3 | [V1](#v1-api-reference-page) | — | Scalar at `/docs` with the management API |
 | 4 | [C1](#track-c--consumer-api) | — | `consumerApis` schema and validation; opens schema 0.8 |
@@ -267,6 +267,74 @@ within the per-type list's budget in each context.
 **Groups:** `queries`, `contract`, `volume`.
 
 **Exit:** the route is in API.md and the OpenAPI lock; budgets recorded.
+
+**Delivered 2026-09-29.** `GET /api/v1/objects` ([API.md](API.md#cross-type-lookup-base-09-q1)),
+answered by `services/object_lookup.py` through the per-type list's builders:
+`refine_object_query` for live data and a new `snapshot_reads.snapshot_object_query`, which
+`build_snapshot_object_query` now calls with one type, for change sets and publications. So paging,
+seek, positions, overlay position reads and context parity are the per-type list's own. Beyond the
+design:
+
+- `search` is on the name only, as §Q1 says; searchable attributes stay on the per-type list.
+- A refused model-declared filter or sort names the per-type route in its message and in
+  `details.route`, and lists the built-in fields (`details.builtInFields`, `builtInSorts`).
+- An unknown `objectTypeKey` is `404 unknown_object_type` and an unknown `applicationKey`
+  `404 unknown_application`, as on the per-type list; a type outside the named application is
+  `422 invalid_object_type_for_application`.
+- Cursors bind the sorted, de-duplicated type set, under their own scopes (`object-lookup`,
+  `object-lookup-change-set`, `object-lookup-publication`), so neither list accepts the other's cursors.
+- **Found on the way:** a live page of deep records (the fixture's cells, five levels down) loaded
+  every ancestor as a whole ORM record for its `path`: 163 ORM rows for a 20-row page, over the
+  6-per-row budget, on the per-type list as much as on the lookup. Live paths now read the four
+  columns a path shows, as change-set and publication paths already did: 84 rows. No response changes.
+
+- **Found on the way:** the fixture no longer has the 110,000 records this package's budget names.
+  Since 0.8 A2 it also holds the relation matrix, so the workspace has 258,000 live records of six
+  types (the publication 261,000). The budget is held at that size; J1's export budget names the
+  same outdated figure.
+- **Found on the way:** with no type named, a change set's base arm read every base row through the
+  plain owner index, whole rows included, and sorted them: a first page took 123 ms. The lookup now
+  narrows by every type the list can hold, which changes no result (activation refuses to remove a
+  type in use, and a change set is checked whole against the release it pins) and lets SQLite read
+  the `(owner, type, name, id)` page indexes: 9 ms.
+- **Found on the way:** a change-set name search took 152 ms. The match on the name, applied outside
+  the change set's projection, is pushed into its arms after the anti-join that hides replaced base
+  rows, and SQLite evaluates a row's terms in the order written, so the anti-join probed every base
+  row. `object_projection` takes `name_search` and writes it first in each arm: 80 ms. The per-type
+  list's search also matches attribute values, so it cannot move there; it keeps its 74 ms.
+
+**Budgets** (full-volume Track S fixture, SQLite 3.53.4, 20-row pages, median of 5 warm runs through the app;
+`ms · statements · ORM rows` in live, change set and publication):
+
+| Request | Live | Change set | Publication |
+| --- | --- | --- | --- |
+| lookup: first page, every type | 4.7 ms · 8 · 84 | 8.8 ms · 9 · 4 | 5.0 ms · 8 · 3 |
+| lookup: search by name, total | 71.7 ms · 6 · 33 | 80.0 ms · 7 · 4 | 72.7 ms · 5 · 3 |
+| lookup: two types, first page | 3.2 ms · 4 · 64 | 5.0 ms · 6 · 4 | 2.8 ms · 4 · 3 |
+| objects: search by name, total (per-type, for comparison) | 33.3 ms · 6 · 33 | 73.8 ms · 7 · 4 | 36.4 ms · 5 · 3 |
+
+Before the two fixes the change set took 122.7 ms and 159.9 ms for the first two rows (the full
+`volume_baseline.py --scale 1` run). All are within the 100 ms budget. The three `lookup:` scenarios are
+in `volume_baseline.py`, so `test_volume_baseline` holds their statement counts and row budgets at 1%
+and 4% scale. The first page over every type shows cells five levels down, which is where the path cost
+above showed.
+
+**Checks:** `test_cross_type_lookup` (new, `queries` + `change_sets`; 8 tests × the generated and
+the renamed model: 16 passed) — every filter, sort, type narrowing and scope in live data, an overlay
+change set, a publication change set and a publication, giving the same records in the same order;
+items equal to the per-type list's; search on the name only; timestamps live and refused elsewhere;
+refusals; cursor binding by context, query and list; positions, `from=end`, backward pages, seek and
+totals. Groups `queries`, `records`, `contract` and `volume` together (`-m "queries or records or
+contract or volume"`): 337 passed and 2 failed, the two OpenAPI inventories that locked `/objects` to POST;
+updated, `test_openapi_contract` 8 passed with the re-baselined lock (one added operation, checked by
+diffing the document against 0.8.0). `ruff check app/ tests/` clean. They cover the changed
+`snapshot_reads` builder (`test_context_read_parity`, `test_paging_contract`,
+`test_change_set_position_reads`), the search predicate (`test_search_index`) and the live path
+change's callers (`test_parent_candidates`, `test_relation_matrix`).
+
+Not run: the rest of the `change_sets` group, since the snapshot builder's change is covered by the
+tests the execution guide names for it; `startup`, since there is no migration; frontend checks, since
+nothing in the frontend changed. The full suites wait for R.
 
 #### Q2: Workspace edge list
 

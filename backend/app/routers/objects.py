@@ -24,6 +24,11 @@ from ..services.model.registry import (
     resolve_change_set_snapshot,
     resolve_model_snapshot,
 )
+from ..services.object_lookup import (
+    build_live_lookup_query,
+    build_snapshot_lookup_query,
+    lookup_scope,
+)
 from ..services.objects import (
     build_object_query,
     build_object_responses,
@@ -332,6 +337,128 @@ def list_objects(
         query.statement,
         keys=query.keys,
         scope="objects",
+        filters=query.filters,
+        page=paging,
+        page_size=page_size,
+        message="Object cursor is invalid",
+        seek=query.seek,
+    )
+    return ObjectPage(items=build_object_responses(session, model, page.items), **page.links())
+
+
+_LOOKUP_OBJECT_TYPE_KEYS = Query(
+    default=None,
+    alias="objectTypeKey",
+    description="Repeatable; only records of these object types. Every type when omitted",
+)
+
+
+@router.get(
+    "/objects",
+    response_model=ObjectPage,
+    openapi_extra={
+        "parameters": [
+            {
+                "name": "filter.<field>.<operator>",
+                "in": "query",
+                "required": False,
+                "description": (
+                    "Repeatable filter on a built-in field: id, name, objectTypeKey, parentObjectId"
+                    " and (live only) createdAt or updatedAt. A model-declared field is refused as"
+                    " invalid_filter; filter by it on GET /api/v1/objects/{objectTypeKey}"
+                ),
+                "schema": {"type": "string"},
+            }
+        ]
+    },
+)
+def lookup_objects(
+    request: Request,
+    session: DbSession,
+    snapshot: RequestModelSnapshot,
+    paging: SeekablePageQuery,
+    page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
+    object_type_keys: list[str] | None = _LOOKUP_OBJECT_TYPE_KEYS,
+    application_key: str | None = Query(default=None, alias="applicationKey"),
+    workspace_key: str | None = Query(default=None, alias="workspaceKey"),
+    change_set_id: str | None = Query(default=None, alias="changeSetId"),
+    publication_id: str | None = Query(default=None, alias="publicationId"),
+    parent_object_id: str | None = Query(default=None, alias="parentObjectId"),
+    top_level: bool = Query(
+        default=False,
+        alias="topLevel",
+        description="Only records without a parent; cannot be combined with parentObjectId",
+    ),
+    search: str | None = Query(default=None, description="Case-insensitive match in the name"),
+    sort: str | None = Query(
+        default=None,
+        description=(
+            "One built-in field: name, id, objectType, or (live only) createdAt or updatedAt;"
+            " prefix '-' for descending; name when omitted"
+        ),
+    ),
+) -> ObjectPage:
+    """Records of any object type in one list: a lookup by name, ID, type, parent or timestamps."""
+    model = snapshot.model
+    if change_set_id and publication_id:
+        raise api_error(
+            422,
+            "mutually_exclusive_context",
+            "changeSetId and publicationId cannot be combined",
+        )
+    if top_level and parent_object_id:
+        raise api_error(
+            422,
+            "mutually_exclusive_scope",
+            "topLevel and parentObjectId cannot be combined",
+            {"parameters": ["topLevel", "parentObjectId"]},
+        )
+    options = {
+        "object_type_keys": object_type_keys or [],
+        "application_key": application_key or None,
+        "parent_object_id": parent_object_id or None,
+        "top_level": top_level,
+        "search": search or None,
+        "sort": sort,
+        "field_filters": _field_filters(request),
+    }
+    if change_set_id or publication_id:
+        context = (
+            change_set_context(session, change_set_id)
+            if change_set_id
+            else publication_context(session, publication_id)
+        )
+        query = build_snapshot_lookup_query(model, context, **options)
+        page = paginate_statement(
+            session,
+            query.statement,
+            keys=query.keys,
+            scope=lookup_scope(context),
+            filters=query.filters,
+            page=paging,
+            page_size=page_size,
+            message="Object cursor is invalid",
+            rows=True,
+            seek=query.seek,
+            overlay=query.overlay,
+        )
+        paths = object_paths(session, context, page.items)
+        return ObjectPage(
+            items=[
+                _change_set_object_response(
+                    row, context.id, model, path=paths[row.object_id]
+                ).model_copy(update={"workspaceKey": context.workspace_key})
+                for row in page.items
+            ],
+            **page.links(),
+        )
+    workspace = resolve_workspace(session, workspace_key)
+    query = build_live_lookup_query(model, workspace_key=workspace.key, **options)
+    page = paginate_statement(
+        session,
+        query.statement,
+        keys=query.keys,
+        scope=lookup_scope(None),
         filters=query.filters,
         page=paging,
         page_size=page_size,

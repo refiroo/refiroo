@@ -6,6 +6,21 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Base 0.9 Q1: cross-type lookup `GET /api/v1/objects`. It lists records of every object type, or of
+  those a repeatable `objectTypeKey` names, in live data, a change set or a publication, with the object
+  list's paging, seek and cursors. `applicationKey`, `parentObjectId` or `topLevel` narrow it, `search`
+  matches the name, and filters and sorts take built-in fields. A model-declared field is refused
+  (`422 invalid_filter` or `invalid_sort`) with the per-type route that answers it. Items have the
+  per-type list's shape. Over the 258,000-record volume fixture a first page takes 5–9 ms and a name
+  search with its total 72–80 ms in every context.
+
+### Changed
+
+- A live page's ancestor paths read only the columns a path shows, not whole records. A page of deep
+  records loaded 163 ORM rows for 20 records and now loads 84, on the per-type list and the lookup alike.
+
 ## [0.8.0] - 2026-09-29
 
 ### Added

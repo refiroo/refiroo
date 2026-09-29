@@ -14,7 +14,7 @@ when it is delivered, and this document keeps the design and its reasons.
 | [B](#b-bulk-writes) | Bulk object create, update, upsert and delete; record references and upsert keys; bulk relations and relation-set replacement | B | Draft |
 | [J](#j-import-and-export) | Import (file contract as an import profile per [MODEL_AUTHORING](MODEL_AUTHORING.md#import-profile), preview, execute) and export (scope, context, output) | J | Draft |
 | [F](#f-change-feed) | Raw change feed: entries, per-workspace position, retention, recovery, consumer events | F | Draft |
-| [Q](#q-queries) | Cross-type lookup (0.8 P1), workspace edge list (0.8 P3), model-aware query, effective periods and `asOf` | Q | Draft |
+| [Q](#q-queries) | Cross-type lookup (0.8 P1), workspace edge list (0.8 P3), model-aware query, effective periods and `asOf` | Q | Draft; Q1 delivered |
 
 ## P: Shared primitives
 
@@ -446,6 +446,12 @@ GET /api/v1/objects?workspaceKey=…|changeSetId=…|publicationId=…&objectTyp
 - Items have the per-type list's item shape, including `objectTypeKey` and attributes, so one item
   shape serves both lists.
 - Budget: a name search over 100,000 records of mixed types within the per-type list's budget.
+
+_Delivered in Q1 (2026-09-29); the contract is in [API.md](API.md#cross-type-lookup-base-09-q1). A
+model-declared filter or sort is refused with `details.route` naming the per-type route. With no type
+named, the list narrows by every declared type, which changes no result and lets the page indexes
+serve it. The budget holds over the fixture's 258,000 records: see the
+[Q1 record](BASE_0_9_IMPLEMENTATION_PLAN.md#q1-cross-type-lookup)._
 
 ### Q2: Workspace edge list (0.8 P3)
 

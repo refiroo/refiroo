@@ -891,6 +891,7 @@ Change set GET paths do not consistently populate it, so read the change set res
 version rather than assuming every record read returns one.
 
 - `GET /api/v1/objects/{objectTypeKey}` — list objects of a type
+- `GET /api/v1/objects` — list objects of any type ([cross-type lookup](#cross-type-lookup-base-09-q1))
 - `POST /api/v1/objects` — create an object
 - `GET /api/v1/objects/{objectTypeKey}/{objectId}?changeSetId={id}|publicationId={id}` — get one object from a change set or a publication; omit both for the live active projection
 - `PATCH /api/v1/objects/{objectTypeKey}/{objectId}` — update an object
@@ -913,7 +914,8 @@ maximum of 500. `nextCursor` is null only when that traversal is complete.
 `topLevel=true` (Base 0.8 S4) lists only records without a parent, so a tree can page a root type
 without loading its descendants; it holds in change-set and publication contexts too. It cannot be combined
 with `parentObjectId` (`422 mutually_exclusive_scope`). A branch whose children have several types
-pages each child type separately with `parentObjectId`; there is no mixed-type list.
+pages each child type separately with `parentObjectId`, or reads them together through the
+[cross-type lookup](#cross-type-lookup-base-09-q1) over built-in fields.
 
 Search, typed filters and sort mean the same in live, change-set and publication contexts (Base 0.8 S2): the
 same query over the same data returns the same records in the same order, apart from the order of
@@ -1026,6 +1028,43 @@ and its audit events commit atomically. A stale root `expectedVersion` returns H
 duplicate `objectsToRetire` key is retained for legacy compatibility and has the same rows; it does
 not mean that this delete retires records. `retainedAssociationCount` counts incident relationships
 with an endpoint outside the deletion set.
+
+### Cross-type lookup (Base 0.9 Q1)
+
+`GET /api/v1/objects` lists records of every object type in one collection, for a lookup by name,
+ID, type, parent or timestamps when the record's type is not known. It takes the object list's
+context (`workspaceKey`, or `changeSetId` or `publicationId`, exclusive), [paging](#collection-paging)
+(including `seek`) and `pageSize` (default 100, maximum 500), and:
+
+- `objectTypeKey`, repeatable, narrows to those types; every type when omitted. An unknown type is
+  `404 unknown_object_type`. `applicationKey` narrows to the application's records, and a named type
+  outside it is `422 invalid_object_type_for_application`.
+- `parentObjectId` or `topLevel` (not both, `422 mutually_exclusive_scope`).
+- `search` matches the name only, case-insensitively, with the object list's literal-substring rules.
+  Searchable attributes belong to their types; search them on the per-type list.
+- `filter.<field>.<operator>` on built-in fields only: `id`, `name`, `objectTypeKey`,
+  `parentObjectId` (text operators) and live `createdAt`, `updatedAt` (date-time operators).
+- `sort` by `name` (default), `id`, `objectType` (the type's model name, then the name), and live
+  `createdAt`, `updatedAt`; `-` for descending.
+
+A model-declared field has a type only on its object type's list, so a filter or sort on one here is
+refused with `422 invalid_filter` or `invalid_sort`, whose message and `details.route` name
+`GET /api/v1/objects/{objectTypeKey}`; `details.builtInFields` or `details.builtInSorts` lists what
+this route takes. Timestamps in change-set and publication contexts are refused as on the per-type
+list.
+
+Items have the per-type list's shape, `objectTypeKey`, attributes and `path` included: narrowed to one
+type, the lookup returns the same items in the same order as `GET /objects/{objectTypeKey}` sorted by
+name. The same query gives the same records in the same order in live data, a change set and a
+publication. Cursors bind the context, the sorted set of named types and every filter, so repeating or
+reordering `objectTypeKey` keeps a cursor valid; neither this route nor the per-type list accepts the
+other's cursors.
+
+Cost over the Track S fixture (258,000 live records of six types, a 261,000-record publication and a
+change set over it; SQLite; 20-row pages; median time): a first page over every type takes 5 ms live,
+9 ms in a change set and 5 ms in a publication; two named types 3–5 ms; a name search with its total
+72, 80 and 73 ms. A search is a contains-match, which no index serves, so its cost grows with the
+records it reads; narrowing by `objectTypeKey`, `applicationKey` or a parent reduces it.
 
 ### Create request
 
