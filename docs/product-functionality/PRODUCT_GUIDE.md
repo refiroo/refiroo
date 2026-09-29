@@ -38,7 +38,7 @@ are starter examples; they are not the only applications the engine should under
 | Service operator | Keep the product running and recover it | Users can rely on the service and its data |
 
 These are responsibilities, not currently implemented permission roles. Authenticated access control
-is planned for 0.10. The examples below are fictional acceptance examples, not customer research or
+is planned for 0.11. The examples below are fictional acceptance examples, not customer research or
 preloaded demonstration data.
 
 ## The functions in everyday language
@@ -55,8 +55,8 @@ preloaded demonstration data.
 | Navigate a deep hierarchy | Expand the relevant branch, add a child or move a record without losing context | Tree lens (0.8), SC-09 hierarchy half accepted | US-H01–H02 |
 | Exchange larger datasets | Import with a preview, export a chosen scope, track results and resume synchronization | Basic reading available; bulk exchange and feeds planned for 0.9 | US-I01–I09 |
 | Manage working areas | Create and label a workspace, select the default, retain read-only access to retired areas and delete an unused one created with a mistyped key | Workspaces screen and API available (0.8 W4, W6); a published workspace is retired, never deleted | US-A01–A03 |
-| Evolve application definitions | Inspect, edit, check, compare, install and activate a definition safely | JSON-based workbench exists; structured designer planned for 1.0 | US-P01–P08 |
-| Use and run the product reliably | Work by keyboard, recover from conflicts, control access and restore service after a failure | Interface and operational foundations exist; browser proof 0.6, production controls 0.10 | US-U01, US-S01, US-O01–O06 |
+| Evolve application definitions | Inspect, edit, check, compare, install and activate a definition safely | JSON-based workbench exists; structured editor and spreadsheet onboarding planned for 0.10, changes to released structure 1.0 | US-P01–P10 |
+| Use and run the product reliably | Work by keyboard, recover from conflicts, control access and restore service after a failure | Interface and operational foundations exist; browser proof 0.6, production controls 0.11 | US-U01, US-S01, US-O01–O06 |
 
 “Service available” means another system can perform the operation through the supported interface.
 It does not mean a data steward can complete it in the browser today. The detailed
@@ -95,12 +95,12 @@ starting point promised by the product still needs implementation reconciliation
 An administrator needs a new field or relationship rule. They edit a proposed application definition,
 check it against existing data and make a new definition available before selecting it for use.
 Existing released definitions remain inspectable. An incompatible change needs a migration capability;
-the planned 0.10 flow previews affected data and potential loss, then allows explicit confirmation
+the planned 0.11 flow previews affected data and potential loss, then allows explicit confirmation
 of that migration or cancellation. Confirmation applies to the reviewed change, not to invalid data
 or an unsupported model language. Current ordinary activation does not offer this override.
 
 The current definition applies globally. Assigning different definitions to different workspaces is
-planned for 0.10, not a present property of workspace selection.
+planned for 0.11, not a present property of workspace selection.
 
 ## History answers different questions
 

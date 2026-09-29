@@ -678,7 +678,7 @@ record the amendment, as ADR-026 does here.
 
 **Status:** Accepted product direction, 2026-09-08, from the user's GAP-01–GAP-08 answers in
 `product-functionality/PLANNING_HANDOFF.md`. Implementation is partial; Base 0.6 WP8.1/WP9/WP10 and
-product 0.10 own the remaining work described below. This decision consolidates ADR-026 and explicitly
+product 0.11 own the remaining work described below. This decision consolidates ADR-026 and explicitly
 amends obsolete draft-only and restore wording in ADR-006/010/011/012/014/022/024/025.
 
 ### Data authority and ordinary work
@@ -732,7 +732,7 @@ change and tests, not a documentation-only assertion that tokens already contain
 
 The user requires a warning and **confirm schema replacement with potential data loss, or cancel**
 when a historical draft cannot be applied under the current active definition. Preserve that requirement
-as a reviewed model-and-data migration flow in product 0.10, alongside GAP-08's accepted migration and
+as a reviewed model-and-data migration flow in product 0.11, alongside GAP-08's accepted migration and
 workspace-model assignment boundary. Base 0.6 activation does not override the compatibility check for
 this case.
 
@@ -747,7 +747,7 @@ selection atomically, validates the result against the target definition and pre
 history. Failure leaves the prior usable state and draft intact, with actionable diagnostics.
 
 Model selection is global today. A historical-data action must not silently replace the definition
-for other workspaces. The 0.10 plan must use its workspace-scoped assignment/migration capability; the action must not
+for other workspaces. The 0.11 plan must use its workspace-scoped assignment/migration capability; the action must not
 switch the global model as a shortcut. Selecting an older model release
 never mutates that immutable release. Model release and `schemaVersion` are distinct; unsupported
 model-language versions require executable parser/runtime support before any confirmed migration. Loss approval authorizes the reviewed transformation, not data
@@ -765,7 +765,7 @@ confirmation promising an unsupported schema override.
 - WP10 executes SC-01–SC-06, SC-08, SC-12–SC-14 in the appropriate channels, including live-only model
   incompatibility, historical typing after a model switch and migration/startup boundaries.
 - Product 0.7–0.9 specialists and integration preserve live maintenance with optional staging.
-- Product 0.10 validates preview, explicit loss confirmation, cancellation, stale-review refusal,
+- Product 0.11 validates preview, explicit loss confirmation, cancellation, stale-review refusal,
   atomic migration/switch, history preservation and isolation of unaffected workspaces.
 
 Decision acceptance is not implementation evidence. Every package and release records the stories,
@@ -777,7 +777,7 @@ validation guide. No component-only pass establishes a complete browser journey.
 **Status:** Accepted product direction, 2026-09-10. Backend version selection delivered in WP-6
 (2026-09-14); browser selection remains WP-7. The work splits across two
 releases: letting a draft work under a version the user chooses is **product 0.7 work**, and moving a
-draft onto a version its content does not already fit is **product 0.10 work**, reusing the conversion
+draft onto a version its content does not already fit is **product 0.11 work**, reusing the conversion
 machinery ADR-027 already places there.
 
 ### The requirement
@@ -800,7 +800,7 @@ with `workspace_draft_model_release_conflict`.
 
 A draft whose content does not already satisfy the new version cannot be served under it. That case is
 a data conversion rather than a version choice: it needs the conversion, loss-preview and
-exact-confirmation machinery ADR-027 places in 0.10, applied to that draft and the live data under it.
+exact-confirmation machinery ADR-027 places in 0.11, applied to that draft and the live data under it.
 
 The review names the source, current and target versions, the changes it would make and any draft
 content that would be lost; confirming applies exactly the draft and version that were reviewed;
@@ -816,7 +816,7 @@ for that draft rather than the global selection; live data, immutable history, o
 workspaces are unchanged whenever a draft's version changes; and no path activates a draft whose
 version differs from the active one.
 
-Product 0.10 delivery additionally requires: a preview and confirm-or-cancel contract bound to the
+Product 0.11 delivery additionally requires: a preview and confirm-or-cancel contract bound to the
 exact reviewed versions, whole-graph revalidation under the target, and conversion of stored content
 the target does not already accept. Nothing on any path forces a change through, moves a draft without
 being asked, or switches the version used across the product; and reading, editing and discarding a
@@ -1040,12 +1040,12 @@ so the only version users see is the model release's.
 
 **Deployment capability versus authorization.** The flags stay environment settings and stay after
 authentication. They answer "does this installation expose the operation at all"; authorization in
-0.10 answers "who may use it here" within that limit:
+0.11 answers "who may use it here" within that limit:
 
 | Layer | Lives in | Set by | Arrives |
 | --- | --- | --- | --- |
 | Deployment capability | Environment, read at startup | Operator | Now |
-| Authorization | Database, managed in the UI | Authorized administrator | 0.11 (moved from 0.10, 2026-09-29) |
+| Authorization | Database, managed in the UI | Authorized administrator | 0.12 (moved from 0.11, 2026-09-29) |
 
 They are environment settings rather than UI settings because:
 
@@ -1076,7 +1076,7 @@ the open caveats.
 - ADR-026 and other earlier text saying "activation" of a draft reads as "publishing" a change set.
 - A browser screen for workspace administration becomes possible and is shown only when the
   capability is enabled; until a second workspace exists the selector is read-only.
-- The 0.11 authorization work adds roles within these three groups; it does not remove the flags.
+- The 0.12 authorization work adds roles within these three groups; it does not remove the flags.
 
 ### Acceptance
 
@@ -1242,8 +1242,10 @@ the type (`/objects/{type}/{id}`) and no update accepts a new one.
 - **Routes keep their type segment (D42).** A request naming a type the record does not have in the
   selected context returns `409 object_type_changed` with the current type, for any record found under
   another type; the browser follows it to the current route.
-- **Bounded (D41).** One operation changes at most 5,000 records, measured on the volume fixture in
-  C2. A larger one is refused with the limit in the error, never cut short.
+- **Bounded (D41, D44).** One operation changes at most 500 records. C0 set 5,000; C2 measured the
+  preview's dry run through the per-record write path at 48 s for 4,772 records and 2.8 s for 479, and
+  D44 lowered the limit so the preview stays interactive. A larger one is refused with the limit in the
+  error, never cut short. Raising it needs a set-wise write path for plans.
 - **Release (D43).** 0.8.0 waits for Milestone C: it releases after R2, not after R1b.
 
 ### Consequences
@@ -1258,3 +1260,54 @@ the type (`/objects/{type}/{id}`) and no update accepts a new one.
   tells a client where the record now is); attribute storage stays open (values move between bindings
   and never convert lossily); audit/history gains the `reclassified` kind, which the 0.9 change feed
   and consumer API must carry. Bulk APIs, `match` and effective dates are not touched.
+
+## ADR-035 — Model authoring is an editor of operations on a model draft; a spreadsheet is one way to start it
+
+**Status:** Accepted as direction, 2026-09-29 (Product 0.10). The design and its open decisions
+(A-D1–A-D12) are in [MODEL_AUTHORING.md](MODEL_AUTHORING.md). Moves the structured designer's first
+part from 1.0 to 0.10; renumbers production hardening to 0.11 and security to 0.12.
+
+### Motivation
+
+Reference data arrives as spreadsheets whose structure is flattened into cells, repeated columns and
+several sheets. In the source system this engine comes from, each upload needs hand-written model JSON
+and a bespoke import script. The engine's success criterion — a new application defined and released
+without Python or TypeScript — silently assumes that work. A visual builder alone does not remove it:
+the hard parts are mapping the workbook onto the model, validation and reviewing the load.
+
+### Decision
+
+- **One editor for model and mapping.** It edits a model draft together with import profiles. Opened on
+  a workbook it starts from an inferred proposal; opened without one it is the structured model designer
+  (US-P05).
+- **Every edit is a server-side operation** on the draft at its expected version, validated by the
+  installation validators and recorded in the draft's history. The editor never writes model JSON, and
+  undo applies an inverse operation.
+- **Inference proposes operations and never decides.** It is deterministic profiling over a pattern
+  catalogue; an optional assistant may add proposals. Decisions the administrator changed are pinned
+  and survive re-inference and new workbook versions.
+- **An import profile is a declarative, model-referencing contract** executed by the 0.9 import job. It
+  replaces the per-upload script, is stored separately from model releases and is re-checked against the
+  release it runs under.
+- **The lifecycles do not change.** The model goes draft → immutable release → activation; data goes
+  through an import job, into a change set by default, reviewed on the existing change set review screen.
+- **Operation classes.** Additive operations are always allowed; draft-only ones while their elements are
+  unreleased; changes to released structure are migrations, shown with their impact and enabled in 1.0
+  on the 0.11 migration boundary.
+- **A list is an object type.** Picklists are limited by relation bindings, not by filtering a shared
+  list type by a record's name; the model does not reference runtime records.
+- **Structured, not canvas-first.** Drag and drop is a fast path with a keyboard equivalent; layout
+  editing selects and orders generic components and never positions pixels.
+
+### Consequences
+
+- 0.9 D3 widens: the import file contract is the import profile, with XLSX and several sheets, and
+  0.9 Track J designs it (MODEL_AUTHORING package A1).
+- Model drafts gain an operation history and an operation API beside the whole-model patch, which the
+  JSON workbench keeps.
+- Models built from workbooks have many small list types; applications declare navigation groups
+  (A-D2), the explicit navigation composition ADR-029 deferred until a real model needed it.
+- 1.0 keeps migration-class operations, protected publish and rollback, and extension packaging.
+- Composable-domains doors (ADR-032): identity and inbound flow use 0.9 upsert keys; provenance gains a
+  natural source name (the profile); value types convert through the attribute registry; `match` and
+  mapping coverage are not touched.

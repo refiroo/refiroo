@@ -26,7 +26,7 @@ Milestone A decisions D8–D13 and D28 (A6) are accepted. D14 (ineligible move t
 with a reason) is accepted (2026-09-28), as are D2–D6 as delivered in Track S. A6's two open
 measurements are decided (2026-09-28): the container move, measured in B2, is a known 0.8 budget
 exception (D29), and the link candidate page is a known 0.8 budget exception (D30). B5's D34 (drop
-targets and confirmation) and D35 (touch drag deferred to 0.10), and B5b's D36 (move to the top
+targets and confirmation) and D35 (touch drag deferred to 0.11), and B5b's D36 (move to the top
 level), are accepted (2026-09-28). No 0.8
 decision is open; see the
 [0.8 plan](BASE_0_8_IMPLEMENTATION_PLAN.md#decisions-summary).
@@ -89,7 +89,7 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     in the a11y and visual gates.
   - [x] B5 drag and drop in the tree lens (added in review, D34, D35; delivered 2026-09-29): onto a node, into a gap or onto
     a type heading, checked by the model's containment rule, glowing green or red with the reason,
-    confirmed in the existing move dialog; mouse and pen (touch drag in 0.10). One record at a time.
+    confirmed in the existing move dialog; mouse and pen (touch drag in 0.11). One record at a time.
   - [x] B5b move to the top level (amendment to B5, D36; delivered 2026-09-29): a **Top level** option in
     Move to… and top-level drop targets, for the tree's root types; others refused with `notRoot`.
 - [x] 0.8 P2 change set changes list, after W2 (D20); planned 2026-09-28 with D31–D33 accepted.
@@ -120,11 +120,12 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   which require it off, working.
 - [ ] 0.9 planning ([plan](BASE_0_9_IMPLEMENTATION_PLAN.md), [integration design](INTEGRATION_API.md)): document
   set accepted 2026-09-28; section P drafted; decisions D1–D14 and CONSUMER_API C-D2–C-D16 open;
-  security moved to the 0.11 release (C-D1).
+  security moved to the 0.12 release (C-D1).
 - [ ] Integration-grade query expressions beyond daily-use filters.
 - [ ] Bounded live bulk object/relation/mapping operations with explicit optional staging, per-item
   outcomes and safe retry; do not require a change set merely because several records change (0.9).
-- [ ] Asynchronous CSV/Excel import and export with validation previews.
+- [ ] Asynchronous CSV/XLSX import and export with validation previews; import runs an import profile
+  (revised D3, [MODEL_AUTHORING A1](MODEL_AUTHORING.md#delivery)).
 - [ ] Ordered change feed and retryable webhooks.
 - [ ] Cross-type object lookup `GET /objects` (P1) and a general relation edge list with publication
   context (P3), moved from 0.8 (D20).
@@ -132,6 +133,24 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   each consumer API contract version as sources; pinned script bundled by default, CDN loading by
   setting; route excluded from the OpenAPI document; tests for page, bundled script and unchanged
   OpenAPI digest.
+
+## Next after 0.9 — 0.10 model authoring and spreadsheet onboarding
+
+- [ ] 0.10 design ([MODEL_AUTHORING.md](MODEL_AUTHORING.md), ADR-035) and provisional
+  [plan](BASE_0_10_IMPLEMENTATION_PLAN.md) (2026-09-29, A0–A8 and R; review after 0.9 Track J): direction accepted 2026-09-29;
+  A-D1–A-D3 decided 2026-09-29 (A-D2: declared navigation groups); others open; packages A1–A8 to specify after 0.9 Track J's import contract.
+  - [ ] A0 design pass: A-D4–A-D10, plan D1–D10, API design, operation vocabulary.
+  - [ ] A1 import profile contract and execution (delivered inside 0.9 Track J).
+  - [ ] A2 operation API on model drafts: additive and draft-only operations, history, undo.
+  - [ ] A3 source profiling and the dry-run summary after each operation.
+  - [ ] A4 editor: model pane, relationship matrix, preview, layout editing.
+  - [ ] A5 editor with a source file: source and mapping panes, saved and re-run profiles.
+  - [ ] A6 inference over the table patterns.
+  - [ ] A7 model-description sheets and matching across files (may move to 0.10.x).
+  - [ ] A8 list blocks in sheets laid out for reading (may move to 0.10.x).
+  - [ ] Synthetic acceptance workbooks with the shapes of the private samples.
+  - [ ] Non-blocking open items: A-D11 nested navigation groups (one level in 0.10); A-D12 record
+    counts on the group page (none in 0.10, later only as a bounded read).
 
 ## Later — production and self-service authoring
 
@@ -142,27 +161,28 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   (two recursive arms, which PostgreSQL needs in one recursive term) and the stored state filter's
   row list, read through `json_each` on SQLite and as a plain `IN` list elsewhere (0.8 A2, A3b).
 - [ ] Precomputed sort keys for attribute and ancestor sorts over very large parents (D26, after 0.9).
-- [ ] 0.11 security: engine-provided OAuth 2.0 with JWT for backend, frontend and consumer APIs (no API
+- [ ] 0.12 security: engine-provided OAuth 2.0 with JWT for backend, frontend and consumer APIs (no API
   keys, no credential in a URL), application/object/operation authorization, audit identity,
   HMAC-signed webhooks, and UI administration of OAuth clients and webhook subscriptions.
-- [ ] 0.11: replace the pre-authentication, default-enabled workspace mutation posture with authenticated,
+- [ ] 0.12: replace the pre-authentication, default-enabled workspace mutation posture with authenticated,
   authorized workspace administration; retain the capability gate as deployment defence in depth.
 - [ ] Multi-node active-model propagation and protected publication; verify split deployment
   (administration and public instances on one database) against the caveats in ARCHITECTURE.
-- [ ] Structured model designer with reference-aware forms, matrices and live preview.
+- [ ] 1.0: migration-class operations in the 0.10 editor (key renames, splits, merges, cardinality) on
+  the 0.11 migration boundary.
 - [ ] Read-only dependency graph visualization where it improves comprehension.
-- [ ] Product 0.10: executable runtime-data migration plans for currently blocked model changes.
-- [ ] Product 0.10: model replacement for a change set started from a publication, with a side-effect-free impact/loss preview,
+- [ ] Product 0.11: executable runtime-data migration plans for currently blocked model changes.
+- [ ] Product 0.11: model replacement for a change set started from a publication, with a side-effect-free impact/loss preview,
   explicit confirmation tied to the reviewed versions or cancel, atomic workspace model/data switch,
   immutable history and unaffected-workspace isolation. Confirmation cannot waive target validity or
   parser support; nothing in Base 0.6 overrides them.
-- [ ] Product 0.10: add workspace-scoped model-release assignment for staged tenant or
+- [ ] Product 0.11: add workspace-scoped model-release assignment for staged tenant or
   governance-domain rollout.
   Resolve the workspace before its immutable model snapshot, scope compatibility and migration to that
   workspace, bind cursors to the release identity and switch assignments atomically. Supporting mixed
   schema-language versions additionally requires a bounded current/previous parser window and explicit
   conversion; workspace pinning alone is not schema compatibility.
-- [ ] Product 0.10 (ADR-028): move a change set onto a release its content does not already satisfy, by
+- [ ] Product 0.11 (ADR-028): move a change set onto a release its content does not already satisfy, by
   reusing the migration preview/confirm machinery against that change set's own candidate graph and
   current-live base. The review reports conversions and potential loss of change-set content and applies only on
   confirmation of the exact reviewed change set and release versions; nothing forces the move through or

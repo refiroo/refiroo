@@ -265,7 +265,7 @@ presents source separately from supersession. Starting a change set from history
 dataset. Cancel, validation failure and version conflicts preserve input and persisted change set/live data.
 
 A model-mismatched change set started from a publication cannot activate through the Base 0.6 data flow. Show the source and
-current models and explain the migration requirement. Product 0.10 adds a separate reviewed migration:
+current models and explain the migration requirement. Product 0.11 adds a separate reviewed migration:
 preview affected schema/data and potential loss, confirm the exact plan or cancel, then apply an atomic
 workspace model/data change. Do not enable a fake override control or change other workspaces’ models.
 Application-model drafts and change sets remain separate resources and concepts.

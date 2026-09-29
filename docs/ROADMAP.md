@@ -5,9 +5,10 @@ model-driven, exercises at least two object or relation configurations, preserve
 optimistic concurrency, and keeps public collections cursor-paged.
 
 The release train is 0.6 for daily live operations and optional coordinated design, 0.7 for core mapping, 0.8 for the relation matrix
-(translations among its uses) and hierarchy editing, 0.9 for integration APIs, 0.10 for production hardening and staged workspace model rollout,
-0.11 for security (authentication and authorization across the backend, frontend and APIs), and 1.0 for
-self-service model authoring and extensions.
+(translations among its uses) and hierarchy editing, 0.9 for integration APIs, 0.10 for model authoring and spreadsheet onboarding (one editor for the
+model and the import mapping, ADR-035), 0.11 for production hardening and staged workspace model rollout,
+0.12 for security (authentication and authorization across the backend, frontend and APIs), and 1.0 for
+migration-class model changes, protected publishing and extensions.
 
 ## Current development baseline — Base 0.7 released, Base 0.8 next
 
@@ -184,7 +185,7 @@ database, relation search and sort, and a sidebar tree that loads by parent
 
 Exit: a generated model with 100,000 records scrolls both ways with flat memory in live, draft and
 history contexts within recorded budgets, and search answers within budget in every context through a
-trigram index over text values (S8). Attribute and ancestor sorts over very large parents are a recorded exception until 0.10.
+trigram index over text values (S8). Attribute and ancestor sorts over very large parents are a recorded exception until 0.11.
 
 ### Track W — Workspace terminology and capability boundaries
 
@@ -234,7 +235,7 @@ A steward browses and maintains deep model-defined hierarchies through lazy load
    gap between rows or onto a type heading. Drops are accepted or refused by the model's containment
    rules, the target glows green or red with the reason, and the move is confirmed in the same dialog
    as Move to…. A record of a tree root type can also be moved to the top level, by either path
-   (B5b, D36). Touch drag follows in 0.10 (D35).
+   (B5b, D36). Touch drag follows in 0.11 (D35).
 
 Exit: traversal is bounded; reparenting changes both representations or neither; keyboard navigation
 and focus/loading/error behavior are covered; a drop never writes without the move dialog's
@@ -288,11 +289,11 @@ than UI endpoints or undocumented limits.
     consumer API contract version as separate OpenAPI sources. The Scalar standalone script is pinned
     and bundled with the engine by default, so the page works without internet access; a setting
     switches to loading it from a CDN instead. The page route stays outside the OpenAPI document, so
-    the OpenAPI locks are unaffected. Authentication in the "try it" console follows in 0.11.
+    the OpenAPI locks are unaffected. Authentication in the "try it" console follows in 0.12.
 
 Security is not part of 0.9: its APIs are unauthenticated like the management API, and no 0.9
-contract uses API keys or puts a credential in a URL. The 0.11 security release covers them
-([CONSUMER_API.md](CONSUMER_API.md#security-011)).
+contract uses API keys or puts a credential in a URL. The 0.12 security release covers them
+([CONSUMER_API.md](CONSUMER_API.md#security-012)).
 
 ### Exit gate
 
@@ -304,12 +305,52 @@ contract uses API keys or puts a credential in a URL. The 0.11 security release 
 - A consumer API definition alone reproduces the reference XREF and list responses (CONSUMER_API.md
   C8), with no runtime branch on object-type or relation keys.
 
-## Product release 0.10 — Production hardening and staged model rollout
+## Product release 0.10 — Model authoring and spreadsheet onboarding
+
+### Product outcome
+
+An administrator turns reference data that arrives in spreadsheets into a working application without
+writing a model file or an import script. One editor proposes a model and an import mapping from the
+uploaded workbook, lets the administrator rename, remap and reorganize both freely with the effect on the
+real rows shown after every change, and saves the mapping so the next version of the workbook loads as a
+reviewed upsert. Opened without a workbook, the same editor is the structured model designer. Design:
+[MODEL_AUTHORING.md](MODEL_AUTHORING.md) (ADR-035); packages and sequence: the provisional
+[Base 0.10 plan](BASE_0_10_IMPLEMENTATION_PLAN.md).
+
+### Delivery scope
+
+1. Import profiles: a declarative mapping from sheets and columns to model elements, executed by the
+   0.9 import job, with XLSX and several sheets (A1, delivered inside 0.9 Track J).
+2. An operation API on model drafts: typed, validated operations with history, undo and version checks;
+   additive and draft-only operations (A2).
+3. Source profiling and a dry-run summary after every operation (A3).
+4. The editor: model pane with the relationship matrix, a preview rendered by the generic renderers,
+   and layout editing of views and panels (A4); source and mapping panes, saved and re-run profiles
+   (A5). Every drag has a keyboard path.
+5. Inference over the table patterns of the catalogue, extending an existing model or starting a new
+   application (A6).
+6. Model-description sheets and matching across files (A7), and list blocks in sheets laid out for
+   reading (A8); both may move to a 0.10.x release.
+
+Changes to released structure (key renames, splits, merges, cardinality) are shown with their impact
+and blocked; they are enabled in 1.0 on the 0.11 migration boundary.
+
+### Exit gate
+
+- Two differently shaped workbooks each become an installed application and a reviewed change set
+  without writing JSON or code, and every inference was changeable before loading.
+- The next version of a workbook loads through its saved profile and the change set review shows only
+  its differences.
+- Renaming, moving, splitting and merging keep profiles valid; the dry run reflects each operation.
+- The editor passes the accessibility and visual gates at desktop and narrow widths.
+- No runtime or editor branch on an application, object-type, attribute or relation key.
+
+## Product release 0.11 — Production hardening and staged model rollout
 
 ### Product outcome
 
 The engine runs safely with multiple writers and nodes, and workspaces can be migrated between
-immutable model releases in controlled stages. Authentication and authorization follow in 0.11.
+immutable model releases in controlled stages. Authentication and authorization follow in 0.12.
 
 ### Delivery scope
 
@@ -330,7 +371,7 @@ immutable model releases in controlled stages. Authentication and authorization 
   this is the accepted GAP-02 extension, not an override of ordinary activation
 - Workspace-scoped model-release assignment: resolve workspace before its immutable snapshot, migrate
   its data, then atomically switch its release
-- Moving a draft onto a release its content does not fit: reuse the 0.10 conversion machinery against
+- Moving a draft onto a release its content does not fit: reuse the 0.11 conversion machinery against
   that draft and the live data under it, preview the conversions and any loss of draft-authored
   content, and apply only on confirmation of the exact reviewed draft and release versions, or cancel;
   once the new release serves live data, a draft still on the replaced release is explicitly moved or
@@ -361,7 +402,7 @@ supports, and content written under one version cannot be served under another u
 converted. Activating is never just choosing a version: a draft activates only once its version
 matches the active release, which the existing guarded release-activation path establishes.
 
-## Product release 0.11 — Security, authentication and authorization
+## Product release 0.12 — Security, authentication and authorization
 
 ### Product outcome
 
@@ -393,14 +434,15 @@ to a proven identity.
 
 ### Product outcome
 
-An authorized administrator evolves applications through structured, reference-aware tools beyond the
-JSON workbench and lifecycle foundation.
+An authorized administrator evolves released applications with the 0.10 editor, including changes that
+need a migration, and reuses proven definitions.
 
 ### Delivery scope
 
-- Structured designer with reference-aware catalogues, forms and relationship matrices
+- Migration-class operations in the 0.10 editor (key renames, splits, merges, cardinality changes on
+  released structure), each with its impact preview, on the 0.11 migration boundary
 - Read-only dependency visualization where it materially improves comprehension
-- Protected publish, activation and rollback workflows built on the 0.10 migration boundary
+- Protected publish, activation and rollback workflows built on the 0.11 migration boundary
 - Extension packaging and reusable model modules after two concrete reuse cases
 
 ### Exit gate
@@ -416,9 +458,10 @@ JSON workbench and lifecycle foundation.
 | 0.7 mapping | US-M01–M04, US-W09 | SC-07, SC-15 | Complete generic record/relationship flows; live and draft conflict protection |
 | 0.8 translation/hierarchy | US-L03–L04, US-H01–H02 | SC-09, separately gated workflows | Generic translation and parent editing remain usable |
 | 0.9 integration | US-I03–I09 | SC-10–SC-11 and advanced-query extension | Same validation and workspace rules as individual writes |
-| 0.10 production | US-O03–O04, US-O06, US-P07 | SC-13 | Measured recovery and consistent model selection |
-| 0.11 security | US-S01, US-O05 | SC-13 identity attribution | Same authenticated scope on every path; existing capability flags retained |
-| 1.0 authoring | US-P05, US-P08 | SC-12 through structured tools and reuse cases | Existing immutable definitions, validation and release safety |
+| 0.10 authoring | US-P05 (structured editor), US-P09, US-P10 | SC-12 through the editor; MODEL_AUTHORING exit gate | JSON workbench, model lifecycle, 0.9 import job and change set review unchanged |
+| 0.11 production | US-O03–O04, US-O06, US-P07 | SC-13 | Measured recovery and consistent model selection |
+| 0.12 security | US-S01, US-O05 | SC-13 identity attribution | Same authenticated scope on every path; existing capability flags retained |
+| 1.0 authoring | US-P05 (migration operations), US-P08 | SC-12 through structured tools and reuse cases | Existing immutable definitions, validation and release safety |
 
 ### Unscheduled
 
@@ -433,7 +476,7 @@ JSON workbench and lifecycle foundation.
   capabilities and the doors current work keeps open (identity redirects, value provenance, derived
   values, redaction within immutable history, keyed inbound upsert, reusable matching and review
   vocabulary, additive value types).
-- **Workspace groups as owners of a model history.** A possible later step beyond 0.10's
+- **Workspace groups as owners of a model history.** A possible later step beyond 0.11's
   workspace-scoped release assignment: a group of workspaces owns one model history, so teams in one
   organisation can release their models independently (with dev/test/prod staged rollout inside a
   group), and workspace keys and release identities become unique per group. It is not a tenancy
@@ -443,7 +486,7 @@ JSON workbench and lifecycle foundation.
   release cycles and can do without relations between the groups; relations across models would then
   be a separate, larger feature. Not assigned to a release.
 
-Earlier milestones are pre-production functionality; 0.10 (hardening) and 0.11 (security) together
+Earlier milestones are pre-production functionality; 0.11 (hardening) and 0.12 (security) together
 are the gate for authenticated shared production operation. Release numbers specify sequence, not dates. Detailed format, query, validity,
 recovery and reuse contracts must be recorded before their implementation packages. Unscheduled
 research candidates do not become release scope merely by appearing in benchmark notes.

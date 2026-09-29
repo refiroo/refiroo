@@ -289,7 +289,7 @@ navigation/forms safely, preserving unsaved input when a version change is decli
 
 **Coverage:** F12, F15, F17. **Status:** WP-6/WP-7 selection and WP-11 refusal/UI hardening delivered;
 composed SC-15 acceptance remains WP-9 (ADR-028). Moving a change set onto a version its content does not
-already satisfy is reviewed 0.10 migration work.
+already satisfy is reviewed 0.11 migration work.
 **Example:** SC-15.
 
 ## Localization steward
@@ -606,7 +606,8 @@ so that I can evolve a model without editing raw JSON or relying on a graph canv
 **Accepted when:** references are selected from catalogues, unsafe changes remain blocked pending an
 explicit migration, previews use the same validation as installation and releases stay reproducible.
 
-**Coverage:** Planned self-service authoring. **Status:** Roadmap 1.0.
+**Coverage:** Planned self-service authoring. **Status:** Roadmap 0.10 for the editor with additive and
+draft-only operations ([MODEL_AUTHORING.md](../MODEL_AUTHORING.md)); changes that need a migration in 1.0.
 
 ### US-P06 — Introduce another reference-data application without bespoke software
 
@@ -618,7 +619,7 @@ rules and supported views are available through existing generic behavior. The s
 journeys work for two differently configured types without a custom domain-specific code path.
 
 **Coverage:** F01, F15. **Status:** Definition foundation and JSON workbench present; composed browser
-maintenance still needs 0.6 completion. Structured authoring follows in 1.0. **Example:** SC-12.
+maintenance still needs 0.6 completion. Structured authoring follows in 0.10. **Example:** SC-12.
 
 ### US-P07 — Introduce new rules to one workspace in a controlled stage
 
@@ -634,7 +635,7 @@ cancels. Cancel changes nothing; stale review requires a fresh check; confirmati
 valid target graph and supported schema. Other workspaces and immutable history remain unchanged.
 Recovery and the supported compatibility period are documented.
 
-**Coverage:** Planned staged model rollout. **Status:** Roadmap 0.10; model selection is global today.
+**Coverage:** Planned staged model rollout. **Status:** Roadmap 0.11; model selection is global today.
 **Example:** SC-13.
 
 ### US-P08 — Reuse a proven definition package
@@ -648,6 +649,32 @@ require special runtime behavior for a particular application.
 
 **Coverage:** Planned reusable model modules and extensions. **Status:** Roadmap 1.0; package contract
 follows demonstrated reuse needs. **Example:** extend SC-12 with two independently configured consumers.
+
+### US-P09 — Turn a spreadsheet into an application without a model file or a script
+
+**Story:** As a model administrator, I want to upload a workbook of reference data, get a proposed model
+and import mapping, and change both freely before loading, so that new reference data does not need
+model engineering and a bespoke import script.
+
+**Accepted when:** every proposal shows its evidence and can be renamed, remapped, split, merged, moved
+or removed; each change shows its effect on the real rows before anything is written; the model is
+installed and activated through the normal release checks; the data arrives in a change set reviewed
+before publishing; and the journey works for two differently shaped workbooks, extending an existing
+model and starting a new application.
+
+**Coverage:** Planned model authoring. **Status:** Roadmap 0.10
+([MODEL_AUTHORING.md](../MODEL_AUTHORING.md)). **Example:** SC-12 through the editor.
+
+### US-P10 — Load the next version of a workbook through its saved mapping
+
+**Story:** As a data owner, I want to upload the next version of a workbook to its saved mapping so
+that I review only what changed instead of repeating the setup.
+
+**Accepted when:** new or missing columns, new list values and name drift are reported before loading;
+records are matched by their stable keys; the change set review shows the added, changed and missing
+records; and missing records are never deleted unless the mapping says so.
+
+**Coverage:** Planned model authoring, on the 0.9 import job. **Status:** Roadmap 0.10.
 
 ## All users
 
@@ -694,7 +721,7 @@ uniqueness, activation and runtime selection remain correct across concurrent pr
 **Accepted when:** production-like tests prove multi-writer uniqueness, release propagation,
 workspace migration, backup/restore and rollback without mixed-model requests.
 
-**Coverage:** Planned production hardening. **Status:** Roadmap 0.10.
+**Coverage:** Planned production hardening. **Status:** Roadmap 0.11.
 
 ### US-O04 — Restore a matching application and database backup
 
@@ -706,7 +733,7 @@ migration.
 configuration together, verifies readiness and data, and keeps this procedure separate from model
 release activation.
 
-**Coverage:** Planned production hardening. **Status:** Roadmap 0.10.
+**Coverage:** Planned production hardening. **Status:** Roadmap 0.11.
 
 ### US-O05 — Know who changed governed data
 
@@ -718,7 +745,7 @@ display name; record, relationship and administrative changes remain traceable t
 history. Access to history follows the agreed permissions.
 
 **Coverage:** F11 plus authenticated audit. **Status:** Change history exists; authenticated attribution
-is roadmap 0.11. **Example:** SC-13.
+is roadmap 0.12. **Example:** SC-13.
 
 ### US-O06 — Detect and investigate service degradation
 
@@ -731,7 +758,7 @@ unexpected fault. Representative load and recovery tests report results against 
 operating targets.
 
 **Coverage:** F19 plus metrics and structured operational diagnostics. **Status:** Health and expected
-refusal foundation present; production observability is roadmap 0.10. **Example:** SC-13 under the
+refusal foundation present; production observability is roadmap 0.11. **Example:** SC-13 under the
 agreed representative workload.
 
 ### US-S01 — Authenticate and authorize sensitive operations
@@ -742,4 +769,4 @@ and operations so that deployment flags are not mistaken for user access control
 **Accepted when:** administrative, ordinary and bulk paths enforce the same authenticated scope and
 cannot be bypassed through a less-visible API.
 
-**Coverage:** Planned security release. **Status:** Roadmap 0.11.
+**Coverage:** Planned security release. **Status:** Roadmap 0.12.

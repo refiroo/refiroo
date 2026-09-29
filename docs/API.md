@@ -735,10 +735,11 @@ set or publication is addressed flat by its global ID (`/change-sets/{changeSetI
   set does; each is `null` where the kind has none. *Before* is not current live: whether live moved
   since is what validation and publishing report (`version_conflict`).
   - An object entry carries `kind`, `objectId`, `objectTypeKey`, `applicationKey`, `before`/`after`
-    (`name`, `parentObjectId`, typed `attributes` in the object read's shape, `version`),
-    `changedFields` and `path`: where the change set puts an added or changed record, or where the
-    source held a removed one. `changedFields` names what differs between the sides (`name`,
-    `parent`, then attribute keys in binding order); a missing side holds nothing, so an added or
+    (`objectTypeKey`, `name`, `parentObjectId`, typed `attributes` in the object read's shape,
+    `version`), `changedFields` and `path`: where the change set puts an added or changed record, or
+    where the source held a removed one. `changedFields` names what differs between the sides
+    (`objectType` when a type change made them differ, Base 0.8 C1; then `name`, `parent`, then
+    attribute keys in binding order); a missing side holds nothing, so an added or
     removed record names every field it holds. A `changed` entry can name none — edited back to its
     source values — and is still listed: its version advanced and publishing claims it against live.
     A move is `changed` with `parent`, and carries `beforePath`: where the source held the record
@@ -831,7 +832,7 @@ A missing pinned release is `409` with code `pinned_model_unavailable`; an inval
 `unsupported_pinned_model_schema`, including `modelReleaseId`, `schemaVersion`, and
 `supportedSchemaVersions: ["0.5", "0.6"]` in details.
 >
-> **Target — product 0.10 historical model migration.** Preview incompatibilities and potential data
+> **Target — product 0.11 historical model migration.** Preview incompatibilities and potential data
 > loss for one workspace and a named installed target release (normally the pin of a change set started from a publication),
 > then confirm the exact reviewed plan or cancel. Confirmed execution migrates live data to that target and changes
 > only the selected workspace model assignment atomically. Model drafts and change sets remain separate;
@@ -861,7 +862,7 @@ A missing pinned release is `409` with code `pinned_model_unavailable`; an inval
 > WP-7 will reload model-dependent browser navigation, forms, lookups and caches, reset obsolete
 > cursors and protect dirty input on local or externally detected pin changes.
 >
-> **Target — product 0.10 moving a change set onto an incompatible release (ADR-028).** Moving a change set onto
+> **Target — product 0.11 moving a change set onto an incompatible release (ADR-028).** Moving a change set onto
 > a release whose rules its stored content does not already satisfy requires the conversion machinery
 > above, applied to that change set's own candidate graph and its current-live base: a review reports the
 > conversions and any potential loss of content authored in the change set, and applies only on confirmation of the
@@ -931,7 +932,7 @@ over 100,000 records when few names match); so does a phrase present in more tha
 where reading the index would cost more than it saves (about 0.4 s when it is in every value and no
 name). The index narrows which records are read, never which match: every path returns the same
 records. The index is SQLite's (FTS5); on PostgreSQL, until its trigram form arrives with
-0.10, a search reads each record's values with the same results. A first page, or a `position` page, that reaches the end of the list reports its
+0.11, a search reads each record's values with the same results. A first page, or a `position` page, that reaches the end of the list reports its
 `totalCount` without a second count.
 
 Change sets and publications record no timestamps. In a `changeSetId` or `publicationId` context,
@@ -1715,7 +1716,12 @@ hierarchy level), and for candidates their relations and the row's cell.
 ## Product 0.8 restructuring API (Milestone C design)
 
 Designed in C0 ([ADR-034](DECISIONS.md#adr-034--a-records-type-can-change-derived-mapping-preview-and-apply-history-as-the-way-back));
-C1–C3 deliver it, and this section becomes the contract as they do. A restructuring changes the shape
+C1–C3 deliver it, and this section becomes the contract as they do. **C1 (delivered 2026-09-29)** makes
+the `reclassified` audit event, the D42 refusal, the change-list changes and the publishing behaviour
+below the contract. **C2 (delivered 2026-09-29)** settles the plan below in the engine's planner
+(`services/restructuring.py`) for `move` and `changeType`. **C3 (delivered 2026-09-29)** adds the
+routes, the other operation kinds, the paging of `records` and the parent candidates'
+`includeTypeChanges`, so the whole section is now the contract. A restructuring changes the shape
 of a hierarchy inside a change set: records move and change type, keeping their IDs, and a level can be
 inserted or removed. There is no live form (D38).
 
@@ -1731,9 +1737,9 @@ Both take the same body. `operation` names one kind:
 | --- | --- | --- |
 | `move` | `objectId`, `parentObjectId` (`null` for the top level), optional `objectTypeKey` | Move a record, changing its type when the target needs it. Without `objectTypeKey`, the current type is kept where allowed, the only possible type is taken, and several possible types are a question in the plan. |
 | `changeType` | `objectId`, `objectTypeKey` | Change a record's type under the same parent. |
-| `insertLevel` | `parentObjectId` (`null` for the top level), `childObjectIds` (records under that parent), `objectTypeKey`, `name` | Create a record of `objectTypeKey` under the parent and move the chosen children under it. Its values and relations come from `inputs` under the reserved `objectId` `"new"`. |
-| `removeLevel` | `objectId` | Delete the record and move its children to its parent. The record is deleted as a delete does, with its relationships. |
-| `changeTypeUnder` | `objectId`, `fromObjectTypeKey`, `objectTypeKey` | Change every record of `fromObjectTypeKey` under `objectId`, at any depth, each under its own parent. |
+| `insertLevel` | `parentObjectId` (`null` for the top level), `childObjectIds` (at least one, distinct, each directly under that parent), `objectTypeKey`, `name` | Create a record of `objectTypeKey` under the parent and move the chosen children under it, each keeping its type where the new record can contain it. Its values and relations come from `inputs` under the reserved `objectId` `"new"`; an attribute given no value takes its attribute type's default. |
+| `removeLevel` | `objectId` | Delete the record and move its children to its parent, each keeping its type where the parent can contain it. The record is deleted with its relationships, which the plan lists as its `withoutPlace.relationships`; one the other end requires is refused `requiredRelationWithoutPlace`. |
+| `changeTypeUnder` | `objectId`, `fromObjectTypeKey`, `objectTypeKey` | Change every record of `fromObjectTypeKey` below `objectId` (not the record itself), at any depth, each under its own parent. The walk reads the whole subtree level by level; only the records it changes count toward the limit. |
 
 The rest of the body:
 
@@ -1747,10 +1753,16 @@ The rest of the body:
 - `inputs`: `[{ "objectId", "attributes": [{ "attributeTypeKey", "value" }], "relations": [{
   "relationTypeKey", "direction", "objectId" }] }]`, per record, in the shapes of object creation's
   `attributes` and `initialRelations`. A `null` value for an optional attribute leaves it empty.
-- `expectedChangeSetVersion` (required on apply; the preview reports the version it read).
+- `expectedChangeSetVersion` (required on apply; optional on the preview, which then answers `409
+  change_set_version_conflict` when the change set has moved on, and otherwise reports the version it
+  read).
 - Apply only: `planDigest` from the preview.
-- Preview only: `outcome` (repeatable filter of `records`), `pageSize` (1–500, default 100) and the
-  [paging](#collection-paging) fields `cursor`, `position` and `includeTotal`.
+- Preview only: `outcome` (a list filtering `records`), `pageSize` (1–500, default 100) and the
+  [paging](#collection-paging) fields `cursor`, `position`, `from` and `includeTotal`, one of
+  `cursor`, `position` and `from: "end"` at a time (`422 conflicting_page_parameters`).
+
+`inputs` name each record once, and `childObjectIds` do not repeat; either is a `422` validation
+error.
 
 ### The plan
 
@@ -1766,19 +1778,26 @@ The preview answers `200` with:
 - `pairs`: one per (old type, new type) pair with its `recordCount`, `restore`, and per attribute of
   the new type its `attributeTypeKey`, `from`, `rule` (`sameType`, `display`, `uniqueRequired`,
   `choice` or `none`), the other compatible sources `alternatives`, and counts `kept`, `mapped`,
-  `restored`, `inputs` and `empty`; the source attributes with no place (`withoutPlace`), and per
-  relation type and direction whether it is kept or has no place, with a count. `name` is always kept
-  and not listed.
+  `restored`, `inputs` and `empty`; the source attributes with no place (`withoutPlace`:
+  `attributeTypeKey`, `count`), and `relations` (`relationTypeKey`, `direction`, `outcome` `kept` or
+  `withoutPlace`, `count`). `name` is always kept and not listed. A rule takes a source only when no
+  earlier rule took it; a choice may name any compatible source or `null`, and a source the old type
+  does not bind or that is not compatible is `422 invalid_type_mapping`.
 - `refusals`: at most 20 operation-level refusals with `refusalCount` and `refusalsTruncated`.
 - `records`: a page of the records the operation changes, in plan order (the operation's records,
-  then each level down, by name and ID). Each has `objectId`, `name`, `path` (after the operation),
+  then each level down, by name and ID; `insertLevel` lists the created record, then the children it
+  takes; `removeLevel` the removed record, then its children). Each has `objectId`, `name`, `path`
+  (after the operation, from the root, as `id`, `name` and `objectTypeKey`; a removed record's is
+  where it was),
   `before` and `after` (`objectTypeKey`, `parentObjectId`; `before` is `null` for a created record,
-  `after` for a removed one), `outcomes` (`typeChanged`, `moved`, `created`, `removed`), `attributes`
-  (`attributeTypeKey`, `from`, `outcome`: `kept`, `mapped`, `restored`, `input` or `empty`, and the
-  typed `value`), `withoutPlace` (`attributes` with values; `relationships` with `relationId`,
+  `after` for a removed one; `after.objectTypeKey` is `null` while the record's type question is open
+  or it has no possible type, and nothing below it is planned), `outcomes` (`typeChanged`, `moved`, `created`, `removed`), `attributes`
+  (`attributeTypeKey`, `from`, `outcome`: `kept`, `mapped`, `restored`, `input`, `default` (a
+  created record's attribute type default) or `empty`, and the typed `value`), `withoutPlace` (`attributes` with values; `relationships` with `relationId`,
   `relationTypeKey`, `direction`, the other end's `objectId`, `objectTypeKey` and `name`),
   `restoredRelationships` (the same shape), `inputsNeeded` (`kind` `attribute` or `relation`, the key,
-  and `reason`: `required`, `invalidValue` or `requiredRelation`) and `refusals`.
+  and `reason`: `required`, `invalidValue`, `atLeastOneOf` (one entry per attribute the rule names)
+  or `requiredRelation`) and `refusals`.
 
 The `outcome` filter takes `typeChanged`, `moved`, `withoutPlace`, `restored`, `needsInput` and
 `refused`, so a client pages through what needs attention. `records` page by position in the plan
@@ -1788,10 +1807,21 @@ order; the page links are the standard ones, and cursors bind the change set, it
 Refusal codes, per record or for the operation: `noPossibleType` (a level has no type the new parent
 can contain), `typeNotAllowed` (the chosen type cannot be here), `application` (another application's
 type or parent, D39), `cycle`, `notRoot` (the top level for a type that is not `rootCreatable`),
-`uniqueness` (a value or scope collision, naming `conflictingObjectId`) and `notInChangeSet` (a named
-record the change set does not hold).
+`uniqueness` (a value or scope collision, naming `conflictingObjectId`), `requiredRelationWithoutPlace`
+(a relationship the other end requires and the new type cannot hold, or a removed record takes with
+it, naming `conflictingObjectId`), `notInChangeSet` (a named record the change set does not hold) and
+`notUnderParent` (an `insertLevel` child that is not directly under the parent). A refusal has `code`, `message`,
+`objectId` when it concerns one record, and `details`. A plan with no other refusal, question or input
+is dry-run through the change set write services and rolled back, so the preview refuses what applying
+would; the first write refused becomes that record's refusal (with the codes above where one fits,
+otherwise the engine's error code) and the dry run stops there.
 
-A record is counted once whatever happens to it. More than 5,000 (D41) is
+A request the planner cannot read is an error, not a plan: `422 object_type_unchanged` for a
+`changeType` to the record's own type, `422 unknown_object_type` for a type the pinned model lacks and
+`422 invalid_type_mapping` for a mapping choice as above. A `move` that changes neither the type nor
+the parent plans no records.
+
+A record is counted once whatever happens to it. More than 500 (D41, lowered from 5,000 by D44) is
 `422 restructuring_too_large` with `details.limit` and nothing planned. An unknown change set is
 `404 change_set_not_found`; a publication or live context does not exist for this API.
 
@@ -1805,7 +1835,8 @@ The apply recomputes the plan in the write transaction and writes it only when i
   refusals.
 
 Every refusal writes nothing. Success returns `200` with `operationId`, `changeSetId`, the new
-`changeSetVersion` (advanced once for the operation) and the `summary`. The change set's review
+`changeSetVersion` (advanced once for the operation), the `summary` and `createdObjectId` (the ID
+`insertLevel` gave its record, otherwise `null`). The change set's review
 (the change lists below) then shows every record and relationship the operation touched.
 
 What is written: each changed record's row with its new type, parent and values; the containment edge
@@ -1822,28 +1853,41 @@ holds `changeSetId`, `operationId`, `objectType` (`before`, `after`), the `paren
 mapping used per attribute, and `before`: the record's name, parent, typed values and the
 relationships it lost with their attributes and versions. Its subjects are the record and the other
 end of each lost relationship, so their histories show it. Records the operation only moves, creates
-or deletes record the existing `updated`, `created` and `deleted` events with the same `operationId`.
+or deletes record the existing `updated`, `created` and `deleted` events with the same `operationId`
+(the `deleted` event names the relationships removed with the record in `relationIds`).
 
 The history read (`GET …/history`) lists the event with `action: "reclassified"`, `changedFields`
-naming `objectType` and what else changed, and `attributeTypeKeys` naming the attribute types moved,
-mapped, restored or without a place; it does not return values, as for other events. Offer-backs read
+naming `objectType` first and then what else changed (`parent`, `attributes`, `relationships`), and
+`attributeTypeKeys` naming the attribute types given a value (kept, mapped, restored or an input), the
+source of each mapped value, and those without a place; it does not return values, as for other
+events. The other end of a lost relationship lists the same event. Offer-backs read
 the payloads of a record's `reclassified` events whose `changeSetId` is the current change set or a
-published one, the latest first.
+published one (a `published` event names it), the latest first. A value is offered from the latest
+event whose `before` holds the attribute, only when that event left it without a place and only to an
+attribute of the new type that no source fills. A lost relationship is offered, with its former ID,
+when it is not effective, its other end exists and the model binds it to the new type.
 
 ### Changes to existing reads
 
 - **Type in the route (D42).** Every `/objects/{objectTypeKey}/{objectId}` route — the record,
-  attributes, history and parent candidates — returns `409 object_type_changed` when the record is
-  found in the selected context under another type, with `details.objectId`,
+  attributes, history, parent candidates, and the change-set `PATCH` and `DELETE` — returns
+  `409 object_type_changed` when the record is found in the selected context under another type (it
+  was `404 object_not_found` before C1), with `details.objectId`,
   `details.objectTypeKey` (the current type) and `details.requestedObjectTypeKey`. Live keeps the old
   type until the change set is published; a publication keeps the type it was published with. A
   history cursor from the old route is `422 invalid_cursor` on the new one.
 - **Change lists (P2a).** An object entry's `before` and `after` gain `objectTypeKey`, and
   `changedFields` names `objectType` first when it differs. The `objectTypeKey` filter matches either
-  side; the entry's `objectTypeKey` and order stay the change set's.
+  side; the entry's `objectTypeKey` and order stay the change set's. A relation entry's ends read as
+  the change set holds them, and it is `containment` when its `to` end's type on either side is a
+  child the relation type contains, so a reclassified record's former parent edge is still marked.
 - **Parent candidates (B2).** In a change set, `includeTypeChanges=true` also lists records of types
-  that can contain another type of the record's application, each with `objectTypeKeys`, the types the
-  record would become there. Without it, the list is unchanged.
+  that can contain another type of the record's application (by the planner's rule: exactly one parent
+  relation), each with `objectTypeKeys`, the types the record would become there: its own type under a
+  type that already contains it, otherwise the possible types, of which the preview asks for one when
+  there are several. `parentObjectTypeKey` may then name any of those types. Without it, the list is
+  unchanged and candidates carry no `objectTypeKeys`; with it outside a change set, `422
+  type_changes_need_change_set` (a type changes only in a change set, D38).
 
 ### Publishing
 

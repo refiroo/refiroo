@@ -75,14 +75,22 @@ def list_object_history(
 def _audit_response(event: AuditEvent) -> AuditEventResponse:
     changes = event.changes if isinstance(event.changes, dict) else {}
     attributes = changes.get("attributes")
+    if event.action == "reclassified":
+        # A type change (ADR-034) stores its full before state; the history names what changed
+        # and the attribute types it moved, mapped, restored or left without a place, not values.
+        changed_fields = [str(key) for key in changes.get("changedFields", [])]
+        attribute_type_keys = sorted(str(key) for key in changes.get("attributeTypeKeys", []))
+    else:
+        changed_fields = sorted(str(key) for key in changes)
+        attribute_type_keys = _attribute_type_keys(event, attributes)
     return AuditEventResponse(
         id=event.event_id,
         aggregateType=event.aggregate_type,
         aggregateId=event.aggregate_id,
         action=event.action,
         version=event.version,
-        changedFields=sorted(str(key) for key in changes),
-        attributeTypeKeys=_attribute_type_keys(event, attributes),
+        changedFields=changed_fields,
+        attributeTypeKeys=attribute_type_keys,
         occurredAt=event.occurred_at,
     )
 

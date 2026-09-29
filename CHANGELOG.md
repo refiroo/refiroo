@@ -207,7 +207,7 @@ All notable changes to this project are documented in this file. The format foll
   **In another application**) and a no-drop cursor. Resting on a collapsed record opens it, and the
   tree scrolls near its edges. A drop opens the move dialog with the target chosen, so Enter confirms
   the same write as Move to…; Escape or a release elsewhere writes nothing. Touch pointers, the
-  sidebar tree and publications never drag (touch drag in 0.10, D35). `test:browser:b3` gains the
+  sidebar tree and publications never drag (touch drag in 0.11, D35). `test:browser:b3` gains the
   drags; the accessibility and visual gates gain a drag over an accepted and a refused target, light
   and dark.
 - Base 0.8 B5b: moving a record to the top level from the tree lens, by both paths (D36). **Move to…**
@@ -218,9 +218,61 @@ All notable changes to this project are documented in this file. The format foll
   refused as **Not shown at the top of this tree**, and a record already there as **Current
   location**. A search's matches offer no top level. `test:browser:b3` moves a nested group of the
   generated volume tree to the top live by Move to… and in a change set by a drag.
+- Base 0.8 C1: a record's type can change in a change set (ADR-034). `services/type_changes.py`
+  changes one record's type, optionally under a new parent, with a given attribute mapping: values
+  are kept, mapped (same value type, or `text` to `longText` and `integer` to `decimal`), restored or
+  given as inputs, and the rest have no place; the containment edge becomes the relation the model
+  allows, and each child's edge the relation the new type contains it by; relationships the new type
+  may not have are removed and the others keep their IDs; relationships offered back are restored
+  under their former IDs, and required relationships are inputs. Uniqueness, required values and
+  relations, uniqueness scopes, cycles and the record version are checked by the change set write
+  services, and `check_type_change` runs every check without keeping a write. Each change records a
+  `reclassified` audit event with the full before state, which the history read lists with
+  `changedFields` and `attributeTypeKeys`. Publishing needed no change: it writes the new type to
+  live and refuses a live edit of the record or a live relationship the new type cannot have. The
+  restructuring API that exposes the service is C3.
+- Base 0.8 C2: the restructuring planner (`services/restructuring.py`) plans a move or a type change
+  of one record and its subtree in a change set. It works out the possible types at the target and
+  asks once per (type, parent type) pair where several are possible; cascades level by level, each
+  child the new parent cannot contain becoming a type it can; suggests each attribute's source by the
+  D40 rules, which a choice per type pair overrides; and lists per record what is kept, mapped,
+  restored, given or without a place, the inputs still needed and the refusals. Values and
+  relationships are offered back from the record's reclassifications in the current change set and in
+  published ones, relationships under their former IDs. A ready plan is dry-run through the change set
+  write services and rolled back; its digest binds an apply to the previewed plan and the change set
+  version. More than 500 records is refused with `restructuring_too_large`: D44 lowers C0's 5,000
+  because the dry run takes 48 s at that size and 2.8 s at 500. The routes are C3.
+- Base 0.8 C3: the restructuring API. `POST /api/v1/change-sets/{id}/restructurings/preview` plans an
+  operation and writes nothing; `POST /api/v1/change-sets/{id}/restructurings` applies it when the
+  recomputed plan matches the previewed `planDigest` and the change set is still at
+  `expectedChangeSetVersion` (`409 restructuring_plan_changed`, `409 change_set_version_conflict`,
+  `422 restructuring_not_ready`). Five kinds: `move` (with a type change where the target needs it),
+  `changeType`, `insertLevel` (a new record between a parent and chosen children, its values given
+  under the ID `new`, its ID returned as `createdObjectId`), `removeLevel` (a record deleted with its
+  relationships, its children moved to its parent, changing type where needed) and `changeTypeUnder`
+  (every record of one type under a record). The plan's records page by position in plan order with
+  the standard page links, filtered by `outcome`; cursors bind the change set version and the plan.
+  Parent candidates take `includeTypeChanges=true` in a change set, listing the records a move with a
+  type change could go under, each with `objectTypeKeys`.
 
 ### Changed
+- Base 0.8 C1 (D42): every `/objects/{objectTypeKey}/{objectId}` route answers
+  `409 object_type_changed` with the record's current type for a record found under another type in
+  the selected context, live, in a change set or in a publication, where it answered `404
+  object_not_found`. A change-set `PATCH` now checks the route's type, which it ignored. The change
+  lists' object entries carry `objectTypeKey` on `before` and `after`, name `objectType` first in
+  `changedFields` when it changed, and the `objectTypeKey` filter matches either side; a relation
+  entry is `containment` by the type its `to` end has on either side.
 
+- Design: Product 0.10 is model authoring and spreadsheet onboarding (ADR-035,
+  `docs/MODEL_AUTHORING.md`): one editor for the model and the import mapping, where every edit is a
+  validated operation on a model draft, inference from an uploaded workbook proposes operations, and
+  saved import profiles load the next version as a reviewed upsert. Production hardening moves to
+  0.11 and security to 0.12 across the documentation; 1.0 keeps changes to released structure,
+  protected publishing and extensions. 0.9 D3 is revised: import runs an import profile, with XLSX.
+  New stories US-P09 and US-P10. A-D1–A-D3 decided (one type per list, declared navigation groups,
+  profiles stored apart from releases). `docs/BASE_0_10_IMPLEMENTATION_PLAN.md` is the provisional
+  0.10 plan: packages A0–A8 and R, synthetic acceptance workbooks, decisions D1–D10.
 - Design: Base 0.8 C0. ADR-034 accepts that a record's type can change, keeping its ID, in a change set
   only, within its application. The attribute mapping is derived from the model (same value type or a
   lossless widening), relationships are kept or removed, and descendants follow level by level. An
@@ -238,7 +290,7 @@ All notable changes to this project are documented in this file. The format foll
 - Planning: Base 0.8 B5, drag and drop in the tree lens, added in the Milestone B review. Records can be
   dropped onto a node, into a gap between rows or onto a type heading. Drops are accepted by the
   model's containment rules, show a green or red glow with the reason, and are confirmed in the
-  existing move dialog. D34 decides the targets and the confirmation; D35 defers touch drag to 0.10.
+  existing move dialog. D34 decides the targets and the confirmation; D35 defers touch drag to 0.11.
   B5b, an amendment to B5, adds moving a record to the top level in Move to… and by drag, for the
   tree's root types (D36). R1b is added as an amendment to R1: the build acceptance for B5 and B5b,
   required before 0.8.0 releases. One record is moved at a time.

@@ -166,7 +166,9 @@ def update_object(
         change_set_payload = ChangeSetObjectUpdate(
             expectedChangeSetVersion=expected, expectedRecordVersion=payload.expectedVersion, **fields
         )
-        row = update_change_set_object(session, change_set_id, object_id, change_set_payload)
+        row = update_change_set_object(
+            session, change_set_id, object_id, change_set_payload, object_type_key=object_type_key
+        )
         return _change_set_write_response(session, change_set_id, row)
     snapshot = resolve_model_snapshot(session)
     item = update_object_record(session, snapshot.model, object_type_key, object_id, payload)
@@ -421,11 +423,22 @@ def get_parent_candidates(
     search: str | None = Query(
         default=None, max_length=500, description="Matches the name or a searchable field"
     ),
+    include_type_changes: bool = Query(
+        default=False,
+        alias="includeTypeChanges",
+        description=(
+            "In a change set, also list records of types that can contain another type of the"
+            " record's application, each with objectTypeKeys, the types the record would become"
+            " there (Base 0.8 C3)"
+        ),
+    ),
 ) -> ParentCandidatePage:
     """Records the record could move under, live or in a change set, in name order (Base 0.8 B2).
 
     Every record of a type the model allows as the record's parent is listed, in its application
-    and workspace; one the move would refuse is marked ineligible with its reason (D14).
+    and workspace; one the move would refuse is marked ineligible with its reason (D14). With
+    ``includeTypeChanges`` in a change set, records a move with a type change could go under are
+    listed as well (C3).
     """
     return parent_candidates(
         session,
@@ -438,6 +451,7 @@ def get_parent_candidates(
         search=search or None,
         page=paging,
         page_size=page_size,
+        include_type_changes=include_type_changes,
     )
 
 

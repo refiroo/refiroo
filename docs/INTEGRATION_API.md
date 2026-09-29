@@ -13,7 +13,7 @@ when it is delivered, and this document keeps the design and its reasons.
 | --- | --- | --- | --- |
 | [P](#p-shared-primitives) | Items and outcomes, failure policies, per-item concurrency, idempotency, jobs, limits | P | Draft |
 | B | Bulk object create, update, upsert and delete; upsert keys; bulk relations and mapping | B | To write |
-| J | Import (file contract, column association, preview, execute) and export (scope, context, output) | J | To write |
+| J | Import (file contract as an import profile per [MODEL_AUTHORING](MODEL_AUTHORING.md#import-profile), preview, execute) and export (scope, context, output) | J | To write |
 | F | Raw change feed: entries, position, ordering watermark, retention, recovery | F | To write |
 | Q | Cross-type lookup (0.8 P1), workspace edge list (0.8 P3), advanced query, `asOf` reads | Q | To write |
 
@@ -142,7 +142,7 @@ and the job's checkpoint commit in one transaction, so a job resumed after a cra
 uncommitted item and never repeats or skips one. An `atomic` job is one chunk. The worker holds a
 lease on the job (`leaseOwner`, `leaseExpiresAt`); a restarted process picks up running jobs whose
 lease expired. The worker runs in the application process while the engine is single-node (0.9); the
-lease is what lets 0.10 run it on several nodes without a contract change.
+lease is what lets 0.11 run it on several nodes without a contract change.
 
 **Model release.** A job pins the active model release when it is created (ADR-015 extended from a
 request to a job). If the active release changes before the job finishes, the next chunk fails the job

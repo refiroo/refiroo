@@ -42,7 +42,7 @@ Definition models are frozen recursively, including nested collections, so cache
 changed without installing and selecting a different release.
 
 This global selection remains the runtime authority through the pre-production daily-operation and
-specialist-editor releases. Product 0.10 may evolve it into workspace-scoped assignments: a request
+specialist-editor releases. Product 0.11 may evolve it into workspace-scoped assignments: a request
 must resolve its workspace first, then exactly one immutable release assigned to that workspace.
 Staged assignment requires executable data migration, atomic switching, cursor binding to release
 identity, protected administration, multi-node propagation and concurrent parser/runtime support for
@@ -99,7 +99,7 @@ Operation groups are exposed per process by environment capabilities read at sta
 A disabled group's routes are not registered. `GET /api/v1/capabilities` reports the effective
 values and names each group's setting; the Models and Workspaces screens show that status read only,
 and the header offers Workspaces only when its group is enabled. These are deployment limits, not
-authorization; 0.11 authorization works within them.
+authorization; 0.12 authorization works within them.
 
 | Capability | Default | Group |
 | --- | --- | --- |
@@ -148,7 +148,7 @@ Open caveats before this is a supported topology:
   several workers, but cannot detect a second instance with model administration enabled on the same
   database.
 - **Split deployment has no composed test.** It is a possible topology, not yet a tested one; the
-  0.10 multi-node propagation work owns making it supported.
+  0.11 multi-node propagation work owns making it supported.
 
 ### Upgrade, backup and rollback operations
 
@@ -470,19 +470,19 @@ values, redaction within immutable history, keyed inbound upsert and additive va
 
 ## Security direction
 
-Authentication and authorization remain deferred through the 0.9 feature release and 0.10 production
-hardening. The 0.11 security release introduces OAuth 2.0 with engine-issued JWT access tokens for the
+Authentication and authorization remain deferred through the 0.9 feature release and 0.11 production
+hardening. The 0.12 security release introduces OAuth 2.0 with engine-issued JWT access tokens for the
 backend, frontend and consumer APIs, model-configurable application, object-type and operation
 permissions, HMAC-signed webhooks and UI administration of clients and subscriptions, before replacing
 the default-enabled workspace-administration posture. No API keys, and no credential in a URL.
 Record-level rules should be introduced only for demonstrated RDM needs.
 
-## Reviewed historical schema replacement (product 0.10)
+## Reviewed historical schema replacement (product 0.11)
 
 GAP-02 accepts a warning and confirm-or-cancel migration flow when a change set started from a
 publication is incompatible with the active definition; GAP-08 keeps change sets and model drafts
 separate. ADR-027 therefore
-places schema replacement with the existing 0.10 migration/model-assignment capability. Base 0.6 cannot
+places schema replacement with the existing 0.11 migration/model-assignment capability. Base 0.6 cannot
 bypass its model conflict checks or make a schema override available merely because the user confirms.
 
 A migration preview names one workspace and one installed immutable target release (normally the

@@ -78,7 +78,7 @@ interactions follow in 0.8.
 Start with the [product functionality guide](docs/product-functionality/README.md) for available/planned
 functions, stories and realistic acceptance scenarios. The [delivery queue](docs/TODO.md) traces
 the 0.8 work. Historical schema replacement with preview and explicit loss confirmation is a
-planned 0.10 migration, not a current force action.
+planned 0.11 migration, not a current force action.
 
 ## Run with Docker
 
@@ -193,6 +193,7 @@ delete partial lifecycle data or an unfamiliar schema.
 | `frontend/src/App.tsx` | Model-driven application and form renderer |
 | `docs/PROJECT_STATUS.md` | Current implementation and next work |
 | `docs/ROADMAP.md` | Sequenced product milestones and release criteria |
+| `docs/MODEL_AUTHORING.md` | 0.10 design: one editor for the model and the import mapping, spreadsheet onboarding |
 | `docs/COMPOSABLE_DOMAINS.md` | Unscheduled direction: MDM-lite and catalogues modelled from generic capabilities |
 | `docs/TODO.md` | Prioritized active delivery queue |
 | `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` | Ordered Base 0.5 coding handoff and acceptance criteria |

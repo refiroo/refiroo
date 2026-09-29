@@ -266,7 +266,10 @@ def test_refusals(client, systems):
     assert candidates(client, missing, 404)["code"] == "object_not_found"
     # A record of the default workspace is not found through another one.
     assert candidates(client, systems["G2"], 404, workspaceKey="elsewhere")["code"] == "object_not_found"
-    assert candidates(client, {**systems["G2"], "objectTypeKey": "system"}, 404)["code"] == "object_not_found"
+    # Named under a type it does not have: where the record is (D42, ADR-034).
+    wrong_type = candidates(client, {**systems["G2"], "objectTypeKey": "system"}, 409)
+    assert wrong_type["code"] == "object_type_changed"
+    assert wrong_type["details"]["objectTypeKey"] == "system-group"
     assert candidates(client, {**systems["G2"], "objectTypeKey": "nothing"}, 404)["code"] == "unknown_object_type"
     stale = candidates(client, systems["G2"], pageSize=2)
     refused = candidates(client, systems["G2"], 422, pageSize=2, cursor=stale["nextCursor"], search="S")

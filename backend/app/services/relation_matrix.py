@@ -38,7 +38,7 @@ condition and ``several`` is never a conflict.
 
 The walks join rows by keyed lookups on each context's tables. A change set's downward walk has one
 recursive arm for its base and one for its own rows, which SQLite accepts; PostgreSQL needs the arms
-in one recursive term (0.10 hardening, with D25).
+in one recursive term (0.11 hardening, with D25).
 """
 
 from collections.abc import Callable, Sequence

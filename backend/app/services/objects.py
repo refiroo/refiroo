@@ -8,7 +8,7 @@ from sqlalchemy import Select, and_, case, delete, exists, false, func, not_, or
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, aliased
 
-from ..errors import api_error
+from ..errors import ApiError, api_error
 from ..models.api import (
     AttributeOutput,
     ObjectCreate,
@@ -1058,13 +1058,25 @@ def _require_initial_relations(
         )
 
 
+def object_type_changed(object_id: str, current: str, requested: str) -> ApiError:
+    """A route named a type the record does not have in the selected context (D42, ADR-034).
+
+    The record keeps its ID across a type change; the error says where it now is.
+    """
+    return api_error(
+        409,
+        "object_type_changed",
+        f"Object '{object_id}' is a '{current}' record, not '{requested}'",
+        {"objectId": object_id, "objectTypeKey": current, "requestedObjectTypeKey": requested},
+    )
+
+
 def load_object(session: Session, object_id: str, object_type_key: str | None = None) -> RdmObject:
-    statement = select(RdmObject).where(RdmObject.id == object_id)
-    if object_type_key:
-        statement = statement.where(RdmObject.object_type_key == object_type_key)
-    item = session.scalar(statement)
+    item = session.scalar(select(RdmObject).where(RdmObject.id == object_id))
     if not item:
         raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
+    if object_type_key and item.object_type_key != object_type_key:
+        raise object_type_changed(object_id, item.object_type_key, object_type_key)
     return item
 
 

@@ -74,13 +74,15 @@ acceptance evidence.
 | US-P02 | F15 check proposed model          | E2/E3 model lifecycle tests                         | Current when enabled             |
 | US-P03 | F15 install inactive release      | E2/E3 model lifecycle tests                         | Current when enabled             |
 | US-P04 | F15 activate model                | E2/E3 activation tests                              | Current supported topology       |
-| US-P05 | Structured authoring              | E5 roadmap                                          | 1.0                              |
+| US-P05 | Structured authoring              | E5 roadmap                                          | 0.10 editor; migrations 1.0      |
+| US-P09 | Spreadsheet onboarding            | E5 roadmap                                          | 0.10                             |
+| US-P10 | Reload through a saved profile    | E5 roadmap                                          | 0.10                             |
 | US-U01 | F18 accessible/responsive use     | E3 UI-foundation and shell tests                    | 0.6 E1/accessibility proof WP10  |
 | US-O01 | F19 actionable startup refusal    | E2 real temporary-database lifespan/migration tests | Current                          |
 | US-O02 | F15/F19 older model activation    | E2/E3 compatibility and activation tests            | Current boundary                 |
-| US-O04 | Application/database restore      | E5 roadmap and current unrehearsed runbook          | 0.10                             |
-| US-S01 | Authentication/authorization      | E5 roadmap                                          | 0.11                             |
-| US-O03 | Multi-writer/multi-node operation | E5 roadmap                                          | 0.10                             |
+| US-O04 | Application/database restore      | E5 roadmap and current unrehearsed runbook          | 0.11                             |
+| US-S01 | Authentication/authorization      | E5 roadmap                                          | 0.12                             |
+| US-O03 | Multi-writer/multi-node operation | E5 roadmap                                          | 0.11                             |
 
 ## Additional story traceability (2026-09-08)
 
@@ -96,10 +98,10 @@ acceptance evidence.
 | US-I07 | File validation preview | Roadmap; format/policy decisions pending | SC-10 / 0.9 |
 | US-I08 | Scoped export | Roadmap | SC-10 / 0.9 |
 | US-P06 | New domain without bespoke software | Model/workbench source; composed authoring proof pending | SC-12 / 0.6 foundation |
-| US-P07 | Staged assignment and reviewed historical migration | Accepted GAP-02/GAP-08; global selection today | SC-13 confirm/cancel/loss variants / 0.10 |
-| US-O05 | Authenticated change attribution | Roadmap; current audit is not identity proof | SC-13 / 0.11 |
+| US-P07 | Staged assignment and reviewed historical migration | Accepted GAP-02/GAP-08; global selection today | SC-13 confirm/cancel/loss variants / 0.11 |
+| US-O05 | Authenticated change attribution | Roadmap; current audit is not identity proof | SC-13 / 0.12 |
 | US-I09 | Advanced integration query | Roadmap; query grammar requires agreement | SC-10 extension / 0.9 |
-| US-O06 | Service observability | Health foundation; production measures planned | SC-13 / 0.10 |
+| US-O06 | Service observability | Health foundation; production measures planned | SC-13 / 0.11 |
 | US-P08 | Reusable definition package | Roadmap; two reuse cases required | SC-12 extension / 1.0 |
 
 ## Required recurring journeys

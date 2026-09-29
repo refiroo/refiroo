@@ -24,7 +24,7 @@ record the gap below instead of silently choosing the most convenient interpreta
 | GAP-05 | Current publications is oldest first, whereas the interaction baseline asks for newest first. | Align the history order or explicitly amend the interaction baseline; validate the user's ability to find the latest publication. | 0.6 history gate; US-W05 | Ok. Newest first. |
 | GAP-06 | Technical 0.7 mapping, 0.8 hierarchy/translation and 0.9 bulk scope still includes mandatory change set wording. It conflicts with direct daily maintenance. | Rewrite those plans to offer live maintenance and an explicit optional design context under ADR-026. If an operation needs extra review, state its particular risk and obtain a product decision. | Before planning each specialist/integration release | Ok. Plans has to be rewritten based on the recent product functionality. |
 | GAP-07 | Component and service tests are described as functionality evidence, but no composed browser proof is supplied here. | Attach actual executed scenarios, results, skips and limitations before changing availability to browser validated. | 0.6 WP10; all browser stories |Ok. the validations and testing have to be extended. |
-| GAP-08 | A change set (data) and a model draft (application definition) are different tools. Some “design playground” wording suggests editing both together today. | Keep data coordination separate from definition release management. Treat coordinated schema/data migration and workspace-specific model selection as 0.10 work. | All lifecycle plans; US-W01–W08, US-P07 | Ok, accepted, these have to be different concepts. The documentation has to be upgraded accordingly. |
+| GAP-08 | A change set (data) and a model draft (application definition) are different tools. Some “design playground” wording suggests editing both together today. | Keep data coordination separate from definition release management. Treat coordinated schema/data migration and workspace-specific model selection as 0.11 work. | All lifecycle plans; US-W01–W08, US-P07 | Ok, accepted, these have to be different concepts. The documentation has to be upgraded accordingly. |
 
 Read-only evidence inspected for this update:
 
@@ -65,7 +65,7 @@ For future features, settle these product questions when their milestone is plan
 | 0.9 exchange | Which file formats, duplicate keys, retry rules and batch failure policy are supported? | Preview before import; expose row outcomes; never hide a partial result behind “success” |
 | 0.9 synchronization | What is retained, how are expired positions recovered, and how are repeated deliveries identified? | Do not promise exactly-once delivery; consumers must be able to reconcile retries |
 | 0.9 effective dates | Which date boundaries, time zone and overlaps define a valid business-time answer? | Explicit configuration; distinct from audit time and publication history |
-| 0.10 production | What access scopes, supported loads, recovery time and acceptable data-loss targets are required? | Prove them under representative operation; no invented numeric service guarantee |
+| 0.11 production | What access scopes, supported loads, recovery time and acceptable data-loss targets are required? | Prove them under representative operation; no invented numeric service guarantee |
 | 1.0 authoring | Which definition tasks justify forms, matrices, previews or an extension mechanism? | Same validation and release safety as the existing definition workbench; demonstrate two reuse cases before generalizing |
 
 Research candidates such as approvals, copy/duplicate and localized interface labels are uncommitted.
@@ -79,22 +79,22 @@ this review did not refresh their vendor sources or adopt their proposals wholes
 | --- | --- | --- |
 | GAP-01 complete workspace/live browser flow | WP9 | SC-01–SC-04 in composed browser, two record types |
 | GAP-02 copy current live or historical content | WP8.1-B, then WP9 | SC-05 and concurrent snapshot/merge evidence; empty change sets are development/bootstrap support |
-| GAP-02 incompatible historical schema replacement | Product 0.10 migration and workspace model assignment | Preview losses, confirm exact reviewed plan or cancel, atomic migration, unaffected workspace isolation |
+| GAP-02 incompatible historical schema replacement | Product 0.11 migration and workspace model assignment | Preview losses, confirm exact reviewed plan or cancel, atomic migration, unaffected workspace isolation |
 | GAP-03 no direct restore | WP8.1/WP9 wording and merge checks | Historical source applies only authored changes; newer untouched data survives |
 | GAP-04 truthful publication withdrawal | WP9, with service proof in WP8.1 | Remove designation; preserve live access and history; distinguish catalogue retirement |
 | GAP-05 newest first | WP8.1-C, then WP9 history | Deterministic reverse chronological paging and exact retry |
 | GAP-06 live specialist/integration flows | Roadmap 0.7–0.9 packages | Live default plus explicit optional change set; generic paths preserve the same rules |
 | GAP-07 stronger validation | WP10 and each later release | Actual composed journeys and boundary evidence, not component-only acceptance |
-| GAP-08 separate data/model drafts | ADR-027, WP9, product 0.10 | No data activation silently edits model definitions or global selection |
-| GAP-08 stage a candidate release in an optional draft | ADR-028, product 0.7 | A draft is created against, or explicitly moved onto, an installed supported release; a draft the target does not already accept needs the reviewed 0.10 conversion; nothing forces a change through or moves a draft without being asked |
+| GAP-08 separate data/model drafts | ADR-027, WP9, product 0.11 | No data activation silently edits model definitions or global selection |
+| GAP-08 stage a candidate release in an optional draft | ADR-028, product 0.7 | A draft is created against, or explicitly moved onto, an installed supported release; a draft the target does not already accept needs the reviewed 0.11 conversion; nothing forces a change through or moves a draft without being asked |
 
 The historical-schema confirmation requested in GAP-02 is preserved as a planned capability. It is
-not a current activation flag. The 0.10 workspace model-assignment/migration boundary avoids changing
+not a current activation flag. The 0.11 workspace model-assignment/migration boundary avoids changing
 other workspaces’ rules. An unsupported schema language still needs parser/runtime support. A
 catalogue-retired workspace is read-only; historical derivation means a retired publication snapshot.
 ADR-028 keeps a change set on a release the user chooses without changing any data. A change set whose
 content the chosen release already accepts is a change set edit with no migration and no assignment; a
-change set the chosen release does not already accept needs the reviewed 0.10 conversion. Either way a
+change set the chosen release does not already accept needs the reviewed 0.11 conversion. Either way a
 change set edit never changes the release serving data.
 
 ## 0.7 plan review follow-up — 2026-09-12

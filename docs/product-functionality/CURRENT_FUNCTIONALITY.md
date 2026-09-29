@@ -480,6 +480,6 @@ command. Backups and application/schema rollback are separate from activating an
 release.
 
 Limits: production PostgreSQL scale, multi-node propagation, authenticated administration, metrics and
-full backup/restore rehearsal are planned for 0.10.
+full backup/restore rehearsal are planned for 0.11.
 
 Evidence: [application startup](../../backend/app/main.py), [architecture runbook](../ARCHITECTURE.md#upgrade-backup-and-rollback-operations).

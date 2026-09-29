@@ -14,9 +14,10 @@ The technical roadmap needs the reconciliations in [planning handoff](PLANNING_H
 | Product 0.7  | Review mapping coverage and replace one mapping atomically                  | US-M01–M04, US-W09                         | Roadmap                                        |
 | Product 0.8  | Work efficiently with translation coverage and deep hierarchies             | US-L03–L04, US-H01–H02   | Delivered: translation (A5), hierarchy (B4)    |
 | Product 0.9  | Exchange and synchronize data at integration scale                          | US-I03–I09                                 | Roadmap                                        |
-| Product 0.10 | Operate reliably with multiple writers/nodes and staged models              | US-O03–O04, US-O06, US-P07                 | Roadmap                                        |
-| Product 0.11 | Authenticate every caller and authorize every operation                     | US-S01, US-O05                             | Roadmap                                        |
-| Product 1.0  | Author models through structured, reference-aware tools                     | US-P05, US-P08                             | Roadmap                                        |
+| Product 0.10 | Turn spreadsheets into applications and edit models in one structured editor | US-P05 (additive), US-P09–P10 | Roadmap                                        |
+| Product 0.11 | Operate reliably with multiple writers/nodes and staged models              | US-O03–O04, US-O06, US-P07                 | Roadmap                                        |
+| Product 0.12 | Authenticate every caller and authorize every operation                     | US-S01, US-O05                             | Roadmap                                        |
+| Product 1.0  | Change released structure through the editor; reuse proven definitions      | US-P05 (migrations), US-P08                | Roadmap                                        |
 
 ## Product 0.6 — Finish daily operations
 
@@ -188,9 +189,34 @@ rather than loops over user-interface operations or undocumented unlimited respo
 - Bulk behavior is a first-class service, not client-side repetition of one-item calls.
 - Current type, relationship, workspace and concurrency rules still apply.
 
-## Product 0.10 — Production hardening and staged model rollout
+## Product 0.10 — Model authoring and spreadsheet onboarding
 
-**Why it matters:** with 0.11, this is the gate for authenticated shared production use, not optional
+**Why before production controls:** reference data arrives in spreadsheets, and today each upload needs
+hand-written model JSON and a bespoke import script. The editor's operations in 0.10 are limited to
+additive changes and to structure that is not yet released, so they need no data migration.
+**Acceptance:** SC-12 through the editor, stories US-P05 (additive and draft-only), US-P09 and US-P10,
+and the exit gate in [MODEL_AUTHORING.md](../MODEL_AUTHORING.md).
+
+### User outcome
+
+A model administrator uploads a workbook, gets a proposed model and import mapping, renames, remaps and
+reorganizes both while seeing the effect on the real rows, installs the model through the normal release
+checks and reviews the data in a change set before publishing. The next version of the workbook loads
+through the saved mapping and shows only its differences.
+
+### Planned functions
+
+- workbook upload and profiling (XLSX, CSV, several sheets);
+- inference over common spreadsheet shapes, always as proposals with evidence;
+- one editor for the model and the mapping: source, mapping and model panes, relationship matrix and a
+  live preview rendered by the generic renderers;
+- every edit a validated operation with history and undo; drag and drop with keyboard equivalents;
+- generated default views and detail panels, edited in the preview;
+- saved import profiles, executed by the 0.9 import job into a change set by default.
+
+## Product 0.11 — Production hardening and staged model rollout
+
+**Why it matters:** with 0.12, this is the gate for authenticated shared production use, not optional
 polish. Earlier milestones are pre-production capabilities. **Acceptance:** SC-13, stories US-O03–O04,
 US-O06 and US-P07, with measured operating and recovery targets agreed before validation.
 
@@ -216,9 +242,9 @@ Workspace model assignment is not merely a pin. The product must resolve the wor
 model, migrate its data, keep every permitted schema executable and prevent one request from combining
 different model snapshots.
 
-## Product 0.11 — Security, authentication and authorization
+## Product 0.12 — Security, authentication and authorization
 
-**Why it matters:** the security release, after everything else works; with 0.10 it gates shared
+**Why it matters:** the security release, after everything else works; with 0.11 it gates shared
 production use. **Acceptance:** stories US-S01 and US-O05, the identity part of SC-13.
 
 ### User outcome
@@ -237,22 +263,21 @@ path, and changes are attributed to a proven identity.
 
 ## Product 1.0 — Self-service model authoring and extensions
 
-**Why after production controls:** easier authoring still needs protected changes and safe migration.
-**Acceptance:** SC-12 through structured controls, stories US-P05 and US-P08; demonstrate reuse with
+**Why after production controls:** changing released structure needs protected changes and safe migration.
+**Acceptance:** SC-12 through structured controls, stories US-P05 (migration operations) and US-P08; demonstrate reuse with
 two real configuration consumers before defining extension abstractions.
 
 ### User outcome
 
-An authorized model administrator evolves applications through structured, reference-aware tools
-instead of relying only on raw JSON.
+An authorized model administrator changes released applications with the 0.10 editor, including
+changes that need a data migration, and reuses proven definitions.
 
 ### Planned functions
 
-- catalogues and forms for model definitions;
-- relationship matrices and safe reference selection;
-- useful live preview;
+- the 0.10 editor's migration-class operations (key renames, splits, merges, cardinality changes on
+  released structure), each with an impact preview;
 - dependency visualization only where it improves comprehension;
-- protected publish, activation and rollback on the 0.10 migration boundary; and
+- protected publish, activation and rollback on the 0.11 migration boundary; and
 - reusable extension packages after two real reuse cases establish the abstraction.
 
 The structured designer must not make a node-and-edge canvas the mandatory route for simple editing.

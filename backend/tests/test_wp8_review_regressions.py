@@ -513,8 +513,10 @@ def test_change_set_delete_honours_object_type_in_route(review_client):
         },
     )
 
-    assert rejected.status_code == 404
-    assert rejected.json()["error"]["code"] == "object_not_found"
+    # A record found under another type answers with its current type (D42, ADR-034).
+    assert rejected.status_code == 409
+    assert rejected.json()["error"]["code"] == "object_type_changed"
+    assert rejected.json()["error"]["details"]["objectTypeKey"] == "domain"
     assert (
         client.get(
             f"/api/v1/objects/domain/{item['id']}",

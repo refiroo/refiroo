@@ -328,7 +328,7 @@ def _search_guards() -> list:
 
 
 def test_search_reads_the_index_on_sqlite_only():
-    """PostgreSQL has no FTS5 index (its trigram form arrives with 0.10): a search there compiles
+    """PostgreSQL has no FTS5 index (its trigram form arrives with 0.11): a search there compiles
     without the guard and looks every record's values up, as before S8."""
     for statement in _search_guards():
         on_sqlite = str(statement.compile(dialect=sqlite.dialect()))

@@ -233,7 +233,7 @@ retirement is a separate administrative read-only operation.
 | Historical/current model mismatch | Draft, history and live selection | Show both definitions and migration requirement; cancel/back is available |
 | Failed page or panel | Successful loaded content and query context | Retry the failed request without broadening it |
 
-Product 0.10 adds the accepted historical model replacement path: preview incompatibilities and
+Product 0.11 adds the accepted historical model replacement path: preview incompatibilities and
 potential data loss for a named workspace and installed target definition (normally the historical
 pin), explicitly confirm the reviewed migration or cancel. Confirmation is bound to
 current model/data/draft versions and an executable transformation. It does not waive valid target

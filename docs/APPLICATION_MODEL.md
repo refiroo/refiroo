@@ -513,7 +513,7 @@ context, versions, lineage and atomicity.
 A workspace change set does not edit definitions. Publications must be interpreted under their
 pinned supported model (WP8.1 correction). Current-live change set bases must capture the selected model and
 current record versions without pretending that the last publication contains recent live edits.
-Historical schema replacement with reviewed potential loss is an explicit 0.10 migration and model
+Historical schema replacement with reviewed potential loss is an explicit 0.11 migration and model
 selection operation under ADR-027; it does not mutate an immutable model release or bypass validation.
 
 ADR-021 reserves schema 0.5 for a strict `table` definition. Product 0.7 adds `mappingGrid` in

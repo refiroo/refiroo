@@ -13,7 +13,7 @@ again, so an interrupted upgrade completes on the next start. The DDL is copied 
 imported, so this revision keeps its meaning when ``app/models/search_index.py`` changes.
 
 FTS5 is SQLite's. On another dialect the revision changes nothing and search reads each record's
-values as before; the PostgreSQL form (trigram GIN) arrives with 0.10.
+values as before; the PostgreSQL form (trigram GIN) arrives with 0.11.
 """
 
 from alembic import op

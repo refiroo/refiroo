@@ -30,6 +30,7 @@ KINDS = ("added", "changed", "removed")
 
 @dataclass(frozen=True)
 class ObjectState:
+    object_type_key: str
     name: str
     parent_object_id: str | None
     attributes: dict[str, Any]
@@ -149,6 +150,7 @@ def list_object_changes(
     if base is None:
         kind = _kind(own.is_deleted, None)
         source_columns = [
+            literal(None, String).label("source_object_type_key"),
             literal(None, String).label("source_name"),
             literal(None, String).label("source_parent_object_id"),
             literal(None).label("source_attributes"),
@@ -158,6 +160,7 @@ def list_object_changes(
         source = aliased(base.objects)
         kind = _kind(own.is_deleted, source.object_id)
         source_columns = [
+            source.object_type_key.label("source_object_type_key"),
             source.name.label("source_name"),
             source.parent_object_id.label("source_parent_object_id"),
             source.attributes.label("source_attributes"),
@@ -183,7 +186,12 @@ def list_object_changes(
             ),
         )
     if types:
-        statement = statement.where(own.object_type_key.in_(types))
+        # Either side: a record whose type the change set changed is listed under its old type too.
+        # The source term inside an ``OR`` keeps the outer join (see ``_kind``).
+        side = own.object_type_key.in_(types)
+        if base is not None:
+            side = or_(side, source.object_type_key.in_(types))
+        statement = statement.where(side)
     result = paginate_statement(
         session,
         statement,
@@ -204,6 +212,7 @@ def list_object_changes(
         if row.kind == "added":
             return None
         return ObjectState(
+            row.source_object_type_key,
             row.source_name,
             row.source_parent_object_id,
             dict(row.source_attributes or {}),
@@ -213,7 +222,13 @@ def list_object_changes(
     def after(row: Any) -> ObjectState | None:
         if row.kind == "removed":
             return None
-        return ObjectState(row.name, row.parent_object_id, dict(row.attributes or {}), row.version)
+        return ObjectState(
+            row.object_type_key,
+            row.name,
+            row.parent_object_id,
+            dict(row.attributes or {}),
+            row.version,
+        )
 
     states = [(row, before(row), after(row)) for row in result.items]
     # Added and changed records sit where the change set puts them; a removed one where its source
@@ -241,6 +256,16 @@ def list_object_changes(
     for row, before_state, after_state in states:
         order = orders.setdefault(row.object_type_key, _attribute_order(model, row.object_type_key))
         changed = []
+        if before_state is not None and before_state.object_type_key != row.object_type_key:
+            changed.append("objectType")
+            # The old type's attributes order after the new type's.
+            order = {
+                **{
+                    key: len(order) + index
+                    for key, index in _attribute_order(model, before_state.object_type_key).items()
+                },
+                **order,
+            }
         if (before_state and before_state.name) != (after_state and after_state.name):
             changed.append("name")
         if (before_state and before_state.parent_object_id) != (
@@ -283,7 +308,7 @@ class _PathRow:
 
     @classmethod
     def of(cls, row: Any, state: ObjectState) -> _PathRow:
-        return cls(row.object_id, state.name, row.object_type_key, state.parent_object_id)
+        return cls(row.object_id, state.name, state.object_type_key, state.parent_object_id)
 
 
 def _read_records(
@@ -392,8 +417,9 @@ def _containment_filter(
     """Own relation rows that are (or with ``containment`` false, are not) parent edges.
 
     A relation type is decided by its key alone when every permitted pair ending at a type either
-    declares it a parent relation or not; a key used both ways reads its ``to`` end's type, which a
-    record never changes, from its change set row or else its source row.
+    declares it a parent relation or not; a key used both ways reads its ``to`` end's type from its
+    change set row and from its source row. A type change (ADR-034) can make them differ, and the
+    edge is a parent edge when either side is a child the key contains.
     """
     pairs = containment_pairs(model)
     parents = {key for key, _ in pairs}
@@ -424,10 +450,12 @@ def _containment_filter(
                 .correlate_except(source)
                 .scalar_subquery()
             )
-            to_type = case((to_type.is_not(None), to_type), else_=source_type)
         for key in mixed:
             children = sorted(child for relation, child in pairs if relation == key)
-            terms.append(and_(own.relation_type_key == key, to_type.in_(children)))
+            side = to_type.in_(children)
+            if context.base is not None:
+                side = or_(side, source_type.in_(children))
+            terms.append(and_(own.relation_type_key == key, side))
     matches = or_(*terms) if terms else literal(False)
     return matches if containment else ~matches
 
@@ -538,12 +566,18 @@ def list_relation_changes(
         )
         after = None if row.kind == "removed" else RelationState(dict(row.attributes or {}), row.version)
         from_end, to_end = end(row.from_object_id), end(row.to_object_id)
+        # A parent edge by the ``to`` end's type on either side: a record whose type the change
+        # set changed (ADR-034) had its former edge under its former type.
+        source_to = found.get(("source", row.to_object_id))
+        containment = (row.relation_type_key, to_end.object_type_key) in pairs or (
+            source_to is not None and (row.relation_type_key, source_to.object_type_key) in pairs
+        )
         entries.append(
             RelationChangeEntry(
                 kind=row.kind,
                 relation_id=row.relation_id,
                 relation_type_key=row.relation_type_key,
-                containment=(row.relation_type_key, to_end.object_type_key) in pairs,
+                containment=containment,
                 from_end=from_end,
                 to_end=to_end,
                 before=before,

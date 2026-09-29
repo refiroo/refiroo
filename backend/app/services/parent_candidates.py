@@ -9,6 +9,11 @@ A candidate the write would refuse stays in the list, marked with its reason (D1
 itself, a record under it (a cycle), or its current parent. Whether a candidate is under the record
 is read from the candidate's path, which the page returns anyway: one walk up per page, batched by
 level, so it costs the page and the hierarchy's depth, never the size of the moved subtree.
+
+In a change set, ``includeTypeChanges`` (Base 0.8 C3) also lists the records a move that changes
+the record's type could go under: those of types that can contain another type of the record's
+application, as the restructuring planner decides it. Each candidate then names the types the
+record would be there.
 """
 
 from typing import Any
@@ -30,6 +35,7 @@ from .objects import (
     refine_object_query,
 )
 from .pagination import Keyed, Overlay, PageRequest, paginate_statement
+from .restructuring import application_type_keys, possible_types
 from .snapshot_reads import (
     SnapshotContext,
     change_set_context,
@@ -53,9 +59,17 @@ def parent_candidates(
     search: str | None,
     page: PageRequest,
     page_size: int,
+    include_type_changes: bool = False,
 ) -> ParentCandidatePage:
     begin_snapshot_read(session)
     get_object_type(model, object_type_key)
+    if include_type_changes and not change_set_id:
+        raise api_error(
+            422,
+            "type_changes_need_change_set",
+            "A record's type changes only in a change set; includeTypeChanges needs changeSetId",
+            {"parameter": "includeTypeChanges"},
+        )
     context = change_set_context(session, change_set_id) if change_set_id else None
     if context is not None:
         record = find_object(session, context, object_id, object_type_key)
@@ -69,7 +83,16 @@ def parent_candidates(
             raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
         application_key, current_parent = item.application_key, item.parent_object_id
 
-    types = sorted(parent_type_keys(model, object_type_key))
+    own_parents = parent_type_keys(model, object_type_key)
+    becomes: dict[str, list[str]] = {}
+    if include_type_changes:
+        application_types = application_type_keys(model, application_key)
+        for key in application_types:
+            if key in own_parents:
+                becomes[key] = [object_type_key]
+            elif options := possible_types(model, application_types, key):
+                becomes[key] = list(options)
+    types = sorted(own_parents | set(becomes))
     if parent_object_type_key is not None:
         if parent_object_type_key not in types:
             raise api_error(
@@ -85,6 +108,7 @@ def parent_candidates(
         "objectId": object_id,
         "parentObjectTypeKey": parent_object_type_key,
         "search": search,
+        **({"includeTypeChanges": True} if include_type_changes else {}),
     }
 
     if context is None:
@@ -145,6 +169,7 @@ def parent_candidates(
                 path=[ObjectPathPart(**part) for part in path],
                 eligible=reason is None,
                 reason=reason,
+                objectTypeKeys=becomes.get(candidate_type) if include_type_changes else None,
             )
         )
     return ParentCandidatePage(items=candidates, **found.links())

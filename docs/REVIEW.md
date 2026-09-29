@@ -35,11 +35,11 @@ wording now points to the current roadmap rather than instructing premature mapp
 | Publication retirement | Remove current-publication designation; retain live access and history | WP8.1-C complete; WP9 UI; SC-08 |
 | History order | Newest first, deterministic bounded paging | WP8.1-C complete; WP9 UI |
 | Model/history authority | All live data constrains current model; pinned supported model interprets history | WP8.1-A; SC-12/SC-13 current-boundary variants |
-| Historical schema incompatibility | Preview loss and confirm exact migration or cancel; separate data/model drafts and workspace assignment | Product 0.10; US-P07/SC-13 migration variants |
+| Historical schema incompatibility | Preview loss and confirm exact migration or cancel; separate data/model drafts and workspace assignment | Product 0.11; US-P07/SC-13 migration variants |
 | Validation and simple flows | Actual composed journey evidence, two configurations, preserved input and explicit complexity comparison | WP10 and each later release |
 
 The historical migration is not an override. Base 0.6 preserves incompatible drafts and refuses
-activation. The 0.10 plan must transform/validate data and switch only the selected workspace model
+activation. The 0.11 plan must transform/validate data and switch only the selected workspace model
 assignment atomically after a fresh reviewed confirmation. Cancel, stale review and failure change
 nothing; immutable history and other workspaces remain unaffected. Unsupported schema languages still
 require parser/runtime support.

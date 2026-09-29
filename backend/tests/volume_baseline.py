@@ -497,6 +497,59 @@ def change_list_scenarios(client, engine: Engine, review: ReviewChangeSet, *, re
     return results
 
 
+def restructuring_scenarios(
+    engine: Engine, dataset: VolumeDataset, *, repeat: int
+) -> tuple[list[Measurement], int]:
+    """C2: the heavy group moved under the small group as a node in the change set, so it and each
+    of its items change type (its nodes stay nodes). Planning alone reads level by level; the
+    preview also dry-runs every record's write, which it then rolls back. Returns the
+    measurements and the number of records the plan changes."""
+    from app.services.change_sets import _change_set, _change_set_model
+    from app.services.restructuring import (
+        MoveOperation,
+        Restructuring,
+        _Planner,
+        preview_restructuring,
+    )
+
+    request = Restructuring(MoveOperation(dataset.heavy_group_id, dataset.small_group_id, NODE))
+
+    def plan_only() -> int:
+        with Session(engine) as session:
+            change_set = _change_set(session, dataset.change_set_id)
+            model = _change_set_model(session, change_set)
+            with measure(engine) as cost:
+                plan = _Planner(session, change_set, model, request).plan()
+            session.rollback()
+        costs.append(cost)
+        return len(plan.records)
+
+    def preview() -> int:
+        with Session(engine) as session, measure(engine) as cost:
+            plan = preview_restructuring(session, dataset.change_set_id, request)
+        assert plan.status == "ready", plan.summary()
+        costs.append(cost)
+        return len(plan.records)
+
+    results, count = [], 0
+    for scenario, call in (("plan", plan_only), ("preview with dry run", preview)):
+        costs: list = []
+        for _ in range(repeat + 1):
+            count = call()
+        timed = costs[1:] or costs
+        results.append(
+            Measurement(
+                "change_set",
+                f"restructuring {scenario}: {count:,} records",
+                200,
+                statistics.median(item.seconds * 1000 for item in timed),
+                costs[-1].statements,
+                costs[-1].rows_loaded,
+            )
+        )
+    return results, count
+
+
 def markdown_table(results: list[Measurement]) -> str:
     """One row per scenario, one ``ms · statements · rows`` column per context."""
     scenarios = list(dict.fromkeys(item.scenario for item in results))
@@ -525,6 +578,11 @@ def main() -> None:
     parser.add_argument("--workdir", type=Path, default=None, help="keep the database here")
     parser.add_argument("--json", type=Path, default=None, help="also write results as JSON")
     parser.add_argument(
+        "--only-restructuring",
+        action="store_true",
+        help="measure only the C2 restructuring planner (use --scale 0.024 for about 480 records)",
+    )
+    parser.add_argument(
         "--only-change-lists",
         action="store_true",
         help="measure only the P2a change lists over the review change set",
@@ -550,15 +608,18 @@ def main() -> None:
         started = time.perf_counter()
         dataset = seed_volume(engine, scaled_shape(arguments.scale))
         seeded = time.perf_counter() - started
-        results = [] if arguments.only_change_lists else run_scenarios(
-            client, engine, dataset, repeat=arguments.repeat
-        )
-        # Seeded after the other scenarios, so none of them runs beside it.
-        review = seed_review_change_set(engine, dataset)
-        dataset.counts.update({f"review.{key}": value for key, value in review.counts.items()})
-        results += change_list_scenarios(client, engine, review, repeat=arguments.repeat)
-        if not arguments.only_change_lists:
-            results += known_exceptions(client, engine, dataset, repeat=arguments.repeat)
+        if arguments.only_restructuring:
+            results, _count = restructuring_scenarios(engine, dataset, repeat=arguments.repeat)
+        else:
+            results = [] if arguments.only_change_lists else run_scenarios(
+                client, engine, dataset, repeat=arguments.repeat
+            )
+            # Seeded after the other scenarios, so none of them runs beside it.
+            review = seed_review_change_set(engine, dataset)
+            dataset.counts.update({f"review.{key}": value for key, value in review.counts.items()})
+            results += change_list_scenarios(client, engine, review, repeat=arguments.repeat)
+            if not arguments.only_change_lists:
+                results += known_exceptions(client, engine, dataset, repeat=arguments.repeat)
 
     print(
         f"Scale {arguments.scale} · {dataset.counts} · seeded in {seeded:.1f} s · "

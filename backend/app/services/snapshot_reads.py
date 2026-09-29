@@ -39,6 +39,7 @@ from .objects import (
     _query_error,
     get_object_type,
     indexed_value_match,
+    object_type_changed,
     refine_object_query,
     top_level_filter,
     validate_application_object_type,
@@ -436,9 +437,13 @@ def find_objects(session: Session, context: SnapshotContext, object_ids: Iterabl
 def find_object(
     session: Session, context: SnapshotContext, object_id: str, object_type_key: str | None = None
 ) -> Row | None:
+    """The record in the context, or ``None``; found under another type than ``object_type_key``,
+    ``409 object_type_changed`` (D42)."""
     row = find_objects(session, context, [object_id]).get(object_id)
-    if row is None or (object_type_key is not None and row.object_type_key != object_type_key):
+    if row is None:
         return None
+    if object_type_key is not None and row.object_type_key != object_type_key:
+        raise object_type_changed(object_id, row.object_type_key, object_type_key)
     return row
 
 

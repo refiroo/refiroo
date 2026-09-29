@@ -15,7 +15,7 @@ a search reads them from the (type, name) index it already walks, which costs ab
 ``alembic`` revision ``20260926_03`` creates these objects on upgrade with its own copy of the DDL;
 ``Base.metadata.create_all`` creates them through :func:`register` for databases built without it.
 
-The indexes exist on SQLite only; the PostgreSQL form (trigram GIN) arrives with 0.10. Until then a
+The indexes exist on SQLite only; the PostgreSQL form (trigram GIN) arrives with 0.11. Until then a
 search on another dialect reads each record's values, through :class:`SqliteOnly`.
 """
 

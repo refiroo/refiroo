@@ -22,6 +22,11 @@ from ..models.api import (
     RelationChangeEnd,
     RelationChangePage,
     RelationChangeState,
+    RestructuringApplyRequest,
+    RestructuringPreview,
+    RestructuringPreviewRequest,
+    RestructuringRequest,
+    RestructuringResult,
 )
 from ..models.database import ChangeSet, ModelRelease, Publication
 from ..services.change_lists import (
@@ -49,8 +54,30 @@ from ..services.model.registry import (
     resolve_pinned_release,
 )
 from ..services.model.runtime import load_runtime_state
-from ..services.pagination import integer_key, paginate_sequence, paginate_statement, text_key
+from ..services.pagination import (
+    PageRequest,
+    integer_key,
+    paginate_sequence,
+    paginate_statement,
+    text_key,
+)
+from ..services.restructuring import (
+    ChangeTypeOperation,
+    ChangeTypeUnderOperation,
+    InsertLevelOperation,
+    MappingChoice,
+    MoveOperation,
+    Operation,
+    RecordInputs,
+    RemoveLevelOperation,
+    Restructuring,
+    TypeChoice,
+    apply_restructuring,
+    page_plan_records,
+    preview_restructuring,
+)
 from ..services.snapshot_reads import change_set_context
+from ..services.type_changes import RelationInput
 from ..services.workspace_audit import record_change_set_validated
 from ..services.workspaces import load_workspace
 from .paging import PageQuery
@@ -217,7 +244,10 @@ _KIND = Query(
 _OBJECT_TYPE_KEY = Query(
     default=None,
     alias="objectTypeKey",
-    description="Only records of these types (repeatable), under the change set's model",
+    description=(
+        "Only records of these types (repeatable), under the change set's model; a record whose"
+        " type the change set changed matches either type"
+    ),
 )
 _RELATION_TYPE_KEY = Query(
     default=None,
@@ -238,6 +268,7 @@ def _object_change(model, entry: ObjectChangeEntry) -> ObjectChange:
         if side is None:
             return None
         return ObjectChangeState(
+            objectTypeKey=side.object_type_key,
             name=side.name,
             parentObjectId=side.parent_object_id,
             attributes=snapshot_attributes(model, entry.object_id, side.attributes),
@@ -345,6 +376,115 @@ def get_relation_changes(
     )
     return RelationChangePage(
         items=[_relation_change(entry) for entry in page.items], **page.links()
+    )
+
+
+def _operation(payload: RestructuringRequest) -> Operation:
+    operation = payload.operation
+    match operation.kind:
+        case "move":
+            return MoveOperation(
+                str(operation.objectId),
+                str(operation.parentObjectId) if operation.parentObjectId else None,
+                operation.objectTypeKey,
+            )
+        case "changeType":
+            return ChangeTypeOperation(str(operation.objectId), operation.objectTypeKey)
+        case "insertLevel":
+            return InsertLevelOperation(
+                str(operation.parentObjectId) if operation.parentObjectId else None,
+                tuple(str(item) for item in operation.childObjectIds),
+                operation.objectTypeKey,
+                operation.name,
+            )
+        case "removeLevel":
+            return RemoveLevelOperation(str(operation.objectId))
+        case _:
+            return ChangeTypeUnderOperation(
+                str(operation.objectId), operation.fromObjectTypeKey, operation.objectTypeKey
+            )
+
+
+def _restructuring(payload: RestructuringRequest) -> Restructuring:
+    return Restructuring(
+        operation=_operation(payload),
+        type_choices=[
+            TypeChoice(item.objectTypeKey, item.parentObjectTypeKey, item.newObjectTypeKey)
+            for item in payload.choices.types
+        ],
+        mapping_choices=[
+            MappingChoice(
+                item.fromObjectTypeKey,
+                item.toObjectTypeKey,
+                {attribute.attributeTypeKey: attribute.from_ for attribute in item.attributes},
+                item.restore,
+            )
+            for item in payload.choices.mappings
+        ],
+        inputs=[
+            RecordInputs(
+                item.objectId.lower(),
+                {attribute.attributeTypeKey: attribute.value for attribute in item.attributes},
+                tuple(
+                    RelationInput(
+                        relation.relationTypeKey,
+                        relation.direction,
+                        str(relation.objectId),
+                        relation.attributes,
+                    )
+                    for relation in item.relations
+                ),
+            )
+            for item in payload.inputs
+        ],
+    )
+
+
+@router.post(
+    "/change-sets/{change_set_id}/restructurings/preview", response_model=RestructuringPreview
+)
+def post_restructuring_preview(
+    change_set_id: str, payload: RestructuringPreviewRequest, session: DbSession
+) -> RestructuringPreview:
+    """Plan a restructuring of a hierarchy in a change set and write nothing (Base 0.8 C3).
+
+    The plan's records page by position in plan order; ``outcome`` filters them.
+    """
+    page = PageRequest(
+        cursor=payload.cursor,
+        position=payload.position,
+        from_end=payload.from_ == "end",
+        include_total=payload.includeTotal,
+    )
+    plan = preview_restructuring(
+        session,
+        change_set_id,
+        _restructuring(payload),
+        expected_change_set_version=payload.expectedChangeSetVersion,
+    )
+    found = page_plan_records(plan, payload.outcome, page, payload.pageSize)
+    return RestructuringPreview.model_validate({**plan.payload(found.items), **found.links()})
+
+
+@router.post("/change-sets/{change_set_id}/restructurings", response_model=RestructuringResult)
+def post_restructuring(
+    change_set_id: str, payload: RestructuringApplyRequest, session: DbSession
+) -> RestructuringResult:
+    """Apply a previewed restructuring: the plan is recomputed and written only when it is the
+    one previewed and ready (Base 0.8 C3)."""
+    result = apply_restructuring(
+        session,
+        change_set_id,
+        _restructuring(payload),
+        expected_change_set_version=payload.expectedChangeSetVersion,
+        plan_digest=payload.planDigest,
+    )
+    return RestructuringResult(
+        operationId=result.operation_id,
+        changeSetId=result.change_set_id,
+        changeSetVersion=result.change_set_version,
+        summary=result.summary,
+        createdObjectId=result.created_object_id,
     )
 
 

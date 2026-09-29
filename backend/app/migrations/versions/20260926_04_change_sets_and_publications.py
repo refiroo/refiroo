@@ -16,7 +16,7 @@ SQLite commits DDL as it runs, so every step first looks at what an interrupted 
 table still in its earlier shape is copied again from the start, and a finished copy whose source
 is gone is swapped in. The DDL is copied here rather than taken from the ORM, so this revision keeps
 its meaning when ``app/models/database.py`` changes. Automatic upgrade is supported for SQLite only;
-another dialect is refused with a recovery instruction (PostgreSQL arrives with 0.10).
+another dialect is refused with a recovery instruction (PostgreSQL arrives with 0.11).
 """
 
 import json

@@ -38,3 +38,53 @@ def starter_at_schema(schema_version: str, source: dict[str, Any] | None = None)
                 view for view in application["views"] if view["type"] == "table"
             ]
     return result
+
+
+def starter_keys(source: dict[str, Any]) -> set[str]:
+    """Every key the model declares: applications, views, details, types and reverse keys."""
+    keys = set()
+    for application in source["applications"]:
+        keys.add(application["key"])
+        keys.update(view["key"] for view in application.get("views", []))
+        keys.update(detail["key"] for detail in application.get("details", []) if "key" in detail)
+    for collection in ("objectTypes", "relationTypes", "attributeTypes"):
+        for item in source[collection]:
+            keys.add(item["key"])
+            if item.get("reverseKey"):
+                keys.add(item["reverseKey"])
+    return keys
+
+
+def renamed_model(
+    source: dict[str, Any] | None = None, prefix: str = "zq-"
+) -> tuple[dict[str, Any], dict[str, str]]:
+    """The starter (or ``source``) with every declared key renamed, and the old-to-new key map.
+
+    String values naming a key are renamed wherever they appear, as are ``ancestor:<type>`` field
+    references and the keys of maps keyed by a model key; JSON property names are left alone.
+    """
+    source = copy.deepcopy(source) if source is not None else json.loads(MODEL_PATH.read_text())
+    names = {key: f"{prefix}{key}" for key in starter_keys(source)}
+
+    def rename(value: Any, *, keyed: bool = False) -> Any:
+        if isinstance(value, str):
+            if value in names:
+                return names[value]
+            head, _, tail = value.partition(":")
+            if tail in names and head in {"ancestor"}:
+                return f"{head}:{names[tail]}"
+            return value
+        if isinstance(value, list):
+            return [rename(item) for item in value]
+        if isinstance(value, dict):
+            return {
+                (names.get(key, key) if keyed else key): rename(item, keyed=key in _KEYED_MAPS)
+                for key, item in value.items()
+            }
+        return value
+
+    return rename(source), names
+
+
+# Properties whose value is a map keyed by model keys.
+_KEYED_MAPS = {"childSort"}

@@ -79,7 +79,7 @@ is controlled by a deployment setting, this catalogue says so explicitly.
 - **Platform operator:** deploys, upgrades, monitors, backs up and recovers the service.
 
 These are responsibilities, not implemented permission roles. Identity and authorization are planned
-for product 0.10.
+for product 0.11.
 
 ## Evidence and maintenance rule
 

@@ -6,7 +6,7 @@ staged edits use the canonical routers with ``changeSetId``. Publishing merges a
 live data and records an immutable publication (ADR-026/027/031).
 """
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -47,6 +47,7 @@ from .attributes import (
 from .audit import record_audit_event
 from .change_set_lookups import ChangeSetLookup
 from .model.registry import resolve_pinned_release
+from .objects import object_type_changed
 from .relation_set_versions import (
     SetClaim,
     advance_set_versions,
@@ -644,71 +645,102 @@ def put_change_set_object(session: Session, change_set_id: str, payload: Any) ->
         raise api_error(422, "parent_wrong_scope", "Parent must exist in the change set")
     _claim_change_set(session, change_set, payload.expectedChangeSetVersion)
     object_id = str(payload.id) if payload.id else str(uuid4())
-    if lookup.object(object_id) is not None or session.scalar(
-        select(RdmObject.id).where(RdmObject.id == object_id)
+    if payload.expectedRecordVersion is not None and not _object_exists(
+        session, lookup, change_set_id, object_id
     ):
-        raise api_error(409, "object_already_exists", f"Object '{object_id}' already exists")
-    row = session.scalar(
-        select(ChangeSetObject).where(
-            ChangeSetObject.change_set_id == change_set_id, ChangeSetObject.object_id == object_id
+        raise api_error(409, "version_conflict", "Object record does not exist")
+    row = write_new_change_set_object(
+        session,
+        change_set,
+        model,
+        lookup,
+        object_id=object_id,
+        application_key=payload.applicationKey,
+        object_type_key=payload.objectTypeKey,
+        name=payload.name,
+        parent_object_id=str(payload.parentObjectId) if payload.parentObjectId else None,
+        attributes=attributes,
+        initial_relations=[
+            (item.relationTypeKey, item.direction, str(item.otherObjectId), item.attributes)
+            for item in getattr(payload, "initialRelations", None) or ()
+        ],
+    )
+    session.commit()
+    return row
+
+
+def _object_exists(
+    session: Session, lookup: ChangeSetLookup, change_set_id: str, object_id: str
+) -> bool:
+    return bool(
+        lookup.object(object_id) is not None
+        or session.scalar(select(RdmObject.id).where(RdmObject.id == object_id))
+        or session.scalar(
+            select(ChangeSetObject.object_id).where(
+                ChangeSetObject.change_set_id == change_set_id,
+                ChangeSetObject.object_id == object_id,
+            )
         )
     )
-    if row is not None:
+
+
+def write_new_change_set_object(
+    session: Session,
+    change_set: ChangeSet,
+    model: Any,
+    lookup: ChangeSetLookup,
+    *,
+    object_id: str,
+    application_key: str,
+    object_type_key: str,
+    name: str,
+    parent_object_id: str | None,
+    attributes: dict[str, Any],
+    initial_relations: list[tuple[str, str, str, dict[str, Any]]],
+    audit_changes: dict[str, Any] | None = None,
+) -> ChangeSetObject:
+    """Write a new record into a change set with its initial relationships; the caller has
+    normalized its attributes and claims and commits.
+
+    ``initial_relations`` are ``(relationTypeKey, direction, otherObjectId, attributes)``.
+    """
+    if _object_exists(session, lookup, change_set.id, object_id):
         raise api_error(409, "object_already_exists", f"Object '{object_id}' already exists")
-    else:
-        if payload.expectedRecordVersion is not None:
-            raise api_error(409, "version_conflict", "Object record does not exist")
-        row = ChangeSetObject(
-            change_set_id=change_set_id,
-            object_id=object_id,
-            application_key=payload.applicationKey,
-            object_type_key=payload.objectTypeKey,
-            name=payload.name,
-            parent_object_id=str(payload.parentObjectId) if payload.parentObjectId else None,
-            attributes=attributes,
-            version=1,
-        )
-        session.add(row)
+    row = ChangeSetObject(
+        change_set_id=change_set.id,
+        object_id=object_id,
+        application_key=application_key,
+        object_type_key=object_type_key,
+        name=name,
+        parent_object_id=parent_object_id,
+        attributes=attributes,
+        version=1,
+    )
+    session.add(row)
     _validate_change_set_attribute_uniqueness(model, lookup, row.object_id, attributes)
     _sync_change_set_parent_relation(session, change_set, model, row, lookup)
-    if getattr(payload, "initialRelations", None):
-        identities = [
-            (item.relationTypeKey, item.direction, str(item.otherObjectId))
-            for item in payload.initialRelations
-        ]
-        if len(identities) != len(set(identities)):
-            raise api_error(
-                422, "duplicate_initial_relation", "Initial relationships must not repeat"
-            )
-        # The new row and each relation added before the next are flushed into the lookups.
-        for initial in payload.initialRelations:
-            from_id = (
-                row.object_id if initial.direction == "outgoing" else str(initial.otherObjectId)
-            )
-            to_id = str(initial.otherObjectId) if initial.direction == "outgoing" else row.object_id
-            attrs = validate_change_set_relation(
-                model, lookup, initial.relationTypeKey, from_id, to_id, initial.attributes
-            )
-            relation = ChangeSetRelation(
-                change_set_id=change_set.id,
-                relation_id=str(uuid4()),
-                relation_type_key=initial.relationTypeKey,
-                from_object_id=from_id,
-                to_object_id=to_id,
-                attributes=attrs,
-                version=1,
-            )
-            session.add(relation)
-            _increment_change_set_relation_set_versions(session, change_set, lookup, relation)
-    parent_keys = (
-        set(
-            (model.object_type(row.object_type_key).behavior or {}).get(
-                "parentRelationTypeKeys", []
-            )
+    identities = [(key, direction, other) for key, direction, other, _attrs in initial_relations]
+    if len(identities) != len(set(identities)):
+        raise api_error(422, "duplicate_initial_relation", "Initial relationships must not repeat")
+    # The new row and each relation added before the next are flushed into the lookups.
+    for relation_type_key, direction, other_id, relation_attributes in initial_relations:
+        from_id = row.object_id if direction == "outgoing" else other_id
+        to_id = other_id if direction == "outgoing" else row.object_id
+        attrs = validate_change_set_relation(
+            model, lookup, relation_type_key, from_id, to_id, relation_attributes
         )
-        if model.object_type(row.object_type_key)
-        else set()
-    )
+        relation = ChangeSetRelation(
+            change_set_id=change_set.id,
+            relation_id=str(uuid4()),
+            relation_type_key=relation_type_key,
+            from_object_id=from_id,
+            to_object_id=to_id,
+            attributes=attrs,
+            version=1,
+        )
+        session.add(relation)
+        _increment_change_set_relation_set_versions(session, change_set, lookup, relation)
+    parent_keys = parent_relation_keys(model, row.object_type_key)
     required = {
         item.relationTypeKey
         for item in model.objectTypeRelations
@@ -716,11 +748,7 @@ def put_change_set_object(session: Session, change_set_id: str, payload: Any) ->
         and item.required
         and item.relationTypeKey not in parent_keys
     }
-    provided = {
-        item.relationTypeKey
-        for item in getattr(payload, "initialRelations", [])
-        if item.direction == "incoming"
-    }
+    provided = {key for key, direction, _other, _attrs in initial_relations if direction == "incoming"}
     if required - provided:
         raise api_error(
             422,
@@ -734,27 +762,36 @@ def put_change_set_object(session: Session, change_set_id: str, payload: Any) ->
         aggregate_id=row.object_id,
         action="created",
         version=row.version,
-        changes={"attributes": attributes, "changeSetId": change_set.id},
+        changes={"attributes": attributes, "changeSetId": change_set.id, **(audit_changes or {})},
         object_ids=[row.object_id],
     )
-    session.commit()
     return row
 
 
 def update_change_set_object(
-    session: Session, change_set_id: str, object_id: str, payload: Any
+    session: Session,
+    change_set_id: str,
+    object_id: str,
+    payload: Any,
+    *,
+    object_type_key: str | None = None,
 ) -> ChangeSetObject:
+    """Edit a record in a change set. An edit never changes the type (ADR-034); a route naming
+    another type than the record's is ``409 object_type_changed`` (D42)."""
     change_set = _change_set(session, change_set_id, for_update=True)
     model = _change_set_model(session, change_set)
     lookup = ChangeSetLookup.of(session, change_set_id)
     _claim_change_set(session, change_set, payload.expectedChangeSetVersion)
+    effective = lookup.object(object_id)
+    if effective is not None and object_type_key and effective.object_type_key != object_type_key:
+        raise object_type_changed(object_id, effective.object_type_key, object_type_key)
     row = session.scalar(
         select(ChangeSetObject).where(
             ChangeSetObject.change_set_id == change_set_id, ChangeSetObject.object_id == object_id
         )
     )
     if row is None:
-        base = lookup.object(object_id)
+        base = effective
         if base is None:
             raise api_error(404, "object_not_found", f"Object '{object_id}' not found in change set")
         row = ChangeSetObject(
@@ -857,6 +894,8 @@ def delete_change_set_object(
     if root is None or root.object_type_key != object_type_key:
         if cascade and deletion_preview is not None:
             raise deletion_preview_changed()
+        if root is not None:
+            raise object_type_changed(object_id, root.object_type_key, object_type_key)
         raise api_error(404, "object_not_found", f"Object '{object_id}' not found in change set")
     if cascade and deletion_preview is not None and expected_record_version != root.version:
         raise api_error(
@@ -1003,7 +1042,24 @@ def delete_change_set_object(
             objects=object_identity,
             relations=relation_identity,
         )
-    for deleted_id in planned_ids:
+    tombstone_change_set_records(session, change_set, objects, planned_ids, incident)
+    session.commit()
+
+
+def tombstone_change_set_records(
+    session: Session,
+    change_set: ChangeSet,
+    objects: dict[str, Any],
+    object_ids: Iterable[str],
+    incident: Iterable[Any],
+) -> None:
+    """Delete records and their relationships in a change set; the caller claims and commits.
+
+    ``objects`` holds each record and each end of an ``incident`` relationship as the change set
+    holds it, since the relationship's sets advance under its ends' types.
+    """
+    change_set_id = change_set.id
+    for deleted_id in object_ids:
         base = objects[deleted_id]
         row = session.scalar(
             select(ChangeSetObject).where(
@@ -1059,7 +1115,6 @@ def delete_change_set_object(
             from_object_id=relation.from_object_id,
             to_object_id=relation.to_object_id,
         )
-    session.commit()
 
 
 def _validate_change_set_attribute_uniqueness(
@@ -1125,6 +1180,8 @@ def _sync_change_set_parent_relation(
     model: Any,
     row: ChangeSetObject,
     lookup: ChangeSetLookup,
+    *,
+    previous_type_key: str | None = None,
 ) -> None:
     """Maintain the typed containment edge with a change set object edit.
 
@@ -1137,20 +1194,66 @@ def _sync_change_set_parent_relation(
         row,
         lambda object_id: row if object_id == row.object_id else lookup.object(object_id),
     )
-    keys = (
-        set(
-            (model.object_type(row.object_type_key).behavior or {}).get(
-                "parentRelationTypeKeys", []
-            )
-        )
-        if model.object_type(row.object_type_key)
-        else set()
+    parent = lookup.object(row.parent_object_id) if row.parent_object_id else None
+    if row.parent_object_id and parent is None:
+        raise api_error(422, "parent_wrong_scope", "Parent must exist in the change set")
+    sync_containment_edge(
+        session,
+        change_set,
+        model,
+        lookup,
+        child_id=row.object_id,
+        child_type_key=row.object_type_key,
+        parent=parent,
+        previous_type_key=previous_type_key,
     )
-    if not keys:
+
+
+def parent_relation_keys(model: Any, object_type_key: str | None) -> set[str]:
+    object_type = model.object_type(object_type_key) if object_type_key else None
+    return set((object_type.behavior or {}).get("parentRelationTypeKeys", [])) if object_type else set()
+
+
+def sync_containment_edge(
+    session: Session,
+    change_set: ChangeSet,
+    model: Any,
+    lookup: ChangeSetLookup,
+    *,
+    child_id: str,
+    child_type_key: str,
+    parent: Any | None,
+    previous_type_key: str | None = None,
+) -> None:
+    """Make the child's one containment edge the relation the model allows from ``parent``.
+
+    An edge from the same parent of the allowed relation type keeps its identity; any other is
+    tombstoned before the allowed one is added. With ``previous_type_key`` (a type change, Base 0.8
+    C1), edges of the child's former parent relation types are found and replaced too.
+    """
+    keys = parent_relation_keys(model, child_type_key)
+    searched = keys | parent_relation_keys(model, previous_type_key)
+    if not searched:
         return
-    current = lookup.relations([row.object_id], "incoming", sorted(keys))
-    if [relation.from_object_id for relation in current] == (
-        [row.parent_object_id] if row.parent_object_id else []
+    allowed = None
+    if parent is not None:
+        allowed = next(
+            (
+                item
+                for item in model.objectTypeRelations
+                if item.relationTypeKey in keys
+                and item.fromObjectTypeKey == parent.object_type_key
+                and item.toObjectTypeKey == child_type_key
+            ),
+            None,
+        )
+        if allowed is None:
+            raise api_error(
+                422, "invalid_parent_type", "Parent type is not permitted for this object type"
+            )
+    current = lookup.relations([child_id], "incoming", sorted(searched))
+    if [(relation.from_object_id, relation.relation_type_key) for relation in current] == (
+        [(parent.object_id, allowed.relationTypeKey)] if parent is not None else []
     ):
         return
     for relation in current:
@@ -1176,31 +1279,14 @@ def _sync_change_set_parent_relation(
         else:
             stored.is_deleted = True
             stored.version += 1
-    if row.parent_object_id:
-        parent = lookup.object(row.parent_object_id)
-        if parent is None:
-            raise api_error(422, "parent_wrong_scope", "Parent must exist in the change set")
-        allowed = next(
-            (
-                item
-                for item in model.objectTypeRelations
-                if item.relationTypeKey in keys
-                and item.fromObjectTypeKey == parent.object_type_key
-                and item.toObjectTypeKey == row.object_type_key
-            ),
-            None,
-        )
-        if allowed is None:
-            raise api_error(
-                422, "invalid_parent_type", "Parent type is not permitted for this object type"
-            )
+    if parent is not None:
         session.add(
             ChangeSetRelation(
                 change_set_id=change_set.id,
                 relation_id=str(uuid4()),
                 relation_type_key=allowed.relationTypeKey,
                 from_object_id=parent.object_id,
-                to_object_id=row.object_id,
+                to_object_id=child_id,
                 attributes={},
                 version=1,
             )

@@ -35,7 +35,12 @@ acceptance (passed 2026-09-28, without B5; [record](BASE_0_8_IMPLEMENTATION_PLAN
 and its amendment R1b for B5 and B5b. Milestone C (structure refactoring: type changes derived from
 the model, with preview and history as the way back; C0–C5 and R2) was added 2026-09-28; C0 is
 delivered 2026-09-29 with [ADR-034](DECISIONS.md#adr-034--a-records-type-can-change-derived-mapping-preview-and-apply-history-as-the-way-back)
-and D37–D43 accepted. 0.8.0 releases when R1b and R2 pass (D43). Residual 0.7 gaps are listed in the
+and D37–D43 accepted; C1, a record's type change in the engine with the D42 refusal, is delivered
+2026-09-29; C2, the restructuring planner (possible types, the cascade, the D40 mapping, offers back,
+refusals, the plan digest), is delivered 2026-09-29; its dry run took 48 s at C0's 5,000-record limit, so D44 lowers
+the D41 limit to 500 records (a 2.8 s preview); C3, the restructuring API (preview and apply for `move`,
+`changeType`, `insertLevel`, `removeLevel` and `changeTypeUnder`, parent candidates' `includeTypeChanges`),
+is delivered 2026-09-29. 0.8.0 releases when R1b and R2 pass (D43). Residual 0.7 gaps are listed in the
 [plan's WP-9 record](BASE_0_7_IMPLEMENTATION_PLAN.md#wp-9-composed-product-validation--sc-07-and-sc-15).
 
 The generic model defines applications, object types, reusable fields, allowed relationships and views.
@@ -58,7 +63,7 @@ GAP-01–GAP-08 answers and distinguishes accepted targets from implementation e
 | Model administration | Complete: immutable releases, JSON drafts, validation/diff/install/activation workbench | Browser administration acceptance (0.7+) |
 | UI foundation | Complete: catalogue selection, typed tables, generic panels, redesigned navigation/collections/inspector/inline editing, automated accessibility and visual-regression gates (UI-07); 0.7 redesign (header application tabs, Live/Drafts/History control, record tree, Filter popover), dark mode and settings menu; WP-9 a11y/visual acceptance passed | — |
 | Specialist workflows | Schema 0.6 `mappingGrid` contract, live/draft/revision coverage, target-detail, candidate APIs, atomic replacement and contextual mapping lens with in-context target creation delivered; SC-07 composed acceptance passed | Lazy arbitrary-depth hierarchy/translation specializations 0.8; integration 0.9 |
-| Production and model migration | Basic readiness and actionable startup refusal | Production hardening, staged assignments and reviewed historical model migration 0.10; authentication and authorization 0.11 |
+| Production and model migration | Basic readiness and actionable startup refusal | Production hardening, staged assignments and reviewed historical model migration 0.11; authentication and authorization 0.12 |
 
 Ordinary live saves create neither a change set nor a publication. Publishing a change set applies authored changes
 over current live data, preserves unrelated live work and publishes nothing on a touched-record conflict
@@ -105,7 +110,7 @@ in code does not establish that a browser user can complete its story.
    durable terminology and the 0.7/0.8 boundary.
 
 Moving a draft onto a version its content does not already fit, and the accepted historical-model
-warning and confirm-or-cancel behavior, belong to the planned 0.10 workspace assignment/migration flow.
+warning and confirm-or-cancel behavior, belong to the planned 0.11 workspace assignment/migration flow.
 
 See [implementation plan](BASE_0_7_IMPLEMENTATION_PLAN.md), [delivery queue](TODO.md),
 [roadmap](ROADMAP.md) and [product acceptance scenarios](product-functionality/ACCEPTANCE_SCENARIOS.md).
@@ -341,12 +346,13 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
   `tree` are not implemented renderers.
 - Advanced queries, effective-date/as-of semantics, bulk upsert, imports/exports, change feeds and
   webhooks remain planned; no synchronous collection has an undocumented unlimited mode.
-- The model workbench remains JSON-centred; structured authoring and extensions are 1.0 work.
+- The model workbench remains JSON-centred; the structured editor and spreadsheet onboarding are 0.10
+  work ([MODEL_AUTHORING.md](MODEL_AUTHORING.md)), changes to released structure and extensions 1.0.
 - Multi-writer uniqueness hardening, PostgreSQL performance, authenticated access, actor attribution,
   observability, backup/restore rehearsal and multi-node model propagation remain production work.
 - The version serving live data is chosen globally today. Per-workspace migration/assignment, moving
   a draft onto a version its content does not fit, and confirmed potential-loss historical model
-  changes require 0.10 and supported parser/runtime versions. A draft can work under a compatible
+  changes require 0.11 and supported parser/runtime versions. A draft can work under a compatible
   version the user chooses (ADR-028; WP-6 backend, WP-7 browser). A draft on a replaced version can be read, edited and discarded,
   but activation still requires agreement with the active model.
 - The starter remains representative rather than a one-to-one reproduction of the source export.

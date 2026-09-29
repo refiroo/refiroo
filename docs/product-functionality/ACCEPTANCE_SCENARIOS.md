@@ -257,7 +257,7 @@ ordinary data steward.
 ## SC-13 — Operate safely and move one workspace to new rules
 
 **Stories:** US-S01, US-O01–O06, US-P07. **Target:** existing operational refusal behavior; remaining
-production controls and staged rollout are 0.10 plans.
+production controls and staged rollout are 0.11 plans.
 
 Verify an expected startup problem reports what failed, the service state and the safe recovery action
 without requiring traceback interpretation. In the production milestone, a reader cannot edit through
@@ -271,7 +271,7 @@ data loss against agreed targets rather than assuming them.
 
 For the accepted GAP-02 historical migration variant, derive a change set from an older publication whose
 model conflicts with current rules. Base 0.6 refuses activation while preserving change set/live data.
-In 0.10, name the selected workspace and installed target definition (normally the historical pin),
+In 0.11, name the selected workspace and installed target definition (normally the historical pin),
 then preview exact rule changes and potential data loss without changing data; cancelling leaves
 everything unchanged. Explicitly confirm the reviewed transformation and prove the target data and
 workspace model switch together, history stays immutable and Warehouse is unaffected. A live/change set/
@@ -318,7 +318,7 @@ The administrator activates the candidate, so live now follows it. draft2 activa
 ordinary path, because the definition it was preparing under is now the active one. The steward then
 chooses for draft1: discard it, which changes no data, or explicitly move it onto the new definition.
 Moving is offered only when draft1's content already satisfies the new definition; otherwise the
-reviewed conversion and loss preview of 0.10 is required, and declining changes nothing.
+reviewed conversion and loss preview of 0.11 is required, and declining changes nothing.
 
 Selecting an unavailable, corrupt or unsupported definition is refused with the reason, and leaves live
 data, the other change set, history and every other workspace untouched. No model change reaches live data

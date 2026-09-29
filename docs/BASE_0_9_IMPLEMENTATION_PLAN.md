@@ -44,8 +44,8 @@ One built-in reference page documents every API.
    deduplicate. An expired position answers with an explicit recovery path.
 7. **Additive to the management API.** Existing routes and response shapes do not change.
 
-Excluded: all authentication and authorization, for the management and consumer APIs alike (the 0.11
-security release, D10), PostgreSQL deployment and multi-node delivery coordination (0.10; the 0.9 designs
+Excluded: all authentication and authorization, for the management and consumer APIs alike (the 0.12
+security release, D10), PostgreSQL deployment and multi-node delivery coordination (0.11; the 0.9 designs
 must not depend on SQLite's single writer, D5), a UI for jobs or subscriptions beyond what SC-10 needs
 (D3), lossless file round trips (SC-10), and exactly-once delivery.
 
@@ -58,7 +58,7 @@ delivery; the contracts live in design documents that the packages reference ins
 | Document | Holds | State |
 | --- | --- | --- |
 | This plan | Outcome, principles, tracks, packages, sequence, decisions, delivery records, acceptance | Draft; document set accepted 2026-09-28 |
-| [CONSUMER_API.md](CONSUMER_API.md) | Read-only consumer tier: `consumerApis` definitions, XREF, lists, read index, batch resolve, crosswalk, `asOf`, publications, API index, consumer events, subscriptions, webhook delivery, packages C1–C16, decisions C-D1–C-D16 | Proposed; C-D1 decided (security in 0.11), others open |
+| [CONSUMER_API.md](CONSUMER_API.md) | Read-only consumer tier: `consumerApis` definitions, XREF, lists, read index, batch resolve, crosswalk, `asOf`, publications, API index, consumer events, subscriptions, webhook delivery, packages C1–C16, decisions C-D1–C-D16 | Proposed; C-D1 decided (security in 0.12), others open |
 | [INTEGRATION_API.md](INTEGRATION_API.md) | Management-side integration contracts: shared primitives (idempotency keys, item outcomes, failure policies, job lifecycle), bulk writes and upsert keys, bulk relations and mapping, import/export jobs and the file format contract, the raw change feed, advanced query, cross-type lookup (0.8 P1) and the workspace edge list (0.8 P3) | Section P drafted; B, J, F, Q to write |
 | [APPLICATION_MODEL.md](APPLICATION_MODEL.md) | Schema language additions: effective-period declaration, `consumerApis`, any upsert key declaration | Section per addition |
 | [DECISIONS.md](DECISIONS.md) | ADRs for durable choices: the job and idempotency model; the audit log as the ordered outbox for both feeds; effective dating | One ADR per choice, when accepted |
@@ -104,8 +104,8 @@ reads (D6, D7).
 mapping operations, live or in a named change set, with per-item outcomes, a documented batch maximum
 and idempotent retry. Upsert keys are the public ID or declared unique attributes (D2).
 
-**Track J — import and export jobs.** Import: destination, file format (D3), column-to-field
-association, a preview that changes no data, execution under the chosen failure policy and itemized
+**Track J — import and export jobs.** Import: destination, file format and import profile (D3,
+[MODEL_AUTHORING A1](MODEL_AUTHORING.md#delivery)), a preview that changes no data, execution under the chosen failure policy and itemized
 results. Export: an explicit workspace, context (live, change set or publication), scope and format;
 retrievable output that cannot be mistaken for a complete export when partial. Import executes through
 Track B.
@@ -116,7 +116,7 @@ derive from the same sequence (C-D11), so positions compare.
 
 **Track C — consumer API.** CONSUMER_API C1–C6 and C8 (read tier), batch resolve (C14), crosswalk (C15)
 and `asOf` (C16, after Track Q's effective periods), then events C9–C13 without signing; C7 access
-control moved to 0.11 (C-D1). Its open decisions C-D2–C-D16 are settled first.
+control moved to 0.12 (C-D1). Its open decisions C-D2–C-D16 are settled first.
 
 **Track D — API reference.** Scalar at `/docs`, bundled script by default, CDN by setting, management
 and every active consumer contract as separate OpenAPI sources; the route stays outside the OpenAPI
@@ -176,16 +176,16 @@ To settle before the named track's packages are written. The recommendation is t
 | --- | --- | --- | --- |
 | D1 | Failure policy and staging for bulk writes | Two policies, chosen per request: `atomic` (all or nothing) and `independent` (each item on its own). No "stop at first error". Change-set context by `changeSetId` is the only staging mode | B, J |
 | D2 | Upsert key | The public ID, or one attribute declared unique on the object type (ADR-010), named per request. No composite keys in 0.9. An ambiguous or missing key is a per-item `rejected` | B, J |
-| D3 | Import/export file formats and UI | CSV (UTF-8, header row) and JSON Lines. Columns map to declared fields by key, overridable per job. No XLSX in 0.9, although TODO lists "CSV/Excel": XLSX is a later additive format. A minimal import-preview screen for SC-10; job administration is API-only | J |
+| D3 | Import/export file formats and UI | **Revised 2026-09-29 (ADR-035):** import runs an *import profile*, the declarative mapping from sheets and columns to model elements that the 0.10 editor produces ([MODEL_AUTHORING.md](MODEL_AUTHORING.md#import-profile)). Formats: XLSX (several sheets, values not formulas), CSV (UTF-8, header row) and JSON Lines; export stays CSV and JSON Lines. A job may name a stored profile or carry one inline; a CSV whose headers equal field keys needs no profile. Bindings: field or attribute, parent or relation by match key (with delimiter split), flag columns to one relation, translations (row or column per language), system mapping, value maps. 0.9 delivers the contract and its execution (MODEL_AUTHORING A1), a minimal import-preview screen for SC-10 and API-only job administration; the editor is 0.10 | J |
 | D4 | Advanced query scope | Criteria over built-in fields, declared attributes and one relation hop, combined with AND; ordering over one declared sort key plus the unique tie-breaker; `select` and `expand` from the model. OR groups and multiple sort keys wait for a second real case | Q |
-| D5 | Feed ordering on a multi-writer database | The audit `sequence_id` is not commit order on PostgreSQL. The feed publishes a sequence only once no lower sequence can still commit (visibility watermark), designed now and exercised in 0.10 | F |
+| D5 | Feed ordering on a multi-writer database | The audit `sequence_id` is not commit order on PostgreSQL. The feed publishes a sequence only once no lower sequence can still commit (visibility watermark), designed now and exercised in 0.11 | F |
 | D6 | Effective-date semantics | An object type declares one effective period from two `date` attributes: inclusive start, exclusive end, open end allowed, overlaps allowed and all returned. Dates have no time zone; `asOf` is a date. `dateTime` periods wait for a real case | Q |
 | D7 | Schema language version | One new schema language version (0.8) carries both `consumerApis` and effective periods, with the starter at content release 0.9.0 | Q, C |
 | D8 | Raw feed retention and recovery | Same retention setting as consumer events (C-D9, 30 days default). Past it, `410 feed_position_expired` and a publication or export as the re-sync baseline | F |
 | D9 | 0.9 cut line | The scope is several times 0.8's. Deliver in order Q (P1, P3) → B → F → C → J, with D at any time, and allow a 0.9.x split after C if R is not in reach | All |
-| D10 | Credentials and gates before 0.11 | **Credentials decided 2026-09-29:** none in 0.9. No API keys and no credential in a URL; 0.11 brings engine-provided OAuth 2.0 with JWT, HMAC-signed webhooks and UI administration of both (CONSUMER_API C-D1). **Gate, recommended:** job creation and cancellation form a deployment capability group, `INTEGRATION_JOBS_ENABLED` (ADR-031), on by default like live writes, since a bulk write is no more privileged than the single writes it batches; job reads and the raw feed are ungated like other reads until 0.11 | B, J, F, C |
+| D10 | Credentials and gates before 0.12 | **Credentials decided 2026-09-29:** none in 0.9. No API keys and no credential in a URL; 0.12 brings engine-provided OAuth 2.0 with JWT, HMAC-signed webhooks and UI administration of both (CONSUMER_API C-D1). **Gate, recommended:** job creation and cancellation form a deployment capability group, `INTEGRATION_JOBS_ENABLED` (ADR-031), on by default like live writes, since a bulk write is no more privileged than the single writes it batches; job reads and the raw feed are ungated like other reads until 0.12 | B, J, F, C |
 | D11 | Upserts without a version claim | Update items need `expectedVersion`. An upsert that finds a record without one is rejected `version_required` unless the request declares `onExisting: "overwrite"`, which is audited and reports the previous version (INTEGRATION_API P4) | B, J |
-| D12 | Where job files live | A configured directory (`JOB_FILE_DIR`) with size and checksum on the job, not database rows. 0.10 multi-node needs shared storage behind the same setting | J |
+| D12 | Where job files live | A configured directory (`JOB_FILE_DIR`) with size and checksum on the job, not database rows. 0.11 multi-node needs shared storage behind the same setting | J |
 | D13 | Batch and job limits | Synchronous batch 1,000 items and 5 MB; `atomic` job 10,000 items; background job 1,000,000 items and 200 MB upload; all settings, reported by capabilities, confirmed against the volume fixture in the first B package | B, J |
 | D14 | Retention of jobs, outcomes, files and idempotency keys | 7 days, one setting; afterwards the job is `expired` with its summary kept | B, J |
 

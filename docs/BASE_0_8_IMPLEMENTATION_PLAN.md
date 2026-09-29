@@ -1019,7 +1019,7 @@ volume fixture now seeds in about 45 s (was 25 s) because the triggers index its
 
 _Open:_ names are matched by walking the type's name index, about 20 ms per 100,000 records, so a
 type of millions would need the name trigram index and a planner choice between the two plans; the
-PostgreSQL form (trigram GIN, with statistics) arrives with 0.10. The 10,000-match bound counts a
+PostgreSQL form (trigram GIN, with statistics) arrives with 0.11. The 10,000-match bound counts a
 phrase's matches in every revision, draft base and draft (the count stays bounded by not filtering
 them), so a workspace with many publications falls back to the per-record look-up at a lower share
 of its own records; the result is the same, only slower. A draft page that scans its whole
@@ -2116,7 +2116,7 @@ _Review fixes (2026-09-28)._ A review of A1–A5 found two defects in the lens:
 Each has a regression test in `views/RelationMatrixView.test.tsx` that fails without its fix. Found
 on the way and fixed in the docs: `AGENTS.md` now states the matrix state rule for Core writes
 (`note_rows`, `note_cells`, `note_relations_removed`, with `verify` in the write path's test), and the
-0.10 PostgreSQL hardening in `TODO.md` and `ROADMAP.md` now names the matrix's SQLite-only statements.
+0.11 PostgreSQL hardening in `TODO.md` and `ROADMAP.md` now names the matrix's SQLite-only statements.
 Checks: `-m "matrix or mapping or change_sets or records or contract or queries or model"` (618),
 Vitest (304), format, lint (0 errors, the 8 recorded warnings) and build. The plan header and
 `TODO.md` now record A1–A5 as delivered; the index drift A2 left open is scheduled as
@@ -2632,7 +2632,7 @@ Move to… (WCAG 2.2 criterion 2.5.7, Dragging Movements).
    Move to…'s search; the drag does not try to replace it.
 7. _Pointer types (D35)._ Mouse and pen only. A touch pointer does not start a drag, so on phones a
    tap still opens a record and a swipe still scrolls; Move to… is the complete path there (B3 and B4
-   run it at 390px). Touch drag is deferred to 0.10; see D35 for why and when.
+   run it at 390px). Touch drag is deferred to 0.11; see D35 for why and when.
 8. _Implementation._ React Aria's `useDrag` and `useDrop` (the `react-aria` package, added as a direct
    dependency in the same release line as `react-aria-components`), or pointer events. No new
    drag-and-drop library. The dimmed row, preview and glow are classes in `components.css` built on
@@ -2717,7 +2717,7 @@ Codelist Beta's values in a change set, live unchanged; axe on the refused drag,
 `test:browser:b4` and `test:browser:s6` (shared tree and helpers), `test:a11y` (38 scenarios, 0
 violations; new `tree-drag-accepted` and `tree-drag-refused`, light and dark), `test:visual` (31;
 four new baselines `tree-drag-{accepted,refused}-{light,dark}` adopted after inspection, every
-existing one matching, largest diff 0.10%), `test:gate-helpers` (5). Screenshots inspected: the
+existing one matching, largest diff 0.11%), `test:gate-helpers` (5). Screenshots inspected: the
 accepted, gap and refused drags at 1440px and the four baselines. Not run: the backend suites (no
 backend change; `git diff` shows only R1's earlier fix under `backend/`), full Vitest (R1b).
 
@@ -2967,6 +2967,78 @@ in `changedFields` and a type filter matching either side.
 and a matrix cell. Publishing, conflicts with a live edit of the same record, and publication reads.
 Run over the example model, the same model with every key renamed, and the generated model.
 
+**Delivered 2026-09-29.** `services/type_changes.py` changes one record's type in a change set, optionally
+under a new parent, from a `TypeChange`: the new type, a mapping (per new attribute, a source or none;
+unlisted attributes keep the same attribute type), inputs, restored values and relationships, relation
+inputs and an optional record version. `change_object_type` writes into the session without claiming
+or committing, so C3 claims an operation once; `apply_type_change` claims and commits one change, and
+`check_type_change` runs the same writes and checks and rolls them back (the C2 preview's checks).
+
+- _Values._ A mapping pairs the same value type or a widening (`text` to `longText`, `integer` to
+  `decimal`, D40); anything else, or a source the old type does not bind, is `422 invalid_type_mapping`.
+  Inputs follow the new type's write rules; the result passes the new bindings' validation with
+  read-only values allowed, as stored values are. What no attribute took is without a place.
+- _Containment._ The move's edge sync (`_sync_change_set_parent_relation`) now keeps an edge only when
+  both its parent and its relation type match, and with the previous type also finds edges of the old
+  type's parent relations; the core became `sync_containment_edge`. Each child's edge is re-typed to
+  the relation the new type contains it by; a child it cannot contain is `422 child_type_not_allowed`
+  (C2 cascades).
+- _Relationships._ A relationship stays when the model binds the same relation type in the same
+  direction to the new type, and is revalidated (attributes, cardinality, scope); its sets advance under
+  the old and the new binding. Otherwise it is tombstoned, its sets advance under the old binding, and it
+  is listed with its attributes and version. Removing one the other end requires is
+  `422 required_relation_without_place`. Restored relationships keep their former ID
+  (`409 relation_already_exists` when it is effective), and the new type's required incoming
+  relationships are `422 missing_required_relations` unless given as inputs.
+- _Checks._ Attribute uniqueness, required values, `atLeastOneOf`, application (D39), top level,
+  parent type and cycles through the existing change set helpers; ancestor-scoped uniqueness is
+  rechecked below the record only when a scoped binding names its old or new type.
+- _Audit._ One `reclassified` event per type change with `changeSetId`, `operationId`, `objectType`,
+  `parent` when it moved, the mapping with each outcome, the stored values, and `before` (name,
+  parent, values, lost relationships). Its subjects are the record and each lost relationship's other
+  end. The history read reports its stored `changedFields` (`objectType`, then `parent`, `attributes`,
+  `relationships`) and `attributeTypeKeys` (given a value, mapped sources, without a place).
+- _D42._ `load_object` and `snapshot_reads.find_object` raise `409 object_type_changed` for a record
+  under another type, so every typed route follows; the change-set `PATCH` (which ignored the route's
+  type) and `DELETE` (which answered 404) check it too. Two tests that asserted the old 404
+  (`test_parent_candidates`, `test_wp8_review_regressions`) now assert the D42 answer.
+- _Change lists._ `before`/`after` carry `objectTypeKey`; `changedFields` names `objectType` first; the
+  type filter matches either side (the source term inside an `OR`, so the outer join stays); a relation
+  entry is `containment` by its `to` end's type on either side.
+- _Publishing_ needed no change, as C0 found.
+
+Not done here, by scope: the D40 suggestions, the cascade and offer-backs read from history (C2), the
+routes and `includeTypeChanges` (C3). A type change touches no table or column, so there is no migration.
+
+Composable-domains doors (ADR-032): identity (the ID is kept and `object_type_changed` says where the
+record is), attribute storage (values move between bindings, never converted lossily) and audit/history
+(the `reclassified` kind, for the 0.9 feed) are affected and stay open, as ADR-034 states.
+
+Checks: `tests/test_type_changes.py` (15). On the starter model and on the same model with every key
+renamed (`model_support.renamed_model`), six cases each: a system value becoming a group and back, with a
+mapped, a kept and values without a place, the containment edge re-typed, the relationship to a master
+value removed, D42 on the record, history, parent candidates, `PATCH` and `DELETE`, the history event and
+stored before state, the master value's history, the change lists on both sides and by either type,
+publishing to live, the old publication keeping the type, and the round trip restoring values and the
+relationship under its former ID; a group moving to the top level as a system with its children's edges
+re-typed; the refusals (child type, application, same type, top level, required value, mapping value
+type, unbound source, uniqueness, record version, unknown record), each leaving the change set's version
+and changes as they were and each refused the same way by the check; a cycle; publishing refused by a
+live edit of the record (`version_conflict`), a live mapping in a set the change touched
+(`mapping_set_changed`) and a live relationship the new type cannot have (`workspace_graph_invalid`); and
+a translation group becoming a translation, with the required language-scoped relationship missing, in a
+taken scope, then given. On the generated model: an item becoming a node, keeping a citation (a variant
+binds it to nodes) with its sets advanced under both bindings, and a node holding nodes refused; a shelf
+becoming a matrix cell with its required, column-scoped relationship; and the check keeping nothing.
+`matrix_states.verify` runs after each. The guide's groups for the changed boundaries: `records`,
+`change_sets`, `queries`, `mapping` and `matrix` (441 passed after the fixes below), `volume` (57 passed)
+and `contract` (40 passed after re-baselining the OpenAPI lock, whose only changes are
+`ObjectChangeState.objectTypeKey` and three descriptions, checked by diffing the document against HEAD);
+`test_model_independence`; `ruff check app/ tests/`. The first group run found three failures: the two
+old 404 assertions above, and a regression in this package, where a removed relation's ends had been read
+on the source side against P2a's rule; ends read as the change set holds them again, and `containment`
+reads either side. Not run: the full backend suite and the frontend (no frontend change; C4 is the UI).
+
 #### C2: Planner — mapping, cascade and the way back
 
 **Scope:** the preview planner for one record and its subtree:
@@ -2988,6 +3060,93 @@ exists and the model binds them; the plan's digest is computed here.
 **Tests:** the rules in order, ambiguous and missing mappings, a cascade over three levels, restore
 after a round trip, the size limit, and the budget.
 
+**Delivered 2026-09-29; its finding decided as D44 (a).** `services/restructuring.py` plans a `move` (with
+or without a type change) or a `changeType` of one record and its subtree, and writes nothing unless
+applied. C3 exposes it; the planner already takes the request in the API's terms (`Restructuring`:
+the operation, type choices, mapping choices, inputs) and answers the API's plan shape
+(`RestructuringPlan.payload`).
+
+- _Types._ The possible types at a place are the application's types the parent's type contains through
+  exactly one parent relation, or `rootCreatable` at the top. The record takes the type asked for, else
+  its own where allowed, else the only one; several make a type question per (type, parent type) pair,
+  answered by `choices.types`. A choice outside the options is `typeNotAllowed`.
+- _Cascade._ Level by level (one read per level, in 500-ID chunks): a child the new type still contains
+  keeps its type and the cascade stops; otherwise it takes the only type, or the pair's answer, or is
+  refused `noPossibleType`. A child waiting for an answer is listed with no new type and nothing below it
+  is planned. Plan order is the operation's record, then each level by name and ID; each record carries
+  its path after the operation.
+- _Mapping._ `suggest_mapping` applies the D40 rules in order (same attribute type, display to display,
+  the one unique and required attribute to the other type's one); a source an earlier rule took is not
+  suggested again. A pair's choice overrides any rule, `null` meaning no source; a source that is not
+  bound or not compatible is `422 invalid_type_mapping`. Alternatives are the other compatible sources.
+- _Per record._ Each attribute is an input, kept or mapped (a non-empty source), restored, or empty; a
+  mapped or given value failing the new binding is an `invalidValue` input, an empty required one a
+  `required` input, and an unmet `atLeastOneOf` one input per named attribute. A required incoming
+  relationship neither kept, restored nor given is a `requiredRelation` input. Relationships are
+  classified as C1 does at the record's turn in the plan, so an end earlier in the plan already has its
+  new type; removing one the other end requires is refused `requiredRelationWithoutPlace`.
+- _Offers back._ From the record's `reclassified` events whose change set is the current one or was
+  published (the `published` event names it), the latest first. A value is offered from the latest event
+  holding the attribute, only when that event left it without a place, and only to an attribute no
+  source fills; a value kept then and gone since was cleared on purpose. A relationship is offered with
+  its former ID when it is not effective, its other end exists and the model binds it to the new type.
+  `restore: false` on a pair declines both.
+- _Checks._ A plan otherwise `ready` is dry-run through C1's `change_object_type` (a type-kept move
+  through the change set move path), parents first; C1's `change_object_type` gained `deferred_children`
+  so a parent leaves the edges of children changing type to their own step. The first write refused
+  becomes that record's refusal (`uniqueness` with `conflictingObjectId`, `cycle`, …) and the dry run
+  stops. The preview rolls everything back.
+- _Digest and apply._ The digest hashes the normalized request (order-free) and the whole plan with the
+  change set's ID and version. `apply_restructuring` checks the version, recomputes and writes the plan
+  in one transaction, and keeps it only when the digest matches and the plan is `ready`, advancing the
+  version once (`409 change_set_version_conflict`, `409 restructuring_plan_changed` with the current
+  digest, `422 restructuring_not_ready`).
+- _D41, D44._ More than 500 records is `422 restructuring_too_large` with `details.limit`, raised as the
+  cascade passes the limit.
+
+Measured with `volume_baseline.py --only-restructuring` (the heavy group moved under another group as
+a node; Python 3.14.7, SQLite 3.53.4, macOS arm64), first at C0's limit (`--scale 0.24`, median of 2),
+then at the limit D44 set (`--scale 0.024`, median of 3):
+
+| Step | Records | Time | Statements | ORM rows |
+| --- | --- | --- | --- | --- |
+| Planning | 4,772 | 349 ms | 45 | 1 |
+| Preview with the dry run | 4,772 | 47.7 s | 129,046 | 4,831 |
+| Planning | 479 | 29 ms | 9 | 1 |
+| Preview with the dry run | 479 | 2.8 s | 12,949 | 487 |
+
+_Finding (D44):_ planning is within budget, but the dry run writes every record through the C1 write
+path at about 27 statements and 6–10 ms a record, the same at every scale (`test_restructuring_volume`),
+and applying costs the same again in one write transaction. No single statement dominates
+(effective-record lookups, the parent validation's ancestor walk, flushes and the typed value index), so
+a 5,000-record preview cannot be made interactive without a set-wise write path. D44 (a), accepted
+2026-09-29, lowers D41's limit to 500; a set-wise write path is the way to raise it later.
+
+Composable-domains doors (ADR-032): identity (IDs kept, relationships restored under their former IDs),
+attribute storage (values move only by D40's lossless pairs) and audit/history (offers read effective
+`reclassified` events) are affected and stay open, as ADR-034 states. No migration.
+
+Checks: `tests/test_restructuring_planner.py` (16): the rules in order on a two-type model, with
+widenings, alternatives, choices and refused choices; on the starter model and its renamed copy, a
+system moved under a system (the type question, a refused answer whose children have no possible type,
+a choice outside the options, and the group answer applied with its children's edges re-typed), a
+missing value as an input and the ambiguous source as an alternative, a dry-run uniqueness refusal that
+kept nothing, the change-type and move refusals (`object_type_unchanged`, `typeNotAllowed`,
+`application`, `notRoot`, `cycle`, `notInChangeSet`) and a move that plans nothing, a round trip through
+publishing that offers back two values and the relationship under its former ID (and declines them with
+`restore: false`), and a discarded change set's reclassification not offered back; on the generated
+model, a cascade over three levels (five records, plan order and paths, a citation kept, containment
+edges re-typed, published), a cascade asking once per pair with an invalid mapped value as an input,
+the refusals and the size limit, and the apply claims (stale version, another plan, a refused plan).
+`tests/test_restructuring_volume.py` (3): with 100 and 400 records (within the D44 limit), planning
+executes the same statements at both scales and loads at most 5 ORM rows, and the dry run costs the
+same statements per record when the subtree grows fourfold.
+The guide's groups for `services/type_changes.py` and `services/restructuring.py`, `-m "change_sets or
+records or matrix"` (428 passed, including `test_type_changes` for C1's `deferred_children` and
+`editable_row`, and `test_restructuring_volume`); `ruff check app/ tests/`. After D44:
+`test_restructuring_planner` and `test_restructuring_volume` (19 passed). Not run: the rest of the
+`volume` group (no read path changed), the full backend suite and the frontend (no frontend change).
+
 #### C3: Restructuring API
 
 **Scope:** `POST …/restructurings/preview` and `POST …/restructurings` with the operation kinds:
@@ -3008,6 +3167,64 @@ page links; parent candidates gain `includeTypeChanges=true` in a change set; th
 
 **Tests:** each kind, a stale claim, a changed change set, a refused operation leaving nothing
 behind, and per-record outcomes in the plan.
+
+**Delivered 2026-09-29.** `POST /api/v1/change-sets/{id}/restructurings/preview` and
+`POST /api/v1/change-sets/{id}/restructurings` (`routers/change_sets.py`) translate the body into the
+planner's `Restructuring` and page its records; the planner gained the three other kinds.
+
+- _Kinds._ `insertLevel` plans the created record (ID `new`, no before state; each attribute an input,
+  its attribute type's default or empty; required values and relationships as inputs), then places
+  each chosen child under it, keeping its type where the new type contains it, and cascades below a
+  child that changes type. `removeLevel` plans the removed record (no after state; its relationships,
+  other than containment, listed as without a place, refused `requiredRelationWithoutPlace` where the
+  other end requires one), then places its children under its parent (or at the top) by the same rule.
+  `changeTypeUnder` walks the record's subtree level by level and changes every record of the type
+  asked, each under its own parent (`typeNotAllowed` where that parent cannot hold it), cascading
+  below as a move does. The three share the move's placement and cascade (`_type_at`, `_cascade`).
+  An `insertLevel` child not directly under the parent is refused `notUnderParent`.
+- _Writing._ The created record goes through the change set create path, now
+  `write_new_change_set_object` (extracted from `put_change_set_object`, which claims and commits
+  around it); applying substitutes its new ID for `new`, masks the dry run's own ID in a refusal's
+  message and details so the digest stays stable, and returns it as `createdObjectId`. The removed
+  record is deleted last, once its children have moved, through `tombstone_change_set_records`
+  (extracted from `delete_change_set_object`), with a `deleted` audit event carrying the
+  `operationId` and the removed relationships' IDs.
+- _Paging._ `page_plan_records` pages the plan's records by position in plan order through
+  `paginate_sequence`, filtered by `outcome`; cursors bind the change set, its version, the plan
+  digest and the filter. The preview takes an optional `expectedChangeSetVersion` and refuses a stale
+  one, so a client paging a plan learns the change set moved on.
+- _Parent candidates._ `includeTypeChanges=true` in a change set widens the candidate types to those
+  that can contain another type of the record's application, by the planner's `possible_types`, and
+  adds `objectTypeKeys` per candidate; outside a change set it is `422 type_changes_need_change_set`.
+- _API.md_ records the contract C3 settled: `notUnderParent`, the `default` outcome, `createdObjectId`,
+  the removed record's relationships, `from` among the paging fields and the preview's version check.
+
+Composable-domains doors (ADR-032): identity (records keep their IDs; the created record gets one on
+apply), attribute storage (values move only by D40's pairs) and audit/history (`reclassified`,
+`created`, `updated` and `deleted` events share the `operationId`) are affected and stay open, as
+ADR-034 states. The bulk APIs and the consumer API's `match` are not touched. No migration.
+
+Checks: `tests/test_restructuring_api.py` (9), through HTTP: on the generated model, a move with a type
+change paged two at a time forward and back, by position, filtered by `outcome` with totals, a cursor
+refused under another filter and after the change set moved on, a stale preview version, another plan
+and a stale apply; a refused `changeType` whose plan, records and apply (`restructuring_not_ready`)
+leave the version and the change lists as they were, and the request errors (`object_type_unchanged`,
+`unknown_object_type`, an unknown kind, an unknown change set); `insertLevel` needing and given the new
+record's code, a child refused `notUnderParent`, a node level turning an item into a node, the created
+record and its moved children with their containment edges, the change lists and publishing;
+`removeLevel` moving a group and an item up and taking a citation with the removed record, the change
+lists and publishing, at the top level turning an item into a group, and a matrix row a cell requires
+refused; `changeTypeUnder` over two levels with an item cascading, the record itself untouched, and
+nothing left to plan after it; repeated children and inputs refused. On the starter model and its
+renamed copy, parent candidates with and without `includeTypeChanges` (and refused live), then the
+move answering the type question and a mapping choice, and D42 on the old route. `matrix_states.verify`
+after each. The guide's groups: `-m "change_sets or records or matrix or queries or mapping or
+contract"` (529 passed; `mapping` for the extracted create and delete paths, `queries` for parent
+candidates, `contract` after re-baselining the OpenAPI lock, whose only changes beyond C1's are the two
+routes, the `Restructuring*` schemas, `includeTypeChanges` and the optional
+`ParentCandidate.objectTypeKeys`, checked by diffing the document against HEAD), `volume` (60 passed,
+for the change set write paths) and `ruff check app/ tests/`. Not run: the full backend suite and the
+frontend (no frontend change; C4 is the UI).
 
 #### C4: Refactoring in the tree lens
 
@@ -3109,7 +3326,7 @@ runners at their default scale). `test:a11y` passes with no unexpected violation
 
 _Residual gaps (tracked):_ the known budget exceptions D26, D29 and D30; the very fast Back at narrow
 width found in B4; SQLite foreign keys not enforced (TODO); PostgreSQL forms of the search index and
-matrix reads (0.10); P1 and P3 (0.9). Not exercised: a non-SQLite database, the volume runners at full
+matrix reads (0.11); P1 and P3 (0.9). Not exercised: a non-SQLite database, the volume runners at full
 scale, and a change set large enough to page the review screen in the browser.
 
 ### R1b: B5 and B5b build acceptance (amendment to R1)
@@ -3167,15 +3384,15 @@ is then ready to release (D43).
 | D14 | Ineligible move targets | **Accepted 2026-09-28:** listed but disabled, with a machine-readable reason (`self`, `descendant`, `currentParent`), so totals stay truthful and the user sees why | B2, B3 |
 | D15 | When does the W2 rename land? | **Accepted 2026-09-25:** after S7 (draft and revision tables stable after S2) and before A2 and B2, so new endpoints use the new names | W2, A2, B2 |
 | D16 | Name of the snapshot a change set publishes | **Accepted 2026-09-25:** **Publication**, referred to as "Publication N" by its per-workspace counter, which continues across model releases; date and model release are secondary. "Version" is avoided because record, change-set and model-release versions already use it | W1, W2 |
-| D17 | Is split deployment (admin and public instance on one database) verified in 0.8? | **Accepted 2026-09-25:** no, it stays a documented, unsupported topology until 0.10 multi-node work; the suspected write-versus-activation race it exposed is investigated in 0.8 as W5 because it may affect one process too | W5 |
+| D17 | Is split deployment (admin and public instance on one database) verified in 0.8? | **Accepted 2026-09-25:** no, it stays a documented, unsupported topology until 0.11 multi-node work; the suspected write-versus-activation race it exposed is investigated in 0.8 as W5 because it may affect one process too | W5 |
 | D18 | Verb for making a change set live | **Accepted 2026-09-25:** **publish**; **activate** is reserved for model releases, **install** for model drafts | W1, W2 |
 | D19 | Removing a publication's current designation | **Accepted 2026-09-25:** **withdraw** (status `withdrawn`); **retire** is reserved for workspaces | W1, W2 |
 | D20 | Are P1 (cross-type lookup), P2 (change set changes list) and P3 (workspace edge list) in 0.8? | **Accepted 2026-09-26:** P2 is in 0.8, as a package after W2; P1 and P3 move to 0.9 (integration APIs). A parameterless "list everything" and a flat attribute value list are rejected (export and change feed, 0.9) | P2, R1 |
 | D21 | Where relation panel sort options come from | **Accepted 2026-09-26:** declared on the relations panel (`sortFields`, `defaultSort`) in schema 0.7; no hardcoded options; 0.5/0.6 panels sort by name | S4R1–S4R3 |
 | D22 | Default list order across contexts | **Accepted 2026-09-26:** name order in live, draft and history; recorded draft and history timestamps are a later package (T1) | S4R4, T1 |
 | D23 | Ancestor sort on relation lists | **Accepted 2026-09-26:** included now, one walk per list rather than per row, measured at volume | S4R1 |
-| D25 | Whole-type name search is over budget (0.7–0.9 s, S7): indexed search, prefix match, or no total? | **Accepted 2026-09-26:** an indexed search that keeps "contains" matching, in every context (S8). SQLite first; the PostgreSQL equivalent (trigram) arrives with 0.10 hardening. **Delivered 2026-09-26** as a trigram index over text values; names stay on the (type, name) index, which measured cheaper than indexing them (S8) | S8 |
-| D26 | Attribute and ancestor sorts over the 20,000-child parent are over budget (85–204 ms, S4R1, S7) | **Accepted 2026-09-26:** deferred until after 0.9 (precomputed sort keys, 0.10 or later); recorded as a known budget exception for 0.8 | — |
+| D25 | Whole-type name search is over budget (0.7–0.9 s, S7): indexed search, prefix match, or no total? | **Accepted 2026-09-26:** an indexed search that keeps "contains" matching, in every context (S8). SQLite first; the PostgreSQL equivalent (trigram) arrives with 0.11 hardening. **Delivered 2026-09-26** as a trigram index over text values; names stay on the (type, name) index, which measured cheaper than indexing them (S8) | S8 |
+| D26 | Attribute and ancestor sorts over the 20,000-child parent are over budget (85–204 ms, S4R1, S7) | **Accepted 2026-09-26:** deferred until after 0.9 (precomputed sort keys, 0.11 or later); recorded as a known budget exception for 0.8 | — |
 | D27 | Can a workspace be deleted? (ADR-019 said never) | **Accepted 2026-09-26:** yes, to correct a mistyped key, when it is not the default, has no objects and no change sets, and was never published; a published workspace is retired instead because publications are never removed. No audit event, matching the unaudited create, rename and retire; the key may be reused | W6 |
 | D28 | Index declarations that no migration creates on the snapshot tables (A6) | Per index: create it, replace it with an owner-leading composite the reads need, or drop the declaration where an existing index serves it, decided from query plans and the volume baseline; a drift test keeps a migrated schema equal to the ORM. **Accepted 2026-09-28 as delivered in A6:** change set objects gain (owner, type, name, object) and (owner, parent, type, name, object); the other eight declarations are removed because owner-leading indexes already serve every read | A6 |
 | D24 | Which columns sort | **Accepted 2026-09-26 (S4R3 review):** every data column sorts from its header, whatever the attribute's `sortable` flag, including Type and Relationship by their labels; every list shows the same toolbar Sort menu; D21's `sortFields` only add menu fields and `defaultSort` chooses the order. Exceptions: Actions, the computed path, JSON attributes and unrecorded timestamps | S4R3 |
@@ -3184,13 +3401,14 @@ is then ready to release (D43).
 | D32 | Engine-maintained containment edges in the relation changes | **Accepted 2026-09-28:** the API lists them with `containment: true` and a `containment` filter, so integrations see every row that publishes; the review screen hides them by default because the record's `parent` change shows the move | P2a, P2b |
 | D33 | One mixed changes list or one per record kind? | **Accepted 2026-09-28:** `object-changes` and `relation-changes`, one response shape each (as P3 settled for relations), each ordered on its own index | P2a |
 | D34 | Drag and drop in the tree lens: targets and confirmation | **Accepted 2026-09-28:** drops onto a node, into a gap between rows (the branch the gap belongs to; at a branch end the pointer's horizontal position picks the level) or onto a type heading. The record lands in its `childSort` place, since the model has no manual order. The top level is added to both paths by B5b (D36). Acceptance is decided by the model's containment rule plus B2's reasons and two new ones (`type`, `application`). A drop is confirmed in the existing `TreeMoveDialog` with the target chosen. Mouse and pen only | B5 |
-| D35 | Touch drag in the tree lens | **Accepted 2026-09-28: deferred to 0.10.** Why: on a windowed tree, a long-press drag competes with scrolling and with the tap that opens a record, and doing it well needs testing on real iOS and Android devices, which the 0.8 gates (desktop Chromium) do not cover. Phones already have the complete path through Move to… (B3, B4 at 390px). When: 0.10, listed in its roadmap delivery scope and exit | B5 |
+| D35 | Touch drag in the tree lens | **Accepted 2026-09-28: deferred to 0.11.** Why: on a windowed tree, a long-press drag competes with scrolling and with the tap that opens a record, and doing it well needs testing on real iOS and Android devices, which the 0.8 gates (desktop Chromium) do not cover. Phones already have the complete path through Move to… (B3, B4 at 390px). When: 0.11, listed in its roadmap delivery scope and exit | B5 |
 | D36 | Moving a record to the top level from the tree | **Accepted 2026-09-28:** offered in Move to… and by drag, because the API supports it. Allowed for a record of one of the tree's root types that has a parent. A `rootCreatable` type the tree does not show at the top is refused (`notRoot`), because it would disappear from the tree; the record's detail can still move it | B5b |
 | D37 | Does a record keep its ID when its type changes? | **Accepted 2026-09-29 (C0, ADR-034):** yes. History, relationships and integrations stay linked, and the 0.9 feed reports the change as a `reclassified` event, not as a delete and a create | C0 |
 | D38 | Live, or change set only? | **Accepted 2026-09-29 (C0, ADR-034):** change set only. It is a structural operation over many records, and the P2 review screen shows it before it takes effect. A stated exception to ADR-026's "live by default" | C0 |
 | D39 | Can a record change to a type of another application? | **Accepted 2026-09-29 (C0, ADR-034):** no. The new type must belong to the record's application, as the move already requires for parents | C0 |
 | D40 | Which values can be mapped? | **Accepted 2026-09-29 (C0, ADR-034):** the same value type, plus widenings that lose nothing (`text` to `longText`, `integer` to `decimal`). No lossy conversion; anything else is listed as having no place and kept in history. A mapped value failing the new binding's validation is an input | C0 |
-| D41 | How large can one operation be? | **Accepted 2026-09-29 (C0, ADR-034):** 5,000 changed records per operation in 0.8, measured on the volume fixture in C2. A larger one is refused with `422 restructuring_too_large` and the limit, never cut short | C0, C2 |
+| D41 | How large can one operation be? | **Accepted 2026-09-29 (C0, ADR-034):** 5,000 changed records per operation in 0.8, measured on the volume fixture in C2. A larger one is refused with `422 restructuring_too_large` and the limit, never cut short. **Lowered to 500 by D44** | C0, C2 |
 | D42 | What does a read or write naming the old type return? | **Accepted 2026-09-29 (C0, ADR-034):** `409 object_type_changed` with the current type, for any record found under another type in the selected context; the UI follows it to the new route. Routes keep their type segment | C0 |
 | D43 | Release timing | **Accepted 2026-09-29 (C0):** (a) hold 0.8.0 until R2 passes; Milestone C ships in 0.8.0 | C0 |
-| D30 | A link candidate page over a column of about 5,000 cells takes 92 ms live and 160 ms in a change set (found in A6) | **Accepted 2026-09-28:** a known 0.8 budget exception, as D26; the name order and total read every cell under the column only at an unusual column size. Revisit with precomputed sort keys (0.10 or later) | — |
+| D44 | Can a 5,000-record operation be previewed interactively? | **Accepted 2026-09-29: (a)** lower D41's limit to 500. Why: planning 4,772 records takes 0.35 s, but the preview's dry run through the C1 write path takes 48 s (about 10 ms a record) and applying as long again; at 479 records the preview takes 2.8 s. The alternatives were (b) keep 5,000 with a set-wise write path for plans, a second write path to keep in step with C1, and (c) dry-run only below a threshold, which breaks ADR-034's promise that the preview refuses what applying would. A set-wise write path is how a later build raises the limit | C2 |
+| D30 | A link candidate page over a column of about 5,000 cells takes 92 ms live and 160 ms in a change set (found in A6) | **Accepted 2026-09-28:** a known 0.8 budget exception, as D26; the name order and total read every cell under the column only at an unusual column size. Revisit with precomputed sort keys (0.11 or later) | — |
