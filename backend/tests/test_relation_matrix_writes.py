@@ -27,9 +27,9 @@ from wp8_support import create_change_set, publish_change_set, validate_change_s
 
 from app.config import reload_settings
 from app.db import SessionLocal, get_engine
+from app.engine.indexes import matrix_states
+from app.engine.model.registry import model_registry
 from app.main import create_app
-from app.services import matrix_states
-from app.services.model.registry import model_registry
 
 BASE = "/api/v1/workspaces/default/relation-matrix"
 TRANSLATION_LINK = "object-has-translation"

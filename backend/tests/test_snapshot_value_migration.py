@@ -22,9 +22,9 @@ from test_context_read_parity import ENTRY, _seed, _walk, parity_model
 import app.main as main_module
 from app.config import reload_settings
 from app.db import get_engine
+from app.engine.model.registry import model_registry
 from app.main import create_app
 from app.models.database import SnapshotAttributeValue
-from app.services.model.registry import model_registry
 
 PRECEDING, HEAD = "20260912_01", "20260928_01"
 QUERIES = (

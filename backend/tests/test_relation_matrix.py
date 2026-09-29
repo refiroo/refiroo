@@ -20,9 +20,9 @@ from wp8_support import (
 
 from app.config import reload_settings
 from app.db import SessionLocal, get_engine
+from app.engine.indexes import matrix_states
+from app.engine.model.registry import model_registry
 from app.main import create_app
-from app.services import matrix_states
-from app.services.model.registry import model_registry
 
 BASE = "/api/v1/workspaces/default/relation-matrix"
 TRANSLATIONS = {"applicationKey": "rdm-translations", "viewKey": "master-value-translations"}

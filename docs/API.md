@@ -1758,7 +1758,7 @@ Designed in C0 ([ADR-034](DECISIONS.md#adr-034--a-records-type-can-change-derive
 C1–C3 deliver it, and this section becomes the contract as they do. **C1 (delivered 2026-09-29)** makes
 the `reclassified` audit event, the D42 refusal, the change-list changes and the publishing behaviour
 below the contract. **C2 (delivered 2026-09-29)** settles the plan below in the engine's planner
-(`services/restructuring.py`) for `move` and `changeType`. **C3 (delivered 2026-09-29)** adds the
+(`engine/operations/restructuring.py`) for `move` and `changeType`. **C3 (delivered 2026-09-29)** adds the
 routes, the other operation kinds, the paging of `records` and the parent candidates'
 `includeTypeChanges`, so the whole section is now the contract. C5 accepted it end to end, and R2
 (2026-09-29) accepted it for release in 0.8.0. A restructuring changes the shape

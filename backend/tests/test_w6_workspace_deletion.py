@@ -23,10 +23,10 @@ from wp8_support import (
 
 from app.config import reload_settings
 from app.db import SessionLocal, get_engine
+from app.engine.model.registry import model_registry
+from app.engine.records import objects as object_writes
 from app.main import create_app
 from app.models.database import RdmObject, RelationSetVersion, Workspace
-from app.services import workspaces as workspace_service
-from app.services.model.registry import model_registry
 
 HOLD_TIMEOUT = 10
 
@@ -229,7 +229,7 @@ def test_live_write_resolved_before_deletion_saves_nothing(monkeypatch, client):
     key = unique_key("w6-race")
     created = create_workspace(client, key)
     resolved, deleted = threading.Event(), threading.Event()
-    original = workspace_service.resolve_workspace
+    original = object_writes.resolve_workspace
 
     def resolve_then_hold(session, workspace_key, **kwargs):
         workspace = original(session, workspace_key, **kwargs)
@@ -237,7 +237,8 @@ def test_live_write_resolved_before_deletion_saves_nothing(monkeypatch, client):
         assert deleted.wait(HOLD_TIMEOUT)
         return workspace
 
-    monkeypatch.setattr(workspace_service, "resolve_workspace", resolve_then_hold)
+    # Held where the create resolves the workspace, between that read and its write.
+    monkeypatch.setattr(object_writes, "resolve_workspace", resolve_then_hold)
     name = f"Domain {unique_key('held')}"
     with ThreadPoolExecutor(max_workers=1) as pool:
         pending = pool.submit(

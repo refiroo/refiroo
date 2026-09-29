@@ -7,6 +7,8 @@ from sqlalchemy import select
 from wp8_support import create_change_set, create_workspace, unique_key
 
 from app.db import SessionLocal
+from app.engine.model.bootstrap import ensure_bootstrap_release
+from app.engine.model.registry import model_registry
 from app.main import app, create_app
 from app.models.database import (
     ChangeSet,
@@ -20,8 +22,6 @@ from app.models.database import (
     Workspace,
 )
 from app.models.schema import EngineModel
-from app.services.model.bootstrap import ensure_bootstrap_release
-from app.services.model.registry import model_registry
 
 
 def _candidate_without_language_attribute(client, version: str) -> tuple[EngineModel, str]:

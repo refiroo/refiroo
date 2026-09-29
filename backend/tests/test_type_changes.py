@@ -1,6 +1,6 @@
 """Base 0.8 C1: a record's type changes in a change set (ADR-034).
 
-The engine service (``services/type_changes``) is exercised directly, since the restructuring API
+The engine service (``engine/operations/type_changes``) is exercised directly, since the restructuring API
 is C3; reads, history, change lists and publishing go through the HTTP API. Each part runs over the
 starter model and the same model with every key renamed (the ``k`` fixture maps a starter key to the
 model's), and the generated volume model has its own cases, so nothing depends on a key.
@@ -38,18 +38,18 @@ from wp8_support import create_workspace, publish_change_set, workspace_active_p
 
 from app.config import reload_settings
 from app.db import SessionLocal, get_engine
-from app.errors import ApiError
-from app.main import create_app
-from app.models.database import AuditEvent, ChangeSetRelation, RelationSetVersion
-from app.services import matrix_states
-from app.services.model.registry import model_registry
-from app.services.type_changes import (
+from app.engine.indexes import matrix_states
+from app.engine.model.registry import model_registry
+from app.engine.operations.type_changes import (
     RelationInput,
     RestoredRelation,
     TypeChange,
     apply_type_change,
     check_type_change,
 )
+from app.errors import ApiError
+from app.main import create_app
+from app.models.database import AuditEvent, ChangeSetRelation, RelationSetVersion
 
 WORKSPACE = "c1-types"
 

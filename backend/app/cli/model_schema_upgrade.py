@@ -9,14 +9,14 @@ from pathlib import Path
 from sqlalchemy import update
 
 from ..db import SessionLocal, create_database
+from ..engine.model.compatibility import analyze_compatibility
+from ..engine.model.compiler import SUPPORTED_SCHEMA_VERSIONS
+from ..engine.model.diagnostics import ModelValidationError
+from ..engine.model.legacy import parse_schema_04_for_transition
+from ..engine.model.loader import load_model
+from ..engine.model.releases import ReleaseIdentityConflict, install_model_release
+from ..engine.model.runtime import require_runtime_state
 from ..models.database import AuditEvent, ModelRelease, ModelRuntimeState
-from ..services.model.compatibility import analyze_compatibility
-from ..services.model.compiler import SUPPORTED_SCHEMA_VERSIONS
-from ..services.model.diagnostics import ModelValidationError
-from ..services.model.legacy import parse_schema_04_for_transition
-from ..services.model.loader import load_model
-from ..services.model.releases import ReleaseIdentityConflict, install_model_release
-from ..services.model.runtime import require_runtime_state
 
 
 def transition(model_path: Path) -> str:

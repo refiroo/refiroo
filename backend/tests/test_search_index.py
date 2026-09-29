@@ -21,19 +21,19 @@ from sqlalchemy.dialects import postgresql, sqlite
 from test_context_read_parity import (
     ENTRY,
     WORKSPACE,
-    _change_set,
     _change_set_version,
     _create,
     _ok,
     _seed,
     _walk,
+    load_change_set,
 )
 from test_snapshot_value_migration import _app, _config, _version
 
 from app.db import get_engine
+from app.engine.reads import object_query, snapshot_reads
 from app.models.database import Base, ChangeSetBaseObject, RdmObject
 from app.models.search_index import SEARCH_INDEXES, match_phrase
-from app.services import objects, snapshot_reads
 
 PRECEDING, HEAD = "20260926_02", "20260928_01"
 # The parity model's app over a migrated database.
@@ -90,7 +90,7 @@ def test_search_answers_the_same_through_the_index_in_every_context(client, monk
         assert not any("_text_search" in statement for statement in statements), name
 
     # Past the limit, every record's values are looked up: the same records in the same order.
-    monkeypatch.setattr(objects, "INDEXED_VALUE_LIMIT", -1)
+    monkeypatch.setattr(object_query, "INDEXED_VALUE_LIMIT", -1)
     for (name, search), ids in indexed.items():
         assert _ids(client, seeded["contexts"][name], search) == ids, (name, search)
     for search in SEARCHES:
@@ -115,7 +115,7 @@ def test_change_set_search_counts_a_change_set_match_and_not_a_hidden_base_match
             ("Needle four", "N-4"),
         )
     )
-    change_set = _change_set(client, source="currentLive")["id"]
+    change_set = load_change_set(client, source="currentLive")["id"]
     context = {"changeSetId": change_set}
 
     def patch(record: dict, body: dict) -> None:
@@ -322,7 +322,7 @@ def _search_guards() -> list:
     projection = snapshot_reads.object_projection(context, object_type_key=ENTRY)
     snapshot = snapshot_reads._value_candidates(projection, context)(match_phrase("note"), ["n"])
     return [
-        select(RdmObject.id).where(objects._live_value_candidates(match_phrase("note"), ["n"])),
+        select(RdmObject.id).where(object_query._live_value_candidates(match_phrase("note"), ["n"])),
         select(projection.c.object_id).where(snapshot),
     ]
 
@@ -341,7 +341,7 @@ def test_search_reads_the_index_on_sqlite_only():
 
 
 def test_the_migration_changes_nothing_on_another_dialect(monkeypatch):
-    path = Path(objects.__file__).parents[1] / "migrations/versions/20260926_03_trigram_search_indexes.py"
+    path = Path(object_query.__file__).parents[2] / "migrations/versions/20260926_03_trigram_search_indexes.py"
     spec = importlib.util.spec_from_file_location("trigram_search_indexes", path)
     revision = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(revision)

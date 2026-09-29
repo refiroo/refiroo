@@ -15,7 +15,7 @@ import pytest
 from volume_fixture import APPLICATION, CODE, ITEM, RANK, WORKSPACE, scaled_shape, volume_app
 from wp8_support import attribute, create_change_set, create_object, update_object
 
-from app.services import pagination
+from app.common import pagination
 
 PAGE = 7
 

@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
+from app.engine.model.compatibility import analyze_compatibility
 from app.models.database import (
     AttributeValue,
     Base,
@@ -15,7 +16,6 @@ from app.models.database import (
     Workspace,
 )
 from app.models.schema import EngineModel
-from app.services.model.compatibility import analyze_compatibility
 
 
 def _source() -> dict:

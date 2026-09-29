@@ -18,6 +18,17 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Backend boundaries (E1–E3, [record](docs/BACKEND_BOUNDARIES_PLAN.md)). `backend/app` is split into
+  tiers: `common/`, `engine/` (no FastAPI, no API schemas), `management/` (the `/api/v1` routes,
+  schemas, presenters and projections) and the `consumer/` slot, checked by `tests/test_boundaries.py`
+  with no exceptions, no import cycles and no function-level imports. The write rules are written once
+  (`engine/records/rules.py`) and read live data or a change set through a lookup; where the two
+  contexts word a refusal differently the difference is one entry in `engine/records/refusals.py`,
+  pinned by `tests/test_rule_parity.py` (31 violations, both contexts, two models). Every record,
+  relation and attribute-value row is written through `engine/records/writes.py`, the seam F1's feed
+  position goes into. The live and change-set mapping replacement is one flow, and `change_sets` is a
+  package. Both OpenAPI documents are unchanged. When one request breaks two parent or relation rules,
+  which one is reported can differ from before.
 - A live page's ancestor paths read only the columns a path shows, not whole records. A page of deep
   records loaded 163 ORM rows for 20 records and now loads 84, on the per-type list and the lookup alike.
 

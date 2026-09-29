@@ -3,15 +3,13 @@ from uuid import uuid4
 import pytest
 from test_api import ChangeSetTestClient
 
+from app.engine.model.loader import load_bootstrap_model
+from app.engine.records.attributes import validate_deletable_attribute
 from app.errors import ApiError
 from app.main import app
+from app.management.presenters import build_attribute_value_response
 from app.models.database import AttributeValue
 from app.models.schema import ObjectTypeAttributeDefinition
-from app.services.attributes import (
-    build_attribute_value_response,
-    validate_deletable_attribute,
-)
-from app.services.model.loader import load_bootstrap_model
 
 TestClient = ChangeSetTestClient
 

@@ -21,6 +21,8 @@ from sqlalchemy import select
 
 from app.config import cursor_signing_key, reload_settings
 from app.db import get_engine
+from app.engine.indexes.snapshot_values import value_rows
+from app.engine.model.registry import model_registry
 from app.main import create_app
 from app.models.database import (
     ChangeSetBaseObject,
@@ -28,8 +30,6 @@ from app.models.database import (
     PublicationObject,
     SnapshotAttributeValue,
 )
-from app.services.model.registry import model_registry
-from app.services.snapshot_values import value_rows
 
 APP, FOLDER, ENTRY = "par-app", "par-folder", "par-entry"
 HOLDS, CITES = "par-folder-holds-entry", "par-entry-cites-folder"
@@ -206,7 +206,7 @@ def _create(client, object_type: str, name: str, parent: str | None, values, **c
     )
 
 
-def _change_set(client, **body) -> dict[str, Any]:
+def load_change_set(client, **body) -> dict[str, Any]:
     return _ok(client.post(f"/api/v1/workspaces/{WORKSPACE}/change-sets", json=body), 201)
 
 
@@ -254,7 +254,7 @@ def _seed(client) -> dict[str, Any]:
     # The overlay change set starts from current live data and ends equal to it: identical rewrites of
     # base rows, a change set-only record that is created and then deleted, and a tombstone for the record
     # that live deletes too.
-    overlay = _change_set(client, source="currentLive")["id"]
+    overlay = load_change_set(client, source="currentLive")["id"]
     for entry in entries[::2]:
         record = _ok(client.get(f"/api/v1/objects/{ENTRY}/{entry['id']}", params={"changeSetId": overlay}))
         for key, value in _values(record).items():
@@ -289,14 +289,14 @@ def _seed(client) -> dict[str, Any]:
     )
 
     # A publication of current live data, and a change set derived from it without edits.
-    publish = _change_set(client, source="currentLive")
+    publish = load_change_set(client, source="currentLive")
     publication = _ok(
         client.post(
             f"/api/v1/change-sets/{publish['id']}/publication",
             json={"expectedChangeSetVersion": publish["version"]},
         )
     )
-    derived = _change_set(client, source="publication", derivedFromPublicationId=publication["id"])["id"]
+    derived = load_change_set(client, source="publication", derivedFromPublicationId=publication["id"])["id"]
     return {
         "folders": folders,
         "entries": entries,

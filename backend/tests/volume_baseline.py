@@ -88,11 +88,11 @@ def object_cursor(
 
     The cursor is the one the endpoint itself would have issued for that row in ``direction``.
     """
-    from app.services.cursors import encode_cursor
-    from app.services.model.compiler import parse_model
-    from app.services.objects import build_object_query
-    from app.services.pagination import _row_position, cursor_sort
-    from app.services.snapshot_reads import (
+    from app.common.cursors import encode_cursor
+    from app.common.pagination import _row_position, cursor_sort
+    from app.engine.model.compiler import parse_model
+    from app.engine.reads.object_query import build_object_query
+    from app.engine.reads.snapshot_reads import (
         build_snapshot_object_query,
         change_set_context,
         object_scope,
@@ -512,8 +512,8 @@ def restructuring_scenarios(
     of its items change type (its nodes stay nodes). Planning alone reads level by level; the
     preview also dry-runs every record's write, which it then rolls back. Returns the
     measurements and the number of records the plan changes."""
-    from app.services.change_sets import _change_set, _change_set_model
-    from app.services.restructuring import (
+    from app.engine.change_sets.access import change_set_model, load_change_set
+    from app.engine.operations.restructuring import (
         MoveOperation,
         Restructuring,
         _Planner,
@@ -524,8 +524,8 @@ def restructuring_scenarios(
 
     def plan_only() -> int:
         with Session(engine) as session:
-            change_set = _change_set(session, dataset.change_set_id)
-            model = _change_set_model(session, change_set)
+            change_set = load_change_set(session, dataset.change_set_id)
+            model = change_set_model(session, change_set)
             with measure(engine) as cost:
                 plan = _Planner(session, change_set, model, request).plan()
             session.rollback()

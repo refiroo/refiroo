@@ -1,215 +1,218 @@
 # Backend boundaries and one write path (Track E)
 
-**Status:** proposed 2026-09-29, not yet in the 0.9 delivery queue. **Runs:** after Q4, before B1.
-**Follows:** [BACKEND_STRUCTURE_REFACTOR.md](BACKEND_STRUCTURE_REFACTOR.md) (F-01 … F-14).
+**Status:** delivered 2026-09-29, after 0.9 Q1 and before Q2 (planned after Q4; brought forward on
+request, so Q2–Q4 build on this layout). **Follows:** [BACKEND_STRUCTURE_REFACTOR.md](BACKEND_STRUCTURE_REFACTOR.md)
+(F-01 … F-14).
 
-Three packages, E1–E3. None of them changes an API contract or the database schema: both generated
-OpenAPI documents stay byte-identical to the Q4 baseline, and no Alembic revision is added.
+Three packages, E1–E3. None changes an API contract or the database schema: both generated OpenAPI
+documents (default and `MODEL_ADMIN_MUTATIONS_ENABLED=true`) are byte-identical to the Q1 baseline,
+and no Alembic revision was added. Behaviour notes lists the few places where the result of a
+request differs.
 
-## Why now
+## Why
 
 Since the last structural refactor (665c530, 2026-09-05) `backend/app` grew from about 7,900 to
-30,000 lines, almost all of it in `services/`. Two problems grew with it:
+30,000 lines, almost all of it in `services/`, with two problems:
 
-1. **No tiers.** `services/` holds domain rules, UI read projections, response builders, flush-hook
-   indexes and generic helpers side by side. Eight services build `models/api.py` DTOs, three import
-   FastAPI (`jsonable_encoder` only), and `services/model/registry.py` imports the FastAPI
-   `DbSession` dependency from `db.py`. Seven modules form an import cycle (attributes, objects,
-   relations, workspaces, snapshot_reads, matrix_cells, matrix_states) held together by
-   function-level imports, and 22 imports take `_private` names from another module, most of them
-   `type_changes` and `restructuring` borrowing from `change_sets`.
-2. **Every write exists twice.** Live writes check the rules against live tables (`objects.py`,
-   `relations.py`, `attributes.py`, `deletion.py`); change-set writes check the same rules again
-   against `ChangeSetLookup` (`change_sets.py`); `mapping.py` carries a live and a change-set twin of
-   each replacement step. Six modules write live rows.
+1. **No tiers.** Domain rules, UI read projections, response builders, flush-hook indexes and generic
+   helpers sat side by side in `services/`. Eight services built API DTOs, four imported FastAPI, and
+   the model registry imported the FastAPI `DbSession`. Seven modules formed an import cycle held
+   together by function-level imports, and 22 imports took `_private` names from another module.
+2. **Every write existed twice.** Live writes checked the rules against live tables; change-set
+   writes checked the same rules again against the change set lookup; the mapping replacement had a
+   live and a change-set twin of every step.
 
-0.9 multiplies the second problem. B1 adds batch items "live and in a change set" tested against
-their single-write routes; B3 has the mapping PUT and `replaceRelationSet` share one service; F1
-requires that **every live write path takes the workspace lock first**, audited path by path, with
-one feed entry per change. Built on today's code, each of those lands in every write path twice.
-After E, each lands once.
+0.9 would have multiplied the second problem: B1 adds batch items live and in a change set, B3 has
+the mapping PUT and `replaceRelationSet` share one service, and F1 requires every live write path to
+take the workspace lock first.
 
-## Target layout
+## Layout
 
 ```
 backend/app/
-├── main.py, config.py, errors.py      app factory and settings (unchanged)
-├── db.py                              engines, sessions, migrations; no FastAPI import
-├── common/                            helpers: know nothing about the model or the API
-│   ├── time.py, json_pointer.py, chunks.py
-│   ├── pagination.py, cursors.py      ← services/
+├── main.py, config.py, db.py          app factory, settings, engines and migrations (db.py: no FastAPI)
+├── errors.py                          ApiError, the engine's error (no FastAPI)
+├── common/                            helpers that know neither the model nor the API
+│   ├── pagination.py, cursors.py      keyset paging, signed cursors
+│   ├── encoding.py                    JSON form of stored data (was FastAPI's jsonable_encoder)
+│   └── time.py, json_pointer.py
 ├── models/
-│   ├── schema.py                      the model contract (unchanged)
-│   ├── database.py, search_index.py   persistence (unchanged)
-├── engine/                            the domain; no FastAPI, no API schemas
-│   ├── model/                         ← services/model/ (compiler, validation, registry, releases, placements, …)
-│   ├── records/                       rules and writes for objects, relations, attribute values
-│   │   ├── context.py                 RecordContext: LiveContext, ChangeSetContext (← change_set_lookups)
-│   │   ├── rules.py                   every write-time rule, once, over a RecordContext
-│   │   ├── writes.py                  WriteUnit: claim, lock seam, rows, audit, set versions, index notes
-│   │   ├── attributes.py, objects.py, relations.py, deletion.py
-│   │   └── audit.py
-│   ├── workspaces/                    workspaces, workspace_audit, relation_set_versions
-│   ├── change_sets/                   ← change_sets.py: records.py, validation.py, pinning.py, publish.py
-│   ├── operations/                    multi-record operations: restructuring, type_changes, mapping_replacement
-│   ├── reads/                         object_query, object_lookup (Q1), snapshot_reads, relation_queries,
-│   │                                  change_lists, parent_candidates, relation_matrix, matrix_cells, mapping reads
-│   └── indexes/                       flush-hook maintained: snapshot_values, matrix_states
+│   ├── schema.py                      the model contract; EngineModel.allowed_relation, containment_relation_keys
+│   ├── commands.py                    write inputs the engine accepts (object, relation, mapping, workspace)
+│   └── database.py, search_index.py   persistence
+├── engine/                            the domain: no FastAPI, no API schemas
+│   ├── model/                         compile, validate, registry, releases, placements, metadata IDs
+│   ├── records/
+│   │   ├── rules.py                   every write rule, once
+│   │   ├── refusals.py                where live and change sets word a refusal differently (E-D4)
+│   │   ├── context.py                 LiveLookup, ChangeSetLookup, load_object
+│   │   ├── writes.py                  LiveWrites, ChangeSetWrites: the only writer of record rows
+│   │   ├── values.py                  one attribute value in its forms
+│   │   └── objects.py, relations.py, attributes.py, deletion.py, audit.py, relation_set_versions.py
+│   ├── change_sets/                   access, lifecycle, records, validation, pinning, publish
+│   ├── operations/                    restructuring, type_changes, mapping_replacement
+│   ├── reads/                         object_query, object_lookup, snapshot_reads, relation_queries,
+│   │                                  change_lists, matrix_cells, mapping_projection
+│   ├── indexes/                       snapshot_values, matrix_states (flush-hook maintained)
+│   └── workspaces/                    catalogue, workspace_audit
 ├── management/                        the management API (/api/v1), used by the UI and integrations
-│   ├── dependencies.py                DbSession, ActiveModelSnapshot (← db.py, routers)
-│   ├── routers/                       ← routers/
-│   ├── schemas/                       ← models/api.py, split by area
-│   ├── presenters.py, paging.py       every engine result → DTO
-├── consumer/                          the consumer API (/api/consumer/…); created by C2, empty until then
-├── migrations/, cli/                  unchanged
+│   ├── dependencies.py                DbSession, ActiveModelSnapshot, RequestModelSnapshot
+│   ├── errors.py                      exception handlers
+│   ├── routers/, schemas/             routes; response schemas by area
+│   ├── presenters.py, paging.py       engine result → response; page parameters
+│   └── projections/                   the API's composed reads: relation matrix, mapping grid,
+│                                      parent candidates, model metadata
+├── consumer/                          the consumer API; created by C2
+└── migrations/, cli/
 ```
 
-"Internal API" in earlier discussion is the management API: the UI has no API of its own, and the
-docs already name the two tiers management and consumer (CONSUMER_API.md).
+`management/projections/` is where a read builds a page of API schemas directly. The relation
+matrix, mapping grid and parent candidates are views of the management API, not reads the consumer
+tier would reuse, so they stay whole instead of duplicating every response class as an engine
+dataclass.
 
 ### Tier rules
 
 | Module | May import | Must not import |
 | --- | --- | --- |
-| `common` | `common`, `errors` | anything else in `app` |
+| `common` | `common`, `errors`, `config` | anything else in `app` |
 | `models.schema` | `common` | anything else in `app` |
 | `engine` | `common`, `models`, `errors`, `db`, `config` | `management`, `consumer`, `fastapi`, `starlette` |
 | `management` | everything above | `consumer` |
 | `consumer` | everything above `management` | `management` |
 
-Plus two rules for every module: no `from x import _name` across modules, and no function-level import
-of an `app` module. Inside `engine`, `reads` never imports `records.writes`, and nothing imports
-`operations`.
-
-`tests/test_boundaries.py` (group `contract`) checks these rules by reading imports with `ast`, so
-no dependency is added. E1 lands it with an allowlist of today's violations, each entry naming the
-package that removes it; E3's exit is an empty allowlist.
-
-## Where each file goes
-
-| Now | After E |
-| --- | --- |
-| `services/model/**` | `engine/model/**` |
-| `services/attributes.py` | `engine/records/attributes.py` (conversion) + `rules.py` (checks) |
-| `services/objects.py` query half (filters, sorts, `build_object_query`) | `engine/reads/object_query.py` |
-| `services/objects.py` write half | `engine/records/objects.py`; `build_object_responses` → `management/presenters.py` |
-| `services/relations.py` | `engine/records/relations.py`; `build_relation_response` → presenters |
-| `services/deletion.py`, `audit.py` | `engine/records/` |
-| `services/change_set_lookups.py` | `engine/records/context.py` as `ChangeSetContext` |
-| `services/change_sets.py` | `engine/change_sets/{records,validation,pinning,publish}.py` |
-| `services/workspaces.py`, `workspace_audit.py`, `relation_set_versions.py` | `engine/workspaces/`; response builders → presenters |
-| `services/restructuring.py`, `type_changes.py` | `engine/operations/` |
-| `services/mapping.py` | reads → `engine/reads/mapping.py`; replacement → `engine/operations/mapping_replacement.py` |
-| `services/mapping_projection.py`, `snapshot_reads.py`, `change_lists.py`, `parent_candidates.py`, `relation_queries.py`, `relation_matrix.py`, `matrix_cells.py`, Q's new modules | `engine/reads/` |
-| `services/snapshot_values.py`, `matrix_states.py` | `engine/indexes/` |
-| `services/pagination.py`, `cursors.py` | `common/` |
-| `routers/**`, `models/api.py` | `management/routers/**`, `management/schemas/*.py` |
-| `DbSession` in `db.py` | `management/dependencies.py` |
+Every module imports at module level, never another module's `_private` name, and no two modules
+import each other, directly or around a cycle. Inside `engine`, only `operations` imports
+`operations`. Only `engine/records/writes.py` constructs a record, relation or attribute-value row,
+live or in a change set, or names their tables in a Core insert, update or delete.
+`tests/test_boundaries.py` (group `contract`) checks all of it from the imports and calls; its
+allowlist is empty.
 
 ## The duplicates and their single version
 
-| Rule or step | Live today | Change set today | After E |
-| --- | --- | --- | --- |
-| Application and object type identity | `objects.get_object_type`, `validate_application_object_type` | `change_sets._validate_object_identity` (also borrowed by restructuring, type changes) | `rules.object_identity` |
-| Allowed relation lookup | `relations.find_allowed_relation` | inline `next(…objectTypeRelations…)`; 11 such scans across 10 modules | `EngineModel.allowed_relation(...)` and `rules.require_allowed_relation` |
-| Attribute normalization | `attributes.validate_attribute_change` | `change_sets._normalize_object_attributes` | one, in `rules` |
-| Attribute uniqueness | SQL in `attributes.py` | `_validate_change_set_attribute_uniqueness` over `unique_value_holder` | `rules`, over `RecordContext.unique_value_holder` |
-| Parent validity and cycles | `objects.validate_parent`, `_would_create_parent_cycle` | `change_sets._validate_candidate_parent` | `rules.parent`, over `RecordContext` ancestors |
-| Containment edge kept with the parent | `objects.replace_parent_relation` | `_sync_change_set_parent_relation`, `sync_containment_edge` | `WriteUnit` |
-| Cardinality and ancestor-scope uniqueness | `relations.validate_cardinality`, `validate_unique_to_ancestor` | `validate_change_set_relation` | `rules.relation`, over `RecordContext.relations` |
-| Required initial relations | `objects._require_initial_relations` | in `write_new_change_set_object` | `rules` |
-| Object, relation, attribute writes | `create_object_record`, `update_object_record`, `set_live_attribute_value`, `*_live_relation`, `delete_object_record` | `put/update/delete_change_set_object`, `*_change_set_relation`, `patch/delete_change_set_attribute` | one operation per entity through a `WriteUnit` for the context |
-| Mapping replacement | `_replace_live_mapping`, `_execute_live_*`, `_live_edges`, `_check_live_cross_cardinality` | the `_change_set` twin of each | one replacement over `RecordContext` and `WriteUnit`; B3 extends it to sets |
-| Small helpers | `_chunks` ×3, `_edge_other_id` ×2, `_object_types` ×2, `_change_set` ×2 | | `common.chunks` and one owner each |
+| Rule or step | Before | After |
+| --- | --- | --- |
+| Application and object type identity | `objects.get_object_type` + `validate_application_object_type`; `change_sets._validate_object_identity` | `rules.object_identity` |
+| Binding lookup | `relations.find_allowed_relation`; `change_sets._normalize_relation`; 11 inline scans of `objectTypeRelations` | `EngineModel.allowed_relation`, `rules.relation_binding` |
+| Relation attributes | `relations.validate_relation_attributes`, called three ways | `rules.relation_attributes` |
+| Attribute uniqueness | SQL in `attributes.check_attribute_uniqueness`; `change_sets._validate_change_set_attribute_uniqueness` | `rules.unique_values` over the lookup |
+| Parent validity and cycles | `objects.validate_parent` + `_would_create_parent_cycle`; `change_sets._validate_candidate_parent` (also in validation) | `rules.parent` over the lookup |
+| Cardinality and ancestor scope | `relations.validate_cardinality`, `validate_unique_to_ancestor`; `change_sets.validate_change_set_relation` | `rules.relation_cardinality`, `rules.relation_scope`, `rules.relation` |
+| Required initial relations | `objects._require_initial_relations`; inline in `write_new_change_set_object` | `rules.required_initial_relations` |
+| Containment keys | `parent_relation_keys` and inline `parentRelationTypeKeys` reads | `EngineModel.containment_relation_keys` |
+| Row writes | 6 modules writing live rows, 3 writing change-set rows | `LiveWrites`, `ChangeSetWrites` |
+| Mapping replacement | a live and a change-set function for each step (1,039 lines) | one flow over a lookup and a unit, two small side adapters (646 lines) |
+| Version claims | `claim_object_version`, `claim_relation_version`, `_claim_change_set` | `LiveWrites.claim_object`, `claim_relation`, `ChangeSetWrites.claim` |
+| Chunking | `_chunks` ×3 | one per lookup module |
 
-What stays different on purpose is **policy**, carried by the context, not by branches in the rules:
+What stays different between the contexts is **policy**, carried by the context rather than branches
+in the rules: which claim a write takes, which checks a change set defers to whole-graph validation,
+what each context records in the audit log, and the wording in `refusals.py`.
 
-- which claim a write takes (the record's version live, the change set's version in a change set);
-- which rules a change set defers to validation (`_diagnostics`: containment cycles, identity
-  collisions and the rest of the change-set-wide checks);
-- what the write records (a live audit event, later with a feed position; a change-set row);
-- which index the flush hook keeps (live values and matrix states, or `snapshot_attribute_values`).
+### Wording that still differs (E-D4)
 
-API schemas that look the same (`ObjectPathPart` and `RelationMatrixPathPart`, `RelationChangeState`
-and `change_lists.RelationState`, `ModelChangeResponse` and `diff.SemanticChange`) stay: merging them
-renames OpenAPI components. The engine dataclass and its API schema are the intended pair.
+`tests/test_rule_parity.py` provokes 31 rule violations live and in a change set, on the example
+model and its renamed copy, and pins what each context answers. 15 answer alike. These differ, each
+kept as it was and stated once in `refusals.py`:
 
-## Packages
+| Violation | Live | Change set |
+| --- | --- | --- |
+| Unknown object type | 404 `unknown_object_type` "…not found" | 422 "…is not in the pinned model" |
+| Unknown application | 404 `unknown_application` | 422 `object_type_not_in_application` |
+| Type not in application | 422 `invalid_object_type_for_application` | 422 `object_type_not_in_application` |
+| Unknown relation type | 404 `unknown_relation_type` | 422 |
+| Parent that does not exist | 404 `object_not_found` | 422 `parent_wrong_scope` |
+| Relation endpoint that does not exist | 404 `object_not_found` | 422 `relation_endpoint_missing` |
+| ID already taken | "An object with ID '…' already exists" | "Object '…' already exists" |
+| Duplicate unique value | "Attribute '<name>' must be unique", no details | "Attribute '<key>' must be unique in the change set", with the holder |
+| Containment relation written directly | one message for create and delete | a message per operation |
+| Required relation deleted | "…cannot be deleted independently" | "…cannot be deleted directly" |
+| Two identical initial relations | 409 `cardinality_violation` | 422 `duplicate_initial_relation` |
+| `atLeastOneOf` broken by an update | 422 `object_attribute_rule_violation` | accepted; whole-graph validation reports it and publish refuses it |
+| Empty string in a unique attribute | not a value | a value |
 
-#### E1: Tiers and moves
+Settling E-D4 means choosing one answer per row, as a contract change with its API.md entry.
 
-**Needs:** Q4. **Scope:** the layout above as moves only: packages created, files moved and split along
-the lines in the table, `models/api.py` split into `management/schemas/`, response builders moved into
-presenters, `DbSession` moved out of `db.py`, `jsonable_encoder` in services replaced by the engine's
-own encoding, `_chunks` and the other copied helpers moved to one owner. `test_boundaries.py` with its
-allowlist. AGENTS.md code conventions, the execution guide's path-to-group table and the ARCHITECTURE
-paths updated to the new layout.
+## Behaviour notes
 
-**Tests:** both OpenAPI documents byte-identical; `test_boundaries`; `ruff`; a real Uvicorn smoke start.
-No behavior change, so the moved modules run under their existing groups.
+Single-rule refusals are unchanged (pinned by the parity test). These results can differ:
 
-**Groups:** `contract`, `startup`, then each group once for the modules it covers. Moves change every
-path, so E1 runs the groups the execution guide selects for all moved boundaries; name them in the
-delivery note rather than running the full suite.
+- **Precedence when one request breaks two rules.** The rules run in one order in both contexts now:
+  parent required → parent exists → scope → parent type → cycle; binding → containment → cardinality
+  → scope → attributes. Before, live checked a cycle before the parent type, and a change set checked
+  relation attributes before containment and cardinality. A request that breaks two of these may
+  now get the other error.
+- **`features.parent`.** The change-set path also treated a binding with an undocumented
+  `features.parent` as a containment relation. Nothing declares it, so the rule uses
+  `parentRelationTypeKeys` only.
+- **Mapping replacement in a change set** checks the ancestor scope like the live path, instead of
+  the full relation rule. The binding, containment and cross-cardinality checks it dropped are the
+  ones the replacement already makes before.
 
-**Exit:** every module in its tier; the allowlist lists only what E2 and E3 remove.
+## Delivered packages
 
-#### E2: One rule set
+- **E1 — tiers and moves.** The layout above; `models/api.py` split into `management/schemas/` and
+  `models/commands.py`; response builders into presenters and projections; `DbSession` and the
+  request model dependencies into `management/dependencies.py`; exception handlers into
+  `management/errors.py`; `common/encoding.py` in place of `jsonable_encoder` in the engine, pinned
+  against FastAPI's output by `tests/test_encoding.py`; the mapping version conflict raised by the
+  engine as `MappingVersionConflict`, with the grid continuation added by the route.
+- **E2 — one rule set.** The parity inventory first, then `rules.py`, `refusals.py`, `LiveLookup`
+  and `EngineModel.allowed_relation`; live writes, change-set writes, whole-graph validation, type
+  changes, restructuring and the mapping replacement call the same rules.
+- **E3 — one write path.** `writes.py`; every record, relation and attribute-value row goes through
+  it, including the publish merge (`LiveWrites.apply_publication`) and deletion
+  (`remove_records`). `LiveWrites._begin` is the empty seam F1 fills. The mapping twins collapsed.
+  `change_sets` became a package with public names for what type changes and restructuring use
+  (`load_change_set`, `change_set_model`, `place_record`, `stored_attributes`,
+  `advance_relation_sets`, `require_record_version`); the import cycles and function-level
+  imports are gone.
 
-**Needs:** E1. **Scope:** first a **parity inventory**: a test that, per rule, provokes the same
-violation live and in a change set on two models and pins the code, status and details each context
-returns today. Then `RecordContext` with `LiveContext` beside the existing change-set lookup,
-`EngineModel.allowed_relation`, and `engine/records/rules.py` holding each rule once. Live and
-change-set writes call the same rules; the inventory must pass unchanged.
-
-The inventory will show where the contexts already differ. Codes found raised by one context only,
-such as `duplicate_relation` and `relation_wrong_scope` (live) and `object_type_not_in_application`
-(change set), stay as they are in E2 and go to decision E-D4, not silently aligned.
-
-**Tests:** the parity inventory; the existing `records`, `change_sets`, `mapping` groups for the changed
-paths; `volume` for the change-set write budget (S2b lookups) and the live write budget.
-
-**Groups:** `records`, `change_sets`, `mapping`, `volume`, `contract`.
-
-**Exit:** no rule implemented twice; no inline scan of `objectTypeRelations` outside `models/schema.py`.
-
-#### E3: One write path
-
-**Needs:** E2. **Scope:** `WriteUnit`, one per context, owning the claim, an empty **lock seam** (F1
-fills it), row writes, audit, relation set versions and the index notes (`matrix_states.note_*`,
-`snapshot_values`). Objects, relations, attributes, deletion and mapping replacement go through it in
-both contexts; the mapping twins collapse into one replacement. `change_sets.py` becomes its package,
-with a public API that `type_changes` and `restructuring` use instead of private names. Publish writes
-live rows through the unit's batch form. The import cycle and every function-level import go.
-
-**Tests:** existing write tests in both contexts; `matrix_states.verify` on each collapsed mapping path;
-publish of 10,000 records against the 0.8 C5 budget (D46); `test_boundaries` with an empty allowlist.
-
-**Groups:** `records`, `change_sets`, `mapping`, `matrix`, `workspaces`, `volume`, `contract`.
-
-**Exit:** one place in the code writes live rows; one writes change-set rows; the allowlist is empty.
+Deviations from the plan: `change_sets` has `access.py` and `lifecycle.py` besides the four planned
+modules (lifecycle and pinning needed a common base without a cycle);
+`relation_set_versions.py` stayed in `engine/records/` beside the writes that advance it; the
+exit "no inline scan of `objectTypeRelations`" applies to binding lookups, not to model validation
+or selections by other criteria.
 
 ## Effect on later 0.9 packages
 
-- **B1:** a batch item calls the same operation as its single-write route, so "same codes as the single
-  write" holds by construction; the test stays as the guard.
-- **B3:** the mapping replacement is already one service over both contexts; B3 extends it to a set.
-- **F1:** "every live write path takes the lock first, audited path by path" becomes the lock in the
-  live `WriteUnit` plus a boundary rule that nothing else writes live rows. The delivery note lists
-  one path.
-- **C2:** creates `app/consumer/`, already constrained to read through `engine` and never `management`.
+- **B1:** a batch item calls the operation its single-write route calls; the same-codes test stays
+  as the guard. `models/commands.py` holds the item shapes.
+- **B3:** the mapping replacement is one flow over both contexts; B3 extends it to a set.
+- **F1:** the feed position goes into `LiveWrites._begin`; `test_boundaries` already refuses a live
+  row written outside the unit, so the delivery note lists one path, not an audit of every route.
+- **C2:** creates `app/consumer/`, already constrained to read through `engine`, never `management`.
 
 ## Composable domains check (ADR-032)
 
-E touches the code of identity, attribute storage and audit, but not their contract or storage: no door
-in COMPOSABLE_DOMAINS.md is affected.
+E touches the code of identity, attribute storage and audit, but not their contract or storage: no
+door in COMPOSABLE_DOMAINS.md is affected.
 
 ## Decisions
 
-| # | Question | Proposal |
+| # | Question | Decision |
 | --- | --- | --- |
-| E-D1 | Name of the UI-facing tier | `management`, as the docs already call the API at `/api/v1` |
+| E-D1 | Name of the UI-facing tier | `management`, as the docs call the API at `/api/v1` |
 | E-D2 | How the tiers are enforced | Own `ast` test in `contract`; no import-linter dependency |
-| E-D3 | Engine errors | The engine keeps raising `ApiError` (status and code). Separating domain errors from HTTP is a larger change with no current need |
-| E-D4 | Codes that differ between live and change set today | Kept in E2; each difference decided afterwards, as a contract change with its own API.md entry |
-| E-D5 | Timing | After Q4, before B1, as queue rows 6a–6c |
+| E-D3 | Engine errors | The engine keeps raising `ApiError` (status and code) |
+| E-D4 | Wording that differs between live and change sets | Kept; listed above; each settled later as a contract change |
+| E-D5 | Timing | Delivered after Q1 on request |
+
+## Verification
+
+- Every backend group once (`model`, `model_admin`, `startup`, `records`, `queries`, `workspaces`,
+  `change_sets`, `mapping`, `matrix`, `contract`, `volume`), the explicit exception to the
+  package-level test rule for a refactor that moves every module: 852 cases, 851 passed at first. The
+  one failure, `test_w6_workspace_deletion::test_live_write_resolved_before_deletion_saves_nothing`,
+  held a create by patching `resolve_workspace` on the workspace catalogue; E3 made the create
+  import it at module level, so the hold now patches the object module's reference. The file then
+  passed (8 cases); the race behaviour (`404 workspace_not_found`, no orphan row) is unchanged.
+- New: `test_boundaries` (tiers, private names, function-level imports, cycles, the single row
+  writer; empty allowlist), `test_rule_parity` (31 violations × two contexts × two models),
+  `test_encoding` (the engine's JSON encoding against FastAPI's).
+- Both OpenAPI documents byte-identical to the Q1 baseline; `ruff check app/ tests/` clean; every
+  `from app… import` in `app/` and `tests/` resolves, and every module attribute a test patches exists.
+- A real Uvicorn process on a copy of the development database serves health, capabilities, a paged
+  lookup, workspaces and placements, and renders a refusal through the moved exception handler.
+- Not run: the frontend suites and build (no frontend file changed, and the API contract is
+  unchanged), browser runners and the accessibility and visual gates (no UI change).

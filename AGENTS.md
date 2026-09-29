@@ -92,33 +92,47 @@ errors explicit and machine-readable.
 - Type public functions.
 - Keep Pydantic API models separate from SQLAlchemy persistence models.
 - Keep model parsing and validation independent of the database.
-- Attribute conversion belongs in `services/attributes.py`, not route handlers.
-- Every attribute write goes through `services/attributes.apply_attribute_values` or its
+- The backend has tiers ([BACKEND_BOUNDARIES_PLAN.md](docs/BACKEND_BOUNDARIES_PLAN.md)):
+  `common/` (helpers that know neither the model nor the API), `engine/` (the domain: no FastAPI,
+  no API schemas), `management/` (the API at `/api/v1`, used by the UI and integrations) and
+  `consumer/` (the consumer API), which never imports `management/`. Import at module level, never
+  another module's `_private` name, and never around a cycle. `tests/test_boundaries.py` holds this.
+- Routers translate requests and responses; engine results become API schemas in
+  `management/presenters.py` or a `management/projections/` read. A handler that reads the model to
+  decide what to write belongs in the engine. Write inputs the engine accepts live in
+  `models/commands.py`; responses live in `management/schemas/`.
+- A write rule is written once, in `engine/records/rules.py`, over a lookup
+  (`engine/records/context.py`: `LiveLookup` or `ChangeSetLookup`). Where live data and a change
+  set word a refusal differently, the difference is an entry in `engine/records/refusals.py`, pinned
+  by `tests/test_rule_parity.py`; never branch a rule on the context.
+- Records, relations and attribute values, live and in a change set, are added and removed only
+  through the write unit in `engine/records/writes.py` (`LiveWrites`, `ChangeSetWrites`). A live
+  write opens `LiveWrites` before it reads what it changes.
+- Attribute conversion belongs in `engine/records/values.py` and `attributes.py`, not route
+  handlers. Every live attribute write goes through `attributes.apply_attribute_values` or its
   `validate_attribute_change` half, so no path can persist values while skipping a check.
-- Routers translate requests and responses. Orchestration lives in `services/`; a handler that
-  reads the model to decide what to write belongs in a service.
-- Handlers take the request-scoped `DbSession` dependency. Do not open `SessionLocal()` inside a
+- Handlers take the request-scoped `DbSession` dependency (`management/dependencies.py`). Do not open `SessionLocal()` inside a
   request path; one request reads from one session.
-- Collections page through `services/pagination.py`. Declare sort keys, do not hand-write a keyset
+- Collections page through `common/pagination.py`. Declare sort keys, do not hand-write a keyset
   predicate, and make the last key unique within the filtered set. A collection route takes
-  `routers/paging.PageQuery` (or `SeekablePageQuery` where it supports seek) and returns the page's
+  `management/paging.PageQuery` (or `SeekablePageQuery` where it supports seek) and returns the page's
   `links()`, so every list gains cursors both ways, position, `from=end` and totals together.
-- Change-set and publication reads go through `services/snapshot_reads.py`, never `effective_change_set_membership`,
+- Change-set and publication reads go through `engine/reads/snapshot_reads.py`, never `effective_change_set_membership`,
   which is for whole-graph validation, publishing and writes. Publication, change-set base and change-set object
   rows keep a typed value index (`snapshot_attribute_values`) that an ORM flush hook maintains; a bulk
-  insert or delete of those rows outside the ORM must update it through `services/snapshot_values.py`.
+  insert or delete of those rows outside the ORM must update it through `engine/indexes/snapshot_values.py`.
 - Relation matrix cell states (`matrix_cell_states`, ADR-033) follow objects, relations, attribute
   values and change set rows through an ORM flush hook. A Core insert, update or delete of those rows
-  must note what it changed with `services/matrix_states.note_rows`, `note_cells` or
+  must note what it changed with `engine/indexes/matrix_states.note_rows`, `note_cells` or
   `note_relations_removed`, or the matrix state filter drifts until the next rebuild; the write path's
   test runs `matrix_states.verify`.
 - Model shape lives in `models/schema.py`; cross-reference rules live in
-  `services/model/validation/`. A rule raises `ModelReferenceError` with the JSON pointer of the
+  `engine/model/validation/`. A rule raises `ModelReferenceError` with the JSON pointer of the
   failing node — never reconstruct a path from a message.
-- Obtain an `EngineModel` through `services/model/compiler.parse_model` or `compile_model`.
+- Obtain an `EngineModel` through `engine/model/compiler.parse_model` or `compile_model`.
   `EngineModel.model_validate` checks shape only and does not guarantee references resolve.
 - Database migrations will use Alembic before the first deployed schema change.
-- Prefer focused service modules over adding more logic to `main.py`.
+- Prefer focused engine modules over adding more logic to `main.py`.
 
 ### Frontend
 

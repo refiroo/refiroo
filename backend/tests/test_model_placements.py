@@ -1,6 +1,6 @@
 """Base 0.8 C4: where the model lets records stand, one rule for the engine and its clients.
 
-``services/model/placements.py`` answers, per application and place, the types a parent contains and
+``engine/model/placements.py`` answers, per application and place, the types a parent contains and
 the types a record can become there (ADR-034); ``GET /model/placements`` serves it in the context's
 model. The browser reads it instead of re-deriving it, and its starter-model fixture is generated from
 it (``frontend/src/test/starterPlacements.json``), which the last test keeps equal.
@@ -17,8 +17,8 @@ from test_type_changes import (
     starter,  # noqa: F401 - fixture
 )
 
-from app.services.model.compiler import parse_model
-from app.services.model.placements import model_placements
+from app.engine.model.compiler import parse_model
+from app.engine.model.placements import model_placements
 
 FRONTEND_FIXTURE = Path(__file__).resolve().parents[2] / "frontend/src/test/starterPlacements.json"
 

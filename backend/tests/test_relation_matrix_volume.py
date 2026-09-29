@@ -17,7 +17,7 @@ from volume_fixture import (
     volume_app,
 )
 
-from app.services import relation_matrix
+from app.management.projections import relation_matrix
 
 SHAPE = scaled_shape(0.01)
 PATH = f"/api/v1/workspaces/{WORKSPACE}/relation-matrix"

@@ -7,7 +7,8 @@ capability boundaries (Track W), the relation matrix (Milestone A), the hierarch
 the change set review (P2) and hierarchy restructuring (Milestone C). The starter model is content
 release 0.8.0 on schema language 0.7. Next is 0.9, integration-grade APIs
 ([plan](BASE_0_9_IMPLEMENTATION_PLAN.md)): **Q1, the cross-type lookup `GET /objects`, is delivered
-(2026-09-29)**; Q2 is next.
+(2026-09-29)**, and so is the backend boundaries refactor E1–E3 ([record](BACKEND_BOUNDARIES_PLAN.md):
+tiers, one rule set for live data and change sets, one write path; no contract change); Q2 is next.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter
@@ -280,12 +281,12 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
   translatable Master object type. Active Target and Language combinations are unique.
 - `backend/app/models/schema.py`: executable model contract with uniqueness, cross-reference and parent
   relation validation.
-- `backend/app/services/model/compiler.py`, `model/diff.py` and `model/compatibility.py`:
+- `backend/app/engine/model/compiler.py`, `model/diff.py` and `model/compatibility.py`:
   side-effect-free canonical compilation, stable JSON-path diagnostics, key-based structural diff and
   bounded runtime-data compatibility checks exposed through validation and release-diff APIs.
   Compatibility covers object and relation attribute constraints and relation-type-wide cardinality;
   diffs distinguish JSON null from omission and ignore ordering for set-like stable-key memberships.
-- `backend/app/services/model/drafts.py`, `model/releases.py` and the model-management router:
+- `backend/app/engine/model/drafts.py`, `model/releases.py` and the model-management router:
   persisted draft CRUD with optimistic concurrency, side-effect-free draft compilation and atomic,
   idempotent immutable installation serialized across drafts in the supported single-process
   topology. Complete model JSON is excluded from lifecycle audit payloads, and all write routes are
@@ -295,7 +296,7 @@ configuration with stable keys, explicit schemas, cursor pagination and resource
   readiness on publication failure and startup rejection of configured multi-worker mutation mode.
 - `backend/app/models/database.py` and `backend/app/db.py`: immutable model-release metadata plus runtime objects, typed attribute
   values, typed relations, exact-binding relation-set versions and audit events.
-- `backend/app/services/attributes.py`: attribute validation, defaults and typed persistence conversion.
+- `backend/app/engine/records/attributes.py`: attribute validation, defaults and typed persistence conversion.
 - The Base 0.5/pre-WP6 `backend/app/routers` and `backend/app/services` implementation established
   generic object CRUD, search/cursors, concurrency checks, hierarchy maintenance and relation instance
   CRUD (create/read-one/update/delete) with optimistic concurrency, cardinality checks and

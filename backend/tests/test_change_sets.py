@@ -3,6 +3,7 @@ from uuid import uuid4
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
+from app.engine.change_sets.access import effective_change_set_membership
 from app.models.database import (
     Base,
     ChangeSet,
@@ -13,7 +14,6 @@ from app.models.database import (
     PublicationRelation,
     Workspace,
 )
-from app.services.change_sets import effective_change_set_membership
 
 
 def test_change_set_membership_is_copy_on_write_with_tombstones():

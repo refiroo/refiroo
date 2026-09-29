@@ -8,8 +8,8 @@ from sqlalchemy import create_engine, text
 
 import app.main as main_module
 from app.config import reload_settings
+from app.engine.model.registry import model_registry
 from app.main import create_app
-from app.services.model.registry import model_registry
 
 
 def _upgrade_to_previous_revision(database_path: Path) -> None:

@@ -31,7 +31,7 @@ One built-in reference page documents every API.
 
 1. **Same rules as single writes.** A bulk item, an import row and a mapping replacement go through the
    same services, validation, uniqueness and optimistic concurrency as one record written from the UI
-   (`services/attributes.apply_attribute_values`). Bulk is a first-class service, not a loop over
+   (`engine/records/attributes.apply_attribute_values`). Bulk is a first-class service, not a loop over
    route handlers, but it adds no second validation path.
 2. **Live by default, change set on request.** Every write targets live data unless the request names
    a change set (ADR-026). The roadmap's "explicit optional staging mode" is that change-set context,
@@ -187,6 +187,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | --- | --- | --- | --- |
 | 0 | — | 0.8.0 released | C5, R1b and R2 pass |
 | 1 | [Q1](#q1-cross-type-lookup) | — | `GET /objects` across types — **delivered 2026-09-29** |
+| 1a | [E1–E3](BACKEND_BOUNDARIES_PLAN.md) | Q1 | Backend tiers, one rule set, one write path; no contract change — **delivered 2026-09-29** |
 | 2 | [Q2](#q2-workspace-edge-list) | — | Edge list with publication context, published as `/workspaces/{key}/relations` |
 | 3 | [V1](#v1-api-reference-page) | — | Scalar at `/docs` with the management API |
 | 4 | [C1](#track-c--consumer-api) | — | `consumerApis` schema and validation; opens schema 0.8 |
@@ -269,7 +270,7 @@ within the per-type list's budget in each context.
 **Exit:** the route is in API.md and the OpenAPI lock; budgets recorded.
 
 **Delivered 2026-09-29.** `GET /api/v1/objects` ([API.md](API.md#cross-type-lookup-base-09-q1)),
-answered by `services/object_lookup.py` through the per-type list's builders:
+answered by `engine/reads/object_lookup.py` through the per-type list's builders:
 `refine_object_query` for live data and a new `snapshot_reads.snapshot_object_query`, which
 `build_snapshot_object_query` now calls with one type, for change sets and publications. So paging,
 seek, positions, overlay position reads and context parity are the per-type list's own. Beyond the
@@ -450,7 +451,7 @@ beside it recorded.
 
 **Scope:** `createRelation`, `ensureRelation`, `updateRelation`, `deleteRelation` and
 `replaceRelationSet` in batches, with relation-set claims and P4 for sets; the mapping PUT and
-`replaceRelationSet` share one service, extended from one target to a set.
+`replaceRelationSet` share one service, extended from one target to a set (the mapping replacement is already one flow over live data and change sets since E3).
 
 **Tests:** each op against its single-write route; a set replaced with kept, added and removed
 targets; cardinality, ancestor scope, required and containment refusals; set versions advanced once
@@ -469,8 +470,9 @@ per affected set; the `transition` audit entry; the relation matrix state kept c
 
 **Scope:** migration adding `audit_events.workspace_key`, `audit_events.feed_position` (unique per
 workspace) and `workspaces.feed_position`; `record_audit_event` assigns positions for live changes
-under the workspace row lock; **every live write path takes that lock first** (audited path by path,
-listed in the delivery note); publish writes one entry per record it applies, with the publish as
+under the workspace row lock; **every live write path takes that lock first**: in `LiveWrites._begin`, the seam
+every live write opens (E3, [BACKEND_BOUNDARIES_PLAN](BACKEND_BOUNDARIES_PLAN.md)), which
+`test_boundaries` keeps the only writer of live rows; publish writes one entry per record it applies, with the publish as
 cause, then `published`; the `reclassified` entry's feed form; `publications.feed_position`.
 
 **Tests:** positions gapless and in commit order under concurrent writers (two connections, on

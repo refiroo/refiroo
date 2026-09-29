@@ -19,6 +19,8 @@ from wp8_support import create_workspace, unique_key
 
 from app.config import reload_settings
 from app.db import SessionLocal, get_engine
+from app.engine.model.bootstrap import ensure_bootstrap_release
+from app.engine.model.registry import model_registry
 from app.main import create_app
 from app.models.database import (
     AttributeValue,
@@ -29,8 +31,6 @@ from app.models.database import (
     RdmObject,
 )
 from app.models.schema import EngineModel
-from app.services.model.bootstrap import ensure_bootstrap_release
-from app.services.model.registry import model_registry
 
 HOLD_TIMEOUT = 10
 

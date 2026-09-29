@@ -36,6 +36,9 @@ from test_snapshot_value_migration import _config, _version
 from wp8_support import create_change_set, create_workspace, publish_change_set
 
 from app.db import SessionLocal
+from app.engine.indexes import matrix_states
+from app.engine.model.bootstrap import ensure_bootstrap_release
+from app.management.projections import relation_matrix
 from app.models.database import (
     MatrixCellState,
     MatrixStateBuild,
@@ -44,8 +47,6 @@ from app.models.database import (
     RdmObject,
 )
 from app.models.schema import EngineModel
-from app.services import matrix_states, relation_matrix
-from app.services.model.bootstrap import ensure_bootstrap_release
 
 # The A2 and A3 data fixtures, over this module's client.
 translations = reads.translations

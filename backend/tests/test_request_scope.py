@@ -3,10 +3,11 @@
 from fastapi.testclient import TestClient
 
 from app.config import Settings, reload_settings
-from app.db import get_engine, get_session
+from app.db import get_engine
+from app.engine.model import metadata
+from app.engine.model.registry import model_registry
 from app.main import app
-from app.services.model import metadata
-from app.services.model.registry import model_registry
+from app.management.dependencies import get_session
 
 
 def test_default_database_location_remains_backward_compatible():

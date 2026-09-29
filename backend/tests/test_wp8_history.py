@@ -35,10 +35,10 @@ from wp8_support import (
     workspace_active_publication_id,
 )
 
+from app.common.cursors import encode_cursor
 from app.db import SessionLocal
 from app.main import app
 from app.models.database import PublicationObject
-from app.services.cursors import encode_cursor
 
 
 def _canonical_object(item: dict) -> dict:

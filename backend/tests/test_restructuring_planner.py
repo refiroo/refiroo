@@ -1,6 +1,6 @@
 """Base 0.8 C2: the restructuring planner — mapping, cascade and the way back (ADR-034).
 
-The planner (``services/restructuring``) is exercised directly, since the routes are C3; the
+The planner (``engine/operations/restructuring``) is exercised directly, since the routes are C3; the
 records it writes are read back through the HTTP API. The starter cases run over the starter model
 and the same model with every key renamed (``k`` maps a starter key to the model's); the cascade,
 its type question, the refusals and the size limit run over the generated model.
@@ -45,11 +45,10 @@ from wp8_support import create_workspace
 
 from app.config import reload_settings
 from app.db import SessionLocal, get_engine
-from app.errors import ApiError
-from app.models.schema import EngineModel
-from app.services import matrix_states, restructuring
-from app.services.model.registry import model_registry
-from app.services.restructuring import (
+from app.engine.indexes import matrix_states
+from app.engine.model.registry import model_registry
+from app.engine.operations import restructuring
+from app.engine.operations.restructuring import (
     ChangeTypeOperation,
     MappingChoice,
     MoveOperation,
@@ -60,6 +59,8 @@ from app.services.restructuring import (
     preview_restructuring,
     suggest_mapping,
 )
+from app.errors import ApiError
+from app.models.schema import EngineModel
 
 NODE_CONTAINS_ITEM = "vol-node-contains-item"
 SCORE = "vol-score"

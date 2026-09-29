@@ -20,11 +20,11 @@ from test_relation_set_versions import (
 
 from app.config import reload_settings
 from app.db import SessionLocal, get_engine
+from app.engine.model.compiler import canonical_model, parse_model
+from app.engine.model.registry import model_registry
 from app.main import create_app
+from app.management.projections.mapping import MappingRead
 from app.models.database import ModelRelease, ModelRuntimeState
-from app.services.mapping import MappingRead
-from app.services.model.compiler import canonical_model, parse_model
-from app.services.model.registry import model_registry
 
 BINDING = {
     "relationTypeKey": "system-value-maps-to-master",

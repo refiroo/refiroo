@@ -17,8 +17,8 @@ from test_relation_set_versions import (
 
 from app.config import reload_settings
 from app.db import get_engine
+from app.engine.model.registry import model_registry
 from app.main import create_app
-from app.services.model.registry import model_registry
 
 RELATION_TYPE = "system-value-maps-to-master"
 FROM_TYPE = "system-value"
@@ -794,7 +794,7 @@ def test_conflict_preview_continues_without_loss(client, change_set_context):
 
 
 def test_conditional_claim_rejects_changed_set_without_overwriting(client, monkeypatch):
-    from app.services import mapping
+    from app.engine.operations import mapping_replacement as mapping
 
     sv, mv = _endpoints(client)
     relation = _create_relation(client, sv, mv)
@@ -1103,7 +1103,7 @@ def test_overlapping_generic_write_forces_mapping_save_to_refresh(
 
     from sqlalchemy import event, select
 
-    import app.routers.mapping as mapping_router
+    import app.management.routers.mapping as mapping_router
     from app.db import SessionLocal
     from app.models.database import ObjectRelation
 

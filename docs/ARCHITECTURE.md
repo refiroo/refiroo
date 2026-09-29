@@ -317,8 +317,8 @@ an immutable publication snapshot, which can be older than recent live changes.
 
 ### Workspace lifecycle orchestration (WP8)
 
-Lifecycle orchestration lives in `app/services/change_sets.py`, its audit seam in
-`app/services/workspace_audit.py`, and the workspace read/admin routers. Change-set and publication discovery,
+Lifecycle orchestration lives in the `app/engine/change_sets/` package, its audit seam in
+`app/engine/workspaces/workspace_audit.py`, and the workspace read/admin routers. Change-set and publication discovery,
 whole-graph validation, atomic publishing and publication withdrawal are workspace-scoped operations
 that never address individual records.
 
@@ -328,20 +328,20 @@ that never address individual records.
   or publication-source request form; empty creation is not the normal user workflow. Rename, discard and
   record edits each claim the change set's aggregate version.
 - **Change-set and publication reads in SQL (Base 0.8 S2).** Collection, record, attribute and relation reads
-  in a change set or publication context go through `app/services/snapshot_reads.py`: one statement over the
+  in a change set or publication context go through `app/engine/reads/snapshot_reads.py`: one statement over the
   base rows no change set row replaces plus the non-deleted change set rows, narrowed per arm so indexes apply.
   `snapshot_attribute_values` indexes the JSON values of publication, change-set base and change-set objects as
-  typed rows (D1), so the object query builder in `services/objects.py` serves live, change-set and publication
+  typed rows (D1), so the object query builder in `engine/reads/object_query.py` serves live, change-set and publication
   with the same search, typed filters and sort. A `before_flush` hook in
-  `app/services/snapshot_values.py` rewrites an object row's index whenever the ORM writes the row; bulk
+  `app/engine/indexes/snapshot_values.py` rewrites an object row's index whenever the ORM writes the row; bulk
   writes outside the ORM maintain it themselves. Validation, publishing and change set writes still resolve
   the whole graph through `effective_change_set_membership`.
 - **Stored relation matrix cell states (Base 0.8 A3b, ADR-033).** `matrix_cell_states` holds each
   non-empty matrix cell's counts per owner (live, publication, change set base, change set overlay,
-  workspace history) and matrix shape; `app/services/matrix_states.py` builds missing owners at
+  workspace history) and matrix shape; `app/engine/indexes/matrix_states.py` builds missing owners at
   startup and on activation, change set and publication creation, and recomputes touched rows from
   records before each commit (an ORM flush hook plus explicit notes from Core statements). The row
-  state filter reads it; `app/services/matrix_cells.py` holds the cell SQL shared with the page.
+  state filter reads it; `app/engine/reads/matrix_cells.py` holds the cell SQL shared with the page.
 - **Validation.** `POST /api/v1/change-sets/{changeSetId}/validation` is side-effect-free over the
   effective graph: it validates attributes, containment, ownership, cardinality, ancestor-scoped
   uniqueness and model pinning, and records only a bounded outcome audit event (validity, deduplicated
@@ -394,7 +394,7 @@ Collections page with cursors or positions (ADR-030, Base 0.8 S3). Cursors conti
 row, are signed and bound to their endpoint, ordering and effective filters, and never repeat or skip
 a row as data changes; a position read jumps to row N and may. Every page carries both cursors, an
 anchor that reopens it and, on request, the total and its start index, all from
-`services/pagination.py`. Full extraction belongs to asynchronous export or a resumable change feed
+`common/pagination.py`. Full extraction belongs to asynchronous export or a resumable change feed
 rather than an undocumented unbounded page.
 
 ## Presentation foundation

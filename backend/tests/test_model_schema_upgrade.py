@@ -15,15 +15,11 @@ from sqlalchemy.orm import Session
 from app.cli.model_schema_upgrade import transition
 from app.config import get_settings, reload_settings
 from app.db import SessionLocal
+from app.engine.model.compatibility import CompatibilityResult
+from app.engine.model.diagnostics import ModelDiagnostic
+from app.engine.model.registry import ModelRegistry, UnsupportedSelectedModelSchema, model_registry
 from app.main import app, create_app, schema_upgrade_command
 from app.models.database import ModelRelease, ModelRuntimeState
-from app.services.model.compatibility import CompatibilityResult
-from app.services.model.diagnostics import ModelDiagnostic
-from app.services.model.registry import (
-    ModelRegistry,
-    UnsupportedSelectedModelSchema,
-    model_registry,
-)
 
 
 def _candidate_model_path(tmp_path: Path, schema_version: str) -> Path:

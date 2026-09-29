@@ -452,8 +452,8 @@ def test_restart_after_publish_and_withdrawal_persists_state(tmp_path, monkeypat
     active) plus the ``publication-withdrawn`` audit event.
     """
     from app.config import reload_settings
+    from app.engine.model.registry import model_registry
     from app.main import create_app
-    from app.services.model.registry import model_registry
 
     database_path = tmp_path / "wp8-restart.db"
     try:

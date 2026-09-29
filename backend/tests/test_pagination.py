@@ -5,12 +5,8 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy import select
 
-from app.config import reload_settings
-from app.db import SessionLocal, get_engine
-from app.errors import ApiError
-from app.models.database import ModelDraft
-from app.services.cursors import encode_cursor
-from app.services.pagination import (
+from app.common.cursors import encode_cursor
+from app.common.pagination import (
     FIRST_PAGE,
     PageRequest,
     _keyset_predicate,
@@ -21,6 +17,10 @@ from app.services.pagination import (
     paginate_statement,
     text_key,
 )
+from app.config import reload_settings
+from app.db import SessionLocal, get_engine
+from app.errors import ApiError
+from app.models.database import ModelDraft
 
 _DRAFT_KEYS = (
     datetime_key("updatedAt", ModelDraft.updated_at, "updated_at", descending=True),

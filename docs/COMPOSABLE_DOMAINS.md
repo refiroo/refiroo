@@ -105,7 +105,7 @@ should be an additive change.
 
 ### Derived values
 
-`services/attributes.apply_attribute_values` is the only write path for stored values and must stay
+`engine/records/attributes.apply_attribute_values` is the only write path for stored values and must stay
 so. Do not assume every displayed or exported value is stored; leave room for read-only values computed
 from related records and declared in the model. Consumer API projections already compute values from
 related objects and are the nearest pattern.
@@ -134,7 +134,7 @@ parallel grammar.
 ### Value types
 
 A new attribute value type should be an additive schema change: one registry entry, validation,
-conversion in `services/attributes.py` and a renderer. Do not hard-code the list of value types
+conversion in `engine/records/values.py` and a renderer. Do not hard-code the list of value types
 outside those registries.
 
 ## Design-review checklist

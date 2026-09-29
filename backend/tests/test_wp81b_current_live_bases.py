@@ -18,6 +18,10 @@ from wp8_support import (
 
 from app.config import database_url, reload_settings
 from app.db import SessionLocal
+from app.engine.change_sets import lifecycle as change_sets
+from app.engine.change_sets.lifecycle import create_change_set as create_change_set_service
+from app.engine.model.bootstrap import ensure_bootstrap_release
+from app.engine.model.registry import model_registry
 from app.errors import ApiError
 from app.main import app, create_app
 from app.models.database import (
@@ -27,10 +31,6 @@ from app.models.database import (
     ModelRuntimeState,
 )
 from app.models.schema import EngineModel
-from app.services import change_sets
-from app.services.change_sets import create_change_set as create_change_set_service
-from app.services.model.bootstrap import ensure_bootstrap_release
-from app.services.model.registry import model_registry
 
 
 def _live_domain(client: TestClient, workspace_key: str, suffix: str) -> dict:

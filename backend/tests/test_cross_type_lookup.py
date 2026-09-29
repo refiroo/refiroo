@@ -18,8 +18,8 @@ from test_context_read_parity import APP, CITES, ENTRY, FOLDER, parity_model
 
 from app.config import reload_settings
 from app.db import get_engine
+from app.engine.model.registry import model_registry
 from app.main import create_app
-from app.services.model.registry import model_registry
 
 LOOKUP = "/api/v1/objects"
 WORKSPACE = "default"

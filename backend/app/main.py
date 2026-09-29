@@ -11,15 +11,18 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import Settings, get_settings, reload_settings
 from .db import DatabaseMigrationError, SessionLocal, create_database
-from .errors import (
-    ApiError,
+from .engine.indexes.matrix_states import build_at_startup as build_matrix_states
+from .engine.model.bootstrap import bootstrap_model
+from .engine.model.loader import load_bootstrap_model
+from .engine.model.registry import UnsupportedSelectedModelSchema, model_registry
+from .errors import ApiError
+from .management.errors import (
     api_error_handler,
     http_error_handler,
     unexpected_error_handler,
     validation_error_handler,
 )
-from .models.api import ApiErrorResponse
-from .routers import (
+from .management.routers import (
     attributes,
     change_sets,
     mapping,
@@ -31,10 +34,7 @@ from .routers import (
     relations,
     workspaces,
 )
-from .services.matrix_states import build_at_startup as build_matrix_states
-from .services.model.bootstrap import bootstrap_model
-from .services.model.loader import load_bootstrap_model
-from .services.model.registry import UnsupportedSelectedModelSchema, model_registry
+from .management.schemas.common import ApiErrorResponse
 
 logger = logging.getLogger(__name__)
 

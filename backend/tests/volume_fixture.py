@@ -28,6 +28,8 @@ from sqlalchemy import event, insert, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
+from app.engine.indexes import matrix_states
+from app.engine.indexes.snapshot_values import insert_value_rows, release_value_types, value_rows
 from app.models.database import (
     AttributeValue,
     Base,
@@ -42,8 +44,6 @@ from app.models.database import (
     RdmObject,
     Workspace,
 )
-from app.services import matrix_states
-from app.services.snapshot_values import insert_value_rows, release_value_types, value_rows
 
 APPLICATION = "vol-catalogue"
 WORKSPACE = "vol-workspace"
@@ -1104,8 +1104,8 @@ def volume_app(template: Path, directory: Path, shape: VolumeShape) -> Iterator[
 
     from app.config import reload_settings
     from app.db import get_engine
+    from app.engine.model.registry import model_registry
     from app.main import create_app
-    from app.services.model.registry import model_registry
 
     database = directory / "volume.db"
     shutil.copyfile(template, database)

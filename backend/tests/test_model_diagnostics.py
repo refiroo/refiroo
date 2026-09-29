@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-from app.services.model.compiler import compile_model
+from app.engine.model.compiler import compile_model
 
 MODEL_PATH = Path(__file__).resolve().parents[2] / "model" / "rdm-starter.json"
 
@@ -347,7 +347,7 @@ def test_reference_rule_reports_code_and_path(case: Case, source: dict):
 
 def test_every_rule_module_is_covered_by_a_case():
     """Guards against a rule module being added without a pinned diagnostic."""
-    from app.services.model import validation as model_validation
+    from app.engine.model import validation as model_validation
 
     assert len(CASES) >= len(model_validation.RULES)
     assert len({case.name for case in CASES}) == len(CASES)

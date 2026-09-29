@@ -7,12 +7,12 @@ from model_support import MODEL_PATH, starter_at_schema
 from sqlalchemy import func, select
 
 from app.db import SessionLocal
+from app.engine.model.compiler import ModelValidationError, compile_model, parse_model
+from app.engine.model.diff import semantic_diff
+from app.engine.model.loader import load_model
 from app.main import create_app
 from app.models.database import ModelRelease
 from app.models.schema import EngineModel
-from app.services.model.compiler import ModelValidationError, compile_model, parse_model
-from app.services.model.diff import semantic_diff
-from app.services.model.loader import load_model
 
 
 def test_starter_model_is_valid():

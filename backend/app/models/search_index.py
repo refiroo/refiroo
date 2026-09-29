@@ -7,7 +7,7 @@ content: the index holds no copy of the text, and its rows are the source table'
 update and delete, so each write path, ORM or bulk, maintains it at the cost of the rows it writes.
 
 An index only narrows a search to candidate values. Search itself still applies the
-case-insensitive "contains" predicate to each candidate (``services/objects.py``), so the index
+case-insensitive "contains" predicate to each candidate (``engine/reads/object_query.py``), so the index
 decides how fast a search answers, never which records it returns. Names need no trigram index:
 a search reads them from the (type, name) index it already walks, which costs about 20 ms per
 100,000 records, while a correlated look-up of each record's values cost 0.7-0.9 s (S7).

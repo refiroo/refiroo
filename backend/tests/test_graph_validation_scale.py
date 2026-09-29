@@ -35,8 +35,9 @@ from volume_fixture import (
     volume_model,
 )
 
-from app.services.change_sets import EffectiveChangeSetMembership, _diagnostics
-from app.services.model.compiler import parse_model
+from app.engine.change_sets.access import EffectiveChangeSetMembership
+from app.engine.change_sets.validation import graph_diagnostics
+from app.engine.model.compiler import parse_model
 
 
 def _model():
@@ -107,7 +108,7 @@ def test_the_indexed_checks_answer_as_the_scans_did():
         _edge("s-c", GROUP_HAS_CELL, "gm", "x3"),  # inactive: outside the scope rule
         # x4 has no incoming GROUP_HAS_CELL, which the model requires.
     ]
-    diagnostics = _diagnostics(
+    diagnostics = graph_diagnostics(
         EffectiveChangeSetMembership(None, tuple(objects), tuple(relations)), _model()
     )
 

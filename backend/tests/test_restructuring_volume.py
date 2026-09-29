@@ -14,7 +14,7 @@ from volume_baseline import restructuring_scenarios
 from volume_fixture import scaled_shape, volume_app
 
 from app.db import get_engine
-from app.services.restructuring import RECORD_LIMIT
+from app.engine.operations.restructuring import RECORD_LIMIT
 
 # The heavy group holds 100 and 400 items: a fourfold subtree, below the limit at both scales.
 SMALL, LARGE = scaled_shape(0.005), scaled_shape(0.02)

@@ -9,6 +9,11 @@ from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session
 
 from app.db import SessionLocal
+from app.engine.model.bootstrap import ensure_bootstrap_release
+from app.engine.model.diagnostics import ModelValidationError
+from app.engine.model.loader import load_bootstrap_model
+from app.engine.model.registry import ModelRegistry, model_registry
+from app.engine.model.releases import install_model_release
 from app.main import app, create_app
 from app.models.database import (
     ApplicationMeta,
@@ -23,11 +28,6 @@ from app.models.database import (
     Workspace,
 )
 from app.models.schema import EngineModel
-from app.services.model.bootstrap import ensure_bootstrap_release
-from app.services.model.diagnostics import ModelValidationError
-from app.services.model.loader import load_bootstrap_model
-from app.services.model.registry import ModelRegistry, model_registry
-from app.services.model.releases import install_model_release
 
 
 def _model(version: str, *, product_name: str | None = None) -> EngineModel:
@@ -790,7 +790,7 @@ def test_registry_refresh_failure_leaves_committed_activation_unready(monkeypatc
             raise RuntimeError("publish failed")
 
         monkeypatch.setattr(
-            "app.routers.model_management.model_registry.refresh_active", fail_refresh
+            "app.management.routers.model_management.model_registry.refresh_active", fail_refresh
         )
         response = client.post(
             f"/api/v1/model-releases/{candidate.public_id}/activation",

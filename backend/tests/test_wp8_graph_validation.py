@@ -32,9 +32,9 @@ from wp8_support import (
 )
 
 from app.db import SessionLocal
+from app.engine.change_sets.access import effective_change_set_membership
 from app.main import app
 from app.models.database import AuditEvent, AuditEventSubject, ChangeSetObject
-from app.services.change_sets import effective_change_set_membership
 
 
 def _translation_relation(target_id: str) -> list[dict]:

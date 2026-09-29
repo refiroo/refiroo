@@ -354,6 +354,11 @@ class RdmObject(Base):
         onupdate=lambda: datetime.now(UTC),
     )
 
+    @property
+    def object_id(self) -> str:
+        """The public ID, under the name change set and publication rows give it."""
+        return self.id
+
 
 class Publication(Base):
     __tablename__ = "publications"
@@ -475,6 +480,11 @@ class ObjectRelation(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
+
+    @property
+    def relation_id(self) -> str:
+        """The public ID, under the name change set and publication rows give it."""
+        return self.id
 
 
 class PublicationObject(Base):
@@ -721,7 +731,7 @@ class SnapshotAttributeValue(Base):
     ``owner_id`` is the publication, change set base or change set that owns the object row, so one query
     builder can filter and sort change set and history reads exactly as live ``attribute_values`` rows.
     The JSON ``attributes`` column stays the source of truth; these rows are derived from it by
-    ``services/snapshot_values.py`` whenever the owning row is written (D1, Base 0.8 S2).
+    ``engine/indexes/snapshot_values.py`` whenever the owning row is written (D1, Base 0.8 S2).
     """
 
     __tablename__ = "snapshot_attribute_values"
@@ -818,7 +828,7 @@ class MatrixCellState(Base):
     history (``history``, owner = workspace key). A change set's rows for a row record replace all
     the base's rows for it; its sentinel row (``column_id`` empty) marks the row as replaced. A
     history row records the first publication that held a record in the cell. Records remain the
-    source of truth; ``services/matrix_states.py`` derives and maintains these rows (Base 0.8 A3b).
+    source of truth; ``engine/indexes/matrix_states.py`` derives and maintains these rows (Base 0.8 A3b).
     """
 
     __tablename__ = "matrix_cell_states"

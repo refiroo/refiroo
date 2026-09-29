@@ -1,14 +1,11 @@
 import logging
-from collections.abc import Iterator
 from functools import cache
 from pathlib import Path
-from typing import Annotated
 
 from alembic import command
 from alembic.config import Config
 from alembic.runtime.migration import MigrationContext
 from alembic.script import ScriptDirectory
-from fastapi import Depends
 from sqlalchemy import Engine, create_engine, make_url
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -44,15 +41,6 @@ class _SessionFactory:
 
 
 SessionLocal = _SessionFactory()
-
-
-def get_session() -> Iterator[Session]:
-    """Yield one session per request so a request reads from a single connection."""
-    with SessionLocal() as session:
-        yield session
-
-
-DbSession = Annotated[Session, Depends(get_session)]
 
 
 def begin_snapshot_read(session: Session) -> None:

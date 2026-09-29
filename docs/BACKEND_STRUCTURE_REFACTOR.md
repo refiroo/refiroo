@@ -1,5 +1,9 @@
 # Backend structure refactor
 
+> The layout below is superseded by [BACKEND_BOUNDARIES_PLAN.md](BACKEND_BOUNDARIES_PLAN.md)
+> (2026-09-29): `services/` and `routers/` became `engine/`, `management/` and `common/`. The findings
+> and their reasoning still hold.
+
 Structural reorganization of `backend/app` following the review recorded as fourteen findings
 (F-01 … F-14). Supersedes nothing in `docs/REFACTOR_CHANGES.md`, which describes the earlier v0.3.0
 reorganization.

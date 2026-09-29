@@ -11,6 +11,7 @@ from wp8_support import create_change_set, create_workspace, publish_change_set,
 
 from app.config import reload_settings
 from app.db import SessionLocal, get_engine
+from app.engine.model.registry import model_registry
 from app.main import create_app
 from app.models.database import (
     AttributeValue,
@@ -21,7 +22,6 @@ from app.models.database import (
     PublicationObject,
     RdmObject,
 )
-from app.services.model.registry import model_registry
 
 
 @pytest.fixture
@@ -308,8 +308,8 @@ def test_change_set_read_only_attribute_delete_preserves_value_and_versions(revi
 
 
 def test_stale_loaded_change_set_cannot_overwrite_a_committed_rename(review_client):
+    from app.engine.change_sets.lifecycle import update_change_set
     from app.errors import ApiError
-    from app.services.change_sets import update_change_set
 
     change_set = create_change_set(review_client, "default").json()
     with SessionLocal() as first, SessionLocal() as second:

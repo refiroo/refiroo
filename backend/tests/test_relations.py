@@ -5,9 +5,9 @@ from fastapi.testclient import TestClient as HttpTestClient
 from test_api import ChangeSetTestClient
 
 from app.db import SessionLocal
+from app.engine.model.loader import load_bootstrap_model
+from app.engine.model.releases import install_model_release
 from app.main import app
-from app.services.model.loader import load_bootstrap_model
-from app.services.model.releases import install_model_release
 
 TestClient = ChangeSetTestClient
 

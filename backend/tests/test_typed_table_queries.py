@@ -10,8 +10,8 @@ from test_api import ChangeSetTestClient as TestClient
 from app.common.time import as_utc
 from app.config import reload_settings
 from app.db import get_engine
+from app.engine.model.registry import model_registry
 from app.main import app, create_app
-from app.services.model.registry import model_registry
 
 
 def _attribute(key: str, value):
@@ -419,7 +419,6 @@ def test_change_set_writes_keep_decimal_datetime_and_date_values_through_activat
     )
     assert live.status_code == 200, live.text
     assert values(live.json()) == expected
-
 
 
 def test_live_datetime_keeps_its_instant(typed_model_client):

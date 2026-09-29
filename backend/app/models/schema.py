@@ -370,20 +370,26 @@ class EngineModel(ModelDefinition):
     _attribute_types_by_key: dict[str, AttributeTypeDefinition] = {}
     _object_types_by_key: dict[str, ObjectTypeDefinition] = {}
     _relation_types_by_key: dict[str, RelationTypeDefinition] = {}
+    _bindings: dict[tuple[str, str, str], ObjectTypeRelationDefinition] = {}
 
     @model_validator(mode="after")
     def index_definitions(self) -> EngineModel:
         """Index top-level definitions by key and freeze the graph against later mutation.
 
         Cross-reference rules deliberately live outside this validator, in
-        ``app.services.model.validation``: they need to report the JSON pointer of the node that
+        ``app.engine.model.validation``: they need to report the JSON pointer of the node that
         failed, which a Pydantic ``ValueError`` cannot carry. Use
-        ``app.services.model.compiler.compile_model`` or ``parse_model`` to obtain a model whose
+        ``app.engine.model.compiler.compile_model`` or ``parse_model`` to obtain a model whose
         references are also known to resolve.
         """
         self._attribute_types_by_key = FrozenDict(_last_by_key(self.attributeTypes))
         self._object_types_by_key = FrozenDict(_last_by_key(self.objectTypes))
         self._relation_types_by_key = FrozenDict(_last_by_key(self.relationTypes))
+        bindings: dict[tuple[str, str, str], ObjectTypeRelationDefinition] = {}
+        for item in self.objectTypeRelations:
+            key = (item.relationTypeKey, item.fromObjectTypeKey, item.toObjectTypeKey)
+            bindings.setdefault(key, item)
+        self._bindings = FrozenDict(bindings)
 
         _freeze_model_graph(self)
 
@@ -397,6 +403,19 @@ class EngineModel(ModelDefinition):
 
     def relation_type(self, key: str) -> RelationTypeDefinition | None:
         return self._relation_types_by_key.get(key)
+
+    def allowed_relation(
+        self, relation_type_key: str, from_object_type_key: str, to_object_type_key: str
+    ) -> ObjectTypeRelationDefinition | None:
+        """The binding that permits this relation type from one object type to another."""
+        return self._bindings.get((relation_type_key, from_object_type_key, to_object_type_key))
+
+    def containment_relation_keys(self, object_type_key: str | None) -> frozenset[str]:
+        """The relation types that place a record of this type under its parent."""
+        definition = self.object_type(object_type_key) if object_type_key else None
+        if definition is None:
+            return frozenset()
+        return frozenset((definition.behavior or {}).get("parentRelationTypeKeys", ()))
 
 
 def _freeze_model_graph(value: Any) -> Any:

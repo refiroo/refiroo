@@ -183,7 +183,7 @@ def test_unexpected_error_includes_correlation_id():
     with (
         TestClient(app, raise_server_exceptions=False) as client,
         patch(
-            "app.routers.model_releases.paginate_statement",
+            "app.management.routers.model_releases.paginate_statement",
             side_effect=RuntimeError("simulated failure"),
         ),
     ):

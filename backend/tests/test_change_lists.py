@@ -20,9 +20,9 @@ from wp8_support import create_change_set, publish_change_set
 
 from app.config import reload_settings
 from app.db import get_engine
+from app.engine.model.registry import model_registry
+from app.engine.reads import change_lists
 from app.main import create_app
-from app.services import change_lists
-from app.services.model.registry import model_registry
 
 STARTER = Path(__file__).resolve().parents[2] / "model/rdm-starter.json"
 LIVE = {"workspaceKey": "default"}

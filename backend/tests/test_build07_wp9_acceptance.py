@@ -16,8 +16,8 @@ from wp8_support import create_object, create_workspace, unique_key
 
 from app.config import reload_settings
 from app.db import get_engine
+from app.engine.model.registry import model_registry
 from app.main import create_app
-from app.services.model.registry import model_registry
 
 
 @pytest.fixture

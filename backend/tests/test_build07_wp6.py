@@ -13,6 +13,8 @@ from sqlalchemy import func, select
 from wp8_support import create_change_set, create_object, create_workspace, unique_key
 
 from app.db import SessionLocal
+from app.engine.change_sets.access import effective_change_set_membership
+from app.engine.model.compiler import parse_model
 from app.main import app
 from app.models.database import (
     AuditEvent,
@@ -21,8 +23,6 @@ from app.models.database import (
     ModelRelease,
     ModelRuntimeState,
 )
-from app.services.change_sets import effective_change_set_membership
-from app.services.model.compiler import parse_model
 
 
 def install_model(client, mutate=None, *, schema=None, corrupt=False, source_model=None):
@@ -466,8 +466,8 @@ def test_target_constraints_check_inherited_complete_graph(rule, code):
 
 
 def test_selected_capture_keeps_active_identity_and_snapshot_retry():
+    from app.engine.change_sets.lifecycle import create_change_set as create_change_set_service
     from app.errors import ApiError
-    from app.services.change_sets import create_change_set as create_change_set_service
 
     with TestClient(app) as client:
         workspace = unique_key("wp6-capture")
@@ -580,7 +580,7 @@ def test_model_metadata_and_cursors_follow_the_pin():
 
 @pytest.mark.parametrize("source", [None, "currentLive"])
 def test_valid_selected_creation_does_not_require_healthy_active_registry(source):
-    from app.services.model.registry import model_registry
+    from app.engine.model.registry import model_registry
 
     with TestClient(app) as client:
         workspace = unique_key("wp6-ready")
