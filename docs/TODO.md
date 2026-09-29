@@ -13,8 +13,8 @@ delivered (2026-09-28), closed by A6 (snapshot table index drift, 2026-09-28). T
 B5 (drag and drop in the tree lens) and its amendment B5b (move to the top level) were added in the
 Milestone B review and are delivered (2026-09-29), which closes Milestone B. P2 (change lists API, P2a; review screen, P2b)
 is delivered (2026-09-28). R1 passed (2026-09-28); B5 and B5b are delivered (2026-09-29); now the build acceptance R1b. Milestone C (structure
-refactoring, C0–C5, with R2 as its build acceptance) was added (2026-09-28) and is delivered before 0.9;
-its decisions D37–D43, including release timing, are open. See
+refactoring, C0–C5, with R2 as its build acceptance) was added (2026-09-28); C0 is delivered
+(2026-09-29) with ADR-034 and D37–D43 accepted, and 0.8.0 waits for R2 (D43). See
 [Next — 0.8 and beyond](#next--08-and-beyond).
 
 ## Open decisions
@@ -98,12 +98,13 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     request, before/after rows, `beforePath` for moves; `test:browser:p2`, review in the a11y and visual gates.
 - [x] 0.8 R1 build acceptance of the build without B5 (2026-09-28): every gate green; the change lists
   read one snapshot; `sc15` and `wp13c` runner data follows the 0.8.0 starter. Release waits for R1b.
-- [ ] 0.8 R1b B5 and B5b build acceptance (amendment to R1, after both); 0.8.0 releases when R1 and R1b pass.
+- [ ] 0.8 R1b B5 and B5b build acceptance (amendment to R1, after both); 0.8.0 releases when R1, R1b and R2 pass (D43).
 - [ ] 0.8 Milestone C — structure refactoring ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-c--structure-refactoring)):
   a record's type changes when it moves where only another type is allowed, derived from the model
   with a preview. Nothing is lost (history offers values back), and named refactorings run in a
-  change set. Open: D37–D43.
-  - [ ] C0 design, ADR-034 and API design; settle D37–D43.
+  change set. D37–D43 accepted in C0.
+  - [x] C0 design (2026-09-29): ADR-034 and the restructuring API design in API.md; D37–D42 as
+    recommended, D43 holds 0.8.0 until R2; no migration needed.
   - [ ] C1 type change in the engine (values, containment edge, relationships, derived state, audit,
     publishing).
   - [ ] C2 planner: possible types, mapping suggestions, cascade, the way back, size limit.
@@ -111,7 +112,7 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
     change type under a record.
   - [ ] C4 refactoring in the tree lens, reusing B5's dialog, list and drag.
   - [ ] C5 Milestone C acceptance.
-- [ ] 0.8 R2 Milestone C build acceptance; release timing per D43.
+- [ ] 0.8 R2 Milestone C build acceptance; 0.8.0 releases after it (D43).
 - [ ] Enforce foreign keys on SQLite (`PRAGMA foreign_keys=ON` per connection) or document that every
   `ondelete` rule is advisory there. 0.8 W6 found none of them, not only the `workspaces.key` ones, are
   enforced at runtime; services delete dependants explicitly and W6 rechecks the workspace at commit.

@@ -1172,3 +1172,89 @@ walk but not the pass over every cell.
   live's states.
 - Composable-domains doors (ADR-032): none affected; the table is a derived index over existing
   records, like `snapshot_attribute_values`.
+
+## ADR-034 — A record's type can change: derived mapping, preview and apply, history as the way back
+
+**Status:** Accepted, 2026-09-29 (Base 0.8 C0; decides D37–D43). Amends ADR-026 for one operation.
+The API design is in [API.md](API.md#product-08-restructuring-api-milestone-c-design).
+
+### Motivation
+
+A hierarchy that has to change shape — a level inserted or removed, a branch moved to a place where
+another type is allowed — can today only be rebuilt by deleting records and recreating them. That
+loses the records' IDs, history and relationships, and every integration that holds an ID sees a
+delete and a create. Nothing in the engine changes a record's type: every read and write route carries
+the type (`/objects/{type}/{id}`) and no update accepts a new one.
+
+### Decision
+
+- **Identity is kept (D37).** A record whose type changes keeps its ID, creation time, history and
+  every relationship the new type may have. It is one record reclassified, not a delete and a create;
+  the 0.9 change feed reports it as a `reclassified` event.
+- **Change sets only (D38).** A type change is staged in a change set and reaches live data only by
+  publishing it, after the P2 review screen has shown it. This is a stated exception to ADR-026's
+  "live by default": a type change is a structural operation over a subtree, not a single-value
+  correction. Ordinary object writes never change a type, live or in a change set; only the
+  restructuring operation does.
+- **Same application (D39).** The new type must be one of the record's application's object types,
+  as a move already requires for the parent.
+- **The mapping is derived, not declared (D40).** Nothing is added to the model. The possible types
+  at a place are those the model allows there (the parent's type through a parent relation type, or
+  `rootCreatable` at the top). Each attribute of the new type is suggested a source, in order: the same
+  attribute type; display attribute to display attribute; the one `unique` and `required` attribute
+  to the one attribute of the other type that is also both; the built-in `name` always stays. A pair
+  must have the same value type, or a widening that loses nothing (`text` to `longText`, `integer` to
+  `decimal`); nothing else converts. A mapped value must also pass the new binding's validation, or it
+  is an input to provide. The user can change any suggestion, and one choice per (old type, new type)
+  pair applies to every record of that pair in the operation.
+- **Relationships are kept, not mapped.** A relationship stays when the model binds the same relation
+  type, in the same direction, between the other end's type and the new type; otherwise it has no
+  place and is removed. The containment edge is kept when the new type's parent relation to its parent
+  is the same relation type, and otherwise replaced by the one the model allows, as a move does. A
+  required relation the new type has and the record lacks is an input, like a required attribute.
+- **Descendants follow level by level.** A child the record's new type may still contain keeps its
+  type, and the cascade stops there. Otherwise the child becomes a type the new parent may contain:
+  the only one, or the one chosen once per (child type, new parent type) pair; with none possible the
+  operation is refused.
+- **Preview, then apply.** An operation is first planned: each record's new type and parent, each
+  value and relationship as kept, mapped, restored or without a place, the inputs still needed and any
+  refusals. The preview is not stored. It returns a digest of the complete plan together with the
+  change set version it read; applying sends both back, and the engine recomputes the plan in the write
+  transaction and refuses when either differs. A change set's content changes only through writes
+  that advance its version, so the version and digest together bind the apply to what was reviewed.
+- **Nothing is silently lost.** Each type change records a `reclassified` audit event with the
+  record's full before state (name, parent, typed values, and the relationships it lost with their
+  attributes) and the mapping used. A later type change offers values and relationships back from the
+  record's *effective* reclassifications — those of the current change set and of change sets that
+  were published, never of a discarded one — when the new type has a place for them again. A
+  relationship offered back keeps its former relation ID.
+- **Same rules as single writes.** Uniqueness, uniqueness scopes, required values and relations,
+  cycles and concurrency are checked by the existing services in the same transaction; the typed
+  value index, matrix cell states, relation set versions and the search index follow as for any
+  change-set write. The preview runs the same checks, so a preview without refusals applies unless the
+  change set changed.
+- **Publishing needs nothing new.** A change set row already carries its type, and publishing already
+  writes the authored type to live. The existing per-record version claim refuses a record edited live
+  since the change set's base (`409 version_conflict`). A live change the record's version does not
+  show — a new relationship or child the new type may not have, a value now colliding — fails the
+  merged-graph validation (`422 workspace_graph_invalid`). As for other conflicts, the recovery is a
+  new current-live change set; there is no rebase. Publications keep the type they were published with.
+- **Routes keep their type segment (D42).** A request naming a type the record does not have in the
+  selected context returns `409 object_type_changed` with the current type, for any record found under
+  another type; the browser follows it to the current route.
+- **Bounded (D41).** One operation changes at most 5,000 records, measured on the volume fixture in
+  C2. A larger one is refused with the limit in the error, never cut short.
+- **Release (D43).** 0.8.0 waits for Milestone C: it releases after R2, not after R1b.
+
+### Consequences
+
+- No new tables or columns: the change set row's type, the audit payload and the existing publish
+  merge carry the operation. The change lists (P2a) gain the type on both sides of an entry.
+- The history read keeps omitting values; the full before state lives in the stored audit payload,
+  where the engine reads it for offer-backs and the 0.9 feed will carry it.
+- A reviewed plan goes stale whenever its change set changes, or when publishing another change set
+  changes what is offered back to one of its records.
+- Composable-domains doors (ADR-032): identity stays open (the ID is kept, and `object_type_changed`
+  tells a client where the record now is); attribute storage stays open (values move between bindings
+  and never convert lossily); audit/history gains the `reclassified` kind, which the 0.9 change feed
+  and consumer API must carry. Bulk APIs, `match` and effective dates are not touched.

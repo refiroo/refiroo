@@ -8,9 +8,9 @@ packages A1–A5, B1–B5 and C0–C5; P2 is scheduled after W2 (D20); R1 owns b
 (2026-09-27) with D8 and D9 accepted. A2, A3 and A3b are delivered (2026-09-27) with D10–D13
 accepted; A3b's stored cell states closed A2's budget exception for the row state filter. A4 and A5
 are delivered (2026-09-28), and A6 (snapshot table index drift, found in A2) with D28 accepted
-(2026-09-28), which completes Milestone A. B1–B4 are delivered (2026-09-28); B5 (drag and drop in the tree lens, D34, D35) was added in the Milestone B review (2026-09-28) with its amendment B5b (move to the top level, D36); B5 is delivered (2026-09-29), and B5b is delivered (2026-09-29), which completes Milestone B, with R1b as their build acceptance; Milestone C (structure refactoring, C0–C5, D37–D43 open) was added after the Milestone B review (2026-09-28), with R2 as its build acceptance; D14 is accepted (2026-09-28),
+(2026-09-28), which completes Milestone A. B1–B4 are delivered (2026-09-28); B5 (drag and drop in the tree lens, D34, D35) was added in the Milestone B review (2026-09-28) with its amendment B5b (move to the top level, D36); B5 is delivered (2026-09-29), and B5b is delivered (2026-09-29), which completes Milestone B, with R1b as their build acceptance; Milestone C (structure refactoring, C0–C5) was added after the Milestone B review (2026-09-28), with R2 as its build acceptance; C0 is delivered (2026-09-29) with ADR-034 and D37–D43 accepted; D14 is accepted (2026-09-28),
 D30 decides one of A6's two open measurements and B2 decides the other (D29, a known budget exception);
-P2 is planned (2026-09-28) as P2a (change lists API) and P2b (review screen), with D31–D33 accepted (2026-09-28); P2a and P2b are delivered (2026-09-28), which completes P2. R1 build acceptance of the build without B5 passed (2026-09-28); 0.8.0 releases after B5 and R1b; see the [summary](#decisions-summary).
+P2 is planned (2026-09-28) as P2a (change lists API) and P2b (review screen), with D31–D33 accepted (2026-09-28); P2a and P2b are delivered (2026-09-28), which completes P2. R1 build acceptance of the build without B5 passed (2026-09-28); 0.8.0 releases after R1b and R2 (D43); see the [summary](#decisions-summary).
 
 **Target:** Product 0.8.0. Track S does not change the schema language. Milestones A and B add
 schema language 0.7 (`relationMatrix` and `tree` views); the starter model becomes content release
@@ -2903,6 +2903,46 @@ apply, history as the way back) and an API design section in API.md. Settle D37�
 
 **Exit:** ADR-034 accepted; D37–D43 decided; C1–C5 scopes confirmed or adjusted.
 
+**Delivered 2026-09-29.** [ADR-034](DECISIONS.md#adr-034--a-records-type-can-change-derived-mapping-preview-and-apply-history-as-the-way-back)
+is accepted and the design is in [API.md](API.md#product-08-restructuring-api-milestone-c-design).
+D37–D42 are accepted as recommended; D43 is decided as (a): 0.8.0 waits for R2. What the design
+settles:
+
+- _Plan format and paging._ The preview returns a status (`ready`, `needsInput`, `refused`), a
+  summary, the open type questions, one entry per type pair with each attribute's source and rule,
+  bounded operation refusals, and a page of the changed records in plan order with each value's
+  outcome, what has no place, what is restored and the inputs needed. Records page by position in the
+  plan, filtered by outcome; cursors bind the change set version and the plan digest.
+- _The claim._ The preview is not stored. Apply sends back `expectedChangeSetVersion` and the
+  `planDigest`, and the engine recomputes the plan in the write transaction (`409
+  change_set_version_conflict`, `409 restructuring_plan_changed`, `422 restructuring_not_ready`). A
+  change set changes only through writes that advance its version, so nothing else needs storing.
+- _`reclassified`._ One event per type change on the change set row, with the full before state in the
+  stored payload and an `operationId` shared by every event of the operation. Offer-backs read only
+  effective reclassifications: the current change set's and published ones, never a discarded one's.
+- _Publishing._ No new machinery: the authored row carries its type, the record version claim catches
+  a live edit of the record, and the merged-graph validation catches a live relationship, child or
+  value the new type cannot have.
+- _D42._ `409 object_type_changed` with the current type for any record found under another type in
+  the selected context.
+
+Code facts the design rests on: `change_set_objects` already stores `object_type_key`; publishing already
+writes the authored type to live (`publish_change_set`); the change set flush hook of matrix cell
+states already notes a changed `object_type_key`, and publishing notes every authored record's cells;
+the typed value index holds no type. So Milestone C needs no migration.
+
+Scope adjustments for C1–C4, recorded under each package: required relations are inputs as well as
+required attributes; relationships are kept or removed, never mapped to another relation type, and a
+restored relationship keeps its former ID; the change lists gain the type on both sides (C1); parent
+candidates gain `includeTypeChanges` (C3), which C4's **Move to…** and drag need; the review screen
+shows a type change (C4). R2 needs no migration check.
+
+Composable-domains doors (ADR-032): identity, attribute storage and audit/history are affected as the
+[check above](#composable-domains-check-adr-032) states; each stays open (ADR-034).
+
+Checks: documentation only; links to the new ADR and API sections checked by their anchors. No
+application tests (no code changed).
+
 #### C1: Type change in the engine
 
 **Scope:** one service that changes a record's type in a change set, with a given attribute mapping:
@@ -2917,6 +2957,11 @@ apply, history as the way back) and an API design section in API.md. Settle D37�
 
 Publishing applies it to live and rechecks the merged graph. A publication read keeps the old type.
 Reads and writes that name the old type follow D42.
+
+Adjusted in C0: the service takes required relations as inputs besides attribute values; it can
+validate without keeping its writes, so the C2 preview runs the same checks; the object history read
+lists `reclassified`; and the change lists (P2a) carry `objectTypeKey` on both sides with `objectType`
+in `changedFields` and a type filter matching either side.
 
 **Tests:** each part above on its own, and a record with values, cross-references, a uniqueness scope
 and a matrix cell. Publishing, conflicts with a live edit of the same record, and publication reads.
@@ -2936,6 +2981,10 @@ Run over the example model, the same model with every key renamed, and the gener
 
 The planner is bounded (D41) and measured on the volume fixture.
 
+Adjusted in C0: offers back come only from effective reclassifications (the current change set and
+published ones), and include relationships, restored with their former IDs where the other end still
+exists and the model binds them; the plan's digest is computed here.
+
 **Tests:** the rules in order, ambiguous and missing mappings, a cascade over three levels, restore
 after a round trip, the size limit, and the budget.
 
@@ -2951,6 +3000,11 @@ after a round trip, the size limit, and the budget.
 
 Every operation takes a change set and its version, choices per type pair and required inputs. Apply
 claims the preview. Update the OpenAPI lock and API.md.
+
+Adjusted in C0: the routes are `/api/v1/change-sets/{changeSetId}/restructurings[/preview]`, following
+the flat change-set route rule; the plan's records page by position in plan order through the standard
+page links; parent candidates gain `includeTypeChanges=true` in a change set; the D42
+`object_type_changed` refusal covers every `/objects/{type}/{id}` route.
 
 **Tests:** each kind, a stale claim, a changed change set, a refused operation leaving nothing
 behind, and per-record outcomes in the plan.
@@ -2968,6 +3022,9 @@ behind, and per-record outcomes in the plan.
   required inputs asked for there. It links to the change set's review after applying.
 
 The keyboard path covers everything, and phones get the same dialogs (without drag, D35).
+
+Adjusted in C0: the P2 review screen shows a record's type change (before and after type), and the
+browser follows `409 object_type_changed` to the record's current route.
 
 **Tests:** Vitest for the dialog states and each entry point. `test:browser:c4` on the example
 trees and the generated tree: a move that changes type, each refactoring, a round trip restoring
@@ -3074,8 +3131,8 @@ against the R1 build that nothing under `backend/` or the OpenAPI lock changed, 
 backend's affected groups if anything did. Review the B5 and B5b delivery notes against their exits,
 and update PROJECT_STATUS, ROADMAP, TODO, CHANGELOG and the functionality catalogue for them.
 
-**Exit:** R1 and R1b both pass, or each failure is explained and tracked; only then is Base 0.8.0
-ready to release.
+**Exit:** R1 and R1b both pass, or each failure is explained and tracked. Base 0.8.0 then waits for
+R2 (D43).
 
 ### R2: Milestone C build acceptance
 
@@ -3083,11 +3140,12 @@ Added 2026-09-28. It runs after C5, as R1 does for the rest of 0.8:
 - the full backend `pytest` suite (C1–C3 change the engine and the API);
 - frontend `npm run test`, format, lint and build;
 - every browser runner, `test:a11y` and `test:visual`;
-- a migration check if C1 adds columns or tables.
+- a migration check if C1 adds columns or tables (C0 found none needed).
 
 Update PROJECT_STATUS, ROADMAP, TODO, CHANGELOG, API.md and the functionality catalogue.
 
-**Exit:** all gates pass, or each failure is explained and tracked. Release timing follows D43.
+**Exit:** all gates pass, or each failure is explained and tracked. With R1 and R1b passed, Base 0.8.0
+is then ready to release (D43).
 
 ## Decisions summary
 
@@ -3128,11 +3186,11 @@ Update PROJECT_STATUS, ROADMAP, TODO, CHANGELOG, API.md and the functionality ca
 | D34 | Drag and drop in the tree lens: targets and confirmation | **Accepted 2026-09-28:** drops onto a node, into a gap between rows (the branch the gap belongs to; at a branch end the pointer's horizontal position picks the level) or onto a type heading. The record lands in its `childSort` place, since the model has no manual order. The top level is added to both paths by B5b (D36). Acceptance is decided by the model's containment rule plus B2's reasons and two new ones (`type`, `application`). A drop is confirmed in the existing `TreeMoveDialog` with the target chosen. Mouse and pen only | B5 |
 | D35 | Touch drag in the tree lens | **Accepted 2026-09-28: deferred to 0.10.** Why: on a windowed tree, a long-press drag competes with scrolling and with the tap that opens a record, and doing it well needs testing on real iOS and Android devices, which the 0.8 gates (desktop Chromium) do not cover. Phones already have the complete path through Move to… (B3, B4 at 390px). When: 0.10, listed in its roadmap delivery scope and exit | B5 |
 | D36 | Moving a record to the top level from the tree | **Accepted 2026-09-28:** offered in Move to… and by drag, because the API supports it. Allowed for a record of one of the tree's root types that has a parent. A `rootCreatable` type the tree does not show at the top is refused (`notRoot`), because it would disappear from the tree; the record's detail can still move it | B5b |
-| D37 | Does a record keep its ID when its type changes? | **Open. Recommendation:** yes. History, relationships and integrations stay linked, and the 0.9 feed reports the change as a `reclassified` event, not as a delete and a create | C0 |
-| D38 | Live, or change set only? | **Open. Recommendation:** change set only. It is a structural operation over many records, and the P2 review screen shows it before it takes effect. This is a stated exception to ADR-026's "live by default", recorded in ADR-034 | C0 |
-| D39 | Can a record change to a type of another application? | **Open. Recommendation:** no. The new type must belong to the record's application, as the move already requires for parents | C0 |
-| D40 | Which values can be mapped? | **Open. Recommendation:** the same value type, plus widenings that lose nothing (`text` to `longText`, `integer` to `decimal`). No lossy conversion; anything else is listed as having no place and kept in history | C0 |
-| D41 | How large can one operation be? | **Open. Recommendation:** a documented limit, 5,000 records per operation in 0.8, measured on the volume fixture in C2. A larger subtree is refused with the limit in the error, never cut short | C0, C2 |
-| D42 | What does a read or write naming the old type return? | **Open. Recommendation:** `409 object_type_changed` with the current type, and the UI follows it to the new route. Routes keep their type segment | C0 |
-| D43 | Release timing | **Open.** (a) Hold 0.8.0 until R2 passes. (b) Release 0.8.0 after R1b and deliver Milestone C as 0.8.1, still before 0.9 | C0 |
+| D37 | Does a record keep its ID when its type changes? | **Accepted 2026-09-29 (C0, ADR-034):** yes. History, relationships and integrations stay linked, and the 0.9 feed reports the change as a `reclassified` event, not as a delete and a create | C0 |
+| D38 | Live, or change set only? | **Accepted 2026-09-29 (C0, ADR-034):** change set only. It is a structural operation over many records, and the P2 review screen shows it before it takes effect. A stated exception to ADR-026's "live by default" | C0 |
+| D39 | Can a record change to a type of another application? | **Accepted 2026-09-29 (C0, ADR-034):** no. The new type must belong to the record's application, as the move already requires for parents | C0 |
+| D40 | Which values can be mapped? | **Accepted 2026-09-29 (C0, ADR-034):** the same value type, plus widenings that lose nothing (`text` to `longText`, `integer` to `decimal`). No lossy conversion; anything else is listed as having no place and kept in history. A mapped value failing the new binding's validation is an input | C0 |
+| D41 | How large can one operation be? | **Accepted 2026-09-29 (C0, ADR-034):** 5,000 changed records per operation in 0.8, measured on the volume fixture in C2. A larger one is refused with `422 restructuring_too_large` and the limit, never cut short | C0, C2 |
+| D42 | What does a read or write naming the old type return? | **Accepted 2026-09-29 (C0, ADR-034):** `409 object_type_changed` with the current type, for any record found under another type in the selected context; the UI follows it to the new route. Routes keep their type segment | C0 |
+| D43 | Release timing | **Accepted 2026-09-29 (C0):** (a) hold 0.8.0 until R2 passes; Milestone C ships in 0.8.0 | C0 |
 | D30 | A link candidate page over a column of about 5,000 cells takes 92 ms live and 160 ms in a change set (found in A6) | **Accepted 2026-09-28:** a known 0.8 budget exception, as D26; the name order and total read every cell under the column only at an unusual column size. Revisit with precomputed sort keys (0.10 or later) | — |

@@ -221,6 +221,15 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Design: Base 0.8 C0. ADR-034 accepts that a record's type can change, keeping its ID, in a change set
+  only, within its application. The attribute mapping is derived from the model (same value type or a
+  lossless widening), relationships are kept or removed, and descendants follow level by level. An
+  operation is previewed, then applied against the change set version and the plan's digest. Each type
+  change records a `reclassified` audit event with the full before state, and later type changes offer
+  its values and relationships back. A route naming another type than the record's returns
+  `409 object_type_changed`. One operation changes at most 5,000 records. API.md gains the restructuring
+  API design (`/change-sets/{id}/restructurings[/preview]`). D37–D43 are accepted; 0.8.0 now waits for
+  Milestone C and R2 (D43).
 - Planning: Base 0.8 Milestone C, structure refactoring (C0–C5, R2 build acceptance), for delivery before
   0.9. A record's type changes when it moves where only another type is allowed. The new type and the
   attribute mapping are derived from the model, with no declarations, and confirmed in a preview.

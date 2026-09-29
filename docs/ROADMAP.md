@@ -242,7 +242,9 @@ confirmation, and a refused target never writes.
 
 ### Milestone C — Structure refactoring
 
-Added 2026-09-28; delivered before 0.9. A steward reshapes a hierarchy without recreating records.
+Added 2026-09-28; part of 0.8.0, which waits for its build acceptance R2 (D43). The design is
+[ADR-034](DECISIONS.md#adr-034--a-records-type-can-change-derived-mapping-preview-and-apply-history-as-the-way-back)
+(C0, 2026-09-29). A steward reshapes a hierarchy without recreating records.
 Moving a record to a place where only another type is allowed changes its type, and its descendants
 follow level by level. Named refactorings (change type, insert a level, remove a level, change the
 type of all records of one type under a record) run as a preview, then an apply, in a change set.

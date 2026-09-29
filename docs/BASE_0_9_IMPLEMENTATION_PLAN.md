@@ -9,10 +9,11 @@ document section and decisions are accepted.
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
 0.9.0 on a new schema language version (D7).
 
-**Depends on:** Product 0.8.0 released (R1 and R1b), and 0.8 Milestone C (structure refactoring, R2), which
-adds a `reclassified` audit event (a record's type changes and its ID stays). The change feed, webhooks
-and consumer API must represent that event (0.8 D37). Planning and design documents may proceed while
-B5 and R1b finish; implementation starts after 0.8.0.
+**Depends on:** Product 0.8.0 released (R1, R1b and R2; 0.8.0 includes Milestone C, D43). Milestone C
+adds a `reclassified` audit event (a record's type changes and its ID stays, ADR-034), whose stored
+payload holds the record's full before state. The change feed, webhooks and consumer API must represent
+that event (0.8 D37). Planning and design documents may proceed while Milestone C and R2 finish;
+implementation starts after 0.8.0.
 
 ## Product outcome
 

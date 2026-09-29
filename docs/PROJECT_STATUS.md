@@ -32,10 +32,10 @@ review, delivered 2026-09-29; its amendment B5b (move to the top level) delivere
 closes Milestone B; D34–D36 accepted),
 and P2 (P2a change lists API and P2b review screen delivered 2026-09-28; D31–D33 accepted), then R1 build
 acceptance (passed 2026-09-28, without B5; [record](BASE_0_8_IMPLEMENTATION_PLAN.md#r1-build-acceptance-and-release))
-and its amendment R1b for B5 and B5b; 0.8.0 releases when both pass. Milestone C (structure
-refactoring: type changes derived from the model, with preview and history as the way back; C0–C5 and
-R2) was added 2026-09-28 for delivery before 0.9, with D37–D43 open, including whether 0.8.0 waits for
-it (D43). Residual 0.7 gaps are listed in the
+and its amendment R1b for B5 and B5b. Milestone C (structure refactoring: type changes derived from
+the model, with preview and history as the way back; C0–C5 and R2) was added 2026-09-28; C0 is
+delivered 2026-09-29 with [ADR-034](DECISIONS.md#adr-034--a-records-type-can-change-derived-mapping-preview-and-apply-history-as-the-way-back)
+and D37–D43 accepted. 0.8.0 releases when R1b and R2 pass (D43). Residual 0.7 gaps are listed in the
 [plan's WP-9 record](BASE_0_7_IMPLEMENTATION_PLAN.md#wp-9-composed-product-validation--sc-07-and-sc-15).
 
 The generic model defines applications, object types, reusable fields, allowed relationships and views.
