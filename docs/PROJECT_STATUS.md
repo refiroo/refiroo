@@ -1,6 +1,12 @@
 # Project status
 
-## Current development baseline — Base 0.7 released 2026-09-25
+## Current development baseline — Base 0.8 released 2026-09-29
+
+**Base 0.8 is released (2026-09-29)**: scalable browsing (Track S), workspace terminology and
+capability boundaries (Track W), the relation matrix (Milestone A), the hierarchy editor (Milestone B),
+the change set review (P2) and hierarchy restructuring (Milestone C). The starter model is content
+release 0.8.0 on schema language 0.7. Next is 0.9, integration-grade APIs
+([plan](BASE_0_9_IMPLEMENTATION_PLAN.md)).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter
@@ -18,7 +24,7 @@ SC-07 and SC-15 run as composed browser + API journeys (`test:browser:sc07`, `te
 accessibility and visual gates are green, and WP-10H/I/J found on the way are closed. The draft
 timestamp decision it surfaced is delivered as WP-10K (not recorded in drafts and history).
 
-**0.8 in progress.** [Track S](BASE_0_8_IMPLEMENTATION_PLAN.md#work-packages--track-s) (S1–S8,
+**0.8 delivery record.** [Track S](BASE_0_8_IMPLEMENTATION_PLAN.md#work-packages--track-s) (S1–S8,
 scalable browsing, ADR-030) and [Track W](BASE_0_8_IMPLEMENTATION_PLAN.md#track-w--workspace-terminology-and-capability-boundaries)
 (W1–W6, ADR-031 terminology and capability boundaries) were delivered on 2026-09-26. Next are the
 relation matrix (Milestone A, a generic rows × ancestor-columns view; A1 schema 0.7 `relationMatrix`
@@ -46,8 +52,11 @@ preview by record and by type pair, the review's type change and the browser fol
 delivered 2026-09-29. C5, the milestone acceptance (`test:browser:c5` on the starter and generated
 models, SC-17, US-H03; the preview and dialogs in both gates), is delivered 2026-09-29, which completes
 Milestone C; on the way it made change set validation linear (D46; 125 s → 1.4 s at 2% volume) and
-fixed a reclassified-then-removed record in the review and the lens's late refocus. 0.8.0 releases
-when R1b and R2 pass (D43). Residual 0.7 gaps are listed in the
+fixed a reclassified-then-removed record in the review and the lens's late refocus. **R1b and R2
+passed together on 2026-09-29** ([record](BASE_0_8_IMPLEMENTATION_PLAN.md#r2-milestone-c-build-acceptance)):
+the full backend suite (829), Vitest (381), all 22 browser runners and both gates are green with no
+fix or re-baseline, and no migration was needed. D43 is resolved, and **0.8.0 is released (2026-09-29).**
+Residual 0.7 gaps are listed in the
 [plan's WP-9 record](BASE_0_7_IMPLEMENTATION_PLAN.md#wp-9-composed-product-validation--sc-07-and-sc-15).
 
 The generic model defines applications, object types, reusable fields, allowed relationships and views.

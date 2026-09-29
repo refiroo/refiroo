@@ -1721,7 +1721,8 @@ the `reclassified` audit event, the D42 refusal, the change-list changes and the
 below the contract. **C2 (delivered 2026-09-29)** settles the plan below in the engine's planner
 (`services/restructuring.py`) for `move` and `changeType`. **C3 (delivered 2026-09-29)** adds the
 routes, the other operation kinds, the paging of `records` and the parent candidates'
-`includeTypeChanges`, so the whole section is now the contract. A restructuring changes the shape
+`includeTypeChanges`, so the whole section is now the contract. C5 accepted it end to end, and R2
+(2026-09-29) accepted it for release in 0.8.0. A restructuring changes the shape
 of a hierarchy inside a change set: records move and change type, keeping their IDs, and a level can be
 inserted or removed. There is no live form (D38).
 
@@ -1877,7 +1878,9 @@ when it is not effective, its other end exists and the model binds it to the new
   type until the change set is published; a publication keeps the type it was published with. A
   history cursor from the old route is `422 invalid_cursor` on the new one.
 - **Change lists (P2a).** An object entry's `before` and `after` gain `objectTypeKey`, and
-  `changedFields` names `objectType` first when it differs. The `objectTypeKey` filter matches either
+  `changedFields` names `objectType` first when it differs between the two sides. A removed record
+  has no after side, so it never names `objectType`, even when the change set changed its type before
+  removing it; its fields follow its source type's order (C5). The `objectTypeKey` filter matches either
   side; the entry's `objectTypeKey` and order stay the change set's. A relation entry's ends read as
   the change set holds them, and it is `containment` when its `to` end's type on either side is a
   child the relation type contains, so a reclassified record's former parent edge is still marked.

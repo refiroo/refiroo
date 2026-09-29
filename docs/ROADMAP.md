@@ -10,7 +10,12 @@ model and the import mapping, ADR-035), 0.11 for production hardening and staged
 0.12 for security (authentication and authorization across the backend, frontend and APIs), and 1.0 for
 migration-class model changes, protected publishing and extensions.
 
-## Current development baseline — Base 0.7 released, Base 0.8 next
+## Current development baseline — Base 0.8 released, Base 0.9 next
+
+Base 0.8 is released (2026-09-29): collections at any size (ADR-030), one name per concept and
+capability boundaries (ADR-031), the relation matrix (ADR-033), the hierarchy editor with drag and
+drop, the change set review, and hierarchy restructuring with a preview and history as the way back
+(ADR-034), on schema language 0.7. Next is 0.9, integration-grade APIs.
 
 Base 0.5 delivered the operational and model-release foundation. Base 0.7 is released (2026-09-25):
 core mapping as a lens of one contextual application browser, schema 0.6 `mappingGrid` views,
@@ -170,7 +175,7 @@ acceptance gates rather than per-package requirements. See the [implementation p
 - Direct-parent scope, declared typed filters and mapping coverage state are visible and server-side;
   their cursor continuations cannot be reused under another query context.
 
-## Product release 0.8 — Relation matrix and hierarchy editor
+## Product release 0.8 — Relation matrix and hierarchy editor (complete)
 
 The two independently gated milestones may ship together, but neither may weaken live, change-set
 or publication semantics. Track S comes first because both milestones browse large, model-defined collections.
@@ -243,7 +248,7 @@ confirmation, and a refused target never writes.
 
 ### Milestone C — Structure refactoring
 
-Added 2026-09-28; part of 0.8.0, which waits for its build acceptance R2 (D43). The design is
+Added 2026-09-28; part of 0.8.0 (D43). The design is
 [ADR-034](DECISIONS.md#adr-034--a-records-type-can-change-derived-mapping-preview-and-apply-history-as-the-way-back)
 (C0, 2026-09-29). A steward reshapes a hierarchy without recreating records.
 Moving a record to a place where only another type is allowed changes its type, and its descendants
@@ -257,7 +262,7 @@ Exit: the journey passes on two models; identities, history and permitted relati
 change; nothing is lost without being shown in the preview; nothing names a type or application.
 
 C0–C5 delivered 2026-09-29; the journey is accepted on the starter and generated models by
-`test:browser:c5` (SC-17, US-H03). 0.8.0 waits for R1b and R2.
+`test:browser:c5` (SC-17, US-H03). R1b and R2 passed together on 2026-09-29, and 0.8.0 is released (D43).
 
 ## Product release 0.9 — Integration-grade APIs
 

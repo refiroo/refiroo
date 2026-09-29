@@ -4,34 +4,26 @@ This file is the prioritized delivery queue. The roadmap owns sequencing and out
 implementation plan owns detailed contracts and work packages. Keep completed historical work in its
 release plan and changelog rather than accumulating it here.
 
-## Now — Product 0.8
+## Now — Product 0.9
 
-Base 0.7 is released (2026-09-25). 0.8 Track S (scalable browsing) and Track W (workspace terminology
-and capability boundaries) are delivered (2026-09-26), and Milestone A's relation matrix (A1–A5) is
-delivered (2026-09-28), closed by A6 (snapshot table index drift, 2026-09-28). The hierarchy editor's
-`tree` contract (B1), move targets (B2), tree lens (B3) and acceptance (B4) are delivered (2026-09-28);
-B5 (drag and drop in the tree lens) and its amendment B5b (move to the top level) were added in the
-Milestone B review and are delivered (2026-09-29), which closes Milestone B. P2 (change lists API, P2a; review screen, P2b)
-is delivered (2026-09-28). R1 passed (2026-09-28); B5 and B5b are delivered (2026-09-29); now the build acceptance R1b. Milestone C (structure
-refactoring, C0–C5, with R2 as its build acceptance) was added (2026-09-28); C0 is delivered
-(2026-09-29) with ADR-034 and D37–D43 accepted, and 0.8.0 waits for R2 (D43). See
-[Next — 0.8 and beyond](#next--08-and-beyond).
+Base 0.8 is released (2026-09-29). 0.9 adds integration-grade APIs: the implementation starts with Q1,
+in the order of the [0.9 delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue). See
+[Next — 0.9](#next--09).
 
 ## Open decisions
 
-Offset/limit pagination is closed by ADR-030 (accepted 2026-09-25): each request pages with a
-cursor or a position; the UI scrolls with cursors and jumps with positions. Delivered in 0.8 Track S.
-
-Milestone A decisions D8–D13 and D28 (A6) are accepted. D14 (ineligible move targets listed disabled
-with a reason) is accepted (2026-09-28), as are D2–D6 as delivered in Track S. A6's two open
-measurements are decided (2026-09-28): the container move, measured in B2, is a known 0.8 budget
-exception (D29), and the link candidate page is a known 0.8 budget exception (D30). B5's D34 (drop
-targets and confirmation) and D35 (touch drag deferred to 0.11), and B5b's D36 (move to the top
-level), are accepted (2026-09-28). No 0.8
-decision is open; see the
-[0.8 plan](BASE_0_8_IMPLEMENTATION_PLAN.md#decisions-summary).
+No 0.8 decision is open ([0.8 decisions](BASE_0_8_IMPLEMENTATION_PLAN.md#decisions-summary)). The
+0.9 decisions are in the [0.9 plan](BASE_0_9_IMPLEMENTATION_PLAN.md#decisions); the 0.10 ones in
+[MODEL_AUTHORING.md](MODEL_AUTHORING.md).
 
 See `ROADMAP.md` for the delivery scope, exit gates and full milestone sequence.
+
+## Base 0.8 delivery record (released 2026-09-29)
+
+Track S (S1–S8, ADR-030), Track W (W1–W6, ADR-031), Milestone A (A1–A6, ADR-033), Milestone B (B1–B5b),
+P2 (P2a, P2b) and Milestone C (C0–C5, ADR-034) are complete, accepted by R1, R1b and R2, with D1–D46
+decided. Known budget exceptions D26, D29 and D30 and the 500-record restructuring limit (D44) remain
+as recorded. See `CHANGELOG.md` and `BASE_0_8_IMPLEMENTATION_PLAN.md` for details.
 
 ## Base 0.7 delivery record (released 2026-09-25)
 
@@ -44,79 +36,8 @@ redesign and dark mode. See `CHANGELOG.md` and `BASE_0_7_IMPLEMENTATION_PLAN.md`
 WP0–WP8, WP8.1-A–C, ADR-026 slices 0–5, WP9 slices A–D, WP10 and UI-01–UI-06 are all complete.
 See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery history.
 
-## Next — 0.8 and beyond
+## Next — 0.9
 
-- [x] 0.8 Track S — scalable browsing ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md), ADR-030), first:
-  - [x] S1 volume fixture and baseline over a generated model.
-  - [x] S2 change-set and publication reads in the database (D1 accepted: typed value rows).
-  - [x] S2b bounded change set writes: a rename at full volume in 7.5 ms (was 4.9 s).
-  - [x] S3 cursor and position paging: backward cursors, anchor, totals, seek by value, `position`.
-  - [x] S4 top-level filter; relation search and sort.
-  - [x] S5 shared continuous-scroll list with loading and end markers.
-  - [x] S6 sidebar tree by parent, replacing **Load more objects**.
-  - [x] S7 composed volume acceptance (open: attribute sorts over the 20,000-child parent, deferred
-    after 0.9 by D26).
-  - [x] S8 indexed search keeping "contains" matching in every context (D25): a trigram index over
-    text values; a whole-type name search with its total in 37 / 73 / 40 ms (was 0.7–0.9 s).
-- [x] 0.8 Track W — workspace terminology and capability boundaries ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#track-w--workspace-terminology-and-capability-boundaries), ADR-031):
-  - [x] W1 glossary, roadmap and milestone names (translation/hierarchy editor); stale gap notes.
-  - [x] W2 change sets and publications ("Publication N") carry their ADR-031 names in every layer.
-  - [x] W3 narrow `WORKSPACE_ADMIN_MUTATIONS_ENABLED` to catalogue administration.
-  - [x] W4 workspace administration screen, read-only single-workspace selector, capability status.
-  - [x] W5 test (and fix if confirmed) live writes committing across a model activation.
-  - [x] W6 delete an unused workspace (D27): API, detail deletability, Workspaces screen action.
-- [x] 0.8 Milestone A — relation matrix ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-a--relation-matrix)):
-  - [x] A1 schema 0.7 `relationMatrix` view contract.
-  - [x] A2 relation matrix query with cell states and whole-list state filter.
-  - [x] A3 writes from a cell: container and link-candidate lookups, create, edit, link and unlink, live or in a change set.
-  - [x] A3b stored cell states for the row state filter (ADR-033).
-  - [x] A4 relation matrix lens.
-  - [x] A5 Milestone A acceptance (SC-09 translation half and the mapping-shape journey).
-  - [x] A6 snapshot table index drift (D28): change set objects gain the owner-leading page indexes,
-    the other eight declarations are removed, and a schema drift test holds a migrated database equal
-    to the ORM. Found by its measurements: moving a container that holds about 2,500 matrix
-    cells in a change set takes 5–9 s (A3b state recompute, about 110 statements; measured in B2,
-    D29), and a link candidate page over a 5,000-cell column takes 92 ms live and 160 ms in a change
-    set (known 0.8 budget exception, D30).
-- [ ] 0.8 Milestone B — hierarchy editor ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-b--hierarchy-editor)):
-  - [x] B1 schema 0.7 `tree` view contract.
-  - [x] B2 move targets with eligibility (D14) and path context in every context; a deep move meets
-    the write budget live and in a change set; the matrix container move is a known 0.8 budget
-    exception (D29).
-  - [x] B3 tree lens with add child, rename, availability and move, beside the record's detail;
-    `test:browser:b3` on both starter trees and the generated tree, live and in a change set.
-  - [x] B4 Milestone B acceptance (SC-09 hierarchy half); `test:browser:b4`, tree lens and move dialog
-    in the a11y and visual gates.
-  - [x] B5 drag and drop in the tree lens (added in review, D34, D35; delivered 2026-09-29): onto a node, into a gap or onto
-    a type heading, checked by the model's containment rule, glowing green or red with the reason,
-    confirmed in the existing move dialog; mouse and pen (touch drag in 0.11). One record at a time.
-  - [x] B5b move to the top level (amendment to B5, D36; delivered 2026-09-29): a **Top level** option in
-    Move to… and top-level drop targets, for the tree's root types; others refused with `notRoot`.
-- [x] 0.8 P2 change set changes list, after W2 (D20); planned 2026-09-28 with D31–D33 accepted.
-  - [x] P2a change lists API: `object-changes` and `relation-changes`, kinds, before/after, volume budgets.
-  - [x] P2b change set review screen: Records and Relationships, kind and type filters, parent links on
-    request, before/after rows, `beforePath` for moves; `test:browser:p2`, review in the a11y and visual gates.
-- [x] 0.8 R1 build acceptance of the build without B5 (2026-09-28): every gate green; the change lists
-  read one snapshot; `sc15` and `wp13c` runner data follows the 0.8.0 starter. Release waits for R1b.
-- [ ] 0.8 R1b B5 and B5b build acceptance (amendment to R1, after both); 0.8.0 releases when R1, R1b and R2 pass (D43).
-- [ ] 0.8 Milestone C — structure refactoring ([plan](BASE_0_8_IMPLEMENTATION_PLAN.md#milestone-c--structure-refactoring)):
-  a record's type changes when it moves where only another type is allowed, derived from the model
-  with a preview. Nothing is lost (history offers values back), and named refactorings run in a
-  change set. D37–D43 accepted in C0.
-  - [x] C0 design (2026-09-29): ADR-034 and the restructuring API design in API.md; D37–D42 as
-    recommended, D43 holds 0.8.0 until R2; no migration needed.
-  - [x] C1 type change in the engine (values, containment edge, relationships, derived state, audit,
-    publishing) (2026-09-29).
-  - [x] C2 planner: possible types, mapping suggestions, cascade, the way back, size limit
-    (2026-09-29; D44 lowers the limit to 500).
-  - [x] C3 restructuring API: preview and apply for move, change type, insert and remove a level,
-    change type under a record (2026-09-29).
-  - [x] C4 refactoring in the tree lens, reusing B5's dialog, list and drag (2026-09-29; D45).
-  - [x] C5 Milestone C acceptance (2026-09-29): `test:browser:c5` on the starter and generated
-    models, the preview and dialogs in both gates, US-H03 and SC-17; fixed on the way: linear change
-    set validation, a reclassified-then-removed record in the change lists and review, and the lens's
-    late refocus after a restructuring.
-- [ ] 0.8 R2 Milestone C build acceptance; 0.8.0 releases after it (D43).
 - [ ] Enforce foreign keys on SQLite (`PRAGMA foreign_keys=ON` per connection) or document that every
   `ondelete` rule is advisory there. 0.8 W6 found none of them, not only the `workspaces.key` ones, are
   enforced at runtime; services delete dependants explicitly and W6 rechecks the workspace at commit.

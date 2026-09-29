@@ -6,8 +6,13 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-09-29
+
 ### Added
 
+- Base 0.8 R1b and R2 (2026-09-29): build acceptance of B5, B5b and Milestone C in one pass. The full
+  backend suite, Vitest, all 22 browser runners and the accessibility and visual gates pass with no fix
+  or re-baseline, and no migration is needed, so 0.8.0 is released (D43).
 - Base 0.8 S1: a Track S volume fixture and read baseline. `tests/volume_fixture.py` generates a model
   with its own keys and bulk-seeds 10,000 root records, 100,000 contained records (20,000 under one
   parent), a seven-level self-hierarchy, a record with 1,500 relations of one type and a parent with

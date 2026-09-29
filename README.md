@@ -20,7 +20,7 @@ replace them, or add applications for entirely different domains. The views each
 declares differ only because the example declares them that way; see
 [docs/EXAMPLE_MODEL.md](docs/EXAMPLE_MODEL.md).
 
-## Current state — Base 0.7 released
+## Current state — Base 0.8 released
 
 - Global reusable attribute types and object-type attribute bindings
 - Forward/reverse typed relations, features and allowed object-type relation triples
@@ -65,6 +65,19 @@ declares differ only because the example declares them that way; see
   stays on the active one (ADR-028)
 - Release technical details and earlier-release → selected-release semantic comparison
 - Dark mode, automated accessibility (axe) and visual-regression gates
+- Collections at any size (ADR-030): cursor and position paging, continuous scrolling in both
+  directions, totals and jumps by page, value, start or end, indexed search, and a sidebar tree that
+  loads by parent, in live, change sets and publications
+- One name per concept (workspace, live, change set, publication) and a Workspaces screen to create,
+  rename, retire, reactivate, delete and choose the default workspace (ADR-031)
+- Schema 0.7 `relationMatrix` views: rows against the records of an ancestor type, with cell states
+  across the whole list and create, edit, link and unlink from a cell (ADR-033)
+- Schema 0.7 `tree` views: a lazily loaded hierarchy lens with add child, rename, availability and move
+  by dialog or by drag and drop, including to the top level
+- Change set review: every added, changed and removed record and relationship with before and after
+- Hierarchy restructuring in a change set (ADR-034): a move that changes a record's type, change type,
+  insert or remove a level, with a preview; records keep their IDs, and what a new type has no place
+  for is kept in history and offered back
 - Docker development environment and continuous-integration workflow
 
 Base 0.5 supplies the bounded query and model-lifecycle foundations. Base 0.6 delivers daily live
@@ -72,12 +85,14 @@ operations and optional coordinated design. Base 0.7 adds core mapping: a stewar
 differently mapped and ambiguous rows in a configured mapping lens, live or in a change set, with conflicts
 reported rather than overwritten; and prepares a schema change in a change set pinned to a candidate release
 while live work continues. See the [mapping API contract](docs/API.md#product-07-mapping-api-wp-4-and-wp-5-delivered)
-and the [0.7 plan](docs/BASE_0_7_IMPLEMENTATION_PLAN.md). Scalable browsing, translation and hierarchy
-interactions follow in 0.8.
+and the [0.7 plan](docs/BASE_0_7_IMPLEMENTATION_PLAN.md). Base 0.8 makes every collection work at any
+size and adds the relation matrix (translation and mapping coverage), the hierarchy editor and
+hierarchy restructuring; see the [0.8 plan](docs/BASE_0_8_IMPLEMENTATION_PLAN.md). Integration-grade
+APIs follow in 0.9.
 
 Start with the [product functionality guide](docs/product-functionality/README.md) for available/planned
 functions, stories and realistic acceptance scenarios. The [delivery queue](docs/TODO.md) traces
-the 0.8 work. Historical schema replacement with preview and explicit loss confirmation is a
+the 0.9 work. Historical schema replacement with preview and explicit loss confirmation is a
 planned 0.11 migration, not a current force action.
 
 ## Run with Docker

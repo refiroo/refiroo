@@ -1,16 +1,16 @@
 # Base 0.8 implementation plan
 
-**Status:** In progress; plan drafted 2026-09-25. Track S (scalable browsing, S1–S8) and Track W
+**Status:** Released 2026-09-29 as Product 0.8.0 (R1, R1b and R2 passed, D43 resolved). Plan drafted 2026-09-25. Track S (scalable browsing, S1–S8) and Track W
 (W1–W6, ADR-031 terminology and capability boundaries) are delivered (2026-09-26). Milestone A
 (relation matrix) and Milestone B (hierarchy editor) from the
-[roadmap](ROADMAP.md#product-release-08--relation-matrix-and-hierarchy-editor) are broken into work
+[roadmap](ROADMAP.md#product-release-08--relation-matrix-and-hierarchy-editor-complete) are broken into work
 packages A1–A5, B1–B5 and C0–C5; P2 is scheduled after W2 (D20); R1 owns build acceptance. A1 is delivered
 (2026-09-27) with D8 and D9 accepted. A2, A3 and A3b are delivered (2026-09-27) with D10–D13
 accepted; A3b's stored cell states closed A2's budget exception for the row state filter. A4 and A5
 are delivered (2026-09-28), and A6 (snapshot table index drift, found in A2) with D28 accepted
 (2026-09-28), which completes Milestone A. B1–B4 are delivered (2026-09-28); B5 (drag and drop in the tree lens, D34, D35) was added in the Milestone B review (2026-09-28) with its amendment B5b (move to the top level, D36); B5 is delivered (2026-09-29), and B5b is delivered (2026-09-29), which completes Milestone B, with R1b as their build acceptance; Milestone C (structure refactoring, C0–C5) was added after the Milestone B review (2026-09-28), with R2 as its build acceptance; C0 is delivered (2026-09-29) with ADR-034 and D37–D43 accepted; C1–C4 are delivered (2026-09-29, D44 and D45), and C5 is delivered (2026-09-29) with D46, which completes Milestone C; D14 is accepted (2026-09-28),
 D30 decides one of A6's two open measurements and B2 decides the other (D29, a known budget exception);
-P2 is planned (2026-09-28) as P2a (change lists API) and P2b (review screen), with D31–D33 accepted (2026-09-28); P2a and P2b are delivered (2026-09-28), which completes P2. R1 build acceptance of the build without B5 passed (2026-09-28); 0.8.0 releases after R1b and R2 (D43); see the [summary](#decisions-summary).
+P2 is planned (2026-09-28) as P2a (change lists API) and P2b (review screen), with D31–D33 accepted (2026-09-28); P2a and P2b are delivered (2026-09-28), which completes P2. R1 build acceptance of the build without B5 passed (2026-09-28); R1b and R2 passed together (2026-09-29), and 0.8.0 is released (D43); see the [summary](#decisions-summary).
 
 **Target:** Product 0.8.0. Track S does not change the schema language. Milestones A and B add
 schema language 0.7 (`relationMatrix` and `tree` views); the starter model becomes content release
@@ -3557,6 +3557,41 @@ Update PROJECT_STATUS, ROADMAP, TODO, CHANGELOG, API.md and the functionality ca
 
 **Exit:** all gates pass, or each failure is explained and tracked. With R1 and R1b passed, Base 0.8.0
 is then ready to release (D43).
+
+**R1b and R2 delivered 2026-09-29, as one pass.** R2's gate set contains R1b's, so both ran once over
+the build with B5, B5b and C0–C5. Every gate passed on the first run; nothing was fixed or re-baselined
+during the pass.
+
+- _Backend._ The full `pytest` suite (829 passed, 4 min 35 s) and `ruff check app/ tests/`. This
+  replaces R1b's `git diff` confirmation: the backend has changed since R1 (C1–C5), so it ran in full.
+- _Migrations._ None needed. The head is still `20260928_01`, R1's. Milestone C's only edits under
+  `migrations/` are two docstrings (a release number in a comment), and the `reclassified` audit
+  action is a value in an existing column. Startup is unchanged since R1's migration checks and smoke
+  start, so they were not repeated.
+- _Frontend._ Format check, lint (0 errors, the 8 recorded warnings), `tsc -b && vite build`, Vitest
+  (43 files, 381 tests) and gate helpers (5/5).
+- _Browser._ All 22 runners pass: `test:browser`, `:authoring`, `:change-sets`, `:publications`,
+  `:wp11`, `:wp12`, `:wp14`, `:wp13c`, `:sc07`, `:sc15`, `:s5`, `:s6`, `:s7`, `:a4`, `:a5`, `:b3` (30
+  checks), `:b4` (13), `:c4` (12), `:c5` (13), `:p2` (9) and `:w4` (21), the volume runners at their
+  default scale. That includes R1b's `b3`, `b4` and `s6`: `s6` confirms the sidebar tree, which shares
+  `RecordTree`, still offers no drag.
+- _Gates._ `test:a11y`: 50 scenarios with no unexpected violations, light and dark, plus the 3 browser
+  regression checks. `test:visual`: 41 captures, all matching the committed baselines. B5's drag
+  states and C5's restructuring scenarios were adopted in their packages; C5 also adopted the reviewed
+  `tree-move-dialog` update for B5b's **Top level** row.
+- _R1b review._ The B5 and B5b delivery notes meet their exits: drags onto a node, into a gap and onto
+  a type heading in both starter trees, live and in a change set, each confirmed in the dialog; a
+  refused target glows red with its reason and writes nothing; touch never drags; and the top level is
+  reached by Move to… and by drag. One behaviour changed later, as intended: C4 turns a type the top
+  level would refuse into a root type in a change set; live, it is still refused.
+
+_Residual gaps (tracked):_ R1's list is unchanged: the budget exceptions D26, D29 and D30; the very
+fast Back at narrow width (B4); SQLite foreign keys not enforced (TODO); the PostgreSQL forms of the
+search index and matrix reads (0.11); and P1 and P3 (0.9). Milestone C adds D44's 500-record limit
+per restructuring (a set-wise write path would raise it). Not exercised: a non-SQLite database, the
+volume runners at full scale, and a restructuring near the 500-record limit in the browser.
+
+**D43 is resolved: Base 0.8.0 is released (2026-09-29).**
 
 ## Decisions summary
 
