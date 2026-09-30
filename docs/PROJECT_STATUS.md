@@ -18,7 +18,9 @@ tiers, one rule set for live data and change sets, one write path; no contract c
 2026-09-30) is delivered, and so is **Q4, effective periods and `asOf`** (`effectivePeriod` in schema
 0.8, the `invalid_effective_period` write rule, `asOf` on the per-type list and the model query, the
 starter as content release 0.9.0 on schema 0.8; SC-11 passes through the management API; D20–D22;
-2026-09-30). V1 is next.
+2026-09-30), and so is **V1, the API reference page** (Scalar at `/docs` over the management API,
+the script bundled so the page works offline, `RDM_API_REFERENCE_SCRIPT=cdn` to load it from a CDN;
+2026-09-30). B1 is next.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

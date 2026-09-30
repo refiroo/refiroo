@@ -32,6 +32,7 @@
     "test:browser:c5": "node e2e/c5-restructuring-acceptance.mjs",
     "test:browser:p2": "node e2e/p2-change-review.mjs",
     "test:browser:w4": "node e2e/w4-workspace-admin.mjs",
+    "test:browser:v1": "node e2e/v1-api-reference.mjs",
     "test:gate-helpers": "node --test e2e/helpers/*.node-test.mjs",
     "test:a11y": "node e2e/accessibility-gate.mjs",
     "test:visual": "node e2e/visual-regression-gate.mjs",

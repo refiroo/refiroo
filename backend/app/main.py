@@ -22,6 +22,7 @@ from .management.errors import (
     unexpected_error_handler,
     validation_error_handler,
 )
+from .management.reference import api_reference_router
 from .management.routers import (
     attributes,
     change_sets,
@@ -93,6 +94,10 @@ def create_app() -> FastAPI:
         version="0.8.0",
         description="API-first, model-driven reference data management engine.",
         lifespan=lifespan,
+        # /docs is the Scalar reference page (api_reference_router), not Swagger UI or ReDoc.
+        docs_url=None,
+        redoc_url=None,
+        swagger_ui_oauth2_redirect_url=None,
         responses={
             "default": {
                 "model": ApiErrorResponse,
@@ -155,6 +160,7 @@ def create_app() -> FastAPI:
             return {"status": "unhealthy"}
         return {"status": "ok"}
 
+    application.include_router(api_reference_router(settings.api_reference_script))
     application.include_router(model.router)
     application.include_router(model_releases.router)
     application.include_router(workspaces.read_router)

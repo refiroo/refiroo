@@ -29,6 +29,7 @@ include = ["app*"]
 
 [tool.setuptools.package-data]
 "app.migrations" = ["script.py.mako"]
+"app.management.reference" = ["scalar/standalone.js", "scalar/LICENSE"]
 
 [tool.ruff]
 line-length = 100

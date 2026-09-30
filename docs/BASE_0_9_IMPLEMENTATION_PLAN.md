@@ -8,7 +8,7 @@ J1–J4 and R are specified (2026-09-29) and delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** [Q1](#q1-cross-type-lookup) (2026-09-29), [Q2](#q2-workspace-edge-list) (2026-09-29),
 [Q3](#q3-model-aware-query) (2026-09-30), [C1](#c1-consumer-api-definitions) (2026-09-30),
-[Q4](#q4-effective-periods-and-asof) (2026-09-30).
+[Q4](#q4-effective-periods-and-asof) (2026-09-30), [V1](#v1-api-reference-page) (2026-09-30).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -194,7 +194,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 3 | [Q3](#q3-model-aware-query) | Q1 | `POST …/queries/objects`: criteria, one relation hop, `select`, `expand` — **delivered 2026-09-30** |
 | 4 | [C1](#c1-consumer-api-definitions) | — | `consumerApis` schema and validation; opens schema 0.8 — **delivered 2026-09-30** |
 | 5 | [Q4](#q4-effective-periods-and-asof) | Q3, C1 | `effectivePeriod` in schema 0.8, `asOf` on reads; starter 0.9.0; SC-11 (API) — **delivered 2026-09-30** |
-| 6 | [V1](#v1-api-reference-page) | — | Scalar at `/docs` with the management API; a filler, any time before V2 |
+| 6 | [V1](#v1-api-reference-page) | — | Scalar at `/docs` with the management API; a filler, any time before V2 — **delivered 2026-09-30** |
 | 7 | [B1](#b1-job-model-and-inline-object-batches) | — | **Track P (§P1–P5, P7)**, `POST /batches` with object items, inline |
 | 8 | [F1](#f1-feed-positions) | B1 | Feed position in commit order, publish entries (D15), lock order |
 | 9 | [B2](#b2-background-jobs) | B1 | **Track P (§P6)**: worker, chunks, lease, resume, cancel, retention |
@@ -795,6 +795,56 @@ unchanged; old `/redoc` answers `404`.
 **Groups:** `contract`; runner `test:browser:v1` (new).
 
 **Exit:** `/docs` documented in the README and API.md.
+
+**Delivered 2026-09-30.** No decision was needed. What was built:
+
+- **The page** in `management/reference/` (the management tier: the page documents that API, and V2
+  can read installed consumer definitions through the engine from there). `GET /docs` renders Scalar
+  over one source, the management OpenAPI (`/openapi.json`, following a proxy's `root_path`); the
+  source list is built per request, so V2 adds consumer contract versions beside it. Both routes are
+  `include_in_schema=False`; FastAPI's Swagger UI, its OAuth redirect and ReDoc are switched off.
+- **The script**: `@scalar/api-reference` 1.72.2's `dist/browser/standalone.js`, unchanged, with
+  Scalar's MIT `LICENSE`, served at `/docs/scalar/standalone.js` and shipped as package data.
+  [OPEN_SOURCE](OPEN_SOURCE.md#third-party-code-shipped-with-the-engine) records it and how to upgrade.
+- **The setting** `RDM_API_REFERENCE_SCRIPT`: `bundled` (default) or `cdn`, which loads the same
+  version from jsDelivr under the bundled file's SHA-384 (`integrity`), so a CDN cannot serve
+  different code. Any other value stops startup naming the setting, as `WEB_CONCURRENCY` does.
+
+Differences from the design, found in the browser: the scope said "works without internet access",
+but Scalar by default loads web fonts from `fonts.scalar.com` and, on `localhost` and `127.0.0.1`,
+offers its hosted agent, an MCP generator, a developer toolbar and a hosted-client link. The page
+turns all of them off (`withDefaultFonts`, `telemetry`, `agent`, `mcp`, `showDeveloperTools`,
+`hideClientButton`). The first attempt still loaded the fonts: the script mounts a second,
+unconfigured instance on any element with the id `api-reference` by itself, so the page mounts on
+`rdm-api-reference`, and a test holds that. Unknown routes answer the engine's existing
+`404 http_error`, not a new code.
+
+**Known limitation (not gated):** axe reports violations in Scalar's own markup: `color-contrast` and
+`landmark-unique` at both widths, and `scrollable-region-focusable` at 390px. The engine does not
+author that markup, so the runner reports them as evidence rather than failing; the page is outside
+the product UI's `test:a11y` gate.
+
+**Checks:** `test_api_reference` (new, `contract`; 5 passed): the page with the bundled script, the
+management source and the offline options, and no other host named on it; the bundled script served
+byte for byte, its SHA-384 equal to the pinned integrity, its licence present; the CDN setting
+(case and spaces ignored) naming the pinned version with its integrity; an unknown setting refusing
+to start; a `root_path` followed by the script and the source; `/redoc` and `/docs/oauth2-redirect`
+`404`, and no `/docs` path in the OpenAPI document. Group `contract`: 52 passed, the OpenAPI lock
+digest unchanged (no re-baseline). `test_startup` (2 passed), since settings parsing changed.
+`ruff check app/ tests/` clean. `test:browser:v1` (new): a real backend on a fresh database with no
+Vite, Chromium aborting every request that leaves the engine's origin (none did, at either width); the
+page title, the API's heading and an operation by its path; the bundled script and `/openapi.json`
+loaded from the engine; the agent, MCP, toolbar and hosted-client controls absent; the "try it"
+console's `GET /api/v1/capabilities` answered 200 by the engine; 1440px and 390px without
+horizontal overflow; `/redoc` `404`. Appearance inspected in the runner's screenshots at both widths
+(system fonts, sidebar and operations at 1440px, the collapsed menu at 390px). `test:gate-helpers`
+(5 passed: the new runner is listed in the execution guide).
+
+Not run: frontend format, lint and build, since nothing under `frontend/src` changed (the runner and
+the `package.json` script only); the CDN setting in a browser, since the runner has no network (the
+integrity is checked against the bundled file instead, and the file was compared with jsDelivr's copy
+when it was pinned); `test:a11y` and `test:visual`, which cover the product UI. The full suites wait
+for R.
 
 #### V2: Consumer sources
 

@@ -49,6 +49,11 @@ All notable changes to this project are documented in this file. The format foll
   `model_migration_required` with their count, and removing a period from a type a consumer API
   exposes needs a higher `contractVersion`. The starter is content release 0.9.0 on schema 0.8, with
   a period on master values. Decisions D20–D22.
+- Base 0.9 V1: the API reference at `/docs` is [Scalar](https://github.com/scalar/scalar) (MIT) over
+  the management OpenAPI document, replacing Swagger UI and ReDoc (`/redoc` now answers `404`). The
+  Scalar script (1.72.2) is bundled with the engine, so the page works without internet access and
+  loads nothing from another host; `RDM_API_REFERENCE_SCRIPT=cdn` loads the same version from
+  jsDelivr under its integrity hash. The page is outside the OpenAPI document, which is unchanged.
 
 ### Changed
 

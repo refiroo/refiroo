@@ -483,6 +483,24 @@ are not mutation-gated. Lifecycle errors use:
 
 As elsewhere, errors use the shared `{ "error": { "code", "message", "details" } }` envelope.
 
+### API reference page (Base 0.9 V1)
+
+`GET /docs` serves the API reference, rendered by [Scalar](https://github.com/scalar/scalar) (MIT)
+from the OpenAPI documents: the management API (`/openapi.json`) is its first source, and 0.9 V2 adds
+each installed consumer API contract version as a further source. Swagger UI and ReDoc are gone:
+`/redoc` and `/docs/oauth2-redirect` answer `404`.
+
+The Scalar standalone script is pinned (1.72.2) and bundled with the engine, served at
+`/docs/scalar/standalone.js`, so the page works without internet access. Set
+`RDM_API_REFERENCE_SCRIPT=cdn` to load the same version from jsDelivr instead; the script tag carries
+the bundled file's integrity hash, so the browser refuses any other bytes. The default is `bundled`,
+and any other value stops startup with a message naming the setting. The page turns off Scalar's web
+fonts, telemetry, hosted agent, MCP generator, developer toolbar and hosted-client link, so nothing it
+loads leaves the engine. Its "try it" console sends requests to the engine that served the page,
+unauthenticated like the management API until 0.12.
+
+Neither route is in the OpenAPI document, so the page does not affect the [OpenAPI lock](#openapi-lock).
+
 ### OpenAPI lock
 
 The complete canonical default OpenAPI document digest for the current implementation, plus readable

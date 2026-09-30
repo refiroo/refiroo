@@ -107,7 +107,7 @@ docker compose up --build
 Open:
 
 - UI: http://localhost:5173
-- API documentation: http://localhost:8000/docs
+- API reference: http://localhost:8000/docs (Scalar, works offline; see [API.md](docs/API.md#api-reference-page-base-09-v1))
 - Model: http://localhost:8000/api/v1/model
 
 ## Run without Docker
@@ -139,6 +139,10 @@ The backend uses `backend/rdm-engine.db` through SQLite locally unless `DATABASE
 model defaults to `model/rdm-starter.json`. Set `RDM_CURSOR_SIGNING_KEY` to a deployment-specific
 secret so opaque pagination cursors remain verifiable across restarts. Without it, the process
 generates an ephemeral key and cursors issued before a restart become invalid.
+
+The API reference at `/docs` loads its Scalar script from the copy bundled with the engine, so it works
+without internet access. Set `RDM_API_REFERENCE_SCRIPT=cdn` to load the same pinned version from a
+CDN instead.
 
 Model-administration mutations are not registered by default. Set
 `MODEL_ADMIN_MUTATIONS_ENABLED=true` only in the supported single-process administration deployment

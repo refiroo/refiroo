@@ -9,7 +9,7 @@ import os
 import secrets
 from functools import cache
 from pathlib import Path
-from typing import Self
+from typing import Literal, Self
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -19,6 +19,11 @@ DEFAULT_DATABASE_URL = "sqlite:///./rdm-engine.db"
 DEFAULT_CORS_ORIGINS = "http://localhost:5173"
 
 TRUTHY = {"1", "true", "yes", "on"}
+
+# Where the API reference page at /docs loads its script from: the copy bundled with the engine, so
+# the page works without internet access, or the same pinned version from a CDN.
+ApiReferenceScript = Literal["bundled", "cdn"]
+API_REFERENCE_SCRIPTS: tuple[ApiReferenceScript, ...] = ("bundled", "cdn")
 
 # Regenerating this per process is deliberate: without RDM_CURSOR_SIGNING_KEY, cursors issued
 # before a restart stop verifying after it. It is generated once at import so reloading settings
@@ -38,6 +43,7 @@ class Settings(BaseModel):
     workspace_admin_mutations_enabled: bool = True
     web_concurrency: int = Field(default=1, ge=1)
     cursor_signing_key: bytes = _EPHEMERAL_CURSOR_SIGNING_KEY
+    api_reference_script: ApiReferenceScript = "bundled"
 
     @classmethod
     def from_env(cls, environ: dict[str, str] | None = None) -> Self:
@@ -63,6 +69,9 @@ class Settings(BaseModel):
                 if configured_signing_key
                 else _EPHEMERAL_CURSOR_SIGNING_KEY
             ),
+            api_reference_script=_api_reference_script(
+                env.get("RDM_API_REFERENCE_SCRIPT", "bundled")
+            ),
         )
 
     def validate_model_admin_topology(self) -> None:
@@ -84,6 +93,16 @@ def _worker_count(raw: str) -> int:
     if worker_count < 1:
         raise RuntimeError("WEB_CONCURRENCY must be a positive integer")
     return worker_count
+
+
+def _api_reference_script(raw: str) -> ApiReferenceScript:
+    value = raw.strip().lower()
+    for script in API_REFERENCE_SCRIPTS:
+        if value == script:
+            return script
+    raise RuntimeError(
+        f"RDM_API_REFERENCE_SCRIPT must be one of {', '.join(API_REFERENCE_SCRIPTS)}, not {raw!r}"
+    )
 
 
 @cache

@@ -9,7 +9,7 @@ release plan and changelog rather than accumulating it here.
 Base 0.8 is released (2026-09-29). 0.9 adds integration-grade APIs in the order of the
 [0.9 delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue): Q1 and Q2 are delivered (2026-09-29),
 and Q3 on 2026-09-30. The queue was reordered after Q3 (C1 and Q4 first, F1 before B2, V1 as a
-filler, checkpoint T1 after F2). C1 and Q4 are delivered (2026-09-30); V1 is next. See [Next — 0.9](#next--09).
+filler, checkpoint T1 after F2). C1, Q4 and V1 are delivered (2026-09-30); B1 is next. See [Next — 0.9](#next--09).
 
 ## Open decisions
 
@@ -66,10 +66,10 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   Q4, which ran no `volume`). The volume fixture declares no period yet, so T1 adds one to it.
 - [ ] J1's export budget names "110,000 records"; the volume fixture holds 258,000 since 0.8 A2 (found
   in Q1). Restate it when J1 is delivered.
-- [ ] Built-in Scalar API reference at `/docs` replacing Swagger UI and ReDoc (0.9): management API plus
-  each consumer API contract version as sources; pinned script bundled by default, CDN loading by
-  setting; route excluded from the OpenAPI document; tests for page, bundled script and unchanged
-  OpenAPI digest.
+- [x] Built-in Scalar API reference at `/docs` replacing Swagger UI and ReDoc: delivered as 0.9 V1
+  (2026-09-30) with the management API as its source; pinned script bundled, CDN by setting, outside
+  the OpenAPI document.
+- [ ] V2: each installed consumer API contract version as a further source on `/docs` (needs C6).
 
 ## Next after 0.9 — 0.10 model authoring and spreadsheet onboarding
 
