@@ -174,11 +174,13 @@ def build_object_query(
     top_level: bool = False,
     search_fields: Sequence[str] | None = None,
     id_filter: Callable[[Any], Any] | None = None,
+    as_of: date | None = None,
 ) -> ObjectQuery:
     """Build the filtered statement, keyset and cursor filters for an object collection.
 
     ``search_fields`` limits ``search`` to those fields (``name`` or searchable attributes), as a
-    view declares them; ``id_filter`` restricts the records by a predicate on their public ID.
+    view declares them; ``id_filter`` restricts the records by a predicate on their public ID;
+    ``as_of`` keeps the records effective on that date (Base 0.9 Q4).
     """
     object_type = get_object_type(model, object_type_key)
     if application_key:
@@ -205,6 +207,7 @@ def build_object_query(
         sort=sort,
         field_filters=field_filters or [],
         search_fields=search_fields,
+        as_of=as_of,
     )
     return ObjectQuery(
         statement=statement,
@@ -217,6 +220,7 @@ def build_object_query(
             "typedFilters": normalized_filters,
             "workspaceKey": workspace_key,
             **top_level_filter(top_level),
+            **as_of_filter(as_of),
         },
         seek=seek,
     )
@@ -237,13 +241,18 @@ def refine_object_query(
     sort: str | None,
     field_filters: list[tuple[str, str, str]],
     search_fields: Sequence[str] | None = None,
+    as_of: date | None = None,
 ) -> tuple[Select[Any], tuple[SortKey, ...], Callable[[str], Any], list[dict[str, str]]]:
     """Add search and typed filters to an object statement and return its keyset and seek.
 
     ``object_types`` are the types the listed records can have: search covers the searchable
     fields of all of them, or only ``search_fields`` when given, and sort any scalar attribute
-    bound to one of them, while a filter or an ancestor sort needs exactly one.
+    bound to one of them, while a filter, an ancestor sort or ``as_of`` needs exactly one.
     """
+    if as_of is not None:
+        (object_type,) = object_types
+        require_effective_period(object_type, "/query/asOf")
+        statement = statement.where(as_of_predicate(columns, object_type, as_of))
     if search:
         statement = statement.where(
             _search_predicate(model, columns, object_types, search, search_fields)
@@ -508,6 +517,43 @@ def _query_ancestor(
             "sort",
         )
     return columns.ancestor(statement, ancestor_type_key)
+
+
+def require_effective_period(object_type: ObjectTypeDefinition, path: str) -> None:
+    """``asOf`` needs a declared period; a type without one never infers one from a date field."""
+    if object_type.effectivePeriod is None:
+        raise api_error(
+            422,
+            "as_of_not_supported",
+            f"Object type '{object_type.key}' declares no effective period, so asOf does not apply",
+            {"path": path, "objectTypeKey": object_type.key},
+        )
+
+
+def as_of_predicate(columns: ObjectColumns, object_type: ObjectTypeDefinition, as_of: date) -> Any:
+    """Records effective on ``as_of`` by the type's period (ADR-038): no start after the date and
+    no end on or before it. An empty start or end is open. It reads the context's typed values, so
+    it means the same live, in a change set and in a publication."""
+    period = object_type.effectivePeriod
+    assert period is not None
+    values = columns.values
+
+    def has_value(key: str, comparison: Any) -> Any:
+        return exists(
+            select(values.sequence_id).where(
+                *columns.value_match(values), values.attribute_type_key == key, comparison
+            )
+        )
+
+    return and_(
+        not_(has_value(period.startAttributeTypeKey, values.date_value > as_of)),
+        not_(has_value(period.endAttributeTypeKey, values.date_value <= as_of)),
+    )
+
+
+def as_of_filter(as_of: date | None) -> dict[str, Any]:
+    """Bind ``asOf`` into a cursor only when set, so cursors issued before it stay valid."""
+    return {"asOf": as_of.isoformat()} if as_of is not None else {}
 
 
 def typed_filter_predicates(

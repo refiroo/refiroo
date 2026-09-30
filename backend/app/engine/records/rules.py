@@ -8,6 +8,7 @@ rules: a change set defers the whole-graph checks to validation.
 """
 
 from collections.abc import Iterable
+from datetime import date, datetime
 from typing import Any
 
 from ...common.encoding import to_jsonable
@@ -95,6 +96,43 @@ def unique_values(lookup: Any, model: EngineModel, object_id: str | None, attrib
         )
         if holder is not None:
             raise refusals.duplicate_value(key, definition.name or key, holder)
+
+
+def effective_period(object_type: ObjectTypeDefinition, attributes: dict[str, Any]) -> None:
+    """The declared period's end is after its start, when both are given (ADR-038).
+
+    ``attributes`` are the record's values after the write, normalized or in their stored JSON
+    form; an empty start or end is open, so only two dates can conflict.
+    """
+    period = object_type.effectivePeriod
+    if period is None:
+        return
+    start = _date_value(attributes.get(period.startAttributeTypeKey))
+    end = _date_value(attributes.get(period.endAttributeTypeKey))
+    if start is None or end is None or end > start:
+        return
+    raise api_error(
+        422,
+        "invalid_effective_period",
+        f"The effective period must end after it starts: '{period.endAttributeTypeKey}' "
+        f"{end.isoformat()} is not after '{period.startAttributeTypeKey}' {start.isoformat()}",
+        {
+            "startAttributeTypeKey": period.startAttributeTypeKey,
+            "endAttributeTypeKey": period.endAttributeTypeKey,
+            "start": start.isoformat(),
+            "end": end.isoformat(),
+        },
+    )
+
+
+def _date_value(value: Any) -> date | None:
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str) and value:
+        return date.fromisoformat(value)
+    return None
 
 
 # --- placement ----------------------------------------------------------------------------------

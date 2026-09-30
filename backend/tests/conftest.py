@@ -100,6 +100,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_restructuring_api.py": ("change_sets", "records", "matrix"),
     "test_cross_type_lookup.py": ("queries", "change_sets"),
     "test_model_query.py": ("queries", "change_sets"),
+    "test_effective_periods.py": ("queries", "records", "change_sets", "model"),
     "test_workspace_edge_list.py": ("mapping", "queries"),
 }
 

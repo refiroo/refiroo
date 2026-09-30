@@ -1,9 +1,9 @@
 {
-  "schemaVersion": "0.7",
+  "schemaVersion": "0.8",
   "release": {
     "key": "rdm-starter",
     "name": "RDM Starter Model",
-    "version": "0.8.0"
+    "version": "0.9.0"
   },
   "product": {
     "name": "RDM Engine",
@@ -178,7 +178,8 @@
       "features": { "rootCreatable": false },
       "behavior": {
         "parentRelationTypeKeys": ["codelist-contains-value", "master-value-has-child"]
-      }
+      },
+      "effectivePeriod": { "startAttributeTypeKey": "valid-from", "endAttributeTypeKey": "valid-to" }
     },
     {
       "key": "system",

@@ -27,6 +27,7 @@ from .object_query import (
 from .snapshot_reads import SnapshotContext, snapshot_object_query
 
 PER_TYPE_ROUTE = "GET /api/v1/objects/{objectTypeKey}"
+QUERY_ROUTE = "POST /api/v1/workspaces/{workspaceKey}/queries/objects"
 FILTER_FIELDS = ("id", "name", "objectTypeKey", "parentObjectId", "createdAt", "updatedAt")
 SORT_FIELDS = ("name", "id", "objectType", "createdAt", "updatedAt")
 # Search is on the name only: searchable attributes belong to their object types.
@@ -163,6 +164,19 @@ def _narrowing_types(
     to a few milliseconds over 110,000 records.
     """
     return types if types is not None else sorted(item.key for item in object_types)
+
+
+def refuse_as_of(as_of: str | None) -> None:
+    """``asOf`` filters by a period one type declares, so it belongs on the routes that list one
+    type (D21). Refused rather than ignored, so a lookup never answers undated as if dated."""
+    if as_of is None:
+        return
+    raise api_error(
+        422,
+        "as_of_not_supported",
+        f"asOf applies to one object type's records; ask {PER_TYPE_ROUTE} or {QUERY_ROUTE}",
+        {"path": "/query/asOf", "route": PER_TYPE_ROUTE},
+    )
 
 
 def _check_built_in(field_filters: list[tuple[str, str, str]], sort: str | None) -> None:

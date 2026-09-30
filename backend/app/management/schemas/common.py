@@ -1,7 +1,22 @@
-from typing import Any
+import re
+from datetime import date
+from typing import Annotated, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, BeforeValidator, Field
 from pydantic.json_schema import SkipJsonSchema
+
+_CALENDAR_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+
+
+def _calendar_date(value: object) -> object:
+    """Only a calendar date: no time, no timestamp (ADR-038 dates have no time zone)."""
+    if isinstance(value, str) and not _CALENDAR_DATE.match(value):
+        raise ValueError("must be a date (YYYY-MM-DD)")
+    return value
+
+
+# A business date such as asOf, written YYYY-MM-DD and nothing else.
+CalendarDate = Annotated[date, BeforeValidator(_calendar_date)]
 
 
 def without_default(schema: dict[str, Any]) -> None:

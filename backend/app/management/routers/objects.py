@@ -11,6 +11,7 @@ from ...engine.reads.object_lookup import (
     build_live_lookup_query,
     build_snapshot_lookup_query,
     lookup_scope,
+    refuse_as_of,
 )
 from ...engine.reads.object_query import build_object_query
 from ...engine.reads.snapshot_reads import (
@@ -43,6 +44,7 @@ from ..presenters import (
     change_set_object_response,
 )
 from ..projections.parent_candidates import parent_candidates
+from ..schemas.common import CalendarDate
 from ..schemas.records import AuditEventPage, ObjectPage, ObjectResponse, ParentCandidatePage
 
 router = APIRouter(prefix="/api/v1", tags=["objects"])
@@ -194,6 +196,16 @@ def delete_object(
     return Response(status_code=204)
 
 
+_AS_OF = Query(
+    default=None,
+    alias="asOf",
+    description=(
+        "A date (YYYY-MM-DD): only records effective on it, by the type's declared effective"
+        " period; as_of_not_supported on a type without one"
+    ),
+)
+
+
 @router.get(
     "/objects/{object_type_key}",
     response_model=ObjectPage,
@@ -238,6 +250,7 @@ def list_objects(
             " omitted"
         ),
     ),
+    as_of: CalendarDate | None = _AS_OF,
 ) -> ObjectPage:
     model = snapshot.model
     if change_set_id and publication_id:
@@ -269,6 +282,7 @@ def list_objects(
             sort=sort,
             field_filters=_field_filters(request),
             top_level=top_level,
+            as_of=as_of,
         )
         page = paginate_statement(
             session,
@@ -305,6 +319,7 @@ def list_objects(
         sort=sort,
         field_filters=_field_filters(request),
         top_level=top_level,
+        as_of=as_of,
     )
     page = paginate_statement(
         session,
@@ -371,9 +386,18 @@ def lookup_objects(
             " prefix '-' for descending; name when omitted"
         ),
     ),
+    as_of: str | None = Query(
+        default=None,
+        alias="asOf",
+        description=(
+            "Not supported on this list: refused as as_of_not_supported, naming the per-type"
+            " route. asOf applies to one object type's records"
+        ),
+    ),
 ) -> ObjectPage:
     """Records of any object type in one list: a lookup by name, ID, type, parent or timestamps."""
     model = snapshot.model
+    refuse_as_of(as_of)
     if change_set_id and publication_id:
         raise api_error(
             422,

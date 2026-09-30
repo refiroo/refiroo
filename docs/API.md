@@ -938,7 +938,8 @@ Object collections accept the [collection paging](#collection-paging) parameters
 `pageSize`, `applicationKey`, `workspaceKey`, optional
 `changeSetId` or `publicationId`, `parentObjectId` or `topLevel`, `search`, one `sort` and typed filters named
 `filter.<field>.<operator>=<value>`. Filters take built-in fields and attributes with the
-`filterable` feature. `sort` takes `name`, `id`, `objectType` (ordered by the type's model name, then
+`filterable` feature. `asOf=YYYY-MM-DD` keeps the records effective on a date, on a type that
+declares an [effective period](#effective-periods-and-asof-base-09-q4). `sort` takes `name`, `id`, `objectType` (ordered by the type's model name, then
 by name), live `createdAt`/`updatedAt`, or any attribute the type binds, flagged `sortable` or not
 (S4R3 revision). JSON attributes are excluded from both. Prefix a sort with
 `-` for descending order. Null and unset attribute values sort last in either direction, and every
@@ -1088,7 +1089,8 @@ A model-declared field has a type only on its object type's list, so a filter or
 refused with `422 invalid_filter` or `invalid_sort`, whose message and `details.route` name
 `GET /api/v1/objects/{objectTypeKey}`; `details.builtInFields` or `details.builtInSorts` lists what
 this route takes. Timestamps in change-set and publication contexts are refused as on the per-type
-list.
+list. `asOf` is refused as `422 as_of_not_supported` with the same `details.route`: an
+[effective period](#effective-periods-and-asof-base-09-q4) belongs to one type (D21).
 
 Items have the per-type list's shape, `objectTypeKey`, attributes and `path` included: narrowed to one
 type, the lookup returns the same items in the same order as `GET /objects/{objectTypeKey}` sorted by
@@ -1163,8 +1165,8 @@ records each item returns. It is a read with a body: it changes nothing and need
   `GET /api/v1/relations` with the item as `objectId`, the same `direction`, `relationTypeKey` and
   context, and the default sort, exactly after the last item shown; null when `items` holds them
   all. `expanded` is omitted when the query expands nothing. A binding may be expanded once.
-- **`asOf`** is accepted as a date and refused as `422 as_of_not_supported` until effective periods
-  (0.9 Q4).
+- **`asOf`** (`YYYY-MM-DD`) keeps the queried records effective on that date by their type's
+  declared period; see [effective periods](#effective-periods-and-asof-base-09-q4).
 - **Paging** as ADR-030, with the page selection in the body: `cursor`, `position`, `from`
   (`start` or `end`), `includeTotal` and `pageSize` (default 100, maximum 500). The response is a
   page (`items`, `nextCursor`, `prevCursor`, `anchor`, and `totalCount` and `startIndex` with
@@ -1188,6 +1190,51 @@ group 1,500 items cite, with its total, 12 · 52 · 37 ms; the inverted hop's fi
 ms; the 20,000 items under one group by `ancestor:`, with their total, 27 · 48 · 6 ms; a 20-row
 expansion of 1,500 citations 9 · 15 · 8 ms, and of a group's 20,000 items 44 · 91 · 68 ms, about
 what `GET /relations` costs for that record. Each expansion is one statement for the whole page.
+
+### Effective periods and `asOf` (Base 0.9 Q4)
+
+An object type may declare one business validity period in the model (schema 0.8,
+[APPLICATION_MODEL](APPLICATION_MODEL.md#effective-period-effectiveperiod), ADR-038): two `date`
+attributes it binds, the start inclusive and the end exclusive, either of them empty for "since
+always" or "open". Validity is ordinary attribute data, so it is edited, versioned, audited and
+published like any other value.
+
+**Writes.** A record whose end is not after its start is refused with `422
+invalid_effective_period`, live and in a change set alike: on create, update, a single-attribute
+`PATCH`, a type change and restructuring. The check reads the record's values after the write, so
+an update that sets only the end is checked against the stored start. `details` names
+`startAttributeTypeKey`, `endAttributeTypeKey`, `start` and `end`. Change-set validation and
+publishing report the same code as a diagnostic, with `details.objectId`. Periods of different
+records may overlap.
+
+**Reads.** `asOf=YYYY-MM-DD` keeps the records effective on that date: no start after it and no end
+on or before it.
+
+- `GET /api/v1/objects/{objectTypeKey}` takes `asOf` in every context (live, `changeSetId`,
+  `publicationId`) with every other parameter. It is a filter over values: it never selects a
+  publication, and a publication read is not dated unless `asOf` is given.
+- The [model-aware query](#model-aware-query-base-09-q3) takes `asOf` in its body. It filters the
+  queried records only; a hop's far end and expansions are not dated (D22), and a date criterion on
+  the hop dates them where that is wanted.
+- The [cross-type lookup](#cross-type-lookup-base-09-q1) lists several types, and a period belongs
+  to one, so `asOf` there is refused (D21), as a model-declared filter is.
+
+A cursor binds `asOf`, so it continues only the same date; an undated cursor is not accepted with a
+date, nor the reverse.
+
+| Request | Refusal |
+| --- | --- |
+| `asOf` on a type that declares no period | `422 as_of_not_supported`, `details.path` (`/query/asOf` on the list, `/asOf` in the query) and `details.objectTypeKey`. A date attribute alone never makes a type dated |
+| `asOf` on `GET /objects` | `422 as_of_not_supported` with `details.route` naming the per-type list |
+| `asOf` that is not a calendar date (a time, a timestamp, `2026-02-30`) | List: `422 request_validation_error`. Query: `422 invalid_query` at `/asOf` |
+
+**Model releases.** Adding or removing a period changes no stored data. Activating a release that
+declares a period, or moves one to other attributes, counts the live records of the type whose end
+is not after their start: with any, activation is refused as `409 model_migration_required`
+(the release diff and draft compile classify it `migration_required`) with a diagnostic
+`invalid_effective_period` at `/objectTypes/<type>/effectivePeriod` and its `count`
+(D20). A consumer API definition that exposes a type whose period is removed needs a higher
+`contractVersion` (`consumer_contract_version_required` at `/consumerApis/<key>/objectTypes/<type>`).
 
 ### Create request
 

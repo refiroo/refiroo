@@ -44,6 +44,7 @@ from .object_query import (
     filter_value_type,
     parse_filter_value,
     refine_object_query,
+    require_effective_period,
     typed_filter_predicates,
 )
 from .snapshot_reads import (
@@ -119,10 +120,10 @@ def plan_model_query(
     context: SnapshotContext | None,
 ) -> ModelQueryPlan:
     """Check the query against the model and build its statement in the context (live when ``None``)."""
-    _refuse_as_of(request.asOf)
     object_type = model.object_type(request.objectTypeKey)
     if object_type is None:
         _invalid(f"Unknown object type '{request.objectTypeKey}'", "/objectTypeKey")
+    as_of = _as_of(object_type, request.asOf)
     field_filters: list[tuple[str, str, str]] = []
     sets: list[SetFilter] = []
     for index, criterion in enumerate(request.where):
@@ -148,6 +149,7 @@ def plan_model_query(
         "field_filters": field_filters,
         "id_filter": _combined(sets, "id"),
         "parent_filter": _combined(sets, "parent"),
+        "as_of": as_of,
     }
     try:
         if context is None:
@@ -181,6 +183,7 @@ def _live_query(
     field_filters: list[tuple[str, str, str]],
     id_filter: Callable[[Any], Any] | None,
     parent_filter: Callable[[Any], Any] | None,
+    as_of: date | None,
     narrow: bool,
 ) -> ObjectQuery:
     """The live statement. With a ``narrow`` set, the type and workspace terms are written so no
@@ -204,6 +207,7 @@ def _live_query(
         search=None,
         sort=sort,
         field_filters=field_filters,
+        as_of=as_of,
     )
     return ObjectQuery(statement=statement, keys=keys, filters={}, seek=seek)
 
@@ -217,6 +221,7 @@ def _snapshot_query(
     field_filters: list[tuple[str, str, str]],
     id_filter: Callable[[Any], Any] | None,
     parent_filter: Callable[[Any], Any] | None,
+    as_of: date | None,
 ) -> ObjectQuery:
     return snapshot_object_query(
         model,
@@ -230,6 +235,7 @@ def _snapshot_query(
         id_filter=id_filter,
         parent_filter=parent_filter,
         builtin=lambda projection: {"parentObjectId": projection.c.parent_object_id},
+        as_of=as_of,
     )
 
 
@@ -533,20 +539,19 @@ def _expansions(
     return tuple(result)
 
 
-def _refuse_as_of(as_of: str | None) -> None:
-    """``asOf`` is part of the grammar; effective periods arrive in Q4."""
+def _as_of(object_type: ObjectTypeDefinition, as_of: str | None) -> date | None:
+    """``asOf`` as a date, on a type that declares an effective period (ADR-038). It filters the
+    queried records only; a hop's far end and expansions are not dated (D22)."""
     if as_of is None:
-        return
+        return None
     try:
-        date.fromisoformat(as_of)
+        if len(as_of) != 10:
+            raise ValueError(as_of)
+        parsed = date.fromisoformat(as_of)
     except ValueError:
         _invalid("asOf must be a date (YYYY-MM-DD)", "/asOf")
-    raise api_error(
-        422,
-        "as_of_not_supported",
-        "asOf needs an effective period on the object type, which this release does not declare",
-        {"path": "/asOf"},
-    )
+    require_effective_period(object_type, "/asOf")
+    return parsed
 
 
 def _invalid(message: str, pointer: str) -> NoReturn:

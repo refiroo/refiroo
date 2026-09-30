@@ -227,12 +227,14 @@ changes. Change-feed recovery is distinct from retrying an import job.
 
 ## SC-11 — Answer a business-date question
 
-**Stories:** US-I06. **Target:** 0.9; planned, date semantics require agreement.
+**Stories:** US-I06. **Target:** 0.9; semantics agreed in ADR-038. The management API half passes (Base 0.9 Q4,
+`test_effective_periods`); the consumer half follows in C16.
 
 **Given** an explicitly configured reference list has old and replacement values with agreed validity
 boundaries, **when** a consumer asks for the values applicable on either side of a boundary, **then**
 the result follows those business dates across every page. Test the boundary itself, overlapping
-periods and the configured time zone. A request to an unconfigured list must not invent effective-date
+periods and that the question is a date, not a time: dates carry no time zone (amended in Base 0.9 Q4,
+which replaced "the configured time zone" per ADR-038). A request to an unconfigured list must not invent effective-date
 behavior from an arbitrary date field.
 
 **Simplicity check:** business validity, change history and publication time are labelled separately.

@@ -1428,8 +1428,11 @@ attributes carry validity.
 - **`asOf` is a filter over values.** It combines with any content context (live, change set,
   publication) and never selects one; a publication read never applies business dates unless `asOf`
   is also given.
-- **Types without a period** refuse `asOf` (`as_of_not_supported`), except in a lookup across types,
-  which filters the types that declare one and names them in `asOfApplied`.
+- **Types without a period** refuse `asOf` (`as_of_not_supported`), except in the consumer XREF across
+  types, which filters the types that declare one and names them in `asOfApplied` (C-D14).
+  **Amended 2026-09-30 (Base 0.9 Q4, D21):** the management cross-type lookup refuses `asOf` with the
+  per-type route instead. It lists several types and a period belongs to one, as a model-declared
+  filter does; no management story needs a dated lookup across types.
 - **One schema step.** The declaration and consumer API definitions arrive together in schema 0.8.
 
 ### Consequences

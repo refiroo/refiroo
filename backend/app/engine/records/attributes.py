@@ -82,6 +82,7 @@ def validate_object_attribute_rules(
             f"At least one of these attributes is required: {at_least_one}",
             {"rule": "atLeastOneOf", "attributeTypeKeys": at_least_one},
         )
+    rules.effective_period(object_type, attributes)
 
 
 def validate_attribute_change(

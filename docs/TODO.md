@@ -9,7 +9,7 @@ release plan and changelog rather than accumulating it here.
 Base 0.8 is released (2026-09-29). 0.9 adds integration-grade APIs in the order of the
 [0.9 delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue): Q1 and Q2 are delivered (2026-09-29),
 and Q3 on 2026-09-30. The queue was reordered after Q3 (C1 and Q4 first, F1 before B2, V1 as a
-filler, checkpoint T1 after F2). C1 is delivered (2026-09-30); Q4 is next. See [Next — 0.9](#next--09).
+filler, checkpoint T1 after F2). C1 and Q4 are delivered (2026-09-30); V1 is next. See [Next — 0.9](#next--09).
 
 ## Open decisions
 
@@ -48,9 +48,10 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   set accepted 2026-09-28; decisions D1–D16 and CONSUMER_API C-D1–C-D16 accepted 2026-09-29;
   INTEGRATION_API sections P, B, F, Q and J, the schema 0.8 section and ADR-036–038 drafted
   2026-09-29; work packages and the delivery queue specified 2026-09-29. Open: review of the drafts.
-  Implementation started 2026-09-29 with Q1 and Q2 (delivered); Q3 delivered 2026-09-30 with D17–D19.
+  Implementation started 2026-09-29 with Q1 and Q2 (delivered); Q3 delivered 2026-09-30 with D17–D19,
+  C1 with C-D17–C-D20 and Q4 with D20–D22.
 - [x] Integration-grade query expressions beyond daily-use filters: delivered as 0.9 Q3 (2026-09-30),
-  the model-aware query; `asOf` follows in Q4.
+  the model-aware query; `asOf` with effective periods in Q4 (2026-09-30).
 - [ ] Bounded live bulk object/relation/mapping operations with explicit optional staging, per-item
   outcomes and safe retry; do not require a change set merely because several records change (0.9).
 - [ ] Asynchronous CSV/XLSX import and export with validation previews; import runs an import profile
@@ -60,6 +61,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   (2026-09-29).
 - [x] A general relation edge list with publication context (P3), moved from 0.8 (D20): delivered as
   0.9 Q2 (2026-09-29).
+- [ ] T1: record a budget for dated reads (`asOf` on the per-type list and the model query, live, in a
+  change set and a publication) in the `volume_baseline.py --scale 1` run; Q4 recorded none (found in
+  Q4, which ran no `volume`). The volume fixture declares no period yet, so T1 adds one to it.
 - [ ] J1's export budget names "110,000 records"; the volume fixture holds 258,000 since 0.8 A2 (found
   in Q1). Restate it when J1 is delivered.
 - [ ] Built-in Scalar API reference at `/docs` replacing Swagger UI and ReDoc (0.9): management API plus

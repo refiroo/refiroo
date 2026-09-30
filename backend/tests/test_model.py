@@ -34,8 +34,8 @@ def test_starter_model_is_valid():
     ]
     assert model.applications[0].details[0].panels[0].type == "children"
     assert model.applications[0].details[1].panels[0].type == "children"
-    assert model.schemaVersion == "0.7"
-    assert model.release.version == "0.8.0"
+    assert model.schemaVersion == "0.8"
+    assert model.release.version == "0.9.0"
     assert {view.type for app in model.applications for view in app.views} == {
         "table",
         "mappingGrid",
@@ -552,7 +552,7 @@ def test_mapping_grid_reports_duplicate_candidate_fields_at_their_config_path():
 
 
 def test_schema_05_rejects_mapping_grid_with_the_view_type_path():
-    source = _mapping_grid_source()
+    source = starter_at_schema("0.7", _mapping_grid_source())
     source["schemaVersion"] = "0.5"
     for application in source["applications"]:
         application["views"] = [view for view in application["views"] if view["type"] != "tree"]
@@ -573,7 +573,7 @@ def test_schema_06_with_only_table_views_is_valid():
 
 def test_schema_05_mapping_grid_is_refused_by_validation_and_draft_installation(monkeypatch):
     monkeypatch.setenv("MODEL_ADMIN_MUTATIONS_ENABLED", "true")
-    source = _mapping_grid_source()
+    source = starter_at_schema("0.7", _mapping_grid_source())
     source["schemaVersion"] = "0.5"
     with TestClient(create_app()) as client:
         with SessionLocal() as session:
@@ -842,7 +842,7 @@ def test_starter_relation_matrices_are_installed_and_active():
     ],
 )
 def test_schema_06_refuses_each_07_view_type_at_its_type_path(kept, path, feature):
-    source = load_model(MODEL_PATH).model_dump(mode="json")
+    source = starter_at_schema("0.7")
     source["schemaVersion"] = "0.6"
     for application in source["applications"]:
         application["views"] = [

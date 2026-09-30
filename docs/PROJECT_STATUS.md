@@ -15,7 +15,10 @@ tiers, one rule set for live data and change sets, one write path; no contract c
 `expand`; D17–D19; 2026-09-30). The queue was reordered after Q3
 ([delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue)), and **C1, consumer API definitions**
 (schema 0.8 opened with `consumerApis`, the breaking-change check at activation; C-D17–C-D20;
-2026-09-30) is delivered; Q4 is next.
+2026-09-30) is delivered, and so is **Q4, effective periods and `asOf`** (`effectivePeriod` in schema
+0.8, the `invalid_effective_period` write rule, `asOf` on the per-type list and the model query, the
+starter as content release 0.9.0 on schema 0.8; SC-11 passes through the management API; D20–D22;
+2026-09-30). V1 is next.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

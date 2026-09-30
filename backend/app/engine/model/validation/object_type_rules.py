@@ -3,6 +3,7 @@
 from ....common.json_pointer import pointer_segment
 from ....models.schema import EngineModel, ObjectTypeAttributeDefinition, ObjectTypeDefinition
 from ..diagnostics import ModelReferenceError
+from .fields import require_schema
 from .index import ModelIndex
 
 
@@ -12,6 +13,7 @@ def check(model: EngineModel, index: ModelIndex) -> None:
         _check_bound_attribute_types(object_type, bindings, index)
         _check_display_attribute(object_type, bindings)
         _check_at_least_one_of(object_type, bindings)
+        _check_effective_period(model, object_type, bindings)
 
 
 def _base_path(object_type: ObjectTypeDefinition) -> str:
@@ -60,6 +62,42 @@ def _check_display_attribute(
             "invalid_model",
             f"{_base_path(object_type)}/displayAttributeTypeKey",
             f"Object type '{object_type.key}' display attribute '{display_key}' is not attached",
+        )
+
+
+def _check_effective_period(
+    model: EngineModel,
+    object_type: ObjectTypeDefinition,
+    bindings: dict[str, ObjectTypeAttributeDefinition],
+) -> None:
+    """Schema 0.8 (ADR-038): two distinct ``date`` attributes the type binds."""
+    period = object_type.effectivePeriod
+    if period is None:
+        return
+    path = f"{_base_path(object_type)}/effectivePeriod"
+    require_schema(model, "0.8", path, "effectivePeriod")
+    for role in ("startAttributeTypeKey", "endAttributeTypeKey"):
+        key = getattr(period, role)
+        if key not in bindings:
+            raise ModelReferenceError(
+                "unknown_attribute_type",
+                f"{path}/{role}",
+                f"Object type '{object_type.key}' effective period names '{key}', which it does "
+                "not bind",
+            )
+        definition = model.attribute_type(key)
+        if definition is None or definition.valueType != "date":
+            raise ModelReferenceError(
+                "invalid_model",
+                f"{path}/{role}",
+                f"Object type '{object_type.key}' effective period attribute '{key}' must be a "
+                "date attribute",
+            )
+    if period.startAttributeTypeKey == period.endAttributeTypeKey:
+        raise ModelReferenceError(
+            "invalid_model",
+            f"{path}/endAttributeTypeKey",
+            f"Object type '{object_type.key}' effective period needs two different attributes",
         )
 
 

@@ -27,7 +27,7 @@ All notable changes to this project are documented in this file. The format foll
   `expand` adds up to 20 related records per item with their `count` and a cursor that continues on
   `GET /relations`, one statement per expansion for the page. Paging by cursor, position or `from`,
   with cursors bound to the body. Model-dependent mistakes are `422 invalid_query` with a JSON
-  pointer; `asOf` is refused as `as_of_not_supported` until Q4. Decisions D17–D19. Over the
+  pointer; `asOf` was refused as `as_of_not_supported` until Q4. Decisions D17–D19. Over the
   100,000-item volume fixture every measured query takes 4–91 ms.
 - Base 0.9 C1: schema 0.8 with consumer API definitions (`consumerApis`). A definition declares its
   `key` (the `apiKey`), `contractVersion`, exposed types with public names, the shared object's roles
@@ -39,6 +39,16 @@ All notable changes to this project are documented in this file. The format foll
   refuses a breaking change without a higher `contractVersion` (`409
   consumer_contract_version_required`; C-D17, C-D18). Schema 0.5–0.7 models and their hashes are
   unchanged. Decisions C-D17–C-D20.
+- Base 0.9 Q4: effective periods and `asOf`. Schema 0.8 lets an object type declare one
+  `effectivePeriod` over two `date` attributes it binds (inclusive start, exclusive end, either open).
+  Writes refuse an end not after its start with `422 invalid_effective_period`, live and in a change
+  set, and change-set validation reports it. `asOf=YYYY-MM-DD` on `GET /objects/{objectTypeKey}` and in
+  the model-aware query keeps the records effective on that date in live data, a change set or a
+  publication; a type without a period, and the cross-type lookup, refuse it as
+  `as_of_not_supported`. Activating a release that declares a period over records it would refuse is
+  `model_migration_required` with their count, and removing a period from a type a consumer API
+  exposes needs a higher `contractVersion`. The starter is content release 0.9.0 on schema 0.8, with
+  a period on master values. Decisions D20–D22.
 
 ### Changed
 

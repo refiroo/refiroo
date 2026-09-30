@@ -65,6 +65,19 @@ class ObjectTypeAttributeDefinition(ModelDefinition):
     ui: Mapping[str, Any] = Field(default_factory=dict)
 
 
+class EffectivePeriodDefinition(ModelDefinition):
+    """Schema 0.8 (Base 0.9 Q4, ADR-038): business validity from two ``date`` attributes.
+
+    The start is inclusive and the end exclusive; either may be empty. The references are checked
+    by ``engine/model/validation/object_type_rules.py``.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    startAttributeTypeKey: str
+    endAttributeTypeKey: str
+
+
 class ObjectTypeDefinition(ModelDefinition):
     model_config = ConfigDict(extra="allow")
 
@@ -78,6 +91,10 @@ class ObjectTypeDefinition(ModelDefinition):
     features: Mapping[str, Any] = Field(default_factory=dict)
     behavior: Mapping[str, Any] = Field(default_factory=dict)
     validation: Mapping[str, Any] = Field(default_factory=dict)
+    # Schema 0.8. Omitted from the canonical document when absent, so earlier hashes hold.
+    effectivePeriod: EffectivePeriodDefinition | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
 
 class RelationTypeDefinition(ModelDefinition):

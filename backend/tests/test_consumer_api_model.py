@@ -190,6 +190,8 @@ def test_consumer_apis_need_schema_0_8_and_events_wait_for_c9(base):
     source, k = base
     older = with_definition(source, definition(k))
     older["schemaVersion"] = "0.7"
+    for object_type in older["objectTypes"]:
+        object_type.pop("effectivePeriod", None)
     diagnostic = compile_model(older).diagnostics[0]
     assert (diagnostic.code, diagnostic.path) == ("invalid_model", "/consumerApis")
     assert "0.8" in diagnostic.message

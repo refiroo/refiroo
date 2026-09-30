@@ -498,7 +498,8 @@ stable model keys and presentation semantics; the React API adapter owns all bac
 
 Designed for [Base 0.9](BASE_0_9_IMPLEMENTATION_PLAN.md) (D7); the starter becomes content release
 0.9.0 on schema 0.8. **Opened in Base 0.9 C1 (2026-09-30)** with `consumerApis`; `effectivePeriod`
-follows in Q4, until which schema 0.8 accepts nothing else new. Schema 0.8 is a strict superset of 0.7, as each earlier step was: 0.5–0.7 models
+is **delivered in Q4 (2026-09-30)**, and the starter is content release 0.9.0 on schema 0.8 with a
+period on `master-value`. Schema 0.8 is a strict superset of 0.7, as each earlier step was: 0.5–0.7 models
 keep parsing and activating, absent 0.8 fields are omitted from the canonical document so earlier
 releases keep their content hash, and a 0.8 field in an older schema is refused at its path.
 
@@ -528,7 +529,12 @@ An object type may declare one business validity period:
   publications (SC-11).
 - Adding or removing a declaration changes no stored data. Removing one makes `asOf` on that type
   `422 as_of_not_supported`; the consumer API's breaking-change check (package C1) counts that as a
-  contract change for a definition that exposes the type.
+  contract change for a definition that exposes the type. Activating a release that declares a period (or moves
+  one to other attributes) over live records whose end is not after their start is refused with
+  their count (`invalid_effective_period`, D20), as an added `atLeastOneOf` is.
+- Validation refuses, at `/objectTypes/<type>/effectivePeriod`: the declaration in schema 0.7 or
+  earlier, an attribute the type does not bind (`unknown_attribute_type`), one that is not a `date`
+  and the same attribute twice.
 
 ### Consumer API definitions (`consumerApis`)
 

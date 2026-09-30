@@ -280,6 +280,27 @@ def update_parent_cycle(c):
     return c.update(upper, parent=lower)
 
 
+def _master_value(c, label, **dates):
+    domain = _domain(c, f"{label}-D")
+    codelist = c.made(f"{label}-C", "rdm-master", "codelist", {"codelist-code": _code("c")}, domain)
+    values = {"master-id": _code("m"), "value-code": "v", "value-name": "v", **dates}
+    return c.create(label, "rdm-master", "master-value", values, codelist)
+
+
+def create_invalid_effective_period(c):
+    return _master_value(c, "M", **{"valid-from": "2026-07-01", "valid-to": "2026-07-01"})
+
+
+def update_invalid_effective_period(c):
+    record = _master_value(c, "M", **{"valid-from": "2026-07-01"}).json()
+    return c.update(record, attributes={"valid-to": "2026-06-30"})
+
+
+def patch_invalid_effective_period(c):
+    record = _master_value(c, "M", **{"valid-from": "2026-06-01", "valid-to": "2026-07-01"}).json()
+    return c.patch_attribute(record, "valid-from", "2026-08-01")
+
+
 def create_duplicate_unique(c):
     code = _code("dup")
     _domain(c, "D1", code)
@@ -417,6 +438,9 @@ CASES = [
     create_parent_wrong_scope,
     create_invalid_parent_type,
     update_parent_cycle,
+    create_invalid_effective_period,
+    update_invalid_effective_period,
+    patch_invalid_effective_period,
     create_duplicate_unique,
     update_duplicate_unique,
     patch_duplicate_unique,
@@ -579,6 +603,30 @@ EXPECTED: dict[str, dict[str, tuple]] = {
     "update_parent_cycle": {
         "live": (422, "parent_cycle", "Parent selection would create a cycle", None),
         "change_set": (422, "parent_cycle", "Parent selection would create a cycle", None),
+    },
+    **{
+        name: dict.fromkeys(
+            ("live", "change_set"),
+            (
+                422,
+                "invalid_effective_period",
+                (
+                    f"The effective period must end after it starts: 'valid-to' {end} is not"
+                    f" after 'valid-from' {start}"
+                ),
+                {
+                    "startAttributeTypeKey": "valid-from",
+                    "endAttributeTypeKey": "valid-to",
+                    "start": start,
+                    "end": end,
+                },
+            ),
+        )
+        for name, start, end in (
+            ("create_invalid_effective_period", "2026-07-01", "2026-07-01"),
+            ("update_invalid_effective_period", "2026-07-01", "2026-06-30"),
+            ("patch_invalid_effective_period", "2026-08-01", "2026-07-01"),
+        )
     },
     "create_duplicate_unique": {
         "live": (409, "duplicate_attribute_value", "Attribute 'Domain code' must be unique", None),

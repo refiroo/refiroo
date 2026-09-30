@@ -7,7 +7,8 @@ section and ADR-036–038 are drafted (2026-09-29). Work packages Q1–Q4, B1–
 J1–J4 and R are specified (2026-09-29) and delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** [Q1](#q1-cross-type-lookup) (2026-09-29), [Q2](#q2-workspace-edge-list) (2026-09-29),
-[Q3](#q3-model-aware-query) (2026-09-30).
+[Q3](#q3-model-aware-query) (2026-09-30), [C1](#c1-consumer-api-definitions) (2026-09-30),
+[Q4](#q4-effective-periods-and-asof) (2026-09-30).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -192,7 +193,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 2 | [Q2](#q2-workspace-edge-list) | — | Edge list with publication context, published as `/workspaces/{key}/relations` — **delivered 2026-09-29** |
 | 3 | [Q3](#q3-model-aware-query) | Q1 | `POST …/queries/objects`: criteria, one relation hop, `select`, `expand` — **delivered 2026-09-30** |
 | 4 | [C1](#c1-consumer-api-definitions) | — | `consumerApis` schema and validation; opens schema 0.8 — **delivered 2026-09-30** |
-| 5 | [Q4](#q4-effective-periods-and-asof) | Q3, C1 | `effectivePeriod` in schema 0.8, `asOf` on reads; starter 0.9.0; SC-11 (API) |
+| 5 | [Q4](#q4-effective-periods-and-asof) | Q3, C1 | `effectivePeriod` in schema 0.8, `asOf` on reads; starter 0.9.0; SC-11 (API) — **delivered 2026-09-30** |
 | 6 | [V1](#v1-api-reference-page) | — | Scalar at `/docs` with the management API; a filler, any time before V2 |
 | 7 | [B1](#b1-job-model-and-inline-object-batches) | — | **Track P (§P1–P5, P7)**, `POST /batches` with object items, inline |
 | 8 | [F1](#f1-feed-positions) | B1 | Feed position in commit order, publish entries (D15), lock order |
@@ -498,7 +499,8 @@ ADR-038 (D6, D7). **Needs:** Q3, C1 (schema 0.8 opened).
 
 **Scope:** `effectivePeriod` in the schema 0.8 validator (two distinct `date` attributes the type
 binds; refused at its path in schema ≤0.7); the write rule `422 invalid_effective_period` live, in a
-change set and as a publish diagnostic; `asOf` on the per-type list, Q1 (with `asOfApplied`) and Q3;
+change set and as a publish diagnostic; `asOf` on the per-type list and Q3, refused on Q1 (D21, amended
+2026-09-30: Q1 was to filter with `asOfApplied`);
 the starter becomes content release 0.9.0 on schema 0.8 with periods declared on the types that bind
 `valid-from` and `valid-to`; C1's breaking-change check counts removing a period from an exposed type.
 SC-11's text is amended: dates carry no time zone, so its "configured
@@ -512,6 +514,72 @@ starter; schema 0.7 releases still activate; a release adding and one removing a
 
 **Exit:** SC-11 passes through the management API; the schema 0.8 section is marked delivered for
 `effectivePeriod`.
+
+**Delivered 2026-09-30.** Effective periods and `asOf`
+([API.md](API.md#effective-periods-and-asof-base-09-q4)). Decisions D20–D22 were raised before coding;
+D20 and D22 were accepted as recommended, and D21 after discussion removed `asOf` from the management
+lookup (ADR-038 and §Q4 amended). What was built:
+
+- **Model.** `effectivePeriod` on an object type (`EffectivePeriodDefinition` in `models/schema.py`,
+  omitted from the canonical document when absent, so earlier hashes hold), checked in
+  `validation/object_type_rules.py` at `/objectTypes/<type>/effectivePeriod`: schema 0.8, bound, `date`,
+  two different attributes.
+- **Write rule** `rules.effective_period`, written once. It runs inside
+  `validate_object_attribute_rules`, which every path already calls (live create, update, attribute
+  patch and delete, change-set create and attribute delete, change-set validation, type changes,
+  restructuring), and explicitly in the change-set update and attribute patch, which defer
+  `atLeastOneOf` to validation but must refuse a bad period at the write (the scope names change-set
+  writes). It reads the values after the write, normalized or in their stored JSON form.
+- **Reads.** `as_of_predicate` in `object_query.py` over the list's typed value columns (no start after
+  the date, no end on or before it), applied by `refine_object_query`, which the live list, the
+  change-set and publication lists and the model query all build through, so the date means the same
+  in every context. `asOf` is bound into cursors only when set (`as_of_filter`), so earlier cursors
+  stay valid. The list takes a strict `CalendarDate` (`YYYY-MM-DD` only; Pydantic's `date` also took
+  times and Unix timestamps); the query keeps D19's `invalid_query` at `/asOf`. The lookup refuses
+  `asOf` in `object_lookup.refuse_as_of` (D21).
+- **Releases.** `compatibility.py` counts records a newly declared or moved period would refuse (D20);
+  `consumer_contract.py` adds the exposed types with a period to the contract, so removing one is
+  `consumer_contract_version_required` at `/consumerApis/<key>/objectTypes/<type>`.
+- **Starter** content release 0.9.0 on schema 0.8, with a period on `master-value` (the only type
+  binding `valid-from` and `valid-to`). On a copy of the development database it installs beside the
+  active 0.8.0 at start, and activates: no stored period is inverted, and 67 of its 68 master values
+  are effective on 2026-09-30.
+
+Differences from the design: the lookup (D21); the model query dates the queried records only (D22);
+an activation gate the design did not state (D20). SC-11's "configured time zone" became "a date,
+not a time" in ACCEPTANCE_SCENARIOS, as the scope said.
+
+**Checks:** `test_effective_periods` (new, `queries` + `records` + `change_sets` + `model`; 21 passed):
+the starter's period and every validation refusal at its path on the starter and a renamed copy; a
+model without a period keeping its canonical form in 0.7 and 0.8; the consumer contract break and
+its release by a higher version; on a generated model and its renamed copy, the boundary, each side,
+open start and end, overlaps and later starts at four dates in live data, a change set that moves
+two periods, and a publication, through the list and the query in pages of two, with a criterion
+and a sort; cursors refused for another date or none; `as_of_not_supported` on a type binding a date
+without a period and on the lookup; malformed dates; the write refusal on create, update and
+attribute patch, live and in a change set, with open periods accepted; the validation diagnostic
+for a period stored another way; a release removing the period (then `asOf` refused), and one adding
+it back refused with a count of 1 until the record is fixed; and SC-11 on the starter and its
+renamed copy (an old value, its replacement and a transitional overlap, by list and query with
+`ancestor:`, live and in a publication). `test_rule_parity` gains the refusal on create, update and
+attribute patch, pinned the same in both contexts (4 passed). Groups `model`, `consumer`,
+`model_admin`, `records`, `change_sets`, `queries` and `contract` together: 894 selected, 872 passed
+and 22 failed on the first run. The failures were tests that turn the starter into an earlier schema
+(now meeting its 0.8 period), the starter's version asserts and the OpenAPI lock. `starter_at_schema`
+now strips what 0.8 added, the schema upgrade tests take the 0.8 starter as the current candidate and
+add 0.7 to the ones derived, and the lock was re-baselined after diffing the document against HEAD:
+an optional `asOf` date on `GET /objects/{objectTypeKey}`, an optional, refused `asOf` on
+`GET /objects` and `ModelQuery.asOf`'s description, nothing else. Rerun after the fixes:
+`test_model` and `test_consumer_api_model` (210 passed), `test_api`'s vertical slice and
+`test_model_schema_upgrade` (10 passed), `contract` (47 passed), `startup` (62 passed, for the
+starter bootstrap) and `test_boundaries` (2 passed). A smoke start on a copy of the development
+database, then activation of 0.9.0 there, as above. `ruff check app/ tests/` clean.
+
+Not run: `volume`, since no statement changes without `asOf` and the dated predicate is two
+correlated `NOT EXISTS` on the (record, attribute) value key, the shape of a typed filter; a budget for
+dated reads is recorded in TODO against T1. Frontend checks, since nothing in the frontend changed: the browser types
+declare no object-type field it reads, and the starter's version appears only in mocked unit fixtures.
+The full suites wait for R, where the browser runners start on the 0.9.0 starter.
 
 ## Track B — Bulk writes
 
@@ -856,7 +924,7 @@ This build touches every door in [COMPOSABLE_DOMAINS.md](COMPOSABLE_DOMAINS.md#d
 ## Decisions
 
 All accepted 2026-09-29 as recommended (D3 and D10 revised the same day, D5 revised after a code
-check, D15 and D16 added by that check, D17–D19 raised by Q3).
+check, D15 and D16 added by that check, D17–D19 raised by Q3), and D20–D22 raised by Q4 (2026-09-30).
 
 | # | Question | Decision | Blocks |
 | --- | --- | --- | --- |
@@ -879,6 +947,9 @@ check, D15 and D16 added by that check, D17–D19 raised by Q3).
 | D17 | Query item shape with `select` and `expand` | **Accepted 2026-09-29 (Q3).** Items always carry `id`, `objectTypeKey` and `version`. Without `select`, the rest of the object list's item; with it, the selected values under `fields`, keyed by field (built-ins, attributes, `ancestor:<type>` as `{id, name}` of the ancestor of that type nearest the root), not as item properties, since attribute keys are model keys and could equal one. `expanded` holds one entry per `expand` in request order: `relationTypeKey`, `direction`, `count`, `items` (`relationId`, `object`) and `nextCursor`, a signed cursor that continues on `GET /relations`, as the mapping conflict continuation does | Q |
 | D18 | Criteria at the other end of a hop | **Accepted 2026-09-29 (Q3).** The object list's rule over the types the binding allows there: built-in fields always, an attribute only when that is one type binding it as filterable; otherwise `invalid_query` at the criterion | Q |
 | D19 | Errors of the query body | **Accepted 2026-09-29 (Q3).** The body's shape (JSON types of known properties, unknown properties, bounds such as `pageSize` and `limit`) is `422 request_validation_error`, as on every other body. What depends on the model (field, operator, value for the field's type, binding, `select`, `expand`, `sort`, `asOf`) is `422 invalid_query` with `details.path`, a JSON pointer into the body | Q |
+| D20 | Activating a period over stored records it would refuse | **Accepted 2026-09-30 (Q4).** A release that declares a period, or moves one to other attributes, counts the type's live records whose end is not after their start; with any, activation is `409 model_migration_required` with a diagnostic `invalid_effective_period` and its count, as an added `atLeastOneOf` is. Allowing it would leave records every later change set validation refuses although nobody touched them | Q |
+| D21 | `asOf` on the management cross-type lookup | **Accepted 2026-09-30 (Q4), amending ADR-038 and §Q4.** Refused as `422 as_of_not_supported` with `details.route` naming the per-type list, as a model-declared filter is: a period belongs to one type, and no management story needs a dated lookup across types. The design's filtering with `asOfApplied` was copied from the consumer XREF, where C-D14 stays (C16). Refused rather than left undeclared, since an undeclared parameter is ignored and an undated answer would look dated | Q |
+| D22 | Which records `asOf` dates in the model-aware query | **Accepted 2026-09-30 (Q4).** The queried records only. A hop's far end and expansions are not dated; a date criterion on the hop dates them where that is wanted | Q |
 
 ## Next
 

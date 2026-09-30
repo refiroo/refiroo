@@ -237,6 +237,7 @@ def update_change_set_object(
                 model, row.object_type_key, payload.attributes, partial=True
             ),
         }
+    rules.effective_period(model.object_type(row.object_type_key), row.attributes or {})
     rules.unique_values(lookup, model, row.object_id, row.attributes or {})
     # The edited row is flushed into the lookups: each relation into it is checked against it.
     parent_keys = model.containment_relation_keys(row.object_type_key)
@@ -757,6 +758,9 @@ def patch_change_set_attribute(
     model = change_set_model(session, change_set)
     normalized = stored_attributes(
         model, row.object_type_key, {key: value}, partial=True
+    )
+    rules.effective_period(
+        model.object_type(row.object_type_key), {**(row.attributes or {}), **normalized}
     )
     writes.claim(expected_change_set_version)
     row.attributes = {**(row.attributes or {}), **normalized}

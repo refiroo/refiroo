@@ -12,6 +12,7 @@ check only the records they touch, through ``engine/records/context.py`` (S2b).
 
 from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass, replace
+from datetime import date
 from typing import Any, Literal
 
 from sqlalchemy import Row, Select, String, and_, case, exists, literal, select, union_all
@@ -38,6 +39,7 @@ from ..records.rules import get_object_type, object_type_changed, validate_appli
 from .object_query import (
     ObjectColumns,
     ObjectQuery,
+    as_of_filter,
     indexed_value_match,
     name_contains,
     query_error,
@@ -584,6 +586,7 @@ def build_snapshot_object_query(
     top_level: bool = False,
     search_fields: Sequence[str] | None = None,
     id_filter: Callable[[Any], Any] | None = None,
+    as_of: date | None = None,
 ) -> ObjectQuery:
     """The change set or publication object collection query, with the same contract as a live one.
 
@@ -608,12 +611,14 @@ def build_snapshot_object_query(
             "parentObjectId": parent_object_id,
             "search": search,
             **top_level_filter(top_level),
+            **as_of_filter(as_of),
         },
         search=search,
         sort=sort,
         field_filters=field_filters,
         search_fields=search_fields,
         id_filter=id_filter,
+        as_of=as_of,
     )
 
 
@@ -631,6 +636,7 @@ def snapshot_object_query(
     id_filter: Callable[[Any], Any] | None = None,
     builtin: Callable[[Subquery], dict[str, Any]] | None = None,
     parent_filter: Callable[[Any], Any] | None = None,
+    as_of: date | None = None,
 ) -> ObjectQuery:
     """A change set or publication object query over ``object_types``.
 
@@ -678,6 +684,7 @@ def snapshot_object_query(
             sort=sort,
             field_filters=field_filters,
             search_fields=search_fields,
+            as_of=as_of,
         )
 
     statement, keys, seek, normalized_filters = refine("effective")

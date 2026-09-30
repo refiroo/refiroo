@@ -145,6 +145,8 @@ class OutputContract:
     match: Any
     lists: dict[str, dict[str, Any]]
     parameters: dict[str, str]
+    # Exposed types that declare an effective period, on which ``asOf`` filters (Base 0.9 Q4).
+    as_of: frozenset[str] = frozenset()
 
 
 def output_contract(model: EngineModel, definition: ConsumerApiDefinition) -> OutputContract:
@@ -204,6 +206,7 @@ def output_contract(model: EngineModel, definition: ConsumerApiDefinition) -> Ou
             for item in definition.lists
         },
         parameters={name: parameter.kind for name, parameter in definition.parameters.items()},
+        as_of=frozenset(item.key for item in types if item.effectivePeriod is not None),
     )
 
 
@@ -303,6 +306,18 @@ def _breaking_changes(old: OutputContract, new: OutputContract) -> list[tuple[st
                 (
                     f"/parameters/{pointer_segment(name)}/kind",
                     f"changes parameter '{name}' from kind '{kind}' to '{new.parameters[name]}'",
+                )
+            )
+    # A type still exposed without its period would refuse the asOf its consumers send.
+    for key in sorted(old.as_of - new.as_of):
+        if key in new.types:
+            changes.append(
+                (
+                    f"/objectTypes/{pointer_segment(key)}",
+                    (
+                        f"exposes object type '{key}', which no longer declares an effective"
+                        " period (asOf on it is refused)"
+                    ),
                 )
             )
     return changes

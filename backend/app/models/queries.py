@@ -70,7 +70,11 @@ class ModelQuery(BaseModel):
     objectTypeKey: str
     context: QueryContext = Field(default_factory=QueryContext)
     asOf: str | None = Field(
-        default=None, description="A date (YYYY-MM-DD); refused as as_of_not_supported until Q4"
+        default=None,
+        description=(
+            "A date (YYYY-MM-DD): only records effective on it, by the type's declared effective"
+            " period; as_of_not_supported on a type without one"
+        ),
     )
     where: list[QueryCriterion] = Field(default_factory=list)
     sort: str | None = Field(

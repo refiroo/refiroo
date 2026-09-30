@@ -171,6 +171,23 @@ def _check_attributes(
                 f"Stored '{object_type_key}' objects do not satisfy atLeastOneOf",
             )
 
+        # D20: a period declared or moved to other attributes counts the records it would refuse.
+        period = candidate_objects[object_type_key].effectivePeriod
+        if period is not None and period != active_objects[object_type_key].effectivePeriod:
+            _append_counted(
+                diagnostics,
+                _count_invalid_periods(
+                    session,
+                    object_type_key,
+                    period.startAttributeTypeKey,
+                    period.endAttributeTypeKey,
+                ),
+                "invalid_effective_period",
+                f"/objectTypes/{_pointer(object_type_key)}/effectivePeriod",
+                f"Stored '{object_type_key}' objects have an effective period that does not end "
+                "after it starts",
+            )
+
     for key, attribute in sorted(candidate_attributes.items()):
         active_attribute = active_attributes.get(key)
         if attribute.features.get("unique") and (
@@ -593,6 +610,27 @@ def _count_missing_at_least_one(
         session,
         RdmObject.object_type_key == object_type_key,
         ~or_(*predicates),
+    )
+
+
+def _count_invalid_periods(
+    session: Session, object_type_key: str, start_key: str, end_key: str
+) -> int:
+    """Records of the type whose end date is not after their start date (both given)."""
+    start, end = aliased(AttributeValue), aliased(AttributeValue)
+    return int(
+        session.scalar(
+            select(func.count())
+            .select_from(RdmObject)
+            .join(start, and_(start.object_id == RdmObject.id, start.attribute_type_key == start_key))
+            .join(end, and_(end.object_id == RdmObject.id, end.attribute_type_key == end_key))
+            .where(
+                _is_in_active_workspace(RdmObject),
+                RdmObject.object_type_key == object_type_key,
+                end.date_value <= start.date_value,
+            )
+        )
+        or 0
     )
 
 

@@ -44,9 +44,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Q3: POST /workspaces/{key}/queries/objects with the ModelQuery body, the ObjectQueryPage
     # response and their parts; no existing path or schema changed. Re-baselined for 0.9 C1: the
     # release diff's consumerContracts block (ModelConsumerContractsResponse); nothing else.
+    # Re-baselined for 0.9 Q4: an optional asOf date on GET /objects/{objectTypeKey}, an optional
+    # asOf on GET /objects that is refused (D21), and ModelQuery.asOf's description; nothing else.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "a7034d117bbad532aa0a1b3cca0a233d1377223977ab6ff0b994e9e501e4bf83"
+        "604b9c4c0428eec53bb0f3aa51405c94a64e129812bc02830ad7d4d31e33e3e6"
     )
 
 

@@ -529,13 +529,19 @@ A type declares one business validity period in the model (APPLICATION_MODEL, sc
 - Both attributes are `date` attributes the type binds. The start is inclusive, the end exclusive; an
   empty start means "since always", an empty end "open". A write whose end is not after its start is
   `422 invalid_effective_period`. Overlapping periods of different records are allowed.
-- `asOf=YYYY-MM-DD` on the per-type list, the cross-type lookup, the model-aware query and exports
-  returns the records effective on that date. It is a filter over values, not history: it combines
+- `asOf=YYYY-MM-DD` on the per-type list, the model-aware query and exports returns the records
+  effective on that date. It is a filter over values, not history: it combines
   with any context (live, change set, publication) and never reads a publication by itself.
-- A type without a period answers `422 as_of_not_supported`. In the cross-type lookup, the types with
-  a period are filtered and the others are not, and the response names the filtered types in
-  `asOfApplied` (as C-D14).
+- A type without a period answers `422 as_of_not_supported`. **Amended in Q4 (D21, 2026-09-30):** the
+  cross-type lookup lists several types, and a period belongs to one, so it refuses `asOf` with the
+  per-type route, as it refuses a model-declared filter. The design had it filter the types with a
+  period and name them in `asOfApplied`, copied from the consumer XREF (C-D14); no management story
+  needs a dated lookup across types, and C-D14 stays with XREF (C16).
 - `dateTime` periods wait for a real case.
+
+_Delivered in Q4 (2026-09-30); the contract is in [API.md](API.md#effective-periods-and-asof-base-09-q4).
+The model query dates the queried records only (D22), and activating a release that declares a
+period over records it would refuse is `model_migration_required` with their count (D20)._
 
 ## J: Import and export
 
