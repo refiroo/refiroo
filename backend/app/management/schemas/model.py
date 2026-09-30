@@ -175,11 +175,25 @@ class ModelCompatibilityResponse(BaseModel):
     diagnostics: list[ModelDiagnosticResponse]
 
 
+class ModelConsumerContractsResponse(BaseModel):
+    """The candidate's consumer API definitions against the active release's (Base 0.9 C1, C-D17).
+
+    ``version_required`` when a definition changes what its consumers read without a higher
+    ``contractVersion``: its diagnostics are errors, and activation is refused until it is raised.
+    A removed definition is a warning and does not change the classification.
+    """
+
+    classification: Literal["compatible", "version_required"]
+    activeReleaseId: str
+    diagnostics: list[ModelDiagnosticResponse]
+
+
 class ModelReleaseDiffResponse(BaseModel):
     againstReleaseId: str
     releaseId: str
     changes: list[ModelChangeResponse]
     compatibility: ModelCompatibilityResponse
+    consumerContracts: ModelConsumerContractsResponse | None = None
 
 
 class ModelAdminCapabilities(BaseModel):
@@ -265,3 +279,5 @@ class ModelCompilationResponse(BaseModel):
     compatibility: ModelCompatibilityResponse
     againstReleaseId: str | None = None
     changes: list[ModelChangeResponse] = Field(default_factory=list)
+    # Present when the draft is valid.
+    consumerContracts: ModelConsumerContractsResponse | None = None

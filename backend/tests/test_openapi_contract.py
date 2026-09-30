@@ -42,10 +42,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # Re-baselined for 0.9 Q2: publicationId on GET /workspaces/{key}/mappings, and the same edge
     # list published as GET /workspaces/{key}/relations; no schema changed. Re-baselined for 0.9
     # Q3: POST /workspaces/{key}/queries/objects with the ModelQuery body, the ObjectQueryPage
-    # response and their parts; no existing path or schema changed.
+    # response and their parts; no existing path or schema changed. Re-baselined for 0.9 C1: the
+    # release diff's consumerContracts block (ModelConsumerContractsResponse); nothing else.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "2f666e50c267faaee2276ed19ccf2fde3c04e71a543964ffbd2754de8d7eea83"
+        "a7034d117bbad532aa0a1b3cca0a233d1377223977ab6ff0b994e9e501e4bf83"
     )
 
 

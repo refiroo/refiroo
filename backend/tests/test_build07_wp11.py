@@ -53,7 +53,7 @@ def test_diff_unsupported_candidate_returns_422():
     assert body["code"] == "unsupported_schema_version"
     assert body["details"]["releaseId"] == historical_id
     assert body["details"]["schemaVersion"] == "0.4"
-    assert body["details"]["supportedSchemaVersions"] == ["0.5", "0.6", "0.7"]
+    assert body["details"]["supportedSchemaVersions"] == ["0.5", "0.6", "0.7", "0.8"]
     assert body["details"]["operation"] == "diff"
 
 
@@ -150,7 +150,7 @@ def test_activation_unsupported_schema_retains_422(monkeypatch):
     assert error["details"] == {
         "releaseId": historical_id,
         "schemaVersion": "0.4",
-        "supportedSchemaVersions": ["0.5", "0.6", "0.7"],
+        "supportedSchemaVersions": ["0.5", "0.6", "0.7", "0.8"],
         "operation": "activation",
     }
 

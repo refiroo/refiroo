@@ -12,7 +12,7 @@ from ...models.schema import EngineModel
 from .diagnostics import ModelDiagnostic, ModelValidationError
 from .validation import validate_references
 
-SUPPORTED_SCHEMA_VERSIONS: frozenset[str] = frozenset({"0.5", "0.6", "0.7"})
+SUPPORTED_SCHEMA_VERSIONS: frozenset[str] = frozenset({"0.5", "0.6", "0.7", "0.8"})
 
 __all__ = [
     "SUPPORTED_SCHEMA_VERSIONS",

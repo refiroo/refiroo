@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from ..common.pagination import Page
 from ..common.time import as_utc
 from ..engine.model.compiler import ModelDiagnostic
+from ..engine.model.consumer_contract import contract_diagnostics
 from ..engine.model.diff import SemanticChange
 from ..engine.reads.object_query import live_object_paths
 from ..engine.records.attributes import load_attribute_values
@@ -25,7 +26,11 @@ from ..models.database import (
     WorkspaceRuntimeState,
 )
 from ..models.schema import EngineModel
-from .schemas.model import ModelChangeResponse, ModelDiagnosticResponse
+from .schemas.model import (
+    ModelChangeResponse,
+    ModelConsumerContractsResponse,
+    ModelDiagnosticResponse,
+)
 from .schemas.records import (
     AttributeOutput,
     AttributeValueResponse,
@@ -70,6 +75,19 @@ def diagnostic_response(item: ModelDiagnostic) -> ModelDiagnosticResponse:
     if item.count is not None:
         values["count"] = item.count
     return ModelDiagnosticResponse(**values)
+
+
+def consumer_contracts_response(
+    active: EngineModel, candidate: EngineModel, active_release_id: str
+) -> ModelConsumerContractsResponse:
+    """The candidate's consumer API definitions checked against the active release's (C-D17)."""
+    diagnostics = contract_diagnostics(active, candidate)
+    breaking = any(item.severity == "error" for item in diagnostics)
+    return ModelConsumerContractsResponse(
+        classification="version_required" if breaking else "compatible",
+        activeReleaseId=active_release_id,
+        diagnostics=[diagnostic_response(item) for item in diagnostics],
+    )
 
 
 def diagnostic_details(diagnostics: Any) -> list[dict[str, Any]]:

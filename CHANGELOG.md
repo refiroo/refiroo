@@ -29,6 +29,16 @@ All notable changes to this project are documented in this file. The format foll
   with cursors bound to the body. Model-dependent mistakes are `422 invalid_query` with a JSON
   pointer; `asOf` is refused as `as_of_not_supported` until Q4. Decisions D17–D19. Over the
   100,000-item volume fixture every measured query takes 4–91 ms.
+- Base 0.9 C1: schema 0.8 with consumer API definitions (`consumerApis`). A definition declares its
+  `key` (the `apiKey`), `contractVersion`, exposed types with public names, the shared object's roles
+  and attributes with their sources, projections over relation routes, scoring weights, parameters of
+  kind `objectType`, `ancestor`, `related` and `projection`, and lists. Every reference is validated
+  against the release and refused at its JSON pointer; a field's sources share one type (C-D19), the
+  identity is `id` or a unique attribute, and match fields are searchable or unique (C-D20). Draft
+  compile and release diff report `consumerContracts` against the active release, and activation
+  refuses a breaking change without a higher `contractVersion` (`409
+  consumer_contract_version_required`; C-D17, C-D18). Schema 0.5–0.7 models and their hashes are
+  unchanged. Decisions C-D17–C-D20.
 
 ### Changed
 

@@ -332,6 +332,26 @@ Rules the validator enforces:
   `to.{parameter}` on reads (see Crosswalk). Only a `projection` parameter can be targetable.
 - **Lists without a parent** omit `parentParameter` and list every object of the type.
 
+_Delivered in C1 (2026-09-30), with these rules settled on the way:_
+
+- **Keys:** a definition's `key` (the `apiKey`) and each list `key` use lowercase letters, digits and
+  hyphens, since they appear in URLs; public type names are unique within a definition.
+- **Source types (C-D19):** a field's sources share one value type (`text` and `longText` count as
+  one), which is the field's output type; a mixed list is refused at the field's `source`.
+- **Identity:** every `id` source is the built-in `id` or a `unique` attribute, so get by ID finds at
+  most one object.
+- **Output names** are unique across roles, attributes, `parent`, `path`, `hierarchy` and projections,
+  and `objectType`, `matchScore` and `target` are reserved for the engine. A `parent` field `code`
+  needs the object's `code` role.
+- **Match fields (C-D20):** a match rule, and an `ancestor` or `related` parameter's `matchFields`,
+  read `name`, `id` or an attribute of the relevant types that is `searchable` or `unique`; a
+  `projection` parameter's `matchFields` are fields of the projection, `ancestor:` references included.
+- **Routes:** a projection's relation must be bound, in its direction, to at least one exposed type; an
+  `ancestor` parameter's types must be ancestors of an exposed type; a `related` parameter's `via` is
+  `self`, a projection or `sharedProjection:<projection>`; a list's parent types must be able to
+  contain its type. A list's parent parameter may share a definition parameter's name.
+- **Not yet:** `events` is refused as an unknown field until C9.
+
 ### Endpoints
 
 ```text
@@ -623,7 +643,7 @@ coordination is 0.11 work.
 
 | Package | Scope |
 | --- | --- |
-| C1 | `consumerApis` schema, model validation with precise paths, compile into the immutable snapshot, breaking-change check against the installed release |
+| C1 | `consumerApis` schema, model validation with precise paths, compile into the immutable snapshot, breaking-change check against the active release (C-D17) — **delivered 2026-09-30** |
 | C2 | Common object and projections: get by ID, ancestor fields, cardinality-derived shape, typed values |
 | C3 | Lists: parent parameter resolution, lists without a parent, position paging, parameters of kind `ancestor`, `projection` and `related` |
 | C4 | Consumer index and XREF scoring: own-field and promoted scores, multi-term queries, deterministic order, `expect=one` |
@@ -700,7 +720,8 @@ table under "Behavior the engine does not carry over" says otherwise:
 
 ## Decisions
 
-C-D1 decided 2026-09-29; C-D2–C-D16 accepted 2026-09-29 as recommended, with the notes below.
+C-D1 decided 2026-09-29; C-D2–C-D16 accepted 2026-09-29 as recommended, with the notes below;
+C-D17–C-D20 raised by C1 and accepted 2026-09-30 as recommended.
 
 | # | Question | Decision |
 | --- | --- | --- |
@@ -720,3 +741,7 @@ C-D1 decided 2026-09-29; C-D2–C-D16 accepted 2026-09-29 as recommended, with t
 | C-D14 | `asOf` in an XREF that spans types with and without a declared period | Filter the types that declare one, leave the others unfiltered and name the filtered types in `asOfApplied`. The alternative, refusing the request, would make `asOf` unusable in a mixed lookup |
 | C-D15 | Re-sync baseline after `410` | A publication's lists plus its `eventSequence`. **Verified 2026-09-29:** publish builds the publication from the whole live graph plus the change-set delta and writes that delta to live in the same transaction (`change_sets.publish_change_set`), so at commit the publication equals live data. The position is the feed position of the `published` event, stored on the publication by C6. On PostgreSQL this relies on Base 0.9 D5 (publish and live writes serialize on the workspace row) |
 | C-D16 | Which workspace a consumer read addresses | A reserved `workspace` parameter, defaulting to the deployment's default workspace, so one definition serves every workspace. The default workspace can be changed (the workspace runtime state's `defaultWorkspaceKey`), which would move consumers silently, so every response names the resolved workspace, as it names a resolved `publication=latest` |
+| C-D17 | When the breaking-change check runs, and against what | **Accepted 2026-09-30 (C1).** Against the **active** release, which is what consumers read: model validation reports it as an error diagnostic, so an author sees it while drafting, and activation refuses it, beside the existing compatibility gate. Installing a release without activating it is not checked, since no consumer reads it |
+| C-D18 | What else is a breaking change | **Accepted 2026-09-30 (C1).** Besides C-D2 and C-D4: removing an exposed type, a list or a parameter, and changing a parameter's kind or a list's type or parent parameter, since callers would get `404` or `400`. Removing a whole definition (its `apiKey`) is allowed with a warning: it ends that API rather than changing it |
+| C-D19 | The output type of a field with several sources | **Accepted 2026-09-30 (C1).** The sources share one value type (`text` and `longText` count as one), and that is the output type; mixed types are refused at the field's path, so the contract always states one type |
+| C-D20 | Which fields a match rule may use | **Accepted 2026-09-30 (C1).** `name`, `id` and attributes that are `searchable` or `unique`: `unique` already marks an identifier (ADR-010, Base 0.9 D2), so no separate identifier list is added |

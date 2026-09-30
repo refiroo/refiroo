@@ -14,7 +14,13 @@ from collections.abc import Callable
 
 from ....models.schema import EngineModel
 from ..diagnostics import ModelDiagnostic, ModelReferenceError, ModelValidationError
-from . import application_rules, attribute_rules, object_type_rules, relation_rules
+from . import (
+    application_rules,
+    attribute_rules,
+    consumer_api_rules,
+    object_type_rules,
+    relation_rules,
+)
 from .index import ModelIndex, build_index
 
 Rule = Callable[[EngineModel, ModelIndex], None]
@@ -26,6 +32,7 @@ RULES: tuple[Rule, ...] = (
     relation_rules.check_object_type_relations,
     relation_rules.check_parent_relations,
     application_rules.check,
+    consumer_api_rules.check,
 )
 
 

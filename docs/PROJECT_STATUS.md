@@ -12,7 +12,10 @@ tiers, one rule set for live data and change sets, one write path; no contract c
 **Q2, the workspace edge list** (`publicationId` on `/mappings`, the same list at
 `/workspaces/{key}/relations`, 2026-09-29), and so is **Q3, the model-aware query**
 (`POST /workspaces/{key}/queries/objects`: criteria, `ancestor:<type>`, one relation hop, `select`,
-`expand`; D17–D19; 2026-09-30); V1 is next.
+`expand`; D17–D19; 2026-09-30). The queue was reordered after Q3
+([delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue)), and **C1, consumer API definitions**
+(schema 0.8 opened with `consumerApis`, the breaking-change check at activation; C-D17–C-D20;
+2026-09-30) is delivered; Q4 is next.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

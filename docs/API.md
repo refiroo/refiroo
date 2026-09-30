@@ -289,6 +289,34 @@ independent of a non-active structural diff baseline. If either the candidate or
 an unsupported schema, diff returns `422 unsupported_schema_version` with details identifying the
 affected release. Missing releases return `404 model_release_not_found`.
 
+**Consumer API contracts (Base 0.9 C1).** Diff and draft compile also return `consumerContracts`:
+the candidate's consumer API definitions (schema 0.8 `consumerApis`) checked against the **active**
+release's, which is what consumers read (CONSUMER_API C-D17):
+
+```json
+"consumerContracts": {
+  "classification": "version_required",
+  "activeReleaseId": "412c4041-...",
+  "diagnostics": [
+    {
+      "severity": "error",
+      "code": "consumer_contract_version_required",
+      "path": "/consumerApis/rdm/object",
+      "message": "Consumer API 'rdm' removes output field 'sortOrder'; raise contractVersion above 1 to release it"
+    }
+  ]
+}
+```
+
+`classification` is `compatible` or `version_required`. A definition that keeps its
+`contractVersion` must not remove or retype an output field (a parent field included), rename or stop
+exposing a type, remove a projection or change its shape or fields, change scoring weights, or remove
+or change a list or a parameter's kind (C-D2, C-D4, C-D18); each such change is an error at the part of
+the definition it concerns. A lower `contractVersion` than the active one is
+`consumer_contract_version_decreased`. Additions are compatible, and a raised `contractVersion`
+releases any change. A definition the candidate no longer declares is a `consumer_api_removed`
+warning and does not change the classification.
+
 Activation accepts both concurrency tokens:
 
 ```json
@@ -403,6 +431,11 @@ returns:
     "classification": "compatible",
     "activeReleaseId": "412c4041-...",
     "diagnostics": []
+  },
+  "consumerContracts": {
+    "classification": "compatible",
+    "activeReleaseId": "412c4041-...",
+    "diagnostics": []
   }
 }
 ```
@@ -412,7 +445,8 @@ release, falling back to the active release when the draft has no available base
 key-based semantic diff used for pre-install review and preserves the distinction between omission and
 an explicit JSON `null`. Compatibility classification is `compatible`,
 `migration_required` or `invalid`; invalid compilation returns `valid: false`, omits `model` and
-`modelHash`, and uses `invalid`. Installation repeats compilation and compatibility analysis and
+`modelHash`, and uses `invalid`. `consumerContracts` (above, under diff) is present when the draft
+is valid. Installation repeats compilation and compatibility analysis and
 returns the installed release detail with `model` absent. A newly installed release returns HTTP
 `201`; an idempotent retry for identical content returns HTTP `200`. Installation never activates the
 release. Installations are serialized inside the supported single API process so concurrent drafts
@@ -437,6 +471,9 @@ are not mutation-gated. Lifecycle errors use:
 - `409 model_activation_retry` when live writes held the database for longer than the busy timeout;
   the selection is unchanged and the activation may be retried;
 - `409 model_migration_required` when stored data prevents activation;
+- `409 consumer_contract_version_required` when a consumer API definition changes what the active
+  release's consumers read without a higher `contractVersion` (details are the `consumerContracts`
+  errors); the selection is unchanged (Base 0.9 C1);
 - `500 invalid_installed_model` when persisted release JSON with a supported schema cannot be reparsed
   for diff or activation (distinguished from unsupported schema, which returns 422);
 - `503 model_runtime_state_unavailable` when no authoritative active selection can be read;

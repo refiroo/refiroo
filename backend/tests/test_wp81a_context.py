@@ -492,7 +492,7 @@ def test_0_unsupported_pinned_change_set_model_is_explicit_and_never_uses_active
             "details": {
                 "modelReleaseId": body["error"]["details"]["modelReleaseId"],
                 "schemaVersion": "0.4",
-                "supportedSchemaVersions": ["0.5", "0.6", "0.7"],
+                "supportedSchemaVersions": ["0.5", "0.6", "0.7", "0.8"],
             },
         }
         historical = client.get(

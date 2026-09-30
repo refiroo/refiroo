@@ -494,10 +494,11 @@ also checks header and column fields, application membership, containment compat
 existence and direction, unique detail/panel keys and page-size bounds. Configuration contains only
 stable model keys and presentation semantics; the React API adapter owns all backend routes.
 
-## Schema 0.8 additions (planned, Product 0.9)
+## Schema 0.8 additions (Product 0.9)
 
 Designed for [Base 0.9](BASE_0_9_IMPLEMENTATION_PLAN.md) (D7); the starter becomes content release
-0.9.0 on schema 0.8. Schema 0.8 is a strict superset of 0.7, as each earlier step was: 0.5–0.7 models
+0.9.0 on schema 0.8. **Opened in Base 0.9 C1 (2026-09-30)** with `consumerApis`; `effectivePeriod`
+follows in Q4, until which schema 0.8 accepts nothing else new. Schema 0.8 is a strict superset of 0.7, as each earlier step was: 0.5–0.7 models
 keep parsing and activating, absent 0.8 fields are omitted from the canonical document so earlier
 releases keep their content hash, and a 0.8 field in an older schema is refused at its path.
 
@@ -540,9 +541,15 @@ contract rules are specified in [CONSUMER_API.md](CONSUMER_API.md#definition-sha
   (`to.{parameter}`). Only a `projection` parameter can be targetable.
 - Every reference to a type, attribute, relation binding or ancestor is validated against the same
   release, with the model's path-and-reason errors.
-- Installation compares each definition with the previously installed release and refuses a breaking
-  change that does not raise `contractVersion` (C-D2): removing or retyping an output field, changing
-  a projection's shape, changing scoring weights (C-D4), or removing or narrowing an event.
+- Each definition is compared with the **active** release's (C-D17): draft compile and release diff
+  report the result as `consumerContracts`, and activation refuses a breaking change that does not
+  raise `contractVersion` (C-D2): removing or retyping an output field, renaming or no longer exposing
+  a type, changing a projection's shape or fields, changing scoring weights (C-D4), removing or changing
+  a list or a parameter's kind (C-D18), or (from C9) removing or narrowing an event. Removing a whole
+  definition is a warning. Installing a release without activating it is not checked.
+- A field's sources share one value type (`text` and `longText` count as one), which is its output
+  type (C-D19); an identity source is `id` or a `unique` attribute; a match rule or match field reads
+  `name`, `id` or a `searchable` or `unique` attribute (C-D20).
 - Definitions change no stored data and no management API behaviour.
 
 ### Upsert keys
@@ -556,8 +563,8 @@ attribute already declared `unique` (D2); the uniqueness declaration is the key 
 Schema 0.4 added object-level cross-field validation, required initial relationships and scoped
 relationship uniqueness to the 0.3 detail-composition contract. Schema 0.5 adds strict typed table
 views. Schema 0.6 adds the `mappingGrid` view type. Schema 0.7 adds relations-panel sort options
-(`sortFields`, `defaultSort`) and the `relationMatrix` and `tree` view types. Schema 0.8 (planned,
-Product 0.9) adds `effectivePeriod` and `consumerApis` ([above](#schema-08-additions-planned-product-09)). `release.version` versions one model package.
+(`sortFields`, `defaultSort`) and the `relationMatrix` and `tree` view types. Schema 0.8 (Product
+0.9) adds `consumerApis` (Base 0.9 C1) and `effectivePeriod` (Q4) ([above](#schema-08-additions-product-09)). `release.version` versions one model package.
 Each distinct
 validated model is installed as an immutable database release identified by its content hash.
 

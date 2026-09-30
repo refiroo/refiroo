@@ -11,7 +11,12 @@ from ...errors import api_error
 from ...models.database import AuditEvent, ModelRelease
 from ..dependencies import ActiveModelSnapshot, DbSession
 from ..paging import PageQuery
-from ..presenters import change_response, diagnostic_details, diagnostic_response
+from ..presenters import (
+    change_response,
+    consumer_contracts_response,
+    diagnostic_details,
+    diagnostic_response,
+)
 from ..schemas.model import (
     ModelCompatibilityResponse,
     ModelReleaseActivationPage,
@@ -210,6 +215,9 @@ def diff_model_release(
             classification=compatibility.classification,
             activeReleaseId=compatibility.active_release_id,
             diagnostics=[diagnostic_response(item) for item in compatibility.diagnostics],
+        ),
+        consumerContracts=consumer_contracts_response(
+            snapshot.model, candidate.model, snapshot.release_id
         ),
     )
 

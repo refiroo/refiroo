@@ -64,7 +64,7 @@ delivery; the contracts live in design documents that the packages reference ins
 | This plan | Outcome, principles, tracks, packages, sequence, decisions, delivery records, acceptance | Draft; document set accepted 2026-09-28 |
 | [CONSUMER_API.md](CONSUMER_API.md) | Read-only consumer tier: `consumerApis` definitions, XREF, lists, read index, batch resolve, crosswalk, `asOf`, publications, API index, consumer events, subscriptions, webhook delivery, packages C1–C16, decisions C-D1–C-D16 | Accepted; C-D1–C-D16 decided 2026-09-29 |
 | [INTEGRATION_API.md](INTEGRATION_API.md) | Management-side integration contracts: shared primitives (idempotency keys, item outcomes, failure policies, job lifecycle), bulk writes and upsert keys, bulk relations and mapping, import/export jobs and the file format contract, the raw change feed, advanced query, cross-type lookup (0.8 P1) and the workspace edge list (0.8 P3) | All sections (P, B, F, Q, J) drafted 2026-09-29 |
-| [APPLICATION_MODEL.md](APPLICATION_MODEL.md) | Schema language additions: effective-period declaration, `consumerApis` (with `targetable`); no upsert key declaration (D2) | [Schema 0.8 section](APPLICATION_MODEL.md#schema-08-additions-planned-product-09) drafted 2026-09-29 |
+| [APPLICATION_MODEL.md](APPLICATION_MODEL.md) | Schema language additions: effective-period declaration, `consumerApis` (with `targetable`); no upsert key declaration (D2) | [Schema 0.8 section](APPLICATION_MODEL.md#schema-08-additions-product-09) drafted 2026-09-29; `consumerApis` delivered in C1 |
 | [DECISIONS.md](DECISIONS.md) | ADRs for durable choices: the job and idempotency model; the audit log as the ordered outbox for both feeds; effective dating | ADR-036, ADR-037, ADR-038 accepted 2026-09-29 |
 | [API.md](API.md) | The delivered management API reference. Each package moves its delivered contract here, as 0.7 and 0.8 did; "Planned integration endpoints" then points to `INTEGRATION_API.md` | Updated per package |
 
@@ -165,7 +165,7 @@ As in 0.8: each package below is one vertical slice, delivered on the instructio
 A package starts when every package it **needs** is delivered. Packages without a dependency between
 them may be delivered in either order.
 
-**Names.** Package IDs are Q1–Q4, B1–B3, F1–F2, C1–C16 (CONSUMER_API's), J1–J4, V1–V2 and R. The API
+**Names.** Package IDs are Q1–Q4, B1–B3, F1–F2, C1–C16 (CONSUMER_API's), J1–J4, V1–V2, T1 and R. The API
 reference track, called D in earlier drafts, is **Track V** so its packages do not read as decisions
 D1–D16.
 
@@ -190,40 +190,60 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 1 | [Q1](#q1-cross-type-lookup) | — | `GET /objects` across types — **delivered 2026-09-29** |
 | 1a | [E1–E3](BACKEND_BOUNDARIES_PLAN.md) | Q1 | Backend tiers, one rule set, one write path; no contract change — **delivered 2026-09-29** |
 | 2 | [Q2](#q2-workspace-edge-list) | — | Edge list with publication context, published as `/workspaces/{key}/relations` — **delivered 2026-09-29** |
-| 3 | [V1](#v1-api-reference-page) | — | Scalar at `/docs` with the management API |
-| 4 | [C1](#track-c--consumer-api) | — | `consumerApis` schema and validation; opens schema 0.8 |
-| 5 | [Q3](#q3-model-aware-query) | Q1 | `POST …/queries/objects`: criteria, one relation hop, `select`, `expand` — **delivered 2026-09-30** |
-| 6 | [Q4](#q4-effective-periods-and-asof) | Q3, C1 | `effectivePeriod` in schema 0.8, `asOf` on reads; starter 0.9.0; SC-11 (API) |
+| 3 | [Q3](#q3-model-aware-query) | Q1 | `POST …/queries/objects`: criteria, one relation hop, `select`, `expand` — **delivered 2026-09-30** |
+| 4 | [C1](#c1-consumer-api-definitions) | — | `consumerApis` schema and validation; opens schema 0.8 — **delivered 2026-09-30** |
+| 5 | [Q4](#q4-effective-periods-and-asof) | Q3, C1 | `effectivePeriod` in schema 0.8, `asOf` on reads; starter 0.9.0; SC-11 (API) |
+| 6 | [V1](#v1-api-reference-page) | — | Scalar at `/docs` with the management API; a filler, any time before V2 |
 | 7 | [B1](#b1-job-model-and-inline-object-batches) | — | **Track P (§P1–P5, P7)**, `POST /batches` with object items, inline |
-| 8 | [B2](#b2-background-jobs) | B1 | **Track P (§P6)**: worker, chunks, lease, resume, cancel, retention |
-| 9 | [B3](#b3-relation-and-relation-set-items) | B1 | Relation items and `replaceRelationSet` |
-| 10 | [F1](#f1-feed-positions) | B1 | Feed position in commit order, publish entries (D15), lock order |
+| 8 | [F1](#f1-feed-positions) | B1 | Feed position in commit order, publish entries (D15), lock order |
+| 9 | [B2](#b2-background-jobs) | B1 | **Track P (§P6)**: worker, chunks, lease, resume, cancel, retention |
+| 10 | [B3](#b3-relation-and-relation-set-items) | B1 | Relation items and `replaceRelationSet` |
 | 11 | [F2](#f2-feed-read-retention-and-recovery) | F1 | `GET /workspaces/{key}/feed`, retention, `410` with baselines |
-| 12 | C2 | C1 | Consumer object and projections |
-| 13 | C3 | C2 | Lists |
-| 14 | C4 | C2 | Consumer index and XREF scoring |
-| 15 | C5 | C4 | XREF parameters |
-| 16 | C14 | C4 | Batch resolve |
-| 17 | C15 | C5 | Crosswalk |
-| 18 | C6 | C3, C4, F1 | ETag, publications with `eventSequence`, OpenAPI per definition, API index |
-| 19 | [V2](#v2-consumer-sources) | V1, C6 | Consumer contracts as reference sources |
-| 20 | C8 | C3–C6, C14, C15 | Parity acceptance |
-| 21 | C16 | C2, Q4 | `asOf` in the consumer tier; SC-11 (consumer) |
-| 22 | C9 | C2 | Event definitions |
-| 23 | C10 | C9, F2 | Event deriver, event store, pull feed |
-| 24 | C11 | C10 | Subscriptions |
-| 25 | C12 | C11 | Dispatcher |
-| 26 | C13 | C12 | Event acceptance |
+| 12 | [T1](#t1-track-checkpoint-q-b-f) | Q4, B2, B3, F2 | Track checkpoint for Q, B and F: their groups, budgets and a composed journey |
+| 13 | C2 | C1 | Consumer object and projections |
+| 14 | C3 | C2 | Lists |
+| 15 | C4 | C2 | Consumer index and XREF scoring |
+| 16 | C5 | C4 | XREF parameters |
+| 17 | C14 | C4 | Batch resolve |
+| 18 | C15 | C5 | Crosswalk |
+| 19 | C6 | C3, C4, F1 | ETag, publications with `eventSequence`, OpenAPI per definition, API index |
+| 20 | [V2](#v2-consumer-sources) | V1, C6 | Consumer contracts as reference sources |
+| 21 | C8 | C3–C6, C14, C15 | Parity acceptance; the consumer read line's checkpoint |
+| 22 | C16 | C2, Q4 | `asOf` in the consumer tier; SC-11 (consumer) |
+| 23 | C9 | C2 | Event definitions |
+| 24 | C10 | C9, F2 | Event deriver, event store, pull feed |
+| 25 | C11 | C10 | Subscriptions |
+| 26 | C12 | C11 | Dispatcher |
+| 27 | C13 | C12 | Event acceptance; the events line's checkpoint |
 | — | _cut line (D9)_ | | _If R is out of reach, 0.9.0 releases here with R-a and Track J moves to 0.9.1_ |
-| 27 | [J1](#j1-export) | Q3, Q4, B2, F1 | Export jobs |
-| 28 | [J2](#j2-import-profiles-and-file-reading) | B3 | Import profiles, XLSX/CSV/JSON Lines reading, rows to items |
-| 29 | [J3](#j3-import-preview-and-execution) | J2, B2 | Import preview, confirm, execute |
-| 30 | [J4](#j4-import-screen-and-sc-10) | J1, J3, F2 | The SC-10 screen and SC-10 acceptance |
-| 31 | [R](#r-build-acceptance-and-release) | all | Build acceptance and release |
+| 28 | [J1](#j1-export) | Q3, Q4, B2, F1 | Export jobs |
+| 29 | [J2](#j2-import-profiles-and-file-reading) | B3 | Import profiles, XLSX/CSV/JSON Lines reading, rows to items |
+| 30 | [J3](#j3-import-preview-and-execution) | J2, B2 | Import preview, confirm, execute |
+| 31 | [J4](#j4-import-screen-and-sc-10) | J1, J3, F2 | The SC-10 screen and SC-10 acceptance |
+| 32 | [R](#r-build-acceptance-and-release) | all | Build acceptance and release |
+
+**Order revised 2026-09-30, after Q3.** The queue delivers first what later packages build on, while
+little depends on it yet, and keeps self-contained packages as fillers:
+
+- **C1, then Q4**: schema 0.8 opens once and Track Q closes; the starter becomes content release 0.9.0
+  once, and every later package that touches the model (C2 onward) builds on a settled schema.
+- **B1, then F1 before B2**: F1 takes a per-workspace lock on every live write and fixes the lock
+  order (INTEGRATION_API F3). The background worker (B2) is then built on that order from the start
+  instead of being retrofitted. F1 needs only B1.
+- **V1** is independent of every other package: it is delivered wherever a gap suits, early enough
+  that the reference page can be used to review contracts as they land. V2 follows C6.
+- **T1** checks Tracks Q, B and F together after F2, which have no acceptance package of their own;
+  C8 and C13 serve the consumer lines. R then confirms the build rather than discovering problems.
+
+**Deviations.** A defect, a revised decision or a new need found during a package is sorted by one
+question: does it change something the next package builds on? If so, it is fixed first as a named
+amendment package here (as 0.8 did with B5b and R1b), with its own record and checks, before the
+queue continues. If not, it goes into TODO against the package it belongs to. A revised decision
+keeps its number, with the date and reason (as D3 and D5), and delivered packages it affects get an
+amendment, not a silent edit.
 
 After C2, the consumer read line (C3–C8, C14–C16) and the events line (C9–C13) are independent;
-the queue lists one order that respects both. B1 and the Q packages are independent, so B1 may start before Q3 if bulk is needed
-sooner.
+the queue lists one order that respects both.
 
 ## Sequence and dependencies
 
@@ -233,7 +253,8 @@ Track Q:  Q1 ─ Q3 ─ Q4            Q2 (alone)          Q4 also needs C1 (sche
 Track V:  V1 ────────────────── V2                    V2 needs C6
 Track B:  B1 ─┬─ B2
               └─ B3
-Track F:  B1 ─ F1 ─ F2
+Track F:  B1 ─ F1 ─ F2                                F1 before B2 (lock order)
+Track T:  Q4, B2, B3, F2 ─ T1                         checkpoint for Q, B and F
 Track C:  C1 ─ C2 ─┬─ C3 ───────────────┐
                    ├─ C4 ─┬─ C5 ─ C15 ──┤
                    │      └─ C14 ───────┤
@@ -243,7 +264,7 @@ Track C:  C1 ─ C2 ─┬─ C3 ───────────────�
           ── cut line (D9) ──
 Track J:  J1                                       needs Q3, Q4, B2, F1
           B3 ─ J2 ─ J3 ─ J4                        J3 needs B2; J4 needs J1, F2
-Release:  Q2, Q4, B3, F2, C8, C13, C16, V2, J4 → R   (R-a without J at the cut line)
+Release:  Q2, T1, C8, C13, C16, V2, J4 → R          (R-a without J at the cut line)
 ```
 
 ## Track Q — Queries
@@ -599,6 +620,28 @@ past the floor; re-sync from a publication then the feed missing nothing (SC-10'
 
 **Exit:** the feed in API.md; SC-10's feed half passes at API level.
 
+## Track T — Checkpoints
+
+#### T1: Track checkpoint (Q, B, F)
+
+**Needs:** Q4, B2, B3, F2. Added 2026-09-30 with the revised queue.
+
+**Scope:** Tracks Q, B and F checked together, since each package was checked only at its own
+boundary and none of the three tracks has an acceptance package. Not a build acceptance: no full
+suite and no browser runners.
+- The groups the three tracks own, run together once: `queries`, `jobs`, `feed`, `change_sets`,
+  `records`, `mapping`, `contract`, `startup` (every migration since 0.8.0 on one upgrade path) and
+  `volume`.
+- Every Q, B and F budget at full volume in one `volume_baseline.py --scale 1` run, recorded against
+  each package's own figure.
+- One composed API journey across them: a batch job writes records and relations in the background
+  while a reader follows the feed; the model-aware query, with `asOf`, and the edge list read the
+  same state in live data, a change set and a publication; a resumed and a cancelled job leave the
+  feed and the reads consistent.
+
+**Exit:** all pass, or each failure is fixed as an amendment package or recorded against the package
+it belongs to, before C2.
+
 ## Track C — Consumer API
 
 Scope, order and acceptance are in [CONSUMER_API.md](CONSUMER_API.md#delivery-packages); C7 moved to
@@ -621,6 +664,52 @@ Scope, order and acceptance are in [CONSUMER_API.md](CONSUMER_API.md#delivery-pa
 | C11 | C10 | `feed`, `contract` | Subscriptions API under its capability, host allowlist, suspension on model change |
 | C12 | C11 | `feed` | Ordered per-change and coalesced delivery, retry, suspend, resume |
 | C13 | C12 | `feed`, `volume` | Event scenarios 1–9, 11–13 and parity scenario 14; bulk-volume delivery budget |
+
+#### C1: Consumer API definitions
+
+**Delivered 2026-09-30.** Schema 0.8 is open and accepts `consumerApis` and nothing else yet
+([APPLICATION_MODEL](APPLICATION_MODEL.md#consumer-api-definitions-consumerapis),
+[CONSUMER_API rules](CONSUMER_API.md#definition-shape)). Decisions C-D17–C-D20 were raised before
+coding and accepted as recommended. What was built:
+
+- **Shape** in `models/schema.py` (`ConsumerApiDefinition` and its parts; parameters are a union on
+  `kind`, so a parameter's options are checked by its kind). `from` keeps its spelling in the canonical
+  document; absent optional parts are omitted, so releases without definitions keep their hash.
+- **References** in `engine/model/validation/consumer_api_rules.py`, the last rule of the chain, each
+  refused at `/consumerApis/<key>/…`. The rules CONSUMER_API left open are recorded there under
+  "Delivered in C1": URL-safe keys, the identity as `id` or a `unique` attribute, reserved and unique
+  output names, route and ancestor checks. `events` stays an unknown field until C9.
+- **Contract** in `engine/model/consumer_contract.py`: `output_contract` derives what consumers read
+  (types and public names, output fields with value types, projection shapes from cardinality and
+  their fields, weights, lists, parameter kinds), with the same field resolution validation uses;
+  `contract_diagnostics` compares a candidate with the active release (C-D17, C-D18). C2 builds its
+  reads on the same resolution.
+- **Where the check shows:** `consumerContracts` on draft compile and release diff (classification
+  `compatible` or `version_required`), and activation refused with `409
+  consumer_contract_version_required` after the data compatibility check
+  ([API.md](API.md#installed-releases)). A separate block rather than a new
+  `compatibility` classification, since a contract break is not a data migration.
+
+Found on the way: CONSUMER_API's own example names a list's parent parameter like a definition
+parameter (`codelist`), so that is allowed rather than refused as a clash.
+
+**Checks:** `test_consumer_api_model` (new, `consumer` + `model` + `model_admin`; 87 passed): CONSUMER_API's
+reference definition reduced to the starter compiles, round-trips its canonical hash and yields the
+expected contract, on the starter and on a copy with every key renamed; schema 0.7 and `events`
+refused; 26 reference refusals each at its pointer; shape errors at theirs; 12 breaking changes each
+reported at its path and released by a higher `contractVersion`; additions compatible; a lower version
+and a removed definition reported; a cardinality change in the model turning a projection from an
+array into an object; and, on a database of its own, draft compile, release diff and activation (a
+break refused with the active release unchanged, then accepted under version 2). Groups `consumer`,
+`model`, `model_admin` and `contract` together: 404 passed, with the re-baselined OpenAPI lock
+(checked by diffing the document against HEAD: `ModelConsumerContractsResponse` added and
+`ModelReleaseDiffResponse.consumerContracts`; the draft routes are outside the locked document) and
+four tests updated for the supported schema list now ending in 0.8. `ruff check app/ tests/` clean.
+
+Not run: `startup`, since no migration or startup path changed (schema 0.8 needs no table; the
+supported list is exercised by `model_admin`'s recovery and activation tests); `volume`, since no read
+changed; frontend checks, since nothing in the frontend changed (it types `schemaVersion` as a
+string). The full suites wait for R.
 
 ## Track V — API reference
 

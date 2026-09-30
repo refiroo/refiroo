@@ -20,6 +20,9 @@ replace them, or add applications for entirely different domains. The views each
 declares differ only because the example declares them that way; see
 [docs/EXAMPLE_MODEL.md](docs/EXAMPLE_MODEL.md).
 
+This project is delivered by LLM coding agents, Claude Code and ChatGPT Codex, under human
+supervision.
+
 ## Current state — Base 0.8 released
 
 - Global reusable attribute types and object-type attribute bindings

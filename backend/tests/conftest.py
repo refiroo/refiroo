@@ -27,6 +27,7 @@ GROUP_DESCRIPTIONS = {
     "matrix": "relation matrix reads: cells, states, row state filter and columns",
     "contract": "locked OpenAPI document and route inventories",
     "volume": "Track S volume fixture: read and write budgets as the dataset grows",
+    "consumer": "consumer API definitions, reads, XREF, batch resolve, crosswalk, publications, parity",
 }
 TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_model.py": ("model",),
@@ -35,6 +36,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_model_placements.py": ("model", "contract"),
     "test_model_compatibility.py": ("model", "model_admin"),
     "test_model_lifecycle.py": ("model_admin",),
+    "test_consumer_api_model.py": ("consumer", "model", "model_admin"),
     "test_build07_wp11.py": ("model_admin",),
     "test_build07_wp6.py": ("model_admin", "change_sets"),
     "test_build07_wp9_acceptance.py": ("model_admin", "change_sets", "workspaces"),

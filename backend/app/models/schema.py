@@ -344,6 +344,182 @@ class ApplicationDefinition(ModelDefinition):
     settings: Mapping[str, Any] = Field(default_factory=dict)
 
 
+def _omitted() -> Any:
+    """An optional field left out of the canonical document when absent."""
+    return Field(default=None, exclude_if=lambda value: value is None)
+
+
+# Schema 0.8 (Base 0.9 C1): consumer API definitions, CONSUMER_API.md "Definition shape". Shape only;
+# every reference is checked by engine/model/validation/consumer_api_rules.py.
+
+
+class ConsumerExposedType(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
+
+    publicName: str = Field(min_length=1)
+
+
+class ConsumerField(ModelDefinition):
+    """A role of the shared object: its output name and the first non-empty of its sources."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    output: str = Field(min_length=1)
+    source: tuple[str, ...] = Field(min_length=1)
+    default: Any | None = _omitted()
+
+
+class ConsumerAttributeField(ModelDefinition):
+    """A further output field, named by its key in ``attributes``."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: tuple[str, ...] = Field(min_length=1)
+    default: Any | None = _omitted()
+
+
+class ConsumerParentField(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
+
+    output: str = Field(min_length=1)
+    fields: tuple[Literal["objectType", "id", "code", "name"], ...] = Field(min_length=1)
+
+
+class ConsumerObjectDefinition(ModelDefinition):
+    """The shared object's fixed roles, each under the output name the definition chooses."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: ConsumerField
+    code: ConsumerField | None = _omitted()
+    name: ConsumerField | None = _omitted()
+    active: ConsumerField | None = _omitted()
+    validFrom: ConsumerField | None = _omitted()
+    validTo: ConsumerField | None = _omitted()
+    attributes: Mapping[str, ConsumerAttributeField] = Field(default_factory=dict)
+    parent: ConsumerParentField | None = _omitted()
+    path: str | None = _omitted()
+    hierarchy: str | None = _omitted()
+
+
+class ConsumerRelationRoute(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
+
+    relation: str
+    direction: Literal["outgoing", "incoming"]
+
+
+class ConsumerProjection(ModelDefinition):
+    """A named block of related objects: output field name to a field of the related object."""
+
+    model_config = ConfigDict(extra="forbid", serialize_by_alias=True, validate_by_name=True)
+
+    from_: ConsumerRelationRoute = Field(alias="from")
+    fields: Mapping[str, str] = Field(min_length=1)
+
+
+class ConsumerMatchRule(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
+
+    field: str
+    exact: int | None = Field(default=None, ge=1, exclude_if=lambda value: value is None)
+    contains: int | None = Field(default=None, ge=1, exclude_if=lambda value: value is None)
+
+    @model_validator(mode="after")
+    def weigh_something(self) -> ConsumerMatchRule:
+        if self.exact is None and self.contains is None:
+            raise ValueError("A match rule needs an 'exact' or a 'contains' weight")
+        return self
+
+
+class ConsumerPromotedMatch(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
+
+    projection: str
+    firstMatch: tuple[ConsumerMatchRule, ...] = Field(min_length=1)
+    preferTargetTypes: tuple[str, ...] = ()
+
+
+class ConsumerMatch(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
+
+    own: tuple[ConsumerMatchRule, ...] = ()
+    promoted: tuple[ConsumerPromotedMatch, ...] = ()
+
+
+class ObjectTypeParameter(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["objectType"]
+
+
+class AncestorParameter(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["ancestor"]
+    objectTypes: tuple[str, ...] = Field(min_length=1)
+    matchFields: tuple[str, ...] = Field(min_length=1)
+
+
+class RelatedParameter(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["related"]
+    objectTypes: tuple[str, ...] = Field(min_length=1)
+    matchFields: tuple[str, ...] = Field(min_length=1)
+    # A projection name, "self", or "sharedProjection:<projection>".
+    via: tuple[str, ...] = Field(min_length=1)
+
+
+class ProjectionParameter(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["projection"]
+    projection: str
+    matchFields: tuple[str, ...] = Field(min_length=1)
+    scoresFrom: bool = False
+    requireMatch: bool = False
+    targetable: bool = False
+
+
+ConsumerParameter = Annotated[
+    ObjectTypeParameter | AncestorParameter | RelatedParameter | ProjectionParameter,
+    Field(discriminator="kind"),
+]
+
+
+class ConsumerListParent(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(min_length=1)
+    objectTypes: tuple[str, ...] = Field(min_length=1)
+
+
+class ConsumerList(ModelDefinition):
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    objectType: str
+    parentParameter: ConsumerListParent | None = _omitted()
+
+
+class ConsumerApiDefinition(ModelDefinition):
+    """One consumer API: its public key (the ``apiKey``), contract version and shape."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    key: str
+    name: str = Field(min_length=1)
+    description: str | None = _omitted()
+    contractVersion: int = Field(ge=1)
+    objectTypes: Mapping[str, ConsumerExposedType] = Field(min_length=1)
+    object: ConsumerObjectDefinition
+    projections: Mapping[str, ConsumerProjection] = Field(default_factory=dict)
+    match: ConsumerMatch | None = _omitted()
+    parameters: Mapping[str, ConsumerParameter] = Field(default_factory=dict)
+    lists: tuple[ConsumerList, ...] = ()
+
+
 class ProductDefinition(ModelDefinition):
     name: str
     description: str | None = None
@@ -358,7 +534,7 @@ class ModelReleaseDefinition(ModelDefinition):
 class EngineModel(ModelDefinition):
     model_config = ConfigDict(extra="forbid")
 
-    schemaVersion: Literal["0.5", "0.6", "0.7"]
+    schemaVersion: Literal["0.5", "0.6", "0.7", "0.8"]
     release: ModelReleaseDefinition
     product: ProductDefinition
     attributeTypes: tuple[AttributeTypeDefinition, ...]
@@ -366,6 +542,8 @@ class EngineModel(ModelDefinition):
     relationTypes: tuple[RelationTypeDefinition, ...]
     objectTypeRelations: tuple[ObjectTypeRelationDefinition, ...]
     applications: tuple[ApplicationDefinition, ...]
+    # Schema 0.8. Omitted from the canonical document when absent, so earlier hashes hold.
+    consumerApis: tuple[ConsumerApiDefinition, ...] | None = _omitted()
 
     _attribute_types_by_key: dict[str, AttributeTypeDefinition] = {}
     _object_types_by_key: dict[str, ObjectTypeDefinition] = {}

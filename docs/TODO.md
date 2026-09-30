@@ -8,7 +8,8 @@ release plan and changelog rather than accumulating it here.
 
 Base 0.8 is released (2026-09-29). 0.9 adds integration-grade APIs in the order of the
 [0.9 delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue): Q1 and Q2 are delivered (2026-09-29),
-and Q3, taken ahead of V1 and C1 since it needs only Q1, on 2026-09-30; V1 is next. See [Next — 0.9](#next--09).
+and Q3 on 2026-09-30. The queue was reordered after Q3 (C1 and Q4 first, F1 before B2, V1 as a
+filler, checkpoint T1 after F2). C1 is delivered (2026-09-30); Q4 is next. See [Next — 0.9](#next--09).
 
 ## Open decisions
 

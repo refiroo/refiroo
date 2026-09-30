@@ -21,6 +21,7 @@ from ...engine.model.registry import model_registry
 from ...engine.model.releases import (
     ActivationBusy,
     ActivationConflict,
+    ConsumerContractVersionRequired,
     InvalidInstalledModel,
     ModelMigrationRequired,
     ModelReleaseNotFound,
@@ -35,7 +36,12 @@ from ...errors import api_error
 from ...models.database import AuditEvent, ModelDraft, ModelRelease
 from ..dependencies import ActiveModelSnapshot, DbSession
 from ..paging import PageQuery
-from ..presenters import change_response, diagnostic_details, diagnostic_response
+from ..presenters import (
+    change_response,
+    consumer_contracts_response,
+    diagnostic_details,
+    diagnostic_response,
+)
 from ..schemas.model import (
     ModelActivationRequest,
     ModelCompatibilityResponse,
@@ -116,6 +122,14 @@ def activate_release(
                 "model_migration_required",
                 "Stored runtime data is incompatible with the candidate model",
                 diagnostic_details(exc.compatibility.diagnostics),
+            ) from exc
+        except ConsumerContractVersionRequired as exc:
+            raise api_error(
+                409,
+                "consumer_contract_version_required",
+                "A consumer API definition changes what its consumers read; raise its"
+                " contractVersion in a new release",
+                diagnostic_details(exc.diagnostics),
             ) from exc
         except InvalidInstalledModel as exc:
             raise api_error(
@@ -290,6 +304,9 @@ def compile_model_draft(
             classification=compatibility.classification,
             activeReleaseId=compatibility.active_release_id,
             diagnostics=[diagnostic_response(item) for item in compatibility.diagnostics],
+        ),
+        consumerContracts=consumer_contracts_response(
+            snapshot.model, compiled.model, snapshot.release_id
         ),
     )
 

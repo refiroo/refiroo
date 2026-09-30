@@ -23,6 +23,7 @@ from ...models.schema import EngineModel
 from ..indexes import matrix_states
 from .compatibility import CompatibilityResult, analyze_compatibility
 from .compiler import SUPPORTED_SCHEMA_VERSIONS, ModelDiagnostic, canonical_model, compile_model
+from .consumer_contract import contract_diagnostics
 from .validation import require_valid_references
 
 model_installation_lock = Lock()
@@ -64,6 +65,13 @@ class InvalidInstalledModel(Exception):
 @dataclass(frozen=True)
 class ModelMigrationRequired(Exception):
     compatibility: CompatibilityResult
+
+
+@dataclass(frozen=True)
+class ConsumerContractVersionRequired(Exception):
+    """A consumer API definition changes what its consumers read without a new contract version."""
+
+    diagnostics: tuple[ModelDiagnostic, ...]
 
 
 @dataclass(frozen=True)
@@ -153,6 +161,14 @@ def activate_model_release(
     )
     if compatibility.classification == "migration_required":
         raise ModelMigrationRequired(compatibility)
+    # Consumers read the active release, so its definitions are the contract (C-D17).
+    contract_errors = [
+        item
+        for item in contract_diagnostics(active_compilation.model, candidate_compilation.model)
+        if item.severity == "error"
+    ]
+    if contract_errors:
+        raise ConsumerContractVersionRequired(tuple(contract_errors))
 
     updated_at = datetime.now(UTC)
     result = session.execute(
