@@ -40,10 +40,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # schemas; nothing else. Re-baselined for 0.9 Q1: GET /objects, the cross-type lookup, added to
     # the existing /objects path beside POST; no existing operation or schema changed.
     # Re-baselined for 0.9 Q2: publicationId on GET /workspaces/{key}/mappings, and the same edge
-    # list published as GET /workspaces/{key}/relations; no schema changed.
+    # list published as GET /workspaces/{key}/relations; no schema changed. Re-baselined for 0.9
+    # Q3: POST /workspaces/{key}/queries/objects with the ModelQuery body, the ObjectQueryPage
+    # response and their parts; no existing path or schema changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "032f4b14be17f41f3f5c4489153ebb5b0756a0d8759f2956387ae4762520431f"
+        "2f666e50c267faaee2276ed19ccf2fde3c04e71a543964ffbd2754de8d7eea83"
     )
 
 
@@ -77,6 +79,16 @@ def test_paging_openapi_inventory():
     objects = {item["name"] for item in document["paths"]["/api/v1/objects/{object_type_key}"]["get"]["parameters"]}
     relations = {item["name"] for item in document["paths"]["/api/v1/relations"]["get"]["parameters"]}
     assert "topLevel" in objects and {"search", "sort"} <= relations
+    # 0.9 Q3: the model-aware query pages the same way, with its page selection in the body.
+    query = document["paths"]["/api/v1/workspaces/{workspace_key}/queries/objects"]["post"]
+    body = query["requestBody"]["content"]["application/json"]["schema"]["$ref"].rsplit("/", 1)[-1]
+    assert {"cursor", "from", "position", "includeTotal", "pageSize"} <= set(
+        document["components"]["schemas"][body]["properties"]
+    )
+    page = query["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].rsplit("/", 1)[-1]
+    properties = document["components"]["schemas"][page]["properties"]
+    assert next(iter(properties)) == "items"
+    assert {"nextCursor", "prevCursor", "anchor", "totalCount", "startIndex"} <= set(properties)
 
 
 def test_wp6_openapi_removes_rejected_object_lifecycle_and_direct_writes():

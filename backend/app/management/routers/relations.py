@@ -10,7 +10,11 @@ from ...engine.change_sets.records import (
     update_change_set_relation,
 )
 from ...engine.model.registry import resolve_model_snapshot
-from ...engine.reads.relation_queries import build_relation_query, build_snapshot_relation_query
+from ...engine.reads.relation_queries import (
+    build_relation_query,
+    build_snapshot_relation_query,
+    relation_scope,
+)
 from ...engine.reads.snapshot_reads import (
     change_set_context,
     find_object,
@@ -115,7 +119,7 @@ def list_relations(
         if anchor is None:
             raise api_error(404, "object_not_found", "Object not found")
         query = build_snapshot_relation_query(snapshot.model, context, anchor_type_key=anchor.object_type_key, **options)
-        page = paginate_statement(session, query.statement, keys=query.keys, scope=f"relations-{context.kind}", filters=query.filters, page=paging, page_size=page_size, message="Relation cursor is invalid", rows=True, seek=query.seek)
+        page = paginate_statement(session, query.statement, keys=query.keys, scope=relation_scope(context), filters=query.filters, page=paging, page_size=page_size, message="Relation cursor is invalid", rows=True, seek=query.seek)
         objects = find_objects(session, context, (row.related_id for row in page.items))
         paths = object_paths(session, context, objects.values())
         return RelationPage(items=[RelationExpansion(direction="outgoing" if row.from_object_id == object_id else "incoming", relation=_change_set_response(row), object=change_set_object_response(objects[row.related_id], context.id, snapshot.model, path=paths[row.related_id]).model_copy(update={"workspaceKey": context.workspace_key})) for row in page.items if row.related_id in objects], **page.links())
@@ -124,7 +128,7 @@ def list_relations(
     if anchor.workspace_key != workspace.key:
         raise api_error(404, "object_not_found", "Object not found in the selected workspace")
     query = build_relation_query(snapshot.model, anchor_type_key=anchor.object_type_key, workspace_key=anchor.workspace_key, **options)
-    page = paginate_statement(session, query.statement, keys=query.keys, scope="relations", filters=query.filters, page=paging, page_size=page_size, message="Relation cursor is invalid", rows=True, seek=query.seek)
+    page = paginate_statement(session, query.statement, keys=query.keys, scope=relation_scope(None), filters=query.filters, page=paging, page_size=page_size, message="Relation cursor is invalid", rows=True, seek=query.seek)
     related_ids = list(dict.fromkeys(row.related_id for row in page.items))
     related_rows = list(session.scalars(select(RdmObject).where(RdmObject.id.in_(related_ids))))
     # One batched build for the page, not one per row (S1 finding).

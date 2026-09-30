@@ -248,7 +248,7 @@ def refine_object_query(
         statement = statement.where(
             _search_predicate(model, columns, object_types, search, search_fields)
         )
-    normalized_filters, predicates = _typed_filter_predicates(
+    normalized_filters, predicates = typed_filter_predicates(
         model, columns, object_types, field_filters
     )
     if predicates:
@@ -510,28 +510,29 @@ def _query_ancestor(
     return columns.ancestor(statement, ancestor_type_key)
 
 
-def _typed_filter_predicates(
+def typed_filter_predicates(
     model: EngineModel,
     columns: ObjectColumns,
     object_types: Sequence[ObjectTypeDefinition],
     filters: list[tuple[str, str, str]],
 ) -> tuple[list[dict[str, str]], list[Any]]:
+    """Parse ``(field, operator, lexical value)`` filters and return them normalized with their
+    predicates: equalities on one field are alternatives, everything else is combined with AND."""
     parsed: list[tuple[str, str, Any, str, Any]] = []
     for field, operator, lexical in filters:
-        column = columns.builtin.get(field)
-        value_type = _built_in_value_type(field)
-        if column is None:
-            definition = _query_attribute(model, object_types, field, "filterable", "filter")
-            value_type = definition.valueType
-            column = getattr(columns.values, VALUE_COLUMNS[value_type])
-        allowed = _filter_operators(value_type, attribute=field not in columns.builtin)
-        if operator not in allowed:
+        value_type, is_attribute = filter_value_type(model, columns.builtin, object_types, field)
+        column = (
+            getattr(columns.values, VALUE_COLUMNS[value_type])
+            if is_attribute
+            else columns.builtin[field]
+        )
+        if operator not in filter_operators(value_type, attribute=is_attribute):
             query_error(
                 "invalid_filter",
                 f"Operator '{operator}' is not supported for field '{field}'",
                 f"filter.{field}.{operator}",
             )
-        value = _parse_filter_value(value_type, operator, lexical, field)
+        value = parse_filter_value(value_type, operator, lexical, field)
         parsed.append((field, operator, value, value_type, column))
 
     predicates: list[Any] = []
@@ -558,6 +559,22 @@ def _typed_filter_predicates(
         key=lambda item: (item["field"], item["operator"], item["value"]),
     )
     return normalized, predicates
+
+
+def filter_value_type(
+    model: EngineModel,
+    builtin: dict[str, Any],
+    object_types: Sequence[ObjectTypeDefinition],
+    field: str,
+) -> tuple[str, bool]:
+    """The value type a filter on ``field`` compares, and whether the field is an attribute.
+
+    A built-in field is one of ``builtin``; an attribute must be bound, filterable and not JSON,
+    on a list of one object type.
+    """
+    if field in builtin:
+        return _built_in_value_type(field), False
+    return _query_attribute(model, object_types, field, "filterable", "filter").valueType, True
 
 
 def _filter_predicate(
@@ -616,7 +633,7 @@ def _built_in_value_type(field: str) -> str:
     return "text"
 
 
-def _filter_operators(value_type: str, *, attribute: bool) -> set[str]:
+def filter_operators(value_type: str, *, attribute: bool) -> set[str]:
     suffix = {"isUnset"} if attribute else set()
     if value_type in {"text", "longText"}:
         return {"eq", "contains", "startsWith", "isNull"} | suffix
@@ -627,7 +644,7 @@ def _filter_operators(value_type: str, *, attribute: bool) -> set[str]:
     return set()
 
 
-def _parse_filter_value(value_type: str, operator: str, lexical: str, field: str) -> Any:
+def parse_filter_value(value_type: str, operator: str, lexical: str, field: str) -> Any:
     if operator in {"isNull", "isUnset"}:
         if lexical not in {"true", "false"}:
             query_error("invalid_filter", f"Filter '{operator}' requires true or false", f"filter.{field}.{operator}")
@@ -695,7 +712,7 @@ def _attribute_sort_value(
 def _parse_cursor_value(value_type: str, token: str) -> Any:
     if token == "~null":
         return None
-    return _parse_filter_value(value_type, "eq", token, "cursor")
+    return parse_filter_value(value_type, "eq", token, "cursor")
 
 
 def _format_typed_value(value: Any) -> str:

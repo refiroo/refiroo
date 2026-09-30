@@ -1066,6 +1066,92 @@ change set over it; SQLite; 20-row pages; median time): a first page over every 
 72, 80 and 73 ms. A search is a contains-match, which no index serves, so its cost grows with the
 records it reads; narrowing by `objectTypeKey`, `applicationKey` or a parent reduces it.
 
+### Model-aware query (Base 0.9 Q3)
+
+`POST /api/v1/workspaces/{workspaceKey}/queries/objects` lists one object type's records matching
+criteria over their fields, their ancestors and one relation hop, with the fields and related
+records each item returns. It is a read with a body: it changes nothing and needs no capability.
+
+```json
+{
+  "objectTypeKey": "master-value",
+  "context": { "publicationId": "…" },
+  "where": [
+    { "field": "active", "op": "eq", "value": true },
+    { "field": "ancestor:codelist", "op": "eq", "value": "…codelist id…" },
+    { "related": { "relationTypeKey": "system-value-maps-to-master", "direction": "incoming",
+                   "where": [ { "field": "external-id", "op": "startsWith", "value": "EPIC-" } ] },
+      "not": false }
+  ],
+  "sort": "-code",
+  "select": ["name", "code", "ancestor:codelist"],
+  "expand": [ { "relationTypeKey": "system-value-maps-to-master", "direction": "incoming",
+                "select": ["name", "external-id"], "limit": 20 } ],
+  "pageSize": 100
+}
+```
+
+- **`context`**: live when empty, or `changeSetId` or `publicationId` (both: `422
+  mutually_exclusive_context`). The context must belong to the path's workspace (`422
+  workspace_context_mismatch`); an unknown workspace, change set or publication is `404`.
+- **`where`** is a list combined with AND. A field criterion is `field`, `op` and `value` with the
+  object list's grammar: built-in `id`, `name`, `parentObjectId` and (live only) `createdAt`,
+  `updatedAt`, and the attributes the type binds as `filterable`, with the operators of their value
+  type. Values keep their JSON type: text and dates as strings, integers as integers, decimals as
+  numbers or decimal strings, booleans as booleans; `isNull` and `isUnset` take a boolean. Several
+  `eq` criteria on one field are alternatives, as on the list. A criterion the list can express
+  selects the same records in the same order through either.
+- **`ancestor:<type>`** with `eq` on an ancestor's ID: records under that record at any depth, read
+  from the containment path. Any ancestor of that type counts, so with a type that nests, each of
+  its levels matches. The type must be one the queried type can sit under. An ID of another type,
+  or none, matches nothing.
+- **`related`**: one relation hop over a binding the queried type has in that `direction`, true
+  when at least one record at the other end matches the hop's own `where`; `"not": true` inverts
+  it (no such record). The hop's criteria are field criteria over the types the binding allows at
+  the other end: built-in fields always, an attribute only when that is one type binding it as
+  filterable (D18). No further hop and no ancestor criterion inside a hop. OR groups, nested hops and
+  several sort keys wait for a second real case (D4).
+- **`sort`**: one field as on the per-type list (`name` by default, `id`, `objectType`, a scalar
+  attribute, live `createdAt`, `updatedAt`; `-` for descending), then the unique tie-breaker.
+- **`select`** names the fields each item returns (D17). Items always carry `id`, `objectTypeKey`
+  and `version`. Without `select`, an item is the object list's item. With it, the values are under
+  `fields`, keyed by field: `name`, `workspaceKey`, `applicationKey`, `parentObjectId`, `path`,
+  `createdAt`, `updatedAt`, any attribute the type binds (null when the record has none), and
+  `ancestor:<type>` as the `id` and `name` of the ancestor of that type nearest the root (null when
+  there is none).
+- **`expand`** adds, per item, the records at the other end of a binding the type has, one entry per
+  expansion in `expanded`, in request order: `relationTypeKey`, `direction`, `count` (all of them),
+  `items` (at most `limit`, 1–20, default 20; each `relationId` and `object`, shaped by the
+  expansion's `select` as above) in name order, and `nextCursor`. That cursor continues on
+  `GET /api/v1/relations` with the item as `objectId`, the same `direction`, `relationTypeKey` and
+  context, and the default sort, exactly after the last item shown; null when `items` holds them
+  all. `expanded` is omitted when the query expands nothing. A binding may be expanded once.
+- **`asOf`** is accepted as a date and refused as `422 as_of_not_supported` until effective periods
+  (0.9 Q4).
+- **Paging** as ADR-030, with the page selection in the body: `cursor`, `position`, `from`
+  (`start` or `end`), `includeTotal` and `pageSize` (default 100, maximum 500). The response is a
+  page (`items`, `nextCursor`, `prevCursor`, `anchor`, and `totalCount` and `startIndex` with
+  `includeTotal`). A cursor binds the context and the whole body but its page selection, so it
+  continues this query only; no list accepts a query's cursor, nor the query a list's.
+
+**Errors (D19).** The body's shape is checked as on every body: a wrong JSON type for a known
+property, an unknown property or a bound such as `pageSize` or `limit` is `422
+request_validation_error`. What depends on the model is `422 invalid_query`, with `details.path` a
+JSON pointer to the part that is wrong: an unknown object type (`/objectTypeKey`), a field the type
+does not bind or not filterable (`/where/0/field`), an operator its value type lacks
+(`/where/0/op`), a value of the wrong type (`/where/0/value`), a binding the type does not have
+(`/where/1/related/relationTypeKey` or `/direction`), a criterion inside a hop
+(`/where/1/related/where/0/field`), an unknown `select` field (`/select/2`), an expansion
+(`/expand/0/…`) or a sort (`/sort`). Timestamps in change-set and publication contexts are refused
+as on the per-type list.
+
+Cost over the Track S fixture (100,000 items among 258,000 live records, a publication and a change
+set over it; SQLite; 20-row pages; median of five), live · change set · publication: a hop to the
+group 1,500 items cite, with its total, 12 · 52 · 37 ms; the inverted hop's first page 6 · 11 · 4
+ms; the 20,000 items under one group by `ancestor:`, with their total, 27 · 48 · 6 ms; a 20-row
+expansion of 1,500 citations 9 · 15 · 8 ms, and of a group's 20,000 items 44 · 91 · 68 ms, about
+what `GET /relations` costs for that record. Each expansion is one statement for the whole page.
+
 ### Create request
 
 `POST /api/v1/objects` accepts a JSON body. Extra fields are rejected.

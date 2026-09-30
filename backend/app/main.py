@@ -30,6 +30,7 @@ from .management.routers import (
     model_management,
     model_releases,
     objects,
+    queries,
     relation_matrix,
     relations,
     workspaces,
@@ -163,6 +164,7 @@ def create_app() -> FastAPI:
     if mutations_enabled:
         application.include_router(model_management.router)
     application.include_router(objects.router)
+    application.include_router(queries.router)
     application.include_router(attributes.router)
     application.include_router(relations.router)
     application.include_router(mapping.router)

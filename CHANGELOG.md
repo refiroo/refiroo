@@ -20,6 +20,15 @@ All notable changes to this project are documented in this file. The format foll
   `GET /api/v1/workspaces/{key}/relations`: every edge of any relation type in live data, a change set
   or a publication, with one response shape. Each route's cursors are its own. A publication's rows
   carry `mappingVersion` 0. `GET /api/v1/relations` is unchanged.
+- Base 0.9 Q3: the model-aware query `POST /api/v1/workspaces/{key}/queries/objects`. It lists one
+  object type's records in live data, a change set or a publication by criteria combined with AND:
+  the object list's field criteria with typed JSON values, `ancestor:<type>` by ID, and one relation
+  hop (`related`, inverted with `not`). One `sort`; `select` returns chosen values under `fields`;
+  `expand` adds up to 20 related records per item with their `count` and a cursor that continues on
+  `GET /relations`, one statement per expansion for the page. Paging by cursor, position or `from`,
+  with cursors bound to the body. Model-dependent mistakes are `422 invalid_query` with a JSON
+  pointer; `asOf` is refused as `as_of_not_supported` until Q4. Decisions D17–D19. Over the
+  100,000-item volume fixture every measured query takes 4–91 ms.
 
 ### Changed
 

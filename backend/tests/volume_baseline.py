@@ -33,6 +33,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from volume_fixture import (
     CELLS_BY_COLUMN,
+    CODE,
     GROUP,
     GROUP_CONTAINS_ITEM,
     ITEM,
@@ -317,6 +318,66 @@ def _read_scenarios(
     ]
 
 
+def _query_scenarios(context: str, dataset: VolumeDataset) -> list[tuple[str, dict[str, Any]]]:
+    """0.9 Q3: model-aware queries, as bodies for ``POST /workspaces/{key}/queries/objects``.
+
+    A one-hop criterion (the cited group's 1,500 citing items), its inversion (every other item),
+    an ancestor criterion (the heavy group's 20,000 items), and a page with a 20-row expansion of
+    the cited group's citations and of the heavy group's 20,000 items.
+    """
+    scope = {
+        "live": {},
+        "change_set": {"changeSetId": dataset.change_set_id},
+        "history": {"publicationId": dataset.publication_id},
+    }[context]
+    base = {"context": scope, "pageSize": PAGE_SIZE}
+    citing = {
+        "related": {
+            "relationTypeKey": ITEM_CITES_GROUP,
+            "direction": "outgoing",
+            "where": [{"field": "id", "op": "eq", "value": dataset.cited_group_id}],
+        }
+    }
+
+    def group(group_id: str, relation: str, direction: str) -> dict[str, Any]:
+        return {
+            **base,
+            "objectTypeKey": GROUP,
+            "where": [{"field": "id", "op": "eq", "value": group_id}],
+            "expand": [{"relationTypeKey": relation, "direction": direction, "select": ["name", CODE], "limit": 20}],
+        }
+
+    return [
+        ("query: one-hop criterion, total", {**base, "objectTypeKey": ITEM, "where": [citing], "includeTotal": True}),
+        ("query: inverted hop, first page", {**base, "objectTypeKey": ITEM, "where": [{**citing, "not": True}]}),
+        (
+            "query: ancestor criterion, total",
+            {
+                **base,
+                "objectTypeKey": ITEM,
+                "where": [{"field": f"ancestor:{GROUP}", "op": "eq", "value": dataset.heavy_group_id}],
+                "includeTotal": True,
+            },
+        ),
+        ("query: 20-row expansion of 1,500 citations", group(dataset.cited_group_id, ITEM_CITES_GROUP, "incoming")),
+        ("query: 20-row expansion of 20,000 children", group(dataset.heavy_group_id, GROUP_CONTAINS_ITEM, "outgoing")),
+    ]
+
+
+def query_scenarios(
+    client, engine: Engine, dataset: VolumeDataset, context: str, *, repeat: int
+) -> list[Measurement]:
+    """Measure the 0.9 Q3 query bodies in one context."""
+    path = f"/api/v1/workspaces/{WORKSPACE}/queries/objects"
+    results = []
+    for scenario, body in _query_scenarios(context, dataset):
+        status, milliseconds, statements, rows = _timed(
+            engine, lambda body=body: client.post(path, json=body), repeat
+        )
+        results.append(Measurement(context, scenario, status, milliseconds, statements, rows))
+    return results
+
+
 def _move_scenarios(context: str, dataset: VolumeDataset) -> list[tuple[str, str, dict[str, Any]]]:
     """Base 0.8 B2: move targets, in the contexts a move can write to."""
     if context == "history":
@@ -396,6 +457,7 @@ def run_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int
             results.append(
                 Measurement(context, scenario, status, milliseconds, statements, rows)
             )
+        results += query_scenarios(client, engine, dataset, context, repeat=repeat)
 
     path = f"/api/v1/objects/{ITEM}/{dataset.edited_item_id}"
     state: dict[str, Any] = {}
@@ -591,6 +653,11 @@ def main() -> None:
         help="measure only the C2 restructuring planner (use --scale 0.024 for about 480 records)",
     )
     parser.add_argument(
+        "--only-queries",
+        action="store_true",
+        help="measure only the 0.9 Q3 model-aware queries",
+    )
+    parser.add_argument(
         "--only-change-lists",
         action="store_true",
         help="measure only the P2a change lists over the review change set",
@@ -618,6 +685,12 @@ def main() -> None:
         seeded = time.perf_counter() - started
         if arguments.only_restructuring:
             results, _count = restructuring_scenarios(engine, dataset, repeat=arguments.repeat)
+        elif arguments.only_queries:
+            results = [
+                item
+                for context in CONTEXTS
+                for item in query_scenarios(client, engine, dataset, context, repeat=arguments.repeat)
+            ]
         else:
             results = [] if arguments.only_change_lists else run_scenarios(
                 client, engine, dataset, repeat=arguments.repeat

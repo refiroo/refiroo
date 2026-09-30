@@ -6,7 +6,8 @@ accepted (2026-09-28). All [decisions](#decisions) D1–D16 and CONSUMER_API C-D
 section and ADR-036–038 are drafted (2026-09-29). Work packages Q1–Q4, B1–B3, F1–F2, C1–C16, V1–V2,
 J1–J4 and R are specified (2026-09-29) and delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
-**Delivered:** [Q1](#q1-cross-type-lookup) (2026-09-29), [Q2](#q2-workspace-edge-list) (2026-09-29).
+**Delivered:** [Q1](#q1-cross-type-lookup) (2026-09-29), [Q2](#q2-workspace-edge-list) (2026-09-29),
+[Q3](#q3-model-aware-query) (2026-09-30).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -191,7 +192,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 2 | [Q2](#q2-workspace-edge-list) | — | Edge list with publication context, published as `/workspaces/{key}/relations` — **delivered 2026-09-29** |
 | 3 | [V1](#v1-api-reference-page) | — | Scalar at `/docs` with the management API |
 | 4 | [C1](#track-c--consumer-api) | — | `consumerApis` schema and validation; opens schema 0.8 |
-| 5 | [Q3](#q3-model-aware-query) | Q1 | `POST …/queries/objects`: criteria, one relation hop, `select`, `expand` |
+| 5 | [Q3](#q3-model-aware-query) | Q1 | `POST …/queries/objects`: criteria, one relation hop, `select`, `expand` — **delivered 2026-09-30** |
 | 6 | [Q4](#q4-effective-periods-and-asof) | Q3, C1 | `effectivePeriod` in schema 0.8, `asOf` on reads; starter 0.9.0; SC-11 (API) |
 | 7 | [B1](#b1-job-model-and-inline-object-batches) | — | **Track P (§P1–P5, P7)**, `POST /batches` with object items, inline |
 | 8 | [B2](#b2-background-jobs) | B1 | **Track P (§P6)**: worker, chunks, lease, resume, cancel, retention |
@@ -403,6 +404,71 @@ expansion.
 **Groups:** `queries`, `contract`, `volume`.
 
 **Exit:** the query contract is in API.md; budgets recorded.
+
+**Delivered 2026-09-30.** `POST /api/v1/workspaces/{key}/queries/objects`
+([API.md](API.md#model-aware-query-base-09-q3)). The body is `models/queries.py` (`ModelQuery`); the
+engine checks it against the model and builds it in `engine/reads/model_query.py`, through the
+per-type list's builders (`refine_object_query` live, `snapshot_object_query` in a change set or
+publication), so a list criterion means the same in both and in every context. The list's filter rules
+are now public in `object_query.py` (`filter_value_type`, `filter_operators`, `parse_filter_value`,
+`typed_filter_predicates`) and the query applies them, not a copy. `management/projections/model_query.py`
+pages the plan and renders items and expansions. Taken ahead of V1 and C1 in the queue, since it needs
+only Q1. Decisions D17–D19 were raised before coding and accepted as recommended. Differences from the
+design, and where it was silent:
+
+- `ancestor:<type>` and the hop are sets the record's parent or ID must be in (`SetFilter`), applied to
+  every part of a change set's union. The ancestor walk collects containers only (the ancestor and the
+  records below it that can hold the queried type), and a record matches when its parent is one of them.
+  Any ancestor of the type matches, so a nesting type matches at each level; `select` of
+  `ancestor:<type>` shows the one nearest the root, as `path` does.
+- Live, a positive hop or an ancestor drives the read: the type and workspace terms are written so no
+  index serves them (`matrix_cells.unindexed`), or SQLite reads every record of the type to probe the
+  set (a 1,500-record hop's total: 126 ms against 10 ms).
+- The walk's recursive step is a `CROSS JOIN` (`common/sql.py`). SQLite 3.53, which the app runs,
+  plans it with the table outside and the one-row queue inside, reading the whole owner at each step
+  (550 ms against 2 ms); the 3.43 CLI plans it well, so a plan checked in the CLI proves nothing here.
+- An expansion is one `UNION ALL` statement per `expand` with one arm per item, each ordering and
+  limiting its own rows as `GET /relations` does and counting the item's relations. A window over all
+  of them first sorted every relation (a 20,000-child group: 111 ms against 30). The cursor is the one
+  `GET /relations` issues for the last row shown; that list's scope and cursor filters are now
+  `relation_scope` and `relation_filters` in `relation_queries.py`, used by both. In a change set or
+  publication the count reads relations only, not their other ends, which a valid context always holds.
+- `not` stands beside `related`; `parentObjectId` is a built-in criterion but not a sort; `sequenceId`
+  is not a field. `from` and `includeTotal` page as on every list; `seek` is not offered.
+
+**Budget** (volume fixture at full scale, 100,000 items; SQLite 3.53; 20-row pages; median of five;
+time · statements · ORM rows), measured on the kept `volume_baseline.py --scale 1 --only-queries`
+database after the fixes above:
+
+| Request | Live | Change set | History |
+| --- | --- | --- | --- |
+| query: one-hop criterion, total | 12.2 ms · 6 · 64 | 52.2 ms · 8 · 5 | 36.9 ms · 7 · 4 |
+| query: inverted hop, first page | 5.8 ms · 5 · 64 | 10.7 ms · 7 · 5 | 4.1 ms · 6 · 4 |
+| query: ancestor criterion, total | 26.9 ms · 6 · 64 | 48.3 ms · 8 · 5 | 6.0 ms · 7 · 4 |
+| query: 20-row expansion of 1,500 citations | 8.6 ms · 8 · 66 | 14.8 ms · 9 · 5 | 7.9 ms · 8 · 4 |
+| query: 20-row expansion of 20,000 children | 43.8 ms · 8 · 66 | 91.0 ms · 9 · 5 | 67.6 ms · 8 · 4 |
+
+The first measurement, before the fixes, was 287 · 94 · 73 ms for the hop's total, 1,140 · 1,858 ·
+435 ms for the ancestor's and 191 · 400 · 130 ms for the 20,000-child expansion. All are now within
+100 ms; an expansion adds one statement and costs about what `GET /relations` costs for the record
+(41 · 74 · 64 ms for the heavy group in the 0.8 record), which meets the target.
+
+**Checks:** `test_model_query` (new, `queries` + `change_sets`; 6 tests × the generated and renamed
+models, 12 passed): every non-search parity criterion and sort (32) through the list and the query
+giving identical items in live data, a change set and a publication; `ancestor:` at two depths, on a
+nesting type, with a field criterion and a sort, and its refusals; a hop outgoing and incoming, on a
+built-in and on an attribute, inverted, into a third type, combined with `ancestor:`, with a change
+set that adds, removes and cascades relations; `select` and `expand` shapes, with the expansion's
+cursor continuing on `GET /relations` exactly; cursors refused for another body, context and route;
+position, `from=end` and the way back with totals; every refusal at its pointer, and the shape
+errors. Groups `queries`, `change_sets`, `records`, `mapping` and `contract` together: 575 passed,
+with the re-baselined OpenAPI lock (checked by diffing the document against HEAD: one path and eleven
+schemas added, nothing changed) and the paging inventory extended to the body-paged query.
+`test_volume_baseline` (with the five `query:` scenarios in every context at both scales) and
+`test_boundaries`: 7 passed. `ruff check app/ tests/` clean.
+
+Not run: `startup`, since there is no migration; frontend checks, since nothing in the frontend
+changed. The full suites wait for R.
 
 #### Q4: Effective periods and `asOf`
 
@@ -701,7 +767,7 @@ This build touches every door in [COMPOSABLE_DOMAINS.md](COMPOSABLE_DOMAINS.md#d
 ## Decisions
 
 All accepted 2026-09-29 as recommended (D3 and D10 revised the same day, D5 revised after a code
-check, D15 and D16 added by that check).
+check, D15 and D16 added by that check, D17–D19 raised by Q3).
 
 | # | Question | Decision | Blocks |
 | --- | --- | --- | --- |
@@ -721,6 +787,9 @@ check, D15 and D16 added by that check).
 | D14 | Retention of jobs, outcomes, files and idempotency keys | 7 days, one setting; afterwards the job is `expired` with its summary kept | B, J |
 | D15 | How a publish appears in the audit log | Found 2026-09-29: publishing writes one `published` event with no per-record subjects (`workspace_audit.record_change_set_published`), and the records it changes in live were audited earlier as change-set edits. The feed could not tell what a publish changed. Publish now writes one audit entry per record it applies to live (`created`, `updated`, `deleted`, `reclassified`), each with identity and changed field keys (no values), subjects, a feed position and the `published` event as its cause. Bounded like single writes; replaces the "publishing never amplifies events per object" rule | F, C |
 | D16 | The `reclassified` payload in feeds | Its stored before state (ADR-034) stays in the audit log. Feed entries and consumer events carry identity and changed keys only (C-D7, erasure door) | F, C |
+| D17 | Query item shape with `select` and `expand` | **Accepted 2026-09-29 (Q3).** Items always carry `id`, `objectTypeKey` and `version`. Without `select`, the rest of the object list's item; with it, the selected values under `fields`, keyed by field (built-ins, attributes, `ancestor:<type>` as `{id, name}` of the ancestor of that type nearest the root), not as item properties, since attribute keys are model keys and could equal one. `expanded` holds one entry per `expand` in request order: `relationTypeKey`, `direction`, `count`, `items` (`relationId`, `object`) and `nextCursor`, a signed cursor that continues on `GET /relations`, as the mapping conflict continuation does | Q |
+| D18 | Criteria at the other end of a hop | **Accepted 2026-09-29 (Q3).** The object list's rule over the types the binding allows there: built-in fields always, an attribute only when that is one type binding it as filterable; otherwise `invalid_query` at the criterion | Q |
+| D19 | Errors of the query body | **Accepted 2026-09-29 (Q3).** The body's shape (JSON types of known properties, unknown properties, bounds such as `pageSize` and `limit`) is `422 request_validation_error`, as on every other body. What depends on the model (field, operator, value for the field's type, binding, `select`, `expand`, `sort`, `asOf`) is `422 invalid_query` with `details.path`, a JSON pointer into the body | Q |
 
 ## Next
 

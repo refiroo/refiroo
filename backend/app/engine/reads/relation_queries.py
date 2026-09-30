@@ -18,9 +18,10 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import Select, String, case, func, literal, or_, select
-from sqlalchemy.orm import aliased
+from sqlalchemy import Select, String, case, func, literal, or_, select, union_all
+from sqlalchemy.orm import Session, aliased
 
+from ...common.cursors import encode_cursor
 from ...common.pagination import SortKey, text_key
 from ...models.database import AttributeValue, ObjectRelation, RdmObject, SnapshotAttributeValue
 from ...models.schema import EngineModel
@@ -118,13 +119,14 @@ def build_relation_query(
     return RelationQuery(
         statement=statement,
         keys=keys,
-        filters={
-            "objectId": object_id,
-            "direction": direction,
-            **_relation_types_filter(relation_type_keys),
-            "workspaceKey": workspace_key,
-            **_search_filter(search),
-        },
+        filters=relation_filters(
+            None,
+            object_id=object_id,
+            direction=direction,
+            relation_type_keys=relation_type_keys,
+            workspace_key=workspace_key,
+            search=search,
+        ),
         seek=seek,
     )
 
@@ -192,17 +194,17 @@ def build_snapshot_relation_query(
         sort=sort,
         field_filters=[],
     )
-    owner = "changeSetId" if context.kind == "change_set" else "publicationId"
     return RelationQuery(
         statement=statement,
         keys=keys,
-        filters={
-            owner: context.id,
-            "objectId": object_id,
-            "direction": direction,
-            **_relation_types_filter(relation_type_keys),
-            **_search_filter(search),
-        },
+        filters=relation_filters(
+            context,
+            object_id=object_id,
+            direction=direction,
+            relation_type_keys=relation_type_keys,
+            workspace_key=None,
+            search=search,
+        ),
         seek=seek,
     )
 
@@ -252,6 +254,199 @@ def _ancestor_join(
         return statement.outerjoin(ancestors, ancestors.c.start == parent_id), ancestors.c.name
 
     return join
+
+
+def relation_scope(context: SnapshotContext | None) -> str:
+    """The relation list's cursor scope in a context (live when ``None``)."""
+    return "relations" if context is None else f"relations-{context.kind}"
+
+
+def relation_filters(
+    context: SnapshotContext | None,
+    *,
+    object_id: str,
+    direction: str,
+    relation_type_keys: Sequence[str] | None,
+    workspace_key: str | None,
+    search: str | None,
+) -> dict[str, Any]:
+    """What a relation list's cursor binds: its anchor, direction, types, search and context."""
+    owner = (
+        {"workspaceKey": workspace_key}
+        if context is None
+        else {"changeSetId" if context.kind == "change_set" else "publicationId": context.id}
+    )
+    return {
+        "objectId": object_id,
+        "direction": direction,
+        **_relation_types_filter(relation_type_keys),
+        **owner,
+        **_search_filter(search),
+    }
+
+
+# The cursor tokens of the relation list's default order: the related record's name, then the
+# relation's unique key.
+_NAME_ORDER = ("name", "relation")
+
+
+@dataclass(frozen=True)
+class ExpansionRow:
+    """One relation of an anchor, in the relation list's default order, with the anchor's total.
+
+    ``tiebreak`` is the relation's unique key in that order: its sequence number live, its public
+    ID in a change set or publication.
+    """
+
+    anchor_id: str
+    relation_id: str
+    related_id: str
+    related_name: str
+    tiebreak: Any
+    total: int
+
+
+def expansion_rows(
+    session: Session,
+    context: SnapshotContext | None,
+    *,
+    workspace_key: str,
+    anchor_ids: Sequence[str],
+    direction: str,
+    relation_type_key: str,
+    limit: int,
+) -> list[ExpansionRow]:
+    """The first ``limit`` relations of each anchor in one direction, in one statement (0.9 Q3).
+
+    Each anchor's rows are those ``GET /relations`` lists first for it, with that direction and
+    relation type, in name order: the related record's name, then the relation's unique key. Each
+    anchor is one arm of a ``UNION ALL`` that orders its own rows and keeps ``limit``, as that list
+    does, so an arm keeps a ``limit``-row sort however many relations the anchor has; numbering
+    them all in a window sorted every one (20,000 children: 111 ms against 30). An arm also counts
+    the anchor's relations. A page of anchors costs one statement whatever its size.
+    """
+    if not anchor_ids:
+        return []
+    arms = [
+        _expansion_arm(context, workspace_key, anchor_id, direction, relation_type_key, limit)
+        for anchor_id in dict.fromkeys(anchor_ids)
+    ]
+    rows = session.execute(union_all(*arms) if len(arms) > 1 else arms[0])
+    ordered = sorted(rows, key=lambda row: (row.anchor_id, row.related_name, row.tiebreak))
+    return [
+        ExpansionRow(
+            anchor_id=row.anchor_id,
+            relation_id=row.relation_id,
+            related_id=row.related_id,
+            related_name=row.related_name,
+            tiebreak=row.tiebreak,
+            total=row.total,
+        )
+        for row in ordered
+    ]
+
+
+def _expansion_arm(
+    context: SnapshotContext | None,
+    workspace_key: str,
+    anchor_id: str,
+    direction: str,
+    relation_type_key: str,
+    limit: int,
+) -> Select[Any]:
+    """One anchor's first ``limit`` relations in name order, each with the anchor's total.
+
+    Live, the total counts the anchor's relations alone: a relation joins records of one
+    workspace, so the anchor's workspace bounds them without reading the other ends.
+    """
+    anchor = literal(anchor_id, String).label("anchor_id")
+    if context is None:
+        relation, related = aliased(ObjectRelation), aliased(RdmObject, name="expanded")
+        own, other = _relation_ends(relation.from_object_id, relation.to_object_id, direction)
+        counted = aliased(ObjectRelation)
+        counted_own, _ = _relation_ends(counted.from_object_id, counted.to_object_id, direction)
+        total = (
+            select(func.count())
+            .select_from(counted)
+            .where(counted_own == anchor_id, counted.relation_type_key == relation_type_key)
+            .scalar_subquery()
+        )
+        page = (
+            select(
+                anchor,
+                relation.id.label("relation_id"),
+                other.label("related_id"),
+                related.name.label("related_name"),
+                relation.sequence_id.label("tiebreak"),
+                total.label("total"),
+            )
+            .join(related, related.id == other)
+            .where(
+                own == anchor_id,
+                relation.relation_type_key == relation_type_key,
+                related.workspace_key == workspace_key,
+            )
+            .order_by(related.name, relation.sequence_id)
+        )
+    else:
+        def anchored() -> Any:
+            return relation_projection(
+                context, object_id=anchor_id, direction=direction, relation_type_keys=[relation_type_key]
+            )
+
+        # The related record is read as the relation list reads it. The total counts relations
+        # alone: the list leaves out one whose other end is missing, and a valid change set or a
+        # publication holds none, so reading every other end again would count the same.
+        relations = anchored()
+        related = effective_record(context, relations.c.related_id)
+        statement = related.join(select(relations)).where(related.present)
+        total = select(func.count()).select_from(anchored()).scalar_subquery()
+        name = related.column("name")
+        page = statement.with_only_columns(
+            anchor,
+            relations.c.relation_id.label("relation_id"),
+            relations.c.related_id.label("related_id"),
+            name.label("related_name"),
+            relations.c.relation_id.label("tiebreak"),
+            total.label("total"),
+            maintain_column_froms=True,
+        ).order_by(name, relations.c.relation_id)
+    # SQLite takes an arm's own ORDER BY and LIMIT only inside a subquery.
+    limited = page.limit(limit).subquery()
+    return select(limited)
+
+
+def _relation_ends(from_column: Any, to_column: Any, direction: str) -> tuple[Any, Any]:
+    """The anchor's end of a relation and the other end, for ``direction`` from the anchor."""
+    return (from_column, to_column) if direction == "outgoing" else (to_column, from_column)
+
+
+def expansion_cursor(
+    context: SnapshotContext | None,
+    *,
+    workspace_key: str,
+    direction: str,
+    relation_type_key: str,
+    after: ExpansionRow,
+) -> str:
+    """The ``GET /relations`` cursor that continues an anchor's expansion after ``after``.
+
+    It is the cursor that list issues for that row in its default order, with the anchor, the
+    direction, the one relation type and the context the expansion read.
+    """
+    return encode_cursor(
+        (str(after.related_name), str(after.tiebreak)),
+        scope=relation_scope(context),
+        sort=_NAME_ORDER,
+        filters=relation_filters(
+            context,
+            object_id=after.anchor_id,
+            direction=direction,
+            relation_type_keys=[relation_type_key],
+            workspace_key=workspace_key if context is None else None,
+            search=None,
+        ),
+    )
 
 
 def _relation_types_filter(relation_type_keys: Sequence[str] | None) -> dict[str, Any]:

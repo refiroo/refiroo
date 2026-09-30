@@ -630,12 +630,15 @@ def snapshot_object_query(
     search_fields: Sequence[str] | None = None,
     id_filter: Callable[[Any], Any] | None = None,
     builtin: Callable[[Subquery], dict[str, Any]] | None = None,
+    parent_filter: Callable[[Any], Any] | None = None,
 ) -> ObjectQuery:
     """A change set or publication object query over ``object_types``.
 
     ``narrowing`` is passed to :func:`object_projection`; ``filters`` are bound into cursors with
     the context and the normalized typed filters. ``builtin`` adds built-in fields read from the
     projection, for a list that filters by more of them than the per-type list does.
+    ``parent_filter``, like ``id_filter``, restricts every part alike, by a predicate on the
+    record's parent ID.
     """
     for field, operator, _raw in field_filters:
         if field in UNRECORDED_TIMESTAMPS:
@@ -657,6 +660,8 @@ def snapshot_object_query(
         statement = select(projection)
         if id_filter is not None:
             statement = statement.where(id_filter(projection.c.object_id))
+        if parent_filter is not None:
+            statement = statement.where(parent_filter(projection.c.parent_object_id))
         # The replaced and added parts are as small as the change set: looking up their values
         # row by row costs less than reading the index (S8).
         columns = snapshot_object_columns(

@@ -7,8 +7,8 @@ release plan and changelog rather than accumulating it here.
 ## Now — Product 0.9
 
 Base 0.8 is released (2026-09-29). 0.9 adds integration-grade APIs in the order of the
-[0.9 delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue): Q1 and Q2 are delivered (2026-09-29);
-V1 is next. See [Next — 0.9](#next--09).
+[0.9 delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue): Q1 and Q2 are delivered (2026-09-29),
+and Q3, taken ahead of V1 and C1 since it needs only Q1, on 2026-09-30; V1 is next. See [Next — 0.9](#next--09).
 
 ## Open decisions
 
@@ -47,8 +47,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   set accepted 2026-09-28; decisions D1–D16 and CONSUMER_API C-D1–C-D16 accepted 2026-09-29;
   INTEGRATION_API sections P, B, F, Q and J, the schema 0.8 section and ADR-036–038 drafted
   2026-09-29; work packages and the delivery queue specified 2026-09-29. Open: review of the drafts.
-  Implementation started 2026-09-29 with Q1 and Q2 (delivered).
-- [ ] Integration-grade query expressions beyond daily-use filters.
+  Implementation started 2026-09-29 with Q1 and Q2 (delivered); Q3 delivered 2026-09-30 with D17–D19.
+- [x] Integration-grade query expressions beyond daily-use filters: delivered as 0.9 Q3 (2026-09-30),
+  the model-aware query; `asOf` follows in Q4.
 - [ ] Bounded live bulk object/relation/mapping operations with explicit optional staging, per-item
   outcomes and safe retry; do not require a change set merely because several records change (0.9).
 - [ ] Asynchronous CSV/XLSX import and export with validation previews; import runs an import profile

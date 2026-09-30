@@ -510,6 +510,14 @@ and needs no capability.
 - Budgets on the volume fixture: a one-hop criterion and a page with a 20-row expansion over 100,000
   records.
 
+_Delivered in Q3 (2026-09-30); the contract is in [API.md](API.md#model-aware-query-base-09-q3).
+Settled on the way (D17–D19): `not` stands beside `related` in the criterion; with `select`, values
+are under `fields` and `ancestor:<type>` gives the `id` and `name` of the ancestor nearest the root;
+`expanded` holds `count`, the first `limit` records with their `relationId`, and `nextCursor` for
+`GET /relations`; the body's shape is `request_validation_error` and what depends on the model
+`invalid_query`. `parentObjectId` is a built-in criterion but not a sort. The budgets hold: see the
+[Q3 record](BASE_0_9_IMPLEMENTATION_PLAN.md#q3-model-aware-query)._
+
 ### Q4: Effective periods and `asOf` (D6)
 
 A type declares one business validity period in the model (APPLICATION_MODEL, schema 0.8):
