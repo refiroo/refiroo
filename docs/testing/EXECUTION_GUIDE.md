@@ -51,21 +51,51 @@ One invocation parallelizes itself: `-n auto` starts one worker per core (pytest
 the server, drops leftover databases and builds the `schema` seed before the workers start; each
 worker clones its own session database, and all of them clone from the same seeds.
 
-**Timing-based checks are `serial`:** the whole `volume` group (wall-time budgets), and single tests
-marked `@pytest.mark.serial` (the background worker thread's deadline, and the current-live capture
-whose race is decided by a 0.3 s timer). A parallel run leaves them out and its summary names the
-command for them; run it next, without `-n`:
+**Timing-based checks are `serial`** (narrowed in H3): only a test whose outcome depends on wall
+time, listed in `TIMED` in `conftest.py` by module or by `module::test` — validating and publishing
+the large workspace (`test_graph_validation_scale`), the background worker thread's deadline, and the
+current-live capture whose race is decided by a 0.3 s timer. The `volume` modules that count
+statements and rows run in the parallel part. A parallel run leaves `serial` tests out and its
+summary names the command for them; run it next, without `-n`:
 
 ```sh
-cd backend && .venv/bin/python -m pytest -n auto -q        # everything except serial tests
+cd backend && .venv/bin/python -m pytest -n auto -q        # everything except serial and budget tests
 .venv/bin/python -m pytest -m serial -q                    # then the serial tests, one process
 .venv/bin/python -m pytest -n auto -m records -q           # a group in parallel …
 .venv/bin/python -m pytest -m "serial and (records)" -q    # … and its serial part, if it has one
 ```
 
-Without `-n` a run is serial and runs everything, `serial` tests included. A small selection (one
-module, a few cases) is faster without `-n`, which starts a worker per core. Mark a new test
-`serial` only when its outcome depends on wall time; a statement-count budget is not timing-based.
+Without `-n` a run is serial and runs everything except `budget`, `serial` tests included. A small
+selection (one module, a few cases) is faster without `-n`, which starts a worker per core. Add a
+test to `TIMED` only when its outcome depends on wall time; a statement-count budget is not
+timing-based.
+
+**Full-size budgets are `budget`** (H3): `test_batch_volume` (the 10,000-item atomic batch) and
+`test_background_volume` (the 100,000-item background batch, about 20 minutes on PostgreSQL). A run
+leaves them out unless its `-m` expression names `budget`, and they are `serial` when named. They
+run only at a release's acceptance, once and announced; PG3b replaces their timed checks with
+statement counts at two seeded sizes (PG-D17).
+
+```sh
+.venv/bin/python -m pytest -m budget --collect-only -q     # names exactly the budget tests
+.venv/bin/python -m pytest -m budget -q                    # a release's acceptance only
+```
+
+**The run reports what grew.** The summary lists every test over 10 s outside `budget` (setup, call
+and teardown added up, so a module fixture's cost lands on its first test) and the run's wall time.
+
+### Backend: time ceilings and their commands (H3)
+
+The ceilings are [TEST_HARNESS_PLAN's](../TEST_HARNESS_PLAN.md#time-ceilings); a run expected to
+exceed 2 minutes is announced with its expected time first, and in a package it needs the user's
+go-ahead.
+
+| Run | Ceiling | Command (from `backend/`) |
+| --- | --- | --- |
+| Focused tests while iterating | seconds | `.venv/bin/python -m pytest tests/test_x.py::test_case -q` (no `-n`) |
+| A package's checks: its boundary's groups (§2) | 2 minutes | `.venv/bin/python -m pytest -n auto -m "<groups>" -q`, then `.venv/bin/python -m pytest -m "serial and (<groups>)" -q` |
+| Build acceptance: the full suite without `budget` | 5 minutes | `.venv/bin/python -m pytest -n auto -q`, then `.venv/bin/python -m pytest -m serial -q` |
+| Full-size budgets | announced (about 25 minutes until PG3b) | `.venv/bin/python -m pytest -m budget -q`, a release's acceptance only |
 
 ### Backend: pytest markers from one manifest
 
@@ -91,7 +121,7 @@ cd backend && .venv/bin/python -m pytest -m mapping -q
 | `consumer` | Consumer API definitions (Base 0.9 C1); from C2 the consumer tier's reads, XREF, batch resolve, crosswalk, publications and parity | `test_consumer_api_model` | 87 |
 | `jobs` | Jobs, outcomes, idempotency and batches (Base 0.9 B1); background runs, the worker, its lease, cancellation and retention (B2); from J2 import profiles, imports and exports | `test_batches`, `test_batch_matrix_states`, `test_job_settings`, `test_batch_volume`, `test_background_jobs`, `test_background_volume` | 78 |
 | `contract` | OpenAPI lock, route inventories, the backend tiers and the API reference page | `test_openapi_contract`, `test_paging_contract`, `test_boundaries`, `test_api_reference` | 53 |
-| `volume` | Track S read and write budgets and the paging contract over the generated volume fixture (Base 0.8 S1, S2b, S3, S4, S4R1, S4R6, S7, S8, A2, B2, P2a, C2, C5; Base 0.9 B1 batch budgets, B2 background budget) | `test_volume_baseline`, `test_paging_contract`, `test_change_set_position_reads`, `test_relation_matrix_volume`, `test_change_lists_volume`, `test_restructuring_volume`, `test_graph_validation_scale`, `test_batch_volume`, `test_background_volume` | 69 |
+| `volume` | Track S read and write budgets and the paging contract over the generated volume fixture (Base 0.8 S1, S2b, S3, S4, S4R1, S4R6, S7, S8, A2, B2, P2a, C2, C5; Base 0.9 B1 batch budgets, B2 background budget) | `test_volume_baseline`, `test_paging_contract`, `test_change_set_position_reads`, `test_relation_matrix_volume`, `test_change_lists_volume`, `test_restructuring_volume`, `test_graph_validation_scale`, `test_batch_volume`, `test_background_volume` (the last two also `budget`, left out by default, H3) | 69 |
 
 Counts are collected cases on 2026-09-24 (532 in total); `test_effective_periods` (Base 0.9 Q4, 21 cases) is listed in `model`, `records`, `queries` and `change_sets` without recollecting their counts; group counts include the WP-9 composed
 SC-15 case. The full suite collected 534 cases at WP-9 build acceptance (2026-09-25). The `startup`,
@@ -189,7 +219,7 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | `engine/records/objects.py`, `attributes.py`, `values.py`, `management/routers/objects.py`, `management/routers/attributes.py` | `records` | typed conversion or version claims change | `queries` (typed filters), `change_sets` (change set writes use the same value forms) |
 | `engine/records/rules.py`, `refusals.py`, `context.py` | `records` + `change_sets` (`test_rule_parity`) | always | `mapping` (the replacement's scope and binding rules), `matrix` (type changes, restructuring), `volume` when a lookup's statements change |
 | `engine/records/writes.py` | `records` + `change_sets` + `mapping` + `matrix` | always | `volume` (write and publish budgets); F1's feed position when `_begin` changes |
-| `engine/jobs/*`, `management/routers/jobs.py`, `management/schemas/jobs.py`, the batch items in `models/commands.py` (0.9 B1, B2) | `jobs` (`test_batches`; `test_background_jobs` for `background.py`, `worker.py` and the store's chunk and stop paths) | always | `records` + `change_sets` when an item's single-write core (`apply_…`) or its savepoint changes; `matrix` (`test_batch_matrix_states`, `test_matrix_states`) when `matrix_states.deferred` changes; `volume` (`test_batch_volume`; `test_background_volume`, about 15 minutes, for the worker's chunk cost) for item cost; `contract` when the request or a job shape changes; `startup` (`test_job_settings`, `test_schema_drift`) when the tables, the settings or the worker's start in the lifespan change |
+| `engine/jobs/*`, `management/routers/jobs.py`, `management/schemas/jobs.py`, the batch items in `models/commands.py` (0.9 B1, B2) | `jobs` (`test_batches`; `test_background_jobs` for `background.py`, `worker.py` and the store's chunk and stop paths) | always | `records` + `change_sets` when an item's single-write core (`apply_…`) or its savepoint changes; `matrix` (`test_batch_matrix_states`, `test_matrix_states`) when `matrix_states.deferred` changes; `volume` for item cost (`test_batch_volume` and `test_background_volume` are `budget`: a release's acceptance only, H3); `contract` when the request or a job shape changes; `startup` (`test_job_settings`, `test_schema_drift`) when the tables, the settings or the worker's start in the lifespan change |
 | `engine/records/relations.py`, `relation_set_versions.py`, `management/routers/relations.py` | `records` + `mapping` | always | `change_sets` (change set relation writes, publishing merge) |
 | `engine/records/deletion.py` | `records` | cascade or preview token changes | `mapping` (continuation invalidation), `change_sets` (change set deletion) |
 | `common/pagination.py`, `cursors.py`, `management/paging.py` | `queries` (`test_pagination`, `test_paging_contract`, `test_change_set_position_reads`) | always | every group with a collection endpoint: `-m "queries or mapping or model_admin or workspaces"`; `volume` (read budgets) |
@@ -261,7 +291,8 @@ visual evidence separately.
 
 Run once, against the finished build, after all implementation packages close. Never run two
 pytest invocations at once: they share the harness's PostgreSQL server. The backend suite is one
-parallel invocation followed by its serial part.
+parallel invocation followed by its serial part, without `budget` (5-minute ceiling); the full-size
+budgets run only at a release's acceptance (§1).
 
 ```sh
 (cd backend && .venv/bin/python -m ruff check app/ tests/)

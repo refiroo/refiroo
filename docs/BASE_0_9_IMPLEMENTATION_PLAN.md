@@ -611,7 +611,9 @@ off registers no creating route; generated and renamed models.
 
 **Budget (confirms D13):** an inline independent batch of 1,000 upserts, an atomic batch of 10,000
 creates, live and in a change set, on the fixture; per-item cost recorded against the single write.
-If a D13 default does not fit its budget, lower it here and record the new value in D13.
+If a D13 default does not fit its budget, lower it here and record the new value in D13. Since H3
+(2026-10-01) `test_batch_volume` carries `budget` and runs only at a release's acceptance; PG3b
+replaces its timed check with statement counts at two seeded sizes (PG-D17).
 
 **Groups:** `jobs` (new), `records`, `change_sets`, `startup`, `contract`, `volume`.
 
@@ -715,7 +717,8 @@ cancellation before, between and after chunks, and of an atomic job; a release a
 lost change-set claim; lease expiry and a second worker; retention; the worker off with the capability.
 
 **Budget:** a 100,000-item background batch on the fixture: throughput and the live write latency
-beside it recorded.
+beside it recorded. Since H3 (2026-10-01) `test_background_volume` carries `budget` and runs only
+at a release's acceptance; the 100,000-item batch is measured once at PG5 (PG-D17).
 
 **Groups:** `jobs`, `change_sets`, `startup`, `volume`.
 

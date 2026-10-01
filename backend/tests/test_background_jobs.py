@@ -597,7 +597,6 @@ def test_with_jobs_disabled_there_is_no_worker_and_no_cancel_route(configured):
         assert _ok(client.get("/api/v1/jobs"))["items"] == []
 
 
-@pytest.mark.serial  # waits on the worker thread against a deadline
 def test_the_application_runs_background_jobs_on_its_worker_thread(tmp_path, monkeypatch, migrated_database):
     """Through the lifespan: a queued job wakes the worker, which completes it."""
     application = _app(batch_model(), tmp_path, monkeypatch, migrated_database, run_worker=True)

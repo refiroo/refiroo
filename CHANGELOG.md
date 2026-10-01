@@ -117,6 +117,10 @@ All notable changes to this project are documented in this file. The format foll
   tests carry a `serial` marker (the `volume` group and two timer-decided tests); a parallel run
   leaves them out and names the command that runs them without `-n`. The 968 parallel tests take
   1 min 49 s on 10 cores.
+- 0.9.0-alpha.1 H3: the full-size batch budgets (`test_batch_volume`, `test_background_volume`)
+  carry a `budget` marker and run only when `-m` names `budget`. `serial` holds only the three tests
+  whose outcome depends on wall time; the counting volume modules run in parallel. The run summary
+  lists every test over 10 s and the wall time. The full suite without `budget` takes 2 min 41 s.
 - Base 0.9 B1: a change set write's record lookups probe the change set's own rows by key instead of
   listing all of them on every statement, so a write costs the same however many records the change set
   holds (a lookup took 361 µs at 4,000 own rows, now 39 µs; page reads unchanged or faster). On SQLite,

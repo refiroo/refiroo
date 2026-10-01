@@ -9,10 +9,15 @@ for through ``migrated_database`` or the volume fixture.
 in ``pyproject.toml``). The run's own process starts the server, removes databases an interrupted
 run left behind and builds the ``schema`` seed before any worker starts; each worker has its own
 session database. Timing-based checks are ``serial``: a parallel run leaves them out and names the
-command that runs them, in a second, non-parallel invocation.
+command that runs them, in a second, non-parallel invocation. Full-size budgets are ``budget``: a run
+leaves them out unless its ``-m`` expression names ``budget`` (H3). The summary lists every test
+over 10 s outside ``budget`` and the run's wall time, against the time ceilings in
+``docs/TEST_HARNESS_PLAN.md``.
 """
 
 import os
+import re
+import time
 from uuid import uuid4
 
 import postgres_server
@@ -23,6 +28,9 @@ _WORKER = os.environ.get("PYTEST_XDIST_WORKER")
 SESSION_DATABASE = f"t_session_{_WORKER + '_' if _WORKER else ''}{uuid4().hex[:8]}"
 _STARTED_SERVER = pytest.StashKey[bool]()
 _SERIAL_LEFT_OUT = pytest.StashKey[int]()
+_STARTED_AT = pytest.StashKey[float]()
+# Each test's setup, call and teardown added up, by node ID (the slow-test report, H3).
+_DURATIONS: dict[str, float] = {}
 
 # A worker inherits the run's environment, including the URL this module set in the run's own
 # process; it replaces it with its own session database, so no two workers share one.
@@ -130,10 +138,25 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
 }
 
 
-# Timing-based checks (H2): wall-time budgets and races decided by a timer, which other processes'
-# load would distort. The `volume` group is serial as a whole; single tests carry the marker.
-SERIAL_GROUPS = ("volume",)
+# Timing-based checks (H2, narrowed in H3): only a test whose outcome depends on wall time, which other
+# processes' load would distort. An entry is a module or one test (`module::test`); a check that
+# counts statements or rows runs in the parallel part, however large its data.
+TIMED: dict[str, str] = {
+    "test_graph_validation_scale.py::test_validating_and_publishing_a_large_workspace_stay_within_budget":
+        "validating and publishing the large workspace against seconds",
+    "test_background_jobs.py::test_the_application_runs_background_jobs_on_its_worker_thread":
+        "waits on the worker thread against a deadline",
+    "test_wp81b_current_live_bases.py::test_current_live_capture_after_a_concurrent_activation_asks_for_a_retry":
+        "the capture must reach its lock wait before a 0.3 s timer commits",
+}
 SERIAL_DESCRIPTION = "timing-based check: left out of a parallel run, run with `pytest -m serial`"
+
+# Full-size budgets (H3): left out of every run whose -m expression does not name `budget`, and
+# serial when named. PG3b replaces their timed checks with statement counts at two seeded sizes
+# (PG-D17); the 100,000-item batch is measured once at PG5's acceptance.
+BUDGET_MODULES = ("test_batch_volume.py", "test_background_volume.py")
+BUDGET_DESCRIPTION = "full-size budget: left out unless `-m` names `budget`; a release's acceptance only"
+SLOW_SECONDS = 10.0
 
 
 def _is_worker(config: pytest.Config) -> bool:
@@ -149,7 +172,21 @@ def pytest_configure(config: pytest.Config) -> None:
     for group, description in GROUP_DESCRIPTIONS.items():
         config.addinivalue_line("markers", f"{group}: {description}")
     config.addinivalue_line("markers", f"serial: {SERIAL_DESCRIPTION}")
+    config.addinivalue_line("markers", f"budget: {BUDGET_DESCRIPTION}")
     config.stash[_SERIAL_LEFT_OUT] = 0
+    config.stash[_STARTED_AT] = time.monotonic()
+
+
+def _names_budget(config: pytest.Config) -> bool:
+    return re.search(r"\bbudget\b", config.option.markexpr or "") is not None
+
+
+def _deselect(config: pytest.Config, items: list[pytest.Item], marker: str) -> int:
+    chosen = [item for item in items if item.get_closest_marker(marker)]
+    if chosen:
+        items[:] = [item for item in items if not item.get_closest_marker(marker)]
+        config.hook.pytest_deselected(items=chosen)
+    return len(chosen)
 
 
 def pytest_sessionstart(session: pytest.Session) -> None:
@@ -180,7 +217,11 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             continue
         for group in groups:
             item.add_marker(group)
-        if any(group in SERIAL_GROUPS for group in groups):
+        if item.path.name in BUDGET_MODULES:
+            item.add_marker("budget")
+            item.add_marker("serial")
+        name = item.path.name
+        if name in TIMED or f"{name}::{item.name}" in TIMED or f"{name}::{item.originalname}" in TIMED:
             item.add_marker("serial")
     if unclassified:
         raise pytest.UsageError(
@@ -189,12 +230,18 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             + ". Add each to TEST_GROUPS in backend/tests/conftest.py with the contract groups it "
             "protects, and to docs/testing/EXECUTION_GUIDE.md."
         )
+    if not _names_budget(config):
+        _deselect(config, items, "budget")
     if _is_parallel(config):
-        serial = [item for item in items if item.get_closest_marker("serial")]
-        if serial:
-            items[:] = [item for item in items if not item.get_closest_marker("serial")]
-            config.hook.pytest_deselected(items=serial)
-            config.stash[_SERIAL_LEFT_OUT] = len(serial)
+        config.stash[_SERIAL_LEFT_OUT] = _deselect(config, items, "serial")
+
+
+def pytest_runtest_logreport(report: pytest.TestReport) -> None:
+    """Add up each test's setup, call and teardown; in a parallel run the run's own process receives
+    every worker's reports here. Budget tests are not listed: their size is known."""
+    if "budget" in report.keywords:
+        return
+    _DURATIONS[report.nodeid] = _DURATIONS.get(report.nodeid, 0.0) + report.duration
 
 
 def pytest_sessionfinish(session: pytest.Session) -> None:
@@ -214,7 +261,8 @@ def pytest_testnodedown(node, error) -> None:
 
 def pytest_terminal_summary(terminalreporter, config: pytest.Config) -> None:
     """Name each seed the run used and whether it was reused or built (H1's evidence), and the
-    serial tests a parallel run left out with the command that runs them (H2)."""
+    serial tests a parallel run left out with the command that runs them (H2), then the tests over
+    10 s outside ``budget`` and the run's wall time (H3)."""
     if seeds.ACTIVITY:
         used: dict[str, str] = {}
         for name, outcome, seconds in seeds.ACTIVITY:
@@ -234,6 +282,19 @@ def pytest_terminal_summary(terminalreporter, config: pytest.Config) -> None:
             f"{left_out} timing-based test(s) are left out of a parallel run. Run them next, "
             f'without -n: python -m pytest -m "{marks}"' + (f" {paths}" if paths else "")
         )
+    if _is_worker(config) or not _DURATIONS:
+        return
+    slow = sorted(
+        ((seconds, nodeid) for nodeid, seconds in _DURATIONS.items() if seconds > SLOW_SECONDS),
+        reverse=True,
+    )
+    terminalreporter.write_sep("-", f"tests over {SLOW_SECONDS:.0f} s outside budget")
+    for seconds, nodeid in slow:
+        terminalreporter.write_line(f"{seconds:7.1f} s  {nodeid}")
+    if not slow:
+        terminalreporter.write_line("none")
+    wall = time.monotonic() - config.stash[_STARTED_AT]
+    terminalreporter.write_line(f"wall time {int(wall // 60)} min {wall % 60:.0f} s")
 
 
 @pytest.fixture(autouse=True, scope="session")

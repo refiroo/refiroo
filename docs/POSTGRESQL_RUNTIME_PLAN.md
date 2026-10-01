@@ -350,6 +350,14 @@ For B2: a cancel request answered while a chunk runs, and the atomic job rolled 
 waiting for it, with the latency bound B2 left open. **Groups:** `records`, `change_sets`,
 `mapping`, `matrix`, `jobs`, `model_admin`, `workspaces`.
 
+**Found in H3 (2026-10-01), PG3's to fix:** a generic relation create and a mapping save on the
+same edge deadlock under load. The create inserts the edge and then advances the set versions; the
+mapping save claims the set version and then inserts the edge, so each waits for the other's
+row and PostgreSQL ends one with `deadlock detected`, answered as a 500 instead of
+`409 mapping_version_conflict` (`test_mapping_replacement::test_overlapping_generic_write_forces_mapping_save_to_refresh[create]`,
+once in H3's parallel run; it passed in H2's). The per-workspace lock taken in `LiveWrites._begin`,
+before either reads, orders the two writes. The race test above covers it.
+
 **Exit:** the concurrency tests pass; the D28 and B2 notes in TODO are closed.
 
 ### PG3b: Batch writes decided in memory, written in bulk
@@ -399,7 +407,8 @@ a change set, against PG-D17's target, announced with its expected time before i
 closed: a search for SQLite and dialect names in `app/`, `tests/` and `frontend/e2e` finds nothing
 that is not history. AGENTS.md, ARCHITECTURE, README and EXECUTION_GUIDE describe PostgreSQL only.
 
-**Acceptance (the interim release's build acceptance):** the full backend suite on PostgreSQL;
+**Acceptance (the interim release's build acceptance):** the full backend suite on PostgreSQL,
+its parallel and serial parts and, once, `-m budget` (H3);
 frontend format, lint, `npm run test` and build; the browser runners against the PostgreSQL backend.
 Nothing in the UI changes, so visual and accessibility runs are added only if a runner's journey
 shows a difference.

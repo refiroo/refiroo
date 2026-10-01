@@ -45,7 +45,13 @@ full-size budgets ([record](TEST_HARNESS_PLAN.md#h2-parallel-runs)). The test pl
 the same day with [time ceilings](TEST_HARNESS_PLAN.md#time-ceilings), and PG-D12–PG-D17 accepted:
 batch items decided in memory and written in bulk
 ([PG3b](POSTGRESQL_RUNTIME_PLAN.md#pg3b-batch-writes-decided-in-memory-written-in-bulk)), with large
-batch deletes noted to revisit (PG-D18). Next are H3, PG3, PG3b, PG4 and PG5.
+batch deletes noted to revisit (PG-D18). **H3 is delivered (2026-10-01):** the two full-size
+budgets carry `budget` and leave every run whose `-m` does not name it, `serial` is narrowed to three
+wall-time tests, the summary lists tests over 10 s and the wall time, and the ceilings are rules in
+AGENTS.md; the full suite without `budget` takes 2 min 41 s (2.7×, short of the 4× target). Its run
+found a deadlock between a relation create and a mapping save on one edge, recorded for PG3
+([record](TEST_HARNESS_PLAN.md#h3-budgets-out-of-everyday-runs-the-time-ceilings-enforced)). Next
+are PG3, PG3b, PG4 and PG5; H4 when a package's checks exceed 2 minutes.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter
