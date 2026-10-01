@@ -32,7 +32,8 @@ accumulate drift. Core statements that bypass the ORM note their changes with :f
 import json
 import logging
 import time
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Iterator, Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from itertools import islice
 from typing import Any
@@ -88,6 +89,7 @@ logger = logging.getLogger(__name__)
 REPLACED = ""
 _CHUNK = 500
 _PENDING = "matrix_state_changes"
+_DEFERRED = "matrix_state_changes_deferred"
 _KINDS = ("live", "publication", "base", "change_set", "history")
 _TABLE = MatrixCellState.__table__
 
@@ -666,13 +668,37 @@ _TRACKED = {RdmObject, ObjectRelation, AttributeValue, ChangeSetObject, ChangeSe
 
 @event.listens_for(Session, "before_commit")
 def _apply_before_commit(session: Session) -> None:
+    # SQLAlchemy dispatches this for a savepoint's release too, which applies what it noted.
+    if session.info.get(_DEFERRED):
+        return
     session.flush()
     apply_pending(session)
 
 
 @event.listens_for(Session, "after_rollback")
 def _discard_pending(session: Session) -> None:
+    if session.info.get(_DEFERRED):
+        return
     session.info.pop(_PENDING, None)
+
+
+@contextmanager
+def deferred(session: Session) -> Iterator[None]:
+    """Hold the noted changes across the savepoints released or rolled back meanwhile; the
+    enclosing savepoint or transaction applies them once when it commits, or drops them.
+
+    A batch releases one savepoint per item (Base 0.9 B1), and applying at each release would
+    recompute the touched rows once per item. A savepoint rolled back meanwhile keeps its notes:
+    they name rows that are then recomputed from the records as they are, which leaves each row's
+    states what they were.
+    """
+    session.info[_DEFERRED] = session.info.get(_DEFERRED, 0) + 1
+    try:
+        yield
+    finally:
+        session.info[_DEFERRED] -= 1
+        if not session.info[_DEFERRED]:
+            del session.info[_DEFERRED]
 
 
 def apply_pending(session: Session) -> None:

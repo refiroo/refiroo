@@ -210,9 +210,34 @@ class WorkspaceAdminCapabilities(BaseModel):
     setting: Literal["WORKSPACE_ADMIN_MUTATIONS_ENABLED"]
 
 
+class JobLimits(BaseModel):
+    """Batch and job limits (D13) and retention (D14). A refusal names the setting it enforces:
+    ``BATCH_MAX_ITEMS``, ``BATCH_MAX_BYTES``, ``ATOMIC_JOB_MAX_ITEMS``,
+    ``BACKGROUND_JOB_MAX_ITEMS``, ``BATCH_BACKGROUND_MAX_BYTES``. A background job commits
+    ``chunkItems`` items at a time (``JOB_CHUNK_ITEMS``)."""
+
+    batchMaxItems: int
+    batchMaxBytes: int
+    atomicJobMaxItems: int
+    backgroundJobMaxItems: int
+    backgroundBatchMaxBytes: int
+    chunkItems: int
+    retentionDays: int
+
+
+class IntegrationJobCapabilities(BaseModel):
+    """Bulk writes, imports and exports as jobs (ADR-036). Job reads are always available."""
+
+    createJobs: bool
+    runModes: list[Literal["inline", "background"]]
+    limits: JobLimits
+    setting: Literal["INTEGRATION_JOBS_ENABLED"]
+
+
 class CapabilitiesResponse(BaseModel):
     modelAdmin: ModelAdminCapabilities
     workspaceAdmin: WorkspaceAdminCapabilities
+    integrationJobs: IntegrationJobCapabilities
 
 
 class ModelDraftCreate(BaseModel):

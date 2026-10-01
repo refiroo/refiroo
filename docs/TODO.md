@@ -9,7 +9,8 @@ release plan and changelog rather than accumulating it here.
 Base 0.8 is released (2026-09-29). 0.9 adds integration-grade APIs in the order of the
 [0.9 delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue): Q1 and Q2 are delivered (2026-09-29),
 and Q3 on 2026-09-30. The queue was reordered after Q3 (C1 and Q4 first, F1 before B2, V1 as a
-filler, checkpoint T1 after F2). C1, Q4 and V1 are delivered (2026-09-30); B1 is next. See [Next — 0.9](#next--09).
+filler, checkpoint T1 after F2). C1, Q4 and V1 are delivered (2026-09-30), and B1 and B2 on
+2026-10-01 (B2 before F1, by instruction); F1 is next. See [Next — 0.9](#next--09).
 
 ## Open decisions
 
@@ -47,13 +48,15 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [ ] 0.9 planning ([plan](BASE_0_9_IMPLEMENTATION_PLAN.md), [integration design](INTEGRATION_API.md)): document
   set accepted 2026-09-28; decisions D1–D16 and CONSUMER_API C-D1–C-D16 accepted 2026-09-29;
   INTEGRATION_API sections P, B, F, Q and J, the schema 0.8 section and ADR-036–038 drafted
-  2026-09-29; work packages and the delivery queue specified 2026-09-29. Open: review of the drafts.
-  Implementation started 2026-09-29 with Q1 and Q2 (delivered); Q3 delivered 2026-09-30 with D17–D19,
-  C1 with C-D17–C-D20 and Q4 with D20–D22.
+  2026-09-29; work packages and the delivery queue specified 2026-09-29. Open: review of the F and J
+  drafts. Implementation started 2026-09-29 with Q1 and Q2 (delivered); Q3 delivered 2026-09-30 with
+  D17–D19, C1 with C-D17–C-D20 and Q4 with D20–D22; B1 2026-10-01 with D23–D26, B2 with D27–D30.
 - [x] Integration-grade query expressions beyond daily-use filters: delivered as 0.9 Q3 (2026-09-30),
   the model-aware query; `asOf` with effective periods in Q4 (2026-09-30).
 - [ ] Bounded live bulk object/relation/mapping operations with explicit optional staging, per-item
   outcomes and safe retry; do not require a change set merely because several records change (0.9).
+  Object items run inline delivered as 0.9 B1 (2026-10-01) and in the background as B2
+  (2026-10-01); relation and relation-set items (B3) remain.
 - [ ] Asynchronous CSV/XLSX import and export with validation previews; import runs an import profile
   (revised D3, [MODEL_AUTHORING A1](MODEL_AUTHORING.md#delivery)).
 - [ ] Ordered change feed and retryable webhooks.
@@ -93,6 +96,20 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 
 - [ ] Complete the release licensing checklist in [LICENSING_TODO.md](LICENSING_TODO.md), including
   ownership, contribution, dependency, security, trademark and commercial-service documentation.
+- [ ] PostgreSQL migration follow-ups. (1) Test 0.9 D28 job cancellation on PostgreSQL: a cancel
+  request answered without waiting for a running chunk, the `atomic` job's chunk rolled back between
+  items, and the lease guard with two workers. Bound the latency of live writes beside a background
+  job in `test_background_volume` (B2 recorded it only: on SQLite the worker retakes the writer lock
+  after each chunk, so such a write waits for the whole job and fails after
+  `SQLITE_LOCK_WAIT_SECONDS`). (2) After the migration, review the code for SQLite
+  technical debt and remove it: dialect branches, `json_each` row lists, the recursive arms, the
+  `SQLITE_LOCK_WAIT_SECONDS` setting, explicit dependant deletes standing in for unenforced foreign
+  keys, SQL-level claims written because SQLite ignores `FOR UPDATE`, the explicit `BEGIN` of
+  `db.begin_snapshot_read` and `db.begin_transaction` (SQLite's driver begins no transaction before a
+  `SAVEPOINT`; a job chunk uses the latter), and budgets measured only on SQLite (D13 included).
+- [ ] Unique-value checks over non-text values (integer, decimal, date, dateTime, boolean) still read
+  every value of the attribute, live and in a change set: the value indexes cover `text_value` only
+  (0.9 B2 added the live one). Add them with 0.11's model-derived indexes.
 - [ ] PostgreSQL performance and multi-writer uniqueness hardening, including the trigram form of
   the S8 search index and the relation matrix's SQLite-only statements: the change set walk down
   (two recursive arms, which PostgreSQL needs in one recursive term) and the stored state filter's

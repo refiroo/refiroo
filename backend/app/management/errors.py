@@ -24,6 +24,7 @@ async def api_error_handler(_request: Request, exc: ApiError) -> JSONResponse:
                 **({"details": jsonable_encoder(exc.details)} if exc.details is not None else {}),
             }
         },
+        headers=exc.headers,
     )
 
 

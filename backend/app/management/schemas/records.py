@@ -93,6 +93,13 @@ class RelationPage(CollectionPage[RelationExpansion]):
     pass
 
 
+class AuditCause(BaseModel):
+    """What made a change other than a single write: a job (Base 0.9, INTEGRATION_API P6)."""
+
+    kind: Literal["job"]
+    id: str
+
+
 class AuditEventResponse(BaseModel):
     id: str
     aggregateType: str
@@ -102,6 +109,10 @@ class AuditEventResponse(BaseModel):
     changedFields: list[str]
     attributeTypeKeys: list[str]
     occurredAt: datetime
+    # Omitted for a single write.
+    cause: AuditCause | SkipJsonSchema[None] = Field(
+        default=None, exclude_if=omitted_when_none, json_schema_extra=without_default
+    )
 
 
 class AuditEventPage(CollectionPage[AuditEventResponse]):

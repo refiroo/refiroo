@@ -12,6 +12,8 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from .config import Settings, get_settings, reload_settings
 from .db import DatabaseMigrationError, SessionLocal, create_database
 from .engine.indexes.matrix_states import build_at_startup as build_matrix_states
+from .engine.jobs.inline import BatchLimits
+from .engine.jobs.worker import JobWorker, WorkerSettings
 from .engine.model.bootstrap import bootstrap_model
 from .engine.model.loader import load_bootstrap_model
 from .engine.model.registry import UnsupportedSelectedModelSchema, model_registry
@@ -26,6 +28,7 @@ from .management.reference import api_reference_router
 from .management.routers import (
     attributes,
     change_sets,
+    jobs,
     mapping,
     model,
     model_management,
@@ -56,7 +59,7 @@ def schema_upgrade_command(settings: Settings) -> str:
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(application: FastAPI):
     loaded_model = load_bootstrap_model()
     try:
         create_database()
@@ -81,7 +84,17 @@ async def lifespan(_: FastAPI):
                 exc.schema_version,
                 schema_upgrade_command(get_settings()),
             )
-    yield
+    # A process that cannot serve the model runs no jobs: each chunk would fail its job.
+    worker = application.state.job_worker if application.state.run_job_worker else None
+    if worker is not None and not model_registry.ready:
+        worker = None
+    if worker is not None:
+        worker.start()
+    try:
+        yield
+    finally:
+        if worker is not None:
+            worker.stop()
 
 
 def create_app() -> FastAPI:
@@ -141,6 +154,31 @@ def create_app() -> FastAPI:
     )
     application.state.model_admin_mutations_enabled = mutations_enabled
     application.state.workspace_admin_mutations_enabled = workspace_mutations_enabled
+    application.state.integration_jobs_enabled = settings.integration_jobs_enabled
+    application.state.batch_limits = BatchLimits(
+        max_items=settings.batch_max_items,
+        max_bytes=settings.batch_max_bytes,
+        atomic_max_items=settings.atomic_job_max_items,
+        retention_days=settings.job_retention_days,
+        background_max_items=settings.background_job_max_items,
+        background_max_bytes=settings.batch_background_max_bytes,
+        chunk_items=settings.job_chunk_items,
+    )
+    # The in-process job worker (P6): none with the capability off. Tests that drive the worker
+    # themselves set ``run_job_worker`` to False before the application starts.
+    application.state.job_worker = (
+        JobWorker(
+            SessionLocal,
+            WorkerSettings(
+                chunk_items=settings.job_chunk_items,
+                lease_seconds=settings.job_lease_seconds,
+                retention_days=settings.job_retention_days,
+            ),
+        )
+        if settings.integration_jobs_enabled
+        else None
+    )
+    application.state.run_job_worker = True
     application.add_exception_handler(ApiError, api_error_handler)
     application.add_exception_handler(RequestValidationError, validation_error_handler)
     application.add_exception_handler(StarletteHTTPException, http_error_handler)
@@ -175,6 +213,9 @@ def create_app() -> FastAPI:
     application.include_router(relations.router)
     application.include_router(mapping.router)
     application.include_router(relation_matrix.router)
+    application.include_router(jobs.router)
+    if settings.integration_jobs_enabled:
+        application.include_router(jobs.write_router)
     return application
 
 

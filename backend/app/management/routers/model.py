@@ -24,6 +24,8 @@ from ..schemas.model import (
     ApplicationResponse,
     AttributeTypeResponse,
     CapabilitiesResponse,
+    IntegrationJobCapabilities,
+    JobLimits,
     MetadataPage,
     ModelAdminCapabilities,
     ModelDocumentRequest,
@@ -42,6 +44,8 @@ router = APIRouter(prefix="/api/v1", tags=["model"])
 @router.get("/capabilities", response_model=CapabilitiesResponse)
 def get_capabilities(request: Request) -> CapabilitiesResponse:
     mutations_enabled = bool(request.app.state.model_admin_mutations_enabled)
+    jobs_enabled = bool(request.app.state.integration_jobs_enabled)
+    limits = request.app.state.batch_limits
     return CapabilitiesResponse(
         modelAdmin=ModelAdminCapabilities(
             readReleases=True,
@@ -53,6 +57,20 @@ def get_capabilities(request: Request) -> CapabilitiesResponse:
         workspaceAdmin=WorkspaceAdminCapabilities(
             manageWorkspaces=bool(request.app.state.workspace_admin_mutations_enabled),
             setting="WORKSPACE_ADMIN_MUTATIONS_ENABLED",
+        ),
+        integrationJobs=IntegrationJobCapabilities(
+            createJobs=jobs_enabled,
+            runModes=["inline", "background"] if jobs_enabled else [],
+            limits=JobLimits(
+                batchMaxItems=limits.max_items,
+                batchMaxBytes=limits.max_bytes,
+                atomicJobMaxItems=limits.atomic_max_items,
+                backgroundJobMaxItems=limits.background_max_items,
+                backgroundBatchMaxBytes=limits.background_max_bytes,
+                chunkItems=limits.chunk_items,
+                retentionDays=limits.retention_days,
+            ),
+            setting="INTEGRATION_JOBS_ENABLED",
         ),
     )
 

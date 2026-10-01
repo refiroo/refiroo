@@ -4,12 +4,14 @@ These live beside the routers rather than inside one of them so no router has to
 router's internals.
 """
 
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from ..common.pagination import Page
 from ..common.time import as_utc
+from ..engine.jobs.store import release_public_ids
 from ..engine.model.compiler import ModelDiagnostic
 from ..engine.model.consumer_contract import contract_diagnostics
 from ..engine.model.diff import SemanticChange
@@ -20,12 +22,23 @@ from ..engine.workspaces.catalogue import delete_blocker, load_workspace_runtime
 from ..models.database import (
     AttributeValue,
     AuditEvent,
+    Job,
+    JobItem,
     ObjectRelation,
     RdmObject,
     Workspace,
     WorkspaceRuntimeState,
 )
 from ..models.schema import EngineModel
+from .schemas.jobs import (
+    BatchResponse,
+    JobCounts,
+    JobItemPage,
+    JobItemResponse,
+    JobPage,
+    JobProgress,
+    JobResponse,
+)
 from .schemas.model import (
     ModelChangeResponse,
     ModelConsumerContractsResponse,
@@ -34,6 +47,7 @@ from .schemas.model import (
 from .schemas.records import (
     AttributeOutput,
     AttributeValueResponse,
+    AuditCause,
     AuditEventPage,
     AuditEventResponse,
     ObjectResponse,
@@ -208,7 +222,8 @@ def _audit_response(event: AuditEvent) -> AuditEventResponse:
         changed_fields = [str(key) for key in changes.get("changedFields", [])]
         attribute_type_keys = sorted(str(key) for key in changes.get("attributeTypeKeys", []))
     else:
-        changed_fields = sorted(str(key) for key in changes)
+        # A batch overwrite records the version it replaced; it is how, not what, it changed.
+        changed_fields = sorted(str(key) for key in changes if key != "overwrite")
         attribute_type_keys = _attribute_type_keys(event, attributes)
     return AuditEventResponse(
         id=event.event_id,
@@ -219,6 +234,9 @@ def _audit_response(event: AuditEvent) -> AuditEventResponse:
         changedFields=changed_fields,
         attributeTypeKeys=attribute_type_keys,
         occurredAt=event.occurred_at,
+        cause=(
+            AuditCause(kind=event.cause_kind, id=event.cause_id) if event.cause_kind else None
+        ),
     )
 
 
@@ -259,4 +277,58 @@ def change_set_object_response(item, change_set_id: str, model, *, path=None) ->
         # Not recorded for change set and history rows (WP-10K); never substitute the current time.
         createdAt=None,
         updatedAt=None,
+    )
+
+
+def job_responses(session: Session, jobs: list[Job]) -> list[JobResponse]:
+    releases = release_public_ids(session, jobs)
+    return [
+        JobResponse(
+            id=job.id,
+            kind=job.kind,
+            workspaceKey=job.workspace_key,
+            changeSetId=job.change_set_id,
+            changeSetVersion=job.change_set_version,
+            policy=job.parameters.get("policy"),
+            parameters={key: value for key, value in job.parameters.items() if key != "policy"},
+            modelReleaseId=releases[job.model_release_id],
+            state=job.state,
+            stage=job.stage,
+            progress=JobProgress(total=job.total, processed=job.processed),
+            counts=JobCounts(**job.counts),
+            result=job.result,
+            error=job.error,
+            createdAt=as_utc(job.created_at),
+            startedAt=as_utc(job.started_at) if job.started_at else None,
+            finishedAt=as_utc(job.finished_at) if job.finished_at else None,
+            expiresAt=as_utc(job.expires_at),
+            cancelRequestedAt=_optional_utc(job.cancel_requested_at),
+            leaseOwner=job.lease_owner,
+            leaseExpiresAt=_optional_utc(job.lease_expires_at),
+        )
+        for job in jobs
+    ]
+
+
+def _optional_utc(value: datetime | None) -> datetime | None:
+    return as_utc(value) if value is not None else None
+
+
+def job_page(session: Session, jobs: Page[Job]) -> JobPage:
+    return JobPage(items=job_responses(session, jobs.items), **jobs.links())
+
+
+def job_item_response(item: JobItem) -> JobItemResponse:
+    return JobItemResponse(index=item.item_index, ref=item.ref, status=item.status, **item.outcome)
+
+
+def job_item_page(items: Page[JobItem]) -> JobItemPage:
+    return JobItemPage(items=[job_item_response(item) for item in items.items], **items.links())
+
+
+def batch_response(session: Session, job: Job, items: Page[JobItem]) -> BatchResponse:
+    return BatchResponse(
+        job=job_responses(session, [job])[0],
+        items=[job_item_response(item) for item in items.items],
+        **items.links(),
     )

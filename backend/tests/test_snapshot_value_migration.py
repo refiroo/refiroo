@@ -26,7 +26,7 @@ from app.engine.model.registry import model_registry
 from app.main import create_app
 from app.models.database import SnapshotAttributeValue
 
-PRECEDING, HEAD = "20260912_01", "20260928_01"
+PRECEDING, HEAD = "20260912_01", "20261001_01"
 QUERIES = (
     {"sort": "par-amount"},
     {"sort": "-par-seen", "filter.par-flag.isNull": "false"},

@@ -54,8 +54,43 @@ All notable changes to this project are documented in this file. The format foll
   Scalar script (1.72.2) is bundled with the engine, so the page works without internet access and
   loads nothing from another host; `RDM_API_REFERENCE_SCRIPT=cdn` loads the same version from
   jsDelivr under its integrity hash. The page is outside the OpenAPI document, which is unchanged.
+- Base 0.9 B1: bulk object writes as jobs. `POST /api/v1/batches` runs `create`, `update`, `upsert`
+  and `delete` items inline, live or in a change set, under a required policy: `atomic` (all or
+  nothing) or `independent` (each item alone, in order, seeing earlier applied items). Each item goes
+  through its single write and is refused with the same code; records are named by ID or by a unique
+  attribute's value, an upsert by an ID or a unique attribute, an item that would change nothing is
+  `unchanged`, and an upsert that finds a record needs `expectedVersion` or `onExisting: "overwrite"`.
+  The response is the job with its counts and `result` and its outcomes in item order, each with a
+  JSON pointer when refused. `Idempotency-Key` answers a retry with the first job. `GET /api/v1/jobs`,
+  `/jobs/{id}` and `/jobs/{id}/items` read jobs back; object history names the job as each change's
+  `cause`. Limits and retention are settings reported under `integrationJobs` in `GET
+  /capabilities`; `INTEGRATION_JOBS_ENABLED=false` removes job creation. Decisions D23–D26; D13
+  confirmed: 1,000 upserts take 3.3 s live and 6.8 s in a change set on the volume fixture.
+- Base 0.9 B2: background batches. `run: background` queues the batch (up to 1,000,000 items in a
+  50 MB body) and answers `202` with the job; a worker in the API process applies it in chunks of
+  500, each committing its changes, outcomes and progress together, so a job resumes after a crash or
+  restart at its first item without an outcome and never applies one twice. The worker holds a lease
+  on the job (`leaseOwner`, `leaseExpiresAt`), which another worker or the restarted process takes
+  over once it expires. `POST /api/v1/jobs/{jobId}/cancel` stops a job at its next chunk (an atomic
+  job rolls back completely); a model release activated meanwhile, a change set written by someone
+  else or an internal error fail it, and the items it did not reach are `unprocessed` with the
+  reason. Finished jobs expire after their retention with their summary kept. New settings
+  `BACKGROUND_JOB_MAX_ITEMS`, `BATCH_BACKGROUND_MAX_BYTES`, `JOB_CHUNK_ITEMS` and
+  `JOB_LEASE_SECONDS`. Decisions D27–D30. On the volume fixture a
+  100,000-item background batch runs at 433 items/s live and 151 in a change set; on SQLite, other
+  writes wait until such a job ends.
 
 ### Changed
+
+- Base 0.9 B1: a change set write's record lookups probe the change set's own rows by key instead of
+  listing all of them on every statement, so a write costs the same however many records the change set
+  holds (a lookup took 361 µs at 4,000 own rows, now 39 µs; page reads unchanged or faster). On SQLite,
+  a write waits up to `SQLITE_LOCK_WAIT_SECONDS` (60) for another transaction's writer lock instead of
+  failing after the driver's 5 s.
+- Base 0.9 B2: a live write's unique-value check and a record reference by key seek to the value
+  through a new index (`ix_attribute_values_key_text`) instead of reading every value of the
+  attribute, so their cost no longer grows with the records holding it (creates into a workspace
+  gaining 30,000 records went from 2.3 to 5.2 ms each; now a flat 2.0 to 2.1 ms).
 
 - Backend boundaries (E1–E3, [record](docs/BACKEND_BOUNDARIES_PLAN.md)). `backend/app` is split into
   tiers: `common/`, `engine/` (no FastAPI, no API schemas), `management/` (the `/api/v1` routes,

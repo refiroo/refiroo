@@ -7,6 +7,7 @@ test change the environment and construct a differently configured app in the sa
 
 import os
 import secrets
+from collections.abc import Mapping
 from functools import cache
 from pathlib import Path
 from typing import Literal, Self
@@ -44,6 +45,23 @@ class Settings(BaseModel):
     web_concurrency: int = Field(default=1, ge=1)
     cursor_signing_key: bytes = _EPHEMERAL_CURSOR_SIGNING_KEY
     api_reference_script: ApiReferenceScript = "bundled"
+    # Job creation (bulk writes, imports, exports) as a deployment capability group (ADR-036, D10).
+    integration_jobs_enabled: bool = True
+    # Batch and job limits (D13) and retention (D14); reported by GET /capabilities.
+    batch_max_items: int = Field(default=1_000, ge=1)
+    batch_max_bytes: int = Field(default=5 * 1024 * 1024, ge=1)
+    atomic_job_max_items: int = Field(default=10_000, ge=1)
+    job_retention_days: int = Field(default=7, ge=1)
+    # Background jobs (P6): their item and body limits (D13, §B1), the items one chunk commits and
+    # the worker's lease on a job, renewed with each chunk (D30).
+    background_job_max_items: int = Field(default=1_000_000, ge=1)
+    batch_background_max_bytes: int = Field(default=50 * 1024 * 1024, ge=1)
+    job_chunk_items: int = Field(default=500, ge=1)
+    job_lease_seconds: int = Field(default=120, ge=1)
+    # How long a SQLite write waits for another transaction's writer lock before it fails. A batch
+    # holds the lock for seconds (D13), so writes queue behind it rather than fail at the
+    # driver's 5 s default.
+    sqlite_lock_wait_seconds: int = Field(default=60, ge=1)
 
     @classmethod
     def from_env(cls, environ: dict[str, str] | None = None) -> Self:
@@ -72,6 +90,20 @@ class Settings(BaseModel):
             api_reference_script=_api_reference_script(
                 env.get("RDM_API_REFERENCE_SCRIPT", "bundled")
             ),
+            integration_jobs_enabled=(
+                env.get("INTEGRATION_JOBS_ENABLED", "true").strip().lower() in TRUTHY
+            ),
+            batch_max_items=_positive(env, "BATCH_MAX_ITEMS", 1_000),
+            batch_max_bytes=_positive(env, "BATCH_MAX_BYTES", 5 * 1024 * 1024),
+            atomic_job_max_items=_positive(env, "ATOMIC_JOB_MAX_ITEMS", 10_000),
+            job_retention_days=_positive(env, "JOB_RETENTION_DAYS", 7),
+            background_job_max_items=_positive(env, "BACKGROUND_JOB_MAX_ITEMS", 1_000_000),
+            batch_background_max_bytes=_positive(
+                env, "BATCH_BACKGROUND_MAX_BYTES", 50 * 1024 * 1024
+            ),
+            job_chunk_items=_positive(env, "JOB_CHUNK_ITEMS", 500),
+            job_lease_seconds=_positive(env, "JOB_LEASE_SECONDS", 120),
+            sqlite_lock_wait_seconds=_positive(env, "SQLITE_LOCK_WAIT_SECONDS", 60),
         )
 
     def validate_model_admin_topology(self) -> None:
@@ -93,6 +125,19 @@ def _worker_count(raw: str) -> int:
     if worker_count < 1:
         raise RuntimeError("WEB_CONCURRENCY must be a positive integer")
     return worker_count
+
+
+def _positive(env: Mapping[str, str], name: str, default: int) -> int:
+    raw = env.get(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw.strip())
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be a positive integer, not {raw!r}") from exc
+    if value < 1:
+        raise RuntimeError(f"{name} must be a positive integer, not {raw!r}")
+    return value
 
 
 def _api_reference_script(raw: str) -> ApiReferenceScript:
@@ -138,3 +183,7 @@ def model_admin_mutations_enabled() -> bool:
 
 def workspace_admin_mutations_enabled() -> bool:
     return get_settings().workspace_admin_mutations_enabled
+
+
+def sqlite_lock_wait_seconds() -> int:
+    return get_settings().sqlite_lock_wait_seconds

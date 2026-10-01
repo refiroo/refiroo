@@ -20,7 +20,13 @@ tiers, one rule set for live data and change sets, one write path; no contract c
 starter as content release 0.9.0 on schema 0.8; SC-11 passes through the management API; D20–D22;
 2026-09-30), and so is **V1, the API reference page** (Scalar at `/docs` over the management API,
 the script bundled so the page works offline, `RDM_API_REFERENCE_SCRIPT=cdn` to load it from a CDN;
-2026-09-30). B1 is next.
+2026-09-30), and so is **B1, the job model and inline object batches** (`POST /batches` with create,
+update, upsert and delete items under `atomic` or `independent`, record references by unique key,
+idempotency keys, `GET /jobs`; D23–D26, D13 confirmed; 2026-10-01), and so is **B2, background
+jobs** (`run: background`, the in-process worker with chunks, lease, resumption, cancellation,
+release and claim stops, and retention; D27–D30; 2026-10-01; delivered before F1, whose
+workspace lock the chunks' write path will take). On SQLite a background job blocks other writes
+until it ends; the move to PostgreSQL is the open question ([TODO](TODO.md)). F1 is next.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter
@@ -374,8 +380,9 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
   limits contextual hierarchy queries to direct-parent scope. Lazy arbitrary-depth traversal and
   specialist translation/tree renderers follow the 0.8 roadmap; top-level `form`, `dashboard` and
   `tree` are not implemented renderers.
-- Advanced queries, effective-date/as-of semantics, bulk upsert, imports/exports, change feeds and
-  webhooks remain planned; no synchronous collection has an undocumented unlimited mode.
+- Background bulk jobs, relation batch items, imports/exports, change feeds and webhooks remain
+  planned (0.9); the model-aware query, `asOf` and inline object batches with upsert are delivered.
+  No synchronous collection has an undocumented unlimited mode.
 - The model workbench remains JSON-centred; the structured editor and spreadsheet onboarding are 0.10
   work ([MODEL_AUTHORING.md](MODEL_AUTHORING.md)), changes to released structure and extensions 1.0.
 - Multi-writer uniqueness hardening, PostgreSQL performance, authenticated access, actor attribution,

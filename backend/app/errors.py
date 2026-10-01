@@ -7,12 +7,27 @@ from typing import Any
 
 
 class ApiError(Exception):
-    def __init__(self, status: int, code: str, message: str, details: Any | None = None):
+    def __init__(
+        self,
+        status: int,
+        code: str,
+        message: str,
+        details: Any | None = None,
+        headers: dict[str, str] | None = None,
+    ):
         self.status = status
         self.code = code
         self.message = message
         self.details = details
+        self.headers = headers
 
 
-def api_error(status: int, code: str, message: str, details: Any | None = None) -> ApiError:
-    return ApiError(status=status, code=code, message=message, details=details)
+def api_error(
+    status: int,
+    code: str,
+    message: str,
+    details: Any | None = None,
+    *,
+    headers: dict[str, str] | None = None,
+) -> ApiError:
+    return ApiError(status=status, code=code, message=message, details=details, headers=headers)

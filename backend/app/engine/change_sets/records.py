@@ -87,6 +87,15 @@ def validate_change_set_relation(
 
 
 def put_change_set_object(session: Session, change_set_id: str, payload: Any) -> ChangeSetObject:
+    row = apply_change_set_object_create(session, change_set_id, payload)
+    session.commit()
+    return row
+
+
+def apply_change_set_object_create(
+    session: Session, change_set_id: str, payload: Any
+) -> ChangeSetObject:
+    """Write a new record into a change set under its claim; the caller commits."""
     change_set = load_change_set(session, change_set_id, for_update=True)
     writes = ChangeSetWrites(session, change_set)
     model = change_set_model(session, change_set)
@@ -120,7 +129,6 @@ def put_change_set_object(session: Session, change_set_id: str, payload: Any) ->
             for item in getattr(payload, "initialRelations", None) or ()
         ],
     )
-    session.commit()
     return row
 
 
@@ -211,6 +219,24 @@ def update_change_set_object(
 ) -> ChangeSetObject:
     """Edit a record in a change set. An edit never changes the type (ADR-034); a route naming
     another type than the record's is ``409 object_type_changed`` (D42)."""
+    row = apply_change_set_object_update(
+        session, change_set_id, object_id, payload, object_type_key=object_type_key
+    )
+    session.commit()
+    return row
+
+
+def apply_change_set_object_update(
+    session: Session,
+    change_set_id: str,
+    object_id: str,
+    payload: Any,
+    *,
+    object_type_key: str | None = None,
+    audit_changes: dict[str, Any] | None = None,
+) -> ChangeSetObject:
+    """Edit a record in a change set as ``update_change_set_object`` does; the caller commits.
+    ``audit_changes`` adds to the audit entry."""
     change_set = load_change_set(session, change_set_id, for_update=True)
     writes = ChangeSetWrites(session, change_set)
     model = change_set_model(session, change_set)
@@ -262,10 +288,13 @@ def update_change_set_object(
         aggregate_id=row.object_id,
         action="updated",
         version=row.version,
-        changes={"attributes": row.attributes or {}, "changeSetId": change_set.id},
+        changes={
+            "attributes": row.attributes or {},
+            "changeSetId": change_set.id,
+            **(audit_changes or {}),
+        },
         object_ids=[row.object_id],
     )
-    session.commit()
     return row
 
 
@@ -280,6 +309,31 @@ def delete_change_set_object(
     cascade: bool = False,
     deletion_preview: str | None = None,
 ) -> None:
+    apply_change_set_object_delete(
+        session,
+        change_set_id,
+        object_type_key,
+        object_id,
+        expected_change_set_version,
+        expected_record_version,
+        cascade=cascade,
+        deletion_preview=deletion_preview,
+    )
+    session.commit()
+
+
+def apply_change_set_object_delete(
+    session: Session,
+    change_set_id: str,
+    object_type_key: str,
+    object_id: str,
+    expected_change_set_version: int,
+    expected_record_version: int,
+    *,
+    cascade: bool = False,
+    deletion_preview: str | None = None,
+) -> None:
+    """Delete a record in a change set as ``delete_change_set_object`` does; the caller commits."""
     if cascade:
         require_deletion_preview(deletion_preview)
 
@@ -452,7 +506,6 @@ def delete_change_set_object(
             relations=relation_identity,
         )
     tombstone_change_set_records(session, change_set, objects, planned_ids, incident)
-    session.commit()
 
 
 def tombstone_change_set_records(

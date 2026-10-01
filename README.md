@@ -161,6 +161,28 @@ With the flag on, the browser's **Workspaces** screen (header, beside **Models**
 renames, retires, deletes and sets the default workspace; with it off, the screen is read only and names the
 setting.
 
+Bulk writes run as jobs (`POST /api/v1/batches`, read back through `/api/v1/jobs`). Job creation is
+registered by default; `INTEGRATION_JOBS_ENABLED=false` removes it while job reads remain. The limits
+are settings reported by `GET /api/v1/capabilities`: `BATCH_MAX_ITEMS` (1000), `BATCH_MAX_BYTES`
+(5 MB), `ATOMIC_JOB_MAX_ITEMS` (10000) and `JOB_RETENTION_DAYS` (7). A batch is one transaction, so on
+SQLite it holds the database's writer lock while it runs (about 3 s for 1,000 live upserts, 6 s in a
+change set); `SQLITE_LOCK_WAIT_SECONDS` (60) is how long other writes wait for it before failing.
+
+A batch sent with `run: background` (up to `BACKGROUND_JOB_MAX_ITEMS`, 1,000,000 items, in a body of
+at most `BATCH_BACKGROUND_MAX_BYTES`, 50 MB) is queued and answered with `202`. A worker thread in
+the API process runs it in chunks of `JOB_CHUNK_ITEMS` (500), each committing its changes, outcomes
+and progress together; `POST /api/v1/jobs/{jobId}/cancel` stops it at the next chunk. The worker runs
+only with `INTEGRATION_JOBS_ENABLED` on and a healthy model, and expires finished jobs past their
+retention every hour.
+
+**Restart behaviour.** A graceful stop finishes the running chunk and releases the worker's lease,
+so the next start resumes the job at once. After a crash or kill, the chunk in progress rolls back,
+and the job resumes at its first item without an outcome once its lease (`JOB_LEASE_SECONDS`, 120)
+expires: no item is applied twice or skipped. On SQLite a running background job holds the writer
+lock chunk after chunk, so other writes wait until the job ends and fail after
+`SQLITE_LOCK_WAIT_SECONDS`; run large background jobs when nothing else writes, until the engine
+runs on PostgreSQL.
+
 ### Model releases and rollback
 
 `RDM_MODEL_PATH` (or `model/rdm-starter.json` by default) is bootstrap input, not the active-model

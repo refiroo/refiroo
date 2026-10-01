@@ -1,4 +1,5 @@
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
+from contextlib import contextmanager
 from typing import Any
 
 from sqlalchemy import select
@@ -12,6 +13,21 @@ _HISTORY_KEYS = (
     datetime_key("occurredAt", AuditEvent.occurred_at, "occurred_at", descending=True),
     integer_key("sequenceId", AuditEvent.sequence_id, "sequence_id", descending=True),
 )
+_CAUSE = "audit_cause"
+
+
+@contextmanager
+def audit_cause(session: Session, kind: str, cause_id: str) -> Iterator[None]:
+    """Name what made the changes audited in this session meanwhile, such as a job.
+
+    A job's item goes through the single-write service, which audits as it always does; the
+    entries it writes carry the job as their cause (INTEGRATION_API P6).
+    """
+    session.info[_CAUSE] = (kind, cause_id)
+    try:
+        yield
+    finally:
+        session.info.pop(_CAUSE, None)
 
 
 def record_audit_event(
@@ -24,12 +40,15 @@ def record_audit_event(
     changes: dict[str, Any],
     object_ids: Iterable[str],
 ) -> AuditEvent:
+    cause_kind, cause_id = session.info.get(_CAUSE, (None, None))
     event = AuditEvent(
         aggregate_type=aggregate_type,
         aggregate_id=aggregate_id,
         action=action,
         version=version,
         changes=to_jsonable(changes),
+        cause_kind=cause_kind,
+        cause_id=cause_id,
     )
     session.add(event)
     session.flush()

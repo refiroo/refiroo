@@ -46,9 +46,15 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # release diff's consumerContracts block (ModelConsumerContractsResponse); nothing else.
     # Re-baselined for 0.9 Q4: an optional asOf date on GET /objects/{objectTypeKey}, an optional
     # asOf on GET /objects that is refused (D21), and ModelQuery.asOf's description; nothing else.
+    # Re-baselined for 0.9 B1: POST /batches, GET /jobs, /jobs/{id} and /jobs/{id}/items with the
+    # Batch*, Job*, RecordReference, RecordKeyValue and UpsertKey schemas; the capabilities'
+    # integrationJobs group, and an optional cause on audit events; no existing path changed.
+    # Re-baselined for 0.9 B2: POST /jobs/{id}/cancel, a 202 JobResponse on POST /batches and its
+    # description, cancelRequestedAt, leaseOwner and leaseExpiresAt on JobResponse, and the
+    # background limits in JobLimits; removing those gives B1's document exactly.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "604b9c4c0428eec53bb0f3aa51405c94a64e129812bc02830ad7d4d31e33e3e6"
+        "e09be38f454817e1d9184c721fb777acddc1d1c010b087b39b3dad95a4ba5671"
     )
 
 
@@ -78,7 +84,9 @@ def test_paging_openapi_inventory():
         assert next(iter(properties)) == "items", path
         assert {"totalCount", "startIndex"}.isdisjoint(document["components"]["schemas"][name]["required"])
         assert properties["totalCount"]["type"] == properties["startIndex"]["type"] == "integer"
-    assert seekable <= paged and len(paged) == 25
+    # 0.9 B1 added the job list and a job's outcomes.
+    assert seekable <= paged and len(paged) == 27
+    assert {"/api/v1/jobs", "/api/v1/jobs/{job_id}/items"} <= paged
     objects = {item["name"] for item in document["paths"]["/api/v1/objects/{object_type_key}"]["get"]["parameters"]}
     relations = {item["name"] for item in document["paths"]["/api/v1/relations"]["get"]["parameters"]}
     assert "topLevel" in objects and {"search", "sort"} <= relations
@@ -92,6 +100,13 @@ def test_paging_openapi_inventory():
     properties = document["components"]["schemas"][page]["properties"]
     assert next(iter(properties)) == "items"
     assert {"nextCursor", "prevCursor", "anchor", "totalCount", "startIndex"} <= set(properties)
+    # 0.9 B1: an inline batch answers with the first page of its outcomes, continued on
+    # GET /jobs/{id}/items.
+    batch = document["paths"]["/api/v1/batches"]["post"]
+    page = batch["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].rsplit("/", 1)[-1]
+    properties = document["components"]["schemas"][page]["properties"]
+    assert next(iter(properties)) == "items"
+    assert {"job", "nextCursor", "prevCursor", "anchor", "totalCount", "startIndex"} <= set(properties)
 
 
 def test_wp6_openapi_removes_rejected_object_lifecycle_and_direct_writes():

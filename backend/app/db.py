@@ -9,28 +9,30 @@ from alembic.script import ScriptDirectory
 from sqlalchemy import Engine, create_engine, make_url
 from sqlalchemy.orm import Session, sessionmaker
 
-from .config import database_url
+from .config import database_url, sqlite_lock_wait_seconds
 
 logger = logging.getLogger(__name__)
 
 
 @cache
-def _engine_for_url(url: str) -> Engine:
+def _engine_for_url(url: str, lock_wait_seconds: int) -> Engine:
+    if make_url(url).get_backend_name() == "sqlite":
+        return create_engine(url, connect_args={"timeout": lock_wait_seconds})
     return create_engine(url)
 
 
 def get_engine() -> Engine:
     """Return the engine for the currently loaded database URL."""
-    return _engine_for_url(database_url())
+    return _engine_for_url(database_url(), sqlite_lock_wait_seconds())
 
 
 @cache
-def _sessionmaker_for_url(url: str) -> sessionmaker[Session]:
-    return sessionmaker(bind=_engine_for_url(url), expire_on_commit=False)
+def _sessionmaker_for_url(url: str, lock_wait_seconds: int) -> sessionmaker[Session]:
+    return sessionmaker(bind=_engine_for_url(url, lock_wait_seconds), expire_on_commit=False)
 
 
 def get_sessionmaker() -> sessionmaker[Session]:
-    return _sessionmaker_for_url(database_url())
+    return _sessionmaker_for_url(database_url(), sqlite_lock_wait_seconds())
 
 
 class _SessionFactory:
@@ -56,6 +58,23 @@ def begin_snapshot_read(session: Session) -> None:
             connection.exec_driver_sql("BEGIN")
     elif connection.dialect.name == "postgresql":
         connection.exec_driver_sql("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
+
+
+def begin_transaction(session: Session) -> None:
+    """Open the session's transaction before its first savepoint.
+
+    PostgreSQL begins at the first statement. SQLite's legacy transaction mode begins only before
+    a write, so a SAVEPOINT issued first starts a transaction of its own, which releasing the
+    savepoint commits. A transaction whose first write is inside a savepoint (a job's chunk) opens
+    here, so it commits or rolls back as one; on SQLite as a writer at once, since a transaction
+    that reads first and writes later is refused when another connection writes meanwhile.
+    """
+    connection = session.connection()
+    if (
+        connection.dialect.name == "sqlite"
+        and not connection.connection.driver_connection.in_transaction
+    ):
+        connection.exec_driver_sql("BEGIN IMMEDIATE")
 
 
 class DatabaseMigrationError(RuntimeError):

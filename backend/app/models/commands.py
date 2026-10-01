@@ -4,7 +4,7 @@ The management API takes them as request bodies unchanged, and batch items reuse
 item and its single-write route validate one shape.
 """
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import UUID4, BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -176,3 +176,124 @@ class MappingReplacementRequest(BaseModel):
     attributes: dict[str, Any] | None = None
     changeSetId: UUID4 | None = None
     expectedChangeSetVersion: int | None = Field(default=None, ge=1)
+
+
+# --- batches (Base 0.9 B1, INTEGRATION_API B) ---------------------------------------------------
+
+
+class RecordKeyValue(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    attributeTypeKey: str
+    value: Any
+
+
+class RecordReference(BaseModel):
+    """An existing record, by its public ID or by a unique attribute's value on a type (§B2)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID4 | None = None
+    objectTypeKey: str | None = None
+    key: RecordKeyValue | None = None
+
+    @model_validator(mode="after")
+    def one_form(self) -> RecordReference:
+        by_id = self.id is not None and self.objectTypeKey is None and self.key is None
+        by_key = self.id is None and self.objectTypeKey is not None and self.key is not None
+        if not (by_id or by_key):
+            raise ValueError("A reference is either {id} or {objectTypeKey, key}")
+        return self
+
+
+class UpsertKey(BaseModel):
+    """What an upsert finds its record by: a client-assigned ID or a unique attribute (D2)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: UUID4 | None = None
+    attributeTypeKey: str | None = None
+
+    @model_validator(mode="after")
+    def one_form(self) -> UpsertKey:
+        if (self.id is None) == (self.attributeTypeKey is None):
+            raise ValueError("An upsert key is either {id} or {attributeTypeKey}")
+        return self
+
+
+class BatchInitialRelation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    relationTypeKey: str
+    direction: Literal["outgoing", "incoming"]
+    object: RecordReference
+    attributes: dict[str, Any] = Field(default_factory=dict)
+
+
+class _BatchItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    ref: str | None = Field(default=None, min_length=1, max_length=200)
+
+
+class BatchCreateItem(_BatchItem):
+    op: Literal["create"]
+    id: UUID4 | None = None
+    applicationKey: str
+    objectTypeKey: str
+    name: str = Field(min_length=1, max_length=500)
+    parent: RecordReference | None = None
+    attributes: list[AttributeInput] = Field(default_factory=list)
+    initialRelations: list[BatchInitialRelation] = Field(default_factory=list)
+
+
+class BatchUpdateItem(_BatchItem):
+    """As a PATCH: only the fields given change; ``parent: null`` moves the record to the root."""
+
+    op: Literal["update"]
+    target: RecordReference
+    expectedVersion: int = Field(ge=1)
+    name: str | None = Field(default=None, min_length=1, max_length=500)
+    parent: RecordReference | None = None
+    attributes: list[AttributeInput] | None = None
+
+
+class BatchUpsertItem(_BatchItem):
+    """Creates the record ``key`` finds none for, otherwise updates it as an update item would.
+    ``initialRelations`` are used only when it creates."""
+
+    op: Literal["upsert"]
+    applicationKey: str
+    objectTypeKey: str
+    key: UpsertKey
+    name: str = Field(min_length=1, max_length=500)
+    parent: RecordReference | None = None
+    attributes: list[AttributeInput] = Field(default_factory=list)
+    initialRelations: list[BatchInitialRelation] = Field(default_factory=list)
+    expectedVersion: int | None = Field(default=None, ge=1)
+
+
+class BatchDeleteItem(_BatchItem):
+    op: Literal["delete"]
+    target: RecordReference
+    expectedVersion: int = Field(ge=1)
+
+
+BatchItem = Annotated[
+    BatchCreateItem | BatchUpdateItem | BatchUpsertItem | BatchDeleteItem,
+    Field(discriminator="op"),
+]
+
+
+class BatchRequest(BaseModel):
+    """``POST /batches``: items, a failure policy and one context (INTEGRATION_API B1)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    workspaceKey: str | None = None
+    changeSetId: UUID4 | None = None
+    expectedChangeSetVersion: int | None = Field(default=None, ge=1)
+    policy: Literal["atomic", "independent"]
+    run: Literal["inline", "background"]
+    onExisting: Literal["reject", "overwrite"] = "reject"
+    items: list[BatchItem] = Field(min_length=1)

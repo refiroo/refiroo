@@ -10,8 +10,8 @@ when it is delivered, and this document keeps the design and its reasons.
 
 | Section | Contents | Track | State |
 | --- | --- | --- | --- |
-| [P](#p-shared-primitives) | Items and outcomes, failure policies, per-item concurrency, idempotency, jobs, limits | P | Draft |
-| [B](#b-bulk-writes) | Bulk object create, update, upsert and delete; record references and upsert keys; bulk relations and relation-set replacement | B | Draft |
+| [P](#p-shared-primitives) | Items and outcomes, failure policies, per-item concurrency, idempotency, jobs, limits | P | P1–P5 and P7 delivered in B1, P6's background run in B2 ([API.md](API.md#background-jobs)); job files with J |
+| [B](#b-bulk-writes) | Bulk object create, update, upsert and delete; record references and upsert keys; bulk relations and relation-set replacement | B | Object items delivered in B1 (inline) and B2 (background) ([API.md](API.md#batches-and-jobs-base-09-b1-b2)); B4 in B3 |
 | [J](#j-import-and-export) | Import (file contract as an import profile per [MODEL_AUTHORING](MODEL_AUTHORING.md#import-profile), preview, execute) and export (scope, context, output) | J | Draft |
 | [F](#f-change-feed) | Raw change feed: entries, per-workspace position, retention, recovery, consumer events | F | Draft |
 | [Q](#q-queries) | Cross-type lookup (0.8 P1), workspace edge list (0.8 P3), model-aware query, effective periods and `asOf` | Q | Draft; Q1 delivered |
@@ -48,7 +48,8 @@ Each item ends in exactly one status:
 
 `unchanged` is an upsert or update whose values equal the stored record. It bumps no version, writes
 no audit entry and produces no feed event, so re-sending a recurring feed is cheap and silent
-downstream.
+downstream. It is decided before any version claim (D24, B1): an item that would write nothing can
+overwrite nothing, so it needs no `expectedVersion` and a stale one does not refuse it.
 
 A rejection uses the single-write error code (`duplicate_attribute_value`, `version_conflict`,
 `parent_cycle`, …) because the item went through the same service (plan principle 1). Codes that
@@ -65,9 +66,11 @@ and create no job.
 
 Each request names its policy; there is no default, so no caller gets one by accident.
 
-- **`atomic`**: all items apply or none do. Every item is validated against the batch's combined
-  result, then everything commits in one transaction. If any item is rejected, every other item is
-  `unprocessed` with `batch_rolled_back`. The size is limited by the atomic maximum (D13).
+- **`atomic`**: all items apply or none do. Items apply in order in one transaction, each through its
+  single write against the data the items before it left (D23, B1: sequential, not a check of the
+  combined end state, so swapping two records' unique values needs a change set). The first rejected
+  item rolls everything back, and every other item is `unprocessed` with `batch_rolled_back`. The size
+  is limited by the atomic maximum (D13).
 - **`independent`**: each item stands alone. Items apply in order, each inside a savepoint; a rejected
   item rolls back only itself. Work commits in chunks (P6), so a failure later in the job never undoes
   an earlier applied item.
@@ -78,17 +81,20 @@ terms (for example `object_not_found` for its parent), not skipped.
 
 **Change-set context.** With `changeSetId`, the batch writes into that change set instead of live
 (ADR-026) and claims `expectedChangeSetVersion` once for the whole job, like one single write. The
-completed job reports the change set's new version. An `independent` job in a change set holds the
+completed job reports the change set's new version (`changeSetVersion`); a job that changed nothing
+leaves the version as it was. An `independent` job in a change set holds the
 claim between chunks: a concurrent writer to the same change set makes the remaining items
-`unprocessed` with `job_failed` and the job fails with `version_conflict`.
+`unprocessed` with `job_failed` and the job fails with `change_set_version_conflict` (B2: each chunk
+that changes something advances the version by one, and the job's `changeSetVersion` is the version
+it holds).
 
 ### P4: Per-item concurrency (D11)
 
 Updates never silently overwrite a newer version.
 
 - **Update** items require `expectedVersion`, as a single update does.
-- **Upsert** items may carry `expectedVersion`. Without it, an upsert that finds an existing record is
-  rejected with `version_required`, unless the request declares `onExisting: "overwrite"`. Then the
+- **Upsert** items may carry `expectedVersion`. Without it, an upsert that finds an existing record it
+  would change is rejected with `version_required`, unless the request declares `onExisting: "overwrite"`. Then the
   item is read and written in one savepoint, so no concurrent write is lost between them. The audit
   entry records that it overwrote without a version claim, and the outcome reports the previous
   version. A recurring feed from an authoritative source opts in explicitly; nothing does so by default.
@@ -112,23 +118,31 @@ create with a client-supplied `id` answers `object_already_exists`, and an upser
 Retrying a create without an `id` and without a key can duplicate records; the reference says so
 explicitly.
 
+An inline batch writes its job, its items' changes, their outcomes and its key in one transaction, so
+its key names a finished job; a background job's key is stored with the queued job, and
+`idempotency_in_progress` answers it until the job finishes (B2). A replayed background job answers
+`202` with the job as it is now. A key's expiry follows its job's `expiresAt`. The `409` carries
+`Retry-After` (B1).
+
 ### P6: Jobs
 
 ```text
 GET  /api/v1/jobs?workspaceKey=…&kind=…&state=…   (ADR-030 paging)
 GET  /api/v1/jobs/{jobId}
 GET  /api/v1/jobs/{jobId}/items?status=…           (outcomes in item order, ADR-030 paging)
-POST /api/v1/jobs/{jobId}/cancel
+POST /api/v1/jobs/{jobId}/cancel                  (202 with the job; B2)
 GET  /api/v1/jobs/{jobId}/output                   (export and preview output; section J)
 ```
 
 Jobs are created by their own routes (sections B and J), which return `202` with the job for background
 work, or the finished job for a synchronous batch.
 
-**Shape.** `id`, `kind` (`batch`, `import`, `export`), `workspaceKey`, `changeSetId`, `policy`,
-`modelReleaseId`, `state`, `stage` (kind-specific, for example `validating`, `previewed`,
+**Shape.** `id`, `kind` (`batch`, `import`, `export`), `workspaceKey`, `changeSetId`,
+`changeSetVersion`, `policy`, `parameters` (the kind's other choices: `run` and `onExisting` for a
+batch, B1), `modelReleaseId`, `state`, `stage` (kind-specific, for example `validating`, `previewed`,
 `applying`), `progress` (`total` when known, `processed`), the counts and `result` of P2, `error` for
-a job-level failure, `createdAt`, `startedAt`, `finishedAt` and `expiresAt`.
+a job-level failure, `createdAt`, `startedAt`, `finishedAt` and `expiresAt`; B2 adds
+`cancelRequestedAt`, `leaseOwner` and `leaseExpiresAt`.
 
 **States.** `queued` → `running` → `completed` | `failed` | `cancelled`. An import also passes
 `awaiting_confirmation` after its preview (section J). `expired` replaces any final state when
@@ -143,13 +157,32 @@ lease on the job (`leaseOwner`, `leaseExpiresAt`); a restarted process picks up 
 lease expired. The worker runs in the application process while the engine is single-node (0.9); the
 lease is what lets 0.11 run it on several nodes without a contract change.
 
+As delivered (B2, D27–D30): a background job's items wait in a `job_inputs` table, one row per item,
+stored with the queued job and removed when it finishes (D27). A chunk is `JOB_CHUNK_ITEMS` (500)
+items. The lease (`JOB_LEASE_SECONDS`, 120) is renewed with each chunk's commit; a chunk does not
+hold the job row while it applies items, and before committing it locks the row and checks that it
+still holds the lease, rolling back when another worker took the job over. A worker stopping
+gracefully releases its leases. A failure other than an item's refusal rolls back the chunk and
+fails the job with `job_failed` and a correlation ID (D29). Items the job did not reach get their
+`unprocessed` outcome in one statement from their inputs, so `progress.processed` equals `total`
+once the job is finished.
+
 **Model release.** A job pins the active model release when it is created (ADR-015 extended from a
 request to a job). If the active release changes before the job finishes, the next chunk fails the job
 with `model_release_changed`: applied chunks stay applied, and every remaining item is `unprocessed`
-with that reason.
+with that reason. A job in a change set pins the change set's release (B2): moving the change set to
+another release fails it the same way, and a release activated while a live chunk runs refuses that
+chunk at commit (0.8 W5), which then counts as not reached. An inline batch is one chunk committed with its job, so a release activated while
+it runs refuses the request (`409 model_release_changed`) and nothing is saved, the job included (B1).
 
 **Cancellation.** Cancel takes effect between chunks. Items not reached are `unprocessed` with
 `job_cancelled`; an `atomic` job rolls back completely.
+
+As delivered (B2, D28): the route sets `cancelRequestedAt` in one short transaction and answers `202`;
+a finished job is `409 job_finished`. The worker does every finish, a queued job's included, at the
+next chunk; an `atomic` job's chunk checks between items. The design relies on PostgreSQL's READ
+COMMITTED: a cancel request commits while a chunk runs and the chunk's next read sees it. On SQLite
+a chunk holds the writer lock, so the request waits for it; nothing works around that.
 
 **Audit cause.** Every applied item writes the same audit entries as the equivalent single write, plus
 the job ID as the cause. The feed and consumer events report it (`cause: {kind: "job", id}` in
@@ -157,7 +190,12 @@ CONSUMER_API), and a later value-source field builds on it (ADR-032, provenance)
 
 **Files (D12).** Uploaded and exported files are stored in a configured directory (`JOB_FILE_DIR`)
 with their size and checksum recorded on the job; they are not database rows. Output is served only
-by a `completed` job, so partial output cannot be mistaken for a complete one.
+by a `completed` job, so partial output cannot be mistaken for a complete one. A batch's items are
+not a file (D27); the directory arrives with the first package that stores one (J1 or J2).
+
+**Retention (D14, B2).** The worker expires finished jobs past `expiresAt` every hour: the job becomes
+`expired` with its summary kept, and its outcomes, inputs and idempotency keys are removed. A process
+with the capability off runs no worker and so expires nothing.
 
 **Capability (D10).** Job execution is a deployment capability group (ADR-031),
 `INTEGRATION_JOBS_ENABLED`, on by default like live writes. A process with it off registers no route
@@ -165,15 +203,16 @@ that creates or cancels a job and runs no worker; job reads stay available.
 
 ### P7: Limits (D13)
 
-Every limit is a setting reported by `GET /api/v1/capabilities` and named in the error that enforces
-it (`413 batch_too_large` with the limit in `details`). Recommended defaults, to be confirmed against
+Every limit is a setting reported by `GET /api/v1/capabilities` (`integrationJobs.limits`) and named
+in the error that enforces it (`413 batch_too_large` with `details.setting`, `details.maximum` and the
+request's `items` or `bytes`, B1). Recommended defaults, to be confirmed against
 the 0.8 Track S volume fixture in the first B package:
 
 | Limit | Default |
 | --- | --- |
 | Synchronous batch | 1,000 items and 5 MB body |
 | `atomic` job | 10,000 items |
-| Background job | 1,000,000 items; upload 200 MB |
+| Background job | 1,000,000 items; upload 200 MB (J); a JSON batch body of 50 MB (B2, `BATCH_BACKGROUND_MAX_BYTES`) |
 | Retention of jobs, outcomes, files and idempotency keys (D14) | 7 days |
 
 ## B: Bulk writes
@@ -246,9 +285,9 @@ a batch never matches by name.
 
 | `op` | Required | Semantics |
 | --- | --- | --- |
-| `create` | `applicationKey`, `objectTypeKey`, `name` | As `POST /objects`: optional `id`, `parent` (a reference), `attributes`, `initialRelations` (ends as references) |
+| `create` | `applicationKey`, `objectTypeKey`, `name` | As `POST /objects`: optional `id`, `parent` (a reference), `attributes`, `initialRelations` (`relationTypeKey`, `direction`, `object`: a reference, `attributes`) |
 | `update` | `target`, `expectedVersion` | As `PATCH /objects/…`: `name`, `parent` (a move, B2 of 0.8), `attributes` merged as a single PATCH merges them, including its treatment of `null` |
-| `upsert` | `objectTypeKey`, `applicationKey`, `key`, `name` | Finds the record by `key`; creates it as `create` when absent; otherwise updates it as `update` under P4 |
+| `upsert` | `objectTypeKey`, `applicationKey`, `key`, `name` | Finds the record by `key`; creates it as `create` when absent; otherwise updates it as `update` under P4. Its `initialRelations` are used only when it creates (D26, B1); an absent `parent` keeps a found record where it is |
 | `delete` | `target`, `expectedVersion` | As `DELETE` without `cascade`: a record with children or non-parent relations is rejected `object_has_dependants` (without a preview token). A batch removes dependants itself, children before parents |
 
 **Upsert key (D2).** `key` is `{ "id": "…" }` (a client-assigned public ID, used on create) or
@@ -289,7 +328,7 @@ Containment relations are never items: a parent changes through an object's `par
 ### B5: Outcomes and responses
 
 Outcomes are P2's, in item order, each with its `ref`. An applied object item reports `id`,
-`objectTypeKey` and `version`; a relation item `relationId` and `version`; a set replacement the
+`objectTypeKey` and `version` (none after a live delete); a relation item `relationId` and `version`; a set replacement the
 anchor's new `relationSetVersion` and the created, kept and removed relation IDs.
 
 ```json
@@ -309,13 +348,16 @@ anchor's new `relationSetVersion` and the created, kept and removed relation IDs
 ```
 
 An inline response carries the first page of outcomes (page size 1,000, so every inline batch fits);
-later pages come from `GET /jobs/{id}/items`.
+later pages come from `GET /jobs/{id}/items`. As delivered (B1) the response is that page, with its
+ADR-030 navigation fields, plus `job`; an outcome carries only its status's fields.
 
 ### B6: Codes introduced by batches
 
 `batch_too_large` (413), `version_required`, `invalid_record_key`, `missing_record_key`,
 `reference_not_found`, `reference_type_mismatch` (per item), and the P5 idempotency codes. Every
-other rejection is the single write's code.
+other rejection is the single write's code. Request level (B1): `invalid_batch_context` (not exactly
+one of `workspaceKey` and `changeSetId`) and, until B2, `run_not_available`. B2: `job_finished` (409,
+cancelling a finished job).
 
 ### B7: Audit, feed and cost
 
@@ -323,7 +365,8 @@ Each applied item writes the audit entries of its single-write equivalent with t
 (P6), so object history, the feed (F) and consumer events see a batch as its individual changes. The
 first B package confirms the D13 limits on the 0.8 Track S volume fixture and records budgets:
 per-item cost of an inline independent batch of 1,000 upserts, an atomic batch of 10,000 creates,
-and a 100,000-item background batch, live and in a change set.
+and a 100,000-item background batch, live and in a change set. B1 recorded the first two in D13; the
+background batch is B2's.
 
 ## F: Change feed
 

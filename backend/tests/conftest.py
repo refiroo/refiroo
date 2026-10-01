@@ -28,6 +28,7 @@ GROUP_DESCRIPTIONS = {
     "contract": "locked OpenAPI document and route inventories",
     "volume": "Track S volume fixture: read and write budgets as the dataset grows",
     "consumer": "consumer API definitions, reads, XREF, batch resolve, crosswalk, publications, parity",
+    "jobs": "jobs, outcomes, idempotency, batches, background execution, import profiles, imports and exports",
 }
 TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_model.py": ("model",),
@@ -103,6 +104,12 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_model_query.py": ("queries", "change_sets"),
     "test_effective_periods.py": ("queries", "records", "change_sets", "model"),
     "test_workspace_edge_list.py": ("mapping", "queries"),
+    "test_batches.py": ("jobs", "records", "change_sets"),
+    "test_jobs_migration.py": ("startup", "jobs"),
+    "test_batch_volume.py": ("volume", "jobs"),
+    "test_batch_matrix_states.py": ("jobs", "matrix"),
+    "test_background_jobs.py": ("jobs", "change_sets"),
+    "test_background_volume.py": ("volume", "jobs"),
 }
 
 

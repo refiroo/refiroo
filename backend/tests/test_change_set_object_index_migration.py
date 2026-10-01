@@ -16,7 +16,7 @@ from test_page_index_migrations import _reads
 from test_schema_drift import _schema_differences
 from test_snapshot_value_migration import _app, _config, _version
 
-PRECEDING, HEAD = "20260927_01", "20260928_01"
+PRECEDING, HEAD = "20260927_01", "20261001_01"
 TABLE = "change_set_objects"
 EXPECTED = {
     "ix_change_set_objects_type_name": ("change_set_id", "object_type_key", "name", "object_id"),
@@ -117,7 +117,9 @@ def test_upgrade_drops_the_indexes_the_orm_no_longer_declares(seeded_database, m
             for column in columns
         ),
     )
-    assert len(_schema_differences(f"sqlite:///{database}")) == 12
+    # The ten removed and two added indexes; later revisions differ on other tables.
+    differences = _schema_differences(f"sqlite:///{database}")
+    assert len([item for item in differences if item.split()[1].split(".")[0] in {TABLE, *REMOVED}]) == 12
     _upgraded_and_answering(database, monkeypatch, seeded, reads)
 
 

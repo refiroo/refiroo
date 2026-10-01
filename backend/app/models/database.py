@@ -432,6 +432,9 @@ class AttributeValue(Base):
     __tablename__ = "attribute_values"
     __table_args__ = (
         UniqueConstraint("object_id", "attribute_type_key", name="uq_object_attribute_value"),
+        # A live write's unique-value check and a key reference seek to the value (0.9 B2,
+        # 20261001_01), as a change set's do through ix_snapshot_attribute_values_owner_key_text.
+        Index("ix_attribute_values_key_text", "attribute_type_key", "text_value", "object_id"),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -903,6 +906,9 @@ class AuditEvent(Base):
     occurred_at: Mapped[datetime] = mapped_column(
         UTCDateTime(), default=lambda: datetime.now(UTC), index=True
     )
+    # What made the change when it was not a single write: a job (Base 0.9, INTEGRATION_API P6).
+    cause_kind: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    cause_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
 
 
 class AuditEventSubject(Base):
@@ -916,6 +922,126 @@ class AuditEventSubject(Base):
         ForeignKey("audit_events.sequence_id", ondelete="CASCADE"), nullable=False, index=True
     )
     object_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+
+
+class Job(Base):
+    """A bulk write, import or export: its parameters, state and counts (Base 0.9, ADR-036).
+
+    A synchronous batch is a job run inline. Its outcomes are ``JobItem`` rows in item order; the
+    counts and ``result`` summarize them once the job is finished.
+    """
+
+    __tablename__ = "jobs"
+    __table_args__ = (
+        CheckConstraint("kind IN ('batch', 'import', 'export')", name="ck_job_kind"),
+        CheckConstraint(
+            "state IN ('queued', 'running', 'awaiting_confirmation', 'completed', 'failed', "
+            "'cancelled', 'expired')",
+            name="ck_job_state",
+        ),
+        Index("ix_jobs_workspace_created", "workspace_key", "sequence_id"),
+        Index("ix_jobs_state", "state", "sequence_id"),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[str] = mapped_column(
+        String(36), unique=True, index=True, default=lambda: str(uuid4())
+    )
+    kind: Mapped[str] = mapped_column(String(20), nullable=False)
+    workspace_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    change_set_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    # The model release the job was created under (ADR-015 extended to a job).
+    model_release_id: Mapped[int] = mapped_column(
+        ForeignKey("model_releases.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
+    # The request's choices: policy, run and onExisting for a batch.
+    parameters: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    state: Mapped[str] = mapped_column(String(30), nullable=False)
+    stage: Mapped[str | None] = mapped_column(String(30), nullable=True)
+    total: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    processed: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    counts: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    result: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    error: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    # For a job in a change set, the version the job holds: its claim while it runs, the version
+    # it left once finished.
+    change_set_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    started_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
+    # The worker running a background job, until the lease expires (P6).
+    lease_owner: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    lease_expires_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # Set by a cancel request; the worker finishes the job as cancelled (D28).
+    cancel_requested_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+
+
+class JobInput(Base):
+    """One item of a background job, waiting for the worker (D27). The rows go when the job
+    reaches a final state."""
+
+    __tablename__ = "job_inputs"
+    __table_args__ = (UniqueConstraint("job_id", "item_index", name="uq_job_input"),)
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    job_id: Mapped[int] = mapped_column(
+        ForeignKey("jobs.sequence_id", ondelete="CASCADE"), nullable=False
+    )
+    item_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    ref: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    # The item as the request gave it: only the fields it set.
+    item: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+
+
+class JobItem(Base):
+    """One item's outcome, at its position in the job's request (INTEGRATION_API P2)."""
+
+    __tablename__ = "job_items"
+    __table_args__ = (
+        UniqueConstraint("job_id", "item_index", name="uq_job_item"),
+        CheckConstraint(
+            "status IN ('applied', 'rejected', 'unprocessed')", name="ck_job_item_status"
+        ),
+        Index("ix_job_items_status", "job_id", "status", "item_index"),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    job_id: Mapped[int] = mapped_column(
+        ForeignKey("jobs.sequence_id", ondelete="CASCADE"), nullable=False
+    )
+    item_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    ref: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), nullable=False)
+    # The rest of the outcome: action, record identity and version, error, or reason.
+    outcome: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+
+
+class IdempotencyKey(Base):
+    """A client's ``Idempotency-Key`` for a job-creating request (INTEGRATION_API P5).
+
+    Scoped to the route and the workspace; the fingerprint is a SHA-256 of the canonical request.
+    """
+
+    __tablename__ = "idempotency_keys"
+    __table_args__ = (
+        UniqueConstraint("scope", "workspace_key", "key", name="uq_idempotency_key"),
+    )
+
+    sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    scope: Mapped[str] = mapped_column(String(80), nullable=False)
+    workspace_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    key: Mapped[str] = mapped_column(String(200), nullable=False)
+    fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    job_id: Mapped[int] = mapped_column(
+        ForeignKey("jobs.sequence_id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
+    )
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
 
 
 # Trigram search indexes over attribute text values (Base 0.8 S8); not ORM tables.

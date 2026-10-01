@@ -246,11 +246,36 @@ def delete_object_record(
     deletion_preview: str | None = None,
     model_identity: str,
 ) -> None:
-    """Delete a live object and, with ``cascade``, its dependant closure.
+    """Delete a live object and, with ``cascade``, its dependant closure, and commit.
 
     ``expected_version`` is claimed against the live root before any change; a stale claim or a
     non-cascade delete with dependants raises inside the transaction so nothing is committed.
     """
+    apply_object_delete(
+        session,
+        model,
+        object_type_key,
+        object_id,
+        expected_version,
+        cascade=cascade,
+        deletion_preview=deletion_preview,
+        model_identity=model_identity,
+    )
+    session.commit()
+
+
+def apply_object_delete(
+    session: Session,
+    model: EngineModel,
+    object_type_key: str,
+    object_id: str,
+    expected_version: int,
+    *,
+    cascade: bool = False,
+    deletion_preview: str | None = None,
+    model_identity: str,
+) -> None:
+    """Delete a live object as ``delete_object_record`` does; the caller commits."""
     if cascade:
         require_deletion_preview(deletion_preview)
     try:
@@ -341,7 +366,6 @@ def delete_object_record(
             relations=relations,
         )
     execute_delete_plan(writes, plan)
-    session.commit()
 
 
 def execute_delete_plan(writes: LiveWrites, plan: DeletePlan) -> None:

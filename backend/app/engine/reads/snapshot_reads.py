@@ -291,7 +291,15 @@ def _effective(
             overridden = select(getattr(overlay, identity)).where(overlay.change_set_id == context.id)
             conditions = [base_filter(base)]
             if part == "effective":
-                conditions.append(~getattr(entity, identity).in_(overridden))
+                # Probed per base row through the (change set, record) key, not as NOT IN: SQLite
+                # builds a NOT IN list of every row the change set holds on each statement, so a
+                # write's lookups grew with the change set (Base 0.9 B1).
+                conditions.append(
+                    ~exists().where(
+                        overlay.change_set_id == context.id,
+                        getattr(overlay, identity) == getattr(entity, identity),
+                    )
+                )
             elif part == "replaced":
                 # Driven by the change set's IDs: the arm's other terms would otherwise let the
                 # planner walk the base's type or parent index across every base row.

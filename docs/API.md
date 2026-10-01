@@ -179,6 +179,12 @@ Capabilities return deployment-supported operations explicitly:
   "workspaceAdmin": {
     "manageWorkspaces": true,
     "setting": "WORKSPACE_ADMIN_MUTATIONS_ENABLED"
+  },
+  "integrationJobs": {
+    "createJobs": true,
+    "runModes": ["inline"],
+    "limits": { "batchMaxItems": 1000, "batchMaxBytes": 5242880, "atomicJobMaxItems": 10000, "retentionDays": 7 },
+    "setting": "INTEGRATION_JOBS_ENABLED"
   }
 }
 ```
@@ -1617,18 +1623,171 @@ for relations connected to it. The indexed `audit_event_subjects` projection sup
 read path never searches JSON audit payloads.
 
 Each history item contains `id`, `aggregateType`, public `aggregateId`, `action`, `version`,
-`changedFields`, `attributeTypeKeys` and `occurredAt`. `attributeTypeKeys` names affected object or
+`changedFields`, `attributeTypeKeys` and `occurredAt`, and `cause` (`{"kind": "job", "id": …}`)
+when a job made the change (Base 0.9 B1). `attributeTypeKeys` names affected object or
 relation attributes without returning their values. The response deliberately omits the internal
 sequence ID and complete before/after values. History cursors are signed and bound to the object
 identity, type and workspace; mismatches return `422 invalid_cursor`.
+
+## Batches and jobs (Base 0.9 B1, B2)
+
+Bulk writes run as **jobs** ([ADR-036](DECISIONS.md#adr-036--a-batch-is-a-job-one-mechanism-for-bulk-writes-imports-and-exports);
+design and reasons in [INTEGRATION_API P and B](INTEGRATION_API.md#p-shared-primitives)). B1 delivers
+object items run inline, B2 background runs and cancellation; relation items (B3) follow.
+
+```text
+POST /api/v1/batches                                   (INTEGRATION_JOBS_ENABLED)
+POST /api/v1/jobs/{jobId}/cancel                       (INTEGRATION_JOBS_ENABLED)
+GET  /api/v1/jobs?workspaceKey=…&kind=…&state=…        newest first, ADR-030 paging
+GET  /api/v1/jobs/{jobId}
+GET  /api/v1/jobs/{jobId}/items?status=…               outcomes in item order, ADR-030 paging
+```
+
+### Request
+
+```json
+{
+  "workspaceKey": "main",
+  "policy": "independent",
+  "run": "inline",
+  "onExisting": "reject",
+  "items": [
+    { "ref": "row-2", "op": "upsert", "applicationKey": "rdm-master", "objectTypeKey": "codelist",
+      "key": { "attributeTypeKey": "codelist-code" },
+      "name": "Timetable types",
+      "parent": { "objectTypeKey": "domain", "key": { "attributeTypeKey": "domain-code", "value": "CONNECTIONS" } },
+      "attributes": [ { "attributeTypeKey": "codelist-code", "value": "MOT" } ] }
+  ]
+}
+```
+
+- **Context:** `workspaceKey` for live data, or `changeSetId` with `expectedChangeSetVersion`;
+  exactly one (`422 invalid_batch_context`; a change set without its version is
+  `409 change_set_required`). A job in a change set claims the version once for all its items: it
+  advances by one when anything changed, and not at all otherwise.
+- **`policy`** (required, no default): `atomic` applies every item or none; `independent` applies each
+  item on its own. Items apply in order, each against the data the items before it left, so a later
+  item sees an earlier applied one (a child after its parent). In `atomic` the first rejection rolls
+  everything back and every other item is `unprocessed` (`batch_rolled_back`).
+- **`run`** (required): `inline` runs the job in the request and answers `200` with its outcomes;
+  `background` queues it and answers `202` with the job ([Background jobs](#background-jobs)). The
+  size never switches the run.
+- **`onExisting`**: `reject` (default) or `overwrite`, for upserts that find a record and carry no
+  `expectedVersion`.
+- **`Idempotency-Key`** header (optional, 1–200 printable characters), scoped to the route and the
+  workspace. The same key with the same request answers the original job's response again with
+  `Idempotent-Replayed: true` and runs nothing (a background job: `202` with the job as it is now);
+  with another request it is `422 idempotency_key_reused`; while its job is queued or running,
+  `409 idempotency_in_progress` with `Retry-After`. A key lives as long as its job; past retention it
+  counts as new. Without a key, retrying a `create` without an
+  `id` can create the record twice; an upsert, or a create with an `id`, is safe to retry.
+- **Limits** (settings, reported by `GET /capabilities` as `integrationJobs.limits`): inline,
+  `BATCH_MAX_ITEMS` (1,000) and `BATCH_MAX_BYTES` (5 MB body); background, `BACKGROUND_JOB_MAX_ITEMS`
+  (1,000,000) and `BATCH_BACKGROUND_MAX_BYTES` (50 MB body); either run, `ATOMIC_JOB_MAX_ITEMS`
+  (10,000) for `atomic`. Over a limit is `413 batch_too_large` with `details.setting`,
+  `details.maximum` and the request's `items` or `bytes`. `chunkItems` reports `JOB_CHUNK_ITEMS`.
+
+### Items
+
+A **record reference** is `{ "id": "…" }` or `{ "objectTypeKey": "…", "key": { "attributeTypeKey": "…",
+"value": … } }`, where the attribute is declared `unique` and bound to the type. It resolves in the
+batch's context as it stands when the item runs.
+
+| `op` | Fields | Applies as |
+| --- | --- | --- |
+| `create` | `applicationKey`, `objectTypeKey`, `name`; optional `id`, `parent` (reference), `attributes`, `initialRelations` (`relationTypeKey`, `direction`, `object` reference, `attributes`) | `POST /objects` |
+| `update` | `target` (reference), `expectedVersion`; optional `name`, `parent` (reference, or `null` for the top level), `attributes` | `PATCH /objects/…`: only the fields given change |
+| `upsert` | `applicationKey`, `objectTypeKey`, `key`, `name`; optional `parent`, `attributes`, `initialRelations`, `expectedVersion` | Finds the record by `key` and updates it as `update`, or creates it as `create`. `key` is `{ "id": "…" }` (the ID a new record gets) or `{ "attributeTypeKey": "…" }`, a unique attribute whose value the item's `attributes` supply. `initialRelations` are used only when it creates; an absent `parent` keeps an existing record where it is |
+| `delete` | `target`, `expectedVersion` | `DELETE` without `cascade`: a record with dependants is `object_has_dependants`; delete children first |
+
+An item's validation, refusals and audit entries are its single write's. An update or upsert whose
+name, parent and values equal the record's is applied as `unchanged`, whatever its version claim: it
+writes no version, audit entry or change. Otherwise an update needs a current `expectedVersion`
+(`version_conflict`), and an upsert that finds a record needs one too (`version_required`) unless the
+request declares `onExisting: "overwrite"`; then it writes over the version it read, reports it as
+`previousVersion` and records it in the audit entry. An upsert never changes a record's type or
+application (`reference_type_mismatch`).
+
+### Response
+
+A processed batch answers `200` with the finished job and the first page of its outcomes (up to
+1,000; later pages from `GET /jobs/{id}/items`). Read `job.result`: `applied` (every item),
+`partial` or `rejected` (none). A request refused as a whole creates no job; that includes a model
+release activated while it ran (`409 model_release_changed`, nothing saved).
+
+```json
+{
+  "items": [
+    { "index": 0, "ref": "row-2", "status": "applied", "action": "created",
+      "id": "…", "objectTypeKey": "codelist", "version": 1 },
+    { "index": 1, "ref": "row-3", "status": "rejected",
+      "error": { "code": "duplicate_attribute_value", "message": "…",
+                 "details": { "pointer": "/items/1/attributes", "…": "…" } } },
+    { "index": 2, "ref": null, "status": "unprocessed", "reason": "batch_rolled_back" }
+  ],
+  "nextCursor": null, "prevCursor": null, "anchor": "…",
+  "job": {
+    "id": "…", "kind": "batch", "workspaceKey": "main", "changeSetId": null, "changeSetVersion": null,
+    "policy": "independent", "parameters": { "run": "inline", "onExisting": "reject" },
+    "modelReleaseId": "…", "state": "completed", "stage": null,
+    "progress": { "total": 3, "processed": 3 },
+    "counts": { "applied": 1, "rejected": 1, "unprocessed": 1,
+                "created": 1, "updated": 0, "unchanged": 0, "deleted": 0 },
+    "result": "partial", "error": null,
+    "createdAt": "…", "startedAt": "…", "finishedAt": "…", "expiresAt": "…",
+    "cancelRequestedAt": null, "leaseOwner": null, "leaseExpiresAt": null
+  }
+}
+```
+
+An outcome carries only its status's fields. `applied`: `action` (`created`, `updated`,
+`unchanged`, `deleted`), `id`, `objectTypeKey`, `version` (none after a live delete) and, after an
+overwrite, `previousVersion`. `rejected`: `error` with the single write's code, or one of
+`invalid_record_key`, `missing_record_key`, `reference_not_found`, `reference_type_mismatch` and
+`version_required`; `details.pointer` is a JSON pointer into the request. `unprocessed`: `reason`.
+Every audit entry an item writes names the job as its cause (`cause: {"kind": "job", "id"}` in object
+history). A job's outcomes and idempotency key are kept for `JOB_RETENTION_DAYS` (7) after it
+finishes; `expiresAt` says until when. Then the job is `expired`: its summary (`counts`, `result`,
+`error`, `progress`, times) remains, and its outcomes and key are removed.
+
+### Background jobs
+
+`run: background` answers `202` with the job, `queued`, once the job and its items are stored; a
+request refused before that (context, limits, a stale `expectedChangeSetVersion`, a model release
+activated meanwhile) creates no job. A worker in the API process then runs it:
+
+- **Chunks.** An `independent` job applies `JOB_CHUNK_ITEMS` (500) items per transaction; an
+  `atomic` job is one transaction. A chunk commits its changes, their outcomes and the job's
+  `progress.processed` together, so outcomes page in as chunks commit, and after a crash the job
+  resumes at its first item without an outcome: no item is applied twice or skipped. Items see
+  earlier chunks' applied items.
+- **Lease.** `leaseOwner` and `leaseExpiresAt` name the worker running the job; the lease is renewed
+  with each chunk (`JOB_LEASE_SECONDS`, 120). Another worker, or the process after a restart, takes
+  the job over once the lease expires; a worker stopping gracefully releases it at once.
+- **In a change set** the job holds the change set's claim: each chunk that changes something
+  advances the version by one, and `changeSetVersion` is the version the job holds (its claim while
+  it runs, the version it left once finished). A write to the change set by anyone else between
+  chunks makes the job `failed` with `change_set_version_conflict`.
+- **Stops.** Before each chunk the worker reads the job. A cancel request finishes it `cancelled`;
+  a model release no longer the one the job pinned (live: the active release; in a change set: the
+  change set's) makes it `failed` with `error.code` `model_release_changed`; another refusal of its
+  context (a retired workspace, a lost change set claim) makes it `failed` with that error; any other
+  failure rolls back the chunk and makes it `failed` with `job_failed` and `details.correlationId`,
+  the log entry's. Items the job did not reach are `unprocessed` with `job_cancelled`,
+  `model_release_changed` or `job_failed`; chunks committed before stay applied, and `result` says
+  what applied. `progress.processed` equals `progress.total` once the job is finished.
+
+`POST /jobs/{jobId}/cancel` answers `202` with the job and `cancelRequestedAt` set; it waits for no
+chunk. The worker carries it out at the job's next chunk (a queued job before its first item); an
+`atomic` job checks between items and rolls back completely. Cancelling again changes nothing; a
+finished job is `409 job_finished` with `details.state`, an unknown one `404 job_not_found`.
 
 ## Planned integration endpoints
 
 Designed in [INTEGRATION_API.md](INTEGRATION_API.md) and sequenced in the
 [Base 0.9 plan](BASE_0_9_IMPLEMENTATION_PLAN.md); each contract moves here when its package is delivered.
 
-- Model-aware query with explicit `select` and `expand`
-- Bounded bulk create/update/upsert with per-item results
+- Relation and relation-set items (B3)
 - Asynchronous import/export jobs
 - Ordered change feed and webhook subscriptions
 - Consumer API: a separate read-only tier with model-declared XREF lookup and lists

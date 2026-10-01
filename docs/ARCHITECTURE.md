@@ -105,7 +105,14 @@ authorization; 0.12 authorization works within them.
 | --- | --- | --- |
 | `MODEL_ADMIN_MUTATIONS_ENABLED` | off | Model drafts, install, activate; requires one process |
 | `WORKSPACE_ADMIN_MUTATIONS_ENABLED` | on | Workspace create, rename, retire, delete, set default |
+| `INTEGRATION_JOBS_ENABLED` | on | Job creation: `POST /batches` (0.9 B1), later imports, exports and job cancellation; job reads stay registered ([ADR-036](DECISIONS.md#adr-036--a-batch-is-a-job-one-mechanism-for-bulk-writes-imports-and-exports)) |
 | — (always registered) | — | Change-set create, rename, delete, model-release change, validate and publish; publication withdrawal. Refused in a retired workspace |
+
+The batch and job limits (`BATCH_MAX_ITEMS`, `BATCH_MAX_BYTES`, `ATOMIC_JOB_MAX_ITEMS`,
+`JOB_RETENTION_DAYS`, Base 0.9 D13 and D14) are settings too, reported under `integrationJobs`.
+On SQLite, `SQLITE_LOCK_WAIT_SECONDS` (60 by default) is how long a write waits for another
+transaction's writer lock before it fails: an inline batch holds that lock for seconds, so other
+writes queue behind it.
 
 Because the capabilities are per process, several instances can share one database with different
 exposure. For example, an internal administration instance runs with model administration enabled and

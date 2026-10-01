@@ -8,7 +8,8 @@ J1–J4 and R are specified (2026-09-29) and delivered in the order of the
 [delivery queue](#delivery-queue), each by the [delivery steps](#how-a-package-is-delivered).
 **Delivered:** [Q1](#q1-cross-type-lookup) (2026-09-29), [Q2](#q2-workspace-edge-list) (2026-09-29),
 [Q3](#q3-model-aware-query) (2026-09-30), [C1](#c1-consumer-api-definitions) (2026-09-30),
-[Q4](#q4-effective-periods-and-asof) (2026-09-30), [V1](#v1-api-reference-page) (2026-09-30).
+[Q4](#q4-effective-periods-and-asof) (2026-09-30), [V1](#v1-api-reference-page) (2026-09-30),
+[B1](#b1-job-model-and-inline-object-batches) (2026-10-01), [B2](#b2-background-jobs) (2026-10-01).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -99,9 +100,9 @@ model (states, progress, paged results, cancellation, resumption after restart),
 item-outcome vocabulary (`applied`, `rejected`, `unprocessed`, each with a stable code) and failure
 policies (D1). B and J use them; the feed (F) is positioned by its feed position instead.
 
-**Status: designed, not implemented.** The design (§P) and its decisions (D1, D10–D14, ADR-036) are
-accepted; no code exists yet. Track P has **no package of its own**: it is delivered inside the
-first bulk packages, so it is never an unused layer:
+**Status: §P1–P5 and P7 delivered in B1, §P6's background run in B2 (both 2026-10-01); job files (D12) arrive with J (D27).** The design
+(§P) and its decisions (D1, D10–D14, D23–D26, ADR-036) are accepted. Track P has **no package of its
+own**: it is delivered inside the first bulk packages, so it is never an unused layer:
 
 | Part of §P | Delivered in |
 | --- | --- |
@@ -195,9 +196,9 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 4 | [C1](#c1-consumer-api-definitions) | — | `consumerApis` schema and validation; opens schema 0.8 — **delivered 2026-09-30** |
 | 5 | [Q4](#q4-effective-periods-and-asof) | Q3, C1 | `effectivePeriod` in schema 0.8, `asOf` on reads; starter 0.9.0; SC-11 (API) — **delivered 2026-09-30** |
 | 6 | [V1](#v1-api-reference-page) | — | Scalar at `/docs` with the management API; a filler, any time before V2 — **delivered 2026-09-30** |
-| 7 | [B1](#b1-job-model-and-inline-object-batches) | — | **Track P (§P1–P5, P7)**, `POST /batches` with object items, inline |
+| 7 | [B1](#b1-job-model-and-inline-object-batches) | — | **Track P (§P1–P5, P7)**, `POST /batches` with object items, inline — **delivered 2026-10-01** |
 | 8 | [F1](#f1-feed-positions) | B1 | Feed position in commit order, publish entries (D15), lock order |
-| 9 | [B2](#b2-background-jobs) | B1 | **Track P (§P6)**: worker, chunks, lease, resume, cancel, retention |
+| 9 | [B2](#b2-background-jobs) | B1 | **Track P (§P6)**: worker, chunks, lease, resume, cancel, retention — **delivered 2026-10-01**, before F1 |
 | 10 | [B3](#b3-relation-and-relation-set-items) | B1 | Relation items and `replaceRelationSet` |
 | 11 | [F2](#f2-feed-read-retention-and-recovery) | F1 | `GET /workspaces/{key}/feed`, retention, `410` with baselines |
 | 12 | [T1](#t1-track-checkpoint-q-b-f) | Q4, B2, B3, F2 | Track checkpoint for Q, B and F: their groups, budgets and a composed journey |
@@ -610,6 +611,90 @@ If a D13 default does not fit its budget, lower it here and record the new value
 
 **Exit:** a batch contract in API.md; D13 confirmed or amended.
 
+**Delivered 2026-10-01.** The design left four questions, decided before coding as recommended: D23
+(atomic is sequential), D24 (`unchanged` before the version claim), D25 (the 10,000-item atomic
+budget at engine level) and D26 (an upsert's `initialRelations` only when it creates). The budget
+raised two more, also decided as recommended: the change-set lookup fix below, and D13 confirmed
+with a SQLite lock wait. What was built:
+
+- **Migration** `20260930_01`: `jobs` (parameters, state, stage, progress, counts, `result`, the
+  pinned release, the change set's version after the job, `expiresAt`), `job_items` (one outcome per
+  item, in item order) and `idempotency_keys` (route and workspace scope, request fingerprint), and
+  `cause_kind` and `cause_id` on `audit_events`. An interrupted run completes on the next start; a
+  table of another shape is refused with a recovery instruction.
+- **The single writes split** into an `apply_…` core that does not commit and the route's committing
+  wrapper: live create, update and delete (`records/objects.py`, `deletion.py`) and their change set
+  counterparts (`change_sets/records.py`). Routes behave as before; a batch item calls the core in a
+  savepoint of its own, so a rejected item leaves nothing, even after writing a row.
+- **`engine/jobs/`**: `store.py` (job record, outcomes, counts and result, idempotency, the job
+  reads), `batches.py` (the context, the policies, record references and upsert keys, `unchanged`,
+  P4) and `inline.py` (limits, the idempotency key, one transaction). In a change set the job holds
+  the version claim (`ChangeSetWrites.hold_claim`) for all items; a job that changed nothing leaves
+  the version. Every audit entry an item writes carries the job as its cause (`audit_cause`), shown
+  as `cause` in object history; an overwrite stores `overwrite.previousVersion`, which is not a
+  changed field.
+- **Routes**: `POST /batches` (registered with `INTEGRATION_JOBS_ENABLED`, on by default), `GET
+  /jobs`, `/jobs/{id}`, `/jobs/{id}/items` (always registered). `GET /capabilities` gains
+  `integrationJobs` with the limits as settings: `BATCH_MAX_ITEMS`, `BATCH_MAX_BYTES`,
+  `ATOMIC_JOB_MAX_ITEMS`, `JOB_RETENTION_DAYS`.
+- **Matrix states across savepoints**: SQLAlchemy dispatches `before_commit` and `after_rollback` for
+  each savepoint, so the stored matrix states were recomputed once per item. A batch now runs its items
+  under `matrix_states.deferred`, and the outer savepoint applies the notes once; a rejected item's
+  notes are recomputed from the records then, which leaves its rows' states as they were.
+- **Change-set lookups** (`snapshot_reads._effective`): the base arm excluded the change set's rows
+  with `NOT IN`, for which SQLite lists every row the change set holds on each statement, so each write
+  into a change set cost in proportion to the change set's size (a lookup 65 µs at 500 own rows, 361
+  µs at 4,000). It is now a correlated `NOT EXISTS` probed by the (change set, record) key: 39 µs at
+  4,000; the base arms' access paths are unchanged, and a 20,000-record count and position page read
+  in 7.2 ms and 12.4 ms instead of 7.8 ms and 19.5 ms.
+- **`SQLITE_LOCK_WAIT_SECONDS`** (60 by default; D13): a SQLite write waits that long for another
+  transaction's writer lock instead of failing at the driver's 5 s.
+
+Differences from the design, amended in INTEGRATION_API: the job has `changeSetVersion` and
+`parameters` (`run`, `onExisting`); the inline response is the outcome page with its ADR-030 fields
+plus `job`, and an outcome carries only its status's fields; `413 batch_too_large` names
+`details.setting`; request-level `invalid_batch_context` and `run_not_available`; an inline job is
+committed with its items, so a release activated meanwhile refuses the request with nothing saved
+(no failed job), and `idempotency_in_progress` arises only for B2's background jobs; an initial
+relation's other end is `object` (a reference); a live delete's outcome has no `version`.
+
+Composable domains (ADR-032): bulk APIs are touched and no door is affected; items and keys are
+resolved from the model (unique attributes, bindings), and the job cause on audit entries is the
+provenance the value-source door builds on.
+
+**Checks:** `test_batches` (new, `jobs` + `records` + `change_sets`; 26 passed on the generated model
+and its renamed copy): each item op refused with its single write's code, live and in a change set
+(duplicate unique value, unknown attribute, missing parent, taken ID, stale version, dependants
+without a preview token); items applying with their single writes' versions and audit entries and the
+job as cause; independent items seeing earlier applied ones and a row-writing rejection leaving
+nothing; atomic rollback with no audit entries and the change set's version unchanged; upserts with
+`version_required`, overwrite, `unchanged` and stale claims; upsert by ID and type mismatch; upsert
+initial relations only on create; reference and key refusals at their pointers; request-level
+refusals creating no job; the capability off; idempotency replay, reuse, workspace scope, in progress
+and expiry; job and outcome paging, filters and shapes; refs; a release activated before commit.
+`test_batch_matrix_states` (new, `jobs` + `matrix`; 1 passed): stored matrix states after batches with
+items refused after writing a row and an atomic batch rolled back, on the starter's translation
+matrix, live and in a change set. `test_jobs_migration` (new, `startup` + `jobs`; 4 passed): upgrade from `20260928_01`
+with history intact and batches served across a restart, an interrupted run and a refused table
+(also through the application: `/health` 503), the settings and their refusals, and a write waiting
+1.5 s for a held writer lock and giving up with a 1 s wait. `test_batch_volume` (new, `volume` +
+`jobs`; 5 passed, 116 s) at scale 0.005, per item: single create 16 statements live and 42 in the
+change set; 1,000 upserts with half updates 20.5 (3.3 s) and 34.0 (6.8 s); the same re-sent,
+all `unchanged`, 9.0 (1.2 s) and 8.0 (2.0 s); 1,000 atomic creates 15.0 (2.3 s) and 26.0 (5.3 s);
+10,000 atomic creates 15.0 (29 s) and 26.0 (55 s), 5.5 ms per item in the change set against 5.3 at
+1,000. Groups `startup`, `records`, `change_sets`, `mapping`, `matrix`, `queries`, `contract` and
+`jobs` without volume: 609 passed and one failure fixed (the A6 index test counted every schema
+difference of a database two revisions back; it now counts its own tables'; 4 passed). `volume`
+without `jobs`: 62 passed, read budgets held with the new lookup. The OpenAPI lock re-baselined after
+diffing the document: four paths and the new schemas added, `AuditEventResponse.cause` and
+`CapabilitiesResponse.integrationJobs` added, nothing else changed. `ruff check app/ tests/` clean.
+Smoke start on a copy of the development database at `20260928_01`: migrated to `20260930_01`,
+`/health` ok, `integrationJobs` reported, an atomic upsert batch applied and replayed by its key.
+
+Not run: `model`, `model_admin`, `workspaces` and `consumer`, which the changed boundaries do not
+select; frontend format, lint and build, since nothing under `frontend/` changed. The full suites
+wait for R.
+
 #### B2: Background jobs
 
 **Design:** §P6 (chunks, lease, cancellation, model release, retention). **Needs:** B1.
@@ -629,6 +714,99 @@ beside it recorded.
 **Groups:** `jobs`, `change_sets`, `startup`, `volume`.
 
 **Exit:** background execution in API.md; restart behaviour documented in the operations notes.
+
+**Delivered 2026-10-01**, before F1 by instruction (B2 needs only B1): a chunk takes no lock of its
+own before the write path's, so F1's workspace lock lands in the chunks' writes with no change to
+the worker. The design left four questions, decided before coding: D27 (a `job_inputs` table, not a
+column or a job file), D28 (cancel as a request the worker carries out, designed for PostgreSQL),
+D29 (an unexpected chunk failure fails the job) and D30 (defaults). What was built:
+
+- **Migration** `20261001_01`: `job_inputs` (one row per item of a background job, removed when it
+  finishes), and on `jobs` `lease_owner`, `lease_expires_at`, `cancel_requested_at` and an index by
+  state. An interrupted run completes on the next start; an inputs table of another shape is refused.
+- **`engine/jobs/`**: `batches.run_items` applies any index range of items (an inline batch is one
+  call, a chunk another) and stops between items when asked; `store.py` records outcomes per chunk,
+  stops a job (the unreached items' `unprocessed` outcomes in one `INSERT … SELECT` from their
+  inputs) and expires jobs; `background.py` queues a batch with its inputs, requests a cancel and
+  opens a chunk's context under the pinned release; `worker.py` claims a job under a lease, runs a
+  chunk (data, outcomes and checkpoint in one transaction, the lease checked under a row lock before
+  commit), stops it on cancel, release change, refused context or failure, sweeps retention hourly,
+  and runs on a thread started by the lifespan when jobs are enabled and the model is healthy. It
+  waits for a wake-up (a job queued or cancelled in this process), the expiry of a lease held
+  elsewhere, or a minute; a graceful stop releases its leases.
+- **Routes**: `POST /batches` with `run: background` answers `202` with the job (its limits
+  `BACKGROUND_JOB_MAX_ITEMS`, `BATCH_BACKGROUND_MAX_BYTES`); `POST /jobs/{id}/cancel` (`202`, `409
+  job_finished`), registered with `INTEGRATION_JOBS_ENABLED`. The job gains `cancelRequestedAt`,
+  `leaseOwner` and `leaseExpiresAt`; `integrationJobs.limits` gains the background limits and
+  `chunkItems`; `runModes` lists `background`.
+- **`db.begin_transaction`**: SQLite's driver begins no transaction before a `SAVEPOINT`, so a chunk
+  whose first write is inside its batch savepoint committed at the savepoint's release (found by the
+  lease test). A chunk now opens its transaction first, on SQLite as `BEGIN IMMEDIATE` (a read-first
+  transaction is refused when another connection writes); a no-op on PostgreSQL, listed in TODO's
+  SQLite debt.
+- **Live unique-value lookups** (`LiveLookup.unique_value_holder`): the budget's live run slowed as
+  it went (2.25 ms per item at the start, 5.17 ms after 30,000 creates). Live `attribute_values` had
+  no index by value, so each unique check and key reference read every value of the attribute.
+  `ix_attribute_values_key_text` (attribute, text value, record) in `20261001_01` makes it a seek, as
+  the change set side's `ix_snapshot_attribute_values_owner_key_text` already did: 1.96 to 2.13 ms
+  per item over 30,000. Text values only, like the change set side; other value types' unique checks
+  wait for 0.11's model-derived indexes (TODO). Single writes and B1's inline batches gain the same.
+
+Differences from the design, amended in INTEGRATION_API: the lost claim's code is
+`change_set_version_conflict`; each chunk that changes something advances the change set's version
+by one, and `changeSetVersion` is the version the job holds; a change set job pins the change set's
+release; `job_finished` is new; `JOB_FILE_DIR` moves to J (D27); the retention sweep runs only where
+the worker runs.
+
+**Found: SQLite blocks writes beside a background job.** The worker takes the writer lock again as
+soon as a chunk commits, and a waiting write retries only at its busy handler's interval, so it waits
+for the whole job, not one chunk, and fails after `SQLITE_LOCK_WAIT_SECONDS`. Not worked around (the
+engine targets PostgreSQL); recorded in the budget, in README's restart notes and in TODO.
+
+Composable domains (ADR-032): bulk APIs are touched and no door is affected; the job cause on audit
+entries is unchanged, and inputs are the request's items, resolved from the model as in B1.
+
+**Budget** (`test_background_volume`, scale 0.005, 100,000 creates through the route and the worker
+thread, live writes made beside it): live, submission 5.0 s (job and 100,000 inputs), run 231 s
+(433 items/s), 15.0 statements per item against 16 for a single create, 2.15–2.44 ms per item by
+quarter; in the change set, submission 4.6 s, run 663 s (151 items/s), 26.1 statements per item
+against 42, 6.0–7.2 ms by quarter. Writes beside the job: live, 2 served after 51–53 s and 2 refused
+after 62 s; in the change set, 4 served (median 15 s, max 45 s) and 9 refused, the SQLite finding
+above. Before the value index the live run took 805 s (124 items/s).
+
+**Checks:** `test_background_jobs` (new, `jobs` + `change_sets`; 42 passed on the generated model
+and its renamed copy): queued and applied in chunks with outcomes, counts, inputs removed, the job
+as cause; later chunks seeing earlier ones with an item's unset fields kept unset; a change set's
+version per chunk; an atomic job as one chunk, rolled back on a rejection; resumption after a crash
+between and inside chunks with no item repeated or skipped (outcome indexes, records and audit
+entries counted); a second worker waiting for the lease and a worker that lost it committing
+nothing; a graceful stop releasing its leases; cancel of a queued job, between chunks, after it
+finished (`job_finished`) and of an atomic job inside its chunk; a release activated between chunks
+and during one, a change set moved to another release, a lost change set claim, a retired workspace
+and an unexpected error with its correlation ID; idempotency while queued, reuse and replay; retention
+with the summary kept and the key then new; the capability off (no worker, no cancel route); the
+lifespan's worker thread completing a job; typed values. `test_jobs_migration` (`startup` + `jobs`;
+7 passed, 3 new): upgrade from `20260930_01` keeping B1's jobs and running background jobs across a
+restart, an interrupted B2 run completing and an inputs table of another shape refused (`/health`
+503), the new settings and their refusals, and the live unique lookup's query plan using the value
+index. `test_batches` (26 passed; the `run_not_available` case became the background limit).
+`test_background_volume` (new, `volume` + `jobs`; 2 passed, 15 min). Groups `jobs`,
+`change_sets`, `startup`, `records`, `queries` and `contract` without `volume`: 622 passed. `volume`
+without the background budget: 67 passed, read budgets held with the new index. The OpenAPI lock
+re-baselined after diffing the document: removing B2's additions (the cancel path, the 202 on
+`POST /batches` and its description, three job fields, three limits) gives B1's hash exactly. `ruff
+check app/ tests/` clean. Smoke start on a copy of the development database at `20260928_01`:
+migrated to `20261001_01`, `/health` ok, a 1,200-item background batch completed `partial` with the
+duplicate rejected at its index, retried while running (`409 idempotency_in_progress`) and replayed
+(`202`); a cancel sent while a 3,000-item job ran waited for the writer lock and found it finished
+(`409 job_finished`, the SQLite limit of D28); a process killed with `kill -9` at 4,000 of 20,000
+items, restarted with a 5 s lease, resumed and completed with 20,000 records, 20,000 outcomes and no
+rejection; a graceful stop left no lease.
+
+Not run: `matrix`, `mapping`, `model`, `model_admin`, `workspaces` and `consumer` beyond the modules
+the selected groups include, which the changed boundaries do not select; a cancel request
+committing while a chunk runs, which needs PostgreSQL (TODO); frontend format, lint and build, since
+nothing under `frontend/` changed. The full suites wait for R.
 
 #### B3: Relation and relation-set items
 
@@ -974,7 +1152,8 @@ This build touches every door in [COMPOSABLE_DOMAINS.md](COMPOSABLE_DOMAINS.md#d
 ## Decisions
 
 All accepted 2026-09-29 as recommended (D3 and D10 revised the same day, D5 revised after a code
-check, D15 and D16 added by that check, D17–D19 raised by Q3), and D20–D22 raised by Q4 (2026-09-30).
+check, D15 and D16 added by that check, D17–D19 raised by Q3), D20–D22 raised by Q4 (2026-09-30),
+D23–D26 raised by B1, which also confirmed D13 (2026-10-01), and D27–D30 raised by B2 (2026-10-01).
 
 | # | Question | Decision | Blocks |
 | --- | --- | --- | --- |
@@ -990,7 +1169,7 @@ check, D15 and D16 added by that check, D17–D19 raised by Q3), and D20–D22 r
 | D10 | Credentials and gates before 0.12 | **Credentials decided 2026-09-29:** none in 0.9. No API keys and no credential in a URL; 0.12 brings engine-provided OAuth 2.0 with JWT, HMAC-signed webhooks and UI administration of both (CONSUMER_API C-D1). **Gate, recommended:** job creation and cancellation form a deployment capability group, `INTEGRATION_JOBS_ENABLED` (ADR-031), on by default like live writes, since a bulk write is no more privileged than the single writes it batches; job reads and the raw feed are ungated like other reads until 0.12 | B, J, F, C |
 | D11 | Upserts without a version claim | Update items need `expectedVersion`. An upsert that finds a record without one is rejected `version_required` unless the request declares `onExisting: "overwrite"`, which is audited and reports the previous version (INTEGRATION_API P4) | B, J |
 | D12 | Where job files live | A configured directory (`JOB_FILE_DIR`) with size and checksum on the job, not database rows. 0.11 multi-node needs shared storage behind the same setting | J |
-| D13 | Batch and job limits | Synchronous batch 1,000 items and 5 MB; `atomic` job 10,000 items; background job 1,000,000 items and 200 MB upload; all settings, reported by capabilities, confirmed against the volume fixture in the first B package | B, J |
+| D13 | Batch and job limits | Synchronous batch 1,000 items and 5 MB; `atomic` job 10,000 items; background job 1,000,000 items and 200 MB upload; all settings, reported by capabilities, confirmed against the volume fixture in the first B package. **Confirmed 2026-10-01 (B1)** on the fixture at scale 0.005: an item costs about its single write (creates 15 statements live and 26 in a change set, against 16 and 42 for a single create; upserts with half updates 20.5 and 34.0), and the time per item stays flat as the change set grows once its lookups probe by key. A batch is one transaction holding SQLite's writer lock: 1,000 upserts 3.3 s live and 6.8 s in a change set, 10,000 atomic creates 29 s and 55 s. The defaults stay, and `SQLITE_LOCK_WAIT_SECONDS` (60 by default) lets other writes wait for that lock instead of failing at the driver's 5 s; an operator who wants shorter waits lowers the limits. The background limits are B2's | B, J |
 | D14 | Retention of jobs, outcomes, files and idempotency keys | 7 days, one setting; afterwards the job is `expired` with its summary kept | B, J |
 | D15 | How a publish appears in the audit log | Found 2026-09-29: publishing writes one `published` event with no per-record subjects (`workspace_audit.record_change_set_published`), and the records it changes in live were audited earlier as change-set edits. The feed could not tell what a publish changed. Publish now writes one audit entry per record it applies to live (`created`, `updated`, `deleted`, `reclassified`), each with identity and changed field keys (no values), subjects, a feed position and the `published` event as its cause. Bounded like single writes; replaces the "publishing never amplifies events per object" rule | F, C |
 | D16 | The `reclassified` payload in feeds | Its stored before state (ADR-034) stays in the audit log. Feed entries and consumer events carry identity and changed keys only (C-D7, erasure door) | F, C |
@@ -1000,13 +1179,21 @@ check, D15 and D16 added by that check, D17–D19 raised by Q3), and D20–D22 r
 | D20 | Activating a period over stored records it would refuse | **Accepted 2026-09-30 (Q4).** A release that declares a period, or moves one to other attributes, counts the type's live records whose end is not after their start; with any, activation is `409 model_migration_required` with a diagnostic `invalid_effective_period` and its count, as an added `atLeastOneOf` is. Allowing it would leave records every later change set validation refuses although nobody touched them | Q |
 | D21 | `asOf` on the management cross-type lookup | **Accepted 2026-09-30 (Q4), amending ADR-038 and §Q4.** Refused as `422 as_of_not_supported` with `details.route` naming the per-type list, as a model-declared filter is: a period belongs to one type, and no management story needs a dated lookup across types. The design's filtering with `asOfApplied` was copied from the consumer XREF, where C-D14 stays (C16). Refused rather than left undeclared, since an undeclared parameter is ignored and an undated answer would look dated | Q |
 | D22 | Which records `asOf` dates in the model-aware query | **Accepted 2026-09-30 (Q4).** The queried records only. A hop's far end and expansions are not dated; a date criterion on the hop dates them where that is wanted | Q |
+| D23 | What an atomic batch validates against | **Accepted 2026-10-01 (B1).** Its items in order, each through its single write against the data the items before it left, in one transaction; the first rejection rolls everything back. Not a check of the combined end state, which would need deferred checks the single writes lack, a second validation path; swapping two records' unique values is a change set's work | B |
+| D24 | `unchanged` and the version claim | **Accepted 2026-10-01 (B1).** An update or upsert whose name, parent and values equal the record's applies as `unchanged` before any version check: it writes nothing, so it overwrites nothing. A retried upsert answers `unchanged` (§P5), and a recurring feed is silent without `onExisting: "overwrite"` | B, J |
+| D25 | Where the 10,000-item atomic budget is measured | **Accepted 2026-10-01 (B1).** Through the inline job's engine path (`submit_inline_batch`), which B2's background run reuses, since a request is capped at 1,000 items; the route's budget is the 1,000-upsert batch | B |
+| D26 | An upsert's `initialRelations` | **Accepted 2026-10-01 (B1).** Used only when the upsert creates the record, so a type with a required incoming relation can be upserted; on a found record they are ignored (documented). Changing an existing record's relations is B3's relation items | B, J |
+| D27 | Where a background job's items wait | **Accepted 2026-10-01 (B2).** A `job_inputs` table, one row per item (`job_id`, `item_index`, `ref`, the item as JSON), inserted with the job in one transaction; a chunk reads its index range from the checkpoint, and the rows are removed when the job reaches a final state. Not a column (a 50 MB value rewritten and parsed whole per chunk) and not a job file: D12's files are raw uploads and export output, while a batch is already parsed items. J's imports write the same table once rows become items. So no B2 path stores a file, and `JOB_FILE_DIR` (D12) moves from B2's scope to the first J package that stores one (J1's output or J2's upload), so it is never an unused layer | B, J |
+| D28 | Cancelling a job | **Accepted 2026-10-01 (B2).** `POST /jobs/{id}/cancel` sets `cancelRequestedAt` in one short transaction and answers `202` with the job; a finished job is `409 job_finished`. The worker does every finish, a queued job's included: at the next chunk start for an `independent` job, and between items of an `atomic` job's one chunk, which then rolls back completely. A chunk does not hold the job row locked while it applies items, so the request never waits for a chunk. Designed for PostgreSQL (READ COMMITTED); no SQLite workaround. **To test on PostgreSQL** once it is the engine's database | B, J |
+| D29 | A chunk failing for another reason than an item's refusal | **Accepted 2026-10-01 (B2).** The chunk rolls back; the job is `failed` with `error.code` `job_failed`, a message and a correlation ID, and the remaining items are `unprocessed` with `job_failed`. Applied chunks stay. A process that stops mid-chunk is not a failure: its lease expires and the job resumes at its checkpoint | B, J |
+| D30 | Background defaults | **Accepted 2026-10-01 (B2).** `JOB_CHUNK_ITEMS` 500; `JOB_LEASE_SECONDS` 120, renewed with each chunk's commit, so a job resumes within that time after a restart; `BACKGROUND_JOB_MAX_ITEMS` 1,000,000 (D13) and a background request body of `BATCH_BACKGROUND_MAX_BYTES` 50 MB (§B1); the retention sweep runs in the worker every hour, so a process with `INTEGRATION_JOBS_ENABLED` off sweeps nothing | B, J |
 
 ## Next
 
 Decisions are accepted and the design documents are drafted (2026-09-29). Remaining before and during
 implementation:
 
-1. Review the drafted INTEGRATION_API sections B, F, Q and J, the schema 0.8 section and ADR-036–038
-   (before B1 for B and P, before F1 for F, before J1 for J).
+1. Review the drafted INTEGRATION_API sections F and J (before F1 for F, before J1 for J); B and P
+   were settled by B1's decisions (D23–D26) and amended where it delivered them.
 2. Release 0.8.0.
 3. Deliver the [queue](#delivery-queue) from Q1, one package per instruction ("deliver Q1").

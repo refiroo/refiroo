@@ -27,11 +27,23 @@ from .writes import LiveWrites
 
 
 def create_object_record(session: Session, model: EngineModel, payload: ObjectCreate) -> RdmObject:
-    """Create one object in the workspace's live object store.
+    """Create one object in the workspace's live object store and commit.
 
     Requires an active (non-retired) workspace.  The record is immediately part of the
     authoritative live projection; no publication is minted.
     """
+    item = apply_object_create(session, model, payload)
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise api_error(409, "duplicate_relation", "Relation already exists") from None
+    return item
+
+
+def apply_object_create(session: Session, model: EngineModel, payload: ObjectCreate) -> RdmObject:
+    """Write a new live object and audit it; the caller commits (a route) or holds a savepoint
+    (a batch item)."""
     workspace = resolve_workspace(session, payload.workspaceKey, require_active=True)
     workspace_key = workspace.key
     writes = LiveWrites(session, workspace_key)
@@ -89,7 +101,6 @@ def create_object_record(session: Session, model: EngineModel, payload: ObjectCr
                 to_object=to_object,
             )
         except IntegrityError:
-            session.rollback()
             raise api_error(409, "duplicate_relation", "Relation already exists") from None
         # Like any relation write, an initial relation advances both ends' sets (ADR-022).
         increment_set_versions(
@@ -117,11 +128,6 @@ def create_object_record(session: Session, model: EngineModel, payload: ObjectCr
         },
         object_ids=[item.id],
     )
-    try:
-        session.commit()
-    except IntegrityError:
-        session.rollback()
-        raise api_error(409, "duplicate_relation", "Relation already exists") from None
     return item
 
 
@@ -132,7 +138,23 @@ def update_object_record(
     object_id: str,
     payload: ObjectUpdate,
 ) -> RdmObject:
-    """Apply a partial live object update under optimistic concurrency."""
+    """Apply a partial live object update under optimistic concurrency and commit."""
+    item = apply_object_update(session, model, object_type_key, object_id, payload)
+    session.commit()
+    return item
+
+
+def apply_object_update(
+    session: Session,
+    model: EngineModel,
+    object_type_key: str,
+    object_id: str,
+    payload: ObjectUpdate,
+    *,
+    audit_changes: dict[str, Any] | None = None,
+) -> RdmObject:
+    """Update a live object and audit it; the caller commits. ``audit_changes`` adds to the
+    audit entry, such as a batch overwrite's previous version."""
     object_type = rules.get_object_type(model, object_type_key)
     attributes = (
         validate_attributes(
@@ -190,10 +212,9 @@ def update_object_record(
         aggregate_id=item.id,
         action="updated",
         version=item.version,
-        changes=changes,
+        changes={**changes, **(audit_changes or {})},
         object_ids=[item.id],
     )
-    session.commit()
     return item
 
 

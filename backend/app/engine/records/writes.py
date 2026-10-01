@@ -12,6 +12,8 @@ audit log, and when to commit. In-place edits of a row the unit handed out (a na
 values of a change set row) stay with the operation.
 """
 
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
@@ -32,6 +34,9 @@ from ...models.database import (
 from ...models.schema import EngineModel
 from ..indexes import matrix_states
 from .values import VALUE_COLUMNS, normalize_value
+
+# Change sets whose version a job has claimed for all its items, in ``Session.info``.
+_HELD_CLAIMS = "held_change_set_claims"
 
 
 class LiveWrites:
@@ -350,7 +355,13 @@ class ChangeSetWrites:
         conflict_code: str = "change_set_version_conflict",
         conflict_message: str = "Change set version has changed",
     ) -> None:
-        """Claim the change set's version for this write."""
+        """Claim the change set's version for this write.
+
+        While a job holds the claim (``hold_claim``), the job's items are parts of one write and
+        claim nothing more.
+        """
+        if self.change_set_id in self.session.info.get(_HELD_CLAIMS, ()):
+            return
         change_set = self.change_set
         if change_set.version != expected:
             raise api_error(409, conflict_code, conflict_message)
@@ -365,6 +376,18 @@ class ChangeSetWrites:
             if result.rowcount != 1:
                 raise api_error(409, conflict_code, conflict_message)
             self.session.refresh(change_set, attribute_names=["version", "updated_at"])
+
+    @contextmanager
+    def hold_claim(self, expected: int) -> Iterator[None]:
+        """Claim the change set's version once for every write made meanwhile (INTEGRATION_API
+        P3): a batch in a change set advances its version once, like one single write."""
+        self.claim(expected)
+        held = self.session.info.setdefault(_HELD_CLAIMS, set())
+        held.add(self.change_set_id)
+        try:
+            yield
+        finally:
+            held.discard(self.change_set_id)
 
     # --- records ---------------------------------------------------------------------------------
 
