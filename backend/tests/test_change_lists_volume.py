@@ -17,11 +17,11 @@ from app.db import get_engine
 
 
 @pytest.fixture(scope="module")
-def measured(_migrated_template, tmp_path_factory) -> dict[str, object]:
+def measured(tmp_path_factory) -> dict[str, object]:
     results = {}
     for label, shape in (("small", SMALL), ("large", LARGE)):
         directory = tmp_path_factory.mktemp(f"change-lists-{label}")
-        with volume_app(_migrated_template, directory, shape) as (client, dataset):
+        with volume_app(directory, shape) as (client, dataset):
             review = seed_review_change_set(get_engine(), dataset)
             results[label] = change_list_scenarios(client, get_engine(), review, repeat=0)
             if label == "small":

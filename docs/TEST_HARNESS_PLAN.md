@@ -41,6 +41,12 @@ seed.
 
 ### H1: Seeded databases built once
 
+**Delivered 2026-10-01 inside PG1 (its PG1 part):** the private server, the seed store with
+fingerprints, `schema` and the volume seeds, clones per test, `python -m tests.seeds list|build`, and
+the run summary. Evidence and timings are in
+[PG1's record](POSTGRESQL_RUNTIME_PLAN.md#pg1-runtime-baseline-and-test-harness). The heavy modules'
+records and the browser runners' seed follow in PG2.
+
 **Scope:** a seed store for the backend tests and the browser runners.
 
 - **What a seed is.** A named database file built by a seed function: the migrated empty schema, the
@@ -62,6 +68,10 @@ seed.
   rebuilt per session), the heavy `records` and `change_sets` modules' common records, and the
   browser runner harness's seed (`e2e/helpers/harness.mjs`), which today creates its records through
   the API on every run.
+- **Split with PG2 (decided 2026-10-01 at the start of PG1).** PG1 builds the seed store, the migrated
+  schema seed and the volume fixture seeds. The heavy modules' common records and the browser
+  runners' seed move onto seeds in [PG2](POSTGRESQL_RUNTIME_PLAN.md#pg2-postgresql-forms), once
+  those modules and runners run on PostgreSQL.
 
 **Evidence:** two runs of the same groups back to back, the second building no seed (its log names
 each seed as reused), with times for both; a schema change rebuilding exactly the affected seeds;

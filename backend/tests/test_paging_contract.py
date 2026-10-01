@@ -31,8 +31,8 @@ PAGE = 20
 
 
 @pytest.fixture(scope="module")
-def volume(_migrated_template, tmp_path_factory):
-    with volume_app(_migrated_template, tmp_path_factory.mktemp("paging"), scaled_shape(0.01)) as pair:
+def volume(tmp_path_factory):
+    with volume_app(tmp_path_factory.mktemp("paging"), scaled_shape(0.01)) as pair:
         yield pair
 
 

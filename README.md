@@ -112,6 +112,16 @@ Open:
 
 ## Run without Docker
 
+PostgreSQL 17 (the engine's only database since 0.9.0-alpha.1):
+
+```bash
+brew install postgresql@17    # the binaries only: never start it with `brew services`
+scripts/postgres.sh start     # creates backend/.postgres/ on first use and prints DATABASE_URL
+```
+
+`scripts/postgres.sh stop` stops it, `status` reports it and `backup` writes a `pg_dump` file to
+`backend/.postgres/backups/`. Nothing starts at login.
+
 Backend:
 
 Python 3.14 is the supported version (see `.python-version` and `backend/Dockerfile`); the package
@@ -122,6 +132,7 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate
 pip install -e '.[dev]'
+export DATABASE_URL=postgresql+psycopg://postgres@localhost:54320/rdm
 uvicorn app.main:app --reload
 ```
 
@@ -135,8 +146,14 @@ npm run dev
 
 Run the frontend test suite with `npm test`.
 
-The backend uses `backend/rdm-engine.db` through SQLite locally unless `DATABASE_URL` is set. The
-model defaults to `model/rdm-starter.json`. Set `RDM_CURSOR_SIGNING_KEY` to a deployment-specific
+`DATABASE_URL` is required and must name a PostgreSQL database whose default collation is the ICU
+root collation `und` (language-independent Unicode order; `scripts/postgres.sh` creates it so, and
+for another server use `CREATE DATABASE … TEMPLATE template0 LOCALE_PROVIDER icu ICU_LOCALE 'und'
+LOCALE 'C'`). The role needs the `pg_trgm` extension, which startup creates when it may. Startup
+refuses a missing or non-PostgreSQL URL, another collation, a missing `pg_trgm` and an unknown
+schema revision, each with what to do; existing SQLite databases are carried over by a copy command
+(0.9.0-alpha.1, PG4). Backend tests start their own private server; see
+[the execution guide](docs/testing/EXECUTION_GUIDE.md). The model defaults to `model/rdm-starter.json`. Set `RDM_CURSOR_SIGNING_KEY` to a deployment-specific
 secret so opaque pagination cursors remain verifiable across restarts. Without it, the process
 generates an ephemeral key and cursors issued before a restart become invalid.
 
@@ -164,9 +181,7 @@ setting.
 Bulk writes run as jobs (`POST /api/v1/batches`, read back through `/api/v1/jobs`). Job creation is
 registered by default; `INTEGRATION_JOBS_ENABLED=false` removes it while job reads remain. The limits
 are settings reported by `GET /api/v1/capabilities`: `BATCH_MAX_ITEMS` (1000), `BATCH_MAX_BYTES`
-(5 MB), `ATOMIC_JOB_MAX_ITEMS` (10000) and `JOB_RETENTION_DAYS` (7). A batch is one transaction, so on
-SQLite it holds the database's writer lock while it runs (about 3 s for 1,000 live upserts, 6 s in a
-change set); `SQLITE_LOCK_WAIT_SECONDS` (60) is how long other writes wait for it before failing.
+(5 MB), `ATOMIC_JOB_MAX_ITEMS` (10000) and `JOB_RETENTION_DAYS` (7). A batch is one transaction.
 
 A batch sent with `run: background` (up to `BACKGROUND_JOB_MAX_ITEMS`, 1,000,000 items, in a body of
 at most `BATCH_BACKGROUND_MAX_BYTES`, 50 MB) is queued and answered with `202`. A worker thread in
@@ -178,10 +193,8 @@ retention every hour.
 **Restart behaviour.** A graceful stop finishes the running chunk and releases the worker's lease,
 so the next start resumes the job at once. After a crash or kill, the chunk in progress rolls back,
 and the job resumes at its first item without an outcome once its lease (`JOB_LEASE_SECONDS`, 120)
-expires: no item is applied twice or skipped. On SQLite a running background job holds the writer
-lock chunk after chunk, so other writes wait until the job ends and fail after
-`SQLITE_LOCK_WAIT_SECONDS`; run large background jobs when nothing else writes, until the engine
-runs on PostgreSQL.
+expires: no item is applied twice or skipped. How other writes behave beside a running job on
+PostgreSQL is measured in 0.9.0-alpha.1 (PG3).
 
 ### Model releases and rollback
 
@@ -220,9 +233,9 @@ cd backend
 If a migration cannot complete safely, startup does not emit a framework traceback or continue as if
 the schema were usable. The process enters maintenance mode, `/health` returns HTTP `503`, and the log
 reports the database without credentials, current and target revisions, the failure reason, safe
-backup/retry instructions, and what to include in an escalation. The WP4 migration automatically
-recovers empty SQLite tables or columns left by an interrupted pre-backfill attempt; it refuses to
-delete partial lifecycle data or an unfamiliar schema.
+backup/retry instructions, and what to include in an escalation. PostgreSQL runs a migration's DDL in
+its transaction, so a migration that fails or is interrupted leaves the database at its previous
+revision.
 
 ## Repository guide
 

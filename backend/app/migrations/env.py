@@ -3,11 +3,17 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+from app.db import configured_url
 from app.models.database import Base
 
 config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name, disable_existing_loggers=False)
+# The alembic command line runs against DATABASE_URL, as the application does.
+if not config.get_main_option("sqlalchemy.url"):
+    config.set_main_option(
+        "sqlalchemy.url", configured_url().render_as_string(hide_password=False).replace("%", "%%")
+    )
 
 target_metadata = Base.metadata
 

@@ -16,7 +16,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_MODEL_PATH = PROJECT_ROOT / "model" / "rdm-starter.json"
-DEFAULT_DATABASE_URL = "sqlite:///./rdm-engine.db"
 DEFAULT_CORS_ORIGINS = "http://localhost:5173"
 
 TRUTHY = {"1", "true", "yes", "on"}
@@ -37,7 +36,9 @@ class Settings(BaseModel):
 
     model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
-    database_url: str = DEFAULT_DATABASE_URL
+    # The PostgreSQL URL (PG-D2); required, and checked at startup (``db.check_database_url``) so a
+    # missing or non-PostgreSQL URL is refused with an instruction rather than a traceback.
+    database_url: str | None = None
     model_path: Path = DEFAULT_MODEL_PATH
     cors_origins: tuple[str, ...] = (DEFAULT_CORS_ORIGINS,)
     model_admin_mutations_enabled: bool = False
@@ -69,7 +70,7 @@ class Settings(BaseModel):
         configured_model_path = env.get("RDM_MODEL_PATH")
         configured_signing_key = env.get("RDM_CURSOR_SIGNING_KEY")
         return cls(
-            database_url=env.get("DATABASE_URL", DEFAULT_DATABASE_URL),
+            database_url=env.get("DATABASE_URL", "").strip() or None,
             model_path=Path(configured_model_path) if configured_model_path else DEFAULT_MODEL_PATH,
             cors_origins=tuple(
                 origin.strip()
@@ -165,7 +166,7 @@ def model_path() -> Path:
     return get_settings().model_path
 
 
-def database_url() -> str:
+def database_url() -> str | None:
     return get_settings().database_url
 
 

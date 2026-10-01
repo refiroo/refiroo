@@ -21,10 +21,9 @@ PAGE = 7
 
 
 @pytest.fixture(scope="module")
-def change_sets(_migrated_template, tmp_path_factory):
+def change_sets(tmp_path_factory):
     """The fixture's publication-based change set and a current-live change set, both with rows moved."""
-    with volume_app(
-        _migrated_template, tmp_path_factory.mktemp("change-set-positions"), scaled_shape(0.01)
+    with volume_app(tmp_path_factory.mktemp("change-set-positions"), scaled_shape(0.01)
     ) as (client, dataset):
         current_live = create_change_set(client, WORKSPACE, source="currentLive").json()
         publication_based = client.get(f"/api/v1/change-sets/{dataset.change_set_id}").json()

@@ -5,18 +5,13 @@ names (D25). The index only decides which records are looked up: the match stays
 ``LIKE`` it was, in every context, so a search answers the same through the index, through the
 per-record look-up it falls back to for common phrases, and in live, change-set and publication reads.
 
-``20260926_03`` builds the indexes. Triggers on the value tables keep them equal to the values on
-every write; FTS5's ``integrity-check`` compares each index with its table.
+Triggers on the value tables keep the indexes equal to the values on every write; FTS5's
+``integrity-check`` compares each index with its table. These are the SQLite forms, which PG2
+replaces with ``pg_trgm`` (PG-D7); their SQLite migration tests went with the SQLite revisions.
 """
 
-import importlib.util
-from pathlib import Path
-from types import SimpleNamespace
-
-import pytest
 import test_context_read_parity
-from alembic import command
-from sqlalchemy import create_engine, event, select, text
+from sqlalchemy import event, select, text
 from sqlalchemy.dialects import postgresql, sqlite
 from test_context_read_parity import (
     ENTRY,
@@ -28,14 +23,12 @@ from test_context_read_parity import (
     _walk,
     load_change_set,
 )
-from test_snapshot_value_migration import _app, _config, _version
 
 from app.db import get_engine
 from app.engine.reads import object_query, snapshot_reads
-from app.models.database import Base, ChangeSetBaseObject, RdmObject
+from app.models.database import ChangeSetBaseObject, RdmObject
 from app.models.search_index import SEARCH_INDEXES, match_phrase
 
-PRECEDING, HEAD = "20260926_02", "20261001_01"
 # The parity model's app over a migrated database.
 client = test_context_read_parity.client
 SEARCHES = ("note", "50%", "d_4", "t_s", '"quoted"', "Ünal", "STRAßE", "naïve", "F-", "-10", "zzz")
@@ -222,94 +215,6 @@ def test_every_write_path_keeps_the_indexes_equal_to_the_values(client):
     assert stale == 0
 
 
-def test_a_clean_bootstrap_and_create_all_build_the_same_indexes(_migrated_template, tmp_path):
-    migrated = create_engine(f"sqlite:///{_migrated_template}")
-    created = create_engine(f"sqlite:///{tmp_path / 'created.db'}")
-    try:
-        Base.metadata.create_all(created)
-        with migrated.connect() as left, created.connect() as right:
-            expected = {
-                ("table", index.name) for index in SEARCH_INDEXES
-            } | {
-                ("trigger", f"{index.name}_{name}")
-                for index in SEARCH_INDEXES
-                for name in ("insert", "delete", "update")
-            }
-            assert expected <= _search_objects(left) == _search_objects(right)
-    finally:
-        migrated.dispose()
-        created.dispose()
-
-
-def _reads(client, seeded) -> dict:
-    return {
-        (name, search): _ids(client, context, search)
-        for name, context in seeded["contexts"].items()
-        for search in SEARCHES
-    }
-
-
-@pytest.fixture
-def downgraded_database(tmp_path, monkeypatch, _migrated_template):
-    """Data in every context written at head, then taken back to the preceding revision."""
-    database = tmp_path / "s8.db"
-    database.write_bytes(_migrated_template.read_bytes())
-    with _app(database, monkeypatch) as client:
-        seeded = _seed(client)
-        reads = _reads(client, seeded)
-    command.downgrade(_config(database), PRECEDING)
-    engine = create_engine(f"sqlite:///{database}")
-    try:
-        with engine.connect() as connection:
-            assert _search_objects(connection) == set()
-    finally:
-        engine.dispose()
-    return database, seeded, reads
-
-
-def _assert_upgraded(database: Path, monkeypatch, seeded, reads) -> None:
-    with _app(database, monkeypatch) as client:
-        assert client.get("/health").json() == {"status": "ok"}
-        assert _reads(client, seeded) == reads
-    assert _version(database) == HEAD
-    engine = create_engine(f"sqlite:///{database}")
-    try:
-        with engine.connect() as connection:
-            _check_indexes(connection)
-    finally:
-        engine.dispose()
-
-
-def test_upgrade_builds_the_indexes_from_existing_values(downgraded_database, monkeypatch):
-    database, seeded, reads = downgraded_database
-    # Upgrade through the FastAPI lifespan, then start again on the upgraded database.
-    for _start in range(2):
-        _assert_upgraded(database, monkeypatch, seeded, reads)
-
-
-def test_upgrade_completes_after_an_interrupted_run(downgraded_database, monkeypatch):
-    database, seeded, reads = downgraded_database
-    engine = create_engine(f"sqlite:///{database}")
-    try:
-        # SQLite commits DDL as it runs: a stopped upgrade can leave an index without its
-        # triggers, or one that another shape and no content fill.
-        with engine.begin() as connection:
-            connection.execute(
-                text("CREATE VIRTUAL TABLE attribute_values_text_search USING fts5(text_value)")
-            )
-            connection.execute(
-                text(
-                    "CREATE VIRTUAL TABLE snapshot_attribute_values_text_search USING fts5("
-                    "text_value, content='snapshot_attribute_values', "
-                    "content_rowid='sequence_id', tokenize='trigram')"
-                )
-            )
-    finally:
-        engine.dispose()
-    assert _version(database) == PRECEDING
-    _assert_upgraded(database, monkeypatch, seeded, reads)
-
-
 def _search_guards() -> list:
     """The index guard of a live search and of a change set search over its base's rows."""
     context = snapshot_reads.SnapshotContext(
@@ -338,16 +243,3 @@ def test_search_reads_the_index_on_sqlite_only():
         assert "WHERE ((SELECT count(*)" in on_sqlite and ") = 1" not in on_sqlite
         assert "_text_search" not in on_postgresql and "MATCH" not in on_postgresql
         assert "WHERE true" in on_postgresql
-
-
-def test_the_migration_changes_nothing_on_another_dialect(monkeypatch):
-    path = Path(object_query.__file__).parents[2] / "migrations/versions/20260926_03_trigram_search_indexes.py"
-    spec = importlib.util.spec_from_file_location("trigram_search_indexes", path)
-    revision = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(revision)
-    executed: list = []
-    bind = SimpleNamespace(dialect=SimpleNamespace(name="postgresql"), execute=executed.append)
-    monkeypatch.setattr(revision.op, "get_bind", lambda: bind, raising=False)
-    revision.upgrade()
-    revision.downgrade()
-    assert executed == []

@@ -10,24 +10,26 @@ from app.main import app
 from app.management.dependencies import get_session
 
 
-def test_default_database_location_remains_backward_compatible():
-    assert Settings.from_env({}).database_url == "sqlite:///./rdm-engine.db"
+def test_the_database_url_has_no_default():
+    """PostgreSQL only (0.9.0-alpha.1): no SQLite file is assumed; startup refuses a missing URL."""
+    assert Settings.from_env({}).database_url is None
+    assert Settings.from_env({"DATABASE_URL": "  "}).database_url is None
 
 
-def test_database_engine_tracks_reloaded_settings(monkeypatch, tmp_path):
+def test_database_engine_tracks_reloaded_settings(monkeypatch):
     reload_settings()
     original_engine = get_engine()
     temporary_engines = []
     try:
         with monkeypatch.context() as patch:
-            first_url = f"sqlite:///{tmp_path / 'first.db'}"
+            first_url = "postgresql+psycopg://rdm@localhost:5432/first"
             patch.setenv("DATABASE_URL", first_url)
             reload_settings()
             first_engine = get_engine()
             temporary_engines.append(first_engine)
             assert str(first_engine.url) == first_url
 
-            second_url = f"sqlite:///{tmp_path / 'second.db'}"
+            second_url = "postgresql+psycopg://rdm@localhost:5432/second"
             patch.setenv("DATABASE_URL", second_url)
             reload_settings()
             second_engine = get_engine()

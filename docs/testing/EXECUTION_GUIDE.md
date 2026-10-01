@@ -18,6 +18,32 @@ below) from `backend/`; frontend commands run from `frontend/`.
 
 ## 1. Selection mechanics
 
+### Backend: the PostgreSQL test harness (0.9.0-alpha.1 PG1, H1)
+
+Backend tests run on PostgreSQL only. `pytest` starts a private server from Homebrew's
+`postgresql@17` binaries (`brew install postgresql@17`; never `brew services`) on
+`backend/.test-postgres/` (git-ignored), on a Unix socket, with the ICU root collation (PG-D11) and
+durability off, and stops it when the run ends (`tests/postgres_server.py`). With
+`RDM_TEST_DATABASE_SERVER` set to a superuser URL (CI's `postgres:17` service) it uses that server
+instead.
+
+Databases come from **seeds built once and reused** (`tests/seeds.py`): template databases on that
+server with a fingerprint of what built them (the migrations; for the volume fixture also the volume
+model, the fixture code it calls and the shape). A matching seed is reused; a changed input rebuilds
+that seed once, and the next run reuses it. Tests get clones (`CREATE DATABASE … TEMPLATE`, about
+90 ms): the session database the modules importing `app.main.app` share, each `migrated_database()`
+and each `volume_fixture.volume_app(directory, shape)`. The end of a run names every seed it used as
+`reused` or `built`, with the build time.
+
+```sh
+cd backend && .venv/bin/python -m tests.seeds list    # each seed, its fingerprint, current/stale/missing
+.venv/bin/python -m tests.seeds build                 # build every stale seed now, e.g. after a pull
+```
+
+Do not run `pytest` or `tests.seeds build` while another is running: they share the server, and a
+starting run drops databases an interrupted run left behind. If the server's directory is damaged,
+delete `backend/.test-postgres/`; the next run creates it and rebuilds the seeds.
+
 ### Backend: pytest markers from one manifest
 
 `backend/tests/conftest.py` holds `TEST_GROUPS`, mapping every test module to the contract groups
@@ -30,17 +56,17 @@ cd backend && .venv/bin/python -m pytest -m mapping -q
 
 | Marker | Contracts (coverage map) | Modules | Cases |
 | --- | --- | --- | --- |
-| `model` | INV-01/02/03/04/06, compatibility classes | `test_model`, `test_model_diagnostics`, `test_model_independence`, `test_model_compatibility`, `test_effective_periods` | 194 |
-| `model_admin` | C-MOD-*, C-DR-PIN, C-MOD-ACT | `test_model_lifecycle`, `test_build07_wp11`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_model_compatibility`, `test_model_schema_upgrade`, `test_wp81a_context`, `test_w5_activation_write_race` | 99 |
-| `startup` | C-BOOT, C-MIG, C-SCHEMA-UP, INV-15 (startup) | `test_startup`, `test_migrations`, `test_wp8_audit_migration`, `test_model_schema_upgrade`, `test_snapshot_value_migration`, `test_page_index_migrations`, `test_snapshot_lookup_index_migration`, `test_search_index`, `test_change_set_rename_migration`, `test_matrix_states`, `test_schema_drift`, `test_change_set_object_index_migration`, `test_jobs_migration` (B1 and B2 migrations) | 69 |
-| `records` | C-OBJ-*, C-ATTR, C-REL, C-DEL, C-TR, C-HIST-OBJ, INV-05/10/12 (live) | `test_api`, `test_attributes`, `test_relations`, `test_translations`, `test_cascade_delete`, `test_query_foundations`, `test_wp8_review_regressions`, `test_relation_set_versions`, `test_w5_activation_write_race`, `test_matrix_states`, `test_parent_candidates`, `test_type_changes`, `test_restructuring_planner`, `test_restructuring_api`, `test_encoding`, `test_rule_parity`, `test_effective_periods`, `test_batches` | 242 |
-| `queries` | C-Q-FILTER, C-Q-SCOPE, INV-07/08/11 | `test_pagination`, `test_typed_table_queries`, `test_query_foundations`, `test_context_read_parity`, `test_paging_contract`, `test_change_set_position_reads`, `test_search_index`, `test_parent_candidates`, `test_change_lists`, `test_cross_type_lookup`, `test_model_query`, `test_effective_periods` | 135 |
+| `model` | INV-01/02/03/04/06, compatibility classes | `test_model`, `test_model_diagnostics`, `test_model_independence`, `test_model_compatibility`, `test_effective_periods` | 302 |
+| `model_admin` | C-MOD-*, C-DR-PIN, C-MOD-ACT | `test_model_lifecycle`, `test_build07_wp11`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_model_compatibility`, `test_model_schema_upgrade`, `test_wp81a_context`, `test_w5_activation_write_race` | 187 |
+| `startup` | C-BOOT, C-MIG, C-SCHEMA-UP, INV-15 (startup) | `test_startup` (clean bootstrap, restart, the database refusals, a failed migration rolled back), `test_model_schema_upgrade`, `test_matrix_states`, `test_schema_drift` (the PostgreSQL baseline against the ORM), `test_job_settings` | 30 |
+| `records` | C-OBJ-*, C-ATTR, C-REL, C-DEL, C-TR, C-HIST-OBJ, INV-05/10/12 (live) | `test_api`, `test_attributes`, `test_relations`, `test_translations`, `test_cascade_delete`, `test_query_foundations`, `test_wp8_review_regressions`, `test_relation_set_versions`, `test_w5_activation_write_race`, `test_matrix_states`, `test_parent_candidates`, `test_type_changes`, `test_restructuring_planner`, `test_restructuring_api`, `test_encoding`, `test_rule_parity`, `test_effective_periods`, `test_batches` | 200 |
+| `queries` | C-Q-FILTER, C-Q-SCOPE, INV-07/08/11 | `test_pagination`, `test_typed_table_queries`, `test_query_foundations`, `test_context_read_parity`, `test_paging_contract`, `test_change_set_position_reads`, `test_search_index`, `test_parent_candidates`, `test_change_lists`, `test_cross_type_lookup`, `test_model_query`, `test_effective_periods` | 170 |
 | `workspaces` | C-WS-*, C-PUB-RET, INV-14/16 | `test_workspaces`, `test_wp81a_context`, `test_request_scope`, `test_wp8_withdrawal`, `test_build07_wp9_acceptance` | 40 |
-| `change_sets` | C-DR-*, C-REV, C-PUB-RET | `test_change_sets`, `test_wp7_canonical_crud`, `test_wp8_*` (except audit migration), `test_wp81b_current_live_bases`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_typed_table_queries`, `test_mapping_replacement`, `test_wp8_withdrawal`, `test_context_read_parity`, `test_snapshot_value_migration`, `test_page_index_migrations`, `test_change_set_position_reads`, `test_change_set_write_lookups`, `test_snapshot_lookup_index_migration`, `test_search_index`, `test_change_set_rename_migration`, `test_matrix_states`, `test_change_set_object_index_migration`, `test_parent_candidates`, `test_change_lists`, `test_change_lists_volume`, `test_type_changes`, `test_restructuring_planner`, `test_restructuring_volume`, `test_restructuring_api`, `test_graph_validation_scale`, `test_cross_type_lookup`, `test_rule_parity`, `test_model_query`, `test_effective_periods`, `test_batches`, `test_background_jobs` | 461 |
-| `mapping` | C-MAP-R, C-MAP-W, C-MAP-SET | `test_mapping_coverage`, `test_mapping_replacement`, `test_relation_set_versions` | 125 |
-| `matrix` | Relation matrix reads, cell writes and stored cell states: cells, states, row state filter, columns, containers, candidates, maintenance on every write path (Base 0.8 A2, A3, A3b) | `test_relation_matrix`, `test_relation_matrix_volume`, `test_relation_matrix_writes`, `test_matrix_states`, `test_type_changes`, `test_restructuring_planner`, `test_restructuring_api`, `test_batch_matrix_states` | 77 |
+| `change_sets` | C-DR-*, C-REV, C-PUB-RET | `test_change_sets`, `test_wp7_canonical_crud`, `test_wp8_*`, `test_wp81b_current_live_bases`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_typed_table_queries`, `test_mapping_replacement`, `test_wp8_withdrawal`, `test_context_read_parity`, `test_change_set_position_reads`, `test_change_set_write_lookups`, `test_search_index`, `test_matrix_states`, `test_parent_candidates`, `test_change_lists`, `test_change_lists_volume`, `test_type_changes`, `test_restructuring_planner`, `test_restructuring_volume`, `test_restructuring_api`, `test_graph_validation_scale`, `test_cross_type_lookup`, `test_rule_parity`, `test_model_query`, `test_effective_periods`, `test_batches`, `test_background_jobs` | 400 |
+| `mapping` | C-MAP-R, C-MAP-W, C-MAP-SET | `test_mapping_coverage`, `test_mapping_replacement`, `test_relation_set_versions` | 131 |
+| `matrix` | Relation matrix reads, cell writes and stored cell states: cells, states, row state filter, columns, containers, candidates, maintenance on every write path (Base 0.8 A2, A3, A3b) | `test_relation_matrix`, `test_relation_matrix_volume`, `test_relation_matrix_writes`, `test_matrix_states`, `test_type_changes`, `test_restructuring_planner`, `test_restructuring_api`, `test_batch_matrix_states` | 75 |
 | `consumer` | Consumer API definitions (Base 0.9 C1); from C2 the consumer tier's reads, XREF, batch resolve, crosswalk, publications and parity | `test_consumer_api_model` | 87 |
-| `jobs` | Jobs, outcomes, idempotency and batches (Base 0.9 B1); background runs, the worker, its lease, cancellation and retention (B2); from J2 import profiles, imports and exports | `test_batches`, `test_batch_matrix_states`, `test_jobs_migration`, `test_batch_volume`, `test_background_jobs`, `test_background_volume` | 83 |
+| `jobs` | Jobs, outcomes, idempotency and batches (Base 0.9 B1); background runs, the worker, its lease, cancellation and retention (B2); from J2 import profiles, imports and exports | `test_batches`, `test_batch_matrix_states`, `test_job_settings`, `test_batch_volume`, `test_background_jobs`, `test_background_volume` | 78 |
 | `contract` | OpenAPI lock, route inventories, the backend tiers and the API reference page | `test_openapi_contract`, `test_paging_contract`, `test_boundaries`, `test_api_reference` | 52 |
 | `volume` | Track S read and write budgets and the paging contract over the generated volume fixture (Base 0.8 S1, S2b, S3, S4, S4R1, S4R6, S7, S8, A2, B2, P2a, C2, C5; Base 0.9 B1 batch budgets, B2 background budget) | `test_volume_baseline`, `test_paging_contract`, `test_change_set_position_reads`, `test_relation_matrix_volume`, `test_change_lists_volume`, `test_restructuring_volume`, `test_graph_validation_scale`, `test_batch_volume`, `test_background_volume` | 69 |
 
@@ -48,7 +74,7 @@ Counts are collected cases on 2026-09-24 (532 in total); `test_effective_periods
 SC-15 case. The full suite collected 534 cases at WP-9 build acceptance (2026-09-25). The `startup`,
 `queries`, `change_sets` and `volume` counts were recollected at Base 0.8 S2 (2026-09-25, 546 in total), and the `startup`, `queries`, `change_sets`, `contract` and `volume` counts at S3/S4 (2026-09-25, 584 in total) at S4R1 (2026-09-26, 588 in total), and the `queries`, `change_sets`, `contract` and `volume` counts at S4R6 (2026-09-26, 622 in total), and the `startup` and `change_sets` counts at S2b (2026-09-26, 625 in total), and the `startup`, `queries` and `change_sets` counts at S8 (2026-09-26, 631 in total). Every count was recollected at W2 (2026-09-26, 637 in total), where the `drafts` marker became `change_sets`. The `records`, `change_sets` and `matrix` counts were recollected at C1 (2026-09-29, 790 in total), and with `volume` at C2 (2026-09-29, 809 in total). The `model_admin` and `records` counts were recollected at W5 (2026-09-26, 643 in total), and the `queries`, `change_sets` and `volume` counts at P2a (2026-09-28, 774 in total). Every count was recollected at E3 of the backend boundaries refactor (2026-09-29, 852 in total). A module carries several markers when it is
 evidence for several groups, so groups overlap and their counts do not add up to the total.
-The `contract` count was recollected at 0.9 V1 (2026-09-30), with `test_api_reference`. The `jobs`, `startup`, `records`, `change_sets`, `matrix` and `volume` counts were recollected at 0.9 B1 (2026-10-01, 1020 in total).
+The `contract` count was recollected at 0.9 V1 (2026-09-30), with `test_api_reference`. The `jobs`, `startup`, `records`, `change_sets`, `matrix` and `volume` counts were recollected at 0.9 B1 (2026-10-01, 1020 in total). Every count was recollected at 0.9.0-alpha.1 PG1 (2026-10-01, 1032 in total), when the SQLite migration modules were removed with their revisions.
 
 **Unclassified tests are refused.** A module missing from `TEST_GROUPS` fails collection with exit
 code 4 and names the module, in every run including CI. Markers are registered from the manifest and
@@ -129,12 +155,12 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | `engine/model/consumer_contract.py`, `engine/model/validation/consumer_api_rules.py`, the `consumerApis` shape in `models/schema.py` (0.9 C1) | `consumer` + `model` (`test_consumer_api_model`) | always | `model_admin` when the check's place in draft compile, diff or activation changes; `contract` when `consumerContracts` changes |
 | `engine/model/placements.py`, `GET /model/placements` in `management/routers/model.py` | `model` (`test_model_placements`) + `contract` | always | `change_sets` + `records` + `matrix` (the planner) and `queries` (parent candidates) |
 | `engine/model/{releases,registry,runtime,metadata,drafts,diff,compatibility}.py`, `management/routers/model_*.py`, `management/projections/model_metadata.py` | `model_admin` | activation or registry resolution changes | `workspaces` (pinned contexts), `startup` (registry at lifespan) |
-| `db.py` (including `SQLITE_LOCK_WAIT_SECONDS`), `migrations/**`, `main.py` lifespan, `engine/model/bootstrap.py`, `management/dependencies.py`, `cli/*` | `startup` | always for migrations | AGENTS.md startup rules: bootstrap, upgrade, restart, interrupted migration, lifespan, smoke start |
+| `db.py` (including `SQLITE_LOCK_WAIT_SECONDS`), `migrations/**`, `main.py` lifespan, `engine/model/bootstrap.py`, `management/dependencies.py`, `cli/*`, `tests/postgres_server.py`, `tests/seeds.py` | `startup` | always for migrations | AGENTS.md startup rules: bootstrap, upgrade, restart, interrupted migration, lifespan, smoke start |
 | `models/database.py` | the owning group | a column, index, constraint or table changes | `startup` (`test_schema_drift` compares a migrated head with the metadata: columns, types, indexes, unique constraints and foreign keys, each difference named) |
 | `engine/records/objects.py`, `attributes.py`, `values.py`, `management/routers/objects.py`, `management/routers/attributes.py` | `records` | typed conversion or version claims change | `queries` (typed filters), `change_sets` (change set writes use the same value forms) |
 | `engine/records/rules.py`, `refusals.py`, `context.py` | `records` + `change_sets` (`test_rule_parity`) | always | `mapping` (the replacement's scope and binding rules), `matrix` (type changes, restructuring), `volume` when a lookup's statements change |
 | `engine/records/writes.py` | `records` + `change_sets` + `mapping` + `matrix` | always | `volume` (write and publish budgets); F1's feed position when `_begin` changes |
-| `engine/jobs/*`, `management/routers/jobs.py`, `management/schemas/jobs.py`, the batch items in `models/commands.py` (0.9 B1, B2) | `jobs` (`test_batches`; `test_background_jobs` for `background.py`, `worker.py` and the store's chunk and stop paths) | always | `records` + `change_sets` when an item's single-write core (`apply_…`) or its savepoint changes; `matrix` (`test_batch_matrix_states`, `test_matrix_states`) when `matrix_states.deferred` changes; `volume` (`test_batch_volume`; `test_background_volume`, about 15 minutes, for the worker's chunk cost) for item cost; `contract` when the request or a job shape changes; `startup` (`test_jobs_migration`) when the tables, the settings or the worker's start in the lifespan change |
+| `engine/jobs/*`, `management/routers/jobs.py`, `management/schemas/jobs.py`, the batch items in `models/commands.py` (0.9 B1, B2) | `jobs` (`test_batches`; `test_background_jobs` for `background.py`, `worker.py` and the store's chunk and stop paths) | always | `records` + `change_sets` when an item's single-write core (`apply_…`) or its savepoint changes; `matrix` (`test_batch_matrix_states`, `test_matrix_states`) when `matrix_states.deferred` changes; `volume` (`test_batch_volume`; `test_background_volume`, about 15 minutes, for the worker's chunk cost) for item cost; `contract` when the request or a job shape changes; `startup` (`test_job_settings`, `test_schema_drift`) when the tables, the settings or the worker's start in the lifespan change |
 | `engine/records/relations.py`, `relation_set_versions.py`, `management/routers/relations.py` | `records` + `mapping` | always | `change_sets` (change set relation writes, publishing merge) |
 | `engine/records/deletion.py` | `records` | cascade or preview token changes | `mapping` (continuation invalidation), `change_sets` (change set deletion) |
 | `common/pagination.py`, `cursors.py`, `management/paging.py` | `queries` (`test_pagination`, `test_paging_contract`, `test_change_set_position_reads`) | always | every group with a collection endpoint: `-m "queries or mapping or model_admin or workspaces"`; `volume` (read budgets) |
@@ -145,7 +171,7 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | `engine/reads/snapshot_reads.py`, `engine/indexes/snapshot_values.py`, `engine/reads/relation_queries.py` | `change_sets` + `queries` (`test_context_read_parity`, `test_paging_contract`, `test_change_set_position_reads`) | always | `volume` (change-set and publication read budgets); `startup` when the typed value index or its backfill changes |
 | `engine/reads/object_lookup.py`, `GET /objects` in `management/routers/objects.py` (0.9 Q1) | `queries` + `change_sets` (`test_cross_type_lookup`) | always | `contract` when the route's parameters change; `volume` (`lookup:` read budgets); the `object_query.py` or `snapshot_reads.py` row when a shared builder changes |
 | `engine/reads/model_query.py`, `models/queries.py`, `management/projections/model_query.py`, `management/routers/queries.py`, `expansion_rows` in `engine/reads/relation_queries.py`, `common/sql.py` (0.9 Q3) | `queries` + `change_sets` (`test_model_query`) | always | `contract` when the body or response changes; `volume` (`query:` read budgets); the `object_query.py`, `snapshot_reads.py` or `relation_queries.py` row when a shared builder changes |
-| `models/search_index.py`, the search predicate in `engine/reads/object_query.py` | `queries` + `change_sets` (`test_search_index`, `test_context_read_parity`) | always | `startup` when the index DDL changes (a new migration, `test_search_index` upgrade and interrupted run); `volume` (search budgets) |
+| `models/search_index.py`, the search predicate in `engine/reads/object_query.py` | `queries` + `change_sets` (`test_search_index`, `test_context_read_parity`) | always | `startup` when the index DDL changes (a new migration, `test_schema_drift`); `volume` (search budgets) |
 | `engine/operations/mapping_replacement.py`, `management/projections/mapping.py`, `engine/reads/mapping_projection.py`, `management/routers/mapping.py` | `mapping` | never by default | `change_sets` only if publishing or change set overlay is touched |
 | `management/projections/relation_matrix.py`, `management/routers/relation_matrix.py` | `matrix` | always | `volume` (matrix read budgets, `test_volume_baseline`); `contract` when the route or page shape changes |
 | `engine/indexes/matrix_states.py`, `engine/reads/matrix_cells.py`, or a write path that bypasses the ORM | `matrix` (`test_matrix_states`, and `verify` after every matrix test) | always | `change_sets` and `records` (the write paths it maintains); `startup` when the tables, migration or startup build change; `volume` (filter budgets) |
@@ -205,7 +231,7 @@ visual evidence separately.
 ## 3. WP-9 comprehensive command set
 
 Run once, against the finished build, after all implementation packages close. Never run two
-pytest processes at once: they share `backend/tests/test-rdm-engine.db`.
+pytest processes at once: they share the harness's PostgreSQL server.
 
 ```sh
 (cd backend && .venv/bin/python -m ruff check app/ tests/)

@@ -17,8 +17,7 @@ import logging
 import pytest
 import test_relation_matrix as reads
 import test_relation_matrix_writes as writes
-from alembic import command
-from sqlalchemy import create_engine, delete, func, inspect, select, text
+from sqlalchemy import delete, func, select
 from test_relation_matrix import MASTER_SYSTEMS, TRANSLATIONS, attr, create, translation
 from test_relation_matrix import delete as delete_record
 from test_relation_matrix_writes import (
@@ -32,7 +31,6 @@ from test_relation_matrix_writes import (
     translation_payload,
     unlink,
 )
-from test_snapshot_value_migration import _config, _version
 from wp8_support import create_change_set, create_workspace, publish_change_set
 
 from app.db import SessionLocal
@@ -55,7 +53,6 @@ systems = writes.systems
 
 BASE = "/api/v1/workspaces/default/relation-matrix"
 STATES = ("one", "several", "inactive", "historyOnly", "none")
-PRECEDING, HEAD = "20260926_04", "20261001_01"
 
 
 @pytest.fixture
@@ -396,72 +393,6 @@ def _seed_translations(client) -> dict:
     publish_change_set(client, staged["id"], expected_change_set_version=added["changeSetVersion"])
     delete_record(client, added)
     return {"columns": [item["id"] for item in columns]}
-
-
-def _tables(path) -> set[str]:
-    engine = create_engine(f"sqlite:///{path}")
-    try:
-        return set(inspect(engine).get_table_names())
-    finally:
-        engine.dispose()
-
-
-def test_upgrade_from_the_preceding_revision_builds_states(tmp_path, monkeypatch, _migrated_template):
-    path = tmp_path / "a3b-upgrade.db"
-    path.write_bytes(_migrated_template.read_bytes())
-    model = json.loads(STARTER.read_text())
-    with serve_once(model, tmp_path, monkeypatch, f"sqlite:///{path}") as client:
-        data = _seed_translations(client)
-        expected = assert_filters(client, TRANSLATIONS, data["columns"])
-    command.downgrade(_config(path), PRECEDING)
-    assert {"matrix_cell_states", "matrix_state_builds"}.isdisjoint(_tables(path))
-    for _start in range(2):
-        with serve_once(model, tmp_path, monkeypatch, f"sqlite:///{path}") as client:
-            assert client.get("/health").json() == {"status": "ok"}
-            assert _version(path) == HEAD
-            assert builds(owner_kind="publication") and builds(owner_kind="history")
-            assert_derived()
-            assert assert_filters(client, TRANSLATIONS, data["columns"]) == expected
-
-
-def test_interrupted_upgrade_recreates_derived_tables_and_refuses_unknown_ones(
-    tmp_path, monkeypatch, _migrated_template
-):
-    path = tmp_path / "a3b-interrupted.db"
-    path.write_bytes(_migrated_template.read_bytes())
-    command.downgrade(_config(path), PRECEDING)
-    # A stopped run left one table with the expected columns and a stray row.
-    engine = create_engine(f"sqlite:///{path}")
-    with engine.begin() as connection:
-        connection.execute(
-            text(
-                "CREATE TABLE matrix_cell_states (sequence_id INTEGER PRIMARY KEY, owner_kind VARCHAR, "
-                "owner_id VARCHAR, shape_key VARCHAR, row_id VARCHAR, column_id VARCHAR, record_count INTEGER, "
-                "matching_count INTEGER, first_publication_number INTEGER)"
-            )
-        )
-        connection.execute(
-            text("INSERT INTO matrix_cell_states VALUES (1, 'live', 'default', 'x', 'r', 'c', 1, 1, NULL)")
-        )
-    engine.dispose()
-    model = json.loads(STARTER.read_text())
-    with serve_once(model, tmp_path, monkeypatch, f"sqlite:///{path}") as client:
-        assert client.get("/health").json() == {"status": "ok"}
-    assert _version(path) == HEAD
-    engine = create_engine(f"sqlite:///{path}")
-    with engine.connect() as connection:
-        assert not connection.scalar(text("SELECT count(*) FROM matrix_cell_states WHERE shape_key = 'x'"))
-    engine.dispose()
-
-    # A table of another shape is refused with a recovery instruction.
-    command.downgrade(_config(path), PRECEDING)
-    engine = create_engine(f"sqlite:///{path}")
-    with engine.begin() as connection:
-        connection.execute(text("CREATE TABLE matrix_state_builds (id INTEGER PRIMARY KEY, note VARCHAR)"))
-    engine.dispose()
-    with pytest.raises(Exception, match="unexpected schema"):
-        command.upgrade(_config(path), "head")
-    assert _version(path) == PRECEDING
 
 
 def test_a_long_row_list_filters_as_one_value(client, languages):

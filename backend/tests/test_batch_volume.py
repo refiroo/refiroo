@@ -76,10 +76,10 @@ def creates(count: int, prefix: str) -> list[dict[str, Any]]:
 
 
 @pytest.fixture(scope="module")
-def measured(_migrated_template, tmp_path_factory) -> dict[tuple[str, str], dict[str, Any]]:
+def measured(tmp_path_factory) -> dict[tuple[str, str], dict[str, Any]]:
     results: dict[tuple[str, str], dict[str, Any]] = {}
     directory = tmp_path_factory.mktemp("batch-volume")
-    with volume_app(_migrated_template, directory, SHAPE) as (client, dataset):
+    with volume_app(directory, SHAPE) as (client, dataset):
         engine = get_engine()
 
         def context(label: str) -> dict[str, Any]:

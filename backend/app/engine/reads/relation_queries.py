@@ -244,11 +244,12 @@ def _ancestor_join(
                 walk.c.current.is_not(None), walk.c.depth < _MAX_ANCESTOR_DEPTH
             )
         )
-        # SQLite reads the bare ``name`` from the row holding ``max(depth)``: the one nearest the root.
+        # One row per start: the match with the greatest depth, the one nearest the root.
         ancestors = (
-            select(walk.c.start, lookup(walk.c.current, "name").label("name"), func.max(walk.c.depth))
+            select(walk.c.start, lookup(walk.c.current, "name").label("name"))
             .where(lookup(walk.c.current, "object_type_key") == literal(ancestor_type_key, String))
-            .group_by(walk.c.start)
+            .distinct(walk.c.start)
+            .order_by(walk.c.start, walk.c.depth.desc())
             .cte("ancestors")
         )
         return statement.outerjoin(ancestors, ancestors.c.start == parent_id), ancestors.c.name

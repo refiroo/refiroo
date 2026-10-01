@@ -27,6 +27,7 @@ from volume_fixture import (
     NODE,
     WORKSPACE,
     scaled_shape,
+    seed_fresh,
     volume_app,
     volume_model,
 )
@@ -44,12 +45,12 @@ ROWS_PER_LISTED_ROW = 6
 
 
 @pytest.fixture(scope="module")
-def baselines(_migrated_template, tmp_path_factory) -> dict[str, object]:
+def baselines(tmp_path_factory) -> dict[str, object]:
     """The scenario measurements at the small and the four-times-larger scale."""
     results = {}
     for label, shape in (("small", SMALL), ("large", LARGE)):
         directory = tmp_path_factory.mktemp(f"volume-{label}")
-        with volume_app(_migrated_template, directory, shape) as (client, dataset):
+        with volume_app(directory, shape) as (client, dataset):
             results[label] = run_scenarios(client, get_engine(), dataset, repeat=0)
             results[f"{label}-dataset"] = dataset
     return results
@@ -90,10 +91,11 @@ def test_change_set_writes_hold_the_live_budget(baselines):
     assert not _over_budget(baselines, {"change_set"}, writes=True)
 
 
-def test_fixture_matches_its_shape_and_is_reproducible(_migrated_template, tmp_path, baselines):
-    with volume_app(_migrated_template, tmp_path, SMALL) as (client, dataset):
-        # Identical shape and seed give identical data, public IDs included.
-        assert dataset == baselines["small-dataset"]
+def test_fixture_matches_its_shape_and_is_reproducible(tmp_path, baselines):
+    # Identical shape and seed give identical data, public IDs included: seeding again into a new
+    # database gives the seeded database's identifiers.
+    assert seed_fresh(tmp_path, SMALL) == baselines["small-dataset"]
+    with volume_app(tmp_path, SMALL) as (client, dataset):
         engine = get_engine()
         with engine.connect() as connection:
 

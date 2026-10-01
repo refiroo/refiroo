@@ -13,7 +13,7 @@ filler, checkpoint T1 after F2). C1, Q4 and V1 are delivered (2026-09-30), and B
 2026-10-01 (B2 before F1, by instruction). Next is the interim release
 [0.9.0-alpha.1, PostgreSQL runtime](POSTGRESQL_RUNTIME_PLAN.md) (PG1–PG5, PostgreSQL only, decisions
 accepted 2026-10-01) with the [test harness](TEST_HARNESS_PLAN.md) (H1 inside PG1, H2–H3 after PG2),
-then F1. Before PG1: `brew install postgresql@17` (never `brew services`). See [Next — 0.9](#next--09).
+then F1. PG1 is delivered (2026-10-01); next is PG2. See [Next — 0.9](#next--09).
 
 ## Open decisions
 
@@ -112,6 +112,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   keys, SQL-level claims written because SQLite ignores `FOR UPDATE`, the explicit `BEGIN` of
   `db.begin_snapshot_read` and `db.begin_transaction` (SQLite's driver begins no transaction before a
   `SAVEPOINT`; a job chunk uses the latter), and budgets measured only on SQLite (D13 included).
+  PG1 (2026-10-01) removed the SQLite migrations, settings default and engine branch, and made
+  `begin_snapshot_read` PostgreSQL's; the rest, and what PG1 found (POSTGRESQL_RUNTIME_PLAN PG2), stay.
 - [ ] Unique-value checks over non-text values (integer, decimal, date, dateTime, boolean) still read
   every value of the attribute, live and in a change set: the value indexes cover `text_value` only
   (0.9 B2 added the live one). Add them with 0.11's model-derived indexes.

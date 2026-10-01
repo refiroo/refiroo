@@ -1,16 +1,26 @@
+"""Test configuration: the PostgreSQL test harness (PG-D8, H1) and the contract groups.
+
+Every test runs on the harness's private PostgreSQL server (``postgres_server.py``), started for the
+run and stopped after it. Databases are clones of seeds built once and reused (``seeds.py``): the
+session database, which the modules importing ``app.main.app`` share, and each database a test asks
+for through ``migrated_database`` or the volume fixture.
+"""
+
 import os
-import shutil
-from pathlib import Path
+from uuid import uuid4
 
+import postgres_server
 import pytest
+import seeds
 
-TEST_DB_PATH = Path(__file__).resolve().parent / "test-rdm-engine.db"
+SESSION_DATABASE = f"t_session_{uuid4().hex[:8]}"
 
-os.environ.setdefault("DATABASE_URL", f"sqlite:///{TEST_DB_PATH}")
+os.environ.setdefault(
+    "DATABASE_URL", postgres_server.url(SESSION_DATABASE).render_as_string(hide_password=False)
+)
 
 from app.config import reload_settings
-from app.db import create_database, get_engine
-from app.models.database import Base
+from app.db import get_engine
 
 # Contract/risk groups (docs/testing/EXECUTION_GUIDE.md). Every test module is listed with the
 # groups it is evidence for; `pytest -m <group>` selects them. A module missing here fails
@@ -18,7 +28,7 @@ from app.models.database import Base
 GROUP_DESCRIPTIONS = {
     "model": "model parsing, compilation, reference validation and compatibility classes",
     "model_admin": "model releases, model drafts, installation, activation, diff and change-set pins",
-    "startup": "lifespan bootstrap, Alembic migrations, interrupted migration, schema upgrade",
+    "startup": "lifespan bootstrap, database checks, the baseline migration, schema upgrade",
     "records": "live objects, fields, relations, translations and signed deletion",
     "queries": "typed filters, sort, search, cursor pagination and scope",
     "workspaces": "workspace catalogue, explicit scope, pinned contexts, retirement and withdrawal",
@@ -42,10 +52,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_build07_wp6.py": ("model_admin", "change_sets"),
     "test_build07_wp9_acceptance.py": ("model_admin", "change_sets", "workspaces"),
     "test_startup.py": ("startup",),
-    "test_migrations.py": ("startup",),
     "test_schema_drift.py": ("startup",),
-    "test_change_set_object_index_migration.py": ("startup", "change_sets"),
-    "test_wp8_audit_migration.py": ("startup",),
     "test_model_schema_upgrade.py": ("startup", "model_admin"),
     "test_api.py": ("records",),
     "test_attributes.py": ("records",),
@@ -79,14 +86,10 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_rule_parity.py": ("records", "change_sets"),
     "test_volume_baseline.py": ("volume",),
     "test_context_read_parity.py": ("change_sets", "queries"),
-    "test_snapshot_value_migration.py": ("startup", "change_sets"),
     "test_paging_contract.py": ("volume", "queries", "contract"),
     "test_change_set_position_reads.py": ("volume", "queries", "change_sets"),
     "test_change_set_write_lookups.py": ("change_sets",),
-    "test_snapshot_lookup_index_migration.py": ("startup", "change_sets"),
-    "test_search_index.py": ("queries", "change_sets", "startup"),
-    "test_page_index_migrations.py": ("startup", "change_sets"),
-    "test_change_set_rename_migration.py": ("startup", "change_sets"),
+    "test_search_index.py": ("queries", "change_sets"),
     "test_w5_activation_write_race.py": ("model_admin", "records"),
     "test_relation_matrix.py": ("matrix", "queries", "change_sets"),
     "test_relation_matrix_volume.py": ("matrix", "volume"),
@@ -105,7 +108,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_effective_periods.py": ("queries", "records", "change_sets", "model"),
     "test_workspace_edge_list.py": ("mapping", "queries"),
     "test_batches.py": ("jobs", "records", "change_sets"),
-    "test_jobs_migration.py": ("startup", "jobs"),
+    "test_job_settings.py": ("startup", "jobs"),
     "test_batch_volume.py": ("volume", "jobs"),
     "test_batch_matrix_states.py": ("jobs", "matrix"),
     "test_background_jobs.py": ("jobs", "change_sets"),
@@ -136,43 +139,50 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         )
 
 
+def pytest_terminal_summary(terminalreporter) -> None:
+    """Name each seed the run used and whether it was reused or built (H1's evidence)."""
+    if seeds.ACTIVITY:
+        used: dict[str, str] = {}
+        for name, outcome, seconds in seeds.ACTIVITY:
+            if outcome == "built" or name not in used:
+                used[name] = f"{name}: {outcome}" + (f" in {seconds:.1f} s" if outcome == "built" else "")
+        lines = list(used.values())
+        terminalreporter.write_sep("-", "seeded databases")
+        terminalreporter.write_line("; ".join(lines))
+
+
 @pytest.fixture(autouse=True, scope="session")
 def _test_database():
-    yield
-    engine = get_engine()
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
-    TEST_DB_PATH.unlink(missing_ok=True)
-
-
-@pytest.fixture(scope="session")
-def _migrated_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
-    """One empty database at the Alembic head, migrated once per session.
-
-    Migrating a fresh file costs ~0.2 s; copying this template costs ~1 ms. Tests that verify
-    migration or startup from an empty or older database must not use it.
-    """
-    path = tmp_path_factory.mktemp("migrated-template") / "template.db"
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setenv("DATABASE_URL", f"sqlite:///{path}")
-        reload_settings()
-        create_database()
-        get_engine().dispose()
+    """Start the test server, and clone the session database from the ``schema`` seed."""
+    started = postgres_server.start()
+    seeds.drop_clones()
+    seeds.clone("schema", SESSION_DATABASE)
     reload_settings()
-    return path
+    try:
+        yield
+    finally:
+        get_engine().dispose()
+        seeds.drop(SESSION_DATABASE)
+        if started:
+            postgres_server.stop()
 
 
 @pytest.fixture
-def migrated_database(_migrated_template: Path, tmp_path: Path):
-    """Return a factory for a private, already-migrated SQLite URL under ``tmp_path``.
+def migrated_database():
+    """Return a factory for a private database at the Alembic head, cloned from the ``schema`` seed.
 
-    Each call copies the session template, so every test still owns its database file and the
-    application lifespan still runs its Alembic head check and model bootstrap against it.
+    The application lifespan still runs its checks, its Alembic head check and the model bootstrap
+    against it. Each clone is dropped when the test ends. ``name`` is kept for readability only.
     """
+    created: list[str] = []
 
-    def create(name: str = "test.db") -> str:
-        path = tmp_path / name
-        shutil.copyfile(_migrated_template, path)
-        return f"sqlite:///{path}"
+    def create(name: str = "test") -> str:
+        database = f"t_{uuid4().hex[:16]}"
+        created.append(database)
+        return seeds.clone("schema", database).render_as_string(hide_password=False)
 
-    return create
+    yield create
+    # Dropped WITH (FORCE), which also closes connections the application's pool kept open.
+    for database in created:
+        seeds.drop(database)
+

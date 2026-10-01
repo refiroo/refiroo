@@ -10,7 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import Settings, get_settings, reload_settings
-from .db import DatabaseMigrationError, SessionLocal, create_database
+from .db import DatabaseStartupError, SessionLocal, create_database
 from .engine.indexes.matrix_states import build_at_startup as build_matrix_states
 from .engine.jobs.inline import BatchLimits
 from .engine.jobs.worker import JobWorker, WorkerSettings
@@ -63,7 +63,7 @@ async def lifespan(application: FastAPI):
     loaded_model = load_bootstrap_model()
     try:
         create_database()
-    except DatabaseMigrationError as exc:
+    except DatabaseStartupError as exc:
         model_registry.mark_unhealthy()
         logger.error("%s", exc)
         yield

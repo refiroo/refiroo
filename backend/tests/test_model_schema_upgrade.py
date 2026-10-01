@@ -5,8 +5,6 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
-from alembic import command
-from alembic.config import Config
 from fastapi.testclient import TestClient
 from model_support import MODEL_PATH, starter_at_schema
 from sqlalchemy import create_engine, select
@@ -31,14 +29,12 @@ def _candidate_model_path(tmp_path: Path, schema_version: str) -> Path:
     return path
 
 
-def _legacy_database(database_path: Path) -> str:
-    config = Config(str(Path(__file__).resolve().parents[1] / "alembic.ini"))
-    config.set_main_option("sqlalchemy.url", f"sqlite:///{database_path}")
-    command.upgrade(config, "head")
+def _legacy_database(database: str) -> str:
+    """Select a schema 0.4 release in ``database``, a clone already at the Alembic head."""
     source = starter_at_schema("0.5")
     source["schemaVersion"] = "0.4"
     source["release"]["version"] = "0.5.0"
-    engine = create_engine(f"sqlite:///{database_path}")
+    engine = create_engine(database)
     with Session(engine) as session:
         release = ModelRelease(
             release_key="rdm-starter",
@@ -53,21 +49,23 @@ def _legacy_database(database_path: Path) -> str:
         session.flush()
         session.add(ModelRuntimeState(id=1, active_model_release_id=release.id, version=1))
         session.commit()
-        return release.public_id
+        public_id = release.public_id
+    engine.dispose()
+    return public_id
 
 
-def test_offline_schema_upgrade_installs_checks_and_atomically_selects_candidate(tmp_path, monkeypatch):
-    database_path = tmp_path / "upgrade.db"
-    old_release_id = _legacy_database(database_path)
+def test_offline_schema_upgrade_installs_checks_and_atomically_selects_candidate(tmp_path, monkeypatch, migrated_database):
+    database = migrated_database()
+    old_release_id = _legacy_database(database)
     model_05 = _candidate_model_path(tmp_path, "0.5")
-    engine = create_engine(f"sqlite:///{database_path}")
+    engine = create_engine(database)
     with Session(engine) as session, pytest.raises(
         UnsupportedSelectedModelSchema
     ) as error:
         ModelRegistry().resolve_active(session)
     assert error.value.schema_version == "0.4"
     with monkeypatch.context() as patch:
-        patch.setenv("DATABASE_URL", f"sqlite:///{database_path}")
+        patch.setenv("DATABASE_URL", database)
         reload_settings()
         selected_id = transition(model_05)
     reload_settings()
@@ -81,9 +79,9 @@ def test_offline_schema_upgrade_installs_checks_and_atomically_selects_candidate
         assert session.scalar(select(ModelRelease).where(ModelRelease.public_id == old_release_id))
 
 
-def test_offline_schema_upgrade_rolls_back_installation_when_compatibility_fails(tmp_path, monkeypatch):
-    database_path = tmp_path / "blocked.db"
-    old_release_id = _legacy_database(database_path)
+def test_offline_schema_upgrade_rolls_back_installation_when_compatibility_fails(tmp_path, monkeypatch, migrated_database):
+    database = migrated_database()
+    old_release_id = _legacy_database(database)
     model_05 = _candidate_model_path(tmp_path, "0.5")
     diagnostic = ModelDiagnostic(
         severity="error",
@@ -93,7 +91,7 @@ def test_offline_schema_upgrade_rolls_back_installation_when_compatibility_fails
         count=1,
     )
     with monkeypatch.context() as patch:
-        patch.setenv("DATABASE_URL", f"sqlite:///{database_path}")
+        patch.setenv("DATABASE_URL", database)
         patch.setattr(
             "app.cli.model_schema_upgrade.analyze_compatibility",
             lambda *_args: CompatibilityResult(old_release_id, [diagnostic]),
@@ -103,7 +101,7 @@ def test_offline_schema_upgrade_rolls_back_installation_when_compatibility_fails
             transition(model_05)
     reload_settings()
 
-    engine = create_engine(f"sqlite:///{database_path}")
+    engine = create_engine(database)
     with Session(engine) as session:
         state = session.get(ModelRuntimeState, 1)
         releases = list(session.scalars(select(ModelRelease)))
@@ -112,12 +110,12 @@ def test_offline_schema_upgrade_rolls_back_installation_when_compatibility_fails
         assert releases[0].public_id == old_release_id
 
 
-def test_offline_schema_upgrade_rejects_a_selected_schema_05_release(tmp_path, monkeypatch):
-    database_path = tmp_path / "already-upgraded.db"
-    _legacy_database(database_path)
+def test_offline_schema_upgrade_rejects_a_selected_schema_05_release(tmp_path, monkeypatch, migrated_database):
+    database = migrated_database()
+    _legacy_database(database)
     model_05 = _candidate_model_path(tmp_path, "0.5")
     with monkeypatch.context() as patch:
-        patch.setenv("DATABASE_URL", f"sqlite:///{database_path}")
+        patch.setenv("DATABASE_URL", database)
         reload_settings()
         selected_id = transition(model_05)
         with pytest.raises(
@@ -127,7 +125,7 @@ def test_offline_schema_upgrade_rejects_a_selected_schema_05_release(tmp_path, m
             transition(model_05)
     reload_settings()
 
-    engine = create_engine(f"sqlite:///{database_path}")
+    engine = create_engine(database)
     with Session(engine) as session:
         state = session.get(ModelRuntimeState, 1)
         releases = list(session.scalars(select(ModelRelease)))
@@ -188,13 +186,13 @@ def test_schema_04_release_remains_listable_and_exportable_as_history():
 
 @pytest.mark.parametrize("candidate_schema", ["0.5", "0.6", "0.7", "0.8"])
 def test_actual_startup_recovery_command_selects_supported_candidate_and_restarts(
-    tmp_path, monkeypatch, candidate_schema
+    tmp_path, monkeypatch, candidate_schema, migrated_database
 ):
-    database_path = tmp_path / "recovery.db"
-    old_release_id = _legacy_database(database_path)
+    database = migrated_database()
+    old_release_id = _legacy_database(database)
     candidate_path = _candidate_model_path(tmp_path, candidate_schema)
     with monkeypatch.context() as patch:
-        patch.setenv("DATABASE_URL", f"sqlite:///{database_path}")
+        patch.setenv("DATABASE_URL", database)
         patch.setenv("RDM_MODEL_PATH", str(candidate_path))
         reload_settings()
         model_registry.clear()
@@ -210,7 +208,7 @@ def test_actual_startup_recovery_command_selects_supported_candidate_and_restart
                 interruption.setattr("app.cli.model_schema_upgrade.AuditEvent", Mock(side_effect=RuntimeError("interrupted transition")))
                 with pytest.raises(RuntimeError, match="interrupted transition"):
                     transition(candidate_path)
-            engine = create_engine(f"sqlite:///{database_path}")
+            engine = create_engine(database)
             with Session(engine) as session:
                 state = session.get(ModelRuntimeState, 1)
                 assert state.version == 1

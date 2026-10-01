@@ -1,8 +1,9 @@
 # PostgreSQL runtime: interim release 0.9.0-alpha.1
 
-**Status:** Planned 2026-10-01. Decisions [PG-D1–PG-D10](#decisions) accepted 2026-10-01. The same
+**Status:** Planned 2026-10-01. Decisions [PG-D1–PG-D11](#decisions) accepted 2026-10-01. The same
 day the user chose **PostgreSQL only** over a mixed setup with SQLite for development, so PG-D2,
-D3, D4, D6, D7 and D8 were revised to that and PG-D10 added; each keeps its accepted intent.
+D3, D4, D6, D7 and D8 were revised to that and PG-D10 added; each keeps its accepted intent. PG-D11
+(ICU root collation) was decided at the start of PG1.
 Inserted in the [0.9 delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue) after B2,
 before F1, together with the [test harness](TEST_HARNESS_PLAN.md): PG1 builds the harness's seeded
 databases (H1) on PostgreSQL, and H2–H3 follow PG2. Packages are delivered one per instruction
@@ -71,7 +72,7 @@ are unchanged.
 ## Decisions
 
 Accepted 2026-10-01; D2, D3, D4, D6, D7 and D8 revised the same day to PostgreSQL only, and D10
-added.
+added. D11 accepted 2026-10-01 at the start of PG1.
 
 | # | Question | Decision |
 | --- | --- | --- |
@@ -82,9 +83,10 @@ added.
 | PG-D5 | Invariants that relied on SQLite's single writer | **The per-workspace write lock, taken now.** The live write unit (`LiveWrites`) opens with `SELECT … FROM workspaces WHERE key = … FOR UPDATE`, the lock F1 needs anyway (D5, lock order: workspace, then records). Writes in one workspace serialize, so the per-workspace checks (unique values, parent cycles, cardinality, required relations, sibling rules, relation sets, matrix states) stay sound, while workspaces run in parallel. Change set writes already serialize on their version claim, and publish locks the workspace first. F1 then adds only the feed counter. Per-invariant database constraints wait for evidence (0.11) |
 | PG-D6 | Isolation and locks | READ COMMITTED for writes, as D28 assumes; multi-statement reads keep `begin_snapshot_read` (REPEATABLE READ). `BEGIN IMMEDIATE` becomes the row lock each place needs: the runtime-state row for activation, the change set row for lifecycle, the workspace row for the catalogue. `db.begin_transaction` and `SQLITE_LOCK_WAIT_SECONDS` are removed |
 | PG-D7 | Search index | **`pg_trgm` GIN indexes** replace the FTS5 tables, with the same contract (S8: the index decides speed, never which records match). The baseline runs `CREATE EXTENSION IF NOT EXISTS pg_trgm`; a role that may not create it is refused at startup with that instruction |
-| PG-D8 | Running PostgreSQL | **Homebrew's `postgresql@17` binaries, never `brew services`.** The test harness starts a private server on a data directory under `backend/.test-postgres/` (git-ignored) on a local socket, with durability off since its data is disposable, and stops it when the run ends; the seeded databases (H1) live there as template databases between runs, and each test gets a clone. `scripts/postgres.sh start|stop|backup` runs the development server on its own data directory, for the app and the browser runners. CI (once the repository has a remote) uses a `postgres:17` service. The Docker compose file stays for a containerised deployment |
+| PG-D8 | Running PostgreSQL | **Homebrew's `postgresql@17` binaries, never `brew services`.** The test harness starts a private server on a data directory under `backend/.test-postgres/` (git-ignored) on a local socket, created with ICU `und` (PG-D11), with durability off since its data is disposable, and stops it when the run ends; the seeded databases (H1) live there as template databases between runs, and each test gets a clone. `scripts/postgres.sh start|stop|backup` runs the development server on its own data directory, for the app and the browser runners. CI (once the repository has a remote) uses a `postgres:17` service. The Docker compose file stays for a containerised deployment |
 | PG-D9 | Driver and connections | `psycopg` 3 (already a dependency), synchronous, SQLAlchemy's pool with `pool_pre_ping`. `WEB_CONCURRENCY` stays 1: several processes need 0.11's cross-process release propagation, not a database change |
 | PG-D10 | Existing SQLite databases | **A one-off copy command** (`python -m app.tools.copy_from_sqlite <sqlite-url>`) copies a SQLite database at `20261001_01` into an empty PostgreSQL database at the baseline, table by table in dependency order. It keeps public IDs, sequence values, typed values and history, rebuilds the derived indexes (matrix states, search), checks the row counts, and refuses a source at another revision or a target that is not empty, each with an instruction. It is removed again in 0.11. On 2026-10-01 `backend/rdm-engine.db` and `rdm-engine.db` were at `20260928_01` and are upgraded first with the current code; `backend/rdm-operators-timetables.db` is at `20261001_01`. Backups first, and only with the user's go-ahead |
+| PG-D11 | Collation | **ICU root collation (`und`), on every database the engine runs on.** Reference data holds many languages side by side, so the order must be language-independent without choosing a language: the Unicode Collation Algorithm's root order sorts every script sensibly at once (case and accents rank below the base letter, so `Elan, élan, Élan, Emil`), and ICU makes `lower`, `upper` and case-insensitive matching Unicode-aware. Rejected: `C` (code-point order, right for no language, and case mapping for A–Z only; it only kept SQLite's order) and a libc locale such as `en_US.UTF-8` (the operating system's collation: almost code-point order on macOS, linguistic on Linux and changed by glibc upgrades, so tests would not prove production). The test and development servers are created with `initdb --locale-provider=icu --icu-locale=und`, and startup refuses a database whose default collation is not ICU `und`, with the `CREATE DATABASE` instruction. Equality and uniqueness are unchanged (the collation is deterministic). The visible sort order of names changes (CHANGELOG). Code that sorts names in Python beside the database's order (for example `reads/relation_queries.py`, `operations/restructuring.py`) and tests that build an expected order with `sorted()` follow the database's order in PG2. A language-specific order (Hungarian `cs`, Swedish `å ä ö`) would be an optional per-request refinement later, never a requirement |
 
 ## Inventory
 
@@ -98,6 +100,7 @@ What this release changes, found by a code search on 2026-10-01.
 | Search | FTS5 trigram tables (`models/search_index.py`, `20260926_03`) | `pg_trgm` GIN (PG-D7) |
 | Relation matrix | `json_each` row list and an `INDEXED BY` hint (`indexes/matrix_states.py`); the change set walk with two recursive arms | `= ANY(:ids)` and no hint; the walk as one recursive term (TODO, 0.8 A2/A3b) |
 | Partial index | `sqlite_where` on a `models/database.py` index | `postgresql_where` |
+| Collation | SQLite's binary order; names sorted in Python beside it | ICU `und` (PG-D11); Python-side name sorts follow the database's order |
 | Upsert | `sqlite_insert` / `pg_insert` branch (`relation_set_versions.py`) | `pg_insert` only |
 | Foreign keys | not enforced | enforced; every `ondelete` rule checked (PG-D4) |
 | Migrations | 25 revisions, 9 with SQLite-only DDL | one baseline (PG-D3) |
@@ -113,27 +116,112 @@ Each package keeps the API, the model contract and the OpenAPI lock unchanged.
 
 **Scope:** `DATABASE_URL` required and PostgreSQL only; `db.py` with one pooled engine; the baseline
 migration (PG-D3) from the ORM metadata plus `pg_trgm`; the startup checks refusing a non-PostgreSQL
-URL, a missing extension and an unknown revision, each with an operator instruction;
+URL, a missing extension, a collation other than ICU `und` (PG-D11) and an unknown revision, each
+with an operator instruction;
 `scripts/postgres.sh`; `.env.example` and README. The test harness on PostgreSQL (PG-D8) with the
 seed store of [H1](TEST_HARNESS_PLAN.md#h1-seeded-databases-built-once): the private server, seeds
 as template databases with their fingerprints, one clone per test. The SQLite revisions and their
 migration tests removed. First, a measurement on the seeded harness: `records` and the volume reads
 against the SQLite numbers recorded in TEST_HARNESS_PLAN, recorded in the package.
 
-**Tests:** clean bootstrap, restart, an unknown revision refused, a missing `pg_trgm` refused, the
+**Tests:** clean bootstrap, restart, an unknown revision refused, a missing `pg_trgm` refused, a
+database with another collation refused, the
 lifespan against a real database, schema drift (ORM against migration), and H1's evidence (a second
 run seeds nothing). **Groups:** `startup`, `contract`.
 
 **Exit:** the application starts on PostgreSQL, `startup` and `contract` pass on it, and seeds are
-reused across runs. Other groups may fail until PG2.
+reused across runs. Other groups may fail until PG2. **Amended 2026-10-01 (user's decision during
+PG1):** five tests in those groups (six cases) need two PG2 rows, current-live change set capture (refused on
+any database but SQLite) and the matrix row list (`json_each`), and pass in PG2:
+`test_matrix_states` `test_startup_builds_what_is_missing_and_a_failed_build_falls_back`,
+`test_activation_and_release_change_follow_the_model`,
+`test_change_set_writes_and_publishing_keep_states_derived` and
+`test_a_long_row_list_filters_as_one_value` (`startup`), and `test_model_placements` `test_served_in_the_context_of_the_model` (`contract`, both
+models).
+
+**Delivered 2026-10-01.**
+
+- **Runtime.** `DATABASE_URL` is required (`config.py` no longer defaults to a SQLite file).
+  `db.py` has one pooled psycopg engine (`pool_pre_ping`), and `create_database` checks before it
+  migrates, refusing each case with what failed, the maintenance state and the next step: no URL, a
+  non-PostgreSQL URL (naming PG-D10 for SQLite data), another driver, an unreachable server, a
+  collation other than ICU `und` (PG-D11), a revision the code does not know, and a `pg_trgm` it
+  cannot create (contrib missing or no privilege). `DatabaseStartupError` is the lifespan's and
+  `cli/database_upgrade`'s one refusal type; a migration failure says the database is still at its
+  revision, since PostgreSQL rolls the migration's DDL back. `migrations/env.py` reads
+  `DATABASE_URL`, so the `alembic` command needs no URL in `alembic.ini`. `begin_snapshot_read`
+  ends a request's read-only transaction (its model resolution) before setting REPEATABLE READ,
+  which PostgreSQL accepts only first; each earlier read stood alone on SQLite as well.
+- **Baseline `20261001_01`** (PG-D3), autogenerated from the ORM on PostgreSQL 17, plus `pg_trgm`.
+  Two things the ORM does not say and PostgreSQL showed: every foreign key is added after all tables
+  and indexes (several reference a column a unique *index* makes unique, `objects` references
+  itself, and `workspaces` and `publications` reference each other), and the default workspace
+  with the runtime state naming it is inserted, as the SQLite history did (checked against a clean
+  SQLite database built by the removed revisions). The 23 SQLite revisions and seven migration test
+  modules are removed; `test_jobs_migration` became `test_job_settings` (the settings, and the value
+  index seek shown with `EXPLAIN`); `test_search_index` and `test_matrix_states` lost their
+  migration tests, and `test_search_index` left `startup`.
+- **A contract fix PostgreSQL exposed** (principle 4): the relation list's `ancestor:<type>` sort
+  took the ancestor's name as a bare column beside `max(depth)`, which SQLite allows and PostgreSQL
+  refuses. It is now `DISTINCT ON (start) … ORDER BY start, depth DESC`, the same ancestor nearest
+  the root (`test_paging_contract`, three contexts).
+- **Development server.** `scripts/postgres.sh start|stop|status|backup` (PG-D8) on
+  `backend/.postgres/`, localhost port 54320 and a socket, ICU `und`, the database `rdm`; it prints
+  the `DATABASE_URL`. `.env.example`, README, `docker-compose.yml` (`POSTGRES_INITDB_ARGS` for ICU
+  `und`) and CI (a `postgres:17` service the harness uses through `RDM_TEST_DATABASE_SERVER`) follow.
+- **Test harness** ([H1](TEST_HARNESS_PLAN.md#h1-seeded-databases-built-once), its PG1 part):
+  `tests/postgres_server.py` starts a private server on `backend/.test-postgres/` (ICU `und`, socket
+  only, durability off; stopped when the run ends) and `tests/seeds.py` keeps template databases
+  with fingerprints in an `rdm_harness` catalogue: `schema` (the migrations) and one
+  `volume-<groups>x<items>-<hash>` per shape (the volume model, `volume_fixture.py`, the matrix,
+  snapshot value and bootstrap modules it calls, the shape). The session database,
+  `migrated_database()` and `volume_app(directory, shape)` are clones (about 90 ms each, `FILE_COPY`);
+  `python -m tests.seeds list|build`; the run's summary names each seed reused or built.
+  `volume_fixture.seed_volume` now runs `ANALYZE` after its bulk load, as autovacuum would, and the
+  fixture's reproducibility check seeds a second database afresh (`seed_fresh`) and compares it with
+  the seed.
+
+**Measurement** (2026-10-01, this machine, against a checkout of `a6e636d` on SQLite):
+
+| What | SQLite | PostgreSQL | Note |
+| --- | --- | --- | --- |
+| Volume reads, `run_scenarios` at 0.01, 5 timed runs | median 5.0 ms, total 1.15 s | median 7.9 ms, total 2.95 s | 141 scenarios: same statuses and statement counts. Non-matrix reads 1.0–2.5×; relation matrix reads 3.6–6× (PG2's matrix forms) |
+| `records` group, the 137 tests passing on both | 21.7 s | 33.9 s (1.56×) | per-statement round trips; app start 21 → 33 ms; clone 92 ms |
+| `records` group, the rest | 242 pass | 103 fail | 79 current-live capture, 22 SQLite `PRAGMA` in `test_wp8_review_regressions`, 1 `json_each`, 1 expecting the SQLite-era refusal code (PG2) |
+| Volume fixture seeded, 0.01 | 1.9 s every run | 60 s once, then a 0.8 s clone and start | the build is the matrix state build (correlated subqueries, about ×4 per doubling: 15 s at 0.005, 62 s at 0.01); PG2's matrix forms |
+
+Principle 3 does not hold yet: per test PostgreSQL costs about 1.5× SQLite, and only seeds that
+SQLite also seeded slowly gain from the store. H2's parallel runs are the planned compensation; PG2
+re-measures after the matrix forms.
+
+**Checks:** `-m "startup or contract"` twice back to back from a stopped server: 76 passed, 5
+failed and 1 error each time, exactly the six cases named in the amended exit (current-live capture
+and `json_each`); each run 37 s wall, both naming `schema` and `volume-100x1000` as reused, and
+the server stopped after each. `test_startup` 9 passed, `test_schema_drift` 3 passed,
+`test_paging_contract` 32 passed. `test_request_scope` 6 passed (the URL has no default now). Fingerprints (`tests.seeds list`): a line added to the baseline
+made `schema` and every volume seed stale, a line added to `volume_fixture.py` only the volume
+seeds, and reverting made them current again; a changed migration rebuilt `schema` in 0.3 s on the
+next run. `tests.seeds build` built 0.005 in 15 s, 0.01 in 62 s and 0.02 in 262 s; 0.04 (about
+15 minutes at that rate) was stopped and is built on first use, after PG2's matrix forms change
+its fingerprint anyway. Smoke start against the development server: `scripts/postgres.sh start`,
+`python -m app.cli.database_upgrade`, uvicorn with `/health` ok and `/api/v1/model` 200, `backup`,
+`stop`. `ruff check app/ tests/`. Not run: the other groups (PG2's exit), the browser runners (on
+SQLite until PG2), the frontend (unchanged). The developer's SQLite databases are untouched (PG4).
 
 ### PG2: PostgreSQL forms
 
 **Scope:** every row of the [inventory](#inventory) not done in PG1, except the workspace lock:
-search on `pg_trgm`, the matrix forms, the partial index, the upsert, row locks for activation,
+search on `pg_trgm`, the matrix forms, the partial index, the upsert, Python-side name sorts and
+order assertions following the ICU order (PG-D11), row locks for activation,
 change set lifecycle and the catalogue, `begin_transaction` and `SQLITE_LOCK_WAIT_SECONDS` removed,
-every `ondelete` rule checked (PG-D4). The browser runner harness on the development server. No
+every `ondelete` rule checked (PG-D4). The browser runner harness on the development server, with its seed in the seed store, and the heavy
+`records` and `change_sets` modules' common records as seeds (H1's split). No
 dialect name remains in `app/` (`test_boundaries`).
+
+**Found in PG1, for PG2:** the tests named in PG1's amended exit; `test_wp8_review_regressions`
+issues SQLite `PRAGMA`s (22 tests); the matrix state build's correlated subqueries (a volume seed at
+0.01 builds in 60 s, about ×4 per doubling); `volume_seed.py` and `volume_baseline.py` still write
+SQLite files (the browser runners' seed and the full-size measurement move to the seed store).
 
 **Tests:** every backend group except `volume` passes. A failure is fixed to the documented contract
 (principle 4) and recorded.

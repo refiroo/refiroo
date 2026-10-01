@@ -28,10 +28,10 @@ ITEMS = 100_000
 
 
 @pytest.fixture(scope="module")
-def measured(_migrated_template, tmp_path_factory) -> dict[str, dict[str, Any]]:
+def measured(tmp_path_factory) -> dict[str, dict[str, Any]]:
     results: dict[str, dict[str, Any]] = {}
     directory = tmp_path_factory.mktemp("background-volume")
-    with volume_app(_migrated_template, directory, SHAPE) as (client, dataset):
+    with volume_app(directory, SHAPE) as (client, dataset):
         engine = get_engine()
 
         def context(label: str) -> dict[str, Any]:

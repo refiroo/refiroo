@@ -14,7 +14,6 @@ public IDs included. :data:`FULL_SHAPE` is the plan's volume; tests use a scaled
 
 import json
 import random
-import shutil
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -361,6 +360,11 @@ class VolumeDataset:
     counts: dict[str, int] = field(default_factory=dict)
     matrix_column_ids: list[str] = field(default_factory=list)  # in name order
 
+    @classmethod
+    def from_payload(cls, payload: dict[str, Any]) -> VolumeDataset:
+        """The dataset a seed stored as JSON (``dataclasses.asdict``)."""
+        return cls(**{**payload, "shape": VolumeShape(**payload["shape"])})
+
 
 def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
     """Bulk-write live data, publication 1 and a derived change set into an app-migrated database.
@@ -589,6 +593,11 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
         ),
     )
     _bulk_insert(engine, ChangeSetRelation, change_set_relations)
+
+    # Statistics for the bulk-loaded tables, as autovacuum would gather them shortly after a load:
+    # without them PostgreSQL plans every read as if the tables were empty.
+    with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
+        connection.exec_driver_sql("ANALYZE")
 
     # The bulk rows bypass the ORM hooks that maintain stored matrix cell states: build them (A3b).
     with Session(engine) as session:
@@ -1096,29 +1105,42 @@ def measure(engine: Engine) -> Iterator[RequestCost]:
 
 
 @contextmanager
-def volume_app(template: Path, directory: Path, shape: VolumeShape) -> Iterator[tuple[Any, VolumeDataset]]:
-    """A test client over a copy of the migrated ``template`` holding the seeded volume data."""
+def volume_app(directory: Path, shape: VolumeShape) -> Iterator[tuple[Any, VolumeDataset]]:
+    """A test client over a clone of the volume seed at ``shape`` (built once, ``tests/seeds.py``)."""
     # Imported here: the baseline script must set its database before the app is imported.
-    import pytest
+    import seeds
     from fastapi.testclient import TestClient
 
-    from app.config import reload_settings
-    from app.db import get_engine
-    from app.engine.model.registry import model_registry
     from app.main import create_app
 
-    database = directory / "volume.db"
-    shutil.copyfile(template, database)
+    name = seeds.volume_seed(shape)
+    payload = seeds.ensure(name)
+    url = seeds.clone(name)
     model_path = directory / "volume-model.json"
     model_path.write_text(json.dumps(volume_model()))
-    with pytest.MonkeyPatch.context() as patch:
-        patch.setenv("DATABASE_URL", f"sqlite:///{database}")
-        patch.setenv("RDM_MODEL_PATH", str(model_path))
-        model_registry.clear()
-        try:
-            with TestClient(create_app()) as client:
-                yield client, seed_volume(get_engine(), shape)
-        finally:
-            get_engine().dispose()
-    reload_settings()
-    model_registry.clear()
+    try:
+        with seeds.application_environment(url, model_path), TestClient(create_app()) as client:
+            yield client, VolumeDataset.from_payload(payload["dataset"])
+    finally:
+        seeds.drop(url.database)
+
+
+def seed_fresh(directory: Path, shape: VolumeShape) -> VolumeDataset:
+    """Seed ``shape`` into a new database, bypassing the seed store, and return its identifiers.
+
+    For the check that a shape always produces the same data; everything else uses the seed.
+    """
+    import seeds
+    from fastapi.testclient import TestClient
+
+    from app.db import get_engine
+    from app.main import create_app
+
+    url = seeds.clone("schema")
+    model_path = directory / "volume-model-fresh.json"
+    model_path.write_text(json.dumps(volume_model()))
+    try:
+        with seeds.application_environment(url, model_path), TestClient(create_app()):
+            return seed_volume(get_engine(), shape)
+    finally:
+        seeds.drop(url.database)

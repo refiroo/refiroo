@@ -21,11 +21,11 @@ SMALL, LARGE = scaled_shape(0.005), scaled_shape(0.02)
 
 
 @pytest.fixture(scope="module")
-def measured(_migrated_template, tmp_path_factory) -> dict[str, object]:
+def measured(tmp_path_factory) -> dict[str, object]:
     results = {}
     for label, shape in (("small", SMALL), ("large", LARGE)):
         directory = tmp_path_factory.mktemp(f"restructuring-{label}")
-        with volume_app(_migrated_template, directory, shape) as (_client, dataset):
+        with volume_app(directory, shape) as (_client, dataset):
             (plan, preview), count = restructuring_scenarios(get_engine(), dataset, repeat=0)
             results[label] = {"plan": plan, "preview": preview, "records": count}
     return results

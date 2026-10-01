@@ -5,6 +5,8 @@ services:
       POSTGRES_DB: rdm
       POSTGRES_USER: rdm
       POSTGRES_PASSWORD: rdm
+      # The ICU root collation the engine requires (PG-D11).
+      POSTGRES_INITDB_ARGS: "--locale-provider=icu --icu-locale=und --locale=C"
     volumes:
       - rdm-data:/var/lib/postgresql/data
     healthcheck:

@@ -158,8 +158,8 @@ VALIDATE_SECONDS, PUBLISH_SECONDS = 10, 20
 
 
 @pytest.fixture(scope="module")
-def large(_migrated_template, tmp_path_factory):
-    with volume_app(_migrated_template, tmp_path_factory.mktemp("graph-validation"), LARGE) as app:
+def large(tmp_path_factory):
+    with volume_app(tmp_path_factory.mktemp("graph-validation"), LARGE) as app:
         yield app
 
 

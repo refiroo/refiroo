@@ -2,13 +2,13 @@
 
 import sys
 
-from ..db import DatabaseMigrationError, create_database
+from ..db import DatabaseStartupError, create_database
 
 
 def main() -> int:
     try:
         create_database()
-    except DatabaseMigrationError as exc:
+    except DatabaseStartupError as exc:
         print(str(exc), file=sys.stderr)
         return 1
     print("Database migration completed successfully.")

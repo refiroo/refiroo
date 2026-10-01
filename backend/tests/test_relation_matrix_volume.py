@@ -25,8 +25,8 @@ STATES = ("one", "several", "inactive", "historyOnly", "none")
 
 
 @pytest.fixture(scope="module")
-def volume(_migrated_template, tmp_path_factory):
-    with volume_app(_migrated_template, tmp_path_factory.mktemp("matrix-volume"), SHAPE) as value:
+def volume(tmp_path_factory):
+    with volume_app(tmp_path_factory.mktemp("matrix-volume"), SHAPE) as value:
         yield value
 
 

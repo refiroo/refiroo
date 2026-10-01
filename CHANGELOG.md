@@ -82,6 +82,19 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- 0.9.0-alpha.1 PG1: PostgreSQL is the only database. `DATABASE_URL` is required and must name a
+  PostgreSQL database with the ICU root collation `und` (PG-D11: a language-independent Unicode order,
+  so names sort case- and accent-aware, `Elan, élan, Élan, Emil`, where SQLite sorted by code point).
+  Startup refuses a missing or non-PostgreSQL URL, another driver, an unreachable server, another
+  collation, an unknown schema revision and a `pg_trgm` it cannot create, each with what to do and
+  `/health` 503. The 23 SQLite migrations are one PostgreSQL baseline (`20261001_01`); a migration
+  runs in one transaction. `scripts/postgres.sh start|stop|status|backup` runs a development server
+  from Homebrew's `postgresql@17`; the backend tests start their own and reuse seeded template
+  databases until the migrations, model or seed code change (`python -m tests.seeds list|build`).
+  The Docker Compose database and CI use ICU `und`. Existing SQLite databases are carried over in
+  PG4.
+- 0.9.0-alpha.1 PG1: the relation list's sort by `ancestor:<type>` works on PostgreSQL (it used a
+  SQLite-only grouping); the ancestor chosen is unchanged.
 - Base 0.9 B1: a change set write's record lookups probe the change set's own rows by key instead of
   listing all of them on every statement, so a write costs the same however many records the change set
   holds (a lookup took 361 µs at 4,000 own rows, now 39 µs; page reads unchanged or faster). On SQLite,
