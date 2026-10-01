@@ -26,7 +26,10 @@ idempotency keys, `GET /jobs`; D23–D26, D13 confirmed; 2026-10-01), and so is 
 jobs** (`run: background`, the in-process worker with chunks, lease, resumption, cancellation,
 release and claim stops, and retention; D27–D30; 2026-10-01; delivered before F1, whose
 workspace lock the chunks' write path will take). On SQLite a background job blocks other writes
-until it ends; the move to PostgreSQL is the open question ([TODO](TODO.md)). F1 is next.
+until it ends. Next is the interim release **0.9.0-alpha.1, PostgreSQL runtime**
+([plan](POSTGRESQL_RUNTIME_PLAN.md): PostgreSQL only, decisions PG-D1–PG-D10 accepted 2026-10-01),
+with the test harness ([plan](TEST_HARNESS_PLAN.md): seeded databases built once and reused until
+the schema, model or seed changes, inside PG1; parallel runs and budget sizes after PG2), then F1.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

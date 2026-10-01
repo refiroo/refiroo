@@ -10,7 +10,10 @@ Base 0.8 is released (2026-09-29). 0.9 adds integration-grade APIs in the order 
 [0.9 delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue): Q1 and Q2 are delivered (2026-09-29),
 and Q3 on 2026-09-30. The queue was reordered after Q3 (C1 and Q4 first, F1 before B2, V1 as a
 filler, checkpoint T1 after F2). C1, Q4 and V1 are delivered (2026-09-30), and B1 and B2 on
-2026-10-01 (B2 before F1, by instruction); F1 is next. See [Next — 0.9](#next--09).
+2026-10-01 (B2 before F1, by instruction). Next is the interim release
+[0.9.0-alpha.1, PostgreSQL runtime](POSTGRESQL_RUNTIME_PLAN.md) (PG1–PG5, PostgreSQL only, decisions
+accepted 2026-10-01) with the [test harness](TEST_HARNESS_PLAN.md) (H1 inside PG1, H2–H3 after PG2),
+then F1. Before PG1: `brew install postgresql@17` (never `brew services`). See [Next — 0.9](#next--09).
 
 ## Open decisions
 
@@ -40,8 +43,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 
 ## Next — 0.9
 
-- [ ] Enforce foreign keys on SQLite (`PRAGMA foreign_keys=ON` per connection) or document that every
-  `ondelete` rule is advisory there. 0.8 W6 found none of them, not only the `workspaces.key` ones, are
+- [ ] Superseded by 0.9.0-alpha.1 (PG-D4: PostgreSQL enforces foreign keys and PG2 checks every
+  `ondelete` rule against what its service expects): enforce foreign keys on SQLite (`PRAGMA foreign_keys=ON` per
+  connection) or document that every `ondelete` rule is advisory there. 0.8 W6 found none of them, not only the `workspaces.key` ones, are
   enforced at runtime; services delete dependants explicitly and W6 rechecks the workspace at commit.
   Enabling it needs a data check for existing violations and must keep the table-rebuild migrations,
   which require it off, working.
@@ -96,7 +100,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 
 - [ ] Complete the release licensing checklist in [LICENSING_TODO.md](LICENSING_TODO.md), including
   ownership, contribution, dependency, security, trademark and commercial-service documentation.
-- [ ] PostgreSQL migration follow-ups. (1) Test 0.9 D28 job cancellation on PostgreSQL: a cancel
+- [ ] PostgreSQL follow-ups, delivered by [0.9.0-alpha.1](POSTGRESQL_RUNTIME_PLAN.md) (PG3 for (1),
+  PG2 and PG5 for (2)). (1) Test 0.9 D28 job cancellation on PostgreSQL: a cancel
   request answered without waiting for a running chunk, the `atomic` job's chunk rolled back between
   items, and the lease guard with two workers. Bound the latency of live writes beside a background
   job in `test_background_volume` (B2 recorded it only: on SQLite the worker retakes the writer lock
@@ -110,10 +115,14 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [ ] Unique-value checks over non-text values (integer, decimal, date, dateTime, boolean) still read
   every value of the attribute, live and in a change set: the value indexes cover `text_value` only
   (0.9 B2 added the live one). Add them with 0.11's model-derived indexes.
-- [ ] PostgreSQL performance and multi-writer uniqueness hardening, including the trigram form of
-  the S8 search index and the relation matrix's SQLite-only statements: the change set walk down
-  (two recursive arms, which PostgreSQL needs in one recursive term) and the stored state filter's
-  row list, read through `json_each` on SQLite and as a plain `IN` list elsewhere (0.8 A2, A3b).
+- [ ] PostgreSQL at production scale and across nodes (0.11): the volume fixture at full scale, pool
+  sizing, several processes and nodes. The trigram search index, the relation matrix's PostgreSQL
+  forms (0.8 A2, A3b) and single-node multi-writer uniqueness move to
+  [0.9.0-alpha.1](POSTGRESQL_RUNTIME_PLAN.md) (PG2, PG3).
+- [ ] Assess the cost of matrix state maintenance per commit (found by the test harness assessment,
+  2026-10-01): a commit recomputes the touched matrix cells, about 7 ms in the parity and
+  type-change test models, and a single create cost 19 ms through the API. Measure it on the volume
+  fixture against the 0.8 A2 write budget before changing anything.
 - [ ] Precomputed sort keys for attribute and ancestor sorts over very large parents (D26, after 0.9).
 - [ ] 0.12 security: engine-provided OAuth 2.0 with JWT for backend, frontend and consumer APIs (no API
   keys, no credential in a URL), application/object/operation authorization, audit identity,

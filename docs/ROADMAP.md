@@ -15,7 +15,10 @@ migration-class model changes, protected publishing and extensions.
 Base 0.8 is released (2026-09-29): collections at any size (ADR-030), one name per concept and
 capability boundaries (ADR-031), the relation matrix (ADR-033), the hierarchy editor with drag and
 drop, the change set review, and hierarchy restructuring with a preview and history as the way back
-(ADR-034), on schema language 0.7. Next is 0.9, integration-grade APIs.
+(ADR-034), on schema language 0.7. Next is 0.9, integration-grade APIs. Its first packages (Q1–Q4,
+C1, V1, B1, B2) are delivered. Before F1, the interim release
+[0.9.0-alpha.1](#interim-release-090-alpha1--postgresql-runtime) moves the engine to PostgreSQL only,
+with a test harness that seeds once and runs in parallel ([TEST_HARNESS_PLAN](TEST_HARNESS_PLAN.md)).
 
 Base 0.5 delivered the operational and model-release foundation. Base 0.7 is released (2026-09-25):
 core mapping as a lens of one contextual application browser, schema 0.6 `mappingGrid` views,
@@ -264,6 +267,43 @@ change; nothing is lost without being shown in the preview; nothing names a type
 C0–C5 delivered 2026-09-29; the journey is accepted on the starter and generated models by
 `test:browser:c5` (SC-17, US-H03). R1b and R2 passed together on 2026-09-29, and 0.8.0 is released (D43).
 
+## Interim release 0.9.0-alpha.1 — PostgreSQL runtime
+
+Planned 2026-10-01 in [POSTGRESQL_RUNTIME_PLAN.md](POSTGRESQL_RUNTIME_PLAN.md); inserted in the 0.9
+queue after B2, before F1. It is a pre-release of 0.9: `main` already carries delivered 0.9
+packages, so a 0.8.x patch would misdescribe it (PG-D1).
+
+### Product outcome
+
+The engine runs on PostgreSQL only, with real row-level concurrency. Writes in different workspaces
+run in parallel, and writes in one workspace serialize without losing an invariant; a background job
+leaves other writes free. Tests run on PostgreSQL from seeded databases built once and reused, and
+existing development databases carry over. API, model contract and UI are unchanged.
+
+### Delivery scope
+
+- PostgreSQL as the only runtime and test database. SQLite is removed with its dialect branches,
+  settings and migrations, one baseline revision replaces the migration history, and PostgreSQL
+  runs from installed binaries only while needed, never as a service (PG1, PG2)
+- A test harness whose seeded databases are built once and reused until the schema, model or seed
+  code changes, with parallel runs (PG1 with H1; H2, H3)
+- `pg_trgm` search indexes and PostgreSQL forms of the relation matrix's change set walk and stored
+  state filter (PG2), brought forward from 0.11
+- The per-workspace write lock (the lock F1's feed position needs), with every invariant checked in
+  code tested under two racing writers (PG3); single-node multi-writer uniqueness, brought forward
+  from 0.11
+- A one-off copy of existing SQLite databases (PG4)
+- Every volume budget re-measured on PostgreSQL (PG5)
+
+### Exit gate
+
+- The full backend suite, the frontend suites and the browser runners pass against PostgreSQL. No
+  SQLite or dialect branch remains outside history.
+- A second test run seeds nothing; a package's local checks take no longer than on SQLite.
+- Two writers racing in one workspace never break an invariant. Two workspaces are written in
+  parallel. A cancel request never waits for a job's chunk (0.9 D28).
+- The OpenAPI lock is unchanged, and every volume budget is restated on PostgreSQL.
+
 ## Product release 0.9 — Integration-grade APIs
 
 ### Product outcome
@@ -362,14 +402,17 @@ immutable model releases in controlled stages. Authentication and authorization 
 
 ### Delivery scope
 
-- PostgreSQL deployment, model-derived indexes and representative performance tests, including the
-  trigram form of the 0.8 name search index and PostgreSQL forms of the relation matrix's change set
-  walk and stored state filter
+- Production-scale PostgreSQL performance on the runtime 0.9.0-alpha.1 established: the volume
+  fixture at full scale, connection pool sizing, and model-derived indexes, including unique checks
+  on non-text values (the value indexes cover text only)
 - Precomputed sort keys, so attribute and ancestor sorts over very large parents meet the list
   budget (deferred from 0.8, D26)
-- Database-backed uniqueness hardening
-- Metrics, structured logging, health/readiness, backup and restore rehearsal
-- Multi-node immutable-snapshot propagation
+- Database constraints as a second line behind the per-workspace write lock, for writes that bypass
+  the write unit, decided on evidence. Single-node multi-writer uniqueness is delivered in
+  0.9.0-alpha.1
+- Metrics, structured logging, health/readiness, backup and restore rehearsal (`pg_dump`)
+- Multi-node and multi-process operation: immutable-snapshot propagation across processes
+  (`WEB_CONCURRENCY` above 1), and the job worker on several nodes through its lease (0.9 B2)
 - Executable workspace-scoped data migration plans
 - Touch drag in the tree lens (deferred from 0.8 B5, D35): long-press drag that does not conflict with
   scrolling or with opening a record, tested on iOS Safari and Android Chrome
@@ -389,7 +432,8 @@ immutable model releases in controlled stages. Authentication and authorization 
 
 ### Exit gate
 
-- Multi-writer concurrency and uniqueness invariants hold in production-like tests.
+- Concurrency and uniqueness invariants hold with several processes and nodes on one database, in
+  production-like tests at full volume (single-process multi-writer is 0.9.0-alpha.1's gate).
 - A tree node can be moved by touch drag on a phone without breaking scrolling or opening a record,
   confirmed in the same move dialog as with a mouse (D35).
 - Workspace migration, release switch and operator backup recovery are rehearsed without mixed-model

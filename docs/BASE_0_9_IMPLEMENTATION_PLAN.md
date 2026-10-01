@@ -10,6 +10,9 @@ J1–J4 and R are specified (2026-09-29) and delivered in the order of the
 [Q3](#q3-model-aware-query) (2026-09-30), [C1](#c1-consumer-api-definitions) (2026-09-30),
 [Q4](#q4-effective-periods-and-asof) (2026-09-30), [V1](#v1-api-reference-page) (2026-09-30),
 [B1](#b1-job-model-and-inline-object-batches) (2026-10-01), [B2](#b2-background-jobs) (2026-10-01).
+**Next:** the interim release [0.9.0-alpha.1, PostgreSQL runtime](POSTGRESQL_RUNTIME_PLAN.md)
+(PG1–PG5, PostgreSQL only, decisions accepted 2026-10-01) with the [test harness](TEST_HARNESS_PLAN.md)
+(H1 inside PG1, H2–H3 after PG2), then F1.
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -199,6 +202,9 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 7 | [B1](#b1-job-model-and-inline-object-batches) | — | **Track P (§P1–P5, P7)**, `POST /batches` with object items, inline — **delivered 2026-10-01** |
 | 8 | [F1](#f1-feed-positions) | B1 | Feed position in commit order, publish entries (D15), lock order |
 | 9 | [B2](#b2-background-jobs) | B1 | **Track P (§P6)**: worker, chunks, lease, resume, cancel, retention — **delivered 2026-10-01**, before F1 |
+| 9a | [PG1–PG2](POSTGRESQL_RUNTIME_PLAN.md) with [H1](TEST_HARNESS_PLAN.md) | B2 | PostgreSQL only: runtime, baseline migration, the test harness with seeded databases built once, PostgreSQL forms |
+| 9b | [H2–H3](TEST_HARNESS_PLAN.md) | PG2 | Parallel test runs; full-size budgets at checkpoints; no product change |
+| 9c | [PG3–PG5](POSTGRESQL_RUNTIME_PLAN.md) | PG2 | The per-workspace write lock and concurrency tests, existing data carried over, budgets on PostgreSQL; released as 0.9.0-alpha.1 |
 | 10 | [B3](#b3-relation-and-relation-set-items) | B1 | Relation items and `replaceRelationSet` |
 | 11 | [F2](#f2-feed-read-retention-and-recovery) | F1 | `GET /workspaces/{key}/feed`, retention, `410` with baselines |
 | 12 | [T1](#t1-track-checkpoint-q-b-f) | Q4, B2, B3, F2 | Track checkpoint for Q, B and F: their groups, budgets and a composed journey |
@@ -831,7 +837,9 @@ per affected set; the `transition` audit entry; the relation matrix state kept c
 
 **Design:** §F1–§F3, ADR-037 (D5, D15, D16). **Needs:** B1 (the job cause).
 
-**Scope:** migration adding `audit_events.workspace_key`, `audit_events.feed_position` (unique per
+**Scope** (after [PG3](POSTGRESQL_RUNTIME_PLAN.md#pg3-concurrency), which takes the workspace row
+lock in `LiveWrites` already; F1 adds the counter under it): migration adding
+`audit_events.workspace_key`, `audit_events.feed_position` (unique per
 workspace) and `workspaces.feed_position`; `record_audit_event` assigns positions for live changes
 under the workspace row lock; **every live write path takes that lock first**: in `LiveWrites._begin`, the seam
 every live write opens (E3, [BACKEND_BOUNDARIES_PLAN](BACKEND_BOUNDARIES_PLAN.md)), which
@@ -839,7 +847,7 @@ every live write opens (E3, [BACKEND_BOUNDARIES_PLAN](BACKEND_BOUNDARIES_PLAN.md
 cause, then `published`; the `reclassified` entry's feed form; `publications.feed_position`.
 
 **Tests:** positions gapless and in commit order under concurrent writers (two connections, on
-SQLite); a rolled-back write leaves no gap; change-set edits take none; a publish's entries equal the
+PostgreSQL); a rolled-back write leaves no gap; change-set edits take none; a publish's entries equal the
 records it changed; a batch's entries carry the job; lock order (no deadlock between a publish and a
 live write of a record it touches).
 
