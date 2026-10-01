@@ -112,6 +112,11 @@ All notable changes to this project are documented in this file. The format foll
   planner order names as the database does. The browser runners run on the development server
   (`scripts/postgres.sh start`), each on its own database cloned from a seed built once
   (`tests/browser_seeds.py`).
+- 0.9.0-alpha.1 H2: the backend tests run in parallel with `pytest -n auto` (pytest-xdist, a dev
+  dependency; each module on one worker, each worker with its own session database). Timing-based
+  tests carry a `serial` marker (the `volume` group and two timer-decided tests); a parallel run
+  leaves them out and names the command that runs them without `-n`. The 968 parallel tests take
+  1 min 49 s on 10 cores.
 - Base 0.9 B1: a change set write's record lookups probe the change set's own rows by key instead of
   listing all of them on every statement, so a write costs the same however many records the change set
   holds (a lookup took 361 µs at 4,000 own rows, now 39 µs; page reads unchanged or faster). On SQLite,

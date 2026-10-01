@@ -16,13 +16,15 @@ dependencies = [
 dev = [
   "httpx>=0.28,<1",
   "pytest>=8.3,<9",
+  "pytest-xdist>=3.6,<4",
   "ruff>=0.9,<1",
 ]
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-addopts = ["--strict-markers"]
+# `-n auto` runs modules in parallel, each module on one worker (TEST_HARNESS_PLAN H2).
+addopts = ["--strict-markers", "--dist", "loadfile"]
 
 [tool.setuptools.packages.find]
 include = ["app*"]

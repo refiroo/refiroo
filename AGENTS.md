@@ -243,7 +243,9 @@ affects theme tokens or a new surface. Do not update baselines merely to hide an
   invalidate all previous evidence. Do not repeat equivalent checks for the same behavior.
 - Keep test output bounded and report concise results. While a test runs, wait for completion
   rather than repeatedly polling, reanalysing unchanged code or launching overlapping checks.
-- Never run multiple backend `pytest` processes concurrently because they share a test database.
+- Run one backend `pytest` invocation at a time; it parallelizes itself with `-n auto` (H2). Two
+  invocations share the harness's server, and a starting one drops the other's databases. A
+  parallel run leaves the `serial` tests out and names the second, non-parallel command that runs them.
 
 ## Agent orchestration
 

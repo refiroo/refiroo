@@ -354,6 +354,7 @@ def test_current_live_capture_holds_off_activation_and_retirement(monkeypatch, s
         assert refused
 
 
+@pytest.mark.serial  # the capture must reach its lock wait before a 0.3 s timer commits
 def test_current_live_capture_after_a_concurrent_activation_asks_for_a_retry():
     """An activation committing while the capture waits for its lock ends it with a retry."""
     with TestClient(app) as client:

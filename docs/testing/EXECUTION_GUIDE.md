@@ -44,6 +44,29 @@ Do not run `pytest` or `tests.seeds build` while another is running: they share 
 starting run drops databases an interrupted run left behind. If the server's directory is damaged,
 delete `backend/.test-postgres/`; the next run creates it and rebuilds the seeds.
 
+### Backend: parallel runs (H2)
+
+One invocation parallelizes itself: `-n auto` starts one worker per core (pytest-xdist), and
+`--dist loadfile` (in `pyproject.toml`) keeps each module on one worker. The run's own process starts
+the server, drops leftover databases and builds the `schema` seed before the workers start; each
+worker clones its own session database, and all of them clone from the same seeds.
+
+**Timing-based checks are `serial`:** the whole `volume` group (wall-time budgets), and single tests
+marked `@pytest.mark.serial` (the background worker thread's deadline, and the current-live capture
+whose race is decided by a 0.3 s timer). A parallel run leaves them out and its summary names the
+command for them; run it next, without `-n`:
+
+```sh
+cd backend && .venv/bin/python -m pytest -n auto -q        # everything except serial tests
+.venv/bin/python -m pytest -m serial -q                    # then the serial tests, one process
+.venv/bin/python -m pytest -n auto -m records -q           # a group in parallel …
+.venv/bin/python -m pytest -m "serial and (records)" -q    # … and its serial part, if it has one
+```
+
+Without `-n` a run is serial and runs everything, `serial` tests included. A small selection (one
+module, a few cases) is faster without `-n`, which starts a worker per core. Mark a new test
+`serial` only when its outcome depends on wall time; a statement-count budget is not timing-based.
+
 ### Backend: pytest markers from one manifest
 
 `backend/tests/conftest.py` holds `TEST_GROUPS`, mapping every test module to the contract groups
@@ -237,11 +260,12 @@ visual evidence separately.
 ## 3. WP-9 comprehensive command set
 
 Run once, against the finished build, after all implementation packages close. Never run two
-pytest processes at once: they share the harness's PostgreSQL server.
+pytest invocations at once: they share the harness's PostgreSQL server. The backend suite is one
+parallel invocation followed by its serial part.
 
 ```sh
 (cd backend && .venv/bin/python -m ruff check app/ tests/)
-(cd backend && .venv/bin/python -m pytest -q)
+(cd backend && .venv/bin/python -m pytest -n auto -q && .venv/bin/python -m pytest -m serial -q)
 (cd frontend && npm run format:check && npm run lint && npm run build)
 (cd frontend && npm run test && npm run test:gate-helpers)
 (cd frontend && npm run test:browser && npm run test:browser:authoring && npm run test:browser:change-sets \
@@ -336,7 +360,8 @@ The full frontend suite and the other browser runners were not rerun for this pa
   while the backend suite ran concurrently (CPU contention); its name was not captured and three idle
   reruns passed (14 files). Likely a timing-sensitive component test; if it recurs, capture the name
   and treat it as a defect rather than rerunning until green.
-- **Backend parallelism** is out of scope: the shared test database requires serial pytest.
+- **Backend parallelism** was out of scope here; it is delivered in 0.9.0-alpha.1 H2
+  ([parallel runs](#backend-parallel-runs-h2)).
 
 ### Not measured
 

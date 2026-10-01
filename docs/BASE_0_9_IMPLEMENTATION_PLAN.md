@@ -12,7 +12,7 @@ J1–J4 and R are specified (2026-09-29) and delivered in the order of the
 [B1](#b1-job-model-and-inline-object-batches) (2026-10-01), [B2](#b2-background-jobs) (2026-10-01).
 **Next:** the interim release [0.9.0-alpha.1, PostgreSQL runtime](POSTGRESQL_RUNTIME_PLAN.md)
 (PG1–PG5, PostgreSQL only, decisions accepted 2026-10-01) with the [test harness](TEST_HARNESS_PLAN.md)
-(H1 inside PG1, H2–H3 after PG2), then F1. **PG1 and PG2 are delivered (2026-10-01)**; next is H2.
+(H1 inside PG1, H2–H3 after PG2), then F1. **PG1 and PG2 are delivered (2026-10-01)**, and so is H2 (parallel test runs, 2026-10-01); next are H3, PG3 and PG3b (batch writes in bulk, PG-D12–PG-D17).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -203,8 +203,8 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 8 | [F1](#f1-feed-positions) | B1 | Feed position in commit order, publish entries (D15), lock order |
 | 9 | [B2](#b2-background-jobs) | B1 | **Track P (§P6)**: worker, chunks, lease, resume, cancel, retention — **delivered 2026-10-01**, before F1 |
 | 9a | [PG1–PG2](POSTGRESQL_RUNTIME_PLAN.md) with [H1](TEST_HARNESS_PLAN.md) | B2 | PostgreSQL only: runtime, baseline migration, the test harness with seeded databases built once, PostgreSQL forms |
-| 9b | [H2–H3](TEST_HARNESS_PLAN.md) | PG2 | Parallel test runs; full-size budgets at checkpoints; no product change |
-| 9c | [PG3–PG5](POSTGRESQL_RUNTIME_PLAN.md) | PG2 | The per-workspace write lock and concurrency tests, existing data carried over, budgets on PostgreSQL; released as 0.9.0-alpha.1 |
+| 9b | [H2–H3](TEST_HARNESS_PLAN.md) | PG2 | Parallel test runs (H2 **delivered 2026-10-01**); time ceilings, full-size budgets out of everyday runs (H3); no product change |
+| 9c | [PG3–PG5](POSTGRESQL_RUNTIME_PLAN.md) | PG2 | The per-workspace write lock and concurrency tests; PG3b batch writes decided in memory and written in bulk (PG-D12–PG-D17); existing data carried over; budgets on PostgreSQL with the 100,000-item batch measured once; released as 0.9.0-alpha.1 |
 | 10 | [B3](#b3-relation-and-relation-set-items) | B1 | Relation items and `replaceRelationSet` |
 | 11 | [F2](#f2-feed-read-retention-and-recovery) | F1 | `GET /workspaces/{key}/feed`, retention, `410` with baselines |
 | 12 | [T1](#t1-track-checkpoint-q-b-f) | Q4, B2, B3, F2 | Track checkpoint for Q, B and F: their groups, budgets and a composed journey |

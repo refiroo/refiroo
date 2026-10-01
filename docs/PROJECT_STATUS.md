@@ -37,7 +37,15 @@ delivered (2026-10-01):** current-live capture on a REPEATABLE READ snapshot, ro
 SQLite's writer lock, `pg_trgm` search (revision `20261001_02`), the matrix forms with a linear state
 build (0.1 volume in 7 s), names ordered as the database orders them, every foreign-key rule pinned,
 no dialect branch in `app/`, and the browser runners on the development server with their seeds;
-every backend group except `volume` passes on PostgreSQL. Next is H2.
+every backend group except `volume` passes on PostgreSQL. **H2 is delivered (2026-10-01):**
+`pytest -n auto` runs the suite on one worker per core with a session database each; timing-based
+`serial` tests (the `volume` group and two timer tests) run in a second invocation without `-n`. The
+968 parallel tests take 1 min 49 s; the whole serial suite took 28 min 39 s, 21 min of it the two
+full-size budgets ([record](TEST_HARNESS_PLAN.md#h2-parallel-runs)). The test plan was revised
+the same day with [time ceilings](TEST_HARNESS_PLAN.md#time-ceilings), and PG-D12–PG-D17 accepted:
+batch items decided in memory and written in bulk
+([PG3b](POSTGRESQL_RUNTIME_PLAN.md#pg3b-batch-writes-decided-in-memory-written-in-bulk)), with large
+batch deletes noted to revisit (PG-D18). Next are H3, PG3, PG3b, PG4 and PG5.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

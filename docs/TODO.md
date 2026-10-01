@@ -13,7 +13,14 @@ filler, checkpoint T1 after F2). C1, Q4 and V1 are delivered (2026-09-30), and B
 2026-10-01 (B2 before F1, by instruction). Next is the interim release
 [0.9.0-alpha.1, PostgreSQL runtime](POSTGRESQL_RUNTIME_PLAN.md) (PG1–PG5, PostgreSQL only, decisions
 accepted 2026-10-01) with the [test harness](TEST_HARNESS_PLAN.md) (H1 inside PG1, H2–H3 after PG2),
-then F1. PG1 and PG2 are delivered (2026-10-01); next is H2. See [Next — 0.9](#next--09).
+then F1. PG1, PG2 and H2 are delivered (2026-10-01); the order from here is H3, PG3,
+[PG3b](POSTGRESQL_RUNTIME_PLAN.md#pg3b-batch-writes-decided-in-memory-written-in-bulk) (batch writes
+decided in memory and written in bulk, PG-D12–PG-D17), PG4, PG5. See [Next — 0.9](#next--09).
+
+- **Revisit: large batch deletes (PG-D18, noted 2026-10-01).** Batch delete items stay on the
+  per-item path in PG3b, and neither that nor a set-based copy of it is the right answer. Large
+  delete batches are not rare, and one must not occupy the job worker for minutes or stall the
+  engine. Decide a deletion design (cascades, subtree impact, signed confirmation) after PG3b.
 
 ## Open decisions
 

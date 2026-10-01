@@ -3,7 +3,10 @@
 **Status:** Planned 2026-10-01. Decisions [PG-D1–PG-D11](#decisions) accepted 2026-10-01. The same
 day the user chose **PostgreSQL only** over a mixed setup with SQLite for development, so PG-D2,
 D3, D4, D6, D7 and D8 were revised to that and PG-D10 added; each keeps its accepted intent. PG-D11
-(ICU root collation) was decided at the start of PG1.
+(ICU root collation) was decided at the start of PG1. **PG-D12–PG-D17 and the package
+[PG3b](#pg3b-batch-writes-decided-in-memory-written-in-bulk) accepted 2026-10-01 after H2**, when the
+100,000-item budget test (19 minutes) showed a batch item costing a whole single write: dozens of
+statements, each a round trip to the server.
 Inserted in the [0.9 delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue) after B2,
 before F1, together with the [test harness](TEST_HARNESS_PLAN.md): PG1 builds the harness's seeded
 databases (H1) on PostgreSQL, and H2–H3 follow PG2. Packages are delivered one per instruction
@@ -72,7 +75,7 @@ are unchanged.
 ## Decisions
 
 Accepted 2026-10-01; D2, D3, D4, D6, D7 and D8 revised the same day to PostgreSQL only, and D10
-added. D11 accepted 2026-10-01 at the start of PG1.
+added. D11 accepted 2026-10-01 at the start of PG1. D12–D17 accepted 2026-10-01 after H2.
 
 | # | Question | Decision |
 | --- | --- | --- |
@@ -87,6 +90,19 @@ added. D11 accepted 2026-10-01 at the start of PG1.
 | PG-D9 | Driver and connections | `psycopg` 3 (already a dependency), synchronous, SQLAlchemy's pool with `pool_pre_ping`. `WEB_CONCURRENCY` stays 1: several processes need 0.11's cross-process release propagation, not a database change |
 | PG-D10 | Existing SQLite databases | **A one-off copy command** (`python -m app.tools.copy_from_sqlite <sqlite-url>`) copies a SQLite database at `20261001_01` into an empty PostgreSQL database at the baseline, table by table in dependency order. It keeps public IDs, sequence values, typed values and history, rebuilds the derived indexes (matrix states, search), checks the row counts, and refuses a source at another revision or a target that is not empty, each with an instruction. It is removed again in 0.11. On 2026-10-01 `backend/rdm-engine.db` and `rdm-engine.db` were at `20260928_01` and are upgraded first with the current code; `backend/rdm-operators-timetables.db` is at `20261001_01`. Backups first, and only with the user's go-ahead |
 | PG-D11 | Collation | **ICU root collation (`und`), on every database the engine runs on.** Reference data holds many languages side by side, so the order must be language-independent without choosing a language: the Unicode Collation Algorithm's root order sorts every script sensibly at once (case and accents rank below the base letter, so `Elan, élan, Élan, Emil`), and ICU makes `lower`, `upper` and case-insensitive matching Unicode-aware. Rejected: `C` (code-point order, right for no language, and case mapping for A–Z only; it only kept SQLite's order) and a libc locale such as `en_US.UTF-8` (the operating system's collation: almost code-point order on macOS, linguistic on Linux and changed by glibc upgrades, so tests would not prove production). The test and development servers are created with `initdb --locale-provider=icu --icu-locale=und`, and startup refuses a database whose default collation is not ICU `und`, with the `CREATE DATABASE` instruction. Equality and uniqueness are unchanged (the collation is deterministic). The visible sort order of names changes (CHANGELOG). Code that sorts names in Python beside the database's order (for example `reads/relation_queries.py`, `operations/restructuring.py`) and tests that build an expected order with `sorted()` follow the database's order in PG2. A language-specific order (Hungarian `cs`, Swedish `å ä ö`) would be an optional per-request refinement later, never a requirement |
+
+| PG-D12 | How batch items are written | **Decided in memory, written in bulk, per chunk.** A chunk reads what its items name once per kind (`IN` lists), decides every item in order through the write rules, and writes the accepted items as multi-row inserts. A single API write is a batch of one through the same code, so there is still one write path. Create, update and upsert only; delete stays per item (PG-D18 note) |
+| PG-D13 | Where the rules read | **A batch lookup, not new rules.** A third lookup beside `LiveLookup` and `ChangeSetLookup`, preloaded per chunk, with the items accepted earlier in the chunk laid over it, so each item sees the earlier ones (D23). `rules.py` is unchanged; the services around it (`apply_object_create` and the update and upsert paths) are split into a decide step and a write step. `test_rule_parity` gains the batch context: the same refusals with the same codes |
+| PG-D14 | Concurrency between the reads and the writes | **PG3's workspace lock (PG-D5), held for the chunk**; in a change set its version claim, as today. So PG3b follows PG3. Uniqueness stays enforced by the engine (PG-D5; database constraints wait for 0.11) |
+| PG-D15 | A failure inside a chunk | **No savepoint per item.** A refused item is never written. A bulk write that fails on something the rules did not predict redoes that chunk item by item, as batches of one, so the item fails with its single write's code |
+| PG-D16 | History | **Per record, as today:** one audit event per item with the job as its cause, inserted together; the events' sequence numbers come back from the insert (`RETURNING`) for their subjects. Typed value index rows go through `snapshot_values` and matrix notes through `note_rows`/`note_cells`, applied once per chunk as now (ADR-033) |
+| PG-D17 | How the cost is held | **Counted, not timed.** Statements per chunk at two seeded dataset sizes, which must not grow with the data or with the chunk's item count beyond a constant; seconds to run, in the parallel part. The 100,000-item run becomes a measurement at PG5's acceptance, announced and run once. Target: 100,000 items in under a minute in each context, confirmed or restated by that first measurement |
+
+**Note (PG-D18, open, to revisit):** batch deletion stays per item in PG3b, and neither today's
+per-item path nor a set-based copy of it is the right answer. A large delete batch is not rare, and
+it must not occupy the job worker for minutes or stall the engine. Revisit after PG3b with the
+deletion path's cascades, subtree impact and signed confirmation in view
+([TODO](TODO.md#now--product-09)).
 
 ## Inventory
 
@@ -336,6 +352,32 @@ waiting for it, with the latency bound B2 left open. **Groups:** `records`, `cha
 
 **Exit:** the concurrency tests pass; the D28 and B2 notes in TODO are closed.
 
+### PG3b: Batch writes decided in memory, written in bulk
+
+**Scope (PG-D12–PG-D17):** create, update and upsert items of `POST /batches` and background jobs,
+live and in a change set.
+
+- The batch lookup (PG-D13): preloads per chunk the records, parents, ancestors and unique-value
+  holders its items name, and lays accepted items over them.
+- The decide/write split of the object create, update and upsert services; a single write runs both
+  for one item. Initial relations resolve their other ends through the lookup.
+- The bulk write: records, attribute values, containment and initial relations, typed value index
+  rows and audit events with their subjects, as multi-row inserts per chunk; matrix notes once per
+  chunk.
+- The fallback (PG-D15) and the workspace lock held for the chunk (PG-D14).
+- Delete items keep today's per-item path (PG-D18).
+
+**Tests:** `test_rule_parity` with the batch context; the batch tests (`test_batches`,
+`test_background_jobs`, `test_batch_matrix_states`) unchanged and green; statements per chunk counted
+at two seeded sizes (PG-D17), replacing the timed checks in `test_batch_volume` and
+`test_background_volume`; a chunk whose bulk write fails falling back with the single write's code;
+two writers racing for a unique value across a chunk. **Groups:** `records`, `change_sets`, `jobs`,
+`matrix`. **Doors (ADR-032):** bulk APIs, attribute storage and audit/history are touched; none is
+closed: the batch lookup and the bulk write are generic, and history stays per record.
+
+**Exit:** the groups green within the [time ceilings](TEST_HARNESS_PLAN.md#time-ceilings); no
+full-size run in the package.
+
 ### PG4: Carrying data over
 
 **Scope:** the copy command (PG-D10), its row-count and derived-index checks and its refusals.
@@ -351,8 +393,9 @@ backups first.
 
 **Scope:** every `volume` budget re-measured on PostgreSQL. Statement-count and time budgets are
 restated with each decision record amended (0.8 Track S, A2, D13), and B2's budget gains its latency
-bound for writes beside a background job; full-size budgets follow
-[H3](TEST_HARNESS_PLAN.md#h3-cheaper-per-test-work-and-budget-sizes). The TODO SQLite debt item is
+bound for writes beside a background job. The 100,000-item batch is measured once here, live and in
+a change set, against PG-D17's target, announced with its expected time before it runs
+([time ceilings](TEST_HARNESS_PLAN.md#time-ceilings)). The TODO SQLite debt item is
 closed: a search for SQLite and dialect names in `app/`, `tests/` and `frontend/e2e` finds nothing
 that is not history. AGENTS.md, ARCHITECTURE, README and EXECUTION_GUIDE describe PostgreSQL only.
 
@@ -369,7 +412,8 @@ when asked).
 
 Identity and attribute storage are touched (the baseline, the copy and the indexes) and no door is
 affected. Public IDs, typed value columns and the audit cause are copied as they are, and the
-workspace lock serializes writes within the uniqueness scope (ADR-010) without changing it.
+workspace lock serializes writes within the uniqueness scope (ADR-010) without changing it. PG3b
+touches bulk APIs, attribute storage and audit/history and closes no door (see its scope).
 
 ## What stays in 0.11
 

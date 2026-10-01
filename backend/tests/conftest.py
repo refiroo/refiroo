@@ -1,9 +1,15 @@
-"""Test configuration: the PostgreSQL test harness (PG-D8, H1) and the contract groups.
+"""Test configuration: the PostgreSQL test harness (PG-D8, H1), parallel runs (H2) and the groups.
 
 Every test runs on the harness's private PostgreSQL server (``postgres_server.py``), started for the
 run and stopped after it. Databases are clones of seeds built once and reused (``seeds.py``): the
 session database, which the modules importing ``app.main.app`` share, and each database a test asks
 for through ``migrated_database`` or the volume fixture.
+
+``pytest -n auto`` runs the modules on several worker processes (pytest-xdist, ``--dist loadfile``
+in ``pyproject.toml``). The run's own process starts the server, removes databases an interrupted
+run left behind and builds the ``schema`` seed before any worker starts; each worker has its own
+session database. Timing-based checks are ``serial``: a parallel run leaves them out and names the
+command that runs them, in a second, non-parallel invocation.
 """
 
 import os
@@ -13,11 +19,18 @@ import postgres_server
 import pytest
 import seeds
 
-SESSION_DATABASE = f"t_session_{uuid4().hex[:8]}"
+_WORKER = os.environ.get("PYTEST_XDIST_WORKER")
+SESSION_DATABASE = f"t_session_{_WORKER + '_' if _WORKER else ''}{uuid4().hex[:8]}"
+_STARTED_SERVER = pytest.StashKey[bool]()
+_SERIAL_LEFT_OUT = pytest.StashKey[int]()
 
-os.environ.setdefault(
-    "DATABASE_URL", postgres_server.url(SESSION_DATABASE).render_as_string(hide_password=False)
-)
+# A worker inherits the run's environment, including the URL this module set in the run's own
+# process; it replaces it with its own session database, so no two workers share one.
+_SESSION_URL = postgres_server.url(SESSION_DATABASE).render_as_string(hide_password=False)
+if _WORKER:
+    os.environ["DATABASE_URL"] = _SESSION_URL
+else:
+    os.environ.setdefault("DATABASE_URL", _SESSION_URL)
 
 from app.config import reload_settings
 from app.db import get_engine
@@ -117,9 +130,45 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
 }
 
 
+# Timing-based checks (H2): wall-time budgets and races decided by a timer, which other processes'
+# load would distort. The `volume` group is serial as a whole; single tests carry the marker.
+SERIAL_GROUPS = ("volume",)
+SERIAL_DESCRIPTION = "timing-based check: left out of a parallel run, run with `pytest -m serial`"
+
+
+def _is_worker(config: pytest.Config) -> bool:
+    return hasattr(config, "workerinput")
+
+
+def _is_parallel(config: pytest.Config) -> bool:
+    """True in a worker of a parallel run and in the process that runs the workers."""
+    return _is_worker(config) or bool(getattr(config.option, "tx", None))
+
+
 def pytest_configure(config: pytest.Config) -> None:
     for group, description in GROUP_DESCRIPTIONS.items():
         config.addinivalue_line("markers", f"{group}: {description}")
+    config.addinivalue_line("markers", f"serial: {SERIAL_DESCRIPTION}")
+    config.stash[_SERIAL_LEFT_OUT] = 0
+
+
+def pytest_sessionstart(session: pytest.Session) -> None:
+    """In the run's own process, before any worker starts: start the server, remove databases an
+    interrupted run left behind and build the ``schema`` seed, so no worker races another for them."""
+    if _is_worker(session.config):
+        return
+    try:
+        session.config.stash[_STARTED_SERVER] = postgres_server.start()
+    except postgres_server.ServerUnavailable as unavailable:
+        pytest.exit(str(unavailable), returncode=pytest.ExitCode.USAGE_ERROR)
+    seeds.drop_clones()
+    seeds.ensure("schema")
+
+
+def pytest_unconfigure(config: pytest.Config) -> None:
+    # After every worker has ended; a server another tool started stays running.
+    if config.stash.get(_STARTED_SERVER, False):
+        postgres_server.stop()
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
@@ -131,6 +180,8 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             continue
         for group in groups:
             item.add_marker(group)
+        if any(group in SERIAL_GROUPS for group in groups):
+            item.add_marker("serial")
     if unclassified:
         raise pytest.UsageError(
             "Unclassified test module(s): "
@@ -138,10 +189,32 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             + ". Add each to TEST_GROUPS in backend/tests/conftest.py with the contract groups it "
             "protects, and to docs/testing/EXECUTION_GUIDE.md."
         )
+    if _is_parallel(config):
+        serial = [item for item in items if item.get_closest_marker("serial")]
+        if serial:
+            items[:] = [item for item in items if not item.get_closest_marker("serial")]
+            config.hook.pytest_deselected(items=serial)
+            config.stash[_SERIAL_LEFT_OUT] = len(serial)
 
 
-def pytest_terminal_summary(terminalreporter) -> None:
-    """Name each seed the run used and whether it was reused or built (H1's evidence)."""
+def pytest_sessionfinish(session: pytest.Session) -> None:
+    # A worker hands what it did with seeds and serial tests to the run's own process.
+    if _is_worker(session.config):
+        session.config.workeroutput["seed_activity"] = [list(entry) for entry in seeds.ACTIVITY]
+        session.config.workeroutput["serial_left_out"] = session.config.stash[_SERIAL_LEFT_OUT]
+
+
+@pytest.hookimpl(optionalhook=True)
+def pytest_testnodedown(node, error) -> None:
+    output = getattr(node, "workeroutput", {})
+    seeds.ACTIVITY.extend(tuple(entry) for entry in output.get("seed_activity", []))
+    left_out = output.get("serial_left_out", 0)
+    node.config.stash[_SERIAL_LEFT_OUT] = max(node.config.stash[_SERIAL_LEFT_OUT], left_out)
+
+
+def pytest_terminal_summary(terminalreporter, config: pytest.Config) -> None:
+    """Name each seed the run used and whether it was reused or built (H1's evidence), and the
+    serial tests a parallel run left out with the command that runs them (H2)."""
     if seeds.ACTIVITY:
         used: dict[str, str] = {}
         for name, outcome, seconds in seeds.ACTIVITY:
@@ -150,13 +223,22 @@ def pytest_terminal_summary(terminalreporter) -> None:
         lines = list(used.values())
         terminalreporter.write_sep("-", "seeded databases")
         terminalreporter.write_line("; ".join(lines))
+    left_out = config.stash.get(_SERIAL_LEFT_OUT, 0)
+    if left_out and not _is_worker(config):
+        expression = config.option.markexpr
+        marks = f"serial and ({expression})" if expression else "serial"
+        given = config.args_source == pytest.Config.ArgsSource.ARGS
+        paths = " ".join(config.args) if given else ""
+        terminalreporter.write_sep("-", "serial tests not run")
+        terminalreporter.write_line(
+            f"{left_out} timing-based test(s) are left out of a parallel run. Run them next, "
+            f'without -n: python -m pytest -m "{marks}"' + (f" {paths}" if paths else "")
+        )
 
 
 @pytest.fixture(autouse=True, scope="session")
 def _test_database():
-    """Start the test server, and clone the session database from the ``schema`` seed."""
-    started = postgres_server.start()
-    seeds.drop_clones()
+    """Clone this process's session database from the ``schema`` seed (one per worker)."""
     seeds.clone("schema", SESSION_DATABASE)
     reload_settings()
     try:
@@ -164,8 +246,6 @@ def _test_database():
     finally:
         get_engine().dispose()
         seeds.drop(SESSION_DATABASE)
-        if started:
-            postgres_server.stop()
 
 
 @pytest.fixture
