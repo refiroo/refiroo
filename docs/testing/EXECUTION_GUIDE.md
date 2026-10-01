@@ -58,7 +58,7 @@ cd backend && .venv/bin/python -m pytest -m mapping -q
 | --- | --- | --- | --- |
 | `model` | INV-01/02/03/04/06, compatibility classes | `test_model`, `test_model_diagnostics`, `test_model_independence`, `test_model_compatibility`, `test_effective_periods` | 302 |
 | `model_admin` | C-MOD-*, C-DR-PIN, C-MOD-ACT | `test_model_lifecycle`, `test_build07_wp11`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_model_compatibility`, `test_model_schema_upgrade`, `test_wp81a_context`, `test_w5_activation_write_race` | 187 |
-| `startup` | C-BOOT, C-MIG, C-SCHEMA-UP, INV-15 (startup) | `test_startup` (clean bootstrap, restart, the database refusals, a failed migration rolled back), `test_model_schema_upgrade`, `test_matrix_states`, `test_schema_drift` (the PostgreSQL baseline against the ORM), `test_job_settings` | 30 |
+| `startup` | C-BOOT, C-MIG, C-SCHEMA-UP, INV-15 (startup) | `test_startup` (clean bootstrap, restart, the database refusals, a failed migration rolled back), `test_model_schema_upgrade`, `test_matrix_states`, `test_schema_drift` (the PostgreSQL baseline against the ORM), `test_foreign_keys` (every `ondelete` rule, PG-D4), `test_job_settings` | 34 |
 | `records` | C-OBJ-*, C-ATTR, C-REL, C-DEL, C-TR, C-HIST-OBJ, INV-05/10/12 (live) | `test_api`, `test_attributes`, `test_relations`, `test_translations`, `test_cascade_delete`, `test_query_foundations`, `test_wp8_review_regressions`, `test_relation_set_versions`, `test_w5_activation_write_race`, `test_matrix_states`, `test_parent_candidates`, `test_type_changes`, `test_restructuring_planner`, `test_restructuring_api`, `test_encoding`, `test_rule_parity`, `test_effective_periods`, `test_batches` | 200 |
 | `queries` | C-Q-FILTER, C-Q-SCOPE, INV-07/08/11 | `test_pagination`, `test_typed_table_queries`, `test_query_foundations`, `test_context_read_parity`, `test_paging_contract`, `test_change_set_position_reads`, `test_search_index`, `test_parent_candidates`, `test_change_lists`, `test_cross_type_lookup`, `test_model_query`, `test_effective_periods` | 170 |
 | `workspaces` | C-WS-*, C-PUB-RET, INV-14/16 | `test_workspaces`, `test_wp81a_context`, `test_request_scope`, `test_wp8_withdrawal`, `test_build07_wp9_acceptance` | 40 |
@@ -67,14 +67,14 @@ cd backend && .venv/bin/python -m pytest -m mapping -q
 | `matrix` | Relation matrix reads, cell writes and stored cell states: cells, states, row state filter, columns, containers, candidates, maintenance on every write path (Base 0.8 A2, A3, A3b) | `test_relation_matrix`, `test_relation_matrix_volume`, `test_relation_matrix_writes`, `test_matrix_states`, `test_type_changes`, `test_restructuring_planner`, `test_restructuring_api`, `test_batch_matrix_states` | 75 |
 | `consumer` | Consumer API definitions (Base 0.9 C1); from C2 the consumer tier's reads, XREF, batch resolve, crosswalk, publications and parity | `test_consumer_api_model` | 87 |
 | `jobs` | Jobs, outcomes, idempotency and batches (Base 0.9 B1); background runs, the worker, its lease, cancellation and retention (B2); from J2 import profiles, imports and exports | `test_batches`, `test_batch_matrix_states`, `test_job_settings`, `test_batch_volume`, `test_background_jobs`, `test_background_volume` | 78 |
-| `contract` | OpenAPI lock, route inventories, the backend tiers and the API reference page | `test_openapi_contract`, `test_paging_contract`, `test_boundaries`, `test_api_reference` | 52 |
+| `contract` | OpenAPI lock, route inventories, the backend tiers and the API reference page | `test_openapi_contract`, `test_paging_contract`, `test_boundaries`, `test_api_reference` | 53 |
 | `volume` | Track S read and write budgets and the paging contract over the generated volume fixture (Base 0.8 S1, S2b, S3, S4, S4R1, S4R6, S7, S8, A2, B2, P2a, C2, C5; Base 0.9 B1 batch budgets, B2 background budget) | `test_volume_baseline`, `test_paging_contract`, `test_change_set_position_reads`, `test_relation_matrix_volume`, `test_change_lists_volume`, `test_restructuring_volume`, `test_graph_validation_scale`, `test_batch_volume`, `test_background_volume` | 69 |
 
 Counts are collected cases on 2026-09-24 (532 in total); `test_effective_periods` (Base 0.9 Q4, 21 cases) is listed in `model`, `records`, `queries` and `change_sets` without recollecting their counts; group counts include the WP-9 composed
 SC-15 case. The full suite collected 534 cases at WP-9 build acceptance (2026-09-25). The `startup`,
 `queries`, `change_sets` and `volume` counts were recollected at Base 0.8 S2 (2026-09-25, 546 in total), and the `startup`, `queries`, `change_sets`, `contract` and `volume` counts at S3/S4 (2026-09-25, 584 in total) at S4R1 (2026-09-26, 588 in total), and the `queries`, `change_sets`, `contract` and `volume` counts at S4R6 (2026-09-26, 622 in total), and the `startup` and `change_sets` counts at S2b (2026-09-26, 625 in total), and the `startup`, `queries` and `change_sets` counts at S8 (2026-09-26, 631 in total). Every count was recollected at W2 (2026-09-26, 637 in total), where the `drafts` marker became `change_sets`. The `records`, `change_sets` and `matrix` counts were recollected at C1 (2026-09-29, 790 in total), and with `volume` at C2 (2026-09-29, 809 in total). The `model_admin` and `records` counts were recollected at W5 (2026-09-26, 643 in total), and the `queries`, `change_sets` and `volume` counts at P2a (2026-09-28, 774 in total). Every count was recollected at E3 of the backend boundaries refactor (2026-09-29, 852 in total). A module carries several markers when it is
 evidence for several groups, so groups overlap and their counts do not add up to the total.
-The `contract` count was recollected at 0.9 V1 (2026-09-30), with `test_api_reference`. The `jobs`, `startup`, `records`, `change_sets`, `matrix` and `volume` counts were recollected at 0.9 B1 (2026-10-01, 1020 in total). Every count was recollected at 0.9.0-alpha.1 PG1 (2026-10-01, 1032 in total), when the SQLite migration modules were removed with their revisions.
+The `contract` count was recollected at 0.9 V1 (2026-09-30), with `test_api_reference`. The `jobs`, `startup`, `records`, `change_sets`, `matrix` and `volume` counts were recollected at 0.9 B1 (2026-10-01, 1020 in total). Every count was recollected at 0.9.0-alpha.1 PG1 (2026-10-01, 1032 in total), when the SQLite migration modules were removed with their revisions. The `startup`, `change_sets` and `contract` counts were recollected at PG2 (2026-10-01, 1039 in total).
 
 **Unclassified tests are refused.** A module missing from `TEST_GROUPS` fails collection with exit
 code 4 and names the module, in every run including CI. Markers are registered from the manifest and
@@ -108,8 +108,14 @@ consumer rules in section 2.
 
 ### Browser: named runners
 
-Each runner starts its own isolated backend (fresh SQLite, real Alembic migration), Vite and
-Chrome. Setup costs ~2.8 s per runner (section 4). Pick by surface:
+Each runner starts its own isolated backend, Vite and Chrome. The backend runs on a database of its
+own on the **development server** (`scripts/postgres.sh start` first; PG-D8), cloned from a seed in
+the seed store there and dropped when the runner ends (`backend/tests/browser_seeds.py`,
+0.9.0-alpha.1 PG2): `schema` for the runners that create their records themselves, `starter` (the
+harness's records, one seed per model the runner starts with) and `volume` (the Track S fixture at
+the runner's scale). A seed is built on a runner's first use after its inputs change and reused after
+that; a clone takes about 0.5 s. `RDM_TEST_DATABASE_SERVER` points the runners at another server.
+Setup costs ~2.8 s per runner (section 4, measured on SQLite). Pick by surface:
 
 | Runner | Surfaces / contracts |
 | --- | --- |
@@ -155,7 +161,7 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | `engine/model/consumer_contract.py`, `engine/model/validation/consumer_api_rules.py`, the `consumerApis` shape in `models/schema.py` (0.9 C1) | `consumer` + `model` (`test_consumer_api_model`) | always | `model_admin` when the check's place in draft compile, diff or activation changes; `contract` when `consumerContracts` changes |
 | `engine/model/placements.py`, `GET /model/placements` in `management/routers/model.py` | `model` (`test_model_placements`) + `contract` | always | `change_sets` + `records` + `matrix` (the planner) and `queries` (parent candidates) |
 | `engine/model/{releases,registry,runtime,metadata,drafts,diff,compatibility}.py`, `management/routers/model_*.py`, `management/projections/model_metadata.py` | `model_admin` | activation or registry resolution changes | `workspaces` (pinned contexts), `startup` (registry at lifespan) |
-| `db.py` (including `SQLITE_LOCK_WAIT_SECONDS`), `migrations/**`, `main.py` lifespan, `engine/model/bootstrap.py`, `management/dependencies.py`, `cli/*`, `tests/postgres_server.py`, `tests/seeds.py` | `startup` | always for migrations | AGENTS.md startup rules: bootstrap, upgrade, restart, interrupted migration, lifespan, smoke start |
+| `db.py`, `migrations/**`, `main.py` lifespan, `engine/model/bootstrap.py`, `management/dependencies.py`, `cli/*`, `tests/postgres_server.py`, `tests/seeds.py`, `tests/browser_seeds.py` | `startup` | always for migrations | AGENTS.md startup rules: bootstrap, upgrade, restart, interrupted migration, lifespan, smoke start |
 | `models/database.py` | the owning group | a column, index, constraint or table changes | `startup` (`test_schema_drift` compares a migrated head with the metadata: columns, types, indexes, unique constraints and foreign keys, each difference named) |
 | `engine/records/objects.py`, `attributes.py`, `values.py`, `management/routers/objects.py`, `management/routers/attributes.py` | `records` | typed conversion or version claims change | `queries` (typed filters), `change_sets` (change set writes use the same value forms) |
 | `engine/records/rules.py`, `refusals.py`, `context.py` | `records` + `change_sets` (`test_rule_parity`) | always | `mapping` (the replacement's scope and binding rules), `matrix` (type changes, restructuring), `volume` when a lookup's statements change |

@@ -36,9 +36,8 @@ The binding's condition and uniqueness scope describe its ``to`` end, so they ap
 when the row is the ``from`` end (``outgoing``); read ``incoming``, every cell record meets the
 condition and ``several`` is never a conflict.
 
-The walks join rows by keyed lookups on each context's tables. A change set's downward walk has one
-recursive arm for its base and one for its own rows, which SQLite accepts; PostgreSQL needs the arms
-in one recursive term (0.11 hardening, with D25).
+The walks join rows by keyed lookups on each context's tables. A change set's downward walk joins
+its base's rows and its own as one selectable in its one recursive term.
 """
 
 from collections.abc import Callable, Sequence
@@ -564,23 +563,20 @@ def _rows(
     return result
 
 
-def _ranked(cells: Any, resolved: Any, column_ids: list[str]) -> Select[Any]:
-    """Each cell's records, those meeting the condition first, at most ``CELL_RECORD_LIMIT`` per
-    cell, with the cell's counts on every row."""
-    partition = (cells.c.row_id, resolved.c.column_id)
+def _ranked(cells: Any, column_ids: list[str]) -> Select[Any]:
+    """Each cell's records (``cells`` with their ``column_id``), those meeting the condition first,
+    at most ``CELL_RECORD_LIMIT`` per cell, with the cell's counts on every row."""
+    partition = (cells.c.row_id, cells.c.column_id)
     ranked = (
         select(
             *cells.c,
-            resolved.c.column_id,
             func.count().over(partition_by=partition).label("record_count"),
             func.sum(cells.c.meets).over(partition_by=partition).label("matching_count"),
             func.row_number()
             .over(partition_by=partition, order_by=(cells.c.meets.desc(), cells.c.name, cells.c.cell_id))
             .label("rank"),
         )
-        .select_from(cells)
-        .join(resolved, resolved.c.cell_id == cells.c.cell_id)
-        .where(resolved.c.column_id.in_(column_ids))
+        .where(cells.c.column_id.in_(column_ids))
         .subquery("matrix_ranked")
     )
     return (
@@ -592,9 +588,9 @@ def _ranked(cells: Any, resolved: Any, column_ids: list[str]) -> Select[Any]:
 
 def _cells(read: MatrixRead, row_ids: list[str], column_ids: list[str]) -> dict[tuple[str, str], list[Any]]:
     """The page's cells in one statement: relations, related records and the walk to columns."""
-    cells = cell_records(read, row_ids)
+    cells = cell_columns(read, cell_records(read, row_ids))
     result: dict[tuple[str, str], list[Any]] = {}
-    for row in read.session.execute(_ranked(cells, cell_columns(read, cells), column_ids)):
+    for row in read.session.execute(_ranked(cells, column_ids)):
         result.setdefault((row.row_id, row.column_id), []).append(row)
     return result
 
@@ -648,21 +644,15 @@ def _history_cells(
             .scalar_subquery()
         )
 
+    # The walk carries each record's columns, as ``cell_columns`` does, so nothing joins back.
     walk = (
-        select(
-            cells.c.publication_id,
-            cells.c.cell_id,
-            cells.c.parent_object_id.label("node"),
-            literal(1).label("depth"),
-        )
+        select(*cells.c, cells.c.parent_object_id.label("node"), literal(1).label("depth"))
         .where(cells.c.parent_object_id.is_not(None))
-        .distinct()
         .cte("matrix_history_walk", recursive=True)
     )
     walk = walk.union_all(
         select(
-            walk.c.publication_id,
-            walk.c.cell_id,
+            *(walk.c[column.name] for column in cells.c),
             lookup(walk.c.publication_id, walk.c.node, "parent_object_id"),
             walk.c.depth + 1,
         ).where(
@@ -672,35 +662,32 @@ def _history_cells(
         )
     )
     resolved = (
-        select(walk.c.publication_id, walk.c.cell_id, walk.c.node.label("column_id"))
+        select(*(walk.c[column.name] for column in cells.c), walk.c.node.label("column_id"))
         .where(
             lookup(walk.c.publication_id, walk.c.node, "object_type_key") == config.columnObjectTypeKey
         )
         .subquery("matrix_history_columns")
     )
     # The same record in several publications resolves once per publication.
-    resolved_on = and_(
-        resolved.c.cell_id == cells.c.cell_id, resolved.c.publication_id == cells.c.publication_id
-    )
-    partition = (cells.c.row_id, resolved.c.column_id, cells.c.publication_id)
+    partition = (resolved.c.row_id, resolved.c.column_id, resolved.c.publication_id)
     latest = (
-        func.max(cells.c.publication_number)
-        .over(partition_by=(cells.c.row_id, resolved.c.column_id))
+        func.max(resolved.c.publication_number)
+        .over(partition_by=(resolved.c.row_id, resolved.c.column_id))
         .label("latest")
     )
     ranked = (
         select(
-            *cells.c,
-            resolved.c.column_id,
+            *resolved.c,
             func.count().over(partition_by=partition).label("record_count"),
-            func.sum(cells.c.meets).over(partition_by=partition).label("matching_count"),
+            func.sum(resolved.c.meets).over(partition_by=partition).label("matching_count"),
             func.row_number()
-            .over(partition_by=partition, order_by=(cells.c.meets.desc(), cells.c.name, cells.c.cell_id))
+            .over(
+                partition_by=partition,
+                order_by=(resolved.c.meets.desc(), resolved.c.name, resolved.c.cell_id),
+            )
             .label("rank"),
             latest,
         )
-        .select_from(cells)
-        .join(resolved, resolved_on)
         .where(resolved.c.column_id.in_(column_ids))
         .subquery("matrix_history_ranked")
     )
@@ -792,7 +779,7 @@ def _state_filter(read: MatrixRead, column_ids: list[str], state: str) -> Callab
     stored = stored_row_filter(read, column_ids, state, read.publication_number)
     if stored is not None:
         ids, negated = stored
-        return lambda row_id: ~listed(read.session, row_id, ids) if negated else listed(read.session, row_id, ids)
+        return lambda row_id: ~listed(row_id, ids) if negated else listed(row_id, ids)
     pairs = _current_pairs(read, column_ids)
     if state in {"one", "several", "inactive"}:
         matching = func.sum(pairs.c.meets)
@@ -829,29 +816,19 @@ def _current_pairs(read: MatrixRead, column_ids: list[str]) -> Any:
         literal(None, String).label("owner"),
         literal(0).label("depth"),
     ).cte("matrix_down", recursive=True)
-    steps = []
-    for arm in read.object_arms():
-        child = aliased(arm.entity)
-        steps.append(
-            select(
-                getattr(child, arm.id),
-                walk.c.column_id,
-                child.object_type_key,
-                arm.owner if arm.owner is not None else literal(None, String),
-                walk.c.depth + 1,
-            )
-            .select_from(walk)
-            .outerjoin(
-                child,
-                and_(
-                    child.parent_object_id == walk.c.node,
-                    _unindexed(child.object_type_key.in_(read.walk_types())),
-                    *arm.where(child),
-                ),
-            )
-            .where(_found(getattr(child, arm.id)), walk.c.depth < MAX_DEPTH)
+    child = read.object_rows(["parent_object_id", "object_type_key"], "matrix_down_rows")
+    walk = walk.union_all(
+        select(child.c.id, walk.c.column_id, child.c.object_type_key, child.c.owner, walk.c.depth + 1)
+        .select_from(walk)
+        .join(
+            child,
+            and_(
+                child.c.parent_object_id == walk.c.node,
+                child.c.object_type_key.in_(read.walk_types()),
+            ),
         )
-    walk = walk.union_all(*steps)
+        .where(walk.c.depth < MAX_DEPTH)
+    )
     cells = (
         select(walk.c.node.label("cell_id"), walk.c.column_id, walk.c.owner)
         .where(walk.c.object_type_key == config.cellObjectTypeKey)
@@ -1082,31 +1059,29 @@ def _walk_below(read: MatrixRead, column: Any, types: Sequence[str]) -> Any:
         literal("", String).label("sort_path"),
         literal(0).label("depth"),
     ).cte("matrix_below", recursive=True)
-    steps = []
-    for arm in read.object_arms():
-        child = aliased(arm.entity)
-        steps.append(
-            select(
-                getattr(child, arm.id),
-                child.object_type_key,
-                child.name,
-                child.version,
-                arm.owner if arm.owner is not None else literal(None, String),
-                walk.c.sort_path + func.lower(child.name) + literal(_PATH_SEPARATOR, String),
-                walk.c.depth + 1,
-            )
-            .select_from(walk)
-            .outerjoin(
-                child,
-                and_(
-                    child.parent_object_id == walk.c.object_id,
-                    _unindexed(child.object_type_key.in_(types)),
-                    *arm.where(child),
-                ),
-            )
-            .where(_found(getattr(child, arm.id)), walk.c.depth < MAX_DEPTH)
+    child = read.object_rows(
+        ["parent_object_id", "object_type_key", "name", "version"], "matrix_below_rows"
+    )
+    return walk.union_all(
+        select(
+            child.c.id,
+            child.c.object_type_key,
+            child.c.name,
+            child.c.version,
+            child.c.owner,
+            walk.c.sort_path + func.lower(child.c.name) + literal(_PATH_SEPARATOR, String),
+            walk.c.depth + 1,
         )
-    return walk.union_all(*steps)
+        .select_from(walk)
+        .join(
+            child,
+            and_(
+                child.c.parent_object_id == walk.c.object_id,
+                child.c.object_type_key.in_(types),
+            ),
+        )
+        .where(walk.c.depth < MAX_DEPTH)
+    )
 
 
 def _paths_below(

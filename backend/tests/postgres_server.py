@@ -16,7 +16,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from sqlalchemy import URL, make_url
+from sqlalchemy import URL, create_engine, make_url, text
 
 BACKEND = Path(__file__).resolve().parents[1]
 ROOT = BACKEND / ".test-postgres"
@@ -157,3 +157,38 @@ def url(database: str = "postgres") -> URL:
         database=database,
         query={"host": str(ROOT), "port": str(PORT)},
     )
+
+
+def without_foreign_keys(session) -> None:
+    """Skip foreign key checks for the rest of ``session``'s transaction (the test role is a
+    superuser). Only for a test that fabricates a state the engine guards against although the
+    schema forbids it, such as a publication pinned to a release that does not exist."""
+    session.execute(text("SET LOCAL session_replication_role = replica"))
+
+
+def collated(values, key=None, reverse: bool = False) -> list:
+    """``values`` sorted as the database orders names (ICU root collation, PG-D11), where Python's
+    ``sorted`` would use code points. ``key`` gives a string or a tuple; each string in it ranks
+    by the server's order, any other element as itself."""
+    values = list(values)
+    key = key or (lambda value: value)
+    keys = [key(value) for value in values]
+    parts = [part for item in keys for part in (item if isinstance(item, tuple) else (item,))]
+    names = sorted({part for part in parts if isinstance(part, str)})
+    engine = create_engine(url())
+    try:
+        with engine.connect() as connection:
+            rows = connection.execute(
+                text("SELECT name FROM unnest(CAST(:names AS text[])) AS name ORDER BY name"),
+                {"names": names},
+            )
+            ranks = {name: rank for rank, (name,) in enumerate(rows)}
+    finally:
+        engine.dispose()
+
+    def ranked(item):
+        items = item if isinstance(item, tuple) else (item,)
+        return tuple(ranks[part] if isinstance(part, str) else part for part in items)
+
+    order = sorted(range(len(keys)), key=lambda index: ranked(keys[index]), reverse=reverse)
+    return [values[index] for index in order]

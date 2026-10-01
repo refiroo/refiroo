@@ -10,6 +10,7 @@ volume budgets for these reads (constant statements, bounded rows) are held by
 from typing import Any
 
 import pytest
+from postgres_server import collated
 from volume_fixture import (
     CODE,
     GROUP,
@@ -192,7 +193,7 @@ def test_relations_search_sort_seek_and_page_in_every_context(volume, context):
     params = {**_context(context, dataset), "objectId": dataset.cited_group_id}
     by_name = _everything(client, path, {**params, "sort": "name"})
     names = [row["object"]["name"] for row in by_name]
-    assert len(by_name) == dataset.shape.citations and names == sorted(names)
+    assert len(by_name) == dataset.shape.citations and names == collated(names)
     # Name is the default order in every context (S4R1, D22).
     assert _ids(_everything(client, path, params)) == _ids(by_name)
     descending = _everything(client, path, {**params, "sort": "-name"})
@@ -265,7 +266,7 @@ def test_relations_sort_by_the_related_types_attributes_and_ancestors(volume, co
     # The related item's group, read up the containment chain.
     by_group = _everything(client, path, {**params, "sort": "ancestor:vol-group"})
     groups = [row["object"]["path"][0]["name"] for row in by_group]
-    assert groups == sorted(groups) and sorted(_ids(by_group)) == sorted(_ids(by_name))
+    assert groups == collated(groups) and sorted(_ids(by_group)) == sorted(_ids(by_name))
     _walk(client, path, {**params, "sort": "ancestor:vol-group"}, _ids(by_group))
     landed = _get(client, path, {**params, "sort": "ancestor:vol-group", "position": 10, "pageSize": 5})
     assert _ids(landed["items"]) == _ids(by_group)[10:15]
@@ -334,10 +335,12 @@ def test_type_and_relationship_sort_by_the_labels_rows_show(volume, context):
         rows = _everything(client, path, {**params, "sort": field})
         keys = [(label(row), row["object"]["name"]) for row in rows]
         assert len({key[0] for key in keys}) > 1, f"{field}: one label only"
-        assert keys == sorted(keys), field
+        assert keys == collated(keys), field
         _walk(client, path, {**params, "sort": field}, _ids(rows))
         reverse = _everything(client, path, {**params, "sort": f"-{field}"})
-        assert [(label(row), row["object"]["name"]) for row in reverse] == sorted(keys, reverse=True)
+        assert [(label(row), row["object"]["name"]) for row in reverse] == collated(
+            keys, reverse=True
+        )
         target = keys[len(keys) // 2][0]
         seeked = _get(client, path, {**params, "sort": field, "seek": target, "includeTotal": True})
         assert seeked["startIndex"] == next(i for i, key in enumerate(keys) if key[0] >= target)

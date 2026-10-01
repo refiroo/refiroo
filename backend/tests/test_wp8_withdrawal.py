@@ -443,8 +443,8 @@ def test_live_cursor_survives_publication_switches_and_keeps_paging():
 # --------------------------------------------------------------------------- restart persistence
 
 
-def test_restart_after_publish_and_withdrawal_persists_state(tmp_path, monkeypatch):
-    """Reopen a second app instance against the same real temporary database file.
+def test_restart_after_publish_and_withdrawal_persists_state(migrated_database, monkeypatch):
+    """Reopen a second app instance against the same real temporary database.
 
     After publish + withdrawal the restarted instance must keep serving the authoritative live
     object store (withdrawal removes the publication checkpoint, never live data), keep the withdrawn
@@ -455,10 +455,9 @@ def test_restart_after_publish_and_withdrawal_persists_state(tmp_path, monkeypat
     from app.engine.model.registry import model_registry
     from app.main import create_app
 
-    database_path = tmp_path / "wp8-restart.db"
     try:
         with monkeypatch.context() as patch:
-            patch.setenv("DATABASE_URL", f"sqlite:///{database_path}")
+            patch.setenv("DATABASE_URL", migrated_database("wp8-restart"))
             reload_settings()
             model_registry.clear()
             workspace_key = unique_key("restart")
@@ -553,8 +552,8 @@ def _audit_aggregate_id_column_length() -> int:
 
 def test_publication_withdrawal_succeeds_for_a_workspace_key_longer_than_36_characters():
     # Publication withdrawal audits on the real workspace key, which is legal up to String(160) while
-    # the historical AuditEvent.aggregate_id was String(36).  SQLite does not enforce VARCHAR length,
-    # so this is primarily behavioural + definitional protection for a length-strict database.
+    # the historical AuditEvent.aggregate_id was String(36). PostgreSQL enforces the declared length,
+    # so a narrower column would refuse the audit entry.
     workspace_key = uuid4().hex + ("w" * 118)
     assert len(workspace_key) > 36
     assert len(workspace_key) <= 160

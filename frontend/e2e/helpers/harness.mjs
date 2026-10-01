@@ -6,6 +6,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "node:net";
 import { chromium } from "playwright";
+import { cloneDatabase } from "./database.mjs";
 
 const helpers = dirname(fileURLToPath(import.meta.url));
 const frontend = resolve(helpers, "..", "..");
@@ -20,15 +21,16 @@ async function freePort() {
 }
 
 /**
- * Boot an isolated backend + Vite dev server with a fresh database, seed test data,
- * launch a Chromium browser and return everything the caller needs.
+ * Boot an isolated backend + Vite dev server on a database of its own, cloned from a seed on the
+ * development server (`scripts/postgres.sh start`; the starter records unless `prepare` gives
+ * one), launch a Chromium browser and return everything the caller needs.
  *
  * @param {object} options
  * @param {boolean} [options.modelAdmin=true] - Enable model admin mutations.
  * @param {boolean} [options.workspaceAdmin=true] - Enable workspace admin mutations.
  * @param {(model: object) => void} [options.transformModel] - Adjust the starter model before startup.
- * @param {(output: string) => Promise<{modelPath: string, databasePath: string}>} [options.prepare] -
- *   Provide a prepared model and database instead of the starter model, which also skips the starter seed.
+ * @param {(output: string) => Promise<{modelPath: string, database: {databaseUrl: string, drop: () => void}}>} [options.prepare] -
+ *   Provide a prepared model and database (from `cloneDatabase`) instead of the starter model and records.
  * @param {{width: number, height: number}} [options.viewport] - Browser viewport; 1440×900 by default.
  * @returns {Promise<{page, browser, apiUrl, uiUrl, output, records, cleanup}>}
  */
@@ -77,83 +79,65 @@ export async function bootHarness(options = {}) {
   }
 
   let modelPath = resolve(output, "model.json");
-  let databasePath = resolve(output, "database.sqlite");
-  if (prepare) ({ modelPath, databasePath } = await prepare(output));
+  let database;
+  const records = { domain: [], system: [] };
+  if (prepare) ({ modelPath, database } = await prepare(output));
   else {
     const model = JSON.parse(await readFile(resolve(root, "model/rdm-starter.json"), "utf8"));
     transformModel?.(model);
     await writeFile(modelPath, JSON.stringify(model));
+    // The starter records, created through the API when the seed was built (browser_seeds.py).
+    database = cloneDatabase("starter", { model: modelPath });
+    Object.assign(records, database.payload.records);
   }
+  let phase = mark("seed", started);
 
-  const backend = start(
-    resolve(root, "backend/.venv/bin/python"),
-    ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", String(apiPort)],
-    resolve(root, "backend"),
-    {
-      DATABASE_URL: `sqlite:///${databasePath}`,
-      RDM_MODEL_PATH: modelPath,
-      CORS_ORIGINS: uiUrl,
-      MODEL_ADMIN_MUTATIONS_ENABLED: String(modelAdmin),
-      WORKSPACE_ADMIN_MUTATIONS_ENABLED: String(workspaceAdmin),
-      WEB_CONCURRENCY: "1",
-    },
-  );
-  await ready(`${apiUrl}/health`, backend);
-  let phase = mark("backendReady", started);
+  let browser;
+  let page;
+  try {
+    const backend = start(
+      resolve(root, "backend/.venv/bin/python"),
+      ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", String(apiPort)],
+      resolve(root, "backend"),
+      {
+        DATABASE_URL: database.databaseUrl,
+        RDM_MODEL_PATH: modelPath,
+        CORS_ORIGINS: uiUrl,
+        MODEL_ADMIN_MUTATIONS_ENABLED: String(modelAdmin),
+        WORKSPACE_ADMIN_MUTATIONS_ENABLED: String(workspaceAdmin),
+        WEB_CONCURRENCY: "1",
+      },
+    );
+    await ready(`${apiUrl}/health`, backend);
+    phase = mark("backendReady", phase);
 
-  const ui = start(
-    process.execPath,
-    ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", String(uiPort), "--strictPort"],
-    frontend,
-    { VITE_API_URL: apiUrl },
-  );
-  await ready(uiUrl, ui);
-  phase = mark("viteReady", phase);
+    const ui = start(
+      process.execPath,
+      ["node_modules/vite/bin/vite.js", "--host", "127.0.0.1", "--port", String(uiPort), "--strictPort"],
+      frontend,
+      { VITE_API_URL: apiUrl },
+    );
+    await ready(uiUrl, ui);
+    phase = mark("viteReady", phase);
 
-  const records = { domain: [], system: [] };
-  // Seed: use the auto-created default workspace; create a test workspace if it doesn't exist.
-  if (!prepare) try { await api("/workspaces", { key: "default", label: "Default" }); } catch { /* already exists */ }
-  if (!prepare) for (const [type, app] of [["domain", "rdm-master"], ["system", "rdm-systems"]]) {
-    for (let i = 0; i < 5; i++) {
-      records[type].push(await api("/objects", {
-        applicationKey: app, workspaceKey: "default", objectTypeKey: type,
-        name: `${type === "domain" ? "Domain" : "System"} ${String(i).padStart(2, "0")}`,
-        attributes: [{ attributeTypeKey: `${type}-code`, value: `${type}-${i}` }],
-      }));
-    }
-  }
-  // Add children to the first domain and system objects.
-  if (!prepare) for (const suffix of ["Alpha", "Beta"]) {
-    await api("/objects", {
-      applicationKey: "rdm-master", workspaceKey: "default", objectTypeKey: "codelist",
-      name: `Codelist ${suffix}`, parentObjectId: records.domain[0].id,
-      attributes: [{ attributeTypeKey: "codelist-code", value: suffix.toLowerCase() }],
+    browser = await chromium.launch({
+      headless: true,
+      ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}),
     });
-  }
-  if (!prepare) {
-  const sysChild = await api("/objects", {
-    applicationKey: "rdm-systems", workspaceKey: "default", objectTypeKey: "system-value",
-    name: "Value Alpha", parentObjectId: records.system[0].id,
-    attributes: [{ attributeTypeKey: "value-code", value: "VA" }, { attributeTypeKey: "value-name", value: "Value Alpha" }],
-  });
-  // Add a relation between domain and system-value.
-  await api("/relations", {
-    relationTypeKey: "reference-has-system-representation",
-    fromObjectId: records.domain[0].id, toObjectId: sysChild.id,
-  });
-  }
 
-  phase = mark("seed", phase);
-  const browser = await chromium.launch({
-    headless: true,
-    ...(process.env.PLAYWRIGHT_EXECUTABLE_PATH ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE_PATH } : {}),
-  });
-
-  const context = await browser.newContext({ hasTouch: true, viewport: viewport ?? { width: 1440, height: 900 } });
-  const page = await context.newPage();
-  page.setDefaultTimeout(10000);
-  mark("browserLaunch", phase);
-  timings.setupTotal = Math.round(performance.now() - started);
+    const context = await browser.newContext({ hasTouch: true, viewport: viewport ?? { width: 1440, height: 900 } });
+    page = await context.newPage();
+    page.setDefaultTimeout(10000);
+    mark("browserLaunch", phase);
+    timings.setupTotal = Math.round(performance.now() - started);
+  } catch (error) {
+    for (const child of processes) {
+      try { child.kill(); } catch { /* ignore */ }
+    }
+    await browser?.close().catch(() => {});
+    database.drop();
+    throw error;
+  }
 
   function cleanup() {
     timings.total = Math.round(performance.now() - started);
@@ -163,6 +147,8 @@ export async function bootHarness(options = {}) {
     for (const child of processes) {
       try { child.kill(); } catch { /* ignore */ }
     }
+    // Dropped WITH (FORCE), which closes any connection the stopping backend still holds.
+    database.drop();
   }
 
   return { page, browser, apiUrl, uiUrl, output, records, api, timings, log: () => log, cleanup };

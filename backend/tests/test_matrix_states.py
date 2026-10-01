@@ -396,13 +396,15 @@ def _seed_translations(client) -> dict:
 
 
 def test_a_long_row_list_filters_as_one_value(client, languages):
-    """Over 500 matching rows the filter passes its list as one JSON value, not one parameter each."""
+    """Over 500 matching rows the filter passes its list as one array value, not one parameter each."""
     ids = [languages["masters"]["M2"]["id"], *(f"missing-{number}" for number in range(1200))]
     with SessionLocal() as session:
-        statement = select(RdmObject.name).where(matrix_states.listed(session, RdmObject.id, ids))
-        assert "json_each" in str(statement.compile(session.get_bind()))
+        statement = select(RdmObject.name).where(matrix_states.listed(RdmObject.id, ids))
+        compiled = statement.compile(session.get_bind())
+        assert "= ANY (" in str(compiled)
+        assert [value for value in compiled.params.values() if isinstance(value, list)] == [ids]
         assert list(session.scalars(statement)) == ["M2"]
         negated = select(RdmObject.name).where(
-            RdmObject.object_type_key == "master-value", ~matrix_states.listed(session, RdmObject.id, ids)
+            RdmObject.object_type_key == "master-value", ~matrix_states.listed(RdmObject.id, ids)
         )
         assert list(session.scalars(negated)) == ["M1"]

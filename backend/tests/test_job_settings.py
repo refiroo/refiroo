@@ -19,19 +19,17 @@ def test_batch_settings_have_defaults_and_refuse_invalid_values():
         defaults.batch_max_bytes,
         defaults.atomic_job_max_items,
         defaults.job_retention_days,
-        defaults.sqlite_lock_wait_seconds,
         defaults.background_job_max_items,
         defaults.batch_background_max_bytes,
         defaults.job_chunk_items,
         defaults.job_lease_seconds,
-    ) == (True, 1000, 5 * 1024 * 1024, 10_000, 7, 60, 1_000_000, 50 * 1024 * 1024, 500, 120)
+    ) == (True, 1000, 5 * 1024 * 1024, 10_000, 7, 1_000_000, 50 * 1024 * 1024, 500, 120)
     assert not Settings.from_env({"INTEGRATION_JOBS_ENABLED": "false"}).integration_jobs_enabled
     for name in (
         "BATCH_MAX_ITEMS",
         "BATCH_MAX_BYTES",
         "ATOMIC_JOB_MAX_ITEMS",
         "JOB_RETENTION_DAYS",
-        "SQLITE_LOCK_WAIT_SECONDS",
         "BACKGROUND_JOB_MAX_ITEMS",
         "BATCH_BACKGROUND_MAX_BYTES",
         "JOB_CHUNK_ITEMS",

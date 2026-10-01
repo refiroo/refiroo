@@ -707,12 +707,8 @@ def _count_relations_with_attribute(
 ) -> int:
     from_object = aliased(RdmObject)
     to_object = aliased(RdmObject)
-    dialect = session.get_bind().dialect.name
-    if dialect == "postgresql":
-        has_key = ObjectRelation.attributes.op("?")(key)
-    else:
-        escaped = key.replace('"', '\\"')
-        has_key = func.json_type(ObjectRelation.attributes, f'$."{escaped}"').is_not(None)
+    # ``->`` answers SQL NULL only for a missing key; a key holding JSON null counts.
+    has_key = ObjectRelation.attributes.op("->")(key).is_not(None)
     return int(
         session.scalar(
             select(func.count())

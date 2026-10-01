@@ -17,6 +17,7 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from postgres_server import collated
 from sqlalchemy import select
 
 from app.config import cursor_signing_key, reload_settings
@@ -416,11 +417,13 @@ def test_default_order_is_name_in_every_context(client):
     for name, context in seeded["contexts"].items():
         items = _walk(client, path, context)
         names = [item["name"] for item in items]
-        assert names == sorted(names) and names != created, name
+        # In the database's order the entries were created in name order (ICU root, PG-D11); the
+        # default matches the explicit name sort below, and the former default's cursor is refused.
+        assert names == collated(created), name
         by_name = _walk(client, path, {**context, "sort": "name"})
         assert [item["id"] for item in items] == [item["id"] for item in by_name], name
         sought = _ok(client.get(path, params={**context, "seek": "Echo", "pageSize": 2}))
-        assert [item["name"] for item in sought["items"]] == ["Echo", "Golf"], name
+        assert [item["name"] for item in sought["items"]] == ["Echo", "foxtrot"], name
 
     # A cursor issued for the former default (live creation sequence, change set and history record ID)
     # is bound to that order and refused rather than read against the new one.

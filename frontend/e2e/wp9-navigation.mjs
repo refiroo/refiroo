@@ -11,10 +11,12 @@ import { goToPage } from "./helpers/lists.mjs";
 import { checkRecordReturn } from "./ui03a-navigation.mjs";
 import { checkInspectorDeletion } from "./ui03b-deletion.mjs";
 import { checkHierarchySelection } from "./ui03b-hierarchy.mjs";
+import { cloneDatabase } from "./helpers/database.mjs";
 
 const frontend = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const root = resolve(frontend, "..");
 const output = await mkdtemp(resolve(tmpdir(), "rdm-wp9-navigation-"));
+let database;
 const processes = [];
 let browser;
 const failures = [];
@@ -88,9 +90,10 @@ try {
     }
   }
   const modelPath = resolve(output, "model.json");
+  database = cloneDatabase("schema");
   await writeFile(modelPath, JSON.stringify(model));
   const backend = start(resolve(root, "backend/.venv/bin/python"), ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", String(apiPort)], resolve(root, "backend"), {
-    DATABASE_URL: `sqlite:///${resolve(output, "database.sqlite")}`, RDM_MODEL_PATH: modelPath,
+    DATABASE_URL: database.databaseUrl, RDM_MODEL_PATH: modelPath,
     CORS_ORIGINS: uiUrl, MODEL_ADMIN_MUTATIONS_ENABLED: "false", WORKSPACE_ADMIN_MUTATIONS_ENABLED: "true", WEB_CONCURRENCY: "1",
   });
   await ready(`${apiUrl}/health`, backend);
@@ -416,7 +419,7 @@ try {
   await checkInspectorDeletion({ page, api, uiUrl, output, checks });
   await checkHierarchySelection({ page, api, uiUrl, output, checks });
   assert.deepEqual(failures, []);
-  const report = { browser: browser.version(), viewports: ["1440x1000", "390x844", "720x500 (200% layout equivalent)"], checks, pageErrors: failures, isolatedDatabase: resolve(output, "database.sqlite") };
+  const report = { browser: browser.version(), viewports: ["1440x1000", "390x844", "720x500 (200% layout equivalent)"], checks, pageErrors: failures, isolatedDatabase: database.databaseUrl };
   await writeFile(resolve(output, "report.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify({ ...report, output }, null, 2));
 } catch (error) {
@@ -433,4 +436,5 @@ try {
   await browser?.close();
   for (const child of processes) child.kill("SIGTERM");
   await writeFile(resolve(output, "servers.log"), log);
+  database?.drop();
 }

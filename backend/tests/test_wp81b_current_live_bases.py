@@ -1,6 +1,6 @@
 """WP8.1-B regressions for explicit current-live change set sources."""
 
-from unittest.mock import MagicMock
+import threading
 
 import pytest
 from fastapi.testclient import TestClient
@@ -282,57 +282,113 @@ def test_current_live_capture_refuses_a_model_selection_that_changed_before_lock
         )
 
 
-def test_current_live_capture_explicitly_refuses_an_unsupported_database_dialect():
-    session = MagicMock()
-    session.bind.dialect.name = "postgresql"
-
-    with pytest.raises(ApiError) as error:
-        create_change_set_service(
-            session,
-            "default",
-            1,
-            source="currentLive",
-            expected_model_runtime_release_id=1,
-        )
-
-    assert error.value.status == 409
-    assert error.value.code == "change_set_snapshot_unsupported"
-    session.rollback.assert_not_called()
-
-
-def test_current_live_capture_excludes_a_synchronized_external_sqlite_writer(monkeypatch):
+def test_current_live_capture_reads_one_snapshot_while_an_external_writer_commits(monkeypatch):
+    """A live write committing during the capture is not mixed into it (REPEATABLE READ)."""
     with TestClient(app) as client:
-        workspace_key = unique_key("capture-writer-lock")
+        workspace_key = unique_key("capture-snapshot")
         create_workspace(client, workspace_key)
         domain = _live_domain(client, workspace_key, unique_key("captured"))
         original_loader = change_sets._load_live_membership
-        writer_attempted = False
+        writer_committed = False
 
         def load_with_external_writer(session, key):
-            nonlocal writer_attempted
-            external = create_engine(database_url(), connect_args={"timeout": 0})
+            nonlocal writer_committed
+            external = create_engine(database_url())
             try:
                 with external.begin() as connection:
-                    with pytest.raises(OperationalError):
-                        connection.execute(
-                            text("UPDATE objects SET name = 'must not mix' WHERE id = :id"),
-                            {"id": domain["id"]},
-                        )
-                    writer_attempted = True
+                    connection.execute(
+                        text("UPDATE objects SET name = 'must not mix' WHERE id = :id"),
+                        {"id": domain["id"]},
+                    )
+                writer_committed = True
             finally:
                 external.dispose()
             return original_loader(session, key)
 
         monkeypatch.setattr(change_sets, "_load_live_membership", load_with_external_writer)
         change_set = create_change_set(client, workspace_key, source="currentLive").json()
-        assert writer_attempted
+        assert writer_committed
         captured = client.get(
             f"/api/v1/objects/domain/{domain['id']}", params={"changeSetId": change_set["id"]}
         )
         assert captured.status_code == 200 and captured.json()["name"] == domain["name"]
+        live = client.get(
+            f"/api/v1/objects/domain/{domain['id']}", params={"workspaceKey": workspace_key}
+        )
+        assert live.json()["name"] == "must not mix"
 
 
-def test_discard_and_successful_activation_remove_private_base_rows_with_sqlite_fk_off():
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "UPDATE model_runtime_state SET version = version WHERE id = 1",
+        "UPDATE workspaces SET status = status WHERE key = :key",
+    ],
+    ids=["activation", "retirement"],
+)
+def test_current_live_capture_holds_off_activation_and_retirement(monkeypatch, statement):
+    """While the capture runs, the runtime-state and workspace rows cannot be changed."""
+    with TestClient(app) as client:
+        workspace_key = unique_key("capture-locks")
+        create_workspace(client, workspace_key)
+        _live_domain(client, workspace_key, unique_key("captured"))
+        original_loader = change_sets._load_live_membership
+        refused = False
+
+        def load_with_external_change(session, key):
+            nonlocal refused
+            external = create_engine(database_url())
+            try:
+                with external.begin() as connection:
+                    connection.execute(text("SET LOCAL lock_timeout = '200ms'"))
+                    with pytest.raises(OperationalError, match="lock timeout"):
+                        connection.execute(text(statement), {"key": workspace_key})
+                    refused = True
+            finally:
+                external.dispose()
+            return original_loader(session, key)
+
+        monkeypatch.setattr(change_sets, "_load_live_membership", load_with_external_change)
+        response = create_change_set(client, workspace_key, source="currentLive")
+        assert response.status_code == 201, response.text
+        assert refused
+
+
+def test_current_live_capture_after_a_concurrent_activation_asks_for_a_retry():
+    """An activation committing while the capture waits for its lock ends it with a retry."""
+    with TestClient(app) as client:
+        workspace_key = unique_key("capture-retry")
+        create_workspace(client, workspace_key)
+        external = create_engine(database_url())
+        try:
+            connection = external.connect()
+            transaction = connection.begin()
+            connection.execute(text("UPDATE model_runtime_state SET version = version WHERE id = 1"))
+            # The capture starts its snapshot, then waits for the runtime-state row until the
+            # "activation" above commits; a row changed after the snapshot cannot be captured.
+            timer = threading.Timer(0.3, transaction.commit)
+            timer.start()
+            try:
+                response = create_change_set(
+                    client, workspace_key, source="currentLive", expected_status=409
+                )
+            finally:
+                timer.join()
+                connection.close()
+        finally:
+            external.dispose()
+        assert response.json()["error"]["code"] == "change_set_snapshot_retry"
+        with SessionLocal() as session:
+            assert (
+                session.scalar(
+                    select(ChangeSetBase.id).where(ChangeSetBase.workspace_key == workspace_key)
+                )
+                is None
+            )
+        create_change_set(client, workspace_key, source="currentLive")
+
+
+def test_discard_and_successful_activation_remove_private_base_rows():
     with TestClient(app) as client:
         workspace_key = unique_key("base-cleanup")
         create_workspace(client, workspace_key)
@@ -423,11 +479,10 @@ def test_discard_and_successful_activation_remove_private_base_rows_with_sqlite_
 
 
 def test_sc05_current_live_copies_post_publication_independent_relation_changes(
-    tmp_path, monkeypatch
+    migrated_database, monkeypatch
 ):
-    database_path = tmp_path / "sc05-current-live.db"
     with monkeypatch.context() as patch:
-        patch.setenv("DATABASE_URL", f"sqlite:///{database_path}")
+        patch.setenv("DATABASE_URL", migrated_database("sc05-current-live"))
         reload_settings()
         model_registry.clear()
         try:
@@ -594,10 +649,11 @@ def test_sc05_current_live_copies_post_publication_independent_relation_changes(
             reload_settings()
 
 
-def test_current_live_base_remains_frozen_and_readable_after_restart(tmp_path, monkeypatch):
-    database_path = tmp_path / "current-live-restart.db"
+def test_current_live_base_remains_frozen_and_readable_after_restart(
+    migrated_database, monkeypatch
+):
     with monkeypatch.context() as patch:
-        patch.setenv("DATABASE_URL", f"sqlite:///{database_path}")
+        patch.setenv("DATABASE_URL", migrated_database("current-live-restart"))
         reload_settings()
         model_registry.clear()
         try:

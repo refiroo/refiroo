@@ -9,6 +9,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
+import { cloneDatabase } from "./helpers/database.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const checks = [];
@@ -30,10 +31,12 @@ async function freePort() {
 }
 
 const output = await mkdtemp(resolve(tmpdir(), "rdm-v1-reference-"));
+let database;
 try {
   const port = await freePort();
   const apiUrl = `http://127.0.0.1:${port}`;
   const modelPath = resolve(output, "model.json");
+  database = cloneDatabase("schema");
   await writeFile(modelPath, await readFile(resolve(root, "model/rdm-starter.json"), "utf8"));
   backend = spawn(
     resolve(root, "backend/.venv/bin/python"),
@@ -42,7 +45,7 @@ try {
       cwd: resolve(root, "backend"),
       env: {
         ...process.env,
-        DATABASE_URL: `sqlite:///${resolve(output, "database.sqlite")}`,
+        DATABASE_URL: database.databaseUrl,
         RDM_MODEL_PATH: modelPath,
         RDM_API_REFERENCE_SCRIPT: "bundled",
         WEB_CONCURRENCY: "1",
@@ -135,6 +138,7 @@ try {
 } finally {
   await browser?.close();
   backend?.kill();
+  database?.drop();
 }
 
 console.log(checks.map((check) => `✓ ${check}`).join("\n"));

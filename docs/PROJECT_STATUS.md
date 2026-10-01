@@ -32,7 +32,12 @@ with the test harness ([plan](TEST_HARNESS_PLAN.md): seeded databases built once
 the schema, model or seed changes, inside PG1; parallel runs and budget sizes after PG2), then F1.
 **PG1 is delivered (2026-10-01):** PostgreSQL only with the startup refusals, one baseline migration,
 ICU root collation (PG-D11), `scripts/postgres.sh`, and the test harness's private server with seeds
-built once (H1's core); `startup` and `contract` pass except four tests that need PG2. Next is PG2.
+built once (H1's core); `startup` and `contract` pass except four tests that need PG2. **PG2 is
+delivered (2026-10-01):** current-live capture on a REPEATABLE READ snapshot, row locks instead of
+SQLite's writer lock, `pg_trgm` search (revision `20261001_02`), the matrix forms with a linear state
+build (0.1 volume in 7 s), names ordered as the database orders them, every foreign-key rule pinned,
+no dialect branch in `app/`, and the browser runners on the development server with their seeds;
+every backend group except `volume` passes on PostgreSQL. Next is H2.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

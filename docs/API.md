@@ -355,15 +355,16 @@ reloads the database-selected release. Historical releases using an unsupported 
 unsupported_schema_version`; if a supported installed release fails reparsing, activation returns
 `500 invalid_installed_model`. Both failures leave runtime state unchanged.
 
-Activation and live writes exclude each other (Base 0.8 W5). Activation reserves the database writer
-(`BEGIN IMMEDIATE` on SQLite) before its compatibility check, so the check sees every live write that
-committed before the switch. A request that resolved the active release — a live object, attribute,
+Activation and live writes exclude each other (Base 0.8 W5). Activation locks the runtime-state row
+for update before its compatibility check, so the check sees every live write that committed before
+the switch. A request that resolved the active release — a live object, attribute,
 relation or mapping write, a deletion, a publish or a change-set creation — rereads the active release
 inside its own transaction before committing. If another release was activated after the request
 resolved its model, nothing is saved and it returns `409 model_release_changed` with
 `details.resolvedReleaseId` and `details.activeReleaseId`; the client reloads the model and retries.
-If live writes keep the database busy past the connection's busy timeout, activation returns
-`409 model_activation_retry` and the selection is unchanged.
+A write about to commit waits for an activation in progress, and an activation waits for writes
+already checking their release (0.9.0-alpha.1: row locks; `model_activation_retry` is no longer
+returned).
 
 #### Drafts, validation, compilation and installation
 
@@ -474,8 +475,6 @@ are not mutation-gated. Lifecycle errors use:
   `supportedSchemaVersions` and `operation`; the schema value comes from the stored model document
   when compilation detects a metadata/document mismatch);
 - `409 activation_conflict` for stale runtime-state tokens;
-- `409 model_activation_retry` when live writes held the database for longer than the busy timeout;
-  the selection is unchanged and the activation may be retried;
 - `409 model_migration_required` when stored data prevents activation;
 - `409 consumer_contract_version_required` when a consumer API definition changes what the active
   release's consumers read without a higher `contractVersion` (details are the `consumerContracts`
@@ -701,7 +700,6 @@ this order in one transaction and change nothing:
 | 409 | `workspace_has_publications` | it has ever been published (withdrawn publications count); retire it instead |
 | 409 | `workspace_not_empty` | it has objects or change sets; `details` carries `objectCount` and `changeSetCount` |
 | 409 | `version_conflict` | `expectedVersion` is stale; `details.currentVersion` |
-| 409 | `workspace_delete_retry` | other writes held the database for longer than the busy timeout; retry |
 
 Single-workspace responses (`GET`, `POST` and `PATCH /workspaces/{workspaceKey}`) add `deletable` and,
 when it is false, `deleteBlockedBy`: `default`, `published` or `notEmpty`, in the refusal order above.
@@ -865,15 +863,14 @@ their selected context identity and query filters; malformed/mismatched tokens r
 `422 invalid_cursor`. Live collection cursors bind the effective live workspace and query filters.
 Cursor tokens do not bind a model or publication ID unless that context is itself selected.
 
-Current-live capture is implemented and validated for SQLite. PostgreSQL and other dialects currently
-return `409 change_set_snapshot_unsupported` for this operation. The service starts an explicit
-`BEGIN IMMEDIATE` transaction before reading the graph, which excludes independent SQLite live/model
-writers through the base commit. It compares the request's captured active release with
-`model_runtime_state` under that reservation, separately from the selected change-set pin; a lock
-conflict or changed active selection returns `409 change_set_snapshot_retry` with an actionable retry
-message. Other database dialects return `409 change_set_snapshot_unsupported` rather than silently
-offering a weaker, potentially mixed capture. The private base is deleted with its change set on
-discard or publish and is never a publication or part of publication lineage.
+Current-live capture reads the graph from one database snapshot (REPEATABLE READ), so live writes
+committing meanwhile are not mixed into it, and holds share locks on the workspace and runtime-state
+rows, so neither a retirement nor a model activation commits while it runs. It compares the request's
+captured active release with `model_runtime_state`, separately from the selected change-set pin. A
+changed active selection, or a workspace or runtime-state row changed after the snapshot began,
+returns `409 change_set_snapshot_retry` with an actionable retry message and saves nothing
+(0.9.0-alpha.1; `change_set_snapshot_unsupported` is no longer returned). The private base is deleted
+with its change set on discard or publish and is never a publication or part of publication lineage.
 
 Change-set responses return `source: "currentLive"`, `"publication"` or `"empty"`; `empty` reports a
 compatible legacy/bootstrap change set and is not a normal source choice. The private base ID is not
@@ -985,8 +982,9 @@ records that tie on the sort. `search` matches the record name and model attribu
 `searchable` feature, case-insensitively, in every context. A change-set or publication page costs its own
 rows, not the size of the change set or publication.
 
-`search` is a literal substring: `%`, `_` and quotes match themselves. Case folding covers ASCII
-letters only (SQLite's `LIKE`), so `Ü` matches `Ü` but not `ü`; this is unchanged by the search index.
+`search` is a literal substring: `%`, `_` and quotes match themselves. Case folding is Unicode's,
+under the database's ICU root collation (0.9.0-alpha.1, PG-D11), so `ü` matches `Ü`; the search
+index does not change it.
 Since Base 0.8 S8 (D25), a search of three or more characters looks up attribute values through a
 trigram index over text values, reading only the records whose values contain the text; names are
 matched on the type's name index, about 20 ms per 100,000 records. A name search with its total over
@@ -995,8 +993,8 @@ one- or two-character search has no trigram to look up and reads each record's v
 over 100,000 records when few names match); so does a phrase present in more than 10,000 text values,
 where reading the index would cost more than it saves (about 0.4 s when it is in every value and no
 name). The index narrows which records are read, never which match: every path returns the same
-records. The index is SQLite's (FTS5); on PostgreSQL, until its trigram form arrives with
-0.11, a search reads each record's values with the same results. A first page, or a `position` page, that reaches the end of the list reports its
+records. The index is a `pg_trgm` GIN index over text values (0.9.0-alpha.1, PG-D7); the timings
+above were measured on its SQLite FTS5 predecessor and are re-measured in PG5. A first page, or a `position` page, that reaches the end of the list reports its
 `totalCount` without a second count.
 
 Change sets and publications record no timestamps. In a `changeSetId` or `publicationId` context,

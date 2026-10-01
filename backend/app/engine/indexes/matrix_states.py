@@ -29,7 +29,6 @@ accumulate drift. Core statements that bypass the ORM note their changes with :f
 :func:`note_cells`.
 """
 
-import json
 import logging
 import time
 from collections.abc import Iterable, Iterator, Sequence
@@ -39,12 +38,14 @@ from itertools import islice
 from typing import Any
 
 from sqlalchemy import (
+    ARRAY,
     Select,
+    String,
+    any_,
     delete,
     event,
     except_,
     exists,
-    func,
     insert,
     intersect,
     literal,
@@ -912,25 +913,16 @@ def _all_built(session: Session, owners: Sequence[Owner], shape_key: str) -> boo
     return {(owner.kind, owner.id) for owner in owners} <= {tuple(row) for row in found}
 
 
-# The filter reads each selected column's rows from this index, in row order.
-_COLUMN_INDEX = "ix_matrix_cell_states_column"
-
-
 def _column_rows(owner: Owner, shape_key: str, column_id: str, *terms: Any) -> Select[Any]:
     """The owner's rows with a stored cell in one column, meeting ``terms`` (callables on the
-    table). Pinned to the column index: SQLite otherwise may scan the owner's whole shape through
-    the unique index, whose order serves a merge but not the column."""
+    table), which the column index ``ix_matrix_cell_states_column`` serves."""
     table = _TABLE.alias()
-    return (
-        select(table.c.row_id)
-        .where(
-            table.c.owner_kind == owner.kind,
-            table.c.owner_id == owner.id,
-            table.c.shape_key == shape_key,
-            table.c.column_id == column_id,
-            *(term(table) for term in terms),
-        )
-        .with_hint(table, f"INDEXED BY {_COLUMN_INDEX}", "sqlite")
+    return select(table.c.row_id).where(
+        table.c.owner_kind == owner.kind,
+        table.c.owner_id == owner.id,
+        table.c.shape_key == shape_key,
+        table.c.column_id == column_id,
+        *(term(table) for term in terms),
     )
 
 
@@ -1018,16 +1010,16 @@ def stored_row_filter(
     return list(session.scalars(statement)), True
 
 
-def listed(session: Session, column: Any, ids: Sequence[str]) -> Any:
-    """``column IN ids`` for a list of any length: SQLite reads a long list as one JSON value.
+def listed(column: Any, ids: Sequence[str]) -> Any:
+    """``column IN ids`` for a list of any length: a long list is one array value, ``= ANY``.
 
-    The term is kept off the column's index: a paging statement then walks its sort index in
-    order and probes the list, rather than looking up every listed row and sorting them all.
+    A long list's term is kept off the column's index: a paging statement then walks its sort
+    index in order and probes the list, rather than looking up every listed row and sorting them
+    all. Negated with ``~`` it stays "not listed".
     """
-    if len(ids) <= _CHUNK or session.get_bind().dialect.name != "sqlite":
+    if len(ids) <= _CHUNK:
         return column.in_(list(ids))
-    values = func.json_each(literal(json.dumps(list(ids)))).table_valued("value")
-    return unindexed(column.in_(select(values.c.value)))
+    return unindexed(column == any_(literal(list(ids), ARRAY(String))))
 
 
 # Verification.

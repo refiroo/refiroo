@@ -35,6 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import postgres_server
 from sqlalchemy import URL, create_engine, text
 from sqlalchemy.engine import Connection
+from sqlalchemy.orm import Session
 from sqlalchemy.pool import NullPool
 
 TESTS = Path(__file__).resolve().parent
@@ -226,6 +227,20 @@ def clone(name: str, database: str | None = None) -> URL:
         _drop(server, database)
         _create(server, database, template_name(name))
     return postgres_server.url(database)
+
+
+@contextmanager
+def schema_session() -> Iterator[Session]:
+    """A session on a new clone of the ``schema`` seed (the baseline's default workspace and no
+    model release), dropped when the block ends. For engine tests that run without the application."""
+    url = clone("schema")
+    engine = create_engine(url)
+    try:
+        with Session(engine) as session:
+            yield session
+    finally:
+        engine.dispose()
+        drop(url.database)
 
 
 def create_empty(options: str = "") -> URL:

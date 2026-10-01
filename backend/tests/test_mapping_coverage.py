@@ -6,6 +6,7 @@ from threading import Event, Thread
 
 import pytest
 from fastapi.testclient import TestClient
+from postgres_server import collated
 from sqlalchemy import event, select
 from test_context_read_parity import reissue_cursor
 from test_relation_set_versions import (
@@ -86,9 +87,6 @@ def client(tmp_path, monkeypatch, migrated_database, request):
     monkeypatch.setenv("RDM_MODEL_PATH", str(model_path))
     model_registry.clear()
     with TestClient(create_app()) as value:
-        # WAL lets a writer commit while a coverage snapshot is held by a reader.
-        with get_engine().connect() as connection:
-            connection.exec_driver_sql("PRAGMA journal_mode=WAL")
         yield value
     get_engine().dispose()
     monkeypatch.undo()
@@ -278,7 +276,7 @@ def test_coverage_and_candidates_list_by_name_and_seek_a_name(client):
         )
         assert [row["source"]["id"] for row in sought["items"]] == [sources["mike"]["id"]], context
         names = [row["name"] for row in get(client, "/mapping-candidates", dict(candidate_params, **context))["items"]]
-        assert names == sorted(names) and len(names) == len(targets), context
+        assert names == collated(names) and len(names) == len(targets), context
 
     # A cursor bound to the former order, by source ID, is refused rather than read by name.
     first = get(client, "/mapping-coverage", dict(OUT, search=tag, pageSize=1))

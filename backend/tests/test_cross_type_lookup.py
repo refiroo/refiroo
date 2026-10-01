@@ -14,6 +14,7 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from model_support import renamed_model
+from postgres_server import collated
 from test_context_read_parity import APP, CITES, ENTRY, FOLDER, parity_model
 
 from app.config import reload_settings
@@ -227,12 +228,12 @@ def test_the_same_query_lists_the_same_records_in_every_context(lookup):
     everything = _walk(client, LOOKUP, seeded["contexts"]["live"])
     assert {item["objectTypeKey"] for item in everything} == {k(FOLDER), k(ENTRY)}
     assert "Doomed" not in {item["name"] for item in everything}
-    assert [item["name"] for item in everything] == sorted(item["name"] for item in everything)
+    assert [item["name"] for item in everything] == collated(item["name"] for item in everything)
     # Type names order objectType; the name orders records of one type.
     type_names = {item["key"]: item["name"] for item in _ok(client.get("/api/v1/model"))["objectTypes"]}
     by_type = _walk(client, LOOKUP, {**seeded["contexts"]["live"], "sort": "objectType"})
     order = [(type_names[item["objectTypeKey"]], item["name"]) for item in by_type]
-    assert order == sorted(order) and len(order) == len(everything)
+    assert order == collated(order) and len(order) == len(everything)
     # A search matches both types; "FOLDER" finds the folders and an entry named "Folder three".
     found = _walk(client, LOOKUP, {**seeded["contexts"]["live"], "search": "FOLDER"})
     assert {item["objectTypeKey"] for item in found} == {k(FOLDER), k(ENTRY)}

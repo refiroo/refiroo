@@ -541,7 +541,7 @@ def snapshot_object_columns(
 def _value_candidates(
     projection: Subquery, context: SnapshotContext
 ) -> Callable[[str, list[str]], Any]:
-    """Records with a value of ``attributes`` that the trigram index matches a phrase in.
+    """Records with a value of ``attributes`` that the trigram index matches a pattern in.
 
     Candidates are object rows of the context's owners, compared by ``row_sequence_id``, which
     the type and parent indexes a search walks already hold. A change set's candidates come from its
@@ -555,7 +555,7 @@ def _value_candidates(
     if context.kind == "change_set":
         owners.append((ChangeSetObject, "change_set_id", context.id))
 
-    def search_values(phrase: str, attributes: list[str]) -> Any:
+    def search_values(pattern: str, attributes: list[str]) -> Any:
         value = aliased(SnapshotAttributeValue)
 
         def candidates(matches: Select[Any]) -> Any:
@@ -576,7 +576,7 @@ def _value_candidates(
                 )
             return projection.c.row_sequence_id.in_(union_all(*rows) if len(rows) > 1 else rows[0])
 
-        return indexed_value_match(SNAPSHOT_VALUES, phrase, candidates)
+        return indexed_value_match(SNAPSHOT_VALUES, pattern, candidates)
 
     return search_values
 

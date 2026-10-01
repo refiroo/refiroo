@@ -10,9 +10,9 @@
 // systems applications (one and two child types), search with ancestor paths and a group heading
 // opening its scoped collection, at 1440px and 390px. Set S6_VOLUME_SCALE=1 for full volume.
 import assert from "node:assert/strict";
-import { execFileSync } from "node:child_process";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
+import { cloneDatabase } from "./helpers/database.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 
 const root = resolve(import.meta.dirname, "..", "..");
@@ -87,15 +87,10 @@ function treeRequests(page) {
 let dataset;
 let harness = await bootHarness({
   prepare: async (output) => {
-    const databasePath = resolve(output, "volume.db");
     const modelPath = resolve(output, "volume-model.json");
-    const printed = execFileSync(
-      resolve(root, "backend/.venv/bin/python"),
-      ["tests/volume_seed.py", "--scale", scale, "--database", databasePath, "--model", modelPath],
-      { cwd: resolve(root, "backend"), stdio: ["ignore", "pipe", "ignore"] },
-    );
-    dataset = JSON.parse(printed.toString().trim().split("\n").at(-1));
-    return { databasePath, modelPath };
+    const database = cloneDatabase("volume", { model: modelPath, scale: scale });
+    dataset = database.payload;
+    return { modelPath, database };
   },
 });
 try {

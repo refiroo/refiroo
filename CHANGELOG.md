@@ -95,6 +95,23 @@ All notable changes to this project are documented in this file. The format foll
   PG4.
 - 0.9.0-alpha.1 PG1: the relation list's sort by `ancestor:<type>` works on PostgreSQL (it used a
   SQLite-only grouping); the ancestor chosen is unchanged.
+- 0.9.0-alpha.1 PG2: the PostgreSQL forms. Starting a change set from current live data
+  (`source: currentLive`) works on PostgreSQL: the base is read from one snapshot while share locks
+  keep a retirement or an activation from committing, and a change the snapshot cannot hold answers
+  `409 change_set_snapshot_retry` (`change_set_snapshot_unsupported` is gone). Activation and
+  workspace deletion wait for row locks instead of failing on a busy database, so
+  `model_activation_retry` and `workspace_delete_retry` are no longer returned, and the
+  `SQLITE_LOCK_WAIT_SECONDS` setting is removed. Search reads `pg_trgm` GIN indexes over text values
+  (revision `20261001_02`) with the same results, and case-insensitive search folds every script
+  (`ünal` finds `Ünal`). Foreign keys are enforced; every `ondelete` rule is pinned in
+  `test_foreign_keys`, and a record written into a workspace deleted meanwhile still answers
+  `404 workspace_not_found`. Relation matrix states and pages walk each cell record up to its
+  column once, with nothing joined back: building the states of the volume fixture at scale 0.005
+  took 14 s and grew about four times per doubling; it now takes 0.3 s, 1.0 s at 0.02 and 7 s at
+  0.1, and a matrix page at 0.01 went from about 120 ms to 40 ms. Relation expansions and the restructuring
+  planner order names as the database does. The browser runners run on the development server
+  (`scripts/postgres.sh start`), each on its own database cloned from a seed built once
+  (`tests/browser_seeds.py`).
 - Base 0.9 B1: a change set write's record lookups probe the change set's own rows by key instead of
   listing all of them on every statement, so a write costs the same however many records the change set
   holds (a lookup took 361 µs at 4,000 own rows, now 39 µs; page reads unchanged or faster). On SQLite,

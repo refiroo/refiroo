@@ -195,9 +195,8 @@ def _require_resolved_release(session: Session) -> None:
     The registry's publication guard covers only the moment of resolution, so a write resolved
     under release A could otherwise commit after an incompatible release B activated, in this
     process or another one sharing the database. The check runs inside the write transaction after
-    its rows are flushed: on SQLite the flush holds the database-wide writer lock, and activation
-    reserves that lock before its compatibility check, so the two cannot interleave. On a dialect
-    with row locks the shared lock on the runtime-state row conflicts with activation's update.
+    its rows are flushed, under a share lock on the runtime-state row, which conflicts with the
+    lock activation holds from before its compatibility check until it commits.
     """
     release_db_id = session.info.get(_RESOLVED_ACTIVE_RELEASE)
     if release_db_id is None:

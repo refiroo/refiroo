@@ -229,6 +229,96 @@ SQLite files (the browser runners' seed and the full-size measurement move to th
 **Exit:** `ruff`, and all groups except `volume`, green on PostgreSQL. H2 and H3 of the test harness
 can then follow.
 
+**Delivered 2026-10-01.**
+
+- **Current-live capture** (the 79 `records` failures of PG1). The capture reads at REPEATABLE READ
+  through `begin_snapshot_read` and takes share locks on the workspace and runtime-state rows, so a
+  retirement or an activation cannot commit while it runs; a row changed after the snapshot began
+  (SQLSTATE 40001) answers the documented `409 change_set_snapshot_retry` and saves nothing.
+  `change_set_snapshot_unsupported` is gone.
+- **Row locks (PG-D6).** Activation keeps its `FOR UPDATE` on the runtime-state row and loses the
+  SQLite `BEGIN IMMEDIATE` branch; workspace deletion already locked its rows. Both now wait for a
+  lock instead of failing on a busy database, so `model_activation_retry`, `ActivationBusy` and
+  `workspace_delete_retry` are removed (API.md). `db.begin_transaction` and
+  `SQLITE_LOCK_WAIT_SECONDS` are removed; a job chunk's savepoint needs no explicit `BEGIN`. The
+  cascade deletion's table lock is now unconditional (it was the PostgreSQL branch).
+- **Search (PG-D7).** `pg_trgm` GIN indexes on `attribute_values.text_value` and
+  `snapshot_attribute_values.text_value`, declared in the ORM and created by revision `20261001_02`
+  (the first revision after the baseline). The guard keeps its shape: the index's `ILIKE` matches,
+  counted up to 10,001, narrow which records' values are read; the `LIKE` still decides. Case
+  folding is now Unicode's (ICU), so `ünal` finds `Ünal`, which SQLite's ASCII folding did not.
+- **Matrix forms.** The long row list is one array parameter (`= ANY`) and the `INDEXED BY` hint is
+  gone. The three downward walks over a change set (`descendants`, `matrix_down`, `matrix_below`)
+  join one selectable of the context's rows in one recursive term (`CellScope.object_rows`).
+  **The build's cost** was not the correlated look-ups: the cell records were joined back to the walk
+  of their distinct records, a join of two CTEs PostgreSQL estimated at one row each and planned as a
+  nested loop, re-running a look-up per pair (2.3 million at 0.005). `cell_columns` now carries each
+  record's columns up the walk, so the states (`cell_states`), the page's cells and the history cells
+  group the walk's ends with nothing joined back.
+- **Upsert, partial index, JSON key.** `claim_set_version` uses PostgreSQL's insert only;
+  `sqlite_where` is gone; the compatibility check's "relation holds this attribute" is `->` (the
+  PostgreSQL branch used `?`, which `json` does not have, and no test had run it).
+- **Collation (PG-D11).** `expansion_rows` orders its union in SQL; the restructuring planner ranks
+  names through the database (`db.name_ranks`). Tests compare name orders with
+  `postgres_server.collated`, which sorts as the server does.
+- **Foreign keys (PG-D4).** Every rule was checked against the service that deletes the referenced
+  row; none needed a change, since the services already delete dependants and detach parents
+  themselves. `test_foreign_keys` pins the 40 rules in the ORM and in a migrated database. One
+  behaviour followed from enforcement: a create that resolved a workspace deleted before its insert
+  now fails the foreign key, which `LiveWrites.add_object` answers as the documented
+  `404 workspace_not_found` (`test_w6_workspace_deletion`); PG3's workspace lock will make the two
+  serialize instead.
+- **No dialect in `app/`.** `test_boundaries` refuses an identifier, keyword or import naming SQLite,
+  a `.dialect` read, and `BEGIN IMMEDIATE`, `PRAGMA`, `INDEXED BY`, `json_each`, `json_type` or
+  `fts5` in a string. SQLite remains in prose only: the planner rationale in comments, which PG5
+  reviews with the budgets.
+- **Tests on PostgreSQL only.** The three modules that ran on in-memory SQLite (`test_model_lifecycle`,
+  `test_model_compatibility`, `test_change_sets`) use `seeds.schema_session()`, a clone of the
+  `schema` seed, with real release rows where they had invented `model_release_id=1`. Two that
+  started on a SQLite file use `migrated_database`. The `PRAGMA` modules lost their pragmas. The
+  SQLite writer-lock tests became PostgreSQL ones: a capture reads one snapshot while another
+  connection commits, holds off an activation and a retirement (lock timeout), and a capture that
+  waits for a committing activation answers the retry; a change list page keeps its snapshot while a
+  rename commits. A test that fabricates a pin to a missing release turns foreign keys off for its
+  own transaction (`postgres_server.without_foreign_keys`). A pre-existing failure from B1 is fixed:
+  `test_model_admin_capabilities_and_routes_are_disabled_by_default` compared the whole capabilities
+  document, which gained `integrationJobs`.
+- **Browser runners** (H1's PG2 part). `tests/browser_seeds.py` clones a seed on the development
+  server and prints its URL and payload; `e2e/helpers/database.mjs` calls it and drops the clone at
+  the end. Seeds: `schema`, `starter-<model hash>` (the harness's records, created through the API
+  when the seed is built) and the volume seeds; `volume_seed.py` prints the clone's URL with the
+  dataset. All 19 runners on the harness and the five that start their own backend use it. A clone
+  an interrupted runner left is dropped by a later clone after six hours. `volume_baseline.py`
+  measures on a clone of the volume seed on the test server.
+- **Dropped (user's decision, 2026-10-01):** the heavy modules' common records as seeds.
+  `test_type_changes` and `test_rule_parity` share no records: each case creates its own through the
+  API as part of the write it checks (30 s for their 21 tests on PostgreSQL).
+
+**Found in PG2, for later packages:** the cascade deletion locks three whole tables, which PG3's
+workspace lock should replace; publishing locks the workspace row, but plain live writes take no
+workspace lock until PG3, so a live write can still commit beside a publish (PG-D5, as planned);
+time budgets and comments still describe SQLite plans (PG5).
+
+**Measurement** (2026-10-01, this machine, the 0.01 volume seed): the 141 `run_scenarios` reads,
+five timed runs, median 7.7 ms and total 1.72 s (PG1 7.9 ms and 2.95 s; SQLite 5.0 ms and 1.15 s);
+the 21 relation matrix reads' median 113 → 37 ms. Matrix state build in seeding: 0.005 14.3 → 0.3 s,
+0.02 1.0 s (the seed took 262 s in PG1), 0.1 7.2 s. Browser seeds on the development server:
+`starter` built in 2.2 s and cloned in 0.5 s; volume 0.02 in 5 s and 0.1 in 22 s, once.
+
+**Checks:** `-m "not volume"` 970 passed in 6 min 32 s (all groups but `volume`, before the matrix
+walk changes); after them, `-m "matrix and not volume"` 69 passed and
+`-m "(records or change_sets) and not volume and not matrix"` 452 passed in 4 min; `-m contract` 53 passed
+(with `test_paging_contract`, its volume seed rebuilt in 2.2 s). `test_startup` includes a database at
+the baseline upgraded to `20261001_02` and started twice, and that revision interrupted, refused with
+the database left at the baseline, and recovered. Smoke start on a copy of the development database
+`rdm` (at `20261001_01`): `python -m app.cli.database_upgrade` to `20261001_02`, uvicorn with
+`/health` ok, `/api/v1/model` 200, a current-live change set 201 and a search 200; the copy dropped.
+Browser runners against the development server: `test:browser:v1`, `test:browser` (wp9-navigation),
+`test:browser:wp11` and `test:browser:s6` (volume 10 %) passed, leaving only seeds behind;
+`npm run test:gate-helpers` 5 passed. `ruff check app/ tests/`. Not run: the `volume` group (PG5
+restates its budgets), the other browser runners (PG5's acceptance), the frontend suites (no `src/`
+change).
+
 ### PG3: Concurrency
 
 **Scope:** the per-workspace write lock in `LiveWrites` (PG-D5), with the lock order written into

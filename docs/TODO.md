@@ -13,7 +13,7 @@ filler, checkpoint T1 after F2). C1, Q4 and V1 are delivered (2026-09-30), and B
 2026-10-01 (B2 before F1, by instruction). Next is the interim release
 [0.9.0-alpha.1, PostgreSQL runtime](POSTGRESQL_RUNTIME_PLAN.md) (PG1–PG5, PostgreSQL only, decisions
 accepted 2026-10-01) with the [test harness](TEST_HARNESS_PLAN.md) (H1 inside PG1, H2–H3 after PG2),
-then F1. PG1 is delivered (2026-10-01); next is PG2. See [Next — 0.9](#next--09).
+then F1. PG1 and PG2 are delivered (2026-10-01); next is H2. See [Next — 0.9](#next--09).
 
 ## Open decisions
 
@@ -43,12 +43,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 
 ## Next — 0.9
 
-- [ ] Superseded by 0.9.0-alpha.1 (PG-D4: PostgreSQL enforces foreign keys and PG2 checks every
-  `ondelete` rule against what its service expects): enforce foreign keys on SQLite (`PRAGMA foreign_keys=ON` per
-  connection) or document that every `ondelete` rule is advisory there. 0.8 W6 found none of them, not only the `workspaces.key` ones, are
-  enforced at runtime; services delete dependants explicitly and W6 rechecks the workspace at commit.
-  Enabling it needs a data check for existing violations and must keep the table-rebuild migrations,
-  which require it off, working.
+- [x] Foreign keys enforced and every `ondelete` rule checked against its service: delivered by
+  0.9.0-alpha.1 PG2 (2026-10-01, PG-D4; `test_foreign_keys`), superseding the SQLite item from 0.8 W6.
 - [ ] 0.9 planning ([plan](BASE_0_9_IMPLEMENTATION_PLAN.md), [integration design](INTEGRATION_API.md)): document
   set accepted 2026-09-28; decisions D1–D16 and CONSUMER_API C-D1–C-D16 accepted 2026-09-29;
   INTEGRATION_API sections P, B, F, Q and J, the schema 0.8 section and ADR-036–038 drafted
@@ -113,14 +109,17 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   `db.begin_snapshot_read` and `db.begin_transaction` (SQLite's driver begins no transaction before a
   `SAVEPOINT`; a job chunk uses the latter), and budgets measured only on SQLite (D13 included).
   PG1 (2026-10-01) removed the SQLite migrations, settings default and engine branch, and made
-  `begin_snapshot_read` PostgreSQL's; the rest, and what PG1 found (POSTGRESQL_RUNTIME_PLAN PG2), stay.
+  `begin_snapshot_read` PostgreSQL's. PG2 (2026-10-01) removed every dialect branch, the `json_each`
+  row list, the recursive arms, `SQLITE_LOCK_WAIT_SECONDS`, `db.begin_transaction` and the FTS5 search
+  (`test_boundaries` holds it); the explicit dependant deletes stay, since the services order them for
+  audit and matrix states. Left for PG5: budgets measured on SQLite and the planner comments.
 - [ ] Unique-value checks over non-text values (integer, decimal, date, dateTime, boolean) still read
   every value of the attribute, live and in a change set: the value indexes cover `text_value` only
   (0.9 B2 added the live one). Add them with 0.11's model-derived indexes.
 - [ ] PostgreSQL at production scale and across nodes (0.11): the volume fixture at full scale, pool
-  sizing, several processes and nodes. The trigram search index, the relation matrix's PostgreSQL
-  forms (0.8 A2, A3b) and single-node multi-writer uniqueness move to
-  [0.9.0-alpha.1](POSTGRESQL_RUNTIME_PLAN.md) (PG2, PG3).
+  sizing, several processes and nodes. The trigram search index and the relation matrix's PostgreSQL
+  forms (0.8 A2, A3b) were delivered by 0.9.0-alpha.1 PG2 (2026-10-01); single-node multi-writer
+  uniqueness moves to [PG3](POSTGRESQL_RUNTIME_PLAN.md).
 - [ ] Assess the cost of matrix state maintenance per commit (found by the test harness assessment,
   2026-10-01): a commit recomputes the touched matrix cells, about 7 ms in the parity and
   type-change test models, and a single create cost 19 ms through the API. Measure it on the volume

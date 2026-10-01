@@ -10,10 +10,10 @@
 // A5_VOLUME_SCALE=1 for full volume) and repeats a fill through the container picker. Every write is
 // checked against the API in its context; the matrix reads the browser made are reported with their
 // times. The state inventory is docs/testing/UI_ACCEPTANCE.md.
-import { execFileSync } from "node:child_process";
 import { writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { bootHarness } from "./helpers/harness.mjs";
+import { cloneDatabase } from "./helpers/database.mjs";
 import { formatViolations, runAxe } from "./helpers/axe-helper.mjs";
 import { openTranslationMatrix, seedTranslationMatrix } from "./helpers/acceptance-data.mjs";
 
@@ -337,15 +337,10 @@ try {
     modelAdmin: false,
     workspaceAdmin: false,
     prepare: async (output) => {
-      const databasePath = resolve(output, "volume.db");
       const modelPath = resolve(output, "volume-model.json");
-      const printed = execFileSync(
-        resolve(root, "backend/.venv/bin/python"),
-        ["tests/volume_seed.py", "--scale", scale, "--database", databasePath, "--model", modelPath],
-        { cwd: resolve(root, "backend"), stdio: ["ignore", "pipe", "ignore"] },
-      );
-      dataset = JSON.parse(printed.toString().trim().split("\n").at(-1));
-      return { databasePath, modelPath };
+      const database = cloneDatabase("volume", { model: modelPath, scale: scale });
+      dataset = database.payload;
+      return { modelPath, database };
     },
   });
   evidence.push(harness.output);

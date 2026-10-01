@@ -332,8 +332,11 @@ def expansion_rows(
         _expansion_arm(context, workspace_key, anchor_id, direction, relation_type_key, limit)
         for anchor_id in dict.fromkeys(anchor_ids)
     ]
-    rows = session.execute(union_all(*arms) if len(arms) > 1 else arms[0])
-    ordered = sorted(rows, key=lambda row: (row.anchor_id, row.related_name, row.tiebreak))
+    # Ordered by the database, so names follow its collation as the list's own order does.
+    rows = (union_all(*arms) if len(arms) > 1 else arms[0]).subquery("expansion_rows")
+    ordered = session.execute(
+        select(rows).order_by(rows.c.anchor_id, rows.c.related_name, rows.c.tiebreak)
+    )
     return [
         ExpansionRow(
             anchor_id=row.anchor_id,
@@ -412,7 +415,7 @@ def _expansion_arm(
             total.label("total"),
             maintain_column_froms=True,
         ).order_by(name, relations.c.relation_id)
-    # SQLite takes an arm's own ORDER BY and LIMIT only inside a subquery.
+    # A compound's arm keeps its own ORDER BY and LIMIT inside a subquery.
     limited = page.limit(limit).subquery()
     return select(limited)
 

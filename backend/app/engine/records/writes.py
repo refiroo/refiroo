@@ -19,6 +19,7 @@ from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import delete, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...errors import api_error
@@ -58,7 +59,7 @@ class LiveWrites:
     def claim_active_workspace(self) -> bool:
         """Mark the workspace written while it is active; ``False`` when it is not.
 
-        On SQLite the statement takes the writer lock, and retirement waits for this transaction.
+        The update locks the workspace row, so retirement waits for this transaction.
         """
         result = self.session.execute(
             update(Workspace)
@@ -92,7 +93,19 @@ class LiveWrites:
         if version is not None:
             item.version = version
         self.session.add(item)
-        self.session.flush()
+        try:
+            self.session.flush()
+        except IntegrityError as exc:
+            # The workspace was deleted after this write resolved it (0.8 W6): the foreign key
+            # refuses the record, and the write saves nothing.
+            if getattr(exc.orig.diag, "constraint_name", None) == "objects_workspace_key_fkey":
+                raise api_error(
+                    404,
+                    "workspace_not_found",
+                    f"Workspace '{self.workspace_key}' was deleted while this request was "
+                    "processed; nothing was saved",
+                ) from exc
+            raise
         return item
 
     def claim_object(self, item: RdmObject, expected_version: int) -> None:
@@ -365,7 +378,8 @@ class ChangeSetWrites:
         change_set = self.change_set
         if change_set.version != expected:
             raise api_error(409, conflict_code, conflict_message)
-        # SQLite ignores FOR UPDATE; claim the aggregate in SQL before flushing candidate writes.
+        # The conditional update is the claim and the version bump in one statement, before any
+        # candidate write is flushed.
         with self.session.no_autoflush:
             result = self.session.execute(
                 update(ChangeSet)

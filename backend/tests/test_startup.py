@@ -4,7 +4,8 @@ A clean database is checked, migrated to the baseline and bootstrapped, and star
 Every refusal (no or a non-PostgreSQL ``DATABASE_URL``, another collation, an unknown revision, a
 missing ``pg_trgm``) leaves the service in maintenance mode (``/health`` 503) and logs one message
 saying what failed and what to do, never a traceback. A migration that fails part-way rolls back
-completely, and the next start after the cause is removed succeeds.
+completely, and the next start after the cause is removed succeeds. PG2's revision (the trigram
+search indexes) upgrades a database at the baseline, and its interrupted run rolls back to it.
 """
 
 from collections.abc import Iterator
@@ -13,17 +14,19 @@ from unittest.mock import patch as mock_patch
 
 import pytest
 import seeds
+from alembic import command
 from fastapi.testclient import TestClient
 from sqlalchemy import URL, create_engine, inspect, text
 
 import app.main as main_module
 from app.cli import database_upgrade
 from app.config import reload_settings
-from app.db import DatabaseStartupError, get_engine
+from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261001_01"
+HEAD = "20261001_02"
+BASELINE = "20261001_01"
 LIMITED_ROLE = "rdm_startup_limited"
 
 
@@ -192,6 +195,72 @@ def test_a_failed_migration_rolls_back_and_the_next_start_recovers(monkeypatch, 
     assert set(inspect(engine).get_table_names()) == {"relation_set_versions"}
     with engine.begin() as connection:
         connection.execute(text("DROP TABLE relation_set_versions"))
+    engine.dispose()
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        assert client.get("/health").json() == {"status": "ok"}
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+
+
+def _search_indexes(url: URL) -> set[str]:
+    engine = create_engine(url)
+    try:
+        return {
+            index["name"]
+            for table in ("attribute_values", "snapshot_attribute_values")
+            for index in inspect(engine).get_indexes(table)
+            if index["name"].endswith("_text_search")
+        }
+    finally:
+        engine.dispose()
+
+
+def test_a_baseline_database_upgrades_to_the_trigram_search_indexes(monkeypatch, databases):
+    """PG2's revision on a database at the baseline: started once, upgraded, and started again."""
+    url = seeds.create_empty()
+    databases.append(url)
+    command.upgrade(migration_config(url), BASELINE)
+    assert _search_indexes(url) == set()
+    for _start in range(2):
+        with serve(monkeypatch, _render(url)) as (client, errors):
+            assert errors == []
+            assert client.get("/health").json() == {"status": "ok"}
+        assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+        assert _search_indexes(url) == {
+            "ix_attribute_values_text_search",
+            "ix_snapshot_attribute_values_text_search",
+        }
+
+
+def test_an_interrupted_search_index_revision_rolls_back_and_the_next_start_recovers(
+    monkeypatch, databases
+):
+    url = seeds.create_empty()
+    databases.append(url)
+    command.upgrade(migration_config(url), BASELINE)
+    # The second index's name already taken: the revision fails after creating the first.
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE INDEX ix_snapshot_attribute_values_text_search "
+                "ON snapshot_attribute_values (owner_id)"
+            )
+        )
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {BASELINE}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "ix_snapshot_attribute_values_text_search" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == BASELINE
+    assert _search_indexes(url) == {"ix_snapshot_attribute_values_text_search"}
+    with engine.begin() as connection:
+        connection.execute(text("DROP INDEX ix_snapshot_attribute_values_text_search"))
     engine.dispose()
     with serve(monkeypatch, _render(url)) as (client, errors):
         assert errors == []

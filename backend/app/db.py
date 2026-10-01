@@ -9,6 +9,7 @@ database at its previous revision.
 """
 
 import logging
+from collections.abc import Iterable
 from functools import cache
 from pathlib import Path
 
@@ -129,21 +130,22 @@ def begin_snapshot_read(session: Session) -> None:
     session.connection().exec_driver_sql("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ")
 
 
-def begin_transaction(session: Session) -> None:
-    """Open the session's transaction before its first savepoint.
+def name_ranks(session: Session, names: Iterable[str]) -> dict[str, int]:
+    """Each name's position in the database's order of names (ICU root collation, PG-D11), for
+    Python code that orders records the way a read ordered by name does."""
+    distinct = sorted(set(names))
+    if not distinct:
+        return {}
+    rows = session.execute(
+        text("SELECT name FROM unnest(CAST(:names AS text[])) AS name ORDER BY name"),
+        {"names": distinct},
+    )
+    return {name: rank for rank, (name,) in enumerate(rows)}
 
-    PostgreSQL begins at the first statement. SQLite's legacy transaction mode begins only before
-    a write, so a SAVEPOINT issued first starts a transaction of its own, which releasing the
-    savepoint commits. A transaction whose first write is inside a savepoint (a job's chunk) opens
-    here, so it commits or rolls back as one; on SQLite as a writer at once, since a transaction
-    that reads first and writes later is refused when another connection writes meanwhile.
-    """
-    connection = session.connection()
-    if (
-        connection.dialect.name == "sqlite"
-        and not connection.connection.driver_connection.in_transaction
-    ):
-        connection.exec_driver_sql("BEGIN IMMEDIATE")
+
+def is_serialization_failure(exc: DBAPIError) -> bool:
+    """A REPEATABLE READ transaction met a row changed after its snapshot (SQLSTATE 40001)."""
+    return getattr(exc.orig, "sqlstate", None) == "40001"
 
 
 def migration_config(url: URL | None = None) -> Config:

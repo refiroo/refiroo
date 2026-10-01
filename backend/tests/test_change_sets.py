@@ -1,11 +1,10 @@
 from uuid import uuid4
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import Session
+import seeds
+from test_model_compatibility import add_release
 
 from app.engine.change_sets.access import effective_change_set_membership
 from app.models.database import (
-    Base,
     ChangeSet,
     ChangeSetObject,
     ChangeSetRelation,
@@ -17,26 +16,26 @@ from app.models.database import (
 
 
 def test_change_set_membership_is_copy_on_write_with_tombstones():
-    engine = create_engine("sqlite://")
-    Base.metadata.create_all(engine)
     publication_id = str(uuid4())
     change_set_id = str(uuid4())
-    with Session(engine) as session:
-        session.add(Workspace(key="default", label="Default", active_publication_id=publication_id))
+    with seeds.schema_session() as session:
+        release_id = add_release(session).id
         session.add(
             Publication(
                 id=publication_id,
                 workspace_key="default",
-                model_release_id=1,
+                model_release_id=release_id,
                 publication_number=1,
                 status="active",
             )
         )
+        session.flush()
+        session.get(Workspace, "default").active_publication_id = publication_id
         session.add(
             ChangeSet(
                 id=change_set_id,
                 workspace_key="default",
-                model_release_id=1,
+                model_release_id=release_id,
                 derived_from_publication_id=publication_id,
                 version=1,
             )
@@ -112,4 +111,3 @@ def test_change_set_membership_is_copy_on_write_with_tombstones():
             ("new-object", "New"),
         ]
         assert effective.relations == ()
-    engine.dispose()

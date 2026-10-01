@@ -21,13 +21,7 @@ from ...common.pagination import (
 from ...errors import api_error
 from ...models.database import AttributeValue, RdmObject
 from ...models.schema import EngineModel, ObjectTypeDefinition
-from ...models.search_index import (
-    LIVE_VALUES,
-    MIN_INDEXED_LENGTH,
-    SearchIndex,
-    SqliteOnly,
-    match_phrase,
-)
+from ...models.search_index import LIVE_VALUES, MIN_INDEXED_LENGTH, SearchIndex
 from ..model.traversal import ancestor_type_keys
 from ..model.validation.fields import ANCESTOR_FIELD_PREFIX
 from ..records.rules import get_object_type, validate_application_object_type
@@ -108,29 +102,26 @@ INDEXED_VALUE_LIMIT = 10_000
 
 
 def indexed_value_match(
-    index: SearchIndex, phrase: str, candidates: Callable[[Select[Any]], Any]
+    index: SearchIndex, pattern: str, candidates: Callable[[Select[Any]], Any]
 ) -> Any:
     """Restrict a value look-up to ``candidates`` of the index's matches, while they are few.
 
     ``candidates`` turns the matching value rows' sequence IDs into a predicate on the listed
-    record. The count is bounded and uncorrelated, so SQLite evaluates it once per statement and
-    reads at most ``INDEXED_VALUE_LIMIT + 1`` matches for it; with more, every record is looked up.
-    It comes first in an ``OR`` rather than a ``CASE``, which SQLite evaluated more slowly. On a
-    dialect without the index the guard compiles to ``true`` (:class:`SqliteOnly`).
+    record. The count is bounded and uncorrelated, so it is evaluated once per statement and
+    reads at most ``INDEXED_VALUE_LIMIT + 1`` matches; with more, every record is looked up.
     """
-    fts = index.fts
-    matches = select(fts.c.rowid).where(fts.c[index.column].match(phrase))
+    matches = index.matches(pattern)
     many = (
         select(func.count())
         .select_from(matches.limit(INDEXED_VALUE_LIMIT + 1).subquery())
         .scalar_subquery()
         > INDEXED_VALUE_LIMIT
     )
-    return SqliteOnly(or_(many, candidates(matches)))
+    return or_(many, candidates(matches))
 
 
-def _live_value_candidates(phrase: str, attributes: list[str]) -> Any:
-    """Live records with a value of ``attributes`` that the trigram index matches ``phrase`` in.
+def _live_value_candidates(pattern: str, attributes: list[str]) -> Any:
+    """Live records with a value of ``attributes`` that the trigram index matches ``pattern`` in.
 
     Compared by sequence ID, which the (type, name) index a search walks already holds, so a
     record whose name does not match is checked without reading its table row.
@@ -143,7 +134,7 @@ def _live_value_candidates(phrase: str, attributes: list[str]) -> Any:
         )
         return RdmObject.sequence_id.in_(select(record.sequence_id).where(record.id.in_(matched)))
 
-    return indexed_value_match(LIVE_VALUES, phrase, candidates)
+    return indexed_value_match(LIVE_VALUES, pattern, candidates)
 
 
 LIVE_OBJECT_COLUMNS = ObjectColumns(
@@ -320,7 +311,7 @@ def _search_predicate(
     )
     indexable = searchable_attributes and len(search) >= MIN_INDEXED_LENGTH
     if columns.search_values is not None and indexable:
-        indexed = columns.search_values(match_phrase(search), searchable_attributes)
+        indexed = columns.search_values(f"%{escaped}%", searchable_attributes)
         attribute_match = and_(indexed, attribute_match)
     if search_fields is not None and "name" not in search_fields:
         return attribute_match

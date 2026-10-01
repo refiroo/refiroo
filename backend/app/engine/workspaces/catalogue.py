@@ -4,7 +4,7 @@ from datetime import UTC, datetime
 from typing import Literal
 
 from sqlalchemy import Select, delete, event, func, or_, select, update
-from sqlalchemy.exc import IntegrityError, OperationalError
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...errors import ApiError, api_error
@@ -75,9 +75,8 @@ def _require_resolved_workspaces(session: Session) -> None:
     """Refuse to commit a write into a workspace deleted or retired since it was resolved (0.8 W6).
 
     A write resolves its workspace before it writes, so a deletion or retirement could otherwise
-    commit in between and leave rows under a missing or retired key; SQLite foreign keys are not
-    enforced at runtime. The reread runs after the flush, inside the write transaction, so on SQLite
-    it holds the writer lock that deletion also takes before its checks.
+    commit in between and leave rows under a retired key, or end in a foreign key failure on a
+    deleted one. The reread runs after the flush, inside the write transaction.
     """
     keys = session.info.get(_RESOLVED_ACTIVE_WORKSPACES)
     if not keys:
@@ -239,27 +238,17 @@ def delete_blocker(
 def delete_workspace(session: Session, key: str, expected_version: int) -> None:
     """Delete a workspace nothing refers to, so a mistyped key can be corrected (ADR-019, D27).
 
-    The checks and the delete run in one transaction under SQLite's database-wide writer
-    reservation (row locks elsewhere), so no object, change set or publication can be added between
-    them; a live write that resolved the workspace earlier rechecks it before it commits
-    (``_require_resolved_workspaces``). Foreign keys are not enforced on SQLite, so the cascading
-    relation-set versions are removed explicitly.
+    The checks and the delete run in one transaction holding the runtime-state and workspace rows
+    for update. A row naming the workspace takes a key share lock on the workspace row through its
+    foreign key, so a write adding one either commits first, and the checks see it, or waits and
+    then fails its foreign key; a live write that resolved the workspace earlier rechecks it before
+    it commits (``_require_resolved_workspaces``). Relation-set versions cascade with the
+    workspace; they are deleted here first, as are its matrix states, which have no foreign key.
     """
-    if session.bind is not None and session.bind.dialect.name == "sqlite":
-        session.rollback()
-        try:
-            session.connection().exec_driver_sql("BEGIN IMMEDIATE")
-        except OperationalError as exc:
-            session.rollback()
-            raise api_error(
-                409,
-                "workspace_delete_retry",
-                "Other changes are being saved; retry deleting the workspace after they finish",
-            ) from exc
     try:
         _require_deletable(session, key, expected_version)
     except ApiError:
-        session.rollback()  # Release the writer reservation; a refusal changes nothing.
+        session.rollback()  # Release the row locks; a refusal changes nothing.
         raise
     session.execute(delete(RelationSetVersion).where(RelationSetVersion.workspace_key == key))
     matrix_states.drop_workspace(session, key)

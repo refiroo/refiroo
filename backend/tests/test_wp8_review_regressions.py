@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import event, func, select
+from sqlalchemy import func, select
 from wp8_support import create_change_set, create_workspace, publish_change_set, unique_key
 
 from app.config import reload_settings
@@ -68,17 +68,10 @@ def review_client(tmp_path, monkeypatch, migrated_database, request):
             patch.setenv("RDM_MODEL_PATH", str(path))
             model_registry.clear()
             with TestClient(create_app()) as client:
-                engine = get_engine()
-
-                def foreign_keys(connection, _record, _proxy):
-                    connection.execute("PRAGMA foreign_keys=ON")
-
-                event.listen(engine, "checkout", foreign_keys)
                 try:
                     yield client
                 finally:
-                    event.remove(engine, "checkout", foreign_keys)
-                    engine.dispose()
+                    get_engine().dispose()
     finally:
         model_registry.clear()
         reload_settings()

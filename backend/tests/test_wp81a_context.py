@@ -3,6 +3,7 @@
 from uuid import uuid4
 
 from fastapi.testclient import TestClient
+from postgres_server import without_foreign_keys
 from sqlalchemy import select
 from wp8_support import create_change_set, create_workspace, unique_key
 
@@ -519,6 +520,7 @@ def test_pinned_model_unavailable_and_invalid_are_structured_without_fallback():
             )
             session.add(unavailable)
             session.flush()
+            without_foreign_keys(session)  # A pin to a release that no longer exists.
             unavailable.model_release_id = 999999999
             invalid_release = ModelRelease(
                 release_key=f"invalid-pin-{uuid4().hex}",
@@ -644,6 +646,7 @@ def test_live_relation_detail_honors_explicit_workspace_key():
                     name="Self relation target",
                 )
             )
+            session.flush()  # The records before the relations naming them.
             self_relation = ObjectRelation(
                 relation_type_key="master-value-has-child",
                 from_object_id=self_id,

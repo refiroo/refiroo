@@ -233,3 +233,40 @@ def test_tiers_hold():
 def test_allowlist_only_shrinks():
     stale = sorted(ALLOWLIST - _violations())
     assert not stale, "Remove these entries from ALLOWLIST, they no longer occur:\n" + "\n".join(stale)
+
+
+# SQL that only another database understands (0.9.0-alpha.1 PG2, PG-D2).
+_OTHER_DIALECT_SQL = ("BEGIN IMMEDIATE", "PRAGMA", "INDEXED BY", "json_each", "json_type", "fts5")
+
+
+def _dialect_terms() -> set[str]:
+    """Code in ``app/`` that names a database dialect or branches on one: an identifier, attribute,
+    keyword or import naming SQLite, a ``dialect`` attribute read, or SQL of another database.
+    Prose (comments, docstrings, an operator message refusing a SQLite URL) is not code."""
+    found = set()
+    for module, path in _modules().items():
+        for node in ast.walk(ast.parse(path.read_text(), str(path))):
+            names: list[str] = []
+            if isinstance(node, ast.Name):
+                names.append(node.id)
+            elif isinstance(node, ast.Attribute):
+                names.append(node.attr)
+                if node.attr == "dialect":
+                    found.add(f"{module}:{node.lineno} reads .dialect")
+            elif isinstance(node, ast.keyword) and node.arg:
+                names.append(node.arg)
+            elif isinstance(node, ast.ImportFrom) and node.module:
+                names.append(node.module)
+            elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                for term in _OTHER_DIALECT_SQL:
+                    if term in node.value:
+                        found.add(f"{module}:{node.lineno} SQL {term!r}")
+            for name in names:
+                if "sqlite" in name.lower():
+                    found.add(f"{module}:{node.lineno} names {name}")
+    return found
+
+
+def test_no_dialect_branch_or_other_database_sql_remains():
+    found = sorted(_dialect_terms())
+    assert not found, "PostgreSQL is the only database:\n" + "\n".join(found)

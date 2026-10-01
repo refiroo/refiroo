@@ -286,16 +286,15 @@ def apply_object_delete(
         raise
     resolve_workspace(session, root.workspace_key, require_active=True)
     writes = LiveWrites(session, root.workspace_key)
-    # This conditional write is the workspace mutation claim. It gives SQLite the same serialized
-    # active-status decision that a row lock provides on PostgreSQL, and makes retirement wait until
-    # this deletion transaction commits or rolls back.
+    # This conditional write is the workspace mutation claim: it locks the workspace row, so the
+    # active-status decision holds and retirement waits until this deletion commits or rolls back.
     if not writes.claim_active_workspace():
         raise api_error(
             409,
             "workspace_retired",
             f"Workspace '{root.workspace_key}' is retired and cannot be modified",
         )
-    if cascade and session.bind is not None and session.bind.dialect.name == "postgresql":
+    if cascade:
         # Wait for earlier graph writes, then prevent new object/attribute/relation writes while the
         # confirmed impact is re-read, compared and deleted in this transaction.
         session.execute(

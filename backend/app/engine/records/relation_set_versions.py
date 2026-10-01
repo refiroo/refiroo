@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 from typing import Literal
 
 from sqlalchemy import delete, select, update
+from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from ...errors import api_error
@@ -210,12 +211,8 @@ def increment_single_set_version(
 
 def claim_set_version(session: Session, *, expected: int, **binding: object) -> bool:
     """Conditionally advance an exact set, including its initially absent version-zero row."""
-    from sqlalchemy.dialects.postgresql import insert as pg_insert
-    from sqlalchemy.dialects.sqlite import insert as sqlite_insert
-
     clauses = [getattr(RelationSetVersion, key) == value for key, value in binding.items()]
     if expected == 0:
-        insert = sqlite_insert if session.get_bind().dialect.name == "sqlite" else pg_insert
         session.execute(
             insert(RelationSetVersion).values(**binding, version=0).on_conflict_do_nothing()
         )

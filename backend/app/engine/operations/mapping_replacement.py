@@ -74,7 +74,7 @@ def replace_mapping(
     session: Session, workspace_key: str, request: MappingReplacementRequest
 ) -> MappingReplaced:
     """Replace one source's targets of a mapping binding, live or in the named change set."""
-    # Claim active status before reading the graph. SQLite acquires its write lock here;
+    # Claim active status before reading the graph. The update locks the workspace row, so
     # retirement cannot invalidate the active-status decision during this transaction.
     result = session.execute(
         update(Workspace)

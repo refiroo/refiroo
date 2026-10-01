@@ -250,6 +250,22 @@ class CellScope:
             )
         return arms
 
+    def object_rows(self, columns: Sequence[str], name: str) -> Any:
+        """The context's effective object rows as one selectable: ``id``, ``owner`` and
+        ``columns``. A walk joins it in its one recursive term, which PostgreSQL requires; its
+        join on ``parent_object_id`` reaches each arm's (owner, parent) index."""
+        parts = []
+        for arm in self.object_arms():
+            row = aliased(arm.entity)
+            parts.append(
+                select(
+                    getattr(row, arm.id).label("id"),
+                    (arm.owner if arm.owner is not None else literal(None, String)).label("owner"),
+                    *(getattr(row, column).label(column) for column in columns),
+                ).where(*arm.where(row))
+            )
+        return (union_all(*parts) if len(parts) > 1 else parts[0]).subquery(name)
+
     def lookup(self, object_id: Any, name: str) -> Any:
         """One column of the context's record ``object_id`` (an expression), as a keyed lookup."""
         if self.context is not None:
@@ -399,27 +415,32 @@ def cell_records(
 
 
 def cell_columns(scope: CellScope, cells: CTE) -> Any:
-    """Each cell record's column: one depth-bounded walk up to its nearest column-type ancestor."""
+    """Each cell record (a row of ``cells``, one per relation) with its column, ``column_id``.
+
+    One depth-bounded walk up from each record to its nearest column-type ancestor carries the
+    record's columns, so nothing joins the records back to the walk afterwards: a join of two
+    unindexed CTEs, planned as a nested loop, was quadratic in the records.
+    """
     column_type = scope.shape.column_type
+    carried = [cells.c[column.name] for column in cells.c]
     walk = (
-        select(
-            cells.c.cell_id,
-            cells.c.parent_object_id.label("node"),
-            literal(1).label("depth"),
-        )
+        select(*carried, cells.c.parent_object_id.label("node"), literal(1).label("depth"))
         .where(cells.c.parent_object_id.is_not(None))
-        .distinct()
         .cte("matrix_walk", recursive=True)
     )
     walk = walk.union_all(
-        select(walk.c.cell_id, scope.lookup(walk.c.node, "parent_object_id"), walk.c.depth + 1).where(
+        select(
+            *(walk.c[column.name] for column in cells.c),
+            scope.lookup(walk.c.node, "parent_object_id"),
+            walk.c.depth + 1,
+        ).where(
             walk.c.node.is_not(None),
             scope.lookup(walk.c.node, "object_type_key") != column_type,
             walk.c.depth < MAX_DEPTH,
         )
     )
     return (
-        select(walk.c.cell_id, walk.c.node.label("column_id"))
+        select(*(walk.c[column.name] for column in cells.c), walk.c.node.label("column_id"))
         .where(scope.lookup(walk.c.node, "object_type_key") == column_type)
         .subquery("matrix_columns")
     )
@@ -428,19 +449,13 @@ def cell_columns(scope: CellScope, cells: CTE) -> Any:
 def cell_states(scope: CellScope, row_ids: Sequence[str] | None) -> Select[Any]:
     """(row, column, record count, matching count) for every non-empty cell of the rows, or of
     every row of the row type when ``row_ids`` is ``None``."""
-    cells = cell_records(scope, row_ids, rows_of_type=True)
-    columns = cell_columns(scope, cells)
-    return (
-        select(
-            cells.c.row_id,
-            columns.c.column_id,
-            func.count().label("record_count"),
-            func.sum(cells.c.meets).label("matching_count"),
-        )
-        .select_from(cells)
-        .join(columns, columns.c.cell_id == cells.c.cell_id)
-        .group_by(cells.c.row_id, columns.c.column_id)
-    )
+    cells = cell_columns(scope, cell_records(scope, row_ids, rows_of_type=True))
+    return select(
+        cells.c.row_id,
+        cells.c.column_id,
+        func.count().label("record_count"),
+        func.sum(cells.c.meets).label("matching_count"),
+    ).group_by(cells.c.row_id, cells.c.column_id)
 
 
 def descendants(scope: CellScope, anchor_ids: Sequence[str], types: Iterable[str]) -> Select[Any]:
@@ -449,24 +464,19 @@ def descendants(scope: CellScope, anchor_ids: Sequence[str], types: Iterable[str
     walk = select(anchors.c.id.label("node"), literal(0).label("depth")).cte(
         "matrix_descendants", recursive=True
     )
-    steps = []
-    walked = sorted(types)
-    for arm in scope.object_arms():
-        child = aliased(arm.entity)
-        steps.append(
-            select(getattr(child, arm.id), walk.c.depth + 1)
-            .select_from(walk)
-            .outerjoin(
-                child,
-                and_(
-                    child.parent_object_id == walk.c.node,
-                    unindexed(child.object_type_key.in_(walked)),
-                    *arm.where(child),
-                ),
-            )
-            .where(found(getattr(child, arm.id)), walk.c.depth < MAX_DEPTH)
+    child = scope.object_rows(["parent_object_id", "object_type_key"], "matrix_descendant_rows")
+    walk = walk.union_all(
+        select(child.c.id, walk.c.depth + 1)
+        .select_from(walk)
+        .join(
+            child,
+            and_(
+                child.c.parent_object_id == walk.c.node,
+                child.c.object_type_key.in_(sorted(types)),
+            ),
         )
-    walk = walk.union_all(*steps)
+        .where(walk.c.depth < MAX_DEPTH)
+    )
     return select(walk.c.node).where(walk.c.depth > 0)
 
 

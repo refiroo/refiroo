@@ -23,15 +23,15 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
 
 from ..common.time import as_utc
-from .search_index import register as register_search_indexes
+from .search_index import LIVE_VALUES, SNAPSHOT_VALUES, search_index
 
 
 class UTCDateTime(TypeDecorator[datetime]):
     """A timestamp stored as UTC and always read back as an aware UTC ``datetime``.
 
-    SQLite drops the zone of ``DateTime(timezone=True)``: an offset value would be stored as its wall
-    clock and read back zone-less. Converting on the way in and attaching UTC on the way out keeps
-    the instant and lets every API response carry an explicit offset on every database.
+    PostgreSQL reads ``timestamptz`` back in the session's time zone. Converting on the way in and
+    out keeps the instant and lets every API response carry the same explicit offset, ``+00:00``,
+    whatever the server's or session's zone.
     """
 
     impl = DateTime(timezone=True)
@@ -435,6 +435,7 @@ class AttributeValue(Base):
         # A live write's unique-value check and a key reference seek to the value (0.9 B2,
         # 20261001_01), as a change set's do through ix_snapshot_attribute_values_owner_key_text.
         Index("ix_attribute_values_key_text", "attribute_type_key", "text_value", "object_id"),
+        search_index(LIVE_VALUES),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -754,6 +755,7 @@ class SnapshotAttributeValue(Base):
             "text_value",
             "object_id",
         ),
+        search_index(SNAPSHOT_VALUES),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -794,7 +796,6 @@ class RelationSetVersion(Base):
             "anchor_object_id",
             "direction",
             unique=True,
-            sqlite_where=text("change_set_id IS NULL"),
             postgresql_where=text("change_set_id IS NULL"),
         ),
     )
@@ -1043,6 +1044,3 @@ class IdempotencyKey(Base):
     )
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime(), nullable=False)
 
-
-# Trigram search indexes over attribute text values (Base 0.8 S8); not ORM tables.
-register_search_indexes(Base.metadata)

@@ -3,10 +3,10 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
+import seeds
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
-from sqlalchemy import create_engine, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
 
 from app.db import SessionLocal
 from app.engine.model.bootstrap import ensure_bootstrap_release
@@ -38,10 +38,8 @@ def _model(version: str, *, product_name: str | None = None) -> EngineModel:
     return EngineModel.model_validate(source)
 
 
-def _session() -> Session:
-    engine = create_engine("sqlite://")
-    Base.metadata.create_all(engine)
-    return Session(engine)
+def _session():
+    return seeds.schema_session()
 
 
 def test_release_installation_rejects_a_shape_only_model_with_invalid_references():
@@ -326,7 +324,9 @@ def test_model_admin_capabilities_and_routes_are_disabled_by_default():
         capabilities = client.get("/api/v1/capabilities")
         drafts = client.get("/api/v1/model-drafts")
 
-    assert capabilities.json() == {
+    # The administration capabilities; integrationJobs (0.9 B1) is test_batches' subject.
+    body = capabilities.json()
+    assert {key: body[key] for key in ("modelAdmin", "workspaceAdmin")} == {
         "modelAdmin": {
             "readReleases": True,
             "manageDrafts": False,

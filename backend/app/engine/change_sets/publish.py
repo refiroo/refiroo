@@ -465,8 +465,8 @@ def publish_change_set(
             "change_set_model_release_conflict",
             "Change set is pinned to a different application-model release",
         )
-    # Claim before reading the merge population. On SQLite this also obtains the writer lock,
-    # keeping the live graph stable until the publication transaction completes.
+    # Claim before reading the merge population, then lock the workspace row; live writes that
+    # claim the workspace wait for the publication transaction (all of them from PG3, PG-D5).
     writes.claim(expected_change_set_version)
     workspace = session.scalar(
         select(Workspace).where(Workspace.key == change_set.workspace_key).with_for_update()

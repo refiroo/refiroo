@@ -59,10 +59,6 @@ class Settings(BaseModel):
     batch_background_max_bytes: int = Field(default=50 * 1024 * 1024, ge=1)
     job_chunk_items: int = Field(default=500, ge=1)
     job_lease_seconds: int = Field(default=120, ge=1)
-    # How long a SQLite write waits for another transaction's writer lock before it fails. A batch
-    # holds the lock for seconds (D13), so writes queue behind it rather than fail at the
-    # driver's 5 s default.
-    sqlite_lock_wait_seconds: int = Field(default=60, ge=1)
 
     @classmethod
     def from_env(cls, environ: dict[str, str] | None = None) -> Self:
@@ -104,7 +100,6 @@ class Settings(BaseModel):
             ),
             job_chunk_items=_positive(env, "JOB_CHUNK_ITEMS", 500),
             job_lease_seconds=_positive(env, "JOB_LEASE_SECONDS", 120),
-            sqlite_lock_wait_seconds=_positive(env, "SQLITE_LOCK_WAIT_SECONDS", 60),
         )
 
     def validate_model_admin_topology(self) -> None:
@@ -184,7 +179,3 @@ def model_admin_mutations_enabled() -> bool:
 
 def workspace_admin_mutations_enabled() -> bool:
     return get_settings().workspace_admin_mutations_enabled
-
-
-def sqlite_lock_wait_seconds() -> int:
-    return get_settings().sqlite_lock_wait_seconds

@@ -12,7 +12,7 @@ J1–J4 and R are specified (2026-09-29) and delivered in the order of the
 [B1](#b1-job-model-and-inline-object-batches) (2026-10-01), [B2](#b2-background-jobs) (2026-10-01).
 **Next:** the interim release [0.9.0-alpha.1, PostgreSQL runtime](POSTGRESQL_RUNTIME_PLAN.md)
 (PG1–PG5, PostgreSQL only, decisions accepted 2026-10-01) with the [test harness](TEST_HARNESS_PLAN.md)
-(H1 inside PG1, H2–H3 after PG2), then F1. **PG1 is delivered (2026-10-01)**; next is PG2.
+(H1 inside PG1, H2–H3 after PG2), then F1. **PG1 and PG2 are delivered (2026-10-01)**; next is H2.
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release

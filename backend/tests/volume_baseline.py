@@ -13,9 +13,7 @@ a client scrolling there would hold one; S3 adds position, end, backward and see
 
 import argparse
 import json
-import os
 import platform
-import sqlite3
 import statistics
 import sys
 import tempfile
@@ -50,7 +48,7 @@ from volume_fixture import (
     measure,
     scaled_shape,
     seed_review_change_set,
-    seed_volume,
+    volume_app,
     volume_model,
 )
 
@@ -645,7 +643,6 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--scale", type=float, default=1.0, help="1 is the plan's full volume")
     parser.add_argument("--repeat", type=int, default=5, help="timed runs per request")
-    parser.add_argument("--workdir", type=Path, default=None, help="keep the database here")
     parser.add_argument("--json", type=Path, default=None, help="also write results as JSON")
     parser.add_argument(
         "--only-restructuring",
@@ -664,51 +661,54 @@ def main() -> None:
     )
     arguments = parser.parse_args()
 
-    workdir = arguments.workdir or Path(tempfile.mkdtemp(prefix="rdm-volume-"))
-    workdir.mkdir(parents=True, exist_ok=True)
-    database = workdir / "volume.db"
-    database.unlink(missing_ok=True)
-    model_path = workdir / "volume-model.json"
-    model_path.write_text(json.dumps(volume_model()))
-    os.environ["DATABASE_URL"] = f"sqlite:///{database}"
-    os.environ["RDM_MODEL_PATH"] = str(model_path)
-
-    from fastapi.testclient import TestClient
+    import postgres_server
+    import seeds
 
     from app.db import get_engine
-    from app.main import create_app
 
-    with TestClient(create_app()) as client:
-        engine = get_engine()
-        started = time.perf_counter()
-        dataset = seed_volume(engine, scaled_shape(arguments.scale))
-        seeded = time.perf_counter() - started
-        if arguments.only_restructuring:
-            results, _count = restructuring_scenarios(engine, dataset, repeat=arguments.repeat)
-        elif arguments.only_queries:
-            results = [
-                item
-                for context in CONTEXTS
-                for item in query_scenarios(client, engine, dataset, context, repeat=arguments.repeat)
-            ]
-        else:
-            results = [] if arguments.only_change_lists else run_scenarios(
-                client, engine, dataset, repeat=arguments.repeat
-            )
-            # Seeded after the other scenarios, so none of them runs beside it.
-            review = seed_review_change_set(engine, dataset)
-            dataset.counts.update({f"review.{key}": value for key, value in review.counts.items()})
-            results += change_list_scenarios(client, engine, review, repeat=arguments.repeat)
-            if not arguments.only_change_lists:
-                results += known_exceptions(client, engine, dataset, repeat=arguments.repeat)
+    server_started = postgres_server.start()
+    try:
+        with tempfile.TemporaryDirectory() as directory:
+            started = time.perf_counter()
+            # A clone of the volume seed at this scale, built once (tests/seeds.py, H1).
+            with volume_app(Path(directory), scaled_shape(arguments.scale)) as (client, dataset):
+                seeded = time.perf_counter() - started
+                engine = get_engine()
+                server_version = engine.dialect.server_version_info
+                if arguments.only_restructuring:
+                    results, _count = restructuring_scenarios(engine, dataset, repeat=arguments.repeat)
+                elif arguments.only_queries:
+                    results = [
+                        item
+                        for context in CONTEXTS
+                        for item in query_scenarios(
+                            client, engine, dataset, context, repeat=arguments.repeat
+                        )
+                    ]
+                else:
+                    results = [] if arguments.only_change_lists else run_scenarios(
+                        client, engine, dataset, repeat=arguments.repeat
+                    )
+                    # Seeded after the other scenarios, so none of them runs beside it.
+                    review = seed_review_change_set(engine, dataset)
+                    dataset.counts.update(
+                        {f"review.{key}": value for key, value in review.counts.items()}
+                    )
+                    results += change_list_scenarios(client, engine, review, repeat=arguments.repeat)
+                    if not arguments.only_change_lists:
+                        results += known_exceptions(client, engine, dataset, repeat=arguments.repeat)
+    finally:
+        if server_started:
+            postgres_server.stop()
 
+    seed = "; ".join(f"{name} {outcome}" for name, outcome, _seconds in seeds.ACTIVITY)
     print(
-        f"Scale {arguments.scale} · {dataset.counts} · seeded in {seeded:.1f} s · "
+        f"Scale {arguments.scale} · {dataset.counts} · seed ready in {seeded:.1f} s ({seed}) · "
         f"median of {arguments.repeat} runs · page size {PAGE_SIZE}"
     )
     print(
-        f"Python {platform.python_version()} · SQLite {sqlite3.sqlite_version} · "
-        f"{platform.platform()} · database {database}"
+        f"Python {platform.python_version()} · PostgreSQL "
+        f"{'.'.join(str(part) for part in server_version)} · {platform.platform()}"
     )
     print()
     print(markdown_table(results))

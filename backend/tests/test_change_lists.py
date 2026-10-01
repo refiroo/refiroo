@@ -9,13 +9,13 @@ and an empty-root change set cover the other sources.
 """
 
 import json
-import sqlite3
-from contextlib import closing
 from pathlib import Path
 from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from postgres_server import collated
+from sqlalchemy import create_engine, text
 from wp8_support import create_change_set, publish_change_set
 
 from app.config import reload_settings
@@ -257,8 +257,8 @@ def test_object_changes_list_every_kind_with_before_and_after(edited):
         "removed": "removed",
         "added": "added",
     }
-    # Ordered by type, then name, then ID.
-    assert [(item["objectTypeKey"], item["path"][-1]["name"]) for item in entries] == sorted(
+    # Ordered by type, then name, then ID, as the database orders names.
+    assert [(item["objectTypeKey"], item["path"][-1]["name"]) for item in entries] == collated(
         (item["objectTypeKey"], item["path"][-1]["name"]) for item in entries
     )
 
@@ -510,33 +510,35 @@ def test_an_empty_root_change_set_lists_only_additions(client):
 def test_a_page_and_its_paths_read_one_snapshot(edited, monkeypatch):
     """A write committed between the page's statement and its path walk does not reach the page.
 
-    Without a held snapshot, SQLite releases its read lock between statements, so a rename landing
-    in between showed the renamed parent in paths beside that parent's own entry under its old name.
+    The page reads at REPEATABLE READ: a rename another connection commits between the page's
+    statement and its path walk is not seen, so the renamed parent never appears in paths beside
+    that parent's own entry under its old name.
     """
     client, change_set, records = edited["client"], edited["change_set"], edited["records"]
-    database = get_engine().url.database
     attempts: list[str] = []
     walk = change_lists._paths
 
     def rename_between_statements(*args, **kwargs):
         if not attempts:
-            with closing(sqlite3.connect(database, timeout=0.2)) as other:
-                try:
-                    with other:
-                        other.execute(
+            other = create_engine(get_engine().url)
+            try:
+                with other.begin() as connection:
+                    connection.execute(
+                        text(
                             "UPDATE change_set_objects SET name = 'Renamed meanwhile'"
-                            " WHERE change_set_id = ? AND object_id = ?",
-                            (change_set["id"], records["system_2"]["id"]),
-                        )
-                    attempts.append("committed")
-                except sqlite3.OperationalError as error:
-                    attempts.append(str(error))
+                            " WHERE change_set_id = :change_set AND object_id = :record"
+                        ),
+                        {"change_set": change_set["id"], "record": records["system_2"]["id"]},
+                    )
+                attempts.append("committed")
+            finally:
+                other.dispose()
         return walk(*args, **kwargs)
 
     monkeypatch.setattr(change_lists, "_paths", rename_between_statements)
     listed = by_id(changes(client, change_set["id"], pageSize=500)["items"])
-    # The writer waited for the read to finish rather than changing what it was reading.
-    assert attempts == ["database is locked"]
+    # The rename committed while the page was read, and the page did not see it.
+    assert attempts == ["committed"]
     assert listed[records["system_2"]["id"]]["after"]["name"] == "System 2"
     for record in ("added", "moved"):
         assert [part["name"] for part in listed[records[record]["id"]]["path"]] == [

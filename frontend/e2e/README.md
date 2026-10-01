@@ -27,9 +27,11 @@ applies the release, and writes screenshots plus `report.json` to its printed te
 Historical unsupported-release rendering remains covered by the focused component and real HTTP
 regressions; comprehensive accessibility and visual-baseline gates remain WP-9 acceptance work.
 
-The runner starts local Vite and FastAPI servers on temporary ports, creates a
-fresh SQLite database and a starter-model variant in the system temporary folder,
-and seeds all records through real APIs. It does not use the development database.
+The runner starts local Vite and FastAPI servers on temporary ports, writes a
+starter-model variant to the system temporary folder, clones a database of its own on the
+development PostgreSQL server (`scripts/postgres.sh start` first) and seeds all records
+through real APIs. It does not use the development database `rdm`, and drops its own
+database when it ends.
 It stops its servers on completion and prints the evidence directory containing
 screenshots, server logs and `report.json`.
 
@@ -74,7 +76,7 @@ release, migration, installed-wheel and draft/history acceptance remain separate
 npm --prefix frontend run test:browser:change-sets
 ```
 
-The same installed-Chrome override works here. This runner creates an isolated SQLite
+The same installed-Chrome override works here. This runner creates an isolated PostgreSQL
 backend and temporary starter model, enables workspace lifecycle mutations, and exercises
 SC-05/SC-06 and change set SC-04 through the browser. It covers current-live capture without
 publication and after later live edits, two-type editing with zero/false, translation creation

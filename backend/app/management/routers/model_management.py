@@ -19,7 +19,6 @@ from ...engine.model.drafts import (
 )
 from ...engine.model.registry import model_registry
 from ...engine.model.releases import (
-    ActivationBusy,
     ActivationConflict,
     ConsumerContractVersionRequired,
     InvalidInstalledModel,
@@ -86,13 +85,6 @@ def activate_release(
                 404,
                 "model_release_not_found",
                 f"Model release '{release_id}' not found",
-            ) from exc
-        except ActivationBusy as exc:
-            raise api_error(
-                409,
-                "model_activation_retry",
-                "Live data is being written; the active model is unchanged. Retry the activation "
-                "after the current writes finish",
             ) from exc
         except ActivationConflict as exc:
             raise api_error(

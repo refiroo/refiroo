@@ -5,14 +5,14 @@ names (D25). The index only decides which records are looked up: the match stays
 ``LIKE`` it was, in every context, so a search answers the same through the index, through the
 per-record look-up it falls back to for common phrases, and in live, change-set and publication reads.
 
-Triggers on the value tables keep the indexes equal to the values on every write; FTS5's
-``integrity-check`` compares each index with its table. These are the SQLite forms, which PG2
-replaces with ``pg_trgm`` (PG-D7); their SQLite migration tests went with the SQLite revisions.
+The indexes are ``pg_trgm`` GIN indexes (0.9.0-alpha.1 PG2, PG-D7), which PostgreSQL keeps equal
+to the values on every write; after each write path a search through the index answers what the
+per-record look-up answers. ``EXPLAIN`` shows the index answering the guard's pattern.
 """
 
+import pytest
 import test_context_read_parity
-from sqlalchemy import event, select, text
-from sqlalchemy.dialects import postgresql, sqlite
+from sqlalchemy import select, text
 from test_context_read_parity import (
     ENTRY,
     WORKSPACE,
@@ -26,8 +26,9 @@ from test_context_read_parity import (
 
 from app.db import get_engine
 from app.engine.reads import object_query, snapshot_reads
-from app.models.database import ChangeSetBaseObject, RdmObject
-from app.models.search_index import SEARCH_INDEXES, match_phrase
+from app.models import search_index
+from app.models.database import ChangeSetBaseObject, RdmObject, SnapshotAttributeValue
+from app.models.search_index import SEARCH_INDEXES
 
 # The parity model's app over a migrated database.
 client = test_context_read_parity.client
@@ -41,33 +42,37 @@ def _ids(client, context: dict, search: str) -> list[str]:
     ]
 
 
-def _check_indexes(connection) -> None:
-    """FTS5 compares each external-content index with its table; a difference is an error."""
-    for index in SEARCH_INDEXES:
-        connection.execute(
-            text(f"INSERT INTO {index.name}({index.name}, rank) VALUES ('integrity-check', 1)")
-        )
-
-
-def _search_objects(connection) -> set[tuple[str, str]]:
-    """The index tables and triggers in a database, by type and name."""
-    return {
-        tuple(row)
-        for row in connection.execute(
-            text(
-                "SELECT type, name FROM sqlite_master "
-                "WHERE name LIKE '%\\_text\\_search%' ESCAPE '\\'"
-            )
-        )
+def _assert_index_answers_as_values(client, contexts: dict, monkeypatch) -> None:
+    """Through the index and through every record's values, each search finds the same records."""
+    indexed = {
+        (name, search): _ids(client, context, search)
+        for name, context in contexts.items()
+        for search in SEARCHES
     }
+    with monkeypatch.context() as patch:
+        patch.setattr(object_query, "INDEXED_VALUE_LIMIT", -1)
+        for (name, search), ids in indexed.items():
+            assert _ids(client, contexts[name], search) == ids, (name, search)
 
 
-def test_search_answers_the_same_through_the_index_in_every_context(client, monkeypatch):
+@pytest.fixture
+def index_reads(monkeypatch) -> list[str]:
+    """The source table of every index guard a statement is built with."""
+    reads: list[str] = []
+    matches = search_index.SearchIndex.matches
+
+    def recorded(index, pattern):
+        reads.append(index.source)
+        return matches(index, pattern)
+
+    monkeypatch.setattr(search_index.SearchIndex, "matches", recorded)
+    return reads
+
+
+def test_search_answers_the_same_through_the_index_in_every_context(
+    client, monkeypatch, index_reads
+):
     seeded = _seed(client)
-    statements: list[str] = []
-    event.listen(
-        get_engine(), "before_cursor_execute", lambda *args: statements.append(args[2])
-    )
     indexed = {
         (name, search): _ids(client, context, search)
         for name, context in seeded["contexts"].items()
@@ -75,12 +80,12 @@ def test_search_answers_the_same_through_the_index_in_every_context(client, monk
     }
     # Every context looked values up through the index; one- and two-character searches do not.
     for name, context in seeded["contexts"].items():
-        statements.clear()
+        index_reads.clear()
         _ids(client, context, "note")
-        assert any("_text_search" in item and "MATCH" in item for item in statements), name
-        statements.clear()
+        assert index_reads, name
+        index_reads.clear()
         _ids(client, context, "te")
-        assert not any("_text_search" in statement for statement in statements), name
+        assert not index_reads, name
 
     # Past the limit, every record's values are looked up: the same records in the same order.
     monkeypatch.setattr(object_query, "INDEXED_VALUE_LIMIT", -1)
@@ -91,9 +96,9 @@ def test_search_answers_the_same_through_the_index_in_every_context(client, monk
         assert all(indexed[(name, search)] == expected for name in seeded["contexts"]), search
     assert indexed[("live", "zzz")] == []
     assert len(indexed[("live", "F-")]) == 1  # a value match: foxtrot's code
-    # SQLite folds ASCII case only, through the index as before it.
+    # Case folds beyond ASCII under the ICU root collation (PG-D11), through the index as well.
     for name, context in seeded["contexts"].items():
-        assert _ids(client, context, "ünal") == [], name
+        assert _ids(client, context, "ünal") == indexed[(name, "Ünal")] != [], name
 
 
 def test_change_set_search_counts_a_change_set_match_and_not_a_hidden_base_match(client):
@@ -164,7 +169,7 @@ def test_change_set_search_counts_a_change_set_match_and_not_a_hidden_base_match
     )["totalCount"] == 2
 
 
-def test_every_write_path_keeps_the_indexes_equal_to_the_values(client):
+def test_every_write_path_keeps_the_indexes_equal_to_the_values(client, monkeypatch):
     # Live creates, updates and deletes; change-set writes, tombstones and a change-set-only record;
     # publishing, which copies live data into a publication; change sets on both base kinds.
     seeded = _seed(client)
@@ -191,8 +196,7 @@ def test_every_write_path_keeps_the_indexes_equal_to_the_values(client):
     )
     assert _ids(client, live, "changed-2") == [entry["id"]]
     assert _ids(client, live, "b-2") == []
-    with get_engine().connect() as connection:
-        _check_indexes(connection)
+    _assert_index_answers_as_values(client, seeded["contexts"], monkeypatch)
     # Discarding a change set deletes its rows and its base's in bulk.
     overlay = seeded["overlay"]
     _ok(
@@ -202,17 +206,15 @@ def test_every_write_path_keeps_the_indexes_equal_to_the_values(client):
         ),
         204,
     )
+    contexts = {name: context for name, context in seeded["contexts"].items() if name != "overlay change set"}
+    _assert_index_answers_as_values(client, contexts, monkeypatch)
     with get_engine().connect() as connection:
-        _check_indexes(connection)
         stale = connection.scalar(
-            text(
-                "SELECT count(*) FROM snapshot_attribute_values_text_search "
-                "JOIN snapshot_attribute_values v ON v.sequence_id = "
-                "snapshot_attribute_values_text_search.rowid WHERE v.owner_id = :owner"
-            ),
-            {"owner": overlay},
+            select(SnapshotAttributeValue.sequence_id).where(
+                SnapshotAttributeValue.owner_id == overlay
+            )
         )
-    assert stale == 0
+    assert stale is None
 
 
 def _search_guards() -> list:
@@ -225,21 +227,43 @@ def _search_guards() -> list:
         snapshot_reads.SnapshotBase(ChangeSetBaseObject, None, "base_id", "base-id"),
     )
     projection = snapshot_reads.object_projection(context, object_type_key=ENTRY)
-    snapshot = snapshot_reads._value_candidates(projection, context)(match_phrase("note"), ["n"])
+    snapshot = snapshot_reads._value_candidates(projection, context)("%note%", ["n"])
     return [
-        select(RdmObject.id).where(object_query._live_value_candidates(match_phrase("note"), ["n"])),
+        select(RdmObject.id).where(object_query._live_value_candidates("%note%", ["n"])),
         select(projection.c.object_id).where(snapshot),
     ]
 
 
-def test_search_reads_the_index_on_sqlite_only():
-    """PostgreSQL has no FTS5 index (its trigram form arrives with 0.11): a search there compiles
-    without the guard and looks every record's values up, as before S8."""
-    for statement in _search_guards():
-        on_sqlite = str(statement.compile(dialect=sqlite.dialect()))
-        on_postgresql = str(statement.compile(dialect=postgresql.dialect()))
-        assert "_text_search" in on_sqlite and "MATCH" in on_sqlite
-        # One parenthesized predicate, never a Boolean column compared with 1.
-        assert "WHERE ((SELECT count(*)" in on_sqlite and ") = 1" not in on_sqlite
-        assert "_text_search" not in on_postgresql and "MATCH" not in on_postgresql
-        assert "WHERE true" in on_postgresql
+# Rows enough for the planner to weigh the trigram index against the value btrees, added in a
+# transaction that is rolled back.
+_FILL = {
+    "attribute_values": (
+        "INSERT INTO attribute_values (id, object_id, attribute_type_key, value_type, text_value, "
+        "value_source, version) SELECT gen_random_uuid()::text, :record, 'fill-' || n, 'text', "
+        "md5(n::text), 'own', 1 FROM generate_series(1, 20000) AS n"
+    ),
+    "snapshot_attribute_values": (
+        "INSERT INTO snapshot_attribute_values (owner_kind, owner_id, object_id, "
+        "attribute_type_key, value_type, text_value) SELECT 'base', 'fill', 'fill-' || n, 'n', "
+        "'text', md5(n::text) FROM generate_series(1, 20000) AS n"
+    ),
+}
+
+
+def test_the_trigram_index_answers_the_search_guard(client):
+    """Each guard's pattern is read from its table's GIN trigram index, not a full scan of the
+    table or of its value btree (sequential scans off: the planner may scan 20,000 rows)."""
+    seeded = _seed(client)
+    with get_engine().connect() as connection:
+        connection.execute(text("SET LOCAL enable_seqscan = off"))
+        for index in SEARCH_INDEXES:
+            connection.execute(text(_FILL[index.source]), {"record": seeded["entries"][0]["id"]})
+            connection.execute(text(f"ANALYZE {index.source}"))
+        for statement, index in zip(_search_guards(), SEARCH_INDEXES, strict=True):
+            compiled = statement.compile(connection, compile_kwargs={"render_postcompile": True})
+            plan = " ".join(
+                row[0]
+                for row in connection.exec_driver_sql("EXPLAIN " + str(compiled), compiled.params)
+            )
+            assert f"Bitmap Index Scan on {index.name}" in plan, plan
+        connection.rollback()

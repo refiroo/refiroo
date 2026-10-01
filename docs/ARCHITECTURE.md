@@ -110,9 +110,6 @@ authorization; 0.12 authorization works within them.
 
 The batch and job limits (`BATCH_MAX_ITEMS`, `BATCH_MAX_BYTES`, `ATOMIC_JOB_MAX_ITEMS`,
 `JOB_RETENTION_DAYS`, Base 0.9 D13 and D14) are settings too, reported under `integrationJobs`.
-On SQLite, `SQLITE_LOCK_WAIT_SECONDS` (60 by default) is how long a write waits for another
-transaction's writer lock before it fails: an inline batch holds that lock for seconds, so other
-writes queue behind it.
 
 Because the capabilities are per process, several instances can share one database with different
 exposure. For example, an internal administration instance runs with model administration enabled and
@@ -127,20 +124,19 @@ What holds today:
   the active release (`resolve_model_snapshot`) binds its session to it. Before that session commits,
   it flushes its rows and rereads the active release in the same transaction; if another release was
   activated meanwhile, nothing is saved and the request returns `409 model_release_changed`.
-  Activation starts with `BEGIN IMMEDIATE`, so its compatibility check and the switch exclude live
-  writes. SQLite has one writer at a time across every process on the database, so the two cannot
-  interleave in one process or across instances: a write that flushed first is seen by the
-  compatibility check, and a write that flushes after activation sees the new release. On a dialect
-  with row locks the write takes a shared lock on the `model_runtime_state` row and activation an
-  exclusive one. Change-set base capture keeps its own `BEGIN IMMEDIATE` check. Tested by
-  `test_w5_activation_write_race` (Base 0.8 W5).
+  The write rereads under a share lock on the `model_runtime_state` row, and activation locks the
+  row for update before its compatibility check, so the two cannot interleave in one process or
+  across instances: a write that flushed first is seen by the compatibility check, and a write that
+  flushes after activation sees the new release. Change-set base capture takes a share lock on the
+  same row. Tested by `test_w5_activation_write_race` (Base 0.8 W5).
 - **A live write never commits into a workspace deleted or retired after it resolved it.**
   `resolve_workspace(require_active=True)` records the key on the session, and the same
   `before_commit` point rereads it after the flush (`404 workspace_not_found` or
   `409 workspace_retired`, nothing saved). Workspace deletion checks for objects, change sets and
-  publications under `BEGIN IMMEDIATE` and removes the row in that transaction. SQLite does not
-  enforce the `workspaces.key` foreign keys at runtime, so this recheck, not a `RESTRICT`, is what
-  keeps orphan rows out; deletion also removes the workspace's relation-set versions itself. Tested by
+  publications holding the runtime-state and workspace rows for update, and removes the row in that
+  transaction. The `workspaces.key` foreign keys (`RESTRICT`) are the second line: a record inserted
+  after the deletion committed fails its key, which the write unit answers as the same `404`
+  (0.9.0-alpha.1 PG2; every rule is pinned in `test_foreign_keys`). Tested by
   `test_w6_workspace_deletion` (Base 0.8 W6).
 - **Instances must share `RDM_CURSOR_SIGNING_KEY`** if a load balancer can route one client's
   requests to different instances; otherwise cursors issued by one are refused by another.
@@ -291,13 +287,11 @@ separate from publication lineage. `source: currentLive` selects this base, whil
 `source: publication` requires the selected publication; omitted source preserves legacy empty/publication
 semantics for compatibility.
 
-This capture is implemented and validated on SQLite. PostgreSQL and other dialects return an explicit
-unsupported refusal until an equivalent protocol exists. The service restarts its SQLite request transaction as `BEGIN
-IMMEDIATE`, so all independent SQLite live/model writers are excluded until the base commits, then
-checks the captured active release against the runtime state under that reservation. A chosen change set
-pin is separate from this active identity; its complete copied graph must already fit that pin. A busy
-database or selection change returns an actionable retry; unsupported dialects are explicitly refused
-until an equivalent capture protocol exists. Base rows are removed atomically with change set discard or
+The capture reads at REPEATABLE READ, so the base is one snapshot of live data, and holds share locks
+on the workspace and runtime-state rows, so neither a retirement nor an activation commits while it
+runs; it then checks the captured active release against the runtime state (0.9.0-alpha.1 PG2). A chosen change set
+pin is separate from this active identity; its complete copied graph must already fit that pin. A
+selection or row changed after the snapshot began returns an actionable retry. Base rows are removed atomically with change set discard or
 publishing, while existing nullable-base change sets retain their original source and IDs through upgrade.
 
 Publications retain derivation and supersession separately. Starting from an earlier publication does

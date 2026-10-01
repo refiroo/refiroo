@@ -2,13 +2,14 @@ from copy import deepcopy
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import create_engine, select
+import seeds
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.engine.model.compatibility import analyze_compatibility
 from app.models.database import (
     AttributeValue,
-    Base,
+    ModelRelease,
     ObjectRelation,
     Publication,
     PublicationObject,
@@ -105,32 +106,36 @@ def _model(source: dict | None = None) -> EngineModel:
     return EngineModel.model_validate(source or _source())
 
 
+def add_release(session: Session) -> ModelRelease:
+    """A release row for publications and change sets to pin; its content is not read."""
+    release = ModelRelease(
+        release_key=f"compat-{uuid4().hex}",
+        release_name="Compatibility",
+        release_version="1",
+        schema_version="0.5",
+        model_hash=uuid4().hex + uuid4().hex,
+        model_json=_source(),
+        is_active=False,
+    )
+    session.add(release)
+    session.flush()
+    return release
+
+
 @pytest.fixture
 def session():
-    engine = create_engine("sqlite://")
-    Base.metadata.create_all(engine)
-    with Session(engine) as value:
-        publication_id = str(uuid4())
-        value.add(
-            Workspace(
-                key="default",
-                label="Default",
-                status="active",
-                active_publication_id=publication_id,
-            )
+    with seeds.schema_session() as value:
+        publication = Publication(
+            workspace_key="default",
+            model_release_id=add_release(value).id,
+            publication_number=1,
+            status="active",
         )
-        value.add(
-            Publication(
-                id=publication_id,
-                workspace_key="default",
-                model_release_id=1,
-                publication_number=1,
-                status="active",
-            )
-        )
+        value.add(publication)
+        value.flush()
+        value.get(Workspace, "default").active_publication_id = publication.id
         value.flush()
         yield value
-    engine.dispose()
 
 
 def _object(session: Session, object_type: str, *, parent: RdmObject | None = None) -> RdmObject:

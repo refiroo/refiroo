@@ -7,10 +7,12 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createServer } from "node:net";
 import { chromium } from "playwright";
+import { cloneDatabase } from "./helpers/database.mjs";
 
 const frontend = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const root = resolve(frontend, "..");
 const output = await mkdtemp(resolve(tmpdir(), "rdm-wp9-publications-"));
+let database;
 const processes = [];
 const failures = [];
 const checks = [];
@@ -80,13 +82,14 @@ try {
     }
   }
   const modelPath = resolve(output, "model.json");
+  database = cloneDatabase("schema");
   await writeFile(modelPath, JSON.stringify(model));
   const backend = start(
     resolve(root, "backend/.venv/bin/python"),
     ["-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", String(apiPort)],
     resolve(root, "backend"),
     {
-      DATABASE_URL: `sqlite:///${resolve(output, "database.sqlite")}`,
+      DATABASE_URL: database.databaseUrl,
       RDM_MODEL_PATH: modelPath,
       CORS_ORIGINS: uiUrl,
       MODEL_ADMIN_MUTATIONS_ENABLED: "true",
@@ -231,7 +234,7 @@ try {
     checks,
     pageErrors: failures,
     historicalReadCount: historicalReads.length,
-    isolatedDatabase: resolve(output, "database.sqlite"),
+    isolatedDatabase: database.databaseUrl,
   };
   await writeFile(resolve(output, "report.json"), JSON.stringify(report, null, 2));
   console.log(JSON.stringify({ ...report, output }, null, 2));
@@ -249,4 +252,5 @@ try {
   await browser?.close();
   for (const child of processes) child.kill("SIGTERM");
   await writeFile(resolve(output, "servers.log"), log);
+  database?.drop();
 }

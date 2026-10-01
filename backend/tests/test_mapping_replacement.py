@@ -147,8 +147,6 @@ def client(tmp_path, monkeypatch, migrated_database, request):
     options = options if isinstance(options, dict) else {"no_mapping_views": options}
     _make_model(tmp_path, monkeypatch, migrated_database(), **options)
     with TestClient(create_app()) as c:
-        with get_engine().connect() as conn:
-            conn.exec_driver_sql("PRAGMA journal_mode=WAL")
         yield c
     get_engine().dispose()
     monkeypatch.undo()
@@ -160,8 +158,6 @@ def client(tmp_path, monkeypatch, migrated_database, request):
 def attr_client(tmp_path, monkeypatch, migrated_database):
     _make_model(tmp_path, monkeypatch, migrated_database(), attr_key="rank")
     with TestClient(create_app()) as c:
-        with get_engine().connect() as conn:
-            conn.exec_driver_sql("PRAGMA journal_mode=WAL")
         yield c
     get_engine().dispose()
     monkeypatch.undo()
@@ -173,8 +169,6 @@ def attr_client(tmp_path, monkeypatch, migrated_database):
 def oto_client(tmp_path, monkeypatch, migrated_database):
     _make_model(tmp_path, monkeypatch, migrated_database(), cardinality="one-to-one")
     with TestClient(create_app()) as c:
-        with get_engine().connect() as conn:
-            conn.exec_driver_sql("PRAGMA journal_mode=WAL")
         yield c
     get_engine().dispose()
     monkeypatch.undo()
@@ -186,8 +180,6 @@ def oto_client(tmp_path, monkeypatch, migrated_database):
 def otm_client(tmp_path, monkeypatch, migrated_database):
     _make_model(tmp_path, monkeypatch, migrated_database(), cardinality="one-to-many")
     with TestClient(create_app()) as c:
-        with get_engine().connect() as conn:
-            conn.exec_driver_sql("PRAGMA journal_mode=WAL")
         yield c
     get_engine().dispose()
     monkeypatch.undo()

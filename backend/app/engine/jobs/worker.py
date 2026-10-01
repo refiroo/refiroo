@@ -38,7 +38,6 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from ...common.time import as_utc
-from ...db import begin_transaction
 from ...errors import ApiError
 from ...models.commands import BatchItem
 from ...models.database import ChangeSet, Job
@@ -201,7 +200,6 @@ class JobWorker:
 
     def _apply_chunk(self, session: Session, job: Job) -> None:
         atomic = job.parameters.get("policy") == "atomic"
-        begin_transaction(session)
         context = open_job_context(session, job)
         inputs = load_inputs(
             session, job, job.total if atomic else self.settings.chunk_items

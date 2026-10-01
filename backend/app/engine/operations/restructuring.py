@@ -38,6 +38,7 @@ from sqlalchemy.orm import Session
 
 from ...common.encoding import to_jsonable
 from ...common.pagination import Page, PageRequest, paginate_sequence
+from ...db import name_ranks
 from ...errors import ApiError, api_error
 from ...models.database import AuditEvent, ChangeSet
 from ...models.schema import EngineModel, ObjectTypeDefinition
@@ -1059,7 +1060,8 @@ class _Planner:
         parent_id = holder.object_id or None
         container = holder.after_type if isinstance(parent_type, Keep) else parent_type
         frontier = []
-        for child in sorted(children, key=lambda row: (row.name, row.object_id)):
+        ranks = name_ranks(self.session, (child.name for child in children))
+        for child in sorted(children, key=lambda row: (ranks[row.name], row.object_id)):
             new_type = self._type_at(child.object_type_key, container)
             record = self._add(child, new_type, parent_id, holder.path)
             if new_type is None and not self.possible_types(container):
@@ -1138,8 +1140,9 @@ class _Planner:
                         )
                     )
             frontier = passed
+            ranks = name_ranks(self.session, (entry[0].name for entry in level))
             for child, holder, new_type, refusal in sorted(
-                level, key=lambda entry: (entry[0].name, entry[0].object_id)
+                level, key=lambda entry: (ranks[entry[0].name], entry[0].object_id)
             ):
                 planned = self._add(child, new_type, child.parent_object_id, holder.path)
                 if holder.record is not None:
