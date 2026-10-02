@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal
@@ -179,6 +180,65 @@ def _increment_one(
             )
         )
         session.flush()
+
+
+def increment_set_versions_by(
+    session: Session,
+    *,
+    workspace_key: str,
+    change_set_id: str | None,
+    counts: Mapping[tuple[str, str, str, str, str], int],
+) -> None:
+    """Advance many sets at once, each by its count, creating those not yet written (0.9.0-alpha.1
+    PG3b): a batch's relations advance their sets in one statement per thousand sets.
+
+    ``counts`` keys a set by relation type, the ends' types, the anchoring record and the
+    direction. The sets are written in key order, so two writers lock shared sets alike.
+    """
+    if not counts:
+        return
+    now = datetime.now(UTC)
+    rows = [
+        {
+            "workspace_key": workspace_key,
+            "change_set_id": change_set_id,
+            "relation_type_key": relation_type_key,
+            "from_object_type_key": from_type,
+            "to_object_type_key": to_type,
+            "anchor_object_id": anchor,
+            "direction": direction,
+            "version": count,
+            "created_at": now,
+            "updated_at": now,
+        }
+        for (relation_type_key, from_type, to_type, anchor, direction), count in sorted(
+            counts.items()
+        )
+    ]
+    for start in range(0, len(rows), 1000):
+        statement = insert(RelationSetVersion).values(rows[start : start + 1000])
+        advanced = {
+            "version": RelationSetVersion.version + statement.excluded.version,
+            "updated_at": now,
+        }
+        if change_set_id is None:
+            statement = statement.on_conflict_do_update(
+                index_elements=[
+                    "workspace_key",
+                    "relation_type_key",
+                    "from_object_type_key",
+                    "to_object_type_key",
+                    "anchor_object_id",
+                    "direction",
+                ],
+                index_where=RelationSetVersion.change_set_id.is_(None),
+                set_=advanced,
+            )
+        else:
+            statement = statement.on_conflict_do_update(
+                constraint="uq_relation_set_version", set_=advanced
+            )
+        session.execute(statement)
 
 
 def increment_single_set_version(

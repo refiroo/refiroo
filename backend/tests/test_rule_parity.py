@@ -5,6 +5,11 @@ example model and on its renamed copy. ``EXPECTED`` pins the status, code, messa
 context returns. Where the contexts differ, the difference is the context's own refusal wording
 (``engine/records/rules.py``); decision E-D4 settles each one. IDs in messages and details read as
 the labels the case gave the records, and renamed keys read as the example's.
+
+The batch context (0.9.0-alpha.1 PG3b, PG-D13): every create and update case again with each
+write sent as a one-item batch, decided through the batch lookup. An item is refused with its
+single write's code, message and details; it carries no HTTP status, and its details point into
+the item (``pointer``, left out here).
 """
 
 import re
@@ -155,6 +160,84 @@ class Context:
         if isinstance(value, dict):
             return {key: self._normal(item) for key, item in value.items()}
         return value
+
+
+class BatchedContext(Context):
+    """The same writes in the same context, each create and update sent as a batch of one."""
+
+    def create(self, label, app, type_key, attributes, parent=None, relations=None, **extra):
+        k = self.k
+        item: dict[str, Any] = {
+            "op": "create",
+            "applicationKey": k(app),
+            "objectTypeKey": k(type_key),
+            "name": label,
+            "attributes": [attr(k(key), value) for key, value in attributes.items()],
+        }
+        if "id" in extra:
+            item["id"] = extra.pop("id")
+        assert not extra, extra
+        if parent is not None:
+            item["parent"] = {"id": parent["id"]}
+        if relations:
+            item["initialRelations"] = [
+                {"relationTypeKey": k(key), "direction": direction, "object": {"id": other["id"]}}
+                for key, direction, other in relations
+            ]
+        response = self._send(item, 201)
+        if response.status_code == 201:
+            self.labels[response.json()["id"]] = label
+        return response
+
+    def update(self, record, **fields):
+        current = self.read(record)
+        item: dict[str, Any] = {
+            "op": "update",
+            "target": {"id": record["id"]},
+            "expectedVersion": current["version"],
+        }
+        if "attributes" in fields:
+            item["attributes"] = [
+                attr(self.k(key), value) for key, value in fields.pop("attributes").items()
+            ]
+        if "parent" in fields:
+            item["parent"] = {"id": fields.pop("parent")["id"]}
+        item.update(fields)
+        return self._send(item, 200)
+
+    def _send(self, item: dict, status: int) -> ItemResponse:
+        response = self.client.post(
+            "/api/v1/batches",
+            json={
+                "policy": "atomic",
+                "run": "inline",
+                "items": [item],
+                **(self._claims() or {"workspaceKey": WORKSPACE}),
+            },
+        )
+        assert response.status_code == 200, response.text
+        (outcome,) = response.json()["items"]
+        if outcome["status"] != "applied":
+            return ItemResponse(None, {"error": outcome["error"]})
+        return ItemResponse(status, self.read(outcome))
+
+    def outcome(self, response) -> tuple:
+        if response.status_code is not None:
+            return (response.status_code,)
+        error = response.json()["error"]
+        details = {key: value for key, value in error["details"].items() if key != "pointer"}
+        return (error["code"], self._normal(error["message"]), self._normal(details or None))
+
+
+class ItemResponse:
+    """A batch item's outcome, read as its single write's response."""
+
+    def __init__(self, status_code: int | None, body: dict) -> None:
+        self.status_code, self._body = status_code, body
+        self.text = str(body)
+
+    def json(self) -> dict:
+        return self._body
 
 
 def _code(tag: str) -> str:
@@ -869,4 +952,39 @@ def test_rules_refuse_as_pinned(starter, kind):  # noqa: F811 - fixture
     client, k = starter
     observed = observe(client, k, kind)
     expected = {name: outcomes[kind] for name, outcomes in EXPECTED.items()}
+    assert observed == expected
+
+
+# Every case whose refused write is a record's create or update: the ones a batch item makes.
+BATCH_CASES = [
+    case
+    for case in CASES
+    if case.__name__.startswith(("create_", "update_", "move_", "activate_", "duplicate_"))
+]
+# A batch item names its records by reference, resolved before its write's rules run (§B2).
+BATCH_REFUSALS = {
+    "create_parent_missing": (
+        "reference_not_found",
+        "No record matches the reference in this batch's context",
+        {"id": "<id>"},
+    ),
+}
+
+
+@pytest.mark.parametrize("kind", ["live", "change_set"])
+def test_batch_items_refuse_as_their_single_writes(starter, kind):  # noqa: F811 - fixture
+    """PG3b: a create or update decided through the batch lookup is refused with its single
+    write's code, message and details."""
+    client, k = starter
+    observed = {}
+    for case in BATCH_CASES:
+        context = BatchedContext(client, k, kind)
+        observed[case.__name__] = context.outcome(case(context))
+    expected = {}
+    for case in BATCH_CASES:
+        single = EXPECTED[case.__name__][kind]
+        # A refusal without its HTTP status; a write the rules accept as it is.
+        expected[case.__name__] = BATCH_REFUSALS.get(
+            case.__name__, single[1:] if len(single) > 1 else single
+        )
     assert observed == expected

@@ -1332,6 +1332,12 @@ response is lost could not be read back at all.
 - **Items go through the single-write services.** A bulk item is validated and written exactly as the
   equivalent single write, with the same error codes; bulk adds addressing by key, upsert and
   relation-set replacement, not a second validation path.
+  **Amended 2026-10-02 (0.9.0-alpha.1 PG3b, PG-D12–PG-D15):** the services are split into a decide
+  step and a write step. A chunk's items are decided in order by the single writes' decide steps,
+  each seeing the items before it, and the accepted ones are written together in multi-row
+  statements; a single write is a batch of one through the same code, so the rules and codes are
+  still the single writes'. No item has a savepoint: a refused item writes nothing, and a bulk
+  write that fails on a row the rules could not see is redone item by item.
 - **Two failure policies, named per request:** `atomic` (all or nothing, bounded) and `independent`
   (each item in its own savepoint, committed in chunks). No default, and no "stop at first error".
 - **Outcomes** are `applied` (with `created`, `updated`, `unchanged` or `deleted`), `rejected` (with

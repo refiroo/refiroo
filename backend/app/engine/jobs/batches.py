@@ -1,22 +1,34 @@
-"""Batches: a job of kind ``batch`` whose items go through the single-write services (ADR-036).
+"""Batches: a job of kind ``batch`` whose items are decided by the single writes' rules and written
+in bulk (ADR-036; 0.9.0-alpha.1 PG3b, PG-D12–PG-D17).
 
-Each item is applied by the service its single-write route uses, in a savepoint of its own, so it
-is validated exactly as that write and refused with the same code. The batch adds what single writes
-lack (INTEGRATION_API B): records named by a unique key, upsert, ``unchanged`` and the failure
-policies.
+A create, update or upsert item is decided as its single write decides it, through the same
+service's decide step and the same rules, so it is refused with the same code. The items of an
+inline batch or a background chunk are decided one after another through one batch lookup
+(``records/batch_lookup.py``): it reads once what the items name and lays each accepted item over
+what it read, so each item sees the items before it (D23). The accepted items are then written
+together, each kind of row in multi-row statements (``records/bulk.py``). A refused item writes
+nothing, so no item needs a savepoint (PG-D15); a bulk write that fails on something the rules did
+not foresee is redone item by item, each as a batch of one, so the failing item gets its single
+write's answer. A delete item keeps the single delete's path, one item at a time (PG-D18).
 
-- ``atomic``: items apply in order, each against what the items before it left (D23); the first
+The batch adds what single writes lack (INTEGRATION_API B): records named by a unique key, upsert,
+``unchanged`` and the failure policies.
+
+- ``atomic``: items apply in order, each against what the items before it left; the first
   rejection rolls every item back and the others are ``unprocessed``.
-- ``independent``: a rejected item rolls back only itself.
+- ``independent``: a rejected item is left out; the others apply.
 
 In a change set the job claims the change set's version once for all its items (P3); a job that
-applies nothing leaves the version as it was.
+applies nothing leaves the version as it was. A live batch holds the workspace lock for the inline
+batch or the chunk (PG-D14).
 """
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterator, Sequence
+from contextlib import nullcontext
 from dataclasses import dataclass
 from typing import Any
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...errors import ApiError, api_error
@@ -39,23 +51,33 @@ from ...models.database import ChangeSet
 from ...models.schema import EngineModel
 from ..change_sets.access import change_set_model, load_change_set
 from ..change_sets.records import (
-    apply_change_set_object_create,
     apply_change_set_object_delete,
-    apply_change_set_object_update,
+    decide_change_set_object_create,
+    decide_change_set_object_update,
 )
 from ..indexes import matrix_states
+from ..model import registry
 from ..model.registry import resolve_model_snapshot
 from ..records import rules
-from ..records.attributes import current_attribute_values
 from ..records.audit import audit_cause
-from ..records.context import ChangeSetLookup, LiveLookup
+from ..records.batch_lookup import BatchLookup, ChangeSetBatchLookup, LiveBatchLookup
+from ..records.bulk import write_change_set, write_live
 from ..records.deletion import apply_object_delete
-from ..records.objects import apply_object_create, apply_object_update, attributes_to_dict
+from ..records.objects import (
+    attributes_to_dict,
+    decide_object_create,
+    decide_object_update,
+    duplicate_relation,
+)
 from ..records.refusals import CHANGE_SET, LIVE
 from ..records.values import normalize_value, stored_json_value
 from ..records.writes import ChangeSetWrites, LiveWrites
 from ..workspaces.catalogue import resolve_workspace
 from .store import ItemOutcome
+
+# A cancel request is looked for before every this many items an atomic job decides, and before
+# its items are written (D28).
+STOP_CHECK_ITEMS = 500
 
 # Where in an item a single write's refusal points, by its code; otherwise at the item.
 _POINTERS = {
@@ -169,25 +191,20 @@ def run_items(
     outcomes and commits. An inline batch is one call; a background job one call per chunk.
 
     A stale ``expectedChangeSetVersion`` raises before any item runs. ``should_stop`` is asked
-    before each item; when it answers ``True`` the items are rolled back and ``JobCancelled`` is
-    raised.
+    before every ``STOP_CHECK_ITEMS`` items and before the items are written; when it answers
+    ``True`` the items are rolled back and ``JobCancelled`` is raised.
     """
-    writer = (
-        _ChangeSetItems(session, context) if context.change_set else _LiveItems(session, context)
-    )
-    batch = _Batch(writer, items, policy, on_existing, should_stop)
-    outcomes: list[ItemOutcome] = []
     outer = session.begin_nested()
     try:
         # The outer savepoint's release applies the items' matrix notes once (ADR-033).
         with audit_cause(session, "job", job_id), matrix_states.deferred(session):
-            if context.change_set is not None:
-                with ChangeSetWrites(session, context.change_set).hold_claim(
-                    expected_change_set_version
-                ):
-                    batch.apply_all(outcomes)
-            else:
-                batch.apply_all(outcomes)
+            claim = (
+                ChangeSetWrites(session, context.change_set).hold_claim(expected_change_set_version)
+                if context.change_set is not None
+                else nullcontext()
+            )
+            with claim:
+                outcomes = _Batch(session, context, items, policy, on_existing, should_stop).run()
     except JobCancelled:
         outer.rollback()
         raise
@@ -212,6 +229,10 @@ def run_items(
         # Nothing changed: the change set keeps its version.
         outer.rollback()
     else:
+        # The release is checked, under the runtime-state row's share lock, before the outer
+        # savepoint's release writes the matrix states: an activation that drops a matrix shape
+        # then waits for this chunk, never the other way round as well (PG3b).
+        registry.require_resolved_release(session)
         outer.commit()
     return outcomes
 
@@ -220,36 +241,110 @@ class JobCancelled(Exception):
     """A cancel request reached the job while its items were applied (D28)."""
 
 
+def _segments(
+    items: Sequence[tuple[int, BatchItem]],
+) -> Iterator[Sequence[tuple[int, BatchItem]]]:
+    """Runs of items decided together, and each delete item on its own (PG-D18)."""
+    start = 0
+    for position, (_index, item) in enumerate(items):
+        if isinstance(item, BatchDeleteItem):
+            if position > start:
+                yield items[start:position]
+            yield items[position : position + 1]
+            start = position + 1
+    if start < len(items):
+        yield items[start:]
+
+
 class _Batch:
     def __init__(
         self,
-        writer: _Items,
+        session: Session,
+        context: BatchContext,
         items: Sequence[tuple[int, BatchItem]],
         policy: str,
         on_existing: str,
         should_stop: Callable[[], bool] | None,
     ) -> None:
-        self.writer = writer
+        self.writer = (
+            _ChangeSetItems(session, context) if context.change_set else _LiveItems(session, context)
+        )
         self.items = items
         self.policy = policy
         self.on_existing = on_existing
         self.should_stop = should_stop
-        self.session = writer.session
+        self.session = session
 
-    def apply_all(self, outcomes: list[ItemOutcome]) -> None:
-        for index, item in self.items:
-            if self.should_stop is not None and self.should_stop():
-                raise JobCancelled
+    def run(self) -> list[ItemOutcome]:
+        outcomes: list[ItemOutcome] = []
+        for segment in _segments(self.items):
+            bulk = not isinstance(segment[0][1], BatchDeleteItem)
+            go_on = self._together(segment, outcomes) if bulk else self._one_by_one(segment, outcomes)
+            if not go_on:
+                break
+        return outcomes
+
+    def _stop_check(self) -> None:
+        if self.should_stop is not None and self.should_stop():
+            raise JobCancelled
+
+    def _together(
+        self, segment: Sequence[tuple[int, BatchItem]], outcomes: list[ItemOutcome]
+    ) -> bool:
+        """Decide the items in order and write the accepted ones together; ``False`` when an
+        atomic batch stops at a rejection."""
+        lookup = self.writer.open()
+        self.writer.prefetch([item for _index, item in segment])
+        decided: list[ItemOutcome] = []
+        for number, (index, item) in enumerate(segment):
+            if number % STOP_CHECK_ITEMS == 0:
+                self._stop_check()
+            try:
+                with lookup.deciding():
+                    fields = self.apply(index, item)
+            except ApiError as error:
+                decided.append(
+                    ItemOutcome(index, item.ref, "rejected", {"error": _error(index, error)})
+                )
+                if self.policy == "atomic":
+                    outcomes.extend(decided)
+                    return False
+                continue
+            decided.append(ItemOutcome(index, item.ref, "applied", fields))
+        self._stop_check()
+        if lookup.changes():
             try:
                 with self.session.begin_nested():
-                    fields = self.apply(index, item)
-                outcomes.append(ItemOutcome(index, item.ref, "applied", fields))
+                    self.writer.write()
+            except IntegrityError:
+                # A row the rules did not foresee (PG-D15): each item again as a batch of one.
+                return self._one_by_one(segment, outcomes)
+        outcomes.extend(decided)
+        return True
+
+    def _one_by_one(
+        self, segment: Sequence[tuple[int, BatchItem]], outcomes: list[ItemOutcome]
+    ) -> bool:
+        """Apply each item as a batch of one in a savepoint of its own; ``False`` when an atomic
+        batch stops at a rejection."""
+        for index, item in segment:
+            self._stop_check()
+            try:
+                with self.session.begin_nested():
+                    lookup = self.writer.open()
+                    with lookup.deciding():
+                        fields = self.apply(index, item)
+                    if lookup.changes():
+                        self.writer.write_one(fields)
             except ApiError as error:
                 outcomes.append(
                     ItemOutcome(index, item.ref, "rejected", {"error": _error(index, error)})
                 )
                 if self.policy == "atomic":
-                    return
+                    return False
+                continue
+            outcomes.append(ItemOutcome(index, item.ref, "applied", fields))
+        return True
 
     def apply(self, index: int, item: BatchItem) -> dict[str, Any]:
         at = f"/items/{index}"
@@ -368,12 +463,19 @@ class _Batch:
 
 
 class _Items:
-    """What an item does in one context; ``_LiveItems`` and ``_ChangeSetItems`` read alike."""
+    """What an item does in one context; ``_LiveItems`` and ``_ChangeSetItems`` read alike.
+
+    ``open`` starts a batch lookup for a run of items, which ``prefetch`` fills with what they
+    name; ``create`` and ``update`` decide an item over it, and ``write`` writes what was decided.
+    """
 
     session: Session
     model: EngineModel
     refusals: Any
-    lookup: Any
+    lookup: BatchLookup
+
+    def open(self) -> BatchLookup:
+        raise NotImplementedError
 
     def find(self, object_id: str) -> Any | None:
         return self.lookup.object(object_id)
@@ -449,7 +551,7 @@ class _Items:
             return False
         if not attributes:
             return True
-        current = self.values(record)
+        current = self.lookup.values(record)
         for key, value in attributes.items():
             definition = self.model.attribute_type(key)
             if definition is None:
@@ -462,8 +564,105 @@ class _Items:
                 return False
         return True
 
-    def values(self, record: Any) -> dict[str, Any]:
-        raise NotImplementedError
+    def prefetch(self, items: Sequence[BatchItem]) -> None:
+        """Read once, per kind, what ``items`` name (PG-D12): the records their references,
+        targets and upsert keys name, the holders of their unique values, the values and incoming
+        relations of the records they may update, the ancestors of the parents they name, and the
+        relations at the other ends of their initial relations. What an item reads beyond that is
+        read when it asks."""
+        lookup = self.lookup
+        ids: dict[str, set[str]] = {"target": set(), "parent": set(), "other": set(), "own": set()}
+        keyed: dict[str, dict[str, list[Any]]] = {}
+        named_by_key: dict[str, list[tuple[str, Any]]] = {name: [] for name in ids}
+        relation_types: set[str] = set()
+
+        def name(role: str, reference: RecordReference | None) -> None:
+            if reference is None:
+                return
+            if reference.id is not None:
+                ids[role].add(str(reference.id))
+            else:
+                named_by_key[role].append((reference.key.attributeTypeKey, reference.key.value))
+                keyed.setdefault(reference.key.attributeTypeKey, []).append(reference.key.value)
+
+        for item in items:
+            if isinstance(item, BatchUpdateItem):
+                name("target", item.target)
+            if isinstance(item, BatchCreateItem) and item.id is not None:
+                ids["own"].add(str(item.id))
+            if isinstance(item, BatchUpsertItem):
+                if item.key.id is not None:
+                    ids["target"].add(str(item.key.id))
+                else:
+                    value = next(
+                        (
+                            attribute.value
+                            for attribute in item.attributes
+                            if attribute.attributeTypeKey == item.key.attributeTypeKey
+                        ),
+                        None,
+                    )
+                    named_by_key["target"].append((item.key.attributeTypeKey, value))
+            name("parent", item.parent)
+            for relation in getattr(item, "initialRelations", None) or ():
+                name("other", relation.object)
+                relation_types.add(relation.relationTypeKey)
+            for attribute in item.attributes or ():
+                keyed.setdefault(attribute.attributeTypeKey, []).append(attribute.value)
+
+        # Holders of each unique value, by the value as an item gives it.
+        holders: dict[tuple[str, str], set[str]] = {}
+        for attribute_type_key, values in keyed.items():
+            definition = self.model.attribute_type(attribute_type_key)
+            if definition is None or not definition.features.get("unique"):
+                continue
+            forms = {
+                repr(value): form
+                for value in values
+                if (form := self._key_form_of(definition, value)) is not None
+            }
+            lookup.prefetch_holders(attribute_type_key, definition.valueType, forms.values())
+            for given, form in forms.items():
+                holders[(attribute_type_key, given)] = lookup.prefetch_holders(
+                    attribute_type_key, definition.valueType, [form]
+                )
+        for role, named in named_by_key.items():
+            for attribute_type_key, value in named:
+                ids[role] |= holders.get((attribute_type_key, repr(value)), set())
+
+        self.prefetch_ids(ids["own"])
+        lookup.prefetch_objects(set().union(*ids.values()))
+        targets = list(lookup.objects(ids["target"]).values())
+        lookup.prefetch_values(targets)
+        lookup.prefetch_relations([item.object_id for item in targets], "incoming", None)
+        lookup.prefetch_ancestors(ids["parent"])
+        if relation_types and ids["other"]:
+            types = sorted(relation_types)
+            lookup.prefetch_relations(ids["other"], "both", types)
+            scoped = any(
+                binding.features.get("uniqueToAncestorTypeKey")
+                for binding in self.model.objectTypeRelations
+                if binding.relationTypeKey in relation_types
+            )
+            if scoped:
+                far = {
+                    end
+                    for relation in lookup.relations(ids["other"], "both", types)
+                    for end in (relation.from_object_id, relation.to_object_id)
+                }
+                lookup.prefetch_ancestors(far)
+                lookup.prefetch_values(lookup.objects(far).values())
+
+    def _key_form_of(self, definition: Any, value: Any) -> Any | None:
+        if value is None or value == "":
+            return None
+        try:
+            return self.key_form(normalize_value(definition, value))
+        except ApiError:
+            return None
+
+    def prefetch_ids(self, object_ids: set[str]) -> None:
+        """IDs items give the records they create, read for whether they are taken."""
 
     def create(self, item, object_id, parent, relations) -> Any:
         raise NotImplementedError
@@ -476,6 +675,13 @@ class _Items:
     def delete(self, record: Any, expected_version: int) -> None:
         raise NotImplementedError
 
+    def write(self) -> None:
+        raise NotImplementedError
+
+    def write_one(self, fields: dict[str, Any]) -> None:
+        """Write one decided item, answering a row it collides with as its single write does."""
+        self.write()
+
 
 class _LiveItems(_Items):
     refusals = LIVE
@@ -485,21 +691,20 @@ class _LiveItems(_Items):
         self.context = context
         self.model = context.model
         # The workspace lock (PG-D5) is taken before any item resolves a record and held for the
-        # inline batch or the chunk, outside the items' savepoints, so a refused item never
-        # releases it (PG-D14).
-        LiveWrites(session, context.workspace_key)
-        self.lookup = LiveLookup.of(session, context.workspace_key)
+        # inline batch or the chunk, so every item is decided and written under it (PG-D14).
+        self.writes = LiveWrites(session, context.workspace_key)
+
+    def open(self) -> LiveBatchLookup:
+        self.lookup = LiveBatchLookup.of(self.session, self.context.workspace_key)
+        return self.lookup
 
     def find(self, object_id: str) -> Any | None:
         record = self.lookup.object(object_id)
         return record if record is not None and self.lookup.shares_workspace(record) else None
 
-    def values(self, record: Any) -> dict[str, Any]:
-        return current_attribute_values(self.session, record.object_id)
-
     def create(self, item, object_id, parent, relations) -> Any:
-        return apply_object_create(
-            self.session,
+        return decide_object_create(
+            self.lookup,
             self.model,
             ObjectCreate(
                 id=object_id,
@@ -523,13 +728,8 @@ class _LiveItems(_Items):
             fields["parentObjectId"] = parent.object_id if parent else None
         if attributes is not None:
             fields["attributes"] = attributes
-        updated = apply_object_update(
-            self.session,
-            self.model,
-            record.object_type_key,
-            record.object_id,
-            ObjectUpdate(**fields),
-            audit_changes=audit,
+        updated = decide_object_update(
+            self.lookup, self.model, record, ObjectUpdate(**fields), audit_changes=audit
         )
         return updated.version
 
@@ -543,6 +743,18 @@ class _LiveItems(_Items):
             model_identity=self.context.model_hash or "",
         )
 
+    def write(self) -> None:
+        write_live(self.writes, self.model, self.lookup.changes())
+
+    def write_one(self, fields: dict[str, Any]) -> None:
+        try:
+            self.write()
+        except IntegrityError:
+            if fields["action"] != "created":
+                raise
+            # A single live create answers a colliding row so (``create_object_record``).
+            raise duplicate_relation() from None
+
 
 class _ChangeSetItems(_Items):
     refusals = CHANGE_SET
@@ -552,23 +764,28 @@ class _ChangeSetItems(_Items):
         self.context = context
         self.model = context.model
         self.change_set_id = context.change_set.id
-        self.lookup = ChangeSetLookup.of(session, self.change_set_id)
+        self.writes = ChangeSetWrites(session, context.change_set)
+
+    def open(self) -> ChangeSetBatchLookup:
+        self.lookup = ChangeSetBatchLookup.of(self.session, self.change_set_id)
+        return self.lookup
 
     def key_form(self, normalized: Any) -> Any:
         # Change set rows hold JSON; their value index matches the stored form.
         return stored_json_value(normalized)
 
-    def values(self, record: Any) -> dict[str, Any]:
-        return self.lookup.values(record)
+    def prefetch_ids(self, object_ids: set[str]) -> None:
+        self.lookup.prefetch_taken(object_ids)
 
     def _claimed_version(self) -> int:
         # The job holds the change set's claim; its items claim nothing more.
         return self.context.change_set.version
 
     def create(self, item, object_id, parent, relations) -> Any:
-        return apply_change_set_object_create(
-            self.session,
-            self.change_set_id,
+        return decide_change_set_object_create(
+            self.lookup,
+            self.writes,
+            self.model,
             ChangeSetObjectWrite(
                 id=object_id,
                 applicationKey=item.applicationKey,
@@ -594,15 +811,16 @@ class _ChangeSetItems(_Items):
             fields["parentObjectId"] = parent.object_id if parent else None
         if attributes is not None:
             fields["attributes"] = attributes_to_dict(attributes)
-        row = apply_change_set_object_update(
-            self.session,
-            self.change_set_id,
+        updated = decide_change_set_object_update(
+            self.lookup,
+            self.writes,
+            self.model,
             record.object_id,
             ChangeSetObjectUpdate(**fields),
             object_type_key=record.object_type_key,
             audit_changes=audit,
         )
-        return row.version
+        return updated.version
 
     def delete(self, record: Any, expected_version: int) -> None:
         apply_change_set_object_delete(
@@ -613,6 +831,9 @@ class _ChangeSetItems(_Items):
             self._claimed_version(),
             expected_version,
         )
+
+    def write(self) -> None:
+        write_change_set(self.writes, self.lookup.changes())
 
 
 def _initial_relations(

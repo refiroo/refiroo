@@ -1,6 +1,6 @@
 from typing import Any
+from uuid import uuid4
 
-from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -12,17 +12,19 @@ from ..workspaces.catalogue import resolve_workspace
 from . import rules
 from .attributes import (
     apply_attribute_values,
+    check_attribute_change,
     current_attribute_values,
-    validate_attribute_change,
     validate_attributes,
     validate_deletable_attribute,
     validate_object_attribute_rules,
 )
-from .audit import record_audit_event
-from .context import LiveLookup, load_object
+from .audit import AuditEntry, record_audit_event
+from .batch_lookup import LiveBatchLookup, Record, Relation
+from .bulk import write_live
+from .context import load_object
 from .refusals import LIVE
-from .relation_set_versions import increment_set_versions
-from .relations import create_relation_instance, validate_scoped_relations
+from .relations import validate_scoped_relations
+from .values import stored_json_value
 from .writes import LiveWrites
 
 
@@ -37,16 +39,34 @@ def create_object_record(session: Session, model: EngineModel, payload: ObjectCr
         session.commit()
     except IntegrityError:
         session.rollback()
-        raise api_error(409, "duplicate_relation", "Relation already exists") from None
+        raise duplicate_relation() from None
     return item
 
 
+def duplicate_relation() -> Exception:
+    """What a live create answers when its rows collide with a row the rules did not see."""
+    return api_error(409, "duplicate_relation", "Relation already exists")
+
+
 def apply_object_create(session: Session, model: EngineModel, payload: ObjectCreate) -> RdmObject:
-    """Write a new live object and audit it; the caller commits (a route) or holds a savepoint
-    (a batch item)."""
+    """Write a new live object and audit it, as a batch of one; the caller commits."""
     workspace = resolve_workspace(session, payload.workspaceKey, require_active=True)
-    workspace_key = workspace.key
-    writes = LiveWrites(session, workspace_key)
+    writes = LiveWrites(session, workspace.key)
+    lookup = LiveBatchLookup.of(session, workspace.key)
+    with lookup.deciding():
+        record = decide_object_create(lookup, model, payload)
+    try:
+        return write_live(writes, model, lookup.changes())[record.object_id]
+    except IntegrityError:
+        raise duplicate_relation() from None
+
+
+def decide_object_create(
+    lookup: LiveBatchLookup, model: EngineModel, payload: ObjectCreate
+) -> Record:
+    """Check a new live object against the rules and lay it over ``lookup`` with its containment
+    and initial relations; nothing is written (PG3b, PG-D12)."""
+    workspace_key = lookup.workspace_key
     object_type_key = payload.objectTypeKey
     object_type = rules.object_identity(model, payload.applicationKey, object_type_key, LIVE)
     attributes = validate_attributes(model, object_type, attributes_to_dict(payload.attributes))
@@ -58,12 +78,9 @@ def apply_object_create(session: Session, model: EngineModel, payload: ObjectCre
     )
 
     public_id = str(payload.id) if payload.id is not None else None
-    if public_id is not None:
-        existing = session.scalar(select(RdmObject.id).where(RdmObject.id == public_id))
-        if existing:
-            raise LIVE.object_exists(public_id)
+    if public_id is not None and lookup.id_taken(public_id):
+        raise LIVE.object_exists(public_id)
 
-    lookup = LiveLookup.of(session, workspace_key)
     parent, parent_relation = rules.parent(
         lookup,
         model,
@@ -72,63 +89,82 @@ def apply_object_create(session: Session, model: EngineModel, payload: ObjectCre
         str(payload.parentObjectId) if payload.parentObjectId is not None else None,
     )
     rules.unique_values(lookup, model, None, attributes)
-    item = writes.add_object(
-        object_id=public_id,
+    record = Record(
+        object_id=public_id or str(uuid4()),
         application_key=payload.applicationKey,
         object_type_key=object_type_key,
-        parent_object_id=parent.id if parent else None,
+        parent_object_id=parent.object_id if parent else None,
         name=payload.name,
-    )
-    writes.save_values(model, item.id, attributes)
-    if parent and parent_relation:
-        writes.add_relation(parent_relation, parent.id, item.id, flush=False)
-    for initial in payload.initialRelations:
-        other = load_object(session, str(initial.otherObjectId))
-        if other.workspace_key != workspace_key:
-            raise api_error(422, "relation_wrong_scope", "Related objects must share a workspace")
-        from_object, to_object = (item, other) if initial.direction == "outgoing" else (other, item)
-        try:
-            create_relation_instance(
-                writes,
-                model,
-                RelationCreate(
-                    relationTypeKey=initial.relationTypeKey,
-                    fromObjectId=from_object.id,
-                    toObjectId=to_object.id,
-                    attributes=initial.attributes,
-                ),
-                from_object=from_object,
-                to_object=to_object,
-            )
-        except IntegrityError:
-            raise api_error(409, "duplicate_relation", "Relation already exists") from None
-        # Like any relation write, an initial relation advances both ends' sets (ADR-022).
-        increment_set_versions(
-            session,
-            workspace_key=workspace_key,
-            change_set_id=None,
-            relation_type_key=initial.relationTypeKey,
-            from_object_type_key=from_object.object_type_key,
-            to_object_type_key=to_object.object_type_key,
-            from_object_id=from_object.id,
-            to_object_id=to_object.id,
-        )
-    record_audit_event(
-        session,
-        aggregate_type="object",
-        aggregate_id=item.id,
-        action="created",
         version=1,
-        changes={
-            "objectTypeKey": object_type_key,
-            "attributes": attributes,
-            "initialRelations": [
-                relation.model_dump(mode="json") for relation in payload.initialRelations
-            ],
-        },
-        object_ids=[item.id],
+        attributes=json_values(attributes),
+        workspace_key=workspace_key,
     )
-    return item
+    lookup.lay(record, created=True, saved=attributes)
+    if parent and parent_relation:
+        lookup.add_relation(
+            Relation(str(uuid4()), parent_relation, parent.object_id, record.object_id, {})
+        )
+    for initial in payload.initialRelations:
+        other = lookup.object(str(initial.otherObjectId))
+        if other is None:
+            raise api_error(404, "object_not_found", f"Object '{initial.otherObjectId}' not found")
+        if not lookup.shares_workspace(other):
+            raise api_error(422, "relation_wrong_scope", "Related objects must share a workspace")
+        source, target = (record, other) if initial.direction == "outgoing" else (other, record)
+        relation = RelationCreate(
+            relationTypeKey=initial.relationTypeKey,
+            fromObjectId=source.object_id,
+            toObjectId=target.object_id,
+            attributes=initial.attributes,
+        )
+        relation_attributes = rules.relation(
+            lookup, model, relation.relationTypeKey, source, target, relation.attributes
+        )
+        if lookup.has_relation(relation.relationTypeKey, source.object_id, target.object_id):
+            raise duplicate_relation()
+        added = Relation(
+            str(uuid4()),
+            relation.relationTypeKey,
+            source.object_id,
+            target.object_id,
+            relation_attributes,
+        )
+        lookup.add_relation(added)
+        lookup.audit(
+            AuditEntry(
+                "relation",
+                added.relation_id,
+                "created",
+                1,
+                {**relation.model_dump(), "attributes": relation_attributes},
+                (source.object_id, target.object_id),
+            )
+        )
+        # Like any relation write, an initial relation advances both ends' sets (ADR-022).
+        lookup.advance_sets(
+            relation.relationTypeKey,
+            source.object_type_key,
+            target.object_type_key,
+            source.object_id,
+            target.object_id,
+        )
+    lookup.audit(
+        AuditEntry(
+            "object",
+            record.object_id,
+            "created",
+            1,
+            {
+                "objectTypeKey": object_type_key,
+                "attributes": attributes,
+                "initialRelations": [
+                    relation.model_dump(mode="json") for relation in payload.initialRelations
+                ],
+            },
+            (record.object_id,),
+        )
+    )
+    return record
 
 
 def update_object_record(
@@ -150,12 +186,39 @@ def apply_object_update(
     object_type_key: str,
     object_id: str,
     payload: ObjectUpdate,
+) -> RdmObject:
+    """Update a live object and audit it, as a batch of one; the caller commits."""
+    # The model's refusals come before the record is read, as they always did.
+    object_type = rules.get_object_type(model, object_type_key)
+    if payload.attributes is not None:
+        validate_attributes(
+            model, object_type, attributes_to_dict(payload.attributes), partial=True
+        )
+    found = load_object(session, object_id, object_type_key)
+    resolve_workspace(session, found.workspace_key, require_active=True)
+    writes = LiveWrites(session, found.workspace_key)
+    # Read again under the workspace lock: a write committed since it was found is seen, its
+    # version included, which the decide step compares with the expected one.
+    session.expire(found)
+    item = load_object(session, object_id, object_type_key)
+    lookup = LiveBatchLookup.of(session, item.workspace_key)
+    with lookup.deciding():
+        record = decide_object_update(lookup, model, item, payload)
+    return write_live(writes, model, lookup.changes())[record.object_id]
+
+
+def decide_object_update(
+    lookup: LiveBatchLookup,
+    model: EngineModel,
+    item: Any,
+    payload: ObjectUpdate,
     *,
     audit_changes: dict[str, Any] | None = None,
-) -> RdmObject:
-    """Update a live object and audit it; the caller commits. ``audit_changes`` adds to the
-    audit entry, such as a batch overwrite's previous version."""
-    object_type = rules.get_object_type(model, object_type_key)
+) -> Record:
+    """Check a partial update of the live record ``item`` under its version and lay the result
+    over ``lookup``; nothing is written (PG3b). ``audit_changes`` adds to the audit entry, such as
+    a batch overwrite's previous version."""
+    object_type = rules.get_object_type(model, item.object_type_key)
     attributes = (
         validate_attributes(
             model, object_type, attributes_to_dict(payload.attributes), partial=True
@@ -163,59 +226,80 @@ def apply_object_update(
         if payload.attributes is not None
         else None
     )
-
-    item = load_object(session, object_id, object_type_key)
-    resolve_workspace(session, item.workspace_key, require_active=True)
-    writes = LiveWrites(session, item.workspace_key)
-    writes.claim_object(item, payload.expectedVersion)
-
+    # The workspace lock (PG-D5) is held: the version read is the one a write would claim.
+    if item.version != payload.expectedVersion:
+        raise api_error(409, "version_conflict", "Object version has changed")
     if attributes is not None:
-        validate_attribute_change(session, model, object_type, item, attributes)
+        check_attribute_change(lookup, model, object_type, item, attributes)
 
+    values = lookup.values(item)
+    record = Record(
+        object_id=item.object_id,
+        application_key=item.application_key,
+        object_type_key=item.object_type_key,
+        parent_object_id=item.parent_object_id,
+        name=item.name,
+        version=item.version + 1,
+        attributes=values,
+        workspace_key=item.workspace_key,
+    )
     changes: dict[str, Any] = {}
     if payload.name is not None:
         changes["name"] = {"from": item.name, "to": payload.name}
-        item.name = payload.name
-    if "parentObjectId" in payload.model_fields_set:
-        old_parent = item.parent_object_id
+        record.name = payload.name
+    moved = "parentObjectId" in payload.model_fields_set
+    if moved:
         parent, parent_relation = rules.parent(
-            LiveLookup.of(session, item.workspace_key),
+            lookup,
             model,
-            object_type_key,
+            item.object_type_key,
             item.application_key,
             str(payload.parentObjectId) if payload.parentObjectId is not None else None,
-            object_id=item.id,
+            object_id=item.object_id,
             moving=True,
         )
-        writes.place(
-            item,
-            parent.id if parent else None,
-            parent_relation,
-            model.containment_relation_keys(item.object_type_key),
-        )
+        # The record's one containment relation is replaced, as a move always did.
+        for relation in lookup.relations(
+            [item.object_id],
+            "incoming",
+            sorted(model.containment_relation_keys(item.object_type_key)),
+        ):
+            lookup.remove_relation(relation)
+        record.parent_object_id = parent.object_id if parent else None
+        if parent and parent_relation:
+            lookup.add_relation(
+                Relation(str(uuid4()), parent_relation, parent.object_id, item.object_id, {})
+            )
         changes["parentObjectId"] = {
-            "from": old_parent,
-            "to": parent.id if parent else None,
+            "from": item.parent_object_id,
+            "to": record.parent_object_id,
         }
     if attributes is not None:
-        writes.save_values(model, item.id, attributes)
+        record.attributes = {**values, **json_values(attributes)}
         changes["attributes"] = attributes
+    lookup.lay(record, saved=attributes or ())
 
     # A name changes no scope; values change the record's own conditions; a move, the scopes
     # of the records under it.
-    if "parentObjectId" in changes or attributes is not None:
-        validate_scoped_relations(session, model, item, moved="parentObjectId" in changes)
+    if moved or attributes is not None:
+        validate_scoped_relations(lookup, model, record, moved=moved)
 
-    record_audit_event(
-        session,
-        aggregate_type="object",
-        aggregate_id=item.id,
-        action="updated",
-        version=item.version,
-        changes={**changes, **(audit_changes or {})},
-        object_ids=[item.id],
+    lookup.audit(
+        AuditEntry(
+            "object",
+            record.object_id,
+            "updated",
+            record.version,
+            {**changes, **(audit_changes or {})},
+            (record.object_id,),
+        )
     )
-    return item
+    return record
+
+
+def json_values(attributes: dict[str, Any]) -> dict[str, Any]:
+    """Normalized values in the JSON form live reads give them."""
+    return {key: stored_json_value(value) for key, value in attributes.items()}
 
 
 def set_live_attribute_value(

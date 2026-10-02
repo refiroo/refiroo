@@ -585,6 +585,15 @@ def note_relations_removed(session: Session, relation_ids: Iterable[str]) -> Non
             note_rows(session, (from_id, to_id))
 
 
+def note_relations(
+    session: Session, relations: Iterable[Any], change_set_id: str | None = None
+) -> None:
+    """Relations a Core statement wrote or removed: their ends' cells change in shapes of their
+    type only, as for a relation the ORM wrote."""
+    for relation in relations:
+        _note_relation(session, relation, change_set_id)
+
+
 def _note_relation(session: Session, item: Any, change_set_id: str | None = None) -> None:
     """A relation the ORM wrote: its ends' cells change only in shapes of its type."""
     typed = _changes(session, change_set_id).typed_rows

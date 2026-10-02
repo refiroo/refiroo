@@ -477,6 +477,110 @@ closed: the batch lookup and the bulk write are generic, and history stays per r
 **Exit:** the groups green within the [time ceilings](TEST_HARNESS_PLAN.md#time-ceilings); no
 full-size run in the package.
 
+**Delivered 2026-10-02.**
+
+- **The batch lookup (PG-D13).** `engine/records/batch_lookup.py`: `LiveBatchLookup` and
+  `ChangeSetBatchLookup` over `LiveLookup` and `ChangeSetLookup`, answering the rules' questions
+  from the item being decided, then the items accepted before it in the chunk, then the base.
+  Before a run of items is decided, `prefetch` reads per kind, in `IN` lists, what the items name:
+  the records their references, targets and upsert keys name, the holders of their unique values,
+  the values and incoming relations of the records they may update, the ancestors of the parents
+  they name, and the relations at the other ends of their initial relations (with the far ends'
+  values and ancestors when a binding is scoped). A question the prefetch did not cover reads the
+  base and keeps the answer, so a rare path costs a read, never a wrong answer. A refused item is
+  discarded with everything it laid over. `rules.py` is unchanged; `validate_scoped_relations`
+  now reads through a lookup (`LiveLookup.children` added), and both base lookups gained a batched
+  `value_holders`.
+- **The decide/write split.** `decide_object_create` and `decide_object_update` (live),
+  `decide_change_set_object_create`, `decide_change_set_object_update` and
+  `decide_new_change_set_object` (change set) lay the result over the lookup; `records/bulk.py`
+  writes it: `LiveWrites.write` and `ChangeSetWrites.write` add and change records, attribute
+  values and relations through the ORM, whose flush sends each kind as multi-row statements, so the
+  typed value index and the matrix notes follow them through their flush hooks; the relation sets
+  the items' relations advance go out as one `INSERT … ON CONFLICT` per thousand sets
+  (`increment_set_versions_by`); the audit events go out as multi-row inserts whose sequence
+  numbers come back for their subjects (`record_audit_events`, PG-D16). A single API write is a
+  batch of one through the same code; so are restructuring's inserted record
+  (`write_new_change_set_object`) and the containment edge `place_record` keeps
+  (`containment_change`). `LiveWrites.place` is gone.
+- **The chunk (PG-D12, PG-D14, PG-D15).** `run_items` decides a run of create, update and upsert
+  items in order and writes the accepted ones together in one savepoint, under the workspace lock
+  taken once for the chunk (live) or the change set's claim. No item has a savepoint. A bulk write
+  that fails with an integrity error is rolled back and the run redone item by item, each as a
+  batch of one in its own savepoint, so the item that collides gets its single write's answer (a
+  live create's `409 duplicate_relation`, or the rule refusal its second decision now meets). A
+  delete item is a run of one on the single delete's path (PG-D18).
+- **From PG3: the activation deadlock.** Before the outer savepoint's release writes the matrix
+  states, `run_items` runs the release check (`registry.require_resolved_release`, the runtime-state
+  row shared); the bulk write's own savepoint release runs it too, before any state row is
+  written. An activation that drops a matrix shape therefore never waits for a chunk's state rows
+  while the chunk waits for it; until now that order rested on the order the commit listeners were
+  registered in.
+- **From PG3: the time of one chunk.** `test_batch_statements` records it beside the counts: a
+  chunk of 500 items takes 0.25–0.46 s and one of 100 items 0.08–0.20 s, live and in a change set,
+  at both seeded sizes (the inline path, which runs the background chunk's code). A live write in a
+  background job's workspace waits for one chunk at most (PG3), so that is its wait; PG5's run
+  confirms it at full size.
+- **Statements (PG-D17).** A chunk costs 30–32 statements for creates and 44–46 for upserts live,
+  43–44 and 47–49 in the change set, for 100 or 500 items at both sizes: the same items cost the
+  same at both sizes, and the counts stay within four of each other (an `IN` list for every 500
+  values the items name, an `UPDATE` per set of changed columns). Before PG3b a live upsert item
+  cost 20.5 statements (B1, D13).
+- **Doors (ADR-032):** bulk APIs, attribute storage and audit/history are touched; none is closed:
+  the batch lookup and the bulk write are generic over records, values and relations, values keep
+  their typed columns, and history stays one event per record per item with the job as its cause.
+
+*Differs from the design:*
+
+- **D28's cancel check.** An `atomic` job looks for a cancel request before every 500 items it
+  decides (`STOP_CHECK_ITEMS`) and before it writes them, not before every item: a check per item
+  would add a statement per item. Deciding 500 items takes a fraction of a second, so the request
+  waits no longer in practice; the job still rolls back completely. API.md, INTEGRATION_API and D28
+  are amended.
+- **A live update compares the record's version in memory** instead of claiming it with a
+  conditional `UPDATE`. *Found in the package's review:* a single PATCH found its record before it
+  took the workspace lock, so a write committed in between would have been overwritten (the
+  second of two racing PATCHes answered `200`); the PATCH now reads the record again under the
+  lock, and two tests race versions.
+- **A change set create without an ID** no longer checks that its newly drawn ID is taken; one
+  given by the caller still is.
+- **"A constant"** is read as above: within four statements, not exactly equal, since the number of
+  `IN` lists and of `UPDATE` column sets depends on the items.
+- A batch item names its records by reference, resolved before its write's rules (§B2): a missing
+  parent is `404 reference_not_found` where the single write answers `404 object_not_found` live
+  and `422 parent_wrong_scope` in a change set (pinned in `test_rule_parity`).
+
+**Tests:** `test_rule_parity` gains the batch context (4: each create and update case sent as a
+one-item batch, live and in a change set, on both models, refused with its single write's code,
+message and details). `test_batch_statements` (6, groups `volume`, `jobs`): the counts and times
+above. `test_pg3b_batch_writes` (6, groups `records`, `jobs`, `matrix`): a bulk write failing on an
+ID another workspace took meanwhile, redone item by item with that item refused
+`object_already_exists` as its single create; a unique value raced by a chunk and a single write,
+each holding the lock first; two PATCHes on one version, and a batch update against a PATCH; an
+activation removing every `relationMatrix` view while a chunk that rewrites a stored cell is held at
+its release check, which commits while the chunk waits, the job then failed `model_release_changed`
+with nothing written. `test_pg3_concurrency`'s atomic cancel now holds the job while it decides its
+second item. The batch tests (`test_batches`, `test_background_jobs`, `test_batch_matrix_states`)
+are unchanged and green. *Checked by breaking the code:* with the matrix states written before the
+release check, the activation test times out and the job fails on the deadlock; without the
+PATCH's second read, the version race answers `200` twice. `test_batch_volume` and
+`test_background_volume` lost their timed checks (the change-set item cost as the change set grows,
+the item rate by quarter); they are `budget` and were not run.
+
+**Checks:** `pytest -n auto -m "records or change_sets or jobs or matrix"`: 578 cases, none failed,
+in **2 min 31 s, over the 2-minute ceiling** (two volume seeds were rebuilt inside the run, 28 s,
+because their fingerprint covers the changed write code; the longest test is the existing
+`test_change_set_position_reads` at 52 s; the new tests over 10 s are `test_batch_statements`'s
+first, 14 s, which starts the volume application at both sizes, and the batch context of
+`test_rule_parity`, which adds 8 s to that module). The run's summary line was cut from its output,
+so the count is the groups' collection less the three `serial` tests, and its passing is shown by
+its progress output and the failure cache, which it left unchanged (three earlier failures listed
+there were run again directly and pass). `-m "serial and (…)"` 3 passed; `test_boundaries` 3
+passed; `test_openapi_contract` 8 passed (the OpenAPI document is unchanged); `ruff check app/
+tests/`. Not run: `startup`, `queries`, `mapping`, `model_admin`, `workspaces` and the rest of
+`contract` (no route, schema, migration or startup path changed), the `budget` tests, browser
+runners and frontend suites (no UI change).
+
 ### PG4: Carrying data over
 
 **Scope:** the copy command (PG-D10), its row-count and derived-index checks and its refusals.

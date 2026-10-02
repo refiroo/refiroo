@@ -157,6 +157,16 @@ What holds today:
   writes run beside it, and writes to one change set serialize on its row.
   Tested by `test_pg3_concurrency`: each invariant raced by two connections, one write held while
   the other is seen waiting on the lock.
+- **Record writes are decided, then written in bulk** (0.9.0-alpha.1 PG3b, PG-D12–PG-D16). A
+  create or update is checked by the write rules over a batch lookup (`records/batch_lookup.py`):
+  the records it reads, preloaded per chunk for a batch, with the items decided before it laid
+  over them. What the accepted items change is then written together by `records/bulk.py`, each
+  kind of row in multi-row statements; a single write is a batch of one. Since a record's version
+  is compared in memory rather than claimed by a conditional `UPDATE`, a write reads the records it
+  changes after it takes its lock. A chunk runs its release check (the runtime-state row shared)
+  before it writes a matrix state, so an activation dropping a matrix shape never waits for the
+  chunk's state rows while the chunk waits for it. A bulk write failing on a row the rules could
+  not see is redone item by item. Tested by `test_pg3b_batch_writes` and `test_batch_statements`.
 - **Instances must share `RDM_CURSOR_SIGNING_KEY`** if a load balancer can route one client's
   requests to different instances; otherwise cursors issued by one are refused by another.
 

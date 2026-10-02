@@ -48,7 +48,8 @@ The rules that hold the ceilings:
   not measured again: a run is repeated only after the code it covers changed.
 - **Full-size budgets never run by default.** They carry the `budget` marker, which a run selects
   only by naming it (`-m budget`). From PG3b their timed checks are statement counts at two seeded
-  sizes (PG-D17), and the 100,000-item batch is a measurement run once at PG5's acceptance.
+  sizes (PG-D17; `test_batch_statements`, delivered 2026-10-02), and the 100,000-item batch is a
+  measurement run once at PG5's acceptance.
 - **The run reports what grew.** The summary lists every test over 10 s outside `budget`, so a
   package that makes a test slow sees it in its own run, not at the next acceptance. A package that
   adds a test over 10 s says why in its record, or makes it smaller.

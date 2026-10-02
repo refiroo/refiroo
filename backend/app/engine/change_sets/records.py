@@ -10,7 +10,6 @@ from collections.abc import Iterable
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ...errors import api_error
@@ -18,7 +17,6 @@ from ...models.database import (
     ChangeSet,
     ChangeSetObject,
     ChangeSetRelation,
-    RdmObject,
 )
 from ..records import rules
 from ..records.attributes import (
@@ -26,7 +24,9 @@ from ..records.attributes import (
     validate_deletable_attribute,
     validate_object_attribute_rules,
 )
-from ..records.audit import record_audit_event
+from ..records.audit import AuditEntry, record_audit_event
+from ..records.batch_lookup import ChangeSetBatchLookup, Record, Relation
+from ..records.bulk import write_change_set
 from ..records.context import ChangeSetLookup
 from ..records.deletion import (
     deletion_preview_changed,
@@ -95,29 +95,38 @@ def put_change_set_object(session: Session, change_set_id: str, payload: Any) ->
 def apply_change_set_object_create(
     session: Session, change_set_id: str, payload: Any
 ) -> ChangeSetObject:
-    """Write a new record into a change set under its claim; the caller commits."""
+    """Write a new record into a change set under its claim, as a batch of one; the caller
+    commits."""
     change_set = load_change_set(session, change_set_id, for_update=True)
     writes = ChangeSetWrites(session, change_set)
     model = change_set_model(session, change_set)
+    lookup = ChangeSetBatchLookup.of(session, change_set_id)
+    with lookup.deciding():
+        record = decide_change_set_object_create(lookup, writes, model, payload)
+    return write_change_set(writes, lookup.changes())[record.object_id]
+
+
+def decide_change_set_object_create(
+    lookup: ChangeSetBatchLookup, writes: ChangeSetWrites, model: Any, payload: Any
+) -> Record:
+    """Check a new change set record against the rules under the change set's claim and lay it
+    over ``lookup``; nothing is written (0.9.0-alpha.1 PG3b)."""
     rules.object_identity(model, payload.applicationKey, payload.objectTypeKey, CHANGE_SET)
     attributes = stored_attributes(
         model, payload.objectTypeKey, payload.attributes, partial=False
     )
     validate_object_attribute_rules(model.object_type(payload.objectTypeKey), attributes)
-    lookup = ChangeSetLookup.of(session, change_set_id)
     if payload.parentObjectId is not None and lookup.object(str(payload.parentObjectId)) is None:
         raise api_error(422, "parent_wrong_scope", "Parent must exist in the change set")
     writes.claim(payload.expectedChangeSetVersion)
-    object_id = str(payload.id) if payload.id else str(uuid4())
-    if payload.expectedRecordVersion is not None and not _object_exists(
-        session, lookup, change_set_id, object_id
+    object_id = str(payload.id) if payload.id else None
+    if payload.expectedRecordVersion is not None and not (
+        object_id is not None and lookup.id_taken(object_id)
     ):
         raise api_error(409, "version_conflict", "Object record does not exist")
-    row = write_new_change_set_object(
-        session,
-        change_set,
-        model,
+    return decide_new_change_set_object(
         lookup,
+        model,
         object_id=object_id,
         application_key=payload.applicationKey,
         object_type_key=payload.objectTypeKey,
@@ -129,22 +138,6 @@ def apply_change_set_object_create(
             for item in getattr(payload, "initialRelations", None) or ()
         ],
     )
-    return row
-
-
-def _object_exists(
-    session: Session, lookup: ChangeSetLookup, change_set_id: str, object_id: str
-) -> bool:
-    return bool(
-        lookup.object(object_id) is not None
-        or session.scalar(select(RdmObject.id).where(RdmObject.id == object_id))
-        or session.scalar(
-            select(ChangeSetObject.object_id).where(
-                ChangeSetObject.change_set_id == change_set_id,
-                ChangeSetObject.object_id == object_id,
-            )
-        )
-    )
 
 
 def write_new_change_set_object(
@@ -153,7 +146,7 @@ def write_new_change_set_object(
     model: Any,
     lookup: ChangeSetLookup,
     *,
-    object_id: str,
+    object_id: str | None,
     application_key: str,
     object_type_key: str,
     name: str,
@@ -162,51 +155,92 @@ def write_new_change_set_object(
     initial_relations: list[tuple[str, str, str, dict[str, Any]]],
     audit_changes: dict[str, Any] | None = None,
 ) -> ChangeSetObject:
-    """Write a new record into a change set with its initial relationships; the caller has
-    normalized its attributes and claims and commits.
+    """Write a new record into a change set with its initial relationships, as a batch of one;
+    the caller has normalized its attributes and claims and commits. See
+    ``decide_new_change_set_object``."""
+    batch = ChangeSetBatchLookup(lookup)
+    with batch.deciding():
+        record = decide_new_change_set_object(
+            batch,
+            model,
+            object_id=object_id,
+            application_key=application_key,
+            object_type_key=object_type_key,
+            name=name,
+            parent_object_id=parent_object_id,
+            attributes=attributes,
+            initial_relations=initial_relations,
+            audit_changes=audit_changes,
+        )
+    rows = write_change_set(ChangeSetWrites(session, change_set), batch.changes())
+    return rows[record.object_id]
 
+
+def decide_new_change_set_object(
+    lookup: ChangeSetBatchLookup,
+    model: Any,
+    *,
+    object_id: str | None,
+    application_key: str,
+    object_type_key: str,
+    name: str,
+    parent_object_id: str | None,
+    attributes: dict[str, Any],
+    initial_relations: list[tuple[str, str, str, dict[str, Any]]],
+    audit_changes: dict[str, Any] | None = None,
+) -> Record:
+    """Lay a new change set record over ``lookup`` with its containment and initial
+    relationships, checked by the rules; its attributes are normalized.
+
+    ``object_id`` is the ID the caller gives, refused when taken; without one a new ID is drawn.
     ``initial_relations`` are ``(relationTypeKey, direction, otherObjectId, attributes)``.
     """
-    if _object_exists(session, lookup, change_set.id, object_id):
+    if object_id is not None and lookup.id_taken(object_id):
         raise CHANGE_SET.object_exists(object_id)
-    writes = ChangeSetWrites(session, change_set)
-    row = writes.add_object(
-        object_id=object_id,
+    record = Record(
+        object_id=object_id or str(uuid4()),
         application_key=application_key,
         object_type_key=object_type_key,
-        name=name,
         parent_object_id=parent_object_id,
-        attributes=attributes,
+        name=name,
+        version=1,
+        attributes=dict(attributes),
     )
-    rules.unique_values(lookup, model, row.object_id, attributes)
-    place_record(session, change_set, model, row, lookup)
+    lookup.lay(record, created=True)
+    rules.unique_values(lookup, model, record.object_id, attributes)
+    _place(lookup, model, record)
     identities = [(key, direction, other) for key, direction, other, _attrs in initial_relations]
     if len(identities) != len(set(identities)):
         raise api_error(422, "duplicate_initial_relation", "Initial relationships must not repeat")
-    # The new row and each relation added before the next are flushed into the lookups.
+    # The new record and each relation added before the next count for the next one's checks.
     for relation_type_key, direction, other_id, relation_attributes in initial_relations:
-        from_id = row.object_id if direction == "outgoing" else other_id
-        to_id = other_id if direction == "outgoing" else row.object_id
+        from_id = record.object_id if direction == "outgoing" else other_id
+        to_id = other_id if direction == "outgoing" else record.object_id
         attrs = validate_change_set_relation(
             model, lookup, relation_type_key, from_id, to_id, relation_attributes
         )
-        relation = writes.add_relation(relation_type_key, from_id, to_id, attrs)
-        advance_relation_sets(session, change_set, lookup, relation)
+        lookup.add_relation(Relation(str(uuid4()), relation_type_key, from_id, to_id, attrs))
+        _advance_sets(lookup, relation_type_key, from_id, to_id)
     rules.required_initial_relations(
         model,
-        row.object_type_key,
+        record.object_type_key,
         (key for key, direction, _other, _attrs in initial_relations if direction == "incoming"),
     )
-    record_audit_event(
-        session,
-        aggregate_type="change-set-object",
-        aggregate_id=row.object_id,
-        action="created",
-        version=row.version,
-        changes={"attributes": attributes, "changeSetId": change_set.id, **(audit_changes or {})},
-        object_ids=[row.object_id],
+    lookup.audit(
+        AuditEntry(
+            "change-set-object",
+            record.object_id,
+            "created",
+            record.version,
+            {
+                "attributes": attributes,
+                "changeSetId": lookup.change_set_id,
+                **(audit_changes or {}),
+            },
+            (record.object_id,),
+        )
     )
-    return row
+    return record
 
 
 def update_change_set_object(
@@ -233,41 +267,66 @@ def apply_change_set_object_update(
     payload: Any,
     *,
     object_type_key: str | None = None,
-    audit_changes: dict[str, Any] | None = None,
 ) -> ChangeSetObject:
-    """Edit a record in a change set as ``update_change_set_object`` does; the caller commits.
-    ``audit_changes`` adds to the audit entry."""
+    """Edit a record in a change set as ``update_change_set_object`` does, as a batch of one;
+    the caller commits."""
     change_set = load_change_set(session, change_set_id, for_update=True)
     writes = ChangeSetWrites(session, change_set)
     model = change_set_model(session, change_set)
-    lookup = ChangeSetLookup.of(session, change_set_id)
+    lookup = ChangeSetBatchLookup.of(session, change_set_id)
+    with lookup.deciding():
+        record = decide_change_set_object_update(
+            lookup, writes, model, object_id, payload, object_type_key=object_type_key
+        )
+    return write_change_set(writes, lookup.changes())[record.object_id]
+
+
+def decide_change_set_object_update(
+    lookup: ChangeSetBatchLookup,
+    writes: ChangeSetWrites,
+    model: Any,
+    object_id: str,
+    payload: Any,
+    *,
+    object_type_key: str | None = None,
+    audit_changes: dict[str, Any] | None = None,
+) -> Record:
+    """Check an edit of a change set record under the change set's claim and lay the result over
+    ``lookup``; nothing is written (0.9.0-alpha.1 PG3b). ``audit_changes`` adds to the audit
+    entry. A record the change set deleted is edited back from its tombstone, as before."""
     writes.claim(payload.expectedChangeSetVersion)
-    effective = lookup.object(object_id)
-    if effective is not None and object_type_key and effective.object_type_key != object_type_key:
-        raise object_type_changed(object_id, effective.object_type_key, object_type_key)
-    row = writes.stored_object(object_id)
-    if row is None:
-        base = effective
-        if base is None:
-            raise api_error(404, "object_not_found", f"Object '{object_id}' not found in change set")
-        row = writes.own_object(base, flush=True)
-    require_record_version(payload.expectedRecordVersion, row.version, "Object record")
+    current = lookup.object(object_id)
+    if current is not None and object_type_key and current.object_type_key != object_type_key:
+        raise object_type_changed(object_id, current.object_type_key, object_type_key)
+    if current is None:
+        current = lookup.tombstone(object_id)
+    if current is None:
+        raise api_error(404, "object_not_found", f"Object '{object_id}' not found in change set")
+    require_record_version(payload.expectedRecordVersion, current.version, "Object record")
+    record = Record(
+        object_id=current.object_id,
+        application_key=current.application_key,
+        object_type_key=current.object_type_key,
+        parent_object_id=current.parent_object_id,
+        name=current.name,
+        version=current.version + 1,
+        attributes=dict(current.attributes or {}),
+    )
     if payload.name is not None:
-        row.name = payload.name
+        record.name = payload.name
     if "parentObjectId" in payload.model_fields_set:
-        row.parent_object_id = str(payload.parentObjectId) if payload.parentObjectId else None
+        record.parent_object_id = str(payload.parentObjectId) if payload.parentObjectId else None
     if payload.attributes is not None:
-        row.attributes = {
-            **(row.attributes or {}),
-            **stored_attributes(
-                model, row.object_type_key, payload.attributes, partial=True
-            ),
+        record.attributes = {
+            **record.attributes,
+            **stored_attributes(model, record.object_type_key, payload.attributes, partial=True),
         }
-    rules.effective_period(model.object_type(row.object_type_key), row.attributes or {})
-    rules.unique_values(lookup, model, row.object_id, row.attributes or {})
-    # The edited row is flushed into the lookups: each relation into it is checked against it.
-    parent_keys = model.containment_relation_keys(row.object_type_key)
-    for relation in lookup.relations([row.object_id], "incoming"):
+    rules.effective_period(model.object_type(record.object_type_key), record.attributes)
+    # The edited record is laid over the lookup: each relation into it is checked against it.
+    lookup.lay(record)
+    rules.unique_values(lookup, model, record.object_id, record.attributes)
+    parent_keys = model.containment_relation_keys(record.object_type_key)
+    for relation in lookup.relations([record.object_id], "incoming"):
         if relation.relation_type_key in parent_keys:
             continue
         validate_change_set_relation(
@@ -279,23 +338,22 @@ def apply_change_set_object_update(
             dict(relation.attributes or {}),
             exclude_id=relation.relation_id,
         )
-    row.version += 1
-    row.is_deleted = False
-    place_record(session, change_set, model, row, lookup)
-    record_audit_event(
-        session,
-        aggregate_type="change-set-object",
-        aggregate_id=row.object_id,
-        action="updated",
-        version=row.version,
-        changes={
-            "attributes": row.attributes or {},
-            "changeSetId": change_set.id,
-            **(audit_changes or {}),
-        },
-        object_ids=[row.object_id],
+    _place(lookup, model, record)
+    lookup.audit(
+        AuditEntry(
+            "change-set-object",
+            record.object_id,
+            "updated",
+            record.version,
+            {
+                "attributes": record.attributes,
+                "changeSetId": lookup.change_set_id,
+                **(audit_changes or {}),
+            },
+            (record.object_id,),
+        )
     )
-    return row
+    return record
 
 
 def delete_change_set_object(
@@ -551,6 +609,22 @@ def place_record(
     The effective edge may come from the change set base; like a live update, an unchanged parent keeps
     that edge and its identity, and a changed parent tombstones it before adding the new one.
     """
+    parent = placed_parent(lookup, model, row)
+    sync_containment_edge(
+        session,
+        change_set,
+        model,
+        lookup,
+        child_id=row.object_id,
+        child_type_key=row.object_type_key,
+        parent=parent,
+        previous_type_key=previous_type_key,
+    )
+
+
+def placed_parent(lookup: Any, model: Any, row: Any) -> Any | None:
+    """The parent a change set record names, checked as a move: allowed for its type, in the
+    change set, and not at or under the record."""
     # The ancestor walk is one lookup per level; the row itself is read as edited.
     rules.parent(
         lookup,
@@ -564,16 +638,7 @@ def place_record(
     parent = lookup.object(row.parent_object_id) if row.parent_object_id else None
     if row.parent_object_id and parent is None:
         raise api_error(422, "parent_wrong_scope", "Parent must exist in the change set")
-    sync_containment_edge(
-        session,
-        change_set,
-        model,
-        lookup,
-        child_id=row.object_id,
-        child_type_key=row.object_type_key,
-        parent=parent,
-        previous_type_key=previous_type_key,
-    )
+    return parent
 
 
 def sync_containment_edge(
@@ -593,10 +658,39 @@ def sync_containment_edge(
     tombstoned before the allowed one is added. With ``previous_type_key`` (a type change, Base 0.8
     C1), edges of the child's former parent relation types are found and replaced too.
     """
+    change = containment_change(
+        model,
+        lookup,
+        child_id=child_id,
+        child_type_key=child_type_key,
+        parent=parent,
+        previous_type_key=previous_type_key,
+    )
+    if change is None:
+        return
+    removed, added = change
+    writes = ChangeSetWrites(session, change_set)
+    for relation in removed:
+        writes.remove_relation(relation)
+    if added is not None:
+        writes.add_relation(added, parent.object_id, child_id, {})
+
+
+def containment_change(
+    model: Any,
+    lookup: Any,
+    *,
+    child_id: str,
+    child_type_key: str,
+    parent: Any | None,
+    previous_type_key: str | None = None,
+) -> tuple[list[Any], str | None] | None:
+    """The containment edges ``sync_containment_edge`` removes and the relation type of the one it
+    adds from ``parent``; ``None`` when the child's edge stays as it is."""
     keys = model.containment_relation_keys(child_type_key)
     searched = keys | model.containment_relation_keys(previous_type_key)
     if not searched:
-        return
+        return None
     allowed = None
     if parent is not None:
         allowed = next(
@@ -615,12 +709,44 @@ def sync_containment_edge(
     if [(relation.from_object_id, relation.relation_type_key) for relation in current] == (
         [(parent.object_id, allowed.relationTypeKey)] if parent is not None else []
     ):
+        return None
+    return current, allowed.relationTypeKey if allowed is not None else None
+
+
+def _place(lookup: ChangeSetBatchLookup, model: Any, record: Record) -> None:
+    """``place_record`` for a decided record: its containment edge laid over the lookup."""
+    parent = placed_parent(lookup, model, record)
+    change = containment_change(
+        model,
+        lookup,
+        child_id=record.object_id,
+        child_type_key=record.object_type_key,
+        parent=parent,
+    )
+    if change is None:
         return
-    writes = ChangeSetWrites(session, change_set)
-    for relation in current:
-        writes.remove_relation(relation)
-    if parent is not None:
-        writes.add_relation(allowed.relationTypeKey, parent.object_id, child_id, {})
+    removed, added = change
+    for relation in removed:
+        lookup.remove_relation(relation)
+    if added is not None:
+        lookup.add_relation(
+            Relation(str(uuid4()), added, parent.object_id, record.object_id, {})
+        )
+
+
+def _advance_sets(
+    lookup: ChangeSetBatchLookup, relation_type_key: str, from_id: str, to_id: str
+) -> None:
+    """``advance_relation_sets`` for a decided relation."""
+    ends = lookup.objects([from_id, to_id])
+    if from_id in ends and to_id in ends:
+        lookup.advance_sets(
+            relation_type_key,
+            ends[from_id].object_type_key,
+            ends[to_id].object_type_key,
+            from_id,
+            to_id,
+        )
 
 
 def advance_relation_sets(

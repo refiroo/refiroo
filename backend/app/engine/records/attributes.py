@@ -92,15 +92,29 @@ def validate_attribute_change(
     item: RdmObject,
     attributes: dict[str, Any],
 ) -> None:
-    """Check a pending attribute write against the object's other stored values.
+    """Check a pending attribute write against the object's other stored values."""
+    check_attribute_change(
+        LiveLookup.of(session, item.workspace_key), model, object_type, item, attributes
+    )
+
+
+def check_attribute_change(
+    lookup: Any,
+    model: EngineModel,
+    object_type: ObjectTypeDefinition,
+    item: Any,
+    attributes: dict[str, Any],
+) -> None:
+    """Check a pending attribute write against the record's other values, read through
+    ``lookup``.
 
     Object-level rules are evaluated over the merged result rather than the submitted subset, and
     uniqueness excludes the object being written so a no-op write never collides with itself.
     """
-    merged = current_attribute_values(session, item.id)
+    merged = lookup.values(item)
     merged.update(attributes)
     validate_object_attribute_rules(object_type, merged)
-    rules.unique_values(LiveLookup.of(session, item.workspace_key), model, item.id, attributes)
+    rules.unique_values(lookup, model, item.object_id, attributes)
 
 
 def apply_attribute_values(
@@ -118,7 +132,9 @@ def apply_attribute_values(
     """
     validate_attribute_change(writes.session, model, object_type, item, attributes)
     writes.save_values(model, item.id, attributes)
-    validate_scoped_relations(writes.session, model, item, moved=False)
+    validate_scoped_relations(
+        LiveLookup.of(writes.session, writes.workspace_key), model, item, moved=False
+    )
 
 
 def current_attribute_values(session: Session, object_id: str) -> dict[str, Any]:

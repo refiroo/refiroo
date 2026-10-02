@@ -135,6 +135,21 @@ All notable changes to this project are documented in this file. The format foll
   locks its workspace against retirement and deletion too: a retirement waits for it instead of
   committing beside it, and a later write is refused `409 workspace_retired`. Publishing no longer
   holds up writes in other change sets of its workspace.
+- 0.9.0-alpha.1 PG3b: batch items are decided in memory and written in bulk. The create, update and
+  upsert items of an inline batch or a background chunk are checked one after another by their
+  single writes' rules, each against what the items before it left, and the accepted ones are
+  written together: records, attribute values, relations, relation-set versions and one audit
+  event per item, each kind in multi-row statements. A chunk now costs 30–49 statements for 100 or
+  500 items, at two dataset sizes (a live upsert item alone cost about 20), and a chunk of 500 items
+  takes 0.25–0.46 s; a live write beside a background job waits that long at most. Items are
+  refused with the same codes, messages and details as their single writes, and single writes go
+  through the same code as a batch of one. Delete items keep their per-item path. A bulk write that
+  fails on a row the rules could not see, such as an ID another workspace took meanwhile, is redone
+  item by item, so only that item is refused. An `atomic` job looks for a cancel request before
+  every 500 items and before it writes, instead of before every item, and still rolls back
+  completely. A chunk checks its model release before it writes relation matrix states, so an
+  activation that removes a matrix view can no longer deadlock with it; the chunk fails
+  `model_release_changed`.
 - Base 0.9 B1: a change set write's record lookups probe the change set's own rows by key instead of
   listing all of them on every statement, so a write costs the same however many records the change set
   holds (a lookup took 361 µs at 4,000 own rows, now 39 µs; page reads unchanged or faster). On SQLite,

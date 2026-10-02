@@ -5,11 +5,11 @@ fixture's change set, while single live writes are made beside it. Recorded per 
 submission time (the job and its 100,000 inputs in one transaction), the worker's throughput, the
 statements per item against the single write's, and the latency of the writes made meanwhile.
 
-The latency is recorded, not bounded: on SQLite a chunk holds the database's writer lock and the
-worker takes it again as soon as a chunk commits, while a waiting write retries only at its busy
-handler's interval, so a write beside the job waits for the whole job and gives up after
-``SQLITE_LOCK_WAIT_SECONDS``. On PostgreSQL a write sharing no rows with the chunk does not wait;
-the PostgreSQL migration bounds it (TODO). Nothing here works around SQLite.
+The latency is recorded, not bounded here: a live write in the job's workspace waits for one
+chunk at most (0.9.0-alpha.1 PG3), and the time of one chunk is held at two seeded sizes beside its
+statement counts (``test_batch_statements``, PG3b, PG-D17); PG5's run confirms both at full size.
+PG3b replaced this module's timed check that an item costs the same at the end of the job as at its
+start; the rates by quarter are still recorded.
 """
 
 import statistics
@@ -123,9 +123,5 @@ def test_a_background_batch_of_100000_items_runs_within_its_budget(measured, lab
     assert (job["state"], job["result"], job["counts"]["created"]) == ("completed", "applied", ITEMS), job
     # Each item costs no more than its single write; chunks add their outcomes and checkpoint.
     assert result["per_item_statements"] <= result["single_statements"], result
-    # An item costs the same at the end of the job as at its start: no lookup grows with the data
-    # (the live unique-value check did before B2's index).
-    first, *_, last = result["rates"]
-    assert last <= first * 1.5, result["rates"]
-    # The writes beside it are recorded (see the module docstring), not bounded on SQLite.
+    # The writes beside it are recorded (see the module docstring), not bounded here.
     assert result["latencies"] or result["refused"], result

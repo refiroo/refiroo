@@ -180,7 +180,8 @@ it runs refuses the request (`409 model_release_changed`) and nothing is saved, 
 
 As delivered (B2, D28): the route sets `cancelRequestedAt` in one short transaction and answers `202`;
 a finished job is `409 job_finished`. The worker does every finish, a queued job's included, at the
-next chunk; an `atomic` job's chunk checks between items. The design relies on PostgreSQL's READ
+next chunk; an `atomic` job's chunk checks before every 500 items it decides and before it writes
+them (0.9.0-alpha.1 PG3b). The design relies on PostgreSQL's READ
 COMMITTED: a cancel request commits while a chunk runs and the chunk's next read sees it. On SQLite
 a chunk holds the writer lock, so the request waits for it; nothing works around that.
 

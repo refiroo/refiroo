@@ -1,5 +1,6 @@
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterable, Iterator, Sequence
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Any
 
 from sqlalchemy import select
@@ -28,6 +29,46 @@ def audit_cause(session: Session, kind: str, cause_id: str) -> Iterator[None]:
         yield
     finally:
         session.info.pop(_CAUSE, None)
+
+
+@dataclass(frozen=True)
+class AuditEntry:
+    """One audit event a decided write records, with its subjects (0.9.0-alpha.1 PG3b)."""
+
+    aggregate_type: str
+    aggregate_id: str
+    action: str
+    version: int
+    changes: dict[str, Any]
+    object_ids: tuple[str, ...]
+
+
+def record_audit_events(session: Session, entries: Sequence[AuditEntry]) -> list[AuditEvent]:
+    """Record decided writes' events in order, per record as ever (PG-D16): the events in
+    multi-row inserts whose sequence numbers come back for their subjects."""
+    if not entries:
+        return []
+    cause_kind, cause_id = session.info.get(_CAUSE, (None, None))
+    events = [
+        AuditEvent(
+            aggregate_type=entry.aggregate_type,
+            aggregate_id=entry.aggregate_id,
+            action=entry.action,
+            version=entry.version,
+            changes=to_jsonable(entry.changes),
+            cause_kind=cause_kind,
+            cause_id=cause_id,
+        )
+        for entry in entries
+    ]
+    session.add_all(events)
+    session.flush()
+    session.add_all(
+        AuditEventSubject(audit_event_id=event.sequence_id, object_id=object_id)
+        for event, entry in zip(events, entries, strict=True)
+        for object_id in dict.fromkeys(entry.object_ids)
+    )
+    return events
 
 
 def record_audit_event(

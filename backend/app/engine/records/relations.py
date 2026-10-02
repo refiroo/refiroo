@@ -57,10 +57,9 @@ def create_relation_instance(
     return relation
 
 
-def validate_scoped_relations(
-    session: Session, model: EngineModel, root: RdmObject, *, moved: bool
-) -> None:
-    """Re-check ancestor-scoped uniqueness for the relations a write to ``root`` can affect.
+def validate_scoped_relations(lookup: Any, model: EngineModel, root: Any, *, moved: bool) -> None:
+    """Re-check ancestor-scoped uniqueness for the relations a write to ``root`` can affect,
+    reading the live records through ``lookup``.
 
     A binding's ``uniqueToAncestorTypeKey`` scope is the nearest record of that type at or above
     the related record, and its condition reads the related record's own values. An attribute
@@ -77,32 +76,16 @@ def validate_scoped_relations(
     ]
     if not scoped:
         return
-    targets = _scoped_subtree(session, model, root, scoped) if moved else {root.id}
+    targets = _scoped_subtree(lookup, model, root, scoped) if moved else {root.object_id}
     relation_types = sorted({allowed.relationTypeKey for allowed in scoped})
-    relations = [
-        relation
-        for chunk in _chunked(targets)
-        for relation in session.scalars(
-            select(ObjectRelation).where(
-                ObjectRelation.to_object_id.in_(chunk),
-                ObjectRelation.relation_type_key.in_(relation_types),
-            )
-        )
-    ]
+    relations = lookup.relations(sorted(targets), "incoming", relation_types)
     if not relations:
         return
-    objects = {
-        item.id: item
-        for chunk in _chunked(
-            {
-                object_id
-                for relation in relations
-                for object_id in (relation.from_object_id, relation.to_object_id)
-            }
-        )
-        for item in session.scalars(select(RdmObject).where(RdmObject.id.in_(chunk)))
-    }
-    lookup = LiveLookup.of(session, root.workspace_key)
+    objects = lookup.objects(
+        object_id
+        for relation in relations
+        for object_id in (relation.from_object_id, relation.to_object_id)
+    )
     for relation in relations:
         from_object = objects[relation.from_object_id]
         to_object = objects[relation.to_object_id]
@@ -114,12 +97,12 @@ def validate_scoped_relations(
             LIVE,
         )
         rules.relation_scope(
-            lookup, binding, relation.from_object_id, to_object, frozenset({relation.id})
+            lookup, binding, relation.from_object_id, to_object, frozenset({relation.relation_id})
         )
 
 
 def _scoped_subtree(
-    session: Session, model: EngineModel, root: RdmObject, scoped: list[ObjectTypeRelationDefinition]
+    lookup: Any, model: EngineModel, root: Any, scoped: list[ObjectTypeRelationDefinition]
 ) -> set[str]:
     """``root`` and the records under it whose scope in some scoped binding a move of ``root``
     changes: a binding's related type with no record of its scope type between it and ``root``.
@@ -149,25 +132,15 @@ def _scoped_subtree(
         if any(scope not in met for _related, scope in reaching.get(type_key, ())):
             level[object_id] = met
 
-    visit(root.id, root.object_type_key, frozenset())
-    seen = {root.id}
+    visit(root.object_id, root.object_type_key, frozenset())
+    seen = {root.object_id}
     while level:
         parents, level = level, {}
-        for chunk in _chunked(parents):
-            for child_id, type_key, parent_id in session.execute(
-                select(RdmObject.id, RdmObject.object_type_key, RdmObject.parent_object_id).where(
-                    RdmObject.parent_object_id.in_(chunk), RdmObject.object_type_key.in_(walkable)
-                )
-            ):
-                if child_id not in seen:
-                    seen.add(child_id)
-                    visit(child_id, type_key, parents[parent_id])
+        for child in lookup.children(sorted(parents), walkable):
+            if child.object_id not in seen:
+                seen.add(child.object_id)
+                visit(child.object_id, child.object_type_key, parents[child.parent_object_id])
     return targets
-
-
-def _chunked(ids: set[str], size: int = 500) -> list[list[str]]:
-    ordered = sorted(ids)
-    return [ordered[index : index + size] for index in range(0, len(ordered), size)]
 
 
 def load_relation(session: Session, relation_id: str) -> ObjectRelation:

@@ -13,14 +13,16 @@ filler, checkpoint T1 after F2). C1, Q4 and V1 are delivered (2026-09-30), and B
 2026-10-01 (B2 before F1, by instruction). Next is the interim release
 [0.9.0-alpha.1, PostgreSQL runtime](POSTGRESQL_RUNTIME_PLAN.md) (PG1–PG5, PostgreSQL only, decisions
 accepted 2026-10-01) with the [test harness](TEST_HARNESS_PLAN.md) (H1 inside PG1, H2–H3 after PG2),
-then F1. PG1, PG2, H2 and H3 are delivered (2026-10-01) and PG3 (2026-10-02); the order from here is
+then F1. PG1, PG2, H2 and H3 are delivered (2026-10-01), and PG3 and
 [PG3b](POSTGRESQL_RUNTIME_PLAN.md#pg3b-batch-writes-decided-in-memory-written-in-bulk) (batch writes
-decided in memory and written in bulk, PG-D12–PG-D17), PG4, PG5. See [Next — 0.9](#next--09).
+decided in memory and written in bulk, PG-D12–PG-D17) on 2026-10-02; the order from here is PG4,
+PG5, with H4 due (the time ceiling). See [Next — 0.9](#next--09).
 
 - **Revisit: large batch deletes (PG-D18, noted 2026-10-01).** Batch delete items stay on the
   per-item path in PG3b, and neither that nor a set-based copy of it is the right answer. Large
   delete batches are not rare, and one must not occupy the job worker for minutes or stall the
-  engine. Decide a deletion design (cascades, subtree impact, signed confirmation) after PG3b.
+  engine. Decide a deletion design (cascades, subtree impact, signed confirmation); PG3b is
+  delivered (2026-10-02).
 
 ## Open decisions
 
@@ -107,8 +109,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   PG2 and PG5 for (2)). (1) **Done in PG3 (2026-10-02):** D28 cancellation on PostgreSQL (a cancel
   request answered while a chunk runs, the `atomic` job rolled back between items, the lease shared
   by two workers) and live writes beside a background job, which wait for one chunk at most in the
-  job's workspace and not at all elsewhere (`test_pg3_concurrency`); PG3b records the time of one
-  chunk, and PG5's full-size run confirms it. (2) After the migration, review the code for SQLite
+  job's workspace and not at all elsewhere (`test_pg3_concurrency`); PG3b (2026-10-02) recorded the
+  time of one chunk, 0.25–0.46 s for 500 items at both seeded sizes, and PG5's full-size run
+  confirms it. (2) After the migration, review the code for SQLite
   technical debt and remove it: dialect branches, `json_each` row lists, the recursive arms, the
   `SQLITE_LOCK_WAIT_SECONDS` setting, explicit dependant deletes standing in for unenforced foreign
   keys, SQL-level claims written because SQLite ignores `FOR UPDATE`, the explicit `BEGIN` of
@@ -126,14 +129,16 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   sizing, several processes and nodes. The trigram search index and the relation matrix's PostgreSQL
   forms (0.8 A2, A3b) were delivered by 0.9.0-alpha.1 PG2 (2026-10-01); single-node multi-writer
   uniqueness moves to [PG3](POSTGRESQL_RUNTIME_PLAN.md) (delivered 2026-10-02: the workspace lock).
-- [ ] Found in PG3 (2026-10-02), moved to
-  [PG3b](POSTGRESQL_RUNTIME_PLAN.md#pg3b-batch-writes-decided-in-memory-written-in-bulk): an activation
-  that drops a matrix shape could deadlock with a live batch whose matrix notes it locks before its
-  commit check (not reproduced). The other finding, change-set writes beside a retirement, was fixed
-  in PG3's amendment the same day.
+- [x] Found in PG3 (2026-10-02), done in
+  [PG3b](POSTGRESQL_RUNTIME_PLAN.md#pg3b-batch-writes-decided-in-memory-written-in-bulk)
+  (2026-10-02): a chunk checks its release before it writes a matrix state, so an activation that
+  drops a matrix shape no longer can deadlock with a live batch (`test_pg3b_batch_writes`). The
+  other finding, change-set writes beside a retirement, was fixed in PG3's amendment the same day.
 - [ ] H4: the package checks for PG3's seven groups took 2 min 7 s on `-n 10`, over the 2-minute
   ceiling; the longest tests are `test_change_set_position_reads` (43 s) and `test_model_query`'s
-  every-criterion cases (17 s each).
+  every-criterion cases (17 s each). PG3b's four groups (`records`, `change_sets`, `jobs`,
+  `matrix`, 578 parallel cases) took 2 min 31 s on `-n auto`, 28 s of it rebuilding two volume
+  seeds whose fingerprint covers the write code; `test_change_set_position_reads` took 52 s.
 - [ ] Assess the cost of matrix state maintenance per commit (found by the test harness assessment,
   2026-10-01): a commit recomputes the touched matrix cells, about 7 ms in the parity and
   type-change test models, and a single create cost 19 ms through the API. Measure it on the volume

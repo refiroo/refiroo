@@ -102,15 +102,19 @@ errors explicit and machine-readable.
   decide what to write belongs in the engine. Write inputs the engine accepts live in
   `models/commands.py`; responses live in `management/schemas/`.
 - A write rule is written once, in `engine/records/rules.py`, over a lookup
-  (`engine/records/context.py`: `LiveLookup` or `ChangeSetLookup`). Where live data and a change
+  (`engine/records/context.py`: `LiveLookup` or `ChangeSetLookup`, or the batch lookup laid over
+  either, `engine/records/batch_lookup.py`). Where live data and a change
   set word a refusal differently, the difference is an entry in `engine/records/refusals.py`, pinned
   by `tests/test_rule_parity.py`; never branch a rule on the context.
 - Records, relations and attribute values, live and in a change set, are added and removed only
   through the write unit in `engine/records/writes.py` (`LiveWrites`, `ChangeSetWrites`). A live
-  write opens `LiveWrites` before it reads what it changes.
+  write opens `LiveWrites` before it reads what it changes. A record create or update is decided
+  over a batch lookup and written by `engine/records/bulk.py`; a single write is a batch of one, so
+  a batch item and its single write share one decide step (0.9.0-alpha.1 PG3b).
 - Attribute conversion belongs in `engine/records/values.py` and `attributes.py`, not route
   handlers. Every live attribute write goes through `attributes.apply_attribute_values` or its
-  `validate_attribute_change` half, so no path can persist values while skipping a check.
+  `validate_attribute_change` half (`check_attribute_change` over a lookup), so no path can persist
+  values while skipping a check.
 - Handlers take the request-scoped `DbSession` dependency (`management/dependencies.py`). Do not open `SessionLocal()` inside a
   request path; one request reads from one session.
 - Collections page through `common/pagination.py`. Declare sort keys, do not hand-write a keyset

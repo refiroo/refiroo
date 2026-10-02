@@ -31,6 +31,7 @@ from app.db import SessionLocal, get_engine
 from app.engine.indexes import matrix_states
 from app.engine.jobs.worker import JobWorker, WorkerSettings
 from app.engine.model.registry import model_registry
+from app.engine.records import rules
 from app.engine.records.writes import ChangeSetWrites, LiveWrites
 from app.main import create_app
 from app.models.database import Job, RdmObject
@@ -662,12 +663,24 @@ def test_a_cancel_request_is_answered_while_a_chunk_runs(client, workspace, at_l
     assert job_domains(workspace) == CHUNK
 
 
-def test_an_atomic_job_cancelled_between_items_rolls_back(client, workspace, at_lock):
+def test_an_atomic_job_cancelled_between_items_rolls_back(
+    client, workspace, at_lock, monkeypatch
+):
+    """Held while it decides its second item, after the first (PG3b: the items are decided, then
+    written together): the cancel request answered meanwhile stops the job before it writes, and
+    nothing it applied stays."""
     queued = queue(client, workspace, 3, policy="atomic")
     runner = worker("worker-a")
+    unique_values = rules.unique_values
+
+    def deciding(*args: Any, **kwargs: Any) -> None:
+        at_lock._maybe_hold()
+        unique_values(*args, **kwargs)
+
+    monkeypatch.setattr(rules, "unique_values", deciding)
     with ThreadPoolExecutor(max_workers=1) as pool:
-        # The lock is taken once for the chunk and again by each item's write: the third time
-        # is the second item, after the first was applied.
+        # The chunk's lock is the first hold point, each item's unique-value check the next: the
+        # third is the second item's.
         running = in_chunk(pool, at_lock, runner, nth=3)
         try:
             cancel = client.post(f"/api/v1/jobs/{queued['id']}/cancel")

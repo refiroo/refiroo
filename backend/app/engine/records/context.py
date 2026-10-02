@@ -34,7 +34,7 @@ from ..reads.snapshot_reads import (
 )
 from .refusals import CHANGE_SET, LIVE, Refusals
 from .rules import object_type_changed
-from .values import VALUE_COLUMNS, row_value, typed_value_columns
+from .values import VALUE_COLUMNS, row_value, stored_json_value, typed_value_columns
 
 
 def load_object(session: Session, object_id: str, object_type_key: str | None = None) -> RdmObject:
@@ -63,12 +63,12 @@ def load_active_projection(
 _CHUNK = 500
 
 
-def _chunks(ids: Sequence[str]) -> Iterable[list[str]]:
+def _chunks(ids: Sequence[Any]) -> Iterable[list[Any]]:
     for start in range(0, len(ids), _CHUNK):
         yield list(ids[start : start + _CHUNK])
 
 
-class _Ancestors:
+class Ancestors:
     """The ancestor walk both lookups share; it reads records through ``objects``."""
 
     def objects(self, object_ids: Iterable[str]) -> dict[str, Any]:
@@ -112,7 +112,7 @@ class _Ancestors:
 
 
 @dataclass(frozen=True)
-class LiveLookup(_Ancestors):
+class LiveLookup(Ancestors):
     """Live records and relations; unique values are held within one workspace."""
 
     session: Session
@@ -169,6 +169,20 @@ class LiveLookup(_Ancestors):
             )
         }
 
+    def children(
+        self, parent_ids: Iterable[str], object_type_keys: Iterable[str] | None = None
+    ) -> list[RdmObject]:
+        """The records directly under any of ``parent_ids`` (of ``object_type_keys``), in ID
+        order."""
+        types = sorted(object_type_keys) if object_type_keys is not None else None
+        rows: list[RdmObject] = []
+        for chunk in _chunks(list(dict.fromkeys(parent_ids))):
+            statement = select(RdmObject).where(RdmObject.parent_object_id.in_(chunk))
+            if types is not None:
+                statement = statement.where(RdmObject.object_type_key.in_(types))
+            rows.extend(self.session.scalars(statement))
+        return sorted(rows, key=lambda row: row.id)
+
     def shares_workspace(self, item: Any) -> bool:
         return item.workspace_key == self.workspace_key
 
@@ -176,23 +190,38 @@ class LiveLookup(_Ancestors):
         self, attribute_type_key: str, value_type: str, value: Any, *, exclude_object_id: str | None
     ) -> str | None:
         """Another record of the workspace holding ``value``, compared in its typed column."""
+        holders = [
+            object_id
+            for _value, object_id in self.value_holders(attribute_type_key, value_type, [value])
+            if object_id != exclude_object_id
+        ]
+        return min(holders) if holders else None
+
+    def value_holders(
+        self, attribute_type_key: str, value_type: str, values: Iterable[Any]
+    ) -> list[tuple[Any, str]]:
+        """The records of the workspace holding any of ``values`` (normalized), compared in their
+        typed column: each as the value in its JSON form and the record's ID."""
         column = getattr(AttributeValue, VALUE_COLUMNS[value_type])
-        statement = (
-            select(RdmObject.id)
-            .join(AttributeValue, AttributeValue.object_id == RdmObject.id)
-            .where(
-                AttributeValue.attribute_type_key == attribute_type_key,
-                column == value,
-                RdmObject.workspace_key == self.workspace_key,
+        found: list[tuple[Any, str]] = []
+        for chunk in _chunks(list(values)):
+            found.extend(
+                (stored_json_value(value), object_id)
+                for object_id, value in self.session.execute(
+                    select(RdmObject.id, column)
+                    .join(AttributeValue, AttributeValue.object_id == RdmObject.id)
+                    .where(
+                        AttributeValue.attribute_type_key == attribute_type_key,
+                        column.in_(chunk),
+                        RdmObject.workspace_key == self.workspace_key,
+                    )
+                )
             )
-        )
-        if exclude_object_id is not None:
-            statement = statement.where(RdmObject.id != exclude_object_id)
-        return self.session.scalar(statement.limit(1))
+        return found
 
 
 @dataclass(frozen=True)
-class ChangeSetLookup(_Ancestors):
+class ChangeSetLookup(Ancestors):
     """The effective records and relations of one change set, read by what a write touches."""
 
     session: Session
@@ -225,11 +254,16 @@ class ChangeSetLookup(_Ancestors):
     def relation(self, relation_id: str) -> Row | None:
         return find_relation(self.session, self.context, relation_id)
 
-    def children(self, parent_ids: Iterable[str]) -> list[Row]:
-        """The records directly under any of ``parent_ids``, in ID order."""
+    def children(
+        self, parent_ids: Iterable[str], object_type_keys: Iterable[str] | None = None
+    ) -> list[Row]:
+        """The records directly under any of ``parent_ids`` (of ``object_type_keys``), in ID
+        order."""
         rows: list[Row] = []
         for chunk in _chunks(list(dict.fromkeys(parent_ids))):
-            projection = object_projection(self.context, parent_object_ids=chunk)
+            projection = object_projection(
+                self.context, parent_object_ids=chunk, object_type_keys=object_type_keys
+            )
             rows.extend(self.session.execute(select(projection)))
         return sorted(rows, key=lambda row: row.object_id)
 
@@ -259,57 +293,75 @@ class ChangeSetLookup(_Ancestors):
     def unique_value_holder(
         self, attribute_type_key: str, value_type: str, value: Any, *, exclude_object_id: str
     ) -> str | None:
-        """Another effective record holding ``value`` for the attribute, by the typed index.
+        """Another effective record holding ``value`` for the attribute, by the typed index."""
+        holders = [
+            object_id
+            for _value, object_id in self.value_holders(attribute_type_key, value_type, [value])
+            if object_id != exclude_object_id
+        ]
+        return min(holders) if holders else None
 
-        Index rows of the base and of the change set both match; a base row counts only while no change set
-        row replaces it, and a change set row only while it is not deleted, which the effective lookup
-        of the few matching records decides.
+    def value_holders(
+        self, attribute_type_key: str, value_type: str, values: Iterable[Any]
+    ) -> list[tuple[Any, str]]:
+        """The effective records holding any of ``values`` (in their JSON form) for the attribute:
+        each as the value in its JSON form and the record's ID.
+
+        Index rows of the base and of the change set both match; a base row counts only while no
+        change set row replaces it, and a change set row only while it is not deleted, which the
+        effective lookup of the few matching records decides.
         """
+        index = SnapshotAttributeValue
         column_name = VALUE_COLUMNS.get(value_type)
-        if column_name is None or column_name == "json_value":
-            return self._json_value_holder(attribute_type_key, value, exclude_object_id)
-        typed = typed_value_columns(value_type, value).get(column_name)
-        if typed is None:
-            return self._json_value_holder(attribute_type_key, value, exclude_object_id)
-        index = SnapshotAttributeValue
-        candidates = self.session.execute(
-            select(index.owner_id, index.object_id).where(
-                index.owner_id.in_(self._owners()),
-                index.attribute_type_key == attribute_type_key,
-                getattr(index, column_name) == typed,
-                index.object_id != exclude_object_id,
+        typed: list[Any] = []
+        untyped: list[Any] = []
+        for value in values:
+            converted = (
+                typed_value_columns(value_type, value).get(column_name)
+                if column_name not in (None, "json_value")
+                else None
             )
-        ).all()
-        return self._effective_holder(candidates)
-
-    def _json_value_holder(self, key: str, value: Any, exclude_object_id: str) -> str | None:
-        # JSON has no portable equality in SQL: read the key's rows and compare decoded values.
-        index = SnapshotAttributeValue
-        candidates = [
-            (owner_id, object_id)
-            for owner_id, object_id, stored in self.session.execute(
-                select(index.owner_id, index.object_id, index.json_value).where(
-                    index.owner_id.in_(self._owners()),
-                    index.attribute_type_key == key,
-                    index.object_id != exclude_object_id,
+            if converted is None:
+                untyped.append(value)
+            else:
+                typed.append(converted)
+        candidates: list[tuple[str, str, Any]] = []
+        for chunk in _chunks(typed):
+            column = getattr(index, column_name)
+            candidates.extend(
+                (owner_id, object_id, stored_json_value(stored))
+                for owner_id, object_id, stored in self.session.execute(
+                    select(index.owner_id, index.object_id, column).where(
+                        index.owner_id.in_(self._owners()),
+                        index.attribute_type_key == attribute_type_key,
+                        column.in_(chunk),
+                    )
                 )
             )
-            if stored == value
-        ]
-        return self._effective_holder(candidates)
+        if untyped:
+            # JSON has no portable equality in SQL: read the key's rows and compare decoded values.
+            candidates.extend(
+                (owner_id, object_id, stored)
+                for owner_id, object_id, stored in self.session.execute(
+                    select(index.owner_id, index.object_id, index.json_value).where(
+                        index.owner_id.in_(self._owners()),
+                        index.attribute_type_key == attribute_type_key,
+                    )
+                )
+                if stored in untyped
+            )
+        effective = self.objects(object_id for _owner, object_id, _value in candidates)
+        return sorted(
+            (
+                (value, object_id)
+                for owner_id, object_id, value in candidates
+                if object_id in effective and effective[object_id].values_owner_id == owner_id
+            ),
+            key=lambda found: found[1],
+        )
 
     def _owners(self) -> list[str]:
         owners = [self.context.id]
         if self.context.base is not None:
             owners.append(self.context.base.owner_id)
         return owners
-
-    def _effective_holder(self, candidates: Iterable[tuple[str, str]]) -> str | None:
-        candidates = list(candidates)
-        effective = self.objects(object_id for _owner, object_id in candidates)
-        holders = sorted(
-            object_id
-            for owner_id, object_id in candidates
-            if object_id in effective and effective[object_id].values_owner_id == owner_id
-        )
-        return holders[0] if holders else None

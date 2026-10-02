@@ -7,12 +7,15 @@ for one change set. Nothing else in the engine constructs or deletes those rows
 statement notes what it changed for the stored matrix states, and a live write starts at
 ``LiveWrites._begin``, which takes the workspace lock.
 
+Records created and updated through the object services are decided first and written together
+(``write``, 0.9.0-alpha.1 PG3b): a chunk's rows of each kind go out in multi-row statements.
+
 The operation keeps what only it knows: which rules to run (``rules.py``), what to record in the
 audit log, and when to commit. In-place edits of a row the unit handed out (a name, a parent, new
 values of a change set row) stay with the operation.
 """
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from typing import Any
@@ -33,10 +36,19 @@ from ...models.database import (
 )
 from ...models.schema import EngineModel
 from ..indexes import matrix_states
+from .batch_lookup import Changes
 from .values import VALUE_COLUMNS, normalize_value
 
 # Change sets whose version a job has claimed for all its items, in ``Session.info``.
 _HELD_CLAIMS = "held_change_set_claims"
+# IDs bound into one statement.
+_CHUNK = 500
+
+
+def _chunks(ids: Iterable[str]) -> Iterator[list[str]]:
+    ordered = list(ids)
+    for start in range(0, len(ordered), _CHUNK):
+        yield ordered[start : start + _CHUNK]
 
 
 class LiveWrites:
@@ -121,23 +133,95 @@ class LiveWrites:
             raise api_error(409, "version_conflict", "Object version has changed")
         self.session.refresh(item)
 
-    def place(
-        self,
-        item: RdmObject,
-        parent_id: str | None,
-        relation_type_key: str | None,
-        containment_keys: frozenset[str],
-    ) -> None:
-        """Put the record under ``parent_id`` with its one containment relation."""
-        self.session.execute(
-            delete(ObjectRelation).where(
-                ObjectRelation.to_object_id == item.id,
-                ObjectRelation.relation_type_key.in_(containment_keys),
+    def write(self, model: EngineModel, changes: Changes) -> dict[str, RdmObject]:
+        """Write what decided items change, each kind of row in multi-row statements: the
+        relations they remove, their new records, then the records they change, their attribute
+        values and the relations they add. Returns the written records by ID.
+
+        Relations go first so a record moved away and back gets its new containment edge after
+        the old one is gone; new records go before the rows that name them.
+        """
+        session = self.session
+        if changes.removed:
+            matrix_states.note_relations(session, changes.removed.values())
+            for chunk in _chunks(sorted(changes.removed)):
+                session.execute(delete(ObjectRelation).where(ObjectRelation.id.in_(chunk)))
+        rows: dict[str, RdmObject] = {}
+        for object_id, record in changes.records.items():
+            if object_id in changes.created:
+                rows[object_id] = RdmObject(
+                    id=object_id,
+                    workspace_key=self.workspace_key,
+                    application_key=record.application_key,
+                    object_type_key=record.object_type_key,
+                    parent_object_id=record.parent_object_id,
+                    name=record.name,
+                    version=record.version,
+                )
+        session.add_all(rows.values())
+        session.flush()
+        updated = [object_id for object_id in changes.records if object_id not in changes.created]
+        stored = {
+            row.id: row
+            for chunk in _chunks(updated)
+            for row in session.scalars(select(RdmObject).where(RdmObject.id.in_(chunk)))
+        }
+        now = datetime.now(UTC)
+        for object_id in updated:
+            record, row = changes.records[object_id], stored[object_id]
+            row.name = record.name
+            row.parent_object_id = record.parent_object_id
+            row.version = record.version
+            row.updated_at = now
+            rows[object_id] = row
+        self._save_saved_values(model, changes)
+        session.add_all(
+            ObjectRelation(
+                id=relation.relation_id,
+                relation_type_key=relation.relation_type_key,
+                from_object_id=relation.from_object_id,
+                to_object_id=relation.to_object_id,
+                attributes=relation.attributes,
             )
+            for relation in changes.added.values()
         )
-        item.parent_object_id = parent_id
-        if parent_id and relation_type_key:
-            self.add_relation(relation_type_key, parent_id, item.id, flush=False)
+        session.flush()
+        return rows
+
+    def _save_saved_values(self, model: EngineModel, changes: Changes) -> None:
+        """Each saved value in its typed column; a row saved again counts a version per save."""
+        existing = [object_id for object_id in changes.saved if object_id not in changes.created]
+        stored = {
+            (row.object_id, row.attribute_type_key): row
+            for chunk in _chunks(existing)
+            for row in self.session.scalars(
+                select(AttributeValue).where(AttributeValue.object_id.in_(chunk))
+            )
+        }
+        for object_id, saved in changes.saved.items():
+            attributes = changes.records[object_id].attributes
+            for key, count in saved.items():
+                definition = model.attribute_type(key)
+                if definition is None:
+                    raise api_error(500, "internal_error", f"Unknown model attribute '{key}'")
+                row = stored.get((object_id, key))
+                if row is None:
+                    row = AttributeValue(
+                        object_id=object_id,
+                        attribute_type_key=key,
+                        value_type=definition.valueType,
+                        version=count,
+                    )
+                    self.session.add(row)
+                else:
+                    row.version += count
+                for column in set(VALUE_COLUMNS.values()):
+                    setattr(row, column, None)
+                setattr(
+                    row,
+                    VALUE_COLUMNS[definition.valueType],
+                    normalize_value(definition, attributes.get(key)),
+                )
 
     def save_values(self, model: EngineModel, object_id: str, attributes: dict[str, Any]) -> None:
         existing = {
@@ -404,6 +488,84 @@ class ChangeSetWrites:
             yield
         finally:
             held.discard(self.change_set_id)
+
+    def write(self, changes: Changes) -> dict[str, ChangeSetObject]:
+        """Write what decided items change, each kind of row in multi-row statements: the
+        change set's own row for every record they create or change (copied from the base on
+        first change), a tombstone for every relation they remove, and the relations they add.
+        Returns the written rows by record ID."""
+        session = self.session
+        stored = {
+            row.object_id: row
+            for chunk in _chunks(
+                object_id for object_id in changes.records if object_id not in changes.created
+            )
+            for row in session.scalars(
+                select(ChangeSetObject).where(
+                    ChangeSetObject.change_set_id == self.change_set_id,
+                    ChangeSetObject.object_id.in_(chunk),
+                )
+            )
+        }
+        rows: dict[str, ChangeSetObject] = {}
+        for object_id, record in changes.records.items():
+            row = stored.get(object_id)
+            if row is None:
+                row = ChangeSetObject(
+                    change_set_id=self.change_set_id,
+                    object_id=object_id,
+                    application_key=record.application_key,
+                    object_type_key=record.object_type_key,
+                )
+                session.add(row)
+            row.name = record.name
+            row.parent_object_id = record.parent_object_id
+            row.attributes = dict(record.attributes)
+            row.version = record.version
+            row.is_deleted = False
+            rows[object_id] = row
+        removed = {
+            row.relation_id: row
+            for chunk in _chunks(sorted(changes.removed))
+            for row in session.scalars(
+                select(ChangeSetRelation).where(
+                    ChangeSetRelation.change_set_id == self.change_set_id,
+                    ChangeSetRelation.relation_id.in_(chunk),
+                )
+            )
+        }
+        for relation_id, relation in changes.removed.items():
+            row = removed.get(relation_id)
+            if row is None:
+                session.add(
+                    ChangeSetRelation(
+                        change_set_id=self.change_set_id,
+                        relation_id=relation_id,
+                        relation_type_key=relation.relation_type_key,
+                        from_object_id=relation.from_object_id,
+                        to_object_id=relation.to_object_id,
+                        attributes=dict(relation.attributes or {}),
+                        version=relation.version + 1,
+                        is_deleted=True,
+                    )
+                )
+            else:
+                row.version += 1
+                row.is_deleted = True
+        session.add_all(
+            ChangeSetRelation(
+                change_set_id=self.change_set_id,
+                relation_id=relation.relation_id,
+                relation_type_key=relation.relation_type_key,
+                from_object_id=relation.from_object_id,
+                to_object_id=relation.to_object_id,
+                attributes=relation.attributes,
+                version=1,
+            )
+            for relation in changes.added.values()
+        )
+        session.flush()
+        return rows
 
     # --- records ---------------------------------------------------------------------------------
 

@@ -59,7 +59,18 @@ checked invariant and the D28 job cases on two connections
 ([record](POSTGRESQL_RUNTIME_PLAN.md#pg3-concurrency)). Its seven groups took 2 min 7 s, over the
 2-minute ceiling, so H4 is due. Its amendment the same day locks the workspace for change-set
 writes too (key share), so a retirement waits for them; the activation deadlock found in PG3 and the
-time of one chunk beside a live write moved into PG3b's scope. Next are PG3b, PG4 and PG5.
+time of one chunk beside a live write moved into PG3b's scope. **PG3b is delivered (2026-10-02):**
+create, update and upsert items are decided in memory through the single writes' decide steps over
+a batch lookup (preloaded per chunk, each item seeing the items before it) and written together in
+multi-row statements; a single write is a batch of one through the same code, delete items keep
+their per-item path, and a bulk write failing on a row the rules could not see is redone item by
+item. A chunk costs 30–49 statements for 100 or 500 items at both seeded sizes (a live upsert item
+cost 20.5 before) and 0.25–0.46 s for 500 items; the release is checked before matrix states are
+written, so PG3's activation deadlock is closed; an `atomic` job looks for a cancel request every
+500 items and before writing (D28 amended). The package's review found that a single live update
+would overwrite a write committed between its read and its lock; it now reads again under the
+lock ([record](POSTGRESQL_RUNTIME_PLAN.md#pg3b-batch-writes-decided-in-memory-written-in-bulk)). Its
+four groups took 2 min 31 s, over the ceiling (H4). Next are PG4 and PG5.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

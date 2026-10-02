@@ -1777,7 +1777,8 @@ activated meanwhile) creates no job. A worker in the API process then runs it:
 
 `POST /jobs/{jobId}/cancel` answers `202` with the job and `cancelRequestedAt` set; it waits for no
 chunk. The worker carries it out at the job's next chunk (a queued job before its first item); an
-`atomic` job checks between items and rolls back completely. Cancelling again changes nothing; a
+`atomic` job looks for it before every 500 items it decides and before it writes them, and rolls
+back completely. Cancelling again changes nothing; a
 finished job is `409 job_finished` with `details.state`, an unknown one `404 job_not_found`.
 
 ## Planned integration endpoints

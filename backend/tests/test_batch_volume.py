@@ -1,15 +1,16 @@
-"""Base 0.9 B1 budget (D13): batches on the Track S volume fixture cost what their single writes do.
+"""Base 0.9 B1 budget (D13): batches on the Track S volume fixture cost no more than their single
+writes.
 
 An inline independent batch of 1,000 upserts (half new, half overwriting existing items) and an
-atomic batch of 10,000 creates run live and in the fixture's change set. Each item goes through its
-single write's service, so its statements stay near that write's, plus the batch's own: a
-savepoint, and the unique-key lookups that resolve its parent and its upsert key. Re-sending the
-same upserts writes nothing. The atomic batch runs through the inline job's engine path, which B2's
-background run reuses, since the route caps a request at 1,000 items.
+atomic batch of 10,000 creates run live and in the fixture's change set. Since 0.9.0-alpha.1 PG3b
+the items are decided through their single writes' rules and written in bulk, so an item costs a
+small fraction of its single write (PG-D12); the bounds below are B1's and PG5 restates them from
+its measurement. Re-sending the same upserts writes nothing. The atomic batch runs through the
+inline job's engine path, which B2's background run reuses, since the route caps a request at 1,000
+items.
 
-A change set write's lookups probe the change set's own rows by key, so the cost per item does not
-grow while the batch adds 10,000 rows to the change set. The wall times are recorded in D13; the
-statement counts are the budget.
+The statements per chunk are held at two seeded sizes by ``test_batch_statements`` (PG-D17), which
+replaced this module's timed check that a change set item costs the same as the change set grows.
 """
 
 from typing import Any
@@ -32,8 +33,9 @@ from app.engine.jobs.inline import submit_inline_batch
 from app.models.commands import BatchRequest
 
 SHAPE = scaled_shape(0.005)
-# Statements per upsert, measured 20.5 live and 34.0 in a change set with half of them updates.
-# A create item costs no more than the same create as a single write.
+# Statements per upsert, measured 20.5 live and 34.0 in a change set with half of them updates
+# (B1, before PG3b's bulk writes). A create item costs no more than the same create as a single
+# write.
 UPSERT_BUDGET = {"live": 21, "change set": 35}
 
 
@@ -113,18 +115,17 @@ def measured(tmp_path_factory) -> dict[tuple[str, str], dict[str, Any]]:
                 response = client.post("/api/v1/batches", json=request)
             results[("resent", label)] = {"cost": cost, "job": response.json()["job"], "items": 1000}
 
-            for count in (1000, 10_000):
-                request = BatchRequest.model_validate(
-                    {"policy": "atomic", "run": "inline", "items": creates(count, f"A{count}{label[0]}"), **context(label)}
-                )
-                with SessionLocal() as session:
-                    with measure(engine) as cost:
-                        job, _replayed = submit_inline_batch(
-                            session, request, idempotency_key=None, retention_days=7
-                        )
-                    counts = dict(job.counts)
-                key = ("creates", label) if count == 10_000 else ("creates 1000", label)
-                results[key] = {"cost": cost, "job": {"result": job.result, "counts": counts}, "items": count}
+            count = 10_000
+            request = BatchRequest.model_validate(
+                {"policy": "atomic", "run": "inline", "items": creates(count, f"A{count}{label[0]}"), **context(label)}
+            )
+            with SessionLocal() as session:
+                with measure(engine) as cost:
+                    job, _replayed = submit_inline_batch(
+                        session, request, idempotency_key=None, retention_days=7
+                    )
+                counts = dict(job.counts)
+            results[("creates", label)] = {"cost": cost, "job": {"result": job.result, "counts": counts}, "items": count}
     return results
 
 
@@ -136,8 +137,8 @@ def test_items_cost_about_their_single_writes(measured, label):
         result = measured[(kind, label)]
         assert result["job"]["result"] == "applied", result["job"]
         per_item[kind] = result["cost"].statements / result["items"]
-    # A create item resolves its parent by key where the single write names its ID, and runs in
-    # a savepoint; the job's own rows are spread over the items.
+    # A create item resolves its parent by key where the single write names its ID; the job's own
+    # rows are spread over the items.
     assert per_item["creates"] <= single, (label, per_item, single)
     assert per_item["upserts"] <= UPSERT_BUDGET[label], (label, per_item, single)
     counts = measured[("upserts", label)]["job"]["counts"]
@@ -155,14 +156,3 @@ def test_resending_unchanged_items_writes_nothing(measured, label):
     assert resent["job"]["counts"]["unchanged"] == 1000, resent["job"]
     # Reads only: fewer statements than the write.
     assert resent["cost"].statements < measured[("upserts", label)]["cost"].statements / 2
-
-
-def test_a_change_set_item_costs_the_same_as_the_change_set_grows(measured):
-    small, large = measured[("creates 1000", "change set")], measured[("creates", "change set")]
-    per_item = {
-        "1000": small["cost"].seconds / small["items"],
-        "10000": large["cost"].seconds / large["items"],
-    }
-    # With a NOT IN anti-join each lookup read every row of the change set: about twice as slow
-    # per item at 10,000 (Base 0.9 B1).
-    assert per_item["10000"] <= per_item["1000"] * 1.5, per_item

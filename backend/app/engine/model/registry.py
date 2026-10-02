@@ -190,13 +190,20 @@ def resolve_model_snapshot(session: Session) -> ModelSnapshot:
 
 @event.listens_for(Session, "before_commit")
 def _require_resolved_release(session: Session) -> None:
+    require_resolved_release(session)
+
+
+def require_resolved_release(session: Session) -> None:
     """Refuse to commit a write validated under a release that is no longer active (0.8 W5).
 
     The registry's publication guard covers only the moment of resolution, so a write resolved
     under release A could otherwise commit after an incompatible release B activated, in this
     process or another one sharing the database. The check runs inside the write transaction after
     its rows are flushed, under a share lock on the runtime-state row, which conflicts with the
-    lock activation holds from before its compatibility check until it commits.
+    lock activation holds from before its compatibility check until it commits. It runs as the
+    session commits; a batch also runs it before it writes its matrix states (0.9.0-alpha.1 PG3b),
+    so it holds the share lock before any state row: an activation that drops a matrix shape then
+    never waits for a batch's state rows while the batch waits for the activation.
     """
     release_db_id = session.info.get(_RESOLVED_ACTIVE_RELEASE)
     if release_db_id is None:
