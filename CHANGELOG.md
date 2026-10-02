@@ -181,6 +181,8 @@ All notable changes to this project are documented in this file. The format foll
   every pass (3,111 attempts in half a second in the regression test; a 28 GB log overnight). It now
   waits its 2 s between retries, logs the traceback once per outage, then one line a minute, and
   says when the database is reachable again.
+- `python -m app.cli.model_schema_upgrade --help` names every supported schema (0.5–0.8); it
+  named 0.5–0.7 while it also accepted 0.8.
 
 ## [0.8.0] - 2026-09-29
 

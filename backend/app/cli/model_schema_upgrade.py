@@ -88,15 +88,20 @@ def transition(model_path: Path) -> str:
         return candidate_release.public_id
 
 
+_SCHEMAS = ", ".join(sorted(SUPPORTED_SCHEMA_VERSIONS))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Atomically select a compatible schema 0.5, 0.6 or 0.7 model in an offline database"
+        description=(
+            f"Atomically select a compatible schema {_SCHEMAS} model in an offline database"
+        )
     )
     parser.add_argument(
         "--model",
         required=True,
         type=Path,
-        help="Path to the schema 0.5, 0.6 or 0.7 model JSON to validate, install and select",
+        help=f"Path to the schema {_SCHEMAS} model JSON to validate, install and select",
     )
     args = parser.parse_args()
     try:

@@ -181,8 +181,9 @@ Follow [docs/testing/STRATEGY.md](docs/testing/STRATEGY.md); its reasons and sou
 place and checks are still selected by group (below); new tests already follow these rules:
 
 - Two kinds only. **Journey tests** walk a user journey or variant from
-  [USER_JOURNEYS.md](docs/product-functionality/USER_JOURNEYS.md) through the public API on
-  realistic data and assert what that user sees: data, status and error code. **Unit tests** test
+  [USER_JOURNEYS.md](docs/product-functionality/USER_JOURNEYS.md) through the public API and
+  assert what that user sees: data, status and error code. They test the engine, never the example
+  model: each runs on at least two model configurations and names no configuration's keys. **Unit tests** test
   one piece of code's purpose directly, with its edge cases; combinations are generated
   (property-based or pairwise), not written out.
 - The specification is the source of a journey test, never the code. Cases are written as

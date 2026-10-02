@@ -76,7 +76,10 @@ code, with no test tied to a user journey and every package over its ceiling. Th
 [testing strategy](testing/STRATEGY.md) (unit tests for each piece of code's purpose, journey tests
 for every user journey of every client, the API as the product, specification-first test cases) and
 [H4](TEST_HARNESS_PLAN.md#h4-testing-consolidation) moves the suite onto it in slices H4a–H4e.
-Next are H4a–H4e, then PG4 and PG5.
+**H4a is delivered and approved (2026-10-02):** the journey catalogue (26 generic journeys, 138 variants,
+every client) and the API inventory mapping every route, parameter, error code and setting to journeys,
+with seven decisions, all taken the same day ([record](TEST_HARNESS_PLAN.md#h4a-the-journey-catalogue)). Next are H4b–H4e,
+then PG4 and PG5.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

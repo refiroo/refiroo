@@ -17,13 +17,19 @@ then F1. PG1, PG2, H2 and H3 are delivered (2026-10-01), and PG3 and
 [PG3b](POSTGRESQL_RUNTIME_PLAN.md#pg3b-batch-writes-decided-in-memory-written-in-bulk) (batch writes
 decided in memory and written in bulk, PG-D12–PG-D17) on 2026-10-02; the order from here is
 [H4](TEST_HARNESS_PLAN.md#h4-testing-consolidation) (the testing consolidation, H4a–H4e, planned
-2026-10-02 on the [testing strategy](testing/STRATEGY.md)), then PG4 and PG5. See [Next — 0.9](#next--09).
+2026-10-02 on the [testing strategy](testing/STRATEGY.md); H4a delivered and approved the same day,
+decisions D-1–D-7 taken, [API_JOURNEYS](testing/API_JOURNEYS.md#decisions)), then PG4 and PG5. See [Next — 0.9](#next--09).
 
 - **Revisit: large batch deletes (PG-D18, noted 2026-10-01).** Batch delete items stay on the
   per-item path in PG3b, and neither that nor a set-based copy of it is the right answer. Large
   delete batches are not rare, and one must not occupy the job worker for minutes or stall the
   engine. Decide a deletion design (cascades, subtree impact, signed confirmation); PG3b is
-  delivered (2026-10-02).
+  delivered (2026-10-02). The user decided on 2026-10-02 (H4a, D-6) that batch delete items must be
+  able to cascade (journey J11.6); the design decides how a batch confirms the impact it deletes.
+- **Lifecycle audit reads (decided 2026-10-02, H4a D-5).** The engine records workspace, change set
+  and publication lifecycle events and model draft events, but no route reads them. Keep recording
+  them and add reads (journeys J19.5, J08.9); consider showing a workspace's activity in the UI.
+  To plan as its own package, with F1's feed in view.
 
 ## Open decisions
 

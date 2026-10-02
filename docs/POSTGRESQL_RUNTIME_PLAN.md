@@ -102,7 +102,10 @@ added. D11 accepted 2026-10-01 at the start of PG1. D12–D17 accepted 2026-10-0
 per-item path nor a set-based copy of it is the right answer. A large delete batch is not rare, and
 it must not occupy the job worker for minutes or stall the engine. Revisit after PG3b with the
 deletion path's cascades, subtree impact and signed confirmation in view
-([TODO](TODO.md#now--product-09)).
+([TODO](TODO.md#now--product-09)). **Direction from the user (2026-10-02, H4a's D-6):** a batch
+delete item must be able to cascade, as a single delete can (journey variant J11.6); refusing an
+item with dependants, or deleting only as one atomic batch, is not a realistic integration path.
+The design decides how a batch confirms the impact it deletes.
 
 ## Inventory
 

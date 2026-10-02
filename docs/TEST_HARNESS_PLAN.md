@@ -249,6 +249,47 @@ functions; and every package over its 2-minute ceiling.
 
 Documentation only, for the user's review.
 
+**Delivered 2026-10-02; the user approved the catalogue the same day ("for now it's fine"), which
+closes H4a.** The catalogue is revised as journeys are tested in H4c.
+
+- [USER_JOURNEYS.md](product-functionality/USER_JOURNEYS.md) is the catalogue: 26 journeys (J01–J27,
+  J09 retired) in six groups, each with its actor, channel, stories, example scenario, status, steps,
+  named variants (`J02.2`, 138 in all), refusals by error code and today's evidence. **Revised the
+  same day at the user's direction:** journeys are the engine's, never the example model's. Records,
+  containment hierarchies and relationships within and across applications, with the rules the model
+  declares (cardinality, required ownership, scoped uniqueness, typed relationship attributes, attribute
+  rules), are the subject; translation (J09) is retired into generic variants of J02, J03 and J13, the
+  mapping journey is "replace a record's related records" (J10) and the matrix "relationship coverage
+  across ancestors" (J16). Every journey test runs on at least two model configurations and names no
+  configuration's keys (STRATEGY, H4c's seeds). J01–J12 keep their IDs; J11 is
+  narrowed to bulk changes, with background jobs (J24), the change feed (J26, planned) and supplier
+  files (J27, planned) split out. New: relating records (J13), building and changing hierarchies (J14), reshaping across types (J15),
+  relationship coverage (J16), change review (J17), the next model version (J18), workspace
+  administration (J19), consumer API definitions (J25), and the integrator's journeys: discover
+  (J20), read completely (J21), a precise dataset (J22), a business date (J23). Concurrency is a
+  variant of the journey it threatens (J02.2, J03.8, J13.8, J14.8, J19.2, J24.1, …); J12 gained the
+  operator's variants, among them the worker's database outage (J24.6, J12.8).
+- [API_JOURNEYS.md](testing/API_JOURNEYS.md) maps every one of the 81 operations, every query
+  parameter and header, all 139 error codes the backend raises, every setting and command, and every
+  browser runner and frontend test area to journeys. Every route, code and setting has a journey.
+- **Seven decisions** raised for the user (D-1–D-7 in API_JOURNEYS): two routes for one list (keep
+  both), two ways to change one value (keep both), unknown query parameters silently ignored
+  (recommend refusing them), 32 undocumented error codes (document them in H4c), lifecycle audit
+  recorded but readable by no route (a hidden capability; decide F1 or a read), batch delete without
+  cascade (PG-D18), and a stale command help text.
+- The strategy's audit finding was corrected: the browser runners walk more scenarios than the
+  backend (SC-01 to SC-09 in parts, SC-15, SC-17), but only through the UI.
+- **The user's decisions (2026-10-02):** D-2 keep both ways to change a value; D-3 refuse unknown
+  query parameters and D-4 document the 32 codes, both in H4c; D-5 keep recording lifecycle audit
+  and add reads (J19.5, J08.9; TODO); D-6 batch delete items cascade (J11.6; PG-D18); D-7 the
+  command's help fixed (built from the supported schema list). D-1 was answered (the two routes are
+  identical), and the user decided to remove `GET /mappings` (in H4c).
+
+**Checks:** a one-off script compared API_JOURNEYS with the OpenAPI document of `create_app()` and
+the codes in `app/` (no route, code or setting missing), every code a journey cites exists in the
+backend, every variant the inventory cites is defined, and every relative link resolves. No test
+was run (documentation only). H4b turns the comparison into a check.
+
 **Scope:**
 
 - [USER_JOURNEYS.md](product-functionality/USER_JOURNEYS.md) extended from J01–J12 to every client:
@@ -294,15 +335,23 @@ each running what the strategy's table says; the trace report and the mutation b
 
 **Scope:**
 
-- A `scenario` seed in the seed store: the acceptance scenarios' shared example data (Retail and
-  Warehouse, Delivery Methods, `COLLECT`, `PICKUP`, the translation and mapping examples, and a
-  second configuration), built through the API once and cloned per test.
+- A `scenario` seed per model configuration in the seed store: at least two configurations that
+  differ in keys and shape (the example model and a generated model), each with the structures the
+  journeys need (two workspaces, a deep self-hierarchy and a mixed-type one, relationships of every
+  cardinality within and across applications, required ownership, scoped uniqueness, a large related
+  set), built through the API once and cloned per test. No journey test asserts a configuration's
+  keys; the example model is tested only as one configuration.
 - One test per catalogue journey and variant with an API side, given/when/then, asserting the data,
   status and error code the actor sees. The cases are written from the catalogue in a separate
   context (one subagent) and shown to the user as a list per journey group before they are coded.
 - They run against today's code. A failing case is a product defect or a specification gap,
   recorded with a decision; a case is never changed to fit the code.
 - The four existing composed tests (SC-05, SC-07, SC-11, SC-15) become journey tests.
+- **Decided in H4a (2026-10-02):** unknown query parameters are refused, `422 unknown_parameter`
+  naming the parameter (D-3, journey variant J21.8): its journey test is written first and fails,
+  then the change follows, with the OpenAPI lock re-baselined. `GET /workspaces/{key}/mappings` is
+  removed (D-1; `GET /workspaces/{key}/relations` is the same list). The 32 undocumented error codes are
+  documented in API.md beside the journey tests that meet them (D-4).
 
 **Exit:** every catalogue entry has its test, or is UI-only with its browser runner named; every
 failure found has a decision.

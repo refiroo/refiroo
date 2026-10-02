@@ -35,11 +35,18 @@ budget (the `volume` group).
 
 ### Journey tests: what a user achieves
 
-Every journey and each of its variants has a test that walks it through the public API on realistic
-data (the shared example data of the [acceptance scenarios](../product-functionality/ACCEPTANCE_SCENARIOS.md):
-Retail and Warehouse, Delivery Methods, `COLLECT`, `PICKUP`, and a second configuration), written as
+Every journey and each of its variants has a test that walks it through the public API, written as
 given/when/then, asserting what that user sees: the data, the status and the error code. Journeys
 with a UI side also have a browser runner.
+
+**The engine is tested, never the example model.** The example model delivered with the engine
+(translations, systems, mappings) is one configuration of generic capabilities: records, hierarchies,
+relationships within and across applications, and the rules the model declares on them. A journey
+is stated in those terms, and its test runs on at least two model configurations that differ in keys
+and shape (the example model and a generated one), asserting nothing that names a configuration's
+keys. The [acceptance scenarios](../product-functionality/ACCEPTANCE_SCENARIOS.md) supply realistic
+situations (two workspaces, a deep hierarchy, a large ambiguous set); the journey tests reproduce
+the situation, not the example's domain.
 
 **Every piece of code traces to a journey.** Mechanisms that no button shows have explicit journeys
 too: the workspace write lock is "two stewards change the same codelist at once" and "an import runs
@@ -127,9 +134,10 @@ test-seconds in cases over 0.3 s.
 - About 90% of the cases drive the real HTTP API on PostgreSQL: the boundary is real.
 - The suite is organised by work package and review finding (`test_wp8_review_regressions`,
   `test_build07_wp11`, `test_wp81a_context` with tests numbered `test_0_…`), not by user goal. No
-  test refers to a journey J01–J12. Of 17 acceptance scenarios, four have a test that walks them
-  (SC-05, SC-07, SC-11, SC-15); SC-02 (a correction while someone else edits), SC-04 (delete with an
-  impact preview) and SC-10 (a supplier file) have none.
+  test refers to a journey J01–J12. Of 17 acceptance scenarios, four have a backend test that walks
+  them (SC-05, SC-07, SC-11, SC-15). The browser runners walk more (SC-01 to SC-09 in parts, SC-15,
+  SC-17; corrected in H4a, which mapped them), but only through the UI, so no API-only client's path
+  is walked as a journey; SC-10 (a supplier file) is planned.
 - About a dozen modules write database rows directly: some build states no client can produce (a
   relation between two workspaces), others hand-build history that a real publish and activation
   would produce.
