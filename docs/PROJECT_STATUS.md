@@ -70,7 +70,13 @@ written, so PG3's activation deadlock is closed; an `atomic` job looks for a can
 500 items and before writing (D28 amended). The package's review found that a single live update
 would overwrite a write committed between its read and its lock; it now reads again under the
 lock ([record](POSTGRESQL_RUNTIME_PLAN.md#pg3b-batch-writes-decided-in-memory-written-in-bulk)). Its
-four groups took 2 min 31 s, over the ceiling (H4). Next are PG4 and PG5.
+four groups took 2 min 31 s, over the ceiling (H4). **Testing consolidation planned (2026-10-02):**
+an audit of the 1,063-case backend suite found it written per work package after the code, from the
+code, with no test tied to a user journey and every package over its ceiling. The user decided a
+[testing strategy](testing/STRATEGY.md) (unit tests for each piece of code's purpose, journey tests
+for every user journey of every client, the API as the product, specification-first test cases) and
+[H4](TEST_HARNESS_PLAN.md#h4-testing-consolidation) moves the suite onto it in slices H4a–H4e.
+Next are H4a–H4e, then PG4 and PG5.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

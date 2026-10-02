@@ -52,6 +52,7 @@ logger = logging.getLogger(__name__)
 # a lease held elsewhere expires, and at least this often (a job queued by another process).
 IDLE_SECONDS = 60.0
 RETRY_SECONDS = 2.0
+REMINDER_SECONDS = 60.0
 SWEEP_SECONDS = 3600.0
 _ITEM = TypeAdapter(BatchItem)
 
@@ -289,6 +290,7 @@ class JobWorker:
 
     def _loop(self) -> None:
         next_sweep = 0.0
+        failing, next_reminder = False, 0.0
         while not self._stopping.is_set():
             worked, wait = False, IDLE_SECONDS
             try:
@@ -299,14 +301,31 @@ class JobWorker:
                 if not worked and self._leased_elsewhere_until is not None:
                     expires_in = as_utc(self._leased_elsewhere_until) - datetime.now(UTC)
                     wait = min(IDLE_SECONDS, max(0.1, expires_in.total_seconds()))
-            except Exception:
-                logger.exception(
-                    "The job worker could not reach the database; it retries in %s s",
-                    RETRY_SECONDS,
-                )
+                if failing:
+                    logger.info("The job worker reaches the database again")
+                    failing = False
+            except Exception as exc:
+                # The traceback once per outage, then one line a minute: an outage of hours must
+                # not fill the log.
+                if not failing:
+                    logger.exception(
+                        "The job worker could not reach the database; it retries every %s s",
+                        RETRY_SECONDS,
+                    )
+                    failing, next_reminder = True, time.monotonic() + REMINDER_SECONDS
+                elif time.monotonic() >= next_reminder:
+                    next_reminder = time.monotonic() + REMINDER_SECONDS
+                    logger.warning(
+                        "The job worker still cannot reach the database (%s); it retries in %s s",
+                        " ".join(str(exc).split())[:200] or type(exc).__name__,
+                        RETRY_SECONDS,
+                    )
                 wait = RETRY_SECONDS
             if not worked:
-                self._wake.wait(min(wait, next_sweep - time.monotonic()))
+                # A failed sweep leaves next_sweep in the past, so a retry waits its own time.
+                if not failing:
+                    wait = min(wait, next_sweep - time.monotonic())
+                self._wake.wait(max(0.0, wait))
                 self._wake.clear()
 
 

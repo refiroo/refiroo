@@ -46,6 +46,7 @@ from app.config import reload_settings
 from app.db import SessionLocal, get_engine
 from app.engine.indexes import matrix_states
 from app.engine.jobs import batches as batch_engine
+from app.engine.jobs import worker as worker_module
 from app.engine.jobs.worker import JobWorker, WorkerSettings
 from app.engine.model.bootstrap import ensure_bootstrap_release
 from app.engine.model.registry import model_registry
@@ -629,3 +630,28 @@ def test_background_attributes_keep_their_declared_types(background):
     values = {attribute["attributeTypeKey"]: attribute["value"] for attribute in record["attributes"]}
     assert values[k("par-count")] == 3
 
+
+
+def test_a_worker_without_its_database_waits_between_retries_and_logs_one_traceback(
+    monkeypatch, caplog
+):
+    """A database down for hours once made the worker spin (a failed sweep left its next sweep in
+    the past, so the wait was negative) and log a traceback per pass: 28 GB of log overnight."""
+    attempts = 0
+
+    def unreachable() -> Any:
+        nonlocal attempts
+        attempts += 1
+        raise OSError("connection refused")
+
+    monkeypatch.setattr(worker_module, "RETRY_SECONDS", 0.05)
+    monkeypatch.setattr(worker_module, "REMINDER_SECONDS", 0.2)
+    down = JobWorker(unreachable, WorkerSettings(CHUNK, LEASE, 7), owner="worker-down")
+    with caplog.at_level("INFO", logger=worker_module.logger.name):
+        down.start()
+        time.sleep(0.5)
+        down.stop(timeout=1)
+    retries = [r for r in caplog.records if "reach the database" in r.getMessage()]
+    assert 5 <= attempts <= 15
+    assert sum(r.exc_info is not None for r in retries) == 1
+    assert 1 <= len(retries) <= 4

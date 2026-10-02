@@ -174,6 +174,14 @@ All notable changes to this project are documented in this file. The format foll
 - A live page's ancestor paths read only the columns a path shows, not whole records. A page of deep
   records loaded 163 ORM rows for 20 records and now loads 84, on the per-type list and the lookup alike.
 
+### Fixed
+
+- The background job worker no longer spins when its database is unreachable. A failed first pass
+  left its next sweep in the past, so it retried without waiting and logged a full traceback on
+  every pass (3,111 attempts in half a second in the regression test; a 28 GB log overnight). It now
+  waits its 2 s between retries, logs the traceback once per outage, then one line a minute, and
+  says when the database is reachable again.
+
 ## [0.8.0] - 2026-09-29
 
 ### Added

@@ -39,6 +39,10 @@ do, are not hardcoded modules and are not a template other models must follow
 - Public APIs never use an undocumented result cap. Collections page with cursors or positions
   (ADR-030): the UI scrolls with cursors and jumps with positions.
 - Bulk and integration APIs are first-class features, not wrappers around UI calls.
+- The engine is an integration engine and the API is the product. The API exposes every capability
+  the engine and the model schema provide; the built-in UI is one client of it. A capability no API
+  route reaches is a defect, and an API option is never removed only because the UI does not use it
+  ([testing strategy](docs/testing/STRATEGY.md#what-the-engine-is-for-testing-purposes)).
 - Public IDs and model keys are stable. Never expose database sequence IDs as domain identifiers.
 - Attribute values retain their declared types. Do not reduce booleans, numbers or dates to strings.
 - Updates use optimistic concurrency. Never silently overwrite a newer version.
@@ -57,7 +61,8 @@ For each feature, apply only the steps relevant to its scope:
 2. Extend the application model only when behavior must be configurable.
 3. Add model validation before relying on new configuration.
 4. Update metadata persistence if the model contract changes.
-5. Implement behavior and focused tests in the affected layer.
+5. Write the journey test cases from the specification first, confirm they fail, then implement
+   and add unit tests for the new code's purpose ([Testing](#testing)).
 6. For UI changes, implement a generic component and exercise it with at least two object types.
 7. Update documentation when behavior or contracts change; add an architecture decision only
    for a durable architectural choice.
@@ -168,6 +173,29 @@ errors explicit and machine-readable.
 - Run `npm run lint` and `npm run format` before finishing. `react-hooks/set-state-in-effect` is
   configured as a warning for the reason recorded in `eslint.config.js`; do not add sites to it.
 
+## Testing
+
+Follow [docs/testing/STRATEGY.md](docs/testing/STRATEGY.md); its reasons and sources are in
+[LLM_TESTING_RESEARCH.md](docs/testing/LLM_TESTING_RESEARCH.md). Until
+[H4](docs/TEST_HARNESS_PLAN.md#h4-testing-consolidation) is delivered, the existing suite stays in
+place and checks are still selected by group (below); new tests already follow these rules:
+
+- Two kinds only. **Journey tests** walk a user journey or variant from
+  [USER_JOURNEYS.md](docs/product-functionality/USER_JOURNEYS.md) through the public API on
+  realistic data and assert what that user sees: data, status and error code. **Unit tests** test
+  one piece of code's purpose directly, with its edge cases; combinations are generated
+  (property-based or pairwise), not written out.
+- The specification is the source of a journey test, never the code. Cases are written as
+  given/when/then from the package's spec section, in a separate context (one subagent), shown to
+  the user as a list, and confirmed to fail before implementation. The implementing agent never
+  edits them; a case the code cannot pass is a defect or a specification gap for the user to decide.
+- Every piece of code traces to a journey. A mechanism no button shows (a lock, an index, a startup
+  check) has an explicit journey or variant; a way of doing something that no client's journey needs
+  is raised with the user, keeping the API-first invariant above.
+- No test builds a database state no client could produce, unless the state arrives from outside the
+  API (an import, an older release) and the test says so. No test checks which private function ran.
+  A refusal is asserted by its error code, not by a status alone.
+
 ## Definition of done
 
 A change is complete when the checks relevant to its changed layers pass, new configuration is
@@ -245,6 +273,10 @@ affects theme tokens or a new surface. Do not update baselines merely to hide an
   acceptance suite only when the fix has broad impact or the failure remains unexplained.
 - Reuse passing checks while their relevant code remains unchanged. A change elsewhere does not
   invalidate all previous evidence. Do not repeat equivalent checks for the same behavior.
+- Stop every server, database clone and background process a check starts, and delete its logs and
+  scratch databases, before reporting; never send a long-running process's output to an unbounded
+  log. Before reporting, confirm nothing is left (`pgrep -fl "uvicorn|postgres -D"`). On 2026-10-02 a
+  smoke-start server left running filled the disk with a 28 GB log.
 - Keep test output bounded and report concise results. While a test runs, wait for completion
   rather than repeatedly polling, reanalysing unchanged code or launching overlapping checks.
 - Run one backend `pytest` invocation at a time; it parallelizes itself with `-n auto` (H2). Two
@@ -272,8 +304,10 @@ Use one subagent only when it materially improves the result:
 
 - an unfamiliar area needs bounded, read-only discovery;
 - a genuine architecture question remains after consulting existing decisions;
-- a migration, concurrency, security or broad public-contract change merits independent review; or
-- the user explicitly requests delegation or parallel agents.
+- a migration, concurrency, security or broad public-contract change merits independent review;
+- the user explicitly requests delegation or parallel agents; or
+- a package's journey test cases are written from the specification, which is done in a separate
+  context from the implementation ([Testing](#testing)).
 
 Use at most one subagent during a normal work package. Multiple subagents require an explicit user
 request or clearly independent work whose time saving outweighs their token and coordination cost.

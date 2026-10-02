@@ -1,4 +1,4 @@
-# Test harness: seeded databases built once, faster runs, time ceilings (H1–H4)
+# Test harness: seeded databases built once, faster runs, time ceilings, consolidation (H1–H4)
 
 **Status:** Planned 2026-10-01, revised the same day: seeded databases first, and, once PostgreSQL
 became the only database ([PG-D2](POSTGRESQL_RUNTIME_PLAN.md#decisions)), built on PostgreSQL.
@@ -9,7 +9,9 @@ behaviour, contract or model changes. **H2 is delivered (2026-10-01).** **Revise
 H2** (user's direction: development time must go to development, not to waiting for tests): every
 run now has a [time ceiling](#time-ceilings), full-size budgets leave every run but the interim
 release's acceptance, and H3 is split into H3 (budgets out of everyday runs) and H4 (cheaper
-per-test work). **H3 is delivered (2026-10-01).**
+per-test work). **H3 is delivered (2026-10-01).** **Revised 2026-10-02 after an audit of the
+suite** (user's decision): H4 becomes the [testing consolidation](#h4-testing-consolidation) onto
+the [testing strategy](testing/STRATEGY.md), delivered in slices H4a–H4e before PG4.
 
 The measurements below were taken on SQLite (2026-10-01) and are the baseline PG1's measurement
 compares against.
@@ -227,23 +229,128 @@ time against the 5-minute ceiling (this run is H3's purpose and is announced wit
 time); `pytest -m budget --collect-only` naming exactly the budget tests. No `budget` run in H3: the
 28 min 39 s baseline already holds it.
 
-### H4: Cheaper per-test work (next)
+### H4: Testing consolidation
 
-Moved from H3 on 2026-10-01. Done when a package's checks stay over the 2-minute ceiling after H3,
-which the slow-test report shows.
+**Planned 2026-10-02** (replaces "Cheaper per-test work", whose items are in H4d). The user accepted
+the audit's conclusions the same day: the suite moves onto the [testing strategy](testing/STRATEGY.md)
+(unit tests for each piece of code's purpose, journey tests for every user journey, every piece of
+code traced to a journey, selection by what a change can affect), the target "no test removed" is
+replaced, and renamed-model copies stay only where model keys drive the code. **H4 comes before PG4**,
+so PG4 is the first package delivered the new way. Slices are delivered one per instruction ("deliver
+H4a"), in order; each depends on the one before it. The scope is the backend suite; the frontend's
+Vitest projects and browser runners are mapped to journeys in H4a and consolidated in a later package.
+
+**Why:** the [audit](testing/STRATEGY.md#findings-that-led-here-audit-2026-10-02): 1,063 cases
+written per work package after the code, from the code; no test refers to a journey; four of 17
+scenarios walked; duplicated refusals and model rules; fabricated database states; spies on private
+functions; and every package over its 2-minute ceiling.
+
+#### H4a: The journey catalogue
+
+Documentation only, for the user's review.
 
 **Scope:**
 
-- `matrix_states.verify` after every test only in the modules that test matrix maintenance
-  (`test_matrix_states`, `test_relation_matrix_writes`, `test_batch_matrix_states`); elsewhere once
-  per module on its final data, which catches the same drift.
-- The application's start in tests shared per module where a test does not test start-up; every
-  start-up path stays exercised in the `startup` group.
-- The slowest tests the H3 report names (today `test_model_query`'s every-criterion test, 16 s per
-  model under `-n auto`, and `test_matrix_states`' change set test, 12 s): data built once per
-  module instead of per case where the case does not write it.
+- [USER_JOURNEYS.md](product-functionality/USER_JOURNEYS.md) extended from J01–J12 to every client:
+  stewards (UI and API), **integrators** (the user stories US-I01–I09 and the 0.9 APIs: paged and
+  resumable reads with cursor, position, seek, `from=end`, anchor and totals; the cross-type lookup;
+  the model-aware query; the edge list; batches and background jobs; consumer API definitions),
+  **operators** (start, upgrade, refusal and recovery, a database outage under the job worker) and
+  **model authors** (drafts, releases, activation, schema upgrade). Concurrency is a variant of the
+  journey it threatens: two stewards correcting one record, an import running while stewards work,
+  an activation or a retirement beside writes.
+- Each journey: an ID, its actor and channel (API, UI, operator command), its steps, its named
+  variants, its refusals with their codes, and the scenario data it runs on.
+- **The API inventory.** Every route and every parameter of the OpenAPI document mapped to the
+  journeys and variants that use it. The API is the product (strategy, first section): an option
+  serving an integrator journey stays even when the UI never uses it. An option that serves no
+  journey of any client is listed for the user to decide: a journey to add, or the option closed.
+- Every browser runner and frontend Vitest project mapped to its UI journeys (for the later package).
 
-**Evidence:** per-module times before and after for every changed module, and the groups green.
+**Exit:** the user approves the catalogue, and no inventory entry is left without a journey or a
+decision.
+
+#### H4b: Traceability and selection
+
+**Scope:**
+
+- A `journey` marker taking catalogue IDs; a test naming an ID the catalogue does not hold fails
+  collection.
+- The layout `tests/journeys/` and `tests/unit/<tier>/<module>`; `TEST_GROUPS` keeps only what the
+  layout and markers cannot say.
+- `pytest-testmon` (dev dependency): a change selects the unit tests that execute the changed code
+  and the journeys linked to it. Changes coverage cannot see (the model schema, migrations, the
+  starter model, seed code, configuration) select everything that reads them, by rules in the
+  execution guide.
+- The trace report (`python -m tests.trace`): from the journey tests' coverage, the modules each
+  journey executes, and the modules no journey reaches.
+- The mutation score of `app/engine` (`mutmut`) measured once as the baseline H4d must not fall
+  below; its run time decides whether it runs per release or per area.
+
+**Exit:** two shown selections, a change to a module many others use and a change to one route,
+each running what the strategy's table says; the trace report and the mutation baseline recorded.
+
+#### H4c: Journey tests
+
+**Scope:**
+
+- A `scenario` seed in the seed store: the acceptance scenarios' shared example data (Retail and
+  Warehouse, Delivery Methods, `COLLECT`, `PICKUP`, the translation and mapping examples, and a
+  second configuration), built through the API once and cloned per test.
+- One test per catalogue journey and variant with an API side, given/when/then, asserting the data,
+  status and error code the actor sees. The cases are written from the catalogue in a separate
+  context (one subagent) and shown to the user as a list per journey group before they are coded.
+- They run against today's code. A failing case is a product defect or a specification gap,
+  recorded with a decision; a case is never changed to fit the code.
+- The four existing composed tests (SC-05, SC-07, SC-11, SC-15) become journey tests.
+
+**Exit:** every catalogue entry has its test, or is UI-only with its browser runner named; every
+failure found has a decision.
+
+#### H4d: The unit layer and the move
+
+**Scope:** every existing test is classified once, with its traced specification statement or
+purpose, and:
+
+- **kept as a journey test** when it walks a journey step (merged into that journey's test);
+- **moved down** when it checks a piece of code's edge cases: a unit test on the engine module, with
+  no application start; a grid of options becomes a property-based or pairwise test;
+- **removed** when it traces to no specification statement or purpose, or a journey or unit test
+  already covers it. The record names, for each removed check, the test that covers it.
+
+Known from the audit: renamed-model copies kept only where keys drive the code (rule parity, type
+changes, restructuring, query, lookup, placements; `test_model_independence` stays as the static
+guard); refusals already pinned by rule parity; model rules already pinned by the diagnostics
+table; mapping's one-step tests, `test_list_mappings_*` and option grids; the modules named after
+work packages dissolved; fabricated states rebuilt through the API, or removed, unless the state
+arrives from outside the API (an import, an older release), which the test says; spies on private
+functions removed; status-only assertions given their error codes. The slow tests made smaller:
+change-set position reads sampled at the edges and around the moved rows, the model query's
+criteria checked in full in live data and by a representative set per other context, the matrix
+recheck once per module except in the modules that test matrix maintenance, and one application
+start per module where startup is not under test. Delivered area by area, most time first.
+
+**Exit:** no test outside `tests/journeys/` and `tests/unit/`; the removal list complete; the
+mutation score at or above the H4b baseline, which shows that nothing the old tests detected was lost.
+
+#### H4e: Rules and acceptance
+
+**Scope:** AGENTS.md's testing sections, EXECUTION_GUIDE and COVERAGE_MAP rewritten to the strategy
+(the coverage map becomes the catalogue plus the trace report); the old group selection removed
+where testmon and the journey markers replace it. The full backend suite run once, announced with
+its expected time.
+
+**Exit (H4's targets):**
+
+- at most 550 backend cases, the full suite at most 1 min 30 s wall time, and a typical package's
+  selected run under 1 minute;
+- every test is a journey test with its marker or a unit test under `tests/unit/`;
+- every engine module is reached by a journey, or listed with a decision;
+- the mutation score at or above the H4b baseline.
+
+**Evidence (each slice):** counts and times before and after, the selected run's command and
+result, what was not run and why, and every server, clone and log the slice started stopped or
+deleted.
 
 ## Targets
 
@@ -253,11 +360,17 @@ Measured before H1 and after each package, on the same machine:
 - the full backend suite without full-size budgets at least **4× faster** in wall time (after H2;
   not met at H3: 2.7×, 2 min 41 s against about 436 s, within the 5-minute ceiling);
 - no package's local checks wait for a full-size budget, and they stay within 2 minutes (H3, H4);
-- no test removed or weakened. A check that moves (the matrix recheck, a shared start) is replaced
-  by one that catches the same failure, named in the package record.
+- H4's targets: at most 550 backend cases, the full suite within 1 min 30 s, a typical package's
+  selected run under 1 minute;
+- every removed check names the test that still covers it, and the mutation score does not fall
+  (H4). Until 2026-10-02 this read "no test removed or weakened"; the audit showed that many tests
+  were written from the code and covered nothing a journey or unit test does not.
 
 ## Not changed
 
-The renamed-model copies (25 modules run twice) stay: they prove no code depends on a model key, a
-product invariant, and with seeds they cost a copy instead of a reseed. The per-commit cost of
+The renamed-model copies stay where model keys drive the code (rule parity, type changes,
+restructuring, query, lookup, placements): they prove no code depends on a model key, a product
+invariant. Revised 2026-10-02: in modules where keys never drive the code (consumer model compile,
+job mechanics, batches; 75 cases), the copies go in H4d, and `test_model_independence` remains the
+static guard. The per-commit cost of
 matrix maintenance is a product question, recorded in TODO for its own assessment.
