@@ -131,7 +131,10 @@ All notable changes to this project are documented in this file. The format foll
   `409 workspace_retired`, nothing saved. A background job holds the lock for one chunk, so a live
   write in its workspace waits for that chunk only; a cancel request is answered while a chunk runs.
   The cascade deletion no longer locks three whole tables. Retirement, default switching, deletion
-  and publishing take their locks in one documented order (ARCHITECTURE).
+  and publishing take their locks in one documented order (ARCHITECTURE). A change-set write now
+  locks its workspace against retirement and deletion too: a retirement waits for it instead of
+  committing beside it, and a later write is refused `409 workspace_retired`. Publishing no longer
+  holds up writes in other change sets of its workspace.
 - Base 0.9 B1: a change set write's record lookups probe the change set's own rows by key instead of
   listing all of them on every statement, so a write costs the same however many records the change set
   holds (a lookup took 361 µs at 4,000 own rows, now 39 µs; page reads unchanged or faster). On SQLite,

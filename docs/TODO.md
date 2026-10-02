@@ -107,8 +107,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   PG2 and PG5 for (2)). (1) **Done in PG3 (2026-10-02):** D28 cancellation on PostgreSQL (a cancel
   request answered while a chunk runs, the `atomic` job rolled back between items, the lease shared
   by two workers) and live writes beside a background job, which wait for one chunk at most in the
-  job's workspace and not at all elsewhere (`test_pg3_concurrency`); the time of one chunk is
-  measured with PG5's budgets. (2) After the migration, review the code for SQLite
+  job's workspace and not at all elsewhere (`test_pg3_concurrency`); PG3b records the time of one
+  chunk, and PG5's full-size run confirms it. (2) After the migration, review the code for SQLite
   technical debt and remove it: dialect branches, `json_each` row lists, the recursive arms, the
   `SQLITE_LOCK_WAIT_SECONDS` setting, explicit dependant deletes standing in for unenforced foreign
   keys, SQL-level claims written because SQLite ignores `FOR UPDATE`, the explicit `BEGIN` of
@@ -126,10 +126,11 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   sizing, several processes and nodes. The trigram search index and the relation matrix's PostgreSQL
   forms (0.8 A2, A3b) were delivered by 0.9.0-alpha.1 PG2 (2026-10-01); single-node multi-writer
   uniqueness moves to [PG3](POSTGRESQL_RUNTIME_PLAN.md) (delivered 2026-10-02: the workspace lock).
-- [ ] Found in PG3 (2026-10-02), for PG5: an activation that drops a matrix shape could deadlock with
-  a live batch whose matrix notes it locks before its commit check (not reproduced); and change-set
-  writes check the workspace's active status without a lock, so a retirement can commit beside one.
-  See the [PG3 record](POSTGRESQL_RUNTIME_PLAN.md#pg3-concurrency).
+- [ ] Found in PG3 (2026-10-02), moved to
+  [PG3b](POSTGRESQL_RUNTIME_PLAN.md#pg3b-batch-writes-decided-in-memory-written-in-bulk): an activation
+  that drops a matrix shape could deadlock with a live batch whose matrix notes it locks before its
+  commit check (not reproduced). The other finding, change-set writes beside a retirement, was fixed
+  in PG3's amendment the same day.
 - [ ] H4: the package checks for PG3's seven groups took 2 min 7 s on `-n 10`, over the 2-minute
   ceiling; the longest tests are `test_change_set_position_reads` (43 s) and `test_model_query`'s
   every-criterion cases (17 s each).

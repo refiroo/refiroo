@@ -117,21 +117,39 @@ def effective_change_set_membership(session: Session, change_set_id: str) -> Eff
 
 
 def load_change_set(session: Session, change_set_id: str, *, for_update: bool = False) -> ChangeSet:
+    """The change set; ``for_update`` locks it for a write in an active workspace.
+
+    A write first takes a key share lock on the workspace row (lock order: workspace, then change
+    set), so a retirement or deletion waits for the write and a write waits for them, while live
+    writes and other change sets' writes go on beside it (0.9.0-alpha.1 PG3).
+    """
+    if for_update:
+        _lock_workspace(session, change_set_id)
     statement = select(ChangeSet).where(ChangeSet.id == change_set_id)
     if for_update:
         statement = statement.with_for_update()
     item = session.scalar(statement)
     if item is None:
         raise api_error(404, "change_set_not_found", f"Change set '{change_set_id}' not found")
-    if for_update:
-        workspace = session.get(Workspace, item.workspace_key)
-        if workspace is None:
-            raise api_error(
-                404, "workspace_not_found", f"Workspace '{item.workspace_key}' not found"
-            )
-        if workspace.status != "active":
-            raise api_error(409, "workspace_retired", "Workspace is retired and cannot be mutated")
     return item
+
+
+def _lock_workspace(session: Session, change_set_id: str) -> None:
+    # A change set never moves to another workspace, so its key is read without a lock.
+    workspace_key = session.scalar(
+        select(ChangeSet.workspace_key).where(ChangeSet.id == change_set_id)
+    )
+    if workspace_key is None:
+        return  # The change set's own load answers 404.
+    status = session.scalar(
+        select(Workspace.status)
+        .where(Workspace.key == workspace_key)
+        .with_for_update(read=True, key_share=True)
+    )
+    if status is None:
+        raise api_error(404, "workspace_not_found", f"Workspace '{workspace_key}' not found")
+    if status != "active":
+        raise api_error(409, "workspace_retired", "Workspace is retired and cannot be mutated")
 
 
 def ensure_change_set_writable(session: Session, change_set_id: str) -> ChangeSet:

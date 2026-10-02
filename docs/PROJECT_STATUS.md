@@ -57,7 +57,9 @@ order (workspace, change set, runtime state, records, job row) is in ARCHITECTUR
 gone, the cascade deletion's table locks are removed, and `test_pg3_concurrency` races every
 checked invariant and the D28 job cases on two connections
 ([record](POSTGRESQL_RUNTIME_PLAN.md#pg3-concurrency)). Its seven groups took 2 min 7 s, over the
-2-minute ceiling, so H4 is due. Next are PG3b, PG4 and PG5.
+2-minute ceiling, so H4 is due. Its amendment the same day locks the workspace for change-set
+writes too (key share), so a retirement waits for them; the activation deadlock found in PG3 and the
+time of one chunk beside a live write moved into PG3b's scope. Next are PG3b, PG4 and PG5.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

@@ -423,7 +423,24 @@ commit check takes that row shared; the two could deadlock (PostgreSQL ends one,
 500 or a failed job). It needs a release that removes a `relationMatrix` view while a live batch
 in a workspace with that view runs. Not reproduced; for PG5 to decide (a retry, or the commit
 check before the matrix notes). Change-set writes still check the workspace's active status without
-a lock, so a retirement can commit beside one (as before PG3).
+a lock, so a retirement can commit beside one (as before PG3). **Fixed in the PG3 amendment below;
+the deadlock and the chunk latency moved to [PG3b](#pg3b-batch-writes-decided-in-memory-written-in-bulk)
+(user's decision, 2026-10-02).**
+
+**Amendment, delivered 2026-10-02: change-set writes and retirement.** Every check a write makes
+includes "the workspace is active", so it belongs to PG3. `load_change_set(for_update=True)`, the
+entry of every change-set write (records, relations, mappings, restructuring, type changes,
+pinning, discard, a job's chunk), now takes `FOR KEY SHARE` on the workspace row before it locks
+the change set, in lock order, and refuses a missing or retired workspace there (the same codes as
+before). Retirement and deletion (`FOR UPDATE`) wait for a change-set write and it for them; live
+writes and other change sets' writes do not, since key share conflicts only with `FOR UPDATE`.
+Publishing now locks the workspace `FOR NO KEY UPDATE` instead of `FOR UPDATE`, so it still
+excludes live writes, captures and retirement but no longer holds up writes in other change sets.
+**Tests:** `test_pg3_concurrency` gains two (17): a retirement waits for a change-set write held at
+its commit, then the next write is refused `409 workspace_retired` (fails with the lock removed:
+the retirement does not wait); a write in another change set completes while a publication is held
+at its commit. **Checks:** the seven groups on `-n 10`, 782 passed in 2 min 8 s (the same overrun as
+above, for H4); their serial part 3 passed; `ruff check app/ tests/`.
 
 ### PG3b: Batch writes decided in memory, written in bulk
 
@@ -439,12 +456,21 @@ live and in a change set.
   chunk.
 - The fallback (PG-D15) and the workspace lock held for the chunk (PG-D14).
 - Delete items keep today's per-item path (PG-D18).
+- **From PG3 (user's decision, 2026-10-02):** (1) *The activation deadlock.* A chunk checks its
+  release (the runtime-state row, shared) before it writes any matrix state row, so an activation
+  that drops a matrix shape never holds that row while waiting for state rows a chunk locked; today
+  a batch applies its matrix notes at its savepoint's release, before the commit check. Here because
+  PG3b moves those notes to once per chunk. (2) *The latency beside a background job.* PG3 holds it
+  to one chunk; PG3b, which changes what a chunk costs, records the time of one chunk at both
+  seeded sizes, and PG5's 100,000-item run confirms it at full size.
 
 **Tests:** `test_rule_parity` with the batch context; the batch tests (`test_batches`,
 `test_background_jobs`, `test_batch_matrix_states`) unchanged and green; statements per chunk counted
 at two seeded sizes (PG-D17), replacing the timed checks in `test_batch_volume` and
 `test_background_volume`; a chunk whose bulk write fails falling back with the single write's code;
-two writers racing for a unique value across a chunk. **Groups:** `records`, `change_sets`, `jobs`,
+two writers racing for a unique value across a chunk; an activation that removes a
+`relationMatrix` view racing a held chunk, neither ending in a deadlock, with the chunk then failed
+`model_release_changed`; the time of one chunk beside the statement counts. **Groups:** `records`, `change_sets`, `jobs`,
 `matrix`. **Doors (ADR-032):** bulk APIs, attribute storage and audit/history are touched; none is
 closed: the batch lookup and the bulk write are generic, and history stays per record.
 

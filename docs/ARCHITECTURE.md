@@ -143,14 +143,18 @@ What holds today:
   (`LiveWrites._begin`), before it reads what it changes, and holds it to the commit, so every check
   a write makes in code (unique values, parent cycles, cardinality, required relations, relation-set
   versions, stored matrix states) reads what the previous write committed. A batch, inline or one
-  background chunk, takes it once for all its items. The lock conflicts with publishing (`FOR
-  UPDATE`), a current-live capture (`FOR SHARE`), retirement and deletion, but not with the key
-  share lock of a row that only names the workspace (a change set, a job). **Lock order:** the
+  background chunk, takes it once for all its items. The lock conflicts with publishing (also `FOR
+  NO KEY UPDATE`), a current-live capture (`FOR SHARE`), retirement and deletion (`FOR UPDATE`),
+  but not with a key share lock: the one a row naming the workspace takes through its foreign key,
+  or the one a change-set write takes. **Lock order:** the
   workspace, then a change set, then the runtime-state row (activation, retirement and default
   switching for update; a write's commit check shared), then records and their index rows, and a
   job's row only at its chunk's checkpoint. Retirement, default switching and deletion lock the
   workspace before the runtime state, and publishing locks the workspace before its change set,
-  for that order. Change-set writes serialize on their change set row and take no workspace lock.
+  for that order. A change-set write takes the workspace's key share lock and then its change set
+  row (`load_change_set(for_update=True)`): retirement and deletion wait for it, and it waits for
+  them and is then refused `409 workspace_retired`; live writes, publishing and other change sets'
+  writes run beside it, and writes to one change set serialize on its row.
   Tested by `test_pg3_concurrency`: each invariant raced by two connections, one write held while
   the other is seen waiting on the lock.
 - **Instances must share `RDM_CURSOR_SIGNING_KEY`** if a load balancer can route one client's

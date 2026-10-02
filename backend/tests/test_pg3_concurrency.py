@@ -24,14 +24,14 @@ from fastapi.testclient import TestClient
 from sqlalchemy import event, func, select, text, update
 from sqlalchemy.orm import Session
 from test_w5_activation_write_race import _activate, _candidate
-from wp8_support import create_workspace, unique_key
+from wp8_support import create_change_set, create_workspace, unique_key
 
 from app.config import reload_settings
 from app.db import SessionLocal, get_engine
 from app.engine.indexes import matrix_states
 from app.engine.jobs.worker import JobWorker, WorkerSettings
 from app.engine.model.registry import model_registry
-from app.engine.records.writes import LiveWrites
+from app.engine.records.writes import ChangeSetWrites, LiveWrites
 from app.main import create_app
 from app.models.database import Job, RdmObject
 
@@ -82,6 +82,14 @@ class Hold:
                 hold._maybe_hold()
 
         monkeypatch.setattr(LiveWrites, "_begin", begin)
+        change_set_writes = ChangeSetWrites.__init__
+
+        def change_set_write(writes: ChangeSetWrites, session: Session, change_set: Any) -> None:
+            change_set_writes(writes, session, change_set)
+            session.info["pg3_live_write"] = True
+
+        # A change set write is held at its commit too (the ``commit`` point only).
+        monkeypatch.setattr(ChangeSetWrites, "__init__", change_set_write)
         event.listen(Session, "before_commit", self._before_commit)
 
     def arm(self, nth: int = 1) -> None:
@@ -490,6 +498,91 @@ def test_retiring_a_workspace_waits_for_its_live_write(client, workspace, at_com
             at_commit.release()
         created(pending.result(HOLD_TIMEOUT))
         assert retirement.result(HOLD_TIMEOUT).status_code == 200
+
+
+def test_retiring_a_workspace_waits_for_a_change_set_write(client, workspace, at_commit):
+    """A change set write holds the workspace's key share lock: retirement waits for it, and a
+    write after the retirement is refused."""
+    change_set = create_change_set(client, workspace).json()
+    version = client.get(f"/api/v1/workspaces/{workspace}").json()["version"]
+
+    def write(code: str) -> httpx.Response:
+        current = client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"]
+        return client.post(
+            "/api/v1/objects",
+            json={
+                "changeSetId": change_set["id"],
+                "expectedChangeSetVersion": current,
+                "applicationKey": "rdm-master",
+                "objectTypeKey": "domain",
+                "name": unique_key("domain"),
+                "attributes": [{"attributeTypeKey": "domain-code", "value": code}],
+            },
+        )
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        at_commit.arm()
+        pending = pool.submit(write, unique_key("d"))
+        try:
+            assert at_commit.reached.wait(HOLD_TIMEOUT)
+            retirement = pool.submit(
+                client.patch,
+                f"/api/v1/workspaces/{workspace}",
+                json={"expectedVersion": version, "status": "retired"},
+            )
+            assert waiting_on("%FROM workspaces%FOR UPDATE%")
+            assert not retirement.done()
+        finally:
+            at_commit.release()
+        created(pending.result(HOLD_TIMEOUT))
+        assert retirement.result(HOLD_TIMEOUT).status_code == 200
+    refused(write(unique_key("e")), 409, "workspace_retired")
+
+
+def test_a_publication_leaves_another_change_sets_writes_free(client, workspace, at_commit):
+    """Publishing locks the workspace against live writes, not against the key share lock of a
+    write in another change set."""
+    published = create_change_set(client, workspace).json()
+    other = create_change_set(client, workspace).json()
+    staged = created(
+        client.post(
+            "/api/v1/objects",
+            json={
+                "changeSetId": published["id"],
+                "expectedChangeSetVersion": published["version"],
+                "applicationKey": "rdm-master",
+                "objectTypeKey": "domain",
+                "name": unique_key("domain"),
+                "attributes": [{"attributeTypeKey": "domain-code", "value": unique_key("s")}],
+            },
+        )
+    )
+    with ThreadPoolExecutor(max_workers=1) as pool:
+        at_commit.arm()
+        publication = pool.submit(
+            client.post,
+            f"/api/v1/change-sets/{published['id']}/publication",
+            json={"expectedChangeSetVersion": staged["changeSetVersion"]},
+        )
+        try:
+            assert at_commit.reached.wait(HOLD_TIMEOUT)
+            written = client.post(
+                "/api/v1/objects",
+                json={
+                    "changeSetId": other["id"],
+                    "expectedChangeSetVersion": other["version"],
+                    "applicationKey": "rdm-master",
+                    "objectTypeKey": "domain",
+                    "name": unique_key("domain"),
+                    "attributes": [{"attributeTypeKey": "domain-code", "value": unique_key("p")}],
+                },
+            )
+            assert not publication.done()
+        finally:
+            at_commit.release()
+        created(written)
+        response = publication.result(HOLD_TIMEOUT)
+        assert response.status_code == 200, response.text
 
 
 # --- background jobs (D28) --------------------------------------------------------------------------

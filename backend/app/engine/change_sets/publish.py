@@ -459,14 +459,15 @@ def publish_change_set(
 ) -> Publication:
     # Lock order (ARCHITECTURE): the workspace row first, so live writes wait for the
     # publication transaction (PG-D5), then the change set, claimed before the merge population
-    # is read.
+    # is read. ``NO KEY UPDATE`` leaves other change sets' writes, which hold the workspace's key
+    # share lock, free to run beside the publication.
     workspace_key = session.scalar(
         select(ChangeSet.workspace_key).where(ChangeSet.id == change_set_id)
     )
     if workspace_key is None:
         load_change_set(session, change_set_id)  # 404 change_set_not_found
     workspace = session.scalar(
-        select(Workspace).where(Workspace.key == workspace_key).with_for_update()
+        select(Workspace).where(Workspace.key == workspace_key).with_for_update(key_share=True)
     )
     if workspace is None:
         raise api_error(404, "workspace_not_found", "Workspace not found")
