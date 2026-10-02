@@ -74,21 +74,21 @@ def replace_mapping(
     session: Session, workspace_key: str, request: MappingReplacementRequest
 ) -> MappingReplaced:
     """Replace one source's targets of a mapping binding, live or in the named change set."""
-    # Claim active status before reading the graph. The update locks the workspace row, so
-    # retirement cannot invalidate the active-status decision during this transaction.
-    result = session.execute(
-        update(Workspace)
-        .where(Workspace.key == workspace_key, Workspace.status == "active")
-        .values(updated_at=Workspace.updated_at)
-        .execution_options(synchronize_session=False)
-    )
-    if result.rowcount != 1:
-        resolve_workspace(session, workspace_key, require_active=True)
-    side = (
-        _ChangeSetSide.open(session, workspace_key, request)
-        if request.changeSetId
-        else _LiveSide.open(session, workspace_key)
-    )
+    if request.changeSetId:
+        # Claim active status before reading the graph. The update locks the workspace row (before
+        # the change set, in the lock order), so retirement cannot invalidate the active-status
+        # decision during this transaction. A live save takes the workspace lock in ``LiveWrites``.
+        result = session.execute(
+            update(Workspace)
+            .where(Workspace.key == workspace_key, Workspace.status == "active")
+            .values(updated_at=Workspace.updated_at)
+            .execution_options(synchronize_session=False)
+        )
+        if result.rowcount != 1:
+            resolve_workspace(session, workspace_key, require_active=True)
+        side = _ChangeSetSide.open(session, workspace_key, request)
+    else:
+        side = _LiveSide.open(session, workspace_key)
     model = side.model
     allowed = _validate_binding_for_replacement(model, request)
     source_type, target_type = _source_target_types(request)

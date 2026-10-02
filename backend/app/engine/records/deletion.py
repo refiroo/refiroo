@@ -4,7 +4,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 
-from sqlalchemy import or_, select, text
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from ...common.cursors import decode_cursor, encode_cursor
@@ -285,23 +285,10 @@ def apply_object_delete(
             raise deletion_preview_changed() from None
         raise
     resolve_workspace(session, root.workspace_key, require_active=True)
+    # The workspace lock (PG-D5) holds the active status and every other live write of the
+    # workspace until this deletion commits, so the confirmed impact cannot change while it is
+    # re-read, compared and deleted.
     writes = LiveWrites(session, root.workspace_key)
-    # This conditional write is the workspace mutation claim: it locks the workspace row, so the
-    # active-status decision holds and retirement waits until this deletion commits or rolls back.
-    if not writes.claim_active_workspace():
-        raise api_error(
-            409,
-            "workspace_retired",
-            f"Workspace '{root.workspace_key}' is retired and cannot be modified",
-        )
-    if cascade:
-        # Wait for earlier graph writes, then prevent new object/attribute/relation writes while the
-        # confirmed impact is re-read, compared and deleted in this transaction.
-        session.execute(
-            text(
-                "LOCK TABLE objects, attribute_values, object_relations IN SHARE ROW EXCLUSIVE MODE"
-            )
-        )
     try:
         writes.claim_object(root, expected_version)
     except ApiError as exc:

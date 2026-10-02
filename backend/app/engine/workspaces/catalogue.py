@@ -138,15 +138,16 @@ def create_workspace(session: Session, payload: WorkspaceCreate) -> Workspace:
 
 
 def update_workspace(session: Session, key: str, payload: WorkspaceUpdate) -> Workspace:
-    # Default switching and retirement lock the singleton first, then the catalogue row. This
+    # Default switching and retirement lock the catalogue row, then the singleton: the lock order
+    # of live writes, which recheck the runtime state as they commit (ARCHITECTURE). This
     # serializes the cross-row invariant that the selected default is always active. Label-only
     # updates and reactivation do not need to serialize unrelated workspace administration.
+    load_workspace(session, key, for_update=True)
     state = (
         load_workspace_runtime_state(session, for_update=True)
         if payload.status == "retired"
         else None
     )
-    load_workspace(session, key, for_update=True)
     if state is not None and state.default_workspace_key == key:
         raise api_error(
             409,
@@ -182,8 +183,8 @@ def update_workspace(session: Session, key: str, payload: WorkspaceUpdate) -> Wo
 def set_default_workspace(
     session: Session, key: str, expected_version: int
 ) -> WorkspaceRuntimeState:
-    load_workspace_runtime_state(session, for_update=True)
     workspace = load_workspace(session, key, for_update=True)
+    load_workspace_runtime_state(session, for_update=True)
     if workspace.status != "active":
         raise api_error(409, "workspace_retired", "The default workspace must be active")
     result = session.execute(
@@ -238,11 +239,11 @@ def delete_blocker(
 def delete_workspace(session: Session, key: str, expected_version: int) -> None:
     """Delete a workspace nothing refers to, so a mistyped key can be corrected (ADR-019, D27).
 
-    The checks and the delete run in one transaction holding the runtime-state and workspace rows
-    for update. A row naming the workspace takes a key share lock on the workspace row through its
-    foreign key, so a write adding one either commits first, and the checks see it, or waits and
-    then fails its foreign key; a live write that resolved the workspace earlier rechecks it before
-    it commits (``_require_resolved_workspaces``). Relation-set versions cascade with the
+    The checks and the delete run in one transaction holding the workspace and runtime-state rows
+    for update. A live write holds the workspace lock (``LiveWrites._begin``), so it either commits
+    first, and the checks see its rows, or waits and is then refused as deleted. Any other row
+    naming the workspace takes a key share lock on it through its foreign key, so a write adding
+    one commits first or waits and then fails its foreign key. Relation-set versions cascade with the
     workspace; they are deleted here first, as are its matrix states, which have no foreign key.
     """
     try:
@@ -257,8 +258,8 @@ def delete_workspace(session: Session, key: str, expected_version: int) -> None:
 
 
 def _require_deletable(session: Session, key: str, expected_version: int) -> None:
-    state = load_workspace_runtime_state(session, for_update=True)
     workspace = load_workspace(session, key, for_update=True)
+    state = load_workspace_runtime_state(session, for_update=True)
     blocker, counts = delete_blocker(session, key, state.default_workspace_key)
     if blocker == "default":
         raise api_error(

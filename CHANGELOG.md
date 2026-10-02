@@ -121,6 +121,17 @@ All notable changes to this project are documented in this file. The format foll
   carry a `budget` marker and run only when `-m` names `budget`. `serial` holds only the three tests
   whose outcome depends on wall time; the counting volume modules run in parallel. The run summary
   lists every test over 10 s and the wall time. The full suite without `budget` takes 2 min 41 s.
+- 0.9.0-alpha.1 PG3: live writes of one workspace serialize on its row lock, and workspaces write
+  in parallel (PG-D5). Every live write locks its workspace before it reads, so two writes racing
+  for one unique value, a parent cycle, a cardinality limit, a required relation, a relation-set
+  version or one relation matrix cell no longer both commit: the second reads what the first
+  committed and is refused with its single write's code. A relation create and a mapping save on
+  one edge no longer deadlock (a 500); the mapping save answers `409 mapping_version_conflict`. A
+  workspace deleted or retired while a write waited is refused with `404 workspace_not_found` or
+  `409 workspace_retired`, nothing saved. A background job holds the lock for one chunk, so a live
+  write in its workspace waits for that chunk only; a cancel request is answered while a chunk runs.
+  The cascade deletion no longer locks three whole tables. Retirement, default switching, deletion
+  and publishing take their locks in one documented order (ARCHITECTURE).
 - Base 0.9 B1: a change set write's record lookups probe the change set's own rows by key instead of
   listing all of them on every statement, so a write costs the same however many records the change set
   holds (a lookup took 361 µs at 4,000 own rows, now 39 µs; page reads unchanged or faster). On SQLite,

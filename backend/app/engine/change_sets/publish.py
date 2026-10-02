@@ -457,6 +457,19 @@ def publish_change_set(
     expected_change_set_version: int,
     expected_active_publication_id: str | None,
 ) -> Publication:
+    # Lock order (ARCHITECTURE): the workspace row first, so live writes wait for the
+    # publication transaction (PG-D5), then the change set, claimed before the merge population
+    # is read.
+    workspace_key = session.scalar(
+        select(ChangeSet.workspace_key).where(ChangeSet.id == change_set_id)
+    )
+    if workspace_key is None:
+        load_change_set(session, change_set_id)  # 404 change_set_not_found
+    workspace = session.scalar(
+        select(Workspace).where(Workspace.key == workspace_key).with_for_update()
+    )
+    if workspace is None:
+        raise api_error(404, "workspace_not_found", "Workspace not found")
     change_set = load_change_set(session, change_set_id, for_update=True)
     writes = ChangeSetWrites(session, change_set)
     if change_set.model_release_id != active_release_id:
@@ -465,14 +478,7 @@ def publish_change_set(
             "change_set_model_release_conflict",
             "Change set is pinned to a different application-model release",
         )
-    # Claim before reading the merge population, then lock the workspace row; live writes that
-    # claim the workspace wait for the publication transaction (all of them from PG3, PG-D5).
     writes.claim(expected_change_set_version)
-    workspace = session.scalar(
-        select(Workspace).where(Workspace.key == change_set.workspace_key).with_for_update()
-    )
-    if workspace is None:
-        raise api_error(404, "workspace_not_found", "Workspace not found")
     live = LiveWrites(session, change_set.workspace_key)
     if workspace.active_publication_id != expected_active_publication_id:
         raise api_error(

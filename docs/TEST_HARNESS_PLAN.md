@@ -190,8 +190,9 @@ Measured on the M1 Pro, the full suite without `budget`:
 The failure is a product deadlock, not the harness: a generic relation create and a mapping save on
 one edge take their rows in opposite order, which the extra load of the volume modules in the
 parallel part made reachable. It is recorded in
-[PG3](POSTGRESQL_RUNTIME_PLAN.md#pg3-concurrency), whose workspace lock orders the two writes; the
-test was not rerun. **The 4× target is not met:** about 436 s before H2 (without the budgets) against
+[PG3](POSTGRESQL_RUNTIME_PLAN.md#pg3-concurrency), whose workspace lock orders the two writes (fixed
+there 2026-10-02, with a race test that holds the create while the mapping save waits); the test was
+not rerun in H3. **The 4× target is not met:** about 436 s before H2 (without the budgets) against
 161 s, 2.7×. The slowest tests outside `budget` were the first `test_change_set_position_reads` case
 (48 s, carrying the module's volume fixture), `test_model_query`'s every-criterion test (18–19 s per
 model), `test_matrix_states`' change set test (19 s), `test_restructuring_volume` (17 s),

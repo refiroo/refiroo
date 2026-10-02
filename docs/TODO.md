@@ -13,7 +13,7 @@ filler, checkpoint T1 after F2). C1, Q4 and V1 are delivered (2026-09-30), and B
 2026-10-01 (B2 before F1, by instruction). Next is the interim release
 [0.9.0-alpha.1, PostgreSQL runtime](POSTGRESQL_RUNTIME_PLAN.md) (PG1–PG5, PostgreSQL only, decisions
 accepted 2026-10-01) with the [test harness](TEST_HARNESS_PLAN.md) (H1 inside PG1, H2–H3 after PG2),
-then F1. PG1, PG2 and H2 are delivered (2026-10-01); the order from here is H3, PG3,
+then F1. PG1, PG2, H2 and H3 are delivered (2026-10-01) and PG3 (2026-10-02); the order from here is
 [PG3b](POSTGRESQL_RUNTIME_PLAN.md#pg3b-batch-writes-decided-in-memory-written-in-bulk) (batch writes
 decided in memory and written in bulk, PG-D12–PG-D17), PG4, PG5. See [Next — 0.9](#next--09).
 
@@ -104,12 +104,11 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [ ] Complete the release licensing checklist in [LICENSING_TODO.md](LICENSING_TODO.md), including
   ownership, contribution, dependency, security, trademark and commercial-service documentation.
 - [ ] PostgreSQL follow-ups, delivered by [0.9.0-alpha.1](POSTGRESQL_RUNTIME_PLAN.md) (PG3 for (1),
-  PG2 and PG5 for (2)). (1) Test 0.9 D28 job cancellation on PostgreSQL: a cancel
-  request answered without waiting for a running chunk, the `atomic` job's chunk rolled back between
-  items, and the lease guard with two workers. Bound the latency of live writes beside a background
-  job in `test_background_volume` (B2 recorded it only: on SQLite the worker retakes the writer lock
-  after each chunk, so such a write waits for the whole job and fails after
-  `SQLITE_LOCK_WAIT_SECONDS`). (2) After the migration, review the code for SQLite
+  PG2 and PG5 for (2)). (1) **Done in PG3 (2026-10-02):** D28 cancellation on PostgreSQL (a cancel
+  request answered while a chunk runs, the `atomic` job rolled back between items, the lease shared
+  by two workers) and live writes beside a background job, which wait for one chunk at most in the
+  job's workspace and not at all elsewhere (`test_pg3_concurrency`); the time of one chunk is
+  measured with PG5's budgets. (2) After the migration, review the code for SQLite
   technical debt and remove it: dialect branches, `json_each` row lists, the recursive arms, the
   `SQLITE_LOCK_WAIT_SECONDS` setting, explicit dependant deletes standing in for unenforced foreign
   keys, SQL-level claims written because SQLite ignores `FOR UPDATE`, the explicit `BEGIN` of
@@ -126,7 +125,14 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [ ] PostgreSQL at production scale and across nodes (0.11): the volume fixture at full scale, pool
   sizing, several processes and nodes. The trigram search index and the relation matrix's PostgreSQL
   forms (0.8 A2, A3b) were delivered by 0.9.0-alpha.1 PG2 (2026-10-01); single-node multi-writer
-  uniqueness moves to [PG3](POSTGRESQL_RUNTIME_PLAN.md).
+  uniqueness moves to [PG3](POSTGRESQL_RUNTIME_PLAN.md) (delivered 2026-10-02: the workspace lock).
+- [ ] Found in PG3 (2026-10-02), for PG5: an activation that drops a matrix shape could deadlock with
+  a live batch whose matrix notes it locks before its commit check (not reproduced); and change-set
+  writes check the workspace's active status without a lock, so a retirement can commit beside one.
+  See the [PG3 record](POSTGRESQL_RUNTIME_PLAN.md#pg3-concurrency).
+- [ ] H4: the package checks for PG3's seven groups took 2 min 7 s on `-n 10`, over the 2-minute
+  ceiling; the longest tests are `test_change_set_position_reads` (43 s) and `test_model_query`'s
+  every-criterion cases (17 s each).
 - [ ] Assess the cost of matrix state maintenance per commit (found by the test harness assessment,
   2026-10-01): a commit recomputes the touched matrix cells, about 7 ms in the parity and
   type-change test models, and a single create cost 19 ms through the API. Measure it on the volume

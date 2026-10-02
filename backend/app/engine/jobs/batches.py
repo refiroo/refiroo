@@ -53,7 +53,7 @@ from ..records.deletion import apply_object_delete
 from ..records.objects import apply_object_create, apply_object_update, attributes_to_dict
 from ..records.refusals import CHANGE_SET, LIVE
 from ..records.values import normalize_value, stored_json_value
-from ..records.writes import ChangeSetWrites
+from ..records.writes import ChangeSetWrites, LiveWrites
 from ..workspaces.catalogue import resolve_workspace
 from .store import ItemOutcome
 
@@ -484,6 +484,10 @@ class _LiveItems(_Items):
         self.session = session
         self.context = context
         self.model = context.model
+        # The workspace lock (PG-D5) is taken before any item resolves a record and held for the
+        # inline batch or the chunk, outside the items' savepoints, so a refused item never
+        # releases it (PG-D14).
+        LiveWrites(session, context.workspace_key)
         self.lookup = LiveLookup.of(session, context.workspace_key)
 
     def find(self, object_id: str) -> Any | None:

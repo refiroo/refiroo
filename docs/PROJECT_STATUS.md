@@ -50,8 +50,14 @@ budgets carry `budget` and leave every run whose `-m` does not name it, `serial`
 wall-time tests, the summary lists tests over 10 s and the wall time, and the ceilings are rules in
 AGENTS.md; the full suite without `budget` takes 2 min 41 s (2.7×, short of the 4× target). Its run
 found a deadlock between a relation create and a mapping save on one edge, recorded for PG3
-([record](TEST_HARNESS_PLAN.md#h3-budgets-out-of-everyday-runs-the-time-ceilings-enforced)). Next
-are PG3, PG3b, PG4 and PG5; H4 when a package's checks exceed 2 minutes.
+([record](TEST_HARNESS_PLAN.md#h3-budgets-out-of-everyday-runs-the-time-ceilings-enforced)). **PG3
+is delivered (2026-10-02):** every live write locks its workspace row (`FOR NO KEY UPDATE`) before
+it reads, so live writes of one workspace serialize and workspaces write in parallel; the lock
+order (workspace, change set, runtime state, records, job row) is in ARCHITECTURE, H3's deadlock is
+gone, the cascade deletion's table locks are removed, and `test_pg3_concurrency` races every
+checked invariant and the D28 job cases on two connections
+([record](POSTGRESQL_RUNTIME_PLAN.md#pg3-concurrency)). Its seven groups took 2 min 7 s, over the
+2-minute ceiling, so H4 is due. Next are PG3b, PG4 and PG5.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

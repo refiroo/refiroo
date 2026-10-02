@@ -311,7 +311,7 @@ can then follow.
   API as part of the write it checks (30 s for their 21 tests on PostgreSQL).
 
 **Found in PG2, for later packages:** the cascade deletion locks three whole tables, which PG3's
-workspace lock should replace; publishing locks the workspace row, but plain live writes take no
+workspace lock should replace (done in PG3); publishing locks the workspace row, but plain live writes take no
 workspace lock until PG3, so a live write can still commit beside a publish (PG-D5, as planned);
 time budgets and comments still describe SQLite plans (PG5).
 
@@ -359,6 +359,71 @@ once in H3's parallel run; it passed in H2's). The per-workspace lock taken in `
 before either reads, orders the two writes. The race test above covers it.
 
 **Exit:** the concurrency tests pass; the D28 and B2 notes in TODO are closed.
+
+**Delivered 2026-10-02.**
+
+- **The workspace lock (PG-D5).** `LiveWrites._begin` opens every live write with
+  `SELECT status FROM workspaces WHERE key = … FOR NO KEY UPDATE` before it reads, and refuses a
+  workspace deleted (`404 workspace_not_found`) or retired (`409 workspace_retired`) while the write
+  waited, both "nothing was saved". *Differs from the design's `FOR UPDATE`:* `NO KEY UPDATE`
+  conflicts with itself, publishing, a capture's share lock, retirement and deletion, but not with
+  the key share lock a row naming the workspace takes through its foreign key, so starting a change
+  set or queuing a job does not wait for live writes.
+- **Lock order, written into ARCHITECTURE:** workspace, change set, runtime-state row, records, and
+  the job row at a chunk's checkpoint. *Differs from the design's "workspace, then change set, then
+  records":* the runtime-state row is placed, because a live write takes it shared as it commits
+  (W5) while retirement, default switching and deletion took it before the workspace, which would
+  now deadlock with a live write; those three lock the workspace first. Publishing locked its change
+  set before the workspace and now locks the workspace first. Change-set writes take no workspace
+  lock, as before.
+- **What the lock replaces.** The cascade deletion's `LOCK TABLE` on three tables and its
+  `claim_active_workspace` update; a live mapping save's own `UPDATE workspaces` claim (a change-set
+  mapping save keeps it, in lock order); the foreign-key answer in `LiveWrites.add_object`, which
+  PG2 added for a workspace deleted mid-create and which can no longer happen.
+- **Batches (PG-D14 in part).** A live batch, inline or one background chunk, takes the lock once
+  before its first item resolves a record, outside the items' savepoints, so a refused item never
+  releases it and the chunk holds it to its commit. A live write in the job's workspace waits for
+  one chunk at most; one in another workspace does not wait.
+- **Doors (ADR-032):** bulk APIs are touched (a batch takes the lock once per chunk); none is
+  closed: the lock is per workspace, generic, and changes no identity, storage or history.
+- **H3's deadlock** (a relation create and a mapping save on one edge) is gone: both take the
+  workspace lock before they touch the edge or a set version, so the mapping save reads the
+  committed create and answers `409 mapping_version_conflict`.
+
+**Tests:** `test_pg3_concurrency` (15, groups `records`, `mapping`, `matrix`, `jobs`, `model_admin`,
+`workspaces`). Each race holds one write (just after it takes the lock, or with its checks done and
+rows flushed just before commit), starts a second on another connection, sees it wait on the lock in
+`pg_stat_activity`, and releases the first: a unique value, a parent cycle, a one-to-many limit, a
+required relation against the deletion of its source, a relation-set version, H3's create and
+mapping save, and two relations in one stored matrix cell (`matrix_states.verify` clean after every
+test). Not serialized: a write in another workspace completes while the first is held. W5 on row
+locks: an activation completes while a write holds the workspace lock and the write is refused
+`model_release_changed`; an activation waits for a write already committing, and a retirement for a
+live write, neither deadlocking. D28 and B2: a cancel request answered (`202`) while a chunk runs,
+the chunk committing and the job then cancelled; an atomic job cancelled between items rolled back
+completely; a worker whose lease expired mid-chunk losing the chunk to a second worker that waited
+for its lock, every item applied once; a live write beside a chunk written between two chunks.
+Without the lock (the `FOR NO KEY UPDATE` removed for one run) the ten races that depend on it fail
+and the other five pass. *The latency bound B2 left open* is stated structurally (one chunk, held
+by the test) rather than timed; the timed figure belongs to PG5's measurement.
+
+**Checks:** `pytest -n 10 -m "records or change_sets or mapping or matrix or jobs or model_admin or
+workspaces"` 780 passed in 2 min 7 s, **7 s over the 2-minute package ceiling** (the union of seven
+groups is most of the suite; the tests over 10 s are existing ones, the longest
+`test_change_set_position_reads` at 43 s, for H4); `-m "serial and (…)"` 3 passed in 21 s;
+`test_boundaries` 3 passed; `ruff check app/ tests/`. Two earlier `-n auto` runs hung at worker
+startup before reaching the database; `-n 2`, `-n 10` and a later `-n auto` ran normally, so this
+was the background shell, not the change. Not run: `startup` and `queries` (no code on their
+paths changed), the `budget` tests, browser runners and frontend suites (no UI or contract change;
+the OpenAPI document is unchanged).
+
+**Found in PG3, for later packages:** an activation that drops a matrix shape locks that shape's
+state rows after taking the runtime-state row, while a batch applies its matrix notes before its
+commit check takes that row shared; the two could deadlock (PostgreSQL ends one, answered as a
+500 or a failed job). It needs a release that removes a `relationMatrix` view while a live batch
+in a workspace with that view runs. Not reproduced; for PG5 to decide (a retry, or the commit
+check before the matrix notes). Change-set writes still check the workspace's active status without
+a lock, so a retirement can commit beside one (as before PG3).
 
 ### PG3b: Batch writes decided in memory, written in bulk
 

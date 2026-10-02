@@ -113,6 +113,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_change_set_write_lookups.py": ("change_sets",),
     "test_search_index.py": ("queries", "change_sets"),
     "test_w5_activation_write_race.py": ("model_admin", "records"),
+    "test_pg3_concurrency.py": ("records", "mapping", "matrix", "jobs", "model_admin", "workspaces"),
     "test_relation_matrix.py": ("matrix", "queries", "change_sets"),
     "test_relation_matrix_volume.py": ("matrix", "volume"),
     "test_relation_matrix_writes.py": ("matrix", "mapping", "change_sets", "records"),

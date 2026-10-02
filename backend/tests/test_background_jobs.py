@@ -7,9 +7,9 @@ it where a crash, a cancel request, a release activation, a lost change set clai
 would meet it: no item is repeated or skipped, and the items it did not reach are ``unprocessed``
 with the stop's reason. Everything runs on a generated model and on a copy with every key renamed.
 
-Cancellation is designed for PostgreSQL (D28): on the SQLite test database a cancel request cannot
-commit while a chunk holds the writer lock, so the atomic job's cancel between items is exercised
-from within the chunk. The concurrent case waits for the PostgreSQL migration (TODO).
+Here the atomic job's cancel between items is requested from within the chunk; the concurrent
+cases (a cancel answered while a chunk runs, two workers sharing a job, live writes beside a chunk)
+are in ``test_pg3_concurrency`` (0.9.0-alpha.1 PG3, D28).
 """
 
 import json

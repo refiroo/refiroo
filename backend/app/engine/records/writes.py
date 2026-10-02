@@ -5,7 +5,7 @@ and attribute values through it: ``LiveWrites`` for a workspace's live graph, ``
 for one change set. Nothing else in the engine constructs or deletes those rows
 (``tests/test_boundaries.py`` holds it), so what every write must do happens here once: a Core
 statement notes what it changed for the stored matrix states, and a live write starts at
-``LiveWrites._begin``.
+``LiveWrites._begin``, which takes the workspace lock.
 
 The operation keeps what only it knows: which rules to run (``rules.py``), what to record in the
 audit log, and when to commit. In-place edits of a row the unit handed out (a name, a parent, new
@@ -19,7 +19,6 @@ from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import delete, select, update
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ...errors import api_error
@@ -50,24 +49,39 @@ class LiveWrites:
         self._begin()
 
     def _begin(self) -> None:
-        """Where every live write starts, before it reads what it changes.
+        """Where every live write starts, before it reads what it changes: the workspace lock
+        (PG-D5).
 
-        Base 0.9 F1 takes the workspace's feed position here, so live writes of one workspace commit
-        in feed order. Nothing is taken yet.
+        ``FOR NO KEY UPDATE`` on the workspace row serializes the live writes of one workspace, so
+        what a write checks in code (unique values, parent cycles, cardinality, required relations,
+        relation-set versions, matrix states) still holds when it commits, while other workspaces
+        write in parallel. Publishing, a current-live capture, retirement and deletion conflict
+        with it; rows that only name the workspace (a change set, a job) do not. Lock order:
+        workspace, change set, runtime state, records, and a job's row at its checkpoint
+        (ARCHITECTURE). Base 0.9 F1 adds the feed position to this row.
+
+        A workspace deleted or retired after the write resolved it is refused here, since those
+        transactions committed before the lock was granted.
         """
-
-    def claim_active_workspace(self) -> bool:
-        """Mark the workspace written while it is active; ``False`` when it is not.
-
-        The update locks the workspace row, so retirement waits for this transaction.
-        """
-        result = self.session.execute(
-            update(Workspace)
-            .where(Workspace.key == self.workspace_key, Workspace.status == "active")
-            .values(updated_at=Workspace.updated_at)
-            .execution_options(synchronize_session=False)
+        status = self.session.scalar(
+            select(Workspace.status)
+            .where(Workspace.key == self.workspace_key)
+            .with_for_update(key_share=True)
         )
-        return result.rowcount == 1
+        if status is None:
+            raise api_error(
+                404,
+                "workspace_not_found",
+                f"Workspace '{self.workspace_key}' was deleted while this request was "
+                "processed; nothing was saved",
+            )
+        if status != "active":
+            raise api_error(
+                409,
+                "workspace_retired",
+                f"Workspace '{self.workspace_key}' was retired while this request was "
+                "processed; nothing was saved",
+            )
 
     # --- records ---------------------------------------------------------------------------------
 
@@ -93,19 +107,7 @@ class LiveWrites:
         if version is not None:
             item.version = version
         self.session.add(item)
-        try:
-            self.session.flush()
-        except IntegrityError as exc:
-            # The workspace was deleted after this write resolved it (0.8 W6): the foreign key
-            # refuses the record, and the write saves nothing.
-            if getattr(exc.orig.diag, "constraint_name", None) == "objects_workspace_key_fkey":
-                raise api_error(
-                    404,
-                    "workspace_not_found",
-                    f"Workspace '{self.workspace_key}' was deleted while this request was "
-                    "processed; nothing was saved",
-                ) from exc
-            raise
+        self.session.flush()
         return item
 
     def claim_object(self, item: RdmObject, expected_version: int) -> None:

@@ -10,7 +10,8 @@ transaction and renews the lease with each chunk's commit. A chunk does not keep
 while it applies items, so a cancel request never waits for it (D28); before it commits, it locks
 the row and checks it still holds the lease, and rolls back when another worker took the job over.
 A process that stops mid-chunk loses that chunk's work only; the job resumes once its lease expires.
-Lock order inside a chunk: the change set (in a change set), then the write path's own (records).
+Lock order inside a chunk: the workspace (live) or the change set, then the write path's own
+(records), then the job row at the checkpoint (ARCHITECTURE).
 
 **Stopping.** Before each chunk the worker reads the job: a cancel request finishes it
 ``cancelled``; a release no longer the pinned one fails it with ``model_release_changed``; another

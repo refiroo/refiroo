@@ -133,11 +133,26 @@ What holds today:
   `resolve_workspace(require_active=True)` records the key on the session, and the same
   `before_commit` point rereads it after the flush (`404 workspace_not_found` or
   `409 workspace_retired`, nothing saved). Workspace deletion checks for objects, change sets and
-  publications holding the runtime-state and workspace rows for update, and removes the row in that
-  transaction. The `workspaces.key` foreign keys (`RESTRICT`) are the second line: a record inserted
-  after the deletion committed fails its key, which the write unit answers as the same `404`
-  (0.9.0-alpha.1 PG2; every rule is pinned in `test_foreign_keys`). Tested by
-  `test_w6_workspace_deletion` (Base 0.8 W6).
+  publications holding the workspace and runtime-state rows for update, and removes the row in that
+  transaction. A live write takes the workspace lock before it reads (below), so it waits for a
+  deletion or retirement and is then refused with the same codes; the `workspaces.key` foreign keys
+  (`RESTRICT`) hold for every other row naming the workspace (every rule is pinned in
+  `test_foreign_keys`). Tested by `test_w6_workspace_deletion` (Base 0.8 W6).
+- **Live writes of one workspace serialize; workspaces write in parallel** (0.9.0-alpha.1 PG3,
+  PG-D5). The live write unit opens with `SELECT … FROM workspaces WHERE key = … FOR NO KEY UPDATE`
+  (`LiveWrites._begin`), before it reads what it changes, and holds it to the commit, so every check
+  a write makes in code (unique values, parent cycles, cardinality, required relations, relation-set
+  versions, stored matrix states) reads what the previous write committed. A batch, inline or one
+  background chunk, takes it once for all its items. The lock conflicts with publishing (`FOR
+  UPDATE`), a current-live capture (`FOR SHARE`), retirement and deletion, but not with the key
+  share lock of a row that only names the workspace (a change set, a job). **Lock order:** the
+  workspace, then a change set, then the runtime-state row (activation, retirement and default
+  switching for update; a write's commit check shared), then records and their index rows, and a
+  job's row only at its chunk's checkpoint. Retirement, default switching and deletion lock the
+  workspace before the runtime state, and publishing locks the workspace before its change set,
+  for that order. Change-set writes serialize on their change set row and take no workspace lock.
+  Tested by `test_pg3_concurrency`: each invariant raced by two connections, one write held while
+  the other is seen waiting on the lock.
 - **Instances must share `RDM_CURSOR_SIGNING_KEY`** if a load balancer can route one client's
   requests to different instances; otherwise cursors issued by one are refused by another.
 
