@@ -1,186 +1,93 @@
 # Roadmap coverage from the user's perspective
 
 This document translates the delivery roadmap into user outcomes. It does not treat a planned endpoint,
-component or decision as delivered functionality. Release numbers retain the existing delivery sequence;
-they are not calendar commitments. GAP-01–GAP-08 answers are accepted in ADR-027; unscheduled future details remain planning inputs.
-The technical roadmap needs the reconciliations in [planning handoff](PLANNING_HANDOFF.md).
+component or decision as delivered functionality. Release numbers are a delivery sequence, not calendar
+commitments. The technical scope and exit gates are in the [delivery roadmap](../ROADMAP.md); what is
+available today is in the [functionality catalogue](CURRENT_FUNCTIONALITY.md).
 
 ## Release overview
 
-| Release      | User outcome                                                                | Stories primarily covered                  | Current state                                  |
-| ------------ | --------------------------------------------------------------------------- | ------------------------------------------ | ---------------------------------------------- |
-| Base 0.5     | Establish stable bounded APIs and the application-model release lifecycle   | US-I01-I02, US-P01-P04                     | Completed foundation                           |
-| Product 0.6  | Complete model-driven daily browser use and optional workspace design       | US-D01–D14, US-W01–W08, US-L01–L02, US-P06, US-U01 | Current-live change set API available; browser gaps remain for WP9/WP10 |
-| Product 0.7  | Review mapping coverage and replace one mapping atomically                  | US-M01–M04, US-W09                         | Roadmap                                        |
-| Product 0.8  | Work efficiently with translation coverage and deep hierarchies             | US-L03–L04, US-H01–H03   | Delivered: translation (A5), hierarchy (B4), restructuring (C5) |
-| Product 0.9  | Exchange and synchronize data at integration scale                          | US-I03–I09                                 | Roadmap                                        |
-| Product 0.10 | Turn spreadsheets into applications and edit models in one structured editor | US-P05 (additive), US-P09–P10 | Roadmap                                        |
-| Product 0.11 | Operate reliably with multiple writers/nodes and staged models              | US-O03–O04, US-O06, US-P07                 | Roadmap                                        |
-| Product 0.12 | Authenticate every caller and authorize every operation                     | US-S01, US-O05                             | Roadmap                                        |
-| Product 1.0  | Change released structure through the editor; reuse proven definitions      | US-P05 (migrations), US-P08                | Roadmap                                        |
+| Release | User outcome | Stories primarily covered | State |
+| --- | --- | --- | --- |
+| Base 0.5 | Stable bounded APIs and the application-model release lifecycle | US-I01–I02, US-P01–P04 | Delivered |
+| 0.6 | Model-driven daily browser use and optional change sets | US-D01–D14, US-W01–W08, US-L01–L02, US-P06, US-U01 | Delivered 2026-09-11 |
+| 0.7 | Review mapping coverage and replace one mapping atomically | US-M01–M04, US-W09 | Delivered 2026-09-25 |
+| 0.8 | Work with translation coverage and deep hierarchies at any size | US-L03–L04, US-H01–H03 | Delivered 2026-09-29 |
+| 0.9.0-alpha.1 | PostgreSQL runtime with real concurrency | — (no user-visible change) | In progress |
+| 0.9 | Exchange and synchronise data at integration scale | US-I03–I09 | In progress: queries, `asOf`, bulk object jobs and consumer API definitions delivered |
+| 0.10 | Turn spreadsheets into applications; edit models in one structured editor | US-P05 (additive), US-P09–P10 | Roadmap |
+| 0.11 | Operate reliably with multiple writers and nodes, and staged models | US-O03–O04, US-O06, US-P07 | Roadmap |
+| 0.12 | Authenticate every caller and authorise every operation | US-S01, US-O05 | Roadmap |
+| 1.0 | Change released structure through the editor; reuse proven definitions | US-P05 (migrations), US-P08 | Roadmap |
 
-## Product 0.6 — Finish daily operations
+## Delivered: 0.6 — Daily operations
 
-**Why first:** users need to complete ordinary maintenance before specialist screens add value.
-**Acceptance:** SC-01–SC-06, SC-08 and the existing-workbench portion of SC-12; keyboard and recovery
-checks apply throughout. Current-live change set creation (US-W08) is available through the API; its browser
-source-selection journey remains a WP9/WP10 gap.
+**Acceptance:** SC-01–SC-06 and SC-08, with real-browser evidence for two configured record types at
+desktop and narrow widths.
 
-### What is already present
+A steward finds, creates, corrects, connects, translates and deletes records in the browser, live by
+default, with typed fields, relationships, parent changes, two-stage deletion and conflict recovery that
+keeps the entered values. A change set is an explicit alternative: started from current live data or a
+publication, validated, published as a delta over live data, or discarded. Workspace history lists
+publications newest first, and withdrawing a publication keeps its history.
 
-- catalogue-backed workspace selection;
-- strict typed tables with server-side search, filtering, sorting and cursor pages;
-- model-driven browser navigation and record inspection, with edit actions temporarily not wired into
-  the detail journey;
-- accessible interface foundations;
-- API support for live and change-set-context record, typed-field, relation and translation maintenance;
-- API support for change sets, whole-graph validation, conflict-aware activation, immutable history
-  and publication withdrawal; and
-- direct live maintenance while a change set is open, with activation that applies its changes over
-  current live data and preserves unrelated work.
+The simplicity rule holds for every later release: **a normal data edit is live by default; choosing a
+change set is an explicit alternative, not a prerequisite.**
 
-WP8.1-B captures the fresh live starting view required by ADR-026/027. The complete browser design
-journey, including source choice, remains WP9 work.
+## Delivered: 0.7 — Core mapping and contextual collections
 
-### What WP9 must make usable in the browser
+**Acceptance:** SC-07 (US-M01–M04) and SC-15 (US-W09), composed browser and API journeys.
 
-- Add/Edit/Delete for live records without requiring a change set.
-- Optional switching into a selected workspace change set for coordinated changes.
-- Typed field add/edit/remove actions.
-- Ordinary relationship and translation actions.
-- Parent/containment editing through the record rather than the engine-managed relationship.
-- Two-stage deletion with impact preview.
-- Workspace-level Change sets, History, validation, publishing and publication-withdrawal destinations.
-- Newest-first workspace history, confirmed by the user in GAP-05 and implemented through WP8.1-C.
-- Empty relationship and translation collections as successful empty states.
-- Conflict recovery that preserves entered values and distinguishes record, change set, activation and model
-  conflicts.
+One application browser groups a record type's views as lenses of its collection. A mapping grid shows
+mapped, unmapped and ambiguous source values with counts and target previews, searches candidates on the
+server and replaces one mapping atomically, live or in a change set, without a delete-then-create gap and
+without overwriting a concurrent change. A change set can be prepared against a newer model release
+while live data keeps the active one (ADR-028).
 
-The important simplicity rule is: **a normal data edit is live by default; choosing a change set is
-an explicit alternative, not a prerequisite.**
+## Delivered: 0.8 — Relation matrix and hierarchy editor
 
-### What WP10 must prove
+**Acceptance:** SC-09 (US-L03–L04, US-H01–H02) and SC-17 (US-H03).
 
-- real frontend-to-backend journeys across at least two record types;
-- keyboard operation, focus behavior and narrow-screen use in a real browser;
-- automated accessibility and visual-regression checks;
-- live edits, staged invisibility, atomic activation and no-partial-publication failure paths;
-- clean bootstrap, database upgrades, restart and interrupted-migration recovery;
-- packaged installation on Python 3.14; and
-- no skipped relevant record, typed-field, relation or translation suites.
+Collections of any size scroll continuously, with totals and jumps, in live data, change sets and
+publications. A relation matrix shows translation and mapping coverage across a whole list and edits from
+a cell. A tree lens browses and edits deep hierarchies lazily, with moves by menu or drag and drop, and in
+a change set reshapes them (type changes, inserted and removed levels) with a preview. A review screen
+lists everything a change set changes before publishing, and a Workspaces screen administers workspaces.
 
-### Explicitly outside 0.6
+Both specialist lenses are generic: any application may declare them, and the generic record and
+relationship flows remain an alternative (see [Capability preservation](#capability-preservation-across-releases)).
 
-- a dedicated mapping grid or mapping replacement API;
-- a translation coverage matrix or specialist tree view;
-- bulk operations, imports, exports, change feeds or webhooks;
-- authenticated permissions;
-- model-workbench information-architecture redesign;
-- a structured model designer;
-- physical deletion of immutable history; and
-- any individual record change set, publication, publishing or retirement lifecycle.
-
-## Product 0.7 — Core mapping and contextual collections
-
-**Why next:** mapping is a central RDM task that generic relationship editing does not make simple.
-**Depends on:** usable live record/relationship maintenance, optional change set context and two proven
-relationship configurations. **Acceptance:** SC-07, stories US-M01–M04; and SC-15, story US-W09 for
-change set model-version selection (ADR-028).
-
-### User outcome
-
-A steward selects an unscoped or direct-parent collection from one application browser, changes its
-semantic lens, and can see coverage and safely create, clear, replace or resolve one mapping without
-managing low-level relationship records.
-
-### Planned functions
-
-- model-defined table and mapping renderers grouped as lenses of their source collection;
-- one browser for virtual collection entries and bounded containment records;
-- bounded rows showing mapped, unmapped and ambiguous states;
-- server-side target search;
-- one atomic replacement operation for zero or one chosen target;
-- one concurrency version for the complete mapping set, including currently empty or ambiguous sets;
-- conflict responses with bounded current-target context;
-- creation of a missing target through normal workspace record creation where configuration permits;
-- change set model-version selection, delivered in WP-6/WP-7 with WP-11 refusal/UI hardening, so one change set
-  prepares under a candidate release while live data and other change sets keep the release in use
-  (US-W09, ADR-028; composed acceptance remains WP-9); and
-- mapping-transition audit in addition to underlying relationship history.
-
-### Validation guardrails
-
-- No request per displayed row.
-- No delete-then-create gap.
-- A relationship binding cannot accidentally replace another binding that shares a relationship type.
-- Generic relationship operations cannot bypass mapping concurrency.
-- Parent/containment and required ownership relationships are not presented as independently mutable
-  mappings.
-
-## Product 0.8 — Relation matrix and hierarchy editor
-
-**Why here:** generic translation and parent editing already have a defined foundation; specialist
-views reduce repetitive navigation. These are separately gated outcomes and neither depends on using
-the other. **Acceptance:** SC-09, stories US-L03–L04 and US-H01–H02; restructuring (Milestone C) SC-17 and US-H03.
-
-Both outcomes are generic lenses that any application may declare. The translation and hierarchy
-outcomes below describe how the example model's applications demonstrate them, not features reserved
-for those applications ([example model](../EXAMPLE_MODEL.md)).
-
-### Translation outcome
-
-A localization steward works by target and language, sees missing coverage and updates translations
-without manually navigating the containment structure.
-
-Planned functions:
-
-- model-defined target/language matrix;
-- bounded coverage query rather than a request per cell;
-- distinction between missing, current and historical-only translations;
-- in-context translation creation/editing; and
-- uniqueness validation for the complete relevant graph.
-
-### Hierarchy outcome
-
-A steward browses and maintains large, deep, model-defined hierarchies through lazy loading.
-
-Planned functions:
-
-- strict typed tree configuration;
-- bounded root and child loading with path context;
-- contextual child creation;
-- safe rename, availability and parent changes;
-- cycle validation and atomic parent/path relationship updates; and
-- keyboard, focus, loading and error behavior for mixed-type and recursive hierarchies.
-
-### Live maintenance and optional coordinated design
-
-ADR-026 is the existing product baseline: ordinary mapping, translation and hierarchy changes are
-live; a change set is an explicit alternative for coordinated work. Apply this to the specialist
-views and reconcile contradictory change-set-only wording in the technical roadmap before implementation.
-A specialist screen must not introduce a mandatory release step for changing an ordinary value.
-
-## Product 0.9 — Integration-grade APIs
+## In progress: 0.9 — Integration-grade APIs
 
 **Why here:** extend validated single-record semantics to reliable larger exchanges.
-**Depends on:** stable identity, data validation, explicit live/change set scope and mapping concurrency for
-bulk mapping. **Acceptance:** SC-10–SC-11, stories US-I03–I09. Format, failure policy and business-date
-semantics must be settled before their implementation packages.
+**Acceptance:** SC-10–SC-11, stories US-I03–I09. SC-11 passes through the management API (Q4).
+
+The interim release 0.9.0-alpha.1 moves the engine to PostgreSQL first: workspaces write in parallel,
+and two writers racing in one workspace never break a rule. Users see no change.
 
 ### User outcome
 
 External systems exchange and synchronize large reference datasets through stable, resumable contracts
 rather than loops over user-interface operations or undocumented unlimited responses.
 
-### Planned functions
+### Functions
 
-- advanced model-aware query beyond configured daily-use filters;
-- model-defined effective dates and “as of” reads where explicitly configured;
-- bounded bulk create, update and upsert with per-item outcomes and idempotency;
-- bounded bulk relationship and mapping operations;
-- asynchronous CSV/Excel import and export with validation preview and resumable job status;
-- ordered change feed; and
-- retryable webhooks.
+Delivered:
+
+- model-aware query across types, by ancestor and by a related record (F20);
+- model-declared effective periods and `asOf` reads (F21);
+- bulk create, update, upsert and delete as jobs, inline or in the background, with per-item outcomes,
+  idempotency, progress, cancellation and resumption (F22);
+- consumer API definitions in the model, with a breaking-change check at activation (F23); and
+- the built-in API reference page (F24).
+
+Remaining:
+
+- bulk relationship and mapping items;
+- an ordered change feed;
+- the consumer APIs themselves: lookup by code across systems, lists, batch resolve, crosswalks,
+  `asOf`, change events and webhooks; and
+- asynchronous CSV/Excel import and export with a validation preview and an import screen (SC-10).
 
 ### Validation guardrails
 
@@ -227,8 +134,9 @@ through controlled migrations.
 
 ### Planned functions
 
-- PostgreSQL deployment and representative performance evidence;
-- database-backed hardening of uniqueness under concurrent writers;
+- production-scale PostgreSQL performance evidence (PostgreSQL itself and single-node concurrent
+  writers arrive in 0.9.0-alpha.1);
+- database constraints as a second line behind the per-workspace write lock, where evidence calls for it;
 - metrics and structured logs;
 - rehearsed backup, restore and rollback;
 - multi-node propagation of an activated immutable model;
@@ -295,8 +203,8 @@ The roadmap does not turn RDM Engine into:
 - a system where deployment capability flags are treated as user permissions; or
 - a lifecycle where every individual record has to be drafted, activated or retired.
 
-Source: [delivery roadmap](../ROADMAP.md), [current queue](../TODO.md),
-[Base 0.6 plan](../BASE_0_6_IMPLEMENTATION_PLAN.md) and [ADR-026](../DECISIONS.md#adr-026--active-workspaces-are-live-writable-for-data-change sets-are-the-design-path).
+Source: [delivery roadmap](../ROADMAP.md), [current queue](../TODO.md) and
+[ADR-026](../DECISIONS.md#adr-026--active-workspaces-are-live-writable-for-data-drafts-are-the-design-path).
 
 ## Capability preservation across releases
 
@@ -312,23 +220,3 @@ Source: [delivery roadmap](../ROADMAP.md), [current queue](../TODO.md),
 Approval workflow, duplication shortcuts and localized interface/model labels remain discovery topics.
 No unscheduled candidate is implied to be part of 1.0. Use the decision table in the planning handoff
 before adding release scope.
-
-## 0.7 delivery refinement — planned
-
-WP-1–WP-3 are frozen. Mapping coverage/actions are independently accepted in WP-8A/WP-8B;
-WP-4/WP-5 define bounded view-specific reads and preserve selected relationship identity/attributes.
-WP-6/WP-7 require whole-candidate compatibility, atomic pin changes and safe model-context refresh.
-WP-9 proves independent bindings, same-schema differing releases, race/isolation behavior and the new
-controls' accessibility/visual behavior. Conditional WP-10 addresses only confirmed foundation gaps.
-See [the 0.7 plan](../BASE_0_7_IMPLEMENTATION_PLAN.md); these refinements add no delivery evidence.
-
-
-## 0.7 mapping backend delivery and remaining story acceptance — 2026-09-14
-
-WP-4 query and WP-5 replacement contracts are delivered. WP-5 acceptance includes an independent
-binding and overlapping generic writes; WP-10A makes cascades invalidate continuations, and WP-10B
-refuses divergent touched live mapping sets at publishing. Source/live identity/version
-comparison preserves unrelated live work and permits a restored source graph. Validation: 486
-backend tests, Ruff, frontend format/lint (zero errors, 12 existing warnings), 164 tests and build.
-US-M01–M04 still require WP-8A/WP-8B browser delivery and WP-9 composed evidence. This API/component
-evidence does not establish PostgreSQL concurrency or close SC-07 browser acceptance.

@@ -16,9 +16,7 @@ which governed dataset I am viewing or changing.
 **Accepted when:** The chosen label and stable key remain visible or recoverable from the page address;
 an unknown key is not silently accepted; a retired workspace is clearly read-only.
 
-**Coverage:** F02. **Status:** Browser and API available; opening detail from a non-default workspace
-works and is exercised by the [WP9 navigation runner](../../frontend/e2e/wp9-navigation.mjs).
-
+**Coverage:** F02. **Status:** Browser validated and API available (0.6 WP9, [navigation runner](../../frontend/e2e/wp9-navigation.mjs)).
 ### US-D02 — Return to my working list
 
 **Story:** As a data steward, I want to open a record and return to the same search, filters and sort so
@@ -27,9 +25,7 @@ that investigating one item does not destroy my place.
 **Accepted when:** Back/return restores the same workspace, application, view, search, typed filters,
 sort and page size without issuing a broader request.
 
-**Coverage:** F03, F04. **Status:** Browser implementation present for the default workspace;
-non-default detail context is a known WP9 gap and composed-browser validation is pending.
-
+**Coverage:** F03, F04. **Status:** Browser validated and API available in every workspace (0.6 WP9).
 ### US-D03 — Find a value by business data
 
 **Story:** As a data owner, I want to search names and configured fields and apply type-appropriate
@@ -38,9 +34,7 @@ filters so that I can locate a record without knowing its identifier.
 **Accepted when:** Search is server-side, filter choices come from the active model, dates/numbers/
 booleans are interpreted as their declared types, and invalid input is explained.
 
-**Coverage:** F03, F06. **Status:** Browser implementation present and API available; composed-browser
-validation is pending.
-
+**Coverage:** F03, F06. **Status:** Browser validated and API available (0.6; any size since 0.8 Track S).
 ### US-D04 — Browse a large collection safely
 
 **Story:** As a data steward, I want stable pages rather than an unbounded list so that the product
@@ -49,9 +43,7 @@ remains responsive as data grows.
 **Accepted when:** Results have a documented page size, next/previous navigation keeps the selected
 query, and a continuation from a different query is rejected.
 
-**Coverage:** F03, F16. **Status:** Browser implementation present and API available; composed-browser
-validation is pending.
-
+**Coverage:** F03, F16. **Status:** Browser validated and API available; continuous scrolling, totals and jumps since 0.8 Track S.
 ### US-D05 — Understand one record in context
 
 **Story:** As a data owner, I want to see a record's fields, parent, children, relationships and history
@@ -60,9 +52,7 @@ together so that I can understand its meaning and impact.
 **Accepted when:** The detail composition follows the model, linked records can be opened, and empty
 collections are shown as valid empty states rather than failures.
 
-**Coverage:** F04, F07, F08, F11. **Status:** Browser read implementation present for the default
-workspace; non-default detail context and writable related flows are not yet connected.
-
+**Coverage:** F04, F07, F08, F11. **Status:** Browser validated and API available in every workspace and context (0.6 WP9).
 ### US-D06 — Add a live reference value directly
 
 **Story:** As a data owner, I want to add an everyday reference value directly to an active workspace
@@ -71,8 +61,7 @@ so that routine maintenance does not require a change set and publication ceremo
 **Accepted when:** One create flow collects the core data, typed fields, parent and required
 relationships; success is immediately visible and audited; no publication is created.
 
-**Coverage:** F05-F07. **Status:** Available through the API; browser flow is in progress for 0.6 WP9.
-
+**Coverage:** F05-F07. **Status:** Browser validated and API available (0.6 WP9).
 ### US-D07 — Correct a live value directly
 
 **Story:** As a data owner, I want to correct a name, availability flag, code or other field directly
@@ -82,9 +71,7 @@ so that live reference data stays accurate.
 connections. Values keep their meaning. If someone saved a newer change, my attempted input remains
 available while I review it; the product does not overwrite their work silently.
 
-**Coverage:** F05, F06, F17. **Status:** Available through the API; browser flow is in progress for
-0.6 WP9.
-
+**Coverage:** F05, F06, F17. **Status:** Browser validated and API available (0.6 WP9).
 ### US-D08 — Distinguish missing, empty and false values
 
 **Story:** As a data owner, I want optional values to retain their real meaning so that a missing value
@@ -93,9 +80,7 @@ is not confused with zero, false, empty text or a deliberate null.
 **Accepted when:** Read, edit, filtering and history preserve the declared value and its missing/null
 state.
 
-**Coverage:** F03, F06. **Status:** API available; browser editors are present but not connected to a
-writable flow.
-
+**Coverage:** F03, F06. **Status:** Browser validated and API available (0.6 WP9).
 ### US-D09 — Move a record safely in a hierarchy
 
 **Story:** As a data steward, I want to choose a new valid parent so that both navigation and business
@@ -115,8 +100,7 @@ own fields so that cross-references are governed, not hidden in free text.
 relationship in either direction and supply its required fields. The product rejects a connection
 between incompatible records or too many/few connections, and does not overwrite a newer change.
 
-**Coverage:** F08. **Status:** API available; browser components are present but not connected.
-
+**Coverage:** F08. **Status:** Browser validated and API available (0.6 WP9).
 ### US-D11 — Delete only after understanding the impact
 
 **Story:** As a data owner, I want to preview dependants before deleting a record so that I do not
@@ -125,8 +109,7 @@ accidentally remove independent data.
 **Accepted when:** The first step changes nothing and names affected owned records and relationships;
 recursive deletion requires explicit confirmation; independent targets are retained.
 
-**Coverage:** F10. **Status:** API available; browser dialog is present but not connected.
-
+**Coverage:** F10. **Status:** Browser validated and API available (0.6 WP9).
 ### US-D12 — See what changed
 
 **Story:** As a data owner, I want to see the changes to a record over time so that I can investigate
@@ -135,9 +118,7 @@ why its content or connections differ from what I expected.
 **Accepted when:** History includes the record and relevant relationship changes, supports loading
 older entries, retains already loaded entries on failure and offers retry.
 
-**Coverage:** F11. **Status:** Browser implementation present for default-workspace detail and API
-available; non-default context repair and composed-browser proof are pending.
-
+**Coverage:** F11. **Status:** Browser validated and API available (0.6 WP9).
 ### US-D13 — Use the same product for different reference-data domains
 
 **Story:** As a data steward, I want applications, record types, fields and views to follow the active
@@ -147,9 +128,7 @@ model so that I can work in a new reference-data domain without learning a separ
 flows work for at least two differently configured record types, and no starter application or record
 type receives hidden special behavior.
 
-**Coverage:** F01. **Status:** Browser implementation present and API available; composed-browser
-validation is pending.
-
+**Coverage:** F01. **Status:** Browser validated and API available; acceptance ran with two configured record types (0.6 WP10).
 ### US-D14 — Stop offering an obsolete value without deleting it
 
 **Story:** As a data owner, I want to mark a value unavailable where my model supports it so that its
@@ -159,9 +138,7 @@ meaning and relationships remain available for investigation while consumers can
 filter explicitly selecting available values excludes it. The interface does not equate this field
 with deleting a record, retiring a workspace or withdrawing a publication.
 
-**Coverage:** F05, F06, F11. **Status:** API field behavior available; browser completion 0.6.
-**Example:** SC-02.
-
+**Coverage:** F05, F06, F11. **Status:** Browser validated and API available (0.6). **Example:** SC-02.
 ### US-D15 — Maintain a collection in its governing context
 
 **Story:** As a data steward, I want one application browser to open an unscoped or contained
@@ -174,13 +151,11 @@ available as labelled lenses of one collection; and applications with different 
 mapping configurations receive no hidden starter-specific behavior. Search, compatible filters,
 detail return and Live/Change set/History retain the selected scope.
 
-**Coverage:** ADR-029; implemented Base 0.7 WP-14 with focused evidence; composed acceptance remains
-SC-16/WP-9.
+**Coverage:** ADR-029; F01. **Status:** Browser validated (0.7 WP-14, composed acceptance in WP-9).
 
 ## Coordinated design and publication
 
-The live starting-point limitation is tracked in [GAP-02](PLANNING_HANDOFF.md). A change set
-contains data changes; application-definition changes use the separate model administration stories.
+A change set contains data changes; application-definition changes use the separate model administration stories.
 
 ### US-W01 — Prepare changes away from live data
 
@@ -191,9 +166,7 @@ can change several related records without affecting current users.
 edit through familiar record controls and discard it without changing live data. Starting from current
 live data includes all changes up to change set creation, as specified by US-W08.
 
-**Coverage:** F12. **Status:** Empty and historical-source change sets are available through the API; the
-current-live starting point is GAP-02. Browser flow is in progress for 0.6 WP9.
-
+**Coverage:** F12. **Status:** Browser validated and API available; a change set starts from current live data or a publication (0.6 WP9).
 ### US-W02 — Check the complete design before activation
 
 **Story:** As a data owner, I want to validate the whole candidate dataset so that cross-record problems
@@ -202,8 +175,7 @@ are found before anything becomes live.
 **Accepted when:** Validation checks fields, required relationships, uniqueness, cardinality,
 containment and cycles without publishing or destroying the change set, and identifies actionable problems.
 
-**Coverage:** F13. **Status:** Available through the API; browser flow is in progress for 0.6 WP9.
-
+**Coverage:** F13. **Status:** Browser validated and API available (0.6 WP9); the review screen since 0.8 P2.
 ### US-W03 — Activate all coordinated changes or none
 
 **Story:** As a data owner, I want one reviewed activation so that users never observe half of a
@@ -212,8 +184,7 @@ coordinated design.
 **Accepted when:** The change set changes are merged, revalidated and published in one operation; any failure
 leaves both live content and the change set preserved.
 
-**Coverage:** F13, F17. **Status:** Available through the API; browser flow is in progress for 0.6 WP9.
-
+**Coverage:** F13, F17. **Status:** Browser validated and API available (0.6 WP9).
 ### US-W04 — Preserve unrelated live work during activation
 
 **Story:** As a data owner, I want publishing to preserve live records that the change set did not touch so
@@ -222,8 +193,7 @@ that normal maintenance can continue while design work is open.
 **Accepted when:** Untouched live changes remain, a live change to a touched record produces a precise
 conflict, and no conflict is silently overwritten.
 
-**Coverage:** F13, F17. **Status:** Available through the API.
-
+**Coverage:** F13, F17. **Status:** Browser validated and API available (0.6 WP9).
 ### US-W05 — Understand where a publication came from
 
 **Story:** As a data owner, I want history to distinguish the snapshot used to start a change set from the
@@ -232,8 +202,7 @@ snapshot replaced at activation so that branching from older history remains tru
 **Accepted when:** “Created from” and “superseded on activation” are separately visible and may contain
 different publication identities.
 
-**Coverage:** F14. **Status:** API available; browser flow is in progress for 0.6 WP9.
-
+**Coverage:** F14. **Status:** Browser validated and API available (0.6 WP9).
 ### US-W06 — Retire a publication without erasing history
 
 **Story:** As a data owner, I want to remove the current-publication designation so that publication
@@ -243,8 +212,7 @@ history is accurate while its evidence remains available.
 action and retains workspace identity, record identities, snapshots and audit history. The interface
 explains that live records remain readable and that this action does not make the workspace read-only.
 
-**Coverage:** F14. **Status:** API available; browser flow is in progress for 0.6 WP9.
-
+**Coverage:** F14. **Status:** Browser validated and API available (0.6 WP9).
 ### US-W07 — Start reviewed changes from history
 
 **Story:** As a data owner, I want to start a change set from an older snapshot so that I can use historical
@@ -254,8 +222,7 @@ content as a reference for reviewed new changes without editing history.
 uses fresh conflict and validation checks. Choosing the old snapshot alone does not undo live changes;
 only explicitly authored changes are applied, and untouched newer live records remain.
 
-**Coverage:** F12-F14. **Status:** API available; browser flow is in progress for 0.6 WP9.
-
+**Coverage:** F12-F14. **Status:** Browser validated and API available (0.6 WP9).
 ### US-W08 — Begin a design with today's complete live content
 
 **Story:** As a steward preparing coordinated changes, I want my change set to start with the data people
@@ -265,9 +232,7 @@ are using now so that recent corrections and additions are not absent from my wo
 live data exists without a publication. Later live edits do not rewrite that starting view. Starting
 from an older publication remains an explicitly different choice.
 
-**Coverage:** F12, F13. **Status:** SQLite API implemented by WP8.1-B; browser acceptance remains
-WP9/WP10 work. **Example:** SC-05.
-
+**Coverage:** F12, F13. **Status:** Browser validated and API available (0.6 WP9; on PostgreSQL since 0.9.0-alpha.1 PG2). **Example:** SC-05.
 ### US-W09 — Work on the next model version in one change set while live keeps the current one
 
 **Story:** As a steward, I want one change set to work under a not-yet-active model version while live data
@@ -287,11 +252,7 @@ version changes require the complete candidate, including inherited content, to 
 leaves existing content and model selection unchanged; the browser refreshes all model-dependent
 navigation/forms safely, preserving unsaved input when a version change is declined or fails.
 
-**Coverage:** F12, F15, F17. **Status:** WP-6/WP-7 selection and WP-11 refusal/UI hardening delivered;
-composed SC-15 acceptance remains WP-9 (ADR-028). Moving a change set onto a version its content does not
-already satisfy is reviewed 0.11 migration work.
-**Example:** SC-15.
-
+**Coverage:** F12, F15, F17. **Status:** Browser validated and API available (0.7, accepted through SC-15, ADR-028). Moving a change set onto a version its content does not already satisfy is reviewed 0.11 migration work. **Example:** SC-15.
 ## Localization steward
 
 ### US-L01 — Create a valid translation in one operation
@@ -302,9 +263,7 @@ target together so that no incomplete translation is saved.
 **Accepted when:** The translation, its group/containment and required target relationship succeed
 together or not at all; at least one configured translated field is meaningful.
 
-**Coverage:** F09. **Status:** API available through generic record operations; browser flow is in
-progress for 0.6 WP9.
-
+**Coverage:** F09. **Status:** Browser validated and API available (0.6 WP9).
 ### US-L02 — Avoid duplicate active translations
 
 **Story:** As a localization steward, I want the product to prevent two active translations for the
@@ -313,8 +272,7 @@ same target and language so that consumers receive an unambiguous result.
 **Accepted when:** The complete candidate scope is checked and a duplicate reports a clear conflict
 without losing input.
 
-**Coverage:** F09, F17. **Status:** Available through the API.
-
+**Coverage:** F09, F17. **Status:** Browser validated and API available; refused with the input kept (0.6, 0.8 A5).
 ### US-L03 — See translation coverage
 
 **Story:** As a localization steward, I want a bounded target-by-language view of present and missing
@@ -354,8 +312,7 @@ are visible server-side filters; another mapping declaration does not require an
 navigation destination.
 
 **Coverage:** Coverage/candidate/target APIs delivered (WP-4); mapping browser grid remains WP-8A.
-**Status:** Roadmap 0.7; composed browser acceptance pending.
-
+**Status:** Browser validated and API available (0.7 WP-8A, accepted through SC-07).
 ### US-M02 — Replace one mapping atomically
 
 **Story:** As a mapping steward, I want to create, clear or replace a selected mapping in one action so
@@ -366,8 +323,7 @@ leaving the mapping empty is allowed. If another person changed the mapping, I c
 retrying; my attempted replacement changes nothing until then.
 
 **Coverage:** Atomic replacement API delivered (WP-5); browser actions/conflict recovery remain WP-8B.
-**Status:** Roadmap 0.7; composed browser acceptance pending.
-
+**Status:** Browser validated and API available (0.7 WP-8B, accepted through SC-07).
 ### US-M03 — Resolve an ambiguous mapping safely
 
 **Story:** As a mapping steward, I want to select the correct target for an ambiguous source so that the
@@ -378,8 +334,7 @@ newer work as choosing a first target. Connections with another business meaning
 preserves its relation identity and declared attributes unless I explicitly change them.
 
 **Coverage:** Atomic replacement API delivered (WP-5); browser actions/conflict recovery remain WP-8B.
-**Status:** Roadmap 0.7; composed browser acceptance pending.
-
+**Status:** Browser validated and API available (0.7 WP-8B, accepted through SC-07).
 ### US-M04 — Create a missing mapping target in context
 
 **Story:** As a mapping steward, I want to add a missing permitted target while mapping a source so
@@ -389,8 +344,7 @@ that I do not abandon the task and reconstruct its context elsewhere.
 the new target can be selected on return. Cancelling or failing target creation leaves the current
 mapping intact. Creating a target does not silently change the mapping before the chosen save action.
 
-**Coverage:** Planned mapping workflow. **Status:** Roadmap 0.7. **Example:** SC-07.
-
+**Coverage:** Planned mapping workflow. **Status:** Browser validated and API available (0.7 WP-8B, accepted through SC-07). **Example:** SC-07.
 ## Hierarchy steward
 
 ### US-H01 — Find an item in a large hierarchy
@@ -455,8 +409,7 @@ cause unpredictable load.
 **Accepted when:** every synchronous collection has a documented maximum, continuation tokens are
 opaque, and changing the query cannot silently reuse a continuation.
 
-**Coverage:** F03, F16. **Status:** Available for current collections.
-
+**Coverage:** F03, F16. **Status:** Available through the API for every collection, by cursor or position (0.8 Track S).
 ### US-I03 — Submit bounded bulk changes
 
 **Story:** As an integration developer, I want to submit a batch of changes and learn the outcome for
@@ -466,8 +419,7 @@ each item so that I can recover rejected work without creating duplicates.
 items are distinguishable, and retry does not duplicate successful work. The same data and conflict
 rules apply as for individual edits. Live changes and optional staged changes are clearly distinguished.
 
-**Coverage:** Planned integration APIs. **Status:** Roadmap 0.9.
-
+**Coverage:** Planned integration APIs. **Status:** Available through the API for record items, inline or in the background (0.9 B1, B2); relationship and mapping items follow in 0.9 (B3).
 ### US-I04 — Import and export asynchronously
 
 **Story:** As an integration operator, I want validated, resumable import/export jobs so that large
@@ -476,8 +428,7 @@ files do not require an unbounded synchronous request.
 **Accepted when:** validation can be previewed, job status resumes safely, failures are itemized and
 completed output can be retrieved without holding one request open.
 
-**Coverage:** Planned integration APIs. **Status:** Roadmap 0.9.
-
+**Coverage:** Planned integration APIs. **Status:** In progress for 0.9: background jobs with resumable status exist (B2); file import and export follow (J1–J4).
 ### US-I05 — Follow and deliver changes reliably
 
 **Story:** As an integration developer, I want an ordered change feed and retryable webhooks so that
@@ -487,8 +438,7 @@ downstream systems can synchronize without repeatedly scanning all data.
 repeated delivery. An expired position has an explicit recovery path. Delivery guarantees and retention
 are documented; exactly-once delivery is not assumed.
 
-**Coverage:** Planned integration APIs. **Status:** Roadmap 0.9.
-
+**Coverage:** Planned integration APIs. **Status:** Roadmap 0.9 (change feed F1–F2, consumer events and webhooks C9–C13).
 ### US-I06 — Query effective historical data
 
 **Story:** As an integration consumer, I want model-declared effective-date and “as of” behavior so that
@@ -497,8 +447,7 @@ I can retrieve the correct business-time view where the data model supports it.
 **Accepted when:** semantics are explicitly configured, bounded and consistent across paging rather
 than inferred from arbitrary date fields.
 
-**Coverage:** Planned advanced query. **Status:** Roadmap 0.9.
-
+**Coverage:** Planned advanced query. **Status:** Available through the API (0.9 Q4): a record type declares its effective period, and `asOf` reads apply it; SC-11 passes through the management API.
 ### US-I07 — Preview a file before changing reference data
 
 **Story:** As a data steward receiving a supplier file, I want to identify its columns and inspect
@@ -508,9 +457,7 @@ proposed changes and errors so that I can correct mistakes before importing them
 with declared fields, and the preview explains invalid values, duplicate keys and proposed additions
 or updates by row. Preview changes no data; execution reports its agreed failure policy and outcomes.
 
-**Coverage:** Planned import jobs. **Status:** Roadmap 0.9; format and duplicate policy require
-planning decisions. **Example:** SC-10.
-
+**Coverage:** Planned import jobs. **Status:** Roadmap 0.9 (import profiles and preview, J2–J4). **Example:** SC-10.
 ### US-I08 — Export the intended dataset
 
 **Story:** As a data owner, I want to export a clearly selected workspace and scope so that the
@@ -521,8 +468,7 @@ are explicit. Completion can be checked later, large output is retrievable in th
 partial output cannot be mistaken for a complete export. Field representation follows the documented
 format contract.
 
-**Coverage:** Planned export jobs. **Status:** Roadmap 0.9. **Example:** SC-10.
-
+**Coverage:** Planned export jobs. **Status:** Roadmap 0.9 (export jobs, J1). **Example:** SC-10.
 ### US-I09 — Request the precise dataset an integration needs
 
 **Story:** As an integration developer, I want supported combinations of business criteria beyond a
@@ -533,9 +479,7 @@ scope are respected, and every page continues the same request. Unsupported crit
 explicit explanation. The implementation plan must agree the advanced query scope before promising
 particular relationship filters or multiple sort fields.
 
-**Coverage:** Planned advanced model-aware query. **Status:** Roadmap 0.9. **Example:** extend SC-10
-with a configured integration query whose matching records span several pages.
-
+**Coverage:** Planned advanced model-aware query. **Status:** Available through the API (0.9 Q1–Q3): cross-type lookup, the workspace edge list and the model-aware query with field, ancestor and one related-record criteria, one sort and chosen fields. **Example:** extend SC-10 with a configured integration query whose matching records span several pages.
 ## Workspace administrator
 
 ### US-A01 — Provision a workspace safely
@@ -546,8 +490,7 @@ that users can select a governed scope without free-text invention.
 **Accepted when:** the key is immutable and unique, the label can change, and the new workspace appears
 in bounded discovery.
 
-**Coverage:** F02. **Status:** Available through the API when the deployment capability is enabled.
-
+**Coverage:** F02. **Status:** Browser validated and API available when workspace administration is enabled (0.8 W4).
 ### US-A02 — Change the default without ambiguity
 
 **Story:** As a workspace administrator, I want to change the default workspace atomically so that
@@ -556,8 +499,7 @@ links without an explicit workspace resolve consistently.
 **Accepted when:** the update uses the current runtime-state version and fails on concurrent change
 instead of creating two defaults.
 
-**Coverage:** F02, F17. **Status:** Available through the API when enabled.
-
+**Coverage:** F02, F17. **Status:** Browser validated and API available when enabled (0.8 W4).
 ### US-A03 — Retire a workspace without hiding its evidence
 
 **Story:** As a workspace administrator, I want to prevent further changes while retaining read access
@@ -566,8 +508,7 @@ so that an obsolete workspace remains auditable.
 **Accepted when:** the workspace remains discoverable/readable, mutations fail clearly, and the current
 default cannot be retired.
 
-**Coverage:** F02. **Status:** Available through the API when enabled.
-
+**Coverage:** F02. **Status:** Browser validated and API available when enabled (0.8 W4).
 ## Model administrator
 
 ### US-P01 — Inspect the active application definition
@@ -578,9 +519,7 @@ understand the reproducible configuration currently in use.
 **Accepted when:** installed releases remain readable even when mutation is disabled, and exported JSON
 is the immutable installed content.
 
-**Coverage:** F01, F15. **Status:** Browser implementation present and API available; composed-browser
-validation is pending.
-
+**Coverage:** F01, F15. **Status:** Browser validated and API available (0.7 WP-11).
 ### US-P02 — Check a proposed model without changing runtime
 
 **Story:** As a model administrator, I want to check a proposed definition and compare it with current
@@ -590,9 +529,7 @@ rules so that I understand mistakes and effects on existing data before putting 
 added/changed/removed rules, and checks explain incompatible existing data. Checking alone changes
 neither the active definition nor reference data.
 
-**Coverage:** F15. **Status:** Browser implementation present and API available when mutations are
-enabled where needed; composed-browser validation is pending.
-
+**Coverage:** F15. **Status:** Browser validated and API available; draft editing needs model administration enabled (0.7 WP-11).
 ### US-P03 — Install without activating
 
 **Story:** As a model administrator, I want installation to create an immutable inactive release so
@@ -602,9 +539,7 @@ that review and deployment selection remain separate.
 an already released version is rejected, and users continue working under the current definition until
 activation is explicitly chosen.
 
-**Coverage:** F15, F17. **Status:** Browser implementation present and API available when mutations are
-enabled; composed-browser validation is pending.
-
+**Coverage:** F15, F17. **Status:** Browser validated and API available when model administration is enabled (0.7 WP-11).
 ### US-P04 — Activate a compatible model safely
 
 **Story:** As a model administrator, I want to put a checked definition into use so that everyone works
@@ -614,9 +549,7 @@ under consistent rules and existing valid data remains usable.
 with a clear explanation. A successful switch applies one consistent definition. If the service cannot
 serve the selected definition, it reports unavailable rather than serving guessed or mixed rules.
 
-**Coverage:** F15, F17, F19. **Status:** Browser implementation and API available in the supported
-single-process administration mode; composed-browser validation is pending.
-
+**Coverage:** F15, F17, F19. **Status:** Browser validated and API available in the supported single-process administration mode (0.7 WP-11).
 ### US-P05 — Design a model with structured tools
 
 **Story:** As an authorized model administrator, I want reference-aware forms and relationship matrices
@@ -637,9 +570,7 @@ fields, relationships and views so that the organization can expand without comm
 rules and supported views are available through existing generic behavior. The standard maintenance
 journeys work for two differently configured types without a custom domain-specific code path.
 
-**Coverage:** F01, F15. **Status:** Definition foundation and JSON workbench present; composed browser
-maintenance still needs 0.6 completion. Structured authoring follows in 0.10. **Example:** SC-12.
-
+**Coverage:** F01, F15. **Status:** Available: a new application is a model release edited as JSON in the workbench, and the generic browser serves it. Structured authoring follows in 0.10. **Example:** SC-12.
 ### US-P07 — Introduce new rules to one workspace in a controlled stage
 
 **Story:** As a model administrator, I want to migrate one workspace to a new definition before
@@ -706,9 +637,7 @@ that the product does not depend on hover, a pointer or a wide desktop layout.
 dialog, modal interaction is contained, essential actions remain discoverable, tables retain their
 meaning and the target journeys work at both desktop and narrow sizes.
 
-**Coverage:** F18. **Status:** Foundation available with component evidence; real-browser, automated
-accessibility, screen-reader and visual proof remain 0.6 WP10 work.
-
+**Coverage:** F18. **Status:** Browser validated: keyboard and narrow-layout journeys (0.6 WP10), automated accessibility and visual regression gates in light and dark themes (0.7). No screen-reader user testing is recorded.
 ## Platform operator and security administrator
 
 ### US-O01 — Receive an actionable startup refusal

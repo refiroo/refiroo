@@ -74,7 +74,7 @@ The code is a hierarchy: each piece is part of something larger, and every piece
 | A piece no other code uses | its own unit tests and its journeys |
 | A piece at the top (a route, an operation) | its unit tests and its journeys. The data it needs comes through the real lower layers (API-built fixtures), so it is exercised as it would be in use. Lower unit tests are not rerun: their code did not change. If the top now uses a lower piece in a new way, that lower piece gets a new unit case |
 | Data the code reads: the model schema, a migration, the starter model, seed code, configuration | treated as the bottom: everything that reads it |
-| Anything, at release | everything, plus the mutation score |
+| Anything, at release | everything |
 
 Selection uses coverage, not file names: `pytest-testmon` records which code each test executes and
 selects the tests whose code changed. Changes coverage cannot see (the rows of the last table line
@@ -106,8 +106,11 @@ but one) are rules in the execution guide.
 
 ## Quality meters
 
-- **Mutation score** of the engine modules (`mutmut`), measured at each release, with a baseline set
-  in H4. A surviving mutant in a module is a missing unit test, not a reason to add a journey.
+- **Planted faults.** A fault planted on purpose in a critical rule (a uniqueness check, a cascade,
+  a version claim) must make a test fail; one that passes is a missing assertion. Used whenever tests
+  are removed or moved (H4d) and when a package's own tests are in doubt. A full mutation tool
+  (`mutmut`) was tried and dropped in H4b: about 1.5 hours to generate the engine's mutants before
+  any test runs, and many hours to run them.
 - **Journey coverage:** every catalogue entry has a test; every module is reached by some journey.
 - **Time:** the [ceilings](../TEST_HARNESS_PLAN.md#time-ceilings) hold. A package's selected run
   should take under a minute.
@@ -144,6 +147,10 @@ test-seconds in cases over 0.3 s.
 - Some tests check which internal function ran (a spy on `pagination._locate`; matrix reads made to
   refuse a private path).
 - About 100 assertions check only that some 4xx came back, not which error.
+- Found in H4b: seven modules replace the test client with one that sends every record and
+  relationship call through a change set (`ChangeSetTestClient`), so at least 75 tests named as live
+  operations never reach live code. A fault planted in the live relation read left "get relation by
+  id returns stored relation" green.
 
 **Process.** The tests were written after the code, by the agent that wrote it, from the code. This
 is the failure the research describes: the tests confirm the implementation and cannot catch a

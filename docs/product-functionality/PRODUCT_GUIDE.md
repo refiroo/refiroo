@@ -1,68 +1,9 @@
-# RDM Engine: the product people use
+# Worked examples
 
-## Purpose and intended difference
-
-RDM Engine helps teams keep shared codes, names, translations and connections between systems
-consistent. A team defines the kinds of information it manages and the rules that information must
-follow. The product then supplies the screens and services for maintaining it.
-
-For example, a company may call the same delivery method “Collection” in its central list, “PICKUP”
-in its webshop and “Store collection” in its warehouse system. A data steward maintains the shared
-meaning, connects the system-specific values and supplies the translated labels. Other systems can
-then use the agreed data without each inventing another list.
-
-The intended distinction is the combination of:
-
-- **Reusable definitions:** another reference-data domain uses the same product with different record
-  types, fields, rules and layouts. It does not require a separately developed application.
-- **Meaningful connections:** a record's place in a hierarchy, its equivalent in another system and
-  its translation have different meanings and follow the appropriate rules.
-- **Simple daily maintenance:** a normal correction becomes live when saved. Coordinated changes can
-  be prepared separately without blocking that daily work.
-- **One set of rules across channels:** people and connected systems maintain the same governed data.
-  A screen, import or integration must not become a way to avoid validation.
-
-These are product commitments, not claims of market exclusivity. Master, Systems and Translations
-are starter examples; they are not the only applications the engine should understand.
-
-## Who gets value
-
-| Responsibility | Typical job | A useful outcome |
-| --- | --- | --- |
-| Data owner or steward | Correct a code, add a value, organize a list | Colleagues immediately use accurate shared data |
-| Mapping steward | Connect a source-system value to its agreed meaning | A system exchange uses the intended equivalent |
-| Localization steward | Supply and correct language-specific content | Users see the right label in their language |
-| Integration team | Read, exchange and synchronize reference data | Systems agree without repeated manual reconciliation |
-| Workspace administrator | Establish the right working area and retire obsolete ones | People know where to work and what is read-only |
-| Model administrator | Define a new domain or change its rules | The application evolves without a custom software fork |
-| Service operator | Keep the product running and recover it | Users can rely on the service and its data |
-
-These are responsibilities, not currently implemented permission roles. Authenticated access control
-is planned for 0.11. The examples below are fictional acceptance examples, not customer research or
-preloaded demonstration data.
-
-## The functions in everyday language
-
-| User goal | What the product should let the user do | Development position | Stories |
-| --- | --- | --- | --- |
-| Find the right information | Choose a named workspace, search and filter a list, inspect a record and return to the same place | Browser read flows available in every workspace | US-D01–D05 |
-| Keep a shared list accurate | Add, correct or remove a value and its fields, with clear validation and change history | Service and Base 0.6 browser authoring available; see the functionality catalogue for context limitations | US-D06–D08, US-D11–D12, US-D14 |
-| Organize and connect data | Choose a valid parent, connect related records and understand deletion impact | Service and Base 0.6 browser authoring available; see the functionality catalogue for context limitations | US-D09–D11 |
-| Work in several domains | Use the configured terminology, fields and views through familiar controls | Model-driven foundation exists | US-D13, US-P06 |
-| Prepare a coordinated change | Work in an optional change set, review what it adds, changes and removes, check it and apply its changes together while preserving unrelated live work | Current-live/history API available; review screen and change lists (0.8 P2); browser gaps remain | US-W01–W08 |
-| Maintain translations | Enter a target, language and translated content together; prevent conflicting active translations | Basic API and Base 0.6 browser flows available; specialist coverage view remains 0.8 | US-L01–L04 |
-| Manage system equivalences | See missing or conflicting mappings and choose, replace or clear a target in one action | WP-8/WP-14 browser lens and APIs implemented with focused proof; composed WP-9 acceptance remains | US-M01–M04 |
-| Navigate a deep hierarchy | Expand the relevant branch, add a child or move a record without losing context | Tree lens (0.8), SC-09 hierarchy half accepted | US-H01–H02 |
-| Reshape a hierarchy | Move a record where another type stands, add or remove a level, change a type, with a preview and nothing lost | Tree lens in a change set (0.8), SC-17 accepted | US-H03 |
-| Exchange larger datasets | Import with a preview, export a chosen scope, track results and resume synchronization | Basic reading available; bulk exchange and feeds planned for 0.9 | US-I01–I09 |
-| Manage working areas | Create and label a workspace, select the default, retain read-only access to retired areas and delete an unused one created with a mistyped key | Workspaces screen and API available (0.8 W4, W6); a published workspace is retired, never deleted | US-A01–A03 |
-| Evolve application definitions | Inspect, edit, check, compare, install and activate a definition safely | JSON-based workbench exists; structured editor and spreadsheet onboarding planned for 0.10, changes to released structure 1.0 | US-P01–P10 |
-| Use and run the product reliably | Work by keyboard, recover from conflicts, control access and restore service after a failure | Interface and operational foundations exist; browser proof 0.6, production controls 0.11 | US-U01, US-S01, US-O01–O06 |
-
-“Service available” means another system can perform the operation through the supported interface.
-It does not mean a data steward can complete it in the browser today. The detailed
-[functionality catalogue](CURRENT_FUNCTIONALITY.md) records that distinction. No fresh execution of
-the application is implied by this documentation review.
+These examples show how the product behaves in everyday situations. The product overview, its users
+and its capabilities are in [PRODUCT.md](../PRODUCT.md); the detailed catalogue is
+[CURRENT_FUNCTIONALITY.md](CURRENT_FUNCTIONALITY.md). The examples are fictional, not customer
+research or preloaded data.
 
 ## Three different kinds of change
 
@@ -84,12 +25,11 @@ change set, makes the changes away from live users, checks the result and publis
 Before publishing, **Review changes** lists exactly what the change set adds, changes and removes,
 record by record, with each changed field's value before and after; a moved record names where it came
 from and where it goes.
-Another steward can still correct an unrelated live value. That correction must survive activation.
-If both change the same record, activation must stop without losing either person's work.
+Another steward can still correct an unrelated live value. That correction survives publishing.
+If both change the same record, publishing stops without losing either person's work.
 
-This change set changes data. It does not by itself change the application definition. The current-live
-starting point promised by the product still needs implementation reconciliation; see GAP-02 in
-[planning handoff](PLANNING_HANDOFF.md).
+This change set changes data. It does not by itself change the application definition. It starts from
+current live data, including edits made since the last publication, or from an earlier publication.
 
 ### Change what the application allows
 
@@ -110,46 +50,13 @@ planned for 0.11, not a present property of workspace selection.
 - A workspace snapshot answers “what did this coordinated publication contain?” Later live edits do
   not rewrite it. A snapshot is not a complete archive of every moment between publications.
 - A released application definition answers “what fields and rules did this version define?”
-- Future effective-date queries answer “what value applied on this business date?” A field containing
-  a date does not provide that behavior on its own.
+- An effective-date read (`asOf`) answers “which values were valid on this business date?” It works only
+  for a record type that declares an effective period; a field that merely contains a date does not
+  provide it (Base 0.9).
 
 Starting a change set from old history is not a one-click undo of today's dataset. Publishing preserves
-untouched live records and checks conflicts. Stopping a publication also does not currently remove
-live data from normal reads or make the workspace read-only. Use workspace retirement for read-only
-status; settle publication-withdrawal wording before presenting it as a user-facing withdrawal action.
+untouched live records and checks conflicts. Withdrawing a publication also does not remove
+live data from normal reads or make the workspace read only; retiring the workspace does that.
 
-## What success looks like
-
-The first usable daily-operation release lets a steward find, create, correct, connect, translate and
-remove data in the chosen workspace, without learning technical identifiers or undertaking a release
-for each save. The same tasks must work for differently configured record types.
-
-Later releases shorten specialist tasks: resolve a mapping on its row, fill a missing translation in
-context, move a hierarchy item from its branch, and import a file with understandable outcomes.
-They preserve the simpler record flows as alternatives.
-
-The [acceptance scenarios](ACCEPTANCE_SCENARIOS.md) provide concrete starting data and observable
-results. Their review measures are proposed baselines, not claims that user testing has happened.
-
-## Scope boundaries
-
-Reference data is the design centre. This roadmap does not promise a data catalogue, glossary,
-lineage scanner, customer matching, deduplication engine or general workflow designer. Optional
-approval processes, localized interface labels and copy/duplicate shortcuts remain discovery topics;
-they have no assigned delivery commitment here.
-
-Model-driven does not mean every conceivable screen can already be configured. Current top-level
-renderers are tables and mapping grids, composed as collection lenses. Translation coverage and
-specialist tree experiences follow the roadmap; a configured but unsupported renderer must not be
-advertised as delivered. General dashboards have no scheduled outcome.
-
-Read next: [user stories](USER_STORIES.md), [product roadmap](ROADMAP_COVERAGE.md),
-[planning handoff](PLANNING_HANDOFF.md).
-
-## Planned 0.7 refinement
-
-The [0.7 plan](../BASE_0_7_IMPLEMENTATION_PLAN.md) separates mapping coverage (WP-8A), actions
-(WP-8B) and contextual composition (WP-14). Large ambiguous mappings remain inspectable through bounded pages; keeping a selected target
-preserves its relationship identity and attributes. A change set's chosen definition must already accept
-its complete content. Failed choices change nothing; successful choices refresh the browser's fields,
-rules and views safely. SC-07/SC-15 remain release acceptance requirements, not delivered evidence.
+Read next: [user stories](USER_STORIES.md), [acceptance scenarios](ACCEPTANCE_SCENARIOS.md),
+[roadmap coverage](ROADMAP_COVERAGE.md).

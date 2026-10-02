@@ -121,6 +121,14 @@ All notable changes to this project are documented in this file. The format foll
   carry a `budget` marker and run only when `-m` names `budget`. `serial` holds only the three tests
   whose outcome depends on wall time; the counting volume modules run in parallel. The run summary
   lists every test over 10 s and the wall time. The full suite without `budget` takes 2 min 41 s.
+- 0.9.0-alpha.1 H4b: tests are of two kinds, journey tests in `backend/tests/journeys/` that name
+  the user journeys they walk (`@pytest.mark.journey`, checked against USER_JOURNEYS.md;
+  `--journey J02` selects them) and unit tests in `backend/tests/unit/` that mirror the module they
+  test. `pytest --testmon` runs only the tests whose code changed, `python -m tests.affected` says
+  what a change requires (migrations, the starter model and the harness select everything), and
+  `python -m tests.journey_trace` shows the code each journey reaches and the code no test reaches.
+  `test_api_journeys` keeps the API inventory (`docs/testing/API_JOURNEYS.md`) complete: every
+  operation, parameter, error code and setting with its journeys.
 - 0.9.0-alpha.1 PG3: live writes of one workspace serialize on its row lock, and workspaces write
   in parallel (PG-D5). Every live write locks its workspace before it reads, so two writes racing
   for one unique value, a parent cycle, a cardinality limit, a required relation, a relation-set
@@ -181,6 +189,8 @@ All notable changes to this project are documented in this file. The format foll
   every pass (3,111 attempts in half a second in the regression test; a 28 GB log overnight). It now
   waits its 2 s between retries, logs the traceback once per outage, then one line a minute, and
   says when the database is reachable again.
+- The volume tests' statement counts no longer include the background job worker's own statements,
+  which made a restructuring budget test fail when a run was slow.
 - `python -m app.cli.model_schema_upgrade --help` names every supported schema (0.5–0.8); it
   named 0.5–0.7 while it also accepted 0.8.
 

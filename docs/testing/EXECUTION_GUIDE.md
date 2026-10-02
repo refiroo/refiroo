@@ -98,6 +98,41 @@ go-ahead.
 | Build acceptance: the full suite without `budget` | 5 minutes | `.venv/bin/python -m pytest -n auto -q`, then `.venv/bin/python -m pytest -m serial -q` |
 | Full-size budgets | announced (about 25 minutes before PG3b's bulk writes; PG5 measures it again) | `.venv/bin/python -m pytest -m budget -q`, a release's acceptance only |
 
+### Backend: journey tests, unit tests and selection by change (H4b)
+
+Delivered 2026-10-02 for the [testing strategy](STRATEGY.md); H4e makes it the default selection.
+Until then the group selection below still chooses a package's checks.
+
+- **Journey tests** live in `backend/tests/journeys/` and carry `@pytest.mark.journey("J02",
+  "J02.2")` with the [journeys and variants](../product-functionality/USER_JOURNEYS.md) they walk.
+  An unknown or retired ID, or a journey test without one, fails collection. `--journey J02` runs
+  the tests that walk J02 or any of its variants; `-m journey` runs every journey test.
+- **Unit tests** live in `backend/tests/unit/` in folders that mirror the code they test:
+  `tests/unit/engine/records/test_rules.py` tests `app/engine/records/rules.py`
+  (`test_rules__<topic>.py` splits one), and `tests/unit/harness/` tests the harness modules in
+  `tests/`. A unit test that mirrors no module fails collection.
+- **Selection by change** (`pytest-testmon`): `--testmon` records which code each test executes
+  in `backend/.testmondata` and, on the next run, selects the tests whose code changed. Testmon
+  turns its selection off under `-m` unless `--testmon-forceselect` is given. Coverage runs on the
+  C tracer for this (`COVERAGE_CORE=ctrace`, set in `conftest.py`): Python 3.14's default
+  `sys.monitoring` core lost the code that runs in the TestClient's request threads.
+- **What a change requires:** `.venv/bin/python -m tests.affected` (or `… tests.affected <commit>`)
+  lists each changed file with what it selects and prints the commands. Code goes to testmon; what
+  coverage cannot see selects its readers: a migration, the starter model, seed code, the test
+  server and the harness (`conftest.py`, `layout.py`) select everything; the journey catalogue and
+  the API inventory select the tests that read them; documentation and the frontend select nothing
+  here.
+- **Trace report:** `.venv/bin/python -m tests.journey_trace` (`--modules` for the full lists)
+  reads the testmon data and the journey markers: the modules each journey reaches, the modules no
+  journey reaches, the modules no test reaches, and the declaration-only modules no trace can see.
+
+```sh
+cd backend && .venv/bin/python -m tests.affected        # what this change requires
+.venv/bin/python -m pytest -n auto --testmon -q         # the tests whose code changed
+.venv/bin/python -m pytest -m serial --testmon --testmon-forceselect -q
+.venv/bin/python -m tests.journey_trace                 # code by journey; code no test reaches
+```
+
 ### Backend: pytest markers from one manifest
 
 `backend/tests/conftest.py` holds `TEST_GROUPS`, mapping every test module to the contract groups

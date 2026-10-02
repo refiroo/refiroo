@@ -323,13 +323,64 @@ decision.
   and the journeys linked to it. Changes coverage cannot see (the model schema, migrations, the
   starter model, seed code, configuration) select everything that reads them, by rules in the
   execution guide.
-- The trace report (`python -m tests.trace`): from the journey tests' coverage, the modules each
-  journey executes, and the modules no journey reaches.
-- The mutation score of `app/engine` (`mutmut`) measured once as the baseline H4d must not fall
-  below; its run time decides whether it runs per release or per area.
+- The trace report (`python -m tests.journey_trace`): from the journey tests' coverage, the modules
+  each journey executes, and the modules no journey reaches.
+- ~~The mutation score of `app/engine` (`mutmut`) as H4d's baseline.~~ **Dropped 2026-10-02 (user's
+  decision).** Probes showed about 40 s per file to generate mutants (1.5 hours for `app/` before any
+  test runs), several thousand mutants each re-running database tests, and a dozen test files that
+  break when copied. H4d checks each area by breaking the code on purpose instead.
 
 **Exit:** two shown selections, a change to a module many others use and a change to one route,
-each running what the strategy's table says; the trace report and the mutation baseline recorded.
+each running what the strategy's table says; the trace report recorded.
+
+**Delivered 2026-10-02.**
+
+- **Journey marker and layout** (`tests/layout.py`, `conftest.py`): `@pytest.mark.journey(...)` with
+  IDs read from USER_JOURNEYS.md (a retired journey is not one); an unknown ID, or a journey test
+  without one, fails collection; `--journey J02` selects a journey with its variants. `tests/journeys/`
+  and `tests/unit/` are packages, so unit tests may share file names; a unit test must mirror the
+  module it tests (`tests/unit/engine/records/test_rules.py` → `app/engine/records/rules.py`,
+  `tests/unit/harness/` → `tests/`). The flat modules keep `TEST_GROUPS` until H4d moves them.
+  Shown on throwaway files: an unknown ID, a retired one, a missing marker and an unmirrored unit
+  test each refused (exit 4); `--journey J02` selected the J02 test and not the J13.5 one.
+- **The inventory check** `test_api_journeys.py` (`contract`): every operation, query parameter,
+  header, raised error code and setting must be in API_JOURNEYS.md, and every journey it cites must
+  exist. The routes table now names every operation in full. Shown by deleting one route and one
+  code from the inventory: both named, then restored.
+- **Selection by change:** `pytest-testmon` (2.2) as a dev dependency. **Coverage runs on the C
+  tracer** (`COVERAGE_CORE=ctrace`, set in `conftest.py`): on Python 3.14 the default
+  `sys.monitoring` core lost the code run in the TestClient's request threads when testmon switched
+  tests (an API test recorded 5–13 app modules of the 38–66 it ran). `python -m tests.affected`
+  prints what a change requires, with the rules for what coverage cannot see.
+- **The trace report** `python -m tests.journey_trace` (named so as not to shadow the standard
+  library's `trace`): on the full data, 2 modules with functions are reached by no test
+  (`management/schemas/jobs.py`, `management/schemas/queries.py`), 5 declaration-only modules cannot
+  be traced, and no module is reached by a journey test yet (H4c writes them).
+- **Mutation testing dropped** (user's decision): see the struck item above.
+- **Fixed on the way:** the volume measurement (`volume_fixture.measure`) counted the background
+  job worker's statements when its startup sweep fell inside a measured request, which the slower
+  tracer made happen (`test_restructuring_volume::test_planning_reads_level_by_level` failed once);
+  it now leaves out the worker's thread (`worker.THREAD_NAME`).
+- **Found, for H4d:** seven modules route "live" tests through a change set
+  (`ChangeSetTestClient`, see H4d's scope). `test_model_lifecycle::test_draft_crud_compile_and_installation_lifecycle`
+  failed once in the full parallel run under the C tracer and passed in five reruns (alone, in its
+  groups in parallel, and reselected); its failing assertion was not captured (the run's output was
+  filtered, not kept). Candidate, unconfirmed: its whole-table row counts before and after compiling
+  run while the app's job worker sweeps.
+
+**Exit evidence** (selection on the full testmon data; edits behaviour-preserving and reverted):
+a change in `as_utc` (`app/common/time.py`, under every timestamp read) selected 732 of 1,087 tests,
+exactly those whose recorded code includes it; a change in the job-cancel route selected 6 (the
+cancel tests on both models and two concurrency tests).
+
+**Checks:** the full suite once under testmon (parallel part 1,077 passed and 1 failed, the
+restructuring volume test above, in 2 min 51 s; serial part 3 passed), then the tests testmon
+selected after the fix: 676 passed and the lifecycle test failed, then passed when reselected
+(1 passed); the testmon data holds 1,087 tests and no failure. The harness unit tests (10) and the
+inventory check (5) pass; `ruff check app/ tests/`. A first full testmon run on the
+`sys.monitoring` core (1,078 passed, 2 min 18 s) gave incomplete data and was discarded. Not run:
+frontend and browser runners (nothing there changed). Every server the package started was stopped,
+and `mutants/` and the probe logs were deleted.
 
 #### H4c: Journey tests
 
@@ -377,10 +428,22 @@ functions removed; status-only assertions given their error codes. The slow test
 change-set position reads sampled at the edges and around the moved rows, the model query's
 criteria checked in full in live data and by a representative set per other context, the matrix
 recheck once per module except in the modules that test matrix maintenance, and one application
-start per module where startup is not under test. Delivered area by area, most time first.
+start per module where startup is not under test. Found in H4b: seven modules (`test_api`,
+`test_attributes`, `test_relations`, `test_translations`, `test_cascade_delete`,
+`test_query_foundations`, `test_typed_table_queries`) replace the test client with
+`ChangeSetTestClient`, which sends every record and relationship call through a change set, so at
+least 75 tests named as live operations never reach live code; their live checks are rebuilt or
+traced to the tests that do reach it.
 
-**Exit:** no test outside `tests/journeys/` and `tests/unit/`; the removal list complete; the
-mutation score at or above the H4b baseline, which shows that nothing the old tests detected was lost.
+**Delivered in very small slices (user's decision, 2026-10-02):** one area at a time, each slice
+small enough to review on its own. **Checked by breaking the code:** before an area's old tests are
+removed, a handful of faults are planted on purpose in the area's critical rules (a uniqueness
+check, a cascade, a version claim, a cardinality limit, …); the tests that remain must fail on each,
+and the slice's record lists every planted fault and the test that caught it.
+
+**Exit:** no test outside `tests/journeys/` and `tests/unit/`; the removal list complete; every
+area's planted faults caught by the tests that remain, which shows that nothing the old tests
+detected was lost.
 
 #### H4e: Rules and acceptance
 
@@ -395,7 +458,7 @@ its expected time.
   selected run under 1 minute;
 - every test is a journey test with its marker or a unit test under `tests/unit/`;
 - every engine module is reached by a journey, or listed with a decision;
-- the mutation score at or above the H4b baseline.
+- every area's planted faults caught (H4d's records).
 
 **Evidence (each slice):** counts and times before and after, the selected run's command and
 result, what was not run and why, and every server, clone and log the slice started stopped or
@@ -411,8 +474,8 @@ Measured before H1 and after each package, on the same machine:
 - no package's local checks wait for a full-size budget, and they stay within 2 minutes (H3, H4);
 - H4's targets: at most 550 backend cases, the full suite within 1 min 30 s, a typical package's
   selected run under 1 minute;
-- every removed check names the test that still covers it, and the mutation score does not fall
-  (H4). Until 2026-10-02 this read "no test removed or weakened"; the audit showed that many tests
+- every removed check names the test that still covers it, and every area's planted faults are
+  caught by the tests that remain (H4). Until 2026-10-02 this read "no test removed or weakened"; the audit showed that many tests
   were written from the code and covered nothing a journey or unit test does not.
 
 ## Not changed

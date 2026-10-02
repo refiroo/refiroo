@@ -54,6 +54,8 @@ IDLE_SECONDS = 60.0
 RETRY_SECONDS = 2.0
 REMINDER_SECONDS = 60.0
 SWEEP_SECONDS = 3600.0
+# The worker thread's name, which a measurement of one request's statements leaves out.
+THREAD_NAME = "rdm-job-worker"
 _ITEM = TypeAdapter(BatchItem)
 
 
@@ -261,7 +263,7 @@ class JobWorker:
 
     def start(self) -> None:
         self._stopping.clear()
-        self._thread = threading.Thread(target=self._loop, name="rdm-job-worker", daemon=True)
+        self._thread = threading.Thread(target=self._loop, name=THREAD_NAME, daemon=True)
         self._thread.start()
 
     def stop(self, timeout: float = 30.0) -> None:

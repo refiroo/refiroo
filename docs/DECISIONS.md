@@ -1064,7 +1064,7 @@ why an action is unavailable. It never edits them.
 **Split deployment.** Because each group is a separate startup capability, several API instances may
 share one database with different exposure, for example an internal administration instance with
 model administration enabled and a public instance with both administration flags off. See
-[Architecture](ARCHITECTURE.md#deployment-capabilities-and-split-deployments) for what holds today and
+[Architecture](ARCHITECTURE.md#deployment-topology) for what holds today and
 the open caveats.
 
 ### Consequences
@@ -1415,7 +1415,7 @@ changed, whose edits had been audited earlier as change-set edits.
 
 **Status:** Accepted, 2026-09-29 (Base 0.9 design; decides D6, D7, C-D14). The model language is in
 [APPLICATION_MODEL.md](APPLICATION_MODEL.md#effective-period-effectiveperiod), reads in
-[INTEGRATION_API Q4](INTEGRATION_API.md#q4-effective-periods-and-asof).
+[INTEGRATION_API Q4](INTEGRATION_API.md#q4-effective-periods-and-asof-d6).
 
 ### Motivation
 

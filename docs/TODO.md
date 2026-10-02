@@ -18,7 +18,7 @@ then F1. PG1, PG2, H2 and H3 are delivered (2026-10-01), and PG3 and
 decided in memory and written in bulk, PG-D12–PG-D17) on 2026-10-02; the order from here is
 [H4](TEST_HARNESS_PLAN.md#h4-testing-consolidation) (the testing consolidation, H4a–H4e, planned
 2026-10-02 on the [testing strategy](testing/STRATEGY.md); H4a delivered and approved the same day,
-decisions D-1–D-7 taken, [API_JOURNEYS](testing/API_JOURNEYS.md#decisions)), then PG4 and PG5. See [Next — 0.9](#next--09).
+decisions D-1–D-7 taken, H4b delivered the same day, [API_JOURNEYS](testing/API_JOURNEYS.md#decisions)), then PG4 and PG5. See [Next — 0.9](#next--09).
 
 - **Revisit: large batch deletes (PG-D18, noted 2026-10-01).** Batch delete items stay on the
   per-item path in PG3b, and neither that nor a set-based copy of it is the right answer. Large

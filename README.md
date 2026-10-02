@@ -23,109 +23,70 @@ declares differ only because the example declares them that way; see
 This project is delivered by LLM coding agents, Claude Code and ChatGPT Codex, under human
 supervision.
 
-## Current state — Base 0.8 released
+## What it does
 
-- Global reusable attribute types and object-type attribute bindings
-- Forward/reverse typed relations, features and allowed object-type relation triples
-- Immutable model releases installed into relational metadata tables
-- Persisted, optimistic-concurrency model drafts and atomic immutable release installation
-- Compatibility-gated release activation with runtime-state concurrency and lifecycle audit
-- Side-effect-free model validation with stable diagnostics, key-based release diff and bounded
-  runtime-data compatibility analysis
-- Stable workspace, object and relation identities with workspace-level publication boundary
-- Separately stored typed attribute values—text, integer, decimal, boolean, date, datetime and JSON
-- Typed object relations, automatic parent relations and hierarchy cycle protection
-- Relation cardinality checks and audit events
-- Cursor pagination with explicit limits and optimistic concurrency
-- React application/view navigation, searchable hierarchy explorer and stable object routes
-- Catalogue-backed workspace selection with a concurrency-protected default, searchable bounded
-  discovery, URL-stable keys and read-only retired scopes
-- Registry-driven collection views and composable object details with main/side panels
-- Reusable attribute, child, relation, table and hierarchy panels
-- Accessible confirmations, structured mutation errors and optimistic-concurrency recovery
-- Generic object, attribute, relation and translation CRUD as one contract; normal writes are live
-  and an explicitly selected change set is optional; no per-record lifecycle
-- Live active data writes (ADR-026): the active workspace is live-writable for **data** —
-  record writes no longer require a change set (`changeSetId` optional; omitted → direct live
-  write, immediate and audited, no publication). The model stays immutable on an active
-  workspace; change sets remain the design playground; publishing delta-merges over live content
-- Complete browser journeys for live CRUD, optional change sets, newest-first immutable history, historical
-  change set sources, truthful publication withdrawal and conflict reconciliation (WP9)
-- Composed release validation with real-browser and backend evidence (WP10)
-- Frontend redesign (UI-01–UI-06): compact navigation, focused collections, record inspector, inline
-  field editing, resizable panels, display preferences and refined change set presentation
-- Cross-application relationship lookup with server-side search and cursor pagination
-- Optional Domain/Codelist-to-System Value representations that preserve the separate system hierarchy
-- Translation CRUD with generic Domain, Codelist and Master Value targets, atomic required bindings,
-  and active Language-scoped uniqueness
-- A global model workbench for installed-release inspection and export, plus capability-gated JSON
-  draft validation, comparison, installation and activation
-- Schema 0.6 `mappingGrid` views: live and change set mapping coverage, candidate search, version-bound
-  target details and atomic mapping replacement with relation-set concurrency (ADR-022)
-- One contextual application browser with table and mapping lenses, direct-parent scope, typed facets
-  and mapping coverage filters (ADR-029)
-- Change sets on a chosen model release, so one draft can prepare a new release while live data
-  stays on the active one (ADR-028)
-- Release technical details and earlier-release → selected-release semantic comparison
-- Dark mode, automated accessibility (axe) and visual-regression gates
-- Collections at any size (ADR-030): cursor and position paging, continuous scrolling in both
-  directions, totals and jumps by page, value, start or end, indexed search, and a sidebar tree that
-  loads by parent, in live, change sets and publications
-- One name per concept (workspace, live, change set, publication) and a Workspaces screen to create,
-  rename, retire, reactivate, delete and choose the default workspace (ADR-031)
-- Schema 0.7 `relationMatrix` views: rows against the records of an ancestor type, with cell states
-  across the whole list and create, edit, link and unlink from a cell (ADR-033)
-- Schema 0.7 `tree` views: a lazily loaded hierarchy lens with add child, rename, availability and move
-  by dialog or by drag and drop, including to the top level
-- Change set review: every added, changed and removed record and relationship with before and after
-- Hierarchy restructuring in a change set (ADR-034): a move that changes a record's type, change type,
-  insert or remove a level, with a preview; records keep their IDs, and what a new type has no place
-  for is kept in history and offered back
-- Docker development environment and continuous-integration workflow
+- **Define applications in a model.** Record types, typed fields, hierarchies, relationships and
+  views come from a versioned JSON model, installed as an immutable release and activated after a
+  compatibility check.
+- **Maintain reference data in the browser.** Find, filter and page through collections of any size,
+  edit records in place, and work in tables, mapping grids, relation matrices and trees.
+- **Edit live, or prepare changes together.** An ordinary correction is live when saved; a change set
+  prepares coordinated changes, shows a review of everything it changes and publishes them in one step.
+- **Map and translate.** Connect system values to their shared meaning and fill translation gaps
+  across a whole list.
+- **Reshape hierarchies.** Move records, change their type, insert or remove a level, with a preview.
+- **Integrate through the API.** Everything the browser does is in the API, plus queries across
+  types, business-date (`asOf`) reads and bulk writes run as resumable jobs.
 
-Base 0.5 supplies the bounded query and model-lifecycle foundations. Base 0.6 delivers daily live
-operations and optional coordinated design. Base 0.7 adds core mapping: a steward resolves unmapped,
-differently mapped and ambiguous rows in a configured mapping lens, live or in a change set, with conflicts
-reported rather than overwritten; and prepares a schema change in a change set pinned to a candidate release
-while live work continues. See the [mapping API contract](docs/API.md#product-07-mapping-api-wp-4-and-wp-5-delivered)
-and the [0.7 plan](docs/BASE_0_7_IMPLEMENTATION_PLAN.md). Base 0.8 makes every collection work at any
-size and adds the relation matrix (translation and mapping coverage), the hierarchy editor and
-hierarchy restructuring; see the [0.8 plan](docs/BASE_0_8_IMPLEMENTATION_PLAN.md). Integration-grade
-APIs follow in 0.9.
+The [product overview](docs/PRODUCT.md) describes these capabilities and what is planned.
 
-Start with the [product functionality guide](docs/product-functionality/README.md) for available/planned
-functions, stories and realistic acceptance scenarios. The [delivery queue](docs/TODO.md) traces
-the 0.9 work. Historical schema replacement with preview and explicit loss confirmation is a
-planned 0.11 migration, not a current force action.
+## Status
 
-## Run with Docker
+Base 0.8 is released (2026-09-29). Base 0.9, integration-grade APIs, is in progress; its interim
+release 0.9.0-alpha.1 moves the engine to PostgreSQL. See the [roadmap](docs/ROADMAP.md), the
+[project status](docs/PROJECT_STATUS.md) and the [changelog](CHANGELOG.md).
+
+The engine is not yet for production use: authentication arrives in 0.12, and every API is
+unauthenticated until then.
+
+## Technology stack
+
+| Area | Technology |
+| --- | --- |
+| Backend | Python 3.14, FastAPI (on Starlette) served by Uvicorn, Pydantic 2 for model and API contracts |
+| Persistence | SQLAlchemy 2, Alembic migrations, psycopg 3 |
+| Database | PostgreSQL 17 with ICU root collation; the only supported database since 0.9.0-alpha.1 |
+| API description | OpenAPI generated by FastAPI and locked in tests; API reference page at `/docs` rendered by [Scalar](https://github.com/scalar/scalar) 1.72.2 (MIT), bundled so it works offline |
+| Frontend | React 19 and TypeScript, built and served in development by Vite; Node 22 |
+| UI components | React Aria Components (behaviour only, behind repository-owned wrappers), Lucide icons, plain CSS tokens; no UI kit or CSS framework |
+| Backend tests | pytest with pytest-xdist, httpx for API calls |
+| Frontend tests | Vitest with jsdom and Testing Library |
+| Browser tests | Playwright (Chromium) runners in `frontend/e2e/`, axe-core accessibility gate, pixelmatch visual regression gate |
+| Code quality | Ruff (backend); ESLint with typescript-eslint and react-hooks, Prettier (frontend) |
+| Delivery | Docker and Docker Compose (`postgres:17-alpine`, `python:3.14-slim`, `node:22-alpine`), GitHub Actions CI |
+
+## Quick start
+
+### With Docker
 
 ```bash
 docker compose up --build
 ```
 
-Open:
-
 - UI: http://localhost:5173
-- API reference: http://localhost:8000/docs (Scalar, works offline; see [API.md](docs/API.md#api-reference-page-base-09-v1))
+- API reference: http://localhost:8000/docs
 - Model: http://localhost:8000/api/v1/model
 
-## Run without Docker
+### Without Docker
 
-PostgreSQL 17 (the engine's only database since 0.9.0-alpha.1):
+PostgreSQL 17, from Homebrew's binaries (never started with `brew services`):
 
 ```bash
-brew install postgresql@17    # the binaries only: never start it with `brew services`
-scripts/postgres.sh start     # creates backend/.postgres/ on first use and prints DATABASE_URL
+brew install postgresql@17
+scripts/postgres.sh start     # prints DATABASE_URL
 ```
 
-`scripts/postgres.sh stop` stops it, `status` reports it and `backup` writes a `pg_dump` file to
-`backend/.postgres/backups/`. Nothing starts at login.
-
-Backend:
-
-Python 3.14 is the supported version (see `.python-version` and `backend/Dockerfile`); the package
-declares `requires-python >= 3.14`. Python 3.12 compatibility is not maintained.
+Backend (Python 3.14):
 
 ```bash
 cd backend
@@ -136,7 +97,7 @@ export DATABASE_URL=postgresql+psycopg://postgres@localhost:54320/rdm
 uvicorn app.main:app --reload
 ```
 
-Frontend:
+Frontend (Node 22):
 
 ```bash
 cd frontend
@@ -144,121 +105,42 @@ npm install
 npm run dev
 ```
 
-Run the frontend test suite with `npm test`.
+Settings, capability flags, upgrades and backups are in [OPERATIONS.md](docs/OPERATIONS.md). How to
+run the tests is in the [test execution guide](docs/testing/EXECUTION_GUIDE.md).
 
-`DATABASE_URL` is required and must name a PostgreSQL database whose default collation is the ICU
-root collation `und` (language-independent Unicode order; `scripts/postgres.sh` creates it so, and
-for another server use `CREATE DATABASE … TEMPLATE template0 LOCALE_PROVIDER icu ICU_LOCALE 'und'
-LOCALE 'C'`). The role needs the `pg_trgm` extension, which startup creates when it may. Startup
-refuses a missing or non-PostgreSQL URL, another collation, a missing `pg_trgm` and an unknown
-schema revision, each with what to do; existing SQLite databases are carried over by a copy command
-(0.9.0-alpha.1, PG4). Backend tests start their own private server; see
-[the execution guide](docs/testing/EXECUTION_GUIDE.md). The model defaults to `model/rdm-starter.json`. Set `RDM_CURSOR_SIGNING_KEY` to a deployment-specific
-secret so opaque pagination cursors remain verifiable across restarts. Without it, the process
-generates an ephemeral key and cursors issued before a restart become invalid.
+## Documentation
 
-The API reference at `/docs` loads its Scalar script from the copy bundled with the engine, so it works
-without internet access. Set `RDM_API_REFERENCE_SCRIPT=cdn` to load the same pinned version from a
-CDN instead.
-
-Model-administration mutations are not registered by default. Set
-`MODEL_ADMIN_MUTATIONS_ENABLED=true` only in the supported single-process administration deployment
-to enable draft CRUD, draft compilation, release installation and guarded activation. Set
-`WEB_CONCURRENCY=1` explicitly when configuring a worker count; startup rejects mutation enablement
-with multiple workers until cross-process release propagation exists. Installed-release reads, diff
-and inline validation remain available without the flag.
-
-Workspace administration is registered by default until authentication exists. Set
-`WORKSPACE_ADMIN_MUTATIONS_ENABLED=false` on an API exposed outside a trusted environment unless an
-external access-control layer protects it. The flag removes workspace create, rename, retire, delete and
-default-switch routes; it is a deployment capability, not caller authorization. Workspace discovery
-and the change-set workflow (create, edit, validate, publish, discard, and publication withdrawal)
-remain available, retired workspaces remain readable, and all runtime mutations in them are rejected.
-With the flag on, the browser's **Workspaces** screen (header, beside **Models**) lists, creates,
-renames, retires, deletes and sets the default workspace; with it off, the screen is read only and names the
-setting.
-
-Bulk writes run as jobs (`POST /api/v1/batches`, read back through `/api/v1/jobs`). Job creation is
-registered by default; `INTEGRATION_JOBS_ENABLED=false` removes it while job reads remain. The limits
-are settings reported by `GET /api/v1/capabilities`: `BATCH_MAX_ITEMS` (1000), `BATCH_MAX_BYTES`
-(5 MB), `ATOMIC_JOB_MAX_ITEMS` (10000) and `JOB_RETENTION_DAYS` (7). A batch is one transaction.
-
-A batch sent with `run: background` (up to `BACKGROUND_JOB_MAX_ITEMS`, 1,000,000 items, in a body of
-at most `BATCH_BACKGROUND_MAX_BYTES`, 50 MB) is queued and answered with `202`. A worker thread in
-the API process runs it in chunks of `JOB_CHUNK_ITEMS` (500), each committing its changes, outcomes
-and progress together; `POST /api/v1/jobs/{jobId}/cancel` stops it at the next chunk. The worker runs
-only with `INTEGRATION_JOBS_ENABLED` on and a healthy model, and expires finished jobs past their
-retention every hour.
-
-**Restart behaviour.** A graceful stop finishes the running chunk and releases the worker's lease,
-so the next start resumes the job at once. After a crash or kill, the chunk in progress rolls back,
-and the job resumes at its first item without an outcome once its lease (`JOB_LEASE_SECONDS`, 120)
-expires: no item is applied twice or skipped. How other writes behave beside a running job on
-PostgreSQL is measured in 0.9.0-alpha.1 (PG3).
-
-### Model releases and rollback
-
-`RDM_MODEL_PATH` (or `model/rdm-starter.json` by default) is bootstrap input, not the active-model
-setting. Startup validates and installs missing bootstrap content, but an existing database keeps the
-release selected in `model_runtime_state`. Every request resolves that database-selected immutable
-release; changing the file alone does not activate it.
-
-If an existing database still selects a schema 0.4 release, startup keeps the API in an unhealthy
-state instead of emitting an exception traceback. The startup log names the selected and supported
-schemas and prints the exact offline transition command for the configured model path. Stop every
-process using that database, run the displayed command in the same configured environment, and then
-restart the API; `/health` returns HTTP `503` until the transition succeeds.
-
-The administration lifecycle is deliberately staged: save editable JSON as a versioned draft,
-validate/compile it without persistence side effects, install it as an immutable inactive release,
-then activate it with the current runtime version and active-release ID. Activation is refused when
-stored runtime data is incompatible.
-
-Before upgrading, stop writers and back up the database with the database engine's consistent backup
-procedure. Run Alembic migrations before starting the new application. To roll back model content,
-activate a previously installed compatible release through the Models workbench or activation API;
-do not edit installed JSON or point `RDM_MODEL_PATH` at an older file. Application/schema rollback is
-a separate operational change: restore the matching pre-upgrade database backup before running older
-code because Alembic downgrades and automatic runtime-data transformations are not a supported
-production rollback path. See `docs/API.md` for the activation contract and `docs/ARCHITECTURE.md` for
-the detailed runbook.
-
-Run database migrations through the environment-aware operator command:
-
-```bash
-cd backend
-.venv/bin/python -m app.cli.database_upgrade
-```
-
-If a migration cannot complete safely, startup does not emit a framework traceback or continue as if
-the schema were usable. The process enters maintenance mode, `/health` returns HTTP `503`, and the log
-reports the database without credentials, current and target revisions, the failure reason, safe
-backup/retry instructions, and what to include in an escalation. PostgreSQL runs a migration's DDL in
-its transaction, so a migration that fails or is interrupted leaves the database at its previous
-revision.
-
-## Repository guide
-
-| Path | Purpose |
+| Document | Read it for |
 | --- | --- |
-| `model/rdm-starter.json` | Example model: three applications showing the engine's capabilities ([explained](docs/EXAMPLE_MODEL.md)) |
-| `backend/app/models/schema.py` | Executable model contract and cross-reference validation |
-| `backend/app/models/database.py` | Metadata, object, attribute, relation and audit persistence |
-| `backend/app/routers` | Model and runtime API routes |
-| `backend/app/services` | Generic object, attribute and relation behavior |
-| `backend/app/migrations` | Versioned Alembic database migrations |
-| `frontend/src/App.tsx` | Model-driven application and form renderer |
-| `docs/PROJECT_STATUS.md` | Current implementation and next work |
-| `docs/ROADMAP.md` | Sequenced product milestones and release criteria |
-| `docs/MODEL_AUTHORING.md` | 0.10 design: one editor for the model and the import mapping, spreadsheet onboarding |
-| `docs/COMPOSABLE_DOMAINS.md` | Unscheduled direction: MDM-lite and catalogues modelled from generic capabilities |
-| `docs/TODO.md` | Prioritized active delivery queue |
-| `docs/BASE_0_5_IMPLEMENTATION_PLAN.md` | Ordered Base 0.5 coding handoff and acceptance criteria |
-| `docs/BASE_0_6_IMPLEMENTATION_PLAN.md` | Ordered Base 0.6 decisions, work packages and acceptance criteria |
-| `docs/UI_MODEL.md` | UI semantics, interaction priorities and usability direction |
-| `AGENTS.md` | Authoritative instructions for coding agents |
+| [PRODUCT.md](docs/PRODUCT.md) | What the product does, for whom, and what is planned |
+| [Product functionality](docs/product-functionality/README.md) | Capability catalogue, user stories, journeys and acceptance scenarios |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the engine is built and why |
+| [OPERATIONS.md](docs/OPERATIONS.md) | Configuring, running, upgrading and recovering it |
+| [API.md](docs/API.md) | Management API contracts |
+| [APPLICATION_MODEL.md](docs/APPLICATION_MODEL.md) | The model language |
+| [EXAMPLE_MODEL.md](docs/EXAMPLE_MODEL.md) | The bundled example applications |
+| [ROADMAP.md](docs/ROADMAP.md) | Releases and their scope |
+| [PROJECT_STATUS.md](docs/PROJECT_STATUS.md) | Where delivery stands |
+| [DECISIONS.md](docs/DECISIONS.md) | Architecture decision records |
+| [Testing strategy](docs/testing/STRATEGY.md) | How the engine is tested |
+| [CHANGELOG.md](CHANGELOG.md) | What changed in each release |
+| [AGENTS.md](AGENTS.md) | Instructions for coding agents |
 
-Before changing the architecture, read `AGENTS.md` and the documents it links.
+## Repository layout
+
+| Path | Contents |
+| --- | --- |
+| `model/` | Example models: `rdm-starter.json` ([explained](docs/EXAMPLE_MODEL.md)) |
+| `backend/app/models/` | The model contract (`schema.py`) and the persistence schema |
+| `backend/app/engine/` | The domain: model compilation, records and write rules, change sets, reads, jobs |
+| `backend/app/management/` | The management API (`/api/v1`): routes, schemas, presenters |
+| `backend/app/common/` | Paging, cursors and helpers that know neither the model nor the API |
+| `backend/app/migrations/` | Alembic database migrations |
+| `backend/tests/` | Backend tests |
+| `frontend/src/` | The browser application ([module layout](docs/FRONTEND_STRUCTURE_REFACTOR.md)) |
+| `frontend/e2e/` | Browser runners, accessibility and visual regression gates |
+| `scripts/postgres.sh` | Development PostgreSQL server |
+| `docs/` | Product, architecture, operations, API and planning documents |
 
 ## Source-material boundary
 

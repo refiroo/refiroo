@@ -26,17 +26,18 @@ record the gap below instead of silently choosing the most convenient interpreta
 | GAP-07 | Component and service tests are described as functionality evidence, but no composed browser proof is supplied here. | Attach actual executed scenarios, results, skips and limitations before changing availability to browser validated. | 0.6 WP10; all browser stories |Ok. the validations and testing have to be extended. |
 | GAP-08 | A change set (data) and a model draft (application definition) are different tools. Some “design playground” wording suggests editing both together today. | Keep data coordination separate from definition release management. Treat coordinated schema/data migration and workspace-specific model selection as 0.11 work. | All lifecycle plans; US-W01–W08, US-P07 | Ok, accepted, these have to be different concepts. The documentation has to be upgraded accordingly. |
 
-Read-only evidence inspected for this update:
+Read-only evidence inspected for this update (links repointed to the modules' current locations; the
+findings describe the code as it was on 2026-09-08):
 
-- [Change set creation and merge service](../../backend/app/services/change_sets.py):
+- [Change set creation and merge service](../../backend/app/engine/change_sets/):
   `create_draft`, `effective_change_set_membership`, `_merge_draft_over_live`, `retire_publication`.
-- [Workspace routes](../../backend/app/routers/workspaces.py): change set creation forwards only the selected
+- [Workspace routes](../../backend/app/management/routers/workspaces.py): change set creation forwards only the selected
   source publication; it does not add a current-live snapshot operation.
-- [Record service](../../backend/app/services/objects.py): `create_object_record` already accepts
+- [Record service](../../backend/app/engine/records/objects.py): `create_object_record` already accepts
   permitted initial relationships together with fields and containment, then commits once. The
   single-create acceptance scenario reuses that contract; it does not propose an arbitrary
   multi-record transaction interface. Fresh failure-path proof is still needed at release validation.
-- [ADR-026](../DECISIONS.md#adr-026--active-workspaces-are-live-writable-for-data-change sets-are-the-design-path):
+- [ADR-026](../DECISIONS.md#adr-026--active-workspaces-are-live-writable-for-data-drafts-are-the-design-path):
   direct live maintenance and the current-live starting-point requirement.
 - [Object detail](../../frontend/src/features/objects/ObjectDetail.tsx),
   [application shell](../../frontend/src/app/AppShell.tsx) and

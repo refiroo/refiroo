@@ -26,3 +26,6 @@ a local folder
 backend/.test-postgres/
 # The development PostgreSQL server's data directory (scripts/postgres.sh)
 backend/.postgres/
+
+# Test selection data (pytest-testmon, H4b)
+backend/.testmondata*

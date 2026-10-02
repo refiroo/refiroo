@@ -7,7 +7,7 @@ steward, operator, model author), not by the built-in UI. What maps to no journe
 in two ways without a reason, is listed under [Decisions](#decisions).
 
 Built from the OpenAPI document of `create_app()` (81 operations, model administration enabled) and
-the codes the backend raises (139). H4b adds a check that keeps this file in step with both: a route,
+the codes the backend raises (139). `tests/test_api_journeys.py` (H4b) keeps this file in step with both: a route,
 parameter or code missing here fails it.
 
 ## Shared parameter groups
@@ -28,7 +28,9 @@ parameter or code missing here fails it.
 
 ## Routes
 
-| Route | Journeys |
+Every operation, by method and path (under `/api/v1` except `/health`, `/docs` and `/openapi.json`).
+
+| Operation | Journeys |
 | --- | --- |
 | `GET /health` | J12 |
 | `GET /docs`, `GET /openapi.json` | J20 |
@@ -36,22 +38,22 @@ parameter or code missing here fails it.
 | `GET /model`, `GET /model/placements` | J20, J20.1, J03, J14 |
 | `GET /model-runtime-state` | J08 (fresh version for activation), J20.2 |
 | `POST /model-validations` | J08.1 |
-| `GET /applications`, `/attribute-types`, `/object-types`, `/relation-types` and each `/{key}` | J20 |
+| `GET /applications`, `GET /applications/{key}`, `GET /attribute-types`, `GET /attribute-types/{key}`, `GET /object-types`, `GET /object-types/{key}`, `GET /relation-types`, `GET /relation-types/{key}` | J20 |
 | `GET /object-type-relations` (`fromObjectType`, `toObjectType`) | J20, J13 |
 | `GET /model-releases` (`releaseKey`, `active`), `GET /model-releases/{id}` (`includeModel`) | J08, J08.7, J20.2 |
 | `GET /model-releases/{id}/activations` | J08.8 |
 | `GET /model-releases/{id}/diff` (`againstReleaseId`) | J08.2, J25 |
 | `POST /model-releases/{id}/activation` | J08, J08.3, J08.5, J08.6 |
 | `GET/POST /model-drafts`, `GET/PATCH/DELETE /model-drafts/{id}` | J08 |
-| `POST /model-drafts/{id}/compile`, `/installation` | J08, J25 |
-| `GET /workspaces` (`search`, `status`), `POST /workspaces` | J19, J19.3 |
+| `POST /model-drafts/{id}/compile`, `POST /model-drafts/{id}/installation` | J08, J25 |
+| `GET/POST /workspaces` (`search`, `status`) | J19, J19.3 |
 | `GET/PATCH/DELETE /workspaces/{key}` | J19 |
 | `GET/PATCH /workspace-runtime-state` | J19 (default), J19.1 |
 | `GET/POST /workspaces/{key}/change-sets` | J05, J05.1–J05.3, J18 |
 | `GET/PATCH/DELETE /change-sets/{id}` | J05.5 |
 | `PATCH /change-sets/{id}/model-release` | J18, J18.4 |
-| `GET /change-sets/{id}/object-changes` (`kind`, `objectTypeKey`), `/relation-changes` (`kind`, `relationTypeKey`, `containment`) | J17 |
-| `POST /change-sets/{id}/restructurings/preview`, `/restructurings` | J15 |
+| `GET /change-sets/{id}/object-changes` (`kind`, `objectTypeKey`), `GET /change-sets/{id}/relation-changes` (`kind`, `relationTypeKey`, `containment`) | J17 |
+| `POST /change-sets/{id}/restructurings/preview`, `POST /change-sets/{id}/restructurings` | J15 |
 | `POST /change-sets/{id}/validation` | J05.4 |
 | `POST /change-sets/{id}/publication` | J05, J06, J18 |
 | `GET /workspaces/{key}/publications`, `GET /publications/{id}` | J07, J07.1 |
@@ -67,14 +69,14 @@ parameter or code missing here fails it.
 | `POST /workspaces/{key}/queries/objects` | J22, J23 |
 | `GET/POST/PATCH/DELETE /objects/{type}/{id}/attributes/{key}` | J01.5, J02.4 |
 | `POST /relations`, `PATCH/DELETE /relations/{id}` (`expectedRelationSetVersion`, `relationSetDirection`) | J13, J13.5, J16 |
-| `GET /relations` (`objectId`, …), `GET /relations/{id}` | J01, J22.3 |
+| `GET /relations` (`objectId`), `GET /relations/{id}` | J01, J22.3 |
 | `GET /workspaces/{key}/mapping-coverage` (`state`) | J10 |
-| `GET /workspaces/{key}/mapping-candidates`, `/mapping-targets` (`sourceObjectId`, `mappingVersion`) | J10, J10.3 |
+| `GET /workspaces/{key}/mapping-candidates`, `GET /workspaces/{key}/mapping-targets` (`sourceObjectId`, `mappingVersion`) | J10, J10.3 |
 | `PUT /workspaces/{key}/mappings` | J10 |
 | `GET /workspaces/{key}/mappings` | removed in H4c (D-1): the same list as `/workspaces/{key}/relations` |
-| `GET /workspaces/{key}/relations` | J22.2, J10 (a mapping view's edges, with `applicationKey` and `viewKey`) |
+| `GET /workspaces/{key}/relations` | J22.2, J10 (a relationship view's edges, with `applicationKey` and `viewKey`) |
 | `GET /workspaces/{key}/relation-matrix` (`columnIds`, `columnCursor`, `columnPageSize`, `state`) | J16 |
-| `GET /workspaces/{key}/relation-matrix/containers`, `/link-candidates` (`rowId`, `columnId`) | J16 |
+| `GET /workspaces/{key}/relation-matrix/containers`, `GET /workspaces/{key}/relation-matrix/link-candidates` (`rowId`, `columnId`) | J16 |
 | `POST /batches` (`run`: `inline`) | J11 |
 | `POST /batches` (`run`: `background`), `GET /jobs` (`kind`, `state`), `GET /jobs/{id}`, `GET /jobs/{id}/items` (`status`), `POST /jobs/{id}/cancel` | J24 |
 

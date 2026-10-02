@@ -14,6 +14,7 @@ public IDs included. :data:`FULL_SHAPE` is the plan's volume; tests use a scaled
 
 import json
 import random
+import threading
 import time
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -29,6 +30,7 @@ from sqlalchemy.orm import Session
 
 from app.engine.indexes import matrix_states
 from app.engine.indexes.snapshot_values import insert_value_rows, release_value_types, value_rows
+from app.engine.jobs.worker import THREAD_NAME as JOB_WORKER_THREAD
 from app.models.database import (
     AttributeValue,
     Base,
@@ -1084,14 +1086,21 @@ def measure(engine: Engine) -> Iterator[RequestCost]:
 
     ``rows_loaded`` counts entities the ORM builds from result rows, which is where whole-set
     loading shows: a bounded page loads a page of rows, a whole-membership read loads the set.
+    The background job worker's statements are not the request's: its sweep and poll after the
+    application starts used to land in a measurement whenever a run was slow enough (H4b).
     """
     cost = RequestCost()
 
+    def counted() -> bool:
+        return threading.current_thread().name != JOB_WORKER_THREAD
+
     def on_execute(*_args: Any) -> None:
-        cost.statements += 1
+        if counted():
+            cost.statements += 1
 
     def on_load(*_args: Any) -> None:
-        cost.rows_loaded += 1
+        if counted():
+            cost.rows_loaded += 1
 
     event.listen(engine, "before_cursor_execute", on_execute)
     event.listen(Base, "load", on_load, propagate=True)

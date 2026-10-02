@@ -1,108 +1,184 @@
-# Product definition
+# Product overview
 
-For the user-facing functionality baseline, realistic stories, acceptance scenarios and product
-roadmap, start with [the product functionality guide](product-functionality/README.md). Its
-[planning handoff](product-functionality/PLANNING_HANDOFF.md) records gaps to reconcile before updating
-technical documentation and implementation plans.
+RDM Engine lets a team define and run its own reference-data applications without building separate
+software for each one. A model describes the kinds of records, their fields, how they connect and how
+they are shown; the engine supplies the screens, the API, validation, history and search.
 
-## Purpose
+For example, a company may call the same delivery method "Collection" in its central list, "PICKUP"
+in its webshop and "Store collection" in its warehouse system. A data steward keeps the shared meaning,
+connects each system's value to it and supplies the translated labels. Other systems then read the
+agreed data instead of keeping lists of their own.
 
-RDM Engine lets teams define and operate reference-data applications without developing a separate
-application for every domain. A JSON model defines the concepts and the interface; the engine supplies
-validated storage, APIs, search, history and reusable UI components.
+This page is the product overview. The [product functionality guide](product-functionality/README.md)
+holds the detailed capability catalogue, user stories, journeys and acceptance scenarios; how the
+engine is built is in [ARCHITECTURE.md](ARCHITECTURE.md).
 
-## Product statement
+## Who it is for
 
-An open-source, model-driven engine for building reference-data applications, mappings and integration
-APIs without writing application-specific code.
-
-## Intended users
-
-- Data owners maintaining canonical codes and names
-- Integration teams translating values between systems
-- Local data stewards maintaining translations and availability
-- Developers consuming reliable, scalable reference-data APIs
-- Product administrators defining new RDM applications through configuration
-
-## Product capabilities and delivery channels
-
-The product provides a reusable definition of applications, record types, typed fields, relationships
-and views. Data owners use that definition to organize codes, maintain representations and connect
-values according to the selected model. Every application gets the same capabilities; the example
-applications (RDM Master, RDM Systems, RDM Translations) show one way to configure them and are never
-special runtime modules or a required shape ([example model](EXAMPLE_MODEL.md)). The browser composes a model-defined application from contextual collections
-and supported task lenses; it does not reserve navigation or renderer branches for the starter model.
-
-| Capability | Current development position | Product coverage |
+| Who | Typical job | What they get |
 | --- | --- | --- |
-| Model-defined navigation, tables, search and record inspection | Browser available in every workspace, including record detail in a non-default workspace | F01–F04, US-D01–D05, US-D13 |
-| Live record, field, parent, relationship and basic translation maintenance | API and Base 0.6 browser authoring available; context limitations tracked in the functionality catalogue | F05–F11, US-D06–D14, US-L01–L02 |
-| Optional coordinated data changes | Current-live/history change set sources and delta merge available; mapping browser acceptance remains 0.7 work | F12–F14, US-W01–W08 |
-| Inspect, check, install and activate application definitions | JSON workbench and release APIs present; installation and activation are separate | F15, US-P01–P04, US-P06 |
-| Stable paged integration reads | Available; larger exchange and advanced query planned for 0.9 | F16, US-I01–I09 |
-| Contextual collections and specialist lenses | Unified application browser and mapping lens 0.7; relation matrix and tree lenses 0.8, available to any application | US-D01–D05, US-M01–M04, US-L03–L04, US-H01–H02 |
-| Authenticated shared production operation | Production hardening and staged model rollout planned for 0.11; authentication and authorization for 0.12 | US-S01, US-O03–O06, US-P07 |
-| Spreadsheet onboarding and structured model authoring | Planned for 0.10: one editor for the model and the import mapping, with additive and unreleased changes ([design](MODEL_AUTHORING.md)); changes to released structure and reusable definitions in 1.0, retaining existing validation and release protections | US-P05, US-P08–P10 |
+| Data owner or steward | Correct a code, add a value, organise a list | Colleagues use accurate shared data at once |
+| Mapping steward | Connect a system's value to its shared meaning | Systems exchange the intended equivalent |
+| Localisation steward | Supply and correct translations | People see the right label in their language |
+| Integration team | Read, load and synchronise reference data | Systems agree without manual reconciliation |
+| Workspace administrator | Set up working areas and retire old ones | People know where to work and what is read only |
+| Model administrator | Define a new domain or change its rules | The application evolves without custom code |
+| Service operator | Run, upgrade and recover the service | People can rely on the service and its data |
 
-“API available” does not mean a complete browser task. Current top-level views support strict tables;
-a form used for record editing is not an implemented configurable top-level `form` view. Schema 0.6
-mapping-grid configuration, live/change set coverage, target-detail, candidate APIs (WP-4) and atomic
-mapping replacement (WP-5) are delivered. WP-8A/WP-8B and WP-14 implement the contextual mapping
-lens and unified browser (committed 2026-09-15); composed story acceptance remains WP-9.
-Cascade deletions advance mapping
-tokens (WP-10A), and publishing refuses divergent live sets touched by staged mutable relations
-(WP-10B), preserving the change set and all live content. Schema 0.6 table and mapping declarations are
-composed as lenses over their configured source object type; mapping keeps its dedicated semantics
-without multiplying primary navigation destinations. Trees and other specialist declarations require
-their own validated contract and renderer. Dashboards
-have no scheduled user outcome. The [functionality catalogue](product-functionality/CURRENT_FUNCTIONALITY.md)
-records channel limitations; no browser acceptance is implied by the presence of a component.
+These are responsibilities, not permission roles: sign-in and permissions arrive in 0.12.
+
+## What makes it different
+
+- **One engine, many applications.** Another reference-data domain is another model, not another
+  application. Every application gets every capability; the bundled Master, Systems and Translations
+  applications are [examples](EXAMPLE_MODEL.md), not built-in modules.
+- **Connections that keep their meaning.** A record's place in a hierarchy, its equivalent in another
+  system and its translation are different kinds of connection, each with its own rules.
+- **Simple daily work.** A correction is live when saved. Coordinated changes are prepared separately,
+  without blocking daily work.
+- **One set of rules on every path.** The browser, the API and bulk loads go through the same
+  validation; no channel is a way around it.
+- **API first.** Everything the browser does is available through the API, which is the product's
+  main contract; the browser is one client of it.
+
+## What you can do today
+
+Status as of Base 0.8 (released 2026-09-29) and the 0.9 work delivered since. "Browser" means a person
+can complete the task in the application; "API" means another system can.
+
+### Find and understand data — browser and API
+
+- Choose a workspace, then an application, and browse its collections.
+- Search, filter by typed fields and sort lists of any size. Lists scroll continuously in both
+  directions, show their totals and jump to a page, a value, the start or the end.
+- Switch between the views a collection offers: a table, a mapping grid, a relation matrix or a tree.
+- Open a record to see its fields, its place in the hierarchy, its children, its relationships and its
+  change history, and return to the list where you left it.
+- Browse a hierarchy of any depth in the sidebar tree, and search it to find a record with its path.
+
+### Keep data accurate — browser and API
+
+- Add, edit and delete records, edit a field in place, connect and disconnect related records.
+- A save is live immediately and recorded in the record's history. If someone else changed the record
+  meanwhile, nothing is overwritten: your input is kept and the newer version is shown.
+- Deleting a record first shows what else it would remove or disconnect, and asks for confirmation.
+- Mark a value unavailable through its availability field, as an ordinary edit.
+
+### Prepare changes together — browser and API
+
+- Open a change set to prepare several related changes away from live data, while others keep
+  correcting live data.
+- Start it from current live data or from an earlier publication, and prepare it against a newer
+  model version than the one in use.
+- **Review changes** lists every record and relationship the change set adds, changes or removes, with
+  each changed field before and after.
+- Validate it, then publish it: its changes apply together over current live data, unrelated live
+  edits survive, and a conflict publishes nothing and loses no one's work.
+- Every publication is kept as a read-only snapshot you can browse; withdrawing a publication keeps
+  its history.
+
+### Map values between systems — browser and API
+
+- A mapping grid shows each source value as mapped, unmapped or ambiguous, across the whole list.
+- Choose, replace or clear a value's target in one action, with search over the candidates.
+
+### Fill translation and coverage gaps — browser and API
+
+- A relation matrix shows records against the values of another list, for example values by language,
+  with each cell current, missing, inactive or kept only in history.
+- Filter to the gaps across the whole list, and create, correct, link or unlink from a cell.
+- A second active translation for the same target and language is refused.
+
+### Organise hierarchies — browser and API
+
+- In a tree, add a child, rename, set availability and move a record by menu, keyboard or drag and
+  drop, including to the top level. Invalid destinations are shown with the reason.
+- In a change set, reshape the hierarchy: move a record where another type belongs, change a record's
+  type, insert or remove a level. A preview shows every affected record before anything changes;
+  records keep their identity, and what a new type has no place for is kept in history and offered
+  back later.
+
+### Manage workspaces — browser and API
+
+- Create, rename, retire, reactivate and delete workspaces, and choose the default. A retired
+  workspace stays readable; a workspace that was ever published can only be retired.
+
+### Manage the application model — browser and API
+
+- In the **Models** workbench, inspect installed model releases, compare them and export them.
+- Edit a model draft as JSON, validate it, install it as a new release and activate it. Activation is
+  refused when existing data would not fit; the previous release stays available to roll back to.
+
+### Integrate other systems — API
+
+- Look up records of every type at once, or list every relationship in a workspace, in live data, a
+  change set or a publication.
+- Query one record type by field values, by ancestor and by a related record, choosing the fields
+  returned and including related records.
+- Declare a business validity period on a record type and read the records valid on a date (`asOf`).
+- Load up to a million records in one bulk request, run inline or in the background: create, update,
+  upsert by a unique key, and delete, each item with its own outcome. Choose all-or-nothing or
+  item-by-item, retry safely with an idempotency key, follow progress and cancel.
+- Declare consumer APIs in the model: the read-only contracts other systems will use, checked so that a
+  breaking change needs a new contract version. Serving them follows later in 0.9.
+- Read the API reference at `/docs`, which works without internet access.
+
+### Use it comfortably — browser
+
+- Keyboard operation throughout, narrow-screen layouts, light and dark mode, resizable panels and
+  display preferences. Accessibility and visual regression checks run on every release.
+
+## What is planned
+
+| Release | What it adds |
+| --- | --- |
+| 0.9.0-alpha.1 | PostgreSQL as the only database, with real concurrency: workspaces write in parallel (in progress) |
+| 0.9 | Bulk relationship and mapping loads; an ordered change feed; the consumer APIs (lookup by code across systems, lists, crosswalks) with change events and webhooks; import and export of files with a preview |
+| 0.10 | Turn a spreadsheet into a working application; one structured editor for the model and the import mapping ([design](MODEL_AUTHORING.md)) |
+| 0.11 | Production readiness: performance at scale, several servers, monitoring, rehearsed backup and restore, moving workspaces between model versions in stages |
+| 0.12 | Sign-in for people and systems, permissions per application, record type and operation, signed webhooks |
+| 1.0 | Change released structure through the editor (renames, splits, merges) with a migration preview; reusable model modules |
+
+The [roadmap](ROADMAP.md) has each release's scope and exit criteria.
 
 ## Change rules
 
 - **Daily reference data:** adding or correcting a record, field, translation, parent or ordinary
-  relationship is a direct live operation. Save validates the data, prevents silent overwrite and
-  records the change. It does not require a change set or create a publication.
-- **Coordinated data changes:** users may explicitly select a workspace change set. Its changes stay
-  separate until activation applies them together over current live data. Unrelated live changes
-  survive; conflicting or invalid changes publish nothing and preserve the change set and live content.
-- **Application definitions:** a model draft changes the allowed structures and rules. Installation
-  produces an immutable release; activation separately selects it after compatibility checks. A data
-  change set is not a model editor, and replacing the bootstrap file is not an activation mechanism.
+  relationship is a direct live operation. A save validates the data, prevents silent overwrites and
+  records the change. It needs no change set and creates no publication.
+- **Coordinated data changes:** a user may choose to work in a change set. Its changes stay separate
+  until publishing applies them together over current live data. Unrelated live changes survive;
+  conflicting or invalid changes publish nothing and keep both the change set and live data.
+- **Application definitions:** a model draft changes the allowed structures and rules. Installing it
+  creates an immutable release; activating it is a separate step after a compatibility check. A data
+  change set is not a model editor, and replacing the bootstrap model file does not activate anything.
 
-These rules apply to the specialist mapping, translation and hierarchy flows and to later bulk
-operations. Touching several records alone is not a reason to require a change set. Any additional mandatory
-review step needs a stated user benefit or specific risk and an explicit product decision.
+These rules apply equally to mapping, translation, hierarchy and bulk work. Touching many records is
+not a reason to require a change set, and any additional mandatory review step needs a stated user
+benefit and an explicit product decision.
 
 ## Boundaries
 
 The product is focused on reference data. It is not intended to become a general data catalogue,
-business glossary, lineage scanner or enterprise governance suite. Generic applications are supported
-where the same object/attribute/relation/view model is genuinely useful, but RDM integration remains the design
-centre.
+business glossary, lineage scanner or enterprise governance suite. Other applications are supported
+where the same record, field, relationship and view model is genuinely useful, but reference data and
+its integration remain the design centre.
 
 Neighbouring domains such as MDM-lite and small, specific product catalogues are modelled on the engine,
-not built into it. A capability they motivate must be generic, have a second real use and compose with
+not built into it. A capability they motivate must be generic, have a second real use and work with
 live data, change sets, publications and model releases (ADR-032). The
 [composable domains](COMPOSABLE_DOMAINS.md) direction records the admission tests and the design doors
 current work keeps open.
 
-## Success and recurring acceptance
+## How success is judged
 
 An administrator can define and release another reference-data application without changing Python
 or TypeScript. A steward can then select its workspace, find a record, create or correct it with its
-required fields and connections, and see the live result through the same generic controls. A normal
-correction takes one coherent edit and save, with no release ceremony. The same journeys work for at
-least two differently configured record types. Containment context, model-declared filters and
-applicable semantic lenses remain visible so a global object-type projection is never the only way to
-understand a governed collection.
+required fields and connections, and see the live result through the same generic controls, in one
+edit and save. The same journeys work for differently configured record types.
 
-Acceptance is assessed through [user stories](product-functionality/USER_STORIES.md) and
-[realistic scenarios](product-functionality/ACCEPTANCE_SCENARIOS.md), not merely by whether a route,
-component or model declaration exists. Each work package names the affected story IDs, existing flows
-it must preserve, and the evidence needed for its claimed channel. Release gates exercise the composed
-browser and service, including failure, concurrency, keyboard operation and narrow layouts.
-
-Use the [validation guide](product-functionality/VALIDATION_GUIDE.md) to record results and compare
-required steps, repeated input and recovery with the previous flow. A documentation update or passing
-component suite cannot mark an unexecuted user journey complete.
+Acceptance is judged by [user journeys](product-functionality/USER_JOURNEYS.md),
+[user stories](product-functionality/USER_STORIES.md) and
+[realistic scenarios](product-functionality/ACCEPTANCE_SCENARIOS.md), not by whether a route,
+component or model declaration exists. A passing component test or a documentation update cannot mark
+an unexercised journey complete.

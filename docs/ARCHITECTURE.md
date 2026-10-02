@@ -1,440 +1,397 @@
 # Architecture
 
-## Core shape
+How RDM Engine is built and why. This document describes the system as it is now; when each part
+was delivered is in the [changelog](../CHANGELOG.md), the reasoning behind decisions in
+[DECISIONS.md](DECISIONS.md), the API contracts in [API.md](API.md), the model language in
+[APPLICATION_MODEL.md](APPLICATION_MODEL.md) and configuration and running the engine in
+[OPERATIONS.md](OPERATIONS.md).
 
-RDM Engine has four layers: model definition, compiled metadata, runtime graph and presentation. The
-JSON model is validated and installed as an immutable release. Runtime objects then refer to stable
-model keys rather than internal numeric metadata IDs.
+## Overview
+
+RDM Engine has four layers: model definition, compiled metadata, runtime data and presentation. A
+JSON model is validated and installed as an immutable release. Runtime records refer to stable model
+keys, never to internal metadata IDs. Every capability is an API operation; the browser application
+is one client of that API.
 
 ```mermaid
 flowchart TD
-    J["Versioned JSON model"] --> V["Validation"]
-    V --> M["Immutable metadata release"]
-    M --> G["Objects, attributes and relations"]
-    M --> U["UI component registry"]
-    U --> A["Generic API"]
+    J["Versioned JSON model"] --> V["Validation and compilation"]
+    V --> M["Immutable model release"]
+    M --> G["Records, typed values and relations"]
+    M --> A["Management API /api/v1"]
     A --> G
+    A --> W["Job worker"]
+    W --> G
+    A --> B["Browser application"]
+    A --> I["Integrations"]
 ```
 
-## Definition and metadata layer
+**Technology.** The backend is a Python 3.14 FastAPI service served by Uvicorn. Pydantic 2 defines
+the JSON model and the API contracts, SQLAlchemy 2 maps persistence and Alembic owns schema
+migrations, on PostgreSQL 17 (ICU root collation, `pg_trgm`) through psycopg 3. FastAPI generates the
+OpenAPI documents, and a bundled Scalar page renders them at `/docs`. The frontend is a React 19 and
+TypeScript single-page application built with Vite, using React Aria Components behind its own
+wrappers, Lucide icons and plain CSS. The components ship as Docker images composed by Docker
+Compose. The [README](../README.md#technology-stack) lists the full stack, including test and quality
+tooling.
 
-The model declares:
+## Backend structure
 
-- Applications
-- Global attribute types
-- Object types and their attribute bindings
-- Forward/reverse relation types
-- Allowed source/relation/target combinations
-- Views and component configuration
+`backend/app` is split into tiers ([record](BACKEND_BOUNDARIES_PLAN.md)):
 
-At startup, a canonical hash identifies the model. New content with a new release key/version identity
-creates an immutable release and its relational metadata rows; reusing an identity with different
-content is rejected. Previous releases remain available for migration planning and audit.
-
-The active release is selected by a singleton database runtime-state row. The configured model file is
-bootstrap input: it can install missing content and initialize an empty runtime state, but it is not a
-parallel runtime authority. A live-data request reads runtime state once, resolves the selected release
-to one immutable parsed model snapshot and uses that release’s metadata throughout the request.
-Change-set and publication requests resolve their own pinned supported definition under ADR-027, rather than using
-global current metadata to interpret old content. An in-process
-registry may cache snapshots by public release ID and hash; it never decides which release is active.
-Definition models are frozen recursively, including nested collections, so cached snapshots cannot be
-changed without installing and selecting a different release.
-
-This global selection remains the runtime authority through the pre-production daily-operation and
-specialist-editor releases. Product 0.11 may evolve it into workspace-scoped assignments: a request
-must resolve its workspace first, then exactly one immutable release assigned to that workspace.
-Staged assignment requires executable data migration, atomic switching, cursor binding to release
-identity, protected administration, multi-node propagation and concurrent parser/runtime support for
-every permitted schema version. It cannot be implemented as workspace pinning alone.
-
-A change set works under a model version the user chooses without changing which version serves live
-data. The change set may be created against, or explicitly moved onto, an installed supported release;
-its reads, writes and validation then use that release while live data keeps the active one (ADR-028).
-A change-set graph interpreted under one release cannot be served under another until it is validated
-or converted, so choosing a version is never just a label change: moving a change set onto a release
-its stored content does not already satisfy is conversion work, described below. Publishing is
-unchanged: `publish_change_set` merges authored changes onto live data and never alters model
-selection, so a change set can be published only once its version equals the active release, and any
-other version is refused with `change_set_model_release_conflict`.
-
-Model authoring has three explicit stages. Drafts are mutable, versioned database records. Validation,
-canonical compilation, semantic diff and compatibility analysis do not persist changes. Installation
-creates immutable content-addressed release metadata but leaves runtime selection unchanged.
-Activation uses optimistic concurrency on runtime state and is permitted only when stored data is
-compatible with the candidate.
-
-Database creation and upgrades run through Alembic. Each revision contains a frozen schema delta or
-snapshot and does not import live ORM metadata, so adding a later ORM field cannot change the behavior
-of an earlier revision on a fresh database.
-
-## Deployment topology for model administration
-
-Base 0.5 supports mutable model administration only in a single API process. The checked-in container
-starts one Uvicorn process and does not set a worker count. `MODEL_ADMIN_MUTATIONS_ENABLED` is disabled
-by default and is a deployment guard rather than an authorization system. When enabled, startup must
-reject a configured multi-worker topology until cross-process release propagation exists. The runtime
-uses Uvicorn's `WEB_CONCURRENCY` setting for this startup guard; the supported administration value is
-one.
-
-Within that supported process, immutable release installations are serialized across drafts. The
-database uniqueness constraints remain the final identity/hash guard, while process serialization
-ensures concurrent identical installation requests retain the documented idempotent response.
-
-Activation commits the database runtime-state change before publishing the new snapshot to the local
-registry. If the process cannot refresh that committed selection, readiness is unhealthy and requests
-must not fall back to bootstrap content or a guessed cached model. `/health` returns HTTP 503 in that
-state until a successful process restart reloads the database-selected release. Read-only release
-discovery remains available independently of the mutation flag.
-
-The WP1 migration adopts a legacy database only when it has zero or one active release and every
-release key/version identity is unique. Multiple active rows or conflicting historical identities stop
-the upgrade before the new schema is applied. The migration does not delete releases, rewrite their
-identity or guess which immutable snapshot to preserve.
-
-### Deployment capabilities and split deployments
-
-Operation groups are exposed per process by environment capabilities read at startup
-([ADR-031](DECISIONS.md#adr-031--workspace-terminology-and-deployment-capability-boundaries)).
-A disabled group's routes are not registered. `GET /api/v1/capabilities` reports the effective
-values and names each group's setting; the Models and Workspaces screens show that status read only,
-and the header offers Workspaces only when its group is enabled. These are deployment limits, not
-authorization; 0.12 authorization works within them.
-
-| Capability | Default | Group |
+| Package | Holds | May not import |
 | --- | --- | --- |
-| `MODEL_ADMIN_MUTATIONS_ENABLED` | off | Model drafts, install, activate; requires one process |
-| `WORKSPACE_ADMIN_MUTATIONS_ENABLED` | on | Workspace create, rename, retire, delete, set default |
-| `INTEGRATION_JOBS_ENABLED` | on | Job creation: `POST /batches` (0.9 B1), later imports, exports and job cancellation; job reads stay registered ([ADR-036](DECISIONS.md#adr-036--a-batch-is-a-job-one-mechanism-for-bulk-writes-imports-and-exports)) |
-| — (always registered) | — | Change-set create, rename, delete, model-release change, validate and publish; publication withdrawal. Refused in a retired workspace |
+| `common/` | Paging, signed cursors, JSON encoding, time, JSON pointers | The model, the engine, any API |
+| `models/` | The model contract (`schema.py`), write commands, the persistence schema | The engine, any API |
+| `engine/` | The domain: model compilation and releases, records and write rules, change sets, operations, reads, indexes, jobs, workspaces | FastAPI, API schemas |
+| `management/` | The management API (`/api/v1`): routes, request and response schemas, presenters, projections, the `/docs` page | The consumer tier |
+| `consumer/` | Reserved for the consumer API tier (0.9 Track C) | The management tier |
 
-The batch and job limits (`BATCH_MAX_ITEMS`, `BATCH_MAX_BYTES`, `ATOMIC_JOB_MAX_ITEMS`,
-`JOB_RETENTION_DAYS`, Base 0.9 D13 and D14) are settings too, reported under `integrationJobs`.
+`tests/test_boundaries.py` enforces the table with no exceptions, no import cycles and no
+function-level imports. `main.py` composes the application; `db.py` and `errors.py` are free of
+FastAPI.
 
-Because the capabilities are per process, several instances can share one database with different
-exposure. For example, an internal administration instance runs with model administration enabled and
-one process, and a public instance runs with both flags off and any worker count.
+Inside the engine, every write rule is written once (`engine/records/rules.py`) and reads live data or
+a change set through a lookup (`engine/records/context.py`). Where the two contexts word a refusal
+differently, the difference is one entry in `engine/records/refusals.py`, pinned by
+`tests/test_rule_parity.py`. Every record, relation and attribute-value row is written through
+`engine/records/writes.py` (`LiveWrites`, `ChangeSetWrites`).
 
-What holds today:
+## Model definition and releases
 
-- **Activation reaches other instances without a restart.** Every request reads the selected release
-  from `model_runtime_state` and caches parsed models and metadata by release identity, so a public
-  instance serves a newly activated release on its next request.
-- **A live write never commits under a release that is no longer active.** A request that resolves
-  the active release (`resolve_model_snapshot`) binds its session to it. Before that session commits,
-  it flushes its rows and rereads the active release in the same transaction; if another release was
-  activated meanwhile, nothing is saved and the request returns `409 model_release_changed`.
-  The write rereads under a share lock on the `model_runtime_state` row, and activation locks the
-  row for update before its compatibility check, so the two cannot interleave in one process or
-  across instances: a write that flushed first is seen by the compatibility check, and a write that
-  flushes after activation sees the new release. Change-set base capture takes a share lock on the
-  same row. Tested by `test_w5_activation_write_race` (Base 0.8 W5).
-- **A live write never commits into a workspace deleted or retired after it resolved it.**
-  `resolve_workspace(require_active=True)` records the key on the session, and the same
-  `before_commit` point rereads it after the flush (`404 workspace_not_found` or
-  `409 workspace_retired`, nothing saved). Workspace deletion checks for objects, change sets and
-  publications holding the workspace and runtime-state rows for update, and removes the row in that
-  transaction. A live write takes the workspace lock before it reads (below), so it waits for a
-  deletion or retirement and is then refused with the same codes; the `workspaces.key` foreign keys
-  (`RESTRICT`) hold for every other row naming the workspace (every rule is pinned in
-  `test_foreign_keys`). Tested by `test_w6_workspace_deletion` (Base 0.8 W6).
-- **Live writes of one workspace serialize; workspaces write in parallel** (0.9.0-alpha.1 PG3,
-  PG-D5). The live write unit opens with `SELECT … FROM workspaces WHERE key = … FOR NO KEY UPDATE`
-  (`LiveWrites._begin`), before it reads what it changes, and holds it to the commit, so every check
-  a write makes in code (unique values, parent cycles, cardinality, required relations, relation-set
-  versions, stored matrix states) reads what the previous write committed. A batch, inline or one
-  background chunk, takes it once for all its items. The lock conflicts with publishing (also `FOR
-  NO KEY UPDATE`), a current-live capture (`FOR SHARE`), retirement and deletion (`FOR UPDATE`),
-  but not with a key share lock: the one a row naming the workspace takes through its foreign key,
-  or the one a change-set write takes. **Lock order:** the
-  workspace, then a change set, then the runtime-state row (activation, retirement and default
-  switching for update; a write's commit check shared), then records and their index rows, and a
-  job's row only at its chunk's checkpoint. Retirement, default switching and deletion lock the
-  workspace before the runtime state, and publishing locks the workspace before its change set,
-  for that order. A change-set write takes the workspace's key share lock and then its change set
-  row (`load_change_set(for_update=True)`): retirement and deletion wait for it, and it waits for
-  them and is then refused `409 workspace_retired`; live writes, publishing and other change sets'
-  writes run beside it, and writes to one change set serialize on its row.
-  Tested by `test_pg3_concurrency`: each invariant raced by two connections, one write held while
-  the other is seen waiting on the lock.
-- **Record writes are decided, then written in bulk** (0.9.0-alpha.1 PG3b, PG-D12–PG-D16). A
-  create or update is checked by the write rules over a batch lookup (`records/batch_lookup.py`):
-  the records it reads, preloaded per chunk for a batch, with the items decided before it laid
-  over them. What the accepted items change is then written together by `records/bulk.py`, each
-  kind of row in multi-row statements; a single write is a batch of one. Since a record's version
-  is compared in memory rather than claimed by a conditional `UPDATE`, a write reads the records it
-  changes after it takes its lock. A chunk runs its release check (the runtime-state row shared)
-  before it writes a matrix state, so an activation dropping a matrix shape never waits for the
-  chunk's state rows while the chunk waits for it. A bulk write failing on a row the rules could
-  not see is redone item by item. Tested by `test_pg3b_batch_writes` and `test_batch_statements`.
-- **Instances must share `RDM_CURSOR_SIGNING_KEY`** if a load balancer can route one client's
-  requests to different instances; otherwise cursors issued by one are refused by another.
+### What a model declares
 
-Open caveats before this is a supported topology:
+- Applications, and the object types and views each one offers
+- Global attribute types and each object type's attribute bindings (required, default, read-only,
+  unique, unique within an ancestor, ranges)
+- Forward/reverse relation types and the allowed source/relation/target combinations, with cardinality
+- Containment: which types may stand at the top level and which may contain which
+- Views (`table`, `mappingGrid`, `relationMatrix`, `tree`) and detail panels
+- An object type's effective period over two of its date attributes (schema 0.8, ADR-038)
+- Consumer API definitions (schema 0.8): exposed types and public names, fields and their sources,
+  projections, parameters, lists and a contract version
 
-- **The publication guard is per process.** It only keeps local requests from resolving the release
-  between activation's commit and this process's registry refresh. Another instance serves the new
-  release from its next request, but a read already in flight there answers from the release it
-  resolved. Writes are not affected: they are protected by the commit-time recheck above.
-- **The single-process rule is checked per instance.** Startup rejects model administration with
-  several workers, but cannot detect a second instance with model administration enabled on the same
-  database.
-- **Split deployment has no composed test.** It is a possible topology, not yet a tested one; the
-  0.11 multi-node propagation work owns making it supported.
+The engine reads schema versions 0.5 to 0.8; `python -m app.cli.model_schema_upgrade` transitions an
+older installed model offline. Definition objects are frozen recursively, so a cached model cannot
+change without installing and selecting another release.
 
-### Upgrade, backup and rollback operations
+### Releases and runtime selection
 
-The bootstrap model path and the active release are separate operational controls. On startup the
-configured JSON is validated and installed when its content is absent. If runtime state already
-exists, startup preserves its selected installed release even when the bootstrap file contains a
-newer release. Administrators inspect the release catalogue and explicitly activate a compatible
-candidate; deployments must never use a bootstrap-file replacement as an implicit publish action.
+A canonical hash identifies model content. New content with a new release key and version becomes an
+immutable release with its relational metadata rows; reusing an identity with different content is
+refused. Earlier releases stay for comparison, rollback and audit.
 
-Before an application upgrade, stop or quiesce writers and take a database-engine-consistent backup.
-Keep that backup together with the application image/version and deployment configuration, especially
-`DATABASE_URL`, `RDM_MODEL_PATH`, `RDM_CURSOR_SIGNING_KEY`, `MODEL_ADMIN_MUTATIONS_ENABLED` and worker
-topology. Run `alembic upgrade head` using the new application before accepting traffic. The startup
-path also upgrades to head, but an explicit migration step makes failures observable before service
-cutover.
+The active release is selected by a singleton runtime-state row (`model_runtime_state`). The
+configured model file is bootstrap input only: it installs missing content and initialises an empty
+runtime state, and is never a second authority. A live request reads the runtime state once, resolves
+the selected release to one immutable parsed snapshot and uses it throughout. Change-set and
+publication requests resolve their own pinned release (ADR-027) instead of interpreting old content
+with the current model. An in-process registry caches snapshots by release ID and hash; it never
+decides which release is active.
 
-From a source checkout, the explicit migration command is:
+Model selection is global. 0.11 may introduce workspace-scoped assignments: a request would resolve
+its workspace first, then the one release assigned to it. That needs executable data migration,
+atomic switching, cursors bound to release identity, protected administration, multi-node propagation
+and parsers for every permitted schema version; it cannot be workspace pinning alone.
 
-```bash
-cd backend
-.venv/bin/python -m app.cli.database_upgrade
-```
+### Model lifecycle
 
-The command uses the same configured `DATABASE_URL` as the application. Migration failures are
-translated into an operator-facing message containing the sanitized database target, current and
-target revisions, reason, recovery steps and escalation details. Startup catches the same condition,
-enters maintenance mode and serves `/health` as HTTP `503` without printing a framework traceback.
-An interrupted WP4 SQLite migration is retried automatically only when its partial lifecycle tables
-are structurally recognizable and empty and every partial active-revision pointer is null. Otherwise
-the engine preserves the database and requires backup plus operator review.
+Model authoring has three explicit stages (ADR-016):
 
-For the default SQLite deployment, stop writers and use SQLite's online `.backup` command or copy the
-database only while it is closed; retain the database file and application version together. For
-PostgreSQL, use the platform's consistent `pg_dump`/snapshot procedure and verify that the restore
-includes schema and data. Test restoration before treating either backup as a rollback point.
+1. **Drafts** are mutable, versioned database records with optimistic concurrency.
+2. **Validation and compilation** are free of side effects: diagnostics with JSON pointers, canonical
+   compilation, a key-based semantic diff, compatibility analysis against stored data and, from schema
+   0.8, the consumer contract comparison.
+3. **Installation** creates an immutable, content-addressed release and leaves the selection unchanged.
+   **Activation** claims the runtime state with optimistic concurrency and is permitted only when
+   stored data fits the candidate.
 
-There are two distinct rollback cases:
+Compatibility examines every authoritative live record, including live-only rows and retired
+workspaces. Publications are excluded because they are read under their own pinned release.
+Activating a release that declares an effective period over records it would refuse is
+`model_migration_required` with their count. A consumer API definition whose contract loses or changes
+anything its consumers read needs a higher `contractVersion` (`engine/model/consumer_contract.py`,
+C-D17, C-D18); removing a whole definition is a warning.
 
-- For model content, activate a previously installed release using fresh runtime-state concurrency
-  tokens. The same compatibility analysis applies in both directions, so rollback is rejected when
-  current stored data would be invalid under the older release.
-- For application code or database schema, stop the new deployment and restore the pre-upgrade
-  database backup together with the matching older application version. Production rollback must not
-  depend on Alembic downgrade scripts or manual edits to immutable release rows; Base 0.5 provides no
-  automatic runtime-data migration or transformation executor.
+Activation commits the runtime-state change before publishing the new snapshot to the process's
+registry. If the process cannot refresh to the committed selection, readiness is unhealthy and
+requests never fall back to the bootstrap file or a guessed cached model; a restart loads the database
+selection.
 
-If activation commits but local publication fails, the process becomes unready and refuses
-model-dependent requests. Restart the process to load the committed database selection before taking
-further action; do not guess the prior selection from the bootstrap file.
+Within one process, release installations are serialised across drafts, and database uniqueness
+constraints are the final identity guard, so concurrent identical installs keep their idempotent
+response. Model mutations are therefore supported in one API process only (see
+[Deployment topology](#deployment-topology)).
 
-## Runtime workspace and object graph
+### Change sets on a chosen release
 
-Base 0.6 introduces a global workspace catalogue independently of immutable application models. A
-singleton workspace-runtime-state row owns the default key and version. Request scope resolution uses
-an explicit known key or that default; it never derives authority by scanning object rows. Retired
-workspaces remain addressable for reads but block mutations. Until authentication exists, workspace
-administration is controlled by a default-enabled deployment capability and must not be treated as an
-authorization boundary.
+A change set works under a model release the user chooses, without changing which release serves live
+data (ADR-028). It is created against, or explicitly moved onto, an installed supported release; its
+reads, writes and validation use that release while live data keeps the active one. A graph
+interpreted under one release cannot be served under another until it is validated or converted, so
+choosing a version is never a label change: moving a change set onto a release its content does not
+already satisfy is 0.11 conversion work (see [Directions](#historical-schema-replacement-011)).
+Publishing never alters model selection, so a change set is publishable only once its release is the
+active one (`change_set_model_release_conflict` otherwise). Unsupported or corrupt pins block reads
+and writes instead of substituting the active model.
 
-The live `objects` table contains stable UUID, workspace, application, object type, parent, name,
-record version and timestamps. `parent_object_id` supports efficient navigation and path construction.
-Together with typed field and relation rows it is authoritative for current data under ADR-026/027.
-A publication snapshots a coordinated publication; it is not the authority for subsequent live
-edits. Records have no independent publication lifecycle; model-defined availability is ordinary data.
+### Database migrations
 
-`attribute_values` stores one value per object and attribute type. The declared type selects a physical
-column: text, integer, decimal, boolean, date, datetime or JSON. This retains dynamic modelling without
-reducing every value to text.
+Alembic owns the schema. Each revision holds a frozen schema delta and never imports live ORM
+metadata, so a later ORM field cannot change an earlier revision. The history starts at one
+PostgreSQL baseline (`20261001_01`); each migration runs in one transaction. Startup upgrades to the
+latest revision and refuses an unknown one; the operator command and failure handling are in
+[OPERATIONS.md](OPERATIONS.md#upgrades).
 
-`object_relations` stores typed directed edges. Allowed object-type relationships and cardinality are
-validated before insertion. Creating or moving a contained object maintains `parent_object_id` and the
-corresponding typed parent relation together.
+## Runtime data
 
-`relation_set_versions` implements ADR-022 exact-binding relation-set versions for mapping concurrency
-(WP-3, delivered 2026-09-12). Each relation write advances the outgoing and incoming sets for its exact
-workspace, relation type and endpoint-type binding. Rows are created lazily on first touch; untouched
-sets have implicit version 0. Change-set-scoped and live-scoped versions are independent; change-set deletion
-cascades them, and publishing merges change-set mutation counts into the live version. A mapping replacement
-(WP-5, delivered) claims one anchor/direction/binding set and changes its complete zero/one/many edge
-state atomically, protecting unmapped and ambiguous rows without allowing another binding of the same
-relation type to be replaced accidentally.
+### Workspaces
 
-The 0.7 plan freezes WP-1–WP-3 (all delivered). WP-4 mapping reads resolve the existing view
-configuration under an explicit live/change-set model context. They page effective membership in SQL and
-batch exact counts with at most 20 target previews per row. Model selection, fields, edges and tokens
-share one database snapshot; version-bound target continuation requires refresh after an edge change.
-WP-10A makes confirmed live/change-set cascade deletion increment both affected directional versions in
-the deletion transaction; previews and rejected deletes do not advance them. WP-10B compares complete
-immutable-source/live relation identities and versions in touched mutable directional binding sets
-before publishing applies its delta. Divergence is an actionable `409 version_conflict`; unrelated
-live sets survive. Restored source identities and surviving versions count as the same graph even
-when a temporary live edge advanced the set counter.
+A global workspace catalogue exists independently of model releases (ADR-019, ADR-031). A singleton
+workspace runtime-state row holds the default key and its version. A request names a workspace key
+or uses the default; authority never comes from scanning record rows. Retired workspaces stay
+readable and refuse every runtime write. Workspace administration is a deployment capability until
+0.12, not an authorization boundary.
 
-Atomic replacement preserves an existing selected relation identity and validates cardinality in the
-actual direction (WP-5). Backend change set version selection validates the complete effective graph and
-changes its pin atomically (WP-6), keeping the captured active snapshot identity separate. Browser model transitions
-refresh all dependent state under the exact supported pinned model (WP-7/WP-11); unsupported or corrupt
-pins block interpretation and writes without substituting the active model. Remaining requirements are described in
-[the 0.7 plan](BASE_0_7_IMPLEMENTATION_PLAN.md) and [API.md](API.md); confirmed foundation gaps
-belong to conditional WP-10 before acceptance, rather than amendments to frozen package scope.
+### Records, values and relations
 
-`audit_events` is an ordered append-only foundation for history and a future change feed.
+- **`objects`** holds each record's stable UUID, workspace, application, object type, parent, name,
+  record version and timestamps. `parent_object_id` serves navigation and path building.
+- **`attribute_values`** holds one value per record and attribute type, in the physical column its
+  declared type selects: text, integer, decimal, boolean, date, date-time or JSON. Dynamic modelling
+  does not reduce values to text.
+- **`object_relations`** holds typed directed edges, checked against the allowed combinations and
+  cardinality before they are written.
+- **`relation_set_versions`** versions each relation set exactly, per workspace, relation type and
+  endpoint-type binding, in both directions (ADR-022). Every relation write advances the sets it
+  touches; rows are created on first touch, so an untouched set is version 0. Live and change-set
+  versions are independent, and publishing merges a change set's counts into live. A mapping
+  replacement claims one anchor, direction and binding and changes its whole zero/one/many state
+  atomically, keeping the selected relation's identity, so it can neither leave a gap nor replace
+  another binding of the same relation type.
+- **`audit_events`** is the ordered, append-only record of every change, read by record history and,
+  from 0.9 F1, by the change feed (ADR-037). A job's writes name the job as their cause.
 
-### Live data, change sets and publications
+Live records, values and relations are the authority for current data (ADR-026, ADR-027). Records have
+no lifecycle of their own; model-defined availability is ordinary data.
 
-ADR-027 consolidates the accepted authority boundaries:
-
-| Concern | Authority | Write/read behavior |
-| --- | --- | --- |
-| Current application definition | Database-selected immutable `ModelRelease` | Separate model draft, install and activation lifecycle |
-| Current reference data | Live object, typed-field and relation rows | Direct validated writes with record concurrency and audit |
-| Coordinated data changes | `ChangeSet*` plus an immutable base | Optional staged records and aggregate change set concurrency |
-| Publications | `Publication*` with pinned model release | Immutable snapshot reads; never a direct restore target |
-| Workspace read-only status | Workspace catalogue status | Retired catalogue workspaces remain readable and reject mutation |
-| Current publication designation | `Workspace.active_publication_id` | Latest designated publication; clearing it does not remove live data |
-
-Generic object, attribute, relation and translation CRUD is independent of lifecycle. Without a change set,
-mutations target live content; with `changeSetId`, they target an effective candidate.
-`publicationId` selects an immutable publication and cannot be combined with change-set context. Do not add
-nested change-set-specific record resources or object publication controls. Route-specific concurrency and
-workspace inputs are documented in `API.md`.
-
-Publishing merges only authored creations, updates and removals onto the current live graph.
-It checks touched-record versions, preserves unrelated live work, validates the merged result and
-commits the new immutable publication, live changes, publication designation and change set removal together.
-Any conflict or validation failure publishes nothing and preserves the change set and live data.
-
-**Current-live source contract:** a current-live change set captures a private immutable
-`ChangeSetBase*` snapshot at creation, including recent live edits, typed fields, both forms of
-containment, independent relations, selected model identity and record versions. It works without a
-prior publication and does not mint a public publication merely to start editing. Its base identity is
-separate from publication lineage. `source: currentLive` selects this base, while
-`source: publication` requires the selected publication; omitted source preserves legacy empty/publication
-semantics for compatibility.
-
-The capture reads at REPEATABLE READ, so the base is one snapshot of live data, and holds share locks
-on the workspace and runtime-state rows, so neither a retirement nor an activation commits while it
-runs; it then checks the captured active release against the runtime state (0.9.0-alpha.1 PG2). A chosen change set
-pin is separate from this active identity; its complete copied graph must already fit that pin. A
-selection or row changed after the snapshot began returns an actionable retry. Base rows are removed atomically with change set discard or
-publishing, while existing nullable-base change sets retain their original source and IDs through upgrade.
-
-Publications retain derivation and supersession separately. Starting from an earlier publication does
-not restore the active dataset: untouched newer live content remains. Publication reads resolve the pinned
-model before typing values, validating query fields or composing responses. Unsupported or corrupt pins
-return structured errors without falling back to the active model.
-
-Model compatibility must examine all authoritative live records, including live-only rows and readable
-catalogue-retired scopes. Publications can be excluded from that population only when publication reads use
-the pinned supported model. A current-model switch cannot silently reinterpret an old snapshot.
-
-`20260907_01_workspace_revisions` remains the corrective persistence boundary: it preserves stable
-identities, materializes initial history from unambiguous graphs and removes rejected per-object
-lifecycle tables. Subsequent storage changes use Alembic migrations with the required bootstrap,
-preceding-revision, restart and interrupted-migration recovery/refusal tests.
-`20260926_04_change_sets_and_publications` (Base 0.8 W2) rebuilt the draft and revision tables under
-their ADR-031 names, rewrote stored snapshot owner kinds and audit names, and resumes an interrupted
-run on SQLite; another dialect is refused with a recovery instruction.
-
-Publication withdrawal removes only the designation, leaving live data and publications available. It is
-not consumer withdrawal or catalogue retirement. Publication discovery is newest first through bounded,
-deterministic cursor paging. The UI must distinguish the current editable dataset from
-an immutable publication snapshot, which can be older than recent live changes.
-
-### Workspace lifecycle orchestration (WP8)
-
-Lifecycle orchestration lives in the `app/engine/change_sets/` package, its audit seam in
-`app/engine/workspaces/workspace_audit.py`, and the workspace read/admin routers. Change-set and publication discovery,
-whole-graph validation, atomic publishing and publication withdrawal are workspace-scoped operations
-that never address individual records.
-
-- **Current change set implementation.** `source: currentLive` captures a private immutable live base;
-  `source: publication` records `derivedFromPublicationId`. Both overlay only changed rows and tombstones on
-  that immutable base (`effective_change_set_membership`). Omitted source remains the compatible empty root
-  or publication-source request form; empty creation is not the normal user workflow. Rename, discard and
-  record edits each claim the change set's aggregate version.
-- **Change-set and publication reads in SQL (Base 0.8 S2).** Collection, record, attribute and relation reads
-  in a change set or publication context go through `app/engine/reads/snapshot_reads.py`: one statement over the
-  base rows no change set row replaces plus the non-deleted change set rows, narrowed per arm so indexes apply.
-  `snapshot_attribute_values` indexes the JSON values of publication, change-set base and change-set objects as
-  typed rows (D1), so the object query builder in `engine/reads/object_query.py` serves live, change-set and publication
-  with the same search, typed filters and sort. A `before_flush` hook in
-  `app/engine/indexes/snapshot_values.py` rewrites an object row's index whenever the ORM writes the row; bulk
-  writes outside the ORM maintain it themselves. Validation, publishing and change set writes still resolve
-  the whole graph through `effective_change_set_membership`.
-- **Stored relation matrix cell states (Base 0.8 A3b, ADR-033).** `matrix_cell_states` holds each
-  non-empty matrix cell's counts per owner (live, publication, change set base, change set overlay,
-  workspace history) and matrix shape; `app/engine/indexes/matrix_states.py` builds missing owners at
-  startup and on activation, change set and publication creation, and recomputes touched rows from
-  records before each commit (an ORM flush hook plus explicit notes from Core statements). The row
-  state filter reads it; `app/engine/reads/matrix_cells.py` holds the cell SQL shared with the page.
-- **Validation.** `POST /api/v1/change-sets/{changeSetId}/validation` is side-effect-free over the
-  effective graph: it validates attributes, containment, ownership, cardinality, ancestor-scoped
-  uniqueness and model pinning, and records only a bounded outcome audit event (validity, deduplicated
-  error codes and counts), never graph payloads.
-- **Atomic publishing is a delta-merge.** Publishing claims the change set version and the expected active
-  publication, computes the change set's delta over its actual base, applies only the created/updated/tombstoned rows onto the **current live** projection
-  with per-record and touched mutable relation-set conflict detection, and preserves live-only objects
-  and unrelated sets the change set never touched.
-  It then re-validates the merged graph, writes one immutable publication snapshot of the merged
-  content, withdraws the previously current publication, deletes the change set and commits in one transaction. Any
-  conflict (`409 version_conflict` with per-record `details.conflicts`, including `id_collision` and
-  `duplicate_edge`, plus bounded `mapping_set_changed` diagnostics identifying binding/anchor/direction)
-  or validation failure (`422 workspace_graph_invalid`) publishes nothing and preserves
-  both the change set and the live content.
-- **Immutable publications.** Publications are immutable snapshots. `GET
-  /api/v1/workspaces/{workspaceKey}/publications` and `GET /api/v1/publications/{publicationId}`
-  expose lineage and bounded publication reads; the generic object/attribute/relation routers bind
-  `publicationId` for immutable snapshot reads. Live cursors bind query/workspace/order and do
-  not encode a model or active publication; publication alone does not invalidate them. Change-set/publication
-  cursors bind the selected context and query. They must not be advertised as a frozen live snapshot.
-- **Lifecycle audit stays separate.** Workspace lifecycle events use `change-set`,
-  `publication` and `workspace` aggregates with no `AuditEventSubject` rows and bounded identity
-  payloads, so a lifecycle action never amplifies audit per object. Record-level change set CRUD keeps its
-  own `change-set-object` and `relation` aggregates with per-object subjects.
-- **Records stay generic.** Objects, typed attributes, containment and relations are ordinary records
-  through the canonical object/attribute/relation routers; lifecycle never creates a second CRUD
-  dialect, nested change set resources or per-object lifecycle states.
-
-## Why both hierarchy and relations exist
+### Hierarchy and relations
 
 Containment and semantic relationships overlap but serve different access patterns. Parent IDs make
-tree navigation and path building efficient. Typed relations preserve meaning, reverse labels and
-model constraints. The service layer owns their consistency; clients must not update them separately.
+tree navigation and path building efficient; typed relations keep meaning, reverse labels and model
+constraints. The engine keeps the two consistent: creating or moving a contained record maintains
+`parent_object_id` and the typed parent relation together, and clients never change them separately.
+A move beneath the record's own descendant is refused.
 
-Deletion has two surfaces. Through a change set it removes the record and model-owned dependants from
-that change set's candidate graph after an impact preview; it does not rewrite an existing
-publication, and the removal becomes visible only when the change set is validated and published. Directly
-(no `changeSetId`) it deletes the live `RdmObject` / `AttributeValue` / `ObjectRelation` rows
-physically and immediately, after an impact preview or an explicit cascade for dependants. Neither
-surface is ever retroactive: publications retain the former object and relation identities, as does
-the audit trail. Physical purge of publications requires a separately
-authorized future retention operation.
+A record's type can change inside a change set (ADR-034): the engine derives the possible types and
+each value's source from the model, plans the whole operation (`engine/operations/restructuring.py`)
+with a preview and a digest, and applies it to the change set. Records keep their IDs; values a new
+type has no place for stay in history and are offered back by a later type change.
+
+### Deletion
+
+Deletion has two surfaces. Directly, it deletes the live record, values and relations physically and
+at once, after an impact preview or an explicit cascade for owned dependants (ADR-012). In a change set
+it removes the record and its owned dependants from the candidate graph, visible only once the change
+set is published. Neither is retroactive: publications and the audit log keep the former identities.
+Physically purging publications would need a separately authorised retention operation.
+
+## Live data, change sets and publications
+
+ADR-027 sets the authority boundaries:
+
+| Concern | Authority | Behaviour |
+| --- | --- | --- |
+| Current application definition | Database-selected immutable `ModelRelease` | Separate draft, install and activation lifecycle |
+| Current reference data | Live record, value and relation rows | Direct validated writes with record concurrency and audit |
+| Coordinated data changes | `ChangeSet*` rows over an immutable base | Optional staged records and a change-set-wide version |
+| Publications | `Publication*` with a pinned release | Immutable snapshot reads; never a direct restore target |
+| Workspace read-only status | Workspace catalogue status | Retired workspaces stay readable and refuse writes |
+| Current publication | `Workspace.active_publication_id` | Clearing it removes no data |
+
+**One record API in every context.** Record, value, relation and translation operations are the
+same routes in every context: without a change set they target live data; with `changeSetId` they
+target the change set's effective graph; `publicationId` selects an immutable publication for reads
+and cannot be combined with a change set. There are no nested change-set record resources and no
+per-record publication controls.
+
+**Change sets.** `source: currentLive` captures a private immutable base of current live data:
+records, values, both forms of containment, independent relations, the selected model identity and
+record versions, including edits since the last publication. The capture reads at REPEATABLE READ, so
+the base is one snapshot, and holds share locks on the workspace and runtime-state rows, so neither a
+retirement nor an activation commits while it runs; a change the snapshot cannot hold answers
+`409 change_set_snapshot_retry`. `source: publication` starts from a chosen publication and records
+`derivedFromPublicationId`. Either way the change set stores only changed rows and tombstones over its
+base (`effective_change_set_membership`). Rename, discard and record edits each claim the change set's
+version. Base rows are removed with the change set.
+
+**Reads in a change set or publication** go through `engine/reads/snapshot_reads.py`: one statement
+over the base rows no change-set row replaces plus the change set's own rows. `snapshot_attribute_values`
+indexes the JSON values of publication, base and change-set records as typed rows, kept current by an
+ORM flush hook (`engine/indexes/snapshot_values.py`; bulk writes maintain it themselves), so one query
+builder serves search, typed filters and sort in every context.
+
+**Validation** (`POST /change-sets/{id}/validation`) checks the effective graph without side effects:
+values, containment, ownership, cardinality, ancestor-scoped uniqueness, effective periods and the
+model pin. It records only a bounded outcome event.
+
+**Publishing is a delta merge.** It claims the change set's version and the expected current
+publication, computes the change set's delta over its own base and applies only the created, updated
+and removed rows onto **current** live data, checking every touched record's version and every touched
+relation set. Live-only records and untouched sets survive. It then validates the merged graph, writes
+one immutable publication of it, supersedes the previous current publication, deletes the change set
+and commits, all in one transaction. A conflict (`409 version_conflict` with per-record details,
+including `id_collision`, `duplicate_edge` and `mapping_set_changed`) or a validation failure
+(`422 workspace_graph_invalid`) publishes nothing and keeps both the change set and live data.
+
+**Publications** are immutable snapshots, listed newest first with bounded cursor paging. "Derived
+from" and "superseded by" are recorded separately, so starting from an earlier publication never
+restores the dataset: untouched newer live data remains. Reads resolve the pinned model before typing
+values or validating query fields, and an unsupported pin returns a structured error. Withdrawing a
+publication removes only the designation; it is neither consumer withdrawal nor workspace retirement.
+
+**Lifecycle audit stays separate.** Change-set, publication and workspace lifecycle events are
+aggregate events with bounded identity payloads, never one event per record. Record edits in a change
+set keep their own per-record audit. 0.9 F1 adds one entry per record a publish applies to live, so the
+change feed sees every live change (ADR-037).
+
+## Writes and concurrency
+
+Every write goes through one path: a write unit decides each change with the write rules over a
+lookup, then writes what it accepted. A single write is a batch of one through the same code as a
+bulk job.
+
+- **Live writes of one workspace serialise; workspaces write in parallel** (PG-D5). The live write
+  unit opens with `SELECT … FROM workspaces WHERE key = … FOR NO KEY UPDATE` (`LiveWrites._begin`)
+  before it reads what it changes, and holds it to the commit, so every rule checked in code (unique
+  values, parent cycles, cardinality, required relations, relation-set versions, stored matrix states)
+  reads what the previous write committed. A batch, inline or one background chunk, takes it once for
+  all its items. The lock conflicts with publishing (also `FOR NO KEY UPDATE`), a current-live capture
+  (`FOR SHARE`), retirement and deletion (`FOR UPDATE`), but not with a key share lock: the one a row
+  naming the workspace takes through its foreign key, or the one a change-set write takes.
+- **Lock order:** the workspace, then a change set, then the runtime-state row (activation,
+  retirement and default switching for update; a write's commit check shared), then records and their
+  index rows, and a job's row only at its chunk's checkpoint. Retirement, default switching and
+  deletion lock the workspace before the runtime state, and publishing locks the workspace before its
+  change set. A change-set write takes the workspace's key share lock and then its change-set row
+  (`load_change_set(for_update=True)`): retirement and deletion wait for it, and it waits for them and
+  is then refused `409 workspace_retired`; live writes, publishing and other change sets' writes run
+  beside it, and writes to one change set serialise on its row. Tested by `test_pg3_concurrency`, each
+  invariant raced on two connections.
+- **A write never commits under a release that is no longer active.** A request that resolves the
+  active release binds its session to it. Before commit the session flushes its rows and rereads the
+  active release under a share lock on the runtime-state row; activation locks that row for update
+  before its compatibility check, so the two cannot interleave in one process or across instances. A
+  write that flushed first is seen by the compatibility check; a write after activation sees the new
+  release and is refused `409 model_release_changed`, nothing saved.
+- **A write never commits into a workspace deleted or retired after it resolved it.** The same
+  commit point rereads the workspace (`404 workspace_not_found`, `409 workspace_retired`). Workspace
+  deletion checks for records, change sets and publications and locks the workspace and runtime-state
+  rows; the `workspaces.key` foreign keys (`RESTRICT`) protect every other row naming the workspace,
+  and every `ondelete` rule is pinned in `test_foreign_keys`.
+- **Decided in memory, written in bulk** (PG-D12–PG-D16). A create or update is decided by the rules
+  over a batch lookup (`records/batch_lookup.py`): the records it reads, preloaded per chunk, with the
+  items decided before it laid over them. The accepted changes are written together by `records/bulk.py`,
+  each kind of row in multi-row statements: a chunk of 500 items costs 30–49 statements. Because a
+  version is compared in memory rather than claimed by a conditional `UPDATE`, a write reads the records
+  it changes after taking its lock. A chunk checks its release before writing matrix states, so an
+  activation that drops a matrix view cannot deadlock with it. A bulk write failing on a row the rules
+  could not see is redone item by item, so only that item is refused. Delete items keep a per-item path.
+- **Optimistic concurrency everywhere else.** Updates carry the record's `expectedVersion`; mapping
+  saves carry the relation set's version; change sets, drafts, activation and workspace administration
+  carry their own versions. A stale claim is a `409` with the current state.
+
+## Reads and queries
+
+**Paging** (ADR-030). Every collection pages by cursor or by position, from `common/pagination.py`.
+Cursors continue after or before a row, are signed (`RDM_CURSOR_SIGNING_KEY`) and bound to their
+endpoint, scope, ordering and effective filters, and never repeat or skip a row as data changes; a
+position read jumps to row N and may. Every page carries both cursors, an anchor that reopens it and,
+on request, the total and its start index. There is no unbounded page: full extraction belongs to
+export jobs or the change feed.
+
+**Search and order.** Names sort in the database's ICU root collation, case- and accent-aware. Search
+over attribute text uses `pg_trgm` GIN indexes on the live and snapshot value tables
+(`models/search_index.py`), which narrow candidates; the case-insensitive "contains" predicate still
+decides the result, so an index changes speed, never results. A unique-value check and a record
+reference by key seek through a value index (`ix_attribute_values_key_text`).
+
+**One query builder per shape, every context.** `engine/reads/object_query.py` builds the per-type
+list (search, typed filters, sort, scope by parent or top level) for live data, change sets and
+publications alike. On top of it:
+
+- **Cross-type lookup** (`GET /objects`, `engine/reads/object_lookup.py`) lists several or all types
+  over built-in fields, with its own cursor scope; model-declared fields are refused with the per-type
+  route that answers them.
+- **Workspace edge list** (`/workspaces/{key}/relations`, the same list as `/mappings`,
+  `management/projections/mapping.py`) lists every relation of any type in one shape.
+- **Model-aware query** (`POST /workspaces/{key}/queries/objects`, `engine/reads/model_query.py`) adds
+  what query parameters cannot carry, each as a set the record's ID or parent ID must be in:
+  `ancestor:<type>` (walking down from the ancestor through containers only) and one `related` hop,
+  read once as a set, never per record. Every name is checked against the model first and refused
+  with its JSON pointer. `expand` reads related records in one statement per expansion for the page.
+- **`asOf`** (ADR-038) is a filter over a declared effective period's two date values, combinable with
+  any context; it never selects one. A type without a period refuses it.
+
+**Ancestor paths** are resolved in level order, one query per depth level for the page, reading only
+the columns a path shows.
+
+**Stored matrix cell states** (ADR-033). `matrix_cell_states` holds each non-empty relation matrix
+cell's counts per owner (live, publication, change-set base, change-set overlay, workspace history)
+and matrix shape. `engine/indexes/matrix_states.py` builds missing owners at startup and on
+activation, change-set and publication creation, and recomputes touched rows before each commit (an
+ORM flush hook plus explicit notes from Core statements). The matrix's state filter reads it, so
+filtering to gaps works across the whole list.
+
+## Jobs
+
+Every bulk write, and later every import and export, is a persisted job (ADR-036, `engine/jobs/`):
+its parameters, state, progress and one outcome per item, kept for a retention period.
+
+- **Items go through the single-write rules** and are refused with the same codes. Bulk adds
+  addressing by unique key, upsert and the `unchanged` outcome, not a second validation path.
+- **Two failure policies**, named per request: `atomic` (all or nothing, bounded) and `independent`
+  (each item on its own, in order, seeing the items before it).
+- **Inline or background**, chosen by the caller, never by size. An inline job runs in the request. A
+  background job is stored and run by a worker thread in the API process (`engine/jobs/worker.py`) in
+  chunks: a chunk's writes, outcomes and the job's checkpoint commit in one transaction, so a resumed
+  job starts at its first item without an outcome and never repeats or skips one.
+- **Lease.** A worker claims a job with `leaseOwner` and `leaseExpiresAt` in a short transaction and
+  renews the lease with each chunk. A chunk does not hold the job row while it applies items, so a
+  cancel request never waits; it locks the row only at its checkpoint and rolls back if another worker
+  took the job over. The lease lets 0.11 run workers on several nodes without a contract change.
+- **A job pins its model release** and fails with `model_release_changed` when it moves. In a change
+  set it holds the change set's version and fails if anyone else writes to it.
+- **Idempotency keys** replay a finished job's response and refuse a reused key with a different body.
+- **Staging is the change set**: a job targets live data or a named change set; there is no separate
+  staging store.
 
 ## API projection
 
-The API returns attributes by stable keys and typed JSON values. Clients may request relations using
-stable relation keys. It never requires arrays of internal attribute or relation IDs.
+The API returns values by stable attribute keys as typed JSON, and relations by stable relation keys;
+it never requires internal attribute or relation IDs. Records and relations have stable UUIDs.
+Errors share one envelope, `{ "error": { "code", "message", "details" } }`, with a JSON pointer in
+`details` where input is at fault.
 
-Collections page with cursors or positions (ADR-030, Base 0.8 S3). Cursors continue after or before a
-row, are signed and bound to their endpoint, ordering and effective filters, and never repeat or skip
-a row as data changes; a position read jumps to row N and may. Every page carries both cursors, an
-anchor that reopens it and, on request, the total and its start index, all from
-`common/pagination.py`. Full extraction belongs to asynchronous export or a resumable change feed
-rather than an undocumented unbounded page.
+FastAPI generates the management API's OpenAPI document (`/openapi.json`); its digest and inventories
+are locked by backend tests, so a contract change is always deliberate. `GET /docs` renders it with
+[Scalar](https://github.com/scalar/scalar) (MIT); 0.9 V2 adds each installed consumer API contract
+version as a further source. The Scalar script is pinned and bundled with the engine, so the page works
+offline and loads nothing from elsewhere. `GET /api/v1/capabilities` reports the deployment's
+capability groups and job limits.
 
-## Presentation foundation
+## Presentation
+
+The frontend is a React 19 single-page application written in TypeScript and built with Vite. It talks
+to the backend only through the public HTTP API, the same API every other client uses.
 
 ADR-023 keeps the application-facing UI API in repository-owned semantic wrappers. React Aria
-Components supplies composite interaction behavior only; feature modules cannot depend on it directly.
-RDM owns plain-CSS tokens, layout, visual states and product-specific dismissal, dirty-input and error
-behavior. Native HTML remains the first choice for simple controls, and Lucide icons pass through one
-accessible wrapper. This boundary permits a future behavior-provider change without altering the
-application model or feature contracts.
+Components supplies composite interaction behaviour only; feature modules cannot depend on it
+directly. RDM owns plain-CSS tokens, layout, visual states and product-specific dismissal, dirty-input
+and error behaviour. Native HTML remains the first choice for simple controls, and Lucide icons pass
+through one accessible wrapper. This boundary permits a future behaviour-provider change without
+altering the application model or feature contracts. The module layout is in
+[FRONTEND_STRUCTURE_REFACTOR.md](FRONTEND_STRUCTURE_REFACTOR.md).
 
 ### Contextual collection composition
 
@@ -443,12 +400,14 @@ browser is the navigation spine for arbitrary model-defined applications. It com
 collection entries with the bounded runtime containment records currently available; it is not a
 hardcoded Master/System/Translation tree and is not itself a data contract.
 
-For schema 0.5/0.6, a view's source object type defines its collection group. A `table` uses
-`objectTypeKey`; a `mappingGrid` uses `fromObjectTypeKey` for outgoing direction and `toObjectTypeKey`
-for incoming direction. The frontend groups views with the same source type as lenses and dispatches
-each selected lens through the existing typed component registry. This preserves the semantic boundary:
-the shared collection workspace owns scope, lens selection and query continuity, while each renderer
-owns its data shape, mutations and recovery rules.
+A view's source object type defines its collection group. A `table` uses `objectTypeKey`; a
+`mappingGrid` uses `fromObjectTypeKey` for outgoing direction and `toObjectTypeKey` for incoming
+direction; a `relationMatrix` uses its `rowObjectTypeKey`; a `tree` uses its first
+`rootObjectTypeKeys` entry. The frontend (`model/collections.ts`) groups views with the same source
+type as lenses of one collection and opens the application's `defaultView` when it is in the group,
+otherwise its first table, otherwise its first view. Each selected lens is dispatched through the typed
+component registry. The shared collection workspace owns scope, lens selection and query continuity,
+while each renderer owns its data shape, mutations and recovery rules.
 
 ```mermaid
 flowchart LR
@@ -457,75 +416,114 @@ flowchart LR
     B --> D["Runtime containment record"]
     D --> C
     C --> E["Table lens"]
-    C --> F["Mapping lens"]
-    C --> G["Future typed lens"]
+    C --> F["Mapping grid lens"]
+    C --> G["Relation matrix lens"]
+    C --> T["Tree lens"]
     E --> H["Object detail composition"]
     F --> H
+    G --> H
+    T --> H
 ```
 
-Collection query state remains browser-owned and URL-backed. It includes search, typed field filters,
-sort where supported, one scroll `anchor` cursor and optional containing-object identity. Mapping coverage adds its
-configured zero/one/many state filter. The API binds scope and state into opaque cursor semantics, so a
-continuation cannot silently traverse another administrative context.
+Collection query state is browser-owned and URL-backed: search, typed field filters, sort where
+supported, one scroll `anchor` cursor and optional containing-object identity. Mapping coverage adds its
+zero/one/many state filter, and the relation matrix its cell state filter. The API binds scope and state
+into opaque cursors, so a continuation cannot silently traverse another context.
 
-Schema 0.6 does not declare explicit lens groups. The source-type rule is deterministic and backwards
-compatible; the engine will add model-language configuration only after real models establish a case
-where source type is insufficient. It must not infer workflow meaning from application, object or
-relation keys.
+The model does not declare explicit lens groups (through schema 0.8). The source-type rule is
+deterministic; model-language configuration is added only after real models show where source type is
+insufficient. Presentation must not infer workflow meaning from application, object or relation keys.
 
-The 0.7 browser uses direct-parent scope because that contract already exists for object collections.
-Lazy arbitrary-depth traversal, bounded child queries and hierarchy mutation remain the typed product
-0.8 hierarchy editor. Presentation must state direct scope honestly and must not client-filter a
-partial tree as though it were complete.
+Hierarchies load lazily, one bounded branch at a time. The sidebar record tree pages each root type's
+top-level records in its own group and, when a record expands, each child type separately by
+`parentObjectId`. The tree lens reuses it for a view's root and node types and adds the view's actions:
+create child, rename, set availability and move (also by drag and drop), with move targets from the
+parent-candidates API. In a change set it also restructures through the change set's restructurings
+API, with a preview. Records under a record at any depth are read through the `ancestor:<type>`
+criterion, never by walking a loaded tree, and presentation must not client-filter a partial tree as
+though it were complete.
 
-## Scale direction
+## Deployment topology
 
-- Model-derived indexes for searchable and unique attribute types
-- Bounded bulk upsert with per-item outcomes
-- Batched relation expansion without N+1 database access
-- Recursive CTEs or a maintained path representation for large hierarchies
-- Asynchronous import/export with streamed storage
-- Ordered change feed based on audit sequence
+Operation groups are exposed per process by capability settings read at startup (ADR-031): a disabled
+group's routes are not registered, and `GET /api/v1/capabilities` reports the effective values. They
+are deployment limits; 0.12 authorization will work within them. The settings are listed in
+[OPERATIONS.md](OPERATIONS.md#capability-groups).
 
-The path builder resolves ancestor chains in level order (one query per depth level rather than one per
-object), removing the N+1 traversal for typical hierarchies. Recursive CTEs or a maintained path
-representation remain the direction for very deep, high-volume hierarchies.
+Because capabilities are per process, several instances can share one database with different exposure,
+for example an internal administration instance with one process and a public instance with both
+administration groups off and any worker count. What holds today:
 
-## Domain extension direction
+- **Activation reaches other instances without a restart.** Every request reads the selected release
+  from the runtime state and caches parsed models by release identity, so another instance serves a
+  newly activated release from its next request.
+- **Writes are safe across instances:** the commit-time release and workspace rechecks and the
+  workspace lock (see [Writes and concurrency](#writes-and-concurrency)) hold across processes.
+- **Instances must share `RDM_CURSOR_SIGNING_KEY`** when one client's requests can reach different
+  instances.
+
+Open caveats before this is a supported topology:
+
+- **The publication guard is per process.** It keeps local requests from resolving the release between
+  activation's commit and this process's registry refresh. A read already in flight on another instance
+  answers from the release it resolved; writes are protected by the commit-time recheck.
+- **The single-process rule for model administration is checked per instance.** Startup refuses model
+  administration with several workers, but cannot detect a second instance with it enabled on the same
+  database.
+- **Split deployment has no composed test.** The 0.11 multi-node work makes it supported, including
+  workers on several nodes through the job lease.
+
+## Directions
+
+### Scale
+
+Delivered: bounded collections at any size with cursor and position paging, trigram search indexes,
+value indexes for unique and keyed lookups, bulk writes decided in memory and written in multi-row
+statements, set-based relation hops and expansions, and stored matrix states. Next, in 0.11: the volume
+fixture at full scale, connection pool sizing, model-derived indexes including non-text unique values,
+precomputed sort keys for attribute and ancestor sorts over very large parents, and recursive queries or
+a maintained path for very deep hierarchies.
+
+### Change feed and consumer API (0.9)
+
+The audit log becomes the ordered source of the change feed and consumer events (ADR-037): every live
+change takes a gapless per-workspace feed position from a counter on the workspace row, locked until
+commit, which the workspace write lock already orders. Entries carry identity and changed keys, never
+values. The consumer API is a separate read-only tier (`consumer/`) generated from the model's consumer
+API definitions ([CONSUMER_API.md](CONSUMER_API.md)); the design is in
+[INTEGRATION_API.md](INTEGRATION_API.md).
+
+### Domain extension
 
 MDM-lite and small product catalogues are reached only through generic capabilities composed in a
 model (ADR-032). The architecture keeps room for retired-ID redirects, per-value provenance, derived
 values, redaction within immutable history, keyed inbound upsert and additive value types; see
 [composable domains](COMPOSABLE_DOMAINS.md#doors-to-keep-open).
 
-## Security direction
+### Security (0.12)
 
-Authentication and authorization remain deferred through the 0.9 feature release and 0.11 production
-hardening. The 0.12 security release introduces OAuth 2.0 with engine-issued JWT access tokens for the
-backend, frontend and consumer APIs, model-configurable application, object-type and operation
-permissions, HMAC-signed webhooks and UI administration of clients and subscriptions, before replacing
-the default-enabled workspace-administration posture. No API keys, and no credential in a URL.
-Record-level rules should be introduced only for demonstrated RDM needs.
+Authentication and authorization are deferred to the 0.12 security release: OAuth 2.0 with
+engine-issued JWT access tokens for the backend, frontend and consumer APIs, model-configurable
+application, object-type and operation permissions, HMAC-signed webhooks and UI administration of
+clients and subscriptions, replacing the default-enabled workspace administration. No API keys, and no
+credential in a URL. Record-level rules come only for demonstrated needs.
 
-## Reviewed historical schema replacement (product 0.11)
+### Historical schema replacement (0.11)
 
-GAP-02 accepts a warning and confirm-or-cancel migration flow when a change set started from a
-publication is incompatible with the active definition; GAP-08 keeps change sets and model drafts
-separate. ADR-027 therefore
-places schema replacement with the existing 0.11 migration/model-assignment capability. Base 0.6 cannot
-bypass its model conflict checks or make a schema override available merely because the user confirms.
+GAP-02 accepts a warning and confirm-or-cancel migration when a change set started from a publication is
+incompatible with the active definition; GAP-08 keeps change sets and model drafts separate. ADR-027
+therefore places schema replacement with the 0.11 migration and model-assignment capability: today's
+activation cannot be bypassed by a confirmation.
 
-A migration preview names one workspace and one installed immutable target release (normally the
-pinned release of a change set started from a publication), exposes its difference from the current selection, and reports
-conversions and potential loss. It migrates current live data toward that target, not the reverse. Confirmation claims that exact reviewed plan and current versions. Execution
-validates transformed data and atomically changes data plus the applicable model selection; cancel or
-failure preserves the prior usable state and change set. Publications remain unchanged.
+A migration preview names one workspace and one installed target release (normally the pinned release
+of a change set started from a publication), shows its difference from the current selection, and
+reports conversions and potential loss. It migrates current live data toward that target. Confirmation
+claims that exact reviewed plan and current versions; execution validates the transformed data and
+atomically changes data and the applicable model selection; cancel or failure keeps the prior state and
+the change set. Publications are unchanged. Because model selection is global today, the implementation
+must use the planned workspace assignment boundary and leave other workspaces' assignments and data
+untouched. Loss confirmation never waives target-model validity or concurrency checks.
 
-Today's model selection is global, so a workspace action cannot silently change other workspaces'
-rules. The future implementation must use the planned workspace assignment boundary and preserve other
-workspaces’ assignments and data. Loss confirmation does not waive target-model validity or concurrency checks.
-
-The same preview and confirm steps apply to one change set (ADR-028), run against that change set's own
-candidate graph and the live data under it instead of current live data alone: moving a change set onto
-a release whose rules its stored content does not already satisfy happens only from a reviewed
-preview.
+The same preview and confirmation apply to one change set (ADR-028), run against that change set's own
+candidate graph and the live data under it: moving a change set onto a release its content does not
+already satisfy happens only from a reviewed preview.

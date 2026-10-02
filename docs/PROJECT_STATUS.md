@@ -78,8 +78,12 @@ for every user journey of every client, the API as the product, specification-fi
 [H4](TEST_HARNESS_PLAN.md#h4-testing-consolidation) moves the suite onto it in slices H4a–H4e.
 **H4a is delivered and approved (2026-10-02):** the journey catalogue (26 generic journeys, 138 variants,
 every client) and the API inventory mapping every route, parameter, error code and setting to journeys,
-with seven decisions, all taken the same day ([record](TEST_HARNESS_PLAN.md#h4a-the-journey-catalogue)). Next are H4b–H4e,
-then PG4 and PG5.
+with seven decisions, all taken the same day ([record](TEST_HARNESS_PLAN.md#h4a-the-journey-catalogue)). **H4b is delivered
+(2026-10-02):** journey markers checked against the catalogue, the journey and unit layout, the API
+inventory check, selection by change (`pytest-testmon`, on the C tracer) with `tests.affected` for
+what coverage cannot see, and the trace report; mutation testing was tried and dropped in favour of
+planted faults per area in H4d ([record](TEST_HARNESS_PLAN.md#h4b-traceability-and-selection)).
+Next are H4c–H4e, then PG4 and PG5.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

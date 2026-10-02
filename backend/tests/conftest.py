@@ -13,6 +13,11 @@ command that runs them, in a second, non-parallel invocation. Full-size budgets 
 leaves them out unless its ``-m`` expression names ``budget`` (H3). The summary lists every test
 over 10 s outside ``budget`` and the run's wall time, against the time ceilings in
 ``docs/TEST_HARNESS_PLAN.md``.
+
+Journey tests live in ``tests/journeys/`` and name the journeys they walk; unit tests live in
+``tests/unit/`` in folders that mirror the code they test (``layout.py``, H4b). A journey test without
+a known journey ID, or a unit test that mirrors no module, fails collection; ``--journey J02`` selects
+the tests that walk J02 or one of its variants.
 """
 
 import os
@@ -20,10 +25,16 @@ import re
 import time
 from uuid import uuid4
 
+import layout
 import postgres_server
 import pytest
 import seeds
 
+# Test selection (pytest-testmon, H4b) records which code each test executes through Coverage.py.
+# Its default on Python 3.14, sys.monitoring, loses the lines that run in the TestClient's request
+# threads when testmon switches from one test to the next (an API test recorded 5-13 of its 38-66
+# modules); the C tracer records them. Set before testmon starts coverage; workers inherit it.
+os.environ.setdefault("COVERAGE_CORE", "ctrace")
 _WORKER = os.environ.get("PYTEST_XDIST_WORKER")
 SESSION_DATABASE = f"t_session_{_WORKER + '_' if _WORKER else ''}{uuid4().hex[:8]}"
 _STARTED_SERVER = pytest.StashKey[bool]()
@@ -103,6 +114,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_relation_set_versions.py": ("mapping", "records"),
     "test_openapi_contract.py": ("contract",),
     "test_boundaries.py": ("contract",),
+    "test_api_journeys.py": ("contract",),
     "test_api_reference.py": ("contract",),
     "test_encoding.py": ("records",),
     "test_rule_parity.py": ("records", "change_sets"),
@@ -160,6 +172,20 @@ SERIAL_DESCRIPTION = "timing-based check: left out of a parallel run, run with `
 BUDGET_MODULES = ("test_batch_volume.py", "test_background_volume.py")
 BUDGET_DESCRIPTION = "full-size budget: left out unless `-m` names `budget`; a release's acceptance only"
 SLOW_SECONDS = 10.0
+JOURNEY_DESCRIPTION = (
+    "journey(*ids): the user journeys and variants of USER_JOURNEYS.md this test walks"
+)
+UNIT_DESCRIPTION = "unit test of one module, in tests/unit/ mirroring the module's path"
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--journey",
+        action="append",
+        default=[],
+        metavar="ID",
+        help="Run only the tests that walk this journey or variant (J02, J02.2); repeatable.",
+    )
 
 
 def _is_worker(config: pytest.Config) -> bool:
@@ -176,6 +202,8 @@ def pytest_configure(config: pytest.Config) -> None:
         config.addinivalue_line("markers", f"{group}: {description}")
     config.addinivalue_line("markers", f"serial: {SERIAL_DESCRIPTION}")
     config.addinivalue_line("markers", f"budget: {BUDGET_DESCRIPTION}")
+    config.addinivalue_line("markers", JOURNEY_DESCRIPTION)
+    config.addinivalue_line("markers", f"unit: {UNIT_DESCRIPTION}")
     config.stash[_SERIAL_LEFT_OUT] = 0
     config.stash[_STARTED_AT] = time.monotonic()
 
@@ -211,9 +239,52 @@ def pytest_unconfigure(config: pytest.Config) -> None:
         postgres_server.stop()
 
 
+def _journey_ids(item: pytest.Item) -> tuple[str, ...]:
+    return tuple(key for marker in item.iter_markers("journey") for key in marker.args)
+
+
+def _check_layout(items: list[pytest.Item]) -> list[pytest.Item]:
+    """Mark unit tests, check every journey ID and unit path, and return the suite's items."""
+    problems, suite = set(), []
+    for item in items:
+        where = item.path.relative_to(layout.TESTS)
+        unknown = layout.unknown_journeys(_journey_ids(item))
+        if unknown:
+            problems.add(f"{where}: unknown journey {', '.join(unknown)} (not in USER_JOURNEYS.md)")
+        kind = layout.kind(item.path)
+        if kind == "journey" and not _journey_ids(item):
+            problems.add(f"{where}::{item.name}: a journey test names no journey (@pytest.mark.journey)")
+        elif kind == "unit":
+            if layout.unit_target(item.path) is None:
+                problems.add(
+                    f"{where}: mirrors no module; a unit test sits at tests/unit/<path>/test_<module>.py "
+                    "for app/<path>/<module>.py, or tests/unit/harness/ for tests/<module>.py"
+                )
+            item.add_marker("unit")
+        elif kind == "suite":
+            suite.append(item)
+    if problems:
+        raise pytest.UsageError("Test layout:\n" + "\n".join(sorted(problems)))
+    return suite
+
+
+def _select_journeys(config: pytest.Config, items: list[pytest.Item]) -> None:
+    wanted = config.getoption("journey")
+    unknown = layout.unknown_journeys(tuple(wanted))
+    if unknown:
+        raise pytest.UsageError(f"--journey names unknown journeys: {', '.join(unknown)}")
+    if not wanted:
+        return
+    chosen = [i for i in items if any(layout.walks(_journey_ids(i), key) for key in wanted)]
+    left = [item for item in items if item not in chosen]
+    if left:
+        items[:] = chosen
+        config.hook.pytest_deselected(items=left)
+
+
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     unclassified = set()
-    for item in items:
+    for item in _check_layout(items):
         groups = TEST_GROUPS.get(item.path.name)
         if groups is None:
             unclassified.add(item.path.name)
@@ -233,6 +304,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             + ". Add each to TEST_GROUPS in backend/tests/conftest.py with the contract groups it "
             "protects, and to docs/testing/EXECUTION_GUIDE.md."
         )
+    _select_journeys(config, items)
     if not _names_budget(config):
         _deselect(config, items, "budget")
     if _is_parallel(config):

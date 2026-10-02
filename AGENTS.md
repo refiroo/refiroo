@@ -65,7 +65,11 @@ For each feature, apply only the steps relevant to its scope:
    and add unit tests for the new code's purpose ([Testing](#testing)).
 6. For UI changes, implement a generic component and exercise it with at least two object types.
 7. Update documentation when behavior or contracts change; add an architecture decision only
-   for a durable architectural choice.
+   for a durable architectural choice. Each fact has one home: user-facing capability in
+   `docs/PRODUCT.md` and `docs/product-functionality/CURRENT_FUNCTIONALITY.md` (plain language, no
+   package IDs), design in `docs/ARCHITECTURE.md` (the system as it is, not its history), settings
+   and runbooks in `docs/OPERATIONS.md`, contracts in `docs/API.md`, history in `CHANGELOG.md`.
+   The README stays a landing page and links to them.
 8. Run the validation required for the affected layer as defined below.
 
 Avoid speculative abstractions. Add a generalization after two real RDM cases demonstrate it. Keep API
@@ -196,6 +200,9 @@ place and checks are still selected by group (below); new tests already follow t
 - No test builds a database state no client could produce, unless the state arrives from outside the
   API (an import, an older release) and the test says so. No test checks which private function ran.
   A refusal is asserted by its error code, not by a status alone.
+- New journey tests go in `backend/tests/journeys/` with `@pytest.mark.journey(...)`; new unit tests
+  in `backend/tests/unit/`, mirroring the module they test. `python -m tests.affected` says what a
+  change requires (EXECUTION_GUIDE, "journey tests, unit tests and selection by change").
 
 ## Definition of done
 
