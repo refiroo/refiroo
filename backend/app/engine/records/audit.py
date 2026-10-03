@@ -44,11 +44,15 @@ class AuditEntry:
     changes: dict[str, Any]
     object_ids: tuple[str, ...]
     subject: dict[str, Any] | None = None
+    # A relation set's ``transition`` (0.9 B3) summarises entries that are in the feed; it is not.
+    feed: bool = True
 
 
 def _place_in_feed(session: Session, workspace_key: str, events: Sequence[AuditEvent]) -> None:
     """Give events that change the workspace's live data the next positions of its feed, in
     order (Base 0.9 F1); the caller holds the workspace row lock."""
+    if not events:
+        return
     first, release_id = take_positions(session, workspace_key, len(events))
     for offset, event in enumerate(events):
         event.workspace_key = workspace_key
@@ -75,12 +79,16 @@ def record_audit_events(
             changes=to_jsonable(entry.changes),
             cause_kind=cause_kind,
             cause_id=cause_id,
-            feed_subject=entry.subject if workspace_key is not None else None,
+            feed_subject=entry.subject if workspace_key is not None and entry.feed else None,
         )
         for entry in entries
     ]
     if workspace_key is not None:
-        _place_in_feed(session, workspace_key, events)
+        _place_in_feed(
+            session,
+            workspace_key,
+            [event for event, entry in zip(events, entries, strict=True) if entry.feed],
+        )
     session.add_all(events)
     session.flush()
     session.add_all(

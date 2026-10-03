@@ -4,7 +4,8 @@ The journeys J11 and J24 walk a batch through the API (outcomes, policies, upser
 idempotency). Here are the module's own edge cases: references by a unique value and where their
 refusals point, the parent an item leaves out, upserts and claims beside equal values, a delete
 item, an atomic batch in a change set, the matrix states a batch keeps, a bulk write redone item by
-item, and the one context a request names. Records are named by their structure (``R``, ``H``);
+item, relationship items and a set replacement keeping the matrix states, and the one context a
+request names. Records are named by their structure (``R``, ``H``);
 a refusal is asserted by its code and pointer.
 """
 
@@ -415,6 +416,78 @@ def test_batches_keep_the_stored_matrix_states_derived(seeded):
         )
         with SessionLocal() as session:
             assert matrix_states.verify(session) == []
+
+
+def test_relation_items_keep_the_stored_matrix_states_derived(seeded):
+    """Relationship items on a binding a relation matrix shows (created, changed through a set
+    replacement, removed) and an atomic batch of them rolled back, live and in a change set: the
+    stored cell states equal states rebuilt from the records."""
+    world = seeded
+    [region] = run(world, [create(world, "G", "Matrix region")])
+    owners = run(world, [create(world, "R", f"Matrix owner {n}", R_u=f"MX-{n}") for n in (1, 2)])
+    ids = [owner.fields["id"] for owner in owners]
+    dependants = run(
+        world,
+        [
+            {
+                **create(world, "D", f"Matrix dependant {n}"),
+                "parent": {"id": region.fields["id"]},
+                "initialRelations": [
+                    {
+                        "relationTypeKey": world.key("Bown"),
+                        "direction": "incoming",
+                        "object": {"id": ids[n - 1]},
+                    }
+                ],
+            }
+            for n in (1, 2)
+        ],
+    )
+    d1, d2 = (item.fields["id"] for item in dependants)
+
+    def relate(source: str, target: str) -> dict[str, Any]:
+        return {
+            "op": "createRelation",
+            "relationTypeKey": world.key("Bassoc"),
+            "from": {"id": source},
+            "to": {"id": target},
+        }
+
+    def replace(anchor: str, targets: list[str]) -> dict[str, Any]:
+        return {
+            "op": "replaceRelationSet",
+            "relationTypeKey": world.key("Bassoc"),
+            "fromObjectTypeKey": world.key("R"),
+            "toObjectTypeKey": world.key("D"),
+            "direction": "outgoing",
+            "anchor": {"id": anchor},
+            "targets": [{"object": {"id": target}} for target in targets],
+        }
+
+    for change_set in (None, new_change_set()):
+        created = run(world, [relate(ids[0], d1), relate(ids[1], d1)], change_set=change_set)
+        assert summary(created) == [("applied", "created")] * 2
+        replaced = run(
+            world, [replace(ids[1], [d2])], change_set=change_set, onExisting="overwrite"
+        )
+        assert summary(replaced) == [("applied", "updated")]
+        first = created[0].fields
+        removed = run(
+            world,
+            [{"op": "deleteRelation", "id": first["relationId"], "expectedVersion": 1}],
+            change_set=change_set,
+        )
+        assert summary(removed) == [("applied", "deleted")]
+        rolled_back = run(
+            world,
+            [relate(ids[0], d2), relate(ids[0], d2)],
+            policy="atomic",
+            change_set=change_set,
+        )
+        assert summary(rolled_back)[-1] == ("rejected", "duplicate_relation")
+        with SessionLocal() as session:
+            assert matrix_states.verify(session) == []
+        run(world, [replace(ids[1], [])], change_set=change_set, onExisting="overwrite")
 
 
 def test_a_bulk_write_that_fails_is_redone_item_by_item(seeded, monkeypatch):

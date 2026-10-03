@@ -11,9 +11,9 @@ J1–J4 and R are specified (2026-09-29) and delivered in the order of the
 [Q4](#q4-effective-periods-and-asof) (2026-09-30), [V1](#v1-api-reference-page) (2026-09-30),
 [B1](#b1-job-model-and-inline-object-batches) (2026-10-01), [B2](#b2-background-jobs) (2026-10-01),
 the interim release 0.9.0-alpha.1 (2026-10-03), [F1](#f1-feed-positions) (2026-10-03, with the feed
-read, D31).
-**Next:** B3 (relation and relation-set items), then F2 (feed retention and recovery), in the order of
-the [delivery queue](#delivery-queue).
+read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39).
+**Next:** F2 (feed retention and recovery), then T1, in the order of the
+[delivery queue](#delivery-queue).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -206,7 +206,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 9a | [PG1–PG2](POSTGRESQL_RUNTIME_PLAN.md) with [H1](TEST_HARNESS_PLAN.md) | B2 | PostgreSQL only: runtime, baseline migration, the test harness with seeded databases built once, PostgreSQL forms |
 | 9b | [H2–H3](TEST_HARNESS_PLAN.md) | PG2 | Parallel test runs (H2 **delivered 2026-10-01**); time ceilings, full-size budgets out of everyday runs (H3); no product change |
 | 9c | [PG3–PG5](POSTGRESQL_RUNTIME_PLAN.md) | PG2 | The per-workspace write lock and concurrency tests; PG3b batch writes decided in memory and written in bulk (PG-D12–PG-D17); existing data carried over; budgets on PostgreSQL with the 100,000-item batch measured once; released as 0.9.0-alpha.1 |
-| 10 | [B3](#b3-relation-and-relation-set-items) | B1 | Relation items and `replaceRelationSet` |
+| 10 | [B3](#b3-relation-and-relation-set-items) | B1 | Relation items and `replaceRelationSet` — **delivered 2026-10-03** |
 | 11 | [F2](#f2-feed-retention-and-recovery) | F1 | Retention, `410` with baselines, the deep read budget (the read moved to F1, D31) |
 | 12 | [T1](#t1-track-checkpoint-q-b-f) | Q4, B2, B3, F2 | Track checkpoint for Q, B and F: their groups, budgets and a composed journey |
 | 13 | C2 | C1 | Consumer object and projections |
@@ -852,6 +852,96 @@ per affected set; the `transition` audit entry; the relation matrix state kept c
 
 **Exit:** relation items in API.md.
 
+**Delivered 2026-10-03**, in three slices (B3a–B3c) after one plan. The design left five questions:
+the user decided D35 (relation items in bulk, not one by one) and D36 (a replacement keeps a
+required relationship its record needs); D37–D39 were accepted with the plan. What was built:
+
+- **B3a, relation writes as batches of one.** `records/relation_writes.py` decides a relation
+  create, attribute change and delete over a batch lookup, with the claimed set checked against the
+  set as the items before it leave it. The lookup gains changed relations (version + 1), relations by
+  ID (live too) and set versions (stored plus the chunk's advances, prefetched). Both write units
+  write changed relations through the ORM, so the matrix states follow. The single live and
+  change-set relation routes are batches of one through these steps (AGENTS: one decide step).
+  `GET /relations?objectId=…` gains `relationSets`: every non-containment set the record anchors in
+  the listed direction and types, with its version, `0` when untouched, live and in a change set
+  (D38; journey J13.5).
+- **B3b, relation items.** `createRelation`, `ensureRelation`, `updateRelation` and `deleteRelation`
+  in `POST /batches`, the ends by reference, decided in the bulk segments with object items (D35).
+  `from` is a Python keyword: the field is `from_` with the JSON alias `from`, accepted and written
+  only under the alias, so background inputs round-trip (unit test).
+- **B3c, set replacement.** `records/relation_sets.py` decides a set replacement. The removals come
+  first, then each added target through `rules.relation` over what came before, so cardinality at
+  both ends and ancestor scope keep their codes. An equal set is `unchanged` before the claim (D37).
+  The anchor's set advances once and each other record's set whose set changed once. One `transition`
+  entry with `newTargets` takes no feed position (`AuditEntry.feed`). The mapping PUT is now its adapter
+  with one target or none: endpoint refusals, the clear rule, the change set claim and the conflict
+  preview stay its own; its version is checked before an unchanged save, as before. D36 refuses
+  removing a required relationship whose record has no other.
+
+Differences from the design, amended in INTEGRATION_API §B4–B6:
+
+- `ensureRelation` takes an optional `expectedVersion`.
+- A relation item's outcome has `relationSetVersion` when it claimed a set.
+- A set replacement's outcome has `relationIds: {created, kept, removed}`.
+- A target listed twice is `duplicate_relation`; a wrong-typed anchor or target is
+  `reference_type_mismatch` (D39).
+
+Found and changed:
+
+- **Duplicates.** Relating the same two records twice with one type answered `500` live, the unique
+  constraint reached unhandled (reproduced on the previous code). In a change set the duplicate was
+  staged, by reading the code: only `(change_set_id, relation_id)` is unique there. Both are now
+  `409 duplicate_relation` (journey J13.3).
+- **Update order.** A relationship update checked its values before its version live, and its
+  version first in a change set. Both now check the version first; `test_relations` pinned the
+  change-set order.
+- **Change-set delete audit.** A change-set relationship delete wrote no audit entry; it now
+  writes one, as the mapping save's removals did.
+- **Replaced test.** `test_mapping_replacement`'s case that patched the private `_get_set_version`
+  to fake a stale read before the conditional claim was removed: the claim is now compared in memory
+  under the workspace lock. The J10.4 and J10.5 journeys and `test_pg3_concurrency` hold the
+  behaviour.
+- **Tier rule.** The set step first sat in `engine/operations/`, which `test_boundaries` forbids
+  `engine/jobs/` to import; it lives in `engine/records/`.
+
+Composable domains (ADR-032): bulk APIs and relation-set versions are touched; no door is affected.
+Items resolve from the model (bindings, unique attributes), and the job cause on every relation
+entry is the provenance the value-source door builds on.
+
+**Checks:**
+
+- **Journey cases** (each on two configurations, each confirmed failing first):
+  - J13.5, the anchored read with an empty set, live and in a change set;
+  - J13.3, a duplicate relationship refused live and in a change set (failing on the previous code
+    with the unhandled unique violation);
+  - J11.7, relation items with their single codes and an overwrite, and in a change set to
+    publication;
+  - J10.10, a set replaced by kept, added and removed targets with each set's version, unchanged,
+    stale, missing version and overwrite, and eight refusals;
+  - J10.9, the mapping PUT refusing a required relationship's last removal and applying once the
+    record has another (D36);
+  - J11.8, a record, its required relationship and its set in one atomic batch, and its rollback.
+- **Unit tests:** stored matrix states after relation items, a set replacement and an atomic
+  rollback, live and in a change set (`matrix_states.verify`); relation items round-tripping a
+  background job's stored form, with `from_` refused.
+- **`test_batch_statements`** gains relationship items. Half are creates and half replace a set of
+  two, all named by key: 33 and 40 statements live for 100 and 500 items, 36 and 43 in the change
+  set, at both seeded sizes. That is constant; before the set versions were prefetched it was 82 to
+  289. Budget 44 and 47, allowance 8 for `IN` lists past 500 values.
+- **Groups:** `records`, `mapping`, `matrix`, `feed`, `contract` parallel, 600 passed (1 min 47 s);
+  `change_sets` and `jobs` without those, 323 passed (1 min 4 s); their serial part, 3 passed. Split
+  in two so each run stays under the 2-minute ceiling. `test_api_journeys` and the layout check, 10
+  passed. Over 10 s: existing modules only, plus `test_batch_statements`' module fixture (14.6 s on
+  its first test, now measuring three kinds).
+- **OpenAPI lock** re-baselined after diffing the document against the previous commit: 8 schemas
+  added, `BatchRequest.items`, `JobItemResponse` and `RelationPage` extended, and the
+  `POST /batches` description; no path added or removed. `ruff check app/ tests/` clean.
+
+Not run: `startup` (no migration, no lifespan change), `queries`, `model`, `model_admin`,
+`workspaces`, `consumer` and `volume`, which the changed boundaries do not select. Frontend format,
+lint and build were not run either: nothing under `frontend/` changed, and the mapping save's
+response is unchanged. The full suites wait for T1/R.
+
 ## Track F — Change feed
 
 #### F1: Feed positions
@@ -1292,7 +1382,7 @@ This build touches every door in [COMPOSABLE_DOMAINS.md](COMPOSABLE_DOMAINS.md#d
 All accepted 2026-09-29 as recommended (D3 and D10 revised the same day, D5 revised after a code
 check, D15 and D16 added by that check, D17–D19 raised by Q3), D20–D22 raised by Q4 (2026-09-30),
 D23–D26 raised by B1, which also confirmed D13 (2026-10-01), D27–D30 raised by B2 (2026-10-01),
-and D31–D34 raised by F1 (2026-10-03).
+D31–D34 raised by F1 (2026-10-03), and D35–D39 raised by B3 (2026-10-03).
 
 | # | Question | Decision | Blocks |
 | --- | --- | --- | --- |
@@ -1330,6 +1420,11 @@ and D31–D34 raised by F1 (2026-10-03).
 | D32 | Relation entries of a publish | **Decided 2026-10-03 by the user (F1), amending D15.** A publish writes one entry per record **and relation** it changes in live data, in this order: records created, updated or reclassified; relations removed; relations created or updated; records removed; then `published`. Otherwise a follower never learns of relation changes made through change sets, and a type change's relation changes (§F1) only reach live data through a publish | F, C |
 | D33 | `after` past the head | **Accepted 2026-10-03 with the F1 plan.** `409 feed_position_ahead` with `details.headPosition`. Such a position comes from another workspace's feed or a restored database, where new changes reuse its numbers; answering it would silently skip them | F |
 | D34 | What the feed filters match | **Accepted 2026-10-03 with the F1 plan.** Repeated values of one filter match any of them; `kind` and `objectTypeKey` combine. `objectTypeKey` matches object entries whose type, or for `reclassified` whose previous type, is listed; relation and publication entries never match it | F |
+| D35 | How relation items run in a batch | **Decided 2026-10-03 by the user (B3).** Decided in memory and written in bulk like object items (PG3b), not one by one like delete items: the single relation writes and the mapping save become batches of one through the same decide steps. A chunk of 500 relation items costs 40–43 statements | B, J |
+| D36 | A set replacement removing a required relationship | **Decided 2026-10-03 by the user (B3).** Refused `422 required_relation` with `details.objectId` when the record at the removed relationship's other end requires one and has no other, on `replaceRelationSet` and the mapping PUT; clearing a required set stays refused as before | B, J |
+| D37 | The outcome of a set replacement | **Accepted 2026-10-03 with the B3 plan.** `action` `updated`, or `unchanged` for a set already equal to the targets, decided before the claim (as D24); `relationSetVersion` and `relationIds: {created, kept, removed}`. Relation items carry `relationId`, `version` and a claimed set's `relationSetVersion`; the counts keep their four actions | B |
+| D38 | Set versions on the anchored read | **Accepted 2026-10-03 with the B3 plan.** `GET /relations?objectId=…` names every non-containment set the record anchors in the listed direction and types (`relationSets`), `0` when untouched; live and in a change set (its own versions); none in a publication | B |
+| D39 | Refusals of a set replacement | **Accepted 2026-10-03 with the B3 plan.** A target listed twice is `409 duplicate_relation` at `/items/i/targets/j`; a target's refusal points at it; a stale set is `409 relation_set_version_conflict`, while the mapping PUT keeps `mapping_version_conflict` with its preview; the `transition` payload lists `newTargets` | B |
 
 ## Next
 

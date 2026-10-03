@@ -104,7 +104,18 @@ complete handoff in [POSTGRESQL_BUDGETS.md](POSTGRESQL_BUDGETS.md)
 - A publish writes one entry per record and relationship it changed, then `published` (D15, D32).
 - The read pages by position with bounded filters, and refuses a position past the head (D31–D34).
 
-([record](BASE_0_9_IMPLEMENTATION_PLAN.md#f1-feed-positions)). Next are B3, then F2.
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#f1-feed-positions)). **B3 is delivered (2026-10-03):**
+relationship items in batches.
+- `createRelation`, `ensureRelation`, `updateRelation`, `deleteRelation` and `replaceRelationSet`
+  (any number of targets) are decided in memory and written in bulk, 40–43 statements per chunk
+  (D35).
+- The single relationship writes and the mapping save are batches of one through the same steps.
+- A replacement keeps a required relationship its record needs (D36).
+- `GET /relations?objectId=…` names each set's version, an empty set included (D38).
+- A duplicate relationship is `409 duplicate_relation` (live it answered 500).
+
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#b3-relation-and-relation-set-items)). Next are F2, then
+T1.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

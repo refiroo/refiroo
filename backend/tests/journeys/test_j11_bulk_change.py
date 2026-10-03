@@ -318,3 +318,214 @@ def test_a_key_reused_with_another_request_or_while_its_job_runs(world):
     again = _batch(world, background, key="k2", run="background")
     refused(again, 409, "idempotency_in_progress")
     assert again.headers["Retry-After"]
+
+
+def _relation(world, op, source, target, values=None, **extra):
+    """A relationship item of ``Bnn`` between records named by ID."""
+    item = {
+        "op": op,
+        "relationTypeKey": world.key("Bnn"),
+        "from": {"id": source},
+        "to": {"id": target},
+    }
+    if values is not None:
+        item["attributes"] = {world.key(k): v for k, v in values.items()}
+    return {**item, **extra}
+
+
+def _bnn(world, source, **params):
+    page = ok(
+        world.api.get(
+            "/relations",
+            objectId=source,
+            direction="outgoing",
+            relationTypeKey=world.key("Bnn"),
+            pageSize=100,
+            **params,
+        )
+    )
+    return {item["object"]["id"]: item["relation"] for item in page["items"]}, {
+        s["relationTypeKey"]: s["relationSetVersion"] for s in page["relationSets"]
+    }
+
+
+@pytest.mark.journey("J11.7")
+@pytest.mark.structures("H", "K", "Bnn", "Bnn.weight", "Hparent")
+def test_relationship_items_follow_their_single_writes(world):
+    """Given H record h related to K records k2 and k3 (weight 1), and k1 unrelated. When an
+    independent batch relates h to k1, ensures that relationship again with the same value, ensures
+    h–k3 with another value and no version, changes h–k2 at its version, removes it at its new
+    version, relates h with a value below its minimum, creates a containment relationship directly
+    and removes a relationship claiming a stale set version. Then each outcome comes in item order:
+    created, unchanged, refused for its missing version, updated, deleted, and refused with the
+    single writes' codes pointing into the items; h's relationships are exactly the applied ones and
+    its history names the job. Sent again with a declared overwrite, h–k3 is updated reporting the
+    version it wrote over."""
+    h = world.made("H", "Batch relating")
+    k1, k2, k3 = (world.ids[f"k0{n}"] for n in (1, 2, 3))
+    r2 = ok(world.relate("Bnn", h["id"], k2, {"Bnn.weight": 1}), 201)
+    r3 = ok(world.relate("Bnn", h["id"], k3, {"Bnn.weight": 1}), 201)
+    _relations, sets = _bnn(world, h["id"])
+    seen = sets[world.key("Bnn")]
+
+    ensure_k3 = _relation(world, "ensureRelation", h["id"], k3, {"Bnn.weight": 5})
+    items = [
+        _relation(world, "createRelation", h["id"], k1, {"Bnn.weight": 2}),
+        _relation(world, "ensureRelation", h["id"], k1, {"Bnn.weight": 2}),
+        ensure_k3,
+        {
+            "op": "updateRelation",
+            "id": r2["id"],
+            "expectedVersion": r2["version"],
+            "attributes": {world.key("Bnn.weight"): 7},
+        },
+        {"op": "deleteRelation", "id": r2["id"], "expectedVersion": r2["version"] + 1},
+        _relation(world, "createRelation", h["id"], k1, {"Bnn.weight": 0}),
+        {
+            "op": "createRelation",
+            "relationTypeKey": world.key("Hparent"),
+            "from": {"id": world.ids["h1"]},
+            "to": {"id": h["id"]},
+        },
+        {
+            "op": "deleteRelation",
+            "id": r3["id"],
+            "expectedVersion": r3["version"],
+            "expectedRelationSetVersion": seen,
+            "relationSetDirection": "outgoing",
+        },
+    ]
+    result = ok(_batch(world, items))
+    assert _outcomes(result) == [
+        ("applied", "created"),
+        ("applied", "unchanged"),
+        ("rejected", "version_required"),
+        ("applied", "updated"),
+        ("applied", "deleted"),
+        ("rejected", "attribute_below_minimum"),
+        ("rejected", "immutable_relation"),
+        ("rejected", "relation_set_version_conflict"),
+    ]
+    created = result["items"][0]
+    assert created["version"] == 1 and result["items"][1]["relationId"] == created["relationId"]
+    assert result["items"][3]["version"] == r2["version"] + 1
+    assert result["items"][5]["error"]["details"]["pointer"] == "/items/5/attributes"
+    assert (
+        result["items"][7]["error"]["details"]["pointer"] == "/items/7/expectedRelationSetVersion"
+    )
+    relations, _sets = _bnn(world, h["id"])
+    assert set(relations) == {k1, k3}
+    assert relations[k1]["id"] == created["relationId"]
+    assert relations[k3]["attributes"][world.key("Bnn.weight")] == 1
+    history = ok(world.api.get(f"/objects/{world.key('H')}/{h['id']}/history"))["items"]
+    assert {"kind": "job", "id": result["job"]["id"]} in [item.get("cause") for item in history]
+
+    overwritten = ok(_batch(world, [ensure_k3], onExisting="overwrite"))
+    [outcome] = overwritten["items"]
+    assert (outcome["action"], outcome["previousVersion"]) == ("updated", r3["version"])
+    assert _bnn(world, h["id"])[0][k3]["attributes"][world.key("Bnn.weight")] == 5
+
+
+@pytest.mark.journey("J11.7", "J11.3")
+@pytest.mark.structures("H", "K", "Bnn", "Bnn.weight")
+def test_relationship_items_in_a_change_set(world):
+    """Given H record h related to K record k2, and change set CS at version v. When a batch in CS
+    relates h to k1 and k3 and changes h–k2's value, then a second batch removes the staged h–k3.
+    Then CS is at v+2, holds h–k1 and the changed value without h–k3, and live is unchanged; after
+    publishing live holds them."""
+    h = world.made("H", "Staged batch relating")
+    k1, k2, k3 = (world.ids[f"k0{n}"] for n in (1, 2, 3))
+    r2 = ok(world.relate("Bnn", h["id"], k2, {"Bnn.weight": 1}), 201)
+    cs = world.change_set()
+    items = [
+        _relation(world, "createRelation", h["id"], k1, {"Bnn.weight": 2}),
+        _relation(world, "createRelation", h["id"], k3, {"Bnn.weight": 3}, ref="k3"),
+        {
+            "op": "updateRelation",
+            "id": r2["id"],
+            "expectedVersion": r2["version"],
+            "attributes": {world.key("Bnn.weight"): 9},
+        },
+    ]
+    result = ok(
+        _batch(
+            world, items, context={"changeSetId": cs["id"]}, expectedChangeSetVersion=cs["version"]
+        )
+    )
+    assert result["job"]["result"] == "applied"
+    k3_relation = result["items"][1]["relationId"]
+    removal = {"op": "deleteRelation", "id": k3_relation, "expectedVersion": 1}
+    ok(
+        _batch(
+            world,
+            [removal],
+            context={"changeSetId": cs["id"]},
+            expectedChangeSetVersion=cs["version"] + 1,
+        )
+    )
+    assert world.current(cs)["version"] == cs["version"] + 2
+
+    staged, _sets = _bnn(world, h["id"], changeSetId=cs["id"])
+    assert set(staged) == {k1, k2}
+    assert staged[k2]["attributes"][world.key("Bnn.weight")] == 9
+    live, _sets = _bnn(world, h["id"])
+    assert set(live) == {k2} and live[k2]["attributes"][world.key("Bnn.weight")] == 1
+    world.publish(cs)
+    published, _sets = _bnn(world, h["id"])
+    assert set(published) == {k1, k2}
+    assert published[k2]["attributes"][world.key("Bnn.weight")] == 9
+
+
+@pytest.mark.journey("J11.8")
+@pytest.mark.structures("R", "R.u", "G", "D", "Bown", "K", "B1n")
+def test_a_record_its_required_relationship_and_its_set_in_one_atomic_batch(world):
+    """When an atomic batch creates R record r, creates D record d requiring r by r's unique value,
+    and replaces r's set of one-to-many relationships with K records k1 and k2, claiming the empty
+    set's version 0. Then everything applies. The same batch for another r with a stale claim on its
+    last item leaves every item unprocessed and creates nothing."""
+    g = world.made("G", "Atomic scope")
+    k1, k2 = (world.made("K", f"Atomic token {n}")["id"] for n in (1, 2))
+
+    def items(u, claimed):
+        owner = _by_u(world, u)
+        dependant = {
+            "op": "create",
+            "applicationKey": world.app("D"),
+            "objectTypeKey": world.key("D"),
+            "name": f"Needs {u}",
+            "parent": {"id": world.dependant_parent(g["id"])},
+            "attributes": [
+                {"attributeTypeKey": k, "value": v} for k, v in world.required_values("D").items()
+            ],
+            "initialRelations": [
+                {"relationTypeKey": world.key("Bown"), "direction": "incoming", "object": owner}
+            ],
+        }
+        mapped = {
+            "op": "replaceRelationSet",
+            "relationTypeKey": world.key("B1n"),
+            "fromObjectTypeKey": world.key("R"),
+            "toObjectTypeKey": world.key("K"),
+            "direction": "outgoing",
+            "anchor": owner,
+            "targets": [{"object": {"id": k}} for k in (k1, k2)],
+            "expectedRelationSetVersion": claimed,
+        }
+        return [_create(world, "R", f"Owner {u}", u), dependant, mapped]
+
+    result = ok(_batch(world, items("ATOM-A", 0), policy="atomic"))
+    assert _outcomes(result) == [
+        ("applied", "created"),
+        ("applied", "created"),
+        ("applied", "updated"),
+    ]
+    owner = result["items"][0]["id"]
+    linked = ok(world.api.get("/relations", objectId=owner, relationTypeKey=world.key("B1n")))
+    assert {item["object"]["id"] for item in linked["items"]} == {k1, k2}
+
+    records = _count(world, "R")
+    rolled_back = ok(_batch(world, items("ATOM-B", 5), policy="atomic"))
+    assert _outcomes(rolled_back) == [("unprocessed", "batch_rolled_back")] * 2 + [
+        ("rejected", "relation_set_version_conflict")
+    ]
+    assert _count(world, "R") == records

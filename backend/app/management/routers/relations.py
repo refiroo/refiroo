@@ -24,7 +24,7 @@ from ...engine.reads.snapshot_reads import (
     publication_context,
 )
 from ...engine.records.context import load_active_projection
-from ...engine.records.relation_set_versions import set_claim
+from ...engine.records.relation_set_versions import anchored_set_versions, set_claim
 from ...engine.records.relations import (
     create_live_relation,
     delete_live_relation,
@@ -43,13 +43,25 @@ from ...models.database import RdmObject
 from ..dependencies import DbSession, RequestModelSnapshot
 from ..paging import SeekablePageQuery
 from ..presenters import build_object_responses, build_relation_response, change_set_object_response
-from ..schemas.records import RelationExpansion, RelationPage, RelationResponse
+from ..schemas.records import (
+    RelationExpansion,
+    RelationPage,
+    RelationResponse,
+    RelationSetVersionItem,
+)
 
 router = APIRouter(prefix="/api/v1", tags=["relations"])
 
 def _change_set_response(item) -> RelationResponse:
     # Change set and history relations record no timestamps (WP-10K); never substitute the current time.
     return RelationResponse(id=item.relation_id, relationTypeKey=item.relation_type_key, fromObjectId=item.from_object_id, toObjectId=item.to_object_id, attributes=item.attributes or {}, version=item.version, createdAt=None, updatedAt=None)
+
+def _relation_sets(session, model, *, workspace_key, change_set_id, anchor_type_key, anchor_id, direction, relation_type_keys) -> list[RelationSetVersionItem]:
+    """The sets the listed record anchors and their versions (0.9 B3, D38)."""
+    return [
+        RelationSetVersionItem(relationTypeKey=item.relation_type_key, fromObjectTypeKey=item.from_object_type_key, toObjectTypeKey=item.to_object_type_key, direction=item.direction, relationSetVersion=item.version)
+        for item in anchored_set_versions(session, model, workspace_key=workspace_key, change_set_id=change_set_id, anchor_type_key=anchor_type_key, anchor_id=anchor_id, direction=direction, relation_type_keys=relation_type_keys)
+    ]
 
 def _ctx(change_set: str, expected: int | None) -> int:
     if expected is None:
@@ -122,7 +134,8 @@ def list_relations(
         page = paginate_statement(session, query.statement, keys=query.keys, scope=relation_scope(context), filters=query.filters, page=paging, page_size=page_size, message="Relation cursor is invalid", rows=True, seek=query.seek)
         objects = find_objects(session, context, (row.related_id for row in page.items))
         paths = object_paths(session, context, objects.values())
-        return RelationPage(items=[RelationExpansion(direction="outgoing" if row.from_object_id == object_id else "incoming", relation=_change_set_response(row), object=change_set_object_response(objects[row.related_id], context.id, snapshot.model, path=paths[row.related_id]).model_copy(update={"workspaceKey": context.workspace_key})) for row in page.items if row.related_id in objects], **page.links())
+        relation_sets = _relation_sets(session, snapshot.model, workspace_key=context.workspace_key, change_set_id=context.id, anchor_type_key=anchor.object_type_key, anchor_id=object_id, direction=direction, relation_type_keys=relation_type_keys) if change_set_id else None
+        return RelationPage(items=[RelationExpansion(direction="outgoing" if row.from_object_id == object_id else "incoming", relation=_change_set_response(row), object=change_set_object_response(objects[row.related_id], context.id, snapshot.model, path=paths[row.related_id]).model_copy(update={"workspaceKey": context.workspace_key})) for row in page.items if row.related_id in objects], relationSets=relation_sets, **page.links())
     anchor = load_active_projection(session, object_id)
     workspace = resolve_workspace(session, workspace_key)
     if anchor.workspace_key != workspace.key:
@@ -133,7 +146,8 @@ def list_relations(
     related_rows = list(session.scalars(select(RdmObject).where(RdmObject.id.in_(related_ids))))
     # One batched build for the page, not one per row (S1 finding).
     related = {item.id: item for item in build_object_responses(session, snapshot.model, related_rows)}
-    return RelationPage(items=[RelationExpansion(direction="outgoing" if row.ObjectRelation.from_object_id == object_id else "incoming", relation=build_relation_response(row.ObjectRelation), object=related[row.related_id]) for row in page.items], **page.links())
+    relation_sets = _relation_sets(session, snapshot.model, workspace_key=anchor.workspace_key, change_set_id=None, anchor_type_key=anchor.object_type_key, anchor_id=object_id, direction=direction, relation_type_keys=relation_type_keys)
+    return RelationPage(items=[RelationExpansion(direction="outgoing" if row.ObjectRelation.from_object_id == object_id else "incoming", relation=build_relation_response(row.ObjectRelation), object=related[row.related_id]) for row in page.items], relationSets=relation_sets, **page.links())
 
 @router.get("/relations/{relation_id}", response_model=RelationResponse)
 def get_relation(relation_id: str, session: DbSession, snapshot: RequestModelSnapshot, workspace_key: str | None = Query(default=None, alias="workspaceKey"), change_set_id: str | None = Query(default=None, alias="changeSetId"), publication_id: str | None = Query(default=None, alias="publicationId")) -> RelationResponse:

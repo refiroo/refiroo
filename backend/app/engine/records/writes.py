@@ -192,6 +192,16 @@ class LiveWrites:
             row.updated_at = now
             rows[object_id] = row
         self._save_saved_values(model, changes)
+        if changes.changed:
+            # Through the ORM, so the matrix states follow the attribute change (ADR-033).
+            for chunk in _chunks(sorted(changes.changed)):
+                for row in session.scalars(
+                    select(ObjectRelation).where(ObjectRelation.id.in_(chunk))
+                ):
+                    relation = changes.changed[row.id]
+                    row.attributes = dict(relation.attributes)
+                    row.version = relation.version
+                    row.updated_at = now
         session.add_all(
             ObjectRelation(
                 id=relation.relation_id,
@@ -199,6 +209,7 @@ class LiveWrites:
                 from_object_id=relation.from_object_id,
                 to_object_id=relation.to_object_id,
                 attributes=relation.attributes,
+                version=relation.version,
             )
             for relation in changes.added.values()
         )
@@ -582,6 +593,30 @@ class ChangeSetWrites:
             else:
                 row.version += 1
                 row.is_deleted = True
+        owned = {
+            row.relation_id: row
+            for chunk in _chunks(sorted(changes.changed))
+            for row in session.scalars(
+                select(ChangeSetRelation).where(
+                    ChangeSetRelation.change_set_id == self.change_set_id,
+                    ChangeSetRelation.relation_id.in_(chunk),
+                )
+            )
+        }
+        for relation_id, relation in changes.changed.items():
+            row = owned.get(relation_id)
+            if row is None:
+                row = ChangeSetRelation(
+                    change_set_id=self.change_set_id,
+                    relation_id=relation_id,
+                    relation_type_key=relation.relation_type_key,
+                    from_object_id=relation.from_object_id,
+                    to_object_id=relation.to_object_id,
+                )
+                session.add(row)
+            row.attributes = dict(relation.attributes)
+            row.version = relation.version
+            row.is_deleted = False
         session.add_all(
             ChangeSetRelation(
                 change_set_id=self.change_set_id,
@@ -590,7 +625,7 @@ class ChangeSetWrites:
                 from_object_id=relation.from_object_id,
                 to_object_id=relation.to_object_id,
                 attributes=relation.attributes,
-                version=1,
+                version=relation.version,
             )
             for relation in changes.added.values()
         )

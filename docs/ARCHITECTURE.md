@@ -294,8 +294,12 @@ bulk job.
   and every `ondelete` rule is pinned in `test_foreign_keys`.
 - **Decided in memory, written in bulk** (PG-D12–PG-D16). A create or update is decided by the rules
   over a batch lookup (`records/batch_lookup.py`): the records it reads, preloaded per chunk, with the
-  items decided before it laid over them. The accepted changes are written together by `records/bulk.py`,
-  each kind of row in multi-row statements: a chunk of 500 items costs 30–49 statements. Because a
+  items decided before it laid over them. Relation writes are decided the same way
+  (`records/relation_writes.py`), and so is a relation-set replacement (`records/relation_sets.py`),
+  which the mapping save and a batch's `replaceRelationSet` share; a set version is compared with the
+  stored one plus what the chunk's items advanced (0.9 B3, D35). The accepted changes are written together by `records/bulk.py`,
+  each kind of row in multi-row statements: a chunk of 500 items costs 30–49 statements, 40–43 for
+  relationship items. Because a
   version is compared in memory rather than claimed by a conditional `UPDATE`, a write reads the records
   it changes after taking its lock. A chunk checks its release before writing matrix states, so an
   activation that drops a matrix view cannot deadlock with it. A bulk write failing on a row the rules

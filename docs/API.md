@@ -1624,10 +1624,21 @@ preventing a corrupt or legacy cross-workspace edge from being exposed.
 This page shape is an intentional pre-1.0 breaking change. Callers must follow `nextCursor` unchanged
 and must not parse it.
 
+Live and in a change set the page also names, as `relationSets`, every relationship set the record
+anchors in the listed `direction` and relation types (Base 0.9 B3, D38): one entry per binding its
+type takes part in other than containment, with `relationTypeKey`, `fromObjectTypeKey`,
+`toObjectTypeKey`, `direction` and `relationSetVersion`, which is `0` for a set no write has touched.
+A set with no relationship (never had one, or all removed) is named too, so an integrator reads a
+record's set and claims its version on a create, a delete or a batch's `replaceRelationSet` without
+a matrix or mapping view. In a change set the versions are the change set's own. A publication is
+read-only and names none.
+
 A relation type the model does not declare is `422 unknown_relation_type` on every write, live and in
 a change set (`GET /relation-types/{key}` answers an unknown key with `404`).
 Relation creation validates the relation type, source and target object types, workspace, cardinality,
-configured ancestor-scoped uniqueness and relation attributes. Relation attribute keys must appear in
+configured ancestor-scoped uniqueness and relation attributes. A relation of the type already joining
+the same two records is `409 duplicate_relation`, live and in a change set (Base 0.9 B3; live it
+answered `500` before). Relation attribute keys must appear in
 the matched allowed pair's `attributeTypeKeys`; values are normalized and validated using the referenced
 global attribute-type definitions. Undeclared keys return `422 unknown_relation_attributes`, and type or
 numeric-bound failures use the same errors as object attributes.
@@ -1644,8 +1655,9 @@ example is change-set-scoped; omit its two change set fields for a live update. 
 (`relationTypeKey`, `fromObjectId`, `toObjectId`) is immutable; only `attributes`
 can be replaced. Replacement attributes are validated against the original allowed pair in the same
 transaction as the version claim. `DELETE` returns 204 and removes the relation row. Both mutations
-take `expectedVersion` and atomically claim the version, returning `409 version_conflict` when the
-claim is stale.
+take `expectedVersion` and claim it under the workspace's write lock, returning `409 version_conflict`
+when the claim is stale; an update checks the version before its attributes (Base 0.9 B3, as change
+sets did).
 
 Engine-maintained parent-containment and hierarchy relations — those named in the target object type's
 `behavior.parentRelationTypeKeys` and written atomically on parent changes — are read-only through this
@@ -1694,11 +1706,12 @@ relation attributes without returning their values. The response deliberately om
 sequence ID and complete before/after values. History cursors are signed and bound to the object
 identity, type and workspace; mismatches return `422 invalid_cursor`.
 
-## Batches and jobs (Base 0.9 B1, B2)
+## Batches and jobs (Base 0.9 B1, B2, B3)
 
 Bulk writes run as **jobs** ([ADR-036](DECISIONS.md#adr-036--a-batch-is-a-job-one-mechanism-for-bulk-writes-imports-and-exports);
 design and reasons in [INTEGRATION_API P and B](INTEGRATION_API.md#p-shared-primitives)). B1 delivers
-object items run inline, B2 background runs and cancellation; relation items (B3) follow.
+object items run inline, B2 background runs and cancellation, B3 relationship items and set
+replacement.
 
 ```text
 POST /api/v1/batches                                   (INTEGRATION_JOBS_ENABLED)
@@ -1764,6 +1777,11 @@ batch's context as it stands when the item runs.
 | `update` | `target` (reference), `expectedVersion`; optional `name`, `parent` (reference, or `null` for the top level), `attributes` | `PATCH /objects/…`: only the fields given change |
 | `upsert` | `applicationKey`, `objectTypeKey`, `key`, `name`; optional `parent`, `attributes`, `initialRelations`, `expectedVersion` | Finds the record by `key` and updates it as `update`, or creates it as `create`. `key` is `{ "id": "…" }` (the ID a new record gets) or `{ "attributeTypeKey": "…" }`, a unique attribute whose value the item's `attributes` supply. `initialRelations` are used only when it creates; an absent `parent` keeps an existing record where it is |
 | `delete` | `target`, `expectedVersion` | `DELETE` without `cascade`: a record with dependants is `object_has_dependants`; delete children first |
+| `createRelation` | `relationTypeKey`, `from`, `to` (references); optional `attributes`, `expectedRelationSetVersion` with `relationSetDirection` | `POST /relations` |
+| `ensureRelation` | `relationTypeKey`, `from`, `to`; optional `attributes`, `expectedVersion` | Creates the relationship unless one of the type already joins the two records; then `unchanged` when `attributes` are omitted or equal, otherwise an update of its attributes |
+| `updateRelation` | `id`, `expectedVersion`, `attributes` | `PATCH /relations/{id}`: the attributes are replaced |
+| `deleteRelation` | `id`, `expectedVersion`; optional `expectedRelationSetVersion` with `relationSetDirection` | `DELETE /relations/{id}` |
+| `replaceRelationSet` | `relationTypeKey`, `fromObjectTypeKey`, `toObjectTypeKey`, `direction`, `anchor` (reference), `targets` (each `{ "object": reference, "attributes"?: {…} }`, possibly empty); optional `expectedRelationSetVersion` | The anchor's set of that binding in that direction becomes the targets, as `PUT /mappings` replaces one |
 
 An item's validation, refusals and audit entries are its single write's. An update or upsert whose
 name, parent and values equal the record's is applied as `unchanged`, whatever its version claim: it
@@ -1772,6 +1790,33 @@ writes no version, audit entry or change. Otherwise an update needs a current `e
 request declares `onExisting: "overwrite"`; then it writes over the version it read, reports it as
 `previousVersion` and records it in the audit entry. An upsert never changes a record's type or
 application (`reference_type_mismatch`).
+
+Relationship items are decided as the single relationship writes decide them, with the same codes,
+and written in bulk with the object items around them, so a chunk costs a constant number of
+statements whatever its mix (D35). An `ensureRelation` that would change a relationship's values
+needs its `expectedVersion`, or `onExisting: "overwrite"` (`version_required` otherwise; an
+overwrite reports `previousVersion`). A claimed set (`expectedRelationSetVersion` with
+`relationSetDirection`, or a `replaceRelationSet`'s version) is checked against the set as the items
+before it leave it (`409 relation_set_version_conflict` with `anchorObjectId`, `direction` and the
+current `relationSetVersion`); [the record's relationship list](#relation-endpoints) names every
+set's version. A containment relationship is never an item (`immutable_relation`): a parent changes
+through an object's `parent`.
+
+**`replaceRelationSet`.** A target the anchor already relates to keeps its relationship: omitted
+`attributes` keep its values, an explicit object replaces them. The others are removed and the new
+ones created in the listed order, each checked as a single create over what came before, so
+cardinality at either end (`cardinality_violation`), ancestor scope (`duplicate_relation_scope`,
+`relation_ancestor_required`) and the values answer with their single codes, pointing at
+`/items/{i}/targets/{j}`. A set equal to the targets is `unchanged`, whatever its version claim;
+otherwise `expectedRelationSetVersion` must be the set's version, or the request declares
+`onExisting: "overwrite"` (`version_required` otherwise). Refused as well: a required-ownership
+binding (`required_ownership_binding`), an empty set on a required binding, or removing a
+relationship whose other record requires one and has no other (`required_relation`, with
+`details.objectId`), a record listed twice (`duplicate_relation`), and an anchor or target of
+another type than the binding's end (`reference_type_mismatch`). The anchor's set advances by one,
+and each record whose own set changed by one. Each relationship removed, changed or created gets
+its audit entry and feed entry, and one `transition` entry in the anchor's history names the
+previous and new targets (not in the feed).
 
 ### Response
 
@@ -1807,7 +1852,10 @@ release activated while it ran (`409 model_release_changed`, nothing saved).
 
 An outcome carries only its status's fields. `applied`: `action` (`created`, `updated`,
 `unchanged`, `deleted`), `id`, `objectTypeKey`, `version` (none after a live delete) and, after an
-overwrite, `previousVersion`. `rejected`: `error` with the single write's code, or one of
+overwrite, `previousVersion`. A relationship item's has `relationId`, the relationship's `version`
+(none after a delete) and, when it claimed a set, the set's new `relationSetVersion`. A
+`replaceRelationSet`'s has `action` `updated` or `unchanged`, the anchor's `relationSetVersion` and
+`relationIds` (`created`, `kept`, `removed`). `rejected`: `error` with the single write's code, or one of
 `invalid_record_key`, `missing_record_key`, `reference_not_found`, `reference_type_mismatch` and
 `version_required`; `details.pointer` is a JSON pointer into the request. `unprocessed`: `reason`.
 Every audit entry an item writes names the job as its cause (`cause: {"kind": "job", "id"}` in object
@@ -2082,7 +2130,9 @@ the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
   `"mapped"` or `"unmapped"`.
 - Validates workspace status, endpoint identities and the effective model. Rejects containment
   bindings (`422 immutable_relation`) and required-ownership bindings
-  (`422 required_ownership_binding`). Clearing a required relation is `422 required_relation`.
+  (`422 required_ownership_binding`). Clearing a required relation is `422 required_relation`, and
+  so is replacing a required relation whose other record has no other one (D36, Base 0.9 B3), with
+  `details.objectId` naming that record.
 - Direction-aware cross-cardinality is enforced: one-to-one always; one-to-many on outgoing
   direction only. Violations return `409 cardinality_violation`. Ancestor-scoped uniqueness is
   validated against the final graph, excluding edges being replaced. Duplicate scopes return
@@ -2107,7 +2157,9 @@ the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
   use the canonical validation boundary. An identical complete state with valid tokens is a no-op
   with no version increment or audit event.
 - Changes record underlying per-relation audit events (created/updated/deleted) and one mapping
-  `transition` event with old/new targets, relation identities and attributes.
+  `transition` event with old/new targets, relation identities and attributes
+  (`previousTargets`, `newTargets`). The save is the relation-set replacement a batch's
+  `replaceRelationSet` item runs (Base 0.9 B3), with one target or none.
 
 WP-9 verifies generic-write/mapping races, both directional sets, independent bindings and change set
 activation versus live same-set changes. Confirmed missing foundation capabilities trigger a bounded

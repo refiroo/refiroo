@@ -89,8 +89,24 @@ class RelationExpansion(BaseModel):
     object: ObjectResponse
 
 
+class RelationSetVersionItem(BaseModel):
+    """A relation set the listed record anchors and its version, which a claimed write names
+    (``expectedRelationSetVersion`` with ``relationSetDirection``, ADR-022)."""
+
+    relationTypeKey: str
+    fromObjectTypeKey: str
+    toObjectTypeKey: str
+    direction: Literal["outgoing", "incoming"]
+    relationSetVersion: int
+
+
 class RelationPage(CollectionPage[RelationExpansion]):
-    pass
+    """A record's relations, and every relation set it anchors in the listed direction and types,
+    an empty one included (0.9 B3). A publication is read-only and names no sets."""
+
+    relationSets: list[RelationSetVersionItem] | SkipJsonSchema[None] = Field(
+        default=None, exclude_if=omitted_when_none, json_schema_extra=without_default
+    )
 
 
 class AuditCause(BaseModel):

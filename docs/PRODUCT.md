@@ -117,7 +117,8 @@ can complete the task in the application; "API" means another system can.
   returned and including related records.
 - Declare a business validity period on a record type and read the records valid on a date (`asOf`).
 - Load up to a million records in one bulk request, run inline or in the background: create, update,
-  upsert by a unique key, and delete, each item with its own outcome. Choose all-or-nothing or
+  upsert by a unique key, and delete records; create, ensure, change and remove relationships, and
+  replace a record's whole set of related records; each item with its own outcome. Choose all-or-nothing or
   item-by-item, retry safely with an idempotency key, follow progress and cancel.
 - Follow a workspace's changes in order: every change to live data has the next number in the
   workspace's change feed, with no gaps, so an integration reads on from the last number it

@@ -221,6 +221,86 @@ def test_a_claimed_write_is_refused_when_the_set_changed(world):
     )
 
 
+@pytest.mark.journey("J13.3")
+@pytest.mark.structures("H", "K", "Bnn", "Bnn.weight")
+def test_relating_the_same_records_twice_is_refused(world):
+    """Given H record h related to K record k. When the same relationship is created again, live and
+    in a change set. Then each is refused as a duplicate, and h holds one such relationship in
+    each. (Live, this reached the database's unique constraint and answered 500 before 0.9 B3.)"""
+    h, k = world.made("H", "Related once"), world.made("K", "Related once token")
+    ok(world.relate("Bnn", h["id"], k["id"], {"Bnn.weight": 1}), 201)
+    refused(world.relate("Bnn", h["id"], k["id"], {"Bnn.weight": 2}), 409, "duplicate_relation")
+    cs1 = world.change_set()
+    staged = world.relate(
+        "Bnn",
+        h["id"],
+        k["id"],
+        {"Bnn.weight": 2},
+        changeSetId=cs1["id"],
+        expectedChangeSetVersion=world.current(cs1)["version"],
+    )
+    refused(staged, 409, "duplicate_relation")
+    for params in ({}, {"changeSetId": cs1["id"]}):
+        assert len(_relations(world, h["id"], relationTypeKey=world.key("Bnn"), **params)) == 1
+
+
+def _set_versions(world, object_id, **params):
+    page = ok(world.api.get("/relations", objectId=object_id, pageSize=1, **params))
+    return {
+        (item["relationTypeKey"], item["direction"]): item["relationSetVersion"]
+        for item in page["relationSets"]
+    }
+
+
+@pytest.mark.journey("J13.5")
+@pytest.mark.structures("H", "K", "Bnn", "Bh1n")
+def test_the_record_s_relationship_list_names_each_set_s_version(world):
+    """Given H record h with one relationship of one type and none of another. When the integrator
+    lists h's relationships. Then each set h anchors is named with its version, the empty one at 0;
+    after the only relationship is removed its set is still named, advanced; a create claiming the
+    named version succeeds. In a change set the list names the change set's versions."""
+    h = world.made("H", "Anchored set")
+    relation = ok(world.relate("Bnn", h["id"], world.ids["k01"], {"Bnn.weight": 1}), 201)
+    bnn, bh1n = (world.key("Bnn"), "outgoing"), (world.key("Bh1n"), "outgoing")
+    versions = _set_versions(world, h["id"], direction="outgoing")
+    assert versions[bnn] >= 1 and versions[bh1n] == 0
+    only = _set_versions(world, h["id"], direction="outgoing", relationTypeKey=world.key("Bh1n"))
+    assert only == {bh1n: 0}
+
+    path = f"/relations/{relation['id']}"
+    assert world.api.delete(path, expectedVersion=1).status_code == 204
+    emptied = _set_versions(world, h["id"], direction="outgoing")
+    assert emptied[bnn] == versions[bnn] + 1
+    claimed = ok(
+        world.relate(
+            "Bnn",
+            h["id"],
+            world.ids["k02"],
+            {"Bnn.weight": 1},
+            expectedRelationSetVersion=emptied[bnn],
+            relationSetDirection="outgoing",
+        ),
+        201,
+    )
+    assert claimed["relationSetVersion"] == emptied[bnn] + 1
+
+    cs1 = world.change_set()
+    staged = _set_versions(world, h["id"], direction="outgoing", changeSetId=cs1["id"])
+    assert staged[bnn] == 0
+    ok(
+        world.relate(
+            "Bnn",
+            h["id"],
+            world.ids["k03"],
+            {"Bnn.weight": 1},
+            changeSetId=cs1["id"],
+            expectedChangeSetVersion=world.current(cs1)["version"],
+        ),
+        201,
+    )
+    assert _set_versions(world, h["id"], direction="outgoing", changeSetId=cs1["id"])[bnn] == 1
+
+
 @pytest.mark.journey("J13.7")
 @pytest.mark.structures("H", "K", "Bnn")
 def test_relate_in_a_change_set(world):

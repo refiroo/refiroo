@@ -451,3 +451,204 @@ def test_a_required_or_owning_relationship_cannot_be_replaced_or_cleared(world):
         "relation_ancestor_required",
     )
     assert _row(world, "Vnn", h)["mappingVersion"] == before["mappingVersion"]
+
+
+def _set_item(world, relation, source, target, direction, anchor, targets, **extra):
+    """A ``replaceRelationSet`` item over the binding ``relation`` from ``source`` to ``target``
+    types; ``targets`` are record IDs or ``(id, values)`` pairs."""
+    listed = []
+    for item in targets:
+        object_id, values = item if isinstance(item, tuple) else (item, None)
+        entry = {"object": {"id": object_id}}
+        if values is not None:
+            entry["attributes"] = {world.key(k): v for k, v in values.items()}
+        listed.append(entry)
+    return {
+        "op": "replaceRelationSet",
+        "relationTypeKey": world.key(relation),
+        "fromObjectTypeKey": world.key(source),
+        "toObjectTypeKey": world.key(target),
+        "direction": direction,
+        "anchor": {"id": anchor},
+        "targets": listed,
+        **extra,
+    }
+
+
+def _batch(world, items, **body):
+    request = {"policy": "independent", "run": "inline", "workspaceKey": W1, "items": items, **body}
+    return ok(world.api.client.post("/api/v1/batches", json=request))
+
+
+def _anchored(world, object_id, relation, direction):
+    page = ok(
+        world.api.get(
+            "/relations",
+            objectId=object_id,
+            direction=direction,
+            relationTypeKey=world.key(relation),
+            pageSize=100,
+        )
+    )
+    [version] = [item["relationSetVersion"] for item in page["relationSets"]]
+    return {item["object"]["id"]: item["relation"] for item in page["items"]}, version
+
+
+@pytest.mark.journey("J10.10")
+@pytest.mark.structures("H", "K", "Bnn", "Bnn.weight", "Bnn.note")
+def test_replace_a_set_by_several_records(world):
+    """Given H record h related to k1 (weight 1, note "keep") and k2. When an integrator replaces
+    h's set with k1 (no values given) and k3 (weight 4), claiming the version read from h's
+    relationship list. Then the set is updated at the next version: k1's relationship kept with its
+    ID and values, k3's created, k2's removed; k2's and k3's own sets advance by one; h's history has
+    one transition. The same item sent again without a version answers unchanged; a changed set
+    with the old version is refused with the current version; without a version it is refused,
+    and with a declared overwrite it applies."""
+    h = world.made("H", "Set replaced")
+    k1, k2, k3, k4 = (world.made("K", f"Set token {n}")["id"] for n in range(1, 5))
+    r1 = ok(world.relate("Bnn", h["id"], k1, {"Bnn.weight": 1, "Bnn.note": "keep"}), 201)
+    r2 = ok(world.relate("Bnn", h["id"], k2, {"Bnn.weight": 1}), 201)
+    _set, version = _anchored(world, h["id"], "Bnn", "outgoing")
+    _k2, k2_version = _anchored(world, k2, "Bnn", "incoming")
+    _k3, k3_version = _anchored(world, k3, "Bnn", "incoming")
+
+    targets = [k1, (k3, {"Bnn.weight": 4})]
+    item = _set_item(world, "Bnn", "H", "K", "outgoing", h["id"], targets)
+    result = _batch(world, [{**item, "expectedRelationSetVersion": version}])
+    [outcome] = result["items"]
+    assert (outcome["status"], outcome["action"]) == ("applied", "updated")
+    assert outcome["relationSetVersion"] == version + 1
+    relations, now = _anchored(world, h["id"], "Bnn", "outgoing")
+    assert set(relations) == {k1, k3} and now == version + 1
+    assert outcome["relationIds"] == {
+        "created": [relations[k3]["id"]],
+        "kept": [r1["id"]],
+        "removed": [r2["id"]],
+    }
+    assert relations[k1]["id"] == r1["id"]
+    assert relations[k1]["attributes"] == r1["attributes"]
+    assert relations[k3]["attributes"][world.key("Bnn.weight")] == 4
+    assert _anchored(world, k2, "Bnn", "incoming")[1] == k2_version + 1
+    assert _anchored(world, k3, "Bnn", "incoming")[1] == k3_version + 1
+    history = ok(world.api.get(f"/objects/{world.key('H')}/{h['id']}/history"))["items"]
+    transitions = [entry for entry in history if entry["action"] == "transition"]
+    assert len(transitions) == 1 and transitions[0]["cause"]["id"] == result["job"]["id"]
+
+    again = _batch(world, [item])["items"][0]
+    assert (again["action"], again["relationSetVersion"]) == ("unchanged", version + 1)
+    changed = _set_item(world, "Bnn", "H", "K", "outgoing", h["id"], [k4])
+    stale = _batch(world, [{**changed, "expectedRelationSetVersion": version}])["items"][0]
+    assert stale["error"]["code"] == "relation_set_version_conflict"
+    assert stale["error"]["details"]["relationSetVersion"] == version + 1
+    assert _batch(world, [changed])["items"][0]["error"]["code"] == "version_required"
+    overwritten = _batch(world, [changed], onExisting="overwrite")["items"][0]
+    assert overwritten["action"] == "updated"
+    assert set(_anchored(world, h["id"], "Bnn", "outgoing")[0]) == {k4}
+
+
+@pytest.mark.journey("J10.10", "J10.9")
+@pytest.mark.structures(
+    "R",
+    "K",
+    "G",
+    "D",
+    "D.active",
+    "H",
+    "N",
+    "Bnn",
+    "B11",
+    "B1n",
+    "Bown",
+    "Breq",
+    "Bscope",
+    "Hparent",
+)
+def test_a_set_replacement_follows_the_relationship_rules(world):
+    """When sets are replaced with two records on a one-to-one relationship; two records on the
+    single end of a one-to-many; on an owning relationship; with nothing on a required one; by
+    another record where the removed one needs it; with two records sharing a scope; with one record
+    twice; and on a containment. Then each is refused with its single write's code and every set
+    stays as it was."""
+    r = world.made("R", "Rule source")
+    k1, k2 = (world.made("K", f"Rule token {n}")["id"] for n in (1, 2))
+    r1, r2 = (world.made("R", f"Rule ledger {n}")["id"] for n in (1, 2))
+    h, other = world.made("H", "Needing source"), world.made("H", "Second source")
+
+    def notice(name, *sources):
+        relations = [
+            {"relationTypeKey": world.key("Breq"), "direction": "incoming", "otherObjectId": s}
+            for s in sources
+        ]
+        return world.made("N", name, relations=relations)["id"]
+
+    n1, n2 = notice("Needs h only", h["id"]), notice("Needs the other", other["id"])
+    g = world.made("G", "Scope of the rule")
+    d1, d2 = (
+        world.made(
+            "D",
+            f"Active {n}",
+            parent=world.dependant_parent(g["id"]),
+            values={"D.active": True},
+            relations=[world.owner("Bown", world.made("R", f"Owner {n}")["id"])],
+        )["id"]
+        for n in (1, 2)
+    )
+    items = [
+        _set_item(world, "B11", "R", "K", "outgoing", r["id"], [k1, k2]),
+        _set_item(world, "B1n", "R", "K", "incoming", k1, [r1, r2]),
+        _set_item(world, "Bown", "R", "D", "outgoing", r["id"], [d1]),
+        _set_item(world, "Breq", "H", "N", "outgoing", h["id"], []),
+        _set_item(world, "Breq", "H", "N", "outgoing", h["id"], [n2]),
+        _set_item(world, "Bscope", "R", "D", "outgoing", r["id"], [d1, d2]),
+        _set_item(world, "Bnn", "H", "K", "outgoing", h["id"], [k1, k1]),
+        _set_item(world, "Hparent", "H", "H", "outgoing", h["id"], [world.ids["h1"]]),
+    ]
+    _relations, before = _anchored(world, h["id"], "Breq", "outgoing")
+    result = _batch(world, items, onExisting="overwrite")
+    assert [(i["status"], i["error"]["code"]) for i in result["items"]] == [
+        ("rejected", "cardinality_violation"),
+        ("rejected", "cardinality_violation"),
+        ("rejected", "required_ownership_binding"),
+        ("rejected", "required_relation"),
+        ("rejected", "required_relation"),
+        ("rejected", "duplicate_relation_scope"),
+        ("rejected", "duplicate_relation"),
+        ("rejected", "immutable_relation"),
+    ]
+    assert result["items"][4]["error"]["details"]["objectId"] == n1
+    assert result["items"][6]["error"]["details"]["pointer"] == "/items/6/targets/1"
+    relations, after = _anchored(world, h["id"], "Breq", "outgoing")
+    assert set(relations) == {n1} and after == before
+    assert _anchored(world, r["id"], "B11", "outgoing")[0] == {}
+
+
+@pytest.mark.journey("J10.9")
+@pytest.mark.structures("H", "N", "Breq")
+def test_a_replacement_keeps_a_required_relationship_its_record_needs(world):
+    """Given H records h and o, and N records n1 needing only h and n2. When h's set is replaced by
+    n2 through the relationship save, then again after n1 also gained o. Then the first is refused,
+    since n1 would have none, and the second applies."""
+    h, o = world.made("H", "Holding n1"), world.made("H", "Second holder")
+
+    def notice(name, source):
+        relations = [
+            {"relationTypeKey": world.key("Breq"), "direction": "incoming", "otherObjectId": source}
+        ]
+        return world.made("N", name, relations=relations)["id"]
+
+    n1, n2 = notice("Only h", h["id"]), notice("Only o", o["id"])
+    binding = {
+        "relationTypeKey": world.key("Breq"),
+        "fromObjectTypeKey": world.key("H"),
+        "toObjectTypeKey": world.key("N"),
+        "direction": "outgoing",
+    }
+    _set, version = _anchored(world, h["id"], "Breq", "outgoing")
+    error = refused(_replace(world, binding, h["id"], n2, version), 422, "required_relation")
+    assert error["details"]["objectId"] == n1
+
+    ok(world.relate("Breq", o["id"], n1), 201)
+    _set, version = _anchored(world, h["id"], "Breq", "outgoing")
+    saved = ok(_replace(world, binding, h["id"], n2, version))
+    assert saved["state"] == "mapped" and saved["mappingVersion"] == version + 1
+    assert set(_anchored(world, h["id"], "Breq", "outgoing")[0]) == {n2}

@@ -24,11 +24,36 @@ All notable changes to this project are documented in this file. The format foll
     Withdrawing adds `withdrawn`.
   - **Refusal.** A position past the head is `409 feed_position_ahead`.
   - **Migration** `20261003_02`; the feed starts empty, with no backfill. Decisions D31–D34.
+- Base 0.9 B3: relationship items in `POST /api/v1/batches`.
+  - **Items.** `createRelation`, `ensureRelation` (unchanged when the relationship already exists
+    with the same values), `updateRelation` and `deleteRelation`, with the ends named by ID or by a
+    unique value, and set claims as on the single routes.
+  - **Set replacement.** `replaceRelationSet` makes a record's set of one relationship the listed
+    records. Kept relationships keep their identity and values, the set's version is claimed (or
+    the request declares an overwrite), and an equal set answers `unchanged`.
+  - **Bulk.** Relationship items are decided in memory and written in bulk with the object items
+    around them: 40–43 statements per chunk of 500 at two data sizes (D35).
+  - **Set versions on the anchored read.** `GET /relations?objectId=…` names every set the record
+    anchors with its version as `relationSets`, an empty set included (D38).
+  - Decisions D35–D39. No migration.
 
 ### Changed
 
+- Base 0.9 B3: the single relationship writes and the mapping save are batches of one through the
+  same decide steps as batch items, so they answer with the same codes.
+  - A relationship update checks its version before its values, live as in change sets.
+  - A change-set relationship delete records an audit entry.
+  - A mapping transition's audit payload lists `newTargets`.
+- Base 0.9 B3 (D36): replacing a required relationship's only target, through the mapping save or a
+  set replacement, is `422 required_relation` when the record losing it has no other.
+
 - Base 0.9 F1 (D15): a publish's changes to live data now show in record history, one entry per
   record with `cause: {"kind": "publication", "id"}`; `AuditCause.kind` gains `publication`.
+
+### Fixed
+
+- Base 0.9 B3: relating the same two records twice with one relationship type answers
+  `409 duplicate_relation`. Live, it answered `500`; in a change set, the duplicate was staged.
 
 ## [0.9.0-alpha.1] - 2026-10-03
 

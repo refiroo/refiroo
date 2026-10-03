@@ -26,7 +26,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ...models.database import AttributeValue, ChangeSetObject, RdmObject
+from ...models.database import AttributeValue, ChangeSetObject, RdmObject, RelationSetVersion
 from .audit import AuditEntry
 from .context import Ancestors, ChangeSetLookup, LiveLookup
 from .refusals import Refusals
@@ -54,7 +54,8 @@ class Record:
 
 @dataclass(frozen=True)
 class Relation:
-    """A relation an item adds."""
+    """A relation an item adds, or one whose attributes it changed (``version`` then counts the
+    change)."""
 
     relation_id: str
     relation_type_key: str
@@ -82,6 +83,8 @@ class Changes:
     # Per record, how often each attribute value was saved (a live value row's version).
     saved: dict[str, Counter[str]] = field(default_factory=dict)
     added: dict[str, Relation] = field(default_factory=dict)
+    # Existing relations whose attributes an item replaced, as they then stand (0.9 B3).
+    changed: dict[str, Relation] = field(default_factory=dict)
     removed: dict[str, Any] = field(default_factory=dict)
     sets: Counter[SetKey] = field(default_factory=Counter)
     audit: list[AuditEntry] = field(default_factory=list)
@@ -91,7 +94,7 @@ class Changes:
     children: dict[str, set[str]] = field(default_factory=dict)
 
     def __bool__(self) -> bool:
-        return bool(self.records or self.added or self.removed or self.audit)
+        return bool(self.records or self.added or self.changed or self.removed or self.audit)
 
     def absorb(self, item: Changes) -> None:
         """Take over what an accepted item changed."""
@@ -100,8 +103,14 @@ class Changes:
         for object_id, saved in item.saved.items():
             self.saved.setdefault(object_id, Counter()).update(saved)
         for relation_id, relation in item.removed.items():
+            self.changed.pop(relation_id, None)
             if self.added.pop(relation_id, None) is None:
                 self.removed[relation_id] = relation
+        for relation_id, relation in item.changed.items():
+            if relation_id in self.added:
+                self.added[relation_id] = relation
+            else:
+                self.changed[relation_id] = relation
         self.added.update(item.added)
         self.sets.update(item.sets)
         self.audit.extend(item.audit)
@@ -144,6 +153,8 @@ class BatchLookup(Ancestors):
         # (record, direction, relation type or None for all types) -> the base's relations.
         self._relations: dict[tuple[str, str, str | None], list[Any]] = {}
         self._holders: dict[tuple[str, Any], set[str]] = {}
+        self._set_versions: dict[SetKey, int] = {}
+        self._relation_rows: dict[str, Any] = {}
 
     # --- deciding ---------------------------------------------------------------------------------
 
@@ -187,8 +198,17 @@ class BatchLookup(Ancestors):
 
     def remove_relation(self, relation: Any) -> None:
         item = self._current()
+        item.changed.pop(relation.relation_id, None)
         if item.added.pop(relation.relation_id, None) is None:
             item.removed[relation.relation_id] = relation
+
+    def change_relation(self, relation: Relation) -> None:
+        """Lay a relation as an item's attribute change leaves it (0.9 B3)."""
+        item = self._current()
+        if relation.relation_id in item.added:
+            item.added[relation.relation_id] = relation
+        else:
+            item.changed[relation.relation_id] = relation
 
     def advance_sets(
         self, relation_type_key: str, from_type: str, to_type: str, from_id: str, to_id: str
@@ -197,6 +217,18 @@ class BatchLookup(Ancestors):
         sets = self._current().sets
         sets[(relation_type_key, from_type, to_type, from_id, "outgoing")] += 1
         sets[(relation_type_key, from_type, to_type, to_id, "incoming")] += 1
+
+    def advance_set(self, key: SetKey) -> None:
+        """One set advances by one: a set replacement advances each affected set once (0.9 B3)."""
+        self._current().sets[key] += 1
+
+    def set_version(self, key: SetKey) -> int:
+        """A relation set's version as the items decided so far leave it: the stored version
+        (0 when no write touched it) plus their advances. The write holds the workspace lock, or
+        the change set's, so the stored version cannot move before the items are written."""
+        if key not in self._set_versions:
+            self.prefetch_set_versions([key])
+        return self._set_versions[key] + sum(layer.sets.get(key, 0) for layer in self._layers())
 
     def audit(self, entry: AuditEntry) -> None:
         self._current().audit.append(entry)
@@ -326,7 +358,43 @@ class BatchLookup(Ancestors):
                         "incoming" in directions and relation.to_object_id in wanted
                     ):
                         found[relation_id] = relation
+        for relation_id in found:
+            changed = self._changed(relation_id)
+            if changed is not None:
+                found[relation_id] = changed
         return [found[key] for key in sorted(found)]
+
+    def _changed(self, relation_id: str) -> Relation | None:
+        for layer in self._layers():
+            if relation_id in layer.changed:
+                return layer.changed[relation_id]
+        return None
+
+    def relation(self, relation_id: str) -> Any | None:
+        """One relation as the items decided so far leave it, or ``None``."""
+        for layer in self._layers():
+            if relation_id in layer.removed:
+                return None
+            if relation_id in layer.added:
+                return layer.added[relation_id]
+        changed = self._changed(relation_id)
+        if changed is not None:
+            return changed
+        if relation_id not in self._relation_rows:
+            self.prefetch_relation_ids([relation_id])
+        return self._relation_rows[relation_id]
+
+    def prefetch_relation_ids(self, relation_ids: Iterable[str]) -> None:
+        """The base's relations by ID, and the records at their ends, read once."""
+        wanted = [item for item in dict.fromkeys(relation_ids) if item not in self._relation_rows]
+        if not wanted:
+            return
+        found = self.base.relations_by_id(wanted)
+        for relation_id in wanted:
+            self._relation_rows[relation_id] = found.get(relation_id)
+        self.prefetch_objects(
+            end for row in found.values() for end in (row.from_object_id, row.to_object_id)
+        )
 
     def _base_relations(
         self, ids: list[str], direction: str, types: list[str] | None
@@ -425,6 +493,39 @@ class BatchLookup(Ancestors):
     def prefetch_values(self, items: Iterable[Any]) -> None:
         raise NotImplementedError
 
+    def _set_scope(self) -> tuple[str, str | None]:
+        """The workspace and change set (``None`` live) the sets are read in."""
+        raise NotImplementedError
+
+    def prefetch_set_versions(self, keys: Iterable[SetKey]) -> None:
+        """The stored versions of ``keys``, one read per thousand anchors."""
+        wanted = [key for key in dict.fromkeys(keys) if key not in self._set_versions]
+        if not wanted:
+            return
+        workspace_key, change_set_id = self._set_scope()
+        for key in wanted:
+            self._set_versions[key] = 0
+        anchors = sorted({key[3] for key in wanted})
+        for start in range(0, len(anchors), 1000):
+            for row in self.session.execute(
+                select(
+                    RelationSetVersion.relation_type_key,
+                    RelationSetVersion.from_object_type_key,
+                    RelationSetVersion.to_object_type_key,
+                    RelationSetVersion.anchor_object_id,
+                    RelationSetVersion.direction,
+                    RelationSetVersion.version,
+                ).where(
+                    RelationSetVersion.workspace_key == workspace_key,
+                    # ``== None`` renders IS NULL for the live sets.
+                    RelationSetVersion.change_set_id == change_set_id,
+                    RelationSetVersion.anchor_object_id.in_(anchors[start : start + 1000]),
+                )
+            ):
+                key = tuple(row[:5])
+                if key in self._set_versions:
+                    self._set_versions[key] = row.version  # type: ignore[index]
+
     def prefetch_holders(
         self, attribute_type_key: str, value_type: str, values: Iterable[Any]
     ) -> set[str]:
@@ -467,6 +568,9 @@ class LiveBatchLookup(BatchLookup):
     def shares_workspace(self, item: Any) -> bool:
         return item.workspace_key == self.base.workspace_key
 
+    def _set_scope(self) -> tuple[str, str | None]:
+        return self.base.workspace_key, None
+
     def id_taken(self, object_id: str) -> bool:
         """Whether a record has the ID in any workspace, or an item gave it one."""
         return self.object(object_id) is not None
@@ -506,13 +610,8 @@ class ChangeSetBatchLookup(BatchLookup):
     def shares_workspace(self, _item: Any) -> bool:
         return True
 
-    def relation(self, relation_id: str) -> Any | None:
-        for layer in self._layers():
-            if relation_id in layer.removed:
-                return None
-            if relation_id in layer.added:
-                return layer.added[relation_id]
-        return self.base.relation(relation_id)
+    def _set_scope(self) -> tuple[str, str | None]:
+        return self.base.context.workspace_key, self.change_set_id
 
     def tombstone(self, object_id: str) -> ChangeSetObject | None:
         """The change set's deleted row for a record, if it deleted one."""

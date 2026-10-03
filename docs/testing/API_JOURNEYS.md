@@ -68,15 +68,15 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `GET /objects/{type}/{id}/history` | J01.6, J15 |
 | `POST /workspaces/{key}/queries/objects` | J22, J23 |
 | `GET/POST/PATCH/DELETE /objects/{type}/{id}/attributes/{key}` | J01.5, J02.4 |
-| `POST /relations`, `PATCH/DELETE /relations/{id}` (`expectedRelationSetVersion`, `relationSetDirection`) | J13, J13.5, J16 |
-| `GET /relations` (`objectId`), `GET /relations/{id}` | J01, J22.3 |
+| `POST /relations`, `PATCH/DELETE /relations/{id}` (`expectedRelationSetVersion`, `relationSetDirection`) | J13, J13.3, J13.5, J16 |
+| `GET /relations` (`objectId`), `GET /relations/{id}` | J01, J22.3; `relationSets` (each anchored set's version) J13.5 |
 | `GET /workspaces/{key}/mapping-coverage` (`state`) | J10 |
 | `GET /workspaces/{key}/mapping-candidates`, `GET /workspaces/{key}/mapping-targets` (`sourceObjectId`, `mappingVersion`) | J10, J10.3 |
 | `PUT /workspaces/{key}/mappings` | J10 |
 | `GET /workspaces/{key}/relations` | J22.2, J10 (a relationship view's edges, with `applicationKey` and `viewKey`) |
 | `GET /workspaces/{key}/relation-matrix` (`columnIds`, `columnCursor`, `columnPageSize`, `state`) | J16 |
 | `GET /workspaces/{key}/relation-matrix/containers`, `GET /workspaces/{key}/relation-matrix/link-candidates` (`rowId`, `columnId`) | J16 |
-| `POST /batches` (`run`: `inline`) | J11 |
+| `POST /batches` (`run`: `inline`) | J11; relationship items J11.7, J11.8; `replaceRelationSet` J10.10, J11.8 |
 | `POST /batches` (`run`: `background`), `GET /jobs` (`kind`, `state`), `GET /jobs/{id}`, `GET /jobs/{id}/items` (`status`), `POST /jobs/{id}/cancel` | J24 |
 | `GET /workspaces/{key}/feed` (`after`, `pageSize`, `kind` and `objectTypeKey` repeatable) | J26, J26.1–J26.5 |
 

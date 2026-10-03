@@ -231,9 +231,10 @@ The containment relationship is not edited here: it follows the record's parent 
 - **J13.4 Scoped uniqueness**: a relationship that would make two related records share the scope
   ancestor is refused; it holds only while its condition attribute does.
 - **J13.5 With a relationship-set claim**: an integrator that read a record's relationships of one
-  type claims the set's version on create or delete; a set changed meanwhile is refused. Today the
-  version is read from the workspace edge list (a record with an edge of the binding) or a matrix or
-  mapping view; the anchored relationship read gains it in 0.9 B3.
+  type claims the set's version on create or delete; a set changed meanwhile is refused. The
+  version is read from the record's relationship list (`GET /relations?objectId=…`), which names
+  the version of every set the record anchors, including a set with no relationship (never had
+  one, or all removed); a matrix or mapping view and the workspace edge list show it too.
 - **J13.6 A required relationship** cannot be removed while its dependant needs it.
 - **J13.7 In a change set.**
 - **J13.8 Two relationships racing for one cardinality limit**: one is refused.
@@ -242,7 +243,7 @@ The containment relationship is not edited here: it follows the record's parent 
 `422 relation_wrong_scope`, `422 unknown_relation_attributes`, `422 immutable_relation`,
 `409 cardinality_violation`, `409 duplicate_relation_scope`, `409 relation_set_version_conflict`,
 `422 relation_set_claim_incomplete`, `422 required_relation`, `409 version_conflict`,
-`404 relation_not_found`.
+`409 duplicate_relation`, `404 relation_not_found`.
 
 **Evidence today:** `test_relations`, `test_relation_set_versions`, `test_rule_parity`,
 `test_translations`, `test_pg3_concurrency`.
@@ -315,7 +316,7 @@ restructuring preview reports instead as problems of its plan, in its `200` answ
 ### J10 — Review and replace a record's related records
 
 **Actor:** steward; integrator. **Channel:** UI, API. **Stories:** US-M01–M04.
-**Example scenario:** SC-07, SC-16. **Status:** delivered (0.7).
+**Example scenario:** SC-07, SC-16. **Status:** delivered (0.7; several records per save through the API, 0.9 B3).
 
 1. List the source records of a relationship view with their related records, filtered to those with
    none, one or several, before paging.
@@ -325,10 +326,9 @@ restructuring preview reports instead as problems of its plan, in its `200` answ
    to through that relationship.
 
 Replacement is never a visible delete followed by a create. A chosen record the source already
-related to keeps its relationship identity and attributes. Replacing a set by several records in one
-save is not a capability today; it is planned in 0.9
-[B3](../BASE_0_9_IMPLEMENTATION_PLAN.md#b3-relation-and-relation-set-items), which extends this replacement
-from one target to a set.
+related to keeps its relationship identity and attributes. The relationship view saves one chosen
+record; an integrator replaces a set by several records in one write, a batch's `replaceRelationSet`
+item (J10.10), through the same replacement.
 
 **Variants:**
 
@@ -341,15 +341,22 @@ from one target to a set.
 - **J10.6 In a change set, with live changing the same set before publishing**: publishing is refused.
 - **J10.7 In a publication**: read-only.
 - **J10.8 Create a missing related record in place**; cancelling leaves the set intact.
-- **J10.9 A required or owning relationship** cannot be cleared or moved to another owner.
+- **J10.9 A required or owning relationship** cannot be cleared or moved to another owner, and a
+  replacement cannot take away the last such relationship of a record that requires one.
+- **J10.10 Replace a set by several records** (API): the set becomes the listed records, each kept
+  record keeping its relationship and values unless new values are given, under the set's version
+  (or a declared overwrite); a set already equal answers unchanged; the cardinality, scope,
+  required and containment rules refuse it with the single writes' codes.
 
 **Refusals:** `409 mapping_version_conflict`, `422 invalid_clear_attributes`,
 `422 required_ownership_binding`, `422 relation_ancestor_required`, `422 required_relation`,
 `409 cardinality_violation`, `409 duplicate_relation_scope`; publishing a change set whose set live
-changed meanwhile is `409 version_conflict` with a `mapping_set_changed` conflict; `422 invalid_cursor`, and the view and binding refusals (`mapping_view_*`, `mapping_*`).
+changed meanwhile is `409 version_conflict` with a `mapping_set_changed` conflict; `422 invalid_cursor`, and the view and binding refusals (`mapping_view_*`, `mapping_*`). Through a batch
+(J10.10): `409 relation_set_version_conflict`, `409 version_required`, `409 duplicate_relation`,
+`422 immutable_relation`, `422 reference_type_mismatch`.
 
-**Evidence today:** `sc07-mapping-acceptance`, `wp14-contextual-browser`, `wp13c-ui-states`;
-`test_mapping_coverage`, `test_mapping_replacement`, `test_pg3_concurrency`.
+**Evidence today:** the J10 journey tests; `sc07-mapping-acceptance`, `wp14-contextual-browser`,
+`wp13c-ui-states`; `test_mapping_coverage`, `test_mapping_replacement`, `test_pg3_concurrency`.
 
 ### J16 — See and fill relationship coverage across ancestors
 
@@ -714,9 +721,10 @@ The question is a date, not a time; only a model-declared effective period answe
 ### J11 — Submit a bounded bulk change
 
 **Actor:** integrator. **Channel:** API. **Stories:** US-I03. **Scenario:** SC-10 (its batch part).
-**Status:** delivered (0.9 B1).
+**Status:** delivered (0.9 B1; relationship items 0.9 B3).
 
-1. Send items (create, update, upsert, delete) with a policy: `independent` or `atomic`.
+1. Send items (create, update, upsert, delete; create, ensure, update and delete a relationship;
+   replace a record's relationship set) with a policy: `independent` or `atomic`.
 2. Refer to records by ID or by a unique key, including records created earlier in the batch.
 3. Read each item's outcome: applied, rejected with its single write's code, or unprocessed.
 4. Retry safely with the same `Idempotency-Key`.
@@ -731,6 +739,12 @@ over single calls.
 - **J11.3 In a change set**, claiming its version once.
 - **J11.4 A model activated meanwhile** refuses the whole inline batch.
 - **J11.5 A key reused with another request** is refused; a replay answers the original outcome.
+- **J11.7 Relationship items**: relate records named by ID or unique key, ensure a relationship
+  exists (unchanged when it already does with the same values), change its values against its
+  version, remove it, and claim a relationship set's version on create or delete; each refused with
+  its single write's code, live and in a change set.
+- **J11.8 A record, its required relationship and its relationship set in one atomic batch**:
+  everything applies, or a refusal leaves nothing.
 - **J11.6 Delete with cascade** (planned, decided D-6): a delete item removes a record with its
   dependants, as a single delete does, under a confirmation of the impact it deletes (PG-D18).
 
@@ -740,7 +754,7 @@ single writes' codes.
 
 **Evidence today:** the J11 journey tests; unit tests of `engine/jobs/batches.py` and `inline.py`;
 `test_rule_parity` (batch context), `test_pg3b_batch_writes`,
-`test_batch_statements`.
+`test_batch_statements` (object and relationship items).
 
 ### J24 — Run a large background job and recover
 

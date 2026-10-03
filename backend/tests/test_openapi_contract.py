@@ -57,10 +57,14 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # info.version 0.9.0-alpha.1; with 0.8.0 the document hashes to the previous lock exactly.
     # Re-baselined for 0.9 F1: GET /workspaces/{key}/feed with FeedPage, FeedEntry and FeedCause,
     # and AuditCause.kind gaining "publication" (D15) with its description; removing those gives
-    # the previous document exactly.
+    # the previous document exactly. Re-baselined for 0.9 B3: the relationship batch items
+    # (Batch*RelationItem, BatchReplaceRelationSetItem, RelationSetTarget) in BatchRequest.items,
+    # relationId, relationSetVersion and relationIds (RelationIds) on JobItemResponse, relationSets
+    # (RelationSetVersionItem) on RelationPage with its description, and POST /batches' description
+    # naming relationship writes; no path added or removed, no other schema changed.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "314d7a86121b04dd5c4f89263ba15674317db9c5c0313a9cdf23f16d577b0c43"
+        "5fc8f7b24aacc4505a36eb8f870d40c26bec173d96f5a52b931a75eb5bebfdd9"
     )
 
 

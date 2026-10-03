@@ -18,6 +18,7 @@ from ...models.database import (
     ChangeSetObject,
     ChangeSetRelation,
 )
+from ..reads.snapshot_reads import change_set_context, find_relation
 from ..records import rules
 from ..records.attributes import (
     validate_attributes,
@@ -39,6 +40,11 @@ from ..records.relation_set_versions import (
     SetClaim,
     advance_set_versions,
     increment_set_versions,
+)
+from ..records.relation_writes import (
+    decide_relation_create,
+    decide_relation_delete,
+    decide_relation_update,
 )
 from ..records.rules import object_type_changed
 from ..records.values import stored_json_value
@@ -774,102 +780,80 @@ def advance_relation_sets(
     )
 
 
-def put_change_set_relation(
-    session: Session, change_set_id: str, payload: Any, claim: SetClaim | None = None
-) -> tuple[ChangeSetRelation, int | None]:
-    """Stage a relation; with ``claim``, only while the claimed end's set in the change set is at
-    the version the caller read. Returns the row and the claimed set's new version."""
+def _change_set_relation_lookup(
+    session: Session, change_set_id: str
+) -> tuple[ChangeSet, ChangeSetWrites, Any, ChangeSetBatchLookup]:
+    """The change set's row lock, its model and a batch lookup for a single relation write."""
     change_set = load_change_set(session, change_set_id, for_update=True)
     writes = ChangeSetWrites(session, change_set)
     model = change_set_model(session, change_set)
-    lookup = ChangeSetLookup.of(session, change_set_id)
-    relation_id = str(payload.id) if payload.id else str(uuid4())
-    row = writes.stored_relation(relation_id)
-    attributes = validate_change_set_relation(
-        model,
-        lookup,
-        payload.relationTypeKey,
-        str(payload.fromObjectId),
-        str(payload.toObjectId),
-        payload.attributes,
-    )
-    writes.claim(payload.expectedChangeSetVersion)
+    return change_set, writes, model, ChangeSetBatchLookup.of(session, change_set_id)
+
+
+def _stored_change_set_relation(session: Session, change_set_id: str, relation_id: str) -> Any:
+    row = find_relation(session, change_set_context(session, change_set_id), relation_id)
     if row is None:
-        row = writes.add_relation(
-            payload.relationTypeKey,
-            str(payload.fromObjectId),
-            str(payload.toObjectId),
-            attributes,
-            relation_id=relation_id,
+        raise api_error(
+            404, "relation_not_found", f"Relation '{relation_id}' not found in change set"
         )
-    else:
-        require_record_version(payload.expectedRecordVersion, row.version, "Relation record")
-        row.version += 1
-        row.relation_type_key = payload.relationTypeKey
-        row.from_object_id = str(payload.fromObjectId)
-        row.to_object_id = str(payload.toObjectId)
-        row.attributes = attributes
-        row.is_deleted = False
-    record_audit_event(
-        session,
-        aggregate_type="relation",
-        aggregate_id=row.relation_id,
-        action="created" if row.version == 1 else "updated",
-        version=row.version,
-        changes={"attributes": attributes, "changeSetId": change_set.id},
-        object_ids=[row.from_object_id, row.to_object_id],
-    )
-    set_version = advance_relation_sets(
-        session, change_set, lookup, row, claim
-    )
+    return row
+
+
+def _written_relation(writes: ChangeSetWrites, relation_id: str) -> ChangeSetRelation:
+    writes.session.flush()
+    row = writes.stored_relation(relation_id)
+    assert row is not None
+    return row
+
+
+def put_change_set_relation(
+    session: Session, change_set_id: str, payload: Any, claim: SetClaim | None = None
+) -> tuple[ChangeSetRelation, int | None]:
+    """Stage a new relation; with ``claim``, only while the claimed end's set in the change set is
+    at the version the caller read. Returns the row and the claimed set's new version."""
+    _change_set, writes, model, lookup = _change_set_relation_lookup(session, change_set_id)
+    with lookup.deciding():
+        ends = lookup.objects([str(payload.fromObjectId), str(payload.toObjectId)])
+        for end in (str(payload.fromObjectId), str(payload.toObjectId)):
+            if end not in ends:
+                raise rules.relation_endpoint_missing(end)
+        relation = decide_relation_create(
+            lookup,
+            model,
+            payload.relationTypeKey,
+            ends[str(payload.fromObjectId)],
+            ends[str(payload.toObjectId)],
+            payload.attributes,
+            claim,
+            relation_id=str(payload.id) if payload.id else None,
+        )
+    writes.claim(payload.expectedChangeSetVersion)
+    write_change_set(writes, lookup.changes())
+    row = _written_relation(writes, relation.relation_id)
     session.commit()
-    return row, set_version
+    return row, claim.expected + 1 if claim is not None else None
 
 
 def update_change_set_relation(
     session: Session, change_set_id: str, relation_id: str, payload: Any
 ) -> ChangeSetRelation:
-    change_set = load_change_set(session, change_set_id, for_update=True)
-    writes = ChangeSetWrites(session, change_set)
-    model = change_set_model(session, change_set)
-    row = writes.stored_relation(relation_id)
-    lookup = ChangeSetLookup.of(session, change_set_id)
-    if row is None:
-        base = lookup.relation(relation_id)
-        if base is None:
-            raise api_error(
-                404, "relation_not_found", f"Relation '{relation_id}' not found in change set"
-            )
-        row = writes.own_relation(base, flush=True)
-    require_record_version(payload.expectedRecordVersion, row.version, "Relation record")
-    relation_type = payload.relationTypeKey or row.relation_type_key
-    from_id = str(payload.fromObjectId) if payload.fromObjectId else row.from_object_id
-    to_id = str(payload.toObjectId) if payload.toObjectId else row.to_object_id
-    attrs = row.attributes or {}
-    if payload.attributes is not None:
-        attrs = payload.attributes
-    attrs = validate_change_set_relation(
-        model, lookup, relation_type, from_id, to_id, attrs, exclude_id=relation_id
-    )
+    """Replace a staged relation's attributes under its version (its ends and type are its
+    identity, as live)."""
+    _change_set, writes, model, lookup = _change_set_relation_lookup(session, change_set_id)
+    relation = _stored_change_set_relation(session, change_set_id, relation_id)
+    with lookup.deciding():
+        decide_relation_update(
+            lookup,
+            model,
+            relation,
+            payload.expectedRecordVersion,
+            payload.attributes
+            if payload.attributes is not None
+            else dict(relation.attributes or {}),
+        )
     writes.claim(payload.expectedChangeSetVersion)
-    row.relation_type_key, row.from_object_id, row.to_object_id, row.attributes = (
-        relation_type,
-        from_id,
-        to_id,
-        attrs,
-    )
-    row.version += 1
-    row.is_deleted = False
-    record_audit_event(
-        session,
-        aggregate_type="relation",
-        aggregate_id=row.relation_id,
-        action="updated",
-        version=row.version,
-        changes={"attributes": attrs, "changeSetId": change_set.id},
-        object_ids=[row.from_object_id, row.to_object_id],
-    )
-    advance_relation_sets(session, change_set, lookup, row)
+    write_change_set(writes, lookup.changes())
+    row = _written_relation(writes, relation_id)
     session.commit()
     return row
 
@@ -882,36 +866,12 @@ def delete_change_set_relation(
     expected_record_version: int,
     claim: SetClaim | None = None,
 ) -> None:
-    change_set = load_change_set(session, change_set_id, for_update=True)
-    writes = ChangeSetWrites(session, change_set)
-    model = change_set_model(session, change_set)
-    row = writes.stored_relation(relation_id)
-    lookup = ChangeSetLookup.of(session, change_set_id)
-    if row is None:
-        base = lookup.relation(relation_id)
-        if base is None:
-            raise api_error(
-                404, "relation_not_found", f"Relation '{relation_id}' not found in change set"
-            )
-        row = writes.own_relation(base, flush=True)
-    objects = lookup.objects([row.from_object_id, row.to_object_id])
-    target = objects.get(row.to_object_id)
-    if target is not None:
-        rules.mutable_relation(
-            model, row.relation_type_key, target.object_type_key, CHANGE_SET, deleting=True
-        )
-        allowed = model.allowed_relation(
-            row.relation_type_key,
-            objects.get(row.from_object_id).object_type_key,
-            target.object_type_key,
-        )
-        if allowed is not None:
-            rules.deletable_relation(allowed, CHANGE_SET)
-    require_record_version(expected_record_version, row.version, "Relation record")
+    _change_set, writes, model, lookup = _change_set_relation_lookup(session, change_set_id)
+    relation = _stored_change_set_relation(session, change_set_id, relation_id)
+    with lookup.deciding():
+        decide_relation_delete(lookup, model, relation, expected_record_version, claim)
     writes.claim(expected_change_set_version)
-    row.version += 1
-    row.is_deleted = True
-    advance_relation_sets(session, change_set, lookup, row, claim)
+    write_change_set(writes, lookup.changes())
     session.commit()
 
 

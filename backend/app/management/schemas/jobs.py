@@ -70,11 +70,22 @@ class JobPage(CollectionPage[JobResponse]):
     """Jobs, newest first (ADR-030)."""
 
 
+class RelationIds(BaseModel):
+    """What a relation-set replacement did to the set's relations (0.9 B3)."""
+
+    created: list[str]
+    kept: list[str]
+    removed: list[str]
+
+
 class JobItemResponse(BaseModel):
     """One item's outcome (INTEGRATION_API P2).
 
     ``applied`` carries ``action`` and the record's ``id``, ``objectTypeKey`` and ``version``
-    (none after a live delete), and ``previousVersion`` when it overwrote without a version claim;
+    (none after a live delete), and ``previousVersion`` when it overwrote without a version claim.
+    A relation item carries ``relationId`` and the relation's ``version`` (none after a delete),
+    and ``relationSetVersion`` when it claimed a set; a set replacement carries the anchor's
+    ``relationSetVersion`` and ``relationIds``;
     ``rejected`` carries ``error`` with the single write's code and a JSON ``pointer`` into the
     request in its ``details``; ``unprocessed`` carries ``reason``.
     """
@@ -89,6 +100,9 @@ class JobItemResponse(BaseModel):
     objectTypeKey: str | SkipJsonSchema[None] = _by_status()
     version: int | SkipJsonSchema[None] = _by_status()
     previousVersion: int | SkipJsonSchema[None] = _by_status()
+    relationId: str | SkipJsonSchema[None] = _by_status()
+    relationSetVersion: int | SkipJsonSchema[None] = _by_status()
+    relationIds: RelationIds | SkipJsonSchema[None] = _by_status()
     error: ApiErrorBody | SkipJsonSchema[None] = _by_status()
     reason: (
         Literal["batch_rolled_back", "job_cancelled", "model_release_changed", "job_failed"]

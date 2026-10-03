@@ -6,7 +6,9 @@ or per stored record. What varies is an ``IN`` list for every 500 values the ite
 ``UPDATE`` for each set of columns the items change (an item that moves, one that keeps its parent,
 a value saved again unchanged), which depends on what the items find. Counted on the volume
 fixture, live and in the fixture's change set, for creates whose parent is named by key and for
-upserts of which half update an existing record, most of them moving it to another group.
+upserts of which half update an existing record, most of them moving it to another group, and
+relationship items (0.9 B3, D35): half relate a created item to a group, half replace a created
+item's citations with two groups, every record named by key.
 
 The seconds a chunk of 500 items takes are recorded beside the counts: a live write in a background
 job's workspace waits for one chunk at most (PG3), so that is the longest it waits. They are not
@@ -21,6 +23,7 @@ from volume_fixture import (
     CODE,
     GROUP,
     ITEM,
+    ITEM_CITES_GROUP,
     RANK,
     WORKSPACE,
     measure,
@@ -35,10 +38,12 @@ COUNTS = (100, 500)
 CONTEXTS = ("live", "change set")
 # Statements per chunk, measured 2026-10-02 at 30-32 and 44-46 live, 43-44 and 47-49 in the change
 # set (the PG3b record). Before PG3b an item cost about its single write: 20 statements live.
+# Relationship items, measured 2026-10-03 at 33 and 40 live, 36 and 43 in the change set (B3).
 BUDGET = {("live", "creates"): 34, ("live", "upserts"): 48, ("change set", "creates"): 46,
-          ("change set", "upserts"): 52}
+          ("change set", "upserts"): 52, ("live", "relations"): 44, ("change set", "relations"): 47}
 # How far apart the counts may be: IN lists past 500 values, UPDATE statements per set of columns.
-ALLOWANCE = 4
+# A relationship item names two or three records, so 500 of them pass 500 values more often.
+ALLOWANCE = {"creates": 4, "upserts": 4, "relations": 8}
 
 
 def _parent(index: int) -> dict[str, Any]:
@@ -82,6 +87,28 @@ def upserts(count: int, prefix: str, first: int) -> list[dict[str, Any]]:
     ]
 
 
+def relations(count: int, prefix: str) -> list[dict[str, Any]]:
+    """Relationship items over the records ``creates(count, prefix)`` made."""
+
+    def item(index: int) -> dict[str, Any]:
+        return {"objectTypeKey": ITEM, "key": {"attributeTypeKey": CODE, "value": f"{prefix}-{index:06d}"}}
+
+    return [
+        {"op": "createRelation", "relationTypeKey": ITEM_CITES_GROUP, "from": item(index), "to": _parent(index + 3)}
+        if index % 2 == 0
+        else {
+            "op": "replaceRelationSet",
+            "relationTypeKey": ITEM_CITES_GROUP,
+            "fromObjectTypeKey": ITEM,
+            "toObjectTypeKey": GROUP,
+            "direction": "outgoing",
+            "anchor": item(index),
+            "targets": [{"object": _parent(index + 4)}, {"object": _parent(index + 5)}],
+        }
+        for index in range(count)
+    ]
+
+
 @pytest.fixture(scope="module")
 def measured(tmp_path_factory) -> dict[tuple[str, str, str, int], dict[str, Any]]:
     results: dict[tuple[str, str, str, int], dict[str, Any]] = {}
@@ -106,6 +133,7 @@ def measured(tmp_path_factory) -> dict[tuple[str, str, str, int], dict[str, Any]
                     for kind, items in (
                         ("creates", creates(count, f"C{tag}")),
                         ("upserts", upserts(count, f"U{tag}", first)),
+                        ("relations", relations(count, f"C{tag}")),
                     ):
                         body = {"policy": "independent", "run": "inline", "onExisting": "overwrite",
                                 "items": items, **context(label)}
@@ -121,7 +149,7 @@ def measured(tmp_path_factory) -> dict[tuple[str, str, str, int], dict[str, Any]
     return results
 
 
-@pytest.mark.parametrize("kind", ["creates", "upserts"])
+@pytest.mark.parametrize("kind", ["creates", "upserts", "relations"])
 @pytest.mark.parametrize("label", CONTEXTS)
 def test_a_chunk_costs_a_constant_number_of_statements(measured, label, kind):
     counted = {
@@ -130,7 +158,7 @@ def test_a_chunk_costs_a_constant_number_of_statements(measured, label, kind):
         for count in COUNTS
     }
     # Four times the data and five times the items: a few statements apart, not one per item.
-    assert max(counted.values()) - min(counted.values()) <= ALLOWANCE, counted
+    assert max(counted.values()) - min(counted.values()) <= ALLOWANCE[kind], counted
     assert max(counted.values()) <= BUDGET[(label, kind)], counted
 
 
@@ -145,3 +173,9 @@ def test_every_item_is_applied(measured, label):
             counts = upserted["counts"]
             assert counts["created"] + counts["updated"] == count, counts
             assert counts["updated"] > count // 3, counts
+            related = measured[(size, label, "relations", count)]["job"]
+            assert related["result"] == "applied", related
+            assert (related["counts"]["created"], related["counts"]["updated"]) == (
+                count // 2,
+                count // 2,
+            ), related

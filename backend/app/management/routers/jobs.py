@@ -73,7 +73,7 @@ def create_batch(
         description="Answer a retry with the first request's job instead of running it again",
     ),
 ) -> BatchResponse | JSONResponse:
-    """Run a batch of object writes as a job.
+    """Run a batch of object and relationship writes as a job.
 
     ``run: inline`` answers 200 with the finished job and its outcomes, whatever its
     ``job.result``: read ``result`` to learn whether every item applied. ``run: background``

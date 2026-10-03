@@ -10,51 +10,13 @@ from ...models.schema import EngineModel, ObjectTypeRelationDefinition
 from ..model.traversal import ancestor_type_keys
 from ..workspaces.catalogue import resolve_workspace
 from . import rules
-from .context import LiveLookup, load_object
-from .feed import relation_subject
+from .batch_lookup import LiveBatchLookup
+from .bulk import write_live
+from .context import load_object
 from .refusals import LIVE
-from .relation_set_versions import SetClaim, advance_set_versions, increment_set_versions
+from .relation_set_versions import SetClaim
+from .relation_writes import decide_relation_create, decide_relation_delete, decide_relation_update
 from .writes import LiveWrites
-
-
-def create_relation_instance(
-    writes: LiveWrites,
-    model: EngineModel,
-    payload: RelationCreate,
-    *,
-    from_object: RdmObject,
-    to_object: RdmObject,
-) -> ObjectRelation:
-    """Create a relation between two live records of the unit's workspace.
-
-    Engine-maintained containment edges (the parent relation of an object type) are rejected here;
-    they are written atomically when the owning object's parent changes.
-    """
-    session = writes.session
-    attributes = rules.relation(
-        LiveLookup.of(session, writes.workspace_key),
-        model,
-        payload.relationTypeKey,
-        from_object,
-        to_object,
-        payload.attributes,
-    )
-    relation = writes.add_relation(
-        payload.relationTypeKey, from_object.id, to_object.id, attributes
-    )
-    writes.record(
-        aggregate_type="relation",
-        aggregate_id=relation.id,
-        action="created",
-        version=1,
-        changes={
-            **payload.model_dump(),
-            "attributes": attributes,
-        },
-        object_ids=[from_object.id, to_object.id],
-        subject=relation_subject(payload.relationTypeKey, from_object.id, to_object.id),
-    )
-    return relation
 
 
 def validate_scoped_relations(lookup: Any, model: EngineModel, root: Any, *, moved: bool) -> None:
@@ -159,36 +121,58 @@ def _endpoint(session: Session, object_id: str) -> RdmObject:
     return item
 
 
+def _live_relation_lookup(
+    session: Session, from_object: RdmObject, to_object: RdmObject
+) -> tuple[LiveWrites, LiveBatchLookup]:
+    """The workspace lock and a batch lookup for a single relation write (a batch of one)."""
+    if from_object.workspace_key != to_object.workspace_key:
+        raise api_error(422, "relation_wrong_scope", "Related objects must share a workspace")
+    resolve_workspace(session, from_object.workspace_key, require_active=True)
+    writes = LiveWrites(session, from_object.workspace_key)
+    return writes, LiveBatchLookup.of(session, from_object.workspace_key)
+
+
 def create_live_relation(
     session: Session, model: EngineModel, payload: RelationCreate, claim: SetClaim | None = None
 ) -> tuple[ObjectRelation, int | None]:
     """Create a relation in the live object store and commit the transaction.
 
     With ``claim``, the claimed end's set must still be at the version the caller read; the new
-    version is returned with the relation.
+    version is returned with the relation. Engine-maintained containment edges (the parent
+    relation of an object type) are refused; they are written with the owning object's parent.
     """
     from_object = _endpoint(session, str(payload.fromObjectId))
     to_object = _endpoint(session, str(payload.toObjectId))
-    if from_object.workspace_key != to_object.workspace_key:
-        raise api_error(422, "relation_wrong_scope", "Related objects must share a workspace")
-    resolve_workspace(session, from_object.workspace_key, require_active=True)
-    writes = LiveWrites(session, from_object.workspace_key)
-    relation = create_relation_instance(
-        writes, model, payload, from_object=from_object, to_object=to_object
-    )
-    set_version = advance_set_versions(
-        session,
-        workspace_key=from_object.workspace_key,
-        change_set_id=None,
-        relation_type_key=payload.relationTypeKey,
-        from_object_type_key=from_object.object_type_key,
-        to_object_type_key=to_object.object_type_key,
-        from_object_id=from_object.id,
-        to_object_id=to_object.id,
-        claim=claim,
-    )
+    writes, lookup = _live_relation_lookup(session, from_object, to_object)
+    with lookup.deciding():
+        relation = decide_relation_create(
+            lookup,
+            model,
+            payload.relationTypeKey,
+            from_object,
+            to_object,
+            payload.attributes,
+            claim,
+        )
+    write_live(writes, model, lookup.changes())
     session.commit()
-    return relation, set_version
+    return load_relation(session, relation.relation_id), (
+        claim.expected + 1 if claim is not None else None
+    )
+
+
+def _claimed_relation(
+    session: Session, relation_id: str
+) -> tuple[LiveWrites, LiveBatchLookup, ObjectRelation]:
+    relation = load_relation(session, relation_id)
+    writes, lookup = _live_relation_lookup(
+        session,
+        load_object(session, relation.from_object_id),
+        load_object(session, relation.to_object_id),
+    )
+    # Read again under the workspace lock: a write committed meanwhile is the one to claim against.
+    session.refresh(relation)
+    return writes, lookup, relation
 
 
 def update_live_relation(
@@ -199,45 +183,12 @@ def update_live_relation(
     Endpoints and relation type are identity and cannot change through the update contract; only
     the relation attributes are mutable.  Engine-maintained containment edges are rejected.
     """
-    relation = load_relation(session, relation_id)
-    from_object = load_object(session, relation.from_object_id)
-    to_object = load_object(session, relation.to_object_id)
-    resolve_workspace(session, from_object.workspace_key, require_active=True)
-    writes = LiveWrites(session, from_object.workspace_key)
-    rules.mutable_relation(model, relation.relation_type_key, to_object.object_type_key, LIVE)
-    binding = rules.relation_binding(
-        model,
-        relation.relation_type_key,
-        from_object.object_type_key,
-        to_object.object_type_key,
-        LIVE,
-    )
-    attributes = rules.relation_attributes(model, binding, payload.attributes)
-    writes.claim_relation(relation, payload.expectedVersion)
-    relation.attributes = attributes
-    writes.record(
-        aggregate_type="relation",
-        aggregate_id=relation.id,
-        action="updated",
-        version=relation.version,
-        changes={"attributes": attributes},
-        object_ids=[relation.from_object_id, relation.to_object_id],
-        subject=relation_subject(
-            relation.relation_type_key, relation.from_object_id, relation.to_object_id
-        ),
-    )
-    increment_set_versions(
-        session,
-        workspace_key=from_object.workspace_key,
-        change_set_id=None,
-        relation_type_key=relation.relation_type_key,
-        from_object_type_key=from_object.object_type_key,
-        to_object_type_key=to_object.object_type_key,
-        from_object_id=relation.from_object_id,
-        to_object_id=relation.to_object_id,
-    )
+    writes, lookup, relation = _claimed_relation(session, relation_id)
+    with lookup.deciding():
+        decide_relation_update(lookup, model, relation, payload.expectedVersion, payload.attributes)
+    write_live(writes, model, lookup.changes())
     session.commit()
-    return relation
+    return load_relation(session, relation_id)
 
 
 def delete_live_relation(
@@ -249,48 +200,8 @@ def delete_live_relation(
 ) -> None:
     """Delete a live relation that is not engine-maintained and not required; with ``claim``, only
     while the claimed end's set is at the version the caller read."""
-    relation = load_relation(session, relation_id)
-    from_object = load_object(session, relation.from_object_id)
-    to_object = load_object(session, relation.to_object_id)
-    resolve_workspace(session, from_object.workspace_key, require_active=True)
-    writes = LiveWrites(session, from_object.workspace_key)
-    rules.mutable_relation(
-        model, relation.relation_type_key, to_object.object_type_key, LIVE, deleting=True
-    )
-    binding = rules.relation_binding(
-        model,
-        relation.relation_type_key,
-        from_object.object_type_key,
-        to_object.object_type_key,
-        LIVE,
-    )
-    rules.deletable_relation(binding, LIVE)
-    writes.claim_relation(relation, expected_version)
-    writes.record(
-        aggregate_type="relation",
-        aggregate_id=relation.id,
-        action="deleted",
-        version=relation.version,
-        changes={
-            "relationTypeKey": relation.relation_type_key,
-            "fromObjectId": relation.from_object_id,
-            "toObjectId": relation.to_object_id,
-        },
-        object_ids=[relation.from_object_id, relation.to_object_id],
-        subject=relation_subject(
-            relation.relation_type_key, relation.from_object_id, relation.to_object_id
-        ),
-    )
-    advance_set_versions(
-        session,
-        workspace_key=from_object.workspace_key,
-        change_set_id=None,
-        relation_type_key=relation.relation_type_key,
-        from_object_type_key=from_object.object_type_key,
-        to_object_type_key=to_object.object_type_key,
-        from_object_id=relation.from_object_id,
-        to_object_id=relation.to_object_id,
-        claim=claim,
-    )
-    writes.remove_relation(relation)
+    writes, lookup, relation = _claimed_relation(session, relation_id)
+    with lookup.deciding():
+        decide_relation_delete(lookup, model, relation, expected_version, claim)
+    write_live(writes, model, lookup.changes())
     session.commit()

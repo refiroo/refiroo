@@ -33,12 +33,17 @@ from sqlalchemy.orm import Session
 
 from ...errors import ApiError, api_error
 from ...models.commands import (
+    RELATION_ITEMS,
     BatchCreateItem,
+    BatchCreateRelationItem,
     BatchDeleteItem,
+    BatchDeleteRelationItem,
     BatchInitialRelation,
     BatchItem,
+    BatchReplaceRelationSetItem,
     BatchRequest,
     BatchUpdateItem,
+    BatchUpdateRelationItem,
     BatchUpsertItem,
     ChangeSetObjectUpdate,
     ChangeSetObjectWrite,
@@ -70,6 +75,13 @@ from ..records.objects import (
     duplicate_relation,
 )
 from ..records.refusals import CHANGE_SET, LIVE
+from ..records.relation_set_versions import SetClaim, set_claim
+from ..records.relation_sets import SetBinding, SetTarget, decide_set_replacement
+from ..records.relation_writes import (
+    decide_relation_create,
+    decide_relation_delete,
+    decide_relation_update,
+)
 from ..records.values import normalize_value, stored_json_value
 from ..records.writes import ChangeSetWrites, LiveWrites
 from ..workspaces.catalogue import resolve_workspace
@@ -87,6 +99,10 @@ _POINTERS = {
     "invalid_parent_type": "parent",
     "parent_cycle": "parent",
     "object_already_exists": "id",
+    "relation_not_found": "id",
+    "relation_set_version_conflict": "expectedRelationSetVersion",
+    "relation_set_claim_incomplete": "expectedRelationSetVersion",
+    "unknown_relation_attributes": "attributes",
     "missing_required_relations": "initialRelations",
     "duplicate_initial_relation": "initialRelations",
     **{
@@ -363,7 +379,138 @@ class _Batch:
                 "id": record.object_id,
                 "objectTypeKey": record.object_type_key,
             }
+        if isinstance(item, RELATION_ITEMS):
+            return self.relation_item(item, at)
+        if isinstance(item, BatchReplaceRelationSetItem):
+            return self.replace_set(item, at)
         raise AssertionError(f"Unknown batch item {item!r}")
+
+    def relation_item(self, item: Any, at: str) -> dict[str, Any]:
+        """A relation item through its single write's decide step (0.9 B3, §B4)."""
+        lookup, model = self.writer.lookup, self.writer.model
+        if isinstance(item, BatchUpdateRelationItem):
+            relation = self.writer.relation(str(item.id), f"{at}/id")
+            changed = decide_relation_update(
+                lookup, model, relation, item.expectedVersion, item.attributes
+            )
+            return {
+                "action": "updated",
+                "relationId": changed.relation_id,
+                "version": changed.version,
+            }
+        if isinstance(item, BatchDeleteRelationItem):
+            claim = set_claim(item.expectedRelationSetVersion, item.relationSetDirection)
+            relation = self.writer.relation(str(item.id), f"{at}/id")
+            decide_relation_delete(lookup, model, relation, item.expectedVersion, claim)
+            return {"action": "deleted", "relationId": relation.relation_id, **_claimed(claim)}
+        claim = (
+            set_claim(item.expectedRelationSetVersion, item.relationSetDirection)
+            if isinstance(item, BatchCreateRelationItem)
+            else None
+        )
+        source = self.writer.resolve(item.from_, f"{at}/from")
+        target = self.writer.resolve(item.to, f"{at}/to")
+        existing = None
+        if not isinstance(item, BatchCreateRelationItem):
+            existing = next(
+                (
+                    relation
+                    for relation in lookup.relations(
+                        [source.object_id], "outgoing", [item.relationTypeKey]
+                    )
+                    if relation.to_object_id == target.object_id
+                ),
+                None,
+            )
+        if existing is None:
+            created = decide_relation_create(
+                lookup, model, item.relationTypeKey, source, target, item.attributes or {}, claim
+            )
+            return {
+                "action": "created",
+                "relationId": created.relation_id,
+                "version": created.version,
+                **_claimed(claim),
+            }
+        return self.ensure(item, at, source, target, existing)
+
+    def replace_set(self, item: BatchReplaceRelationSetItem, at: str) -> dict[str, Any]:
+        """A set replacement (§B4): the mapping PUT's step with any number of targets."""
+        set_ = SetBinding(
+            item.relationTypeKey, item.fromObjectTypeKey, item.toObjectTypeKey, item.direction
+        )
+        anchor_type = (
+            item.fromObjectTypeKey if item.direction == "outgoing" else item.toObjectTypeKey
+        )
+        anchor = self._typed(item.anchor, f"{at}/anchor", anchor_type)
+        targets = [
+            SetTarget(
+                self._typed(target.object, f"{at}/targets/{number}/object", set_.other_type),
+                target.attributes,
+            )
+            for number, target in enumerate(item.targets)
+        ]
+        replaced = decide_set_replacement(
+            self.writer.lookup,
+            self.writer.model,
+            set_,
+            anchor,
+            targets,
+            expected=item.expectedRelationSetVersion,
+            on_existing=self.on_existing,
+            pointer=at,
+        )
+        return {
+            "action": "updated" if replaced.changed else "unchanged",
+            "relationSetVersion": replaced.version,
+            "relationIds": {
+                "created": replaced.created,
+                "kept": replaced.kept,
+                "removed": replaced.removed,
+            },
+        }
+
+    def _typed(self, reference: RecordReference, pointer: str, object_type_key: str) -> Any:
+        record = self.writer.resolve(reference, pointer)
+        if record.object_type_key != object_type_key:
+            raise _type_mismatch(pointer, record, object_type_key)
+        return record
+
+    def ensure(self, item: Any, at: str, source: Any, target: Any, existing: Any) -> dict[str, Any]:
+        """An ``ensureRelation`` that found its relation: ``unchanged`` first, then P4 (D24)."""
+        lookup, model = self.writer.lookup, self.writer.model
+        rules.mutable_relation(model, item.relationTypeKey, target.object_type_key, lookup.refusals)
+        identity = {"relationId": existing.relation_id}
+        if item.attributes is not None:
+            binding = rules.relation_binding(
+                model,
+                item.relationTypeKey,
+                source.object_type_key,
+                target.object_type_key,
+                lookup.refusals,
+            )
+            wanted = rules.relation_attributes(model, binding, item.attributes)
+        if item.attributes is None or wanted == dict(existing.attributes or {}):
+            return {"action": "unchanged", **identity, "version": existing.version}
+        expected, audit = item.expectedVersion, {}
+        if expected is None:
+            if self.on_existing != "overwrite":
+                raise api_error(
+                    409,
+                    "version_required",
+                    "The relation exists with other values; send expectedVersion, or declare "
+                    'onExisting: "overwrite"',
+                    {"pointer": f"{at}/expectedVersion", **identity, "version": existing.version},
+                )
+            expected = existing.version
+            audit = {"overwrite": {"previousVersion": existing.version}}
+        changed = decide_relation_update(
+            lookup, model, existing, expected, item.attributes, audit_changes=audit
+        )
+        outcome = {"action": "updated", **identity, "version": changed.version}
+        if audit:
+            outcome["previousVersion"] = existing.version
+        return outcome
 
     def create(
         self, item: BatchCreateItem | BatchUpsertItem, at: str, *, object_id: str | None
@@ -479,6 +626,18 @@ class _Items:
 
     def find(self, object_id: str) -> Any | None:
         return self.lookup.object(object_id)
+
+    def relation(self, relation_id: str, pointer: str) -> Any:
+        """A relation of the context by its ID, as the items before it leave it."""
+        relation = self.lookup.relation(relation_id)
+        if relation is None:
+            raise api_error(
+                404,
+                "relation_not_found",
+                f"Relation '{relation_id}' not found",
+                {"pointer": pointer, "id": relation_id},
+            )
+        return relation
 
     def resolve(self, reference: RecordReference, pointer: str) -> Any:
         """The record a reference names (§B2), against the context as it stands now."""
@@ -603,6 +762,18 @@ class _Items:
                         None,
                     )
                     named_by_key["target"].append((item.key.attributeTypeKey, value))
+            if isinstance(item, BatchReplaceRelationSetItem):
+                name("other", item.anchor)
+                for target in item.targets:
+                    name("other", target.object)
+                relation_types.add(item.relationTypeKey)
+                continue
+            if isinstance(item, RELATION_ITEMS):
+                if hasattr(item, "from_"):
+                    name("other", item.from_)
+                    name("other", item.to)
+                    relation_types.add(item.relationTypeKey)
+                continue
             name("parent", item.parent)
             for relation in getattr(item, "initialRelations", None) or ():
                 name("other", relation.object)
@@ -652,6 +823,28 @@ class _Items:
                 }
                 lookup.prefetch_ancestors(far)
                 lookup.prefetch_values(lookup.objects(far).values())
+        lookup.prefetch_relation_ids(
+            str(item.id)
+            for item in items
+            if isinstance(item, BatchUpdateRelationItem | BatchDeleteRelationItem)
+        )
+        # The versions of the sets the items replace, read once (0.9 B3).
+        sets = []
+        for item in items:
+            if isinstance(item, BatchReplaceRelationSetItem):
+                try:
+                    anchor = self.resolve(item.anchor, "")
+                except ApiError:
+                    continue
+                sets.append(
+                    SetBinding(
+                        item.relationTypeKey,
+                        item.fromObjectTypeKey,
+                        item.toObjectTypeKey,
+                        item.direction,
+                    ).key(anchor.object_id)
+                )
+        lookup.prefetch_set_versions(sets)
 
     def _key_form_of(self, definition: Any, value: Any) -> Any | None:
         if value is None or value == "":
@@ -834,6 +1027,11 @@ class _ChangeSetItems(_Items):
 
     def write(self) -> None:
         write_change_set(self.writes, self.lookup.changes())
+
+
+def _claimed(claim: SetClaim | None) -> dict[str, Any]:
+    """A claimed set's new version: the claim's, advanced by the item's write."""
+    return {"relationSetVersion": claim.expected + 1} if claim is not None else {}
 
 
 def _initial_relations(

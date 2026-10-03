@@ -403,16 +403,19 @@ retries, instead of looping over single calls.
 
 A batch of create, update, upsert and delete items runs live or in a change set, inline (up to 1,000
 items) or in the background (up to 1,000,000). Records are addressed by ID or by a unique field's
-value, so a recurring feed and a one-off load use the same contract. The caller chooses all-or-nothing
+value, so a recurring feed and a one-off load use the same contract. The same batch relates records,
+makes sure a relationship exists, changes or removes one, and replaces a record's whole set of
+related records with a list, keeping the relationships it already has; a record's relationship list
+names each set's version, so a replacement can claim the set the caller read. The caller chooses all-or-nothing
 or item-by-item; every item goes through the same rules as a single write and gets its own outcome.
 An idempotency key makes a retry return the first result. Background jobs report progress, survive
 restarts without repeating or skipping an item, and can be cancelled. Jobs and their outcomes are
 kept for a configurable retention.
 
-Limits: relationship and mapping items, and file import and export with a preview screen, follow in
-0.9.
+Limits: file import and export with a preview screen follow in 0.9; the relationship view in the
+browser still saves one related record at a time.
 
-Evidence: [batch contracts](../API.md#batches-and-jobs-base-09-b1-b2),
+Evidence: [batch contracts](../API.md#batches-and-jobs-base-09-b1-b2-b3),
 [jobs](../../backend/app/engine/jobs/),
 [ADR-036](../DECISIONS.md#adr-036--a-batch-is-a-job-one-mechanism-for-bulk-writes-imports-and-exports).
 

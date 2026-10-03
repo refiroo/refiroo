@@ -11,7 +11,7 @@ when it is delivered, and this document keeps the design and its reasons.
 | Section | Contents | Track | State |
 | --- | --- | --- | --- |
 | [P](#p-shared-primitives) | Items and outcomes, failure policies, per-item concurrency, idempotency, jobs, limits | P | P1–P5 and P7 delivered in B1, P6's background run in B2 ([API.md](API.md#background-jobs)); job files with J |
-| [B](#b-bulk-writes) | Bulk object create, update, upsert and delete; record references and upsert keys; bulk relations and relation-set replacement | B | Object items delivered in B1 (inline) and B2 (background) ([API.md](API.md#batches-and-jobs-base-09-b1-b2)); B4 in B3 |
+| [B](#b-bulk-writes) | Bulk object create, update, upsert and delete; record references and upsert keys; bulk relations and relation-set replacement | B | Object items delivered in B1 (inline) and B2 (background) ([API.md](API.md#batches-and-jobs-base-09-b1-b2-b3)); B4 in B3 |
 | [J](#j-import-and-export) | Import (file contract as an import profile per [MODEL_AUTHORING](MODEL_AUTHORING.md#import-profile), preview, execute) and export (scope, context, output) | J | Draft |
 | [F](#f-change-feed) | Raw change feed: entries, per-workspace position, retention, recovery, consumer events | F | Draft |
 | [Q](#q-queries) | Cross-type lookup (0.8 P1), workspace edge list (0.8 P3), model-aware query, effective periods and `asOf` | Q | Draft; Q1 delivered |
@@ -325,11 +325,26 @@ relation-set version increment per affected set.
 Containment relations are never items: a parent changes through an object's `parent`
 (`immutable_relation` otherwise).
 
+As delivered (B3, D35–D39, contract in [API.md](API.md#batches-and-jobs-base-09-b1-b2-b3)): relation
+items are decided in memory through the single relation writes' decide steps and written in bulk
+with the object items around them (D35); the single routes and the mapping PUT are batches of one
+through the same steps. A set claim is checked against the set as the items before it leave it,
+under the workspace's or change set's lock. `ensureRelation` takes an optional `expectedVersion`
+for the update it may become. `replaceRelationSet` decides `unchanged` before its claim (D37, as
+D24); removing a relationship whose other record requires one and has no other is
+`required_relation` (D36, also on the mapping PUT); a target listed twice is `duplicate_relation`,
+and an anchor or target of another type than the binding's end is `reference_type_mismatch` (D39).
+The anchored read `GET /relations?objectId=…` names every set the record anchors with its version
+(`relationSets`, D38). The `transition` entry lists `newTargets` and takes no feed position.
+
 ### B5: Outcomes and responses
 
 Outcomes are P2's, in item order, each with its `ref`. An applied object item reports `id`,
 `objectTypeKey` and `version` (none after a live delete); a relation item `relationId` and `version`; a set replacement the
-anchor's new `relationSetVersion` and the created, kept and removed relation IDs.
+anchor's new `relationSetVersion` and the created, kept and removed relation IDs. As delivered (B3,
+D37): a relation item's `version` is absent after a delete and its claimed set's new
+`relationSetVersion` is added; a set replacement's `action` is `updated` or `unchanged` and its IDs
+are `relationIds: {created, kept, removed}`.
 
 ```json
 {
@@ -357,7 +372,8 @@ ADR-030 navigation fields, plus `job`; an outcome carries only its status's fiel
 `reference_not_found`, `reference_type_mismatch` (per item), and the P5 idempotency codes. Every
 other rejection is the single write's code. Request level (B1): `invalid_batch_context` (not exactly
 one of `workspaceKey` and `changeSetId`) and, until B2, `run_not_available`. B2: `job_finished` (409,
-cancelling a finished job).
+cancelling a finished job). B3 adds none: relation items answer with the single relation writes'
+codes, `version_required` (P4) and the reference codes of B2.
 
 ### B7: Audit, feed and cost
 

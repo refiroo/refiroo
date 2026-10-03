@@ -785,29 +785,6 @@ def test_conflict_preview_continues_without_loss(client, change_set_context):
     }
 
 
-def test_conditional_claim_rejects_changed_set_without_overwriting(client, monkeypatch):
-    from app.engine.operations import mapping_replacement as mapping
-
-    sv, mv = _endpoints(client)
-    relation = _create_relation(client, sv, mv)
-    original = mapping._get_set_version
-    calls = 0
-
-    def stale_read(*args, **kwargs):
-        nonlocal calls
-        calls += 1
-        return 0 if calls == 1 else original(*args, **kwargs)
-
-    monkeypatch.setattr(mapping, "_get_set_version", stale_read)
-    response = client.put(PUT, json=_replacement_body(sv, mv, 0, target=None))
-    assert response.status_code == 409, response.text
-    error = response.json()["error"]
-    assert error["code"] == "mapping_version_conflict"
-    assert error["details"]["mappingVersion"] == 1
-    assert error["details"]["targets"][0]["relationId"] == relation["id"]
-    assert _live_set_version(sv["id"], "outgoing") == 1
-
-
 @pytest.mark.parametrize("client", [{"attr_key": "rank"}], indirect=True)
 @pytest.mark.parametrize("change_set_source", ["currentLive", "publication"])
 @pytest.mark.parametrize("mutation", ["add", "update", "delete"])

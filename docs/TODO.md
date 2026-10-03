@@ -22,7 +22,8 @@ decisions D-1–D-7 taken, H4b delivered the same day, [API_JOURNEYS](testing/AP
 2026-10-03). **PG5 is delivered and 0.9.0-alpha.1 released (2026-10-03):** budgets re-measured on
 PostgreSQL, the 100,000-item batch measured once, the remaining budget exceptions deferred to the
 first fixes after 1.0 ([handoff](POSTGRESQL_BUDGETS.md)). **F1 is delivered (2026-10-03)**: feed
-positions, publish entries and the feed read (D31–D34). Next are B3, then F2. See
+positions, publish entries and the feed read (D31–D34). **B3 is delivered (2026-10-03)**:
+relationship and relationship-set items in batches (D35–D39). Next are F2, then T1. See
 [Next — 0.9](#next--09).
 
 - **Publish cost per record (found 2026-10-03, F1).** A publish of 10,000 renamed records took
@@ -83,10 +84,10 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   D17–D19, C1 with C-D17–C-D20 and Q4 with D20–D22; B1 2026-10-01 with D23–D26, B2 with D27–D30.
 - [x] Integration-grade query expressions beyond daily-use filters: delivered as 0.9 Q3 (2026-09-30),
   the model-aware query; `asOf` with effective periods in Q4 (2026-09-30).
-- [ ] Bounded live bulk object/relation/mapping operations with explicit optional staging, per-item
+- [x] Bounded live bulk object/relation/mapping operations with explicit optional staging, per-item
   outcomes and safe retry; do not require a change set merely because several records change (0.9).
   Object items run inline delivered as 0.9 B1 (2026-10-01) and in the background as B2
-  (2026-10-01); relation and relation-set items (B3) remain.
+  (2026-10-01); relation and relation-set items as B3 (2026-10-03).
 - [ ] Asynchronous CSV/XLSX import and export with validation previews; import runs an import profile
   (revised D3, [MODEL_AUTHORING A1](MODEL_AUTHORING.md#delivery)).
 - [ ] Ordered change feed and retryable webhooks. The feed read with positions in commit order is

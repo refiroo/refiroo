@@ -1,4 +1,4 @@
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal
@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from ...errors import api_error
 from ...models.database import RelationSetVersion
+from ...models.schema import EngineModel
 
 
 @dataclass(frozen=True)
@@ -18,6 +19,67 @@ class SetClaim:
 
     direction: Literal["outgoing", "incoming"]
     expected: int
+
+
+@dataclass(frozen=True)
+class AnchoredSet:
+    """One relation set a record anchors: a binding, a direction and the set's version."""
+
+    relation_type_key: str
+    from_object_type_key: str
+    to_object_type_key: str
+    direction: Literal["outgoing", "incoming"]
+    version: int
+
+
+def anchored_set_versions(
+    session: Session,
+    model: EngineModel,
+    *,
+    workspace_key: str,
+    change_set_id: str | None,
+    anchor_type_key: str,
+    anchor_id: str,
+    direction: str = "both",
+    relation_type_keys: Sequence[str] | None = None,
+) -> list[AnchoredSet]:
+    """Every set a record anchors, written or not (0.9 B3, D38): each binding its type takes part
+    in other than containment, in ``direction``, with its version in the context (0 when no write
+    touched it). In a change set the versions are the change set's own (ADR-022)."""
+    wanted = set(relation_type_keys) if relation_type_keys else None
+    sets: list[tuple[str, str, str, str]] = []
+    for binding in model.objectTypeRelations:
+        key = binding.relationTypeKey
+        if wanted is not None and key not in wanted:
+            continue
+        if key in model.containment_relation_keys(binding.toObjectTypeKey):
+            continue
+        ends = (binding.fromObjectTypeKey, binding.toObjectTypeKey)
+        for way, end in (("outgoing", ends[0]), ("incoming", ends[1])):
+            if end == anchor_type_key and direction in (way, "both"):
+                sets.append((key, *ends, way))
+    if not sets:
+        return []
+    stored = {
+        (row.relation_type_key, row.from_object_type_key, row.to_object_type_key, row.direction): (
+            row.version
+        )
+        for row in session.execute(
+            select(
+                RelationSetVersion.relation_type_key,
+                RelationSetVersion.from_object_type_key,
+                RelationSetVersion.to_object_type_key,
+                RelationSetVersion.direction,
+                RelationSetVersion.version,
+            ).where(
+                RelationSetVersion.workspace_key == workspace_key,
+                # ``== None`` renders IS NULL for the live sets.
+                RelationSetVersion.change_set_id == change_set_id,
+                RelationSetVersion.anchor_object_id == anchor_id,
+            )
+        )
+    }
+    return [AnchoredSet(*key, stored.get(key, 0)) for key in sets]  # type: ignore[arg-type]
 
 
 def set_claim(expected: int | None, direction: str | None) -> SetClaim | None:

@@ -279,8 +279,98 @@ class BatchDeleteItem(_BatchItem):
     expectedVersion: int = Field(ge=1)
 
 
+class _RelationSetClaim(_BatchItem):
+    """An optional claim on one end's relation set (ADR-022), as on ``POST /relations``."""
+
+    expectedRelationSetVersion: int | None = Field(default=None, ge=0)
+    relationSetDirection: Literal["outgoing", "incoming"] | None = None
+
+
+class _RelationEnds(BaseModel):
+    """``from`` and ``to``, record references (§B2); ``from`` is a Python keyword, so the field is
+    ``from_`` and the JSON name ``from``."""
+
+    model_config = ConfigDict(extra="forbid", validate_by_alias=True, serialize_by_alias=True)
+
+    from_: RecordReference = Field(alias="from")
+    to: RecordReference
+
+
+class BatchCreateRelationItem(_RelationEnds, _RelationSetClaim):
+    """As ``POST /relations``, the ends named by reference."""
+
+    op: Literal["createRelation"]
+    relationTypeKey: str
+    attributes: dict[str, Any] = Field(default_factory=dict)
+
+
+class BatchEnsureRelationItem(_RelationEnds, _BatchItem):
+    """Creates the relation unless one of the type already joins the ends; then ``unchanged`` when
+    ``attributes`` are omitted or equal, otherwise an update under ``expectedVersion`` (P4)."""
+
+    op: Literal["ensureRelation"]
+    relationTypeKey: str
+    attributes: dict[str, Any] | None = None
+    expectedVersion: int | None = Field(default=None, ge=1)
+
+
+class BatchUpdateRelationItem(_BatchItem):
+    """As ``PATCH /relations/{id}``: the relation's attributes, replaced."""
+
+    op: Literal["updateRelation"]
+    id: UUID4
+    expectedVersion: int = Field(ge=1)
+    attributes: dict[str, Any]
+
+
+class BatchDeleteRelationItem(_RelationSetClaim):
+    """As ``DELETE /relations/{id}``."""
+
+    op: Literal["deleteRelation"]
+    id: UUID4
+    expectedVersion: int = Field(ge=1)
+
+
+class RelationSetTarget(BaseModel):
+    """A record a set is to hold; omitted ``attributes`` keep a kept relation's values."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    object: RecordReference
+    attributes: dict[str, Any] | None = None
+
+
+class BatchReplaceRelationSetItem(_BatchItem):
+    """The anchor's directional set of one binding becomes ``targets`` (possibly empty), under
+    ``expectedRelationSetVersion`` or the request's ``onExisting: "overwrite"`` (§B4)."""
+
+    op: Literal["replaceRelationSet"]
+    relationTypeKey: str
+    fromObjectTypeKey: str
+    toObjectTypeKey: str
+    direction: Literal["outgoing", "incoming"]
+    anchor: RecordReference
+    targets: list[RelationSetTarget]
+    expectedRelationSetVersion: int | None = Field(default=None, ge=0)
+
+
+RELATION_ITEMS = (
+    BatchCreateRelationItem,
+    BatchEnsureRelationItem,
+    BatchUpdateRelationItem,
+    BatchDeleteRelationItem,
+)
+
 BatchItem = Annotated[
-    BatchCreateItem | BatchUpdateItem | BatchUpsertItem | BatchDeleteItem,
+    BatchCreateItem
+    | BatchUpdateItem
+    | BatchUpsertItem
+    | BatchDeleteItem
+    | BatchCreateRelationItem
+    | BatchEnsureRelationItem
+    | BatchUpdateRelationItem
+    | BatchDeleteRelationItem
+    | BatchReplaceRelationSetItem,
     Field(discriminator="op"),
 ]
 

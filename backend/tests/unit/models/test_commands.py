@@ -48,3 +48,36 @@ def test_a_malformed_batch_request_is_refused(change):
 def test_a_well_formed_batch_request_is_accepted():
     request = BatchRequest.model_validate({**VALID, "items": [{**DELETE, "ref": "r" * 200}]})
     assert (request.onExisting, request.items[0].ref) == ("reject", "r" * 200)
+
+
+def test_a_relationship_item_survives_the_background_job_s_stored_form():
+    """A background job stores each item as JSON and parses it back at its chunk (D27). A
+    relationship item's ``from`` end, a Python keyword held under another field name, keeps its
+    JSON name both ways; a set replacement's targets keep omitted values omitted."""
+    from pydantic import TypeAdapter
+
+    from app.models.commands import BatchItem
+
+    ends = {"from": {"id": str(uuid4())}, "to": {"id": str(uuid4())}}
+    items = [
+        {"op": "createRelation", "relationTypeKey": "t", **ends, "attributes": {"a": 1}},
+        {"op": "ensureRelation", "relationTypeKey": "t", **ends},
+        {
+            "op": "replaceRelationSet",
+            "relationTypeKey": "t",
+            "fromObjectTypeKey": "a",
+            "toObjectTypeKey": "b",
+            "direction": "incoming",
+            "anchor": {"id": str(uuid4())},
+            "targets": [{"object": {"id": str(uuid4())}}],
+        },
+    ]
+    request = BatchRequest.model_validate({**VALID, "items": items})
+    adapter = TypeAdapter(BatchItem)
+    for item, given in zip(request.items, items, strict=True):
+        stored = item.model_dump(mode="json", exclude_unset=True)
+        assert stored == given
+        assert adapter.validate_python(stored) == item
+    python_name = {key: value for key, value in items[0].items() if key != "from"}
+    with pytest.raises(ValidationError):
+        BatchRequest.model_validate({**VALID, "items": [{**python_name, "from_": ends["from"]}]})

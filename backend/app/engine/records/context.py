@@ -160,6 +160,31 @@ class LiveLookup(Ancestors):
             rows.update((row.id, row) for row in self.session.scalars(statement))
         return [rows[key] for key in sorted(rows)]
 
+    def relation(self, relation_id: str) -> ObjectRelation | None:
+        return self.relations_by_id([relation_id]).get(relation_id)
+
+    def relations_by_id(self, relation_ids: Iterable[str]) -> dict[str, ObjectRelation]:
+        """Relations of the workspace by ID: both their ends are the workspace's records."""
+        found: dict[str, ObjectRelation] = {}
+        for chunk in _chunks(list(dict.fromkeys(relation_ids))):
+            found.update(
+                (row.id, row)
+                for row in self.session.scalars(
+                    select(ObjectRelation).where(ObjectRelation.id.in_(chunk))
+                )
+            )
+        ends = self.objects(
+            end for row in found.values() for end in (row.from_object_id, row.to_object_id)
+        )
+        return {
+            relation_id: row
+            for relation_id, row in found.items()
+            if all(
+                end in ends and self.shares_workspace(ends[end])
+                for end in (row.from_object_id, row.to_object_id)
+            )
+        }
+
     def values(self, item: Any) -> dict[str, Any]:
         """The record's attribute values in their JSON form."""
         return {
@@ -253,6 +278,13 @@ class ChangeSetLookup(Ancestors):
 
     def relation(self, relation_id: str) -> Row | None:
         return find_relation(self.session, self.context, relation_id)
+
+    def relations_by_id(self, relation_ids: Iterable[str]) -> dict[str, Row]:
+        found: dict[str, Row] = {}
+        for chunk in _chunks(list(dict.fromkeys(relation_ids))):
+            projection = relation_projection(self.context, relation_ids=chunk)
+            found.update((row.relation_id, row) for row in self.session.execute(select(projection)))
+        return found
 
     def children(
         self, parent_ids: Iterable[str], object_type_keys: Iterable[str] | None = None
