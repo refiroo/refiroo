@@ -294,7 +294,15 @@ def test_an_unsupported_model_schema_is_upgraded_offline(configuration, database
             ("/api/v1/batches", False),
         ),
         (
-            {"BATCH_MAX_ITEMS": "7", "ATOMIC_JOB_MAX_ITEMS": "3", "JOB_RETENTION_DAYS": "2"},
+            {
+                "BATCH_MAX_ITEMS": "7",
+                "BATCH_MAX_BYTES": "9000",
+                "ATOMIC_JOB_MAX_ITEMS": "3",
+                "BACKGROUND_JOB_MAX_ITEMS": "11",
+                "BATCH_BACKGROUND_MAX_BYTES": "12000",
+                "JOB_CHUNK_ITEMS": "4",
+                "JOB_RETENTION_DAYS": "2",
+            },
             "integrationJobs",
             {"createJobs": True},
             ("/api/v1/batches", True),
@@ -314,16 +322,24 @@ def test_settings_shape_what_the_service_offers(
         assert {k: capabilities[k] for k in expected} == expected
         assert capabilities["setting"].endswith("_ENABLED")
         if "BATCH_MAX_ITEMS" in settings:
-            limits = capabilities["limits"]
-            assert (
-                limits["batchMaxItems"],
-                limits["atomicJobMaxItems"],
-                limits["retentionDays"],
-            ) == (7, 3, 2)
+            # Every limit, as set (merged from test_batches in H4d).
+            assert capabilities["limits"] == {
+                "batchMaxItems": 7,
+                "batchMaxBytes": 9000,
+                "atomicJobMaxItems": 3,
+                "backgroundJobMaxItems": 11,
+                "backgroundBatchMaxBytes": 12000,
+                "chunkItems": 4,
+                "retentionDays": 2,
+            }
         paths = service.client.get("/openapi.json").json()["paths"]
         if route is not None:
             path, present = route
             assert ("post" in paths.get(path, {})) is present
+        if settings.get("INTEGRATION_JOBS_ENABLED") == "false":
+            # Cancellation goes with creation; job reads stay (OPERATIONS.md, merged in H4d).
+            assert "/api/v1/jobs/{job_id}/cancel" not in paths
+            ok(service.world.api.get("/jobs"))
         if group == "workspaceAdmin":
             assert "post" not in paths.get("/api/v1/workspaces", {})
             denied = service.world.api.post("/workspaces", {"key": "denied", "label": "Denied"})

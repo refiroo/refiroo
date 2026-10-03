@@ -20,6 +20,8 @@ Structures:
 - ``R``: a root type. Attributes ``R.u`` (unique text, searchable, filterable, sortable), ``R.n``
   (integer, minimum 0, maximum 100), ``R.b`` (boolean), ``R.dt`` (date), ``R.q`` (required text),
   ``R.ro`` (read-only text with a default), ``R.x1``/``R.x2`` (at least one of the two).
+- ``R2``: a type under ``R`` with its own unique ``R2.u``; it may also hold ``R.u``, a unique value
+  two types share (a reference naming ``R`` by ``R.u`` can find an ``R2``).
 - ``H``: a root type with a self-hierarchy; ``H.code`` (searchable, filterable, sortable), ``H.rank``.
 - ``P``, ``Q``: root types; ``C``: a type under ``P`` or ``Q`` (never at the top); ``C2`` under ``C``.
 - ``K``: a root type of the other application than ``H``; ``K.code``, ``K.rank``.
@@ -290,7 +292,13 @@ def generated(variant: str) -> Configuration:
             [binding("K.code", 10), binding("E.from", 20), binding("E.to", 30)],
             root=True,
         ),
-        object_type("R2", "R2.u", [binding("R2.u", 10, required=True)], root=False, parents=("R",)),
+        object_type(
+            "R2",
+            "R2.u",
+            [binding("R2.u", 10, required=True), binding("R.u", 20)],
+            root=False,
+            parents=("R",),
+        ),
         object_type("L1", "L.code", [*l_attributes, binding("L.only1", 20)], root=True),
         object_type(
             "L2",

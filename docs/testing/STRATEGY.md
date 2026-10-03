@@ -1,9 +1,11 @@
 # Testing strategy
 
 **Decided** 2026-10-02 by the user, after an audit of the backend suite. It replaces the habit of
-writing API tests per work package. The suite is moved onto it by
-[H4](../TEST_HARNESS_PLAN.md#h4-testing-consolidation); until H4 is delivered, the
-[execution guide](EXECUTION_GUIDE.md) still selects checks by group. The general findings and their
+writing API tests per work package. **Revised 2026-10-03 (user's decision):** the journey tests
+(H4c) and the unit tests H4d-1 delivered are part of the suite; the older modules stay as they are,
+and moving them ([H4d-2 onwards, H4e](../TEST_HARNESS_PLAN.md#h4-testing-consolidation)) is postponed
+and no dependency of any release up to 1.0. Test work stays proportional to the feature
+([below](#how-a-package-uses-this)). The general findings and their
 sources are in [LLM_TESTING_RESEARCH.md](LLM_TESTING_RESEARCH.md).
 
 ## What the engine is, for testing purposes
@@ -100,8 +102,9 @@ but one) are rules in the execution guide.
    neither document states is raised with the user, checked against the code first and asked in
    plain words (decided 2026-10-02, H4c).
 2. **Specification first.** The package's spec section names the journeys it adds or changes. Their
-   cases are written as given/when/then from the specification, in a context separate from the
-   implementation (a subagent), and shown to the user as a short list before code is written.
+   cases are written as a few lines of given/when/then from the specification in the package plan,
+   which the user approves with the plan. Only a large public-contract package has them written in
+   a context separate from the implementation (a subagent).
 3. **Confirm they fail** against the current code, for the reason the package addresses.
 4. **Implement without editing them.** A case the code cannot pass is a code defect or a
    specification gap. A gap is recorded as a decision and the case changes only with the user's
@@ -111,11 +114,20 @@ but one) are rules in the execution guide.
 6. **Evidence:** the selected run (testmon plus the journeys linked to the change), its counts, and
    what was not run and why.
 
+**Proportion (decided 2026-10-03).** The tests serve the feature, never the other way round. A
+package's test work is about a quarter of the package at most: one journey test per journey or
+variant it adds or changes, unit tests only where the logic has real edge cases. Test
+infrastructure, audits, catalogue rework, planted-fault campaigns and the consolidation of older
+tests happen only when the user asks for them. Why: from H1 to H4 each test package produced the
+next one (an audit, a strategy, a catalogue, tooling, journey tests, a reclassification of every
+older test), with no budget and no feature delivered; H4d alone was estimated at a week of the
+available capacity.
+
 ## Quality meters
 
 - **Planted faults.** A fault planted on purpose in a critical rule (a uniqueness check, a cascade,
-  a version claim) must make a test fail; one that passes is a missing assertion. Used whenever tests
-  are removed or moved (H4d) and when a package's own tests are in doubt. A full mutation tool
+  a version claim) must make a test fail; one that passes is a missing assertion. Used when older tests
+  are removed or moved (H4d) and, at the user's request, when a package's own tests are in doubt. A full mutation tool
   (`mutmut`) was tried and dropped in H4b: about 1.5 hours to generate the engine's mutants before
   any test runs, and many hours to run them.
 - **Journey coverage:** every catalogue entry has a test; every module is reached by some journey.

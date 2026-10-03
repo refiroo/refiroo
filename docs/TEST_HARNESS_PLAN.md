@@ -11,7 +11,10 @@ run now has a [time ceiling](#time-ceilings), full-size budgets leave every run 
 release's acceptance, and H3 is split into H3 (budgets out of everyday runs) and H4 (cheaper
 per-test work). **H3 is delivered (2026-10-01).** **Revised 2026-10-02 after an audit of the
 suite** (user's decision): H4 becomes the [testing consolidation](#h4-testing-consolidation) onto
-the [testing strategy](testing/STRATEGY.md), delivered in slices H4a–H4e before PG4.
+the [testing strategy](testing/STRATEGY.md), delivered in slices H4a–H4e before PG4. **Revised
+2026-10-03 (user's decision): H4 stops after H4d-1.** H4a–H4c and H4d-1 are delivered and part of
+the suite; H4d-2 onwards and H4e are postponed, to be continued later, and are no dependency of any
+release up to 1.0. Development continues with PG4.
 
 The measurements below were taken on SQLite (2026-10-01) and are the baseline PG1's measurement
 compares against.
@@ -39,7 +42,7 @@ of any limit on it.
 | Run | When | Ceiling (wall time, this machine) |
 | --- | --- | --- |
 | Focused tests while iterating | any time | seconds: one module or case, without `-n` |
-| A package's checks: its boundary's groups (EXECUTION_GUIDE §2) | end of a package | **2 minutes**, with `-n auto` and the groups' serial part |
+| A package's checks: testmon's selection and the journeys it touches, or its boundary's groups (EXECUTION_GUIDE §2) | end of a package | **2 minutes**, with `-n auto` and the groups' serial part |
 | Build acceptance: the full backend suite without `budget` | end of a build | **5 minutes**, parallel part plus serial part |
 | Full-size budgets (`-m budget`) | a release's acceptance only, once | announced with its expected time before it starts (about 25 minutes today; PG-D17's target is under a minute per context) |
 
@@ -564,6 +567,13 @@ Each line: what API.md says, what the code does, the decision.
 
 #### H4d: The unit layer and the move
 
+**Postponed after H4d-1 (user's decision, 2026-10-03).** H4d-1 took about a third of a five-hour
+working window for 4 of about 80 modules; the 13 slices left and H4e were estimated at about a week of
+the available capacity with no feature delivered, against a suite that passes. The older modules stay
+in place, the groups keep selecting them, and an older test is replaced only when a feature package's
+change makes it wrong or in the way ([AGENTS.md, Testing](../AGENTS.md#testing)). The slice plan
+below is kept for when H4d continues.
+
 **Scope:** every existing test is classified once, with its traced specification statement or
 purpose, and:
 
@@ -600,7 +610,137 @@ and the slice's record lists every planted fault and the test that caught it.
 area's planted faults caught by the tests that remain, which shows that nothing the old tests
 detected was lost.
 
+**How a test is classified** (2026-10-03, from the scope above):
+
+- A check a journey test already makes is **removed**, naming that journey test. A journey step or
+  refusal the journey test does not make yet is **merged** into it, marked "merged in H4d".
+- A check of one module's purpose or edge case is **moved** to `tests/unit/` as a test of that
+  module. A module that writes or queries runs on a clone of a journey configuration's `scenario`
+  seed with no application started (`tests/unit/conftest.py`, fixture `seeded`; generated A only,
+  since no key drives the code a unit test reaches); the rest need no database.
+- A state no client can produce is rebuilt through the API or removed; a fault injected at a module
+  boundary (a concurrent writer the lock does not cover, a defect) stays where the behaviour under it
+  is the module's purpose, and the test says so.
+- Until H4e removes the groups, a moved unit test and a journey test carry the groups of what they
+  test (`UNIT_GROUPS` by folder, `JOURNEY_GROUPS` by journey in `conftest.py`), so `-m <group>` still
+  selects them.
+
+**Slices (2026-10-03).** One area each, in this order; a module whose tests span two areas is split
+between them. Budgets, forced races and the static guards each form their own slice, so one
+decision is applied to all of their kind at once.
+
+| Slice | Area | Modules |
+| --- | --- | --- |
+| H4d-1 | Jobs and batches | `test_batches`, `test_background_jobs`, `test_job_settings`, `test_batch_matrix_states`, `test_pg3b_batch_writes` (its bulk-write fallback) |
+| H4d-2 | The model | `test_model`, `test_model_diagnostics`, `test_model_placements`, `test_consumer_api_model`, `test_model_compatibility` |
+| H4d-3 | Model administration | `test_model_lifecycle`, `test_build07_wp6`, `test_build07_wp11`, `test_build07_wp9_acceptance`, `test_model_schema_upgrade` |
+| H4d-4 | Startup and the database | `test_startup`, `test_schema_drift`, `test_foreign_keys`, `test_encoding`, `test_request_scope` |
+| H4d-5 | Live records | `test_api`, `test_attributes`, `test_relations`, `test_translations`, `test_cascade_delete`, `test_wp7_canonical_crud`, `test_rule_parity`, `test_relation_set_versions` |
+| H4d-6 | Reads and queries | `test_pagination`, `test_typed_table_queries`, `test_query_foundations`, `test_search_index`, `test_cross_type_lookup`, `test_model_query`, `test_effective_periods`, `test_context_read_parity`, `test_workspace_edge_list` |
+| H4d-7 | Workspaces | `test_workspaces`, `test_w6_workspace_deletion`, `test_wp81a_context`, `test_wp8_withdrawal` |
+| H4d-8 | Change sets | `test_change_sets`, `test_wp8_change_set_lifecycle`, `test_wp8_graph_validation`, `test_wp8_publish`, `test_wp8_publish_merge`, `test_wp81b_current_live_bases`, `test_wp8_history`, `test_wp8_review_regressions`, `test_change_set_write_lookups`, `test_change_lists` |
+| H4d-9 | Replacing related records | `test_mapping_coverage`, `test_mapping_replacement` |
+| H4d-10 | The relation matrix | `test_relation_matrix`, `test_relation_matrix_writes`, `test_matrix_states` |
+| H4d-11 | Restructuring | `test_parent_candidates`, `test_type_changes`, `test_restructuring_planner`, `test_restructuring_api` |
+| H4d-12 | Forced races | `test_pg3_concurrency`, `test_w5_activation_write_race`, `test_pg3b_batch_writes` (the rest) |
+| H4d-13 | Budgets | `test_volume_baseline`, `test_paging_contract`, `test_change_set_position_reads`, `test_change_lists_volume`, `test_relation_matrix_volume`, `test_restructuring_volume`, `test_graph_validation_scale`, `test_batch_statements`, `test_batch_volume`, `test_background_volume` |
+| H4d-14 | Static guards | `test_openapi_contract`, `test_boundaries`, `test_api_journeys`, `test_api_reference`, `test_model_independence` |
+
+##### H4d-1: Jobs and batches
+
+**Delivered 2026-10-03.** 73 old cases (40 test functions, most on two models) became 31 unit
+test functions in ten modules (62 cases, most of them rows of a grid; about 10 s in parallel) plus
+four checks merged into J11 and J12.
+
+**New unit tests:** `tests/unit/engine/jobs/test_batches.py` (`batches.py`), `test_inline.py`,
+`test_store.py`, `test_worker.py`, `test_background.py`; `tests/unit/engine/records/test_audit.py`;
+`tests/unit/models/test_commands.py`, `tests/unit/models/test_database.py`;
+`tests/unit/test_config.py`, `tests/unit/test_main.py`. The generated configurations gained one
+binding: `R2` may hold `R.u`, a unique value two types share, the only shape in which a reference by
+a unique value finds a record of another type (`reference_type_mismatch` on a key). No journey test
+changed its expectation.
+
+**Merged into journeys:** J11.5 refuses an empty or a 201-character `Idempotency-Key`
+(`request_validation_error`; its helper now sends an empty key instead of none); J12.7's
+small-limits case sets and reads all seven job limits; J12.7's jobs-off case finds no cancel route
+and still reads jobs.
+
+**Classification** (old test → what covers each of its checks now):
+
+| Old test | Outcome | Covered by |
+| --- | --- | --- |
+| `test_batches::test_each_item_op_is_refused_with_its_single_writes_code` | removed; one check moved | `test_rule_parity::test_batch_items_refuse_as_their_single_writes` (every create and update refusal as a one-item batch, both contexts; keep it in H4d-5); the delete with dependants and its absent preview token: unit `test_batches::test_a_delete_item_with_dependants_is_refused_without_a_preview_token` |
+| `test_batches::test_items_apply_like_their_single_writes` | removed; checks moved | J11 (create, child by key, update, delete, the job as the history entry's cause), J11.3 (one claim, live untouched); unit `test_batches` (an update whose target is named by key; an atomic batch in a change set), `test_worker` (counts, parameters), `test_audit` (a single write records no cause) |
+| `test_batches::test_independent_items_stand_alone_and_see_earlier_applied_items` | moved | unit `test_batches::test_items_see_the_items_before_them_and_a_refused_item_writes_nothing` |
+| `test_batches::test_an_atomic_batch_applies_everything_or_nothing` | removed (live), moved (change set) | J11.1; unit `test_batches::test_an_atomic_batch_in_a_change_set_applies_everything_or_nothing` (no audit entry, no staged row, version kept) |
+| `test_batches::test_upserts_need_a_version_claim_or_a_declared_overwrite` | removed; checks moved | J11.2 (created, `version_required`, updated, overwrite with `previousVersion`, unchanged writes nothing); unit `test_batches::test_a_claim_beside_equal_values_and_an_overwrite_on_record` (stale claim at `expectedVersion`, equal values with a stale claim, an equal update item, the overwrite in the audit entry) |
+| `test_batches::test_an_upsert_by_id_creates_with_that_id_and_never_changes_a_type` | removed | J11.2 (created under the ID, another type's ID refused) |
+| `test_batches::test_upsert_initial_relations_apply_only_when_it_creates` | moved | unit `test_batches::test_an_upserts_initial_relations_apply_only_when_it_creates` |
+| `test_batches::test_references_resolve_by_unique_key_and_are_refused_at_their_pointer` | moved | unit `test_batches::test_references_name_a_record_by_a_unique_value_and_refusals_point_at_them`, `…::test_a_reference_finding_a_record_of_another_type_is_refused` |
+| `test_batches::test_request_level_refusals_create_no_job` | removed; checks moved or merged | J11 (item limit, no job), J11.3 (context refusals, no job); unit `test_inline` (every limit of each run), `test_batches::test_a_request_names_live_data_or_one_change_set_with_its_claim` (all eight combinations), `…::test_a_batch_writes_only_in_an_active_workspace`, `test_commands` (malformed requests); J12.7 small limits (merged: all seven limits) |
+| `test_batches::test_with_jobs_disabled_no_route_creates_one_and_reads_remain` | removed | J12.7 jobs-off (merged: reads remain) |
+| `test_batches::test_an_idempotency_key_replays_the_finished_job` | removed; checks moved or merged | J11 (replay with the header), J11.5 (reused, in progress with `Retry-After`; merged: malformed keys), J24.5 (expired key counts as new); unit `test_store` (`jobId` in details, every state of the job, another workspace), `test_inline` (a change set's key belongs to its workspace) |
+| `test_batches::test_jobs_and_their_outcomes_page_in_order` | removed; checks moved | J24 (outcomes by status with a cursor, the job among completed batches); unit `test_store::test_jobs_list_newest_first_and_outcomes_in_item_order`, `test_batches` (an outcome's fields by status). Not kept: the job's `modelReleaseId` equals the model's release header, a presenter's copy of a stored ID |
+| `test_batches::test_refs_are_echoed` | moved | unit `test_batches` (a ref on the outcome), `test_commands` (an empty ref) |
+| `test_batches::test_a_model_release_change_before_commit_saves_nothing` | removed (it set a private session key) | J11.4 (a real activation while the batch waits for the workspace) |
+| `test_background_jobs::test_a_background_batch_is_queued_and_applied_in_chunks` | removed; checks moved | J24 (queued, progress by chunk, outcomes as they commit, completed); unit `test_worker` (no inputs and no lease once finished), `test_store` (inputs with their refs) |
+| `test_background_jobs::test_items_in_a_later_chunk_see_earlier_chunks_and_keep_their_semantics` | moved | unit `test_store::test_inputs_are_read_back_as_they_were_sent`, `test_batches::test_an_item_that_leaves_out_its_parent_keeps_the_record_where_it_stands` |
+| `test_background_jobs::test_a_background_batch_in_a_change_set_holds_its_claim_between_chunks` | moved | unit `test_worker::test_a_job_in_a_change_set_follows_the_version_each_chunk_leaves`, `test_background::test_a_job_queued_with_a_stale_change_set_version_is_refused` |
+| `test_background_jobs::test_an_atomic_background_job_is_one_chunk` | moved | unit `test_worker::test_an_atomic_job_runs_as_one_chunk_and_a_rejection_rolls_it_back` |
+| `test_background_jobs::test_a_job_resumes_after_a_crash_without_repeating_or_skipping_an_item` (2 cases) | removed (it raised inside a private method) | J24 (a process gone after two chunks), J24.3 (a chunk that never commits) |
+| `test_background_jobs::test_a_worker_that_lost_its_lease_commits_nothing` | removed (it wrote another owner into the row) | J24.3 (a real takeover after the lease expired) |
+| `test_background_jobs::test_a_stopping_worker_releases_its_leases` | moved | unit `test_worker::test_a_stopping_worker_releases_its_leases_and_a_finished_job_leaves_no_inputs` |
+| `test_background_jobs::test_cancelling_a_queued_job_runs_none_of_its_items`, `…_between_chunks_keeps_the_applied_chunks`, `…_an_atomic_job_rolls_it_back_completely` | removed | J24.2 (queued, between chunks, atomic, twice, finished with `details.state`, unknown); unit `test_worker` (an unprocessed item keeps its ref) |
+| `test_background_jobs::test_a_release_activated_mid_job_fails_it_at_the_next_chunk` | removed | J24.4 |
+| `test_background_jobs::test_a_release_activated_during_a_chunk_refuses_that_chunk` | removed (it set a private session key) | `test_pg3b_batch_writes::test_an_activation_dropping_a_matrix_shape_beside_a_chunk_does_not_deadlock` (a real activation during a chunk; H4d-12) |
+| `test_background_jobs::test_a_change_set_moved_to_another_release_fails_the_job` | removed (a state no client produces) | Changing a change set's release claims its version, so a client meets J24.4's `change_set_version_conflict` |
+| `test_background_jobs::test_a_lost_change_set_claim_fails_the_job`, `…_a_workspace_retired_mid_job_fails_it` | removed | J24.4 |
+| `test_background_jobs::test_an_unexpected_error_fails_the_job_with_a_correlation_id` | moved | unit `test_worker::test_an_unexpected_error_fails_the_job_with_a_correlation_id` (the batch's code made to raise at the worker's call) |
+| `test_background_jobs::test_an_idempotency_key_answers_with_the_background_job` | removed; checks moved | J11.5 (in progress, reused); unit `test_store` (a finished job answers, the key lives as long as the job) |
+| `test_background_jobs::test_retention_expires_finished_jobs_and_keeps_their_summary` | removed; checks moved | J24.5; unit `test_store::test_retention_expires_finished_jobs_only` |
+| `test_background_jobs::test_with_jobs_disabled_there_is_no_worker_and_no_cancel_route` | removed; checks moved or merged | J12.7 jobs-off (merged: no cancel route); unit `test_main` (no worker) |
+| `test_background_jobs::test_the_application_runs_background_jobs_on_its_worker_thread` (serial) | removed | J12.8 (the service's own worker runs a job after the outage) |
+| `test_background_jobs::test_background_attributes_keep_their_declared_types` | moved | unit `test_store::test_inputs_are_read_back_as_they_were_sent` |
+| `test_background_jobs::test_a_worker_without_its_database_waits_between_retries_and_logs_one_traceback` | moved (serial) | unit `test_worker::test_without_its_database_the_worker_waits_between_retries_and_logs_one_traceback`; J24.6 has the real outage but cannot see a retry loop that does not wait |
+| `test_job_settings::test_batch_settings_have_defaults_and_refuse_invalid_values` | moved | unit `test_config` |
+| `test_job_settings::test_a_live_unique_value_check_seeks_to_the_value` | moved | unit `models/test_database` |
+| `test_batch_matrix_states::test_batches_keep_stored_matrix_states_derived` | moved | unit `test_batches::test_batches_keep_the_stored_matrix_states_derived` (on the generated model's relationship coverage instead of the starter's translations) |
+| `test_pg3b_batch_writes::test_a_bulk_write_that_fails_is_redone_item_by_item` | moved | unit `test_batches::test_a_bulk_write_that_fails_is_redone_item_by_item` |
+
+**Planted faults** (each planted alone, then the area's remaining tests run: `tests/unit/engine/jobs`,
+`tests/unit/engine/records/test_audit.py`, the J11 and J24 journey tests; every one caught, and the
+code restored):
+
+| Fault | Caught by |
+| --- | --- |
+| F1 an atomic batch keeps its items after a rejection | J11.1; unit `test_batches` (change set), `test_worker` (atomic job) |
+| F2 a key's request fingerprint is ignored | J11.5; unit `test_store`, `test_inline` |
+| F3 a worker that lost its lease commits | J24.3 |
+| F4 equal values are never `unchanged` | J11.2, J11.3; unit `test_batches` (two) |
+| F5 a key reference's type is not checked | unit `test_batches::test_a_reference_finding_a_record_of_another_type_is_refused` |
+| F6 retention expires a queued job | unit `test_store::test_retention_expires_finished_jobs_only` |
+| F7 the byte limit is not enforced | unit `test_inline` |
+| F8 a failed bulk write is not redone item by item | unit `test_batches::test_a_bulk_write_that_fails_is_redone_item_by_item` |
+| F9 a cancel requested before the first chunk is ignored | J24.2 |
+| F10 a resumed job repeats its last item | J24, J24.1, J24.3, J24.6; unit `test_store`, `test_worker` (two) |
+| F11 a job keeps the change set version it started with | unit `test_worker::test_a_job_in_a_change_set_follows_the_version_each_chunk_leaves` |
+| F12 a delete item's refusal keeps its preview token | unit `test_batches::test_a_delete_item_with_dependants_is_refused_without_a_preview_token` |
+| F13 the job is not recorded as its entries' cause | J11; unit `test_audit` |
+| F14 an atomic background job runs in chunks | unit `test_worker::test_an_atomic_job_runs_as_one_chunk_and_a_rejection_rolls_it_back` |
+
+**Checks (2026-10-03):** the journey suite, the unit layer, `test_pg3b_batch_writes` and the
+inventory check, since the generated configurations changed (every journey test reads them):
+421 passed in 1 min 4 s (`-n auto`), and the serial part (the worker's retry wait) 1 passed;
+`-m jobs` collects the moved unit tests and J11/J24 (116 cases); `ruff check app/ tests/`. Each
+planted-fault run took about 18 s (F10, whose jobs time out, 95 s). Not run: the other old modules
+(unchanged), the frontend and browser runners (nothing there changed). The fault script and its
+output were scratch files, deleted.
+
 #### H4e: Rules and acceptance
+
+**Postponed with H4d (2026-10-03).** The rules part was done then instead, in proportion: AGENTS.md
+and STRATEGY now say how much testing a package does, a package selects its checks with testmon and
+its journeys, and the groups remain the fallback.
 
 **Scope:** AGENTS.md's testing sections, EXECUTION_GUIDE and COVERAGE_MAP rewritten to the strategy
 (the coverage map becomes the catalogue plus the trace report); the old group selection removed

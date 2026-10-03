@@ -83,7 +83,14 @@ with seven decisions, all taken the same day ([record](TEST_HARNESS_PLAN.md#h4a-
 inventory check, selection by change (`pytest-testmon`, on the C tracer) with `tests.affected` for
 what coverage cannot see, and the trace report; mutation testing was tried and dropped in favour of
 planted faults per area in H4d ([record](TEST_HARNESS_PLAN.md#h4b-traceability-and-selection)).
-Next are H4c–H4e, then PG4 and PG5.
+**H4c is delivered (2026-10-03):** journey tests for every catalogue entry with an API or operator
+side, with every deviation decided ([record](TEST_HARNESS_PLAN.md#h4c-journey-tests)). **H4d, the unit
+layer and the move, runs in 14 area slices** ([plan](TEST_HARNESS_PLAN.md#h4d-the-unit-layer-and-the-move));
+**H4d-1, jobs and batches, is delivered (2026-10-03):** four old modules (73 cases) replaced by unit
+tests of the job engine (62 cases) and four checks merged into J11 and J12, with all 14 planted faults
+caught. **H4 then stopped (user's decision, 2026-10-03):** H4d-2 onwards and H4e are postponed and
+no dependency of any release up to 1.0, and test work per package is capped in proportion to the
+feature (AGENTS.md, Testing). Next are PG4 and PG5.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

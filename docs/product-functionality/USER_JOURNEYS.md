@@ -738,7 +738,8 @@ over single calls.
 `409 idempotency_in_progress`, `409 change_set_required`, `409 model_release_changed`; per item, the
 single writes' codes.
 
-**Evidence today:** `test_batches`, `test_rule_parity` (batch context), `test_pg3b_batch_writes`,
+**Evidence today:** the J11 journey tests; unit tests of `engine/jobs/batches.py` and `inline.py`;
+`test_rule_parity` (batch context), `test_pg3b_batch_writes`,
 `test_batch_statements`.
 
 ### J24 — Run a large background job and recover
@@ -766,7 +767,8 @@ single writes' codes.
 **Refusals:** `409 job_finished`, `404 job_not_found`; job errors `model_release_changed`,
 `change_set_version_conflict`, `workspace_retired`, `job_failed` (with a correlation ID).
 
-**Evidence today:** `test_background_jobs`, `test_pg3_concurrency`, `test_batch_matrix_states`.
+**Evidence today:** the J24 journey tests; unit tests of `engine/jobs/worker.py`, `store.py` and
+`background.py`; `test_pg3_concurrency`.
 
 ### J26 — Follow changes reliably (planned)
 
@@ -815,8 +817,8 @@ controlled diagnostics.
   `/health` reports not ready, and all recover when it returns, without a restart (J24.6).
 - **J12.9 Carry a SQLite database over** to PostgreSQL (planned, 0.9.0-alpha.1 PG4).
 
-**Evidence today:** `test_startup`, `test_model_schema_upgrade`, `test_schema_drift`,
-`test_job_settings`, `test_api_reference`.
+**Evidence today:** the J12 journey tests; `test_startup`, `test_model_schema_upgrade`,
+`test_schema_drift`, `test_api_reference`; unit tests of `config.py` and `main.py`.
 
 ## Guardrails kept from 0.7
 

@@ -53,8 +53,8 @@ worker clones its own session database, and all of them clone from the same seed
 
 **Timing-based checks are `serial`** (narrowed in H3): only a test whose outcome depends on wall
 time, listed in `TIMED` in `conftest.py` by module or by `module::test` — validating and publishing
-the large workspace (`test_graph_validation_scale`), the background worker thread's deadline, and the
-current-live capture whose race is decided by a 0.3 s timer. The `volume` modules that count
+the large workspace (`test_graph_validation_scale`), the job worker's wait between retries (a unit
+test marked `serial` itself), and the current-live capture whose race is decided by a 0.3 s timer. The `volume` modules that count
 statements and rows run in the parallel part. A parallel run leaves `serial` tests out and its
 summary names the command for them; run it next, without `-n`:
 
@@ -100,8 +100,15 @@ go-ahead.
 
 ### Backend: journey tests, unit tests and selection by change (H4b)
 
-Delivered 2026-10-02 for the [testing strategy](STRATEGY.md); H4e makes it the default selection.
-Until then the group selection below still chooses a package's checks.
+Delivered 2026-10-02 for the [testing strategy](STRATEGY.md). **From 2026-10-03 it is a package's
+selection:** the tests whose code changed (`--testmon`) and the journey tests of the journeys the
+package touches (`--journey`). The group selection below is the fallback, for a change coverage
+cannot see and for the older modules.
+
+```sh
+cd backend && .venv/bin/python -m pytest -n auto --testmon -q    # the tests whose code changed
+.venv/bin/python -m pytest -n auto -q --journey J11 --journey J24   # the journeys it touches
+```
 
 - **Journey tests** live in `backend/tests/journeys/` and carry `@pytest.mark.journey("J02",
   "J02.2")` with the [journeys and variants](../product-functionality/USER_JOURNEYS.md) they walk.
@@ -152,17 +159,22 @@ cd backend && .venv/bin/python -m pytest -m mapping -q
 | --- | --- | --- | --- |
 | `model` | INV-01/02/03/04/06, compatibility classes | `test_model`, `test_model_diagnostics`, `test_model_independence`, `test_model_compatibility`, `test_effective_periods` | 302 |
 | `model_admin` | C-MOD-*, C-DR-PIN, C-MOD-ACT | `test_model_lifecycle`, `test_build07_wp11`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_model_compatibility`, `test_model_schema_upgrade`, `test_wp81a_context`, `test_w5_activation_write_race`, `test_pg3_concurrency` | 187 |
-| `startup` | C-BOOT, C-MIG, C-SCHEMA-UP, INV-15 (startup) | `test_startup` (clean bootstrap, restart, the database refusals, a failed migration rolled back), `test_model_schema_upgrade`, `test_matrix_states`, `test_schema_drift` (the PostgreSQL baseline against the ORM), `test_foreign_keys` (every `ondelete` rule, PG-D4), `test_job_settings` | 34 |
-| `records` | C-OBJ-*, C-ATTR, C-REL, C-DEL, C-TR, C-HIST-OBJ, INV-05/10/12 (live) | `test_api`, `test_attributes`, `test_relations`, `test_translations`, `test_cascade_delete`, `test_query_foundations`, `test_wp8_review_regressions`, `test_relation_set_versions`, `test_w5_activation_write_race`, `test_matrix_states`, `test_parent_candidates`, `test_type_changes`, `test_restructuring_planner`, `test_restructuring_api`, `test_encoding`, `test_rule_parity`, `test_effective_periods`, `test_batches`, `test_pg3_concurrency`, `test_pg3b_batch_writes` | 200 |
+| `startup` | C-BOOT, C-MIG, C-SCHEMA-UP, INV-15 (startup) | `test_startup` (clean bootstrap, restart, the database refusals, a failed migration rolled back), `test_model_schema_upgrade`, `test_matrix_states`, `test_schema_drift` (the PostgreSQL baseline against the ORM), `test_foreign_keys` (every `ondelete` rule, PG-D4) | 34 |
+| `records` | C-OBJ-*, C-ATTR, C-REL, C-DEL, C-TR, C-HIST-OBJ, INV-05/10/12 (live) | `test_api`, `test_attributes`, `test_relations`, `test_translations`, `test_cascade_delete`, `test_query_foundations`, `test_wp8_review_regressions`, `test_relation_set_versions`, `test_w5_activation_write_race`, `test_matrix_states`, `test_parent_candidates`, `test_type_changes`, `test_restructuring_planner`, `test_restructuring_api`, `test_encoding`, `test_rule_parity`, `test_effective_periods`, `test_pg3_concurrency`, `test_pg3b_batch_writes` | 240 |
 | `queries` | C-Q-FILTER, C-Q-SCOPE, INV-07/08/11 | `test_pagination`, `test_typed_table_queries`, `test_query_foundations`, `test_context_read_parity`, `test_paging_contract`, `test_change_set_position_reads`, `test_search_index`, `test_parent_candidates`, `test_change_lists`, `test_cross_type_lookup`, `test_model_query`, `test_effective_periods` | 170 |
 | `workspaces` | C-WS-*, C-PUB-RET, INV-14/16 | `test_workspaces`, `test_wp81a_context`, `test_request_scope`, `test_wp8_withdrawal`, `test_build07_wp9_acceptance`, `test_pg3_concurrency` | 40 |
-| `change_sets` | C-DR-*, C-REV, C-PUB-RET | `test_change_sets`, `test_wp7_canonical_crud`, `test_wp8_*`, `test_wp81b_current_live_bases`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_typed_table_queries`, `test_mapping_replacement`, `test_wp8_withdrawal`, `test_context_read_parity`, `test_change_set_position_reads`, `test_change_set_write_lookups`, `test_search_index`, `test_matrix_states`, `test_parent_candidates`, `test_change_lists`, `test_change_lists_volume`, `test_type_changes`, `test_restructuring_planner`, `test_restructuring_volume`, `test_restructuring_api`, `test_graph_validation_scale`, `test_cross_type_lookup`, `test_rule_parity`, `test_model_query`, `test_effective_periods`, `test_batches`, `test_background_jobs` | 400 |
+| `change_sets` | C-DR-*, C-REV, C-PUB-RET | `test_change_sets`, `test_wp7_canonical_crud`, `test_wp8_*`, `test_wp81b_current_live_bases`, `test_build07_wp6`, `test_build07_wp9_acceptance`, `test_typed_table_queries`, `test_mapping_replacement`, `test_wp8_withdrawal`, `test_context_read_parity`, `test_change_set_position_reads`, `test_change_set_write_lookups`, `test_search_index`, `test_matrix_states`, `test_parent_candidates`, `test_change_lists`, `test_change_lists_volume`, `test_type_changes`, `test_restructuring_planner`, `test_restructuring_volume`, `test_restructuring_api`, `test_graph_validation_scale`, `test_cross_type_lookup`, `test_rule_parity`, `test_model_query`, `test_effective_periods` | 441 |
 | `mapping` | C-MAP-R, C-MAP-W, C-MAP-SET | `test_mapping_coverage`, `test_mapping_replacement`, `test_relation_set_versions`, `test_pg3_concurrency` | 131 |
-| `matrix` | Relation matrix reads, cell writes and stored cell states: cells, states, row state filter, columns, containers, candidates, maintenance on every write path (Base 0.8 A2, A3, A3b) | `test_relation_matrix`, `test_relation_matrix_volume`, `test_relation_matrix_writes`, `test_matrix_states`, `test_type_changes`, `test_restructuring_planner`, `test_restructuring_api`, `test_batch_matrix_states`, `test_pg3_concurrency`, `test_pg3b_batch_writes` | 75 |
+| `matrix` | Relation matrix reads, cell writes and stored cell states: cells, states, row state filter, columns, containers, candidates, maintenance on every write path (Base 0.8 A2, A3, A3b) | `test_relation_matrix`, `test_relation_matrix_volume`, `test_relation_matrix_writes`, `test_matrix_states`, `test_type_changes`, `test_restructuring_planner`, `test_restructuring_api`, `test_pg3_concurrency`, `test_pg3b_batch_writes` | 75 |
 | `consumer` | Consumer API definitions (Base 0.9 C1); from C2 the consumer tier's reads, XREF, batch resolve, crosswalk, publications and parity | `test_consumer_api_model` | 87 |
-| `jobs` | Jobs, outcomes, idempotency and batches (Base 0.9 B1); background runs, the worker, its lease, cancellation and retention (B2); from J2 import profiles, imports and exports | `test_batches`, `test_batch_matrix_states`, `test_job_settings`, `test_batch_volume`, `test_background_jobs`, `test_background_volume`, `test_pg3_concurrency`, `test_batch_statements`, `test_pg3b_batch_writes` | 78 |
+| `jobs` | Jobs, outcomes, idempotency and batches (Base 0.9 B1); background runs, the worker, its lease, cancellation and retention (B2); from J2 import profiles, imports and exports | the J11 and J24 journey tests and `tests/unit/engine/jobs/` (H4d-1), `test_batch_volume`, `test_background_volume`, `test_pg3_concurrency`, `test_batch_statements`, `test_pg3b_batch_writes` | 78 |
 | `contract` | OpenAPI lock, route inventories, the backend tiers and the API reference page | `test_openapi_contract`, `test_paging_contract`, `test_boundaries`, `test_api_reference` | 53 |
 | `volume` | Track S read and write budgets and the paging contract over the generated volume fixture (Base 0.8 S1, S2b, S3, S4, S4R1, S4R6, S7, S8, A2, B2, P2a, C2, C5; Base 0.9 B1 batch budgets, B2 background budget) | `test_volume_baseline`, `test_paging_contract`, `test_change_set_position_reads`, `test_relation_matrix_volume`, `test_change_lists_volume`, `test_restructuring_volume`, `test_graph_validation_scale`, `test_batch_volume`, `test_background_volume` (the last two also `budget`, left out by default, H3), `test_batch_statements` (PG3b: statements per chunk at two seeded sizes) | 69 |
+
+From H4d the tests moved into `tests/unit/` and the journey tests carry groups too (`UNIT_GROUPS` by
+folder and `JOURNEY_GROUPS` by journey in `conftest.py`), so `-m <group>` still selects what a
+module's tests were. The groups stay while the older modules do (H4d is postponed). The `jobs` group has no module of its own left but its
+volume and race modules.
 
 Counts are collected cases on 2026-09-24 (532 in total); `test_effective_periods` (Base 0.9 Q4, 21 cases) is listed in `model`, `records`, `queries` and `change_sets` without recollecting their counts; group counts include the WP-9 composed
 SC-15 case. The full suite collected 534 cases at WP-9 build acceptance (2026-09-25). The `startup`,
@@ -260,7 +272,7 @@ frontend format/lint/build as [AGENTS.md](../../AGENTS.md) requires.
 | `engine/records/objects.py`, `attributes.py`, `values.py`, `management/routers/objects.py`, `management/routers/attributes.py` | `records` | typed conversion or version claims change | `queries` (typed filters), `change_sets` (change set writes use the same value forms) |
 | `engine/records/rules.py`, `refusals.py`, `context.py` | `records` + `change_sets` (`test_rule_parity`) | always | `mapping` (the replacement's scope and binding rules), `matrix` (type changes, restructuring), `volume` when a lookup's statements change |
 | `engine/records/writes.py` | `records` + `change_sets` + `mapping` + `matrix` | always | `volume` (write and publish budgets); F1's feed position when `_begin` changes |
-| `engine/jobs/*`, `management/routers/jobs.py`, `management/schemas/jobs.py`, the batch items in `models/commands.py` (0.9 B1, B2) | `jobs` (`test_batches`; `test_background_jobs` for `background.py`, `worker.py` and the store's chunk and stop paths) | always | `records` + `change_sets` when an item's single-write core (`apply_…`) or its savepoint changes; `matrix` (`test_batch_matrix_states`, `test_matrix_states`) when `matrix_states.deferred` changes; `volume` for item cost (`test_batch_volume` and `test_background_volume` are `budget`: a release's acceptance only, H3); `contract` when the request or a job shape changes; `startup` (`test_job_settings`, `test_schema_drift`) when the tables, the settings or the worker's start in the lifespan change |
+| `engine/jobs/*`, `management/routers/jobs.py`, `management/schemas/jobs.py`, the batch items in `models/commands.py` (0.9 B1, B2) | `jobs` (the J11 and J24 journey tests, `tests/unit/engine/jobs/`, and the unit tests of `config.py`, `main.py`, `models/commands.py` and `records/audit.py`; its serial part holds the worker's retry wait) | always | `records` + `change_sets` when an item's single-write core (`decide_…`) changes; `matrix` (`test_matrix_states`) when `matrix_states.deferred` changes; `volume` for item cost (`test_batch_statements`; `test_batch_volume` and `test_background_volume` are `budget`: a release's acceptance only, H3); `contract` when the request or a job shape changes; `startup` (`test_schema_drift`, J12) when the tables, the settings or the worker's start in the lifespan change |
 | `engine/records/relations.py`, `relation_set_versions.py`, `management/routers/relations.py` | `records` + `mapping` | always | `change_sets` (change set relation writes, publishing merge) |
 | `engine/records/deletion.py` | `records` | cascade or preview token changes | `mapping` (continuation invalidation), `change_sets` (change set deletion) |
 | `common/pagination.py`, `cursors.py`, `management/paging.py` | `queries` (`test_pagination`, `test_paging_contract`, `test_change_set_position_reads`) | always | every group with a collection endpoint: `-m "queries or mapping or model_admin or workspaces"`; `volume` (read budgets) |

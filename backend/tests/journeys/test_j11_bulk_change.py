@@ -43,7 +43,7 @@ def _batch(world, items, *, key=None, context=None, **body):
         **(context or {"workspaceKey": W1}),
         **body,
     }
-    headers = {"Idempotency-Key": key} if key else None
+    headers = {"Idempotency-Key": key} if key is not None else None
     return world.api.client.post("/api/v1/batches", json=request, headers=headers)
 
 
@@ -302,6 +302,14 @@ def test_a_key_reused_with_another_request_or_while_its_job_runs(world):
         422,
         "idempotency_key_reused",
     )
+    assert (_jobs(world), _count(world, "R")) == (jobs, records)
+    # A key is 1–200 characters (API.md; merged from test_batches in H4d).
+    for malformed in ("", "k" * 201):
+        refused(
+            _batch(world, [_create(world, "R", "Bad key", "KEY-X")], key=malformed),
+            422,
+            "request_validation_error",
+        )
     assert (_jobs(world), _count(world, "R")) == (jobs, records)
 
     background = [_create(world, "R", "Queued", "KEY-3")]

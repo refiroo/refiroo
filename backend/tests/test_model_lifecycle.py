@@ -324,7 +324,7 @@ def test_model_admin_capabilities_and_routes_are_disabled_by_default():
         capabilities = client.get("/api/v1/capabilities")
         drafts = client.get("/api/v1/model-drafts")
 
-    # The administration capabilities; integrationJobs (0.9 B1) is test_batches' subject.
+    # The administration capabilities; integrationJobs (0.9 B1) is J12.7's subject.
     body = capabilities.json()
     assert {key: body[key] for key in ("modelAdmin", "workspaceAdmin")} == {
         "modelAdmin": {

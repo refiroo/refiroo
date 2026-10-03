@@ -156,6 +156,15 @@ All notable changes to this project are documented in this file. The format foll
 - 0.9.0-alpha.1 H4c: a live relation create or initial relation naming a record that does not
   exist answers `422 relation_endpoint_missing` naming it (was `404 object_not_found`), as a change
   set does.
+- 0.9.0-alpha.1 H4d-1: the jobs and batches tests are journey and unit tests. Four old modules
+  (73 cases) are removed; their checks are in J11, J12 and J24 or in unit tests of
+  `engine/jobs/*`, `records/audit.py`, `models/commands.py`, `config.py` and `main.py` (62 cases),
+  which run the engine on a clone of a journey seed without starting the application. 14 faults
+  planted in the area's rules were each caught by the tests that remain.
+- 0.9.0-alpha.1 H4: the testing consolidation stops after H4d-1 (H4d-2 onwards and H4e postponed,
+  no dependency for 1.0). Journey tests, unit tests and the older modules form the suite; a package
+  selects its checks with testmon and the journeys it touches, and its test work is capped in
+  proportion to the feature (AGENTS.md).
 - 0.9.0-alpha.1 PG3: live writes of one workspace serialize on its row lock, and workspaces write
   in parallel (PG-D5). Every live write locks its workspace before it reads, so two writes racing
   for one unique value, a parent cycle, a cardinality limit, a required relation, a relation-set

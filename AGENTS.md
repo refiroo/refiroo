@@ -182,9 +182,22 @@ errors explicit and machine-readable.
 ## Testing
 
 Follow [docs/testing/STRATEGY.md](docs/testing/STRATEGY.md); its reasons and sources are in
-[LLM_TESTING_RESEARCH.md](docs/testing/LLM_TESTING_RESEARCH.md). Until
-[H4](docs/TEST_HARNESS_PLAN.md#h4-testing-consolidation) is delivered, the existing suite stays in
-place and checks are still selected by group (below); new tests already follow these rules:
+[LLM_TESTING_RESEARCH.md](docs/testing/LLM_TESTING_RESEARCH.md). The test suite has three parts:
+the journey tests (`backend/tests/journeys/`, H4c), the unit tests (`backend/tests/unit/`, H4d-1) and
+the older modules directly under `backend/tests/`, which stay as they are. Moving the older modules
+([H4d-2 onwards and H4e](docs/TEST_HARNESS_PLAN.md#h4-testing-consolidation)) is postponed and is
+not a dependency of any release up to 1.0 (user's decision, 2026-10-03). New tests follow these
+rules:
+
+- **Tests serve the feature (decided 2026-10-03).** A package's test work stays small next to its
+  feature work, about a quarter of the package at most: one journey test per journey or variant the
+  package adds or changes (usually 3–8 cases), and unit tests only for logic with real edge cases.
+  No new test infrastructure, audits, catalogue rework, planted-fault campaigns or consolidation of
+  older tests unless the user asks for them. An older test is replaced only when the package's own
+  change makes it wrong or in the way. A difference found between the documents and the code is
+  listed in the package record; it becomes work only when it is a defect the package must fix. The
+  agent does not propose follow-up packages about tests; any scope it suggests beyond the package
+  comes with its cost and waits for the user's approval.
 
 - Two kinds only. **Journey tests** walk a user journey or variant from
   [USER_JOURNEYS.md](docs/product-functionality/USER_JOURNEYS.md) through the public API and
@@ -192,10 +205,12 @@ place and checks are still selected by group (below); new tests already follow t
   model: each runs on at least two model configurations and names no configuration's keys. **Unit tests** test
   one piece of code's purpose directly, with its edge cases; combinations are generated
   (property-based or pairwise), not written out.
-- The specification is the source of a journey test, never the code. Cases are written as
-  given/when/then from the package's spec section, in a separate context (one subagent), shown to
-  the user as a list, and confirmed to fail before implementation. The implementing agent never
-  edits them; a case the code cannot pass is a defect or a specification gap for the user to decide.
+- The specification is the source of a journey test, never the code. The package plan lists its
+  cases in a few lines of given/when/then from the package's spec section, and the user approves
+  them with the plan; they are confirmed to fail before implementation. Only a large change to a
+  public contract has its cases written in a separate context (one subagent). The implementing agent
+  never edits approved cases; a case the code cannot pass is a defect or a specification gap for the
+  user to decide.
 - Every piece of code traces to a journey. A mechanism no button shows (a lock, an index, a startup
   check) has an explicit journey or variant; a way of doing something that no client's journey needs
   is raised with the user, keeping the API-first invariant above.
@@ -220,9 +235,12 @@ migration checks in the error-handling section above; a green unit suite alone i
 Keep validation proportional to the changed behavior. Choose the smallest existing tests that
 exercise the acceptance criteria and affected execution paths; add meaningful regression coverage
 for defects. Finish implementation and review the final diff before running final package checks.
-Select them from the changed boundary with [the execution guide](docs/testing/EXECUTION_GUIDE.md)
-(pytest group markers, Vitest projects, browser runners); register a new backend test module in
-`TEST_GROUPS` in `backend/tests/conftest.py` and a new browser runner in that guide.
+Select them with [the execution guide](docs/testing/EXECUTION_GUIDE.md): for the backend, the tests
+whose code changed (`pytest --testmon`) and the journey tests of the journeys the package touches
+(`--journey`), with the group markers as the fallback; Vitest projects and browser runners as
+listed there. Register a new older-style backend module in `TEST_GROUPS` in
+`backend/tests/conftest.py` (journey and unit tests need no entry) and a new browser runner in that
+guide.
 
 - Backend code: run focused tests while iterating, then the affected test files or cases and
   `ruff check app/ tests/` after the final backend change. Never run the full `pytest` suite in a
@@ -316,8 +334,8 @@ Use one subagent only when it materially improves the result:
 - a genuine architecture question remains after consulting existing decisions;
 - a migration, concurrency, security or broad public-contract change merits independent review;
 - the user explicitly requests delegation or parallel agents; or
-- a package's journey test cases are written from the specification, which is done in a separate
-  context from the implementation ([Testing](#testing)).
+- a large public-contract package's journey test cases are written from the specification, which is
+  done in a separate context from the implementation ([Testing](#testing)).
 
 Use at most one subagent during a normal work package. Multiple subagents require an explicit user
 request or clearly independent work whose time saving outweighs their token and coordination cost.

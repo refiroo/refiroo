@@ -1,7 +1,7 @@
 """0.9.0-alpha.1 PG3b: batch items decided in memory and written in bulk, beside other writers.
 
-A bulk write that fails on a row the rules could not see is redone item by item, so the item that
-collides gets its single write's answer (PG-D15). A chunk holds the workspace lock from its first
+A bulk write that fails on a row the rules could not see is redone item by item (PG-D15); that case
+is the unit test ``tests/unit/engine/jobs/test_batches.py`` (H4d-1). A chunk holds the workspace lock from its first
 read to its commit (PG-D14), so a unique value raced by a single write and a chunk item is given
 once. A record's version is compared in memory now, not claimed by a conditional ``UPDATE``, so
 two updates racing on one version are shown to be refused as before. And a chunk checks its release before it writes any matrix state, so an activation that
@@ -12,7 +12,6 @@ drops a matrix shape beside a chunk ends neither in a deadlock: the chunk fails
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
-from uuid import uuid4
 
 import pytest
 from sqlalchemy import func, select
@@ -33,12 +32,11 @@ from test_pg3_concurrency import (  # noqa: F401 - fixtures
     workspace,
 )
 from test_w5_activation_write_race import _activate, _candidate
-from wp8_support import create_workspace, unique_key
+from wp8_support import unique_key
 
 from app.db import SessionLocal
 from app.engine.jobs.worker import JobWorker, WorkerSettings
 from app.engine.model import registry
-from app.engine.records.writes import LiveWrites
 from app.models.database import RdmObject
 
 
@@ -82,64 +80,6 @@ def domains_named(workspace_key: str, prefix: str) -> int:
             .select_from(RdmObject)
             .where(RdmObject.workspace_key == workspace_key, RdmObject.name.like(f"{prefix}%"))
         )
-
-
-def test_a_bulk_write_that_fails_is_redone_item_by_item(client, workspace, monkeypatch):  # noqa: F811
-    """Another workspace takes an item's ID after the chunk decided it, which the workspace lock
-    does not cover: the bulk insert fails, and each item is applied again as a batch of one, so
-    that item is refused with the single create's code and the others are applied once."""
-    other = unique_key("pg3b-other")
-    create_workspace(client, other)
-    taken = str(uuid4())
-    original = LiveWrites.write
-    collided: list[str] = []
-
-    def colliding(writes: LiveWrites, model, changes):
-        if taken in changes.records and not collided:
-            collided.append(taken)
-            with SessionLocal() as session:
-                session.add(
-                    RdmObject(
-                        id=taken,
-                        workspace_key=other,
-                        application_key="rdm-master",
-                        object_type_key="domain",
-                        name="Taken elsewhere",
-                    )
-                )
-                session.commit()
-        return original(writes, model, changes)
-
-    monkeypatch.setattr(LiveWrites, "write", colliding)
-    tag = unique_key("fb")
-    items = [domain_item(f"{tag}-1"), domain_item(f"{tag}-2", id=taken), domain_item(f"{tag}-3")]
-    response = client.post(
-        "/api/v1/batches",
-        json={"policy": "independent", "run": "inline", "workspaceKey": workspace, "items": items},
-    )
-    assert response.status_code == 200, response.text
-    body = response.json()
-    assert collided == [taken]
-    assert [(item["status"], item.get("action") or item["error"]["code"]) for item in body["items"]] == [
-        ("applied", "created"),
-        ("rejected", "object_already_exists"),
-        ("applied", "created"),
-    ]
-    assert domains_named(workspace, "Batch domain") == 2
-    # The single create of that ID answers the same.
-    single = client.post(
-        "/api/v1/objects",
-        json={
-            "workspaceKey": workspace,
-            "id": taken,
-            "applicationKey": "rdm-master",
-            "objectTypeKey": "domain",
-            "name": "Again",
-            "attributes": [{"attributeTypeKey": "domain-code", "value": unique_key("again")}],
-        },
-    )
-    refused(single, 409, "object_already_exists")
-    assert body["items"][1]["error"]["message"] == single.json()["error"]["message"]
 
 
 @pytest.mark.parametrize("first", ["chunk", "single write"])

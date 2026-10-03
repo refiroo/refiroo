@@ -143,15 +143,56 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_model_query.py": ("queries", "change_sets"),
     "test_effective_periods.py": ("queries", "records", "change_sets", "model"),
     "test_workspace_edge_list.py": ("mapping", "queries"),
-    "test_batches.py": ("jobs", "records", "change_sets"),
-    "test_job_settings.py": ("startup", "jobs"),
     "test_batch_volume.py": ("volume", "jobs"),
     "test_batch_statements.py": ("volume", "jobs"),
-    "test_batch_matrix_states.py": ("jobs", "matrix"),
-    "test_background_jobs.py": ("jobs", "change_sets"),
     "test_background_volume.py": ("volume", "jobs"),
 }
 
+
+# While the groups remain (H4d is postponed), the tests H4d moved keep being selected by them: a unit test by its
+# folder under tests/unit/ (the longest matching prefix), a journey test by its journeys.
+UNIT_GROUPS: dict[str, tuple[str, ...]] = {
+    "engine/jobs/": ("jobs",),
+    "engine/records/test_audit.py": ("records", "jobs"),
+    "models/test_commands.py": ("jobs",),
+    "models/test_database.py": ("startup", "jobs"),
+    "test_config.py": ("startup", "jobs"),
+    "test_main.py": ("startup", "jobs"),
+}
+JOURNEY_GROUPS: dict[str, tuple[str, ...]] = {
+    "J01": ("records", "queries"),
+    "J02": ("records",),
+    "J03": ("records",),
+    "J04": ("records",),
+    "J05": ("change_sets",),
+    "J06": ("change_sets",),
+    "J07": ("change_sets", "workspaces"),
+    "J08": ("model_admin",),
+    "J10": ("mapping",),
+    "J11": ("jobs",),
+    "J12": ("startup",),
+    "J13": ("records", "mapping"),
+    "J14": ("records",),
+    "J15": ("records", "change_sets"),
+    "J16": ("matrix",),
+    "J17": ("change_sets",),
+    "J18": ("model_admin", "change_sets"),
+    "J19": ("workspaces",),
+    "J20": ("contract", "model"),
+    "J21": ("queries",),
+    "J22": ("queries",),
+    "J23": ("queries",),
+    "J24": ("jobs",),
+    "J25": ("consumer", "model"),
+}
+
+
+def _moved_groups(item: pytest.Item, kind: str) -> set[str]:
+    if kind == "journey":
+        return {g for key in _journey_ids(item) for g in JOURNEY_GROUPS.get(key.split(".")[0], ())}
+    where = item.path.relative_to(layout.UNIT).as_posix()
+    prefixes = [prefix for prefix in UNIT_GROUPS if where.startswith(prefix)]
+    return set(UNIT_GROUPS[max(prefixes, key=len)]) if prefixes else set()
 
 # Timing-based checks (H2, narrowed in H3): only a test whose outcome depends on wall time, which other
 # processes' load would distort. An entry is a module or one test (`module::test`); a check that
@@ -159,8 +200,6 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
 TIMED: dict[str, str] = {
     "test_graph_validation_scale.py::test_validating_and_publishing_a_large_workspace_stay_within_budget":
         "validating and publishing the large workspace against seconds",
-    "test_background_jobs.py::test_the_application_runs_background_jobs_on_its_worker_thread":
-        "waits on the worker thread against a deadline",
     "test_wp81b_current_live_bases.py::test_current_live_capture_after_a_concurrent_activation_asks_for_a_retry":
         "the capture must reach its lock wait before a 0.3 s timer commits",
 }
@@ -263,6 +302,9 @@ def _check_layout(items: list[pytest.Item]) -> list[pytest.Item]:
             item.add_marker("unit")
         elif kind == "suite":
             suite.append(item)
+        if kind in {"journey", "unit"}:
+            for group in _moved_groups(item, kind):
+                item.add_marker(group)
     if problems:
         raise pytest.UsageError("Test layout:\n" + "\n".join(sorted(problems)))
     return suite
