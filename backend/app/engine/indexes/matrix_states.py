@@ -42,13 +42,13 @@ from sqlalchemy import (
     Select,
     String,
     any_,
+    bindparam,
     delete,
     event,
     except_,
     exists,
     insert,
     intersect,
-    literal,
     select,
     union,
 )
@@ -80,7 +80,6 @@ from ..reads.matrix_cells import (
     descendants,
     model_shapes,
     related_rows,
-    unindexed,
 )
 from ..reads.snapshot_reads import SnapshotBase, SnapshotContext, change_set_context, find_objects
 
@@ -939,16 +938,9 @@ def _replaced_rows(overlay: Owner, shape_key: str) -> Select[Any]:
     return _column_rows(overlay, shape_key, REPLACED)
 
 
-def _rows_of(compound: Any, name: str) -> Select[Any]:
-    """A compound select as a plain one, so compounds nest in SQLite, which takes no parentheses."""
-    part = compound.subquery(name)
-    return select(part.c.row_id)
-
-
 def _present(owners: Sequence[Owner], shape_key: str, column_id: str, *terms: Any) -> list[Select[Any]]:
     """The context's rows whose cell in the column is stored and meets ``terms``: one owner's, or a
-    change set's and its base's rows the change set does not replace. Kept as separate selects so
-    a compound over them stays flat and SQLite merges it in index order."""
+    change set's and its base's rows the change set does not replace."""
     if len(owners) == 1:
         return [_column_rows(owners[0], shape_key, column_id, *terms)]
     overlay, base = owners
@@ -970,8 +962,8 @@ def stored_row_filter(
     negated): with ``negated`` the rows are those *not* listed. ``None`` when an owner the read
     needs is not built; the caller then derives the cells from records.
 
-    Each selected column contributes its rows in row order, and the columns combine by ``UNION``,
-    ``EXCEPT`` and ``INTERSECT``, which SQLite merges without sorting.
+    Each selected column contributes its rows, and the columns combine by ``UNION``, ``EXCEPT`` and
+    ``INTERSECT``.
     """
     session, shape_key = read.session, read.shape.key
     current = _current_owners(read)
@@ -1006,29 +998,30 @@ def stored_row_filter(
         return list(session.scalars(_any(parts))), False
     if state == "historyOnly":
         parts = [
-            _rows_of(except_(held(column_id), *holding(column_id)), f"matrix_history_only_{index}")
-            for index, column_id in enumerate(columns)
+            except_(held(column_id), *holding(column_id)) for column_id in columns
         ]
         return list(session.scalars(_any(parts))), False
     # none: a row matches unless every selected column holds a record now or held one before.
     covered = [
-        _rows_of(union(held(column_id), *holding(column_id)), f"matrix_covered_{index}")
-        for index, column_id in enumerate(columns)
+        union(held(column_id), *holding(column_id)) for column_id in columns
     ]
     statement = intersect(*covered) if len(covered) > 1 else covered[0]
     return list(session.scalars(statement)), True
 
 
-def listed(column: Any, ids: Sequence[str]) -> Any:
-    """``column IN ids`` for a list of any length: a long list is one array value, ``= ANY``.
+def row_list(ids: Sequence[str]) -> Any:
+    """The row IDs a stored filter found, as one array parameter for :func:`listed`.
 
-    A long list's term is kept off the column's index: a paging statement then walks its sort
-    index in order and probes the list, rather than looking up every listed row and sorting them
-    all. Negated with ``~`` it stays "not listed".
+    Every statement that pages the filtered rows names the same parameter, so a statement whose
+    arms each filter by it sends the list once (0.9.0-alpha.1 PG5: a 5,700-row list sent once per
+    arm of a change set's total cost 25 ms of its 49).
     """
-    if len(ids) <= _CHUNK:
-        return column.in_(list(ids))
-    return unindexed(column == any_(literal(list(ids), ARRAY(String))))
+    return bindparam("matrix_row_ids", list(ids), type_=ARRAY(String))
+
+
+def listed(column: Any, rows: Any) -> Any:
+    """``column = ANY(rows)`` for a :func:`row_list`; negated with ``~`` it stays "not listed"."""
+    return column == any_(rows)
 
 
 # Verification.

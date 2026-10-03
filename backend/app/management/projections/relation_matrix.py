@@ -60,7 +60,7 @@ from sqlalchemy.orm import Session, aliased
 
 from ...common.pagination import Page, PageRequest, paginate_statement, text_key
 from ...db import begin_snapshot_read
-from ...engine.indexes.matrix_states import listed, stored_row_filter
+from ...engine.indexes.matrix_states import listed, row_list, stored_row_filter
 from ...engine.model.registry import ModelSnapshot, resolve_request_model
 from ...engine.model.traversal import ancestor_type_keys, parent_type_keys
 from ...engine.reads.matrix_cells import (
@@ -72,8 +72,6 @@ from ...engine.reads.matrix_cells import (
     id_rows,
     view_binding,
 )
-from ...engine.reads.matrix_cells import found as _found
-from ...engine.reads.matrix_cells import unindexed as _unindexed
 from ...engine.reads.object_query import build_object_query, live_object_paths
 from ...engine.reads.snapshot_reads import (
     build_snapshot_object_query,
@@ -269,6 +267,7 @@ def relation_matrix_page(
         "field_filters": [],
         "search_fields": read.config.searchFields,
         "id_filter": id_filter,
+        "session": read.session,
     }
     if read.context is None:
         query = build_object_query(read.model, workspace_key=read.workspace_key, **options)
@@ -350,7 +349,7 @@ def _object_types(read: MatrixRead, ids: Sequence[str]) -> dict[str, str]:
     return dict(
         read.session.execute(
             select(RdmObject.id, RdmObject.object_type_key).where(
-                _unindexed(RdmObject.workspace_key == read.workspace_key), RdmObject.id.in_(list(ids))
+                RdmObject.workspace_key == read.workspace_key, RdmObject.id.in_(list(ids))
             )
         ).all()
     )
@@ -379,8 +378,7 @@ def _named_columns(read: MatrixRead, column_ids: Sequence[str]) -> list[Any]:
             item.id: item
             for item in read.session.scalars(
                 select(RdmObject).where(
-                    # Found by ID: the workspace index would read every record of the workspace.
-                    _unindexed(RdmObject.workspace_key == read.workspace_key),
+                    RdmObject.workspace_key == read.workspace_key,
                     RdmObject.id.in_(list(column_ids)),
                 )
             )
@@ -628,7 +626,6 @@ def _history_cells(
             getattr(relation, read.anchor_end).in_(row_ids),
         )
         .cte("matrix_history_cells")
-        .prefix_with("MATERIALIZED")
     )
 
     def lookup(publication_id: Any, object_id: Any, name: str) -> Any:
@@ -769,13 +766,14 @@ def _state_filter(read: MatrixRead, column_ids: list[str], state: str) -> Callab
     """A predicate on a row's ID: some selected column's cell has ``state``, over every row.
 
     Stored cell states decide it once for the request (A3b): the matching row IDs are read by
-    index and every paging statement filters by that list. Where an owner the read needs has no
+    index and every paging statement filters by that list, one shared parameter. Where an owner the read needs has no
     stored states, the cells are derived from records in each statement instead (D12).
     """
     stored = stored_row_filter(read, column_ids, state, read.publication_number)
     if stored is not None:
         ids, negated = stored
-        return lambda row_id: ~listed(row_id, ids) if negated else listed(row_id, ids)
+        rows = row_list(ids)
+        return lambda row_id: ~listed(row_id, rows) if negated else listed(row_id, rows)
     pairs = _current_pairs(read, column_ids)
     if state in {"one", "several", "inactive"}:
         matching = func.sum(pairs.c.meets)
@@ -880,15 +878,15 @@ def _history_pairs(read: MatrixRead, column_ids: list[str]) -> Any:
             walk.c.depth + 1,
         )
         .select_from(walk)
-        .outerjoin(
+        .join(
             child,
             and_(
                 child.publication_id == walk.c.publication_id,
                 child.parent_object_id == walk.c.node,
-                _unindexed(child.object_type_key.in_(read.walk_types())),
+                child.object_type_key.in_(read.walk_types()),
             ),
         )
-        .where(_found(child.object_id), walk.c.depth < MAX_DEPTH)
+        .where(walk.c.depth < MAX_DEPTH)
     )
     relation = aliased(PublicationRelation)
     return (

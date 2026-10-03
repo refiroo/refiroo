@@ -15,7 +15,17 @@ from dataclasses import dataclass, replace
 from datetime import date
 from typing import Any, Literal
 
-from sqlalchemy import Row, Select, String, and_, case, exists, literal, select, union_all
+from sqlalchemy import (
+    Row,
+    Select,
+    String,
+    and_,
+    case,
+    exists,
+    literal,
+    select,
+    union_all,
+)
 from sqlalchemy.orm import Session, aliased
 from sqlalchemy.sql.selectable import Subquery
 
@@ -34,16 +44,20 @@ from ...models.database import (
     SnapshotAttributeValue,
 )
 from ...models.schema import EngineModel, ObjectTypeDefinition
-from ...models.search_index import SNAPSHOT_VALUES
+from ...models.search_index import MIN_INDEXED_LENGTH, SNAPSHOT_VALUES
 from ..records.rules import get_object_type, object_type_changed, validate_application_object_type
 from .object_query import (
     ObjectColumns,
     ObjectQuery,
     as_of_filter,
+    bounded_match,
+    escape_like,
     indexed_value_match,
     name_contains,
     query_error,
     refine_object_query,
+    search_candidates,
+    searchable_attribute_keys,
     top_level_filter,
 )
 
@@ -139,10 +153,7 @@ def object_projection(
     """The context's effective object rows, narrowed inside each arm so indexes apply.
 
     ``object_type_keys`` narrows to several types, as ``object_type_key`` does to one.
-    ``name_search`` keeps rows whose name contains it. It is written first in each arm: SQLite
-    evaluates a row's terms in the order written, so the match discards a row before the change set's
-    anti-join probes it. Matched outside the projection, it is pushed down after the anti-join,
-    which then probes every base row (0.9 Q1: 130 ms against 68 ms over 260,000 records).
+    ``name_search`` keeps rows whose name contains it.
 
     ``values_owner_id`` names the owner of each row's typed values in ``snapshot_attribute_values``;
     ``row_sequence_id`` is the row's key in its own table, which its type and parent indexes hold.
@@ -166,8 +177,6 @@ def object_projection(
             narrowing.append(entity.parent_object_id.in_(parents))
         if top_level:
             narrowing.append(entity.parent_object_id.is_(None))
-        if part == "replaced":
-            narrowing = [_unindexed(condition) for condition in narrowing]
         first = [name_contains(entity.name, name_search)] if name_search else []
         where = [*first, *conditions, *narrowing]
         if ids is not None:
@@ -268,11 +277,6 @@ def relation_projection(
     )
 
 
-def _unindexed(condition: Any) -> Any:
-    """``condition`` as a term no index serves, so the planner looks rows up by another one."""
-    return case((condition, 1), else_=0) == 1
-
-
 def _effective(
     context, overlay, identity, arm, base_filter, base_entity, *, name, part: ChangeSetPart = "effective"
 ) -> Subquery:
@@ -291,9 +295,8 @@ def _effective(
             overridden = select(getattr(overlay, identity)).where(overlay.change_set_id == context.id)
             conditions = [base_filter(base)]
             if part == "effective":
-                # Probed per base row through the (change set, record) key, not as NOT IN: SQLite
-                # builds a NOT IN list of every row the change set holds on each statement, so a
-                # write's lookups grew with the change set (Base 0.9 B1).
+                # NOT EXISTS, not NOT IN: an anti-join on the (change set, record) key, which NOT
+                # IN's null semantics would rule out.
                 conditions.append(
                     ~exists().where(
                         overlay.change_set_id == context.id,
@@ -301,12 +304,10 @@ def _effective(
                     )
                 )
             elif part == "replaced":
-                # Driven by the change set's IDs: the arm's other terms would otherwise let the
-                # planner walk the base's type or parent index across every base row.
-                conditions = [
-                    _unindexed(conditions[0]),
-                    getattr(entity, identity).in_(overridden),
-                ]
+                # The rows the change set replaces, by its IDs. On base rows without statistics yet
+                # (a base just captured) the planner may read every base row first; an ID array
+                # avoids that but hides the set's size from the planner (POSTGRESQL_BUDGETS.md).
+                conditions.append(getattr(entity, identity).in_(overridden))
             arms.extend(selects(arm(entity, base.owner_id, *conditions)))
         if part in {"effective", "added"}:
             arms.extend(
@@ -331,10 +332,7 @@ class EffectiveRecord:
     relation; a whole object page reads ``object_projection`` instead, whose union arms a join
     would multiply.
 
-    ``present`` keeps only rows whose record exists. It is a ``CASE`` on purpose: SQLite turns an
-    outer join whose row a ``WHERE`` term requires (``name IS NOT NULL``) into an inner join it may
-    reorder, and then scans every record of the owner to probe the listed rows. A ``CASE`` keeps
-    the outer join, so the listed rows stay the outer loop.
+    ``present`` keeps only rows whose record exists.
     """
 
     joins: tuple[tuple[Any, Any], ...]
@@ -360,7 +358,7 @@ def effective_record(context: SnapshotContext, object_id: Any) -> EffectiveRecor
             ((row, and_(getattr(row, base.owner_column) == base.owner_id, row.object_id == object_id)),),
             lambda name: getattr(row, name),
             literal(base.owner_id, String),
-            case((row.object_id.is_(None), False), else_=True),
+            row.object_id.is_not(None),
         )
     change_set = aliased(ChangeSetObject)
     joins: list[tuple[Any, Any]] = [
@@ -535,7 +533,42 @@ def snapshot_object_columns(
             "id", projection.c.object_id, "object_id", descending=descending
         ),
         search_values=_value_candidates(projection, context) if search_index else None,
+        search_names=_name_candidates(projection, context) if search_index else None,
     )
+
+
+def _owners(context: SnapshotContext) -> list[tuple[Any, str, str]]:
+    """The object tables a context's rows come from, each with its owner column and owner."""
+    owners: list[tuple[Any, str, str]] = []
+    if context.base is not None:
+        owners.append((context.base.objects, context.base.owner_column, context.base.owner_id))
+    if context.kind == "change_set":
+        owners.append((ChangeSetObject, "change_set_id", context.id))
+    return owners
+
+
+def _name_candidates(projection: Subquery, context: SnapshotContext) -> Callable[[str], Any]:
+    """Object rows of the context's owners whose name the trigram index matches a pattern in.
+
+    Compared by ``row_sequence_id``, as the value candidates are: a base row and a change set row
+    that share a sequence number may name a row that does not match, and the search's ``LIKE`` on
+    the effective row's name drops it.
+    """
+    owners = _owners(context)
+
+    def search_names(pattern: str) -> Any:
+        rows = []
+        for entity, owner_column, owner_id in owners:
+            row = aliased(entity)
+            rows.append(
+                select(row.sequence_id).where(
+                    getattr(row, owner_column) == owner_id, row.name.ilike(pattern, escape="\\")
+                )
+            )
+        matches = union_all(*rows) if len(rows) > 1 else rows[0]
+        return bounded_match(select(matches.subquery().c.sequence_id), projection.c.row_sequence_id.in_(matches))
+
+    return search_names
 
 
 def _value_candidates(
@@ -549,22 +582,16 @@ def _value_candidates(
     sequence number, may name a row that does not match, and the search's ``LIKE`` on the
     effective row's values drops it (D25).
     """
-    owners: list[tuple[Any, str, str]] = []
-    if context.base is not None:
-        owners.append((context.base.objects, context.base.owner_column, context.base.owner_id))
-    if context.kind == "change_set":
-        owners.append((ChangeSetObject, "change_set_id", context.id))
+    owners = _owners(context)
 
     def search_values(pattern: str, attributes: list[str]) -> Any:
         value = aliased(SnapshotAttributeValue)
 
         def candidates(matches: Select[Any]) -> Any:
-            # Driven by the matching rows: the (owner, attribute) index would read every value
-            # of the attribute in the base.
             matched = select(value.object_id).where(
                 value.sequence_id.in_(matches),
-                _unindexed(value.owner_id.in_([owner_id for *_, owner_id in owners])),
-                _unindexed(value.attribute_type_key.in_(attributes)),
+                value.owner_id.in_([owner_id for *_, owner_id in owners]),
+                value.attribute_type_key.in_(attributes),
             )
             rows = []
             for entity, owner_column, owner_id in owners:
@@ -595,10 +622,12 @@ def build_snapshot_object_query(
     search_fields: Sequence[str] | None = None,
     id_filter: Callable[[Any], Any] | None = None,
     as_of: date | None = None,
+    session: Session | None = None,
 ) -> ObjectQuery:
     """The change set or publication object collection query, with the same contract as a live one.
 
     ``id_filter`` restricts each part of a change set's union alike, so position reads stay exact.
+    With ``session``, a search first reads its candidates from the trigram indexes.
     """
     object_type = get_object_type(model, object_type_key)
     if application_key:
@@ -627,7 +656,56 @@ def build_snapshot_object_query(
         search_fields=search_fields,
         id_filter=id_filter,
         as_of=as_of,
+        search_ids=(
+            snapshot_search_candidates(
+                session, model, context, object_type=object_type, search=search, search_fields=search_fields
+            )
+            if session is not None and search
+            else None
+        ),
     )
+
+
+def snapshot_search_candidates(
+    session: Session,
+    model: EngineModel,
+    context: SnapshotContext,
+    *,
+    object_type: ObjectTypeDefinition,
+    search: str,
+    search_fields: Sequence[str] | None,
+) -> list[str] | None:
+    """The records of ``object_type`` in the context's owners whose name or searchable value the
+    trigram indexes match ``search`` in (:func:`search_candidates`).
+
+    A change set's candidates come from its base and its own rows alike: a base row whose name the
+    change set has replaced may be one that no longer matches, and the search's ``LIKE`` on the
+    effective record drops it.
+    """
+    if len(search) < MIN_INDEXED_LENGTH:
+        return None
+    pattern = f"%{escape_like(search)}%"
+    owners = _owners(context)
+    parts = []
+    if search_fields is None or "name" in search_fields:
+        for entity, owner_column, owner_id in owners:
+            parts.append(
+                select(entity.object_id).where(
+                    getattr(entity, owner_column) == owner_id,
+                    entity.object_type_key == object_type.key,
+                    entity.name.ilike(pattern, escape="\\"),
+                )
+            )
+    attributes = searchable_attribute_keys(model, (object_type,), search_fields)
+    if attributes:
+        parts.append(
+            select(SnapshotAttributeValue.object_id).where(
+                SnapshotAttributeValue.sequence_id.in_(SNAPSHOT_VALUES.matches(pattern)),
+                SnapshotAttributeValue.owner_id.in_([owner_id for *_, owner_id in owners]),
+                SnapshotAttributeValue.attribute_type_key.in_(attributes),
+            )
+        )
+    return search_candidates(session, parts)
 
 
 def snapshot_object_query(
@@ -645,6 +723,7 @@ def snapshot_object_query(
     builtin: Callable[[Subquery], dict[str, Any]] | None = None,
     parent_filter: Callable[[Any], Any] | None = None,
     as_of: date | None = None,
+    search_ids: Sequence[str] | None = None,
 ) -> ObjectQuery:
     """A change set or publication object query over ``object_types``.
 
@@ -693,6 +772,7 @@ def snapshot_object_query(
             field_filters=field_filters,
             search_fields=search_fields,
             as_of=as_of,
+            search_ids=search_ids,
         )
 
     statement, keys, seek, normalized_filters = refine("effective")

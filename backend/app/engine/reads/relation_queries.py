@@ -329,8 +329,8 @@ def expansion_rows(
     if not anchor_ids:
         return []
     arms = [
-        _expansion_arm(context, workspace_key, anchor_id, direction, relation_type_key, limit)
-        for anchor_id in dict.fromkeys(anchor_ids)
+        _expansion_arm(context, workspace_key, anchor_id, direction, relation_type_key, limit, index)
+        for index, anchor_id in enumerate(dict.fromkeys(anchor_ids))
     ]
     # Ordered by the database, so names follow its collation as the list's own order does.
     rows = (union_all(*arms) if len(arms) > 1 else arms[0]).subquery("expansion_rows")
@@ -357,16 +357,27 @@ def _expansion_arm(
     direction: str,
     relation_type_key: str,
     limit: int,
+    index: int,
 ) -> Select[Any]:
     """One anchor's first ``limit`` relations in name order, each with the anchor's total.
 
     Live, the total counts the anchor's relations alone: a relation joins records of one
-    workspace, so the anchor's workspace bounds them without reading the other ends.
+    workspace, so the anchor's workspace bounds them without reading the other ends. The
+    anchor's relations are read first, as a materialized set, and their records looked up by ID:
+    PostgreSQL would otherwise walk the name index over every record of the workspace until
+    ``limit`` of them belong to the anchor, which reads most of them when the anchor's records
+    sort late (0.9.0-alpha.1 PG5: 20,000 children, 400 ms against 65 ms).
     """
     anchor = literal(anchor_id, String).label("anchor_id")
     if context is None:
         relation, related = aliased(ObjectRelation), aliased(RdmObject, name="expanded")
         own, other = _relation_ends(relation.from_object_id, relation.to_object_id, direction)
+        edges = (
+            select(relation.id, relation.sequence_id, other.label("other_id"))
+            .where(own == anchor_id, relation.relation_type_key == relation_type_key)
+            .cte(f"expansion_edges_{index}")
+            .prefix_with("MATERIALIZED")
+        )
         counted = aliased(ObjectRelation)
         counted_own, _ = _relation_ends(counted.from_object_id, counted.to_object_id, direction)
         total = (
@@ -378,19 +389,16 @@ def _expansion_arm(
         page = (
             select(
                 anchor,
-                relation.id.label("relation_id"),
-                other.label("related_id"),
+                edges.c.id.label("relation_id"),
+                edges.c.other_id.label("related_id"),
                 related.name.label("related_name"),
-                relation.sequence_id.label("tiebreak"),
+                edges.c.sequence_id.label("tiebreak"),
                 total.label("total"),
             )
-            .join(related, related.id == other)
-            .where(
-                own == anchor_id,
-                relation.relation_type_key == relation_type_key,
-                related.workspace_key == workspace_key,
-            )
-            .order_by(related.name, relation.sequence_id)
+            .select_from(edges)
+            .join(related, related.id == edges.c.other_id)
+            .where(related.workspace_key == workspace_key)
+            .order_by(related.name, edges.c.sequence_id)
         )
     else:
         def anchored() -> Any:

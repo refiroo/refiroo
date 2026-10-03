@@ -533,7 +533,8 @@ def test_change_set_cell_writes_publish(client, languages, systems):
     assert row(in_change_set, "M2")["relationSetVersion"] == 1
     assert cells(matrix(client, TRANSLATIONS, columnIds=[de]))["M2"]["Language de"] == ("none", [])
 
-    # A staged duplicate is refused at the write, naming the staged record.
+    # A staged duplicate is held by the change set (H4c): the matrix shows both, and it is removed
+    # again before publishing, which would refuse it.
     duplicate = client.post(
         "/api/v1/objects",
         json=translation_payload(
@@ -544,8 +545,22 @@ def test_change_set_cell_writes_publish(client, languages, systems):
             expectedChangeSetVersion=version,
         ),
     )
-    assert duplicate.status_code == 409, duplicate.text
-    assert duplicate.json()["error"]["details"]["conflictingObjectId"] == staged.json()["id"]
+    assert duplicate.status_code == 201, duplicate.text
+    held = cells(matrix(client, TRANSLATIONS, columnIds=[de], **context))["M2"]["Language de"]
+    assert held[0] == "several", held
+    removal = {
+        "changeSetId": change_set["id"],
+        "expectedVersion": duplicate.json()["version"],
+        "expectedChangeSetVersion": duplicate.json()["changeSetVersion"],
+    }
+    path = f"/api/v1/objects/translation/{duplicate.json()['id']}"
+    preview = client.delete(path, params=removal).json()["error"]["details"]
+    removed = client.delete(
+        path,
+        params={**removal, "cascade": "true", "deletionPreviewToken": preview["deletionPreviewToken"]},
+    )
+    assert removed.status_code == 204, removed.text
+    version = client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"]
 
     # A link in the change set claims the change set's set version.
     s1 = systems["columns"][0]

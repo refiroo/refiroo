@@ -42,8 +42,8 @@ The [product overview](docs/PRODUCT.md) describes these capabilities and what is
 
 ## Status
 
-Base 0.8 is released (2026-09-29). Base 0.9, integration-grade APIs, is in progress; its interim
-release 0.9.0-alpha.1 moves the engine to PostgreSQL. See the [roadmap](docs/ROADMAP.md), the
+The interim release 0.9.0-alpha.1 (2026-10-03) moves the engine to PostgreSQL; Base 0.8 was released
+on 2026-09-29. Base 0.9, integration-grade APIs, continues. See the [roadmap](docs/ROADMAP.md), the
 [project status](docs/PROJECT_STATUS.md) and the [changelog](CHANGELOG.md).
 
 The engine is not yet for production use: authentication arrives in 0.12, and every API is

@@ -23,11 +23,13 @@ from sqlalchemy import (
     String,
     and_,
     case,
+    column,
     exists,
     func,
     literal,
     select,
     union_all,
+    values,
 )
 from sqlalchemy.orm import Session, aliased
 
@@ -303,26 +305,9 @@ class CellScope:
         return case((held, 1), else_=0)
 
 
-def unindexed(condition: Any) -> Any:
-    """``condition`` as a term no index serves, so a child is found by its parent."""
-    return case((condition, 1), else_=0) == 1
-
-
-def found(identity: Any) -> Any:
-    """An outer-joined child exists.
-
-    A recursive step joins one queued row to its children. As an inner join SQLite may loop over
-    the children's table and scan the queue for each row, reading every record of the walked
-    types per step; an outer join keeps the queued row outside, seeking its children by parent. A
-    ``CASE`` keeps the join outer, where ``IS NOT NULL`` would let SQLite make it inner again.
-    """
-    return case((identity.is_(None), 0), else_=1) == 1
-
-
 def id_rows(ids: Sequence[str], name: str) -> Any:
-    """Listed IDs as rows; SQLite names no columns of a ``VALUES`` alias."""
-    rows = [select(literal(key, String).label("id")) for key in ids]
-    return (union_all(*rows) if len(rows) > 1 else rows[0]).subquery(name)
+    """Listed IDs as rows of a ``VALUES`` list named ``name``, with the column ``id``."""
+    return values(column("id", String), name=name).data([(key,) for key in ids])
 
 
 def cell_records(
@@ -342,9 +327,8 @@ def cell_records(
         if row_ids is None:
             where.append(relation.relation_type_key == shape.relation_type_key)
         else:
-            # The rows drive; the type index would read every relation of the type.
             where += [
-                unindexed(relation.relation_type_key == shape.relation_type_key),
+                relation.relation_type_key == shape.relation_type_key,
                 getattr(relation, scope.anchor_end).in_(row_ids),
             ]
         edges.append(
@@ -378,13 +362,8 @@ def cell_records(
                 record,
                 and_(
                     record.id == edge.c.cell_id,
-                    # Found by ID from each relation; a type index would read every cell record.
-                    unindexed(
-                        and_(
-                            record.workspace_key == scope.workspace_key,
-                            record.object_type_key == shape.cell_type,
-                        )
-                    ),
+                    record.workspace_key == scope.workspace_key,
+                    record.object_type_key == shape.cell_type,
                 ),
             )
             .where(*row_type)
@@ -405,13 +384,10 @@ def cell_records(
             ).select_from(edge)
         ).where(
             record.present,
-            # A CASE keeps the outer joins, so the relations stay the outer loop.
-            case((record.column("object_type_key") == shape.cell_type, 1), else_=0) == 1,
+            record.column("object_type_key") == shape.cell_type,
             *row_type,
         )
-    # Materialized: inlined into the walk's anchor, SQLite may read every relation of the owner
-    # instead of the listed rows' own.
-    return statement.cte("matrix_cells").prefix_with("MATERIALIZED")
+    return statement.cte("matrix_cells")
 
 
 def cell_columns(scope: CellScope, cells: CTE) -> Any:
@@ -486,10 +462,6 @@ def related_rows(scope: CellScope, cell_ids: Sequence[str]) -> Select[Any]:
     for arm in scope.relation_arms():
         relation = aliased(arm.entity)
         of_type = relation.relation_type_key == scope.shape.relation_type_key
-        if scope.other_end == "to_object_id":
-            # Live, the (type, from, to) key would otherwise read every relation of the binding
-            # to find the listed records at its ``to`` end; their own endpoint index reads theirs.
-            of_type = unindexed(of_type)
         parts.append(
             select(getattr(relation, scope.anchor_end).label("row_id")).where(
                 getattr(relation, scope.other_end).in_(cell_ids),

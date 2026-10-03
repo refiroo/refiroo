@@ -77,7 +77,7 @@ def test_the_indexed_checks_answer_as_the_scans_did():
     objects = [
         _record("g1", GROUP, **{CODE: "A"}),
         _record("g2", GROUP, **{CODE: "A"}),
-        # A record without the key holds None, as the scan's ``.get`` read it; so does one holding None.
+        # A record without the key and one holding None hold no value, so they share it (E-D4, H4c).
         _record("g3", GROUP),
         _record("g4", GROUP, **{CODE: None}),
         # JSON values are compared by equality, not identity.
@@ -119,7 +119,6 @@ def test_the_indexed_checks_answer_as_the_scans_did():
     assert unique == {
         "g1": ["g2"],
         "g2": ["g1"],
-        "g4": ["g3"],
         "g5": ["g6"],
         "g6": ["g5"],
     }

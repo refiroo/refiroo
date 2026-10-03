@@ -19,7 +19,9 @@ decided in memory and written in bulk, PG-D12–PG-D17) on 2026-10-02; the order
 [H4](TEST_HARNESS_PLAN.md#h4-testing-consolidation) (the testing consolidation, H4a–H4e, planned
 2026-10-02 on the [testing strategy](testing/STRATEGY.md); H4a delivered and approved the same day,
 decisions D-1–D-7 taken, H4b delivered the same day, [API_JOURNEYS](testing/API_JOURNEYS.md#decisions)), then PG5 (H4 stopped after H4d-1 and PG4 dropped,
-2026-10-03). See [Next — 0.9](#next--09).
+2026-10-03). **PG5 is delivered and 0.9.0-alpha.1 released (2026-10-03):** budgets re-measured on
+PostgreSQL, the 100,000-item batch measured once, the remaining budget exceptions deferred to the
+first fixes after 1.0 ([handoff](POSTGRESQL_BUDGETS.md)). Next is F1. See [Next — 0.9](#next--09).
 
 - **Revisit: large batch deletes (PG-D18, noted 2026-10-01).** Batch delete items stay on the
   per-item path in PG3b, and neither that nor a set-based copy of it is the right answer. Large
@@ -113,8 +115,18 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 
 - [ ] Complete the release licensing checklist in [LICENSING_TODO.md](LICENSING_TODO.md), including
   ownership, contribution, dependency, security, trademark and commercial-service documentation.
-- [ ] PostgreSQL follow-ups, delivered by [0.9.0-alpha.1](POSTGRESQL_RUNTIME_PLAN.md) (PG3 for (1),
-  PG2 and PG5 for (2)). (1) **Done in PG3 (2026-10-02):** D28 cancellation on PostgreSQL (a cancel
+- [ ] **First fixes after 1.0: the PostgreSQL read budgets (deferred by the user, 2026-10-03).** PG5
+  restated every volume budget on PostgreSQL: statements and rows hold everywhere; 11 of 154
+  full-volume reads exceed 100 ms. [POSTGRESQL_BUDGETS.md](POSTGRESQL_BUDGETS.md) is the complete
+  handoff: the measuring method (plans per statement, not repeated full replays), the closing table,
+  what PG5 changed and why, and each exception's cause, fix options, effort and what was tried:
+  E1 change-set matrix filters (136–154 ms), E2 change-set searches matching nearly everything
+  (154–211 ms, needs a decision on exact totals first), E3 D26's sort keys (104–150 ms), E4 the live
+  history-only matrix filter (108 ms), E5 change-set seek and position near the limit (91–99 ms), E6
+  plans on a just-captured base before statistics exist, E7 a 100,000-item background batch in a
+  change set (64 s, target 60 s).
+- [x] PostgreSQL follow-ups, delivered by [0.9.0-alpha.1](POSTGRESQL_RUNTIME_PLAN.md) (PG3 for (1),
+  PG2 and PG5 for (2); closed by PG5, 2026-10-03). (1) **Done in PG3 (2026-10-02):** D28 cancellation on PostgreSQL (a cancel
   request answered while a chunk runs, the `atomic` job rolled back between items, the lease shared
   by two workers) and live writes beside a background job, which wait for one chunk at most in the
   job's workspace and not at all elsewhere (`test_pg3_concurrency`); PG3b (2026-10-02) recorded the
@@ -129,7 +141,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   `begin_snapshot_read` PostgreSQL's. PG2 (2026-10-01) removed every dialect branch, the `json_each`
   row list, the recursive arms, `SQLITE_LOCK_WAIT_SECONDS`, `db.begin_transaction` and the FTS5 search
   (`test_boundaries` holds it); the explicit dependant deletes stay, since the services order them for
-  audit and matrix states. Left for PG5: budgets measured on SQLite and the planner comments.
+  audit and matrix states. PG5 (2026-10-03) re-measured every budget on PostgreSQL and removed the
+  SQLite planner constructs and comments; a search for SQLite in `app/`, `tests/` and `frontend/e2e`
+  finds only the refusal of a SQLite URL, its tests, the boundary check and testmon's data file.
 - [ ] Unique-value checks over non-text values (integer, decimal, date, dateTime, boolean) still read
   every value of the attribute, live and in a change set: the value indexes cover `text_value` only
   (0.9 B2 added the live one). Add them with 0.11's model-derived indexes.

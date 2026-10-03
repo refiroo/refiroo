@@ -120,7 +120,7 @@ def create_app() -> FastAPI:
     workspace_mutations_enabled = settings.workspace_admin_mutations_enabled
     application = FastAPI(
         title="RDM Engine API",
-        version="0.8.0",
+        version="0.9.0-alpha.1",
         description="API-first, model-driven reference data management engine.",
         lifespan=lifespan,
         # Every route accepts only the query parameters it declares (D-3).

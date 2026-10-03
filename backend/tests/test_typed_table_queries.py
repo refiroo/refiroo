@@ -453,7 +453,7 @@ def test_live_datetime_keeps_its_instant(typed_model_client):
 
 
 def test_server_timestamps_carry_an_explicit_offset(typed_model_client):
-    """SQLite drops the zone, so a naive read would reach clients as local wall-clock time."""
+    """A timestamp without its zone would reach clients as local wall-clock time."""
     created = typed_model_client.post("/api/v1/objects", json={
         "applicationKey": "rdm-master", "objectTypeKey": "domain", "name": "Stamped",
         "workspaceKey": "default", "attributes": [_attribute("domain-code", "STAMPED")],

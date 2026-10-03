@@ -193,7 +193,17 @@ def test_translation_requires_content_and_a_target_without_leaving_an_orphan():
         assert client.get(f"/api/v1/objects/translation/{public_id}").status_code == 404
 
 
-def test_target_and_language_combination_is_unique_and_failed_create_rolls_back():
+def _scope_breaches(client: TestClient) -> list[dict]:
+    validation = client.post(f"/api/v1/change-sets/{client.change_set_id}/validation")
+    assert validation.status_code == 200, validation.text
+    return [
+        item for item in validation.json()["diagnostics"] if item["code"] == "duplicate_relation_scope"
+    ]
+
+
+def test_a_second_active_translation_for_a_target_and_language_is_held_for_validation():
+    """A change set holds the breach of the target-and-language scope (H4c): the create succeeds,
+    validation reports it, and deactivating the first translation clears it."""
     with TestClient(app) as client:
         suffix = uuid4().hex[:8]
         _language, group = _language_and_group(client, suffix)
@@ -204,29 +214,19 @@ def test_target_and_language_combination_is_unique_and_failed_create_rolls_back(
         )
         assert first.status_code == 201
 
-        duplicate_id = str(uuid4())
         duplicate = client.post(
             "/api/v1/objects",
-            json=_translation_payload(
-                group["id"], domain["id"], f"{suffix}_2", public_id=duplicate_id
-            ),
+            json=_translation_payload(group["id"], domain["id"], f"{suffix}_2"),
         )
-        assert duplicate.status_code == 409
-        assert duplicate.json()["error"]["code"] == "duplicate_relation_scope"
-        assert client.get(f"/api/v1/objects/translation/{duplicate_id}").status_code == 404
+        assert duplicate.status_code == 201, duplicate.text
+        assert len(_scope_breaches(client)) == 1
 
         deactivated = client.patch(
             f"/api/v1/objects/translation/{first.json()['id']}/attributes/active",
             json={"value": False, "expectedVersion": 1},
         )
         assert deactivated.status_code == 200
-        historical_successor = client.post(
-            "/api/v1/objects",
-            json=_translation_payload(
-                group["id"], domain["id"], f"{suffix}_2", public_id=duplicate_id
-            ),
-        )
-        assert historical_successor.status_code == 201, historical_successor.text
+        assert _scope_breaches(client) == []
 
         _other_language, other_group = _language_and_group(client, f"{suffix}_other")
         other_language = client.post(
@@ -306,7 +306,9 @@ def test_last_translation_content_attribute_cannot_be_removed():
         )
 
 
-def test_reparenting_cannot_create_a_duplicate_target_language_translation():
+def test_reparenting_into_a_taken_target_language_scope_is_held_for_validation():
+    """Moving a translation under a language whose scope its target already uses is held by the
+    change set (H4c) and reported by validation."""
     with TestClient(app) as client:
         suffix = uuid4().hex[:8]
         _first_language, first_group = _language_and_group(client, f"{suffix}_first")
@@ -322,13 +324,10 @@ def test_reparenting_cannot_create_a_duplicate_target_language_translation():
             json=_translation_payload(second_group["id"], domain["id"], f"{suffix}_2"),
         ).json()
 
+        assert _scope_breaches(client) == []
         moved = client.patch(
             f"/api/v1/objects/translation/{second['id']}",
             json={"parentObjectId": first_group["id"], "expectedVersion": 1},
         )
-        assert moved.status_code == 409
-        assert moved.json()["error"]["code"] == "duplicate_relation_scope"
-
-        unchanged = client.get(f"/api/v1/objects/translation/{second['id']}").json()
-        assert unchanged["version"] == 1
-        assert unchanged["parentObjectId"] == second_group["id"]
+        assert moved.status_code == 200, moved.text
+        assert len(_scope_breaches(client)) == 1

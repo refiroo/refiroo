@@ -71,7 +71,7 @@ test to `TIMED` only when its outcome depends on wall time; a statement-count bu
 timing-based.
 
 **Full-size budgets are `budget`** (H3): `test_batch_volume` (the 10,000-item atomic batch) and
-`test_background_volume` (the 100,000-item background batch, about 20 minutes on PostgreSQL). A run
+`test_background_volume` (the 100,000-item background batch; both modules 2 min 39 s at PG5). A run
 leaves them out unless its `-m` expression names `budget`, and they are `serial` when named. They
 run only at a release's acceptance, once and announced. PG3b replaced their timed checks with
 statement counts at two seeded sizes (PG-D17), in `test_batch_statements`, which runs in the
@@ -96,7 +96,7 @@ go-ahead.
 | Focused tests while iterating | seconds | `.venv/bin/python -m pytest tests/test_x.py::test_case -q` (no `-n`) |
 | A package's checks: its boundary's groups (§2) | 2 minutes | `.venv/bin/python -m pytest -n auto -m "<groups>" -q`, then `.venv/bin/python -m pytest -m "serial and (<groups>)" -q` |
 | Build acceptance: the full suite without `budget` | 5 minutes | `.venv/bin/python -m pytest -n auto -q`, then `.venv/bin/python -m pytest -m serial -q` |
-| Full-size budgets | announced (about 25 minutes before PG3b's bulk writes; PG5 measures it again) | `.venv/bin/python -m pytest -m budget -q`, a release's acceptance only |
+| Full-size budgets | announced (2 min 39 s at 0.9.0-alpha.1 PG5; about 25 minutes before PG3b's bulk writes) | `.venv/bin/python -m pytest -m budget -q`, a release's acceptance only |
 
 ### Backend: journey tests, unit tests and selection by change (H4b)
 
@@ -221,7 +221,8 @@ the seed store there and dropped when the runner ends (`backend/tests/browser_se
 harness's records, one seed per model the runner starts with) and `volume` (the Track S fixture at
 the runner's scale). A seed is built on a runner's first use after its inputs change and reused after
 that; a clone takes about 0.5 s. `RDM_TEST_DATABASE_SERVER` points the runners at another server.
-Setup costs ~2.8 s per runner (section 4, measured on SQLite). Pick by surface:
+Setup costs ~2.8 s per runner (section 4, measured on SQLite and not measured again on PostgreSQL; a
+seed clone adds about 0.5 s). Pick by surface:
 
 | Runner | Surfaces / contracts |
 | --- | --- |
@@ -367,6 +368,9 @@ Plus the AGENTS.md startup/migration smoke start against an isolated copy of the
 and the composed acceptance journeys WP-9 defines.
 
 ## 4. Measured execution cost
+
+*History: measured before 0.9.0-alpha.1, when the backend ran on SQLite. The current costs are the
+time ceilings in §1.*
 
 **Environment:** Apple M1 Pro (10 cores), macOS 15 (Darwin 24.6.0), Python 3.14.7, pytest 8.4.2,
 SQLite, Node 22, Vitest 4, installed Google Chrome via `PLAYWRIGHT_EXECUTABLE_PATH`. Single runs on a

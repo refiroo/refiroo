@@ -182,8 +182,7 @@ As delivered (B2, D28): the route sets `cancelRequestedAt` in one short transact
 a finished job is `409 job_finished`. The worker does every finish, a queued job's included, at the
 next chunk; an `atomic` job's chunk checks before every 500 items it decides and before it writes
 them (0.9.0-alpha.1 PG3b). The design relies on PostgreSQL's READ
-COMMITTED: a cancel request commits while a chunk runs and the chunk's next read sees it. On SQLite
-a chunk holds the writer lock, so the request waits for it; nothing works around that.
+COMMITTED: a cancel request commits while a chunk runs and the chunk's next read sees it.
 
 **Audit cause.** Every applied item writes the same audit entries as the equivalent single write, plus
 the job ID as the cause. The feed and consumer events report it (`cause: {kind: "job", id}` in
@@ -431,8 +430,8 @@ The mapping `transition` audit entry is not a feed entry; its relation entries a
   locks the workspace first, so the lock order is one rule: workspace, then records.
 - A transaction with several entries gets consecutive positions. A rolled-back transaction rolls back
   its counter too, so there are no gaps, and no reader ever sees a position commit before a lower one.
-- Cost: writes to one workspace serialize, as they already do on SQLite's single writer; different
-  workspaces stay independent on PostgreSQL. The first F package measures the added statement per
+- Cost: writes to one workspace serialize, as they already do under the workspace lock
+  (0.9.0-alpha.1 PG3); different workspaces stay independent. The first F package measures the added statement per
   write against the 0.8 write budgets.
 - No backfill: the feed starts empty at the 0.9 migration. Earlier changes remain in object history;
   a reader starts from a baseline (F5).

@@ -7,9 +7,10 @@ statements per item against the single write's, and the latency of the writes ma
 
 The latency is recorded, not bounded here: a live write in the job's workspace waits for one
 chunk at most (0.9.0-alpha.1 PG3), and the time of one chunk is held at two seeded sizes beside its
-statement counts (``test_batch_statements``, PG3b, PG-D17); PG5's run confirms both at full size.
-PG3b replaced this module's timed check that an item costs the same at the end of the job as at its
-start; the rates by quarter are still recorded.
+statement counts (``test_batch_statements``, PG3b, PG-D17). PG5's run (2026-10-03) confirmed both
+at full size: 100,000 items in 52 s live and 64 s in the change set, writes beside the job served
+in 0.35 s at most. PG3b replaced this module's timed check that an item costs the same at the end
+of the job as at its start; the rates by quarter are still recorded.
 """
 
 import statistics
@@ -18,7 +19,6 @@ from datetime import datetime
 from typing import Any
 
 import pytest
-from sqlalchemy.exc import OperationalError
 from test_batch_volume import SHAPE, creates
 from volume_fixture import APPLICATION, CODE, ITEM, WORKSPACE, measure, volume_app
 
@@ -63,19 +63,15 @@ def measured(tmp_path_factory) -> dict[str, dict[str, Any]]:
                 assert response.status_code == 202, response.text
                 job_id = response.json()["id"]
                 latencies: list[float] = []
-                refused: list[float] = []
                 progress: list[tuple[float, int]] = []
                 while (job := client.get(f"/api/v1/jobs/{job_id}").json())["state"] in {"queued", "running"}:
                     progress.append((time.perf_counter(), job["progress"]["processed"]))
-                    number = len(latencies) + len(refused)
+                    number = len(latencies)
                     write = {**single, "name": f"Beside {number}", "workspaceKey": WORKSPACE,
                              "attributes": [{"attributeTypeKey": CODE, "value": f"BESIDE-{label[0]}-{number}"}]}
                     began = time.perf_counter()
-                    try:
-                        assert client.post("/api/v1/objects", json=write).status_code == 201
-                        latencies.append(time.perf_counter() - began)
-                    except OperationalError:
-                        refused.append(time.perf_counter() - began)
+                    assert client.post("/api/v1/objects", json=write).status_code == 201
+                    latencies.append(time.perf_counter() - began)
                     time.sleep(0.5)
             progress.append((time.perf_counter(), job["progress"]["processed"]))
             ran = (
@@ -88,7 +84,6 @@ def measured(tmp_path_factory) -> dict[str, dict[str, Any]]:
                 "per_item_statements": (cost.statements - live_cost.statements * len(latencies)) / ITEMS,
                 "single_statements": single_cost.statements,
                 "latencies": latencies,
-                "refused": refused,
                 "rates": _rates(progress),
             }
             print(
@@ -97,8 +92,6 @@ def measured(tmp_path_factory) -> dict[str, dict[str, Any]]:
                 f"{results[label]['per_item_statements']:.1f} statements per item "
                 f"(single create {single_cost.statements}); writes beside it: {len(latencies)} served"
                 + (f" (median {statistics.median(latencies):.2f} s, max {max(latencies):.2f} s)" if latencies else "")
-                + f", {len(refused)} refused for the writer lock"
-                + (f" after {statistics.median(refused):.0f} s" if refused else "")
                 + f"; ms per item by quarter {', '.join(f'{rate:.2f}' for rate in results[label]['rates'])}"
             )
     return results
@@ -124,4 +117,4 @@ def test_a_background_batch_of_100000_items_runs_within_its_budget(measured, lab
     # Each item costs no more than its single write; chunks add their outcomes and checkpoint.
     assert result["per_item_statements"] <= result["single_statements"], result
     # The writes beside it are recorded (see the module docstring), not bounded here.
-    assert result["latencies"] or result["refused"], result
+    assert result["latencies"], result

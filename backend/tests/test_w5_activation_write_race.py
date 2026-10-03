@@ -2,7 +2,7 @@
 
 Each case holds one live write after it resolved the active model, activates a release B under
 which that write is invalid, then lets the write continue. Draft-base capture is the protected
-reference: it already rechecks the selection under ``BEGIN IMMEDIATE``.
+reference: it already rechecks the selection under the runtime-state row lock.
 """
 
 import threading
@@ -261,7 +261,7 @@ def test_activation_waits_for_a_flushed_live_write_and_then_sees_it(monkeypatch,
     flushed, released = threading.Event(), threading.Event()
 
     def hold_after_recheck(session: Session) -> None:
-        # Runs after the W5 recheck, which flushed the write and so holds SQLite's writer lock.
+        # Runs after the W5 recheck, which flushed the write and so holds its row locks.
         if "resolved_active_model_release_db_id" not in session.info or session.info.get("w5_held"):
             return
         session.info["w5_held"] = True

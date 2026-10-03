@@ -22,7 +22,6 @@ from ...common.pagination import Page, PageRequest, paginate_statement, text_key
 from ...errors import api_error
 from ...models.database import ChangeSetObject, ChangeSetRelation
 from ...models.schema import EngineModel
-from .matrix_cells import unindexed
 from .snapshot_reads import SnapshotContext
 
 KINDS = ("added", "changed", "removed")
@@ -78,12 +77,7 @@ class RelationChangeEntry:
 
 
 def _kind(deleted: Any, source_id: Any | None) -> Any:
-    """The entry kind of an own row, or null for a tombstone with no source row.
-
-    The source row's presence is read inside a ``CASE``: a ``WHERE`` term requiring it would let
-    SQLite turn the outer join into an inner one it may reorder, walking the base instead of the
-    change set's rows (see ``snapshot_reads.EffectiveRecord``).
-    """
+    """The entry kind of an own row, or null for a tombstone with no source row."""
     if source_id is None:
         return case((deleted.is_(False), literal("added", String)), else_=None)
     return case(
@@ -355,9 +349,7 @@ def _read_records(
         arms.append(
             arm(
                 base.objects,
-                # Driven by the listed IDs: the owner's covering indexes would otherwise tempt the
-                # planner to walk every record of the source.
-                unindexed(getattr(base.objects, base.owner_column) == base.owner_id),
+                getattr(base.objects, base.owner_column) == base.owner_id,
                 "source",
                 literal(False),
             )

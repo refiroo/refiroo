@@ -53,10 +53,11 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # description, cancelRequestedAt, leaseOwner and leaseExpiresAt on JobResponse, and the
     # background limits in JobLimits; removing those gives B1's document exactly. Re-baselined for
     # H4c (D-1): GET /workspaces/{key}/mappings removed (the same list as /relations), and
-    # /relations' description no longer names it; nothing else.
+    # /relations' description no longer names it; nothing else. Re-baselined for 0.9.0-alpha.1 PG5:
+    # info.version 0.9.0-alpha.1; with 0.8.0 the document hashes to the previous lock exactly.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "4b78ea8af609692b29b02c7dd32c5738926bd6e5760755b3388473c30d165f4e"
+        "b1b39b88b927aee227d02c2bff940484a15113571c7ef74bb7059901c2276bc7"
     )
 
 

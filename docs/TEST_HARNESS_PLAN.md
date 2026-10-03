@@ -44,7 +44,7 @@ of any limit on it.
 | Focused tests while iterating | any time | seconds: one module or case, without `-n` |
 | A package's checks: testmon's selection and the journeys it touches, or its boundary's groups (EXECUTION_GUIDE §2) | end of a package | **2 minutes**, with `-n auto` and the groups' serial part |
 | Build acceptance: the full backend suite without `budget` | end of a build | **5 minutes**, parallel part plus serial part |
-| Full-size budgets (`-m budget`) | a release's acceptance only, once | announced with its expected time before it starts (about 25 minutes today; PG-D17's target is under a minute per context) |
+| Full-size budgets (`-m budget`) | a release's acceptance only, once | announced with its expected time before it starts (2 min 39 s at PG5, 2026-10-03; PG-D17's target is under a minute per context) |
 
 The rules that hold the ceilings:
 

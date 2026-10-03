@@ -6,7 +6,22 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from sqlalchemy import Select, and_, case, exists, false, func, not_, or_, select
+from sqlalchemy import (
+    ARRAY,
+    Select,
+    String,
+    and_,
+    any_,
+    bindparam,
+    case,
+    exists,
+    false,
+    func,
+    not_,
+    or_,
+    select,
+    union_all,
+)
 from sqlalchemy.orm import Session, aliased
 
 from ...common.pagination import (
@@ -79,6 +94,8 @@ class ObjectColumns:
     ``search_values`` narrows a search's value look-up to records with a value of the given
     attributes that the trigram index matches a phrase in (:func:`indexed_value_match`); a list
     without it, such as a relation list bounded by its anchor, looks up each row's values.
+    ``search_names`` likewise narrows a name match to the records whose name the trigram index
+    matches a phrase in; without it each row's name is matched.
     """
 
     source: Any
@@ -93,12 +110,27 @@ class ObjectColumns:
     object_type: Any = None
     relationship: tuple[Any, Any] | None = None
     search_values: Callable[[str, list[str]], Any] | None = None
+    search_names: Callable[[str], Any] | None = None
 
 
-# A value match read from the trigram index costs its matches; one looked up per record costs the
-# records whose name does not match. Past this many index matches, the per-record look-up is the
-# cheaper one (S8 measurements).
-INDEXED_VALUE_LIMIT = 10_000
+# A match read from a trigram index costs its matches; one made on each record costs the records
+# the search reads. Past this many index matches, matching each record is the cheaper one (S8
+# measurements for values; 0.9.0-alpha.1 PG5 for names).
+INDEXED_MATCH_LIMIT = 10_000
+
+
+def bounded_match(matches: Select[Any], candidates: Any) -> Any:
+    """``candidates``, a predicate on the listed record built from ``matches``, while the index
+    matches are few; true for every record past :data:`INDEXED_MATCH_LIMIT`, so the search's
+    ``LIKE`` is made on each one. The count is bounded and uncorrelated, so it is evaluated once
+    per statement and reads at most ``INDEXED_MATCH_LIMIT + 1`` matches."""
+    many = (
+        select(func.count())
+        .select_from(matches.limit(INDEXED_MATCH_LIMIT + 1).subquery())
+        .scalar_subquery()
+        > INDEXED_MATCH_LIMIT
+    )
+    return or_(many, candidates)
 
 
 def indexed_value_match(
@@ -107,17 +139,10 @@ def indexed_value_match(
     """Restrict a value look-up to ``candidates`` of the index's matches, while they are few.
 
     ``candidates`` turns the matching value rows' sequence IDs into a predicate on the listed
-    record. The count is bounded and uncorrelated, so it is evaluated once per statement and
-    reads at most ``INDEXED_VALUE_LIMIT + 1`` matches; with more, every record is looked up.
+    record (:func:`bounded_match`).
     """
     matches = index.matches(pattern)
-    many = (
-        select(func.count())
-        .select_from(matches.limit(INDEXED_VALUE_LIMIT + 1).subquery())
-        .scalar_subquery()
-        > INDEXED_VALUE_LIMIT
-    )
-    return or_(many, candidates(matches))
+    return bounded_match(matches, candidates(matches))
 
 
 def _live_value_candidates(pattern: str, attributes: list[str]) -> Any:
@@ -137,6 +162,73 @@ def _live_value_candidates(pattern: str, attributes: list[str]) -> Any:
     return indexed_value_match(LIVE_VALUES, pattern, candidates)
 
 
+# A search whose phrase the trigram indexes match in at most this many records reads those records
+# by ID; one matching more walks the type, matching each record (0.9.0-alpha.1 PG5).
+SEARCH_CANDIDATE_LIMIT = 1_000
+
+
+def search_candidates(session: Session, parts: Sequence[Select[Any]]) -> list[str] | None:
+    """The record IDs ``parts`` select (each a set of IDs read from a trigram index), or ``None``
+    when there are more than :data:`SEARCH_CANDIDATE_LIMIT`.
+
+    Read before the search's statements are built, so each of them names the records it may
+    return as a list: PostgreSQL then reads those records by ID, in every arm of a change set's
+    projection, instead of walking every record of the type in name order to probe a set.
+    """
+    if not parts:
+        return None
+    # UNION ALL stops at the limit; UNION would first collect every match of a common phrase.
+    statement = union_all(*parts) if len(parts) > 1 else parts[0]
+    found = list(session.scalars(statement.limit(SEARCH_CANDIDATE_LIMIT + 1)))
+    return list(dict.fromkeys(found)) if len(found) <= SEARCH_CANDIDATE_LIMIT else None
+
+
+def live_search_candidates(
+    session: Session,
+    model: EngineModel,
+    *,
+    workspace_key: str,
+    object_type: ObjectTypeDefinition,
+    search: str,
+    search_fields: Sequence[str] | None,
+) -> list[str] | None:
+    """The live records of ``object_type`` whose name or searchable value the trigram indexes
+    match ``search`` in (:func:`search_candidates`); ``None`` for a phrase too short to index."""
+    if len(search) < MIN_INDEXED_LENGTH:
+        return None
+    pattern = f"%{escape_like(search)}%"
+    parts = []
+    if search_fields is None or "name" in search_fields:
+        parts.append(
+            select(RdmObject.id).where(
+                RdmObject.workspace_key == workspace_key,
+                RdmObject.object_type_key == object_type.key,
+                RdmObject.name.ilike(pattern, escape="\\"),
+            )
+        )
+    attributes = searchable_attribute_keys(model, (object_type,), search_fields)
+    if attributes:
+        record = aliased(RdmObject)
+        parts.append(
+            select(AttributeValue.object_id)
+            .join(record, record.id == AttributeValue.object_id)
+            .where(
+                AttributeValue.sequence_id.in_(LIVE_VALUES.matches(pattern)),
+                AttributeValue.attribute_type_key.in_(attributes),
+                record.workspace_key == workspace_key,
+                record.object_type_key == object_type.key,
+            )
+        )
+    return search_candidates(session, parts)
+
+
+def _live_name_candidates(pattern: str) -> Any:
+    """Live records whose name the trigram index matches ``pattern`` in (:func:`bounded_match`)."""
+    record = aliased(RdmObject)
+    matches = select(record.sequence_id).where(record.name.ilike(pattern, escape="\\"))
+    return bounded_match(matches, RdmObject.sequence_id.in_(matches))
+
+
 LIVE_OBJECT_COLUMNS = ObjectColumns(
     source=RdmObject,
     id=RdmObject.id,
@@ -149,6 +241,7 @@ LIVE_OBJECT_COLUMNS = ObjectColumns(
     ),
     object_type=RdmObject.object_type_key,
     search_values=_live_value_candidates,
+    search_names=_live_name_candidates,
 )
 
 
@@ -166,12 +259,14 @@ def build_object_query(
     search_fields: Sequence[str] | None = None,
     id_filter: Callable[[Any], Any] | None = None,
     as_of: date | None = None,
+    session: Session | None = None,
 ) -> ObjectQuery:
     """Build the filtered statement, keyset and cursor filters for an object collection.
 
     ``search_fields`` limits ``search`` to those fields (``name`` or searchable attributes), as a
     view declares them; ``id_filter`` restricts the records by a predicate on their public ID;
-    ``as_of`` keeps the records effective on that date (Base 0.9 Q4).
+    ``as_of`` keeps the records effective on that date (Base 0.9 Q4). With ``session``, a search
+    first reads its candidates from the trigram indexes (:func:`search_candidates`).
     """
     object_type = get_object_type(model, object_type_key)
     if application_key:
@@ -189,6 +284,16 @@ def build_object_query(
         statement = statement.where(RdmObject.parent_object_id.is_(None))
     if id_filter is not None:
         statement = statement.where(id_filter(RdmObject.id))
+    search_ids = None
+    if session is not None and search:
+        search_ids = live_search_candidates(
+            session,
+            model,
+            workspace_key=workspace_key,
+            object_type=object_type,
+            search=search,
+            search_fields=search_fields,
+        )
     statement, keys, seek, normalized_filters = refine_object_query(
         model,
         LIVE_OBJECT_COLUMNS,
@@ -199,6 +304,7 @@ def build_object_query(
         field_filters=field_filters or [],
         search_fields=search_fields,
         as_of=as_of,
+        search_ids=search_ids,
     )
     return ObjectQuery(
         statement=statement,
@@ -233,12 +339,14 @@ def refine_object_query(
     field_filters: list[tuple[str, str, str]],
     search_fields: Sequence[str] | None = None,
     as_of: date | None = None,
+    search_ids: Sequence[str] | None = None,
 ) -> tuple[Select[Any], tuple[SortKey, ...], Callable[[str], Any], list[dict[str, str]]]:
     """Add search and typed filters to an object statement and return its keyset and seek.
 
     ``object_types`` are the types the listed records can have: search covers the searchable
     fields of all of them, or only ``search_fields`` when given, and sort any scalar attribute
     bound to one of them, while a filter, an ancestor sort or ``as_of`` needs exactly one.
+    ``search_ids`` are the search's candidates when they were read first (:func:`search_candidates`).
     """
     if as_of is not None:
         (object_type,) = object_types
@@ -246,7 +354,7 @@ def refine_object_query(
         statement = statement.where(as_of_predicate(columns, object_type, as_of))
     if search:
         statement = statement.where(
-            _search_predicate(model, columns, object_types, search, search_fields)
+            _search_predicate(model, columns, object_types, search, search_fields, search_ids)
         )
     normalized_filters, predicates = typed_filter_predicates(
         model, columns, object_types, field_filters
@@ -280,25 +388,39 @@ def _search_predicate(
     object_types: Sequence[ObjectTypeDefinition],
     search: str,
     search_fields: Sequence[str] | None = None,
+    search_ids: Sequence[str] | None = None,
 ) -> Any:
     """A case-insensitive "contains" match on the name or a searchable attribute (D25).
 
-    The name is matched on the row. A value is looked up only for a record the trigram index
-    names, when the search is long enough to hold a trigram; the ``LIKE`` then decides, so the
-    index never changes the result, only which records are looked up. ``search_fields`` narrows
-    the match to the name and searchable attributes it names.
+    When the search is long enough to hold a trigram, the name and the values are matched only
+    for the records their trigram indexes name: the ``search_ids`` read first, or else sets the
+    statement reads itself, bounded as :func:`bounded_match` bounds them. The ``LIKE`` then
+    decides, so an index never changes the result, only which records are looked up. A shorter
+    search matches every row's name. ``search_fields`` narrows the match to the name and
+    searchable attributes it names.
     """
-    escaped = _escape_like(search)
-    searchable_attributes = list(
-        dict.fromkeys(
-            binding.attributeTypeKey
-            for object_type in object_types
-            for binding in object_type.attributes
-            if model.attribute_type(binding.attributeTypeKey).features.get("searchable")
-            and (search_fields is None or binding.attributeTypeKey in search_fields)
-        )
-    )
+    escaped = escape_like(search)
+    searchable_attributes = searchable_attribute_keys(model, object_types, search_fields)
+    if search_ids is not None:
+        values = columns.values
+        matches = []
+        if search_fields is None or "name" in search_fields:
+            matches.append(name_contains(columns.name, search))
+        if searchable_attributes:
+            matches.append(
+                exists(
+                    select(values.sequence_id).where(
+                        *columns.value_match(values),
+                        values.attribute_type_key.in_(searchable_attributes),
+                        values.text_value.ilike(f"%{escaped}%", escape="\\"),
+                    )
+                )
+            )
+        listed = bindparam("search_ids", list(search_ids), type_=ARRAY(String))
+        return and_(columns.id == any_(listed), or_(*matches)) if matches else false()
     name_match = name_contains(columns.name, search)
+    if columns.search_names is not None and len(search) >= MIN_INDEXED_LENGTH:
+        name_match = and_(columns.search_names(f"%{escaped}%"), name_match)
     if not searchable_attributes:
         return name_match if search_fields is None or "name" in search_fields else false()
     values = columns.values
@@ -318,9 +440,26 @@ def _search_predicate(
     return or_(name_match, attribute_match)
 
 
+def searchable_attribute_keys(
+    model: EngineModel,
+    object_types: Sequence[ObjectTypeDefinition],
+    search_fields: Sequence[str] | None,
+) -> list[str]:
+    """The searchable attributes of ``object_types`` a search covers, narrowed by ``search_fields``."""
+    return list(
+        dict.fromkeys(
+            binding.attributeTypeKey
+            for object_type in object_types
+            for binding in object_type.attributes
+            if model.attribute_type(binding.attributeTypeKey).features.get("searchable")
+            and (search_fields is None or binding.attributeTypeKey in search_fields)
+        )
+    )
+
+
 def name_contains(column: Any, search: str) -> Any:
     """A case-insensitive literal "contains" match of ``search`` in a name column."""
-    return column.ilike(f"%{_escape_like(search)}%", escape="\\")
+    return column.ilike(f"%{escape_like(search)}%", escape="\\")
 
 
 def _object_sort_keys(
@@ -627,9 +766,9 @@ def _filter_predicate(
     elif operator == "eq":
         comparison = column == value
     elif operator == "contains":
-        comparison = column.ilike(f"%{_escape_like(value)}%", escape="\\")
+        comparison = column.ilike(f"%{escape_like(value)}%", escape="\\")
     elif operator == "startsWith":
-        comparison = column.ilike(f"{_escape_like(value)}%", escape="\\")
+        comparison = column.ilike(f"{escape_like(value)}%", escape="\\")
     else:
         comparisons = {"lt": column < value, "lte": column <= value, "gt": column > value, "gte": column >= value}
         comparison = comparisons[operator]
@@ -718,7 +857,7 @@ def query_error(code: str, message: str, path: str) -> None:
     raise api_error(422, code, message, {"path": f"/query/{path}"})
 
 
-def _escape_like(value: str) -> str:
+def escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 

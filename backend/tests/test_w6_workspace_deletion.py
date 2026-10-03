@@ -189,7 +189,7 @@ def test_objects_and_change_sets_are_refused_until_removed(client):
     )
     assert discarded.status_code == 204, discarded.text
     with SessionLocal() as session:
-        # Live containment left relation-set versions behind; SQLite does not cascade them.
+        # Live containment left relation-set versions behind, which the deletion removes.
         assert session.scalar(
             select(func.count()).where(RelationSetVersion.workspace_key == key)
         )

@@ -745,11 +745,13 @@ def test_translation_group_becomes_a_translation_with_its_required_scoped_relati
             relations=[RelationInput(k("object-has-translation"), "incoming", source["id"])],
         )
 
-    # The required relationship is an input; one into a scope the language already holds is
-    # refused (one active translation per record and language).
+    # The required relationship is an input; one into a scope the language already holds (one
+    # active translation per record and language) is held by the change set for validation to
+    # report (H4c), so the check passes it.
     missing = TypeChange(inner["id"], k("translation"), mapping=mapping)
     assert refused(client, change_set, missing).code == "missing_required_relations"
-    assert refused(client, change_set, becomes(translated)).code == "duplicate_relation_scope"
+    with SessionLocal() as session:
+        check_type_change(session, change_set["id"], becomes(translated))
 
     result = change_type(client, change_set, becomes(untranslated))
     assert len(result.created_relation_ids) == 1
@@ -848,17 +850,19 @@ def test_generated_model_shelf_becomes_a_matrix_cell(volume):
     assert refused(client, change_set, TypeChange(inner["id"], CELL)).code == (
         "missing_required_relations"
     )
-    # One active cell per row and column (the scope), and the new cell is active by input or not.
-    assert refused(
-        client,
-        change_set,
-        TypeChange(
-            inner["id"],
-            CELL,
-            values={ACTIVE: True},
-            relations=[RelationInput(GROUP_HAS_CELL, "incoming", group["id"])],
-        ),
-    ).code == "duplicate_relation_scope"
+    # One active cell per row and column (the scope): a second one is held by the change set for
+    # validation to report (H4c), so the check passes it.
+    with SessionLocal() as session:
+        check_type_change(
+            session,
+            change_set["id"],
+            TypeChange(
+                inner["id"],
+                CELL,
+                values={ACTIVE: True},
+                relations=[RelationInput(GROUP_HAS_CELL, "incoming", group["id"])],
+            ),
+        )
     # The new cell's stored matrix states are checked by the fixture's teardown.
     change_type(client, change_set, becomes(other))
     publish(client, change_set)

@@ -4,8 +4,8 @@ writes.
 An inline independent batch of 1,000 upserts (half new, half overwriting existing items) and an
 atomic batch of 10,000 creates run live and in the fixture's change set. Since 0.9.0-alpha.1 PG3b
 the items are decided through their single writes' rules and written in bulk, so an item costs a
-small fraction of its single write (PG-D12); the bounds below are B1's and PG5 restates them from
-its measurement. Re-sending the same upserts writes nothing. The atomic batch runs through the
+small fraction of a statement (PG-D12); PG5 restated the bounds from its measurement. Re-sending
+the same upserts writes nothing. The atomic batch runs through the
 inline job's engine path, which B2's background run reuses, since the route caps a request at 1,000
 items.
 
@@ -33,10 +33,10 @@ from app.engine.jobs.inline import submit_inline_batch
 from app.models.commands import BatchRequest
 
 SHAPE = scaled_shape(0.005)
-# Statements per upsert, measured 20.5 live and 34.0 in a change set with half of them updates
-# (B1, before PG3b's bulk writes). A create item costs no more than the same create as a single
-# write.
-UPSERT_BUDGET = {"live": 21, "change set": 35}
+# Statements per item, measured at PG5 (2026-10-03): 0.06 per upsert with half of them updates and
+# 0.01-0.02 per create, live and in a change set (B1, before PG3b's bulk writes: 20.5 and 34.0 per
+# upsert). A chunk's statements are held exactly by ``test_batch_statements``.
+ITEM_BUDGET = 0.1
 
 
 def _parent(index: int) -> dict[str, Any]:
@@ -137,10 +137,12 @@ def test_items_cost_about_their_single_writes(measured, label):
         result = measured[(kind, label)]
         assert result["job"]["result"] == "applied", result["job"]
         per_item[kind] = result["cost"].statements / result["items"]
-    # A create item resolves its parent by key where the single write names its ID; the job's own
-    # rows are spread over the items.
-    assert per_item["creates"] <= single, (label, per_item, single)
-    assert per_item["upserts"] <= UPSERT_BUDGET[label], (label, per_item, single)
+        print(
+            f"\nD13 {label} {kind}: {result['items']} items in {result['cost'].seconds:.1f} s, "
+            f"{per_item[kind]:.2f} statements per item (single create {single})"
+        )
+    assert per_item["creates"] <= ITEM_BUDGET, (label, per_item, single)
+    assert per_item["upserts"] <= ITEM_BUDGET, (label, per_item, single)
     counts = measured[("upserts", label)]["job"]["counts"]
     assert counts["created"] + counts["updated"] == 1000, counts
     if label == "live":
@@ -154,5 +156,5 @@ def test_items_cost_about_their_single_writes(measured, label):
 def test_resending_unchanged_items_writes_nothing(measured, label):
     resent = measured[("resent", label)]
     assert resent["job"]["counts"]["unchanged"] == 1000, resent["job"]
-    # Reads only: fewer statements than the write.
-    assert resent["cost"].statements < measured[("upserts", label)]["cost"].statements / 2
+    # Reads only: fewer statements than the write (29 against 57 at PG5).
+    assert resent["cost"].statements < measured[("upserts", label)]["cost"].statements

@@ -13,9 +13,6 @@ ID must be in (:class:`SetFilter`), which the builders apply to every part of a 
   the hop's own criteria (``not`` inverts it). It reads the binding's relations once, as a set,
   never once per listed record.
 
-Live, a set bounded by its criterion drives the read, so a narrow criterion costs its matches rather
-than every record of the type.
-
 Every name in the body is checked against the model before anything runs, and a name the model
 does not give the queried type is refused as ``invalid_query`` at its JSON pointer (D19).
 """
@@ -28,14 +25,12 @@ from typing import Any, NoReturn
 from sqlalchemy import and_, select
 from sqlalchemy.orm import aliased
 
-from ...common.sql import CrossJoin
 from ...errors import ApiError, api_error
 from ...models.database import ObjectRelation, RdmObject
 from ...models.queries import ModelQuery, QueryCriterion, QueryExpansion
 from ...models.schema import EngineModel, ObjectTypeDefinition
 from ..model.traversal import ancestor_type_keys, related_object_types
 from ..model.validation.fields import ANCESTOR_FIELD_PREFIX
-from .matrix_cells import unindexed
 from .object_query import (
     LIVE_OBJECT_COLUMNS,
     ObjectColumns,
@@ -84,15 +79,10 @@ class Expansion:
 
 @dataclass(frozen=True)
 class SetFilter:
-    """A criterion as a set the listed record's ID or parent ID must (or, inverted, must not) be in.
-
-    ``narrow`` marks a set bounded by the criterion itself (a hop's matches, an ancestor's
-    containers) rather than by the records it excludes: live, such a set drives the read.
-    """
+    """A criterion as a set the listed record's ID or parent ID must (or, inverted, must not) be in."""
 
     column: str  # "id" or "parent"
     predicate: Callable[[Any], Any]
-    narrow: bool
 
 
 @dataclass(frozen=True)
@@ -153,8 +143,7 @@ def plan_model_query(
     }
     try:
         if context is None:
-            narrow = any(item.narrow for item in sets)
-            query = _live_query(model, object_type, workspace_key, narrow=narrow, **options)
+            query = _live_query(model, object_type, workspace_key, **options)
         else:
             query = _snapshot_query(model, object_type, context, **options)
     except ApiError as error:
@@ -184,17 +173,12 @@ def _live_query(
     id_filter: Callable[[Any], Any] | None,
     parent_filter: Callable[[Any], Any] | None,
     as_of: date | None,
-    narrow: bool,
 ) -> ObjectQuery:
-    """The live statement. With a ``narrow`` set, the type and workspace terms are written so no
-    index serves them: the (workspace, type, name) index would otherwise lead, and SQLite would
-    read every record of the type to probe the set (a 1,500-record hop's total: 126 ms against a
-    few), where the set's own IDs or parents find its records by key."""
-    scope = [
+    """The live statement."""
+    statement = select(RdmObject).where(
         RdmObject.object_type_key == object_type.key,
         RdmObject.workspace_key == workspace_key,
-    ]
-    statement = select(RdmObject).where(*(unindexed(term) for term in scope) if narrow else scope)
+    )
     if id_filter is not None:
         statement = statement.where(id_filter(RdmObject.id))
     if parent_filter is not None:
@@ -375,14 +359,14 @@ def _ancestor_predicate(
         )
         walk = start.cte("ancestor_descendants", recursive=True)
         child = aliased(RdmObject, name="descendant")
-        # UNION, not UNION ALL: a record met twice ends the walk, whatever the data holds. The
-        # queue is the outer loop of each step, which probes the (workspace, parent, type) index.
+        # UNION, not UNION ALL: a record met twice ends the walk, whatever the data holds. Each
+        # step probes the (workspace, parent, type) index with the queued record.
         walk = walk.union(
             select(child.id)
-            .select_from(CrossJoin(walk, child))
+            .select_from(walk)
+            .join(child, child.parent_object_id == walk.c.id)
             .where(
                 child.workspace_key == workspace_key,
-                child.parent_object_id == walk.c.id,
                 child.object_type_key.in_(through),
             )
         )
@@ -396,11 +380,11 @@ def _ancestor_predicate(
         children = object_projection(context, object_type_keys=through)
         walk = walk.union(
             select(children.c.object_id)
-            .select_from(CrossJoin(walk, children))
-            .where(children.c.parent_object_id == walk.c.id)
+            .select_from(walk)
+            .join(children, children.c.parent_object_id == walk.c.id)
         )
     containers = select(walk.c.id)
-    return SetFilter("parent", lambda column: column.in_(containers), narrow=True)
+    return SetFilter("parent", lambda column: column.in_(containers))
 
 
 def _related_predicate(
@@ -460,8 +444,8 @@ def _related_predicate(
             .where(*predicates)
         )
     if criterion.not_:
-        return SetFilter("id", lambda column: column.not_in(matched), narrow=False)
-    return SetFilter("id", lambda column: column.in_(matched), narrow=True)
+        return SetFilter("id", lambda column: column.not_in(matched))
+    return SetFilter("id", lambda column: column.in_(matched))
 
 
 def _ends(from_column: Any, to_column: Any, direction: str) -> tuple[Any, Any]:

@@ -25,7 +25,7 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261001_02"
+HEAD = "20261003_01"
 BASELINE = "20261001_01"
 LIMITED_ROLE = "rdm_startup_limited"
 

@@ -1398,22 +1398,24 @@ def test_replacement_validates_final_ancestor_scope(client, change_set_context):
             change_set_version=change_set["version"] if change_set else None,
         ),
     )
+    if change_set:
+        # A change set holds the breach for validation to report and publishing to refuse (H4c).
+        assert response.status_code == 200, response.text
+        validation = client.post(f"/api/v1/change-sets/{change_set['id']}/validation").json()
+        assert "duplicate_relation_scope" in {item["code"] for item in validation["diagnostics"]}
+        return
     assert response.status_code == 409, response.text
     assert response.json()["error"]["code"] == "duplicate_relation_scope"
     assert "ancestor scope" in response.json()["error"]["message"]
     assert _live_set_version(other["id"], "incoming") == 0
-    if change_set:
-        assert _change_set_version(client, change_set["id"]) == change_set["version"]
     # Replacing an outgoing edge within the same scope validates the final graph.
     response = client.put(
         PUT,
         json=_replacement_body(
             sv,
             other,
-            0 if change_set else 1,
+            1,
             target=other,
-            change_set_id=change_set["id"] if change_set else None,
-            change_set_version=change_set["version"] if change_set else None,
         ),
     )
     assert response.status_code == 200, response.text

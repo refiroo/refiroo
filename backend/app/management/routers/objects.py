@@ -285,6 +285,7 @@ def list_objects(
             field_filters=_field_filters(request),
             top_level=top_level,
             as_of=as_of,
+            session=session,
         )
         page = paginate_statement(
             session,
@@ -322,6 +323,7 @@ def list_objects(
         field_filters=_field_filters(request),
         top_level=top_level,
         as_of=as_of,
+        session=session,
     )
     page = paginate_statement(
         session,

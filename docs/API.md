@@ -994,17 +994,18 @@ rows, not the size of the change set or publication.
 `search` is a literal substring: `%`, `_` and quotes match themselves. Case folding is Unicode's,
 under the database's ICU root collation (0.9.0-alpha.1, PG-D11), so `ü` matches `Ü`; the search
 index does not change it.
-Since Base 0.8 S8 (D25), a search of three or more characters looks up attribute values through a
-trigram index over text values, reading only the records whose values contain the text; names are
-matched on the type's name index, about 20 ms per 100,000 records. A name search with its total over
-100,000 records takes about 35 ms in live data and a publication and 75 ms in a change set (0.7–0.9 s before). A
-one- or two-character search has no trigram to look up and reads each record's values (0.4–0.7 s
-over 100,000 records when few names match); so does a phrase present in more than 10,000 text values,
-where reading the index would cost more than it saves (about 0.4 s when it is in every value and no
-name). The index narrows which records are read, never which match: every path returns the same
-records. The index is a `pg_trgm` GIN index over text values (0.9.0-alpha.1, PG-D7); the timings
-above were measured on its SQLite FTS5 predecessor and are re-measured in PG5. A first page, or a `position` page, that reaches the end of the list reports its
-`totalCount` without a second count.
+A search of three or more characters reads its candidates from trigram indexes (`pg_trgm` GIN) over
+record names and text values (Base 0.8 S8, D25; 0.9.0-alpha.1 PG-D7 and PG5): the per-type list first
+reads the records whose name or searchable value contains the text, and when there are at most 1,000
+it reads only those. A phrase in more records, or a one- or two-character search (no trigram to look
+up), matches every record of the type instead; a value phrase in more than 10,000 values is matched
+per record too, where reading the index would cost more than it saves. The indexes narrow which
+records are read, never which match: every path returns the same records. Over 100,000 records
+(PostgreSQL, PG5's closing measurement, [POSTGRESQL_BUDGETS](POSTGRESQL_BUDGETS.md)) a name or code
+search with its total takes 12–23 ms in every context; a phrase in every record (a total of 100,000)
+76 ms live, 104 ms in a publication and 211 ms in a change set, and a two-character one 52–54 ms and
+154 ms in a change set. A first page, or a `position` page, that reaches the end of the list reports
+its `totalCount` without a second count.
 
 Change sets and publications record no timestamps. In a `changeSetId` or `publicationId` context,
 object and relation responses return `createdAt` and `updatedAt` as `null`, and a filter or sort on
@@ -1131,10 +1132,11 @@ reordering `objectTypeKey` keeps a cursor valid; neither this route nor the per-
 other's cursors.
 
 Cost over the Track S fixture (258,000 live records of six types, a 261,000-record publication and a
-change set over it; SQLite; 20-row pages; median time): a first page over every type takes 5 ms live,
-9 ms in a change set and 5 ms in a publication; two named types 3–5 ms; a name search with its total
-72, 80 and 73 ms. A search is a contains-match, which no index serves, so its cost grows with the
-records it reads; narrowing by `objectTypeKey`, `applicationKey` or a parent reduces it.
+change set over it; PostgreSQL, 0.9.0-alpha.1 PG5; 20-row pages; median of five): a first page over
+every type takes 5 ms live, 49 ms in a change set and 40 ms in a publication; two named types
+24–32 ms; a name search with its total 8–12 ms. The name search reads the trigram index over record
+names; a phrase in very many names matches each record instead, so narrowing by `objectTypeKey`,
+`applicationKey` or a parent reduces its cost.
 
 ### Model-aware query (Base 0.9 Q3)
 
@@ -1216,11 +1218,12 @@ does not bind or not filterable (`/where/0/field`), an operator its value type l
 as on the per-type list.
 
 Cost over the Track S fixture (100,000 items among 258,000 live records, a publication and a change
-set over it; SQLite; 20-row pages; median of five), live · change set · publication: a hop to the
-group 1,500 items cite, with its total, 12 · 52 · 37 ms; the inverted hop's first page 6 · 11 · 4
-ms; the 20,000 items under one group by `ancestor:`, with their total, 27 · 48 · 6 ms; a 20-row
-expansion of 1,500 citations 9 · 15 · 8 ms, and of a group's 20,000 items 44 · 91 · 68 ms, about
-what `GET /relations` costs for that record. Each expansion is one statement for the whole page.
+set over it; PostgreSQL, 0.9.0-alpha.1 PG5; 20-row pages; median of five), live · change set ·
+publication: a hop to the group 1,500 items cite, with its total, 12 · 44 · 14 ms; the inverted hop's
+first page 7 · 36 · 6 ms; the 20,000 items under one group by `ancestor:`, with their total,
+9 · 69 · 10 ms; a 20-row expansion of 1,500 citations 13 · 16 · 12 ms, and of a group's 20,000
+items 71 · 46 · 41 ms. Each expansion is one statement for the whole page, which reads the anchor's
+relations first and their records by ID.
 
 ### Effective periods and `asOf` (Base 0.9 Q4)
 

@@ -1,6 +1,6 @@
 # PostgreSQL runtime: interim release 0.9.0-alpha.1
 
-**Status:** Planned 2026-10-01. Decisions [PG-D1–PG-D11](#decisions) accepted 2026-10-01. The same
+**Status:** Delivered 2026-10-03 (PG4 dropped); released as 0.9.0-alpha.1. Planned 2026-10-01. Decisions [PG-D1–PG-D11](#decisions) accepted 2026-10-01. The same
 day the user chose **PostgreSQL only** over a mixed setup with SQLite for development, so PG-D2,
 D3, D4, D6, D7 and D8 were revised to that and PG-D10 added; each keeps its accepted intent. PG-D11
 (ICU root collation) was decided at the start of PG1. **PG-D12–PG-D17 and the package
@@ -96,7 +96,7 @@ added. D11 accepted 2026-10-01 at the start of PG1. D12–D17 accepted 2026-10-0
 | PG-D14 | Concurrency between the reads and the writes | **PG3's workspace lock (PG-D5), held for the chunk**; in a change set its version claim, as today. So PG3b follows PG3. Uniqueness stays enforced by the engine (PG-D5; database constraints wait for 0.11) |
 | PG-D15 | A failure inside a chunk | **No savepoint per item.** A refused item is never written. A bulk write that fails on something the rules did not predict redoes that chunk item by item, as batches of one, so the item fails with its single write's code |
 | PG-D16 | History | **Per record, as today:** one audit event per item with the job as its cause, inserted together; the events' sequence numbers come back from the insert (`RETURNING`) for their subjects. Typed value index rows go through `snapshot_values` and matrix notes through `note_rows`/`note_cells`, applied once per chunk as now (ADR-033) |
-| PG-D17 | How the cost is held | **Counted, not timed.** Statements per chunk at two seeded dataset sizes, which must not grow with the data or with the chunk's item count beyond a constant; seconds to run, in the parallel part. The 100,000-item run becomes a measurement at PG5's acceptance, announced and run once. Target: 100,000 items in under a minute in each context, confirmed or restated by that first measurement |
+| PG-D17 | How the cost is held | **Counted, not timed.** Statements per chunk at two seeded dataset sizes, which must not grow with the data or with the chunk's item count beyond a constant; seconds to run, in the parallel part. The 100,000-item run becomes a measurement at PG5's acceptance, announced and run once. Target: 100,000 items in under a minute in each context, confirmed or restated by that first measurement. **Measured at PG5 (2026-10-03):** 52 s live, met; 64 s in a change set, missed by 4 s and kept as the target, with the cause to find after 1.0 ([POSTGRESQL_BUDGETS E7](POSTGRESQL_BUDGETS.md#e7-pg-d17-in-a-change-set-64-s-for-100000-items-target-under-60-s)) |
 
 **Note (PG-D18, open, to revisit):** batch deletion stays per item in PG3b, and neither today's
 per-item path nor a set-based copy of it is the right answer. A large delete batch is not rare, and
@@ -620,6 +620,45 @@ shows a difference.
 **Release:** version 0.9.0-alpha.1 in `pyproject.toml` and the FastAPI title. The CHANGELOG section
 covers everything since 0.8.0. Tag `v0.9.0-alpha.1` on the user's instruction (commit and tag only
 when asked).
+
+**Delivered 2026-10-03.** The budgets, their measurement method, the closing figures, what changed
+and every remaining exception are in [POSTGRESQL_BUDGETS.md](POSTGRESQL_BUDGETS.md), the handoff for
+the budget fixes, which the user deferred to the first fixes after 1.0.
+
+- **Budgets restated.** Statements and rows (budgets 1–2) hold for every read: the six budget
+  modules, 54 passed. Time (budget 3, 100 ms at full volume): 143 of 154 reads within it, 11 over
+  (18 before PG5 on PostgreSQL), each listed with its cause as E1–E7 in the handoff. Decision records
+  amended: 0.8 Track S and A2 (BASE_0_8 plan), D13 and B2's budget (BASE_0_9 plan), PG-D17 above.
+- **The 100,000-item batch, measured once** (`-m budget`, 2 min 39 s): 52 s live and 64 s in a
+  change set (PG-D17's minute holds live, missed by 4 s in a change set, handoff E7); writes beside the
+  job waited 0.35 s at most, confirming PG3's one-chunk bound at full size. `test_batch_volume`'s
+  bounds restated from the measurement (0.1 statements per item).
+- **Read fixes found by the measurement:** a relation expansion reads its anchor's relations first
+  (415 → 70 ms); the SQLite-era planner constructs are removed (`CrossJoin`, `unindexed`, `found`,
+  `CASE` wrappers, `MATERIALIZED`, `_rows_of`, the model query's `narrow`); the matrix state filter's
+  row list is one parameter per statement; name search reads trigram indexes on record names (revision
+  `20261003_01`) with candidates read before the statements are built (specific phrases 50–226 →
+  11–23 ms); the redundant `ix_snapshot_attribute_values_owner_key` is dropped (the planner chose it on
+  rows without statistics). The handoff's §4 gives each one's plan evidence.
+- **SQLite debt closed.** A search for SQLite in `app/`, `tests/` and `frontend/e2e` finds only the
+  refusal of a SQLite URL, its tests, `test_boundaries`' check and testmon's data file (which is a
+  SQLite file); AGENTS.md, ARCHITECTURE and README already described PostgreSQL only. Measured-on-SQLite
+  figures in API.md, INTEGRATION_API and EXECUTION_GUIDE are restated or marked as history.
+- **Eight stale tests fixed:** they had failed on HEAD since H4c's decisions (empty text is no value;
+  a change set holds an ancestor-scope breach). Handoff §6.
+- **Migration** `20261003_01`: the four name indexes and the dropped index. J12.5 gains a case for
+  it (started at `20261001_02` with an index name taken: refused with both revisions named and the
+  database left as it was; recovered on the next start; a name search finds a record; a restart
+  serves); `test_startup` and `test_schema_drift` pass at the new head.
+
+**Checks:** the full backend suite once on PostgreSQL before the final read-path edits (1,399
+passed, the 8 stale tests failed, 4 min 1 s, within the 5-minute ceiling); after them, the read,
+search, migration and startup modules (152 and 58 passed), the six budget modules (54 passed), the
+timed validate-and-publish budget and `-m budget` (6 passed after the restatement); `ruff check app/
+tests/`. **Not run (user's decision, 2026-10-03):** the full backend suite again, the frontend suites
+and the browser runners; nothing under `frontend/` changed and the OpenAPI document changes only its
+version. The full-volume read table was measured in ten rounds during the package; the closing round
+is the handoff's §3.
 
 ## Composable domains (ADR-032)
 

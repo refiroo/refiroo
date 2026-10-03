@@ -14,7 +14,7 @@ their code changed are missing from it, and it says how many tests the data hold
 
 import ast
 import json
-import sqlite3
+import sqlite3  # testmon's data file, not the engine's database
 import subprocess
 import sys
 from collections import defaultdict

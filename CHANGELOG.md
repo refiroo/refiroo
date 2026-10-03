@@ -6,6 +6,11 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+## [0.9.0-alpha.1] - 2026-10-03
+
+Everything since 0.8.0: Base 0.9 packages Q1–Q4, C1, V1, B1 and B2, and the PostgreSQL runtime
+(PG1–PG3b, PG5; PG4 dropped) with the test harness (H1–H4d-1).
+
 ### Added
 
 - Base 0.9 Q1: cross-type lookup `GET /api/v1/objects`. It lists records of every object type, or of
@@ -220,8 +225,37 @@ All notable changes to this project are documented in this file. The format foll
 - A live page's ancestor paths read only the columns a path shows, not whole records. A page of deep
   records loaded 163 ORM rows for 20 records and now loads 84, on the per-type list and the lookup alike.
 
+- 0.9.0-alpha.1 PG5: every volume budget re-measured on PostgreSQL. Statement and row budgets hold
+  for every read; 143 of the 154 full-volume reads stay within 100 ms. The eleven over it (change-set
+  matrix state filters, change-set searches matching nearly every record, the attribute sort under a
+  20,000-child parent, the live history-only matrix filter) are deferred to the first fixes after
+  1.0; `docs/POSTGRESQL_BUDGETS.md` holds the figures, causes and fix plan. Batches: 1,000 upserts in
+  0.8 s, 10,000 atomic creates in 5.4 s live and 17.8 s in a change set, 100,000 background items in
+  52 s live and 64 s in a change set (on SQLite 231 s and 663 s), with writes beside the job waiting
+  0.35 s at most.
+- 0.9.0-alpha.1 PG5: search reads trigram indexes on record names as well as values (revision
+  `20261003_01`). The per-type list reads a search's candidates first and, with at most 1,000, reads
+  only those records, in live data, a change set or a publication: a name or code search with its
+  total over 100,000 records takes 12–23 ms in every context (was 50–226 ms on PostgreSQL before).
+  Results are unchanged; a search matching very many records, or of one or two characters, matches
+  every record as before. A search costs one statement more.
+- 0.9.0-alpha.1 PG5: the relation matrix's state filter sends its matching rows to the database once
+  per statement instead of once per part of it (change-set filters 210 → 136–154 ms), and the query
+  constructs written to steer SQLite's planner are removed, which made change-set object pages, the
+  ancestor criterion and history sorts faster on PostgreSQL (for example the ancestor criterion in a
+  change set 141 → 69 ms).
+- 0.9.0-alpha.1 PG5: version 0.9.0-alpha.1 (backend, API document, frontend package).
+
 ### Fixed
 
+- 0.9.0-alpha.1 PG5: a 20-row relation expansion of a record with 20,000 relations
+  (`expand` in the model query) took about 0.4 s on PostgreSQL: it walked the name index over every
+  record of the workspace until 20 belonged to the record. It reads the record's relations first and
+  their records by ID: about 70 ms.
+- 0.9.0-alpha.1 PG5: a change-set read right after the change set was started from current live data
+  could take seconds: on rows without statistics yet, PostgreSQL looked up each record's attribute
+  value through an index that read every value of the attribute. That redundant index
+  (`ix_snapshot_attribute_values_owner_key`) is dropped in revision `20261003_01`.
 - The background job worker no longer spins when its database is unreachable. A failed first pass
   left its next sweep in the past, so it retried without waiting and logged a full traceback on
   every pass (3,111 attempts in half a second in the regression test; a 28 GB log overnight). It now

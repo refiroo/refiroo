@@ -143,6 +143,13 @@ _Budgets._ Held by `test_volume_baseline.py` at two scales four times apart:
 Live reads and writes meet 1 and 2 today. The draft/history read test and the draft write test are
 strict expected failures; S2 removes the markers as each is met.
 
+**Restated on PostgreSQL (0.9.0-alpha.1 PG5, 2026-10-03).** The figures in this plan were measured on
+SQLite. On PostgreSQL budgets 1 and 2 hold for every read; budget 3 holds for 143 of the 154 reads
+the baseline now measures, and 11 exceed it (the change-set matrix state filters, change-set searches
+matching nearly every record, D26's attribute sort under the 20,000-child parent, the live
+history-only matrix filter). Their causes and fixes, deferred to the first fixes after 1.0, and the
+closing table are in [POSTGRESQL_BUDGETS.md](POSTGRESQL_BUDGETS.md).
+
 _D7 outcome:_ draft writes are over budget (7.6 s and 431,004 rows for one rename at full volume),
 so S2 scopes a bounded follow-up slice for draft writes after the read paths move to SQL.
 
@@ -2068,7 +2075,9 @@ way:
 - The gates' matrix scenarios run after the pages whose baselines already exist, since seeding the
   history publishes a second time (the publications baseline shows one).
 
-_A2 measurements against budgets_ (`volume_baseline.py --scale 1 --repeat 5`, same machine as S1,
+_A2 measurements against budgets_ (SQLite; restated on PostgreSQL in
+[POSTGRESQL_BUDGETS](POSTGRESQL_BUDGETS.md) §3, where the change-set state filters are exception E1)
+(`volume_baseline.py --scale 1 --repeat 5`, same machine as S1,
 median ms · statements · ORM rows; live · change set · history). The full rerun A2 left open, with
 A3's `relationVersion` and A3b's stored states in place. The seed now takes 189 s at full volume.
 

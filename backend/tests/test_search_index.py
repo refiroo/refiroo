@@ -50,7 +50,8 @@ def _assert_index_answers_as_values(client, contexts: dict, monkeypatch) -> None
         for search in SEARCHES
     }
     with monkeypatch.context() as patch:
-        patch.setattr(object_query, "INDEXED_VALUE_LIMIT", -1)
+        patch.setattr(object_query, "INDEXED_MATCH_LIMIT", -1)
+        patch.setattr(object_query, "SEARCH_CANDIDATE_LIMIT", -1)
         for (name, search), ids in indexed.items():
             assert _ids(client, contexts[name], search) == ids, (name, search)
 
@@ -87,8 +88,15 @@ def test_search_answers_the_same_through_the_index_in_every_context(
         _ids(client, context, "te")
         assert not index_reads, name
 
-    # Past the limit, every record's values are looked up: the same records in the same order.
-    monkeypatch.setattr(object_query, "INDEXED_VALUE_LIMIT", -1)
+    # With more candidates than the limit, the statement narrows by the indexes itself.
+    with monkeypatch.context() as patch:
+        patch.setattr(object_query, "SEARCH_CANDIDATE_LIMIT", -1)
+        for (name, search), ids in indexed.items():
+            assert _ids(client, seeded["contexts"][name], search) == ids, (name, search)
+    # Past the limits, every record's name and values are matched: the same records in the same
+    # order as through the candidates read first (0.9.0-alpha.1 PG5).
+    monkeypatch.setattr(object_query, "INDEXED_MATCH_LIMIT", -1)
+    monkeypatch.setattr(object_query, "SEARCH_CANDIDATE_LIMIT", -1)
     for (name, search), ids in indexed.items():
         assert _ids(client, seeded["contexts"][name], search) == ids, (name, search)
     for search in SEARCHES:

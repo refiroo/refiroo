@@ -91,7 +91,13 @@ tests of the job engine (62 cases) and four checks merged into J11 and J12, with
 caught. **H4 then stopped (user's decision, 2026-10-03):** H4d-2 onwards and H4e are postponed and
 no dependency of any release up to 1.0, and test work per package is capped in proportion to the
 feature (AGENTS.md, Testing). **PG4 is dropped (2026-10-03):** the SQLite data was moved by hand, so
-no copy command is built. Next is PG5.
+no copy command is built. **PG5 is delivered and 0.9.0-alpha.1 released (2026-10-03):** every volume
+budget re-measured on PostgreSQL (statements and rows hold; 143 of 154 full-volume reads within
+100 ms), the 100,000-item batch measured once (52 s live, 64 s in a change set), the SQLite planner
+constructs removed, name search through trigram indexes with candidates read first (revision
+`20261003_01`), and the eleven remaining read exceptions deferred to the first fixes after 1.0, with a
+complete handoff in [POSTGRESQL_BUDGETS.md](POSTGRESQL_BUDGETS.md)
+([record](POSTGRESQL_RUNTIME_PLAN.md#pg5-budgets-acceptance-and-release)). Next is F1.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

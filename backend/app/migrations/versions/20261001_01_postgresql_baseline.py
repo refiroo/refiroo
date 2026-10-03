@@ -1,7 +1,7 @@
 """PostgreSQL baseline: the schema at 0.9 B2 as one revision (0.9.0-alpha.1, PG-D3).
 
-Replaces the 23 SQLite-shaped revisions up to ``20261001_01`` and keeps that revision's ID, so a
-SQLite database at it is the source the copy command expects (PG-D10). Generated from the ORM
+Replaces the 23 SQLite-shaped revisions up to ``20261001_01`` and keeps that revision's ID (the
+copy command PG-D10 planned for it was dropped with PG4). Generated from the ORM
 metadata against PostgreSQL 17, plus the ``pg_trgm`` extension the search indexes need (PG-D7).
 Later revisions are written and tested on PostgreSQL. PostgreSQL runs this DDL in the migration's
 transaction, so an interrupted run leaves an empty, unversioned database. Foreign keys are added

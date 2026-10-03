@@ -306,7 +306,7 @@ def test_stale_loaded_change_set_cannot_overwrite_a_committed_rename(review_clie
 
     change_set = create_change_set(review_client, "default").json()
     with SessionLocal() as first, SessionLocal() as second:
-        # Keep both ORM instances alive to reproduce concurrent request reads on SQLite.
+        # Keep both ORM instances alive to reproduce two concurrent requests' reads.
         loaded_first = first.scalar(select(ChangeSet).where(ChangeSet.id == change_set["id"]))
         loaded_second = second.scalar(
             select(ChangeSet).where(ChangeSet.id == change_set["id"])

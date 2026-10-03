@@ -269,8 +269,12 @@ C0–C5 delivered 2026-09-29; the journey is accepted on the starter and generat
 
 ## Interim release 0.9.0-alpha.1 — PostgreSQL runtime
 
-Planned 2026-10-01 in [POSTGRESQL_RUNTIME_PLAN.md](POSTGRESQL_RUNTIME_PLAN.md); inserted in the 0.9
-queue after B2, before F1. It is a pre-release of 0.9: `main` already carries delivered 0.9
+**Released 2026-10-03** (PG1–PG3b and PG5; PG4 dropped). Against the exit gate: the full backend
+suite passed on PostgreSQL apart from eight tests stale since H4c, fixed in PG5; the frontend suites
+and browser runners were not run at the release (user's decision; nothing under `frontend/` changed);
+every volume budget is restated, with the read exceptions moved to the
+[first fixes after 1.0](#first-fixes-after-10). Planned 2026-10-01 in
+[POSTGRESQL_RUNTIME_PLAN.md](POSTGRESQL_RUNTIME_PLAN.md); inserted in the 0.9 queue after B2, before F1. It is a pre-release of 0.9: `main` already carries delivered 0.9
 packages, so a 0.8.x patch would misdescribe it (PG-D1).
 
 ### Product outcome
@@ -293,7 +297,8 @@ existing development databases carry over. API, model contract and UI are unchan
   code tested under two racing writers (PG3); single-node multi-writer uniqueness, brought forward
   from 0.11
 - ~~A one-off copy of existing SQLite databases (PG4)~~ dropped 2026-10-03: the data was moved by hand
-- Every volume budget re-measured on PostgreSQL (PG5)
+- Every volume budget re-measured on PostgreSQL (PG5, delivered 2026-10-03; the remaining read
+  exceptions are the first fixes after 1.0, [POSTGRESQL_BUDGETS.md](POSTGRESQL_BUDGETS.md))
 
 ### Exit gate
 
@@ -502,6 +507,14 @@ need a migration, and reuses proven definitions.
 - Published releases remain immutable and reproducible.
 - Unsafe model changes remain blocked until an explicit migration succeeds.
 - Extensions cannot introduce application-specific branches into the runtime.
+
+## First fixes after 1.0
+
+- **PostgreSQL read budgets** (deferred by the user at 0.9.0-alpha.1 PG5, 2026-10-03): the eleven
+  full-volume reads over 100 ms and the related findings E1–E7 in
+  [POSTGRESQL_BUDGETS.md](POSTGRESQL_BUDGETS.md), which holds the method, the figures, each cause, the
+  fix options with their effort and what was already tried. E2 needs a product decision first (exact
+  totals over searches matching nearly everything).
 
 ## Product traceability for later milestones
 

@@ -23,7 +23,15 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 from sqlalchemy.types import TypeDecorator
 
 from ..common.time import as_utc
-from .search_index import LIVE_VALUES, SNAPSHOT_VALUES, search_index
+from .search_index import (
+    CHANGE_SET_BASE_NAMES,
+    CHANGE_SET_NAMES,
+    LIVE_NAMES,
+    LIVE_VALUES,
+    PUBLICATION_NAMES,
+    SNAPSHOT_VALUES,
+    search_index,
+)
 
 
 class UTCDateTime(TypeDecorator[datetime]):
@@ -319,6 +327,7 @@ class ViewDefinitionMeta(Base):
 class RdmObject(Base):
     __tablename__ = "objects"
     __table_args__ = (
+        search_index(LIVE_NAMES),
         # Name-ordered pages by type and by parent seek to their position (migration 20260925_03).
         Index("ix_objects_type_name", "workspace_key", "object_type_key", "name", "sequence_id"),
         Index(
@@ -494,6 +503,7 @@ class ObjectRelation(Base):
 class PublicationObject(Base):
     __tablename__ = "publication_objects"
     __table_args__ = (
+        search_index(PUBLICATION_NAMES),
         UniqueConstraint("publication_id", "object_id", name="uq_publication_object"),
         # Ordered history pages by type and by parent (Base 0.8 S2).
         Index(
@@ -585,6 +595,7 @@ class ChangeSetBase(Base):
 class ChangeSetBaseObject(Base):
     __tablename__ = "change_set_base_objects"
     __table_args__ = (
+        search_index(CHANGE_SET_BASE_NAMES),
         UniqueConstraint("base_id", "object_id", name="uq_change_set_base_object"),
         # Ordered change set pages by type and by parent (Base 0.8 S2).
         Index(
@@ -656,6 +667,7 @@ class ChangeSetBaseRelation(Base):
 class ChangeSetObject(Base):
     __tablename__ = "change_set_objects"
     __table_args__ = (
+        search_index(CHANGE_SET_NAMES),
         UniqueConstraint("change_set_id", "object_id", name="uq_change_set_object"),
         # The page indexes of the publication and base object tables, so a change set's own rows
         # are found by type and by parent inside it; walks down seek children by (change set,
@@ -746,7 +758,10 @@ class SnapshotAttributeValue(Base):
         CheckConstraint(
             "owner_kind IN ('publication', 'base', 'change_set')", name="ck_snapshot_attribute_owner_kind"
         ),
-        Index("ix_snapshot_attribute_values_owner_key", "owner_id", "attribute_type_key"),
+        # A record's value is found by the unique key; an (owner, attribute) read uses the next
+        # index's prefix. A separate (owner, attribute) index was dropped in 20261003_01: on rows
+        # without statistics yet the planner chose it for a record's value and read every value of
+        # the attribute in the owner (0.9.0-alpha.1 PG5).
         # A change set write's unique-value check seeks to the value (S2b, 20260926_02).
         Index(
             "ix_snapshot_attribute_values_owner_key_text",

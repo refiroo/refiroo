@@ -311,10 +311,15 @@ on request, the total and its start index. There is no unbounded page: full extr
 export jobs or the change feed.
 
 **Search and order.** Names sort in the database's ICU root collation, case- and accent-aware. Search
-over attribute text uses `pg_trgm` GIN indexes on the live and snapshot value tables
+uses `pg_trgm` GIN indexes on the live and snapshot value tables and on the name of every record table
 (`models/search_index.py`), which narrow candidates; the case-insensitive "contains" predicate still
-decides the result, so an index changes speed, never results. A unique-value check and a record
-reference by key seek through a value index (`ix_attribute_values_key_text`).
+decides the result, so an index changes speed, never results. The per-type list reads a search's
+candidates before it builds its statements (`object_query.search_candidates`): at most 1,000 record
+IDs become a list each statement reads by ID, in every arm of a change set's projection; more, or a
+phrase too short for a trigram, leaves the statement to match every record, with the value side
+bounded inside it (`bounded_match`). A unique-value check and a record reference by key seek through
+a value index (`ix_attribute_values_key_text`). Read budgets and the measuring method are in
+[POSTGRESQL_BUDGETS.md](POSTGRESQL_BUDGETS.md).
 
 **One query builder per shape, every context.** `engine/reads/object_query.py` builds the per-type
 list (search, typed filters, sort, scope by parent or top level) for live data, change sets and
