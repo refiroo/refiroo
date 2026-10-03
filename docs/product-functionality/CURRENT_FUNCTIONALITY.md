@@ -358,8 +358,8 @@ refuses unsafe states (wrong database, wrong collation, unknown revision, unsupp
 failed migration) with what to do. Backups and application rollback are separate from activating an
 older model release. Background jobs survive restarts.
 
-Limits: performance at production scale, several servers, metrics and rehearsed restore are 0.11;
-copying old SQLite development databases is 0.9.0-alpha.1 (PG4).
+Limits: performance at production scale, several servers, metrics and rehearsed restore are 0.11.
+The engine does not copy old SQLite development databases.
 
 Evidence: [operations guide](../OPERATIONS.md), [application startup](../../backend/app/main.py).
 

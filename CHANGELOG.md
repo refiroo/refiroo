@@ -161,6 +161,8 @@ All notable changes to this project are documented in this file. The format foll
   `engine/jobs/*`, `records/audit.py`, `models/commands.py`, `config.py` and `main.py` (62 cases),
   which run the engine on a clone of a journey seed without starting the application. 14 faults
   planted in the area's rules were each caught by the tests that remain.
+- 0.9.0-alpha.1: no SQLite copy command (PG4 dropped). Starting on a SQLite `DATABASE_URL` is refused
+  with the instruction to name a PostgreSQL URL; the message no longer points to a copy command.
 - 0.9.0-alpha.1 H4: the testing consolidation stops after H4d-1 (H4d-2 onwards and H4e postponed,
   no dependency for 1.0). Journey tests, unit tests and the older modules form the suite; a package
   selects its checks with testmon and the journeys it touches, and its test work is capped in

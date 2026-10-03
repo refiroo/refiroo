@@ -90,7 +90,8 @@ layer and the move, runs in 14 area slices** ([plan](TEST_HARNESS_PLAN.md#h4d-th
 tests of the job engine (62 cases) and four checks merged into J11 and J12, with all 14 planted faults
 caught. **H4 then stopped (user's decision, 2026-10-03):** H4d-2 onwards and H4e are postponed and
 no dependency of any release up to 1.0, and test work per package is capped in proportion to the
-feature (AGENTS.md, Testing). Next are PG4 and PG5.
+feature (AGENTS.md, Testing). **PG4 is dropped (2026-10-03):** the SQLite data was moved by hand, so
+no copy command is built. Next is PG5.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

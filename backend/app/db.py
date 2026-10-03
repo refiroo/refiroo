@@ -71,9 +71,7 @@ def configured_url() -> URL:
             f"DATABASE_URL names a {url.get_backend_name()} database "
             f"('{url.render_as_string(hide_password=True)}'), but RDM Engine runs on PostgreSQL "
             "only since 0.9.0-alpha.1; SQLite is no longer supported. " + _MAINTENANCE + " Set "
-            "DATABASE_URL to a PostgreSQL URL (postgresql+psycopg://…). An existing SQLite database "
-            "is carried over with the copy command described in docs/POSTGRESQL_RUNTIME_PLAN.md "
-            "(PG-D10)."
+            "DATABASE_URL to a PostgreSQL URL (postgresql+psycopg://…)."
         )
     if url.drivername == "postgresql":
         return url.set(drivername=DRIVER)

@@ -77,7 +77,8 @@ For local development, `scripts/postgres.sh` runs a private server from Homebrew
 
 Nothing starts at login. Docker Compose runs `postgres:17-alpine` with the same collation.
 
-Copying an existing SQLite development database into PostgreSQL is planned for 0.9.0-alpha.1 (PG4).
+The engine has no command that copies a SQLite database; SQLite data from before 0.9.0-alpha.1 is
+moved by hand.
 
 ## Startup checks and health
 

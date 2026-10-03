@@ -3,7 +3,7 @@
 The operator's channel: the service started with settings on a database (``service.serve``), its log,
 its commands run as processes, and ``/health``. A refusal is one concise message saying what failed,
 the service state and the safe next step, never a traceback. J12.9 (carrying a SQLite database over)
-is planned (PG4).
+was dropped with PG4 (2026-10-03).
 """
 
 import hashlib

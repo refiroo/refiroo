@@ -102,7 +102,7 @@ def test_a_clean_database_boots_and_restarts(monkeypatch, databases):
     ("configured", "phrases"),
     [
         (None, ("DATABASE_URL is not set", "scripts/postgres.sh start")),
-        ("sqlite:///./rdm-engine.db", ("names a sqlite database", "PostgreSQL only", "PG-D10")),
+        ("sqlite:///./rdm-engine.db", ("names a sqlite database", "PostgreSQL only")),
         ("postgresql+psycopg2://rdm@localhost/rdm", ("driver 'postgresql+psycopg2'",)),
     ],
 )

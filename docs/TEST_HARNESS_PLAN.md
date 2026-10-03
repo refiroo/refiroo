@@ -14,7 +14,7 @@ suite** (user's decision): H4 becomes the [testing consolidation](#h4-testing-co
 the [testing strategy](testing/STRATEGY.md), delivered in slices H4a–H4e before PG4. **Revised
 2026-10-03 (user's decision): H4 stops after H4d-1.** H4a–H4c and H4d-1 are delivered and part of
 the suite; H4d-2 onwards and H4e are postponed, to be continued later, and are no dependency of any
-release up to 1.0. Development continues with PG4.
+release up to 1.0. Development continues with PG5 (PG4 was dropped the same day).
 
 The measurements below were taken on SQLite (2026-10-01) and are the baseline PG1's measurement
 compares against.

@@ -815,7 +815,8 @@ controlled diagnostics.
   limits, the API reference script; an invalid setting refuses to start.
 - **J12.8 The database goes away while running**: requests and the job worker report it concisely,
   `/health` reports not ready, and all recover when it returns, without a restart (J24.6).
-- **J12.9 Carry a SQLite database over** to PostgreSQL (planned, 0.9.0-alpha.1 PG4).
+- J12.9 (carry a SQLite database over) was dropped with PG4 on 2026-10-03: the developer's data was
+  moved by hand, and no engine command copies SQLite data.
 
 **Evidence today:** the J12 journey tests; `test_startup`, `test_model_schema_upgrade`,
 `test_schema_drift`, `test_api_reference`; unit tests of `config.py` and `main.py`.

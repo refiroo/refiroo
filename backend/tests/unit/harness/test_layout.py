@@ -7,7 +7,7 @@ import layout
 
 def test_the_catalogue_defines_journeys_and_variants_but_not_retired_ones():
     ids = layout.journey_ids()
-    assert {"J01", "J02", "J02.2", "J13.5", "J26", "J12.9"} <= ids
+    assert {"J01", "J02", "J02.2", "J13.5", "J26", "J12.8"} <= ids
     assert "J09" not in ids  # retired 2026-10-02
     assert not {key for key in ids if key.startswith("J09.")}
 

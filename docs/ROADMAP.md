@@ -292,7 +292,7 @@ existing development databases carry over. API, model contract and UI are unchan
 - The per-workspace write lock (the lock F1's feed position needs), with every invariant checked in
   code tested under two racing writers (PG3); single-node multi-writer uniqueness, brought forward
   from 0.11
-- A one-off copy of existing SQLite databases (PG4)
+- ~~A one-off copy of existing SQLite databases (PG4)~~ dropped 2026-10-03: the data was moved by hand
 - Every volume budget re-measured on PostgreSQL (PG5)
 
 ### Exit gate
