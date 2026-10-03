@@ -16,7 +16,7 @@ import json
 from pathlib import Path
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import event, func, select
 from volume_baseline import FEED_PAGE, PAGE_SIZE, run_scenarios
 from volume_fixture import (
     CELL,
@@ -90,6 +90,66 @@ def test_change_set_and_history_reads_hold_the_live_budget(baselines):
 
 def test_change_set_writes_hold_the_live_budget(baselines):
     assert not _over_budget(baselines, {"change_set"}, writes=True)
+
+
+def _largest_parameter_list(client, engine, dataset) -> dict[str, int]:
+    """The most parameters one statement binds while a change set is captured from current live,
+    one record is renamed in it, and it is published."""
+    largest = {"capture": 0, "publish": 0}
+    step = "capture"
+
+    def on_execute(_conn, _cursor, _statement, parameters, _context, executemany) -> None:
+        rows = parameters if executemany else [parameters]
+        largest[step] = max(largest[step], *(len(row or ()) for row in rows))
+
+    event.listen(engine, "before_cursor_execute", on_execute)
+    try:
+        created = client.post(
+            f"/api/v1/workspaces/{WORKSPACE}/change-sets",
+            json={"name": "Whole workspace", "source": "currentLive"},
+        )
+        assert created.status_code == 201, created.text
+        change_set = created.json()
+        item = client.get(
+            f"/api/v1/objects/{ITEM}/{dataset.live_item_id}", params={"changeSetId": change_set["id"]}
+        ).json()
+        renamed = client.patch(
+            f"/api/v1/objects/{ITEM}/{dataset.live_item_id}",
+            json={
+                "name": "Renamed for the publish",
+                "expectedVersion": item["version"],
+                "changeSetId": change_set["id"],
+                "expectedChangeSetVersion": change_set["version"],
+            },
+        )
+        assert renamed.status_code == 200, renamed.text
+        version = client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"]
+        step = "publish"
+        published = client.post(
+            f"/api/v1/change-sets/{change_set['id']}/publication",
+            json={
+                "expectedChangeSetVersion": version,
+                "expectedActivePublicationId": dataset.publication_id,
+            },
+        )
+        assert published.status_code == 200, published.text
+    finally:
+        event.remove(engine, "before_cursor_execute", on_execute)
+    return largest
+
+
+def test_capturing_and_publishing_a_whole_workspace_bind_no_parameter_per_record(tmp_path):
+    """0.9 T1 regression: capturing current live and publishing read the whole workspace's values and
+    relations with a list of every record's ID, one parameter each; at 258,000 records PostgreSQL
+    refused the statement (over 65,535 parameters) and both answered 500. No statement may bind more
+    parameters when the workspace holds four times the records."""
+    largest = {}
+    # The two smallest seeded sizes, four times apart: capture and publish read the whole workspace.
+    for label, shape in (("small", scaled_shape(0.005)), ("large", scaled_shape(0.02))):
+        (tmp_path / label).mkdir()
+        with volume_app(tmp_path / label, shape) as (client, dataset):
+            largest[label] = _largest_parameter_list(client, get_engine(), dataset)
+    assert largest["small"] == largest["large"]
 
 
 def test_fixture_matches_its_shape_and_is_reproducible(tmp_path, baselines):

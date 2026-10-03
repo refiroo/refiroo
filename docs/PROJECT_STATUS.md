@@ -124,7 +124,22 @@ relationship items in batches.
 - A 500-entry page costs 4 statements, 25–35 ms, at the head and the middle of a 1,000,000-entry
   feed.
 
-([record](BASE_0_9_IMPLEMENTATION_PLAN.md#f2-feed-retention-and-recovery)). Next is T1.
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#f2-feed-retention-and-recovery)). **T1 is delivered
+(2026-10-03):** the checkpoint for Tracks Q, B and F.
+- A composed journey (a background job followed through the feed, with dated queries and the edge
+  list in live data, a change set and a publication) passes.
+- Two defects in creating a change set from current live data and in publishing are fixed. Both
+  answered `500` above about 65,000 records (a parameter list per record), and both flushed in
+  quadratic time.
+- Dated reads are measured at full volume, four of them over 100 ms (POSTGRESQL_BUDGETS E8).
+- Applying a publish no longer flushes per record. Publishing 1,000 changes in 26,000 records now
+  takes 11.3 s instead of 25.0 s.
+- Publishing and creating a change set still load the whole workspace into Python. Decided: set work
+  runs in the database. Amendment packages T1b–T1e are proposed before C2 and wait for the user's
+  time and size targets.
+
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#t1-track-checkpoint-q-b-f)). Next: the T1b–T1e
+amendments, then C2.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

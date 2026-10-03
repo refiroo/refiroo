@@ -24,13 +24,19 @@ PostgreSQL, the 100,000-item batch measured once, the remaining budget exception
 first fixes after 1.0 ([handoff](POSTGRESQL_BUDGETS.md)). **F1 is delivered (2026-10-03)**: feed
 positions, publish entries and the feed read (D31–D34). **B3 is delivered (2026-10-03)**:
 relationship and relationship-set items in batches (D35–D39). **F2 is delivered (2026-10-03)**:
-feed retention and recovery from the active publication (D40–D41). Next is T1. See
+feed retention and recovery from the active publication (D40–D41). **T1 is delivered
+(2026-10-03)**: the Q, B and F checkpoint, with three capture and publish defects fixed. Next: the
+T1b–T1e amendments (set work in the database), then C2. See
 [Next — 0.9](#next--09).
 
-- **Publish cost per record (found 2026-10-03, F1).** A publish of 10,000 renamed records took
-  43.6 s and 40,239 statements. `LiveWrites.apply_publication` reads each authored record and
-  rewrites its values one record at a time (~4 statements per record); the feed's own share is a
-  few multi-row inserts. Address with T1's budgets.
+- **Publish and change-set creation move the workspace through Python (found 2026-10-03, F1;
+  measured and decided in T1).** Publishing 1,000 renamed records in a 26,000-record workspace takes
+  11.3 s after T1's fixes (25.0 s before). About 2 minutes is projected at the full volume fixture.
+  Decided: set work runs in the database. Packages T1b–T1e are proposed before C2
+  ([T1 record](BASE_0_9_IMPLEMENTATION_PLAN.md#t1-track-checkpoint-q-b-f)). They wait for the
+  user's time target (seconds for creating a change set and publishing the full fixture, and the
+  longest wait for other writes during a publish) and size target (is the 258,000-record fixture the
+  real target?).
 - **Containment relations in the audit log (found 2026-10-03, F1).** A live create or move audits no
   containment relation, while the live delete cascade audits one. The feed leaves them out
   everywhere (the record's `parentObjectId` names its parent); the audit log keeps the cascade's
@@ -98,9 +104,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   (2026-09-29).
 - [x] A general relation edge list with publication context (P3), moved from 0.8 (D20): delivered as
   0.9 Q2 (2026-09-29).
-- [ ] T1: record a budget for dated reads (`asOf` on the per-type list and the model query, live, in a
-  change set and a publication) in the `volume_baseline.py --scale 1` run; Q4 recorded none (found in
-  Q4, which ran no `volume`). The volume fixture declares no period yet, so T1 adds one to it.
+- [x] T1: record a budget for dated reads (`asOf` on the per-type list and the model query, live, in a
+  change set and a publication): delivered in T1 (2026-10-03); four over 100 ms, recorded as
+  POSTGRESQL_BUDGETS E8.
 - [ ] J1's export budget names "110,000 records"; the volume fixture holds 258,000 since 0.8 A2 (found
   in Q1). Restate it when J1 is delivered.
 - [x] Built-in Scalar API reference at `/docs` replacing Swagger UI and ReDoc: delivered as 0.9 V1

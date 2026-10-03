@@ -12,8 +12,9 @@ J1–J4 and R are specified (2026-09-29) and delivered in the order of the
 [B1](#b1-job-model-and-inline-object-batches) (2026-10-01), [B2](#b2-background-jobs) (2026-10-01),
 the interim release 0.9.0-alpha.1 (2026-10-03), [F1](#f1-feed-positions) (2026-10-03, with the feed
 read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
-[F2](#f2-feed-retention-and-recovery) (2026-10-03, D40–D41).
-**Next:** T1, in the order of the [delivery queue](#delivery-queue).
+[F2](#f2-feed-retention-and-recovery) (2026-10-03, D40–D41), [T1](#t1-track-checkpoint-q-b-f) (2026-10-03).
+**Next:** the amendments T1b–T1e proposed in [T1](#t1-track-checkpoint-q-b-f), once the user sets
+their targets, then C2, in the order of the [delivery queue](#delivery-queue).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -208,7 +209,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 9c | [PG3–PG5](POSTGRESQL_RUNTIME_PLAN.md) | PG2 | The per-workspace write lock and concurrency tests; PG3b batch writes decided in memory and written in bulk (PG-D12–PG-D17); existing data carried over; budgets on PostgreSQL with the 100,000-item batch measured once; released as 0.9.0-alpha.1 |
 | 10 | [B3](#b3-relation-and-relation-set-items) | B1 | Relation items and `replaceRelationSet` — **delivered 2026-10-03** |
 | 11 | [F2](#f2-feed-retention-and-recovery) | F1 | Retention, `410` with baselines, the deep read budget (the read moved to F1, D31) — **delivered 2026-10-03** |
-| 12 | [T1](#t1-track-checkpoint-q-b-f) | Q4, B2, B3, F2 | Track checkpoint for Q, B and F: their groups, budgets and a composed journey |
+| 12 | [T1](#t1-track-checkpoint-q-b-f) | Q4, B2, B3, F2 | Track checkpoint for Q, B and F: their groups, budgets and a composed journey — **delivered 2026-10-03** |
 | 13 | C2 | C1 | Consumer object and projections |
 | 14 | C3 | C2 | Lists |
 | 15 | C4 | C2 | Consumer index and XREF scoring |
@@ -1259,6 +1260,121 @@ suite and no browser runners.
 
 **Exit:** all pass, or each failure is fixed as an amendment package or recorded against the package
 it belongs to, before C2.
+
+**Delivered 2026-10-03.** What was built and found:
+
+- **Composed journey** (`tests/journeys/test_j24_j26_composed.py`, J24, J26, J23.3, J22.2). It has
+  three cases, each on generated A and B, written from this section and approved with the plan:
+  - A background job of dated records and relationships, resumed by a second worker, followed by a
+    reader through the feed.
+  - A job into a change set, then published.
+  - An independent job cancelled between chunks and an atomic job cancelled mid-run.
+
+  The feed, the dated model query and the edge list agree in every case. All six passed on the
+  first run, since T1 changes no behaviour, so they could not be confirmed failing first.
+- **Volume fixture.** It moves to schema 0.8; items declare an effective period (`vol-valid-from`,
+  `vol-valid-until`). Three quarters of the items apply on 2026-06-30. The period values take their
+  row IDs from a random stream of their own, so every other ID stays as before. There are five
+  dated scenarios, `--only-dated` and `--only-publish` (`publish_scenario`).
+- **Defect: more than 65,535 parameters.** Creating a change set from current live data and
+  publishing listed every record's ID as statement parameters, so both answered `500` in a
+  workspace over about 65,000 records (found at 258,000). They now select by workspace. The publish
+  checks each relationship end with a primary-key probe: an `OR` of two `IN` subqueries cannot be
+  hashed, and on the full fixture it ran for 30 minutes before it was cancelled.
+  - Regression test `test_capturing_and_publishing_a_whole_workspace_bind_no_parameter_per_record`:
+    the largest parameter list at 0.5 % and 2 % must be equal. Without the fix it fails (3,892 →
+    11,604); with it, it passes in 10 s.
+- **Defect: quadratic flush.** The typed value index's flush hook (`engine/indexes/snapshot_values.py`)
+  read `session.new` once per row, and SQLAlchemy builds that set anew on every read. A flush of n
+  rows cost n². At 4 % volume, creating a change set from current live took 28.1 s and now takes
+  4.6 s; publishing took 29.9 s and now takes 6.0 s.
+- **Defect: applying a publish flushed per record.** `LiveWrites.apply_publication` queried each
+  changed record and relationship on its own, and each query first flushed a session holding the
+  whole workspace. Its attribute deletes also evaluated every loaded object. It now takes records
+  from what is already loaded, loads relationships in bounded chunks, adds new records without a
+  flush each, flushes explicitly, and deletes without session synchronisation. For 1,000 changes in
+  26,000 records, it went from 24.3 s to about 2 s (profiled).
+- **Stopgap: copies in bulk from Python.** The publication's rows and a change set's base are
+  written in multi-row statements with their typed index rows (`snapshot_values.insert_object_rows`),
+  not one ORM object per row. The rows are still built in Python; T1b replaces this with copies
+  made inside the database.
+
+**Budgets at full volume** (`--only-dated --scale 1 --repeat 3`, 10 s in all; median · statements ·
+ORM rows):
+
+| Request | Live | Change set | History |
+| --- | --- | --- | --- |
+| objects: dated, first page | 5.1 ms · 5 · 85 | 82.1 ms · 6 · 4 | 4.8 ms · 5 · 3 |
+| objects: dated, total | 39.8 ms · 6 · 85 | **161.2 ms** · 7 · 4 | 57.8 ms · 6 · 3 |
+| children: heavy parent, dated first page | 4.6 ms · 5 · 79 | 21.4 ms · 6 · 4 | 4.7 ms · 5 · 3 |
+| query: dated, first page | 4.7 ms · 5 · 85 | 89.2 ms · 7 · 5 | 5.9 ms · 6 · 4 |
+| query: dated ancestor criterion, total | **110.6 ms** · 6 · 79 | **148.1 ms** · 8 · 5 | **140.3 ms** · 7 · 4 |
+
+Four reads are over 100 ms. All four count 75,000 dated records or read a change set's overlay, the
+shape of PG5's open exceptions. Their statements hold at 1× and 4× (`test_volume_baseline`). They are
+recorded in [POSTGRESQL_BUDGETS](POSTGRESQL_BUDGETS.md#e8-dated-totals-and-change-set-dated-pages-0-9-t1)
+with the post-1.0 fixes.
+
+**Publish** (`--only-publish --scale 0.1`): 1,000 renamed records in a workspace of 26,000 records
+took 25.0 s, 4,241 statements and 274,402 ORM rows. After the fixes above it takes 11.3 s and 2,148
+statements. That is still too slow, and for a design reason: publishing and creating a change set
+load the whole workspace into Python as ORM objects, merge and validate it there, and write it
+back. Their cost grows with the workspace, not with the change; at full volume a publish would take
+about 2 minutes, by linear extrapolation. F1's figure (43.6 s for 10,000 records) was on an empty
+database.
+
+**Decided with the user (2026-10-03): set work runs in the database.** Copies, merges and
+whole-set checks become set operations inside PostgreSQL (`INSERT … SELECT`, `MERGE`, JSON
+aggregation, SQL functions); Python decides and issues statements, and bulk data does not travel
+through it. The engine is PostgreSQL-only, so PostgreSQL features are used freely, and long
+operations may become jobs with a notification. The copy design stays: a change set keeps its frozen
+base, and a publication stays a frozen copy. Considered and set aside: storing only deltas (as
+ArcGIS, SAP MDG and Oracle Workspace Manager do) and versioning every row. Amendment packages
+proposed before C2, waiting for the user's time target and size target:
+- **T1b:** copies inside the database. A SQL function for value encoding, plus `INSERT … SELECT`
+  for change-set bases (from live or a publication), publication copies, the typed index and the
+  matrix states.
+- **T1c:** publishing as set statements. Conflicts by a join, changes applied with `MERGE`, feed and
+  audit entries in D32's order, relationship-set versions.
+- **T1d:** the publish's whole-graph validation as set queries, with parity held by
+  `test_rule_parity`.
+- **T1e**, only if still needed after T1b–T1d: creating change sets and publishing as jobs, with a
+  notification stream.
+
+An audit of other paths that move bulk data through Python (matrix-state copies, history reads of
+whole publications, the D29 container move, restructuring previews) comes with T1b.
+
+**Not re-measured.** The Q1–Q3 reads and every other read in the table are unchanged since PG5's
+table of the same day ([POSTGRESQL_BUDGETS §3](POSTGRESQL_BUDGETS.md#3-results-at-pg5s-close)). The
+feed pages are F2's figures from the same day. The B budgets are PG5's `budget` run. The full
+`--scale 1` replay was dropped at the user's request (2026-10-03): it ran for 38 minutes because of
+the `OR` query above and produced no table.
+
+**Checks:**
+- **The T1 groups together** (`queries`, `jobs`, `feed`, `change_sets`, `records`, `mapping`,
+  `contract`, `startup`, `volume`): 1,056 passed and 3 failed, in 3 min 47 s; the serial part,
+  3 passed. All three failures came from the fixture change: the dated one-hop scenario filled less
+  than a page at the small scale, and the period rows drew from the shared random stream. Both were
+  fixed, and the two modules passed (37).
+- **After the flush and parameter fixes:** `change_sets`, `queries`, `feed` and `volume` (the
+  guide's selection for these paths): 604 passed, in 2 min 15 s; the serial part, 2 passed.
+- **After the `EXISTS` fix:** the plan was checked with `EXPLAIN` on the full seed (one index probe
+  per relationship end). The regression test and the publishing cases of J26 and the composed
+  journey: 7 passed, in 17 s.
+- **After the apply fix and the bulk copies:** the publish and change-set journeys (J05/J06, J17,
+  J26, the composed journey), `test_matrix_states`, `test_context_read_parity` and the regression
+  test: 72 passed, in 32 s. At the user's request, testing stayed minimal: the guide's full
+  selection for these paths (`change_sets`, `queries`, `feed`, `volume`, 2 min 15 s) was not run
+  again after these last two changes.
+- **Startup:** `test_a_baseline_database_upgrades_to_the_trigram_search_indexes` upgrades the
+  PostgreSQL baseline to `HEAD` through all five revisions and starts twice. That is the one
+  upgrade path since 0.8.0, which ran on SQLite with no migration from it.
+- **`ruff check app/ tests/`:** clean.
+
+Not run: the frontend, since nothing under `frontend/` changed; the browser runners (the volume
+model's items show two more fields in the `s7` screenshots, which are inspected, not baselines).
+
+Composable domains (ADR-032): no door is affected; the fixes change no contract.
 
 ## Track C — Consumer API
 

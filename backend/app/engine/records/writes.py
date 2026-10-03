@@ -397,77 +397,96 @@ class LiveWrites:
             for item in merged.membership.objects
             if item.object_id in merged.authored_object_ids
         }
-        live_objects = {
-            item.id: item
-            for item in session.scalars(
-                select(RdmObject).where(RdmObject.workspace_key == self.workspace_key)
-            )
-        }
-        for object_id in sorted(authored_objects):
-            authored = authored_objects[object_id]
-            live = live_objects.get(object_id)
-            if live is None:
-                self.add_object(
-                    object_id=object_id,
-                    application_key=authored.application_key,
-                    object_type_key=authored.object_type_key,
-                    name=authored.name,
-                    parent_object_id=None,
-                    version=authored.version,
+        # No autoflush, and no query per row: every flush scans the session's whole identity map,
+        # which the merge filled with the workspace, so a flush per record made the apply cost
+        # records × workspace (24 s for 1,000 records in 26,000, 0.9 T1a). Flushes are explicit.
+        with session.no_autoflush:
+            live_objects = {
+                item.id: item
+                for item in session.scalars(
+                    select(RdmObject).where(RdmObject.workspace_key == self.workspace_key)
                 )
-            else:
-                live.application_key = authored.application_key
-                live.object_type_key = authored.object_type_key
-                live.name = authored.name
-                live.version = authored.version
-        session.flush()
-        # Attribute rows are replaced in Core below; their records' condition values may change.
-        matrix_states.note_cells(session, authored_objects)
-        for object_id in sorted(authored_objects):
-            authored = authored_objects[object_id]
-            attribute_delete = delete(AttributeValue).where(AttributeValue.object_id == object_id)
-            if authored.attributes:
-                attribute_delete = attribute_delete.where(
-                    ~AttributeValue.attribute_type_key.in_(set(authored.attributes))
-                )
-            session.execute(attribute_delete)
-            self.save_values(model, object_id, authored.attributes or {})
-        session.flush()
-        for object_id in sorted(authored_objects):
-            # Set containment pointers only after every merged object row exists (whole-graph
-            # validation guarantees the parent is present in the merged graph) so a new parent never
-            # precedes its row.
-            authored = authored_objects[object_id]
-            live = session.scalar(select(RdmObject).where(RdmObject.id == object_id))
-            live.parent_object_id = authored.parent_object_id
-        for authored in sorted(
-            (
-                item
-                for item in merged.membership.relations
-                if item.relation_id in merged.authored_relation_ids
-            ),
-            key=lambda item: item.relation_id,
-        ):
-            live = session.scalar(
-                select(ObjectRelation).where(ObjectRelation.id == authored.relation_id)
-            )
-            if live is None:
-                session.add(
-                    ObjectRelation(
-                        id=authored.relation_id,
-                        relation_type_key=authored.relation_type_key,
-                        from_object_id=authored.from_object_id,
-                        to_object_id=authored.to_object_id,
-                        attributes=authored.attributes or {},
+            }
+            for object_id in sorted(authored_objects):
+                authored = authored_objects[object_id]
+                live = live_objects.get(object_id)
+                if live is None:
+                    # Added, not flushed one by one (``add_object`` flushes): the flush below.
+                    live_objects[object_id] = RdmObject(
+                        id=object_id,
+                        workspace_key=self.workspace_key,
+                        application_key=authored.application_key,
+                        object_type_key=authored.object_type_key,
+                        name=authored.name,
+                        parent_object_id=None,
                         version=authored.version,
                     )
+                    session.add(live_objects[object_id])
+                else:
+                    live.application_key = authored.application_key
+                    live.object_type_key = authored.object_type_key
+                    live.name = authored.name
+                    live.version = authored.version
+            session.flush()
+            # Attribute rows are replaced in Core below; their records' condition values may change.
+            matrix_states.note_cells(session, authored_objects)
+            for object_id in sorted(authored_objects):
+                authored = authored_objects[object_id]
+                attribute_delete = delete(AttributeValue).where(
+                    AttributeValue.object_id == object_id
                 )
-            else:
-                live.relation_type_key = authored.relation_type_key
-                live.from_object_id = authored.from_object_id
-                live.to_object_id = authored.to_object_id
-                live.attributes = authored.attributes or {}
-                live.version = authored.version
+                if authored.attributes:
+                    attribute_delete = attribute_delete.where(
+                        ~AttributeValue.attribute_type_key.in_(set(authored.attributes))
+                    )
+                # Not synchronised with the session: evaluating the criteria against every loaded
+                # object, per record, cost more than the statements.
+                session.execute(attribute_delete.execution_options(synchronize_session=False))
+                self.save_values(model, object_id, authored.attributes or {})
+            session.flush()
+            for object_id in sorted(authored_objects):
+                # Set containment pointers only after every merged object row exists (whole-graph
+                # validation guarantees the parent is present in the merged graph) so a new parent
+                # never precedes its row.
+                live_objects[object_id].parent_object_id = authored_objects[object_id].parent_object_id
+            authored_relations = sorted(
+                (
+                    item
+                    for item in merged.membership.relations
+                    if item.relation_id in merged.authored_relation_ids
+                ),
+                key=lambda item: item.relation_id,
+            )
+            relation_ids = [item.relation_id for item in authored_relations]
+            live_relations: dict[str, ObjectRelation] = {}
+            for start in range(0, len(relation_ids), 1000):
+                live_relations.update(
+                    (item.id, item)
+                    for item in session.scalars(
+                        select(ObjectRelation).where(
+                            ObjectRelation.id.in_(relation_ids[start : start + 1000])
+                        )
+                    )
+                )
+            for authored in authored_relations:
+                live = live_relations.get(authored.relation_id)
+                if live is None:
+                    session.add(
+                        ObjectRelation(
+                            id=authored.relation_id,
+                            relation_type_key=authored.relation_type_key,
+                            from_object_id=authored.from_object_id,
+                            to_object_id=authored.to_object_id,
+                            attributes=authored.attributes or {},
+                            version=authored.version,
+                        )
+                    )
+                else:
+                    live.relation_type_key = authored.relation_type_key
+                    live.from_object_id = authored.from_object_id
+                    live.to_object_id = authored.to_object_id
+                    live.attributes = authored.attributes or {}
+                    live.version = authored.version
 
 
 class ChangeSetWrites:

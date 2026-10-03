@@ -73,6 +73,8 @@ figures by 20–50 %. **Use the full replay once, at the end. Diagnose with plan
 | --- | --- | --- |
 | Full-volume read table | `.venv/bin/python tests/volume_baseline.py --scale 1 --repeat 5 --json out.json` | ~3.5 min, plus ~3 min when the seed rebuilds |
 | Restructuring planner near its limit | `… volume_baseline.py --only-restructuring --scale 0.024` | ~30 s |
+| Dated reads only (0.9 T1) | `… volume_baseline.py --only-dated --scale 1 --repeat 3` | ~10 s |
+| Publish of a tenth of the items renamed (0.9 T1; the full table runs it last) | `… volume_baseline.py --only-publish --scale 0.1` | ~1 min (11 s publish after T1); at `--scale 1` about 2 min plus |
 | Budgets 1–2 | `.venv/bin/python -m pytest -n auto -q tests/test_volume_baseline.py tests/test_change_lists_volume.py tests/test_restructuring_volume.py tests/test_relation_matrix_volume.py tests/test_batch_statements.py tests/test_paging_contract.py` | ~20 s |
 | Validate and publish at 2 % volume (serial, timed) | `.venv/bin/python -m pytest -q tests/test_graph_validation_scale.py::test_validating_and_publishing_a_large_workspace_stay_within_budget` | ~20 s |
 | Batch budgets (a release's acceptance only) | `.venv/bin/python -m pytest -m budget -q -s` | 2 min 39 s at PG5 |
@@ -408,6 +410,18 @@ change-set seek, position, from=end and one-hop scenarios: both must hold togeth
 Live meets it (52 s). The change set also takes 3.3× live for 10,000 atomic creates (17.8 s against
 5.4 s). **Cause:** not investigated in PG5. Start with recipe A's statement timing on one chunk of
 `submit_inline_batch` in a change set (`test_batch_statements` builds one at two sizes).
+
+### E8. Dated totals and change-set dated pages (0.9 T1)
+
+Measured at T1 (2026-10-03, `--only-dated --scale 1`), with three quarters of 100,000 items applying
+on the date:
+- `objects: dated, total` takes 161 ms in a change set.
+- `query: dated ancestor criterion, total` takes 111 ms live, 148 ms in a change set and 140 ms in
+  history.
+
+Dated first pages are 5 ms live and 82–89 ms in a change set. **Cause:** not investigated. The
+totals count about 75,000 rows through the period check, the shape of E2. Fixes as for E2: no exact
+total over large result sets, or a count computed separately.
 
 ### Known and unchanged: D29 and the restructuring dry run
 

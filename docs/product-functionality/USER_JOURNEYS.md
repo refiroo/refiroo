@@ -694,7 +694,8 @@ collection relies on an undocumented unlimited page.
 `422 mutually_exclusive_context`.
 
 **Evidence today:** `test_model_query`, `test_cross_type_lookup`, `test_workspace_edge_list`,
-`test_typed_table_queries`, `test_search_index`.
+`test_typed_table_queries`, `test_search_index`; the composed journey `test_j24_j26_composed` (the
+edge list beside a job, a change set and a publication, 0.9 T1).
 
 ### J23 — Answer a business-date question
 
@@ -716,7 +717,8 @@ The question is a date, not a time; only a model-declared effective period answe
 **Refusals:** `422 as_of_not_supported` (a type without a period, or the cross-type lookup),
 `422 invalid_effective_period` on writes.
 
-**Evidence today:** `test_effective_periods`.
+**Evidence today:** `test_effective_periods`; the composed journey `test_j24_j26_composed` (dated
+queries over a job's records in live data, a change set and a publication, 0.9 T1).
 
 ### J11 — Submit a bounded bulk change
 
@@ -782,7 +784,8 @@ single writes' codes.
 `change_set_version_conflict`, `workspace_retired`, `job_failed` (with a correlation ID).
 
 **Evidence today:** the J24 journey tests; unit tests of `engine/jobs/worker.py`, `store.py` and
-`background.py`; `test_pg3_concurrency`.
+`background.py`; `test_pg3_concurrency`; the composed journey `test_j24_j26_composed` (a resumed,
+a staged and two cancelled jobs read back through the feed and the queries, 0.9 T1).
 
 ### J26 — Follow changes reliably
 
@@ -821,7 +824,8 @@ another workspace or a restored database), `410 feed_position_expired` (a positi
 retention), `422 request_validation_error` (page size, position).
 
 **Evidence today:** the J26 journey tests; `test_pg3_concurrency` (commit order under a held write,
-publish beside a live write).
+publish beside a live write); the composed journey `test_j24_j26_composed` (a reader following a
+background job across a restart, its publish and its cancellation, 0.9 T1).
 
 ### J27 — Exchange a supplier file (planned)
 

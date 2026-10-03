@@ -30,6 +30,7 @@ from sqlalchemy.orm import Session
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from volume_fixture import (
+    AS_OF,
     CELLS_BY_COLUMN,
     CODE,
     GROUP,
@@ -314,6 +315,10 @@ def _read_scenarios(
             "/api/v1/objects",
             {**page, "objectTypeKey": [GROUP, ITEM]},
         ),
+        # 0.9 T1: dated reads (Q4); three quarters of the items apply on the date.
+        ("objects: dated, first page", items, {**page, "asOf": AS_OF}),
+        ("objects: dated, total", items, {**page, "asOf": AS_OF, "includeTotal": True}),
+        ("children: heavy parent, dated first page", items, {**heavy, "asOf": AS_OF}),
     ]
 
 
@@ -354,6 +359,20 @@ def _query_scenarios(context: str, dataset: VolumeDataset) -> list[tuple[str, di
             {
                 **base,
                 "objectTypeKey": ITEM,
+                "where": [{"field": f"ancestor:{GROUP}", "op": "eq", "value": dataset.heavy_group_id}],
+                "includeTotal": True,
+            },
+        ),
+        # 0.9 T1: dated queries (Q4).
+        ("query: dated, first page", {**base, "objectTypeKey": ITEM, "asOf": AS_OF}),
+        # The ancestor's items, not the cited group's: dated, those fill more than a page at every
+        # scale, so both seeded sizes read the same statements.
+        (
+            "query: dated ancestor criterion, total",
+            {
+                **base,
+                "objectTypeKey": ITEM,
+                "asOf": AS_OF,
                 "where": [{"field": f"ancestor:{GROUP}", "op": "eq", "value": dataset.heavy_group_id}],
                 "includeTotal": True,
             },
@@ -561,6 +580,80 @@ def known_exceptions(client, engine: Engine, dataset: VolumeDataset, *, repeat: 
     return results
 
 
+QUERY_PATH = f"/api/v1/workspaces/{WORKSPACE}/queries/objects"
+
+
+def dated_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int) -> list[Measurement]:
+    """0.9 T1: only the dated reads, in every context (``--only-dated``)."""
+    results = []
+    for context in CONTEXTS:
+        for scenario, path, params in _read_scenarios(engine, context, dataset):
+            if "dated" in scenario:
+                status, milliseconds, statements, rows = _timed(
+                    engine, lambda path=path, params=params: client.get(path, params=params), repeat
+                )
+                results.append(Measurement(context, scenario, status, milliseconds, statements, rows))
+        for scenario, body in _query_scenarios(context, dataset):
+            if "dated" in scenario:
+                status, milliseconds, statements, rows = _timed(
+                    engine, lambda body=body: client.post(QUERY_PATH, json=body), repeat
+                )
+                results.append(Measurement(context, scenario, status, milliseconds, statements, rows))
+    return results
+
+
+def publish_scenario(client, engine: Engine, dataset: VolumeDataset) -> list[Measurement]:
+    """0.9 T1: publishing a change set that renames a tenth of the items (10,000 at full volume),
+    staged through inline batches, timed once: it changes the data the reads above measured."""
+    from app.models.database import RdmObject
+
+    count = dataset.shape.items // 10
+    with Session(engine) as session:
+        ids = session.scalars(
+            select(RdmObject.id)
+            .where(RdmObject.object_type_key == ITEM, RdmObject.id != dataset.live_item_id)
+            .order_by(RdmObject.id)
+            .limit(count)
+        ).all()
+    created = client.post(
+        f"/api/v1/workspaces/{WORKSPACE}/change-sets", json={"name": "T1 publish", "source": "currentLive"}
+    )
+    assert created.status_code == 201, created.text
+    change_set = created.json()
+    for start in range(0, len(ids), 1000):
+        version = client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"]
+        items = [
+            {"op": "update", "target": {"id": item}, "expectedVersion": 1, "name": f"Published {item[:8]}"}
+            for item in ids[start : start + 1000]
+        ]
+        staged = client.post(
+            "/api/v1/batches",
+            json={
+                "changeSetId": change_set["id"],
+                "expectedChangeSetVersion": version,
+                "policy": "atomic",
+                "run": "inline",
+                "items": items,
+            },
+        )
+        assert staged.status_code == 200 and staged.json()["job"]["result"] == "applied", staged.text
+    version = client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"]
+    body = {"expectedChangeSetVersion": version, "expectedActivePublicationId": dataset.publication_id}
+    with measure(engine) as cost:
+        response = client.post(f"/api/v1/change-sets/{change_set['id']}/publication", json=body)
+    assert response.status_code == 200, response.text
+    return [
+        Measurement(
+            "change_set",
+            f"publish: {len(ids):,} renamed records",
+            response.status_code,
+            cost.seconds * 1000,
+            cost.statements,
+            cost.rows_loaded,
+        )
+    ]
+
+
 def change_list_scenarios(client, engine: Engine, review: ReviewChangeSet, *, repeat: int) -> list[Measurement]:
     """P2a: both change lists of the review change set, paged every way a reviewer reaches a row."""
     results = []
@@ -680,6 +773,16 @@ def main() -> None:
         help="measure only the 0.9 Q3 model-aware queries",
     )
     parser.add_argument(
+        "--only-dated",
+        action="store_true",
+        help="measure only the 0.9 T1 dated reads",
+    )
+    parser.add_argument(
+        "--only-publish",
+        action="store_true",
+        help="measure only the 0.9 T1 publish of a tenth of the items renamed",
+    )
+    parser.add_argument(
         "--only-change-lists",
         action="store_true",
         help="measure only the P2a change lists over the review change set",
@@ -691,6 +794,7 @@ def main() -> None:
 
     from app.db import get_engine
 
+    publish_error: Exception | None = None
     server_started = postgres_server.start()
     try:
         with tempfile.TemporaryDirectory() as directory:
@@ -702,6 +806,10 @@ def main() -> None:
                 server_version = engine.dialect.server_version_info
                 if arguments.only_restructuring:
                     results, _count = restructuring_scenarios(engine, dataset, repeat=arguments.repeat)
+                elif arguments.only_dated:
+                    results = dated_scenarios(client, engine, dataset, repeat=arguments.repeat)
+                elif arguments.only_publish:
+                    results = publish_scenario(client, engine, dataset)
                 elif arguments.only_queries:
                     results = [
                         item
@@ -722,6 +830,12 @@ def main() -> None:
                     results += change_list_scenarios(client, engine, review, repeat=arguments.repeat)
                     if not arguments.only_change_lists:
                         results += known_exceptions(client, engine, dataset, repeat=arguments.repeat)
+                        # Last: it publishes, so live data and the active publication change. A
+                        # failure is reported after the table, which it must not lose.
+                        try:
+                            results += publish_scenario(client, engine, dataset)
+                        except Exception as error:  # noqa: BLE001
+                            publish_error = error
     finally:
         if server_started:
             postgres_server.stop()
@@ -737,6 +851,8 @@ def main() -> None:
     )
     print()
     print(markdown_table(results))
+    if publish_error is not None:
+        print(f"\nThe publish scenario failed: {str(publish_error)[:2000]}")
     if arguments.json:
         arguments.json.write_text(
             json.dumps(

@@ -157,6 +157,21 @@ def load_attribute_values(
     return result
 
 
+def load_workspace_attribute_values(
+    session: Session, object_ids: list[str], workspace_key: str
+) -> dict[str, dict[str, tuple[str, Any]]]:
+    """:func:`load_attribute_values` for every live record of a workspace (``object_ids``), selected
+    by the workspace rather than by a list of IDs: a list binds one parameter per record, and
+    PostgreSQL refuses a statement with more than 65,535 (found in 0.9 T1 at 258,000 records)."""
+    result: dict[str, dict[str, tuple[str, Any]]] = {object_id: {} for object_id in object_ids}
+    in_workspace = select(RdmObject.id).where(RdmObject.workspace_key == workspace_key)
+    for row in session.scalars(
+        select(AttributeValue).where(AttributeValue.object_id.in_(in_workspace))
+    ):
+        result[row.object_id][row.attribute_type_key] = (row.id, row_value(row))
+    return result
+
+
 def load_attribute_value(
     session: Session, object_id: str, attribute_type_key: str
 ) -> AttributeValue:

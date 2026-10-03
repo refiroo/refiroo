@@ -19,7 +19,7 @@ import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -56,6 +56,9 @@ GROUP_HAS_CHILD = "vol-group-has-child"
 NODE_HAS_CHILD = "vol-node-has-child"
 ITEM_CITES_GROUP = "vol-item-cites-group"
 CODE, RANK = "vol-code", "vol-rank"
+# Base 0.9 T1: items declare an effective period (schema 0.8), so dated reads can be measured.
+VALID_FROM, VALID_UNTIL = "vol-valid-from", "vol-valid-until"
+AS_OF = "2026-06-30"
 
 # Base 0.8 A2: relation matrices over the groups.
 MATRIX_APPLICATION = "vol-matrix"
@@ -75,7 +78,7 @@ _INSERT_BATCH = 5000
 
 
 def volume_model() -> dict[str, Any]:
-    """A schema 0.7 model shaped like the starter model but with no starter key."""
+    """A schema 0.8 model shaped like the starter model but with no starter key."""
 
     def table(key: str, object_type: str) -> dict[str, Any]:
         return {
@@ -93,7 +96,11 @@ def volume_model() -> dict[str, Any]:
         }
 
     def object_type(
-        key: str, parents: list[str], root: bool, extra: tuple[str, ...] = ()
+        key: str,
+        parents: list[str],
+        root: bool,
+        extra: tuple[str, ...] = (),
+        period: tuple[str, str] | None = None,
     ) -> dict[str, Any]:
         item: dict[str, Any] = {
             "key": key,
@@ -109,6 +116,11 @@ def volume_model() -> dict[str, Any]:
         }
         if parents:
             item["behavior"] = {"parentRelationTypeKeys": parents}
+        if period:
+            item["effectivePeriod"] = {
+                "startAttributeTypeKey": period[0],
+                "endAttributeTypeKey": period[1],
+            }
         return item
 
     def relation_type(key: str, **features: bool) -> dict[str, Any]:
@@ -141,7 +153,7 @@ def volume_model() -> dict[str, Any]:
         }
 
     return {
-        "schemaVersion": "0.7",
+        "schemaVersion": "0.8",
         "release": {"key": "vol-model", "name": "Volume model", "version": "0.8.0-s1"},
         "product": {"name": "Volume fixture", "description": "Generated Track S model"},
         "attributeTypes": [
@@ -161,6 +173,15 @@ def volume_model() -> dict[str, Any]:
                 "valueType": "integer",
                 "features": {"filterable": True, "sortable": True},
             },
+            *(
+                {
+                    "key": key,
+                    "name": name,
+                    "valueType": "date",
+                    "features": {"filterable": True, "sortable": True},
+                }
+                for key, name in ((VALID_FROM, "Valid from"), (VALID_UNTIL, "Valid until"))
+            ),
             {
                 "key": ACTIVE,
                 "name": "Active",
@@ -171,7 +192,13 @@ def volume_model() -> dict[str, Any]:
         ],
         "objectTypes": [
             object_type(GROUP, [GROUP_HAS_CHILD], True),
-            object_type(ITEM, [GROUP_CONTAINS_ITEM], False),
+            object_type(
+                ITEM,
+                [GROUP_CONTAINS_ITEM],
+                False,
+                (VALID_FROM, VALID_UNTIL),
+                (VALID_FROM, VALID_UNTIL),
+            ),
             object_type(NODE, [GROUP_CONTAINS_NODE, NODE_HAS_CHILD], False),
             object_type(COLUMN, [], True),
             object_type(SHELF, [COLUMN_CONTAINS_SHELF, SHELF_HAS_CHILD], False),
@@ -351,6 +378,17 @@ def scaled_shape(factor: float) -> VolumeShape:
     )
 
 
+def item_period(number: int) -> dict[str, str]:
+    """An item's effective period by its number: a quarter end on 2026-07-01, a quarter start then, a
+    quarter run through 2026, and a quarter have none. On :data:`AS_OF` three quarters apply."""
+    return [
+        {VALID_UNTIL: "2026-07-01"},
+        {VALID_FROM: "2026-07-01"},
+        {VALID_FROM: "2026-01-01", VALID_UNTIL: "2027-01-01"},
+        {},
+    ][number % 4]
+
+
 def feed_publication_position(shape: VolumeShape) -> int:
     """The position of publication 1's ``published`` entry: the feed's middle."""
     return shape.feed_entries // 2
@@ -445,6 +483,7 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
     items = []
     for number, parent in zip(item_numbers, item_parents, strict=True):
         item = add_object(ITEM, "Item", number, parent)
+        attributes[item].update(item_period(number))
         add_relation(GROUP_CONTAINS_ITEM, parent, item)
         items.append(item)
 
@@ -473,6 +512,15 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
     _bulk_insert(engine, RdmObject, [*objects, *matrix.objects])
     for key in (CODE, RANK):
         _bulk_insert(engine, AttributeValue, _attribute_rows(attributes, new_id, key))
+    # T1's period values draw their row IDs from a stream of their own, so every other ID and the
+    # change set's random parents stay those of the fixture before it.
+    period_rng = random.Random(shape.seed + 1)
+
+    def period_id() -> str:
+        return str(UUID(int=period_rng.getrandbits(128), version=4))
+
+    for key in (VALID_FROM, VALID_UNTIL):
+        _bulk_insert(engine, AttributeValue, _attribute_rows(attributes, period_id, key))
     for key in (CODE, RANK, ACTIVE):
         live = {row["id"]: matrix.attributes[row["id"]] for row in matrix.objects}
         _bulk_insert(engine, AttributeValue, _attribute_rows(live, matrix.new_id, key))
@@ -573,7 +621,11 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
                 "object_type_key": ITEM,
                 "name": f"Item {number:06d}",
                 "parent_object_id": parent,
-                "attributes": {CODE: f"ITEM-{number:06d}", RANK: number % 1000},
+                "attributes": {
+                    CODE: f"ITEM-{number:06d}",
+                    RANK: number % 1000,
+                    **item_period(number),
+                },
                 "version": 1,
                 "is_deleted": False,
             }
@@ -633,7 +685,8 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
         live_item_id=untouched,
         counts={
             "objects": len(objects),
-            "attributeValues": 2 * len(objects),
+            "attributeValues": sum(len(values) for values in attributes.values()),
+            "itemsEffectiveOnAsOf": sum(1 for number in item_numbers if number % 4 != 1),
             "relations": len(relations),
             "nodes": node_number,
             "changeSetObjects": len(change_set_objects),
@@ -1038,16 +1091,19 @@ def _attribute_rows(
         CODE: ("text", "text_value"),
         RANK: ("integer", "integer_value"),
         ACTIVE: ("boolean", "boolean_value"),
+        VALID_FROM: ("date", "date_value"),
+        VALID_UNTIL: ("date", "date_value"),
     }[key]
     for object_id, values in attributes.items():
         if key not in values:
             continue
+        value = values[key]
         yield {
             "id": new_id(),
             "object_id": object_id,
             "attribute_type_key": key,
             "value_type": value_type,
-            column: values[key],
+            column: date.fromisoformat(value) if value_type == "date" else value,
             "value_source": "own",
             "version": 1,
         }

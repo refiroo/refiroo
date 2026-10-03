@@ -738,11 +738,12 @@ def test_panel_sort_fields_must_not_be_empty():
 
 
 def test_generated_volume_model_validates_with_its_relation_matrices_and_tree():
-    """The generated model holds a matrix in each direction since Base 0.8 A2 and a tree since B1."""
+    """The generated model holds a matrix in each direction since Base 0.8 A2, a tree since B1 and an
+    effective period on items since 0.9 T1 (schema 0.8)."""
     from volume_fixture import volume_model
 
     source = volume_model()
-    assert source["schemaVersion"] == "0.7"
+    assert source["schemaVersion"] == "0.8"
     views = [view for application in source["applications"] for view in application["views"]]
     assert {view["config"]["direction"] for view in views if view["type"] == "relationMatrix"} == {
         "outgoing",

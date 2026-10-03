@@ -63,6 +63,19 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Fixed
 
+- Base 0.9 T1: creating a change set from current live data and publishing a change set failed with
+  `500` in a workspace holding more than about 65,000 records. Both read every record's values and
+  relationships with a list of all the record IDs, one statement parameter each, and PostgreSQL
+  refuses more than 65,535. They now select by workspace, and the publish checks each relationship
+  end with a primary-key probe.
+- Base 0.9 T1: capturing current live data and publishing slowed quadratically with the number of
+  records they wrote. The typed value index's flush hook rebuilt SQLAlchemy's set of pending rows
+  once per row. At about 10,000 records (4 % of the volume fixture), capture now takes 4.6 s instead
+  of 28.1 s, and publish 6.0 s instead of 29.9 s.
+- Base 0.9 T1: applying a publish to live data flushed the session once per changed record, with
+  the whole workspace loaded. It now writes the changes with explicit flushes, and copies the
+  publication and a change set's base in multi-row statements. Publishing 1,000 changes in a
+  26,000-record workspace takes 11.3 s instead of 25.0 s.
 - Base 0.9 B3: relating the same two records twice with one relationship type answers
   `409 duplicate_relation`. Live, it answered `500`; in a change set, the duplicate was staged.
 

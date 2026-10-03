@@ -15,6 +15,7 @@ from typing import Any
 
 from sqlalchemy import Connection, delete, event, insert, select
 from sqlalchemy.orm import Session
+from sqlalchemy.util import IdentitySet
 
 from ...models.database import (
     AttributeTypeMeta,
@@ -76,12 +77,14 @@ def delete_owner_values(session: Session, owner_id: str) -> None:
 
 @event.listens_for(Session, "before_flush")
 def _index_changed_object_rows(session: Session, _context: Any, _instances: Any) -> None:
+    # ``session.new`` builds a new set on every read: read it once, or a flush of n rows costs n².
+    new = session.new
     changed = [
         item
-        for item in (*session.new, *session.dirty)
-        if type(item) in _OWNERS and (item in session.new or session.is_modified(item))
+        for item in (*new, *session.dirty)
+        if type(item) in _OWNERS and (item in new or session.is_modified(item))
     ]
-    removed = [item for item in session.deleted if type(item) in _OWNERS]
+    removed = IdentitySet(item for item in session.deleted if type(item) in _OWNERS)
     if not changed and not removed:
         return
     # Core statements on the flush connection: they join the flush transaction without
@@ -132,6 +135,41 @@ def _owner_release(
             select(owner.model_release_id).where(owner.id == owner_id)
         )
     return cache[(kind, owner_id)]
+
+
+def insert_object_rows(session: Session, row_type: type, rows: list[dict[str, Any]]) -> None:
+    """Insert publication or change-set base object rows in bulk, with their typed index.
+
+    A whole-workspace copy (a publication, a base captured from live) is written in multi-row
+    statements instead of one ORM object per row (0.9 T1a); the flush hook does not see these rows,
+    so the index rows are written here.
+    """
+    kind, owner_column, _owner = _OWNERS[row_type]
+    connection = session.connection()
+    releases: dict[tuple[str, str], int | None] = {}
+    value_types: dict[int, dict[str, str]] = {}
+    index: list[dict[str, Any]] = []
+    for row in rows:
+        release_id = _owner_release(connection, releases, row_type, row[owner_column])
+        if release_id is not None and release_id not in value_types:
+            value_types[release_id] = release_value_types(connection, release_id)
+        index.extend(
+            value_rows(
+                kind,
+                row[owner_column],
+                row["object_id"],
+                row["attributes"],
+                value_types.get(release_id, {}) if release_id is not None else {},
+            )
+        )
+    insert_rows(connection, row_type.__table__, rows)
+    insert_value_rows(connection, index)
+
+
+def insert_rows(connection: Connection, table: Any, rows: list[dict[str, Any]]) -> None:
+    """Insert rows into ``table`` in multi-row statements of a bounded size."""
+    for start in range(0, len(rows), 2000):
+        connection.execute(insert(table), rows[start : start + 2000])
 
 
 def insert_value_rows(connection: Connection, rows: Iterable[dict[str, Any]]) -> None:

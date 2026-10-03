@@ -57,6 +57,14 @@ differently, the difference is one entry in `engine/records/refusals.py`, pinned
 `tests/test_rule_parity.py`. Every record, relation and attribute-value row is written through
 `engine/records/writes.py` (`LiveWrites`, `ChangeSetWrites`).
 
+**Set work runs in the database** (decided 2026-10-03, 0.9 T1). The engine runs on PostgreSQL only.
+Work over many rows, such as copying a workspace, merging a change set, checking a rule across a
+whole set or filling an index, is done by set statements inside PostgreSQL (`INSERT … SELECT`,
+`MERGE`, JSON aggregation, SQL functions where a building block is reused). Python decides and
+issues statements; bulk data does not travel through it row by row. Long operations may run as
+jobs. Creating a change set from live data and publishing still load the whole workspace into
+Python; packages T1b–T1e move them ([0.9 plan, T1](BASE_0_9_IMPLEMENTATION_PLAN.md#t1-track-checkpoint-q-b-f)).
+
 ## Model definition and releases
 
 ### What a model declares

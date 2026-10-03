@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import or_, select
+from sqlalchemy import exists, or_, select
 from sqlalchemy.orm import Session
 
 from ...errors import api_error
@@ -24,7 +24,8 @@ from ...models.database import (
     Workspace,
 )
 from ..indexes import matrix_states
-from ..records.attributes import load_attribute_values
+from ..indexes.snapshot_values import insert_object_rows, insert_rows
+from ..records.attributes import load_workspace_attribute_values
 from ..records.audit import AuditEntry, audit_cause
 from ..records.feed import object_subject, relation_subject
 from ..records.relation_set_versions import merge_change_set_relation_set_versions_to_live
@@ -361,7 +362,7 @@ def _merge_change_set_over_live(
         )
     }
     object_ids = sorted(live_objects)
-    attribute_rows = load_attribute_values(session, object_ids)
+    attribute_rows = load_workspace_attribute_values(session, object_ids, workspace_key)
     merged_objects: dict[str, MergedObject] = {}
     for object_id in object_ids:
         live = live_objects[object_id]
@@ -375,14 +376,19 @@ def _merge_change_set_over_live(
             version=live.version,
         )
     live_relations: dict[str, ObjectRelation] = {}
+    # One primary-key probe per end. ``IN (subquery) OR IN (subquery)`` cannot be hashed, and
+    # PostgreSQL re-ran the subquery per relationship: 30 minutes at 258,000 records (0.9 T1).
+    def in_workspace(end: Any) -> Any:
+        return exists().where(RdmObject.id == end, RdmObject.workspace_key == workspace_key)
+
     if object_ids:
         live_relations = {
             item.id: item
             for item in session.scalars(
                 select(ObjectRelation).where(
                     or_(
-                        ObjectRelation.from_object_id.in_(object_ids),
-                        ObjectRelation.to_object_id.in_(object_ids),
+                        in_workspace(ObjectRelation.from_object_id),
+                        in_workspace(ObjectRelation.to_object_id),
                     )
                 )
             )
@@ -649,31 +655,40 @@ def publish_change_set(
     )
     session.add(publication)
     session.flush()
-    for item in merged.membership.objects:
-        session.add(
-            PublicationObject(
-                publication_id=publication.id,
-                object_id=item.object_id,
-                application_key=item.application_key,
-                object_type_key=item.object_type_key,
-                name=item.name,
-                parent_object_id=item.parent_object_id,
-                attributes=item.attributes,
-                version=item.version,
-            )
-        )
-    for item in merged.membership.relations:
-        session.add(
-            PublicationRelation(
-                publication_id=publication.id,
-                relation_id=item.relation_id,
-                relation_type_key=item.relation_type_key,
-                from_object_id=item.from_object_id,
-                to_object_id=item.to_object_id,
-                attributes=item.attributes,
-                version=item.version,
-            )
-        )
+    # The publication is a copy of the whole merged workspace: written in bulk (0.9 T1a).
+    insert_object_rows(
+        session,
+        PublicationObject,
+        [
+            {
+                "publication_id": publication.id,
+                "object_id": item.object_id,
+                "application_key": item.application_key,
+                "object_type_key": item.object_type_key,
+                "name": item.name,
+                "parent_object_id": item.parent_object_id,
+                "attributes": item.attributes,
+                "version": item.version,
+            }
+            for item in merged.membership.objects
+        ],
+    )
+    insert_rows(
+        session.connection(),
+        PublicationRelation.__table__,
+        [
+            {
+                "publication_id": publication.id,
+                "relation_id": item.relation_id,
+                "relation_type_key": item.relation_type_key,
+                "from_object_id": item.from_object_id,
+                "to_object_id": item.to_object_id,
+                "attributes": item.attributes,
+                "version": item.version,
+            }
+            for item in merged.membership.relations
+        ],
+    )
     # Apply only the delta onto the live projection: remove tombstoned rows, upsert the authored
     # objects and relations, and leave every untouched live row exactly as it is. What it changed
     # takes the next feed positions with the publication as cause, then the publication's own
