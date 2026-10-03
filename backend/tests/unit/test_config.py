@@ -1,7 +1,8 @@
 """``config.py``: the settings the service starts with.
 
 J12.7 starts the service with one invalid limit and with small limits. Here every integration-job
-setting has its default and refuses a value that is not a positive integer.
+setting, and the change feed's retention, has its default and refuses a value that is not a positive
+integer.
 """
 
 import pytest
@@ -17,6 +18,7 @@ JOB_LIMITS = {
     "BATCH_BACKGROUND_MAX_BYTES": ("batch_background_max_bytes", 50 * 1024 * 1024),
     "JOB_CHUNK_ITEMS": ("job_chunk_items", 500),
     "JOB_LEASE_SECONDS": ("job_lease_seconds", 120),
+    "FEED_RETENTION_DAYS": ("feed_retention_days", 30),
 }
 
 

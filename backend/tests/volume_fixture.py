@@ -24,7 +24,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import event, insert, select
+from sqlalchemy import event, insert, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session
 
@@ -320,6 +320,10 @@ class VolumeShape:
     matrix_retired_every: int = 50
     matrix_second_mark_every: int = 7
     matrix_extra_every: int = 100
+    # Base 0.9 F2: the workspace's change feed, every entry older than any retention period, with
+    # publication 1 at its middle position, so the feed answers from there on (D40).
+    feed_entries: int = 1_000_000
+    feed_group_every: int = 100  # every n-th entry is a group's, the rest items'
 
 
 FULL_SHAPE = VolumeShape(
@@ -343,7 +347,13 @@ def scaled_shape(factor: float) -> VolumeShape:
         node_depth=FULL_SHAPE.node_depth,
         node_fanout=FULL_SHAPE.node_fanout,
         change_set_new_items=max(5, round(FULL_SHAPE.change_set_new_items * factor)),
+        feed_entries=max(10_000, round(FULL_SHAPE.feed_entries * factor)),
     )
+
+
+def feed_publication_position(shape: VolumeShape) -> int:
+    """The position of publication 1's ``published`` entry: the feed's middle."""
+    return shape.feed_entries // 2
 
 
 @dataclass
@@ -479,6 +489,7 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
             status="active",
             created_at=now,
             published_at=now,
+            feed_position=feed_publication_position(shape),
         )
         session.add(publication)
         session.flush()
@@ -596,6 +607,8 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
     )
     _bulk_insert(engine, ChangeSetRelation, change_set_relations)
 
+    _seed_feed(engine, shape, release_id)
+
     # Statistics for the bulk-loaded tables, as autovacuum would gather them shortly after a load:
     # without them PostgreSQL plans every read as if the tables were empty.
     with engine.connect().execution_options(isolation_level="AUTOCOMMIT") as connection:
@@ -632,6 +645,43 @@ def seed_volume(engine: Engine, shape: VolumeShape) -> VolumeDataset:
         },
         matrix_column_ids=matrix.column_ids,
     )
+
+
+def _seed_feed(engine: Engine, shape: VolumeShape, release_id: int) -> None:
+    """``feed_entries`` updates of items and groups, a second apart from 2025-01-01, in one
+    statement: a million rows through executemany take minutes."""
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """
+                INSERT INTO audit_events (event_id, aggregate_type, aggregate_id, action, version,
+                    changes, occurred_at, workspace_key, feed_position, model_release_id,
+                    feed_subject)
+                SELECT md5('feed-' || i)::uuid::text, 'object', md5('object-' || i)::uuid::text,
+                    'updated', 2, '{"name": {"before": "a", "after": "b"}}',
+                    timestamptz '2025-01-01 00:00:00+00' + i * interval '1 second',
+                    CAST(:workspace AS text), i, CAST(:release AS integer), json_build_object(
+                        'objectTypeKey',
+                        CASE WHEN i % CAST(:every AS integer) = 0 THEN CAST(:group AS text)
+                            ELSE CAST(:item AS text) END,
+                        'applicationKey', CAST(:application AS text))
+                FROM generate_series(1, CAST(:entries AS integer)) AS i
+                """
+            ),
+            {
+                "workspace": WORKSPACE,
+                "release": release_id,
+                "every": shape.feed_group_every,
+                "group": GROUP,
+                "item": ITEM,
+                "application": APPLICATION,
+                "entries": shape.feed_entries,
+            },
+        )
+        connection.execute(
+            text("UPDATE workspaces SET feed_position = :entries WHERE key = :workspace"),
+            {"entries": shape.feed_entries, "workspace": WORKSPACE},
+        )
 
 
 @dataclass

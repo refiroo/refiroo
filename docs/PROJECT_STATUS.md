@@ -114,8 +114,17 @@ relationship items in batches.
 - `GET /relations?objectId=…` names each set's version, an empty set included (D38).
 - A duplicate relationship is `409 duplicate_relation` (live it answered 500).
 
-([record](BASE_0_9_IMPLEMENTATION_PLAN.md#b3-relation-and-relation-set-items)). Next are F2, then
-T1.
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#b3-relation-and-relation-set-items)). **F2 is delivered
+(2026-10-03):** feed retention and recovery.
+- `FEED_RETENTION_DAYS` (30) sets how long the feed answers a position, reported by
+  `GET /capabilities`; an older one is `410 feed_position_expired`, naming the active publication
+  and its `feedPosition` to re-read (revision `20261003_03`).
+- The earliest position never passes the active publication's, and a workspace without one keeps
+  every entry (D40); the export as a second baseline is J1's (D41).
+- A 500-entry page costs 4 statements, 25–35 ms, at the head and the middle of a 1,000,000-entry
+  feed.
+
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#f2-feed-retention-and-recovery)). Next is T1.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter
@@ -469,7 +478,7 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
   limits contextual hierarchy queries to direct-parent scope. Lazy arbitrary-depth traversal and
   specialist translation/tree renderers follow the 0.8 roadmap; top-level `form`, `dashboard` and
   `tree` are not implemented renderers.
-- Relation batch items, imports/exports, feed retention and webhooks remain planned (0.9); the
+- Imports/exports and webhooks remain planned (0.9); the
   model-aware query, `asOf`, inline and background object batches with upsert, and the change feed
   read are delivered.
   No synchronous collection has an undocumented unlimited mode.

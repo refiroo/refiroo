@@ -234,10 +234,18 @@ class IntegrationJobCapabilities(BaseModel):
     setting: Literal["INTEGRATION_JOBS_ENABLED"]
 
 
+class ChangeFeedCapabilities(BaseModel):
+    """The change feed (INTEGRATION_API F). A position older than ``retentionDays``
+    (``FEED_RETENTION_DAYS``) is refused as expired, naming a baseline to re-read."""
+
+    retentionDays: int
+
+
 class CapabilitiesResponse(BaseModel):
     modelAdmin: ModelAdminCapabilities
     workspaceAdmin: WorkspaceAdminCapabilities
     integrationJobs: IntegrationJobCapabilities
+    changeFeed: ChangeFeedCapabilities
 
 
 class ModelDraftCreate(BaseModel):

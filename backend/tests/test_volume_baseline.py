@@ -17,7 +17,7 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import func, select
-from volume_baseline import PAGE_SIZE, run_scenarios
+from volume_baseline import FEED_PAGE, PAGE_SIZE, run_scenarios
 from volume_fixture import (
     CELL,
     CELLS_PER_GROUP,
@@ -70,10 +70,11 @@ def _over_budget(baselines, contexts: set[str], *, writes: bool = False) -> list
         if small.statements != large.statements:
             failures.append(f"{label}: statements {small.statements} → {large.statements} at 4× data")
         worst = max(small.rows_loaded, large.rows_loaded)
-        if worst > ROWS_PER_LISTED_ROW * PAGE_SIZE:
+        page = FEED_PAGE if small.scenario.startswith("feed:") else PAGE_SIZE
+        if worst > ROWS_PER_LISTED_ROW * page:
             failures.append(
                 f"{label}: rows {small.rows_loaded:,} → {large.rows_loaded:,} at 4× data, "
-                f"over {ROWS_PER_LISTED_ROW * PAGE_SIZE} for a {PAGE_SIZE}-row page"
+                f"over {ROWS_PER_LISTED_ROW * page} for a {page}-row page"
             )
     return failures
 

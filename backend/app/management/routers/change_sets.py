@@ -124,6 +124,7 @@ def _publication_response(session, item: Publication) -> PublicationResponse:
         createdAt=item.created_at,
         publishedAt=item.published_at,
         withdrawnAt=item.withdrawn_at,
+        feedPosition=item.feed_position,
     )
 
 

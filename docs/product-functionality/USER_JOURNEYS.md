@@ -787,7 +787,7 @@ single writes' codes.
 ### J26 — Follow changes reliably
 
 **Actor:** integrator. **Channel:** API. **Stories:** US-I05. **Scenario:** SC-10 (feed part).
-**Status:** steps 1–2 delivered (0.9 F1); step 3 planned (0.9 F2).
+**Status:** delivered (0.9 F1, F2).
 
 1. Read the ordered change feed of a workspace from a stored position, a page at a time, until
    caught up (`nextAfter` equals `headPosition`). Every change to live data has one entry with a
@@ -810,9 +810,15 @@ single writes' codes.
   the position advanced by a bounded scan, never an unbounded one.
 - **J26.5 Concurrent writers**: writes to one workspace at once get gapless positions in commit
   order; other workspaces have feeds of their own.
+- **J26.6 An expired position**: entries older than the retention period expire. A position below
+  the earliest one still readable is refused, naming the active publication and its position; the
+  reader re-reads that publication, follows the feed from its position and ends with live data. The
+  earliest position never passes the active publication's, and without one nothing expires, so a
+  reader always has a way back.
 
 **Refusals:** `404 workspace_not_found`, `409 feed_position_ahead` (a position past the head, from
-another workspace or a restored database), `422 request_validation_error` (page size, position).
+another workspace or a restored database), `410 feed_position_expired` (a position older than
+retention), `422 request_validation_error` (page size, position).
 
 **Evidence today:** the J26 journey tests; `test_pg3_concurrency` (commit order under a held write,
 publish beside a live write).

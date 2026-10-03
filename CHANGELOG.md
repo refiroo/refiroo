@@ -8,6 +8,17 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 F2: change feed retention and recovery.
+  - **Retention.** `FEED_RETENTION_DAYS` (default 30, reported as `changeFeed.retentionDays` by
+    `GET /capabilities`). `earliestPosition` is the first entry within the period. A position below
+    it is `410 feed_position_expired`, naming `earliestPosition`, `headPosition` and the active
+    publication with its `feedPosition`, the baseline to re-read before following on.
+  - **Always a way back.** The earliest position never passes the active publication's, and a
+    workspace without one keeps every entry (D40). The audit log is not pruned.
+  - **Publications** carry `feedPosition`.
+  - **Cost.** A 500-entry page reads in 25–35 ms with 4 statements, at the head and in the middle of
+    a 1,000,000-entry feed.
+  - **Migration** `20261003_03`: the index the retention floor is found by. Decisions D40–D41.
 - Base 0.9 F1: the change feed `GET /api/v1/workspaces/{key}/feed`.
   - **Positions.** Every change to a workspace's live data has a position: per workspace, gapless and
     in commit order. A live write takes positions under the workspace lock it already holds (one

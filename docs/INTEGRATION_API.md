@@ -51,6 +51,11 @@ no audit entry and produces no feed event, so re-sending a recurring feed is che
 downstream. It is decided before any version claim (D24, B1): an item that would write nothing can
 overwrite nothing, so it needs no `expectedVersion` and a stale one does not refuse it.
 
+The three statuses are fixed. The `action` and `reason` values may grow: a later merge or retired-ID
+redirect ([composable domains](COMPOSABLE_DOMAINS.md#identity)) adds an action, as it does in the feed
+(F2). The OpenAPI document lists today's values; readers must treat an action or reason they do not
+know as applied or unprocessed by its status, never as an error.
+
 A rejection uses the single-write error code (`duplicate_attribute_value`, `version_conflict`,
 `parent_cycle`, …) because the item went through the same service (plan principle 1). Codes that
 exist only for batches are listed with the section that introduces them.
@@ -388,8 +393,8 @@ background batch is B2's.
 
 The raw management feed lists every change to a workspace's live data in commit order. Sync tools
 follow it; consumer events (CONSUMER_API) are derived from it. **Delivered by F1 (2026-10-03):** F1–F4,
-with the read moved into F1 (D31); the contract is in [API.md](API.md#change-feed-base-09-f1). F5
-(retention and recovery) is F2's.
+with the read moved into F1 (D31); the contract is in [API.md](API.md#change-feed-base-09-f1-f2).
+**Delivered by F2 (2026-10-03):** F5, amended by D40 and D41.
 
 ### F1: What the feed contains
 
@@ -486,9 +491,14 @@ GET /api/v1/workspaces/{workspaceKey}/feed?after={position}&pageSize=…&kind=�
 - `FEED_RETENTION_DAYS` (default 30), shared with consumer events (C-D9). Positions older than the
   floor expire: `after` below `earliestPosition - 1` answers `410 feed_position_expired`. The audit
   log itself is not pruned by this setting; object history is unaffected.
-- The `410` details name the recovery baselines: the workspace's active publication with its
-  `feedPosition`, and the export route (J4). A reader re-reads the baseline, then follows the feed
-  from the baseline's position.
+- The floor is the first entry within the period, but never past the active publication's
+  `feedPosition + 1`; with no active publication that has a position, nothing expires (D40). Otherwise
+  a baseline older than the period would itself be expired, and a workspace with no publication
+  would have none to re-read.
+- The `410` details name the recovery baseline: the workspace's active publication with its
+  `feedPosition`. A reader re-reads the baseline, then follows the feed from the baseline's position.
+  The export route (J4) joins as a second baseline when J1 delivers it (D41); J1 then revisits
+  whether a workspace without a publication still keeps every entry.
 - A publication's `feedPosition` is the position of its `published` entry; it equals live data at
   that position (C-D15, verified). An export records the position it read at.
 

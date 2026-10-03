@@ -461,8 +461,14 @@ change, a bulk job or a publish. Publishing a change set lists each record and r
 changed, then the publication itself, so the publication matches live data at its number. Readers can
 filter by kind and by record type. Work inside a change set does not appear until it is published.
 
-Limits: entries are kept indefinitely for now; retention, with a clear way to re-synchronise from a
-publication once old entries expire, follows in 0.9 (F2). Webhooks follow with the consumer API.
+Entries stay readable for a retention period, 30 days unless the operator sets another. An
+integration that comes back after longer is told its number has expired, and which publication to
+re-read: it reads that publication, then follows the feed from the publication's number and misses
+nothing. Entries after the workspace's current publication never expire, and a workspace with no
+current publication keeps every entry, so there is always a way back.
 
-Evidence: [feed contract](../API.md#change-feed-base-09-f1),
+Limits: re-synchronising from an export instead of a publication follows with export jobs, and
+webhooks with the consumer API.
+
+Evidence: [feed contract](../API.md#change-feed-base-09-f1-f2),
 [positions](../../backend/app/engine/records/feed.py), [read](../../backend/app/engine/reads/feed.py).

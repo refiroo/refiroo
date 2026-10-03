@@ -193,9 +193,13 @@ Capabilities return deployment-supported operations explicitly:
     "runModes": ["inline"],
     "limits": { "batchMaxItems": 1000, "batchMaxBytes": 5242880, "atomicJobMaxItems": 10000, "retentionDays": 7 },
     "setting": "INTEGRATION_JOBS_ENABLED"
-  }
+  },
+  "changeFeed": { "retentionDays": 30 }
 }
 ```
+
+`changeFeed.retentionDays` is `FEED_RETENTION_DAYS`: how long the [change feed](#change-feed-base-09-f1-f2)
+answers a position.
 
 Each group names in `setting` the deployment setting that enables its mutations, so a client can tell
 an operator what to change without knowing the server's configuration names.
@@ -833,6 +837,10 @@ set or publication is addressed flat by its global ID (`/change-sets/{changeSetI
   it is the workspace's current publication, otherwise `withdrawn`), `publishedAt`, `withdrawnAt`,
   `derivedFromPublicationId`, `supersedesPublicationId` and its `modelReleaseId`, `modelReleaseKey`
   and `modelReleaseVersion`, so a client can show "Publication 12 · model 0.8.0 · 3 Sep 2026".
+  `feedPosition` is the position of its `published` entry in the
+  [change feed](#change-feed-base-09-f1-f2): live data at that position is the publication, so a feed
+  reader re-reads it and follows on from there. It is `null` for a publication made before the feed
+  existed.
   `publicationNumber` is a per-workspace counter that never restarts, not a version. The list is
   newest first by publication number with the public UUID as a unique descending tie-breaker. Its
   cursor is bound to the workspace and descending sort; an ascending, malformed or differently scoped
@@ -1897,7 +1905,7 @@ chunk. The worker carries it out at the job's next chunk (a queued job before it
 back completely. Cancelling again changes nothing; a
 finished job is `409 job_finished` with `details.state`, an unknown one `404 job_not_found`.
 
-## Change feed (Base 0.9 F1)
+## Change feed (Base 0.9 F1, F2)
 
 - `GET /api/v1/workspaces/{workspaceKey}/feed?after=…&pageSize=…&kind=…&objectTypeKey=…`
 
@@ -1931,7 +1939,7 @@ or none, with `nextAfter` advanced. A sparse filter never costs an unbounded sca
 - `items` in position order.
 - `nextAfter`: the `after` to pass next.
 - `headPosition`: the highest committed position.
-- `earliestPosition`: `1` until retention (F2).
+- `earliestPosition`: the lowest `after` + 1 the feed answers (see Retention).
 
 The reader is caught up when `nextAfter` equals `headPosition`. An entry:
 
@@ -1971,6 +1979,32 @@ The reader is caught up when `nextAfter` equals `headPosition`. An entry:
 - `after` past the head: `409 feed_position_ahead`, with `details.headPosition` (D33). Such a position
   was not read from this workspace's feed, or the database was restored to an earlier state; the
   reader re-reads a baseline.
+- `after` below `earliestPosition − 1`, `0` included: `410 feed_position_expired` (see Retention).
+
+**Retention and recovery (F2, D8, D40).** Entries older than `FEED_RETENTION_DAYS` (default 30,
+reported as `changeFeed.retentionDays` by `GET /capabilities`) expire from the feed; record history
+keeps them. `earliestPosition` is the position of the first entry within the period, or `headPosition
++ 1` when every entry is older, but never more than the active publication's `feedPosition + 1`. A
+workspace without an active publication with a position (never published, withdrawn, or published
+before the feed existed) has nothing to re-read, so nothing expires and `earliestPosition` is `1`.
+
+```json
+{
+  "error": {
+    "code": "feed_position_expired",
+    "message": "Position 0 has expired: the feed answers from position 500001 on. …",
+    "details": {
+      "earliestPosition": 500001,
+      "headPosition": 1000000,
+      "publication": {"id": "…", "publicationNumber": 12, "feedPosition": 500000}
+    }
+  }
+}
+```
+
+To recover, the reader reads the named publication (the lists with `publicationId`), then follows the
+feed with `after` set to its `feedPosition`. The publication equals live data at that position, so
+the reader misses nothing. An export as a second baseline follows with export jobs (J1, D41).
 
 A retired workspace's feed stays readable. The feed is ungated like other reads until 0.12 (D10).
 
@@ -1981,7 +2015,7 @@ Designed in [INTEGRATION_API.md](INTEGRATION_API.md) and sequenced in the
 
 - Relation and relation-set items (B3)
 - Asynchronous import/export jobs
-- Feed retention and `410 feed_position_expired` with re-sync baselines (F2); webhook subscriptions
+- Webhook subscriptions
 - Consumer API: a separate read-only tier with model-declared XREF lookup and lists
   ([CONSUMER_API.md](CONSUMER_API.md))
 

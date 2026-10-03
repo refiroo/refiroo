@@ -25,7 +25,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261003_02"
+HEAD = "20261003_03"
+FEED_POSITIONS = "20261003_02"
 SEARCH_INDEXES = "20261003_01"
 BASELINE = "20261001_01"
 LIMITED_ROLE = "rdm_startup_limited"
@@ -339,3 +340,75 @@ def test_an_interrupted_feed_position_revision_rolls_back_and_the_next_start_rec
         assert errors == []
         assert client.get("/health").json() == {"status": "ok"}
     assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+
+
+def _feed_time_index(url: URL) -> bool:
+    return bool(
+        _scalar(url, "SELECT count(*) FROM pg_indexes WHERE indexname = 'ix_audit_events_feed_time'")
+    )
+
+
+def test_a_database_with_a_feed_upgrades_to_feed_retention(monkeypatch, databases):
+    """Base 0.9 F2 on a database at the previous revision whose feed has an entry: the upgrade adds
+    the retention index, the entry is still answered with nothing expired, and the next write takes
+    the next position. Started twice."""
+    url = seeds.create_empty()
+    databases.append(url)
+    # A started service (its default workspace), then taken back to the previous revision.
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+    command.downgrade(migration_config(url), FEED_POSITIONS)
+    assert not _feed_time_index(url)
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("UPDATE workspaces SET feed_position = 1 WHERE key = 'default'"))
+        connection.execute(
+            text(
+                "INSERT INTO audit_events (event_id, aggregate_type, aggregate_id, action, version, "
+                "changes, occurred_at, workspace_key, feed_position) VALUES "
+                "(gen_random_uuid()::text, 'object', 'earlier', 'created', 1, '{}', "
+                "now() - interval '400 days', 'default', 1)"
+            )
+        )
+    engine.dispose()
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        page = client.get("/api/v1/workspaces/default/feed").json()
+        assert [e["position"] for e in page["items"]] == [1]
+        assert (page["headPosition"], page["earliestPosition"]) == (1, 1)
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        assert client.get("/health").json() == {"status": "ok"}
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    assert _feed_time_index(url)
+
+
+def test_an_interrupted_feed_retention_revision_rolls_back_and_the_next_start_recovers(
+    monkeypatch, databases
+):
+    url = seeds.create_empty()
+    databases.append(url)
+    command.upgrade(migration_config(url), FEED_POSITIONS)
+    # The index's name already taken: the revision fails.
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("CREATE INDEX ix_audit_events_feed_time ON audit_events (action)"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {FEED_POSITIONS}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "ix_audit_events_feed_time" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == FEED_POSITIONS
+    with engine.begin() as connection:
+        connection.execute(text("DROP INDEX ix_audit_events_feed_time"))
+    engine.dispose()
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        assert client.get("/health").json() == {"status": "ok"}
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    assert _feed_time_index(url)

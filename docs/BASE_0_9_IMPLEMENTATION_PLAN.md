@@ -11,9 +11,9 @@ J1–J4 and R are specified (2026-09-29) and delivered in the order of the
 [Q4](#q4-effective-periods-and-asof) (2026-09-30), [V1](#v1-api-reference-page) (2026-09-30),
 [B1](#b1-job-model-and-inline-object-batches) (2026-10-01), [B2](#b2-background-jobs) (2026-10-01),
 the interim release 0.9.0-alpha.1 (2026-10-03), [F1](#f1-feed-positions) (2026-10-03, with the feed
-read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39).
-**Next:** F2 (feed retention and recovery), then T1, in the order of the
-[delivery queue](#delivery-queue).
+read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
+[F2](#f2-feed-retention-and-recovery) (2026-10-03, D40–D41).
+**Next:** T1, in the order of the [delivery queue](#delivery-queue).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -207,7 +207,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 9b | [H2–H3](TEST_HARNESS_PLAN.md) | PG2 | Parallel test runs (H2 **delivered 2026-10-01**); time ceilings, full-size budgets out of everyday runs (H3); no product change |
 | 9c | [PG3–PG5](POSTGRESQL_RUNTIME_PLAN.md) | PG2 | The per-workspace write lock and concurrency tests; PG3b batch writes decided in memory and written in bulk (PG-D12–PG-D17); existing data carried over; budgets on PostgreSQL with the 100,000-item batch measured once; released as 0.9.0-alpha.1 |
 | 10 | [B3](#b3-relation-and-relation-set-items) | B1 | Relation items and `replaceRelationSet` — **delivered 2026-10-03** |
-| 11 | [F2](#f2-feed-retention-and-recovery) | F1 | Retention, `410` with baselines, the deep read budget (the read moved to F1, D31) |
+| 11 | [F2](#f2-feed-retention-and-recovery) | F1 | Retention, `410` with baselines, the deep read budget (the read moved to F1, D31) — **delivered 2026-10-03** |
 | 12 | [T1](#t1-track-checkpoint-q-b-f) | Q4, B2, B3, F2 | Track checkpoint for Q, B and F: their groups, budgets and a composed journey |
 | 13 | C2 | C1 | Consumer object and projections |
 | 14 | C3 | C2 | Lists |
@@ -1094,6 +1094,150 @@ delivered by F1 (D31).
 
 **Exit:** retention and recovery in API.md; SC-10's feed half passes at API level.
 
+**Delivered 2026-10-03.** D40 and D41 were decided with the plan. Journey J26 step 3 and variant
+J26.6 were added to the catalogue, and five cases were written first. Four were confirmed failing;
+the no-publication case passed already, since nothing expired before F2, and stays as D40's guard.
+What was built:
+
+- **Setting** `FEED_RETENTION_DAYS` (default 30, a positive integer), reported by `GET /capabilities`
+  as `changeFeed.retentionDays`.
+- **Floor** (`engine/reads/feed.py`):
+  - The read loads the head and the active publication in one statement.
+  - With a publication that has a position, one probe finds the first entry within the period, and
+    `earliestPosition` is the lower of that and the publication's position + 1 (D40). Otherwise it
+    is 1.
+  - `after` below `earliestPosition − 1` is `410 feed_position_expired`, with `earliestPosition`,
+    `headPosition` and `publication` (`id`, `publicationNumber`, `feedPosition`). The export is J1's
+    (D41).
+- **Publications** carry `feedPosition`, so a reader holding one knows where to follow on.
+- **Migration** `20261003_03`: the partial index `ix_audit_events_feed_time` (`workspace_key`,
+  `occurred_at`, `feed_position`, feed entries only), so the floor is one index probe, however long
+  the feed and however busy other workspaces are.
+- **Volume fixture:** a feed of 1,000,000 × scale entries, all older than any retention period, with
+  publication 1 at its middle. There are three feed scenarios in `volume_baseline.py`: a 500-entry
+  page at the head, one at the earliest position, and one filtered to the 1 % of group entries.
+  T1 measures them at full volume.
+
+Differences from the design, amended in INTEGRATION_API §F5:
+- The floor never passes the baseline, and no baseline means nothing expires (D40).
+- The export baseline waits for J1 (D41).
+
+Composable domains (ADR-032): audit/history is touched. No door is affected: entries still carry
+names, never values, and the audit log is not pruned.
+
+**Budget** (measured once with a scratch script, deleted afterwards). The script used the volume
+fixture with a tiny record set and the full 1,000,000-entry feed, seeded in 23 s, with the median of
+5 runs per read:
+- At the head: 25.8 ms, 4 statements, 500 rows.
+- At the earliest position, the feed's middle: 35.2 ms, 4 statements, 500 rows.
+- Filtered there: 25.0 ms, 4 statements, 50 rows.
+- `after=0`: `410`, naming publication 1 at 500,000.
+
+At 1 % and 4 % scale the three reads cost the same statements (`test_volume_baseline`).
+
+**Checks:**
+- **J26 journey tests:** 22 passed, J26.6's five cases on two configurations each. Two slips in the
+  test code were corrected before the cases passed. One read `earliestPosition` with `after=0`,
+  which the case itself expects to be refused. The other compared whole entries after the aging
+  had moved their `occurredAt`; it now compares event IDs. No case's given/when/then changed.
+- **`test_startup`:** `HEAD` is `20261003_03`, and two new cases pass:
+  - an upgrade from `20261003_02` with a feed entry 400 days old: answered, with nothing expired,
+    across two starts;
+  - an interrupted revision rolled back and recovered on the next start.
+- **`test_openapi_contract`:** the lock was re-baselined after diffing the document. Without
+  `changeFeed`, `ChangeFeedCapabilities`, `feedPosition` and the feed route's new sentence, it hashes
+  to the previous lock exactly.
+- **J20:** its exact list of capability groups gained `changeFeed`. The package's change made the
+  old list wrong.
+- **`tests/unit/test_config.py`:** 10 passed, with `FEED_RETENTION_DAYS` among the settings.
+- **Groups** `feed`, `contract`, `startup` and `volume` without `budget`: 219 passed in 49 s. Their
+  serial part: 1 passed.
+  - A first run failed with "database does not exist": another pytest run on this machine started
+    meanwhile, and its session start drops every test database. The rerun after it ended passed.
+  - Over 10 s: four existing tests at 11–13 s in one of two runs (none in the other):
+    `test_batch_statements` live creates, a position-read case, `test_matrix_states` publishing and
+    `test_volume_baseline`.
+- **`ruff check app/ tests/`:** clean.
+- **Smoke start** on a copy of the development database at `20261001_02`: migrated to `20261003_03`
+  with the index, `/health` ok, `changeFeed.retentionDays` 30, and the feeds empty with
+  `earliestPosition` 1. The copy was dropped.
+
+Not run:
+- the `budget` modules (a release's acceptance);
+- the groups the changed boundary does not select;
+- frontend checks, since nothing under `frontend/` changed.
+
+The full suites wait for R.
+
+**Delivered 2026-10-03** with the user's decisions D40 (the floor never passes the active
+publication's position; without one nothing expires) and D41 (the export baseline is J1's). Journey
+J26 step 3 and variant J26.6 were written first: four of their five cases failed, and the fifth,
+nothing expiring without a publication, held already and guards D40. What was built:
+
+- **Setting** `FEED_RETENTION_DAYS` (default 30), reported by `GET /capabilities` as
+  `changeFeed.retentionDays`. The group names no `setting`, since it gates nothing.
+- **Read** (`engine/reads/feed.py`):
+  - The workspace's head and its active publication are read in one statement.
+  - With a publication, `earliestPosition` is the lower of its `feedPosition + 1` and the time
+    floor: the first entry within the period, or the head + 1. One probe of the new partial index
+    finds it, since positions and times rise together under the workspace lock.
+  - `after` below `earliestPosition − 1` is `410 feed_position_expired`, with `earliestPosition`,
+    `headPosition` and `publication` (`id`, `publicationNumber`, `feedPosition`).
+- **Publications** carry `feedPosition`, `null` before F1.
+- **Migration** `20261003_03`: `ix_audit_events_feed_time` on `audit_events (workspace_key,
+  occurred_at, feed_position)` where `feed_position` is set.
+- **Volume fixture:** the feed scaled from 1,000,000 entries, every one older than any retention
+  period, with publication 1 at the middle position. Three new read scenarios: a 500-entry page at
+  the head, one at the earliest position, and one filtered there.
+
+Differences from the design, amended in INTEGRATION_API §F5: the floor clamp (D40) and the
+publication as the only baseline until J1 (D41).
+
+Composable domains (ADR-032): audit/history is touched and no door is affected. The audit log is
+not pruned, and entries still carry names, never values.
+
+**Budget**, measured once with a scratch script (a small record set and a 1,000,000-entry feed,
+deleted afterwards), median of five:
+- A page at the head: 25.8 ms.
+- A page at the earliest position, the feed's middle: 35.2 ms.
+- That page filtered to one entry in a hundred: 25.0 ms.
+
+Each costs 4 statements. `after=0` answers the `410` naming the publication at 500,000. The
+statements hold equal at 1× and 4× in `test_volume_baseline`.
+
+**Checks:**
+- **J26 journey tests:** 22 passed, the five new cases on two configurations each.
+  - Two slips in the test code were fixed after the first run: reading `earliestPosition` with
+    `after=0`, which the case itself expects refused, and comparing whole entries after the aging
+    moved their `occurredAt`. They now compare event IDs. No case's given/when/then changed.
+- **Groups** `feed`, `contract`, `volume` and `startup` without `budget`: 217 passed and 2 failed,
+  in 1 min 22 s.
+  - The 2 failures were `test_j20_discover`, which asserted exactly three capability groups, each
+  with a `setting`. This package's `changeFeed` group made that wrong, so it now names the gated
+  groups and the retention. Its module: 6 passed.
+  - One rerun failed once at startup with "database does not exist", from the harness's shared
+    server, and passed twice after. Unexplained, and noted here.
+  - The groups' serial part: 1 passed.
+- **Adjacent modules** for the publication and capability shapes: `test_workspaces`, the
+  `test_wp8_*` publish, history and withdrawal modules, `test_model_lifecycle`, journeys J05–J08,
+  J12, J19 and J21, and `unit/test_config`: 188 passed.
+- **`test_startup`:** `HEAD` is `20261003_03`, and two new cases pass. One upgrades from
+  `20261003_02` with a 400-day-old feed entry, which is still answered across two starts. The other
+  is an interrupted revision rolled back and recovered on the next start.
+- **`test_openapi_contract`:** re-baselined after diffing the document. Without `changeFeed`,
+  `feedPosition` and the route's description, it hashes to the previous lock exactly.
+- **`ruff check app/ tests/`:** clean.
+- **Smoke start** on a copy of the development database at `20261001_02`: migrated to
+  `20261003_03` with the index, `/health` ok, capabilities report 30 days, and empty feeds with
+  `earliestPosition` 1. The copy was dropped.
+
+Not run:
+- the `budget` modules (a release's acceptance);
+- groups the changed boundaries do not select;
+- frontend checks, since nothing under `frontend/` changed.
+
+The full suites wait for R.
+
 ## Track T — Checkpoints
 
 #### T1: Track checkpoint (Q, B, F)
@@ -1382,7 +1526,8 @@ This build touches every door in [COMPOSABLE_DOMAINS.md](COMPOSABLE_DOMAINS.md#d
 All accepted 2026-09-29 as recommended (D3 and D10 revised the same day, D5 revised after a code
 check, D15 and D16 added by that check, D17–D19 raised by Q3), D20–D22 raised by Q4 (2026-09-30),
 D23–D26 raised by B1, which also confirmed D13 (2026-10-01), D27–D30 raised by B2 (2026-10-01),
-D31–D34 raised by F1 (2026-10-03), and D35–D39 raised by B3 (2026-10-03).
+D31–D34 raised by F1 (2026-10-03), D35–D39 raised by B3 (2026-10-03), and D40–D41 raised by F2
+(2026-10-03).
 
 | # | Question | Decision | Blocks |
 | --- | --- | --- | --- |
@@ -1425,6 +1570,8 @@ D31–D34 raised by F1 (2026-10-03), and D35–D39 raised by B3 (2026-10-03).
 | D37 | The outcome of a set replacement | **Accepted 2026-10-03 with the B3 plan.** `action` `updated`, or `unchanged` for a set already equal to the targets, decided before the claim (as D24); `relationSetVersion` and `relationIds: {created, kept, removed}`. Relation items carry `relationId`, `version` and a claimed set's `relationSetVersion`; the counts keep their four actions | B |
 | D38 | Set versions on the anchored read | **Accepted 2026-10-03 with the B3 plan.** `GET /relations?objectId=…` names every non-containment set the record anchors in the listed direction and types (`relationSets`), `0` when untouched; live and in a change set (its own versions); none in a publication | B |
 | D39 | Refusals of a set replacement | **Accepted 2026-10-03 with the B3 plan.** A target listed twice is `409 duplicate_relation` at `/items/i/targets/j`; a target's refusal points at it; a stale set is `409 relation_set_version_conflict`, while the mapping PUT keeps `mapping_version_conflict` with its preview; the `transition` payload lists `newTargets` | B |
+| D40 | The retention floor and the baseline | **Decided 2026-10-03 by the user (F2).** The floor (`earliestPosition`) is the first entry within `FEED_RETENTION_DAYS`, but never past the active publication's `feedPosition + 1`; with no active publication that has a position (never published, withdrawn, or published before F1), nothing expires. Otherwise a publication older than the period is itself expired, so a reader refused `410` gets `410` again after re-reading it, and a workspace with no publication has no baseline until J1's export. It costs nothing: the audit log is not pruned. A withdrawal can lower the floor back to 1. J1 revisits the no-publication case once an export is a baseline any reader can take | F |
+| D41 | The export in the `410` details | **Decided 2026-10-03 by the user (F2).** F2's `410` names the active publication only; J1 adds the export route as a second baseline, an additive field | F, J |
 
 ## Next
 

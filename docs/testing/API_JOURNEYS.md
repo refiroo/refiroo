@@ -34,7 +34,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | --- | --- |
 | `GET /health` | J12 |
 | `GET /docs`, `GET /openapi.json` | J20 |
-| `GET /capabilities` | J20, J12.7 |
+| `GET /capabilities` | J20, J12.7, J26.6 (`changeFeed.retentionDays`) |
 | `GET /model`, `GET /model/placements` | J20, J20.1, J03, J14 |
 | `GET /model-runtime-state` | J08 (fresh version for activation), J20.2 |
 | `POST /model-validations` | J08.1 |
@@ -78,7 +78,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `GET /workspaces/{key}/relation-matrix/containers`, `GET /workspaces/{key}/relation-matrix/link-candidates` (`rowId`, `columnId`) | J16 |
 | `POST /batches` (`run`: `inline`) | J11; relationship items J11.7, J11.8; `replaceRelationSet` J10.10, J11.8 |
 | `POST /batches` (`run`: `background`), `GET /jobs` (`kind`, `state`), `GET /jobs/{id}`, `GET /jobs/{id}/items` (`status`), `POST /jobs/{id}/cancel` | J24 |
-| `GET /workspaces/{key}/feed` (`after`, `pageSize`, `kind` and `objectTypeKey` repeatable) | J26, J26.1–J26.5 |
+| `GET /workspaces/{key}/feed` (`after`, `pageSize`, `kind` and `objectTypeKey` repeatable) | J26, J26.1–J26.6 |
 
 ## Error codes
 
@@ -100,7 +100,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | J08, J11, J24 | `model_release_changed` |
 | J19 | `workspace_already_exists`, `default_workspace_cannot_be_retired`, `workspace_is_default`, `workspace_has_publications`, `workspace_not_empty` |
 | J23 | `as_of_not_supported`, `invalid_effective_period` |
-| J26 | `feed_position_ahead` |
+| J26 | `feed_position_ahead`, `feed_position_expired` |
 | J11, J24 | `batch_too_large`, `invalid_batch_context`, `idempotency_key_reused`, `idempotency_in_progress`, `missing_record_key`, `invalid_record_key`, `reference_not_found`, `reference_type_mismatch`, `job_not_found`, `job_finished`, `job_failed` |
 
 ## Operator surface (J12)
@@ -111,6 +111,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | `RDM_MODEL_PATH` | J12 (the starter or bootstrap model), J08 |
 | `MODEL_ADMIN_MUTATIONS_ENABLED`, `WORKSPACE_ADMIN_MUTATIONS_ENABLED`, `INTEGRATION_JOBS_ENABLED` | J12.7, J08, J19.4, J11 |
 | `BATCH_MAX_ITEMS`, `BATCH_MAX_BYTES`, `ATOMIC_JOB_MAX_ITEMS`, `BACKGROUND_JOB_MAX_ITEMS`, `BATCH_BACKGROUND_MAX_BYTES`, `JOB_CHUNK_ITEMS`, `JOB_LEASE_SECONDS`, `JOB_RETENTION_DAYS` | J12.7, J11, J24 |
+| `FEED_RETENTION_DAYS` | J26.6 |
 | `WEB_CONCURRENCY` | J12.7 (refused above 1 with model administration) |
 | `CORS_ORIGINS` | J12.7 (a browser client on another origin) |
 | `RDM_CURSOR_SIGNING_KEY` | J21 (cursors that survive a restart), J12.7 |

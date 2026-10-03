@@ -1,13 +1,16 @@
 """J26 — Follow changes reliably (USER_JOURNEYS.md).
 
 Each test writes in a workspace of its own, whose feed starts empty, and reads it through
-``GET /workspaces/{key}/feed``. J26 step 3 (an expired position) is F2's.
+``GET /workspaces/{key}/feed``. An expired position (J26.6) needs entries older than the retention
+period; the tests move their times back in the database, as the days passing would.
 """
 
 from uuid import uuid4
 
 import pytest
 from scenario import ok, refused
+from sqlalchemy import create_engine, text
+from sqlalchemy.pool import NullPool
 
 
 def _workspace(world):
@@ -354,3 +357,160 @@ def test_concurrent_writers_get_gapless_positions_in_commit_order(world):
         versions = [e["version"] for e in entries if e["id"] == record["id"]]
         assert versions == sorted(versions) and len(versions) == 2
     assert _page(world, other)["headPosition"] == 0
+
+
+def _age(world, workspace, days, through=None):
+    """Make the workspace's entries up to position ``through`` (all without it) ``days`` older, as
+    that many days passing would; the API has no way to wait."""
+    engine = create_engine(world.database, poolclass=NullPool)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE audit_events SET occurred_at = occurred_at - make_interval(days => :d) "
+                "WHERE workspace_key = :w AND feed_position <= :p"
+            ),
+            {"d": days, "w": workspace, "p": through if through is not None else 2**31 - 1},
+        )
+    engine.dispose()
+
+
+def _ids(world, **context):
+    page = ok(world.api.get(f"/objects/{world.key('R')}", pageSize=100, **context))
+    return {item["id"] for item in page["items"]}
+
+
+def _published_then_more(world):
+    """A workspace with live writes, a publish that renames, adds and deletes records, then more
+    live writes. Returns the workspace, the publication and the feed."""
+    ws = _workspace(world)
+    renamed = world.made("R", "To rename", workspace=ws)
+    removed = world.made("R", "To remove", workspace=ws)
+    world.made("R", "Kept", workspace=ws)
+    cs = world.change_set(workspace=ws)
+    world.made("R", "Added", change_set=world.current(cs), workspace=ws)
+    staged = world.record("R", renamed["id"], changeSetId=cs["id"])
+    body = {"name": "Renamed", "expectedVersion": staged["version"], **_staged(world, cs)}
+    ok(world.api.patch(f"/objects/{world.key('R')}/{renamed['id']}", body))
+    staged = world.record("R", removed["id"], changeSetId=cs["id"])
+    deleted = world.api.delete(
+        f"/objects/{world.key('R')}/{removed['id']}",
+        expectedVersion=staged["version"],
+        **_staged(world, cs),
+    )
+    assert deleted.status_code == 204, deleted.text
+    publication = world.publish(cs, workspace=ws)
+    later = world.made("R", "Later", workspace=ws)
+    current = world.record("R", renamed["id"], workspaceKey=ws)
+    ok(world.update("R", renamed["id"], current["version"], name="Renamed again"))
+    gone = world.api.delete(
+        f"/objects/{world.key('R')}/{later['id']}",
+        expectedVersion=world.record("R", later["id"], workspaceKey=ws)["version"],
+    )
+    assert gone.status_code == 204, gone.text
+    return ws, publication, _follow(world, ws)
+
+
+@pytest.mark.journey("J26.6")
+@pytest.mark.structures("R")
+def test_a_position_older_than_retention_is_refused_naming_the_baseline(world):
+    """Given a workspace whose entries up to its publish are older than the retention period, with
+    later entries after it. When a reader asks for the entries after a position below the earliest
+    one still readable, or from the start, and then after the position just below it. Then the first
+    two are refused as expired, naming the earliest and head positions and the active publication
+    with its number and position; the last is answered from the earliest position on."""
+    ws, publication, entries = _published_then_more(world)
+    position = publication["feedPosition"]
+    assert entries[position - 1]["action"] == "published"
+    _age(world, ws, 31, through=position)
+
+    page = _page(world, ws, after=position)
+    assert page["earliestPosition"] == position + 1
+    assert page["items"] == entries[position:]
+    for after in (position - 1, 0):
+        error = refused(
+            world.api.get(f"/workspaces/{ws}/feed", after=after), 410, "feed_position_expired"
+        )
+        assert error["details"] == {
+            "earliestPosition": position + 1,
+            "headPosition": len(entries),
+            "publication": {
+                "id": publication["id"],
+                "publicationNumber": publication["publicationNumber"],
+                "feedPosition": position,
+            },
+        }
+
+
+@pytest.mark.journey("J26.6")
+@pytest.mark.structures("R")
+def test_recovery_from_the_named_publication_misses_nothing(world):
+    """Given a reader refused as expired. When it reads the records of the publication the refusal
+    names, then follows the feed from that publication's position, adding created records and
+    removing deleted ones. Then it holds exactly the records live data holds."""
+    ws, _, _ = _published_then_more(world)
+    _age(world, ws, 31, through=_page(world, ws)["headPosition"] - 3)
+    baseline = refused(
+        world.api.get(f"/workspaces/{ws}/feed", after=0), 410, "feed_position_expired"
+    )["details"]["publication"]
+
+    held = _ids(world, publicationId=baseline["id"])
+    for entry in _follow(world, ws, after=baseline["feedPosition"], kind="object"):
+        if entry["action"] == "created":
+            held.add(entry["id"])
+        elif entry["action"] == "deleted":
+            held.discard(entry["id"])
+    assert held == _ids(world, workspaceKey=ws)
+
+
+@pytest.mark.journey("J26.6")
+@pytest.mark.structures("R")
+def test_the_earliest_position_never_passes_the_active_publication(world):
+    """Given a workspace whose every entry is older than the retention period, its publish and the
+    writes after it included. When the feed is read. Then the earliest position is the one after the
+    publication's, and the entries after the publication are still answered."""
+    ws, publication, entries = _published_then_more(world)
+    _age(world, ws, 31)
+    position = publication["feedPosition"]
+
+    page = _page(world, ws, after=position)
+    assert page["earliestPosition"] == position + 1
+    assert [e["eventId"] for e in page["items"]] == [e["eventId"] for e in entries[position:]]
+    refused(world.api.get(f"/workspaces/{ws}/feed", after=0), 410, "feed_position_expired")
+
+
+@pytest.mark.journey("J26.6")
+@pytest.mark.structures("R")
+def test_without_an_active_publication_nothing_expires(world):
+    """Given a workspace never published, and another whose publication was withdrawn, every entry
+    older than the retention period. When each feed is read from the start. Then the earliest
+    position is 1 and every entry is answered."""
+    never = _workspace(world)
+    for n in range(3):
+        world.made("R", f"Unpublished {n}", workspace=never)
+    withdrawn, publication, _ = _published_then_more(world)
+    gone = world.api.post(f"/publications/{publication['id']}/withdrawal")
+    assert gone.status_code == 204, gone.text
+
+    for ws in (never, withdrawn):
+        _age(world, ws, 31)
+        entries = _follow(world, ws)
+        assert [e["position"] for e in entries] == list(range(1, len(entries) + 1))
+        assert _page(world, ws)["earliestPosition"] == 1
+
+
+@pytest.mark.journey("J26.6")
+@pytest.mark.structures("R")
+@pytest.mark.settings(FEED_RETENTION_DAYS="7")
+def test_the_retention_period_is_a_setting(world):
+    """Given the service started with a seven-day retention period. When the capabilities are read,
+    and the entries up to a publish are six days old, then eight. Then the capabilities report seven
+    days; at six days every entry is readable, at eight the entries up to the publish have expired."""
+    assert ok(world.api.get("/capabilities"))["changeFeed"] == {"retentionDays": 7}
+    ws, publication, _ = _published_then_more(world)
+    position = publication["feedPosition"]
+
+    _age(world, ws, 6, through=position)
+    assert _page(world, ws, after=position)["earliestPosition"] == 1
+    _age(world, ws, 2, through=position)
+    assert _page(world, ws, after=position)["earliestPosition"] == position + 1
+    refused(world.api.get(f"/workspaces/{ws}/feed", after=0), 410, "feed_position_expired")

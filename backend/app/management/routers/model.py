@@ -24,6 +24,7 @@ from ..schemas.model import (
     ApplicationResponse,
     AttributeTypeResponse,
     CapabilitiesResponse,
+    ChangeFeedCapabilities,
     IntegrationJobCapabilities,
     JobLimits,
     MetadataPage,
@@ -72,6 +73,7 @@ def get_capabilities(request: Request) -> CapabilitiesResponse:
             ),
             setting="INTEGRATION_JOBS_ENABLED",
         ),
+        changeFeed=ChangeFeedCapabilities(retentionDays=request.app.state.feed_retention_days),
     )
 
 

@@ -45,6 +45,7 @@ from volume_fixture import (
     WORKSPACE,
     ReviewChangeSet,
     VolumeDataset,
+    feed_publication_position,
     measure,
     scaled_shape,
     seed_review_change_set,
@@ -376,6 +377,29 @@ def query_scenarios(
     return results
 
 
+FEED_PAGE = 500
+
+
+def _feed_scenarios(context: str, dataset: VolumeDataset) -> list[tuple[str, str, dict[str, Any]]]:
+    """Base 0.9 F2: a 500-entry page of the live feed at its head and at its earliest answered
+    position, the middle of the feed, which the retention floor is computed for; filtered, a scan of
+    ten pages for the one entry in a hundred that is a group's."""
+    if context != "live":
+        return []
+    path = f"/api/v1/workspaces/{WORKSPACE}/feed"
+    deep = feed_publication_position(dataset.shape)
+    head = dataset.shape.feed_entries - FEED_PAGE
+    return [
+        ("feed: page at the head", path, {"after": head, "pageSize": FEED_PAGE}),
+        ("feed: page at the earliest position", path, {"after": deep, "pageSize": FEED_PAGE}),
+        (
+            "feed: filtered page at the earliest position",
+            path,
+            {"after": deep, "pageSize": FEED_PAGE, "objectTypeKey": GROUP},
+        ),
+    ]
+
+
 def _move_scenarios(context: str, dataset: VolumeDataset) -> list[tuple[str, str, dict[str, Any]]]:
     """Base 0.8 B2: move targets, in the contexts a move can write to."""
     if context == "history":
@@ -447,6 +471,7 @@ def run_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int
             _read_scenarios(engine, context, dataset)
             + _matrix_scenarios(client, context, dataset)
             + _move_scenarios(context, dataset)
+            + _feed_scenarios(context, dataset)
         )
         for scenario, path, params in scenarios:
             status, milliseconds, statements, rows = _timed(

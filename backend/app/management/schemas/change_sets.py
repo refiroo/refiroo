@@ -70,6 +70,9 @@ class PublicationResponse(BaseModel):
     createdAt: datetime
     publishedAt: datetime
     withdrawnAt: datetime | None
+    # The position of its ``published`` feed entry: live data at that position is the publication,
+    # so a feed reader re-syncs from it (INTEGRATION_API F5). None when published before the feed.
+    feedPosition: int | None
 
 
 class PublicationPage(CollectionPage[PublicationResponse]):

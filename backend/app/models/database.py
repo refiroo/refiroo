@@ -917,6 +917,14 @@ class AuditEvent(Base):
     __tablename__ = "audit_events"
     __table_args__ = (
         UniqueConstraint("workspace_key", "feed_position", name="uq_audit_event_feed_position"),
+        # The feed's retention floor: the first entry within the period, in one probe (0.9 F2).
+        Index(
+            "ix_audit_events_feed_time",
+            "workspace_key",
+            "occurred_at",
+            "feed_position",
+            postgresql_where=text("feed_position IS NOT NULL"),
+        ),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

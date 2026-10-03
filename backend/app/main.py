@@ -197,6 +197,7 @@ def create_app() -> FastAPI:
         else None
     )
     application.state.run_job_worker = True
+    application.state.feed_retention_days = settings.feed_retention_days
     application.add_exception_handler(ApiError, api_error_handler)
     application.add_exception_handler(RequestValidationError, validation_error_handler)
     application.add_exception_handler(StarletteHTTPException, http_error_handler)

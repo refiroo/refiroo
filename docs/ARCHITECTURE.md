@@ -511,7 +511,11 @@ The audit log is the ordered source of the change feed and, later, consumer even
 - **What an entry carries.** Identity and changed keys, never values. A containment relation is its
   record's parent and has no entry of its own.
 - **Reading.** The feed is read by position (`reads/feed.py`, `GET /workspaces/{key}/feed`), with
-  filtered pages scanning a bounded range. The consumer API is a separate read-only tier (`consumer/`) generated from the model's consumer
+  filtered pages scanning a bounded range.
+- **Retention.** Entries older than `FEED_RETENTION_DAYS` expire from the feed, not from the audit
+  log. The floor is the first entry within the period, found in one probe of
+  `ix_audit_events_feed_time`, and never passes the active publication's position. Without an active
+  publication nothing expires, so an expired reader always has a baseline to re-read (D40). The consumer API is a separate read-only tier (`consumer/`) generated from the model's consumer
 API definitions ([CONSUMER_API.md](CONSUMER_API.md)); the design is in
 [INTEGRATION_API.md](INTEGRATION_API.md).
 

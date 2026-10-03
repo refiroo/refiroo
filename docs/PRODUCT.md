@@ -123,7 +123,8 @@ can complete the task in the application; "API" means another system can.
 - Follow a workspace's changes in order: every change to live data has the next number in the
   workspace's change feed, with no gaps, so an integration reads on from the last number it
   processed, resumes after an interruption and recognises repeats. A publish lists each record and
-  relationship it changed, then itself. Entries name what changed and why, never values.
+  relationship it changed, then itself. Entries name what changed and why, never values. After the
+  retention period an integration is told which publication to re-read before it reads on.
 - Declare consumer APIs in the model: the read-only contracts other systems will use, checked so that a
   breaking change needs a new contract version. Serving them follows later in 0.9.
 - Read the API reference at `/docs`, which works without internet access.
@@ -138,7 +139,7 @@ can complete the task in the application; "API" means another system can.
 | Release | What it adds |
 | --- | --- |
 | 0.9.0-alpha.1 | PostgreSQL as the only database, with real concurrency: workspaces write in parallel (in progress) |
-| 0.9 | Bulk relationship and mapping loads; change feed retention and recovery; the consumer APIs (lookup by code across systems, lists, crosswalks) with change events and webhooks; import and export of files with a preview |
+| 0.9 | Bulk relationship and mapping loads; the consumer APIs (lookup by code across systems, lists, crosswalks) with change events and webhooks; import and export of files with a preview |
 | 0.10 | Turn a spreadsheet into a working application; one structured editor for the model and the import mapping ([design](MODEL_AUTHORING.md)) |
 | 0.11 | Production readiness: performance at scale, several servers, monitoring, rehearsed backup and restore, moving workspaces between model versions in stages |
 | 0.12 | Sign-in for people and systems, permissions per application, record type and operation, signed webhooks |

@@ -54,6 +54,7 @@ Reported under `integrationJobs` by `GET /api/v1/capabilities`; a request over a
 | `JOB_CHUNK_ITEMS` | 500 | Items one background chunk commits |
 | `JOB_LEASE_SECONDS` | 120 | A worker's lease on a job, renewed each chunk |
 | `JOB_RETENTION_DAYS` | 7 | How long a finished job keeps its outcomes and idempotency key |
+| `FEED_RETENTION_DAYS` | 30 | How long the change feed answers a position; older positions are `410 feed_position_expired`, naming the publication to re-read. Entries after the active publication, and every entry of a workspace without one, are always answered. The audit log is not pruned |
 
 ## Database
 

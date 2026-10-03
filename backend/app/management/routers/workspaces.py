@@ -1,6 +1,6 @@
 from typing import Literal
 
-from fastapi import APIRouter, Query, status
+from fastapi import APIRouter, Query, Request, status
 
 from ...common.pagination import paginate_statement, text_key
 from ...engine.reads.feed import read_feed
@@ -79,13 +79,16 @@ _FEED_OBJECT_TYPE_KEY = Query(
 def get_feed(
     workspace_key: str,
     session: DbSession,
+    request: Request,
     after: int = Query(default=0, ge=0, description="The last position the reader processed"),
     page_size: int = Query(default=500, ge=1, le=1000, alias="pageSize"),
     kind: list[FeedKind] | None = _FEED_KIND,
     object_type_key: list[str] | None = _FEED_OBJECT_TYPE_KEY,
 ) -> FeedPage:
     """Every change to the workspace's live data in commit order, after a stored position
-    (INTEGRATION_API F4). A filtered page scans at most ten pages' worth of positions."""
+    (INTEGRATION_API F4). A filtered page scans at most ten pages' worth of positions. A position
+    older than ``FEED_RETENTION_DAYS`` is ``410 feed_position_expired``, naming the active
+    publication to re-read (F5)."""
     return feed_page(
         session,
         read_feed(
@@ -93,6 +96,7 @@ def get_feed(
             workspace_key,
             after=after,
             page_size=page_size,
+            retention_days=request.app.state.feed_retention_days,
             kinds=kind or (),
             object_type_keys=object_type_key or (),
         ),

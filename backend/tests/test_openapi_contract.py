@@ -61,10 +61,13 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # (Batch*RelationItem, BatchReplaceRelationSetItem, RelationSetTarget) in BatchRequest.items,
     # relationId, relationSetVersion and relationIds (RelationIds) on JobItemResponse, relationSets
     # (RelationSetVersionItem) on RelationPage with its description, and POST /batches' description
-    # naming relationship writes; no path added or removed, no other schema changed.
+    # naming relationship writes; no path added or removed, no other schema changed. Re-baselined
+    # for 0.9 F2: changeFeed (ChangeFeedCapabilities) on CapabilitiesResponse, feedPosition on
+    # PublicationResponse and the feed route's description naming the expiry; removing those gives
+    # the previous document exactly.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "5fc8f7b24aacc4505a36eb8f870d40c26bec173d96f5a52b931a75eb5bebfdd9"
+        "befdc5683cc51ad9fac5d0f262e31116ec63c41909259cd4a4b59a42148fc991"
     )
 
 

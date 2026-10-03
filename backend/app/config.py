@@ -59,6 +59,9 @@ class Settings(BaseModel):
     batch_background_max_bytes: int = Field(default=50 * 1024 * 1024, ge=1)
     job_chunk_items: int = Field(default=500, ge=1)
     job_lease_seconds: int = Field(default=120, ge=1)
+    # How long the change feed answers a position (D8, INTEGRATION_API F5); reported by
+    # GET /capabilities.
+    feed_retention_days: int = Field(default=30, ge=1)
 
     @classmethod
     def from_env(cls, environ: dict[str, str] | None = None) -> Self:
@@ -100,6 +103,7 @@ class Settings(BaseModel):
             ),
             job_chunk_items=_positive(env, "JOB_CHUNK_ITEMS", 500),
             job_lease_seconds=_positive(env, "JOB_LEASE_SECONDS", 120),
+            feed_retention_days=_positive(env, "FEED_RETENTION_DAYS", 30),
         )
 
     def validate_model_admin_topology(self) -> None:
