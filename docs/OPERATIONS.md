@@ -77,8 +77,8 @@ For local development, `scripts/postgres.sh` runs a private server from Homebrew
 
 Nothing starts at login. Docker Compose runs `postgres:17-alpine` with the same collation.
 
-The engine has no command that copies a SQLite database; SQLite data from before 0.9.0-alpha.1 is
-moved by hand.
+SQLite was only ever a development database. The engine runs on PostgreSQL only and offers no
+migration from SQLite.
 
 ## Startup checks and health
 

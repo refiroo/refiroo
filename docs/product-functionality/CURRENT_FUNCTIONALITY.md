@@ -359,7 +359,7 @@ failed migration) with what to do. Backups and application rollback are separate
 older model release. Background jobs survive restarts.
 
 Limits: performance at production scale, several servers, metrics and rehearsed restore are 0.11.
-The engine does not copy old SQLite development databases.
+SQLite was a development database only; the engine offers no migration from it.
 
 Evidence: [operations guide](../OPERATIONS.md), [application startup](../../backend/app/main.py).
 

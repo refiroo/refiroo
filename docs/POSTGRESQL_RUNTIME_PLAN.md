@@ -586,8 +586,9 @@ runners and frontend suites (no UI change).
 
 ### PG4: Carrying data over
 
-**Dropped 2026-10-03 (user's decision).** The developer moved the SQLite data to PostgreSQL by hand,
-and no other installation holds SQLite data, so the copy command (PG-D10) is not built. A SQLite
+**Dropped 2026-10-03 (user's decision).** SQLite was only a development database and the engine ships
+with PostgreSQL, so no tool supports moving development data to production; the copy command
+(PG-D10) is not built. The developer moved their own data by hand. A SQLite
 `DATABASE_URL` is refused at startup with the instruction to name a PostgreSQL URL. The plan below
 is kept as history.
 
