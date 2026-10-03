@@ -142,6 +142,10 @@ class Workspace(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
+    # The workspace's feed: the last position a live write took (Base 0.9 F1, INTEGRATION_API F3).
+    feed_position: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
 
 
 class WorkspaceRuntimeState(Base):
@@ -401,6 +405,8 @@ class Publication(Base):
         UTCDateTime(), nullable=False, default=lambda: datetime.now(UTC)
     )
     withdrawn_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), nullable=True)
+    # The position of its ``published`` feed entry (Base 0.9 F1); none before that revision.
+    feed_position: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
 
 class ChangeSet(Base):
@@ -909,6 +915,9 @@ class MatrixStateBuild(Base):
 
 class AuditEvent(Base):
     __tablename__ = "audit_events"
+    __table_args__ = (
+        UniqueConstraint("workspace_key", "feed_position", name="uq_audit_event_feed_position"),
+    )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     event_id: Mapped[str] = mapped_column(String(36), unique=True, default=lambda: str(uuid4()))
@@ -925,6 +934,20 @@ class AuditEvent(Base):
     # What made the change when it was not a single write: a job (Base 0.9, INTEGRATION_API P6).
     cause_kind: Mapped[str | None] = mapped_column(String(20), nullable=True)
     cause_id: Mapped[str | None] = mapped_column(String(36), nullable=True, index=True)
+    # A change to live data takes the next position of its workspace's feed (Base 0.9 F1); other
+    # entries have none. ``feed_subject`` names what the entry changed (object or relation type,
+    # relation ends), kept here since a later delete leaves nothing to look it up by.
+    workspace_key: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    feed_position: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    model_release_id: Mapped[int | None] = mapped_column(
+        ForeignKey(
+            "model_releases.id",
+            name="fk_audit_events_model_release_id_model_releases",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+    )
+    feed_subject: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
 
 class AuditEventSubject(Base):

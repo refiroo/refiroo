@@ -438,7 +438,7 @@ downstream systems can synchronize without repeatedly scanning all data.
 repeated delivery. An expired position has an explicit recovery path. Delivery guarantees and retention
 are documented; exactly-once delivery is not assumed.
 
-**Coverage:** Planned integration APIs. **Status:** Roadmap 0.9 (change feed F1–F2, consumer events and webhooks C9–C13).
+**Coverage:** F25. **Status:** API available for the ordered feed, resume by position and repeat recognition (0.9 F1, journey J26); the expired-position recovery (F2) and consumer events and webhooks (C9–C13) are planned for 0.9.
 ### US-I06 — Query effective historical data
 
 **Story:** As an integration consumer, I want model-declared effective-date and “as of” behavior so that

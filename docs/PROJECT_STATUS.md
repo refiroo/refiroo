@@ -97,7 +97,14 @@ budget re-measured on PostgreSQL (statements and rows hold; 143 of 154 full-volu
 constructs removed, name search through trigram indexes with candidates read first (revision
 `20261003_01`), and the eleven remaining read exceptions deferred to the first fixes after 1.0, with a
 complete handoff in [POSTGRESQL_BUDGETS.md](POSTGRESQL_BUDGETS.md)
-([record](POSTGRESQL_RUNTIME_PLAN.md#pg5-budgets-acceptance-and-release)). Next is F1.
+([record](POSTGRESQL_RUNTIME_PLAN.md#pg5-budgets-acceptance-and-release)). **F1 is delivered
+(2026-10-03):** the change feed `GET /workspaces/{key}/feed`.
+- Every change to live data has a position, gapless and in commit order, taken under the workspace
+  lock (revision `20261003_02`).
+- A publish writes one entry per record and relationship it changed, then `published` (D15, D32).
+- The read pages by position with bounded filters, and refuses a position past the head (D31–D34).
+
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#f1-feed-positions)). Next are B3, then F2.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter
@@ -451,8 +458,9 @@ See `docs/DECISIONS.md` for the durable decisions and `AGENTS.md` for coding inv
   limits contextual hierarchy queries to direct-parent scope. Lazy arbitrary-depth traversal and
   specialist translation/tree renderers follow the 0.8 roadmap; top-level `form`, `dashboard` and
   `tree` are not implemented renderers.
-- Background bulk jobs, relation batch items, imports/exports, change feeds and webhooks remain
-  planned (0.9); the model-aware query, `asOf` and inline object batches with upsert are delivered.
+- Relation batch items, imports/exports, feed retention and webhooks remain planned (0.9); the
+  model-aware query, `asOf`, inline and background object batches with upsert, and the change feed
+  read are delivered.
   No synchronous collection has an undocumented unlimited mode.
 - The model workbench remains JSON-centred; the structured editor and spreadsheet onboarding are 0.10
   work ([MODEL_AUTHORING.md](MODEL_AUTHORING.md)), changes to released structure and extensions 1.0.

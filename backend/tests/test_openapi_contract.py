@@ -55,9 +55,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # H4c (D-1): GET /workspaces/{key}/mappings removed (the same list as /relations), and
     # /relations' description no longer names it; nothing else. Re-baselined for 0.9.0-alpha.1 PG5:
     # info.version 0.9.0-alpha.1; with 0.8.0 the document hashes to the previous lock exactly.
+    # Re-baselined for 0.9 F1: GET /workspaces/{key}/feed with FeedPage, FeedEntry and FeedCause,
+    # and AuditCause.kind gaining "publication" (D15) with its description; removing those gives
+    # the previous document exactly.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "b1b39b88b927aee227d02c2bff940484a15113571c7ef74bb7059901c2276bc7"
+        "314d7a86121b04dd5c4f89263ba15674317db9c5c0313a9cdf23f16d577b0c43"
     )
 
 

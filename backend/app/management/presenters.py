@@ -7,6 +7,7 @@ router's internals.
 from datetime import datetime
 from typing import Any
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..common.pagination import Page
@@ -15,6 +16,7 @@ from ..engine.jobs.store import release_public_ids
 from ..engine.model.compiler import ModelDiagnostic
 from ..engine.model.consumer_contract import contract_diagnostics
 from ..engine.model.diff import SemanticChange
+from ..engine.reads.feed import FeedPage as FeedRead
 from ..engine.reads.object_query import live_object_paths
 from ..engine.records.attributes import load_attribute_values
 from ..engine.records.values import row_value
@@ -24,6 +26,7 @@ from ..models.database import (
     AuditEvent,
     Job,
     JobItem,
+    ModelRelease,
     ObjectRelation,
     RdmObject,
     Workspace,
@@ -50,6 +53,9 @@ from .schemas.records import (
     AuditCause,
     AuditEventPage,
     AuditEventResponse,
+    FeedCause,
+    FeedEntry,
+    FeedPage,
     ObjectResponse,
     RelationResponse,
 )
@@ -213,18 +219,24 @@ def runtime_state_response(item: WorkspaceRuntimeState) -> WorkspaceRuntimeState
     )
 
 
-def _audit_response(event: AuditEvent) -> AuditEventResponse:
+def _changed(event: AuditEvent) -> tuple[list[str], list[str]]:
+    """The field names and attribute types an entry changed, never values: what history and the
+    feed both show."""
     changes = event.changes if isinstance(event.changes, dict) else {}
-    attributes = changes.get("attributes")
-    if event.action == "reclassified":
-        # A type change (ADR-034) stores its full before state; the history names what changed
-        # and the attribute types it moved, mapped, restored or left without a place, not values.
+    if "changedFields" in changes:
+        # A type change (ADR-034) stores its full before state, and a publish's entry (D15) only
+        # names; either names what changed and the attribute types it concerned, not values.
         changed_fields = [str(key) for key in changes.get("changedFields", [])]
         attribute_type_keys = sorted(str(key) for key in changes.get("attributeTypeKeys", []))
     else:
         # A batch overwrite records the version it replaced; it is how, not what, it changed.
         changed_fields = sorted(str(key) for key in changes if key != "overwrite")
-        attribute_type_keys = _attribute_type_keys(event, attributes)
+        attribute_type_keys = _attribute_type_keys(event, changes.get("attributes"))
+    return changed_fields, attribute_type_keys
+
+
+def _audit_response(event: AuditEvent) -> AuditEventResponse:
+    changed_fields, attribute_type_keys = _changed(event)
     return AuditEventResponse(
         id=event.event_id,
         aggregateType=event.aggregate_type,
@@ -260,6 +272,62 @@ def _attribute_type_keys(event: AuditEvent, attributes: Any) -> list[str]:
 
 def audit_event_page(events: Page[AuditEvent]) -> AuditEventPage:
     return AuditEventPage(items=[_audit_response(event) for event in events.items], **events.links())
+
+
+_FEED_KINDS = {"object": "object", "relation": "relation", "publication": "publication"}
+_FEED_ACTIONS = {"publication-withdrawn": "withdrawn"}
+
+
+def _feed_entry(event: AuditEvent, releases: dict[int, str]) -> FeedEntry:
+    subject = event.feed_subject or {}
+    changes = event.changes if isinstance(event.changes, dict) else {}
+    if event.aggregate_type in ("publication", "workspace"):
+        kind, changed_fields, attribute_type_keys = "publication", [], []
+        # A withdrawal is aggregated on the workspace and names the publication it withdrew.
+        entry_id = changes.get("withdrawnPublicationId", event.aggregate_id)
+    else:
+        kind, entry_id = event.aggregate_type, event.aggregate_id
+        changed_fields, attribute_type_keys = _changed(event)
+    return FeedEntry(
+        position=event.feed_position,
+        eventId=event.event_id,
+        occurredAt=event.occurred_at,
+        kind=kind,
+        action=_FEED_ACTIONS.get(event.action, event.action),
+        id=entry_id,
+        version=event.version,
+        objectTypeKey=subject.get("objectTypeKey"),
+        applicationKey=subject.get("applicationKey"),
+        previousObjectTypeKey=subject.get("previousObjectTypeKey"),
+        relationTypeKey=subject.get("relationTypeKey"),
+        fromObjectId=subject.get("fromObjectId"),
+        toObjectId=subject.get("toObjectId"),
+        changedFields=changed_fields,
+        attributeTypeKeys=attribute_type_keys,
+        cause=FeedCause(kind=event.cause_kind or "user", id=event.cause_id),
+        modelReleaseId=releases.get(event.model_release_id),
+    )
+
+
+def feed_page(session: Session, page: FeedRead) -> FeedPage:
+    ids = {event.model_release_id for event in page.entries if event.model_release_id is not None}
+    releases = (
+        dict(
+            session.execute(
+                select(ModelRelease.id, ModelRelease.public_id).where(ModelRelease.id.in_(ids))
+            )
+            .tuples()
+            .all()
+        )
+        if ids
+        else {}
+    )
+    return FeedPage(
+        items=[_feed_entry(event, releases) for event in page.entries],
+        nextAfter=page.next_after,
+        headPosition=page.head_position,
+        earliestPosition=page.earliest_position,
+    )
 
 
 def change_set_object_response(item, change_set_id: str, model, *, path=None) -> ObjectResponse:

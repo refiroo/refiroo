@@ -3,9 +3,10 @@
 Workspace lifecycle events are purely workspace-scoped: change-set events use the
 ``change-set`` aggregate, publishing uses the ``publication`` aggregate and publication
 withdrawal uses the ``workspace`` aggregate (aggregated on the workspace key), all with no
-``AuditEventSubject`` rows, so a workspace lifecycle action never amplifies events per object.  The
-``changes`` payloads are deliberately bounded identity metadata -- never graph payloads or attribute
-values.  Record-level change set CRUD keeps its own ``change-set-object`` / ``relation`` aggregates and
+``AuditEventSubject`` rows.  The ``changes`` payloads are deliberately bounded identity metadata --
+never graph payloads or attribute values.  What a publish changes in live data is audited per
+record and relation by the publish itself (Base 0.9 D15, D32); the ``published`` and
+``publication-withdrawn`` events then take the workspace's next feed position (F1).  Record-level change set CRUD keeps its own ``change-set-object`` / ``relation`` aggregates and
 per-object subjects (see :mod:`app.engine.change_sets.lifecycle`).
 """
 
@@ -13,7 +14,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from ...models.database import ChangeSet, ModelRelease, Publication
+from ...models.database import AuditEvent, ChangeSet, ModelRelease, Publication
 from ..records.audit import record_audit_event
 
 _AGGREGATE_TYPE = "change-set"
@@ -128,14 +129,16 @@ def record_change_set_published(
     change_set: ChangeSet,
     object_count: int,
     relation_count: int,
-) -> None:
+) -> AuditEvent:
     """Record publishing a mutable change set as an immutable publication.
 
     The event is aggregated on ``publication`` with the publication as its aggregate id and the
     publication number as the version, and is recorded in the same transaction as the publish so a
     rolled-back publish never leaves an orphan event.  The ``changes`` payload is deliberately
     bounded to identity metadata plus graph counts -- never graph payloads or attribute values -- and
-    carries no ``AuditEventSubject`` rows (publishing never amplifies events per object).
+    carries no ``AuditEventSubject`` rows.  It is recorded after the entries of what the publish
+    changed and takes the next feed position, the publication's (Base 0.9 F1); the caller holds
+    the workspace row lock.
     """
     changes: dict[str, Any] = {
         "changeSetId": change_set.id,
@@ -148,7 +151,7 @@ def record_change_set_published(
         changes["derivedFromPublicationId"] = publication.derived_from_publication_id
     if publication.supersedes_publication_id is not None:
         changes["supersedesPublicationId"] = publication.supersedes_publication_id
-    record_audit_event(
+    return record_audit_event(
         session,
         aggregate_type=_PUBLICATION_AGGREGATE_TYPE,
         aggregate_id=publication.id,
@@ -156,6 +159,7 @@ def record_change_set_published(
         version=publication.publication_number,
         changes=changes,
         object_ids=(),
+        workspace_key=publication.workspace_key,
     )
 
 
@@ -170,7 +174,8 @@ def record_publication_withdrawn(
     so a rolled-back withdrawal never leaves an orphan event.  The ``changes`` payload is deliberately
     bounded to the withdrawn publication identity -- never graph payloads or attribute values -- and
     carries no ``AuditEventSubject`` rows (withdrawing a publication never amplifies events per
-    object).  Workspace lifecycle audit stays separate from the record-level change set aggregates.
+    object).  It takes the workspace's next feed position (Base 0.9 F1); the caller holds the
+    workspace row lock.
     """
     record_audit_event(
         session,
@@ -183,4 +188,5 @@ def record_publication_withdrawn(
             "publicationNumber": publication.publication_number,
         },
         object_ids=(),
+        workspace_key=publication.workspace_key,
     )

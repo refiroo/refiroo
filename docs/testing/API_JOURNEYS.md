@@ -78,6 +78,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `GET /workspaces/{key}/relation-matrix/containers`, `GET /workspaces/{key}/relation-matrix/link-candidates` (`rowId`, `columnId`) | J16 |
 | `POST /batches` (`run`: `inline`) | J11 |
 | `POST /batches` (`run`: `background`), `GET /jobs` (`kind`, `state`), `GET /jobs/{id}`, `GET /jobs/{id}/items` (`status`), `POST /jobs/{id}/cancel` | J24 |
+| `GET /workspaces/{key}/feed` (`after`, `pageSize`, `kind` and `objectTypeKey` repeatable) | J26, J26.1–J26.5 |
 
 ## Error codes
 
@@ -99,6 +100,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | J08, J11, J24 | `model_release_changed` |
 | J19 | `workspace_already_exists`, `default_workspace_cannot_be_retired`, `workspace_is_default`, `workspace_has_publications`, `workspace_not_empty` |
 | J23 | `as_of_not_supported`, `invalid_effective_period` |
+| J26 | `feed_position_ahead` |
 | J11, J24 | `batch_too_large`, `invalid_batch_context`, `idempotency_key_reused`, `idempotency_in_progress`, `missing_record_key`, `invalid_record_key`, `reference_not_found`, `reference_type_mismatch`, `job_not_found`, `job_finished`, `job_failed` |
 
 ## Operator surface (J12)

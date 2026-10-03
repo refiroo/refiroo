@@ -46,7 +46,7 @@ background jobs are J24, the change feed J26 and supplier files J27.
 | Relationship sets and coverage | J10 replace a record's related records, J16 coverage across ancestors (J09 retired) |
 | Change sets and history (designer) | J05 prepare and publish, J06 live beside a change set, J07 withdraw and restart from history, J17 review changes, J18 next model version |
 | Administration | J08 model release, J19 workspaces, J25 consumer API definition |
-| Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes (planned), J27 supplier file (planned) |
+| Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes, J27 supplier file (planned) |
 | Operations | J12 run, refuse and recover |
 
 ## Records and structure
@@ -770,14 +770,38 @@ single writes' codes.
 **Evidence today:** the J24 journey tests; unit tests of `engine/jobs/worker.py`, `store.py` and
 `background.py`; `test_pg3_concurrency`.
 
-### J26 — Follow changes reliably (planned)
+### J26 — Follow changes reliably
 
 **Actor:** integrator. **Channel:** API. **Stories:** US-I05. **Scenario:** SC-10 (feed part).
-**Status:** planned, 0.9 F1–F2.
+**Status:** steps 1–2 delivered (0.9 F1); step 3 planned (0.9 F2).
 
-1. Read the ordered change feed from a stored position.
-2. Restart after interruption at the stored position; recognize repeated delivery.
+1. Read the ordered change feed of a workspace from a stored position, a page at a time, until
+   caught up (`nextAfter` equals `headPosition`). Every change to live data has one entry with a
+   position: gapless, in commit order, naming what changed and why, never values.
+2. Restart after interruption at the stored position; recognize repeated delivery by position.
 3. Recover from an expired position without silently missing changes.
+
+**Variants:**
+
+- **J26.1 Batches and refused writes**: a batch's applied items have entries with the job as cause;
+  a rejected item, a rolled-back batch or a refused write take no position, so no gap appears.
+- **J26.2 A publish**: change-set edits, validation and discard take no position. Publishing adds
+  one entry per record and relationship it changed in live data (records created or changed,
+  relationships removed, relationships added, records removed), with the publication as cause,
+  then the publication's own entry; live data at that position equals the publication. Withdrawing
+  it adds one entry.
+- **J26.3 A type change published**: a record whose type changed reads as `reclassified` with its
+  previous type, plus the relationship changes it brought.
+- **J26.4 Filters**: by kind and by object type; a sparse filter answers short or empty pages with
+  the position advanced by a bounded scan, never an unbounded one.
+- **J26.5 Concurrent writers**: writes to one workspace at once get gapless positions in commit
+  order; other workspaces have feeds of their own.
+
+**Refusals:** `404 workspace_not_found`, `409 feed_position_ahead` (a position past the head, from
+another workspace or a restored database), `422 request_validation_error` (page size, position).
+
+**Evidence today:** the J26 journey tests; `test_pg3_concurrency` (commit order under a held write,
+publish beside a live write).
 
 ### J27 — Exchange a supplier file (planned)
 

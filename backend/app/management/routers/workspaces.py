@@ -3,6 +3,7 @@ from typing import Literal
 from fastapi import APIRouter, Query, status
 
 from ...common.pagination import paginate_statement, text_key
+from ...engine.reads.feed import read_feed
 from ...engine.workspaces.catalogue import (
     build_workspace_query,
     create_workspace,
@@ -16,7 +17,13 @@ from ...models.commands import WorkspaceCreate, WorkspaceUpdate
 from ...models.database import Workspace
 from ..dependencies import DbSession
 from ..paging import PageQuery
-from ..presenters import runtime_state_response, workspace_detail_response, workspace_response
+from ..presenters import (
+    feed_page,
+    runtime_state_response,
+    workspace_detail_response,
+    workspace_response,
+)
+from ..schemas.records import FeedPage
 from ..schemas.workspaces import (
     WorkspaceDetailResponse,
     WorkspacePage,
@@ -56,6 +63,40 @@ def list_workspaces(
 @read_router.get("/workspaces/{workspace_key}", response_model=WorkspaceDetailResponse)
 def get_workspace(workspace_key: str, session: DbSession) -> WorkspaceDetailResponse:
     return workspace_detail_response(session, load_workspace(session, workspace_key))
+
+
+FeedKind = Literal["object", "relation", "publication"]
+_FEED_KIND = Query(default=None, description="Entries of these kinds only (repeatable)")
+_FEED_OBJECT_TYPE_KEY = Query(
+    default=None,
+    alias="objectTypeKey",
+    description="Object entries of these types only, a reclassified record's previous type "
+    "included (repeatable)",
+)
+
+
+@read_router.get("/workspaces/{workspace_key}/feed", response_model=FeedPage)
+def get_feed(
+    workspace_key: str,
+    session: DbSession,
+    after: int = Query(default=0, ge=0, description="The last position the reader processed"),
+    page_size: int = Query(default=500, ge=1, le=1000, alias="pageSize"),
+    kind: list[FeedKind] | None = _FEED_KIND,
+    object_type_key: list[str] | None = _FEED_OBJECT_TYPE_KEY,
+) -> FeedPage:
+    """Every change to the workspace's live data in commit order, after a stored position
+    (INTEGRATION_API F4). A filtered page scans at most ten pages' worth of positions."""
+    return feed_page(
+        session,
+        read_feed(
+            session,
+            workspace_key,
+            after=after,
+            page_size=page_size,
+            kinds=kind or (),
+            object_type_keys=object_type_key or (),
+        ),
+    )
 
 
 @read_router.get("/workspace-runtime-state", response_model=WorkspaceRuntimeStateResponse)

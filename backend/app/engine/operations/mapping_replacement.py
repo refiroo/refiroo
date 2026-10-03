@@ -22,6 +22,7 @@ from ..model.registry import resolve_request_model
 from ..records import rules
 from ..records.audit import record_audit_event
 from ..records.context import ChangeSetLookup, LiveLookup
+from ..records.feed import relation_subject
 from ..records.refusals import LIVE
 from ..records.relation_set_versions import claim_set_version, increment_single_set_version
 from ..records.writes import ChangeSetWrites, LiveWrites
@@ -246,19 +247,20 @@ class _LiveSide:
     def change_attributes(self, relation: Any, attributes: dict[str, Any]) -> None:
         relation.attributes = attributes
         relation.version += 1
-        record_audit_event(
-            self.writes.session,
+        self.writes.record(
             aggregate_type="relation",
             aggregate_id=relation.id,
             action="updated",
             version=relation.version,
             changes={"attributes": attributes},
             object_ids=[relation.from_object_id, relation.to_object_id],
+            subject=relation_subject(
+                relation.relation_type_key, relation.from_object_id, relation.to_object_id
+            ),
         )
 
     def remove(self, relation: Any) -> None:
-        record_audit_event(
-            self.writes.session,
+        self.writes.record(
             aggregate_type="relation",
             aggregate_id=relation.id,
             action="deleted",
@@ -269,6 +271,9 @@ class _LiveSide:
                 "toObjectId": relation.to_object_id,
             },
             object_ids=[relation.from_object_id, relation.to_object_id],
+            subject=relation_subject(
+                relation.relation_type_key, relation.from_object_id, relation.to_object_id
+            ),
         )
         self.writes.remove_relation(relation)
 
@@ -276,8 +281,7 @@ class _LiveSide:
         self, relation_type_key: str, from_id: str, to_id: str, attributes: dict[str, Any]
     ) -> str:
         relation = self.writes.add_relation(relation_type_key, from_id, to_id, attributes)
-        record_audit_event(
-            self.writes.session,
+        self.writes.record(
             aggregate_type="relation",
             aggregate_id=relation.id,
             action="created",
@@ -289,6 +293,7 @@ class _LiveSide:
                 "attributes": attributes,
             },
             object_ids=[from_id, to_id],
+            subject=relation_subject(relation_type_key, from_id, to_id),
         )
         return relation.id
 

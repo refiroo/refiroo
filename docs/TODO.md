@@ -21,7 +21,18 @@ decided in memory and written in bulk, PG-D12–PG-D17) on 2026-10-02; the order
 decisions D-1–D-7 taken, H4b delivered the same day, [API_JOURNEYS](testing/API_JOURNEYS.md#decisions)), then PG5 (H4 stopped after H4d-1 and PG4 dropped,
 2026-10-03). **PG5 is delivered and 0.9.0-alpha.1 released (2026-10-03):** budgets re-measured on
 PostgreSQL, the 100,000-item batch measured once, the remaining budget exceptions deferred to the
-first fixes after 1.0 ([handoff](POSTGRESQL_BUDGETS.md)). Next is F1. See [Next — 0.9](#next--09).
+first fixes after 1.0 ([handoff](POSTGRESQL_BUDGETS.md)). **F1 is delivered (2026-10-03)**: feed
+positions, publish entries and the feed read (D31–D34). Next are B3, then F2. See
+[Next — 0.9](#next--09).
+
+- **Publish cost per record (found 2026-10-03, F1).** A publish of 10,000 renamed records took
+  43.6 s and 40,239 statements. `LiveWrites.apply_publication` reads each authored record and
+  rewrites its values one record at a time (~4 statements per record); the feed's own share is a
+  few multi-row inserts. Address with F2's or T1's budgets.
+- **Containment relations in the audit log (found 2026-10-03, F1).** A live create or move audits no
+  containment relation, while the live delete cascade audits one. The feed leaves them out
+  everywhere (the record's `parentObjectId` names its parent); the audit log keeps the cascade's
+  entries without a position. Align the audit log when a history change next touches it.
 
 - **Revisit: large batch deletes (PG-D18, noted 2026-10-01).** Batch delete items stay on the
   per-item path in PG3b, and neither that nor a set-based copy of it is the right answer. Large
@@ -32,7 +43,7 @@ first fixes after 1.0 ([handoff](POSTGRESQL_BUDGETS.md)). Next is F1. See [Next 
 - **Lifecycle audit reads (decided 2026-10-02, H4a D-5).** The engine records workspace, change set
   and publication lifecycle events and model draft events, but no route reads them. Keep recording
   them and add reads (journeys J19.5, J08.9); consider showing a workspace's activity in the UI.
-  To plan as its own package, with F1's feed in view.
+  To plan as its own package. F1's feed now gives publications (`published`, `withdrawn`) positions.
 
 ## Open decisions
 
@@ -78,7 +89,8 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   (2026-10-01); relation and relation-set items (B3) remain.
 - [ ] Asynchronous CSV/XLSX import and export with validation previews; import runs an import profile
   (revised D3, [MODEL_AUTHORING A1](MODEL_AUTHORING.md#delivery)).
-- [ ] Ordered change feed and retryable webhooks.
+- [ ] Ordered change feed and retryable webhooks. The feed read with positions in commit order is
+  delivered as 0.9 F1 (2026-10-03); retention and recovery (F2) and webhooks (C9–C13) remain.
 - [x] Cross-type object lookup `GET /objects` (P1), moved from 0.8 (D20): delivered as 0.9 Q1
   (2026-09-29).
 - [x] A general relation edge list with publication context (P3), moved from 0.8 (D20): delivered as

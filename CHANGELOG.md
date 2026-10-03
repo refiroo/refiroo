@@ -6,6 +6,30 @@ All notable changes to this project are documented in this file. The format foll
 
 ## [Unreleased]
 
+### Added
+
+- Base 0.9 F1: the change feed `GET /api/v1/workspaces/{key}/feed`.
+  - **Positions.** Every change to a workspace's live data has a position: per workspace, gapless and
+    in commit order. A live write takes positions under the workspace lock it already holds (one
+    statement per write), so a refused or rolled-back write leaves no gap. Change-set work takes
+    none.
+  - **Reading.** A reader passes the last position it processed (`after`) and pages with `pageSize`
+    (1–1,000, default 500) until `nextAfter` equals `headPosition`. `kind` and `objectTypeKey`
+    (repeatable) filter within a scan of at most ten pages, never an unbounded one.
+  - **Entries.** Each entry names the record or relationship, its type, version, the changed fields
+    and attribute types (never values), the cause (a user, a job or a publication) and the model
+    release.
+  - **Publishing.** A publish writes one entry per record and relationship it changed in live data
+    (`reclassified` with the previous type for a type change), then its `published` entry.
+    Withdrawing adds `withdrawn`.
+  - **Refusal.** A position past the head is `409 feed_position_ahead`.
+  - **Migration** `20261003_02`; the feed starts empty, with no backfill. Decisions D31–D34.
+
+### Changed
+
+- Base 0.9 F1 (D15): a publish's changes to live data now show in record history, one entry per
+  record with `cause: {"kind": "publication", "id"}`; `AuditCause.kind` gains `publication`.
+
 ## [0.9.0-alpha.1] - 2026-10-03
 
 Everything since 0.8.0: Base 0.9 packages Q1–Q4, C1, V1, B1 and B2, and the PostgreSQL runtime

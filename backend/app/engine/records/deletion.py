@@ -12,8 +12,9 @@ from ...errors import ApiError, api_error
 from ...models.database import ObjectRelation, RdmObject
 from ...models.schema import EngineModel, ObjectTypeRelationDefinition
 from ..workspaces.catalogue import resolve_workspace
-from .audit import record_audit_event
+from .audit import AuditEntry, record_audit_events
 from .context import load_object
+from .feed import object_subject, relation_subject
 from .relation_set_versions import increment_set_versions
 from .writes import LiveWrites
 
@@ -351,10 +352,10 @@ def apply_object_delete(
             objects=objects,
             relations=relations,
         )
-    execute_delete_plan(writes, plan)
+    execute_delete_plan(writes, plan, model)
 
 
-def execute_delete_plan(writes: LiveWrites, plan: DeletePlan) -> None:
+def execute_delete_plan(writes: LiveWrites, plan: DeletePlan, model: EngineModel) -> None:
     """Audit then physically remove the planned relations, attribute values and objects.
 
     Containment pointers are detached within the transaction before deleting a mixed parent/child
@@ -363,34 +364,53 @@ def execute_delete_plan(writes: LiveWrites, plan: DeletePlan) -> None:
     """
     session = writes.session
     endpoint_ids: set[str] = set()
-    for relation in plan.relations.values():
-        record_audit_event(
-            session,
-            aggregate_type="relation",
-            aggregate_id=relation.id,
-            action="deleted",
-            version=relation.version,
-            changes={
+    relation_entries = {
+        relation.id: AuditEntry(
+            "relation",
+            relation.id,
+            "deleted",
+            relation.version,
+            {
                 "relationTypeKey": relation.relation_type_key,
                 "fromObjectId": relation.from_object_id,
                 "toObjectId": relation.to_object_id,
                 "cascadeRootObjectId": plan.root_id,
             },
-            object_ids=[relation.from_object_id, relation.to_object_id],
+            (relation.from_object_id, relation.to_object_id),
+            relation_subject(
+                relation.relation_type_key, relation.from_object_id, relation.to_object_id
+            ),
         )
-    for item in plan.objects.values():
-        record_audit_event(
-            session,
-            aggregate_type="object",
-            aggregate_id=item.id,
-            action="deleted",
-            version=item.version,
-            changes={
-                "objectTypeKey": item.object_type_key,
-                "cascadeRootObjectId": plan.root_id,
-            },
-            object_ids=[item.id],
-        )
+        for relation in plan.relations.values()
+    }
+    # A containment relation is the record's parent, which its own entry carries; it is audited
+    # and, as a move's is, not a feed entry (Base 0.9 F1).
+    containment = {
+        relation.id
+        for relation in plan.relations.values()
+        if relation.to_object_id in plan.objects
+        and relation.relation_type_key
+        in model.containment_relation_keys(plan.objects[relation.to_object_id].object_type_key)
+    }
+    record_audit_events(
+        session, [entry for key, entry in relation_entries.items() if key in containment]
+    )
+    # Relations first, then records: a feed reader removes what refers to a record before it.
+    writes.record_all(
+        [entry for key, entry in relation_entries.items() if key not in containment]
+        + [
+            AuditEntry(
+                "object",
+                item.id,
+                "deleted",
+                item.version,
+                {"objectTypeKey": item.object_type_key, "cascadeRootObjectId": plan.root_id},
+                (item.id,),
+                object_subject(item),
+            )
+            for item in plan.objects.values()
+        ]
+    )
 
     if plan.relations:
         endpoint_ids = {

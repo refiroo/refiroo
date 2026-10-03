@@ -53,6 +53,8 @@ RULES = {
     ("change_set_bases", "model_release_id"): ("model_releases", "RESTRICT"),
     ("publications", "model_release_id"): ("model_releases", "RESTRICT"),
     ("jobs", "model_release_id"): ("model_releases", "RESTRICT"),
+    # A feed entry names the release its change ran under (Base 0.9 F1).
+    ("audit_events", "model_release_id"): ("model_releases", "RESTRICT"),
     ("model_drafts", "base_model_release_id"): ("model_releases", "SET NULL"),
     ("model_applications", "model_release_id"): ("model_releases", "CASCADE"),
     ("model_application_object_types", "model_release_id"): ("model_releases", "CASCADE"),

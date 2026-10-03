@@ -71,6 +71,7 @@ GROUP_DESCRIPTIONS = {
     "volume": "Track S volume fixture: read and write budgets as the dataset grows",
     "consumer": "consumer API definitions, reads, XREF, batch resolve, crosswalk, publications, parity",
     "jobs": "jobs, outcomes, idempotency, batches, background execution, import profiles, imports and exports",
+    "feed": "feed positions, publish entries and the feed read; later retention and consumer events",
 }
 TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_model.py": ("model",),
@@ -152,6 +153,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
 # While the groups remain (H4d is postponed), the tests H4d moved keep being selected by them: a unit test by its
 # folder under tests/unit/ (the longest matching prefix), a journey test by its journeys.
 UNIT_GROUPS: dict[str, tuple[str, ...]] = {
+    "engine/change_sets/test_publish.py": ("change_sets", "feed"),
     "engine/jobs/": ("jobs",),
     "engine/records/test_audit.py": ("records", "jobs"),
     "models/test_commands.py": ("jobs",),
@@ -184,6 +186,7 @@ JOURNEY_GROUPS: dict[str, tuple[str, ...]] = {
     "J23": ("queries",),
     "J24": ("jobs",),
     "J25": ("consumer", "model"),
+    "J26": ("feed", "records", "change_sets"),
 }
 
 

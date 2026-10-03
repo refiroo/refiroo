@@ -9,10 +9,11 @@ J1–J4 and R are specified (2026-09-29) and delivered in the order of the
 **Delivered:** [Q1](#q1-cross-type-lookup) (2026-09-29), [Q2](#q2-workspace-edge-list) (2026-09-29),
 [Q3](#q3-model-aware-query) (2026-09-30), [C1](#c1-consumer-api-definitions) (2026-09-30),
 [Q4](#q4-effective-periods-and-asof) (2026-09-30), [V1](#v1-api-reference-page) (2026-09-30),
-[B1](#b1-job-model-and-inline-object-batches) (2026-10-01), [B2](#b2-background-jobs) (2026-10-01).
-**Next:** the interim release [0.9.0-alpha.1, PostgreSQL runtime](POSTGRESQL_RUNTIME_PLAN.md)
-(PG1–PG5, PostgreSQL only, decisions accepted 2026-10-01) with the [test harness](TEST_HARNESS_PLAN.md)
-(H1 inside PG1, H2–H3 after PG2), then F1. **PG1 and PG2 are delivered (2026-10-01)**, and so is H2 (parallel test runs, 2026-10-01); next are H3, PG3 and PG3b (batch writes in bulk, PG-D12–PG-D17).
+[B1](#b1-job-model-and-inline-object-batches) (2026-10-01), [B2](#b2-background-jobs) (2026-10-01),
+the interim release 0.9.0-alpha.1 (2026-10-03), [F1](#f1-feed-positions) (2026-10-03, with the feed
+read, D31).
+**Next:** B3 (relation and relation-set items), then F2 (feed retention and recovery), in the order of
+the [delivery queue](#delivery-queue).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -200,13 +201,13 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 5 | [Q4](#q4-effective-periods-and-asof) | Q3, C1 | `effectivePeriod` in schema 0.8, `asOf` on reads; starter 0.9.0; SC-11 (API) — **delivered 2026-09-30** |
 | 6 | [V1](#v1-api-reference-page) | — | Scalar at `/docs` with the management API; a filler, any time before V2 — **delivered 2026-09-30** |
 | 7 | [B1](#b1-job-model-and-inline-object-batches) | — | **Track P (§P1–P5, P7)**, `POST /batches` with object items, inline — **delivered 2026-10-01** |
-| 8 | [F1](#f1-feed-positions) | B1 | Feed position in commit order, publish entries (D15), lock order |
+| 8 | [F1](#f1-feed-positions) | B1 | Feed position in commit order, publish entries (D15, D32), lock order, the feed read (D31) — **delivered 2026-10-03** |
 | 9 | [B2](#b2-background-jobs) | B1 | **Track P (§P6)**: worker, chunks, lease, resume, cancel, retention — **delivered 2026-10-01**, before F1 |
 | 9a | [PG1–PG2](POSTGRESQL_RUNTIME_PLAN.md) with [H1](TEST_HARNESS_PLAN.md) | B2 | PostgreSQL only: runtime, baseline migration, the test harness with seeded databases built once, PostgreSQL forms |
 | 9b | [H2–H3](TEST_HARNESS_PLAN.md) | PG2 | Parallel test runs (H2 **delivered 2026-10-01**); time ceilings, full-size budgets out of everyday runs (H3); no product change |
 | 9c | [PG3–PG5](POSTGRESQL_RUNTIME_PLAN.md) | PG2 | The per-workspace write lock and concurrency tests; PG3b batch writes decided in memory and written in bulk (PG-D12–PG-D17); existing data carried over; budgets on PostgreSQL with the 100,000-item batch measured once; released as 0.9.0-alpha.1 |
 | 10 | [B3](#b3-relation-and-relation-set-items) | B1 | Relation items and `replaceRelationSet` |
-| 11 | [F2](#f2-feed-read-retention-and-recovery) | F1 | `GET /workspaces/{key}/feed`, retention, `410` with baselines |
+| 11 | [F2](#f2-feed-retention-and-recovery) | F1 | Retention, `410` with baselines, the deep read budget (the read moved to F1, D31) |
 | 12 | [T1](#t1-track-checkpoint-q-b-f) | Q4, B2, B3, F2 | Track checkpoint for Q, B and F: their groups, budgets and a composed journey |
 | 13 | C2 | C1 | Consumer object and projections |
 | 14 | C3 | C2 | Lists |
@@ -877,22 +878,131 @@ live write of a record it touches).
 
 **Exit:** C-D15 holds by test: a publication equals live data at its `feedPosition`.
 
-#### F2: Feed read, retention and recovery
+**Amended 2026-10-03 (the user's decisions D31, D32):** the feed read of §F4 (`GET
+/workspaces/{key}/feed` with `after`, `pageSize`, `kind`, `objectTypeKey`, the bounded filtered scan)
+moves here from F2, so the journey tests read positions through the API; a publish writes relation
+entries too. D33 (`after` past the head) and D34 (what the filters match) were accepted with the plan.
 
-**Design:** §F4, §F5 (D8). **Needs:** F1.
+**Delivered 2026-10-03.** Journey J26 (steps 1–2) and its variants J26.1–J26.5 were written first
+and confirmed failing (the route did not exist). What was built:
 
-**Scope:** `GET /api/v1/workspaces/{key}/feed` with `after`, `pageSize`, `kind`, `objectTypeKey`;
-`nextAfter`, `headPosition`, `earliestPosition`; the bounded filtered scan; `FEED_RETENTION_DAYS`;
-`410 feed_position_expired` naming the active publication and its position.
+- **Migration** `20261003_02`:
+  - `workspaces.feed_position`, the counter (0).
+  - On `audit_events`: `workspace_key`, `feed_position` (unique per workspace, the read's index),
+    `model_release_id` (FK, `RESTRICT`) and `feed_subject`. `feed_subject` is the identity an entry
+    names: object type and application, plus the previous type for `reclassified`; relation type and
+    ends. Today's audit payloads lack the type of an update, and a later delete leaves nothing to
+    look it up by.
+  - `publications.feed_position`.
+  - No backfill.
+- **`engine/records/feed.py`:** `take_positions` runs one `UPDATE … RETURNING` on the workspace row,
+  under the lock `LiveWrites._begin` already holds. It returns the first position and the active
+  release, leaves `updated_at` as it is, and costs one statement per audit flush, not per entry.
+- **The write unit records feed entries.** `LiveWrites.record` and `record_all` give a live
+  write's audit entries consecutive positions, while `ChangeSetWrites` records the same calls
+  without any, so a change-set edit cannot take one.
+  - The live audit sites moved to the unit: value set and delete, the decided writes of `bulk.py`
+    (single writes and batches), relation create, update and delete, the deletion cascade (now one
+    multi-row insert, relations before records) and the live side of the mapping save. Decided
+    entries carry their `subject`.
+  - The `published` and `withdrawn` events take positions under the publish's and the withdrawal's
+    own row locks.
+- **Publish** (`change_sets/publish.py`):
+  - The merge already loads live records, values and relations. It keeps them, and
+    `publish_entries` compares each authored row with live:
+    - `created`, `updated` or `reclassified`, naming the changed fields (`objectType`, `name`,
+      `parentObjectId`, `attributes`) and attribute types;
+    - an `updated` entry with no field when only the version differs;
+    - none for an equal row;
+    - then relations removed, relations created or updated, and records removed (D32).
+  - The entries are written with the publication as cause. `published` is recorded after them, and
+    its position is `publications.feed_position`.
+- **Read:** `engine/reads/feed.py` reads the head from the counter, then the entries up to it. An
+  unfiltered page is the next `pageSize` positions. A filtered one scans at most ten pages' worth
+  and answers `nextAfter` at the scan's end when it is not full.
+  - The presenter shares one field derivation with record history. Explicit `changedFields` lists
+    are used whenever an entry stores them: a type change and, now, a publish entry.
+  - `AuditCause.kind` gains `publication`, since a publish's entries carry record subjects and show
+    in record history.
 
-**Tests:** follow, stop and resume without loss or repeat; filters with sparse matches; `410` at and
-past the floor; re-sync from a publication then the feed missing nothing (SC-10's feed half).
+Differences from the design, amended in INTEGRATION_API §F:
+- **Containment relations** are no feed entry of their own, live or published. A live create or
+  move never audited its containment relation (the record's `parentObjectId` names it); the live
+  cascade did. That cascade audit stays and takes no position, and the publish leaves them out too,
+  judged under the child's type before or after (a reclassified child's containment relation
+  changes type).
+- **`cause` of a single write** is `{kind: "user"}` in the feed and omitted in history, as before.
+  `restructuring` is never a feed cause, since a restructuring reaches live data through its publish.
+- **The publish's `published` entry** has the publishing user, not the publication, as cause.
+
+Composable domains (ADR-032): audit/history and bulk APIs are touched and no door is affected. Feed
+entries carry names, never values (D16, the erasure door), and `cause` stays additive (provenance).
+
+**Budget** (measured once with a scratch script on an empty database, deleted afterwards):
+- A single create: 18 statements, one of them the feed counter (+1 against the PG3b write).
+- A publish: two counter statements (its entries, then `published`), and its entries in multi-row
+  inserts (11 for 10,000 entries).
+- A publish of 10,000 renamed records: 43.6 s and 40,239 statements. The ~4 statements per record are
+  the existing `apply_publication`, which reads each authored record and rewrites its values one
+  record at a time. The share the feed adds was not measured separately. Recorded in TODO as a
+  publish cost to address with F2's or T1's budgets.
+- `test_volume_baseline` (live write statements equal at 1× and 4×) and `test_batch_statements`
+  (per-item budgets) hold unchanged.
+
+**Checks:**
+- **J26 journey tests** (`tests/journeys/test_j26_follow_changes.py`, new): 12 passed, six cases
+  on two configurations each.
+- **`test_pg3_concurrency`:** two new cases pass. One is a write held after taking its position and
+  before commit, with the next write waiting and getting the next position. The other is a publish
+  and a live rename of a record it changes: no deadlock, the rename refused `version_conflict`, and
+  the feed listing the publish's entry, then `published`.
+- **Unit tests** of `publish_entries` (`tests/unit/engine/change_sets/test_publish.py`, new): 3
+  passed.
+- **`test_startup`:** `HEAD` is `20261003_02`, and two new cases pass. One is an upgrade from
+  `20261003_01` with audit history (inserted as an older release left it; the history keeps no
+  position, the feed is empty, and the next write takes position 1, across two starts). The other is
+  an interrupted revision rolled back and recovered on the next start. With `test_schema_drift`: 16
+  passed.
+- **`test_foreign_keys`:** 2 passed with the new rule.
+- **`test_openapi_contract`:** 8 passed. The lock was re-baselined after diffing the document:
+  without the feed path, `FeedPage`, `FeedEntry`, `FeedCause` and `AuditCause`'s `publication`, it
+  hashes to the previous lock exactly.
+- **`test_api_journeys`:** 5 passed, with the route, its parameters and `feed_position_ahead`
+  mapped.
+- **Groups** `feed`, `records`, `change_sets`, `mapping`, `matrix`, `startup`, `jobs` and `contract`
+  without `volume`: 908 passed and 2 failed (`test_foreign_keys`, then fixed and rerun), in 2 min
+  26 s against the 2-minute package ceiling. That is over: this package's boundary, a shared write
+  path, selects most groups. Their serial part: 2 passed. `volume` without `budget`: 67 passed.
+- **`ruff check app/ tests/`:** clean.
+- **Smoke start** on a copy of the development database at `20261001_02`: migrated to
+  `20261003_02`, `/health` ok, and an empty feed. A create took position 1, and a publish of its
+  rename gave an `updated` entry with the publication as cause, then `published` at 3. The copy
+  was dropped.
+
+Not run:
+- `model`, `model_admin`, `queries`, `workspaces` and `consumer` beyond the modules the selected
+  groups include, which the changed boundaries do not select;
+- the `budget` modules (a release's acceptance);
+- frontend checks, since nothing under `frontend/` changed.
+
+The full suites wait for R.
+
+#### F2: Feed retention and recovery
+
+**Design:** §F5 (D8). **Needs:** F1.
+
+**Scope:** `FEED_RETENTION_DAYS`; `earliestPosition` from the retention floor; `410
+feed_position_expired` naming the active publication and its position. The feed read itself was
+delivered by F1 (D31).
+
+**Tests:** `410` at and past the floor; re-sync from a publication then the feed missing nothing
+(SC-10's feed half). Follow, resume and sparse filters are F1's J26 tests.
 
 **Budget:** a 500-entry page at head and deep in a 1,000,000-entry feed.
 
 **Groups:** `feed`, `contract`, `volume`.
 
-**Exit:** the feed in API.md; SC-10's feed half passes at API level.
+**Exit:** retention and recovery in API.md; SC-10's feed half passes at API level.
 
 ## Track T — Checkpoints
 
@@ -1181,7 +1291,8 @@ This build touches every door in [COMPOSABLE_DOMAINS.md](COMPOSABLE_DOMAINS.md#d
 
 All accepted 2026-09-29 as recommended (D3 and D10 revised the same day, D5 revised after a code
 check, D15 and D16 added by that check, D17–D19 raised by Q3), D20–D22 raised by Q4 (2026-09-30),
-D23–D26 raised by B1, which also confirmed D13 (2026-10-01), and D27–D30 raised by B2 (2026-10-01).
+D23–D26 raised by B1, which also confirmed D13 (2026-10-01), D27–D30 raised by B2 (2026-10-01),
+and D31–D34 raised by F1 (2026-10-03).
 
 | # | Question | Decision | Blocks |
 | --- | --- | --- | --- |
@@ -1215,6 +1326,10 @@ D23–D26 raised by B1, which also confirmed D13 (2026-10-01), and D27–D30 rai
 | D28 | Cancelling a job | **Accepted 2026-10-01 (B2).** `POST /jobs/{id}/cancel` sets `cancelRequestedAt` in one short transaction and answers `202` with the job; a finished job is `409 job_finished`. The worker does every finish, a queued job's included: at the next chunk start for an `independent` job, and between items of an `atomic` job's one chunk, which then rolls back completely. A chunk does not hold the job row locked while it applies items, so the request never waits for a chunk. Designed for PostgreSQL (READ COMMITTED); no SQLite workaround. **To test on PostgreSQL** once it is the engine's database **Amended 2026-10-02 (0.9.0-alpha.1 PG3b):** an `atomic` job looks for a cancel request before every 500 items it decides and before it writes them, since its items are decided in memory and written together; a check per item would cost a statement per item | B, J |
 | D29 | A chunk failing for another reason than an item's refusal | **Accepted 2026-10-01 (B2).** The chunk rolls back; the job is `failed` with `error.code` `job_failed`, a message and a correlation ID, and the remaining items are `unprocessed` with `job_failed`. Applied chunks stay. A process that stops mid-chunk is not a failure: its lease expires and the job resumes at its checkpoint | B, J |
 | D30 | Background defaults | **Accepted 2026-10-01 (B2).** `JOB_CHUNK_ITEMS` 500; `JOB_LEASE_SECONDS` 120, renewed with each chunk's commit, so a job resumes within that time after a restart; `BACKGROUND_JOB_MAX_ITEMS` 1,000,000 (D13) and a background request body of `BATCH_BACKGROUND_MAX_BYTES` 50 MB (§B1); the retention sweep runs in the worker every hour, so a process with `INTEGRATION_JOBS_ENABLED` off sweeps nothing | B, J |
+| D31 | Where the feed read is delivered | **Decided 2026-10-03 by the user (F1).** F1 assigns positions, but without a read no journey test could see them through the API. The read of §F4 (`GET /workspaces/{key}/feed`, `after`, `pageSize`, `kind`, `objectTypeKey`, the bounded scan, `nextAfter`, `headPosition`, `earliestPosition`) moves into F1; F2 keeps retention, `410 feed_position_expired` with baselines and the deep read budget | F |
+| D32 | Relation entries of a publish | **Decided 2026-10-03 by the user (F1), amending D15.** A publish writes one entry per record **and relation** it changes in live data, in this order: records created, updated or reclassified; relations removed; relations created or updated; records removed; then `published`. Otherwise a follower never learns of relation changes made through change sets, and a type change's relation changes (§F1) only reach live data through a publish | F, C |
+| D33 | `after` past the head | **Accepted 2026-10-03 with the F1 plan.** `409 feed_position_ahead` with `details.headPosition`. Such a position comes from another workspace's feed or a restored database, where new changes reuse its numbers; answering it would silently skip them | F |
+| D34 | What the feed filters match | **Accepted 2026-10-03 with the F1 plan.** Repeated values of one filter match any of them; `kind` and `objectTypeKey` combine. `objectTypeKey` matches object entries whose type, or for `reclassified` whose previous type, is listed; relation and publication entries never match it | F |
 
 ## Next
 

@@ -18,10 +18,11 @@ from .attributes import (
     validate_deletable_attribute,
     validate_object_attribute_rules,
 )
-from .audit import AuditEntry, record_audit_event
+from .audit import AuditEntry
 from .batch_lookup import LiveBatchLookup, Record, Relation
 from .bulk import write_live
 from .context import load_object
+from .feed import object_subject, relation_subject
 from .refusals import LIVE
 from .relations import validate_scoped_relations
 from .values import stored_json_value
@@ -144,6 +145,7 @@ def decide_object_create(
                 1,
                 {**relation.model_dump(), "attributes": relation_attributes},
                 (source.object_id, target.object_id),
+                relation_subject(relation.relationTypeKey, source.object_id, target.object_id),
             )
         )
         # Like any relation write, an initial relation advances both ends' sets (ADR-022).
@@ -168,6 +170,7 @@ def decide_object_create(
                 ],
             },
             (record.object_id,),
+            object_subject(record),
         )
     )
     return record
@@ -300,6 +303,7 @@ def decide_object_update(
             record.version,
             {**changes, **(audit_changes or {})},
             (record.object_id,),
+            object_subject(record),
         )
     )
     return record
@@ -347,14 +351,14 @@ def set_live_attribute_value(
     normalized = validate_attributes(model, object_type, {attribute_type_key: value}, partial=True)
     writes.claim_object(item, expected_version)
     apply_attribute_values(writes, model, object_type, item, normalized)
-    record_audit_event(
-        session,
+    writes.record(
         aggregate_type="object",
         aggregate_id=item.id,
         action="updated",
         version=item.version,
         changes={"attributes": normalized},
         object_ids=[item.id],
+        subject=object_subject(item),
     )
     session.commit()
     return item
@@ -391,14 +395,14 @@ def delete_live_attribute_value(
     validate_object_attribute_rules(object_type, remaining)
     writes.claim_object(item, expected_version)
     writes.remove_value(item.id, attribute_type_key)
-    record_audit_event(
-        session,
+    writes.record(
         aggregate_type="object",
         aggregate_id=item.id,
         action="updated",
         version=item.version,
         changes={"attributes": {attribute_type_key: None}},
         object_ids=[item.id],
+        subject=object_subject(item),
     )
     session.commit()
     return item

@@ -25,7 +25,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261003_01"
+HEAD = "20261003_02"
+SEARCH_INDEXES = "20261003_01"
 BASELINE = "20261001_01"
 LIMITED_ROLE = "rdm_startup_limited"
 
@@ -261,6 +262,78 @@ def test_an_interrupted_search_index_revision_rolls_back_and_the_next_start_reco
     assert _search_indexes(url) == {"ix_snapshot_attribute_values_text_search"}
     with engine.begin() as connection:
         connection.execute(text("DROP INDEX ix_snapshot_attribute_values_text_search"))
+    engine.dispose()
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        assert client.get("/health").json() == {"status": "ok"}
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+
+
+def test_a_database_with_audit_history_upgrades_to_feed_positions(monkeypatch, databases):
+    """Base 0.9 F1 on a database at the previous revision with audit history (written here as an
+    older release left it): the history keeps no position, the feed starts empty, and the next
+    write takes position 1. Started twice."""
+    url = seeds.create_empty()
+    databases.append(url)
+    command.upgrade(migration_config(url), SEARCH_INDEXES)
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                "INSERT INTO audit_events (event_id, aggregate_type, aggregate_id, action, version, "
+                "changes, occurred_at) VALUES (gen_random_uuid()::text, 'object', 'earlier', "
+                "'created', 1, '{}', now())"
+            )
+        )
+    engine.dispose()
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        assert client.get("/health").json() == {"status": "ok"}
+        empty = client.get("/api/v1/workspaces/default/feed").json()
+        assert (empty["items"], empty["headPosition"]) == ([], 0)
+        written = client.post(
+            "/api/v1/objects",
+            json={
+                "workspaceKey": "default",
+                "applicationKey": "rdm-master",
+                "objectTypeKey": "domain",
+                "name": "After the upgrade",
+                "attributes": [{"attributeTypeKey": "domain-code", "value": "UPGRADED"}],
+            },
+        )
+        assert written.status_code == 201, written.text
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        entries = client.get("/api/v1/workspaces/default/feed").json()["items"]
+        assert [(e["position"], e["id"]) for e in entries] == [(1, written.json()["id"])]
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
+    assert _scalar(url, "SELECT feed_position FROM audit_events WHERE aggregate_id = 'earlier'") is None
+
+
+def test_an_interrupted_feed_position_revision_rolls_back_and_the_next_start_recovers(
+    monkeypatch, databases
+):
+    url = seeds.create_empty()
+    databases.append(url)
+    command.upgrade(migration_config(url), SEARCH_INDEXES)
+    # The revision's last column already there: it fails after adding the others.
+    engine = create_engine(url)
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE publications ADD COLUMN feed_position integer"))
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        message = _assert_refused(
+            client,
+            errors,
+            "Database migration failed",
+            f"Current revision: {SEARCH_INDEXES}",
+            f"target revision: {HEAD}",
+            "still at its current revision",
+        )
+        assert "feed_position" in message
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == SEARCH_INDEXES
+    assert "feed_position" not in {c["name"] for c in inspect(engine).get_columns("workspaces")}
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE publications DROP COLUMN feed_position"))
     engine.dispose()
     with serve(monkeypatch, _render(url)) as (client, errors):
         assert errors == []

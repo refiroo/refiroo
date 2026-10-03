@@ -10,8 +10,8 @@ from ...models.schema import EngineModel, ObjectTypeRelationDefinition
 from ..model.traversal import ancestor_type_keys
 from ..workspaces.catalogue import resolve_workspace
 from . import rules
-from .audit import record_audit_event
 from .context import LiveLookup, load_object
+from .feed import relation_subject
 from .refusals import LIVE
 from .relation_set_versions import SetClaim, advance_set_versions, increment_set_versions
 from .writes import LiveWrites
@@ -42,8 +42,7 @@ def create_relation_instance(
     relation = writes.add_relation(
         payload.relationTypeKey, from_object.id, to_object.id, attributes
     )
-    record_audit_event(
-        session,
+    writes.record(
         aggregate_type="relation",
         aggregate_id=relation.id,
         action="created",
@@ -53,6 +52,7 @@ def create_relation_instance(
             "attributes": attributes,
         },
         object_ids=[from_object.id, to_object.id],
+        subject=relation_subject(payload.relationTypeKey, from_object.id, to_object.id),
     )
     return relation
 
@@ -215,14 +215,16 @@ def update_live_relation(
     attributes = rules.relation_attributes(model, binding, payload.attributes)
     writes.claim_relation(relation, payload.expectedVersion)
     relation.attributes = attributes
-    record_audit_event(
-        session,
+    writes.record(
         aggregate_type="relation",
         aggregate_id=relation.id,
         action="updated",
         version=relation.version,
         changes={"attributes": attributes},
         object_ids=[relation.from_object_id, relation.to_object_id],
+        subject=relation_subject(
+            relation.relation_type_key, relation.from_object_id, relation.to_object_id
+        ),
     )
     increment_set_versions(
         session,
@@ -264,8 +266,7 @@ def delete_live_relation(
     )
     rules.deletable_relation(binding, LIVE)
     writes.claim_relation(relation, expected_version)
-    record_audit_event(
-        session,
+    writes.record(
         aggregate_type="relation",
         aggregate_id=relation.id,
         action="deleted",
@@ -276,6 +277,9 @@ def delete_live_relation(
             "toObjectId": relation.to_object_id,
         },
         object_ids=[relation.from_object_id, relation.to_object_id],
+        subject=relation_subject(
+            relation.relation_type_key, relation.from_object_id, relation.to_object_id
+        ),
     )
     advance_set_versions(
         session,

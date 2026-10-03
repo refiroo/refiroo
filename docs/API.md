@@ -1568,6 +1568,7 @@ refused by a single write's rule carries the same code in its outcome.
 | `mapping_source_not_found` | 404 | `GET /workspaces/{key}/mapping-targets` | The source record is not in the selected context (J10) |
 | `mapping_endpoint_not_found` | 404 | `PUT /workspaces/{key}/mappings` | The source or a target is not in the context (J10) |
 | `mapping_endpoint_type_mismatch` | 422 | `PUT /workspaces/{key}/mappings` | The source or a target is not of the binding's type (J10) |
+| `feed_position_ahead` | 409 | `GET /workspaces/{key}/feed` | `after` is past the feed's head; `details.headPosition` (J26) |
 
 ## Relation endpoints
 
@@ -1686,8 +1687,9 @@ for relations connected to it. The indexed `audit_event_subjects` projection sup
 read path never searches JSON audit payloads.
 
 Each history item contains `id`, `aggregateType`, public `aggregateId`, `action`, `version`,
-`changedFields`, `attributeTypeKeys` and `occurredAt`, and `cause` (`{"kind": "job", "id": …}`)
-when a job made the change (Base 0.9 B1). `attributeTypeKeys` names affected object or
+`changedFields`, `attributeTypeKeys` and `occurredAt`, and `cause` when a job made the change
+(`{"kind": "job", "id": …}`, Base 0.9 B1) or a publish applied it to live data
+(`{"kind": "publication", "id": …}`, Base 0.9 F1, D15). `attributeTypeKeys` names affected object or
 relation attributes without returning their values. The response deliberately omits the internal
 sequence ID and complete before/after values. History cursors are signed and bound to the object
 identity, type and workspace; mismatches return `422 invalid_cursor`.
@@ -1847,6 +1849,83 @@ chunk. The worker carries it out at the job's next chunk (a queued job before it
 back completely. Cancelling again changes nothing; a
 finished job is `409 job_finished` with `details.state`, an unknown one `404 job_not_found`.
 
+## Change feed (Base 0.9 F1)
+
+- `GET /api/v1/workspaces/{workspaceKey}/feed?after=…&pageSize=…&kind=…&objectTypeKey=…`
+
+Every change to a workspace's live data, in commit order. Each has a **position**: a per-workspace
+integer, gapless and strictly increasing in commit order. A live write takes its positions under the
+workspace lock it already holds, so a transaction's entries are consecutive and one that rolls back
+leaves no gap. Change-set edits, validation and discard, and model administration change no live
+data and take none. The feed starts empty at revision `20261003_02`; earlier changes remain in
+record history.
+
+| Source | Entries |
+| --- | --- |
+| A live create, update, move, value write or delete of a record | One `object` entry per record |
+| A live relationship create, update or delete, a mapping save | One `relation` entry per relationship |
+| A batch | Its applied items' entries, with the job as `cause` |
+| Publishing a change set | One entry per record and relationship it changed in live data, with the publication as `cause`, in this order: records created, updated or `reclassified`; relationships removed; relationships created or updated; records removed. Then the publication's `published` entry, whose position is the publication's: live data at that position is the publication (D15, D32) |
+| Withdrawing a publication | One `withdrawn` entry |
+
+A containment relationship is the record's parent, which the record's entry names
+(`parentObjectId`); it is never an entry of its own, live or published.
+
+**Parameters.** `after` (default `0`) is the last position the reader processed. A position is public
+and stable, so it is the resume token itself. `pageSize` is 1–1,000 (default 500). `kind`
+(`object`, `relation`, `publication`) and `objectTypeKey` are repeatable. Repeated values match any
+of them, and the two filters combine. `objectTypeKey` matches object entries whose type, or for
+`reclassified` whose previous type, is listed; relation and publication entries never match it
+(D34). A filtered page scans at most ten pages' worth of positions, so it may hold fewer entries,
+or none, with `nextAfter` advanced. A sparse filter never costs an unbounded scan.
+
+**Response.**
+- `items` in position order.
+- `nextAfter`: the `after` to pass next.
+- `headPosition`: the highest committed position.
+- `earliestPosition`: `1` until retention (F2).
+
+The reader is caught up when `nextAfter` equals `headPosition`. An entry:
+
+```json
+{
+  "position": 18422,
+  "eventId": "…",
+  "occurredAt": "2026-10-14T10:14:03Z",
+  "kind": "object",
+  "action": "updated",
+  "id": "…",
+  "version": 7,
+  "objectTypeKey": "…",
+  "applicationKey": "…",
+  "changedFields": ["name", "attributes"],
+  "attributeTypeKeys": ["…"],
+  "cause": {"kind": "user"},
+  "modelReleaseId": "…"
+}
+```
+
+- **`action`:** `created`, `updated`, `deleted` and `reclassified` (with `previousObjectTypeKey`)
+  for objects; `created`, `updated` and `deleted` for relations; `published` and `withdrawn` for
+  publications, whose `id` is the publication's and `version` its number. Readers ignore actions
+  they do not know.
+- **Relation entries** carry `relationTypeKey`, `fromObjectId` and `toObjectId` instead of the
+  object fields; they identify the relationship after a delete.
+- **`changedFields` and `attributeTypeKeys`** use the record history's vocabulary: names, never
+  values (D16). A reader that needs values reads the record.
+- **`cause`** is `{"kind": "user"}` for a single write, `{"kind": "job", "id"}` or
+  `{"kind": "publication", "id"}`.
+- **`modelReleaseId`** is the release the change ran under.
+
+**Refusals:**
+- an unknown workspace: `404 workspace_not_found`
+- `after` below 0, or `pageSize` out of range: `422 request_validation_error`
+- `after` past the head: `409 feed_position_ahead`, with `details.headPosition` (D33). Such a position
+  was not read from this workspace's feed, or the database was restored to an earlier state; the
+  reader re-reads a baseline.
+
+A retired workspace's feed stays readable. The feed is ungated like other reads until 0.12 (D10).
+
 ## Planned integration endpoints
 
 Designed in [INTEGRATION_API.md](INTEGRATION_API.md) and sequenced in the
@@ -1854,7 +1933,7 @@ Designed in [INTEGRATION_API.md](INTEGRATION_API.md) and sequenced in the
 
 - Relation and relation-set items (B3)
 - Asynchronous import/export jobs
-- Ordered change feed and webhook subscriptions
+- Feed retention and `410 feed_position_expired` with re-sync baselines (F2); webhook subscriptions
 - Consumer API: a separate read-only tier with model-declared XREF lookup and lists
   ([CONSUMER_API.md](CONSUMER_API.md))
 

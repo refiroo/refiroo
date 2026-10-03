@@ -371,7 +371,9 @@ background batch is B2's.
 ## F: Change feed
 
 The raw management feed lists every change to a workspace's live data in commit order. Sync tools
-follow it; consumer events (CONSUMER_API) are derived from it.
+follow it; consumer events (CONSUMER_API) are derived from it. **Delivered by F1 (2026-10-03):** F1–F4,
+with the read moved into F1 (D31); the contract is in [API.md](API.md#change-feed-base-09-f1). F5
+(retention and recovery) is F2's.
 
 ### F1: What the feed contains
 
@@ -380,12 +382,14 @@ follow it; consumer events (CONSUMER_API) are derived from it.
 | Live create, update, delete, move of a record; attribute value writes | One per record change (`object`) |
 | Live relation create, update, delete; relation-set replacement | One per relation change (`relation`) |
 | Type change (ADR-034) | `reclassified` for the record, plus its relation changes |
-| Publishing a change set | One per record the publish applies to live (D15), then one `publication` entry |
+| Publishing a change set | One per record and relation the publish changes in live data (D15, D32): records created, updated or reclassified; relations removed; relations created or updated; records removed; then one `publication` entry |
 | Withdrawing a publication | One `publication` entry |
 | Batch, import job | The entries of its items, with the job as cause |
 | Change-set edits, validation, discard; model administration | None: they change no live data |
 
-The mapping `transition` audit entry is not a feed entry; its relation entries are.
+The mapping `transition` audit entry is not a feed entry; its relation entries are. A containment
+relation is the record's parent, which the record's entry names (`parentObjectId`); it is not an entry
+of its own, live or published (F1, as a live move already audited it).
 
 ### F2: Entry shape
 
@@ -414,8 +418,11 @@ The mapping `transition` audit entry is not a feed entry; its relation entries a
   publication `published` and `withdrawn`.
 - `changedFields` and `attributeTypeKeys` are the object-history vocabulary: names, never values
   (D16, the erasure door). A reader that needs values reads the record.
-- `cause`: `{kind: "user"}`, `{kind: "job", id}`, `{kind: "publication", id}` or
-  `{kind: "restructuring", id}`. Provenance (ADR-032) extends it additively.
+- `cause`: `{kind: "user"}`, `{kind: "job", id}` or `{kind: "publication", id}`. A restructuring
+  changes a change set, never live data, so it reaches the feed through its publish. Provenance
+  (ADR-032) extends `cause` additively.
+- An object entry also carries `applicationKey`; a publication entry's `id` is the publication's
+  and its `version` the publication number.
 - A later merge or retired-ID redirect adds an action (`merged`, with the surviving ID); readers must
   ignore actions they do not know.
 
@@ -444,7 +451,13 @@ GET /api/v1/workspaces/{workspaceKey}/feed?after={position}&pageSize=…&kind=�
 
 - `after` is the last position the reader processed (`0` for the start). The position is public and
   stable, so it is the resume token itself; no cursor is needed.
-- `pageSize` 1–1,000, default 500. `kind` and `objectTypeKey` (repeatable) filter.
+- `pageSize` 1–1,000, default 500. `kind` and `objectTypeKey` (repeatable) filter: values of one
+  filter match any of them, and the two combine. `objectTypeKey` matches object entries whose type,
+  or for `reclassified` whose previous type, is listed; relation and publication entries never match
+  it (D34).
+- `after` past `headPosition` is `409 feed_position_ahead` with `details.headPosition` (D33): such a
+  position was not read from this workspace's feed, or the database was restored, and new changes
+  reuse its numbers.
 - The response carries `items`, `nextAfter` (the position to pass next), `headPosition` (the highest
   committed position) and `earliestPosition` (the retention floor). A filtered page scans at most ten
   times `pageSize` positions; it may return fewer items, even none, with `nextAfter` advanced, so a

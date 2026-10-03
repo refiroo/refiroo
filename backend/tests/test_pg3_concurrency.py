@@ -586,6 +586,66 @@ def test_a_publication_leaves_another_change_sets_writes_free(client, workspace,
         assert response.status_code == 200, response.text
 
 
+# --- feed positions (Base 0.9 F1) -----------------------------------------------------------------
+
+
+def feed(client, workspace_key: str) -> list[dict]:
+    response = client.get(f"/api/v1/workspaces/{workspace_key}/feed", params={"pageSize": 1000})
+    assert response.status_code == 200, response.text
+    return response.json()["items"]
+
+
+def test_feed_positions_follow_commit_order(client, workspace, at_commit):
+    """A write that took its position and is held before its commit keeps the next write waiting
+    for the workspace lock; the waiting write's position comes after it, with no gap."""
+    first, second = race(
+        at_commit,
+        lambda: post_object(client, workspace, "domain", domain_code=unique_key("first")),
+        lambda: post_object(client, workspace, "domain", domain_code=unique_key("second")),
+    )
+    entries = feed(client, workspace)
+    assert [(e["position"], e["id"]) for e in entries] == [
+        (1, created(first)["id"]),
+        (2, created(second)["id"]),
+    ]
+
+
+def test_a_publish_and_a_live_write_of_its_record_do_not_deadlock(client, workspace, at_commit):
+    """Publishing takes the workspace lock before any record, as every live write does: a live
+    rename of a record the publish changes waits for it and is then refused on the version the
+    publish moved, while the feed lists the publish's entries and then the publication."""
+    record = domain(client, workspace)
+    staged_set = create_change_set(client, workspace, source="currentLive").json()
+    staged = client.patch(
+        f"/api/v1/objects/domain/{record['id']}",
+        json={
+            "changeSetId": staged_set["id"],
+            "expectedChangeSetVersion": staged_set["version"],
+            "expectedVersion": record["version"],
+            "name": "Renamed in the change set",
+        },
+    )
+    assert staged.status_code == 200, staged.text
+    publication, live = race(
+        at_commit,
+        lambda: client.post(
+            f"/api/v1/change-sets/{staged_set['id']}/publication",
+            json={"expectedChangeSetVersion": staged.json()["changeSetVersion"]},
+        ),
+        lambda: client.patch(
+            f"/api/v1/objects/domain/{record['id']}",
+            json={"expectedVersion": record["version"], "name": "Renamed live"},
+        ),
+    )
+    assert publication.status_code == 200, publication.text
+    refused(live, 409, "version_conflict")
+    entries = feed(client, workspace)
+    assert [(e["kind"], e["action"], e["id"]) for e in entries[1:]] == [
+        ("object", "updated", record["id"]),
+        ("publication", "published", publication.json()["id"]),
+    ]
+
+
 # --- background jobs (D28) --------------------------------------------------------------------------
 
 CHUNK = 2

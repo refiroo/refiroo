@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session
 from ...errors import api_error
 from ...models.database import (
     AttributeValue,
+    AuditEvent,
     ChangeSet,
     ChangeSetObject,
     ChangeSetRelation,
@@ -36,6 +37,7 @@ from ...models.database import (
 )
 from ...models.schema import EngineModel
 from ..indexes import matrix_states
+from .audit import AuditEntry, record_audit_event, record_audit_events
 from .batch_lookup import Changes
 from .values import VALUE_COLUMNS, normalize_value
 
@@ -94,6 +96,18 @@ class LiveWrites:
                 f"Workspace '{self.workspace_key}' was retired while this request was "
                 "processed; nothing was saved",
             )
+
+    # --- the audit log and the feed ---------------------------------------------------------------
+
+    def record(self, **event: Any) -> AuditEvent:
+        """Audit a change to live data; it takes the workspace's next feed position (Base 0.9 F1)
+        under the lock ``_begin`` took. ``event`` as ``audit.record_audit_event`` takes it, with
+        ``subject`` naming what the feed entry shows."""
+        return record_audit_event(self.session, workspace_key=self.workspace_key, **event)
+
+    def record_all(self, entries: list[AuditEntry]) -> list[AuditEvent]:
+        """Audit decided changes to live data, in order, with consecutive feed positions."""
+        return record_audit_events(self.session, entries, workspace_key=self.workspace_key)
 
     # --- records ---------------------------------------------------------------------------------
 
@@ -454,6 +468,14 @@ class ChangeSetWrites:
         self.change_set = change_set
         self.change_set_id = change_set.id
         self.workspace_key = change_set.workspace_key
+
+    def record(self, **event: Any) -> AuditEvent:
+        """Audit a change set edit; it changes no live data, so it takes no feed position."""
+        event.pop("subject", None)
+        return record_audit_event(self.session, **event)
+
+    def record_all(self, entries: list[AuditEntry]) -> list[AuditEvent]:
+        return record_audit_events(self.session, entries)
 
     def claim(
         self,

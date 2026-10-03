@@ -25,6 +25,8 @@ from ...models.database import (
 )
 from ..indexes import matrix_states
 from ..records.attributes import load_attribute_values
+from ..records.audit import AuditEntry, audit_cause
+from ..records.feed import object_subject, relation_subject
 from ..records.relation_set_versions import merge_change_set_relation_set_versions_to_live
 from ..records.writes import ChangeSetWrites, LiveWrites
 from ..workspaces.workspace_audit import record_change_set_published, record_publication_withdrawn
@@ -34,7 +36,7 @@ from .validation import graph_diagnostics, is_parent_pair
 
 
 @dataclass(frozen=True)
-class _MergedObject:
+class MergedObject:
     object_id: str
     application_key: str
     object_type_key: str
@@ -45,7 +47,7 @@ class _MergedObject:
 
 
 @dataclass(frozen=True)
-class _MergedRelation:
+class MergedRelation:
     relation_id: str
     relation_type_key: str
     from_object_id: str
@@ -55,12 +57,136 @@ class _MergedRelation:
 
 
 @dataclass
-class _LiveMerge:
+class LiveMerge:
     membership: EffectiveChangeSetMembership
     authored_object_ids: set[str]
     authored_relation_ids: set[str]
     removed_object_ids: set[str]
     removed_relation_ids: set[str]
+    # Live data before the publish, for what it changes (D15, D32).
+    live_objects: dict[str, MergedObject]
+    live_relations: dict[str, MergedRelation]
+
+
+def _changed_values(before: dict[str, Any], after: dict[str, Any]) -> list[str]:
+    return sorted(key for key in set(before) | set(after) if before.get(key) != after.get(key))
+
+
+def publish_entries(merge: LiveMerge, model: Any) -> list[AuditEntry]:
+    """The audit entries of what a publish changes in live data (Base 0.9 D15, D32): records
+    created, changed or reclassified; relations removed; relations created or changed; records
+    removed. Each names the fields and attribute types that changed, never values (D16). An
+    authored row equal to live changes nothing and has none. A containment relation is the
+    record's parent, which the record's entry names, as a live move does.
+    """
+    merged_objects = {item.object_id: item for item in merge.membership.objects}
+    merged_relations = {item.relation_id: item for item in merge.membership.relations}
+
+    def contains(relation: MergedRelation) -> bool:
+        # Under the child's type before the publish or after it: a reclassified child's old
+        # containment relation is removed and a new one added.
+        children = (
+            merged_objects.get(relation.to_object_id),
+            merge.live_objects.get(relation.to_object_id),
+        )
+        return any(
+            relation.relation_type_key in model.containment_relation_keys(child.object_type_key)
+            for child in children
+            if child is not None
+        )
+
+    entries: list[AuditEntry] = []
+    for object_id in sorted(merge.authored_object_ids):
+        after, before = merged_objects[object_id], merge.live_objects.get(object_id)
+        if before is None:
+            fields = ["name", "parentObjectId", "attributes"]
+            entries.append(
+                AuditEntry(
+                    "object",
+                    object_id,
+                    "created",
+                    after.version,
+                    {"changedFields": fields, "attributeTypeKeys": sorted(after.attributes)},
+                    (object_id,),
+                    object_subject(after),
+                )
+            )
+            continue
+        retyped = (before.object_type_key, before.application_key) != (
+            after.object_type_key,
+            after.application_key,
+        )
+        values = _changed_values(before.attributes, after.attributes)
+        fields = [
+            field
+            for field, changed in (
+                ("objectType", retyped),
+                ("name", before.name != after.name),
+                ("parentObjectId", before.parent_object_id != after.parent_object_id),
+                ("attributes", bool(values)),
+            )
+            if changed
+        ]
+        if not fields and before.version == after.version:
+            continue
+        entries.append(
+            AuditEntry(
+                "object",
+                object_id,
+                "reclassified" if retyped else "updated",
+                after.version,
+                {"changedFields": fields, "attributeTypeKeys": values},
+                (object_id,),
+                object_subject(after, before.object_type_key if retyped else None),
+            )
+        )
+    for relation_id in sorted(merge.removed_relation_ids):
+        before = merge.live_relations[relation_id]
+        if contains(before):
+            continue
+        entries.append(_relation_entry(before, "deleted", [], []))
+    for relation_id in sorted(merge.authored_relation_ids):
+        after, before = merged_relations[relation_id], merge.live_relations.get(relation_id)
+        if contains(after):
+            continue
+        if before is None:
+            entries.append(
+                _relation_entry(after, "created", ["attributes"], sorted(after.attributes))
+            )
+            continue
+        values = _changed_values(before.attributes, after.attributes)
+        if values or before.version != after.version:
+            entries.append(
+                _relation_entry(after, "updated", ["attributes"] if values else [], values)
+            )
+    for object_id in sorted(merge.removed_object_ids):
+        before = merge.live_objects[object_id]
+        entries.append(
+            AuditEntry(
+                "object",
+                object_id,
+                "deleted",
+                before.version,
+                {"changedFields": [], "attributeTypeKeys": []},
+                (object_id,),
+                object_subject(before),
+            )
+        )
+    return entries
+
+
+def _relation_entry(
+    relation: MergedRelation, action: str, fields: list[str], attribute_type_keys: list[str]
+) -> AuditEntry:
+    return AuditEntry(
+        "relation",
+        relation.relation_id,
+        action,
+        relation.version,
+        {"changedFields": fields, "attributeTypeKeys": attribute_type_keys},
+        (relation.from_object_id, relation.to_object_id),
+        relation_subject(relation.relation_type_key, relation.from_object_id, relation.to_object_id),
+    )
 
 
 def _publication_snapshot_maps(
@@ -217,7 +343,7 @@ def _merge_change_set_over_live(
     base_objects: dict[str, PublicationObject | ChangeSetBaseObject],
     base_relations: dict[str, PublicationRelation | ChangeSetBaseRelation],
     model: Any,
-) -> _LiveMerge:
+) -> LiveMerge:
     """Compute the live content that would result from applying the change set's delta.
 
     The current live projection is authoritative and is the substrate; only records the change set
@@ -236,10 +362,10 @@ def _merge_change_set_over_live(
     }
     object_ids = sorted(live_objects)
     attribute_rows = load_attribute_values(session, object_ids)
-    merged_objects: dict[str, _MergedObject] = {}
+    merged_objects: dict[str, MergedObject] = {}
     for object_id in object_ids:
         live = live_objects[object_id]
-        merged_objects[object_id] = _MergedObject(
+        merged_objects[object_id] = MergedObject(
             object_id=object_id,
             application_key=live.application_key,
             object_type_key=live.object_type_key,
@@ -261,8 +387,8 @@ def _merge_change_set_over_live(
                 )
             )
         }
-    merged_relations: dict[str, _MergedRelation] = {
-        relation_id: _MergedRelation(
+    merged_relations: dict[str, MergedRelation] = {
+        relation_id: MergedRelation(
             relation_id=relation_id,
             relation_type_key=relation.relation_type_key,
             from_object_id=relation.from_object_id,
@@ -273,6 +399,7 @@ def _merge_change_set_over_live(
         for relation_id, relation in live_relations.items()
     }
 
+    live_state, live_relation_state = dict(merged_objects), dict(merged_relations)
     mapping_conflicts = _mapping_set_merge_conflicts(
         session, change_set, model, base_objects, base_relations, live_objects, live_relations
     )
@@ -302,7 +429,7 @@ def _merge_change_set_over_live(
             merged_objects.pop(object_id, None)
             continue
         authored_object_ids.add(object_id)
-        authored = _MergedObject(
+        authored = MergedObject(
             object_id=object_id,
             application_key=row.application_key,
             object_type_key=row.object_type_key,
@@ -360,7 +487,7 @@ def _merge_change_set_over_live(
             merged_relations.pop(relation_id, None)
             continue
         authored_relation_ids.add(relation_id)
-        authored = _MergedRelation(
+        authored = MergedRelation(
             relation_id=relation_id,
             relation_type_key=row.relation_type_key,
             from_object_id=row.from_object_id,
@@ -440,12 +567,14 @@ def _merge_change_set_over_live(
         objects=tuple(sorted(merged_objects.values(), key=lambda item: item.object_id)),
         relations=tuple(sorted(merged_relations.values(), key=lambda item: item.relation_id)),
     )
-    return _LiveMerge(
+    return LiveMerge(
         membership=membership,
         authored_object_ids=authored_object_ids,
         authored_relation_ids=authored_relation_ids,
         removed_object_ids=set(live_objects) - set(merged_objects),
         removed_relation_ids=set(live_relations) - set(merged_relations),
+        live_objects=live_state,
+        live_relations=live_relation_state,
     )
 
 
@@ -545,16 +674,21 @@ def publish_change_set(
                 version=item.version,
             )
         )
-    record_change_set_published(
+    # Apply only the delta onto the live projection: remove tombstoned rows, upsert the authored
+    # objects and relations, and leave every untouched live row exactly as it is. What it changed
+    # takes the next feed positions with the publication as cause, then the publication's own
+    # entry (D15, D32), whose position is the publication's: live data at that position is the
+    # publication (C-D15).
+    live.apply_publication(model, merged)
+    with audit_cause(session, "publication", publication.id):
+        live.record_all(publish_entries(merged, model))
+    publication.feed_position = record_change_set_published(
         session,
         publication=publication,
         change_set=change_set,
         object_count=len(merged.membership.objects),
         relation_count=len(merged.membership.relations),
-    )
-    # Apply only the delta onto the live projection: remove tombstoned rows, upsert the authored
-    # objects and relations, and leave every untouched live row exactly as it is.
-    live.apply_publication(model, merged)
+    ).feed_position
     if workspace.active_publication_id:
         old = session.scalar(
             select(Publication).where(Publication.id == workspace.active_publication_id)

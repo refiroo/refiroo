@@ -34,6 +34,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F22 | Load data in bulk as jobs | Unavailable | Available | 0.9 B1–B2; import screen 0.9 J4 |
 | F23 | Declare consumer APIs | JSON model editing | Definitions only | 0.9 C1; serving is in progress |
 | F24 | Read the API reference | Available at `/docs` | Not applicable | 0.9 V1 |
+| F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
 
 "Validated" means a composed real-browser runner covers the journey against a real backend
 (`frontend/e2e/`). The acceptance runs are recorded in the release plans.
@@ -230,7 +231,8 @@ Evidence: [delete dialog](../../frontend/src/features/objects/ObjectDeleteDialog
 
 The record page has an independently paged history, newest first; loading older entries keeps those
 already shown, and a failed page can be retried. Entries made by a bulk job name the job as their
-cause. History is bounded and does not expose whole model documents.
+cause, and changes a publish applied to live data name the publication. History is bounded and does
+not expose whole model documents.
 
 Limits: no authenticated actor until 0.12.
 
@@ -313,10 +315,9 @@ The API exposes the model, workspaces, records, typed values, relationships, his
 change sets and publications. Records and relationships have stable UUIDs; model concepts have stable
 keys. Every list is paged with signed cursors bound to the query, or by position, with totals on
 request. Errors are structured and distinguish not found, invalid input, conflict, retired scope and
-unavailable service. Integration-scale functions are F20–F23; the reference page is F24.
+unavailable service. Integration-scale functions are F20–F23 and F25; the reference page is F24.
 
-Limits: no change feed, webhooks, file import or export yet (0.9); every API is unauthenticated until
-0.12.
+Limits: no webhooks, file import or export yet (0.9); every API is unauthenticated until 0.12.
 
 Evidence: [API contracts](../API.md),
 [ADR-018](../DECISIONS.md#adr-018--bind-opaque-cursors-to-query-semantics).
@@ -441,3 +442,24 @@ Its "try it" console calls the engine that served it.
 
 Evidence: [API reference page](../API.md#api-reference-page-base-09-v1),
 [reference module](../../backend/app/management/reference/__init__.py).
+
+## F25 — Follow changes in order
+
+**User outcome:** An integration keeps another system in step with a workspace by reading what
+changed since it last looked, instead of re-reading everything.
+
+Every change to a workspace's live data gets the next number in the workspace's change feed, in the
+order the changes were saved, with no gaps. An integration stores the last number it processed,
+reads on from there a page at a time and knows it is up to date when it reaches the latest one; after
+an interruption it continues from its stored number and recognises anything it has seen by its
+number. Each entry says what changed (a record or a relationship, created, changed, removed or given
+another type), which fields and attribute types were affected (never their values) and why: a user's
+change, a bulk job or a publish. Publishing a change set lists each record and relationship it
+changed, then the publication itself, so the publication matches live data at its number. Readers can
+filter by kind and by record type. Work inside a change set does not appear until it is published.
+
+Limits: entries are kept indefinitely for now; retention, with a clear way to re-synchronise from a
+publication once old entries expire, follows in 0.9 (F2). Webhooks follow with the consumer API.
+
+Evidence: [feed contract](../API.md#change-feed-base-09-f1),
+[positions](../../backend/app/engine/records/feed.py), [read](../../backend/app/engine/reads/feed.py).

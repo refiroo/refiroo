@@ -169,8 +169,10 @@ readable and refuse every runtime write. Workspace administration is a deploymen
   replacement claims one anchor, direction and binding and changes its whole zero/one/many state
   atomically, keeping the selected relation's identity, so it can neither leave a gap nor replace
   another binding of the same relation type.
-- **`audit_events`** is the ordered, append-only record of every change, read by record history and,
-  from 0.9 F1, by the change feed (ADR-037). A job's writes name the job as their cause.
+- **`audit_events`** is the ordered, append-only record of every change, read by record history and
+  by the change feed (ADR-037). A job's writes name the job as their cause, a publish's the
+  publication. An entry that changes live data has its workspace's `feed_position`, the model release
+  it ran under and `feed_subject` (the type, or relation type and ends, the feed names).
 
 Live records, values and relations are the authority for current data (ADR-026, ADR-027). Records have
 no lifecycle of their own; model-defined availability is ordinary data.
@@ -252,8 +254,8 @@ publication removes only the designation; it is neither consumer withdrawal nor 
 
 **Lifecycle audit stays separate.** Change-set, publication and workspace lifecycle events are
 aggregate events with bounded identity payloads, never one event per record. Record edits in a change
-set keep their own per-record audit. 0.9 F1 adds one entry per record a publish applies to live, so the
-change feed sees every live change (ADR-037).
+set keep their own per-record audit. A publish adds one entry per record and relation it changes in
+live data (D15, D32), so record history and the change feed see every live change (ADR-037).
 
 ## Writes and concurrency
 
@@ -269,7 +271,8 @@ bulk job.
   all its items. The lock conflicts with publishing (also `FOR NO KEY UPDATE`), a current-live capture
   (`FOR SHARE`), retirement and deletion (`FOR UPDATE`), but not with a key share lock: the one a row
   naming the workspace takes through its foreign key, or the one a change-set write takes.
-- **Lock order:** the workspace, then a change set, then the runtime-state row (activation,
+- **Lock order:** the workspace (whose row also holds the feed counter, 0.9 F1), then a change set,
+  then the runtime-state row (activation,
   retirement and default switching for update; a write's commit check shared), then records and their
   index rows, and a job's row only at its chunk's checkpoint. Retirement, default switching and
   deletion lock the workspace before the runtime state, and publishing locks the workspace before its
@@ -491,10 +494,20 @@ a maintained path for very deep hierarchies.
 
 ### Change feed and consumer API (0.9)
 
-The audit log becomes the ordered source of the change feed and consumer events (ADR-037): every live
-change takes a gapless per-workspace feed position from a counter on the workspace row, locked until
-commit, which the workspace write lock already orders. Entries carry identity and changed keys, never
-values. The consumer API is a separate read-only tier (`consumer/`) generated from the model's consumer
+The audit log is the ordered source of the change feed and, later, consumer events (ADR-037).
+- **Positions.** Every live change takes a gapless per-workspace feed position from
+  `workspaces.feed_position`, incremented under the workspace row lock the live write unit already
+  holds (`records/feed.py`).
+- **Recording.** The write unit records the audit entries: `LiveWrites.record`/`record_all` give
+  them positions, and `ChangeSetWrites` records the same calls without any. So a change-set edit
+  can never take one.
+- **Publishing.** A publish compares each authored row with live (`publish.publish_entries`). It
+  records what changed, with the publication as cause, then its `published` entry, whose position
+  is the publication's.
+- **What an entry carries.** Identity and changed keys, never values. A containment relation is its
+  record's parent and has no entry of its own.
+- **Reading.** The feed is read by position (`reads/feed.py`, `GET /workspaces/{key}/feed`), with
+  filtered pages scanning a bounded range. The consumer API is a separate read-only tier (`consumer/`) generated from the model's consumer
 API definitions ([CONSUMER_API.md](CONSUMER_API.md)); the design is in
 [INTEGRATION_API.md](INTEGRATION_API.md).
 
