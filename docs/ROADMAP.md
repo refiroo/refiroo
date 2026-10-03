@@ -446,6 +446,9 @@ immutable model releases in controlled stages. Authentication and authorization 
 - Confirmed historical migration validates transformed data, preserves immutable history, affects only
   the selected workspace assignment, and changes nothing on cancel, stale review or execution failure.
 - Supported schema versions and their migration/removal dates are published.
+- The compatibility commitment leaves the [composable domains doors](COMPOSABLE_DOMAINS.md#doors-to-keep-open)
+  open: a retired-ID redirect, a value source, derived read-only values and a new value type can each
+  be added to the committed contracts without a breaking change.
 - Moving a draft onto a release its content does not fit cannot be forced through: the target must be
   installed and supported by the deployment, the conversion is previewed and confirmed against the
   exact reviewed versions or cancelled, and a failed re-check changes nothing.
@@ -458,6 +461,11 @@ compatibility: every version that can be chosen must have a parser and data path
 supports, and content written under one version cannot be served under another until it is checked or
 converted. Activating is never just choosing a version: a draft activates only once its version
 matches the active release, which the existing guarded release-activation path establishes.
+
+Composable domains (ADR-032): the 0.11 plan states how three items keep the doors open. Model-derived
+indexes decide whether a later derived value can be indexed and sorted (the derived values door, an
+open question in COMPOSABLE_DOMAINS). Mixed-schema conversion rules keep a new value type an additive
+registry entry. The compatibility commitment covers the contracts the doors extend.
 
 ## Product release 0.12 — Security, authentication and authorization
 
@@ -486,6 +494,10 @@ to a proven identity.
 - Authorization cannot be bypassed through administrative, bulk, job, feed or consumer APIs.
 - Administrative, ordinary and bulk paths enforce the same authenticated scope (US-S01).
 - Webhook receivers can verify every delivery, and a rotated key stops verifying.
+
+Composable domains (ADR-032): audit identity touches the provenance door. The authenticated actor is
+recorded beside the existing `cause`, not in place of it, so a later value source stays additive; an
+OAuth client writing for a source system is the natural name of that source.
 
 ## Product release 1.0 — Self-service model authoring and extensions
 
