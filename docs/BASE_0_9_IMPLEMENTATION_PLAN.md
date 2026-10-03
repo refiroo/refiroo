@@ -13,8 +13,8 @@ J1–J4 and R are specified (2026-09-29) and delivered in the order of the
 the interim release 0.9.0-alpha.1 (2026-10-03), [F1](#f1-feed-positions) (2026-10-03, with the feed
 read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [F2](#f2-feed-retention-and-recovery) (2026-10-03, D40–D41), [T1](#t1-track-checkpoint-q-b-f) (2026-10-03).
-**Next:** the amendments T1b–T1e proposed in [T1](#t1-track-checkpoint-q-b-f), once the user sets
-their targets, then C2, in the order of the [delivery queue](#delivery-queue).
+**Next:** the amendment [T1a](#t1a-copies-inside-the-database) (planned and approved), then
+C2, in the order of the [delivery queue](#delivery-queue).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -210,6 +210,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 10 | [B3](#b3-relation-and-relation-set-items) | B1 | Relation items and `replaceRelationSet` — **delivered 2026-10-03** |
 | 11 | [F2](#f2-feed-retention-and-recovery) | F1 | Retention, `410` with baselines, the deep read budget (the read moved to F1, D31) — **delivered 2026-10-03** |
 | 12 | [T1](#t1-track-checkpoint-q-b-f) | Q4, B2, B3, F2 | Track checkpoint for Q, B and F: their groups, budgets and a composed journey — **delivered 2026-10-03** |
+| 12a | [T1a](#t1a-copies-inside-the-database) | T1 | Amendment: change-set bases and publications copied inside PostgreSQL |
 | 13 | C2 | C1 | Consumer object and projections |
 | 14 | C3 | C2 | Lists |
 | 15 | C4 | C2 | Consumer index and XREF scoring |
@@ -1296,7 +1297,7 @@ it belongs to, before C2.
   26,000 records, it went from 24.3 s to about 2 s (profiled).
 - **Stopgap: copies in bulk from Python.** The publication's rows and a change set's base are
   written in multi-row statements with their typed index rows (`snapshot_values.insert_object_rows`),
-  not one ORM object per row. The rows are still built in Python; T1b replaces this with copies
+  not one ORM object per row. The rows are still built in Python; T1a replaces this with copies
   made inside the database.
 
 **Budgets at full volume** (`--only-dated --scale 1 --repeat 3`, 10 s in all; median · statements ·
@@ -1324,25 +1325,26 @@ about 2 minutes, by linear extrapolation. F1's figure (43.6 s for 10,000 records
 database.
 
 **Decided with the user (2026-10-03): set work runs in the database.** Copies, merges and
-whole-set checks become set operations inside PostgreSQL (`INSERT … SELECT`, `MERGE`, JSON
-aggregation, SQL functions); Python decides and issues statements, and bulk data does not travel
-through it. The engine is PostgreSQL-only, so PostgreSQL features are used freely, and long
-operations may become jobs with a notification. The copy design stays: a change set keeps its frozen
-base, and a publication stays a frozen copy. Considered and set aside: storing only deltas (as
-ArcGIS, SAP MDG and Oracle Workspace Manager do) and versioning every row. Amendment packages
-proposed before C2, waiting for the user's time target and size target:
-- **T1b:** copies inside the database. A SQL function for value encoding, plus `INSERT … SELECT`
-  for change-set bases (from live or a publication), publication copies, the typed index and the
-  matrix states.
-- **T1c:** publishing as set statements. Conflicts by a join, changes applied with `MERGE`, feed and
-  audit entries in D32's order, relationship-set versions.
-- **T1d:** the publish's whole-graph validation as set queries, with parity held by
-  `test_rule_parity`.
-- **T1e**, only if still needed after T1b–T1d: creating change sets and publishing as jobs, with a
-  notification stream.
+whole-set checks are set operations inside PostgreSQL; Python decides and issues statements, and bulk
+data does not travel through it (AGENTS.md, ARCHITECTURE). The copy design stays: a change set keeps
+its frozen base, and a publication stays a frozen copy. Considered and set aside: storing only deltas
+(as ArcGIS, SAP MDG and Oracle Workspace Manager do) and versioning every row.
 
-An audit of other paths that move bulk data through Python (matrix-state copies, history reads of
-whole publications, the D29 container move, restructuring previews) comes with T1b.
+Two probes on a scratch clone of the full fixture (one run each, about ±30 %):
+- Copying the whole workspace by `INSERT … SELECT` took about 33 s: records with their values
+  aggregated to JSON 8.5 s, relationships 15.4 s, the typed value index 9.4 s. Most of that is
+  maintaining the copy tables' 17 indexes row by row.
+- Loading into tables without indexes, then building the 17 indexes once, took about 14.5 s (5.7 s
+  load, 8.9 s indexes). Two whole-workspace rule checks in SQL took 0.41 s and 0.05 s.
+
+**Then decided (2026-10-03):**
+- Creating a change set and publishing move into PostgreSQL as plain `INSERT … SELECT` on the
+  existing tables. No partitioning, no asynchronous job, no notification stream.
+- The size target for both before 1.0 is the volume fixture at 0.1 scale (about 26,000 records).
+  250,000 records and more is deferred until after 1.0, in TODO next to the PG5 exceptions:
+  partitioned snapshot tables, these operations as background jobs with a notification, and
+  validation in SQL. Revisit when MDM is taken up.
+- Delivered as the amendment [T1a](#t1a-copies-inside-the-database), before C2.
 
 **Not re-measured.** The Q1–Q3 reads and every other read in the table are unchanged since PG5's
 table of the same day ([POSTGRESQL_BUDGETS §3](POSTGRESQL_BUDGETS.md#3-results-at-pg5s-close)). The
@@ -1375,6 +1377,95 @@ Not run: the frontend, since nothing under `frontend/` changed; the browser runn
 model's items show two more fields in the `s7` screenshots, which are inspected, not baselines).
 
 Composable domains (ADR-032): no door is affected; the fixes change no contract.
+
+#### T1a: Copies inside the database
+
+**Status:** planned and approved 2026-10-03 (the J05.1 case extended by the user with a parent move and an added relationship).
+**Needs:** T1. **Before:** C2.
+
+**Behaviour:** none changes. Creating a change set from current live data and publishing answer the
+same, with the same refusals; a change set's base and a publication hold exactly what they hold today.
+Only where the work is done changes: the copies are made inside PostgreSQL instead of through Python.
+
+**Scope:**
+1. **Value encoding in one SQL function.** A migration creates `rdm_value_json(value_type, text_value,
+   integer_value, decimal_value, boolean_value, date_value, datetime_value, json_value) RETURNS json`.
+   It is immutable and gives the JSON form `stored_json_value` gives:
+   - text as a string, integers and booleans as JSON values;
+   - decimals as strings without trailing zeros or an exponent (`trim_scale`);
+   - dates as `YYYY-MM-DD`;
+   - `dateTime` as UTC in Python's `isoformat()` form, microseconds only when not zero, then `+00:00`;
+   - JSON as stored, and null as null.
+
+   It matches today's encoding, WP-10E's open `dateTime` offset defect included, and does not fix it.
+2. **Creating a change set from current live data** (`lifecycle._capture_current_live`). Three
+   statements in the capture's transaction and snapshot, as today:
+   - base records by `INSERT … SELECT` from the live records, with their values aggregated by
+     `json_object_agg` over `rdm_value_json`;
+   - base relationships by `INSERT … SELECT`;
+   - the base's typed index copied from the live typed values.
+
+   The live membership is no longer loaded into Python for the capture. A change set from a publication
+   copies nothing today and is unchanged.
+3. **Publishing** (`publish.publish_change_set`). The publication is copied from live data after the
+   change is applied, since live data then is the merged result: records, relationships and the typed
+   index by `INSERT … SELECT`, as in 2.
+   - The merge and the whole-graph validation stay in Python (decided: rules are written once, in
+     `rules.py` and `graph_diagnostics`). They still load the workspace, which the 0.1-scale target
+     allows. Validation in SQL is deferred until after 1.0 (TODO).
+   - Applying the change stays per changed record, so its cost follows the size of the change.
+4. **Matrix states.** The copies from live to a base and to a publication (`matrix_states._copy`) and
+   the publication's additions to the workspace history become `INSERT … SELECT`.
+5. **Removed:** the T1 stopgap (`snapshot_values.insert_object_rows`). The flush hook stays for the
+   ORM writes of change-set rows. Every bulk copy keeps its index through `snapshot_values` and
+   `matrix_states`, as AGENTS.md requires.
+
+**Test cases** (for approval, written first, confirmed failing where the behaviour is new):
+- **Unit, `tests/unit/engine/records/test_values.py`: the SQL encoding equals Python's.** Given every
+  value type in `VALUE_COLUMNS` and generated edge values for each:
+  - text: empty, quotes, backslashes, non-Latin;
+  - integers: 0, negative, the column's bounds;
+  - decimals: trailing zeros, large and small exponents, negative, zero, 30 digits;
+  - booleans; dates: years 1 and 9999, a leap day;
+  - `dateTime`: with and without microseconds, given in UTC and in another offset;
+  - JSON: objects, arrays and scalars; and null.
+
+  When each is stored as a live value and encoded by `rdm_value_json`, then the JSON equals
+  `stored_json_value` of the same value. A value type without a SQL branch fails the test, which
+  holds the value-types door (below). This is the only new case that fails before the code.
+- **Journey, J05.1 (from current live data):** given records of a type holding text, integer,
+  decimal, boolean, date and `dateTime` values, and relationships between them; when a change set is
+  created from current live data and, in it, one record's values are edited, one record is moved
+  to another parent and one relationship is added, and the change set is published; then:
+  - every record reads with identical values live, in the change set and in the publication;
+  - the moved record has its new parent and the added relationship exists in all three contexts;
+  - a filter on each value type finds the same records in all three contexts;
+  - the publication holds what live data held at its feed position.
+
+  It runs on two configurations. It passes today, so it guards the change rather than failing first.
+- **Unchanged, rerun as acceptance:** the publish and change-set journeys (J05, J06, J17, the
+  publishing cases of J26, the composed journey), `test_matrix_states` and `test_context_read_parity`.
+- **The T1 regression test, strengthened:** creating a change set from current live data and
+  publishing bind the same parameters and **cost the same number of statements** at 0.5 % and 2 %
+  of the fixture. Copies made by `INSERT … SELECT` cost a fixed number of statements, so a per-record
+  path fails it.
+- **Startup:** the existing `test_startup` cases cover the new revision (a clean start to `HEAD`, the
+  baseline upgraded through every revision, a restart). Creating a function is transactional, so an
+  interrupted run leaves the previous revision; no new case. One smoke start on a copy of the
+  development database.
+
+**Measurement:**
+- `volume_baseline.py --only-publish --scale 0.1` before and after, with the capture timed as its own
+  row. Before T1a: publish 11.3 s.
+- One `--only-publish --scale 1` run at the close, to confirm it completes; its time is recorded only.
+
+**Checks at close:** the cases above, `ruff check app/ tests/`. No group runs beyond them, at the
+user's request.
+
+**Composable domains (ADR-032):** attribute storage and the value-types door are touched. A new value
+type now needs a branch in `rdm_value_json` as well as its registry entry. The unit test enumerates
+`VALUE_COLUMNS`, so the type cannot ship without one. The door stays open: adding the type is still
+additive, with no contract change.
 
 ## Track C — Consumer API
 

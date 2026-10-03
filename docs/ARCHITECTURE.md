@@ -62,8 +62,11 @@ Work over many rows, such as copying a workspace, merging a change set, checking
 whole set or filling an index, is done by set statements inside PostgreSQL (`INSERT … SELECT`,
 `MERGE`, JSON aggregation, SQL functions where a building block is reused). Python decides and
 issues statements; bulk data does not travel through it row by row. Long operations may run as
-jobs. Creating a change set from live data and publishing still load the whole workspace into
-Python; packages T1b–T1e move them ([0.9 plan, T1](BASE_0_9_IMPLEMENTATION_PLAN.md#t1-track-checkpoint-q-b-f)).
+jobs. Creating a change set from live data and publishing still copy through Python; 0.9 T1a moves
+the copies into the database
+([plan](BASE_0_9_IMPLEMENTATION_PLAN.md#t1a-copies-inside-the-database)). The publish's whole-graph
+validation stays in Python, since its rules are written once in `rules.py`; validation in SQL is
+deferred until after 1.0.
 
 ## Model definition and releases
 

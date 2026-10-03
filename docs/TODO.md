@@ -26,17 +26,15 @@ positions, publish entries and the feed read (D31–D34). **B3 is delivered (202
 relationship and relationship-set items in batches (D35–D39). **F2 is delivered (2026-10-03)**:
 feed retention and recovery from the active publication (D40–D41). **T1 is delivered
 (2026-10-03)**: the Q, B and F checkpoint, with three capture and publish defects fixed. Next: the
-T1b–T1e amendments (set work in the database), then C2. See
+amendment T1a (change-set bases and publications copied inside PostgreSQL; planned and approved), then
+C2. See
 [Next — 0.9](#next--09).
 
 - **Publish and change-set creation move the workspace through Python (found 2026-10-03, F1;
   measured and decided in T1).** Publishing 1,000 renamed records in a 26,000-record workspace takes
-  11.3 s after T1's fixes (25.0 s before). About 2 minutes is projected at the full volume fixture.
-  Decided: set work runs in the database. Packages T1b–T1e are proposed before C2
-  ([T1 record](BASE_0_9_IMPLEMENTATION_PLAN.md#t1-track-checkpoint-q-b-f)). They wait for the
-  user's time target (seconds for creating a change set and publishing the full fixture, and the
-  longest wait for other writes during a publish) and size target (is the 258,000-record fixture the
-  real target?).
+  11.3 s after T1's fixes (25.0 s before). Decided: the copies move into PostgreSQL as plain
+  `INSERT … SELECT` in [T1a](BASE_0_9_IMPLEMENTATION_PLAN.md#t1a-copies-inside-the-database), sized
+  for the volume fixture at 0.1 scale. Larger workspaces are deferred until after 1.0 (below).
 - **Containment relations in the audit log (found 2026-10-03, F1).** A live create or move audits no
   containment relation, while the live delete cascade audits one. The feed leaves them out
   everywhere (the record's `parentObjectId` names its parent); the audit log keeps the cascade's
@@ -146,6 +144,21 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   history-only matrix filter (108 ms), E5 change-set seek and position near the limit (91–99 ms), E6
   plans on a just-captured base before statistics exist, E7 a 100,000-item background batch in a
   change set (64 s, target 60 s).
+- [ ] **After 1.0: creating change sets and publishing for 250,000 records and more (deferred by the
+  user, 2026-10-03; revisit when MDM is taken up).** T1a sizes both for the volume fixture at 0.1
+  scale. At the full fixture, a copy by `INSERT … SELECT` took about 33 s, most of it maintaining 17
+  indexes row by row. Loading first and building the indexes once took about 14.5 s (T1 probes).
+  Three steps, each its own decision:
+  - Partitioned snapshot tables: each publication or base loaded without indexes, then indexed and
+    attached, and dropped as a whole.
+  - Creating a change set and publishing as background jobs (B2's worker), with a notification
+    stream for the UI.
+  - The publish's whole-graph validation as set queries in SQL, held to `rules.py` by
+    `test_rule_parity`. Today it loads the workspace into Python. Two rules checked in SQL over the
+    full fixture took 0.41 s and 0.05 s.
+
+  Other paths that move bulk data through Python, to list in the same audit: history reads of
+  whole publications, the D29 container move and restructuring previews.
 - [x] PostgreSQL follow-ups, delivered by [0.9.0-alpha.1](POSTGRESQL_RUNTIME_PLAN.md) (PG3 for (1),
   PG2 and PG5 for (2); closed by PG5, 2026-10-03). (1) **Done in PG3 (2026-10-02):** D28 cancellation on PostgreSQL (a cancel
   request answered while a chunk runs, the `atomic` job rolled back between items, the lease shared

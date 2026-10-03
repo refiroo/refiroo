@@ -136,6 +136,13 @@ errors explicit and machine-readable.
   which is for whole-graph validation, publishing and writes. Publication, change-set base and change-set object
   rows keep a typed value index (`snapshot_attribute_values`) that an ORM flush hook maintains; a bulk
   insert or delete of those rows outside the ORM must update it through `engine/indexes/snapshot_values.py`.
+- Whole-set data work runs in PostgreSQL as set statements, not row by row through Python. Copying
+  a workspace, a change-set base or a publication, merging rows, filling an index or checking a
+  condition across a set is done with `INSERT … SELECT`, `UPDATE … FROM`, `MERGE`, JSON aggregation
+  or a SQL function where a building block is reused. Python decides and issues the statements.
+  The engine is PostgreSQL-only, so its features are used freely. A path that loads a whole set
+  into Python to write it back is a defect to raise (decided 2026-10-03, 0.9 T1). The publish's
+  whole-graph validation is the recorded exception until after 1.0 (TODO).
 - Relation matrix cell states (`matrix_cell_states`, ADR-033) follow objects, relations, attribute
   values and change set rows through an ORM flush hook. A Core insert, update or delete of those rows
   must note what it changed with `engine/indexes/matrix_states.note_rows`, `note_cells` or

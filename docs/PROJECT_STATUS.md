@@ -134,12 +134,11 @@ relationship items in batches.
 - Dated reads are measured at full volume, four of them over 100 ms (POSTGRESQL_BUDGETS E8).
 - Applying a publish no longer flushes per record. Publishing 1,000 changes in 26,000 records now
   takes 11.3 s instead of 25.0 s.
-- Publishing and creating a change set still load the whole workspace into Python. Decided: set work
-  runs in the database. Amendment packages T1b–T1e are proposed before C2 and wait for the user's
-  time and size targets.
+- Publishing and creating a change set still copy the workspace through Python. Decided: the copies
+  move into PostgreSQL as plain `INSERT … SELECT` (amendment T1a, planned), sized for the volume
+  fixture at 0.1 scale; larger workspaces are deferred until after 1.0.
 
-([record](BASE_0_9_IMPLEMENTATION_PLAN.md#t1-track-checkpoint-q-b-f)). Next: the T1b–T1e
-amendments, then C2.
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#t1-track-checkpoint-q-b-f)). Next: T1a, then C2.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter
