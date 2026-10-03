@@ -12,6 +12,17 @@ from dataclasses import dataclass
 from ...errors import ApiError, api_error
 
 
+def duplicate_value(key: str, name: str, holder: str) -> ApiError:
+    """A unique value another record holds: worded alike live and in a change set, the attribute's
+    name for people and its key and the holder for programs (an E-D4 row settled in H4c)."""
+    return api_error(
+        409,
+        "duplicate_attribute_value",
+        f"Attribute '{name}' must be unique",
+        {"attributeTypeKey": key, "conflictingObjectId": holder},
+    )
+
+
 @dataclass(frozen=True)
 class Refusals:
     unknown_object_type: Callable[[str], ApiError]
@@ -27,8 +38,9 @@ class Refusals:
     # (attribute type key, attribute name, the record holding the value)
     duplicate_value: Callable[[str, str, str], ApiError]
     object_exists: Callable[[str], ApiError]
-    # Whether an empty string is a value a unique attribute must not repeat.
-    blank_values_are_unique: bool
+    # Whether a write may stage a breach of a binding's ancestor scope, which validation then
+    # reports and publishing refuses (a change set is a draft: decided in H4c, deviation 9).
+    holds_scope_breaches: bool
 
 
 LIVE = Refusals(
@@ -44,7 +56,7 @@ LIVE = Refusals(
         f"Object type '{type_key}' is not available in application '{application}'",
     ),
     unknown_relation_type=lambda key: api_error(
-        404, "unknown_relation_type", f"Relation type '{key}' not found"
+        422, "unknown_relation_type", f"Relation type '{key}' not found"
     ),
     missing_parent=lambda object_id: api_error(
         404, "object_not_found", f"Object '{object_id}' not found"
@@ -57,13 +69,11 @@ LIVE = Refusals(
     required_relation=lambda: api_error(
         422, "required_relation", "A required relationship cannot be deleted independently"
     ),
-    duplicate_value=lambda _key, name, _holder: api_error(
-        409, "duplicate_attribute_value", f"Attribute '{name}' must be unique"
-    ),
+    duplicate_value=duplicate_value,
     object_exists=lambda object_id: api_error(
         409, "object_already_exists", f"An object with ID '{object_id}' already exists"
     ),
-    blank_values_are_unique=False,
+    holds_scope_breaches=False,
 )
 
 CHANGE_SET = Refusals(
@@ -96,14 +106,9 @@ CHANGE_SET = Refusals(
     required_relation=lambda: api_error(
         422, "required_relation", "Required relationships cannot be deleted directly"
     ),
-    duplicate_value=lambda key, _name, holder: api_error(
-        409,
-        "duplicate_attribute_value",
-        f"Attribute '{key}' must be unique in the change set",
-        {"attributeTypeKey": key, "conflictingObjectId": holder},
-    ),
+    duplicate_value=duplicate_value,
     object_exists=lambda object_id: api_error(
         409, "object_already_exists", f"Object '{object_id}' already exists"
     ),
-    blank_values_are_unique=True,
+    holds_scope_breaches=True,
 )

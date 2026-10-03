@@ -384,6 +384,9 @@ and `mutants/` and the probe logs were deleted.
 
 #### H4c: Journey tests
 
+**Delivered 2026-10-03.** Every catalogue entry with an API or operator side has its journey test,
+and every deviation found has the user's decision (records below).
+
 **Scope:**
 
 - A `scenario` seed per model configuration in the seed store: at least two configurations that
@@ -405,7 +408,159 @@ and `mutants/` and the probe logs were deleted.
   documented in API.md beside the journey tests that meet them (D-4).
 
 **Exit:** every catalogue entry has its test, or is UI-only with its browser runner named; every
-failure found has a decision.
+failure found has a decision; the [deviations list](#deviations-between-apimd-and-the-code) is complete
+and every line has the user's decision.
+
+**A case corrected to API.md:** J04's case counted one kept association; API.md counts every
+relationship with an end outside the deletion set, so the dependant's link to its container counts
+too (two).
+
+**Test data adjusted, expectation kept:** J03.2's and J14.2's wrong-type parent stands in the same application
+as the child; the case put it in the other application, where API.md's scope rule refuses it first. J14.1 moves the subtree under
+the other branch's top record, where the case's "one shorter" holds (it named the level-2 record).
+
+**Cases written 2026-10-02.** 154 cases, given/when/then, written from the catalogue, API.md and the
+scenarios in a separate context that read no code; the user accepted them "for now" (each test keeps
+its case as its description). No variant is UI-only; three steps inside cases are (J01 step 5, J10.4's
+kept choice, J10.8's cancel), with their runners named. Planned, no case: J08.9, J19.5, J11.6, J26,
+J27, J12.9. The model configurations: two generated models that hold every structure the cases need
+and differ in keys and shape; each test runs on generated A and on the example model where it has the
+test's structures, otherwise on generated B (the starter lacks a read-only attribute, a maximum, a
+one-to-one binding, relationship attributes, a non-owning required binding and a consumer API).
+
+**Decisions taken while writing the cases (user, 2026-10-02):**
+
+- **The catalogue follows API.md where they disagreed** (the code agrees with API.md in each):
+  J02.5's bounds (`attribute_below_minimum`, `attribute_above_maximum`), J05's and J06.2's publish
+  divergence (`409 version_conflict` with `details.conflicts`, not `activation_conflict`), J10.6's
+  (`mapping_set_changed` within it), J08.5's stale activation (`409 activation_conflict`), J17's
+  filters (`unknown_object_type`, `unknown_relation_type`), J18.3's and J18.4's codes (the
+  `pinned_model_*` codes, `change_set_version_conflict`), J15's type-change codes against the
+  restructuring preview's plan problems, J20's release header (the model read only), J24.5's
+  expired outcomes. Corrected in USER_JOURNEYS.md.
+- **To confirm:** a refused stale record write (`409 version_conflict`) carries no current version
+  (J02.2). The user decided to fix it on my statement that API.md promised it; API.md promises it only
+  for workspace updates (deviation 1). J02.2's journey test fails until this is settled.
+- **The relation-set version on the anchored relationship read**: a set claim works for every
+  binding. Its version is readable from a matrix or mapping view and, with no view, from the workspace
+  edge list, but only for a record that has an edge of the binding (corrected the same day: I first
+  told the user no read without a view existed). Planned into 0.9
+  [B3](BASE_0_9_IMPLEMENTATION_PLAN.md#b3-relation-and-relation-set-items). J13.5's test reads the
+  version from the edge list.
+- **J10 replaces a record's related records with one record, or none**, as WP-5 built it; the
+  catalogue said "a new set". Several records in one save is B3's extension.
+- **Two behaviours API.md did not state**, written into it as they are: validating an invalid change
+  set answers `200` with `valid: false` and diagnostics; an expired job's items read as an empty page.
+- **Keeping the catalogue current** is now a rule (STRATEGY "How a package uses this", AGENTS working
+  method step 5): a package that adds or changes a journey extends USER_JOURNEYS.md and API_JOURNEYS.md
+  before its cases are written.
+
+**Progress.** Group 1 (records and structure: J01–J04, J13–J15) coded 2026-10-02: 53 cases, 106 runs
+on two configurations, 20 s with `-n auto`; the failures are deviations 1, 7 and 8. The race helper
+(`World.race`) holds the workspace row from the test's own connection and watches from a second one;
+its first version watched inside its own transaction, saw a stale `pg_stat_activity` and waited on
+itself (two runs hung until stopped). J15.1 changes the record back by moving it to the top level as
+L1, where L1 stands (the case named `changeType`, which keeps the parent).
+
+Group 2 (J10, J16) coded the same day: 28 cases; the failures are deviation 9. Generated A gained an
+optional container between a scope record and its dependants (B requires one), so J16.2 runs on both.
+Group 3 (J05–J07, J17, J18) coded the same day: 24 cases, all passing. J05.4 stages its scope breach by
+moving a container (API.md's example), since a staged create is refused (deviation 9). Three races are
+checked as guarantees rather than forced orders, because forcing the order needs engine hooks: J05.7 (a
+capture beside a live write: the capture holds the write or asks for a retry), J06.3 (publishing beside
+a live write and another change set's write: no refusal or deadlock), J17.3 (a change-list page and
+its paths are one snapshot while renames commit). J18.3's corrupt and unsupported releases are written
+into the store, as only an older engine or a damaged store produces them.
+
+Group 4 (J08, J19, J25) coded the same day: 17 cases, all passing. J19.2 checks retirement beside a
+live and a change-set write as a guarantee over both lock orders. J19.4 expects `405` for a disabled
+workspace route whose path keeps its read, `404` otherwise (the framework's answer; API.md states
+`404` only for model administration). J25.1 lowers the contract version from 2 to 1 (the case said
+to 0, which the schema does not allow). J25.2 projects from the relationship's many side, where
+one-to-many to many-to-many changes the shape (one record to a list); from the one side both are
+lists. J25's removed field is named by its diagnostic, which points at the field's parent: a removed
+field has no place in the new document.
+
+**D-1 and D-3 delivered 2026-10-02.** `GET /workspaces/{key}/mappings` is removed (its path keeps the
+replacement's `PUT` and answers a `GET` with `405`); the four old modules that read it use
+`GET /workspaces/{key}/relations`, and the OpenAPI lock was re-baselined (one paged collection fewer).
+Unknown query parameters are refused as `422 unknown_parameter` naming each (`details.parameters`),
+by one application-wide dependency (`app/management/query_parameters.py`); the object list and the
+cross-type lookup also take the `filter.<field>.<operator>` family. J21.8's test failed first. A
+static comparison found no parameter the browser client sends that its route does not declare.
+
+Group 5's rest (J22, J23, J11, J24) coded 2026-10-03: 24 tests, 48 runs, all passing. Two races are
+forced with the database's own locks, not engine hooks: J11.4 holds the workspace so the inline batch
+waits after resolving its model while another release activates (refused `model_release_changed`, no
+job, no record), and J24.3 holds it so worker A's chunk waits past its lease while worker B takes the
+job over (A commits nothing). J24.2 cancels an atomic job while its chunk waits the same way. J24
+drives the engine's own `JobWorker` chunk by chunk, a "restart" being a worker with another owner
+after the lease expires; J24.6 takes the database away for real (`ALLOW_CONNECTIONS false` and its
+sessions ended) while the worker runs on its thread. J24.1 (a steward beside an import) and J24.6 are
+guarantees over whatever order occurs. J24.5 expires by the sweep's own clock argument. The race
+tests passed in two repeated runs.
+
+Group 6 (J12) coded the same day: 11 tests, 42 runs, on two configurations each. The operator
+harness (`tests/journeys/service.py`) starts the application on a database with the configuration's
+model and settings, reads its log as the operator output and runs `database_upgrade` and
+`model_schema_upgrade` as processes. J12.6 stores the selected release as an engine before schema 0.5
+did (the configuration's model at schema 0.4 with its own content hash), the state no API can write.
+Two findings: the unsupported-schema refusal named schemas "0.5, 0.6 and 0.7", omitting 0.8, the stale
+text D-7 decided to build from the supported list, so it is built from it now (`app/main.py`); and
+J12.8's `/health` (deviation 10).
+
+**D-4 delivered 2026-10-03:** the 32 codes are in [API.md, further error
+codes](API.md#further-error-codes) with status, route and meaning, each beside its journey.
+
+**The four composed tests.** SC-05 is J05.1, extended to relationships added and removed after the
+last publication (the old test's point); SC-07 is J10 with its variants; SC-11 is J23; SC-15 is J18
+with J18.2, which now also checks that discarding changes no live data. Their old modules
+(`test_wp81b_current_live_bases`, `test_build07_wp9_acceptance`, `test_effective_periods`' SC-11
+case) go in H4d with the rest of the flat suite.
+
+**Old tests D-3 refused.** Each sent a parameter its route never declared, which the API used to
+ignore; the calls were corrected, not the routes: two journey tests (J01's history read with
+`workspaceKey`, J10's candidate search with the binding's fields, which only coverage takes),
+`test_typed_table_queries` (history with `workspaceKey`), `test_batches` (a live `DELETE` with
+`workspaceKey`) and `test_wp8_history`, whose live `PATCH` and `POST` named a `publicationId` and
+asserted the write went live anyway: they now assert the refusal, then write without it.
+
+**Checks (2026-10-03).** The journey suite and the inventory check: 345 runs, 335 passed, 10 failed,
+exactly deviations 1, 7, 8, 9 and 10 (1 min 7 s, `-n auto`). The guide's selection for the change
+(testmon, since the D-3 dependency in `app/main.py` runs under nearly every API test): 1,030 passed
+and 15 failed, the deviations above plus the three old modules corrected afterwards (41 passed in
+their modules) and `test_model_lifecycle::test_draft_crud_compile_and_installation_lifecycle`, the
+intermittent failure H4b recorded, failing again in the full parallel run and passing alone (6 min
+22 s under the coverage tracer). The serial part: 3 passed. `ruff check app/ tests/`. Not run: the
+frontend build and browser runners (nothing under `frontend/` changed).
+
+**Deviations decided 2026-10-03 (user):** 1, 2, 6, 7, 8, 9 and 10, each applied to its case (the
+table below). 6, 7 and 8 settle four rows of E-D4 ([BACKEND_BOUNDARIES_PLAN](BACKEND_BOUNDARIES_PLAN.md#wording-that-still-differs-e-d4)),
+and 9 adds one there as a stated difference (`Refusals.holds_scope_breaches`). Fixing 8 let J13.3 run
+on and find 11, decided the same day. Checks, the touched cases only: the journey tests of J02, J03,
+J10, J11, J12, J13 and J16 and `test_startup` pass; `test_rule_parity` passes with the settled rows
+re-pinned. Every line of the deviations list has the user's decision, which closes H4c. Not tested by a case: empty text shared by two records in a change set, and the
+current version on a stale write in a change set (one line each, like their live paths).
+
+##### Deviations between API.md and the code
+
+Every place where the code and API.md disagree, or API.md is silent on what the code does, found by
+the journey tests (a case written from the documents that fails on the code) or while writing them.
+Each line: what API.md says, what the code does, the decision.
+
+| # | Journey | API.md | The code | Decision |
+| --- | --- | --- | --- | --- |
+| 1 | J02.2 | A stale record write is `409 version_conflict`; no details described (a stale *workspace* update carries `details.currentVersion`). The catalogue says the second writer gets the current content | No `details` | Decided 2026-10-03 (user): keep the fix; API.md updated. Done: every stale record or relation write carries `details.currentVersion` |
+| 2 | J16 | An unknown view is `404 relation_matrix_view_not_found`; an unknown application is not described | An unknown `applicationKey` answers `relation_matrix_view_not_found`; other routes say `unknown_application` | Decided 2026-10-03 (user): `404 unknown_application`, as other routes. Done |
+| 3 | all | 32 codes the backend raises are not documented (D-4) | Raised | Document them in API.md (user, D-4). Done 2026-10-03 |
+| 4 | J05.4 | The validation response is not described | `200` with `valid` and `diagnostics` | Documented as it is (user, 2026-10-02) |
+| 5 | J24.5 | What an expired job's items read answers is not described | `200`, an empty page | Documented as it is (user, 2026-10-02) |
+| 6 | J02.5 | A uniqueness breach is `409 duplicate_attribute_value`; details not described | Live: message names the attribute's display name, no `details`. In a change set: `details` with `attributeTypeKey` and `conflictingObjectId` | Decided 2026-10-03 (user): alike. Done: the name in the message, `attributeTypeKey` and `conflictingObjectId` in `details` in both; empty text is no value in both, validation included (two E-D4 rows settled) |
+| 7 | J03.4 | Not described; the inventory lists `422 duplicate_initial_relation` | Live: `409 duplicate_relation`. In a change set: `422 duplicate_initial_relation` | Decided 2026-10-03 (user): alike. Done: `422 duplicate_initial_relation` live too (an E-D4 row settled) |
+| 8 | J13.3 | Not described for a write; the catalogue lists `422 unknown_relation_type` | Live: `404 unknown_relation_type`. In a change set: `422` | Decided 2026-10-03 (user): alike. Done: `422` live too (an E-D4 row settled) |
+| 9 | J16.3 | A scope breach staged in a change set shows as a `several` cell with `conflict`, is reported by validation and refused at publishing ("a change set can hold until validation") | A staged create that breaches the scope is refused at once, `409 duplicate_relation_scope` | Decided 2026-10-03 (user): follow API.md. Done: a change set holds a direct breach too (relation create, initial relations, edit, move, set replacement); validation reports it, publishing refuses it; API.md's relation section corrected |
+| 10 | J12.8 | Not described. The catalogue says requests and the job worker "report it concisely and recover"; the case also expects `/health` to report not ready while the database is unreachable | Requests answer `500 internal_error` with a correlation ID and no traceback, and recover without a restart; `/health` answers `200` throughout (it reports the model registry, not the database) | Decided 2026-10-03 (user): `/health` reports it. Done: `/health` asks the database and answers `503` while it is unreachable |
+| 11 | J13.3 | Not described for a write; the inventory lists `422 relation_endpoint_missing` under the write rules. Found once deviation 8 was fixed (the test stopped before it) | Live: `404 object_not_found`. In a change set: `422 relation_endpoint_missing` (an E-D4 row) | Decided 2026-10-03 (user): the more descriptive answer. Done: `422 relation_endpoint_missing` naming the record, live and in a change set (an E-D4 row settled) |
 
 #### H4d: The unit layer and the move
 

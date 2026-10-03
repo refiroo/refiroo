@@ -94,6 +94,12 @@ The application does not start at all when model administration is enabled with 
 worker. `/health` also returns `503` when an activation committed but this process could not load the newly
 selected release. Restart the process; it then loads the database selection.
 
+While the service runs, `/health` asks the database each time: while the database is unreachable it
+answers `503`, and requests answer `500 internal_error` with a correlation ID (logged in one line, no
+traceback). Nothing needs restarting: once the database is back, `/health` answers `200`, requests
+are served and the job worker resumes (it retries every 2 s and logs the outage once, then a line a
+minute).
+
 ## Background jobs
 
 Batches sent with `run: background` are run by a worker thread inside the API process. It runs only

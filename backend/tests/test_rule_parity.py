@@ -711,35 +711,39 @@ EXPECTED: dict[str, dict[str, tuple]] = {
             ("patch_invalid_effective_period", "2026-08-01", "2026-07-01"),
         )
     },
-    "create_duplicate_unique": {
-        "live": (409, "duplicate_attribute_value", "Attribute 'Domain code' must be unique", None),
-        "change_set": (
+    # Alike since H4c (E-D4 row settled; deviation 6).
+    "create_duplicate_unique": dict.fromkeys(
+        ("live", "change_set"),
+        (
             409,
             "duplicate_attribute_value",
-            "Attribute 'domain-code' must be unique in the change set",
+            "Attribute 'Domain code' must be unique",
             {"attributeTypeKey": "domain-code", "conflictingObjectId": "D1"},
         ),
-    },
-    "update_duplicate_unique": {
-        "live": (409, "duplicate_attribute_value", "Attribute 'Domain code' must be unique", None),
-        "change_set": (
+    ),
+    # Alike since H4c (E-D4 row settled; deviation 6).
+    "update_duplicate_unique": dict.fromkeys(
+        ("live", "change_set"),
+        (
             409,
             "duplicate_attribute_value",
-            "Attribute 'domain-code' must be unique in the change set",
+            "Attribute 'Domain code' must be unique",
             {"attributeTypeKey": "domain-code", "conflictingObjectId": "D1"},
         ),
-    },
-    "patch_duplicate_unique": {
-        "live": (409, "duplicate_attribute_value", "Attribute 'Domain code' must be unique", None),
-        "change_set": (
+    ),
+    # Alike since H4c (E-D4 row settled; deviation 6).
+    "patch_duplicate_unique": dict.fromkeys(
+        ("live", "change_set"),
+        (
             409,
             "duplicate_attribute_value",
-            "Attribute 'domain-code' must be unique in the change set",
+            "Attribute 'Domain code' must be unique",
             {"attributeTypeKey": "domain-code", "conflictingObjectId": "D1"},
         ),
-    },
+    ),
     "relation_unknown_type": {
-        "live": (404, "unknown_relation_type", "Relation type 'no-such-relation' not found", None),
+        # Both 422 since H4c (E-D4 row settled; deviation 8).
+        "live": (422, "unknown_relation_type", "Relation type 'no-such-relation' not found", None),
         "change_set": (
             422,
             "unknown_relation_type",
@@ -784,15 +788,11 @@ EXPECTED: dict[str, dict[str, tuple]] = {
             None,
         ),
     },
-    "relation_missing_endpoint": {
-        "live": (404, "object_not_found", "Object '<id>' not found", None),
-        "change_set": (
-            422,
-            "relation_endpoint_missing",
-            "Relation endpoints must exist in the change set",
-            None,
-        ),
-    },
+    # Alike since H4c (E-D4 row settled; deviation 11).
+    "relation_missing_endpoint": dict.fromkeys(
+        ("live", "change_set"),
+        (422, "relation_endpoint_missing", "Relation endpoint '<id>' does not exist", None),
+    ),
     "relation_duplicate_scope": {
         "live": (
             409,
@@ -805,17 +805,9 @@ EXPECTED: dict[str, dict[str, tuple]] = {
                 "conflictingRelationId": "<id>",
             },
         ),
-        "change_set": (
-            409,
-            "duplicate_relation_scope",
-            "A related object already exists for this ancestor scope",
-            {
-                "ancestorObjectTypeKey": "language",
-                "ancestorObjectId": "scope-L",
-                "conflictingObjectId": "T1",
-                "conflictingRelationId": "<id>",
-            },
-        ),
+        # A change set holds the breach; validation reports it and publishing refuses it
+        # (H4c, deviation 9).
+        "change_set": (201,),
     },
     "relation_delete_required": {
         "live": (
@@ -891,17 +883,9 @@ EXPECTED: dict[str, dict[str, tuple]] = {
                 "conflictingRelationId": "<id>",
             },
         ),
-        "change_set": (
-            409,
-            "duplicate_relation_scope",
-            "A related object already exists for this ancestor scope",
-            {
-                "ancestorObjectTypeKey": "language",
-                "ancestorObjectId": "move-L",
-                "conflictingObjectId": "T1",
-                "conflictingRelationId": "<id>",
-            },
-        ),
+        # A change set holds the breach; validation reports it and publishing refuses it
+        # (H4c, deviation 9).
+        "change_set": (200,),
     },
     "activate_into_taken_scope": {
         "live": (
@@ -915,20 +899,18 @@ EXPECTED: dict[str, dict[str, tuple]] = {
                 "conflictingRelationId": "<id>",
             },
         ),
-        "change_set": (
-            409,
-            "duplicate_relation_scope",
-            "A related object already exists for this ancestor scope",
-            {
-                "ancestorObjectTypeKey": "language",
-                "ancestorObjectId": "act-L",
-                "conflictingObjectId": "T1",
-                "conflictingRelationId": "<id>",
-            },
-        ),
+        # A change set holds the breach; validation reports it and publishing refuses it
+        # (H4c, deviation 9).
+        "change_set": (200,),
     },
     "duplicate_initial_relation": {
-        "live": (409, "cardinality_violation", "Relation cardinality would be violated", None),
+        # Alike since H4c (E-D4 row settled; deviation 7).
+        "live": (
+            422,
+            "duplicate_initial_relation",
+            "Initial relationships must not repeat",
+            None,
+        ),
         "change_set": (
             422,
             "duplicate_initial_relation",

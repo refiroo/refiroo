@@ -48,7 +48,9 @@ from .access import change_set_model, load_change_set
 
 def require_record_version(expected: int | None, actual: int, label: str) -> None:
     if expected is not None and expected != actual:
-        raise api_error(409, "version_conflict", f"{label} version has changed")
+        raise api_error(
+            409, "version_conflict", f"{label} version has changed", {"currentVersion": actual}
+        )
 
 
 def stored_attributes(
@@ -77,9 +79,7 @@ def validate_change_set_relation(
     endpoints = lookup.objects([from_id, to_id])
     source, target = endpoints.get(from_id), endpoints.get(to_id)
     if source is None or target is None:
-        raise api_error(
-            422, "relation_endpoint_missing", "Relation endpoints must exist in the change set"
-        )
+        raise rules.relation_endpoint_missing(from_id if source is None else to_id)
     excluded = frozenset({exclude_id, *(exclude_ids or set())} - {None})
     return rules.relation(
         lookup, model, relation_type_key, source, target, attributes, excluded=excluded
@@ -209,9 +209,9 @@ def decide_new_change_set_object(
     lookup.lay(record, created=True)
     rules.unique_values(lookup, model, record.object_id, attributes)
     _place(lookup, model, record)
-    identities = [(key, direction, other) for key, direction, other, _attrs in initial_relations]
-    if len(identities) != len(set(identities)):
-        raise api_error(422, "duplicate_initial_relation", "Initial relationships must not repeat")
+    rules.distinct_initial_relations(
+        [(key, direction, other) for key, direction, other, _attrs in initial_relations]
+    )
     # The new record and each relation added before the next count for the next one's checks.
     for relation_type_key, direction, other_id, relation_attributes in initial_relations:
         from_id = record.object_id if direction == "outgoing" else other_id

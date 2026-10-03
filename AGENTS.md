@@ -61,8 +61,10 @@ For each feature, apply only the steps relevant to its scope:
 2. Extend the application model only when behavior must be configurable.
 3. Add model validation before relying on new configuration.
 4. Update metadata persistence if the model contract changes.
-5. Write the journey test cases from the specification first, confirm they fail, then implement
-   and add unit tests for the new code's purpose ([Testing](#testing)).
+5. Extend the journey catalogue (`docs/product-functionality/USER_JOURNEYS.md`) and the API inventory
+   (`docs/testing/API_JOURNEYS.md`) for every journey the change adds or alters, then write the
+   journey test cases from the specification, confirm they fail, implement and add unit tests for the
+   new code's purpose ([Testing](#testing)).
 6. For UI changes, implement a generic component and exercise it with at least two object types.
 7. Update documentation when behavior or contracts change; add an architecture decision only
    for a durable architectural choice. Each fact has one home: user-facing capability in

@@ -571,10 +571,16 @@ def test_historical_publication_reads_stay_immutable_while_live_writes_write_thr
         assert live_before.status_code == 200, live_before.text
         old_live_name = live_before.json()["name"]
 
+        # A write naming a publication is refused: a publication is read-only (H4c D-3).
+        aimed = client.patch(
+            f"/api/v1/objects/language/{language['id']}",
+            params={"publicationId": r1["id"]},
+            json={"name": "Renamed live", "expectedVersion": live_before.json()["version"]},
+        )
+        assert aimed.status_code == 422 and aimed.json()["error"]["code"] == "unknown_parameter"
         # The live language row is updated in place...
         renamed = client.patch(
             f"/api/v1/objects/language/{language['id']}",
-            params={"publicationId": r1["id"]},
             json={"name": "Renamed live", "expectedVersion": live_before.json()["version"]},
         )
         assert renamed.status_code == 200, renamed.text
@@ -587,18 +593,18 @@ def test_historical_publication_reads_stay_immutable_while_live_writes_write_thr
             == "Renamed live"
         )
 
-        # ...and a create without a change set is immediately part of the live active projection.
-        created = client.post(
-            "/api/v1/objects",
-            params={"publicationId": r1["id"]},
-            json={
-                "workspaceKey": workspace_key,
-                "applicationKey": "rdm-master",
-                "objectTypeKey": "domain",
-                "name": "Live domain",
-                "attributes": [attribute("domain-code", f"dom-{uuid4().hex[:8]}")],
-            },
-        )
+        # ...and a create without a change set is immediately part of the live active projection
+        # (naming a publication is refused, as above).
+        body = {
+            "workspaceKey": workspace_key,
+            "applicationKey": "rdm-master",
+            "objectTypeKey": "domain",
+            "name": "Live domain",
+            "attributes": [attribute("domain-code", f"dom-{uuid4().hex[:8]}")],
+        }
+        aimed = client.post("/api/v1/objects", params={"publicationId": r1["id"]}, json=body)
+        assert aimed.status_code == 422 and aimed.json()["error"]["code"] == "unknown_parameter"
+        created = client.post("/api/v1/objects", json=body)
         assert created.status_code == 201, created.text
         assert (
             client.get(

@@ -86,7 +86,8 @@ def unique_values(lookup: Any, model: EngineModel, object_id: str | None, attrib
     """No other record of the context holds a value a unique attribute type gives this record."""
     refusals: Refusals = lookup.refusals
     for key, value in attributes.items():
-        if value is None or (value == "" and not refusals.blank_values_are_unique):
+        # Empty text is no value, so records may share it (an E-D4 row settled in H4c).
+        if value is None or value == "":
             continue
         definition = model.attribute_type(key)
         if definition is None or not definition.features.get("unique"):
@@ -182,6 +183,20 @@ def parent(
             seen.add(current.object_id)
             current = lookup.object(current.parent_object_id)
     return found, matches[0]
+
+
+def relation_endpoint_missing(object_id: str) -> ApiError:
+    """A relation names a record the context does not hold (live and change set alike since H4c)."""
+    return api_error(
+        422, "relation_endpoint_missing", f"Relation endpoint '{object_id}' does not exist"
+    )
+
+
+def distinct_initial_relations(identities: list[tuple[str, str, str]]) -> None:
+    """A new record's initial relations (type, direction, other record) must not repeat, live and
+    in a change set alike (E-D4, settled in H4c)."""
+    if len(identities) != len(set(identities)):
+        raise api_error(422, "duplicate_initial_relation", "Initial relationships must not repeat")
 
 
 def required_initial_relations(
@@ -290,7 +305,8 @@ def relation_scope(
     excluded: frozenset[str] = frozenset(),
 ) -> None:
     """``uniqueToAncestorTypeKey``: the source relates to one record per ancestor of that type,
-    counting the related records the binding's condition selects."""
+    counting the related records the binding's condition selects. A change set holds a breach for
+    validation to report and publishing to refuse (``Refusals.holds_scope_breaches``)."""
     ancestor_type = binding.features.get("uniqueToAncestorTypeKey")
     if not ancestor_type:
         return
@@ -311,6 +327,8 @@ def relation_scope(
             "relation_ancestor_required",
             f"Related object must belong to an ancestor of type '{ancestor_type}'",
         )
+    if lookup.refusals.holds_scope_breaches:
+        return
     # Only the source's own relations of this type can share the scope.
     outgoing = [
         row

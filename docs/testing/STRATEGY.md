@@ -92,16 +92,23 @@ but one) are rules in the execution guide.
 
 ## How a package uses this
 
-1. **Specification first.** The package's spec section names the journeys it adds or changes. Their
+1. **The catalogue first.** A package that adds or changes a capability a user reaches extends the
+   [catalogue](../product-functionality/USER_JOURNEYS.md) in the same package, before its cases are
+   written: a new journey or variant, its refusals by error code as API.md states them, and the
+   route, parameter and code entries in [API_JOURNEYS.md](API_JOURNEYS.md) (the inventory check fails
+   without them). Where the catalogue and API.md disagree, the package reconciles them; a behaviour
+   neither document states is raised with the user, checked against the code first and asked in
+   plain words (decided 2026-10-02, H4c).
+2. **Specification first.** The package's spec section names the journeys it adds or changes. Their
    cases are written as given/when/then from the specification, in a context separate from the
    implementation (a subagent), and shown to the user as a short list before code is written.
-2. **Confirm they fail** against the current code, for the reason the package addresses.
-3. **Implement without editing them.** A case the code cannot pass is a code defect or a
+3. **Confirm they fail** against the current code, for the reason the package addresses.
+4. **Implement without editing them.** A case the code cannot pass is a code defect or a
    specification gap. A gap is recorded as a decision and the case changes only with the user's
    approval, never to fit the code.
-4. **Unit tests for the new code's purpose** are written with the code, edge cases and combinations
+5. **Unit tests for the new code's purpose** are written with the code, edge cases and combinations
    included.
-5. **Evidence:** the selected run (testmon plus the journeys linked to the change), its counts, and
+6. **Evidence:** the selected run (testmon plus the journeys linked to the change), its counts, and
    what was not run and why.
 
 ## Quality meters

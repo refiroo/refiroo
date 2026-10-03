@@ -1,11 +1,13 @@
-"""0.9 Q2: the workspace edge list in live data, a change set and a publication, under two names."""
+"""0.9 Q2: the workspace edge list in live data, a change set and a publication.
+
+It was published under two names until H4c removed `GET /mappings` (D-1)."""
 
 import pytest
 from test_mapping_coverage import BASE, OUT, get, masters, relation
 from test_mapping_coverage import client as mapping_client  # noqa: F401 - the client fixture
 from test_relation_set_versions import _create_system_value, _suffix
 
-ROUTES = ("/mappings", "/relations")
+ROUTES = ("/relations",)
 
 
 @pytest.fixture
@@ -79,12 +81,11 @@ def walk(client, route, params):
 EXPECTED = {"live": {"e2", "e3"}, "changeSet": {"e3", "e4"}, "publication": {"e1", "e2"}}
 
 
-def test_each_context_lists_its_own_edges_under_both_routes(client):
+def test_each_context_lists_its_own_edges(client):
     seeded = seed(client)
     names = {relation_id: name for name, relation_id in seeded["edges"].items()}
     for context_name, context in seeded["contexts"].items():
         pages = {route: walk(client, route, context) for route in ROUTES}
-        assert pages["/mappings"] == pages["/relations"], context_name
         edges = [row for row in pages["/relations"] if row["relationId"] in names]
         # Without a direction each edge appears once per direction.
         assert sorted((names[row["relationId"]], row["direction"]) for row in edges) == sorted(
@@ -96,7 +97,7 @@ def test_each_context_lists_its_own_edges_under_both_routes(client):
             route: get(client, route, {**context, "includeTotal": True})["totalCount"]
             for route in ROUTES
         }
-        assert totals["/mappings"] == totals["/relations"] == len(pages["/relations"])
+        assert totals["/relations"] == len(pages["/relations"])
 
 
 @pytest.mark.parametrize("route", ROUTES)
@@ -126,17 +127,13 @@ def test_context_refusals(client, route):
     assert response.json()["error"]["code"] == "publication_not_found"
 
 
-def test_cursors_bind_route_and_context(client):
+def test_cursors_bind_context(client):
     seeded = seed(client)
     contexts = seeded["contexts"]
     for context_name, context in contexts.items():
         for route in ROUTES:
             cursor = get(client, route, {**context, "pageSize": 1})["nextCursor"]
             assert cursor, (context_name, route)
-            other_route = next(row for row in ROUTES if row != route)
-            refused = client.get(BASE + other_route, params={**context, "cursor": cursor})
-            assert refused.status_code == 422, (context_name, route)
-            assert refused.json()["error"]["code"] == "invalid_cursor"
             for other_name, other in contexts.items():
                 if other_name == context_name:
                     continue

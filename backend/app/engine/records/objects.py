@@ -104,10 +104,16 @@ def decide_object_create(
         lookup.add_relation(
             Relation(str(uuid4()), parent_relation, parent.object_id, record.object_id, {})
         )
+    rules.distinct_initial_relations(
+        [
+            (item.relationTypeKey, item.direction, str(item.otherObjectId))
+            for item in payload.initialRelations
+        ]
+    )
     for initial in payload.initialRelations:
         other = lookup.object(str(initial.otherObjectId))
         if other is None:
-            raise api_error(404, "object_not_found", f"Object '{initial.otherObjectId}' not found")
+            raise rules.relation_endpoint_missing(str(initial.otherObjectId))
         if not lookup.shares_workspace(other):
             raise api_error(422, "relation_wrong_scope", "Related objects must share a workspace")
         source, target = (record, other) if initial.direction == "outgoing" else (other, record)
@@ -228,7 +234,9 @@ def decide_object_update(
     )
     # The workspace lock (PG-D5) is held: the version read is the one a write would claim.
     if item.version != payload.expectedVersion:
-        raise api_error(409, "version_conflict", "Object version has changed")
+        raise api_error(
+            409, "version_conflict", "Object version has changed", {"currentVersion": item.version}
+        )
     if attributes is not None:
         check_attribute_change(lookup, model, object_type, item, attributes)
 

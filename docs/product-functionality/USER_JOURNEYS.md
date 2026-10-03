@@ -43,7 +43,7 @@ background jobs are J24, the change feed J26 and supplier files J27.
 | Group | Journeys |
 | --- | --- |
 | Records and structure | J01 find, J02 correct, J03 add, J04 delete, J13 relate, J14 hierarchy, J15 reshape across types |
-| Relationship sets and coverage | J10 replace a related set, J16 coverage across ancestors (J09 retired) |
+| Relationship sets and coverage | J10 replace a record's related records, J16 coverage across ancestors (J09 retired) |
 | Change sets and history (designer) | J05 prepare and publish, J06 live beside a change set, J07 withdraw and restart from history, J17 review changes, J18 next model version |
 | Administration | J08 model release, J19 workspaces, J25 consumer API definition |
 | Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes (planned), J27 supplier file (planned) |
@@ -124,8 +124,8 @@ coherent edit is one save; the record keeps its identity, its place and its rela
 
 - **J02.1 Rename a record**: it keeps its identity, place and relationships, and the paths of its
   descendants show the new name.
-- **J02.2 Two writers save the same version**: the second is refused with the current content;
-  nothing is overwritten.
+- **J02.2 Two writers save the same version**: the second is refused with the record's current
+  version, to read it again; nothing is overwritten.
 - **J02.3 Zero and false** stay values, never blank.
 - **J02.4 One value through its own resource**: set, change or remove one attribute value against
   the record's version.
@@ -133,7 +133,8 @@ coherent edit is one save; the record keeps its identity, its place and its rela
   required value, emptying the last of an at-least-one-of set, and changing a read-only value are
   each refused with the rule named.
 
-**Refusals:** `409 version_conflict`, `409 duplicate_attribute_value`, `422 invalid_attribute_value`,
+**Refusals:** `409 version_conflict`, `409 duplicate_attribute_value`, `422 invalid_attribute_value`
+(a value of the wrong type), `422 attribute_below_minimum`, `422 attribute_above_maximum`,
 `422 unknown_attributes`, `422 object_attribute_rule_violation`,
 `422 cannot_delete_required_attribute`, `422 read_only_attributes`, `409 attribute_already_exists`,
 `404 attribute_not_found`, `409 workspace_retired`.
@@ -230,7 +231,9 @@ The containment relationship is not edited here: it follows the record's parent 
 - **J13.4 Scoped uniqueness**: a relationship that would make two related records share the scope
   ancestor is refused; it holds only while its condition attribute does.
 - **J13.5 With a relationship-set claim**: an integrator that read a record's relationships of one
-  type claims the set's version on create or delete; a set changed meanwhile is refused.
+  type claims the set's version on create or delete; a set changed meanwhile is refused. Today the
+  version is read from the workspace edge list (a record with an edge of the binding) or a matrix or
+  mapping view; the anchored relationship read gains it in 0.9 B3.
 - **J13.6 A required relationship** cannot be removed while its dependant needs it.
 - **J13.7 In a change set.**
 - **J13.8 Two relationships racing for one cardinality limit**: one is refused.
@@ -300,8 +303,9 @@ Records keep their IDs and history; nothing is written before apply.
 
 **Refusals:** `422 restructuring_not_ready`, `422 restructuring_too_large`,
 `409 restructuring_plan_changed`, `422 invalid_type_mapping`, `422 object_type_unchanged`,
-`409 object_type_changed`, `422 type_changes_need_change_set`, `422 child_type_not_allowed`,
-`422 required_relation_without_place`.
+`409 object_type_changed`, `422 type_changes_need_change_set`; a single record's type change is
+refused with `422 child_type_not_allowed` or `422 required_relation_without_place`, which a
+restructuring preview reports instead as problems of its plan, in its `200` answer.
 
 **Evidence today:** `c4-restructuring`, `c5-restructuring-acceptance`; `test_restructuring_api`,
 `test_restructuring_planner`, `test_type_changes`.
@@ -316,11 +320,15 @@ Records keep their IDs and history; nothing is written before apply.
 1. List the source records of a relationship view with their related records, filtered to those with
    none, one or several, before paging.
 2. Search the server for the records a source may relate to (beyond page one).
-3. Choose the source's new set of related records, or clear it where empty is allowed.
-4. Save the whole set once, against the set's version.
+3. Choose the one record the source relates to instead, or none where empty is allowed.
+4. Save once, against the set's version: the chosen record replaces every record the source related
+   to through that relationship.
 
-Replacement is never a visible delete followed by a create. A related record kept in the new set
-keeps its relationship identity and attributes.
+Replacement is never a visible delete followed by a create. A chosen record the source already
+related to keeps its relationship identity and attributes. Replacing a set by several records in one
+save is not a capability today; it is planned in 0.9
+[B3](../BASE_0_9_IMPLEMENTATION_PLAN.md#b3-relation-and-relation-set-items), which extends this replacement
+from one target to a set.
 
 **Variants:**
 
@@ -336,8 +344,9 @@ keeps its relationship identity and attributes.
 - **J10.9 A required or owning relationship** cannot be cleared or moved to another owner.
 
 **Refusals:** `409 mapping_version_conflict`, `422 invalid_clear_attributes`,
-`422 required_ownership_binding`, `422 relation_ancestor_required`, `409 activation_conflict`,
-`422 invalid_cursor`, and the view and binding refusals (`mapping_view_*`, `mapping_*`).
+`422 required_ownership_binding`, `422 relation_ancestor_required`, `422 required_relation`,
+`409 cardinality_violation`, `409 duplicate_relation_scope`; publishing a change set whose set live
+changed meanwhile is `409 version_conflict` with a `mapping_set_changed` conflict; `422 invalid_cursor`, and the view and binding refusals (`mapping_view_*`, `mapping_*`).
 
 **Evidence today:** `sc07-mapping-acceptance`, `wp14-contextual-browser`, `wp13c-ui-states`;
 `test_mapping_coverage`, `test_mapping_replacement`, `test_pg3_concurrency`.
@@ -403,13 +412,15 @@ conflict or an invalid graph publishes nothing and keeps the change set.
 - **J05.1 From current live data**, including unpublished live work, frozen at the moment the
   change set starts.
 - **J05.2 From a publication**; **J05.3 empty** (bootstrap support).
-- **J05.4 An invalid graph**: validation names the records; publishing re-checks the merged result.
+- **J05.4 An invalid graph**: validation answers `valid: false` and names the records; publishing
+  re-checks the merged result.
 - **J05.5 Rename or discard** the change set; discarding never needs model agreement.
 - **J05.6 Two writers in one change set**: the change set version refuses the stale one.
 - **J05.7 A write committing while current live is captured**: the capture asks for a retry.
 
 **Refusals:** `409 change_set_version_conflict`, `409 change_set_required`,
-`409 change_set_snapshot_retry`, `422 workspace_graph_invalid`, `409 activation_conflict`,
+`409 change_set_snapshot_retry`, `422 workspace_graph_invalid`, `409 version_conflict` (a record
+changed live since the change set's source, listed in `details.conflicts`),
 `409 workspace_active_publication_conflict`, `409 model_release_changed`,
 `404 change_set_not_found`, `409 workspace_retired`.
 
@@ -436,7 +447,7 @@ overwrites the live edit or deletes live-only records.
 - **J06.3 Publishing beside live writes and other change sets' writes**: publishing waits for live
   writes of its workspace and leaves other change sets free.
 
-**Refusals:** `409 activation_conflict`.
+**Refusals:** `409 version_conflict`, naming each record changed on both sides in `details.conflicts`.
 
 **Evidence today:** `wp9-change-sets`; `test_wp8_publish_merge`, `test_wp81b_current_live_bases`,
 `test_pg3_concurrency`.
@@ -480,7 +491,8 @@ The lists agree with what publishing would do to live data.
 - **J17.2 An empty root change set** lists only additions.
 - **J17.3 A page and its paths** read one snapshot while a write commits.
 
-**Refusals:** `404 change_set_not_found`, `422 invalid_filter`, `422 invalid_cursor`.
+**Refusals:** `404 change_set_not_found`, `422 unknown_object_type`, `422 unknown_relation_type`,
+`422 invalid_cursor`.
 
 **Evidence today:** `p2-change-review`; `test_change_lists`, `test_change_lists_volume`.
 
@@ -504,8 +516,8 @@ The lists agree with what publishing would do to live data.
 - **J18.4 A pin changed by someone else** meanwhile is refused.
 
 **Refusals:** `409 change_set_content_incompatible`, `409 change_set_model_release_conflict`,
-`409 model_release_changed`, `422 unsupported_schema_version`, `500 invalid_installed_model`,
-`404 model_release_not_found`.
+`409 model_release_changed`, `409 change_set_version_conflict` (J18.4), and for J18.3
+`409 pinned_model_unavailable`, `409 pinned_model_invalid`, `409 unsupported_pinned_model_schema`.
 
 **Evidence today:** `sc15-model-version-acceptance`, `wp11-model-admin`; `test_build07_wp6`,
 `test_build07_wp9_acceptance`, `test_wp81a_context`.
@@ -540,7 +552,7 @@ selects nothing. Read-only inspection and export stay available when administrat
 - **J08.9 Read a model draft's history** (planned, decided D-5).
 
 **Refusals:** `422 invalid_model` (with the JSON pointer), `409 release_identity_conflict`,
-`409 model_migration_required`, `409 version_conflict` (stale runtime state),
+`409 model_migration_required`, `409 activation_conflict` (stale runtime state),
 `409 consumer_contract_version_required`, `422 unsupported_schema_version`,
 `404 model_draft_not_found`, `503 model_registry_refresh_failed`; with administration disabled the
 mutating routes are absent.
@@ -610,8 +622,8 @@ consumer tier's reads follow in C2–C16 ([CONSUMER_API.md](../CONSUMER_API.md))
    pairs, or read one by key.
 4. Read the API reference (`/docs`) and the OpenAPI document.
 
-Every identifier is a stable public key or UUID; no internal sequence number is exposed. Responses
-name the model release they were read under.
+Every identifier is a stable public key or UUID; no internal sequence number is exposed. The model
+read names the release it was read under (`X-Model-Release-Id`).
 
 **Variants:**
 
@@ -746,7 +758,8 @@ single writes' codes.
 - **J24.3 Two workers**: a worker that lost its lease commits nothing; the other continues.
 - **J24.4 The model, the change set or the workspace changes mid-job**: the job fails with the
   reason, keeping the chunks already applied.
-- **J24.5 Retention**: finished jobs expire and keep their summary.
+- **J24.5 Retention**: finished jobs expire and keep their summary; their item outcomes are removed,
+  so reading them answers an empty page.
 - **J24.6 The database is unreachable**: the worker waits and retries, logging the cause once, and
   resumes when the database returns.
 
@@ -798,8 +811,8 @@ controlled diagnostics.
   which installs and selects a supported release atomically.
 - **J12.7 Settings**: model administration, workspace administration, integration jobs and their
   limits, the API reference script; an invalid setting refuses to start.
-- **J12.8 The database goes away while running**: requests and the job worker report it concisely and
-  recover when it returns (J24.6).
+- **J12.8 The database goes away while running**: requests and the job worker report it concisely,
+  `/health` reports not ready, and all recover when it returns, without a restart (J24.6).
 - **J12.9 Carry a SQLite database over** to PostgreSQL (planned, 0.9.0-alpha.1 PG4).
 
 **Evidence today:** `test_startup`, `test_model_schema_upgrade`, `test_schema_drift`,

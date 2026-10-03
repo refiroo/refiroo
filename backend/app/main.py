@@ -4,17 +4,20 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI, Response, status
+from fastapi import Depends, FastAPI, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import Settings, get_settings, reload_settings
-from .db import DatabaseStartupError, SessionLocal, create_database
+from .db import DatabaseStartupError, SessionLocal, create_database, get_engine
 from .engine.indexes.matrix_states import build_at_startup as build_matrix_states
 from .engine.jobs.inline import BatchLimits
 from .engine.jobs.worker import JobWorker, WorkerSettings
 from .engine.model.bootstrap import bootstrap_model
+from .engine.model.compiler import SUPPORTED_SCHEMA_VERSIONS
 from .engine.model.loader import load_bootstrap_model
 from .engine.model.registry import UnsupportedSelectedModelSchema, model_registry
 from .errors import ApiError
@@ -24,6 +27,7 @@ from .management.errors import (
     unexpected_error_handler,
     validation_error_handler,
 )
+from .management.query_parameters import refuse_unknown_parameters
 from .management.reference import api_reference_router
 from .management.routers import (
     attributes,
@@ -58,6 +62,18 @@ def schema_upgrade_command(settings: Settings) -> str:
     return f"cd {shlex.quote(str(backend_path))} && {command}"
 
 
+def database_reachable() -> bool:
+    """Whether the database answers now: a process that serves no request without it is not ready
+    while it is unreachable (H4c, J12.8). Requests answer it concisely, and nothing is logged here,
+    since a probe asks often."""
+    try:
+        with get_engine().connect() as connection:
+            connection.execute(text("SELECT 1"))
+    except SQLAlchemyError, DatabaseStartupError:
+        return False
+    return True
+
+
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     loaded_model = load_bootstrap_model()
@@ -77,7 +93,7 @@ async def lifespan(application: FastAPI):
             model_registry.mark_unhealthy()
             logger.error(
                 "RDM Engine cannot serve model-backed requests: the database selects schema %s, "
-                "but this version supports schema 0.5, 0.6 and 0.7.\n"
+                f"but this version supports schema {', '.join(sorted(SUPPORTED_SCHEMA_VERSIONS))}.\n"
                 "Stop all RDM Engine processes using this database, run this exact command in the "
                 "same configured environment, then restart the API:\n  %s\n"
                 "Until the transition succeeds, /health returns HTTP 503.",
@@ -107,6 +123,8 @@ def create_app() -> FastAPI:
         version="0.8.0",
         description="API-first, model-driven reference data management engine.",
         lifespan=lifespan,
+        # Every route accepts only the query parameters it declares (D-3).
+        dependencies=[Depends(refuse_unknown_parameters)],
         # /docs is the Scalar reference page (api_reference_router), not Swagger UI or ReDoc.
         docs_url=None,
         redoc_url=None,
@@ -193,7 +211,7 @@ def create_app() -> FastAPI:
 
     @application.get("/health")
     def health(response: Response) -> dict[str, str]:
-        if not model_registry.ready:
+        if not model_registry.ready or not database_reachable():
             response.status_code = status.HTTP_503_SERVICE_UNAVAILABLE
             return {"status": "unhealthy"}
         return {"status": "ok"}

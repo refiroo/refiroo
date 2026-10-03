@@ -158,17 +158,12 @@ def edge_list(
     )
 
 
-@router.get("/mappings", response_model=MappingListPage)
-def get_mappings(session: DbSession, query: EdgeList, paging: PageQuery) -> MappingListPage:
-    return edge_list(session, query, paging, "mapping-list")
-
-
 @router.get("/relations", response_model=MappingListPage, tags=["relations"])
 def get_workspace_relations(
     session: DbSession, query: EdgeList, paging: PageQuery
 ) -> MappingListPage:
     """The workspace edge list: every relation of any type, in live data, a change set or a
-    publication. The same list as ``/mappings``; its cursors are its own."""
+    publication. ``GET /mappings``, the same list under another name, was removed (H4c, D-1)."""
     return edge_list(session, query, paging, "workspace-relations")
 
 

@@ -465,7 +465,7 @@ def test_server_timestamps_carry_an_explicit_offset(typed_model_client):
     change_set = typed_model_client.post("/api/v1/workspaces/default/change-sets", json={})
     assert change_set.status_code == 201, change_set.text
     history = typed_model_client.get(
-        f"/api/v1/objects/domain/{created.json()['id']}/history", params={"workspaceKey": "default"}
+        f"/api/v1/objects/domain/{created.json()['id']}/history"
     )
     assert history.status_code == 200, history.text
     stamps = [read.json()["createdAt"], read.json()["updatedAt"], change_set.json()["createdAt"]]

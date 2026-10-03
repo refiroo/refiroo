@@ -82,6 +82,7 @@ from ...engine.reads.snapshot_reads import (
     object_paths,
     publication_context,
 )
+from ...engine.records.rules import get_application
 from ...engine.records.values import VALUE_COLUMNS, stored_json_value
 from ...engine.workspaces.catalogue import resolve_workspace
 from ...errors import api_error
@@ -187,14 +188,9 @@ def open_matrix_read(
     begin_snapshot_read(session)
     workspace = resolve_workspace(session, workspace_key)
     snapshot = resolve_request_model(session, workspace.key, change_set_id, publication_id)
-    application = next(
-        (item for item in snapshot.model.applications if item.key == application_key), None
-    )
-    view = (
-        next((item for item in application.views if item.key == view_key), None)
-        if application
-        else None
-    )
+    # An unknown application is named as on every other route (H4c, deviation 2).
+    application = get_application(snapshot.model, application_key)
+    view = next((item for item in application.views if item.key == view_key), None)
     if not isinstance(view, RelationMatrixViewDefinition):
         raise api_error(
             404,

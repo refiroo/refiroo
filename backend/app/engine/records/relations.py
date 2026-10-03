@@ -150,6 +150,15 @@ def load_relation(session: Session, relation_id: str) -> ObjectRelation:
     return relation
 
 
+def _endpoint(session: Session, object_id: str) -> RdmObject:
+    """A relation's end, which must exist: ``422 relation_endpoint_missing`` as in a change set (an
+    E-D4 row settled in H4c, deviation 11)."""
+    item = session.scalar(select(RdmObject).where(RdmObject.id == object_id))
+    if item is None:
+        raise rules.relation_endpoint_missing(object_id)
+    return item
+
+
 def create_live_relation(
     session: Session, model: EngineModel, payload: RelationCreate, claim: SetClaim | None = None
 ) -> tuple[ObjectRelation, int | None]:
@@ -158,8 +167,8 @@ def create_live_relation(
     With ``claim``, the claimed end's set must still be at the version the caller read; the new
     version is returned with the relation.
     """
-    from_object = load_object(session, str(payload.fromObjectId))
-    to_object = load_object(session, str(payload.toObjectId))
+    from_object = _endpoint(session, str(payload.fromObjectId))
+    to_object = _endpoint(session, str(payload.toObjectId))
     if from_object.workspace_key != to_object.workspace_key:
         raise api_error(422, "relation_wrong_scope", "Related objects must share a workspace")
     resolve_workspace(session, from_object.workspace_key, require_active=True)

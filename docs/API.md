@@ -70,6 +70,14 @@ key:
 }
 ```
 
+## Query parameters
+
+Every route accepts only the query parameters it documents. Any other, a misspelt `pagesize` for
+example, is `422 unknown_parameter` naming each in `details.parameters` (and the first in
+`details.path`, `/query/<name>`), so a client never silently gets another answer than it asked for
+(decided 2026-10-02, H4c D-3). The per-type object list and the cross-type lookup also take the
+`filter.<field>.<operator>` family.
+
 ## Collection paging
 
 Every collection endpoint pages in one of two modes (Base 0.8 S3,
@@ -779,7 +787,8 @@ set or publication is addressed flat by its global ID (`/change-sets/{changeSetI
   and graph validation use the change set's pin even when it differs from active; agreement with the
   active release is a separate requirement for publishing. Discard does not require model agreement.
 - `POST /api/v1/change-sets/{changeSetId}/validation` validates the complete effective graph without
-  publishing. `POST /api/v1/change-sets/{changeSetId}/publication` publishes it and requires
+  publishing. It answers `200` with `{ "valid": true|false, "diagnostics": [...] }`: an invalid graph
+  is `valid: false` with a diagnostic per problem, naming the records, not an error response. `POST /api/v1/change-sets/{changeSetId}/publication` publishes it and requires
   `expectedChangeSetVersion` and nullable `expectedActivePublicationId`. Stored read-only values,
   including model defaults, are valid publication content and are checked for their declared types and
   constraints; ordinary writes and attribute deletion still enforce the binding's read-only
@@ -1356,7 +1365,10 @@ every context.
 
 An attribute type may declare `"features": { "unique": true }`. Values for such an attribute are
 enforced unique per workspace across all objects that carry that attribute type. Create and update
-return `409 duplicate_attribute_value` when a value collides. Uniqueness is supported for the scalar
+return `409 duplicate_attribute_value` when a value collides, live and in a change set alike: the
+message names the attribute, and `details` carry its `attributeTypeKey` and the record holding the
+value as `conflictingObjectId`. Empty text is no value, so any number of records may leave a unique
+text attribute empty (both decided 2026-10-03, H4c). Uniqueness is supported for the scalar
 value types (`text`, `longText`, `integer`, `decimal`, `boolean`, `date`, `dateTime`); declaring it on
 a `json` type is rejected at model load. Enforcement is service-level (see `docs/DECISIONS.md`); a
 database-level constraint is planned.
@@ -1488,7 +1500,10 @@ with a machine-readable `code` and a human-readable `message`. Validation errors
 a `details` array. Unexpected internal errors use code `internal_error` and include a
 `correlationId` in `details`; the same identifier appears in server logs for operator diagnosis.
 A write validated under a model release that was replaced before it committed returns
-`409 model_release_changed` and saves nothing (see model activation).
+`409 model_release_changed` and saves nothing (see model activation). A stale `expectedVersion` on a
+record or relation write (an update, a move, a delete or a single value's write, live or in a change
+set, and a batch item's) returns `409 version_conflict` with `details.currentVersion`, the version to
+read again before retrying (decided 2026-10-03, H4c).
 
 ```json
 {
@@ -1510,6 +1525,46 @@ Internal error example:
   }
 }
 ```
+
+#### Further error codes
+
+Codes the sections above do not describe (documented 2026-10-03, H4c decision D-4), with the journey
+whose tests meet them ([USER_JOURNEYS](product-functionality/USER_JOURNEYS.md)). A batch item
+refused by a single write's rule carries the same code in its outcome.
+
+| Code | Status | Where | Meaning |
+| --- | --- | --- | --- |
+| `invalid_position` | 422 | every paged collection | `position` below zero; `details.path` `/query/position` (J21.1) |
+| `workspace_runtime_state_missing` | 500 | workspace reads and writes | The workspace catalogue's runtime row is missing: a damaged database, not a client error |
+| `workspace_key_required` | 422 | `POST /objects` | A live create without `workspaceKey` (and without `changeSetId`) (J03) |
+| `unknown_application` | 404 | `POST /objects`, batch items, `GET /applications/{key}`, `GET /objects` | `applicationKey` names no application of the model (J03.2, J20) |
+| `object_type_not_in_application` | 422 | `POST /objects` | The application does not hold the object type (J03.2) |
+| `unknown_attribute_type` | 404 | `GET /attribute-types/{key}` | No attribute type with that key in the selected model (J20) |
+| `attribute_below_minimum`, `attribute_above_maximum` | 422 | every value write | A number outside the attribute's declared `minimum` or `maximum` (J02.5) |
+| `missing_required_attributes` | 422 | create, update, type change | A value the type requires is absent; the message names the fields (J03) |
+| `object_attribute_rule_violation` | 422 | create, update, single-value writes, type change | An `atLeastOneOf` rule is not met; `details` `rule` and `attributeTypeKeys` (J02.5, J03) |
+| `duplicate_initial_relation` | 422 | `POST /objects`, batch creates | `initialRelations` repeats one relationship (type, direction and record), live and in a change set alike (J03.4) |
+| `invalid_relation_pair` | 422 | relation create, `initialRelations` | The model allows no relationship of that type between the two records' types (J13.3) |
+| `relation_wrong_scope` | 422 | relation create, `initialRelations` | The two records are in different workspaces (J13) |
+| `relation_endpoint_missing` | 422 | relation create, `initialRelations` | An end names a record the context does not hold, live and in a change set alike (decided 2026-10-03, H4c); change-set validation reports it as a diagnostic (J13.3, J05) |
+| `change_set_source_invalid` | 422 | `POST /workspaces/{key}/change-sets` | `source` is not `currentLive` or `publication`, a publication source lacks `sourcePublicationId`, or a current-live source names one (J05) |
+| `change_set_base_invalid` | 409 | mapping reads in a change set | The change set's base, or its base publication, is missing or belongs to another workspace: a damaged change set (J10) |
+| `child_type_not_allowed` | 422 | `changeType`, restructuring | The new type cannot contain one of the record's children; the restructuring plan reports it as `noPossibleType` (J15) |
+| `required_relation_without_place` | 422 | `changeType`, restructuring | The new type cannot hold a relationship another record requires (J15) |
+| `relation_already_exists` | 409 | change back in a change set | A relationship the change back restores already exists in the change set (J15.1) |
+| `workspace_already_exists` | 409 | `POST /workspaces` | The key is taken, by an active or a retired workspace (J19) |
+| `default_workspace_cannot_be_retired` | 409 | `PATCH /workspaces/{key}` | Retiring the default workspace (J19) |
+| `mapping_view_required` | 422 | `GET /workspaces/{key}/mapping-targets` | `applicationKey` and `viewKey` must come together (J10) |
+| `incomplete_view_identity` | 422 | `GET /workspaces/{key}/relations` | `applicationKey` and `viewKey` must come together (J22.2) |
+| `mapping_view_not_found` | 404 | mapping reads, the edge list | The view is not a relationship view of that application in the selected model (J10, J22.2) |
+| `mapping_view_binding_mismatch` | 422 | mapping reads | The relationship type, types or direction differ from the view's (J10) |
+| `mapping_binding_not_found` | 404 | mapping reads | The model allows no such relationship between the named types (J10) |
+| `mapping_candidate_type_mismatch` | 422 | `GET /workspaces/{key}/mapping-candidates` | The candidate type is not the view's target side (J10.3) |
+| `mapping_parent_not_found` | 404 | `GET /workspaces/{key}/mapping-coverage` | `parentObjectId` is not in the selected context (J10) |
+| `mapping_parent_scope_mismatch` | 422 | `GET /workspaces/{key}/mapping-coverage` | That parent's type cannot contain the view's source records (J10) |
+| `mapping_source_not_found` | 404 | `GET /workspaces/{key}/mapping-targets` | The source record is not in the selected context (J10) |
+| `mapping_endpoint_not_found` | 404 | `PUT /workspaces/{key}/mappings` | The source or a target is not in the context (J10) |
+| `mapping_endpoint_type_mismatch` | 422 | `PUT /workspaces/{key}/mappings` | The source or a target is not of the binding's type (J10) |
 
 ## Relation endpoints
 
@@ -1565,6 +1620,8 @@ preventing a corrupt or legacy cross-workspace edge from being exposed.
 This page shape is an intentional pre-1.0 breaking change. Callers must follow `nextCursor` unchanged
 and must not parse it.
 
+A relation type the model does not declare is `422 unknown_relation_type` on every write, live and in
+a change set (`GET /relation-types/{key}` answers an unknown key with `404`).
 Relation creation validates the relation type, source and target object types, workspace, cardinality,
 configured ancestor-scoped uniqueness and relation attributes. Relation attribute keys must appear in
 the matched allowed pair's `attributeTypeKeys`; values are normalized and validated using the referenced
@@ -1601,11 +1658,16 @@ with `409 relation_set_version_conflict` and `details` `anchorObjectId`, `direct
 create responds with the set's new `relationSetVersion`. Without a claim, a write still advances both
 ends' sets, as does every relation an object create adds through `initialRelations`.
 
-A breach of a binding's `uniqueToAncestorTypeKey` scope, on a relation create, an object create with
-`initialRelations`, an object edit or a move, returns `409 duplicate_relation_scope` with `details`
-`ancestorObjectTypeKey`, `ancestorObjectId`, and the record already in the scope as
-`conflictingObjectId` with its relation `conflictingRelationId`. Change set validation and
-publishing report the same code as a diagnostic with `conflictingObjectId`.
+A breach of a binding's `uniqueToAncestorTypeKey` scope in live data, on a relation create, an object
+create with `initialRelations`, an object edit, a move or a set replacement, returns
+`409 duplicate_relation_scope` with `details` `ancestorObjectTypeKey`, `ancestorObjectId`, and the
+record already in the scope as `conflictingObjectId` with its relation `conflictingRelationId`. A
+change set is a draft and holds the same breach, so its edits can come in any order (a new owner
+added before the old one is removed): the write succeeds, the relation matrix shows the cell as
+`several` with `conflict`, and validation and publishing report it as a diagnostic with
+`conflictingObjectId` (publishing refuses with `422 workspace_graph_invalid`). A related record with
+no ancestor of the scope type is refused at once in both (`422 relation_ancestor_required`).
+Decided 2026-10-03 (H4c).
 
 A required non-parent relation returns `422 required_relation` when independently deleted. It is part
 of the dependent graph's validity and ownership semantics; delete or replace the dependent object
@@ -1746,7 +1808,8 @@ overwrite, `previousVersion`. `rejected`: `error` with the single write's code, 
 Every audit entry an item writes names the job as its cause (`cause: {"kind": "job", "id"}` in object
 history). A job's outcomes and idempotency key are kept for `JOB_RETENTION_DAYS` (7) after it
 finishes; `expiresAt` says until when. Then the job is `expired`: its summary (`counts`, `result`,
-`error`, `progress`, times) remains, and its outcomes and key are removed.
+`error`, `progress`, times) remains, and its outcomes and key are removed, so
+`GET /jobs/{id}/items` answers `200` with an empty page.
 
 ### Background jobs
 
@@ -1875,11 +1938,11 @@ the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
 
 ### Workspace edge list (mapping list; Base 0.9 Q2)
 
-- `GET /api/v1/workspaces/{workspaceKey}/relations` and `GET /api/v1/workspaces/{workspaceKey}/mappings`
-  are one edge list published under two names: a flat, cursor-paged list of the workspace's edges of
-  any relation type. `/relations` is the name integrators look for; `/mappings` remains for the mapping
-  views. Both take the same parameters and return the same pages; each route's cursors are its own
-  (`422 invalid_cursor` on the other). `GET /api/v1/relations` keeps its anchored shape.
+- `GET /api/v1/workspaces/{workspaceKey}/relations` is the edge list: a flat, cursor-paged list of
+  the workspace's edges of any relation type. The same list was also published as
+  `GET /api/v1/workspaces/{workspaceKey}/mappings` until H4c removed it (decided D-1, 2026-10-02); that
+  path keeps only the mapping replacement's `PUT` and answers a `GET` with `405`.
+  `GET /api/v1/relations` keeps its anchored shape.
   All filter parameters are optional:
   - `relationTypeKey` — filter to one relation type.
   - `fromObjectTypeKey`, `toObjectTypeKey` — filter to a specific object-type pair.
@@ -1978,7 +2041,7 @@ record. Everything comes from the view and its binding.
 
 | Parameter | Meaning |
 | --- | --- |
-| `applicationKey`, `viewKey` | Required; an unknown view, or a view of another type, is `404 relation_matrix_view_not_found`. |
+| `applicationKey`, `viewKey` | Required; an unknown application is `404 unknown_application`, an unknown view, or a view of another type, `404 relation_matrix_view_not_found`. |
 | `changeSetId` or `publicationId` | Optional read context; both together are `422 mutually_exclusive_context`. |
 | `parentObjectId` | Only rows directly under this record. A record missing from the context is `404 relation_matrix_parent_not_found`; one whose type cannot contain the row type is `422 relation_matrix_parent_scope_mismatch`. |
 | `search` | Case-insensitive "contains" match on the view's `searchFields` only. |

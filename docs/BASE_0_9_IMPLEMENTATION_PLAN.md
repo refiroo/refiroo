@@ -825,6 +825,17 @@ nothing under `frontend/` changed. The full suites wait for R.
 `replaceRelationSet` in batches, with relation-set claims and P4 for sets; the mapping PUT and
 `replaceRelationSet` share one service, extended from one target to a set (the mapping replacement is already one flow over live data and change sets since E3).
 
+**Added 2026-10-02 (H4c, the user's decision; corrected the same day):** the relation-set version on
+the anchored relationship read. A claimed write (`expectedRelationSetVersion`, here and on
+`POST`/`DELETE /relations`) works for every binding. Its version is readable from a relation matrix row
+(`relationSetVersion`) or a mapping coverage row (`mappingVersion`, the same counter), which need a
+declared view, and from the workspace edge list (`GET /workspaces/{key}/relations`, `mappingVersion`
+per edge), which needs none. The gap: the edge list shows only existing edges and is not anchored to a
+record, so a record with no relationship of the binding (never had one, or all removed) has no row to
+read its version from, and a client must search or page the workspace's edges to find one record's.
+`GET /relations?objectId=…` returns the anchor's set version per binding and direction, including an
+empty set, so an integrator can read a record's set and replace it under a claim. Journey J13.5.
+
 **Tests:** each op against its single-write route; a set replaced with kept, added and removed
 targets; cardinality, ancestor scope, required and containment refusals; set versions advanced once
 per affected set; the `transition` audit entry; the relation matrix state kept current

@@ -1470,7 +1470,7 @@ def test_nonoriented_required_ownership_replacement_is_rejected(client, change_s
     test_required_ownership_binding_is_rejected_before_endpoint_changes(client, change_set_context)
 
 
-@pytest.mark.parametrize("endpoint", ["mappings", "mapping-targets"])
+@pytest.mark.parametrize("endpoint", ["relations", "mapping-targets"])
 @pytest.mark.parametrize(
     "identity",
     [

@@ -51,10 +51,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # integrationJobs group, and an optional cause on audit events; no existing path changed.
     # Re-baselined for 0.9 B2: POST /jobs/{id}/cancel, a 202 JobResponse on POST /batches and its
     # description, cancelRequestedAt, leaseOwner and leaseExpiresAt on JobResponse, and the
-    # background limits in JobLimits; removing those gives B1's document exactly.
+    # background limits in JobLimits; removing those gives B1's document exactly. Re-baselined for
+    # H4c (D-1): GET /workspaces/{key}/mappings removed (the same list as /relations), and
+    # /relations' description no longer names it; nothing else.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "e09be38f454817e1d9184c721fb777acddc1d1c010b087b39b3dad95a4ba5671"
+        "4b78ea8af609692b29b02c7dd32c5738926bd6e5760755b3388473c30d165f4e"
     )
 
 
@@ -84,8 +86,8 @@ def test_paging_openapi_inventory():
         assert next(iter(properties)) == "items", path
         assert {"totalCount", "startIndex"}.isdisjoint(document["components"]["schemas"][name]["required"])
         assert properties["totalCount"]["type"] == properties["startIndex"]["type"] == "integer"
-    # 0.9 B1 added the job list and a job's outcomes.
-    assert seekable <= paged and len(paged) == 27
+    # 0.9 B1 added the job list and a job's outcomes; H4c removed GET /workspaces/{key}/mappings (D-1).
+    assert seekable <= paged and len(paged) == 26
     assert {"/api/v1/jobs", "/api/v1/jobs/{job_id}/items"} <= paged
     objects = {item["name"] for item in document["paths"]["/api/v1/objects/{object_type_key}"]["get"]["parameters"]}
     relations = {item["name"] for item in document["paths"]["/api/v1/relations"]["get"]["parameters"]}
@@ -264,12 +266,9 @@ def test_wp4_mapping_query_inventory_and_required_context():
             )
 
     mappings_path = "/api/v1/workspaces/{workspace_key}/mappings"
-    assert "get" in paths[mappings_path]
-    list_op = paths[mappings_path]["get"]
-    # 0.9 Q2: the workspace edge list is published under both names, with one contract.
-    relations_op = paths["/api/v1/workspaces/{workspace_key}/relations"]["get"]
-    assert relations_op["parameters"] == list_op["parameters"]
-    assert relations_op["responses"] == list_op["responses"]
+    # H4c (D-1): the edge list is published once, as /relations; /mappings keeps only the PUT.
+    assert set(paths[mappings_path]) == {"put"}
+    list_op = paths["/api/v1/workspaces/{workspace_key}/relations"]["get"]
     assert list_op["responses"]["200"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/MappingListPage"
     }

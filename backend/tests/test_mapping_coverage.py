@@ -833,7 +833,7 @@ def test_list_mappings_returns_source_and_target(client):
     master = masters(client, 1)[0]
     source = _create_system_value(client, _suffix())
     rel = relation(client, source, master)
-    page = get(client, "/mappings", OUT)
+    page = get(client, "/relations", OUT)
     items = [row for row in page["items"] if row["relationId"] == rel["id"]]
     assert len(items) == 1
     row = items[0]
@@ -849,10 +849,10 @@ def test_list_mappings_pagination(client):
     sources = [_create_system_value(client, _suffix()) for _ in range(3)]
     for s in sources:
         relation(client, s, target)
-    first = get(client, "/mappings", dict(OUT, pageSize=2))
+    first = get(client, "/relations", dict(OUT, pageSize=2))
     assert len(first["items"]) == 2
     assert first["nextCursor"] is not None
-    second = get(client, "/mappings", dict(OUT, pageSize=2, cursor=first["nextCursor"]))
+    second = get(client, "/relations", dict(OUT, pageSize=2, cursor=first["nextCursor"]))
     assert len(second["items"]) == 1
     assert second["nextCursor"] is None
     all_ids = {row["relationId"] for row in first["items"] + second["items"]}
@@ -865,7 +865,7 @@ def test_list_mappings_search(client):
     s2 = _create_system_value(client, "other_" + _suffix())
     relation(client, s1, target)
     relation(client, s2, target)
-    page = get(client, "/mappings", dict(OUT, search="findme"))
+    page = get(client, "/relations", dict(OUT, search="findme"))
     assert all("findme" in row["source"]["name"].lower() for row in page["items"])
     assert len(page["items"]) >= 1
 
@@ -876,7 +876,7 @@ def test_list_mappings_incoming_direction(client):
     s2 = _create_system_value(client, _suffix())
     relation(client, s1, master)
     relation(client, s2, master)
-    page = get(client, "/mappings", IN)
+    page = get(client, "/relations", IN)
     matching = [row for row in page["items"] if row["source"]["id"] == master["id"]]
     assert len(matching) == 2
     target_ids = {row["target"]["id"] for row in matching}
@@ -885,7 +885,7 @@ def test_list_mappings_incoming_direction(client):
 
 def test_list_mappings_empty(client):
     _create_system_value(client, _suffix())
-    page = get(client, "/mappings", OUT)
+    page = get(client, "/relations", OUT)
     assert page["items"] == []
     assert page["nextCursor"] is None
 
@@ -895,7 +895,7 @@ def test_list_mappings_change_set_context(client):
     source = _create_system_value(client, _suffix())
     relation(client, source, master)
     change_set = client.post(BASE + "/change-sets", json={"source": "currentLive"}).json()
-    page = get(client, "/mappings", dict(OUT, changeSetId=change_set["id"]))
+    page = get(client, "/relations", dict(OUT, changeSetId=change_set["id"]))
     matching = [row for row in page["items"] if row["source"]["id"] == source["id"]]
     assert len(matching) == 1
     assert matching[0]["target"]["id"] == master["id"]
@@ -910,7 +910,7 @@ def test_list_mappings_no_params_returns_both_directions(client):
     master = masters(client, 1)[0]
     source = _create_system_value(client, _suffix())
     rel = relation(client, source, master)
-    page = get(client, "/mappings", {})
+    page = get(client, "/relations", {})
     matching = [row for row in page["items"] if row["relationId"] == rel["id"]]
     assert len(matching) == 2
     dirs = {row["direction"] for row in matching}
@@ -927,7 +927,7 @@ def test_list_mappings_direction_filter_single_row(client):
     master = masters(client, 1)[0]
     source = _create_system_value(client, _suffix())
     rel = relation(client, source, master)
-    page = get(client, "/mappings", {"direction": "outgoing"})
+    page = get(client, "/relations", {"direction": "outgoing"})
     matching = [row for row in page["items"] if row["relationId"] == rel["id"]]
     assert len(matching) == 1
     assert matching[0]["direction"] == "outgoing"
@@ -938,9 +938,9 @@ def test_list_mappings_relation_type_filter(client):
     master = masters(client, 1)[0]
     source = _create_system_value(client, _suffix())
     relation(client, source, master)
-    page = get(client, "/mappings", {"relationTypeKey": "system-value-maps-to-master", "direction": "outgoing"})
+    page = get(client, "/relations", {"relationTypeKey": "system-value-maps-to-master", "direction": "outgoing"})
     assert len(page["items"]) >= 1
-    bogus = get(client, "/mappings", {"relationTypeKey": "nonexistent", "direction": "outgoing"})
+    bogus = get(client, "/relations", {"relationTypeKey": "nonexistent", "direction": "outgoing"})
     assert len(bogus["items"]) == 0
 
 
@@ -948,7 +948,7 @@ def test_list_mappings_no_view_default_projection(client):
     master = masters(client, 1)[0]
     source = _create_system_value(client, _suffix())
     relation(client, source, master)
-    page = get(client, "/mappings", {"direction": "outgoing"})
+    page = get(client, "/relations", {"direction": "outgoing"})
     row = next(r for r in page["items"] if r["source"]["id"] == source["id"])
     assert row["source"]["fields"] == {}
     assert row["target"]["fields"] == {}
@@ -960,12 +960,12 @@ def test_list_mappings_with_view_returns_rows(client):
     master = masters(client, 1)[0]
     source = _create_system_value(client, _suffix())
     relation(client, source, master)
-    page = get(client, "/mappings", {**OUT})
+    page = get(client, "/relations", {**OUT})
     matching = [r for r in page["items"] if r["source"]["id"] == source["id"]]
     assert len(matching) == 1
     assert matching[0]["direction"] == "outgoing"
 
 
 def test_list_mappings_incomplete_view_identity_rejected(client):
-    response = client.get(BASE + "/mappings", params={"applicationKey": "rdm-systems"})
+    response = client.get(BASE + "/relations", params={"applicationKey": "rdm-systems"})
     assert response.status_code == 422

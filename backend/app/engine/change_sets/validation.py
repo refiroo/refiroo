@@ -114,6 +114,8 @@ def graph_diagnostics(
                 (key, model.attribute_type(key)) for key in (item.attributes or {})
             ):
                 if definition and definition.features.get("unique"):
+                    if (item.attributes or {}).get(key) in (None, ""):
+                        continue  # empty text is no value (E-D4, H4c)
                     same = [
                         other_id
                         for other_id in holders.of(key, (item.attributes or {}).get(key))

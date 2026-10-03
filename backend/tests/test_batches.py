@@ -295,7 +295,7 @@ def test_each_item_op_is_refused_with_its_single_writes_code(batches):
             _single_code(
                 client.delete(
                     f"/api/v1/objects/{k(FOLDER)}/{folder['id']}",
-                    params={"expectedVersion": version, **claimed(client, context)},
+                    params={"expectedVersion": version, **without_workspace(claimed(client, context))},
                 )
             )
             == _batch_code(client, context, delete)

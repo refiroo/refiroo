@@ -130,7 +130,10 @@ class LiveWrites:
             .execution_options(synchronize_session=False)
         )
         if result.rowcount != 1:
-            raise api_error(409, "version_conflict", "Object version has changed")
+            current = self.session.scalar(select(RdmObject.version).where(RdmObject.id == item.id))
+            raise api_error(
+                409, "version_conflict", "Object version has changed", {"currentVersion": current}
+            )
         self.session.refresh(item)
 
     def write(self, model: EngineModel, changes: Changes) -> dict[str, RdmObject]:
@@ -317,7 +320,12 @@ class LiveWrites:
             .execution_options(synchronize_session=False)
         )
         if result.rowcount != 1:
-            raise api_error(409, "version_conflict", "Relation version has changed")
+            current = self.session.scalar(
+                select(ObjectRelation.version).where(ObjectRelation.id == relation.id)
+            )
+            raise api_error(
+                409, "version_conflict", "Relation version has changed", {"currentVersion": current}
+            )
         self.session.refresh(relation)
 
     def remove_relation(self, relation: ObjectRelation) -> None:

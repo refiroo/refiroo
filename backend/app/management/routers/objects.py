@@ -44,6 +44,7 @@ from ..presenters import (
     change_set_object_response,
 )
 from ..projections.parent_candidates import parent_candidates
+from ..query_parameters import accepts_field_filters
 from ..schemas.common import CalendarDate
 from ..schemas.records import AuditEventPage, ObjectPage, ObjectResponse, ParentCandidatePage
 
@@ -224,6 +225,7 @@ _AS_OF = Query(
         ]
     },
 )
+@accepts_field_filters
 def list_objects(
     object_type_key: str,
     request: Request,
@@ -361,6 +363,7 @@ _LOOKUP_OBJECT_TYPE_KEYS = Query(
         ]
     },
 )
+@accepts_field_filters
 def lookup_objects(
     request: Request,
     session: DbSession,

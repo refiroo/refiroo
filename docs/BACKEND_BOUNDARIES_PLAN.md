@@ -120,16 +120,17 @@ kept as it was and stated once in `refusals.py`:
 | Unknown object type | 404 `unknown_object_type` "…not found" | 422 "…is not in the pinned model" |
 | Unknown application | 404 `unknown_application` | 422 `object_type_not_in_application` |
 | Type not in application | 422 `invalid_object_type_for_application` | 422 `object_type_not_in_application` |
-| Unknown relation type | 404 `unknown_relation_type` | 422 |
+| ~~Unknown relation type~~ | ~~404 `unknown_relation_type`~~ | 422. **Settled 2026-10-03 (H4c):** 422 in both |
 | Parent that does not exist | 404 `object_not_found` | 422 `parent_wrong_scope` |
-| Relation endpoint that does not exist | 404 `object_not_found` | 422 `relation_endpoint_missing` |
+| ~~Relation endpoint that does not exist~~ | ~~404 `object_not_found`~~ | 422 `relation_endpoint_missing`. **Settled 2026-10-03 (H4c):** the change set's answer in both |
 | ID already taken | "An object with ID '…' already exists" | "Object '…' already exists" |
-| Duplicate unique value | "Attribute '<name>' must be unique", no details | "Attribute '<key>' must be unique in the change set", with the holder |
+| ~~Duplicate unique value~~ | ~~"Attribute '<name>' must be unique", no details~~ | ~~"Attribute '<key>' must be unique in the change set", with the holder~~. **Settled 2026-10-03 (H4c):** the name in the message and the key and holder in `details`, in both |
 | Containment relation written directly | one message for create and delete | a message per operation |
 | Required relation deleted | "…cannot be deleted independently" | "…cannot be deleted directly" |
-| Two identical initial relations | 409 `cardinality_violation` | 422 `duplicate_initial_relation` |
+| ~~Two identical initial relations~~ | ~~409 `cardinality_violation`~~ | 422 `duplicate_initial_relation`. **Settled 2026-10-03 (H4c):** the change set's answer in both |
 | `atLeastOneOf` broken by an update | 422 `object_attribute_rule_violation` | accepted; whole-graph validation reports it and publish refuses it |
-| Empty string in a unique attribute | not a value | a value |
+| ~~Empty string in a unique attribute~~ | not a value | ~~a value~~. **Settled 2026-10-03 (H4c):** not a value in both, validation included |
+| Ancestor scope breach (`uniqueToAncestorTypeKey`) | 409 `duplicate_relation_scope` | **Added 2026-10-03 (H4c):** held; validation reports it and publishing refuses it (`Refusals.holds_scope_breaches`) |
 
 Settling E-D4 means choosing one answer per row, as a contract change with its API.md entry.
 

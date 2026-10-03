@@ -107,6 +107,11 @@ Until then the group selection below still chooses a package's checks.
   "J02.2")` with the [journeys and variants](../product-functionality/USER_JOURNEYS.md) they walk.
   An unknown or retired ID, or a journey test without one, fails collection. `--journey J02` runs
   the tests that walk J02 or any of its variants; `-m journey` runs every journey test.
+  A journey test names the model structures it uses (`@pytest.mark.structures("R", "Bnn")`) and runs
+  once per configuration chosen for them (`configurations.py`): with the `world` fixture on a clone
+  of the configuration's seeded data with the application started (`scenario.py`), or with the
+  `configuration` fixture alone when it starts the service itself, as the operator's journey J12
+  does (`service.py`).
 - **Unit tests** live in `backend/tests/unit/` in folders that mirror the code they test:
   `tests/unit/engine/records/test_rules.py` tests `app/engine/records/rules.py`
   (`test_rules__<topic>.py` splits one), and `tests/unit/harness/` tests the harness modules in

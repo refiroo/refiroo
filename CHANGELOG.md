@@ -129,6 +129,33 @@ All notable changes to this project are documented in this file. The format foll
   `python -m tests.journey_trace` shows the code each journey reaches and the code no test reaches.
   `test_api_journeys` keeps the API inventory (`docs/testing/API_JOURNEYS.md`) complete: every
   operation, parameter, error code and setting with its journeys.
+- 0.9.0-alpha.1 H4c: every route refuses a query parameter it does not take with
+  `422 unknown_parameter` naming each in `details.parameters` (a misspelt `pagesize` was silently
+  ignored, as was a `publicationId` on a write, which then wrote live data). `GET
+  /api/v1/workspaces/{key}/mappings` is removed; `GET /api/v1/workspaces/{key}/relations` is the same
+  list, and the path keeps the replacement's `PUT`. API.md documents the 32 error codes it lacked.
+- 0.9.0-alpha.1 H4c: journey tests for every journey and variant of the catalogue with an API or
+  operator side (160 tests, 345 runs on two model configurations each, about 1 minute in parallel),
+  written from the catalogue and API.md before the code was read. Each runs on a generated model and
+  on the starter model or a second generated one, against a seed built once through the API. The
+  operator's journey starts the service on prepared databases and runs its commands as processes.
+- 0.9.0-alpha.1 H4c, decided from the journey tests: a stale `expectedVersion` on a record or
+  relation write answers `409 version_conflict` with `details.currentVersion`, as a workspace update
+  did. A live write naming an unknown relation type is `422 unknown_relation_type` (was 404), and a
+  live create whose `initialRelations` repeat one relationship is `422 duplicate_initial_relation`
+  (was `409 cardinality_violation` or `duplicate_relation`), as in a change set. The relation matrix
+  answers an unknown `applicationKey` with `404 unknown_application`. `/health` asks the database
+  and answers `503` while it is unreachable; it recovers without a restart.
+- 0.9.0-alpha.1 H4c: a duplicate unique value is refused alike live and in a change set: the message
+  names the attribute, `details` carry `attributeTypeKey` and `conflictingObjectId` (live had no
+  details). Empty text in a unique attribute is no value in a change set too, so records may share
+  it there as live. A change set holds a breach of a binding's ancestor scope written directly (a
+  relation create, initial relations, an edit, a move or a set replacement) as it already held one a
+  moved container brought: the matrix shows the conflict, validation reports it and publishing
+  refuses it, so a change set's edits can come in any order. Live still refuses it at once.
+- 0.9.0-alpha.1 H4c: a live relation create or initial relation naming a record that does not
+  exist answers `422 relation_endpoint_missing` naming it (was `404 object_not_found`), as a change
+  set does.
 - 0.9.0-alpha.1 PG3: live writes of one workspace serialize on its row lock, and workspaces write
   in parallel (PG-D5). Every live write locks its workspace before it reads, so two writes racing
   for one unique value, a parent cycle, a cardinality limit, a required relation, a relation-set
@@ -193,6 +220,8 @@ All notable changes to this project are documented in this file. The format foll
   which made a restructuring budget test fail when a run was slow.
 - `python -m app.cli.model_schema_upgrade --help` names every supported schema (0.5–0.8); it
   named 0.5–0.7 while it also accepted 0.8.
+- Startup refused with an unsupported model schema named the supported schemas as 0.5–0.7; it names
+  every supported schema (0.5–0.8).
 
 ## [0.8.0] - 2026-09-29
 
