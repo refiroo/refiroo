@@ -14,7 +14,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ...common.pagination import PageRequest, paginate_statement, text_key
+from ...common.pagination import Keyed, PageRequest, paginate_statement
 from ...errors import api_error
 from ...models.database import RdmObject
 from ...models.schema import ConsumerApiDefinition, ConsumerList, EngineModel
@@ -55,19 +55,18 @@ def read_consumer_list(
         search=None,
         sort=declared.sortBy,
     )
-    statement = query.statement.where(*narrowed.on(RdmObject))
+    conditions = narrowed.on(RdmObject)
     if parent_ids:
         _require_parents(session, declared, workspace_key, parent_ids)
         starts = select(RdmObject.id).where(RdmObject.id.in_(list(parent_ids)))
-        statement = statement.where(below(model, workspace_key, starts, [declared.objectType])(RdmObject))
-    keys = query.keys
+        conditions.append(below(session, model, workspace_key, starts, [declared.objectType])(RdmObject))
     if declared.sortBy is not None:
         # The sort value, then name, then creation order (C-D29).
-        keys = (*keys[:-1], text_key("name", RdmObject.name, "name"), keys[-1])
+        query = query.then_by_name()
     found = paginate_statement(
         session,
-        statement,
-        keys=keys,
+        query.statement.where(*conditions),
+        keys=query.keys,
         scope=f"consumer-list:{definition.key}:{declared.key}",
         filters={
             "workspace": workspace_key,
@@ -78,6 +77,9 @@ def read_consumer_list(
         page=page,
         page_size=page_size,
         seek=query.seek,
+        parts=None
+        if query.parts is None
+        else [Keyed(part.statement.where(*conditions), part.keys) for part in query.parts],
     )
     ids = [row.id for row in found.items]
     composed = ConsumerObjects(model, definition).compose(session, workspace_key, ids, narrowed)

@@ -349,11 +349,14 @@ then (a) stop counting past the cap, (b) skip the candidate read when the trigra
 estimate (`EXPLAIN` row estimate, or `pg_trgm`'s similarity statistics) says the phrase is common.
 **Effort:** the decision; then about half a day. **Verify:** recipe A, `test_search_index`.
 
-### E3. Sort by an attribute under the 20,000-child parent: 104, 150 and 142 ms
+### E3. Sort by an attribute under the 20,000-child parent: 104, 150 and 142 ms (live closed by 0.9 C3a)
 
 `children: heavy parent by rank`. Known since 0.8 S4R1 and decided as **D26: precomputed sort keys,
-after 0.9** (an indexed sort value per record). Unchanged by PG5. **Effort:** larger (storage, write
-path, migration); plan it with D26.
+after 0.9** (an indexed sort value per record). Unchanged by PG5. **Live: closed by 0.9 C3a
+(2026-10-04), 9.9 ms**, through value-order indexes and a list read in two parts (0.9 D46). The change
+set (150 ms) and history (142 ms) contexts remain; 0.9 D47 makes them a task of C6. What 0.8 D26's
+stored key would still add: attributes with few distinct values (a whole group of equal values sorted
+by name) and deep positions (113–123 ms at row 50,000 of a consumer list sorted by rank).
 
 ### E4. Live history-only matrix filter: 108 ms warm, 157–176 ms cold
 

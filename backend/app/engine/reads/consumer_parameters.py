@@ -22,8 +22,8 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from sqlalchemy import Select, and_, exists, false, or_, select
-from sqlalchemy.orm import aliased
+from sqlalchemy import ARRAY, Select, String, and_, any_, bindparam, exists, false, or_, select
+from sqlalchemy.orm import Session, aliased
 
 from ...errors import api_error
 from ...models.database import AttributeValue, ObjectRelation, RdmObject
@@ -38,7 +38,7 @@ from ...models.schema import (
 from ..model.consumer_contract import projection_targets, split_ancestor_reference
 from ..model.traversal import ancestor_type_keys
 from ..records.values import VALUE_COLUMNS
-from .object_query import escape_like, parse_typed
+from .object_query import SEARCH_CANDIDATE_LIMIT, escape_like, parse_typed
 
 # A condition on a record, given the entity (``RdmObject`` or an alias of it) that holds it.
 Predicate = Callable[[Any], Any]
@@ -86,13 +86,14 @@ NO_FILTER = ConsumerFilter()
 
 
 def consumer_filter(
+    session: Session,
     model: EngineModel,
     definition: ConsumerApiDefinition,
     workspace_key: str,
     values: Mapping[str, Sequence[str]],
 ) -> ConsumerFilter:
     """The predicates of the definition parameters in ``values`` (name to its split values)."""
-    builder = _Builder(model, definition, workspace_key)
+    builder = _Builder(session, model, definition, workspace_key)
     records: list[Predicate] = []
     limits: dict[str, list[Predicate]] = {}
     for name, given in values.items():
@@ -119,7 +120,10 @@ def _all(predicates: list[Predicate]) -> Predicate:
 
 
 class _Builder:
-    def __init__(self, model: EngineModel, definition: ConsumerApiDefinition, workspace_key: str) -> None:
+    def __init__(
+        self, session: Session, model: EngineModel, definition: ConsumerApiDefinition, workspace_key: str
+    ) -> None:
+        self.session = session
         self.model = model
         self.definition = definition
         self.workspace_key = workspace_key
@@ -140,7 +144,7 @@ class _Builder:
 
     def ancestor(self, parameter: AncestorParameter, values: Sequence[str]) -> Predicate:
         starts = self.candidates(parameter.objectTypes, parameter.matchFields, values)
-        return below(self.model, self.workspace_key, starts, self.definition.objectTypes)
+        return below(self.session, self.model, self.workspace_key, starts, self.definition.objectTypes)
 
     def related(self, parameter: RelatedParameter, values: Sequence[str]) -> Predicate:
         candidates = self.candidates(parameter.objectTypes, parameter.matchFields, values)
@@ -174,7 +178,7 @@ class _Builder:
             else:
                 type_key, name = reference
                 starts = self.candidates([type_key], [name], values)
-                matches.append(below(self.model, self.workspace_key, starts, targets))
+                matches.append(below(self.session, self.model, self.workspace_key, starts, targets))
 
         def item(entity: Any) -> Any:
             return or_(*(match(entity) for match in matches))
@@ -253,7 +257,11 @@ class _Builder:
 
 
 def below(
-    model: EngineModel, workspace_key: str, starts: Select[Any], type_keys: Iterable[str]
+    session: Session,
+    model: EngineModel,
+    workspace_key: str,
+    starts: Select[Any],
+    type_keys: Iterable[str],
 ) -> Predicate:
     """Records of ``type_keys`` anywhere below a record of ``starts`` (an ``id`` column).
 
@@ -261,6 +269,11 @@ def below(
     through the records of the types that can contain ``type_keys`` only, each step probing the
     (workspace, parent, type) index; a record is below a start when its parent is one of them. The
     records being listed are never walked, so the cost follows the containers, not the records.
+
+    The containers are read first and bound as a list while they are few, as a search's candidates
+    are (``search_candidates``): PostgreSQL estimates a recursive CTE far above what it holds and
+    would then hash every value of a sorted list instead of walking its index (0.9 C3a). Past
+    :data:`SEARCH_CANDIDATE_LIMIT` the walk stays a subquery.
     """
     containers = sorted(set().union(*(ancestor_type_keys(model, key) for key in type_keys)))
     walk = starts.cte(recursive=True)
@@ -273,4 +286,8 @@ def below(
         .where(child.workspace_key == workspace_key, child.object_type_key.in_(containers))
     )
     walked = select(walk.c.id)
-    return lambda entity: entity.parent_object_id.in_(walked)
+    found = list(session.scalars(walked.limit(SEARCH_CANDIDATE_LIMIT + 1)))
+    if len(found) > SEARCH_CANDIDATE_LIMIT:
+        return lambda entity: entity.parent_object_id.in_(walked)
+    listed = bindparam(None, found, type_=ARRAY(String))
+    return lambda entity: entity.parent_object_id == any_(listed)

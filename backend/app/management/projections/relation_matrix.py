@@ -290,6 +290,7 @@ def relation_matrix_page(
         rows=read.context is not None,
         seek=query.seek,
         overlay=query.overlay,
+        parts=query.parts,
     )
     rows = row_page.items
     row_ids = [_record_id(item) for item in rows]

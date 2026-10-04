@@ -675,6 +675,8 @@ collection relies on an undocumented unlimited page.
 - **J21.7 A cursor reused** with another query, workspace, context or route is refused.
 - **J21.8 An unknown query parameter** (a typo such as `pagesize`) is refused, naming it, on every
   route (decided D-3; delivered in H4c).
+- **J21.9 Sorted by an attribute**: records with a value in value order, those without one last
+  in both directions; every paging mode crosses between them.
 
 **Refusals:** `422 INVALID_CURSOR`, `422 CONFLICTING_PAGE_PARAMETERS`, `422 INVALID_SEEK`,
 `422 INVALID_SORT`, `422 UNKNOWN_PARAMETER` (J21.8).

@@ -214,8 +214,8 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 12a | [T1a](#t1a-copies-inside-the-database) | T1 | Amendment: change-set bases and publications copied inside PostgreSQL — **delivered 2026-10-04** |
 | 12b | [T1b](#t1b-one-error-code-pattern) | T1a | Amendment: error codes in upper case across every API (C-D25) — **delivered 2026-10-04** |
 | 13 | [C2](#c2-consumer-object-and-projections) | C1, T1b | Consumer object and projections: get by ID — **delivered 2026-10-04** |
-| 14 | [C3](#c3-consumer-lists-and-parameters) | C2 | Lists and parameters (C-D27–C-D33) — **delivered 2026-10-04**, `sortBy` reads over budget until [C3a](#c3a-attribute-sorts-read-in-value-order) ([record](#c3-delivery-record)) |
-| 14a | [C3a](#c3a-attribute-sorts-read-in-value-order) | C3 | Amendment: attribute sorts read in value order (D46–D48) — planned; decisions approved 2026-10-04 |
+| 14 | [C3](#c3-consumer-lists-and-parameters) | C2 | Lists and parameters (C-D27–C-D33) — **delivered 2026-10-04**, `sortBy` reads brought within budget by [C3a](#c3a-attribute-sorts-read-in-value-order) ([record](#c3-delivery-record)) |
+| 14a | [C3a](#c3a-attribute-sorts-read-in-value-order) | C3 | Amendment: attribute sorts read in value order (D46–D48) — **delivered 2026-10-04** ([record](#c3a-delivery-record)) |
 | 15 | C4 | C2 | Consumer index and XREF scoring |
 | 16 | C5 | C4 | XREF parameters |
 | 17 | C14 | C4 | Batch resolve |
@@ -2259,8 +2259,8 @@ frontend (unchanged), the full suites (R).
 
 #### C3a: Attribute sorts read in value order
 
-**Planned 2026-10-04; decisions D46–D48 approved by the user the same day** (D47 with its context
-work made a task of C6). An amendment raised by C3's full-volume budget: the user asked
+**Delivered 2026-10-04** ([record](#c3a-delivery-record)). **Planned 2026-10-04; decisions D46–D48 approved by the user the same day** (D47 with its context
+work made a task of C6); test cases approved by the user the same day. An amendment raised by C3's full-volume budget: the user asked
 on 2026-10-04 whether the sort could be solved in C3, route 1 below was checked once on the
 full-volume seed, and the user agreed to a package of its own. **Needs:** C3. **Before:** C4.
 **Groups:** `queries`, `consumer`, `volume`, `startup`, `contract`.
@@ -2316,7 +2316,7 @@ in name order with an anti-join, they cost 1 ms when such records exist and 56 m
 | D47 | Which contexts | Live only, the contexts C3 reads. Change sets and publications are a task of C6, which reads publications through a consumer API (recorded in C6's row) |
 | D48 | Which lists | The shared live attribute sort, so the management per-type list's attribute sort gains it too (POSTGRESQL_BUDGETS E3, 104 ms under the 20,000-child parent, expected to fall); not the ancestor sort (`ancestor:<type>`), which reads another table |
 
-**Test cases** (for approval; behaviour is unchanged, so they guard the change rather than fail first):
+**Test cases** (approved; behaviour is unchanged, so they guard the change rather than fail first):
 
 1. **J28.6 (unchanged)** already pages a `sortBy` list across both parts: by value, records without a
    value last, cursors both ways, `position`, `from=end`, `seek` and totals, on generated A and B.
@@ -2343,6 +2343,56 @@ changes.
 
 **Composable domains (ADR-032):** attribute storage gains indexes and keeps its shape; identity,
 audit, the bulk APIs and the `match` declaration are untouched. No door closes.
+
+##### C3a delivery record
+
+**Delivered 2026-10-04.** What was built:
+
+- **Migration** `20261004_04`: `ix_attribute_values_key_{integer,decimal,boolean,date,datetime}` on
+  `(attribute_type_key, <typed value>, object_id)`, declared on `AttributeValue` as well.
+- **Two parts** in `object_query._value_order_parts`: the live attribute sort's records with a value
+  (joined to it, null rank constant 0) and without one (an anti-join, null rank constant 1), with the
+  same key names, parse and format, so cursors, seek and positions are unchanged. `ObjectQuery.parts`
+  carries them; `ObjectQuery.then_by_name` adds the consumer lists' name key to every part.
+- **Paging in parts** in `paginate_statement(parts=…)`: a page reads the parts in turn (in reverse
+  backward), a position skips a part whole by its count when the part returns nothing, a total and a
+  start index add the parts' counts in one statement, and `seek` takes the part's keys. The per-type
+  list, the relation matrix's rows and the consumer lists pass the parts.
+
+**Differences from the plan:**
+
+- **The containers are read first** (`consumer_parameters.below`), approved by the user after the
+  closing measurement: with the value-order parts the ancestor filter with a total rose from 148 to
+  215 ms, because PostgreSQL estimated the walk's recursive CTE at 953,267 rows when it held one
+  group and hashed every rank value instead of walking the index. Reading the containers first and
+  binding them as a list, as a search binds its candidates (`SEARCH_CANDIDATE_LIMIT`, past which the
+  walk stays a subquery), brought it to 101 ms. One statement more for a parent or ancestor filter.
+- **J21.9** is a new variant in USER_JOURNEYS (the plan said "one new J21 case"). It passed before
+  the change, as planned: behaviour is unchanged.
+
+**Measurement** (full volume, live, warm median of 3; before → after):
+
+| Read | C3 | C3a |
+| --- | --- | --- |
+| Consumer: first page of every item by rank | 479 ms | 9.7 ms · 9 · 24 |
+| Consumer: next cursor page | 2,571 ms | 11.9 ms · 11 · 25 |
+| Consumer: position jump to the middle | 690 ms | **123.2 ms** · 9 · 24 (the deep-position limit D46 names) |
+| Consumer: 20,000 items under a parent | 7.4 ms | 7.1 ms · 7 · 24 |
+| Consumer: ancestor filter with `includeTotal` | 148 ms | **100.7 ms** · 11 · 24 |
+| Per-type list: children of the heavy parent by rank (E3) | 104 ms | 9.9 ms · 9 · 84 |
+
+The position jump and the ancestor filter with its total stay at or just over 100 ms and are
+recorded, not tuned further (TODO). Relation lists by rank are unchanged (their sort is not C3a's).
+
+**Checks:** J21 and J28 (42 passed; J21.9 on generated A and B). Groups `queries`, `consumer`,
+`volume` and `contract` in parallel: 412 passed in 1 min 48 s, seeds rebuilt once for the migration;
+their serial part with `startup`: 1 passed. `startup` (with `HEAD` at `20261004_04` in
+`test_startup`: clean bootstrap, upgrade through every revision, restart, the refusals): 94 passed.
+`matrix` (the relation matrix's rows take the parts): 116 passed. After the containers-first change:
+J28 (22) and `test_consumer_list_volume` passed. Smoke start on a copy of the development database at
+`20261004_01`: migrated to `20261004_04` with the indexes, healthy, restarted healthy, and an
+attribute-sorted list read ascending, from the end and at a position; the copy and its log removed.
+`ruff check app/ tests/` clean. Not run: the frontend (unchanged), the full suites (R).
 
 ## Track V — API reference
 

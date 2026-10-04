@@ -335,6 +335,7 @@ def list_objects(
         page_size=page_size,
         message="Object cursor is invalid",
         seek=query.seek,
+        parts=query.parts,
     )
     return ObjectPage(items=build_object_responses(session, model, page.items), **page.links())
 

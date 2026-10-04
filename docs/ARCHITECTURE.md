@@ -330,6 +330,15 @@ position read jumps to row N and may. Every page carries both cursors, an anchor
 on request, the total and its start index. There is no unbounded page: full extraction belongs to
 export jobs or the change feed.
 
+A live list sorted by an attribute is read in two parts (`object_query._value_order_parts`): the
+records with a value, joined to it and walked through an `(attribute, typed value, record)` index in
+value order, then the records without one. `paginate_statement` pages such parts in turn: a page
+continues from one into the next, a position skips a whole part by its count and a total adds them.
+Each part holds its null rank constant, so the keys, cursors and seek are those of the single
+statement. Change-set and publication lists keep one statement until C6 (0.9 D47). A consumer list
+filtered below a parent or an ancestor reads the container records first and binds them as a list,
+as a search reads its candidates, so PostgreSQL plans with their real number.
+
 **Search and order.** Names sort in the database's ICU root collation, case- and accent-aware. Search
 uses `pg_trgm` GIN indexes on the live and snapshot value tables and on the name of every record table
 (`models/search_index.py`), which narrow candidates; the case-insensitive "contains" predicate still

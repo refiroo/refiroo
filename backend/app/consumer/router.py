@@ -72,7 +72,7 @@ def get_object(
             definition,
             workspace.key,
             object_id,
-            consumer_filter(model, definition, workspace.key, parameters.definition),
+            consumer_filter(session, model, definition, workspace.key, parameters.definition),
         ),
     )
 
@@ -100,7 +100,7 @@ def get_list(
             declared,
             workspace_key=workspace.key,
             parent_ids=parameters.parents,
-            narrowed=consumer_filter(model, definition, workspace.key, parameters.definition),
+            narrowed=consumer_filter(session, model, definition, workspace.key, parameters.definition),
             parameters=parameters.definition,
             page=page,
             page_size=page_size,

@@ -8,16 +8,19 @@ from typing import Any
 
 from sqlalchemy import (
     ARRAY,
+    Integer,
     Select,
     String,
     and_,
     any_,
     bindparam,
     case,
+    cast,
     exists,
     false,
     func,
     not_,
+    null,
     or_,
     select,
     union_all,
@@ -25,6 +28,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Session, aliased
 
 from ...common.pagination import (
+    Keyed,
     Overlay,
     SortKey,
     datetime_key,
@@ -63,15 +67,31 @@ DEFAULT_SORT = "name"
 class ObjectQuery:
     """A filtered object collection query with the keyset it must be paged by.
 
-    ``seek`` turns a ``seek`` value into the predicate for rows at or after it in list order.
-    ``overlay`` names a change set list's parts, through which position reads resolve.
+    ``seek`` turns a ``seek`` value into the predicate for rows at or after it in list order, over
+    ``keys`` or the keys it is given. ``overlay`` names a change set list's parts, through which
+    position reads resolve. ``parts`` read a live attribute sort in value order (0.9 C3a).
     """
 
     statement: Select[Any]
     keys: tuple[SortKey, ...]
     filters: dict[str, Any]
-    seek: Callable[[str], Any]
+    seek: Callable[..., Any]
     overlay: Overlay | None = None
+    parts: tuple[Keyed, ...] | None = None
+
+    def then_by_name(self) -> ObjectQuery:
+        """The same query with the name ordering ties before the unique tiebreak."""
+
+        def widened(keys: tuple[SortKey, ...]) -> tuple[SortKey, ...]:
+            return (*keys[:-1], text_key("name", RdmObject.name, "name"), keys[-1])
+
+        return replace(
+            self,
+            keys=widened(self.keys),
+            parts=None
+            if self.parts is None
+            else tuple(Keyed(part.statement, widened(tuple(part.keys))) for part in self.parts),
+        )
 
 
 @dataclass(frozen=True)
@@ -307,6 +327,7 @@ def build_object_query(
         search_ids=search_ids,
     )
     return ObjectQuery(
+        parts=_value_order_parts(model, statement, keys, sort),
         statement=statement,
         keys=keys,
         filters={
@@ -320,6 +341,53 @@ def build_object_query(
             **as_of_filter(as_of),
         },
         seek=seek,
+    )
+
+
+def _value_order_parts(
+    model: EngineModel, statement: Select[Any], keys: tuple[SortKey, ...], sort: str | None
+) -> tuple[Keyed, ...] | None:
+    """A live attribute sort read in two parts (0.9 C3a, D46): the records with a value, joined to it
+    and ordered through the (attribute, value) index, then the records without one. Each part holds
+    its null rank constant, so a position in the other part costs it nothing. ``None`` for any other
+    sort."""
+    field_name = (sort or DEFAULT_SORT).removeprefix("-")
+    if len(keys) != 3 or keys[0].name != f"{field_name}:null":
+        return None
+    null_rank, value_key, tiebreak = keys
+    column_name = VALUE_COLUMNS[model.attribute_type(field_name).valueType]
+    held, absent = aliased(AttributeValue), aliased(AttributeValue)
+    held_value = getattr(held, column_name)
+    with_value = statement.join(
+        held,
+        and_(
+            held.object_id == RdmObject.id,
+            held.attribute_type_key == field_name,
+            held_value.is_not(None),
+        ),
+    )
+    without_value = statement.where(
+        ~exists(
+            select(absent.sequence_id).where(
+                absent.object_id == RdmObject.id,
+                absent.attribute_type_key == field_name,
+                getattr(absent, column_name).is_not(None),
+            )
+        )
+    )
+    return (
+        Keyed(
+            with_value,
+            (replace(null_rank, column=cast(0, Integer)), replace(value_key, column=held_value), tiebreak),
+        ),
+        Keyed(
+            without_value,
+            (
+                replace(null_rank, column=cast(1, Integer)),
+                replace(value_key, column=cast(null(), held_value.type)),
+                tiebreak,
+            ),
+        ),
     )
 
 
@@ -372,9 +440,9 @@ def _object_seek(
 ) -> Callable[[str], Any]:
     """Seek by the sorted field's value, which is the name when no sort is given."""
 
-    def seek(raw: str) -> Any:
+    def seek(raw: str, part_keys: Sequence[SortKey] = keys) -> Any:
         try:
-            return seek_predicate(keys, seek_values(raw))
+            return seek_predicate(part_keys, seek_values(raw))
         except ValueError:
             field_name = (sort or DEFAULT_SORT).removeprefix("-")
             raise seek_error(f"Invalid seek value for sort '{field_name}'") from None

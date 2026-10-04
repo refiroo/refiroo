@@ -28,8 +28,9 @@ feed retention and recovery from the active publication (D40–D41). **T1 is del
 (2026-10-03)**: the Q, B and F checkpoint, with three capture and publish defects fixed. T1a
 (copies inside PostgreSQL) and T1b (upper-case error codes) are delivered (2026-10-04). **C2 is
 delivered (2026-10-04)**: the consumer tier with get by ID (C-D21–C-D26). **C3 is delivered
-(2026-10-04)**: consumer lists and every parameter kind (C-D27–C-D33). Next: C3a (planned, decisions
-approved), then C4, in the order of the delivery queue. See
+(2026-10-04)**: consumer lists and every parameter kind (C-D27–C-D33). **C3a is delivered
+(2026-10-04)**: attribute sorts read in value order (D46–D48). Next: C4, in the order of the delivery
+queue. See
 [Next — 0.9](#next--09).
 
 - **Publish and change-set creation move the workspace through Python (found 2026-10-03, F1;
@@ -113,12 +114,11 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   (2026-09-30) with the management API as its source; pinned script bundled, CDN by setting, outside
   the OpenAPI document.
 - [ ] V2: each installed consumer API contract version as a further source on `/docs` (needs C6).
-- [ ] Consumer lists ordered by `sortBy` are over the 100 ms budget at full volume (found in C3): first
-  page 479 ms, next cursor page 2.6 s, position jump 690 ms, an ancestor filter over 20,000 items
-  148 ms. Cause: the attribute sort reads the value through correlated subqueries, so every page sorts
-  the whole type (POSTGRESQL_BUDGETS E3; Base 0.8 D26 deferred a stored sort key until after 0.9).
-  Planned as [C3a](BASE_0_9_IMPLEMENTATION_PLAN.md#c3a-attribute-sorts-read-in-value-order): an index
-  on the values, read in value order (decisions D46–D48 approved 2026-10-04).
+- [x] Consumer lists ordered by `sortBy` over the 100 ms budget (found in C3, 0.5–2.6 s): delivered
+  as C3a (2026-10-04), 10–12 ms through value-order indexes. Left at the budget line and recorded,
+  not tuned: a position jump to row 50,000 (123 ms) and an ancestor filter over 20,000 items with
+  `includeTotal` (101 ms); 0.8 D26's stored sort key, after 0.9, would serve deep positions and
+  attributes with few distinct values.
 - [ ] C6 task (D47): C3a's value-order attribute sort for publication and change-set reads, over
   `snapshot_attribute_values`, with its budget recorded.
 - [ ] Comma-separated values on the management API's repeated filters (`filter.<field>.eq=A,B`), with

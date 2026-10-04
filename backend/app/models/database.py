@@ -450,6 +450,11 @@ class AttributeValue(Base):
         # A live write's unique-value check and a key reference seek to the value (0.9 B2,
         # 20261001_01), as a change set's do through ix_snapshot_attribute_values_owner_key_text.
         Index("ix_attribute_values_key_text", "attribute_type_key", "text_value", "object_id"),
+        # An attribute sort reads the records with a value in value order (0.9 C3a, 20261004_04).
+        *(
+            Index(f"ix_attribute_values_key_{name}", "attribute_type_key", f"{name}_value", "object_id")
+            for name in ("integer", "decimal", "boolean", "date", "datetime")
+        ),
         search_index(LIVE_VALUES),
     )
 

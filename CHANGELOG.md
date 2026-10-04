@@ -8,6 +8,13 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 C3a: lists sorted by an attribute read in value order. Migration `20261004_04` adds an
+  index per typed value column on `(attribute_type_key, value, object_id)`, and a live attribute sort
+  pages its records with a value through it, then those without one. Nothing changes for callers.
+  At full volume a consumer list by rank pages in 10–12 ms (was 0.5–2.6 s) and the per-type list's
+  rank sort under the 20,000-child parent in 9.9 ms (was 104 ms, POSTGRESQL_BUDGETS E3 live). A
+  consumer list below a parent or an ancestor reads its containers first. Decisions D46–D48; change
+  sets and publications follow in C6.
 - Base 0.9 C3: consumer API lists and parameters:
   `GET /api/consumer/{apiKey}/v{contractVersion}/lists/{listKey}`.
   - **Lists.** Every live record of the list's type, or those anywhere below the parent records named

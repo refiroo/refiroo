@@ -8,7 +8,9 @@ position. The two entry points here own that mechanism so each endpoint only dec
 
 A statement over a large indexed base overlaid by a few rows of its own (a change set over its base)
 can also name the parts it unions (:class:`Overlay`), so a position read resolves against the
-base's index instead of skipping every earlier row through the union.
+base's index instead of skipping every earlier row through the union. A list whose order falls into
+consecutive ranges, each read best by its own statement, names them as ``parts`` instead (0.9 C3a:
+an attribute sort's records with a value, through an index in value order, then those without one).
 
 A request selects its page with at most one of ``cursor``, ``position``, ``seek`` or ``from=end``
 (:class:`PageRequest`); none means the first page. Whatever it used, a page returns ``nextCursor``
@@ -121,6 +123,10 @@ class Overlay:
     added: Keyed
 
 
+# A condition on a statement, built from the keys it is ordered by (each part has its own columns).
+Where = Callable[[Sequence[SortKey]], Any]
+
+
 @dataclass(frozen=True)
 class Page[Item]:
     """One page in list order, with the cursors to continue from it."""
@@ -203,8 +209,9 @@ def paginate_statement[Row](
     cursor_sort_tokens: tuple[str, ...] | None = None,
     message: str = "Cursor is invalid",
     rows: bool = False,
-    seek: Callable[[str], Any] | None = None,
+    seek: Callable[..., Any] | None = None,
     overlay: Overlay | None = None,
+    parts: Sequence[Keyed] | None = None,
 ) -> Page[Row]:
     """Page a select with a lexicographic keyset predicate over ``keys``.
 
@@ -212,6 +219,12 @@ def paginate_statement[Row](
     labelled columns (a change set or publication projection) returns result rows. ``seek`` turns a
     ``seek`` value into a predicate; without it, seek applies to the first sort key. ``overlay``
     names the parts of a base-plus-overlay statement, which position reads resolve through.
+
+    ``parts`` read the list in consecutive ranges of its order, each a statement with keys of the
+    same names, parse and format as ``keys`` (a constant may stand for a key the part holds fixed).
+    A page continues from one part into the next, a position skips whole parts by their counts and a
+    total adds them, so a read still costs a fixed number of statements. With ``parts``, ``seek``
+    takes the part's keys as a second argument.
 
     Besides the page itself a read costs at most one probe for the opposite edge and, with totals,
     two counts: its statement count does not grow with the dataset. A first or position page
@@ -223,9 +236,49 @@ def paginate_statement[Row](
     if len(sort) != len(keys):
         raise ValueError("Cursor sort tokens must match the keyset width")
 
-    def fetch(where: Any, limit: int, *, backward: bool = False, offset: int = 0) -> list[Any]:
-        selected = _ordered(statement, keys, where, limit, backward=backward, offset=offset)
+    sources = list(parts) if parts else [Keyed(statement, keys)]
+
+    def run(selected: Any) -> list[Any]:
         return list(session.execute(selected).all() if rows else session.scalars(selected))
+
+    def fetch(where: Where | None, limit: int, *, backward: bool = False, offset: int = 0) -> list[Any]:
+        """Up to ``limit`` rows in list order (or reverse), from the parts in turn."""
+        found: list[Any] = []
+        ordered = sources[::-1] if backward else sources
+        for index, part in enumerate(ordered):
+            if len(found) >= limit:
+                break
+            condition = None if where is None else where(part.keys)
+            read = run(
+                _ordered(
+                    part.statement, part.keys, condition, limit - len(found), backward=backward, offset=offset
+                )
+            )
+            if read:
+                offset = 0
+            elif offset and index < len(ordered) - 1:
+                # The part holds no more rows than the offset: skip it whole.
+                selected = part.statement if condition is None else part.statement.where(condition)
+                offset -= _count(session, selected)
+            found += read
+        return found
+
+    def count(where: Where | None) -> int:
+        """The rows of every part, under ``where``, in one statement."""
+        if len(sources) == 1:
+            part = sources[0]
+            return _count(session, part.statement if where is None else part.statement.where(where(part.keys)))
+        counts = [
+            select(func.count())
+            .select_from(
+                (part.statement if where is None else part.statement.where(where(part.keys)))
+                .order_by(None)
+                .subquery()
+            )
+            .scalar_subquery()
+            for part in sources
+        ]
+        return sum(session.execute(select(*counts)).one())
 
     positions: dict[int, tuple[str, ...]] = {}
 
@@ -234,9 +287,9 @@ def paginate_statement[Row](
             positions[id(row)] = _row_position(session, keys, row)
         return positions[id(row)]
 
-    def beyond(row: Any, *, backward: bool) -> Any:
+    def beyond(row: Any, *, backward: bool) -> Where:
         values = _parse_position(keys, position_of(row), message)
-        return _keyset_predicate(keys, values, backward=backward, inclusive=False)
+        return lambda part_keys: _keyset_predicate(part_keys, values, backward=backward, inclusive=False)
 
     backward = False
     # Rows before the page when known without a probe: the first page and position reads.
@@ -251,15 +304,22 @@ def paginate_statement[Row](
             message=message,
         )
         backward = direction in {"before", "upto"}
-        predicate = _keyset_predicate(
-            keys,
-            _parse_position(keys, token, message),
+        values = _parse_position(keys, token, message)
+        inclusive = direction in {"from", "upto"}
+        fetched = fetch(
+            lambda part_keys: _keyset_predicate(part_keys, values, backward=backward, inclusive=inclusive),
+            page_size + 1,
             backward=backward,
-            inclusive=direction in {"from", "upto"},
         )
-        fetched = fetch(predicate, page_size + 1, backward=backward)
     elif page.seek is not None:
-        fetched = fetch((seek or leading_key_seek(keys))(page.seek), page_size + 1)
+        if parts:
+            assert seek is not None, "a list read in parts seeks through its parts' keys"
+            raw = page.seek
+            seek(raw, keys)  # refuses an invalid value before any part is read
+            fetched = fetch(lambda part_keys: seek(raw, part_keys), page_size + 1)
+        else:
+            sought = (seek or leading_key_seek(keys))(page.seek)
+            fetched = fetch(lambda _keys: sought, page_size + 1)
     elif page.position is not None:
         known_before = page.position
         located = (
@@ -271,8 +331,11 @@ def paginate_statement[Row](
             fetched = fetch(None, page_size + 1, offset=page.position)
         else:
             values, skip = located
-            at = _keyset_predicate(keys, values, backward=False, inclusive=True)
-            fetched = fetch(at, page_size + 1, offset=skip)
+            fetched = fetch(
+                lambda part_keys: _keyset_predicate(part_keys, values, backward=False, inclusive=True),
+                page_size + 1,
+                offset=skip,
+            )
     elif page.from_end:
         backward = True
         fetched = fetch(None, page_size + 1, backward=True)
@@ -325,7 +388,7 @@ def paginate_statement[Row](
         # The page runs from a known position to the end: its rows are all that remain.
         total = known_before + len(visible)
     else:
-        total = _total(session, statement, overlay)
+        total = _total(session, statement, overlay) if overlay is not None else count(None)
     if not visible:
         start = 0 if backward or known_before == 0 else total
     elif known_before is not None:
@@ -333,7 +396,7 @@ def paginate_statement[Row](
     elif page.from_end:
         start = total - len(visible)
     else:
-        start = _count(session, statement.where(beyond(visible[0], backward=True)))
+        start = count(beyond(visible[0], backward=True))
     return replace(result, total_count=total, start_index=start)
 
 
