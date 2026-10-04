@@ -218,7 +218,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 14a | [C3a](#c3a-attribute-sorts-read-in-value-order) | C3 | Amendment: attribute sorts read in value order (D46–D48) — **delivered 2026-10-04** ([record](#c3a-delivery-record)) |
 | 14b | [C3b](#c3b-several-values-the-standard-way) | C3 | Amendment: several values as OpenAPI serialises them, `%2C` for a comma in a value (C-D32 amended) — **delivered 2026-10-04** ([record](#c3b-delivery-record)) |
 | 15 | [C4](#c4-xref-lookup-and-scoring) | C2, C3b | XREF lookup and scoring (C-D34–C-D41) — **delivered 2026-10-05** ([record](#c4-delivery-record)) |
-| 16 | C5 | C4 | XREF parameters |
+| 16 | [C5](#c5-xref-parameters) | C4 | XREF parameters: every kind on XREF, `scoresFrom` (C-D42–C-D46) |
 | 17 | C14 | C4 | Batch resolve |
 | 18 | C15 | C5 | Crosswalk |
 | 19 | C6 | C3, C4, F1 | ETag, publications with `eventSequence`, OpenAPI per definition, API index |
@@ -1709,7 +1709,7 @@ Scope, order and acceptance are in [CONSUMER_API.md](CONSUMER_API.md#delivery-pa
 | C2 | C1 | `consumer`, `contract` | Get by ID with projections, ancestor fields and typed values |
 | C3 | C2 | `consumer`, `queries`, `volume` | Lists with and without a parent, ADR-030 paging |
 | C4 | C2 | `consumer`, `volume` | XREF scoring deterministic; `expect=one` |
-| C5 | C4 | `consumer` | Every parameter kind on XREF |
+| C5 | C4 | `consumer`, `contract`, `volume` | Every parameter kind on XREF; `scoresFrom` |
 | C14 | C4 | `consumer`, `volume` | Batch resolve equal to `xref?expect=one` per item; C-D13 limit confirmed |
 | C15 | C5 | `consumer` | Crosswalk with `target_not_found` and `ambiguous_target` |
 | C6 | C3, C4, F1 | `consumer`, `contract`, `volume` | Publications with `eventSequence` (= `feedPosition`), OpenAPI per definition, API index, resolved `workspace` named (C-D16); **task (D47):** C3a's value-order attribute sort for the publication (and change set) contexts, over `snapshot_attribute_values`, with its budget recorded |
@@ -2684,6 +2684,139 @@ when it is dropped from a clone (checked once). The development database was mig
 `20261005_01` by the user's own `uvicorn --reload` when the migration appeared, and serves healthy
 with both indexes; a copy of it started healthy twice and answered the XREF route; the copy and its
 log removed. `ruff check app/ tests/` clean. Not run: the frontend (unchanged), the full suites (R).
+
+#### C5: XREF parameters
+
+**Planned 2026-10-05; decisions C-D42–C-D46 and the test cases approved by the user the same day.**
+**Needs:** C4, and C3's parameter predicates. **Groups:** `consumer`, `contract`, `volume`.
+
+**Behaviour.** A consuming system narrows a lookup by what else it knows: the type it expects, the
+codelist or region a value belongs to, the system whose code it holds. XREF takes the definition's
+parameters, as get by ID and the lists have since C3:
+
+```text
+GET /api/consumer/{apiKey}/v{contractVersion}/xref?query=…&{parameters}&expect=any|one&pageSize=…&workspace=…
+```
+
+- **Every parameter kind** (`objectType`, `ancestor`, `related` through a projection, `self` or a
+  shared projection, and `projection`) applies to XREF with C3's meaning and C3b's values: several
+  values of one parameter are alternatives, different parameters combine with AND.
+- **Filters act on the scored objects** (C-D42), as the reference applies them after scoring: an object
+  is a result when it scored and every parameter keeps it. `totalCount`, the pages, and `expect=one`'s
+  top result and tie all follow the narrowed set, so a parameter can resolve an `AMBIGUOUS_MATCH`.
+- **`projection` parameters** limit that projection's items in each result, as on a list; with
+  `requireMatch` they also drop the objects left with none.
+- **`scoresFrom`** (C-D43): a `projection` parameter declaring it also limits which related records
+  pass scores. In every `match.promoted` entry over its projection, only the related records the
+  parameter matches pass their weight to their owners. The objects' own scores are untouched, and
+  `preferTargetTypes` chooses among the owners of the records that pass. Without the parameter in
+  the request, it has no effect. This is the reference's `system`: "also limits which system values
+  score".
+- **Unchanged:** the broad-term limit counts what the terms match before parameters (C-D44); a list's
+  parent parameter on XREF stays `400 PARAMETER_NOT_SUPPORTED`; an unknown `objectType` value answers
+  `400 UNKNOWN_OBJECT_TYPE`, as on lists.
+
+**Design.**
+
+- **Route:** `get_xref` drops `filters=False` from `_Parameters.check`, so definition parameters are
+  applied rather than refused, and builds `consumer_filter` as the other routes do.
+- **Filter:** `ConsumerFilter` gains `scoring`, projection name to a predicate on the related record.
+  `consumer_filter` fills it from the `projection` parameters that declare `scoresFrom`, using the item
+  predicate `limits` already holds; several over one projection combine with AND.
+- **Scoring** (`engine/reads/consumer_xref.py`): `_Scoring` takes the filter.
+  - `ranked()` adds `filter.on(RdmObject)` to the join of the best scores to the records. The
+    predicates read at most the scored rows, which the count before scoring bounds at 10,000.
+  - `_passed()` joins each best hit's related record and applies the projection's `scoring`
+    predicate before the hit passes to its owners.
+  - `matched_count` is unchanged (C-D44).
+- **Composition:** `read_xref` passes the filter to `ConsumerObjects.compose`, so projection limits
+  shape the results as on lists.
+- **Paging:** the cursor binds every parameter's values with the terms, the workspace and the
+  contract version, as the list cursor does, so a cursor sent with other parameters is
+  `400 INVALID_CURSOR`.
+- **Validation** (schema 0.8, not yet released): `scoresFrom` on a parameter whose projection no
+  `match.promoted` entry reads, or in a definition without `match`, is refused at
+  `/consumerApis/<key>/parameters/<name>/scoresFrom` (C-D45).
+- **Contract:** `output_contract` records each `projection` parameter's `scoresFrom`, so turning it on
+  or off is `version_required`, reported at `/parameters/<name>/scoresFrom` (C-D46).
+- **No migration and no new index.** Basis, not yet measured: the filters run on at most 10,000 scored
+  rows, and their candidate reads are C3's, which hold the list budgets. Timed once at delivery
+  (case 5).
+
+**Decisions** (status per row):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| C-D42 | Where parameters act in XREF | An object is a result when it scored and every parameter keeps it. A parameter is a condition on the object itself, so applying it before or after scoring gives the same results: an object's score does not depend on which other objects are kept. Only where it is evaluated differs: once on the scored objects (at most 10,000, bounded by C-D44's count) rather than repeated in every rule's select per term and weight. The one parameter effect that must act before scoring, on the related records, is `scoresFrom` (C-D43). `totalCount`, paging and `expect=one` (top and tie) follow the narrowed set; `projection` limits and `requireMatch` act as on lists (C-D31); the cursor binds the parameter values. **Approved 2026-10-05**, on the understanding that filtering first would not shrink the work: the terms' matches are read either way (C-D44), and what scoring adds over them is small. That is reasoning, not a measurement; the delivery's volume timing (case 5) checks it, and a filter that proves slow after scoring is reported with its cause |
+| C-D43 | What `scoresFrom` does | When the request gives a `scoresFrom` parameter, only the related records it matches pass weights in the promoted entries over its projection. Own scores are untouched. `preferTargetTypes` picks among the owners of passing records. Several `scoresFrom` parameters over one projection: a record must match each one (AND, as limits combine). Without the parameter in the request, no effect. **Approved 2026-10-05** |
+| C-D44 | Does a parameter bring a broad term under the 10,000-match limit? | No. The limit counts what the terms match, before parameters, as delivered in C4. It bounds the work of reading a term's matches, and a filter applied to 100,000 matches still reads them; counting after parameters would need every predicate in every rule's bounded count, an unmeasured cost. The limit's text stays literally true ("the query matches more than 10,000 records"). API.md states that parameters do not count towards it. **Approved 2026-10-05** |
+| C-D45 | `scoresFrom` that could never act | Refused at `/consumerApis/<key>/parameters/<name>/scoresFrom` when no `match.promoted` entry reads the parameter's projection, or the definition has no `match`, as C4 refused a `contains` weight on a field with no text. **Approved 2026-10-05** |
+| C-D46 | Is `scoresFrom` part of the contract? | Yes. It changes which objects score under the parameter, so it changes ranking, for C-D4's reason (weights are contract). Turning it on or off is `version_required`. `requireMatch` and `matchFields` stay as C-D18 left them. **Approved 2026-10-05** |
+
+**Journey.** J29 gains variants J29.6 and J29.7, and its status drops "definition parameters on XREF
+follow in C5". USER_JOURNEYS and API_JOURNEYS add the parameters on XREF. Generated A and B's `Capi`
+gains one parameter, `watchRegion` (`projection` over `Bscope`, matching `ancestor:G.name`,
+`scoresFrom`, no `requireMatch`), a `Capi.…` key. `Bscope` already has a promoted entry (`name` 60,
+preferring `R2`). A promoted entry over `Bown`, where `permit` sits, would change J29.1's scores, since
+every `D` has an owning `R` through `Bown`. The change rebuilds the two seeds once.
+
+**Test cases** (approved 2026-10-05; journey tests, written first and confirmed failing):
+
+1. **J29.6 Parameters narrow XREF.** Given an `R` and an `R2` both named "Twin", and records matching
+   "Twin" by contains: an `R` paired (`B11`) with a `K` named "Coin", an `R` with a permit in `G`
+   "North", and a `D` under an `M` named "Yard".
+   - `kind` with `R`'s public name keeps only the `R`s, and `totalCount` follows. An unknown name
+     answers `400 UNKNOWN_OBJECT_TYPE`.
+   - `container=Yard` keeps the `D`. `token=coin` (another case) keeps the paired `R`. `peer` keeps
+     through `self` and the shared `Bscope`.
+   - `permitRegion=North` keeps the `R` with a North permit and limits its `permits` to North's.
+   - Two parameters keep what both keep. Each kept result has the score it has without parameters.
+   - `query=Twin&expect=one` answers `409 AMBIGUOUS_MATCH`; with `kind` naming `R2`'s public name, it
+     answers the `R2`.
+   - A cursor sent with another `kind` answers `400 INVALID_CURSOR`. A list's parent parameter answers
+     `400 PARAMETER_NOT_SUPPORTED`.
+2. **J29.7 `scoresFrom`.** Given two `D`s named "Gate zone", one below `G` "North" and one below "South".
+   An `R2` "North watcher" watches (`Bscope`) the North one, an `R2` "South watcher" the South one, and
+   an `R2` named "Gate zone" watches the South one.
+   - `query=Gate zone` finds both `D`s and the `R2` named "Gate zone" (200 each, own), and both
+     watchers (60, promoted).
+   - With `watchRegion=North`: the North watcher keeps 60, and its `watchedPermits` holds only the
+     North `D`. The South watcher is absent. The `D`s and the `R2` named "Gate zone" keep 200, since
+     own scores are untouched and no `requireMatch` drops them.
+3. **J29.5 (changed):** a definition parameter is no longer `PARAMETER_NOT_SUPPORTED` on XREF; a list's
+   parent parameter, `seek` and `includeTotal` still are.
+4. **J25 (changed):** `scoresFrom` on a parameter over `Bown` (no promoted entry) is refused at its
+   `/parameters/<name>/scoresFrom` pointer; turning `watchRegion`'s `scoresFrom` off is reported as
+   `version_required`.
+5. **Volume.** `test_consumer_xref_volume` gains two scenarios. The volume definition gains a
+   `projection` parameter over `citedGroups` by code with `scoresFrom` (rebuilding the volume seeds
+   once):
+   - the cited group's code with the ancestor parameter on the heavy group (a filter over the 1,500
+     promoted items);
+   - the same code with the new parameter on that group (the `scoresFrom` path).
+
+   Both must execute the same statements at 0.01 and 0.04. Each is timed once at full volume with
+   `volume_baseline.py --only-consumer` against the 100 ms budget. A read over budget is reported
+   with its cause, not tuned in a loop.
+
+No unit tests: the kinds' edge cases are C3's journeys, and what C5 adds (where filters act,
+`scoresFrom`) is what J29.6 and J29.7 assert. **Checks:** J29, J28 (the shared filter) and J25 on
+generated A and B; the groups `consumer`, `contract` (`test_api_journeys`, `test_boundaries`) and
+`volume` (the changed module); the modules that load the volume model, as C3 named them (`test_model`,
+`test_restructuring_planner`, `test_type_changes`, `test_restructuring_api`); `ruff`. No migration, so
+no `startup`. Not `queries`, since `object_query` is unchanged.
+
+**Docs at delivery:** API.md's XREF section gains the parameters and `scoresFrom`, states that
+parameters do not count towards the 10,000-match limit (C-D44), and drops "until C5" from
+`PARAMETER_NOT_SUPPORTED` and the parameter notes. CONSUMER_API records C-D42–C-D46, amends the XREF
+endpoint text and marks the C5 row delivered. APPLICATION_MODEL notes the `scoresFrom` rule.
+USER_JOURNEYS and API_JOURNEYS update J29. CURRENT_FUNCTIONALITY describes narrowing a lookup.
+
+**Composable domains (ADR-032):** the `match` and `parameters` declarations are read as declared and
+gain only the `scoresFrom` rule and its contract entry. Identity, attribute storage, audit and the
+bulk APIs are untouched. A product catalogue's lookup of a SKU within a category (an `ancestor`
+parameter) or of a supplier's code (a `projection` parameter with `scoresFrom`) is this route, so the
+door is exercised, not narrowed. Crosswalk (C15) and batch resolve (C14) build on the same filter.
 
 ## Track V — API reference
 
