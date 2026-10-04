@@ -45,7 +45,7 @@ tooling.
 | `models/` | The model contract (`schema.py`), write commands, the persistence schema | The engine, any API |
 | `engine/` | The domain: model compilation and releases, records and write rules, change sets, operations, reads, indexes, jobs, workspaces | FastAPI, API schemas |
 | `management/` | The management API (`/api/v1`): routes, request and response schemas, presenters, projections, the `/docs` page | The consumer tier |
-| `consumer/` | Reserved for the consumer API tier (0.9 Track C) | The management tier |
+| `consumer/` | The consumer API (`/api/consumer`): routes that resolve a definition, check its parameters and the workspace, and read through the engine | The management tier |
 
 `tests/test_boundaries.py` enforces the table with no exceptions, no import cycles and no
 function-level imports. `main.py` composes the application; `db.py` and `errors.py` are free of
@@ -528,9 +528,16 @@ The audit log is the ordered source of the change feed and, later, consumer even
 - **Retention.** Entries older than `FEED_RETENTION_DAYS` expire from the feed, not from the audit
   log. The floor is the first entry within the period, found in one probe of
   `ix_audit_events_feed_time`, and never passes the active publication's position. Without an active
-  publication nothing expires, so an expired reader always has a baseline to re-read (D40). The consumer API is a separate read-only tier (`consumer/`) generated from the model's consumer
-API definitions ([CONSUMER_API.md](CONSUMER_API.md)); the design is in
-[INTEGRATION_API.md](INTEGRATION_API.md).
+  publication nothing expires, so an expired reader always has a baseline to re-read (D40).
+- **Consumer reads.** The consumer API is a separate read-only tier (`consumer/`) generated from the
+  model's consumer API definitions ([CONSUMER_API.md](CONSUMER_API.md)). It reads live data from the
+  active release's definition, never a change set. Every read finds its records in its own way (get
+  by ID by the object ID), then composes the shared object in one place,
+  `engine/reads/consumer_objects.py`, for a set of IDs with a fixed number of statements: one for the
+  records and their values, one per projection, and one recursive CTE for every ancestor needed.
+  Field resolution and projection shapes come from `engine/model/consumer_contract.py`, the module
+  the contract check uses. The tier checks its query parameters against the definition itself, so
+  the management API's unknown-parameter check leaves its routes alone.
 
 ### Domain extension
 

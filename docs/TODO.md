@@ -25,9 +25,10 @@ first fixes after 1.0 ([handoff](POSTGRESQL_BUDGETS.md)). **F1 is delivered (202
 positions, publish entries and the feed read (D31–D34). **B3 is delivered (2026-10-03)**:
 relationship and relationship-set items in batches (D35–D39). **F2 is delivered (2026-10-03)**:
 feed retention and recovery from the active publication (D40–D41). **T1 is delivered
-(2026-10-03)**: the Q, B and F checkpoint, with three capture and publish defects fixed. Next: the
-amendment T1a (change-set bases and publications copied inside PostgreSQL; planned and approved), then
-C2. See
+(2026-10-03)**: the Q, B and F checkpoint, with three capture and publish defects fixed. T1a
+(copies inside PostgreSQL) and T1b (upper-case error codes) are delivered (2026-10-04). **C2 is
+delivered (2026-10-04)**: the consumer tier with get by ID (C-D21–C-D26). Next: C3, in the order of
+the delivery queue. See
 [Next — 0.9](#next--09).
 
 - **Publish and change-set creation move the workspace through Python (found 2026-10-03, F1;

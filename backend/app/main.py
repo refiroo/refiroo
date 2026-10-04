@@ -12,6 +12,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from .config import Settings, get_settings, reload_settings
+from .consumer import router as consumer_router
 from .db import DatabaseStartupError, SessionLocal, create_database, get_engine
 from .engine.indexes.matrix_states import build_at_startup as build_matrix_states
 from .engine.jobs.inline import BatchLimits
@@ -235,6 +236,7 @@ def create_app() -> FastAPI:
     application.include_router(jobs.router)
     if settings.integration_jobs_enabled:
         application.include_router(jobs.write_router)
+    application.include_router(consumer_router.router)
     return application
 
 

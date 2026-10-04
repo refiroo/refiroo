@@ -13,8 +13,9 @@ J1–J4 and R are specified (2026-09-29) and delivered in the order of the
 the interim release 0.9.0-alpha.1 (2026-10-03), [F1](#f1-feed-positions) (2026-10-03, with the feed
 read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [F2](#f2-feed-retention-and-recovery) (2026-10-03, D40–D41), [T1](#t1-track-checkpoint-q-b-f) (2026-10-03),
-[T1a](#t1a-copies-inside-the-database) (2026-10-04), [T1b](#t1b-one-error-code-pattern) (2026-10-04).
-**Next:** C2, in the order of the [delivery queue](#delivery-queue).
+[T1a](#t1a-copies-inside-the-database) (2026-10-04), [T1b](#t1b-one-error-code-pattern) (2026-10-04),
+[C2](#c2-consumer-object-and-projections) (2026-10-04, C-D21–C-D26).
+**Next:** C3, in the order of the [delivery queue](#delivery-queue).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -212,7 +213,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 12 | [T1](#t1-track-checkpoint-q-b-f) | Q4, B2, B3, F2 | Track checkpoint for Q, B and F: their groups, budgets and a composed journey — **delivered 2026-10-03** |
 | 12a | [T1a](#t1a-copies-inside-the-database) | T1 | Amendment: change-set bases and publications copied inside PostgreSQL — **delivered 2026-10-04** |
 | 12b | [T1b](#t1b-one-error-code-pattern) | T1a | Amendment: error codes in upper case across every API (C-D25) — **delivered 2026-10-04** |
-| 13 | [C2](#c2-consumer-object-and-projections) | C1, T1b | Consumer object and projections: get by ID — **planned and approved 2026-10-04** |
+| 13 | [C2](#c2-consumer-object-and-projections) | C1, T1b | Consumer object and projections: get by ID — **delivered 2026-10-04** |
 | 14 | C3 | C2 | Lists |
 | 15 | C4 | C2 | Consumer index and XREF scoring |
 | 16 | C5 | C4 | XREF parameters |
@@ -1766,8 +1767,8 @@ string). The full suites wait for R.
 
 #### C2: Consumer object and projections
 
-**Status:** planned 2026-10-04; decisions C-D21–C-D26 settled and test cases 1–7 approved by the
-user the same day. **Needs:** C1 and the amendment [T1b](#t1b-one-error-code-pattern) (error codes
+**Delivered 2026-10-04** ([record](#c2-delivery-record)). Planned 2026-10-04; decisions C-D21–C-D26
+settled and test cases 1–7 approved by the user the same day. **Needs:** C1 and the amendment [T1b](#t1b-one-error-code-pattern) (error codes
 in upper case). **Groups:** `consumer`, `contract`.
 
 **Behaviour.** A consuming system reads one business object by its object ID:
@@ -1902,6 +1903,52 @@ and PRODUCT describe reading one business object.
 **Composable domains (ADR-032):** the identity door is narrowed for consumers: get by ID uses the
 object ID; other identifiers stay searchable through XREF. Attribute storage, audit and the `match`
 declaration are untouched. No door closes.
+
+##### C2 delivery record
+
+**Delivered 2026-10-04.** What was built:
+
+- **Tier.** `app/consumer/` with its router at `/api/consumer` (`include_in_schema=False`), reading
+  only through the engine; errors use the engine's envelope. The route checks its own parameters
+  against the definition, so the app-wide unknown-parameter check
+  (`management/query_parameters.py`) skips a route marked `reads_own_parameters`; the management
+  tier's `422 UNKNOWN_PARAMETER` is unchanged, the consumer tier answers `400` as specified.
+- **Composition.** `engine/reads/consumer_objects.py`: `ConsumerObjects.compose` builds the shared
+  object for a set of IDs with one statement for the records and their values, one per projection,
+  and one recursive CTE for every ancestor the objects and their projected records need; field types,
+  shapes and `ancestor:` references come from `consumer_contract`. `consumer_definition` resolves
+  the `apiKey` and contract version; `read_consumer_object` is get by ID. Defaults are encoded like
+  stored values (decimal strings without trailing zeros, `dateTime` in UTC).
+- **Validation.** C1's identity rule narrowed: the `id` role's source is `["id"]`, refused otherwise
+  at `/object/id/source`.
+- **Configurations.** Generated A and B declare `Capi`, with their own API keys (`ledger-api`,
+  `x7-registry`), public names and output names held as `Capi.…` structure keys; `World.with_consumer_api`
+  now adds its definition beside the configuration's instead of replacing them.
+
+**Differences from the plan:**
+
+- **`R2.u` became optional** in the generated configurations. Test case 1's given ("`R2.u` empty
+  text", read by `code` before `R.u`) cannot be produced through the API while `R2` requires
+  `R2.u`, since a required attribute refuses empty text; with it optional, the `R2` record carries
+  empty `R2.u` and `R.u`, and `code` skips the empty text as the case says. The case text is
+  unchanged. No other journey depended on `R2.u` being required (J11 sets it).
+- **J28.3** also asserts that a retired workspace answers `404 WORKSPACE_NOT_FOUND`, which the
+  behaviour section states.
+- **J28.5** is marked with J25.2 as well, as the case names.
+- **Not confirmed failing first:** case 7 (J25, the identity source) was written after the
+  validation change, so it passed on its first run; cases 1–6 failed before the route existed (12
+  failures, `404 HTTP_ERROR`).
+- Reserved names not yet served (`publication`, `asOf`, `to.…`) answer `400 UNKNOWN_PARAMETER` until
+  their packages (C6, C16, C15).
+
+**Checks:** J28 and J25 journey tests on generated A and B (20 passed). Groups `consumer` (107) and
+`contract` (66) together, parallel: 172 passed and `test_api_journeys` failed until API_JOURNEYS
+listed the new codes, then passed (5); the serial part selects nothing for these groups.
+`test_boundaries` (in `contract`) holds the new tier. Named risks from shared changes: J08.2 (the
+consumer-API helper now keeps `Capi`), J11 (`R2.u` optional) and J21.8 (the parameter check's skip):
+24 passed. OpenAPI lock unchanged (in `contract`). `ruff check app/ tests/` clean. Not run: `startup`
+(no migration or startup path changed), `volume` (no budget yet; the fixed statement count is by
+construction, not measured), the frontend (unchanged), the full suites (R).
 
 ## Track V — API reference
 

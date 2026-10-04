@@ -123,15 +123,15 @@ class _Definition:
             path = f"/object/{role}"
             claim(field.output, f"{path}/output")
             self._check_sources(field.source, field.default, path)
-        # The identity is what get by ID looks up: it must identify a record (ADR-010).
-        for index, source in enumerate(shape.id.source):
-            definition = self.model.attribute_type(source)
-            if source != "id" and not (definition is not None and definition.features.get("unique")):
-                self._fail(
-                    "INVALID_MODEL",
-                    f"/object/id/source/{index}",
-                    f"identity source '{source}' is neither 'id' nor a unique attribute",
-                )
+        # The identity is what get by ID looks up: the object ID, unique across the database (C-D24).
+        # A former system's ID is published as an attribute field and found with XREF.
+        if tuple(shape.id.source) != ("id",):
+            self._fail(
+                "INVALID_MODEL",
+                "/object/id/source",
+                "the identity's source is the object ID: ['id']; publish another identifier as an"
+                " attribute field",
+            )
         for name, attribute in shape.attributes.items():
             path = f"/object/attributes/{pointer_segment(name)}"
             claim(name, path)

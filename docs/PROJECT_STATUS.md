@@ -149,8 +149,11 @@ passes; publication merge and graph validation remain in Python
 ([evidence](BASE_0_9_IMPLEMENTATION_PLAN.md#t1a-copies-inside-the-database)). **T1b is delivered
 (2026-10-04):** every error code on every API is upper case (`OBJECT_NOT_FOUND`), stored job
 results included (revision `20261004_03`); a breaking change for clients comparing codes
-([record](BASE_0_9_IMPLEMENTATION_PLAN.md#t1b-one-error-code-pattern)). Next: C2 (planned and
-approved).
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#t1b-one-error-code-pattern)). **C2 is delivered
+(2026-10-04):** the consumer API tier at `/api/consumer` with get by ID, which answers a definition's
+shared object (roles, attributes, parent, path, hierarchy and projections) read live by the object
+ID, in the default or a named workspace (`RDM-Workspace`); a consumer API's identity is now always
+the object ID (C-D21–C-D26, [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c2-delivery-record)). Next: C3.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

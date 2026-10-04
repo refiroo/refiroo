@@ -20,8 +20,8 @@ Structures:
 - ``R``: a root type. Attributes ``R.u`` (unique text, searchable, filterable, sortable), ``R.n``
   (integer, minimum 0, maximum 100), ``R.b`` (boolean), ``R.dt`` (date), ``R.q`` (required text),
   ``R.ro`` (read-only text with a default), ``R.x1``/``R.x2`` (at least one of the two).
-- ``R2``: a type under ``R`` with its own unique ``R2.u``; it may also hold ``R.u``, a unique value
-  two types share (a reference naming ``R`` by ``R.u`` can find an ``R2``).
+- ``R2``: a type under ``R`` with its own unique, optional ``R2.u``; it may also hold ``R.u``, a
+  unique value two types share (a reference naming ``R`` by ``R.u`` can find an ``R2``).
 - ``H``: a root type with a self-hierarchy; ``H.code`` (searchable, filterable, sortable), ``H.rank``.
 - ``P``, ``Q``: root types; ``C``: a type under ``P`` or ``Q`` (never at the top); ``C2`` under ``C``.
 - ``K``: a root type of the other application than ``H``; ``K.code``, ``K.rank``.
@@ -35,6 +35,11 @@ Structures:
   dependant of R), unique per R within a ``G`` while ``D.active`` is true; ``Bscope`` R→D optional
   many-to-many with the same scope rule; ``Hparent`` the self-hierarchy's containment.
 - Views: ``Vnn`` a relationship view (``mappingGrid``) over ``Bnn``, read from ``H``.
+- ``Capi``: a consumer API exposing ``R`` and ``R2`` (generated only): the ``id`` role, ``code``
+  (``R2.u``, then ``R.u``), ``name``, ``active`` (``R.b``, default true), ``R.n`` (default 50) and
+  ``R.dt``, ``parent``, ``path`` and ``hierarchy``; projections ``B11`` outgoing (one) and ``Bown``
+  outgoing with ``ancestor:G.name`` (many); one declared parameter. Its API key, public names and
+  output names are ``Capi.…`` keys.
 """
 
 import json
@@ -292,10 +297,11 @@ def generated(variant: str) -> Configuration:
             [binding("K.code", 10), binding("E.from", 20), binding("E.to", 30)],
             root=True,
         ),
+        # R2.u is optional, so a consumer field reading it first can meet empty text (J28).
         object_type(
             "R2",
             "R2.u",
-            [binding("R2.u", 10, required=True), binding("R.u", 20)],
+            [binding("R2.u", 10), binding("R.u", 20)],
             root=False,
             parents=("R",),
         ),
@@ -593,10 +599,91 @@ def generated(variant: str) -> Configuration:
         "relationTypes": relation_types,
         "objectTypeRelations": allowed,
         "applications": applications,
+        "consumerApis": [_consumer_api(variant, k)],
     }
+    keys.update(_consumer_names(variant))
     return Configuration(
         f"generated-{variant}", model, keys, frozenset({"deep-scope"} if deep_scope else set())
     )
+
+
+def _consumer_names(variant: str) -> dict[str, str]:
+    """``Capi``'s API key, public names and output names: chosen by each configuration, as a
+    definition's author chooses them."""
+    a = {
+        "Capi": "ledger-api",
+        "Capi.R": "Ledger",
+        "Capi.R2": "Entry",
+        "Capi.id": "ledgerId",
+        "Capi.code": "code",
+        "Capi.name": "name",
+        "Capi.active": "isActive",
+        "Capi.n": "score",
+        "Capi.dt": "openedOn",
+        "Capi.parent": "parent",
+        "Capi.path": "path",
+        "Capi.hierarchy": "hierarchy",
+        "Capi.B11": "pairedToken",
+        "Capi.B11.name": "tokenName",
+        "Capi.B11.code": "tokenCode",
+        "Capi.Bown": "permits",
+        "Capi.Bown.name": "permitName",
+        "Capi.Bown.G": "regionName",
+        "Capi.param": "region",
+    }
+    if variant == "a":
+        return a
+    return {
+        structure: ("x7-registry" if structure == "Capi" else f"x_{name}_7")
+        for structure, name in a.items()
+    }
+
+
+def _consumer_api(variant: str, k: dict[str, str]) -> dict[str, Any]:
+    """``Capi``: a consumer API exposing R and R2 (J28)."""
+    n = _consumer_names(variant)
+    return {
+        "key": n["Capi"],
+        "name": "Capi",
+        "contractVersion": 1,
+        "objectTypes": {k["R"]: {"publicName": n["Capi.R"]}, k["R2"]: {"publicName": n["Capi.R2"]}},
+        "object": {
+            "id": {"output": n["Capi.id"], "source": ["id"]},
+            "code": {"output": n["Capi.code"], "source": [k["R2.u"], k["R.u"]]},
+            "name": {"output": n["Capi.name"], "source": ["name"]},
+            "active": {"output": n["Capi.active"], "source": [k["R.b"]], "default": True},
+            "attributes": {
+                n["Capi.n"]: {"source": [k["R.n"]], "default": 50},
+                n["Capi.dt"]: {"source": [k["R.dt"]]},
+            },
+            "parent": {
+                "output": n["Capi.parent"],
+                "fields": ["objectType", "id", "code", "name"],
+            },
+            "path": n["Capi.path"],
+            "hierarchy": n["Capi.hierarchy"],
+        },
+        "projections": {
+            n["Capi.B11"]: {
+                "from": {"relation": k["B11"], "direction": "outgoing"},
+                "fields": {n["Capi.B11.name"]: "name", n["Capi.B11.code"]: k["K.code"]},
+            },
+            n["Capi.Bown"]: {
+                "from": {"relation": k["Bown"], "direction": "outgoing"},
+                "fields": {
+                    n["Capi.Bown.name"]: "name",
+                    n["Capi.Bown.G"]: f"ancestor:{k['G']}.name",
+                },
+            },
+        },
+        "parameters": {
+            n["Capi.param"]: {
+                "kind": "ancestor",
+                "objectTypes": [k["R"]],
+                "matchFields": ["name"],
+            }
+        },
+    }
 
 
 # --- the example model ---------------------------------------------------------------------------

@@ -46,7 +46,7 @@ background jobs are J24, the change feed J26 and supplier files J27.
 | Relationship sets and coverage | J10 replace a record's related records, J16 coverage across ancestors (J09 retired) |
 | Change sets and history (designer) | J05 prepare and publish, J06 live beside a change set, J07 withdraw and restart from history, J17 review changes, J18 next model version |
 | Administration | J08 model release, J19 workspaces, J25 consumer API definition |
-| Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes, J27 supplier file (planned) |
+| Integration | J11 bulk change, J20 discover, J21 read completely, J22 precise dataset, J23 business date, J24 background job, J26 follow changes, J27 supplier file (planned), J28 consumer read |
 | Operations | J12 run, refuse and recover |
 
 ## Records and structure
@@ -614,9 +614,13 @@ consumer tier's reads follow in C2–C16 ([CONSUMER_API.md](../CONSUMER_API.md))
 - **J25.1 Additions are compatible**; removals and lower versions are reported.
 - **J25.2 A model change** (a cardinality) changes a projection's shape and is reported.
 
+The identity (`id` role) reads the object ID: its source is `["id"]`, and any other source is
+refused at `/consumerApis/<key>/object/id/source` (C-D24). Another identifier, such as a former
+system's ID, is published as an attribute field.
+
 **Refusals:** `422 INVALID_MODEL` (with the pointer), `409 CONSUMER_CONTRACT_VERSION_REQUIRED`.
 
-**Evidence today:** `test_consumer_api_model`.
+**Evidence today:** `test_consumer_api_model`; the J25 journey tests.
 
 ## Integration
 
@@ -838,6 +842,38 @@ background job across a restart, its publish and its cancellation, 0.9 T1).
 2. Preview proposed additions, updates and errors by row and field; nothing changes.
 3. Execute under the chosen failure policy; act on rejected rows without redoing applied ones.
 4. Export a chosen, stated scope.
+
+### J28 — Read a business object through a consumer API
+
+**Actor:** consuming system. **Channel:** consumer API. **Stories:** US-I09 (consumer side).
+**Status:** get by ID delivered (0.9 C2); lists, XREF and the rest follow in C3–C16
+([CONSUMER_API.md](../CONSUMER_API.md)).
+
+1. Read one business object by its object ID from a consumer API's contract version:
+   `GET /api/consumer/{apiKey}/v{contractVersion}/objects/{id}`.
+2. Receive the definition's shared object: exactly the declared fields, values in their declared
+   types, `parent` (or `null`), `path` and `hierarchy` from the ancestors, and each projection as an
+   object or `null`, or as an array, by the relationship's cardinality.
+3. Read live data in the default workspace, or in the workspace named by `workspace`; the response
+   names it in `RDM-Workspace`.
+
+**Variants:**
+
+- **J28.1 Identity is the object ID**: a generated or a client-assigned ID; another identifier is
+  not found by get by ID (XREF finds it, C4).
+- **J28.2 Live data, never unpublished work**: a live change shows at once; a record only in a
+  change set is not found until published.
+- **J28.3 Another workspace**: each record is found only in its own workspace.
+- **J28.4 Refusals**: unknown API, contract version or parameter; a declared parameter not yet
+  applied; a record of a type the definition does not expose.
+- **J28.5 The contract follows the release**: a new contract version replaces the old one, with
+  the new projection shape.
+
+**Refusals:** `404 CONSUMER_API_NOT_FOUND`, `404 CONTRACT_VERSION_NOT_FOUND`,
+`404 OBJECT_NOT_FOUND`, `404 WORKSPACE_NOT_FOUND` (unknown or retired), `400 UNKNOWN_PARAMETER`,
+`400 PARAMETER_NOT_SUPPORTED`.
+
+**Evidence today:** the J28 journey tests.
 
 ## Operations
 

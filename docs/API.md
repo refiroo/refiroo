@@ -2011,6 +2011,55 @@ the reader misses nothing. An export as a second baseline follows with export jo
 
 A retired workspace's feed stays readable. The feed is ungated like other reads until 0.12 (D10).
 
+## Consumer API (Base 0.9 C2)
+
+A separate, read-only tier at `/api/consumer`, whose contract each consumer API definition in the
+active model release declares ([CONSUMER_API.md](CONSUMER_API.md)). Its routes are not in the
+management OpenAPI document; C6 generates one document per definition. Lists, XREF, batch resolve,
+crosswalk, publications and `asOf` follow in C3–C16.
+
+```text
+GET /api/consumer/{apiKey}/v{contractVersion}/objects/{id}?workspace=…
+```
+
+Returns the definition's shared object for the record whose **object ID** is `{id}`, read live:
+
+```jsonc
+// RDM-Workspace: default
+{
+  "objectType": "Ledger",                 // the type's public name
+  "ledgerId": "7f3c…",                    // the id role: the object ID
+  "code": "LED-1",                        // first source with a value, then default, then null
+  "name": "Alpha ledger",
+  "isActive": false,
+  "score": 50,                            // integers and booleans as JSON values
+  "openedOn": "2026-03-04",               // dates YYYY-MM-DD; decimals as strings; dateTime in UTC
+  "parent": null,                         // or {objectType, id, code, name} as declared
+  "path": "",                             // ancestors' names joined with "/", top down
+  "hierarchy": [],                        // the same names as a list, without the object itself
+  "pairedToken": { "tokenName": "Paired token", "tokenCode": "TK-1" },  // at most one: object or null
+  "permits": [                            // many: an array ordered by name, then ID; [] when empty
+    { "permitName": "Permit a", "regionName": "Region south" }          // ancestor:<type>.<field>
+  ]
+}
+```
+
+- Every declared field is always present and no undeclared field appears. A field takes the first of
+  its sources that has a value, then its `default`, then `null`; empty text is no value.
+- `parent.objectType` is `null` when the parent's type is not exposed.
+- `workspace` selects the workspace (default: the deployment's default); the response names it in the
+  `RDM-Workspace` header, also on an error after the workspace was resolved.
+- Change sets are never read; a record created in an open change set is not found until published.
+
+| Status | Code | When |
+| --- | --- | --- |
+| 404 | `CONSUMER_API_NOT_FOUND` | No definition has this `apiKey` in the active release |
+| 404 | `CONTRACT_VERSION_NOT_FOUND` | The definition serves another contract version; `details.contractVersion` names it |
+| 404 | `WORKSPACE_NOT_FOUND` | Unknown or retired workspace |
+| 404 | `OBJECT_NOT_FOUND` | No record with this object ID in the workspace, or one of a type the definition does not expose |
+| 400 | `UNKNOWN_PARAMETER` | A query parameter neither the route nor the definition declares; `details.parameters` names them |
+| 400 | `PARAMETER_NOT_SUPPORTED` | A parameter the definition declares; no parameter kind is applied yet (until C3) |
+
 ## Planned integration endpoints
 
 Designed in [INTEGRATION_API.md](INTEGRATION_API.md) and sequenced in the
@@ -2019,8 +2068,8 @@ Designed in [INTEGRATION_API.md](INTEGRATION_API.md) and sequenced in the
 - Relation and relation-set items (B3)
 - Asynchronous import/export jobs
 - Webhook subscriptions
-- Consumer API: a separate read-only tier with model-declared XREF lookup and lists
-  ([CONSUMER_API.md](CONSUMER_API.md))
+- Consumer API lists, XREF, batch resolve, crosswalk, publications and events
+  ([CONSUMER_API.md](CONSUMER_API.md)); get by ID is delivered (above)
 
 There will be no equivalent of enumerating numeric attribute IDs `1..1000` or using `take: 0` for a full
 extract.

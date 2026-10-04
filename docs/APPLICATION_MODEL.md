@@ -554,7 +554,7 @@ contract rules are specified in [CONSUMER_API.md](CONSUMER_API.md#definition-sha
   a list or a parameter's kind (C-D18), or (from C9) removing or narrowing an event. Removing a whole
   definition is a warning. Installing a release without activating it is not checked.
 - A field's sources share one value type (`text` and `longText` count as one), which is its output
-  type (C-D19); an identity source is `id` or a `unique` attribute; a match rule or match field reads
+  type (C-D19); the identity's source is `id`, the object ID (C-D24, narrowed in C2); a match rule or match field reads
   `name`, `id` or a `searchable` or `unique` attribute (C-D20).
 - Definitions change no stored data and no management API behaviour.
 

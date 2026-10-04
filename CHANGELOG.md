@@ -8,6 +8,24 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 C2: the consumer API tier at `/api/consumer`, with get by ID:
+  `GET /api/consumer/{apiKey}/v{contractVersion}/objects/{id}`.
+  - **The shared object.** Exactly the fields the definition declares, built from the definition
+    alone: the roles and attributes (first source with a value, then `default`, then `null`; empty
+    text is no value), `parent` (or `null`, with `objectType` `null` for a type not exposed),
+    `path` and `hierarchy` (the ancestors, top down, without the object) and each projection as an
+    object or `null`, or an array ordered by name, by the relationship's cardinality. Values keep
+    the management API's encoding. Decisions C-D21–C-D26.
+  - **Identity.** `{id}` is the object ID (C-D24); another identifier is found with XREF (C4).
+  - **Live, by workspace.** Reads live data from the active release's definition, never a change
+    set; `workspace` selects the workspace (default: the deployment's), named in the
+    `RDM-Workspace` header.
+  - **Refusals.** `404 CONSUMER_API_NOT_FOUND`, `404 CONTRACT_VERSION_NOT_FOUND` (naming the served
+    version), `404 WORKSPACE_NOT_FOUND` (unknown or retired), `404 OBJECT_NOT_FOUND`,
+    `400 UNKNOWN_PARAMETER`, and `400 PARAMETER_NOT_SUPPORTED` for a declared parameter until C3.
+  - **Cost.** One statement for the records and their values, one per projection and one recursive
+    CTE for the ancestors, whatever the number of objects. The routes stay out of the management
+    OpenAPI document.
 - Base 0.9 F2: change feed retention and recovery.
   - **Retention.** `FEED_RETENTION_DAYS` (default 30, reported as `changeFeed.retentionDays` by
     `GET /capabilities`). `earliestPosition` is the first entry within the period. A position below
@@ -50,6 +68,9 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- **Breaking — Base 0.9 C2: a consumer API's identity is the object ID.** The `id` role's source is
+  `["id"]`; a `unique` attribute as its source, which C1 accepted, is refused at
+  `/consumerApis/<key>/object/id/source`. Publish a former system's ID as an attribute field.
 - **Breaking — Base 0.9 T1b: error codes are upper case** on every API: `object_not_found` is now
   `OBJECT_NOT_FOUND`. It covers error bodies, the errors and unprocessed `reason` of batch and job
   item outcomes, and validation diagnostics (D42). Status, action, kind and classification values

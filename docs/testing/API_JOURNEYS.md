@@ -80,6 +80,15 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `POST /batches` (`run`: `background`), `GET /jobs` (`kind`, `state`), `GET /jobs/{id}`, `GET /jobs/{id}/items` (`status`), `POST /jobs/{id}/cancel` | J24 |
 | `GET /workspaces/{key}/feed` (`after`, `pageSize`, `kind` and `objectTypeKey` repeatable) | J26, J26.1–J26.6 |
 
+### Consumer API
+
+Under `/api/consumer`, outside the management OpenAPI document (C6 generates one per definition).
+Every response names the workspace it read in the `RDM-Workspace` header.
+
+| Operation | Journeys |
+| --- | --- |
+| `GET /{apiKey}/v{contractVersion}/objects/{id}` (`workspace`; a declared parameter is refused until C3) | J28, J28.1–J28.5 |
+
 ## Error codes
 
 Every code the API returns, by the journey that meets it. 32 of them were raised by the backend but
@@ -101,6 +110,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | J19 | `WORKSPACE_ALREADY_EXISTS`, `DEFAULT_WORKSPACE_CANNOT_BE_RETIRED`, `WORKSPACE_IS_DEFAULT`, `WORKSPACE_HAS_PUBLICATIONS`, `WORKSPACE_NOT_EMPTY` |
 | J23 | `AS_OF_NOT_SUPPORTED`, `INVALID_EFFECTIVE_PERIOD` |
 | J26 | `FEED_POSITION_AHEAD`, `FEED_POSITION_EXPIRED` |
+| J28 | `CONSUMER_API_NOT_FOUND`, `CONTRACT_VERSION_NOT_FOUND`, `PARAMETER_NOT_SUPPORTED`; on the consumer API `UNKNOWN_PARAMETER` is `400` (J28.4), and an unknown or retired workspace `404 WORKSPACE_NOT_FOUND` (J28.3) |
 | J11, J24 | `BATCH_TOO_LARGE`, `INVALID_BATCH_CONTEXT`, `IDEMPOTENCY_KEY_REUSED`, `IDEMPOTENCY_IN_PROGRESS`, `MISSING_RECORD_KEY`, `INVALID_RECORD_KEY`, `REFERENCE_NOT_FOUND`, `REFERENCE_TYPE_MISMATCH`, `JOB_NOT_FOUND`, `JOB_FINISHED`, `JOB_FAILED` |
 
 ## Operator surface (J12)

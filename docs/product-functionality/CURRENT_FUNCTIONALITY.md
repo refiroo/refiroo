@@ -32,7 +32,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F20 | Query and look up across the data | Not applicable | Available | 0.9 Q1–Q3 |
 | F21 | Read by business date (`asOf`) | Fields only | Available | 0.9 Q4 |
 | F22 | Load data in bulk as jobs | Unavailable | Available | 0.9 B1–B2; import screen 0.9 J4 |
-| F23 | Declare consumer APIs | JSON model editing | Definitions only | 0.9 C1; serving is in progress |
+| F23 | Declare consumer APIs and read through them | JSON model editing | Definitions; reading one business object | 0.9 C1–C2; lists and lookup are in progress |
 | F24 | Read the API reference | Available at `/docs` | Not applicable | 0.9 V1 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
 
@@ -419,7 +419,7 @@ Evidence: [batch contracts](../API.md#batches-and-jobs-base-09-b1-b2-b3),
 [jobs](../../backend/app/engine/jobs/),
 [ADR-036](../DECISIONS.md#adr-036--a-batch-is-a-job-one-mechanism-for-bulk-writes-imports-and-exports).
 
-## F23 — Declare consumer APIs
+## F23 — Declare consumer APIs and read through them
 
 **User outcome:** A model administrator defines the read-only contract other systems will use, and
 cannot break it by accident.
@@ -429,8 +429,16 @@ lookup parameters and lists, each with a contract version. Every reference is va
 releases reports contract changes, and activation refuses a breaking change without a higher contract
 version.
 
-Limits: the consumer API endpoints themselves (lookup by code, lists, crosswalks, events) are being
-delivered in 0.9; today only the definitions exist.
+A consuming system reads one business object through a declared API by its record ID, at the
+API's contract version: exactly the fields the definition declares, values in their declared types,
+the parent and the path of ancestors, and the related records each projection names (one object or
+a list, by the relationship's cardinality). It reads live, published data in the default workspace
+or the one it names, and every answer says which workspace it read. Work in a change set is never
+visible until it is published.
+
+Limits: lists, lookup by code (XREF), batch resolve, crosswalks, publications, business dates and
+events are being delivered in 0.9; today a consumer reads one object by its ID, and a declared
+parameter is refused until lists and lookup apply them.
 
 Evidence: [consumer API design](../CONSUMER_API.md),
 [contract check](../../backend/app/engine/model/consumer_contract.py).

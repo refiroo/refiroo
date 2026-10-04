@@ -3,7 +3,8 @@
 A misspelt parameter (``pagesize``) used to be ignored, so the client silently got another answer
 than it asked for. Every route now accepts only the query parameters it declares, and the routes
 marked with :func:`accepts_field_filters` also accept the ``filter.<field>.<operator>`` family they
-read themselves.
+read themselves. A consumer API route checks its parameters against its definition itself (marked
+``reads_own_parameters`` by the consumer tier) and is left alone here.
 """
 
 from collections.abc import Callable
@@ -27,7 +28,7 @@ def accepts_field_filters[F: Callable[..., Any]](endpoint: F) -> F:
 
 def refuse_unknown_parameters(request: Request) -> None:
     route = request.scope.get("route")
-    if not isinstance(route, APIRoute):
+    if not isinstance(route, APIRoute) or getattr(route.endpoint, "reads_own_parameters", False):
         return
     known, filters = _parameters(route)
     unknown = sorted(

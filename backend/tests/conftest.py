@@ -188,6 +188,7 @@ JOURNEY_GROUPS: dict[str, tuple[str, ...]] = {
     "J24": ("jobs",),
     "J25": ("consumer", "model"),
     "J26": ("feed", "records", "change_sets"),
+    "J28": ("consumer",),
 }
 
 

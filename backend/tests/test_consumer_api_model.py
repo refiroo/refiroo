@@ -44,7 +44,7 @@ def definition(k: Keys) -> dict[str, Any]:
             k("domain"): {"publicName": "Domain"},
         },
         "object": {
-            "id": {"output": "masterId", "source": [k("master-id"), "id"]},
+            "id": {"output": "masterId", "source": ["id"]},
             "code": {"output": "code", "source": [k("value-code"), k("codelist-code"), k("domain-code")]},
             "name": {"output": "name", "source": ["name"]},
             "active": {"output": "isActive", "source": [k("active")], "default": True},
@@ -241,7 +241,7 @@ REFUSALS: list[tuple[str, Mutation, str, str]] = [
     ("source no exposed type binds", _set("object/code/source/1", lambda k: k("system-code")), "INVALID_REFERENCE", "/object/code/source/1"),
     ("sources of different types (C-D19)", _set("object/code/source/1", lambda k: k("sort-order")), "INVALID_MODEL", "/object/code/source"),
     ("default of another type", _set("object/active/default", "yes"), "INVALID_MODEL", "/object/active/default"),
-    ("identity that does not identify", _set("object/id/source/0", lambda k: k("value-code")), "INVALID_MODEL", "/object/id/source/0"),
+    ("identity other than the object ID (C-D24)", _set("object/id/source/0", lambda k: k("value-code")), "INVALID_MODEL", "/object/id/source"),
     ("reserved output name", _set("object/attributes/matchScore", lambda k: {"source": [k("value-name")]}), "INVALID_MODEL", "/object/attributes/matchScore"),
     ("output name used twice", _set("object/attributes/name", lambda k: {"source": [k("value-name")]}), "DUPLICATE_KEY", "/object/attributes/name"),
     ("parent code without a code role", _drop("object/code"), "INVALID_MODEL", "/object/parent/fields"),

@@ -126,7 +126,8 @@ can complete the task in the application; "API" means another system can.
   relationship it changed, then itself. Entries name what changed and why, never values. After the
   retention period an integration is told which publication to re-read before it reads on.
 - Declare consumer APIs in the model: the read-only contracts other systems will use, checked so that a
-  breaking change needs a new contract version. Serving them follows later in 0.9.
+  breaking change needs a new contract version. Another system reads one business object through
+  such an API by its record ID, in the declared shape; lists and lookup by code follow later in 0.9.
 - Read the API reference at `/docs`, which works without internet access.
 
 ### Use it comfortably — browser

@@ -210,13 +210,14 @@ In a subscription the same key says which API's events to deliver: `"apiKey": "r
 
   // The common object: fixed roles, output names chosen by the definition.
   "object": {
-    "id":        { "output": "masterId",  "source": ["master-id"] },
+    "id":        { "output": "masterId",  "source": ["id"] },   // always the object ID (C-D24)
     "code":      { "output": "code",      "source": ["operator-code", "value-code", "codelist-code", "domain-code"] },
     "name":      { "output": "name",      "source": ["name"] },
     "active":    { "output": "isActive",  "source": ["active"], "default": true },
     "validFrom": { "output": "validFrom", "source": ["valid-from"] },
     "validTo":   { "output": "validTo",   "source": ["valid-to"] },
     "attributes": {
+      "formerId":     { "source": ["master-id"] },   // a former system's ID, found with XREF
       "valueName":    { "source": ["value-name"] },
       "sortOrder":    { "source": ["sort-order"], "default": 0 },
       "internalOnly": { "source": ["internal-only"], "default": false },
@@ -338,8 +339,10 @@ _Delivered in C1 (2026-09-30), with these rules settled on the way:_
   hyphens, since they appear in URLs; public type names are unique within a definition.
 - **Source types (C-D19):** a field's sources share one value type (`text` and `longText` count as
   one), which is the field's output type; a mixed list is refused at the field's `source`.
-- **Identity:** every `id` source is the built-in `id` or a `unique` attribute, so get by ID finds at
-  most one object.
+- **Identity:** the `id` role's source is the built-in `id`, the object ID (narrowed in C2, C-D24);
+  another source is refused at `/consumerApis/<key>/object/id/source`. A former system's ID is
+  published as an ordinary attribute field and found with XREF. A migration that wants to keep a
+  former ID as the object ID assigns it as the object ID when it creates the record (a UUID).
 - **Output names** are unique across roles, attributes, `parent`, `path`, `hierarchy` and projections,
   and `objectType`, `matchScore` and `target` are reserved for the engine. A `parent` field `code`
   needs the object's `code` role.
@@ -368,14 +371,26 @@ GET /api/consumer
   plus the paging fields of ADR-030. `expect=one` returns the single top result, `404` when nothing
   matched, and `409 AMBIGUOUS_MATCH` naming the tied candidates when the top score is shared. Flows
   that resolve a value use it in place of "take the first result".
-- **Get by ID** returns one object in the same shape; `id` is the definition's identity field.
+- **Get by ID** returns one object in the same shape, found by its object ID (C-D24). _Delivered in
+  C2 (2026-10-04):_ the answer is the bare shared object; an unknown or deleted record, one in another
+  workspace or one of a type the definition does not expose is `404 OBJECT_NOT_FOUND`. Data is read
+  live from the active release's definition (C-D6; `publication` arrives in C6). `workspace` selects
+  the workspace, defaulting to the deployment's default; an unknown or retired one is
+  `404 WORKSPACE_NOT_FOUND`, and every response names the workspace in `RDM-Workspace` (C-D23).
+  `parent` is an object or `null`; its `objectType` is `null` when its type is not exposed (C-D22).
+  `hierarchy` and `path` hold the ancestors from the top down, without the object (C-D21). A field
+  with no value from any source takes its `default`, then `null`; empty text is no value (C-D26).
+  Projection arrays are ordered by the related record's name, then ID.
 - **Lists** use position paging (`position`/`pageSize`), the reference's page-number model. The
   parent parameter accepts the parent's identity, name or declared code fields, like the reference.
   A list declared without a parent lists every object of its type in a deterministic order (the
   definition's sort field, then name, then ID); pinned to a publication, it is a consistent full
   extract of that type.
-- **Unknown parameters** are rejected with `400` naming them. Unknown `apiKey`, `listKey` or
-  `contractVersion` return `404`.
+- **Unknown parameters** are rejected with `400 UNKNOWN_PARAMETER` naming them. Unknown `apiKey`,
+  `listKey` or `contractVersion` return `404` (`CONSUMER_API_NOT_FOUND`, `CONTRACT_VERSION_NOT_FOUND`
+  naming the installed version). In C2 a declared definition parameter is refused with
+  `400 PARAMETER_NOT_SUPPORTED`, since no kind is applied yet; from C3 only a parameter that does not
+  apply to a route is.
 - **Generated OpenAPI:** each definition generates its own OpenAPI document, so integrators get a
   typed contract per API.
 - **Consistency:** reads use live data by default. `publication={publicationId}` reads a
@@ -644,7 +659,7 @@ coordination is 0.11 work.
 | Package | Scope |
 | --- | --- |
 | C1 | `consumerApis` schema, model validation with precise paths, compile into the immutable snapshot, breaking-change check against the active release (C-D17) — **delivered 2026-09-30** |
-| C2 | Common object and projections: get by ID, ancestor fields, cardinality-derived shape, typed values |
+| C2 | Common object and projections: get by ID, ancestor fields, cardinality-derived shape, typed values — **delivered 2026-10-04** |
 | C3 | Lists: parent parameter resolution, lists without a parent, position paging, parameters of kind `ancestor`, `projection` and `related` |
 | C4 | Consumer index and XREF scoring: own-field and promoted scores, multi-term queries, deterministic order, `expect=one` |
 | C5 | XREF parameters of kind `objectType`, `projection`, `ancestor` and `related` (including via a shared projection) |
@@ -721,7 +736,8 @@ table under "Behavior the engine does not carry over" says otherwise:
 ## Decisions
 
 C-D1 decided 2026-09-29; C-D2–C-D16 accepted 2026-09-29 as recommended, with the notes below;
-C-D17–C-D20 raised by C1 and accepted 2026-09-30 as recommended.
+C-D17–C-D20 raised by C1 and accepted 2026-09-30 as recommended; C-D21–C-D26 settled with the user
+for C2 on 2026-10-04.
 
 | # | Question | Decision |
 | --- | --- | --- |
@@ -745,3 +761,9 @@ C-D17–C-D20 raised by C1 and accepted 2026-09-30 as recommended.
 | C-D18 | What else is a breaking change | **Accepted 2026-09-30 (C1).** Besides C-D2 and C-D4: removing an exposed type, a list or a parameter, and changing a parameter's kind or a list's type or parent parameter, since callers would get `404` or `400`. Removing a whole definition (its `apiKey`) is allowed with a warning: it ends that API rather than changing it |
 | C-D19 | The output type of a field with several sources | **Accepted 2026-09-30 (C1).** The sources share one value type (`text` and `longText` count as one), and that is the output type; mixed types are refused at the field's path, so the contract always states one type |
 | C-D20 | Which fields a match rule may use | **Accepted 2026-09-30 (C1).** `name`, `id` and attributes that are `searchable` or `unique`: `unique` already marks an identifier (ADR-010, Base 0.9 D2), so no separate identifier list is added |
+| C-D21 | Do `hierarchy` and `path` include the object itself? | **Settled 2026-10-04 (C2).** No: the ancestors from the top down to the parent. At the top, `[]` and `""`. Each element is the ancestor's `name` role, falling back to its built-in name; parents are walked, never split on `/` |
+| C-D22 | `parent.objectType` when the parent's type is not exposed | **Settled 2026-10-04 (C2).** `null`, so a model key never appears in the contract; the other parent fields are read through the roles as usual |
+| C-D23 | How get by ID names the resolved workspace (C-D16) | **Settled 2026-10-04 (C2).** The `RDM-Workspace` header on every consumer response; get by ID stays the bare shared object, the shape XREF items have; the collection envelopes (C3, C4) also carry it as a field |
+| C-D24 | What `{id}` in get by ID is | **Settled 2026-10-04 (C2).** The object ID only, unique across the database. Other identifiers go through XREF, whose `409 AMBIGUOUS_MATCH` names a faulty migration's duplicates. No `409` in get by ID: the state cannot occur. The `id` role's source is the built-in `id` (C1's rule narrowed). Database-backed uniqueness for `unique` attributes is recorded in TODO for a later build |
+| C-D25 | Error code pattern | **Settled 2026-10-04.** Upper case across every API of the engine, delivered first as the amendment T1b |
+| C-D26 | When a source has no value | **Settled 2026-10-04 (C2).** Absent, `null` or empty text, as everywhere in the engine (required fields, `atLeastOneOf`, uniqueness), so a consumer never receives `""`. Not a new rule |

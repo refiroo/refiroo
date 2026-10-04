@@ -376,9 +376,9 @@ class World:
         drop_flag: bool = False,
         extra: bool = False,
     ) -> dict[str, Any]:
-        """``model`` declaring one consumer API over R: an ID, a name, R's unique value and (unless
-        dropped) its boolean as fields, a projection over B1n to K and a list; ``extra`` adds a field
-        and a second list."""
+        """``model`` declaring one consumer API over R besides the ones it has: an ID, a name, R's
+        unique value and (unless dropped) its boolean as fields, a projection over B1n to K and a
+        list; ``extra`` adds a field and a second list."""
         attributes = {"number": {"source": [self.key("R.u")]}}
         if not drop_flag:
             attributes["flag"] = {"source": [self.key("R.b")]}
@@ -387,7 +387,8 @@ class World:
         lists = [{"key": "ledgers", "objectType": self.key("R")}]
         if extra:
             lists.append({"key": "tokens", "objectType": self.key("K")})
-        model["consumerApis"] = [
+        others = [item for item in model.get("consumerApis", []) if item["key"] != "journey-api"]
+        model["consumerApis"] = others + [
             {
                 "key": "journey-api",
                 "name": "Journey API",
@@ -417,6 +418,17 @@ class World:
             }
         ]
         return model
+
+
+# --- the consumer API ---
+
+
+def consumer_object(
+    world: World, object_id: str, *, version: int = 1, api: str | None = None, **params: Any
+) -> Response:
+    """``GET /api/consumer/{apiKey}/v{version}/objects/{id}`` of ``Capi`` (or ``api``)."""
+    key = api if api is not None else world.key("Capi")
+    return world.api.get(f"/api/consumer/{key}/v{version}/objects/{object_id}", **params)
 
 
 class Held:

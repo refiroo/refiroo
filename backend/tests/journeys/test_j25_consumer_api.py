@@ -56,7 +56,7 @@ def test_declare_validate_compare_and_activate_a_consumer_api(world):
     assert compiled["consumerContracts"]["classification"] == "compatible"
 
     broken = _model(world, "broken")
-    broken["consumerApis"][0]["object"]["attributes"]["number"]["source"] = ["no-such-attribute"]
+    broken["consumerApis"][-1]["object"]["attributes"]["number"]["source"] = ["no-such-attribute"]
     broken_draft, broken_compiled = _compile(world, broken)
     assert broken_compiled["valid"] is False
     pointer = "/consumerApis/journey-api/object/attributes/number/source"
@@ -129,3 +129,18 @@ def test_a_model_change_that_changes_a_projection_needs_a_new_version(world):
     diff = ok(world.api.get(f"/model-releases/{release['id']}/diff", againstReleaseId=active["id"]))
     assert diff["consumerContracts"]["classification"] == "version_required"
     refused(world.activate(release["id"]), 409, "CONSUMER_CONTRACT_VERSION_REQUIRED")
+
+
+@pytest.mark.journey("J25")
+@pytest.mark.structures("Capi", "R", "R.u")
+def test_the_identity_reads_the_object_id(world):
+    """A definition whose id source is an attribute is refused with 422 INVALID_MODEL at
+    /consumerApis/<key>/object/id/source."""
+    model = copy.deepcopy(world.configuration.model)
+    model["release"]["version"] += "-former-id"
+    (definition,) = [d for d in model["consumerApis"] if d["key"] == world.key("Capi")]
+    definition["object"]["id"]["source"] = [world.key("R.u")]
+    draft, _compiled = _compile(world, model)
+    error = refused(_install(world, draft), 422, "INVALID_MODEL")
+    pointer = f"/consumerApis/{world.key('Capi')}/object/id/source"
+    assert any(d["path"] == pointer for d in error["details"]), error["details"]
