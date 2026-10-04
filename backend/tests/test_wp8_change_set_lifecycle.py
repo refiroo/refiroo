@@ -237,7 +237,7 @@ def test_change_set_list_cursor_detail_rename_and_discard():
             params={"pageSize": 1, "cursor": cursor},
         )
         assert mismatched.status_code == 422
-        assert mismatched.json()["error"]["code"] == "invalid_cursor"
+        assert mismatched.json()["error"]["code"] == "INVALID_CURSOR"
 
         detail = client.get(f"/api/v1/change-sets/{second['id']}")
         assert detail.status_code == 200
@@ -257,7 +257,7 @@ def test_change_set_list_cursor_detail_rename_and_discard():
         assert discarded.status_code == 204
         missing = client.get(f"/api/v1/change-sets/{second['id']}")
         assert missing.status_code == 404
-        assert missing.json()["error"]["code"] == "change_set_not_found"
+        assert missing.json()["error"]["code"] == "CHANGE_SET_NOT_FOUND"
 
         # Discard removes only the mutable change set; workspace identity and the sibling change set remain.
         assert client.get(f"/api/v1/workspaces/{workspace_key}").status_code == 200
@@ -293,13 +293,13 @@ def test_change_set_rename_and_discard_enforce_optimistic_concurrency():
             json={"name": "Stale", "expectedVersion": 1},
         )
         assert stale_rename.status_code == 409
-        assert stale_rename.json()["error"]["code"] == "change_set_version_conflict"
+        assert stale_rename.json()["error"]["code"] == "CHANGE_SET_VERSION_CONFLICT"
 
         stale_discard = client.delete(
             f"/api/v1/change-sets/{change_set['id']}", params={"expectedVersion": 1}
         )
         assert stale_discard.status_code == 409
-        assert stale_discard.json()["error"]["code"] == "change_set_version_conflict"
+        assert stale_discard.json()["error"]["code"] == "CHANGE_SET_VERSION_CONFLICT"
 
         # The change set is untouched by the rejected claims.
         assert client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"] == 2
@@ -320,7 +320,7 @@ def test_missing_change_set_returns_change_set_not_found():
         ):
             response = request()
             assert response.status_code == 404
-            assert response.json()["error"]["code"] == "change_set_not_found"
+            assert response.json()["error"]["code"] == "CHANGE_SET_NOT_FOUND"
 
 
 def test_catalogue_retirement_blocks_change_set_derive_rename_and_discard():
@@ -343,23 +343,23 @@ def test_catalogue_retirement_blocks_change_set_derive_rename_and_discard():
             derived_from_publication_id=published["id"],
             expected_status=409,
         )
-        assert derive.json()["error"]["code"] == "workspace_retired"
+        assert derive.json()["error"]["code"] == "WORKSPACE_RETIRED"
         create = _create_change_set(client, workspace_key, name="Blocked create", expected_status=409)
-        assert create.json()["error"]["code"] == "workspace_retired"
+        assert create.json()["error"]["code"] == "WORKSPACE_RETIRED"
 
         rename = client.patch(
             f"/api/v1/change-sets/{change_set['id']}",
             json={"name": "Blocked rename", "expectedVersion": change_set["version"]},
         )
         assert rename.status_code == 409
-        assert rename.json()["error"]["code"] == "workspace_retired"
+        assert rename.json()["error"]["code"] == "WORKSPACE_RETIRED"
 
         discard = client.delete(
             f"/api/v1/change-sets/{change_set['id']}",
             params={"expectedVersion": change_set["version"]},
         )
         assert discard.status_code == 409
-        assert discard.json()["error"]["code"] == "workspace_retired"
+        assert discard.json()["error"]["code"] == "WORKSPACE_RETIRED"
 
         # The workspace catalogue record stays readable and the change set row survives each rejection.
         assert client.get(f"/api/v1/workspaces/{workspace_key}").status_code == 200

@@ -203,7 +203,7 @@ def test_release_cursor_rejects_tampering_and_filter_reuse():
             params={"active": True, "cursor": cursor, "pageSize": 1},
         )
         assert filtered.status_code == 422
-        assert filtered.json()["error"]["code"] == "invalid_cursor"
+        assert filtered.json()["error"]["code"] == "INVALID_CURSOR"
 
         replacement = "A" if cursor[-1] != "A" else "B"
         tampered = client.get(
@@ -211,7 +211,7 @@ def test_release_cursor_rejects_tampering_and_filter_reuse():
             params={"cursor": cursor[:-1] + replacement, "pageSize": 1},
         )
         assert tampered.status_code == 422
-        assert tampered.json()["error"]["code"] == "invalid_cursor"
+        assert tampered.json()["error"]["code"] == "INVALID_CURSOR"
 
 
 def test_unknown_model_release_is_explicit():
@@ -219,7 +219,7 @@ def test_unknown_model_release_is_explicit():
         response = client.get("/api/v1/model-releases/00000000-0000-4000-8000-000000000000")
 
     assert response.status_code == 404
-    assert response.json()["error"]["code"] == "model_release_not_found"
+    assert response.json()["error"]["code"] == "MODEL_RELEASE_NOT_FOUND"
 
 
 def test_inline_validation_is_side_effect_free_and_returns_stable_diagnostics():
@@ -239,7 +239,7 @@ def test_inline_validation_is_side_effect_free_and_returns_stable_diagnostics():
         invalid = client.post("/api/v1/model-validations", json={"model": valid_model})
         assert invalid.status_code == 200
         assert invalid.json()["valid"] is False
-        assert invalid.json()["diagnostics"][0]["code"] == "unknown_object_type"
+        assert invalid.json()["diagnostics"][0]["code"] == "UNKNOWN_OBJECT_TYPE"
         assert invalid.json()["diagnostics"][0]["path"].startswith("/applications/")
 
         with SessionLocal() as session:
@@ -316,7 +316,7 @@ def test_release_diff_reports_unknown_baseline_release():
         )
 
     assert response.status_code == 404
-    assert response.json()["error"]["code"] == "model_release_not_found"
+    assert response.json()["error"]["code"] == "MODEL_RELEASE_NOT_FOUND"
 
 
 def test_model_admin_capabilities_and_routes_are_disabled_by_default():
@@ -398,7 +398,7 @@ def test_draft_crud_compile_and_installation_lifecycle(monkeypatch):
             json={"expectedVersion": 1, "name": "Stale overwrite"},
         )
         assert stale.status_code == 409
-        assert stale.json()["error"]["code"] == "version_conflict"
+        assert stale.json()["error"]["code"] == "VERSION_CONFLICT"
 
         with SessionLocal() as session:
             counts_before_compile = {
@@ -451,7 +451,7 @@ def test_draft_crud_compile_and_installation_lifecycle(monkeypatch):
             params={"expectedVersion": 1},
         )
         assert stale_delete.status_code == 409
-        assert stale_delete.json()["error"]["code"] == "version_conflict"
+        assert stale_delete.json()["error"]["code"] == "VERSION_CONFLICT"
         deleted = client.delete(
             f"/api/v1/model-drafts/{draft['id']}",
             params={"expectedVersion": 2},
@@ -511,7 +511,7 @@ def test_draft_installation_recompiles_and_rejects_invalid_or_conflicting_conten
             json={"expectedVersion": 1},
         )
         assert invalid_install.status_code == 422
-        assert invalid_install.json()["error"]["code"] == "invalid_model"
+        assert invalid_install.json()["error"]["code"] == "INVALID_MODEL"
 
         conflicting = client.get("/api/v1/model").json()
         conflicting["product"]["name"] = "Same identity, different content"
@@ -524,7 +524,7 @@ def test_draft_installation_recompiles_and_rejects_invalid_or_conflicting_conten
             json={"expectedVersion": 1},
         )
         assert conflict.status_code == 409
-        assert conflict.json()["error"]["code"] == "release_identity_conflict"
+        assert conflict.json()["error"]["code"] == "RELEASE_IDENTITY_CONFLICT"
 
 
 def test_concurrent_identical_draft_installations_are_idempotent(monkeypatch):
@@ -675,11 +675,11 @@ def test_activation_blocks_incompatible_runtime_data_without_changing_selection(
         )
 
         assert response.status_code == 409
-        assert response.json()["error"]["code"] == "model_migration_required"
+        assert response.json()["error"]["code"] == "MODEL_MIGRATION_REQUIRED"
         diagnostic = next(
             item
             for item in response.json()["error"]["details"]
-            if item["code"] == "application_in_use"
+            if item["code"] == "APPLICATION_IN_USE"
         )
         assert diagnostic["path"].startswith("/applications/")
         assert diagnostic["count"] >= 1
@@ -718,7 +718,7 @@ def test_activation_rejects_stale_runtime_tokens(monkeypatch):
 
     assert response.status_code == 409
     assert response.json()["error"] == {
-        "code": "activation_conflict",
+        "code": "ACTIVATION_CONFLICT",
         "message": "The active model selection changed before activation",
         "details": {
             "activeReleaseId": active_release_id,
@@ -726,7 +726,7 @@ def test_activation_rejects_stale_runtime_tokens(monkeypatch):
         },
     }
     assert wrong_release_response.status_code == 409
-    assert wrong_release_response.json()["error"]["code"] == "activation_conflict"
+    assert wrong_release_response.json()["error"]["code"] == "ACTIVATION_CONFLICT"
 
 
 def test_concurrent_activation_allows_only_one_runtime_state_claim(monkeypatch):
@@ -762,7 +762,7 @@ def test_concurrent_activation_allows_only_one_runtime_state_claim(monkeypatch):
 
         assert sorted(response.status_code for response in responses) == [200, 409]
         conflict = next(response for response in responses if response.status_code == 409)
-        assert conflict.json()["error"]["code"] == "activation_conflict"
+        assert conflict.json()["error"]["code"] == "ACTIVATION_CONFLICT"
         winner = next(response for response in responses if response.status_code == 200).json()
         assert (
             client.get("/api/v1/model").headers["X-Model-Release-Id"] == winner["activeReleaseId"]
@@ -801,11 +801,11 @@ def test_registry_refresh_failure_leaves_committed_activation_unready(monkeypatc
         )
 
         assert response.status_code == 503
-        assert response.json()["error"]["code"] == "model_registry_refresh_failed"
+        assert response.json()["error"]["code"] == "MODEL_REGISTRY_REFRESH_FAILED"
         assert client.get("/health").status_code == 503
         unavailable = client.get("/api/v1/model")
         assert unavailable.status_code == 503
-        assert unavailable.json()["error"]["code"] == "model_registry_unavailable"
+        assert unavailable.json()["error"]["code"] == "MODEL_REGISTRY_UNAVAILABLE"
         with SessionLocal() as session:
             state = session.get(ModelRuntimeState, 1)
             assert state is not None
@@ -843,7 +843,7 @@ def test_activation_rejects_corrupted_installed_model_without_mutation(monkeypat
         )
 
         assert response.status_code == 500
-        assert response.json()["error"]["code"] == "invalid_installed_model"
+        assert response.json()["error"]["code"] == "INVALID_INSTALLED_MODEL"
         assert response.json()["error"]["details"]
         assert client.get("/api/v1/model").headers["X-Model-Release-Id"] == active_release_id
         with SessionLocal() as session:
@@ -886,7 +886,7 @@ def test_activation_rejects_a_historical_schema_release_without_mutation(monkeyp
 
         assert response.status_code == 422
         assert response.json()["error"] == {
-            "code": "unsupported_schema_version",
+            "code": "UNSUPPORTED_SCHEMA_VERSION",
             "message": "Schema version '0.4' cannot be activated",
             "details": {
                 "releaseId": historical_id,
@@ -976,13 +976,13 @@ def test_release_activation_history_reads_recorded_predecessors_oldest_first(mon
             params={"pageSize": 1, "cursor": cursor},
         )
         assert reused.status_code == 422
-        assert reused.json()["error"]["code"] == "invalid_cursor"
+        assert reused.json()["error"]["code"] == "INVALID_CURSOR"
 
         unknown = client.get(
             "/api/v1/model-releases/00000000-0000-4000-8000-000000000000/activations"
         )
         assert unknown.status_code == 404
-        assert unknown.json()["error"]["code"] == "model_release_not_found"
+        assert unknown.json()["error"]["code"] == "MODEL_RELEASE_NOT_FOUND"
 
 
 def test_release_activation_history_includes_offline_schema_upgrades():

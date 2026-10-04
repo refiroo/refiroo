@@ -64,14 +64,14 @@ def test_a_key_answers_with_its_finished_job_and_refuses_anything_else(seeded):
         with pytest.raises(ApiError) as running:
             answer(session, "k", "f1")
         assert (running.value.code, running.value.details, running.value.headers) == (
-            "idempotency_in_progress",
+            "IDEMPOTENCY_IN_PROGRESS",
             {"jobId": job.id},
             {"Retry-After": "1"},
         )
         with pytest.raises(ApiError) as reused:
             answer(session, "k", "f2")
         assert (reused.value.code, reused.value.details) == (
-            "idempotency_key_reused",
+            "IDEMPOTENCY_KEY_REUSED",
             {"jobId": job.id},
         )
 
@@ -178,4 +178,4 @@ def test_jobs_list_newest_first_and_outcomes_in_item_order(seeded):
         assert load_job(session, older.id) is older
         with pytest.raises(ApiError) as unknown:
             load_job(session, "00000000-0000-4000-8000-000000000000")
-        assert unknown.value.code == "job_not_found"
+        assert unknown.value.code == "JOB_NOT_FOUND"

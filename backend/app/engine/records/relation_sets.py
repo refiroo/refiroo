@@ -92,7 +92,7 @@ class SetVersionConflict(ApiError):
             details["pointer"] = pointer
         super().__init__(
             409,
-            "relation_set_version_conflict",
+            "RELATION_SET_VERSION_CONFLICT",
             "The relation set has changed since it was read; refresh it before retrying",
             details,
         )
@@ -114,7 +114,7 @@ def set_binding(
     if binding.required and binding.cardinality in {"one-to-one", "one-to-many"}:
         raise api_error(
             422,
-            "required_ownership_binding",
+            "REQUIRED_OWNERSHIP_BINDING",
             "Mapping replacement is not permitted on required-ownership bindings",
         )
     return binding
@@ -156,7 +156,7 @@ def decide_set_replacement(
     anchor_id = anchor.object_id
     if not targets and binding.required:
         raise _at(
-            api_error(422, "required_relation", "A required relationship cannot be cleared"),
+            api_error(422, "REQUIRED_RELATION", "A required relationship cannot be cleared"),
             pointer,
             "targets",
         )
@@ -164,7 +164,7 @@ def decide_set_replacement(
     for number, target in enumerate(targets):
         if target.record.object_id in seen:
             raise _at(
-                api_error(409, "duplicate_relation", "A record is listed twice in the set"),
+                api_error(409, "DUPLICATE_RELATION", "A record is listed twice in the set"),
                 pointer,
                 f"targets/{number}",
             )
@@ -207,7 +207,7 @@ def decide_set_replacement(
         if on_existing != "overwrite":
             raise api_error(
                 409,
-                "version_required",
+                "VERSION_REQUIRED",
                 "The set would change; send expectedRelationSetVersion, or declare "
                 'onExisting: "overwrite"',
                 {
@@ -351,7 +351,7 @@ def _keep_required(
         if not remaining:
             error = api_error(
                 422,
-                "required_relation",
+                "REQUIRED_RELATION",
                 "The replacement would leave a record without a relationship it requires",
                 {"objectId": other, "relationId": edge.relation_id},
             )

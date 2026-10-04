@@ -14,10 +14,10 @@ Lock order inside a chunk: the workspace (live) or the change set, then the writ
 (records), then the job row at the checkpoint (ARCHITECTURE).
 
 **Stopping.** Before each chunk the worker reads the job: a cancel request finishes it
-``cancelled``; a release no longer the pinned one fails it with ``model_release_changed``; another
+``cancelled``; a release no longer the pinned one fails it with ``MODEL_RELEASE_CHANGED``; another
 refusal of the context (a retired workspace, a lost change set claim) fails it with that error. An
 ``atomic`` job's chunk also checks for a cancel request between items and rolls back completely.
-Any other error rolls the chunk back and fails the job with ``job_failed`` (D29). Items without an
+Any other error rolls the chunk back and fails the job with ``JOB_FAILED`` (D29). Items without an
 outcome then become ``unprocessed`` with the stop's reason; chunks committed before stay applied.
 
 **Retention.** The worker expires finished jobs past ``expiresAt`` every hour (D14, D30).
@@ -164,21 +164,21 @@ class JobWorker:
             job_id = job.id
             if job.cancel_requested_at is not None:
                 session.rollback()
-                self._stop(sequence_id, "cancelled", "job_cancelled", None)
+                self._stop(sequence_id, "cancelled", "JOB_CANCELLED", None)
                 return
             try:
                 self._apply_chunk(session, job)
             except JobCancelled:
                 session.rollback()
-                self._stop(sequence_id, "cancelled", "job_cancelled", None)
+                self._stop(sequence_id, "cancelled", "JOB_CANCELLED", None)
             except _LeaseLost:
                 session.rollback()
             except ApiError as error:
                 session.rollback()
                 reason = (
-                    "model_release_changed"
-                    if error.code == "model_release_changed"
-                    else "job_failed"
+                    "MODEL_RELEASE_CHANGED"
+                    if error.code == "MODEL_RELEASE_CHANGED"
+                    else "JOB_FAILED"
                 )
                 self._stop(sequence_id, "failed", reason, _error_body(error))
             except Exception:
@@ -192,9 +192,9 @@ class JobWorker:
                 self._stop(
                     sequence_id,
                     "failed",
-                    "job_failed",
+                    "JOB_FAILED",
                     {
-                        "code": "job_failed",
+                        "code": "JOB_FAILED",
                         "message": "The job stopped because of an internal error. Items it "
                         "applied before stay applied; the rest are unprocessed and may be sent "
                         "again. If it recurs, report the correlation ID",

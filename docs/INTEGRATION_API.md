@@ -44,7 +44,7 @@ Each item ends in exactly one status:
 | --- | --- | --- |
 | `applied` | The item's change is committed | `action`: `created`, `updated`, `unchanged` or `deleted`; the record's `id`, type key and new `version` |
 | `rejected` | The item was evaluated and refused | `error` in the API error envelope shape: the same `code` a single write returns for the same cause, `message`, and `details` with a JSON pointer into the item |
-| `unprocessed` | The item was not applied and not refused on its own merits | `reason`: `batch_rolled_back`, `job_cancelled`, `model_release_changed` or `job_failed` |
+| `unprocessed` | The item was not applied and not refused on its own merits | `reason`: `BATCH_ROLLED_BACK`, `JOB_CANCELLED`, `MODEL_RELEASE_CHANGED` or `JOB_FAILED` |
 
 `unchanged` is an upsert or update whose values equal the stored record. It bumps no version, writes
 no audit entry and produces no feed event, so re-sending a recurring feed is cheap and silent
@@ -56,8 +56,8 @@ redirect ([composable domains](COMPOSABLE_DOMAINS.md#identity)) adds an action, 
 (F2). The OpenAPI document lists today's values; readers must treat an action or reason they do not
 know as applied or unprocessed by its status, never as an error.
 
-A rejection uses the single-write error code (`duplicate_attribute_value`, `version_conflict`,
-`parent_cycle`, …) because the item went through the same service (plan principle 1). Codes that
+A rejection uses the single-write error code (`DUPLICATE_ATTRIBUTE_VALUE`, `VERSION_CONFLICT`,
+`PARENT_CYCLE`, …) because the item went through the same service (plan principle 1). Codes that
 exist only for batches are listed with the section that introduces them.
 
 A finished job reports counts (`applied`, `rejected`, `unprocessed`, and `applied` split by action) and
@@ -74,7 +74,7 @@ Each request names its policy; there is no default, so no caller gets one by acc
 - **`atomic`**: all items apply or none do. Items apply in order in one transaction, each through its
   single write against the data the items before it left (D23, B1: sequential, not a check of the
   combined end state, so swapping two records' unique values needs a change set). The first rejected
-  item rolls everything back, and every other item is `unprocessed` with `batch_rolled_back`. The size
+  item rolls everything back, and every other item is `unprocessed` with `BATCH_ROLLED_BACK`. The size
   is limited by the atomic maximum (D13).
 - **`independent`**: each item stands alone. Items apply in order, each inside a savepoint; a rejected
   item rolls back only itself. Work commits in chunks (P6), so a failure later in the job never undoes
@@ -82,14 +82,14 @@ Each request names its policy; there is no default, so no caller gets one by acc
 
 Within `independent`, a later item may depend on an earlier one in the same batch (a child after its
 parent). It sees the earlier item only if that item applied; otherwise it is rejected on its own
-terms (for example `object_not_found` for its parent), not skipped.
+terms (for example `OBJECT_NOT_FOUND` for its parent), not skipped.
 
 **Change-set context.** With `changeSetId`, the batch writes into that change set instead of live
 (ADR-026) and claims `expectedChangeSetVersion` once for the whole job, like one single write. The
 completed job reports the change set's new version (`changeSetVersion`); a job that changed nothing
 leaves the version as it was. An `independent` job in a change set holds the
 claim between chunks: a concurrent writer to the same change set makes the remaining items
-`unprocessed` with `job_failed` and the job fails with `change_set_version_conflict` (B2: each chunk
+`unprocessed` with `JOB_FAILED` and the job fails with `CHANGE_SET_VERSION_CONFLICT` (B2: each chunk
 that changes something advances the version by one, and the job's `changeSetVersion` is the version
 it holds).
 
@@ -99,7 +99,7 @@ Updates never silently overwrite a newer version.
 
 - **Update** items require `expectedVersion`, as a single update does.
 - **Upsert** items may carry `expectedVersion`. Without it, an upsert that finds an existing record it
-  would change is rejected with `version_required`, unless the request declares `onExisting: "overwrite"`. Then the
+  would change is rejected with `VERSION_REQUIRED`, unless the request declares `onExisting: "overwrite"`. Then the
   item is read and written in one savepoint, so no concurrent write is lost between them. The audit
   entry records that it overwrote without a version claim, and the outcome reports the previous
   version. A recurring feed from an authoritative source opts in explicitly; nothing does so by default.
@@ -114,18 +114,18 @@ canonical JSON body, or of the uploaded file's checksum plus the job parameters.
 | Retry | Answer |
 | --- | --- |
 | Same key, same fingerprint, job finished | The original job's response, with `Idempotent-Replayed: true`. Nothing runs again |
-| Same key, same fingerprint, job still running | `409 idempotency_in_progress` with the job ID and `Retry-After` |
-| Same key, different fingerprint | `422 idempotency_key_reused`; nothing runs |
+| Same key, same fingerprint, job still running | `409 IDEMPOTENCY_IN_PROGRESS` with the job ID and `Retry-After` |
+| Same key, different fingerprint | `422 IDEMPOTENCY_KEY_REUSED`; nothing runs |
 | Key older than retention (D14) | Treated as new |
 
 The header is optional. Without it, a retried request is still safe where the item is idempotent: a
-create with a client-supplied `id` answers `object_already_exists`, and an upsert answers `unchanged`.
+create with a client-supplied `id` answers `OBJECT_ALREADY_EXISTS`, and an upsert answers `unchanged`.
 Retrying a create without an `id` and without a key can duplicate records; the reference says so
 explicitly.
 
 An inline batch writes its job, its items' changes, their outcomes and its key in one transaction, so
 its key names a finished job; a background job's key is stored with the queued job, and
-`idempotency_in_progress` answers it until the job finishes (B2). A replayed background job answers
+`IDEMPOTENCY_IN_PROGRESS` answers it until the job finishes (B2). A replayed background job answers
 `202` with the job as it is now. A key's expiry follows its job's `expiresAt`. The `409` carries
 `Retry-After` (B1).
 
@@ -152,7 +152,7 @@ a job-level failure, `createdAt`, `startedAt`, `finishedAt` and `expiresAt`; B2 
 **States.** `queued` → `running` → `completed` | `failed` | `cancelled`. An import also passes
 `awaiting_confirmation` after its preview (section J). `expired` replaces any final state when
 retention ends: the job's summary remains, its item outcomes and files are removed. `failed` is a
-job-level failure (unreadable file, `model_release_changed`, a lost change-set claim), never "some items
+job-level failure (unreadable file, `MODEL_RELEASE_CHANGED`, a lost change-set claim), never "some items
 were rejected"; that is `completed` with `result: partial`.
 
 **Chunks and resumption.** A background job works in chunks. Each chunk's data writes, item outcomes
@@ -168,23 +168,23 @@ items. The lease (`JOB_LEASE_SECONDS`, 120) is renewed with each chunk's commit;
 hold the job row while it applies items, and before committing it locks the row and checks that it
 still holds the lease, rolling back when another worker took the job over. A worker stopping
 gracefully releases its leases. A failure other than an item's refusal rolls back the chunk and
-fails the job with `job_failed` and a correlation ID (D29). Items the job did not reach get their
+fails the job with `JOB_FAILED` and a correlation ID (D29). Items the job did not reach get their
 `unprocessed` outcome in one statement from their inputs, so `progress.processed` equals `total`
 once the job is finished.
 
 **Model release.** A job pins the active model release when it is created (ADR-015 extended from a
 request to a job). If the active release changes before the job finishes, the next chunk fails the job
-with `model_release_changed`: applied chunks stay applied, and every remaining item is `unprocessed`
+with `MODEL_RELEASE_CHANGED`: applied chunks stay applied, and every remaining item is `unprocessed`
 with that reason. A job in a change set pins the change set's release (B2): moving the change set to
 another release fails it the same way, and a release activated while a live chunk runs refuses that
 chunk at commit (0.8 W5), which then counts as not reached. An inline batch is one chunk committed with its job, so a release activated while
-it runs refuses the request (`409 model_release_changed`) and nothing is saved, the job included (B1).
+it runs refuses the request (`409 MODEL_RELEASE_CHANGED`) and nothing is saved, the job included (B1).
 
 **Cancellation.** Cancel takes effect between chunks. Items not reached are `unprocessed` with
-`job_cancelled`; an `atomic` job rolls back completely.
+`JOB_CANCELLED`; an `atomic` job rolls back completely.
 
 As delivered (B2, D28): the route sets `cancelRequestedAt` in one short transaction and answers `202`;
-a finished job is `409 job_finished`. The worker does every finish, a queued job's included, at the
+a finished job is `409 JOB_FINISHED`. The worker does every finish, a queued job's included, at the
 next chunk; an `atomic` job's chunk checks before every 500 items it decides and before it writes
 them (0.9.0-alpha.1 PG3b). The design relies on PostgreSQL's READ
 COMMITTED: a cancel request commits while a chunk runs and the chunk's next read sees it.
@@ -209,7 +209,7 @@ that creates or cancels a job and runs no worker; job reads stay available.
 ### P7: Limits (D13)
 
 Every limit is a setting reported by `GET /api/v1/capabilities` (`integrationJobs.limits`) and named
-in the error that enforces it (`413 batch_too_large` with `details.setting`, `details.maximum` and the
+in the error that enforces it (`413 BATCH_TOO_LARGE` with `details.setting`, `details.maximum` and the
 request's `items` or `bytes`, B1). Recommended defaults, to be confirmed against
 the 0.8 Track S volume fixture in the first B package:
 
@@ -259,7 +259,7 @@ transaction (a record, its required relation and its mapping).
   one. Items carry no context of their own.
 - **`policy`** is required: `atomic` or `independent` (P3, D1).
 - **`run`** is required: `inline` answers `200` with the finished job and its first page of outcomes
-  and is limited by the synchronous maximum (`413 batch_too_large` above it); `background` answers
+  and is limited by the synchronous maximum (`413 BATCH_TOO_LARGE` above it); `background` answers
   `202` with the queued job. The caller chooses; the size never switches the response shape silently.
 - **`onExisting`**: `reject` (the default) or `overwrite`, for upserts without `expectedVersion` (P4,
   D11). It applies to the whole request, so an authoritative feed opts in once.
@@ -280,8 +280,8 @@ relation-set anchor or target) it takes a **reference**:
 
 A key reference uses only attributes declared `unique` on the type (ADR-010), whose uniqueness is per
 workspace, so it matches at most one record. An attribute not declared unique is refused per item as
-`invalid_record_key`. No match is `reference_not_found`; a match of another type than named is
-`reference_type_mismatch`, both naming the JSON pointer of the reference. References resolve against
+`INVALID_RECORD_KEY`. No match is `REFERENCE_NOT_FOUND`; a match of another type than named is
+`REFERENCE_TYPE_MISMATCH`, both naming the JSON pointer of the reference. References resolve against
 the batch's context as it stands when the item runs, so they see earlier applied items of the same
 batch (P3). The import profile's non-unique match keys (J3) resolve to IDs before they reach a batch;
 a batch never matches by name.
@@ -293,12 +293,12 @@ a batch never matches by name.
 | `create` | `applicationKey`, `objectTypeKey`, `name` | As `POST /objects`: optional `id`, `parent` (a reference), `attributes`, `initialRelations` (`relationTypeKey`, `direction`, `object`: a reference, `attributes`) |
 | `update` | `target`, `expectedVersion` | As `PATCH /objects/…`: `name`, `parent` (a move, B2 of 0.8), `attributes` merged as a single PATCH merges them, including its treatment of `null` |
 | `upsert` | `objectTypeKey`, `applicationKey`, `key`, `name` | Finds the record by `key`; creates it as `create` when absent; otherwise updates it as `update` under P4. Its `initialRelations` are used only when it creates (D26, B1); an absent `parent` keeps a found record where it is |
-| `delete` | `target`, `expectedVersion` | As `DELETE` without `cascade`: a record with children or non-parent relations is rejected `object_has_dependants` (without a preview token). A batch removes dependants itself, children before parents |
+| `delete` | `target`, `expectedVersion` | As `DELETE` without `cascade`: a record with children or non-parent relations is rejected `OBJECT_HAS_DEPENDANTS` (without a preview token). A batch removes dependants itself, children before parents |
 
 **Upsert key (D2).** `key` is `{ "id": "…" }` (a client-assigned public ID, used on create) or
 `{ "attributeTypeKey": "…" }`, naming a unique attribute whose value the item's own `attributes`
-supply (`missing_record_key` otherwise). No composite keys in 0.9. A key that finds a record of
-another type or application is `reference_type_mismatch`; an upsert never changes a record's type
+supply (`MISSING_RECORD_KEY` otherwise). No composite keys in 0.9. A key that finds a record of
+another type or application is `REFERENCE_TYPE_MISMATCH`; an upsert never changes a record's type
 (that is restructuring, ADR-034).
 
 **Unchanged.** An update or upsert whose name, parent and attributes equal the stored record applies
@@ -323,12 +323,12 @@ list (possibly empty) of `{ "object": reference, "attributes"?: {…} }`. Existi
 retained target keep their identity; omitted `attributes` keep a retained relation's values, an
 explicit object replaces them (as the 0.7 mapping PUT). Cardinality, ancestor-scoped uniqueness,
 required and containment bindings are refused with the codes of the mapping PUT. Without
-`expectedRelationSetVersion` the item follows P4: `version_required` unless `onExisting: "overwrite"`.
+`expectedRelationSetVersion` the item follows P4: `VERSION_REQUIRED` unless `onExisting: "overwrite"`.
 It writes the same per-relation audit entries and one `transition` entry as the mapping PUT, and one
 relation-set version increment per affected set.
 
 Containment relations are never items: a parent changes through an object's `parent`
-(`immutable_relation` otherwise).
+(`IMMUTABLE_RELATION` otherwise).
 
 As delivered (B3, D35–D39, contract in [API.md](API.md#batches-and-jobs-base-09-b1-b2-b3)): relation
 items are decided in memory through the single relation writes' decide steps and written in bulk
@@ -337,8 +337,8 @@ through the same steps. A set claim is checked against the set as the items befo
 under the workspace's or change set's lock. `ensureRelation` takes an optional `expectedVersion`
 for the update it may become. `replaceRelationSet` decides `unchanged` before its claim (D37, as
 D24); removing a relationship whose other record requires one and has no other is
-`required_relation` (D36, also on the mapping PUT); a target listed twice is `duplicate_relation`,
-and an anchor or target of another type than the binding's end is `reference_type_mismatch` (D39).
+`REQUIRED_RELATION` (D36, also on the mapping PUT); a target listed twice is `DUPLICATE_RELATION`,
+and an anchor or target of another type than the binding's end is `REFERENCE_TYPE_MISMATCH` (D39).
 The anchored read `GET /relations?objectId=…` names every set the record anchors with its version
 (`relationSets`, D38). The `transition` entry lists `newTargets` and takes no feed position.
 
@@ -360,7 +360,7 @@ are `relationIds: {created, kept, removed}`.
     { "index": 0, "ref": "row-2", "status": "applied", "action": "created",
       "id": "…", "objectTypeKey": "codelist", "version": 1 },
     { "index": 1, "ref": "row-2/map", "status": "rejected",
-      "error": { "code": "relation_set_version_conflict", "message": "…",
+      "error": { "code": "RELATION_SET_VERSION_CONFLICT", "message": "…",
                  "details": { "pointer": "/items/1/expectedRelationSetVersion", "relationSetVersion": 4 } } }
   ],
   "nextCursor": null
@@ -373,12 +373,12 @@ ADR-030 navigation fields, plus `job`; an outcome carries only its status's fiel
 
 ### B6: Codes introduced by batches
 
-`batch_too_large` (413), `version_required`, `invalid_record_key`, `missing_record_key`,
-`reference_not_found`, `reference_type_mismatch` (per item), and the P5 idempotency codes. Every
-other rejection is the single write's code. Request level (B1): `invalid_batch_context` (not exactly
-one of `workspaceKey` and `changeSetId`) and, until B2, `run_not_available`. B2: `job_finished` (409,
+`BATCH_TOO_LARGE` (413), `VERSION_REQUIRED`, `INVALID_RECORD_KEY`, `MISSING_RECORD_KEY`,
+`REFERENCE_NOT_FOUND`, `REFERENCE_TYPE_MISMATCH` (per item), and the P5 idempotency codes. Every
+other rejection is the single write's code. Request level (B1): `INVALID_BATCH_CONTEXT` (not exactly
+one of `workspaceKey` and `changeSetId`) and, until B2, `run_not_available`. B2: `JOB_FINISHED` (409,
 cancelling a finished job). B3 adds none: relation items answer with the single relation writes'
-codes, `version_required` (P4) and the reference codes of B2.
+codes, `VERSION_REQUIRED` (P4) and the reference codes of B2.
 
 ### B7: Audit, feed and cost
 
@@ -476,7 +476,7 @@ GET /api/v1/workspaces/{workspaceKey}/feed?after={position}&pageSize=…&kind=�
   filter match any of them, and the two combine. `objectTypeKey` matches object entries whose type,
   or for `reclassified` whose previous type, is listed; relation and publication entries never match
   it (D34).
-- `after` past `headPosition` is `409 feed_position_ahead` with `details.headPosition` (D33): such a
+- `after` past `headPosition` is `409 FEED_POSITION_AHEAD` with `details.headPosition` (D33): such a
   position was not read from this workspace's feed, or the database was restored, and new changes
   reuse its numbers.
 - The response carries `items`, `nextAfter` (the position to pass next), `headPosition` (the highest
@@ -489,7 +489,7 @@ GET /api/v1/workspaces/{workspaceKey}/feed?after={position}&pageSize=…&kind=�
 ### F5: Retention and recovery (D8)
 
 - `FEED_RETENTION_DAYS` (default 30), shared with consumer events (C-D9). Positions older than the
-  floor expire: `after` below `earliestPosition - 1` answers `410 feed_position_expired`. The audit
+  floor expire: `after` below `earliestPosition - 1` answers `410 FEED_POSITION_EXPIRED`. The audit
   log itself is not pruned by this setting; object history is unaffected.
 - The floor is the first entry within the period, but never past the active publication's
   `feedPosition + 1`; with no active publication that has a position, nothing expires (D40). Otherwise
@@ -538,7 +538,7 @@ serve it. The budget holds over the fixture's 258,000 records: see the
 ### Q2: Workspace edge list (0.8 P3)
 
 `GET /api/v1/workspaces/{workspaceKey}/mappings` already lists edges of any relation type. It gains
-`publicationId` (exclusive with `changeSetId`: `422 mutually_exclusive_context`, the code every other
+`publicationId` (exclusive with `changeSetId`: `422 MUTUALLY_EXCLUSIVE_CONTEXT`, the code every other
 read uses), and the same handler is published as
 `GET /api/v1/workspaces/{workspaceKey}/relations`, the name integrators look for. Both routes return
 the one edge shape; `/mappings` remains for the mapping views. `GET /api/v1/relations` keeps its
@@ -588,7 +588,7 @@ and needs no capability.
   batched per page, never a query per item.
 - **`asOf`** (Q4). **Context**: live by default, `changeSetId` or `publicationId`.
 - Paging as ADR-030 with `cursor` or `position`; the cursor binds a hash of the body. Unknown fields,
-  operators or bindings are `422 invalid_query` with a JSON pointer.
+  operators or bindings are `422 INVALID_QUERY` with a JSON pointer.
 - Budgets on the volume fixture: a one-hop criterion and a page with a 20-row expansion over 100,000
   records.
 
@@ -596,8 +596,8 @@ _Delivered in Q3 (2026-09-30); the contract is in [API.md](API.md#model-aware-qu
 Settled on the way (D17–D19): `not` stands beside `related` in the criterion; with `select`, values
 are under `fields` and `ancestor:<type>` gives the `id` and `name` of the ancestor nearest the root;
 `expanded` holds `count`, the first `limit` records with their `relationId`, and `nextCursor` for
-`GET /relations`; the body's shape is `request_validation_error` and what depends on the model
-`invalid_query`. `parentObjectId` is a built-in criterion but not a sort. The budgets hold: see the
+`GET /relations`; the body's shape is `REQUEST_VALIDATION_ERROR` and what depends on the model
+`INVALID_QUERY`. `parentObjectId` is a built-in criterion but not a sort. The budgets hold: see the
 [Q3 record](BASE_0_9_IMPLEMENTATION_PLAN.md#q3-model-aware-query)._
 
 ### Q4: Effective periods and `asOf` (D6)
@@ -610,11 +610,11 @@ A type declares one business validity period in the model (APPLICATION_MODEL, sc
 
 - Both attributes are `date` attributes the type binds. The start is inclusive, the end exclusive; an
   empty start means "since always", an empty end "open". A write whose end is not after its start is
-  `422 invalid_effective_period`. Overlapping periods of different records are allowed.
+  `422 INVALID_EFFECTIVE_PERIOD`. Overlapping periods of different records are allowed.
 - `asOf=YYYY-MM-DD` on the per-type list, the model-aware query and exports returns the records
   effective on that date. It is a filter over values, not history: it combines
   with any context (live, change set, publication) and never reads a publication by itself.
-- A type without a period answers `422 as_of_not_supported`. **Amended in Q4 (D21, 2026-09-30):** the
+- A type without a period answers `422 AS_OF_NOT_SUPPORTED`. **Amended in Q4 (D21, 2026-09-30):** the
   cross-type lookup lists several types, and a period belongs to one, so it refuses `asOf` with the
   per-type route, as it refuses a model-declared filter. The design had it filter the types with a
   period and name them in `asOfApplied`, copied from the consumer XREF (C-D14); no management story
@@ -623,7 +623,7 @@ A type declares one business validity period in the model (APPLICATION_MODEL, sc
 
 _Delivered in Q4 (2026-09-30); the contract is in [API.md](API.md#effective-periods-and-asof-base-09-q4).
 The model query dates the queried records only (D22), and activating a release that declares a
-period over records it would refuse is `model_migration_required` with their count (D20)._
+period over records it would refuse is `MODEL_MIGRATION_REQUIRED` with their count (D20)._
 
 ## J: Import and export
 
@@ -665,7 +665,7 @@ with `objectTypeKey` given) and `stage`: `preview` or `execute`.
 
 Values convert through the attribute registry by the target attribute's value type, with the same
 canonical forms as the API (API.md, attribute format). A value that does not convert rejects its
-row with `invalid_attribute_value` and the column. Empty cells are "no value", never an empty string,
+row with `INVALID_ATTRIBUTE_VALUE` and the column. Empty cells are "no value", never an empty string,
 unless a value map says otherwise.
 
 ### J3: Import profile

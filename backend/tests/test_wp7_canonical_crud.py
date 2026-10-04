@@ -64,7 +64,7 @@ def test_change_set_relation_page_of_an_unknown_record_and_nested_routes_are_abs
         )
         # As live: the anchor record decides the related types, so an unknown one is not found.
         assert response.status_code == 404, response.text
-        assert response.json()["error"]["code"] == "object_not_found"
+        assert response.json()["error"]["code"] == "OBJECT_NOT_FOUND"
         assert (
             "/api/v1/change-sets/{change_set_id}/objects"
             not in client.get("/openapi.json").json()["paths"]
@@ -125,7 +125,7 @@ def test_change_set_object_cursor_binds_query_context_and_honours_descending_nam
             },
         )
         assert mismatch.status_code == 422
-        assert mismatch.json()["error"]["code"] == "invalid_cursor"
+        assert mismatch.json()["error"]["code"] == "INVALID_CURSOR"
 
 
 def test_change_set_history_projects_canonical_mutation_events():
@@ -242,7 +242,7 @@ def test_change_set_delete_previews_and_cascades_containment_without_touching_pu
             },
         )
         assert preview.status_code == 409
-        assert preview.json()["error"]["code"] == "object_has_dependants"
+        assert preview.json()["error"]["code"] == "OBJECT_HAS_DEPENDANTS"
         deleted = client.delete(
             f"/api/v1/objects/language/{language['id']}",
             params={

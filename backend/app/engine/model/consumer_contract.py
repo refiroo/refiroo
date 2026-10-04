@@ -33,7 +33,7 @@ OBJECT_ROLES = ("id", "code", "name", "active", "validFrom", "validTo")
 # Value types that compare as one output type (C-D19).
 _TEXT_TYPES = {"text", "longText"}
 
-BREAKING = "consumer_contract_version_required"
+BREAKING = "CONSUMER_CONTRACT_VERSION_REQUIRED"
 
 
 def output_type(value_type: str) -> str:
@@ -223,7 +223,7 @@ def contract_diagnostics(active: EngineModel, candidate: EngineModel) -> list[Mo
         diagnostics.append(
             ModelDiagnostic(
                 severity="warning",
-                code="consumer_api_removed",
+                code="CONSUMER_API_REMOVED",
                 path=f"/consumerApis/{pointer_segment(key)}",
                 message=(
                     f"Consumer API '{key}' is removed; its consumers will receive 404 from"
@@ -240,7 +240,7 @@ def contract_diagnostics(active: EngineModel, candidate: EngineModel) -> list[Mo
             diagnostics.append(
                 ModelDiagnostic(
                     severity="error",
-                    code="consumer_contract_version_decreased",
+                    code="CONSUMER_CONTRACT_VERSION_DECREASED",
                     path=f"{base}/contractVersion",
                     message=(
                         f"Consumer API '{key}' lowers contractVersion from {old.contractVersion}"

@@ -78,7 +78,7 @@ def _delete(client, change_set: dict, object_id: str) -> None:
 def _conflict(response) -> str:
     body = response.json()
     error = body.get("error", body)
-    assert error["code"] == "duplicate_attribute_value", body
+    assert error["code"] == "DUPLICATE_ATTRIBUTE_VALUE", body
     return error["details"]["conflictingObjectId"]
 
 

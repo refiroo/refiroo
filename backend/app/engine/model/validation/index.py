@@ -40,7 +40,7 @@ def _unique_map(items: Sequence[Any], label: str, collection: str) -> dict[str, 
     for item in items:
         if item.key in result:
             raise ModelReferenceError(
-                "duplicate_key",
+                "DUPLICATE_KEY",
                 f"/{collection}/{pointer_segment(item.key)}",
                 f"Duplicate {label} key '{item.key}'",
             )

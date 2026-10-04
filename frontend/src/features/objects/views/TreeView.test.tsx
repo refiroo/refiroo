@@ -346,7 +346,7 @@ describe("TreeView", () => {
     } satisfies ParentCandidatePage);
     const update = vi
       .spyOn(api, "updateObject")
-      .mockRejectedValueOnce(new ApiError(409, "containment_cycle", "The move would make a cycle."))
+      .mockRejectedValueOnce(new ApiError(409, "CONTAINMENT_CYCLE", "The move would make a cycle."))
       .mockResolvedValueOnce({ ...zones, parentObjectId: finance.id });
     vi.spyOn(api, "object").mockResolvedValue({ ...zones, path: [...finance.path, zones.path[1]] });
     render(lens({ onChanged }));
@@ -475,7 +475,7 @@ describe("TreeView", () => {
 
   it("reports a refused availability change above the tree and keeps the tree", async () => {
     serve();
-    vi.spyOn(api, "updateAttribute").mockRejectedValue(new ApiError(409, "version_conflict", "Finance changed."));
+    vi.spyOn(api, "updateAttribute").mockRejectedValue(new ApiError(409, "VERSION_CONFLICT", "Finance changed."));
     const onChanged = vi.fn();
     render(lens({ onChanged }));
     const node = await item(/^Finance/);

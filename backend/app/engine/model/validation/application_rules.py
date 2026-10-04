@@ -33,7 +33,7 @@ def check(model: EngineModel, index: ModelIndex) -> None:
         views = _view_map(application, application_path)
         if application.defaultView not in views:
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 f"{application_path}/defaultView",
                 f"Application '{application.key}' has unknown default view "
                 f"'{application.defaultView}'",
@@ -63,7 +63,7 @@ def _check_object_type_keys(
     first_unknown = min(unknown)
     position = application.objectTypeKeys.index(first_unknown)
     raise ModelReferenceError(
-        "unknown_object_type",
+        "UNKNOWN_OBJECT_TYPE",
         f"{application_path}/objectTypeKeys/{position}",
         f"Application '{application.key}' references unknown object types: {sorted(unknown)}",
     )
@@ -76,7 +76,7 @@ def _view_map(
     for view in application.views:
         if view.key in result:
             raise ModelReferenceError(
-                "duplicate_key",
+                "DUPLICATE_KEY",
                 f"{application_path}/views/{pointer_segment(view.key)}",
                 f"Duplicate view in {application.key} key '{view.key}'",
             )
@@ -92,7 +92,7 @@ def _check_table_view(
 ) -> None:
     if view.objectTypeKey not in index.object_types:
         raise ModelReferenceError(
-            "unknown_object_type",
+            "UNKNOWN_OBJECT_TYPE",
             f"{view_path}/objectTypeKey",
             f"View '{application.key}.{view.key}' references unknown object type "
             f"'{view.objectTypeKey}'",
@@ -110,7 +110,7 @@ def _check_table_view(
     unsupported_columns = set(view.config.columns) - BUILT_IN_COLUMNS - attached
     if unsupported_columns:
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             f"{view_path}/config/columns",
             f"Table columns are not available on '{view.objectTypeKey}': {sorted(unsupported_columns)}",
         )
@@ -133,7 +133,7 @@ def _check_table_view(
     default_field = view.config.defaultSort.removeprefix("-")
     if default_field not in view.config.sortFields:
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             f"{view_path}/config/defaultSort",
             "Table defaultSort must name one of its sortFields",
         )
@@ -142,7 +142,7 @@ def _check_table_view(
 def _check_unique_fields(fields: tuple[str, ...], view_path: str, name: str) -> None:
     if len(fields) != len(set(fields)):
         raise ModelReferenceError(
-            "duplicate_key",
+            "DUPLICATE_KEY",
             f"{view_path}/config/{name}",
             f"View {name} must contain unique fields",
         )
@@ -162,21 +162,21 @@ def _check_query_capability(
     object_type = index.object_types[view.objectTypeKey]
     if field not in {binding.attributeTypeKey for binding in object_type.attributes}:
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             f"{view_path}/config/{purpose}Fields",
             f"Field '{field}' is not supported for table {purpose}",
         )
     attribute = index.attribute_types[field]
     if attribute.valueType == "json":
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             f"{view_path}/config/{purpose}Fields",
             f"Attribute '{field}' holds JSON and cannot be used to {purpose}",
         )
     # Every scalar attribute sorts (S4R3 revision); filtering stays opt-in per attribute type.
     if purpose == "filter" and not attribute.features.get("filterable"):
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             f"{view_path}/config/{purpose}Fields",
             f"Attribute '{field}' is not filterable",
         )
@@ -194,7 +194,7 @@ def _check_mapping_grid_view(
 
     if config.relationTypeKey not in index.relation_types:
         raise ModelReferenceError(
-            "unknown_relation_type",
+            "UNKNOWN_RELATION_TYPE",
             f"{config_path}/relationTypeKey",
             f"Mapping grid '{application.key}.{view.key}' references unknown relation type "
             f"'{config.relationTypeKey}'",
@@ -202,14 +202,14 @@ def _check_mapping_grid_view(
 
     if config.fromObjectTypeKey not in index.object_types:
         raise ModelReferenceError(
-            "unknown_object_type",
+            "UNKNOWN_OBJECT_TYPE",
             f"{config_path}/fromObjectTypeKey",
             f"Mapping grid '{application.key}.{view.key}' references unknown object type "
             f"'{config.fromObjectTypeKey}'",
         )
     if config.toObjectTypeKey not in index.object_types:
         raise ModelReferenceError(
-            "unknown_object_type",
+            "UNKNOWN_OBJECT_TYPE",
             f"{config_path}/toObjectTypeKey",
             f"Mapping grid '{application.key}.{view.key}' references unknown object type "
             f"'{config.toObjectTypeKey}'",
@@ -226,7 +226,7 @@ def _check_mapping_grid_view(
             break
     if matching_triple is None:
         raise ModelReferenceError(
-            "invalid_reference",
+            "INVALID_REFERENCE",
             config_path,
             f"Mapping grid '{application.key}.{view.key}' references a relation binding "
             f"({config.relationTypeKey}, {config.fromObjectTypeKey} → {config.toObjectTypeKey}) "
@@ -236,7 +236,7 @@ def _check_mapping_grid_view(
     relation_type = index.relation_types[config.relationTypeKey]
     if relation_type.features.get("parentOf"):
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             f"{config_path}/relationTypeKey",
             f"Mapping grid '{application.key}.{view.key}' cannot use containment relation type "
             f"'{config.relationTypeKey}'",
@@ -247,7 +247,7 @@ def _check_mapping_grid_view(
         "one-to-many",
     ):
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             config_path,
             f"Mapping grid '{application.key}.{view.key}' cannot use a required-ownership binding "
             f"({config.relationTypeKey}, {config.fromObjectTypeKey} → {config.toObjectTypeKey})",
@@ -292,7 +292,7 @@ def _check_mapping_grid_view(
             continue
         if field not in target_attached:
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 f"{config_path}/candidateSearchFields",
                 f"Mapping grid '{application.key}.{view.key}' candidateSearchFields references "
                 f"'{field}' which is not attached to target type '{target_type_key}'",
@@ -300,7 +300,7 @@ def _check_mapping_grid_view(
         attribute = index.attribute_types[field]
         if not attribute.features.get("searchable"):
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 f"{config_path}/candidateSearchFields",
                 f"Mapping grid '{application.key}.{view.key}' candidateSearchFields references "
                 f"'{field}' which is not searchable",
@@ -328,13 +328,13 @@ def _check_relation_matrix_view(
         key = getattr(config, field)
         if key not in index.object_types:
             raise ModelReferenceError(
-                "unknown_object_type",
+                "UNKNOWN_OBJECT_TYPE",
                 f"{config_path}/{field}",
                 f"{label} references unknown object type '{key}'",
             )
         if key not in application.objectTypeKeys:
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 f"{config_path}/{field}",
                 f"{label} uses object type '{key}' outside application '{application.key}'",
             )
@@ -342,13 +342,13 @@ def _check_relation_matrix_view(
     relation_path = f"{config_path}/relationTypeKey"
     if config.relationTypeKey not in index.relation_types:
         raise ModelReferenceError(
-            "unknown_relation_type",
+            "UNKNOWN_RELATION_TYPE",
             relation_path,
             f"{label} references unknown relation type '{config.relationTypeKey}'",
         )
     if index.relation_types[config.relationTypeKey].features.get("parentOf"):
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             relation_path,
             f"{label} cannot use containment relation type '{config.relationTypeKey}'",
         )
@@ -360,7 +360,7 @@ def _check_relation_matrix_view(
     binding = model.allowed_relation(config.relationTypeKey, from_key, to_key)
     if binding is None:
         raise ModelReferenceError(
-            "invalid_reference",
+            "INVALID_REFERENCE",
             relation_path,
             f"{label} references a relation binding ({config.relationTypeKey}, {from_key} → "
             f"{to_key}) that is not declared in objectTypeRelations",
@@ -368,7 +368,7 @@ def _check_relation_matrix_view(
 
     if config.columnObjectTypeKey not in ancestor_type_keys(model, config.cellObjectTypeKey):
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             f"{config_path}/columnObjectTypeKey",
             f"{label} column type '{config.columnObjectTypeKey}' cannot contain "
             f"'{config.cellObjectTypeKey}' through parentRelationTypeKeys",
@@ -388,7 +388,7 @@ def _check_relation_matrix_view(
         column_type.attributes, index
     ):
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             f"{config_path}/columnLabelField",
             f"{label} columnLabelField '{config.columnLabelField}' is not 'name' or a "
             f"scalar attribute attached to '{config.columnObjectTypeKey}'",
@@ -400,7 +400,7 @@ def _check_relation_matrix_view(
     for position, field in enumerate(config.cellFields):
         if field not in cell_bindings:
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 f"{config_path}/cellFields/{position}",
                 f"{label} cellFields references '{field}', which is not attached to "
                 f"'{config.cellObjectTypeKey}'",
@@ -415,7 +415,7 @@ def _check_relation_matrix_view(
     for position, field in enumerate(config.searchFields):
         if field != "name" and field not in searchable:
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 f"{config_path}/searchFields/{position}",
                 f"{label} searchFields references '{field}', which is not 'name' or a "
                 f"searchable attribute attached to '{config.rowObjectTypeKey}'",
@@ -426,7 +426,7 @@ def _check_relation_matrix_view(
         reason = _cell_action_refusal(action, config, binding, cell_bindings, model, index)
         if reason:
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 f"{config_path}/cellActions/{position}",
                 f"{label} cannot offer '{action}': {reason}",
             )
@@ -502,13 +502,13 @@ def _check_tree_view(
     for position, key in enumerate(config.objectTypeKeys):
         if key not in index.object_types:
             raise ModelReferenceError(
-                "unknown_object_type",
+                "UNKNOWN_OBJECT_TYPE",
                 f"{config_path}/objectTypeKeys/{position}",
                 f"{label} references unknown object type '{key}'",
             )
         if key not in application.objectTypeKeys:
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 f"{config_path}/objectTypeKeys/{position}",
                 f"{label} uses object type '{key}' outside application '{application.key}'",
             )
@@ -519,13 +519,13 @@ def _check_tree_view(
         root_path = f"{config_path}/rootObjectTypeKeys/{position}"
         if key not in node_types:
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 root_path,
                 f"{label} root type '{key}' is not one of its objectTypeKeys",
             )
         if not index.object_types[key].features.get("rootCreatable"):
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 root_path,
                 f"{label} root type '{key}' cannot exist without a parent (rootCreatable)",
             )
@@ -537,7 +537,7 @@ def _check_tree_view(
     for position, key in enumerate(config.objectTypeKeys):
         if key not in reached:
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 f"{config_path}/objectTypeKeys/{position}",
                 f"{label} node type '{key}' is not reachable from its root types through "
                 "parentRelationTypeKeys of the types it shows",
@@ -547,7 +547,7 @@ def _check_tree_view(
     shared_scalars = set.intersection(*(_scalar_fields(node.attributes, index) for node in nodes))
     if config.labelField != "name" and config.labelField not in shared_scalars:
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             f"{config_path}/labelField",
             f"{label} labelField '{config.labelField}' is not 'name' or a scalar attribute "
             "attached to every node type",
@@ -558,7 +558,7 @@ def _check_tree_view(
         and config.secondaryField not in shared_scalars
     ):
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             f"{config_path}/secondaryField",
             f"{label} secondaryField '{config.secondaryField}' is not a built-in field or a "
             "scalar attribute attached to every node type",
@@ -568,7 +568,7 @@ def _check_tree_view(
         sort_path = f"{config_path}/childSort/{pointer_segment(key)}"
         if key not in node_types:
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 sort_path,
                 f"{label} childSort names '{key}', which is not one of its objectTypeKeys",
             )
@@ -577,7 +577,7 @@ def _check_tree_view(
             index.object_types[key].attributes, index
         ):
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 sort_path,
                 f"{label} cannot sort '{key}' by '{field}': it is not a sortable built-in field "
                 "or a scalar attribute attached to that type",
@@ -587,7 +587,7 @@ def _check_tree_view(
     if config.availabilityField is not None:
         if "setAvailability" not in config.actions:
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 f"{config_path}/availabilityField",
                 f"{label} declares availabilityField without the setAvailability action",
             )
@@ -601,7 +601,7 @@ def _check_tree_view(
                 or index.attribute_types[config.availabilityField].valueType != "boolean"
             ):
                 raise ModelReferenceError(
-                    "invalid_model",
+                    "INVALID_MODEL",
                     f"{config_path}/availabilityField",
                     f"{label} availabilityField '{config.availabilityField}' is not a boolean "
                     f"attribute attached to '{node.key}'",
@@ -610,7 +610,7 @@ def _check_tree_view(
         reason = _tree_action_refusal(action, config, nodes, containers)
         if reason:
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 f"{config_path}/actions/{position}",
                 f"{label} cannot offer '{action}': {reason}",
             )

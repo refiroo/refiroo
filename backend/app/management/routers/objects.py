@@ -72,7 +72,7 @@ def _require_change_set_context(change_set_id: str, expected: int | None) -> int
     if expected is None:
         raise api_error(
             409,
-            "change_set_required",
+            "CHANGE_SET_REQUIRED",
             "expectedChangeSetVersion is required when targeting a change set",
         )
     return expected
@@ -84,7 +84,7 @@ def create_object(
 ) -> ObjectResponse:
     attribute_keys = [item.attributeTypeKey for item in payload.attributes]
     if len(attribute_keys) != len(set(attribute_keys)):
-        raise api_error(422, "duplicate_attribute", "Object attributes must not repeat a key")
+        raise api_error(422, "DUPLICATE_ATTRIBUTE", "Object attributes must not repeat a key")
     if payload.changeSetId:
         change_set_id = str(payload.changeSetId)
         expected = _require_change_set_context(change_set_id, payload.expectedChangeSetVersion)
@@ -92,7 +92,7 @@ def create_object(
         if payload.workspaceKey is not None and payload.workspaceKey != context.workspace_key:
             raise api_error(
                 422,
-                "workspace_context_mismatch",
+                "WORKSPACE_CONTEXT_MISMATCH",
                 "workspaceKey does not match changeSetId",
                 {
                     "workspaceKey": payload.workspaceKey,
@@ -118,7 +118,7 @@ def create_object(
     if payload.workspaceKey is None:
         raise api_error(
             422,
-            "workspace_key_required",
+            "WORKSPACE_KEY_REQUIRED",
             "workspaceKey is required for a live (active workspace) write; omit changeSetId "
             "and provide workspaceKey, or target a change set",
         )
@@ -258,13 +258,13 @@ def list_objects(
     if change_set_id and publication_id:
         raise api_error(
             422,
-            "mutually_exclusive_context",
+            "MUTUALLY_EXCLUSIVE_CONTEXT",
             "changeSetId and publicationId cannot be combined",
         )
     if top_level and parent_object_id:
         raise api_error(
             422,
-            "mutually_exclusive_scope",
+            "MUTUALLY_EXCLUSIVE_SCOPE",
             "topLevel and parentObjectId cannot be combined",
             {"parameters": ["topLevel", "parentObjectId"]},
         )
@@ -406,13 +406,13 @@ def lookup_objects(
     if change_set_id and publication_id:
         raise api_error(
             422,
-            "mutually_exclusive_context",
+            "MUTUALLY_EXCLUSIVE_CONTEXT",
             "changeSetId and publicationId cannot be combined",
         )
     if top_level and parent_object_id:
         raise api_error(
             422,
-            "mutually_exclusive_scope",
+            "MUTUALLY_EXCLUSIVE_SCOPE",
             "topLevel and parentObjectId cannot be combined",
             {"parameters": ["topLevel", "parentObjectId"]},
         )
@@ -480,7 +480,7 @@ def _field_filters(request: Request) -> list[tuple[str, str, str]]:
         if "." not in field_operator:
             raise api_error(
                 422,
-                "invalid_filter",
+                "INVALID_FILTER",
                 f"Invalid filter parameter '{key}'",
                 {"path": f"/query/{key}"},
             )
@@ -488,7 +488,7 @@ def _field_filters(request: Request) -> list[tuple[str, str, str]]:
         if not field or not operator:
             raise api_error(
                 422,
-                "invalid_filter",
+                "INVALID_FILTER",
                 f"Invalid filter parameter '{key}'",
                 {"path": f"/query/{key}"},
             )
@@ -511,7 +511,7 @@ def get_object(
     if change_set_id and publication_id:
         raise api_error(
             422,
-            "mutually_exclusive_context",
+            "MUTUALLY_EXCLUSIVE_CONTEXT",
             "changeSetId and publicationId cannot be combined",
         )
     if change_set_id or publication_id:
@@ -522,14 +522,14 @@ def get_object(
         )
         item = find_object(session, context, object_id, object_type_key)
         if item is None:
-            raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
+            raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found")
         return change_set_object_response(
             item, context.id, model, path=object_path(session, context, item)
         ).model_copy(update={"workspaceKey": context.workspace_key})
     selected_workspace_key = resolve_workspace(session, workspace_key).key
     item = load_active_projection(session, object_id, object_type_key)
     if item.workspace_key != selected_workspace_key:
-        raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
+        raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found")
     return build_object_responses(session, model, [item])[0]
 
 
@@ -613,7 +613,7 @@ def get_object_history(
         context = change_set_context(session, change_set_id)
         item = find_object(session, context, object_id, object_type_key)
         if item is None:
-            raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
+            raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found")
         return audit_event_page(
             object_history(
                 session,

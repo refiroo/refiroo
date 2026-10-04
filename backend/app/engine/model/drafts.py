@@ -41,7 +41,7 @@ def create_draft(
 def load_draft(session: Session, draft_id: str) -> ModelDraft:
     draft = session.scalar(select(ModelDraft).where(ModelDraft.public_id == draft_id))
     if draft is None:
-        raise api_error(404, "model_draft_not_found", f"Model draft '{draft_id}' not found")
+        raise api_error(404, "MODEL_DRAFT_NOT_FOUND", f"Model draft '{draft_id}' not found")
     return draft
 
 
@@ -52,7 +52,7 @@ def load_draft_for_update(session: Session, draft_id: str) -> ModelDraft:
         .with_for_update()
     )
     if draft is None:
-        raise api_error(404, "model_draft_not_found", f"Model draft '{draft_id}' not found")
+        raise api_error(404, "MODEL_DRAFT_NOT_FOUND", f"Model draft '{draft_id}' not found")
     return draft
 
 
@@ -85,7 +85,7 @@ def update_draft(
     if result.rowcount != 1:
         raise api_error(
             409,
-            "version_conflict",
+            "VERSION_CONFLICT",
             f"Model draft '{draft_id}' has changed",
             {"expectedVersion": expected_version, "actualVersion": draft.version},
         )
@@ -117,7 +117,7 @@ def delete_draft(session: Session, draft_id: str, expected_version: int) -> None
     if result.rowcount != 1:
         raise api_error(
             409,
-            "version_conflict",
+            "VERSION_CONFLICT",
             f"Model draft '{draft_id}' has changed",
             {"expectedVersion": expected_version, "actualVersion": draft.version},
         )
@@ -136,7 +136,7 @@ def require_draft_version(draft: ModelDraft, expected_version: int) -> None:
     if draft.version != expected_version:
         raise api_error(
             409,
-            "version_conflict",
+            "VERSION_CONFLICT",
             f"Model draft '{draft.public_id}' has changed",
             {"expectedVersion": expected_version, "actualVersion": draft.version},
         )
@@ -156,7 +156,7 @@ def _optional_base_release(session: Session, release_id: str | None) -> ModelRel
     release = session.scalar(select(ModelRelease).where(ModelRelease.public_id == release_id))
     if release is None:
         raise api_error(
-            404, "model_release_not_found", f"Model release '{release_id}' not found"
+            404, "MODEL_RELEASE_NOT_FOUND", f"Model release '{release_id}' not found"
         )
     return release
 

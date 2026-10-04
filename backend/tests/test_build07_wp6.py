@@ -152,7 +152,7 @@ def test_two_same_schema_change_sets_resolve_fields_rules_views_and_preserve_liv
             json={"expectedChangeSetVersion": new["version"]},
         )
         assert refused.status_code == 409
-        assert refused.json()["error"]["code"] == "change_set_model_release_conflict"
+        assert refused.json()["error"]["code"] == "CHANGE_SET_MODEL_RELEASE_CONFLICT"
         assert client.get("/api/v1/model").json() == active_model
         assert client.get(f"/api/v1/workspaces/{workspace}/publications").json()["items"] == []
         assert (
@@ -185,14 +185,14 @@ def test_pin_change_noop_stale_claim_audit_and_other_contexts():
         assert state(change_set["id"]) == before
         unknown = change(client, {**change_set, "id": str(uuid4())}, target)
         assert unknown.status_code == 404
-        assert unknown.json()["error"]["code"] == "change_set_not_found"
+        assert unknown.json()["error"]["code"] == "CHANGE_SET_NOT_FOUND"
         result = change(client, change_set, target)
         assert result.status_code == 200, result.text
         assert result.json()["version"] == change_set["version"] + 1
         after = state(change_set["id"])
         stale = change(client, change_set, target)
         assert stale.status_code == 409
-        assert stale.json()["error"]["code"] == "change_set_version_conflict"
+        assert stale.json()["error"]["code"] == "CHANGE_SET_VERSION_CONFLICT"
         assert state(change_set["id"]) == after
         with SessionLocal() as session:
             event = session.scalar(
@@ -234,7 +234,7 @@ def test_inherited_incompatible_creation_change_and_tombstones_are_atomic():
             json={"source": "currentLive", "modelReleaseId": target},
         )
         assert refused.status_code == 409, refused.text
-        assert refused.json()["error"]["code"] == "change_set_content_incompatible"
+        assert refused.json()["error"]["code"] == "CHANGE_SET_CONTENT_INCOMPATIBLE"
         assert refused.json()["error"]["details"]["diagnosticCount"] > 0
         with SessionLocal() as session:
             assert (
@@ -255,7 +255,7 @@ def test_inherited_incompatible_creation_change_and_tombstones_are_atomic():
         before = state(change_set["id"])
         refused = change(client, change_set, target)
         assert refused.status_code == 409
-        assert refused.json()["error"]["code"] == "change_set_content_incompatible"
+        assert refused.json()["error"]["code"] == "CHANGE_SET_CONTENT_INCOMPATIBLE"
         assert state(change_set["id"]) == before
         deleted = client.delete(
             f"/api/v1/objects/language/{live['id']}",
@@ -286,9 +286,9 @@ def test_inherited_incompatible_creation_change_and_tombstones_are_atomic():
 @pytest.mark.parametrize(
     "kind,code",
     [
-        ("missing", "pinned_model_unavailable"),
-        ("unsupported", "unsupported_pinned_model_schema"),
-        ("corrupt", "pinned_model_invalid"),
+        ("missing", "PINNED_MODEL_UNAVAILABLE"),
+        ("unsupported", "UNSUPPORTED_PINNED_MODEL_SCHEMA"),
+        ("corrupt", "PINNED_MODEL_INVALID"),
     ],
 )
 def test_invalid_target_creation_and_change_preserve_state(kind, code):
@@ -353,7 +353,7 @@ def test_overlapping_http_edit_and_pin_change_share_one_claim():
         ]
         assert (
             next(x for x in responses if x.status_code == 409).json()["error"]["code"]
-            == "change_set_version_conflict"
+            == "CHANGE_SET_VERSION_CONFLICT"
         )
         detail = client.get(f"/api/v1/change-sets/{change_set['id']}").json()
         assert detail["version"] == change_set["version"] + 1
@@ -389,11 +389,11 @@ def test_historical_creation_retains_source_pin_then_explicitly_changes():
 @pytest.mark.parametrize(
     "rule,code",
     [
-        ("required", "missing_required_attributes"),
-        ("type", "invalid_attribute_value"),
-        ("parent", "parent_required"),
-        ("parentSemantics", "parent_relation_semantics_changed"),
-        ("relation", "invalid_relation_pair"),
+        ("required", "MISSING_REQUIRED_ATTRIBUTES"),
+        ("type", "INVALID_ATTRIBUTE_VALUE"),
+        ("parent", "PARENT_REQUIRED"),
+        ("parentSemantics", "PARENT_RELATION_SEMANTICS_CHANGED"),
+        ("relation", "INVALID_RELATION_PAIR"),
     ],
 )
 def test_target_constraints_check_inherited_complete_graph(rule, code):
@@ -453,7 +453,7 @@ def test_target_constraints_check_inherited_complete_graph(rule, code):
         before = state(change_set["id"])
         refused = change(client, change_set, target)
         assert refused.status_code == 409, refused.text
-        assert refused.json()["error"]["code"] == "change_set_content_incompatible"
+        assert refused.json()["error"]["code"] == "CHANGE_SET_CONTENT_INCOMPATIBLE"
         assert code in {x["code"] for x in refused.json()["error"]["details"]["diagnostics"]}
         assert state(change_set["id"]) == before
         # Creation checks the same inherited live graph and cannot leave a private base.
@@ -495,7 +495,7 @@ def test_selected_capture_keeps_active_identity_and_snapshot_retry():
                     expected_model_runtime_release_id=active.active_model_release_id + 100,
                     validate_selected_model=True,
                 )
-            assert error.value.code == "change_set_snapshot_retry"
+            assert error.value.code == "CHANGE_SET_SNAPSHOT_RETRY"
             assert (
                 session.scalar(
                     select(func.count())
@@ -564,7 +564,7 @@ def test_model_metadata_and_cursors_follow_the_pin():
                 params={"changeSetId": change_set["id"], "cursor": cursor, "pageSize": 1},
             )
             assert stale.status_code == 422, stale.text
-            assert stale.json()["error"]["code"] == "invalid_cursor"
+            assert stale.json()["error"]["code"] == "INVALID_CURSOR"
         attribute = client.get(
             "/api/v1/attribute-types/wp6-number", params={"changeSetId": change_set["id"]}
         )
@@ -736,5 +736,5 @@ def test_inherited_object_and_relation_declared_type_changes_require_conversion(
         refused = change(client, change_set, target)
         assert refused.status_code == 409, refused.text
         codes = {x["code"] for x in refused.json()["error"]["details"]["diagnostics"]}
-        assert {"attribute_value_type_changed", "relation_attribute_value_type_changed"} <= codes
+        assert {"ATTRIBUTE_VALUE_TYPE_CHANGED", "RELATION_ATTRIBUTE_VALUE_TYPE_CHANGED"} <= codes
         assert state(change_set["id"]) == before

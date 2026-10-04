@@ -24,7 +24,7 @@ class DeletePlan:
     """A live cascade: the root object plus every record the database cascade must remove.
 
     The dependant closure mirrors ``delete_change_set_object`` so the live delete surfaces exactly the
-    same ``object_has_dependants`` contract as the change set path: containment children plus the
+    same ``OBJECT_HAS_DEPENDANTS`` contract as the change set path: containment children plus the
     targets of an outgoing required one-to-one / one-to-many relation.  ``relations`` holds every
     edge incident to the planned set (edges to surviving objects are removed with the delete).
     """
@@ -76,7 +76,7 @@ def require_matching_deletion_preview(
     if token is None:
         raise api_error(
             409,
-            "deletion_preview_required",
+            "DELETION_PREVIEW_REQUIRED",
             "Deletion must be previewed before cascade confirmation",
         )
     expected = deletion_preview_token(
@@ -99,17 +99,17 @@ def require_matching_deletion_preview(
             position_size=1,
         )[0]
     except ApiError as exc:
-        if exc.code != "invalid_cursor":
+        if exc.code != "INVALID_CURSOR":
             raise
         raise api_error(
             409,
-            "deletion_preview_changed",
+            "DELETION_PREVIEW_CHANGED",
             "The object was modified by another session. Please retry.",
         ) from None
     if supplied_digest != expected_digest:
         raise api_error(
             409,
-            "deletion_preview_changed",
+            "DELETION_PREVIEW_CHANGED",
             "The object was modified by another session. Please retry.",
         )
 
@@ -119,7 +119,7 @@ def require_deletion_preview(token: str | None) -> None:
     if token is None:
         raise api_error(
             409,
-            "deletion_preview_required",
+            "DELETION_PREVIEW_REQUIRED",
             "Deletion must be previewed before cascade confirmation",
         )
 
@@ -128,7 +128,7 @@ def deletion_preview_changed() -> ApiError:
     """Return the stable conflict shown when a confirmed deletion preview is stale."""
     return api_error(
         409,
-        "deletion_preview_changed",
+        "DELETION_PREVIEW_CHANGED",
         "The object was modified by another session. Please retry.",
     )
 
@@ -178,7 +178,7 @@ def build_delete_plan(
     """Compute the live dependant closure for ``root``.
 
     Children and required-ownership targets are dependants regardless of ``cascade``; the flag
-    only authorises *executing* the plan instead of raising ``object_has_dependants``.
+    only authorises *executing* the plan instead of raising ``OBJECT_HAS_DEPENDANTS``.
     """
     planned = {root.id: root}
     reasons: dict[str, str] = {root.id: "root"}
@@ -282,7 +282,7 @@ def apply_object_delete(
     try:
         root = load_object(session, object_id, object_type_key)
     except ApiError as exc:
-        if cascade and deletion_preview is not None and exc.code == "object_not_found":
+        if cascade and deletion_preview is not None and exc.code == "OBJECT_NOT_FOUND":
             raise deletion_preview_changed() from None
         raise
     resolve_workspace(session, root.workspace_key, require_active=True)
@@ -293,7 +293,7 @@ def apply_object_delete(
     try:
         writes.claim_object(root, expected_version)
     except ApiError as exc:
-        if cascade and deletion_preview is not None and exc.code == "version_conflict":
+        if cascade and deletion_preview is not None and exc.code == "VERSION_CONFLICT":
             raise deletion_preview_changed() from None
         raise
     plan = build_delete_plan(session, model, root, cascade=cascade)
@@ -319,7 +319,7 @@ def apply_object_delete(
         incident = plan.incident_relations
         raise api_error(
             409,
-            "object_has_dependants",
+            "OBJECT_HAS_DEPENDANTS",
             "Object has dependant records or relationships; repeat with cascade=true",
             {
                 "objectsToDelete": dependants,
@@ -453,7 +453,7 @@ def _require_same_workspace(workspace_key: str, item: RdmObject, *, edge: str) -
     if item.workspace_key != workspace_key:
         raise api_error(
             409,
-            "workspace_graph_invalid",
+            "WORKSPACE_GRAPH_INVALID",
             "Object hierarchy crosses workspace boundaries; deletion was refused",
             {
                 "workspaceKey": workspace_key,

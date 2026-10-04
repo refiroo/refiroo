@@ -57,7 +57,7 @@ def decode_cursor(
         message=message,
     )
     if direction != "after":
-        raise api_error(422, "invalid_cursor", message)
+        raise api_error(422, "INVALID_CURSOR", message)
     return position
 
 
@@ -80,7 +80,7 @@ def decode_directed_cursor(
             raise ValueError
         decoded = json.loads(payload)
     except (ValueError, json.JSONDecodeError):
-        raise api_error(422, "invalid_cursor", message) from None
+        raise api_error(422, "INVALID_CURSOR", message) from None
     position = decoded.get("position") if isinstance(decoded, dict) else None
     direction = decoded.get("direction", "after") if isinstance(decoded, dict) else None
     if (
@@ -95,7 +95,7 @@ def decode_directed_cursor(
         or (position_size is not None and len(position) != position_size)
         or direction not in CURSOR_DIRECTIONS
     ):
-        raise api_error(422, "invalid_cursor", message)
+        raise api_error(422, "INVALID_CURSOR", message)
     return direction, tuple(position)
 
 

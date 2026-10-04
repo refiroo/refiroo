@@ -140,7 +140,7 @@ def test_1_live_only_incompatible_data_blocks_activation_without_publication(mon
         candidate, _binding = _candidate_without_language_attribute(client, f"0.6.0-live-{uuid4().hex}")
     response, _release, active_id, expected_version = _activate_candidate(monkeypatch, candidate)
     assert response.status_code == 409
-    assert response.json()["error"]["code"] == "model_migration_required"
+    assert response.json()["error"]["code"] == "MODEL_MIGRATION_REQUIRED"
     with SessionLocal() as session:
         state = session.get(ModelRuntimeState, 1)
         assert state is not None
@@ -176,7 +176,7 @@ def test_2_catalogue_retired_live_data_still_blocks_incompatible_activation(monk
         candidate, _binding = _candidate_without_language_attribute(client, f"0.6.0-retired-{uuid4().hex}")
     response, _release, _active_id, expected_version = _activate_candidate(monkeypatch, candidate)
     assert response.status_code == 409
-    assert response.json()["error"]["code"] == "model_migration_required"
+    assert response.json()["error"]["code"] == "MODEL_MIGRATION_REQUIRED"
     with SessionLocal() as session:
         state = session.get(ModelRuntimeState, 1)
         assert state is not None and state.version == expected_version
@@ -371,7 +371,7 @@ def test_0_explicit_workspace_key_mismatch_is_rejected_for_all_pinned_read_paths
         ):
             response = client.get(url, params=params)
             assert response.status_code == 422, response.text
-            assert response.json()["error"]["code"] == "workspace_context_mismatch"
+            assert response.json()["error"]["code"] == "WORKSPACE_CONTEXT_MISMATCH"
 
         with SessionLocal() as session:
             relation_id = "missing"
@@ -403,7 +403,7 @@ def test_0_explicit_workspace_key_mismatch_is_rejected_for_all_pinned_read_paths
             },
         )
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "workspace_context_mismatch"
+        assert response.json()["error"]["code"] == "WORKSPACE_CONTEXT_MISMATCH"
         for url, params in (
             (
                 "/api/v1/objects/language",
@@ -432,7 +432,7 @@ def test_0_explicit_workspace_key_mismatch_is_rejected_for_all_pinned_read_paths
         ):
             mismatch = client.get(url, params=params)
             assert mismatch.status_code == 422, mismatch.text
-            assert mismatch.json()["error"]["code"] == "workspace_context_mismatch"
+            assert mismatch.json()["error"]["code"] == "WORKSPACE_CONTEXT_MISMATCH"
         with SessionLocal() as session:
             current = session.scalar(
                 select(ChangeSet).where(ChangeSet.id == change_set["id"])
@@ -444,7 +444,7 @@ def test_0_explicit_workspace_key_mismatch_is_rejected_for_all_pinned_read_paths
             params={"changeSetId": change_set["id"], "workspaceKey": other_workspace},
         )
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "workspace_context_mismatch"
+        assert response.json()["error"]["code"] == "WORKSPACE_CONTEXT_MISMATCH"
 
 
 def test_0_unsupported_pinned_change_set_model_is_explicit_and_never_uses_active_model():
@@ -488,7 +488,7 @@ def test_0_unsupported_pinned_change_set_model_is_explicit_and_never_uses_active
         assert response.status_code == 409
         body = response.json()
         assert body["error"] == {
-            "code": "unsupported_pinned_model_schema",
+            "code": "UNSUPPORTED_PINNED_MODEL_SCHEMA",
             "message": "The model pinned by this context uses an unsupported schema",
             "details": {
                 "modelReleaseId": body["error"]["details"]["modelReleaseId"],
@@ -501,7 +501,7 @@ def test_0_unsupported_pinned_change_set_model_is_explicit_and_never_uses_active
             params={"publicationId": publication_id},
         )
         assert historical.status_code == 409
-        assert historical.json()["error"]["code"] == "unsupported_pinned_model_schema"
+        assert historical.json()["error"]["code"] == "UNSUPPORTED_PINNED_MODEL_SCHEMA"
 
 
 def test_pinned_model_unavailable_and_invalid_are_structured_without_fallback():
@@ -545,10 +545,10 @@ def test_pinned_model_unavailable_and_invalid_are_structured_without_fallback():
             unavailable_id, invalid_id = unavailable.id, invalid.id
         missing = client.get("/api/v1/objects/language", params={"publicationId": unavailable_id})
         assert missing.status_code == 409
-        assert missing.json()["error"]["code"] == "pinned_model_unavailable"
+        assert missing.json()["error"]["code"] == "PINNED_MODEL_UNAVAILABLE"
         corrupt = client.get("/api/v1/objects/language", params={"publicationId": invalid_id})
         assert corrupt.status_code == 409
-        assert corrupt.json()["error"]["code"] == "pinned_model_invalid"
+        assert corrupt.json()["error"]["code"] == "PINNED_MODEL_INVALID"
         assert client.get("/api/v1/model").headers["X-Model-Release-Id"] == active_id
 
 
@@ -576,7 +576,7 @@ def test_pinned_resolution_reports_registry_unavailable_as_structured_http_error
                 "/api/v1/objects/language", params={"publicationId": publication_id}
             )
             assert response.status_code == 503
-            assert response.json()["error"]["code"] == "model_registry_unavailable"
+            assert response.json()["error"]["code"] == "MODEL_REGISTRY_UNAVAILABLE"
         finally:
             model_registry.clear()
 
@@ -660,7 +660,7 @@ def test_live_relation_detail_honors_explicit_workspace_key():
             params={"workspaceKey": other_workspace},
         )
         assert wrong.status_code == 404
-        assert wrong.json()["error"]["code"] == "relation_not_found"
+        assert wrong.json()["error"]["code"] == "RELATION_NOT_FOUND"
         correct = client.get(
             f"/api/v1/relations/{relation_id}",
             params={"workspaceKey": workspace_key},

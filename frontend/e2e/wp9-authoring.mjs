@@ -361,7 +361,7 @@ try {
   const changed = await get(translation);
   await api(`/objects/translation/${translation.id}`, { expectedVersion: changed.version, name: "Changed dependent" }, "PATCH");
   const refused = await deletionClick("Confirm deletion", 409);
-  assert.equal(refused.error.code, "deletion_preview_changed");
+  assert.equal(refused.error.code, "DELETION_PREVIEW_CHANGED");
   await get(codelist); await get(master); await get(translation);
   await shown(confirm().getByText("The object was modified by another session. Please retry.", { exact: true }));
   await confirm().getByRole("button", { name: "Retry", exact: true }).click();

@@ -264,9 +264,9 @@ export function RestructuringDialog({
       requestAnimationFrame(() => doneRef.current?.focus());
     } catch (cause) {
       if (
-        isApiError(cause, "change_set_version_conflict") ||
-        isApiError(cause, "restructuring_plan_changed") ||
-        isApiError(cause, "restructuring_not_ready")
+        isApiError(cause, "CHANGE_SET_VERSION_CONFLICT") ||
+        isApiError(cause, "RESTRUCTURING_PLAN_CHANGED") ||
+        isApiError(cause, "RESTRUCTURING_NOT_READY")
       ) {
         // Nothing was written. Plan again against what the change set holds now.
         setReplanned(

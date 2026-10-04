@@ -43,7 +43,7 @@ Features are typed JSON values. For example:
 ```
 
 Attribute-type features control engine behavior. `unique: true` enforces workspace-scoped uniqueness
-for the value at create and update (HTTP `409 duplicate_attribute_value`); it is not supported for
+for the value at create and update (HTTP `409 DUPLICATE_ATTRIBUTE_VALUE`); it is not supported for
 `json` values and is rejected at model load. `searchable` includes the attribute in object search.
 `filterable` enables the schema 0.5 daily-use filter grammar for non-JSON attributes; table views
 select the subset exposed as filter controls, and the API validates the capability from the attribute
@@ -190,7 +190,7 @@ the parent ID and typed relation atomically. Self-relations support arbitrary-de
 
 Relations named in an object type's `behavior.parentRelationTypeKeys` — the containment and hierarchy
 relations above — are engine-maintained. The relations API returns them on reads but rejects direct
-creation, update or deletion with `422 immutable_relation`, so `parent_object_id` and the typed
+creation, update or deletion with `422 IMMUTABLE_RELATION`, so `parent_object_id` and the typed
 relation cannot diverge. Reparenting updates both representations atomically in live or explicit change set
 context; activation revalidates staged changes with current live content (ADR-026/027).
 
@@ -522,18 +522,18 @@ An object type may declare one business validity period:
 - The start is inclusive and the end exclusive; an empty start means "since always" and an empty end
   "open". Periods of different records may overlap.
 - Writes, live and in a change set, refuse an end that is not after its start with
-  `422 invalid_effective_period`; change-set validation and publishing report the same code as a
+  `422 INVALID_EFFECTIVE_PERIOD`; change-set validation and publishing report the same code as a
   diagnostic.
 - Reads accept `asOf` on the types that declare a period ([INTEGRATION_API Q4](INTEGRATION_API.md#q4-effective-periods-and-asof)).
   The period is business validity: it is independent of record versions, change history and
   publications (SC-11).
 - Adding or removing a declaration changes no stored data. Removing one makes `asOf` on that type
-  `422 as_of_not_supported`; the consumer API's breaking-change check (package C1) counts that as a
+  `422 AS_OF_NOT_SUPPORTED`; the consumer API's breaking-change check (package C1) counts that as a
   contract change for a definition that exposes the type. Activating a release that declares a period (or moves
   one to other attributes) over live records whose end is not after their start is refused with
-  their count (`invalid_effective_period`, D20), as an added `atLeastOneOf` is.
+  their count (`INVALID_EFFECTIVE_PERIOD`, D20), as an added `atLeastOneOf` is.
 - Validation refuses, at `/objectTypes/<type>/effectivePeriod`: the declaration in schema 0.7 or
-  earlier, an attribute the type does not bind (`unknown_attribute_type`), one that is not a `date`
+  earlier, an attribute the type does not bind (`UNKNOWN_ATTRIBUTE_TYPE`), one that is not a `date`
   and the same attribute twice.
 
 ### Consumer API definitions (`consumerApis`)

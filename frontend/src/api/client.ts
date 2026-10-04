@@ -67,7 +67,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!response.ok) {
     const body = await response.text();
     let message = failedResponseMessage(path, response.status);
-    let code = "http_error";
+    let code = "HTTP_ERROR";
     let details: unknown;
     try {
       const parsed = JSON.parse(body);
@@ -84,7 +84,7 @@ export async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!contentType.includes("application/json")) {
     throw new ApiError(
       response.status,
-      "unexpected_response",
+      "UNEXPECTED_RESPONSE",
       `The request to ${path} returned ${contentType || "an unknown content type"} instead of JSON. Retry or contact support if the problem continues.`,
     );
   }

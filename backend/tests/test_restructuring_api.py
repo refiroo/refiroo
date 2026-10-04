@@ -123,23 +123,23 @@ def test_a_move_pages_its_plan_and_apply_claims_it(volume):  # noqa: F811
         CODE
     ] == ("kept", CODE)
     # A cursor is bound to its filter.
-    assert preview(client, change_set, body, 422, outcome=["refused"], cursor=first["nextCursor"])["code"] == "invalid_cursor"
+    assert preview(client, change_set, body, 422, outcome=["refused"], cursor=first["nextCursor"])["code"] == "INVALID_CURSOR"
     # Paging parameters are one at a time.
-    assert preview(client, change_set, body, 422, position=1, cursor=first["nextCursor"])["code"] == "conflicting_page_parameters"
+    assert preview(client, change_set, body, 422, position=1, cursor=first["nextCursor"])["code"] == "CONFLICTING_PAGE_PARAMETERS"
 
     # The claim: another plan, a stale version.
     changed = claim(client, change_set, body, {**first, "planDigest": "0" * 64}, 409)
-    assert changed["code"] == "restructuring_plan_changed"
+    assert changed["code"] == "RESTRUCTURING_PLAN_CHANGED"
     assert changed["details"] == {"planDigest": first["planDigest"]}
     plan, result = apply(client, change_set, body)
     assert plan["planDigest"] == first["planDigest"]
     assert result["changeSetId"] == change_set["id"] and result["operationId"]
     assert result["createdObjectId"] is None
-    assert claim(client, change_set, body, plan, 409)["code"] == "change_set_version_conflict"
+    assert claim(client, change_set, body, plan, 409)["code"] == "CHANGE_SET_VERSION_CONFLICT"
     # The plan's cursors belong to the change set's version the plan read.
-    assert preview(client, change_set, body, 422, cursor=first["nextCursor"])["code"] == "invalid_cursor"
+    assert preview(client, change_set, body, 422, cursor=first["nextCursor"])["code"] == "INVALID_CURSOR"
     assert preview(client, change_set, body, 409, expectedChangeSetVersion=plan["changeSetVersion"])["code"] == (
-        "change_set_version_conflict"
+        "CHANGE_SET_VERSION_CONFLICT"
     )
     assert read(client, NODE, top["id"], changeSetId=change_set["id"])["parentObjectId"] == target["id"]
     # The review lists what the operation touched.
@@ -161,22 +161,22 @@ def test_a_refused_operation_leaves_nothing_behind(volume):  # noqa: F811
     )
     assert [item["refusals"][0]["code"] for item in plan["records"]] == ["noPossibleType"] * 2
     not_ready = claim(client, change_set, body, plan, 422)
-    assert not_ready["code"] == "restructuring_not_ready"
+    assert not_ready["code"] == "RESTRUCTURING_NOT_READY"
     assert not_ready["details"]["summary"]["refusalCount"] == 2
     assert version(client, change_set) == before
     assert object_changes(client, change_set) == []
     # A request the planner cannot read is an error, not a plan.
     same = {"operation": {"kind": "changeType", "objectId": top["id"], "objectTypeKey": GROUP}}
-    assert preview(client, change_set, same, 422)["code"] == "object_type_unchanged"
+    assert preview(client, change_set, same, 422)["code"] == "OBJECT_TYPE_UNCHANGED"
     unknown = {"operation": {"kind": "changeType", "objectId": top["id"], "objectTypeKey": "nothing"}}
-    assert preview(client, change_set, unknown, 422)["code"] == "unknown_object_type"
+    assert preview(client, change_set, unknown, 422)["code"] == "UNKNOWN_OBJECT_TYPE"
     bad_kind = {"operation": {"kind": "reshape", "objectId": top["id"]}}
     preview(client, change_set, bad_kind, 422)
     missing = {"operation": {"kind": "removeLevel", "objectId": top["id"]}}
     response = client.post(
         "/api/v1/change-sets/00000000-0000-4000-8000-000000000000/restructurings/preview", json=missing
     )
-    assert response.status_code == 404 and response.json()["error"]["code"] == "change_set_not_found"
+    assert response.status_code == 404 and response.json()["error"]["code"] == "CHANGE_SET_NOT_FOUND"
 
 
 # --- insertLevel --------------------------------------------------------------------------------
@@ -267,7 +267,7 @@ def test_remove_level_deletes_a_record_and_moves_its_children_up(volume):  # noq
     assert by_name(plan)["B"]["outcomes"] == ["moved"]
     assert by_name(plan)["B"]["after"] == {"objectTypeKey": GROUP, "parentObjectId": target["id"]}
     assert plan["summary"]["removedCount"] == 1 and plan["summary"]["relationshipsWithoutPlaceCount"] == 1
-    assert read(client, GROUP, level["id"], 404, changeSetId=change_set["id"])["code"] == "object_not_found"
+    assert read(client, GROUP, level["id"], 404, changeSetId=change_set["id"])["code"] == "OBJECT_NOT_FOUND"
     assert read(client, GROUP, inner["id"], changeSetId=change_set["id"])["parentObjectId"] == target["id"]
     assert read(client, ITEM, leaf["id"], changeSetId=change_set["id"])["parentObjectId"] == inner["id"]
     assert parent_edges(client, change_set, beside) == [("vol-group-contains-item", target["id"])]
@@ -275,7 +275,7 @@ def test_remove_level_deletes_a_record_and_moves_its_children_up(volume):  # noq
     removed_changes = [item for item in object_changes(client, change_set) if item["kind"] == "removed"]
     assert [item["objectId"] for item in removed_changes] == [level["id"]]
     publish(client, change_set)
-    assert read(client, GROUP, level["id"], 404, workspaceKey=WORKSPACE)["code"] == "object_not_found"
+    assert read(client, GROUP, level["id"], 404, workspaceKey=WORKSPACE)["code"] == "OBJECT_NOT_FOUND"
 
     # At the top level only groups may stand: the item becomes one.
     top = _group(client, "T")
@@ -308,7 +308,7 @@ def test_remove_level_deletes_a_record_and_moves_its_children_up(volume):  # noq
         row["id"],
         cell["id"],
     )
-    assert claim(client, change_set, body, plan, 422)["code"] == "restructuring_not_ready"
+    assert claim(client, change_set, body, plan, 422)["code"] == "RESTRUCTURING_NOT_READY"
     assert object_changes(client, change_set) == []
 
 
@@ -345,7 +345,7 @@ def test_change_type_under_changes_every_record_of_a_type(volume):  # noqa: F811
     # Z itself is not under Z; a group at the top cannot become a node.
     assert read(client, GROUP, target["id"], changeSetId=change_set["id"])["objectTypeKey"] == GROUP
     same = {**operation, "objectTypeKey": GROUP}
-    assert preview(client, change_set, {"operation": same}, 422)["code"] == "object_type_unchanged"
+    assert preview(client, change_set, {"operation": same}, 422)["code"] == "OBJECT_TYPE_UNCHANGED"
     nothing = preview(client, change_set, {"operation": operation})
     assert nothing["status"] == "ready" and nothing["records"] == []
 
@@ -371,7 +371,7 @@ def test_parent_candidates_include_type_changes_and_the_move_applies(starter):  
     assert by_id[target["id"]]["eligible"] is True
     assert by_id[moved["id"]]["reason"] == "self"
     live = client.get(url, params={"workspaceKey": WORKSPACE, "includeTypeChanges": "true"})
-    assert live.status_code == 422 and live.json()["error"]["code"] == "type_changes_need_change_set"
+    assert live.status_code == 422 and live.json()["error"]["code"] == "TYPE_CHANGES_NEED_CHANGE_SET"
     # Without the flag a candidate names no types.
     value = create(
         client,
@@ -415,7 +415,7 @@ def test_parent_candidates_include_type_changes_and_the_move_applies(starter):  
     assert group["parentObjectId"] == target["id"] and values(group)[k("group-code")] == "t"
     # D42: the old type in the route says where the record is.
     stale = read(client, k("system"), moved["id"], 409, changeSetId=change_set["id"])
-    assert stale["code"] == "object_type_changed"
+    assert stale["code"] == "OBJECT_TYPE_CHANGED"
     assert stale["details"]["objectTypeKey"] == k("system-group")
 
 
@@ -481,5 +481,5 @@ def test_parent_candidates_within_types(starter):  # noqa: F811
 
     unknown = client.get(url, params={"changeSetId": change_set["id"], "withinObjectTypeKey": "nope"})
     assert unknown.status_code == 422, unknown.text
-    assert unknown.json()["error"]["code"] == "unknown_object_type"
+    assert unknown.json()["error"]["code"] == "UNKNOWN_OBJECT_TYPE"
     assert unknown.json()["error"]["details"]["objectTypeKeys"] == ["nope"]

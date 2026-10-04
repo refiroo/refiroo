@@ -114,7 +114,7 @@ def test_the_indexed_checks_answer_as_the_scans_did():
 
     unique = {
         item["objectId"]: item["conflictingObjectIds"]
-        for item in _details(diagnostics, "duplicate_attribute_value")
+        for item in _details(diagnostics, "DUPLICATE_ATTRIBUTE_VALUE")
     }
     assert unique == {
         "g1": ["g2"],
@@ -122,22 +122,22 @@ def test_the_indexed_checks_answer_as_the_scans_did():
         "g5": ["g6"],
         "g6": ["g5"],
     }
-    assert _details(diagnostics, "containment_relation_missing") == [
+    assert _details(diagnostics, "CONTAINMENT_RELATION_MISSING") == [
         {"objectId": "i2", "parentObjectId": "g1"}
     ]
-    assert _details(diagnostics, "relation_cardinality_violation") == [
+    assert _details(diagnostics, "RELATION_CARDINALITY_VIOLATION") == [
         {"relationId": "p-i1"},
         {"relationId": "p-i1-again"},
         {"relationId": "cite-1"},
         {"relationId": "cite-2"},
     ]
-    assert [item["message"] for item in diagnostics if item["code"] == "relation_cardinality_violation"] == [
+    assert [item["message"] for item in diagnostics if item["code"] == "RELATION_CARDINALITY_VIOLATION"] == [
         f"Relation '{GROUP_CONTAINS_ITEM}' exceeds target cardinality",
         f"Relation '{GROUP_CONTAINS_ITEM}' exceeds target cardinality",
         f"Relation '{ITEM_CITES_GROUP}' exceeds source cardinality",
         f"Relation '{ITEM_CITES_GROUP}' exceeds source cardinality",
     ]
-    assert _details(diagnostics, "duplicate_relation_scope") == [
+    assert _details(diagnostics, "DUPLICATE_RELATION_SCOPE") == [
         {
             "relationId": "s-b",
             "conflictingRelationId": "s-a",
@@ -146,7 +146,7 @@ def test_the_indexed_checks_answer_as_the_scans_did():
             "ancestorObjectId": "c1",
         }
     ]
-    assert _details(diagnostics, "missing_required_relation") == [
+    assert _details(diagnostics, "MISSING_REQUIRED_RELATION") == [
         {"objectId": "x4", "relationTypeKey": GROUP_HAS_CELL}
     ]
 

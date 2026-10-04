@@ -19,9 +19,9 @@ _PLACEHOLDER = re.compile(r"\{[^}]*\}")
 # An error code as the backend raises it: `ApiError(409, "code"`, `api_error(422, "code"`, a
 # `code="…"` argument, or a refusal table entry `"code": (422, …`.
 _RAISED = (
-    re.compile(r"(?:[Ee]rror|[Rr]efusal|_refuse)\(\s*(?:status_code=)?\d{3}\s*,\s*(?:code=)?[\"']([a-z][a-z_]+)[\"']"),
-    re.compile(r"\bcode=[\"']([a-z][a-z_]+)[\"']"),
-    re.compile(r"^\s*[\"']([a-z][a-z_]+)[\"']\s*:\s*\(\s*\d{3}", re.MULTILINE),
+    re.compile(r"(?:[Ee]rror|[Rr]efusal|_refuse)\(\s*(?:status_code=)?\d{3}\s*,\s*(?:code=)?[\"']([A-Z][A-Z_]+)[\"']"),
+    re.compile(r"\bcode=[\"']([A-Z][A-Z_]+)[\"']"),
+    re.compile(r"^\s*[\"']([A-Z][A-Z_]+)[\"']\s*:\s*\(\s*\d{3}", re.MULTILINE),
 )
 _SETTING = re.compile(r"""(?:env\.get|_positive)\(\s*(?:env,\s*)?["']([A-Z][A-Z_]+)["']""")
 

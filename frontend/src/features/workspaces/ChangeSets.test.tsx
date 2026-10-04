@@ -53,7 +53,7 @@ describe("change set mapping activation diagnostics", () => {
         items={[
           {
             kind: "mapping-set",
-            code: "mapping_set_changed",
+            code: "MAPPING_SET_CHANGED",
             id: anchor,
             anchorObjectId: anchor,
             direction,
@@ -66,7 +66,7 @@ describe("change set mapping activation diagnostics", () => {
     );
     expect(screen.getByRole("listitem")).toHaveTextContent(message);
     expect(screen.getByRole("listitem")).toHaveTextContent(anchor);
-    expect(screen.getByRole("listitem")).not.toHaveTextContent("mapping_set_changed");
+    expect(screen.getByRole("listitem")).not.toHaveTextContent("MAPPING_SET_CHANGED");
   });
 });
 
@@ -148,8 +148,8 @@ describe("change set creation incompatibility error", () => {
     vi.spyOn(api, "changeSets").mockResolvedValue({ items: [], nextCursor: null });
     vi.spyOn(api, "modelReleases").mockResolvedValue({ items: [activeRelease, olderRelease], nextCursor: null });
     vi.spyOn(api, "createChangeSet").mockRejectedValue(
-      new ApiError(409, "change_set_content_incompatible", "Content does not fit the target model", {
-        diagnostics: [{ code: "missing_attribute", message: "Attribute x required" }],
+      new ApiError(409, "CHANGE_SET_CONTENT_INCOMPATIBLE", "Content does not fit the target model", {
+        diagnostics: [{ code: "MISSING_ATTRIBUTE", message: "Attribute x required" }],
       }),
     );
     render(<ChangeSets workspaceKey="west" readOnly={false} onOpen={vi.fn()} />);
@@ -215,7 +215,7 @@ it("separates an unpunctuated server message from the preserved-change-set guida
     refresh: vi.fn().mockResolvedValue(baseChangeSet),
   });
   vi.spyOn(api, "discardChangeSet").mockRejectedValue(
-    new ApiError(409, "version_conflict", "Change set conflicts with the live active data"),
+    new ApiError(409, "VERSION_CONFLICT", "Change set conflicts with the live active data"),
   );
   render(<ChangeSetActions readOnly={false} onExit={vi.fn()} onModelChanged={vi.fn()} />);
   fireEvent.click(screen.getByRole("button", { name: "Discard change set" }));

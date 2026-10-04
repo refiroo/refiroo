@@ -148,7 +148,7 @@ export function ModelReleaseDetail({
       })
       .catch((cause) => {
         if (cancelled) return;
-        if (!isApiError(cause, "unsupported_schema_version"))
+        if (!isApiError(cause, "UNSUPPORTED_SCHEMA_VERSION"))
           setComparison({ againstReleaseId, state: "error", message: errorMessage(cause) });
         else if (refusedReleaseId(cause) === release.id) setUnsupportedSchema(true);
         else setComparison({ againstReleaseId, state: "unsupported", schemaVersion: unsupportedSchemaVersion(cause) });
@@ -171,7 +171,7 @@ export function ModelReleaseDetail({
       .catch((cause) => {
         if (cancelled) return;
         // The active release is interpretable by definition, so the refusal concerns this release.
-        if (isApiError(cause, "unsupported_schema_version")) setUnsupportedSchema(true);
+        if (isApiError(cause, "UNSUPPORTED_SCHEMA_VERSION")) setUnsupportedSchema(true);
         else setActivationCheck({ activeReleaseId, state: "error", message: errorMessage(cause) });
       });
     return () => {

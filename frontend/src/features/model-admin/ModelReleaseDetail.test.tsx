@@ -176,7 +176,7 @@ describe("ModelReleaseDetail release history comparison", () => {
     setup({ selected: r05, history: [introduction("r04")] });
     vi.mocked(api.modelReleaseDiff).mockImplementation(async (releaseId, against) => {
       if (against === "r04")
-        throw new ApiError(422, "unsupported_schema_version", "Unsupported", {
+        throw new ApiError(422, "UNSUPPORTED_SCHEMA_VERSION", "Unsupported", {
           releaseId: "r04",
           schemaVersion: "0.4",
           operation: "diff",

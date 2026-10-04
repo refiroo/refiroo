@@ -43,7 +43,7 @@ def mapping_read(
     if change_set_id and publication_id:
         raise api_error(
             422,
-            "mutually_exclusive_context",
+            "MUTUALLY_EXCLUSIVE_CONTEXT",
             "changeSetId and publicationId cannot be combined",
         )
     return open_mapping_read(
@@ -116,7 +116,7 @@ def edge_list_query(
     if change_set_id and publication_id:
         raise api_error(
             422,
-            "mutually_exclusive_context",
+            "MUTUALLY_EXCLUSIVE_CONTEXT",
             "changeSetId and publicationId cannot be combined",
         )
     return EdgeListQuery(
@@ -191,9 +191,9 @@ def target_binding_read(
     publication_id: str | None = Query(default=None, alias="publicationId"),
 ) -> MappingRead:
     if change_set_id and publication_id:
-        raise api_error(422, "mutually_exclusive_context", "Workspace contexts cannot be combined")
+        raise api_error(422, "MUTUALLY_EXCLUSIVE_CONTEXT", "Workspace contexts cannot be combined")
     if (application_key is None) != (view_key is None):
-        raise api_error(422, "mapping_view_required", "Supply applicationKey and viewKey together")
+        raise api_error(422, "MAPPING_VIEW_REQUIRED", "Supply applicationKey and viewKey together")
     config = (
         None
         if application_key is not None

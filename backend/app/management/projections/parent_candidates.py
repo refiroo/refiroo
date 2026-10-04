@@ -68,7 +68,7 @@ def parent_candidates(
     if include_type_changes and not change_set_id:
         raise api_error(
             422,
-            "type_changes_need_change_set",
+            "TYPE_CHANGES_NEED_CHANGE_SET",
             "A record's type changes only in a change set; includeTypeChanges needs changeSetId",
             {"parameter": "includeTypeChanges"},
         )
@@ -76,13 +76,13 @@ def parent_candidates(
     if context is not None:
         record = find_object(session, context, object_id, object_type_key)
         if record is None:
-            raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
+            raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found")
         application_key, current_parent = record.application_key, record.parent_object_id
     else:
         workspace_key = resolve_workspace(session, workspace_key).key
         item = load_active_projection(session, object_id, object_type_key)
         if item.workspace_key != workspace_key:
-            raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
+            raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found")
         application_key, current_parent = item.application_key, item.parent_object_id
 
     within = set(within_object_type_keys) if within_object_type_keys else None
@@ -90,7 +90,7 @@ def parent_candidates(
     if unknown:
         raise api_error(
             422,
-            "unknown_object_type",
+            "UNKNOWN_OBJECT_TYPE",
             f"withinObjectTypeKey names object types the model does not have: {unknown}",
             {"parameter": "withinObjectTypeKey", "objectTypeKeys": unknown},
         )
@@ -116,7 +116,7 @@ def parent_candidates(
         if parent_object_type_key not in types:
             raise api_error(
                 422,
-                "invalid_parent_type",
+                "INVALID_PARENT_TYPE",
                 f"Object type '{parent_object_type_key}' cannot contain '{object_type_key}' records",
                 {"parentObjectTypeKey": parent_object_type_key, "permitted": types},
             )

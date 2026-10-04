@@ -131,18 +131,18 @@ def test_discover_the_model_of_a_change_set_on_another_release(world):
     refused(
         world.api.get("/object-types", pageSize=1, cursor=live["nextCursor"], changeSetId=c2["id"]),
         422,
-        "invalid_cursor",
+        "INVALID_CURSOR",
     )
     p1 = world.publish(world.change_set())
     refused(
         world.api.get("/model", changeSetId=c2["id"], publicationId=p1["id"]),
         422,
-        "mutually_exclusive_context",
+        "MUTUALLY_EXCLUSIVE_CONTEXT",
     )
     refused(
         world.api.get("/model", changeSetId="00000000-0000-4000-8000-000000000000"),
         404,
-        "change_set_not_found",
+        "CHANGE_SET_NOT_FOUND",
     )
 
 

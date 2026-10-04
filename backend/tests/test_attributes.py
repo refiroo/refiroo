@@ -67,18 +67,18 @@ def test_get_attribute_value_returns_404_when_unset():
         domain = _create_domain(client, _suffix())
         response = client.get(_path(domain["id"], "description"))
         assert response.status_code == 404
-        assert response.json()["error"]["code"] == "attribute_not_found"
+        assert response.json()["error"]["code"] == "ATTRIBUTE_NOT_FOUND"
 
 
 def test_get_attribute_value_unknown_object_or_type():
     with TestClient(app) as client:
         missing_object = client.get(_path(str(uuid4()), "description"))
         assert missing_object.status_code == 404
-        assert missing_object.json()["error"]["code"] == "object_not_found"
+        assert missing_object.json()["error"]["code"] == "OBJECT_NOT_FOUND"
 
         missing_type = client.get(f"/api/v1/objects/nonexistent/{uuid4()}/attributes/description")
         assert missing_type.status_code == 404
-        assert missing_type.json()["error"]["code"] == "unknown_object_type"
+        assert missing_type.json()["error"]["code"] == "UNKNOWN_OBJECT_TYPE"
 
 
 # --- POST ---
@@ -117,7 +117,7 @@ def test_create_attribute_value_rejects_already_set_attribute():
             json={"value": "Second", "expectedVersion": 2},
         )
         assert second.status_code == 409
-        assert second.json()["error"]["code"] == "attribute_already_exists"
+        assert second.json()["error"]["code"] == "ATTRIBUTE_ALREADY_EXISTS"
 
 
 def test_create_attribute_value_rejects_stale_version():
@@ -128,7 +128,7 @@ def test_create_attribute_value_rejects_stale_version():
             json={"value": "Stale", "expectedVersion": 99},
         )
         assert response.status_code == 409
-        assert response.json()["error"]["code"] == "version_conflict"
+        assert response.json()["error"]["code"] == "VERSION_CONFLICT"
 
 
 def test_create_attribute_value_rejects_unattached_key():
@@ -139,7 +139,7 @@ def test_create_attribute_value_rejects_unattached_key():
             json={"value": True, "expectedVersion": 1},
         )
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "unknown_attributes"
+        assert response.json()["error"]["code"] == "UNKNOWN_ATTRIBUTES"
 
 
 def test_create_attribute_value_rejects_invalid_value():
@@ -150,7 +150,7 @@ def test_create_attribute_value_rejects_invalid_value():
             json={"value": 123, "expectedVersion": 1},
         )
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "invalid_attribute_value"
+        assert response.json()["error"]["code"] == "INVALID_ATTRIBUTE_VALUE"
 
 
 def test_create_attribute_value_rejects_extra_fields():
@@ -161,7 +161,7 @@ def test_create_attribute_value_rejects_extra_fields():
             json={"value": "x", "expectedVersion": 1, "unexpected": "field"},
         )
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "request_validation_error"
+        assert response.json()["error"]["code"] == "REQUEST_VALIDATION_ERROR"
 
 
 # --- PATCH ---
@@ -197,7 +197,7 @@ def test_update_attribute_value_returns_404_when_unset():
             json={"value": "New", "expectedVersion": 1},
         )
         assert response.status_code == 404
-        assert response.json()["error"]["code"] == "attribute_not_found"
+        assert response.json()["error"]["code"] == "ATTRIBUTE_NOT_FOUND"
 
 
 def test_update_attribute_value_rejects_invalid_value():
@@ -208,7 +208,7 @@ def test_update_attribute_value_rejects_invalid_value():
             json={"value": "not-a-boolean", "expectedVersion": 1},
         )
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "invalid_attribute_value"
+        assert response.json()["error"]["code"] == "INVALID_ATTRIBUTE_VALUE"
 
 
 def test_update_attribute_value_rejects_stale_version():
@@ -225,7 +225,7 @@ def test_update_attribute_value_rejects_stale_version():
             json={"value": "Stale", "expectedVersion": 1},
         )
         assert stale.status_code == 409
-        assert stale.json()["error"]["code"] == "version_conflict"
+        assert stale.json()["error"]["code"] == "VERSION_CONFLICT"
 
 
 def test_version_claim_rejects_an_object_loaded_before_a_competing_write():
@@ -241,7 +241,7 @@ def test_version_claim_rejects_an_object_loaded_before_a_competing_write():
             json={"value": "Loser", "expectedVersion": domain["version"]},
         )
         assert loser.status_code == 409
-        assert loser.json()["error"]["code"] == "version_conflict"
+        assert loser.json()["error"]["code"] == "VERSION_CONFLICT"
 
 
 def test_update_unique_attribute_conflicts_across_objects():
@@ -255,7 +255,7 @@ def test_update_unique_attribute_conflicts_across_objects():
             json={"value": first_code, "expectedVersion": 1},
         )
         assert conflict.status_code == 409
-        assert conflict.json()["error"]["code"] == "duplicate_attribute_value"
+        assert conflict.json()["error"]["code"] == "DUPLICATE_ATTRIBUTE_VALUE"
 
 
 # --- DELETE ---
@@ -272,7 +272,7 @@ def test_delete_optional_attribute_value():
 
         get_response = client.get(_path(domain["id"], "active"))
         assert get_response.status_code == 404
-        assert get_response.json()["error"]["code"] == "attribute_not_found"
+        assert get_response.json()["error"]["code"] == "ATTRIBUTE_NOT_FOUND"
 
 
 def test_delete_required_attribute_value_is_rejected():
@@ -280,7 +280,7 @@ def test_delete_required_attribute_value_is_rejected():
         domain = _create_domain(client, _suffix())
         response = client.delete(_path(domain["id"], "domain-code"), params={"expectedVersion": 1})
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "cannot_delete_required_attribute"
+        assert response.json()["error"]["code"] == "CANNOT_DELETE_REQUIRED_ATTRIBUTE"
 
 
 def test_delete_attribute_value_rejects_stale_version():
@@ -288,7 +288,7 @@ def test_delete_attribute_value_rejects_stale_version():
         domain = _create_domain(client, _suffix())
         response = client.delete(_path(domain["id"], "active"), params={"expectedVersion": 99})
         assert response.status_code == 409
-        assert response.json()["error"]["code"] == "version_conflict"
+        assert response.json()["error"]["code"] == "VERSION_CONFLICT"
 
 
 def test_delete_attribute_value_returns_404_when_unset():
@@ -296,7 +296,7 @@ def test_delete_attribute_value_returns_404_when_unset():
         domain = _create_domain(client, _suffix())
         response = client.delete(_path(domain["id"], "description"), params={"expectedVersion": 1})
         assert response.status_code == 404
-        assert response.json()["error"]["code"] == "attribute_not_found"
+        assert response.json()["error"]["code"] == "ATTRIBUTE_NOT_FOUND"
 
 
 # --- service-level guards ---
@@ -316,7 +316,7 @@ def test_validate_deletable_attribute_rejects_read_only_binding():
     )
     with pytest.raises(ApiError) as exc_info:
         validate_deletable_attribute(read_only, "domain-code")
-    assert exc_info.value.code == "read_only_attributes"
+    assert exc_info.value.code == "READ_ONLY_ATTRIBUTES"
 
 
 def test_build_attribute_value_response_uses_row_value():

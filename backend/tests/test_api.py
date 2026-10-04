@@ -116,7 +116,7 @@ def test_create_object_with_duplicate_id_is_rejected():
         )
         assert second.status_code == 409
         body = second.json()
-        assert body["error"]["code"] == "object_already_exists"
+        assert body["error"]["code"] == "OBJECT_ALREADY_EXISTS"
         assert custom_id in body["error"]["message"]
 
 
@@ -150,7 +150,7 @@ def test_create_object_rejects_extra_fields():
             },
         )
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "request_validation_error"
+        assert response.json()["error"]["code"] == "REQUEST_VALIDATION_ERROR"
 
 
 def test_create_object_rejects_invalid_id_and_duplicate_attributes():
@@ -166,7 +166,7 @@ def test_create_object_rejects_invalid_id_and_duplicate_attributes():
             },
         )
         assert invalid_id.status_code == 422
-        assert invalid_id.json()["error"]["code"] == "request_validation_error"
+        assert invalid_id.json()["error"]["code"] == "REQUEST_VALIDATION_ERROR"
 
         duplicate_attribute = client.post(
             "/api/v1/objects",
@@ -181,7 +181,7 @@ def test_create_object_rejects_invalid_id_and_duplicate_attributes():
             },
         )
         assert duplicate_attribute.status_code == 422
-        assert duplicate_attribute.json()["error"]["code"] == "duplicate_attribute"
+        assert duplicate_attribute.json()["error"]["code"] == "DUPLICATE_ATTRIBUTE"
 
 
 def test_error_response_format():
@@ -192,7 +192,7 @@ def test_error_response_format():
         assert "error" in body
         assert "code" in body["error"]
         assert "message" in body["error"]
-        assert body["error"]["code"] == "unknown_object_type"
+        assert body["error"]["code"] == "UNKNOWN_OBJECT_TYPE"
 
 
 def test_object_type_relations_compatibility_endpoint():
@@ -240,7 +240,7 @@ def test_metadata_collection_rejects_invalid_cursor():
     with TestClient(app) as client:
         response = client.get("/api/v1/object-types", params={"cursor": "not-a-cursor"})
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "invalid_cursor"
+        assert response.json()["error"]["code"] == "INVALID_CURSOR"
 
 
 def test_metadata_cursor_rejects_filter_reuse_and_tampering():
@@ -255,7 +255,7 @@ def test_metadata_cursor_rejects_filter_reuse_and_tampering():
             params={"fromObjectType": "domain", "cursor": cursor, "pageSize": 1},
         )
         assert reused.status_code == 422
-        assert reused.json()["error"]["code"] == "invalid_cursor"
+        assert reused.json()["error"]["code"] == "INVALID_CURSOR"
 
         replacement = "A" if cursor[-1] != "A" else "B"
         tampered = client.get(
@@ -263,7 +263,7 @@ def test_metadata_cursor_rejects_filter_reuse_and_tampering():
             params={"cursor": cursor[:-1] + replacement, "pageSize": 1},
         )
         assert tampered.status_code == 422
-        assert tampered.json()["error"]["code"] == "invalid_cursor"
+        assert tampered.json()["error"]["code"] == "INVALID_CURSOR"
 
 
 def test_version_conflict_error_format():
@@ -286,7 +286,7 @@ def test_version_conflict_error_format():
         )
         assert stale.status_code == 409
         body = stale.json()
-        assert body["error"]["code"] == "version_conflict"
+        assert body["error"]["code"] == "VERSION_CONFLICT"
 
 
 def test_attribute_response_format():
@@ -411,7 +411,7 @@ def test_model_object_hierarchy_and_relation_vertical_slice():
             json={"name": "Stale write", "expectedVersion": 1},
         )
         assert stale_response.status_code == 409
-        assert stale_response.json()["error"]["code"] == "version_conflict"
+        assert stale_response.json()["error"]["code"] == "VERSION_CONFLICT"
 
         system_response = client.post(
             "/api/v1/objects",
@@ -489,7 +489,7 @@ def test_delete_object_with_children_is_rejected():
             f"/api/v1/objects/domain/{domain['id']}", params={"expectedVersion": 1}
         )
         assert response.status_code == 409
-        assert response.json()["error"]["code"] == "object_has_dependants"
+        assert response.json()["error"]["code"] == "OBJECT_HAS_DEPENDANTS"
 
 
 def test_delete_object_with_mapping_relation_is_rejected():
@@ -556,7 +556,7 @@ def test_delete_object_with_mapping_relation_is_rejected():
             f"/api/v1/objects/master-value/{master['id']}", params={"expectedVersion": 1}
         )
         assert response.status_code == 409
-        assert response.json()["error"]["code"] == "object_has_dependants"
+        assert response.json()["error"]["code"] == "OBJECT_HAS_DEPENDANTS"
         # An association requires explicit cascade confirmation even without dependent objects.
         assert client.get(f"/api/v1/relations/{mapping.json()['id']}").status_code == 200
         assert client.get(f"/api/v1/objects/master-value/{master['id']}").status_code == 200
@@ -572,7 +572,7 @@ def test_update_cannot_null_required_attribute():
         )
         assert response.status_code == 422
         error = response.json()["error"]
-        assert error["code"] == "missing_required_attributes"
+        assert error["code"] == "MISSING_REQUIRED_ATTRIBUTES"
         # The message names the field for people; the key stays machine-readable in details.
         assert error["message"] == "Required fields are missing: Domain code"
         assert error["details"] == {"attributeTypeKeys": ["domain-code"]}
@@ -614,7 +614,7 @@ def test_unique_attribute_enforced_on_create():
             },
         )
         assert second.status_code == 409
-        assert second.json()["error"]["code"] == "duplicate_attribute_value"
+        assert second.json()["error"]["code"] == "DUPLICATE_ATTRIBUTE_VALUE"
 
 
 def test_unique_attribute_enforced_on_update():
@@ -631,7 +631,7 @@ def test_unique_attribute_enforced_on_update():
             json={"attributes": [_attr("domain-code", first_code)], "expectedVersion": 1},
         )
         assert conflict.status_code == 409
-        assert conflict.json()["error"]["code"] == "duplicate_attribute_value"
+        assert conflict.json()["error"]["code"] == "DUPLICATE_ATTRIBUTE_VALUE"
 
         # Re-submitting its own current value is not a conflict.
         unchanged = client.patch(
@@ -680,7 +680,7 @@ def test_integer_minimum_is_enforced():
             },
         )
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "attribute_below_minimum"
+        assert response.json()["error"]["code"] == "ATTRIBUTE_BELOW_MINIMUM"
 
 
 def test_create_rejects_invalid_parent_object_id():
@@ -696,7 +696,7 @@ def test_create_rejects_invalid_parent_object_id():
             },
         )
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "request_validation_error"
+        assert response.json()["error"]["code"] == "REQUEST_VALIDATION_ERROR"
 
 
 def test_relation_rejects_invalid_object_ids():
@@ -710,4 +710,4 @@ def test_relation_rejects_invalid_object_ids():
             },
         )
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "request_validation_error"
+        assert response.json()["error"]["code"] == "REQUEST_VALIDATION_ERROR"

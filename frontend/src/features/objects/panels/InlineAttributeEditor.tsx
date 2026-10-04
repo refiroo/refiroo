@@ -70,7 +70,7 @@ export function InlineAttributeEditor({
       onSaved(saved);
     } catch (cause) {
       setError(errorMessage(cause));
-      if (isApiError(cause, "version_conflict") || isApiError(cause, "change_set_version_conflict")) {
+      if (isApiError(cause, "VERSION_CONFLICT") || isApiError(cause, "CHANGE_SET_VERSION_CONFLICT")) {
         await reload();
       }
       setSaving(false);

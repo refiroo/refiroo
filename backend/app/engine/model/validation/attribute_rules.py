@@ -24,7 +24,7 @@ def _base_path(attribute: AttributeTypeDefinition) -> str:
 def _check_uniqueness_support(attribute: AttributeTypeDefinition) -> None:
     if attribute.features.get("unique") and attribute.valueType in UNIQUE_UNSUPPORTED_VALUE_TYPES:
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             f"{_base_path(attribute)}/features/unique",
             f"Attribute type '{attribute.key}' declares 'unique' but valueType "
             f"'{attribute.valueType}' does not support uniqueness",
@@ -38,7 +38,7 @@ def _check_bounds(attribute: AttributeTypeDefinition) -> None:
         path = f"{_base_path(attribute)}/validation/{bound}"
         if attribute.valueType not in NUMERIC_VALUE_TYPES:
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 path,
                 f"Attribute type '{attribute.key}' declares 'validation.{bound}' but valueType "
                 f"'{attribute.valueType}' does not support numeric bounds",
@@ -46,7 +46,7 @@ def _check_bounds(attribute: AttributeTypeDefinition) -> None:
         value = attribute.validation[bound]
         if isinstance(value, bool) or not isinstance(value, (int, float, Decimal)):
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 path,
                 f"Attribute type '{attribute.key}' validation.{bound} must be a finite number",
             )
@@ -56,7 +56,7 @@ def _check_bounds(attribute: AttributeTypeDefinition) -> None:
             numeric_value = Decimal("NaN")
         if not numeric_value.is_finite():
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 path,
                 f"Attribute type '{attribute.key}' validation.{bound} must be a finite number",
             )
@@ -69,7 +69,7 @@ def _check_bounds(attribute: AttributeTypeDefinition) -> None:
         and Decimal(str(minimum)) > Decimal(str(maximum))
     ):
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             f"{_base_path(attribute)}/validation/minimum",
             f"Attribute type '{attribute.key}' validation.minimum must not exceed "
             "validation.maximum",

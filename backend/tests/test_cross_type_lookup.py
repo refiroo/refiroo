@@ -272,35 +272,35 @@ def test_timestamps_filter_and_sort_live_and_are_refused_where_unrecorded(lookup
     for name, context in seeded["contexts"].items():
         if name == "live":
             continue
-        _refused(client.get(LOOKUP, params={**context, "sort": "createdAt"}), 422, "invalid_sort")
-        _refused(client.get(LOOKUP, params={**context, "filter.updatedAt.lt": stamps[0]}), 422, "invalid_filter")
+        _refused(client.get(LOOKUP, params={**context, "sort": "createdAt"}), 422, "INVALID_SORT")
+        _refused(client.get(LOOKUP, params={**context, "filter.updatedAt.lt": stamps[0]}), 422, "INVALID_FILTER")
 
 
 def test_model_declared_fields_and_bad_scopes_are_refused(lookup):
     client, k = lookup
     seeded = _seed(client, k)
     for name, context in seeded["contexts"].items():
-        error = _refused(client.get(LOOKUP, params={**context, f"filter.{k('par-code')}.eq": "A-1"}), 422, "invalid_filter")
+        error = _refused(client.get(LOOKUP, params={**context, f"filter.{k('par-code')}.eq": "A-1"}), 422, "INVALID_FILTER")
         assert error["details"]["route"] == "GET /api/v1/objects/{objectTypeKey}", name
         assert error["details"]["path"] == f"/query/filter.{k('par-code')}.eq"
         assert "GET /api/v1/objects/{objectTypeKey}" in error["message"]
         for sort in (k("par-count"), f"ancestor:{k(FOLDER)}", "objectTypeKey", "parentObjectId", "sequenceId", "-relationship"):
-            error = _refused(client.get(LOOKUP, params={**context, "sort": sort}), 422, "invalid_sort")
+            error = _refused(client.get(LOOKUP, params={**context, "sort": sort}), 422, "INVALID_SORT")
             assert error["details"]["route"] == "GET /api/v1/objects/{objectTypeKey}", (name, sort)
-        _refused(client.get(LOOKUP, params={**context, "filter.sequenceId.eq": "1"}), 422, "invalid_filter")
-        _refused(client.get(LOOKUP, params={**context, "filter.name.lt": "b"}), 422, "invalid_filter")
-        _refused(client.get(LOOKUP, params={**context, "objectTypeKey": "no-such-type"}), 404, "unknown_object_type")
-        _refused(client.get(LOOKUP, params={**context, "applicationKey": "no-such-app"}), 404, "unknown_application")
+        _refused(client.get(LOOKUP, params={**context, "filter.sequenceId.eq": "1"}), 422, "INVALID_FILTER")
+        _refused(client.get(LOOKUP, params={**context, "filter.name.lt": "b"}), 422, "INVALID_FILTER")
+        _refused(client.get(LOOKUP, params={**context, "objectTypeKey": "no-such-type"}), 404, "UNKNOWN_OBJECT_TYPE")
+        _refused(client.get(LOOKUP, params={**context, "applicationKey": "no-such-app"}), 404, "UNKNOWN_APPLICATION")
         _refused(
             client.get(LOOKUP, params={**context, "topLevel": True, "parentObjectId": seeded["folders"][0]["id"]}),
             422,
-            "mutually_exclusive_scope",
+            "MUTUALLY_EXCLUSIVE_SCOPE",
         )
     contexts = seeded["contexts"]
     _refused(
         client.get(LOOKUP, params={**contexts["overlay change set"], **contexts["publication"]}),
         422,
-        "mutually_exclusive_context",
+        "MUTUALLY_EXCLUSIVE_CONTEXT",
     )
 
 
@@ -320,7 +320,7 @@ def test_application_narrows_to_its_records_and_types(lookup):
     error = _refused(
         client.get(LOOKUP, params={**live, "applicationKey": k(OTHER_APP), "objectTypeKey": [k(FOLDER), k(ENTRY)]}),
         422,
-        "invalid_object_type_for_application",
+        "INVALID_OBJECT_TYPE_FOR_APPLICATION",
     )
     assert k(ENTRY) in error["message"]
 
@@ -344,15 +344,15 @@ def test_cursors_are_bound_to_the_lookup_its_context_and_its_query(lookup):
             {"search": "a"},
             {"filter.name.startsWith": "a"},
         ):
-            _refused(client.get(LOOKUP, params={**query, **changed, "cursor": cursor}), 422, "invalid_cursor")
+            _refused(client.get(LOOKUP, params={**query, **changed, "cursor": cursor}), 422, "INVALID_CURSOR")
         # Neither list accepts the other's cursor.
         per_type = _ok(client.get(f"{LOOKUP}/{k(ENTRY)}", params={**context, "pageSize": 2}))["nextCursor"]
-        _refused(client.get(LOOKUP, params={**context, "objectTypeKey": k(ENTRY), "pageSize": 2, "cursor": per_type}), 422, "invalid_cursor")
+        _refused(client.get(LOOKUP, params={**context, "objectTypeKey": k(ENTRY), "pageSize": 2, "cursor": per_type}), 422, "INVALID_CURSOR")
         mine = _ok(client.get(LOOKUP, params={**context, "objectTypeKey": k(ENTRY), "pageSize": 2}))["nextCursor"]
-        _refused(client.get(f"{LOOKUP}/{k(ENTRY)}", params={**context, "pageSize": 2, "cursor": mine}), 422, "invalid_cursor")
+        _refused(client.get(f"{LOOKUP}/{k(ENTRY)}", params={**context, "pageSize": 2, "cursor": mine}), 422, "INVALID_CURSOR")
         for other_name, other in contexts.items():
             if other_name != name:
-                _refused(client.get(LOOKUP, params={**other, **base, "cursor": cursor}), 422, "invalid_cursor")
+                _refused(client.get(LOOKUP, params={**other, **base, "cursor": cursor}), 422, "INVALID_CURSOR")
 
 
 def test_positions_seek_end_and_totals_agree_in_every_context(lookup):

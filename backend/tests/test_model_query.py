@@ -3,7 +3,7 @@
 A criterion the object list can express selects the same records in the same order through the
 query and through the list, in live, change set and publication contexts. The query adds
 ``ancestor:<type>`` by ID and one relation hop, ``select`` and ``expand`` (D17), and refuses a name
-the model does not give the queried type as ``invalid_query`` at its JSON pointer (D19). Every test
+the model does not give the queried type as ``INVALID_QUERY`` at its JSON pointer (D19). Every test
 runs on a generated model and on a copy with every key renamed, so no behaviour depends on a key.
 """
 
@@ -325,7 +325,7 @@ def test_ancestor_criterion_reads_the_containment_path(query):
         ({"field": ancestor, "op": "eq", "value": 5}, "/where/0/value"),
         ({"field": ancestor, "op": "eq", "value": "x", "not": True}, "/where/0/not"),
     ):
-        _refused(client.post(QUERY, json={**base, "where": [criterion]}), "invalid_query", path)
+        _refused(client.post(QUERY, json={**base, "where": [criterion]}), "INVALID_QUERY", path)
 
 
 def test_one_relation_hop_in_both_directions_and_inverted(query):
@@ -385,7 +385,7 @@ def test_one_relation_hop_in_both_directions_and_inverted(query):
         ({"related": {"relationTypeKey": k(CITES), "direction": "incoming"}}, "/where/0/related/direction"),
         ({"related": {"relationTypeKey": k(CITES), "direction": "outgoing"}, "field": "name"}, "/where/0/related"),
     ):
-        _refused(client.post(QUERY, json={**base, "where": [criterion]}), "invalid_query", path)
+        _refused(client.post(QUERY, json={**base, "where": [criterion]}), "INVALID_QUERY", path)
 
 
 def test_select_and_expand_shapes_in_every_context(query):
@@ -474,11 +474,11 @@ def test_select_and_expand_shapes_in_every_context(query):
         ({**base, "expand": [{"relationTypeKey": k(TAGGED), "direction": "outgoing", "select": [k("par-code")]}]}, "/expand/0/select/0"),
         ({**base, "expand": [{"relationTypeKey": k(TAGGED), "direction": "outgoing"}] * 2}, "/expand/1"),
     ):
-        _refused(client.post(QUERY, json=body), "invalid_query", path)
+        _refused(client.post(QUERY, json=body), "INVALID_QUERY", path)
     # The expansion's limit is part of the body's shape.
     _refused(
         client.post(QUERY, json={**base, "expand": [{"relationTypeKey": k(TAGGED), "direction": "outgoing", "limit": 21}]}),
-        "request_validation_error",
+        "REQUEST_VALIDATION_ERROR",
     )
 
 
@@ -506,10 +506,10 @@ def test_pages_and_cursors_are_bound_to_the_body_and_context(query):
         {**body, "select": ["name"]},
         {**body, "context": seeded["contexts"]["publication"][1]},
     ):
-        _refused(client.post(QUERY, json={**other, "cursor": first["nextCursor"]}), "invalid_cursor")
+        _refused(client.post(QUERY, json={**other, "cursor": first["nextCursor"]}), "INVALID_CURSOR")
     _refused(
         client.get(f"/api/v1/objects/{k(ENTRY)}", params={"workspaceKey": WORKSPACE, "cursor": first["nextCursor"]}),
-        "invalid_cursor",
+        "INVALID_CURSOR",
     )
     # Positions, the last page and the way back, with totals.
     for name, (_list_context, context) in seeded["contexts"].items():
@@ -524,7 +524,7 @@ def test_pages_and_cursors_are_bound_to_the_body_and_context(query):
         assert _ids(end["items"]) == _ids(every[-2:]) and end["nextCursor"] is None, name
     _refused(
         client.post(QUERY, json={**body, "cursor": first["nextCursor"], "position": 2}),
-        "conflicting_page_parameters",
+        "CONFLICTING_PAGE_PARAMETERS",
     )
 
 
@@ -554,15 +554,15 @@ def test_refusals_name_the_body_part(query):
         ({**base, "context": publication, "sort": "-updatedAt"}, "/sort"),
         ({**base, "asOf": "tomorrow"}, "/asOf"),
     ):
-        _refused(client.post(QUERY, json=body), "invalid_query", path)
-    _refused(client.post(QUERY, json={**base, "asOf": "2026-10-01"}), "as_of_not_supported", "/asOf")
+        _refused(client.post(QUERY, json=body), "INVALID_QUERY", path)
+    _refused(client.post(QUERY, json={**base, "asOf": "2026-10-01"}), "AS_OF_NOT_SUPPORTED", "/asOf")
     _refused(
         client.post(QUERY, json={**base, "context": {**change_set, **publication}}),
-        "mutually_exclusive_context",
+        "MUTUALLY_EXCLUSIVE_CONTEXT",
     )
-    _refused(client.post(QUERY, json={**base, "context": {"changeSetId": "00000000-0000-4000-8000-000000000000"}}), "change_set_not_found", status=404)
-    _refused(client.post("/api/v1/workspaces/missing/queries/objects", json=base), "workspace_not_found", status=404)
+    _refused(client.post(QUERY, json={**base, "context": {"changeSetId": "00000000-0000-4000-8000-000000000000"}}), "CHANGE_SET_NOT_FOUND", status=404)
+    _refused(client.post("/api/v1/workspaces/missing/queries/objects", json=base), "WORKSPACE_NOT_FOUND", status=404)
     # The body's shape: unknown properties and wrong JSON types are request validation errors (D19).
-    _refused(client.post(QUERY, json={**base, "filter": {}}), "request_validation_error")
-    _refused(client.post(QUERY, json={**base, "where": [{"related": {"relationTypeKey": k(CITES), "direction": "up"}}]}), "request_validation_error")
-    _refused(client.post(QUERY, json={**base, "pageSize": 501}), "request_validation_error")
+    _refused(client.post(QUERY, json={**base, "filter": {}}), "REQUEST_VALIDATION_ERROR")
+    _refused(client.post(QUERY, json={**base, "where": [{"related": {"relationTypeKey": k(CITES), "direction": "up"}}]}), "REQUEST_VALIDATION_ERROR")
+    _refused(client.post(QUERY, json={**base, "pageSize": 501}), "REQUEST_VALIDATION_ERROR")

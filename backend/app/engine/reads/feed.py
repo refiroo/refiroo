@@ -63,12 +63,12 @@ def read_feed(
         .where(Workspace.key == workspace_key)
     ).one_or_none()
     if row is None:
-        raise api_error(404, "workspace_not_found", "Workspace not found")
+        raise api_error(404, "WORKSPACE_NOT_FOUND", "Workspace not found")
     head, publication_id, publication_number, baseline = row
     if after > head:
         raise api_error(
             409,
-            "feed_position_ahead",
+            "FEED_POSITION_AHEAD",
             f"Position {after} is past the feed's head, {head}: it was not read from this "
             "workspace's feed, or the database was restored to an earlier state. Read again from a "
             "baseline",
@@ -81,7 +81,7 @@ def read_feed(
     if after < earliest - 1:
         raise api_error(
             410,
-            "feed_position_expired",
+            "FEED_POSITION_EXPIRED",
             f"Position {after} has expired: the feed answers from position {earliest} on. Read "
             "the publication named in the details, then follow the feed from its position",
             {

@@ -178,6 +178,16 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   audit and matrix states. PG5 (2026-10-03) re-measured every budget on PostgreSQL and removed the
   SQLite planner constructs and comments; a search for SQLite in `app/`, `tests/` and `frontend/e2e`
   finds only the refusal of a SQLite URL, its tests, the boundary check and testmon's data file.
+- [ ] **Database-backed uniqueness for `unique` attributes (decided 2026-10-04, 0.9 C2 C-D24; build
+  to be chosen, at the latest with the import and migration work).** A `unique` attribute (for
+  example a former system's ID kept beside the object ID) must be unique in every case, including a
+  migration. Today the write rules compare values within a workspace (ADR-010), serialised by the
+  workspace lock. That comparison must keep refusing a duplicate on every write path, and the
+  database must back it: a partial unique index where possible; otherwise a dedicated table of
+  (workspace, attribute, normalized value) under a unique index, written in the same transaction as
+  the value. A write, import or migration that cannot insert its row fails, and nothing is
+  committed. This is ADR-010's planned hardening for PostgreSQL. Object IDs need nothing: their
+  unique index already covers every workspace.
 - [ ] Unique-value checks over non-text values (integer, decimal, date, dateTime, boolean) still read
   every value of the attribute, live and in a change set: the value indexes cover `text_value` only
   (0.9 B2 added the live one). Add them with 0.11's model-derived indexes.

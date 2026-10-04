@@ -110,13 +110,13 @@ def test_follow_the_feed_and_resume_from_a_stored_position(world):
     resumed = _follow(world, ws, after=3)
     assert resumed == entries[3:]
 
-    refused(world.api.get("/workspaces/no-such-site/feed"), 404, "workspace_not_found")
-    refused(world.api.get(f"/workspaces/{ws}/feed", pageSize=0), 422, "request_validation_error")
+    refused(world.api.get("/workspaces/no-such-site/feed"), 404, "WORKSPACE_NOT_FOUND")
+    refused(world.api.get(f"/workspaces/{ws}/feed", pageSize=0), 422, "REQUEST_VALIDATION_ERROR")
     refused(
-        world.api.get(f"/workspaces/{ws}/feed", pageSize=1001), 422, "request_validation_error"
+        world.api.get(f"/workspaces/{ws}/feed", pageSize=1001), 422, "REQUEST_VALIDATION_ERROR"
     )
     error = refused(
-        world.api.get(f"/workspaces/{ws}/feed", after=len(entries) + 1), 409, "feed_position_ahead"
+        world.api.get(f"/workspaces/{ws}/feed", after=len(entries) + 1), 409, "FEED_POSITION_AHEAD"
     )
     assert error["details"]["headPosition"] == len(entries)
 
@@ -152,7 +152,7 @@ def test_batches_carry_their_job_and_refused_writes_leave_no_gap(world):
 
     atomic = {**body, "policy": "atomic", "items": [create("Third", "B3"), create("X", "TAKEN")]}
     assert ok(world.api.post("/batches", atomic))["job"]["result"] != "applied"
-    refused(world.update("R", r["id"], r["version"] + 5, name="Stale"), 409, "version_conflict")
+    refused(world.update("R", r["id"], r["version"] + 5, name="Stale"), 409, "VERSION_CONFLICT")
     after = world.made("R", "After", workspace=ws)
 
     entries = _follow(world, ws)
@@ -428,7 +428,7 @@ def test_a_position_older_than_retention_is_refused_naming_the_baseline(world):
     assert page["items"] == entries[position:]
     for after in (position - 1, 0):
         error = refused(
-            world.api.get(f"/workspaces/{ws}/feed", after=after), 410, "feed_position_expired"
+            world.api.get(f"/workspaces/{ws}/feed", after=after), 410, "FEED_POSITION_EXPIRED"
         )
         assert error["details"] == {
             "earliestPosition": position + 1,
@@ -450,7 +450,7 @@ def test_recovery_from_the_named_publication_misses_nothing(world):
     ws, _, _ = _published_then_more(world)
     _age(world, ws, 31, through=_page(world, ws)["headPosition"] - 3)
     baseline = refused(
-        world.api.get(f"/workspaces/{ws}/feed", after=0), 410, "feed_position_expired"
+        world.api.get(f"/workspaces/{ws}/feed", after=0), 410, "FEED_POSITION_EXPIRED"
     )["details"]["publication"]
 
     held = _ids(world, publicationId=baseline["id"])
@@ -475,7 +475,7 @@ def test_the_earliest_position_never_passes_the_active_publication(world):
     page = _page(world, ws, after=position)
     assert page["earliestPosition"] == position + 1
     assert [e["eventId"] for e in page["items"]] == [e["eventId"] for e in entries[position:]]
-    refused(world.api.get(f"/workspaces/{ws}/feed", after=0), 410, "feed_position_expired")
+    refused(world.api.get(f"/workspaces/{ws}/feed", after=0), 410, "FEED_POSITION_EXPIRED")
 
 
 @pytest.mark.journey("J26.6")
@@ -513,4 +513,4 @@ def test_the_retention_period_is_a_setting(world):
     assert _page(world, ws, after=position)["earliestPosition"] == 1
     _age(world, ws, 2, through=position)
     assert _page(world, ws, after=position)["earliestPosition"] == position + 1
-    refused(world.api.get(f"/workspaces/{ws}/feed", after=0), 410, "feed_position_expired")
+    refused(world.api.get(f"/workspaces/{ws}/feed", after=0), 410, "FEED_POSITION_EXPIRED")

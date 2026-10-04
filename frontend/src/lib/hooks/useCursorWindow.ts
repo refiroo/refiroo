@@ -214,7 +214,7 @@ export function useCursorWindow<T>(
           })
           .catch((cause) => {
             if (requestId !== generation.current) return;
-            if (restartable && isApiError(cause, "invalid_cursor")) {
+            if (restartable && isApiError(cause, "INVALID_CURSOR")) {
               read({}, () => "start", false);
               return;
             }

@@ -64,10 +64,12 @@ def test_base_0_7_wp12_openapi_document_is_locked():
     # naming relationship writes; no path added or removed, no other schema changed. Re-baselined
     # for 0.9 F2: changeFeed (ChangeFeedCapabilities) on CapabilitiesResponse, feedPosition on
     # PublicationResponse and the feed route's description naming the expiry; removing those gives
-    # the previous document exactly.
+    # the previous document exactly. Re-baselined for 0.9 T1b: the codes in the document are upper
+    # case (the four job reasons and the invalidCursor, versionConflict and requestValidation error
+    # examples); lower-casing those seven gives the previous document exactly.
     canonical_schema = json.dumps(app.openapi(), sort_keys=True, separators=(",", ":"))
     assert hashlib.sha256(canonical_schema.encode()).hexdigest() == (
-        "befdc5683cc51ad9fac5d0f262e31116ec63c41909259cd4a4b59a42148fc991"
+        "e38bede7191c6bc46cb2f95f158cba6a18963a8cd6a63e5f1fae6509181964d6"
     )
 
 

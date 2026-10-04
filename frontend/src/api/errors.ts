@@ -3,7 +3,7 @@
  *
  * `code` is the machine-readable identifier the backend returns in `error.code`; `details` is the
  * matching `error.details` payload, used by callers that act on a specific failure such as
- * `object_has_dependants`.
+ * `OBJECT_HAS_DEPENDANTS`.
  */
 export class ApiError extends Error {
   constructor(
@@ -21,7 +21,7 @@ export class ApiError extends Error {
  * Narrows an unknown rejection to an `ApiError`, optionally requiring a specific error code.
  *
  * Prefer this over reading `code` off an untyped cast. Optimistic concurrency is a product
- * invariant, so `isApiError(cause, "version_conflict")` is the single way the UI recognises a
+ * invariant, so `isApiError(cause, "VERSION_CONFLICT")` is the single way the UI recognises a
  * stale write.
  */
 export function isApiError(cause: unknown, code?: string): cause is ApiError {
@@ -43,7 +43,7 @@ export function errorMessage(cause: unknown): string {
  * type changed in the selected change set. A route follows the record to this type.
  */
 export function changedObjectType(cause: unknown): string | undefined {
-  if (!isApiError(cause, "object_type_changed")) return undefined;
+  if (!isApiError(cause, "OBJECT_TYPE_CHANGED")) return undefined;
   const current = (cause.details as { objectTypeKey?: unknown } | undefined)?.objectTypeKey;
   return typeof current === "string" ? current : undefined;
 }

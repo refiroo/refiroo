@@ -122,7 +122,7 @@ Model authoring has three explicit stages (ADR-016):
 Compatibility examines every authoritative live record, including live-only rows and retired
 workspaces. Publications are excluded because they are read under their own pinned release.
 Activating a release that declares an effective period over records it would refuse is
-`model_migration_required` with their count. A consumer API definition whose contract loses or changes
+`MODEL_MIGRATION_REQUIRED` with their count. A consumer API definition whose contract loses or changes
 anything its consumers read needs a higher `contractVersion` (`engine/model/consumer_contract.py`,
 C-D17, C-D18); removing a whole definition is a warning.
 
@@ -145,7 +145,7 @@ interpreted under one release cannot be served under another until it is validat
 choosing a version is never a label change: moving a change set onto a release its content does not
 already satisfy is 0.11 conversion work (see [Directions](#historical-schema-replacement-011)).
 Publishing never alters model selection, so a change set is publishable only once its release is the
-active one (`change_set_model_release_conflict` otherwise). Unsupported or corrupt pins block reads
+active one (`CHANGE_SET_MODEL_RELEASE_CONFLICT` otherwise). Unsupported or corrupt pins block reads
 and writes instead of substituting the active model.
 
 ### Database migrations
@@ -235,7 +235,7 @@ records, values, both forms of containment, independent relations, the selected 
 record versions, including edits since the last publication. The capture reads at REPEATABLE READ, so
 the base is one snapshot, and holds share locks on the workspace and runtime-state rows, so neither a
 retirement nor an activation commits while it runs; a change the snapshot cannot hold answers
-`409 change_set_snapshot_retry`. `source: publication` starts from a chosen publication and records
+`409 CHANGE_SET_SNAPSHOT_RETRY`. `source: publication` starts from a chosen publication and records
 `derivedFromPublicationId`. Either way the change set stores only changed rows and tombstones over its
 base (`effective_change_set_membership`). Rename, discard and record edits each claim the change set's
 version. Base rows are removed with the change set.
@@ -255,9 +255,9 @@ publication, computes the change set's delta over its own base and applies only 
 and removed rows onto **current** live data, checking every touched record's version and every touched
 relation set. Live-only records and untouched sets survive. It then validates the merged graph, writes
 one immutable publication of it, supersedes the previous current publication, deletes the change set
-and commits, all in one transaction. A conflict (`409 version_conflict` with per-record details,
-including `id_collision`, `duplicate_edge` and `mapping_set_changed`) or a validation failure
-(`422 workspace_graph_invalid`) publishes nothing and keeps both the change set and live data.
+and commits, all in one transaction. A conflict (`409 VERSION_CONFLICT` with per-record details,
+including `ID_COLLISION`, `DUPLICATE_EDGE` and `MAPPING_SET_CHANGED`) or a validation failure
+(`422 WORKSPACE_GRAPH_INVALID`) publishes nothing and keeps both the change set and live data.
 
 **Publications** are immutable snapshots, listed newest first with bounded cursor paging. "Derived
 from" and "superseded by" are recorded separately, so starting from an earlier publication never
@@ -291,7 +291,7 @@ bulk job.
   deletion lock the workspace before the runtime state, and publishing locks the workspace before its
   change set. A change-set write takes the workspace's key share lock and then its change-set row
   (`load_change_set(for_update=True)`): retirement and deletion wait for it, and it waits for them and
-  is then refused `409 workspace_retired`; live writes, publishing and other change sets' writes run
+  is then refused `409 WORKSPACE_RETIRED`; live writes, publishing and other change sets' writes run
   beside it, and writes to one change set serialise on its row. Tested by `test_pg3_concurrency`, each
   invariant raced on two connections.
 - **A write never commits under a release that is no longer active.** A request that resolves the
@@ -299,9 +299,9 @@ bulk job.
   active release under a share lock on the runtime-state row; activation locks that row for update
   before its compatibility check, so the two cannot interleave in one process or across instances. A
   write that flushed first is seen by the compatibility check; a write after activation sees the new
-  release and is refused `409 model_release_changed`, nothing saved.
+  release and is refused `409 MODEL_RELEASE_CHANGED`, nothing saved.
 - **A write never commits into a workspace deleted or retired after it resolved it.** The same
-  commit point rereads the workspace (`404 workspace_not_found`, `409 workspace_retired`). Workspace
+  commit point rereads the workspace (`404 WORKSPACE_NOT_FOUND`, `409 WORKSPACE_RETIRED`). Workspace
   deletion checks for records, change sets and publications and locks the workspace and runtime-state
   rows; the `workspaces.key` foreign keys (`RESTRICT`) protect every other row naming the workspace,
   and every `ondelete` rule is pinned in `test_foreign_keys`.
@@ -385,7 +385,7 @@ its parameters, state, progress and one outcome per item, kept for a retention p
   renews the lease with each chunk. A chunk does not hold the job row while it applies items, so a
   cancel request never waits; it locks the row only at its checkpoint and rolls back if another worker
   took the job over. The lease lets 0.11 run workers on several nodes without a contract change.
-- **A job pins its model release** and fails with `model_release_changed` when it moves. In a change
+- **A job pins its model release** and fails with `MODEL_RELEASE_CHANGED` when it moves. In a change
   set it holds the change set's version and fails if anyone else writes to it.
 - **Idempotency keys** replay a finished job's response and refuse a reused key with a different body.
 - **Staging is the change set**: a job targets live data or a named change set; there is no separate

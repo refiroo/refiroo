@@ -13,7 +13,7 @@ J1–J4 and R are specified (2026-09-29) and delivered in the order of the
 the interim release 0.9.0-alpha.1 (2026-10-03), [F1](#f1-feed-positions) (2026-10-03, with the feed
 read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [F2](#f2-feed-retention-and-recovery) (2026-10-03, D40–D41), [T1](#t1-track-checkpoint-q-b-f) (2026-10-03),
-[T1a](#t1a-copies-inside-the-database) (2026-10-04).
+[T1a](#t1a-copies-inside-the-database) (2026-10-04), [T1b](#t1b-one-error-code-pattern) (2026-10-04).
 **Next:** C2, in the order of the [delivery queue](#delivery-queue).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
@@ -211,7 +211,8 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 11 | [F2](#f2-feed-retention-and-recovery) | F1 | Retention, `410` with baselines, the deep read budget (the read moved to F1, D31) — **delivered 2026-10-03** |
 | 12 | [T1](#t1-track-checkpoint-q-b-f) | Q4, B2, B3, F2 | Track checkpoint for Q, B and F: their groups, budgets and a composed journey — **delivered 2026-10-03** |
 | 12a | [T1a](#t1a-copies-inside-the-database) | T1 | Amendment: change-set bases and publications copied inside PostgreSQL — **delivered 2026-10-04** |
-| 13 | C2 | C1 | Consumer object and projections |
+| 12b | [T1b](#t1b-one-error-code-pattern) | T1a | Amendment: error codes in upper case across every API (C-D25) — **delivered 2026-10-04** |
+| 13 | [C2](#c2-consumer-object-and-projections) | C1, T1b | Consumer object and projections: get by ID — **planned and approved 2026-10-04** |
 | 14 | C3 | C2 | Lists |
 | 15 | C4 | C2 | Consumer index and XREF scoring |
 | 16 | C5 | C4 | XREF parameters |
@@ -1559,6 +1560,141 @@ the private test server were cleaned up; the pre-existing development server was
 Functional/API evidence only; there is no changed UI, accessibility or appearance to accept.
 Comprehensive build acceptance remains deferred to the build's release package.
 
+#### T1b: One error-code pattern
+
+**Status:** decided 2026-10-04 (C2, C-D25); planned and approved 2026-10-04, D42–D45 as
+recommended; **delivered 2026-10-04**. **Needs:** T1a.
+**Before:** C2. **Groups:** the full backend and frontend suites once at its close (user's
+go-ahead, 2026-10-04), and `startup` for the migration.
+
+**Behaviour.** Every error code of every API of the engine is written in upper case
+(`OBJECT_NOT_FOUND`, `VERSION_CONFLICT`); today every code is lower case. The meaning, status and
+message of every refusal stay as they are; only the spelling of codes changes. This is a breaking
+change for API clients, accepted before 1.0, and the CHANGELOG says so.
+
+**What is a code (D42).** Every machine-readable name of a failure or a finding:
+- `error.code` in every error body: refusals, request validation (`REQUEST_VALIDATION_ERROR`), HTTP
+  errors and `INTERNAL_ERROR`;
+- the error inside a batch or job item outcome, a job's own error, and an unprocessed item's
+  `reason` (`BATCH_ROLLED_BACK`, `JOB_CANCELLED`, `MODEL_RELEASE_CHANGED`, `JOB_FAILED`);
+- diagnostic codes: model validation and its JSON-pointer refusals, compatibility and consumer
+  contract diagnostics, and the graph-validation findings a change set's validation and publish
+  report.
+
+Not codes, and unchanged: status, state, stage, action, kind and classification values (`applied`,
+`rejected`, `created`, `compatible`, `migration_required`), model keys and setting names.
+`version_required` is both a refusal code and a classification value of the consumer contract
+diff; only the code changes.
+
+**Inventory (2026-10-04):** 153 distinct codes, raised at about 315 places in `app/`. Tests assert
+them about 935 times, in 78 files. The frontend compares or holds about 100 occurrences, in about
+20 files. The documents mention codes about 1,200 times, in 23 of them. The OpenAPI document lists
+the four `reason` values, so its lock is re-baselined.
+
+**Approach.**
+1. **Tests first.** The assertions are rewritten to upper case, and a few journey and older tests
+   across the areas are run to confirm they fail. Then the code changes.
+2. **Backend.** Codes are renamed where they are produced: the code argument of `api_error`, the
+   refusal helpers, the `code` of error and diagnostic dicts, `ModelReferenceError` and the
+   diagnostics, and the `reason` literals. A global search and replace is not used, since a code
+   string can also be another value (`version_required`). The rewrite is a script over the syntax
+   tree that changes only those positions; whatever it cannot place is changed by hand and
+   listed in the record.
+3. **Stored codes (D43).** Revision `20261004_03` upper-cases the codes and reasons already stored in
+   `jobs.error` and `job_items.outcome`, for every key named `code` or `reason`, as one set statement
+   per table. Jobs are kept 7 days; without it, a finished job read after the upgrade would still
+   answer lower case. The downgrade lower-cases them again. Nothing else stores a code (idempotency
+   keys refer to their job).
+4. **Frontend.** Every comparison with a code, and every test fixture holding one, changes to upper
+   case. The UI shows messages, not codes, so no screen changes. A browser runner is not needed;
+   that is confirmed during the work, and any code the UI displays would be listed.
+5. **Documents (D44).** The current contract documents change: API.md, INTEGRATION_API,
+   CONSUMER_API (its two upper-case codes become the pattern), USER_JOURNEYS refusals, API_JOURNEYS,
+   COVERAGE_MAP, OPERATIONS and CURRENT_FUNCTIONALITY. Delivered plan records and earlier CHANGELOG
+   entries are history and stay as written.
+6. **Keeping the pattern (D45).** One check in the `contract` group, beside `test_boundaries`:
+   every code literal at the places listed in step 2 is upper case. A new lower-case code then
+   fails the build instead of reaching a client.
+
+**Decisions (accepted 2026-10-04 as recommended):**
+
+| # | Question | Decision |
+| --- | --- | --- |
+| D42 | Which strings are codes | The list above: error codes, item and job errors, unprocessed `reason` values, diagnostic codes. Statuses, actions, kinds and classifications are not |
+| D43 | Codes already stored in job results | Upper-case them in the migration, so a client never sees both spellings |
+| D44 | Documents | Current contract documents change; history (delivered plan records, earlier CHANGELOG entries) stays as written |
+| D45 | Keeping one pattern | One static check of the code literals in the `contract` group |
+
+**Test cases.** No new journey: every journey's refusals are asserted by code already, and those
+assertions are the cases, rewritten first and confirmed failing. New: the D45 check. For the
+migration: `test_startup` covers the clean start, the upgrade through every revision and the
+restart. One case checks a stored job outcome with a lower-case code and reason reads upper case
+after the upgrade, and lower case again after the downgrade.
+
+**Checks at close:**
+- the full backend suite once, parallel and serial parts, expected about 4 to 5 minutes, announced
+  before it starts;
+- the frontend `npm run test` once, then `npm run format`, `npm run lint` and `npm run build`;
+- `ruff check app/ tests/`;
+- a smoke start on a copy of the development database (upgrade to `20261004_03`, restart), copy
+  removed afterwards.
+
+Not run: the browser runners, a11y and visual suites, unless step 4 finds a displayed code.
+
+**Composable domains (ADR-032):** no door is affected; codes change spelling, not meaning.
+
+**Delivered 2026-10-04.** What was built:
+- **Backend:** 542 code literals renamed in 67 files, located through the syntax tree. The two
+  `version_required` classification sites (`presenters.py`, `schemas/model.py`) keep their case.
+  The analysis found 490 code positions and 175 distinct codes, more than the inventory's 153:
+  the graph-validation findings and the job failure codes. Restructuring's and the
+  relation matrix's camel-case `reason` values (`atLeastOneOf`, `alreadyLinked`) and the parent
+  candidates' (`descendant`) name why something applies, so they are not codes and keep their case.
+- **Stored codes:** revision `20261004_03` upper-cases `jobs.error.code`,
+  `job_items.outcome.error.code` and `job_items.outcome.reason`, one statement each. The downgrade
+  lower-cases them.
+- **Frontend:** 102 lines in 41 files, including the client's own `UNEXPECTED_RESPONSE`. Two screens
+  show codes: model diagnostics (`ModelDiagnostics.tsx`, the code in bold) and a change-set conflict
+  without a message (`ChangeSets.tsx`). No visual baseline shows either; the `model-workbench`
+  baseline was inspected and holds no diagnostics.
+- **Documents:** API.md (with the pattern stated under "Error responses"), USER_JOURNEYS,
+  API_JOURNEYS, INTEGRATION_API, CONSUMER_API, ARCHITECTURE, APPLICATION_MODEL, OPERATIONS,
+  UI_ACCEPTANCE, EXECUTION_GUIDE and COVERAGE_MAP. History stays as written (D44): the delivered
+  plans, DECISIONS, PROJECT_STATUS's delivery summaries and earlier CHANGELOG entries.
+- **D45:** `tests/test_error_codes.py` (group `contract`), with a case showing it finds a
+  lower-case code.
+- **OpenAPI lock** re-baselined: lower-casing the seven codes in the document (the four job reasons
+  and three error examples) gives the previous document's hash exactly.
+
+**Found on the way (a T1a defect):** three `test_wp81b_current_live_bases` cases patched
+`lifecycle._load_live_membership` to commit a concurrent write in the middle of a capture, and T1a
+removed that function. T1a's focused checks did not include the module, so it surfaced here. The
+cases now inject the write around `copy_live` at the same point in the transaction, and all 14 pass:
+a write committed during the capture does not reach the base, so T1a's SQL copy reads the capture's
+snapshot. One parity case name, `duplicate_initial_relation`, equals a code. The rename had changed
+it as a dictionary key, and it was restored.
+
+**Checks:**
+- Tests first: the backend assertions (963 lines in 79 files) were rewritten, and J02, J11 and
+  `test_rule_parity` were confirmed failing before the code changed.
+- **The full backend suite, once:** 1,461 passed and 12 failed, in 4 min 2 s; the serial part,
+  3 passed. The 12 were the T1a capture cases (3), the parity case name (8), and
+  `test_every_error_code_is_listed`, whose extraction pattern matched lower-case codes only (1).
+  After the fixes, `test_wp81b_current_live_bases`, `test_rule_parity` and `test_api_journeys`:
+  14 + 13 passed.
+- `test_startup`: the clean start, the baseline upgrade and the new stored-codes case (an atomic
+  batch's refused item and rolled-back items, down to `20261004_02` and up again): 3 passed.
+- **The frontend, once:** `npm run test` 381 passed in 43 files; `format` unchanged; `lint` 0 errors
+  and the 8 known warnings; `build` passed.
+- `ruff check app/ tests/` clean.
+- **Smoke start** on a copy of the development database: upgraded from `20261004_01` to
+  `20261004_03`, healthy on two starts, a missing record answering `OBJECT_NOT_FOUND`. The copy
+  holds no job results, so the stored-code rewrite is covered by the startup case. The copy was
+  dropped.
+
+Not run: the browser runners, a11y and visual suites. Five runner scripts changed only in the codes
+their API assertions compare; no baseline shows a code.
+
 ## Track C — Consumer API
 
 Scope, order and acceptance are in [CONSUMER_API.md](CONSUMER_API.md#delivery-packages); C7 moved to
@@ -1627,6 +1763,145 @@ Not run: `startup`, since no migration or startup path changed (schema 0.8 needs
 supported list is exercised by `model_admin`'s recovery and activation tests); `volume`, since no read
 changed; frontend checks, since nothing in the frontend changed (it types `schemaVersion` as a
 string). The full suites wait for R.
+
+#### C2: Consumer object and projections
+
+**Status:** planned 2026-10-04; decisions C-D21–C-D26 settled and test cases 1–7 approved by the
+user the same day. **Needs:** C1 and the amendment [T1b](#t1b-one-error-code-pattern) (error codes
+in upper case). **Groups:** `consumer`, `contract`.
+
+**Behaviour.** A consuming system reads one business object by its object ID:
+
+```text
+GET /api/consumer/{apiKey}/v{contractVersion}/objects/{id}?workspace=…
+```
+
+The answer is the definition's shared object ([CONSUMER_API](CONSUMER_API.md#the-shared-object)),
+built from the definition alone. XREF results and list items (C3, C4) reuse it unchanged. Data is
+read live, from the active release's definition. Change sets are never read (C-D6), and
+`publication` arrives in C6.
+
+- **Identity (C-D24).** `{id}` is the engine's object ID, unique across the database
+  (`ix_objects_id`), whether generated or assigned by a client (B1's upsert by ID). The answer is that
+  object when its type is exposed; otherwise, for a deleted record, or for an unknown ID,
+  `404 OBJECT_NOT_FOUND`. Other identifiers, such as an attribute holding a former system's ID, are
+  found with XREF (`expect=one`), which searches attributes (C4). No guard for several objects: the
+  unique index makes that state impossible, and a check no test can reach is not built.
+- **The `id` role** names the output field of the object ID (for example `masterId`); its source is
+  the built-in `id`. C1's validation is narrowed to that: another source is refused at
+  `/consumerApis/<key>/object/id/source`. A former system's ID is published as an ordinary
+  attribute field. A migration that wants to keep a former ID *as* the object ID assigns it as the
+  object ID, which B1 accepts when it is a UUID.
+- **Roles and attributes.** Each role (`code`, `name`, `active`, `validFrom`, `validTo`) and each
+  further attribute takes the first of its sources that has a value, then its `default`, then
+  `null`. Empty text is no value, as everywhere in the engine (required fields, `atLeastOneOf`,
+  uniqueness), so a consumer never receives `""`. Values keep their declared types, in the
+  management API's encoding: integers and booleans as JSON values, decimals as strings without
+  trailing zeros, dates as `YYYY-MM-DD`, `dateTime` as UTC. Every declared field is always present;
+  a field the definition does not declare never appears. `objectType` is the type's public name.
+- **Parent (C-D22).** `parent` is an object or `null`, never omitted. It has the declared `fields`,
+  each read through the same roles from the parent record. When the parent's type is not exposed,
+  its `objectType` is `null`: a model key never appears in the contract.
+- **Hierarchy and path (C-D21).** `hierarchy` lists the ancestors, from the top down to the parent,
+  without the object itself; `path` joins them with `/`. For an object at the top, `hierarchy` is
+  `[]` and `path` is `""`. Both use each ancestor's `name` role, falling back to its built-in name,
+  and walk the parents (never split on `/`).
+- **Projections.** Each projection reads the records related through its relation and direction.
+  Its shape comes from cardinality (C1's `projection_shape`): an object or `null`, or an array,
+  `[]` when empty. A field reads `name`, `id`, an attribute, or `ancestor:<type>.<field>` (the
+  nearest ancestor of that type). Array items are ordered by the related record's name, then its
+  ID. The related records need not be exposed types.
+- **Workspace (C-D16, C-D23).** `workspace` selects the workspace, defaulting to the deployment's
+  default. Get by ID answers the bare shared object, the shape XREF items have, and names the
+  workspace it read in the `RDM-Workspace` header, on every consumer response. C3 and C4's envelopes
+  also carry it as a field.
+- **Parameters.** An unknown parameter answers `400 UNKNOWN_PARAMETER`, naming it. C2 builds the
+  parameter handling C3 extends. In C2 every declared definition parameter answers
+  `400 PARAMETER_NOT_SUPPORTED`, naming it, because no kind is applied yet. C3 applies the kinds,
+  and from then on only a parameter that does not apply to get by ID is refused.
+- **Not found.** An unknown `apiKey` answers `404 CONSUMER_API_NOT_FOUND`. A `contractVersion` other
+  than the installed one (C-D3) answers `404 CONTRACT_VERSION_NOT_FOUND`, naming the installed
+  version. An unknown or retired workspace answers `404 WORKSPACE_NOT_FOUND`.
+
+**Design.**
+- `app/consumer/` is created as the tier ([BACKEND_BOUNDARIES_PLAN](BACKEND_BOUNDARIES_PLAN.md#tier-rules)):
+  its router mounts at `/api/consumer` and reads only through `engine`, never `management`. Errors
+  use the engine's envelope (`ApiError`, rendered by the app-wide handlers).
+- Every read finds its records in its own way (get by ID by the object ID; C3 by parent and position;
+  C4 by score), then builds the shared object in one place: `engine/reads/consumer_objects.py`
+  composes objects **for a set of IDs**. The statements are fixed in number, whatever the set's size:
+  one for the records and their values, one recursive CTE for every ancestor needed (of the objects
+  and of projected records), and one per projection. Nothing is loaded per object. Field resolution
+  is C1's (`consumer_contract`), so the validated contract and the composed response cannot drift
+  apart.
+- The consumer routes stay out of the management OpenAPI document (`include_in_schema=False`); C6
+  generates one document per definition. The OpenAPI lock is unchanged.
+- No migration and no index: get by ID seeks the object ID's unique index. The consumer index
+  belongs to C4.
+
+**Decisions (settled with the user, 2026-10-04):**
+
+| # | Question | Decision |
+| --- | --- | --- |
+| C-D21 | Do `hierarchy` and `path` include the object itself? | No: the ancestors from the top down. At the top, `[]` and `""` |
+| C-D22 | `parent.objectType` when the parent's type is not exposed | `null`; the other parent fields are read as usual |
+| C-D23 | How get by ID names the resolved workspace (C-D16) | The `RDM-Workspace` header on every consumer response; get by ID stays the bare shared object; collection envelopes also carry it as a field |
+| C-D24 | What `{id}` in get by ID is | The object ID only, unique across the database. Other identifiers go through XREF, whose `409 AMBIGUOUS_MATCH` names a faulty migration's duplicates. No `409` in get by ID: it could never occur, so it could never be tested, and it is not built. The `id` role's source is the built-in `id` (C1 narrowed). Database-backed uniqueness for `unique` attributes is recorded in TODO for a later build |
+| C-D25 | Error code pattern | Upper case across every API of the engine, done first as the amendment T1b |
+| C-D26 | When a source has no value | Absent, `null` or empty text, as everywhere in the engine. Not a new rule |
+
+**Journey.** New: **J28 — Read a business object through a consumer API** (actor: consuming
+system; channel: consumer API), with the J28 variants below, in USER_JOURNEYS and API_JOURNEYS.
+Both generated configurations get a consumer definition, structure `Capi`, with their own keys,
+public names and output names. It exposes `R` and `R2` (under `R`), with the `id` role,
+`code` (`R2.u`, then `R.u`), `name`, `active` (`R.b`, default `true`), typed attributes (`R.n` with a
+default, `R.dt`), `parent`, `path` and `hierarchy`. Its projections are `B11` outgoing (object or
+`null`) and `Bown` outgoing, with `ancestor:G.name` (an array). The example model holds no
+definition, so J28 runs on generated A and B. Adding `Capi` changes their models once, which
+rebuilds their seeds once.
+
+**Test cases** (journey tests, written first and confirmed failing):
+1. **J28 The shared object.** Given an `R` with typed values, `R.u` set and `R2.u` empty text, one
+   `B11` target, two `Bown` dependants under different `G`s, and an `R2` under it. When each is read
+   by its object ID. Then each answers exactly the declared fields with declared types:
+   - `code` skips the empty text and reads `R.u`, and the unset attribute takes its default;
+   - `R`'s parent is `null`, its `hierarchy` `[]` and `path` `""`; `R2`'s parent names `R`, and its
+     `hierarchy` is `[R's name]`;
+   - the `B11` projection is an object, and `null` on a record without the relationship;
+   - the `Bown` projection is an array ordered by name, with each `G`'s name; a record with no
+     dependants has `[]`.
+2. **J28.1 Identity is the object ID.** Given an `R` created with a client-assigned ID and one with a
+   generated ID. When read by those IDs, then each is found. When read by its `R.u` value, then
+   `404 OBJECT_NOT_FOUND`.
+3. **J28.2 Live data, never unpublished work.** When a record is changed live, the next read shows
+   the change. A record created only in an open change set is `404 OBJECT_NOT_FOUND` until the
+   change set is published, then found.
+4. **J28.3 Another workspace.** Given a record in W1 and one in W2. When read with `workspace=W2`,
+   and without it. Then each is found only in its own workspace, named in `RDM-Workspace` (the
+   default when omitted). An unknown workspace is `404 WORKSPACE_NOT_FOUND`.
+5. **J28.4 Refusals.** An unknown `apiKey` is `404 CONSUMER_API_NOT_FOUND`. Version 2 of a
+   version-1 API is `404 CONTRACT_VERSION_NOT_FOUND`. A record of a type the definition does not
+   expose is `404 OBJECT_NOT_FOUND`. `pagesize=5` is `400 UNKNOWN_PARAMETER`, naming it. A declared
+   parameter is `400 PARAMETER_NOT_SUPPORTED`.
+6. **J28.5 The contract follows the release** (with J25.2). When a release changes `B11` to
+   one-to-many and raises `contractVersion` to 2, then `v1` answers `404
+   CONTRACT_VERSION_NOT_FOUND`, and `v2` returns the projection as an array.
+7. **J25 (changed): the `id` role's source.** A definition whose `id` source is an attribute is
+   refused with `422 INVALID_MODEL` at `/consumerApis/<key>/object/id/source`.
+
+No unit tests: the logic with edge cases (sources, defaults, shapes) is what the journeys assert,
+and field resolution is C1's, already tested. **Checks:** the J28 and J25 cases, the `consumer` and
+`contract` groups, `test_boundaries`, and `ruff check app/ tests/`. No migration, so no `startup`
+group.
+
+**Docs at delivery:** API.md gains the consumer get by ID; CONSUMER_API records C-D21–C-D26 and
+changes its identity text and example (`masterId` from the object ID, a former ID as an attribute
+field); USER_JOURNEYS adds J28 and amends J25, API_JOURNEYS adds the route; CURRENT_FUNCTIONALITY
+and PRODUCT describe reading one business object.
+
+**Composable domains (ADR-032):** the identity door is narrowed for consumers: get by ID uses the
+object ID; other identifiers stay searchable through XREF. Attribute storage, audit and the `match`
+declaration are untouched. No door closes.
 
 ## Track V — API reference
 

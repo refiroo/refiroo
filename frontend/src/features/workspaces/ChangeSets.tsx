@@ -198,11 +198,11 @@ export function ChangeSetDiagnostics({ items }: { items: Array<Record<string, un
         const ids = [details.objectId, details.relationId, details.id].filter((id) => typeof id === "string");
         const message =
           item.message ??
-          (item.code === "version_mismatch"
+          (item.code === "VERSION_MISMATCH"
             ? `Record changed: expected version ${item.expectedVersion}, current version ${item.actualVersion}`
-            : item.code === "id_collision"
+            : item.code === "ID_COLLISION"
               ? "A live record now uses this identity"
-              : item.code === "duplicate_edge"
+              : item.code === "DUPLICATE_EDGE"
                 ? "This relationship already exists in live data"
                 : (item.code ?? "Conflict"));
         return (

@@ -165,7 +165,7 @@ describe("ObjectFormDialog", () => {
 
   it("refreshes a conflicting version without discarding entered values", async () => {
     vi.mocked(api.updateObject)
-      .mockRejectedValueOnce(new ApiError(409, "version_conflict", "Stale version"))
+      .mockRejectedValueOnce(new ApiError(409, "VERSION_CONFLICT", "Stale version"))
       .mockResolvedValueOnce({ ...domainObject, name: "Kept edit", version: 3 });
     vi.mocked(api.object).mockResolvedValueOnce({ ...domainObject, name: "Someone else", version: 2 });
     render(
@@ -297,7 +297,7 @@ describe("ObjectFormDialog", () => {
       attributeTypes: [...testModel.attributeTypes, count],
       objectTypes: [type, ...testModel.objectTypes.slice(1)],
     };
-    vi.mocked(api.updateObject).mockRejectedValueOnce(new ApiError(409, "version_conflict", "Stale"));
+    vi.mocked(api.updateObject).mockRejectedValueOnce(new ApiError(409, "VERSION_CONFLICT", "Stale"));
     vi.mocked(api.object).mockResolvedValueOnce({
       ...domainObject,
       name: "Other steward",

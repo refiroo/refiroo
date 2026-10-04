@@ -89,7 +89,7 @@ def set_claim(expected: int | None, direction: str | None) -> SetClaim | None:
     if expected is None or direction is None:
         raise api_error(
             422,
-            "relation_set_claim_incomplete",
+            "RELATION_SET_CLAIM_INCOMPLETE",
             "expectedRelationSetVersion and relationSetDirection are given together",
             {"parameters": ["expectedRelationSetVersion", "relationSetDirection"]},
         )
@@ -150,7 +150,7 @@ def advance_set_versions(
         )
         raise api_error(
             409,
-            "relation_set_version_conflict",
+            "RELATION_SET_VERSION_CONFLICT",
             "The relation set has changed since it was read; refresh it before retrying",
             {
                 "anchorObjectId": anchor,

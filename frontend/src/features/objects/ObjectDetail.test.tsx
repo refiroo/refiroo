@@ -52,7 +52,7 @@ describe("ObjectDetail lifecycle controls", () => {
   );
   it("follows a record whose type changed to its current type (D42)", async () => {
     const read = vi.spyOn(api, "object").mockRejectedValue(
-      new ApiError(409, "object_type_changed", "The record is a domain in this change set.", {
+      new ApiError(409, "OBJECT_TYPE_CHANGED", "The record is a domain in this change set.", {
         objectId: codelistObject.id,
         objectTypeKey: "domain",
         requestedObjectTypeKey: "codelist",

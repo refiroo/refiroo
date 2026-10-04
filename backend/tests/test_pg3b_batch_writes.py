@@ -6,7 +6,7 @@ read to its commit (PG-D14), so a unique value raced by a single write and a chu
 once. A record's version is compared in memory now, not claimed by a conditional ``UPDATE``, so
 two updates racing on one version are shown to be refused as before. And a chunk checks its release before it writes any matrix state, so an activation that
 drops a matrix shape beside a chunk ends neither in a deadlock: the chunk fails
-``model_release_changed``.
+``MODEL_RELEASE_CHANGED``.
 """
 
 import threading
@@ -114,13 +114,13 @@ def test_a_unique_value_raced_by_a_chunk_and_a_single_write_is_given_once(
     runner.run_until_idle()
     assert job(client, job_id)["state"] == "completed"
     if first == "chunk":
-        refused(single, 409, "duplicate_attribute_value")
+        refused(single, 409, "DUPLICATE_ATTRIBUTE_VALUE")
         assert item_outcomes(client, job_id) == [("applied", "created")] * 3
     else:
         created(single)
         assert item_outcomes(client, job_id) == [
             ("applied", "created"),
-            ("rejected", "duplicate_attribute_value"),
+            ("rejected", "DUPLICATE_ATTRIBUTE_VALUE"),
             ("applied", "created"),
         ]
 
@@ -140,7 +140,7 @@ def test_two_updates_racing_on_one_version(client, workspace, at_commit):  # noq
         at_commit, lambda: rename(client, record, "First"), lambda: rename(client, record, "Second")
     )
     assert first.status_code == 200, first.text
-    refused(second, 409, "version_conflict")
+    refused(second, 409, "VERSION_CONFLICT")
     current = client.get(
         f"/api/v1/objects/domain/{record['id']}", params={"workspaceKey": workspace}
     ).json()
@@ -164,7 +164,7 @@ def test_a_batch_update_racing_a_single_update_on_one_version(client, workspace,
             at_commit.release()
         assert held.result(HOLD_TIMEOUT).status_code == 200
         chunk.result(HOLD_TIMEOUT)
-    assert item_outcomes(client, job_id) == [("rejected", "version_conflict")]
+    assert item_outcomes(client, job_id) == [("rejected", "VERSION_CONFLICT")]
     current = client.get(
         f"/api/v1/objects/domain/{record['id']}", params={"workspaceKey": workspace}
     ).json()
@@ -184,7 +184,7 @@ def test_an_activation_dropping_a_matrix_shape_beside_a_chunk_does_not_deadlock(
     """The chunk's translations change a stored cell of the codelist translation matrix. Held at
     its release check, before it rewrites that cell's state row, the chunk holds nothing the
     activation needs: the activation drops the shape and commits, and the chunk then fails
-    ``model_release_changed``, with nothing written. Were the state row rewritten first, the
+    ``MODEL_RELEASE_CHANGED``, with nothing written. Were the state row rewritten first, the
     activation would wait for it while the chunk waits for the activation."""
     owner = codelist(client, workspace)
     language = created(post_object(client, workspace, "language", language_code=unique_key("l")))
@@ -260,7 +260,7 @@ def test_an_activation_dropping_a_matrix_shape_beside_a_chunk_does_not_deadlock(
     assert activation.status_code == 200, activation.text
     finished = job(client, job_id)
     assert finished["state"] == "failed", finished
-    assert finished["error"]["code"] == "model_release_changed", finished
+    assert finished["error"]["code"] == "MODEL_RELEASE_CHANGED", finished
     assert item_outcomes(client, job_id) == [("unprocessed", None)] * 3
     with SessionLocal() as session:
         assert (

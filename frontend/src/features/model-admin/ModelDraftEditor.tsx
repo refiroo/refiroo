@@ -99,7 +99,7 @@ export function ModelDraftEditor({
       setCompilation(undefined);
     } catch (cause) {
       setError(errorMessage(cause));
-      setConflict(isApiError(cause, "version_conflict"));
+      setConflict(isApiError(cause, "VERSION_CONFLICT"));
     } finally {
       setPending("");
     }

@@ -42,7 +42,7 @@ def check_set_claim(lookup: BatchLookup, key: SetKey, expected: int) -> None:
     if actual != expected:
         raise api_error(
             409,
-            "relation_set_version_conflict",
+            "RELATION_SET_VERSION_CONFLICT",
             "The relation set has changed since it was read; refresh it before retrying",
             {"anchorObjectId": key[3], "direction": key[4], "relationSetVersion": actual},
         )
@@ -52,7 +52,7 @@ def check_relation_version(relation: Any, expected: int) -> None:
     if relation.version != expected:
         raise api_error(
             409,
-            "version_conflict",
+            "VERSION_CONFLICT",
             "Relation version has changed",
             {"currentVersion": relation.version},
         )
@@ -109,7 +109,7 @@ def decide_relation_create(
         relation.to_object_id == target.object_id
         for relation in lookup.relations([source.object_id], "outgoing", [relation_type_key])
     ):
-        raise api_error(409, "duplicate_relation", "Relation already exists")
+        raise api_error(409, "DUPLICATE_RELATION", "Relation already exists")
     relation = Relation(
         relation_id or str(uuid4()), relation_type_key, source.object_id, target.object_id, stored
     )

@@ -40,7 +40,7 @@ def effective_change_set_membership(session: Session, change_set_id: str) -> Eff
     """
     change_set = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
     if change_set is None:
-        raise api_error(404, "change_set_not_found", f"Change set '{change_set_id}' not found")
+        raise api_error(404, "CHANGE_SET_NOT_FOUND", f"Change set '{change_set_id}' not found")
     objects: dict[
         str, PublicationObject | ChangeSetBaseObject | ChangeSetObject
     ] = {}
@@ -54,7 +54,7 @@ def effective_change_set_membership(session: Session, change_set_id: str) -> Eff
         if publication is None or publication.workspace_key != change_set.workspace_key:
             raise api_error(
                 409,
-                "change_set_base_invalid",
+                "CHANGE_SET_BASE_INVALID",
                 "Change set base publication is missing or belongs to another workspace",
             )
         objects = {
@@ -78,7 +78,7 @@ def effective_change_set_membership(session: Session, change_set_id: str) -> Eff
         if base is None or base.workspace_key != change_set.workspace_key:
             raise api_error(
                 409,
-                "change_set_base_invalid",
+                "CHANGE_SET_BASE_INVALID",
                 "Change set current-live base is missing or belongs to another workspace",
             )
         objects = {
@@ -130,7 +130,7 @@ def load_change_set(session: Session, change_set_id: str, *, for_update: bool = 
         statement = statement.with_for_update()
     item = session.scalar(statement)
     if item is None:
-        raise api_error(404, "change_set_not_found", f"Change set '{change_set_id}' not found")
+        raise api_error(404, "CHANGE_SET_NOT_FOUND", f"Change set '{change_set_id}' not found")
     return item
 
 
@@ -147,9 +147,9 @@ def _lock_workspace(session: Session, change_set_id: str) -> None:
         .with_for_update(read=True, key_share=True)
     )
     if status is None:
-        raise api_error(404, "workspace_not_found", f"Workspace '{workspace_key}' not found")
+        raise api_error(404, "WORKSPACE_NOT_FOUND", f"Workspace '{workspace_key}' not found")
     if status != "active":
-        raise api_error(409, "workspace_retired", "Workspace is retired and cannot be mutated")
+        raise api_error(409, "WORKSPACE_RETIRED", "Workspace is retired and cannot be mutated")
 
 
 def ensure_change_set_writable(session: Session, change_set_id: str) -> ChangeSet:

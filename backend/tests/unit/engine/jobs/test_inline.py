@@ -61,7 +61,7 @@ def test_a_batch_over_one_of_its_runs_limits_is_refused_naming_the_setting(
     with pytest.raises(ApiError) as error:
         check_batch_request(batch, size, LIMITS)
     setting, maximum, measure, value = refused
-    assert (error.value.status, error.value.code) == (413, "batch_too_large")
+    assert (error.value.status, error.value.code) == (413, "BATCH_TOO_LARGE")
     assert error.value.details == {"setting": setting, "maximum": maximum, measure: value}
 
 
@@ -98,10 +98,10 @@ def test_a_key_belongs_to_the_workspace_its_batch_writes_in(seeded):
         change_set, version = staged.id, staged.version
     with pytest.raises(ApiError) as reused:
         submit({"changeSetId": change_set, "expectedChangeSetVersion": version})
-    assert (reused.value.code, reused.value.details) == ("idempotency_key_reused", {"jobId": first})
+    assert (reused.value.code, reused.value.details) == ("IDEMPOTENCY_KEY_REUSED", {"jobId": first})
     with pytest.raises(ApiError) as unknown:
         submit({"changeSetId": str(uuid4()), "expectedChangeSetVersion": 1})
-    assert unknown.value.code == "change_set_not_found"
+    assert unknown.value.code == "CHANGE_SET_NOT_FOUND"
     with SessionLocal() as session:
         assert (
             session.scalar(select(ChangeSet.version).where(ChangeSet.id == change_set)) == version

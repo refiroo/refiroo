@@ -296,7 +296,7 @@ def test_two_creates_racing_for_one_unique_value(client, workspace, at_commit):
         lambda: post_object(client, workspace, "domain", domain_code=code),
     )
     created(first)
-    refused(second, 409, "duplicate_attribute_value")
+    refused(second, 409, "DUPLICATE_ATTRIBUTE_VALUE")
 
 
 def test_two_moves_racing_into_a_parent_cycle(client, workspace, at_commit):
@@ -304,7 +304,7 @@ def test_two_moves_racing_into_a_parent_cycle(client, workspace, at_commit):
     one, two = master_value(client, workspace, owner["id"]), master_value(client, workspace, owner["id"])
     first, second = race(at_commit, lambda: move(client, one, two), lambda: move(client, two, one))
     assert first.status_code == 200, first.text
-    refused(second, 422, "parent_cycle")
+    refused(second, 422, "PARENT_CYCLE")
 
 
 def test_two_relations_racing_for_a_cardinality_limit(client, workspace, at_commit):
@@ -317,7 +317,7 @@ def test_two_relations_racing_for_a_cardinality_limit(client, workspace, at_comm
         lambda: relate(client, "reference-has-system-representation", two, target),
     )
     created(first)
-    refused(second, 409, "cardinality_violation")
+    refused(second, 409, "CARDINALITY_VIOLATION")
 
 
 def test_a_required_relation_racing_with_the_deletion_of_its_source(client, workspace, at_commit):
@@ -352,7 +352,7 @@ def test_a_required_relation_racing_with_the_deletion_of_its_source(client, work
         ),
     )
     created(first)
-    refused(second, 409, "object_has_dependants")
+    refused(second, 409, "OBJECT_HAS_DEPENDANTS")
 
 
 def mapping(client, workspace_key: str, source: dict, target: dict) -> httpx.Response:
@@ -380,7 +380,7 @@ def test_two_mapping_saves_racing_for_one_relation_set_version(client, workspace
         lambda: mapping(client, workspace, source, two),
     )
     assert first.status_code == 200, first.text
-    refused(second, 409, "mapping_version_conflict")
+    refused(second, 409, "MAPPING_VERSION_CONFLICT")
 
 
 def test_a_relation_create_and_a_mapping_save_on_one_edge_do_not_deadlock(
@@ -397,7 +397,7 @@ def test_a_relation_create_and_a_mapping_save_on_one_edge_do_not_deadlock(
         lambda: mapping(client, workspace, source, target),
     )
     created(first)
-    refused(second, 409, "mapping_version_conflict")
+    refused(second, 409, "MAPPING_VERSION_CONFLICT")
 
 
 def test_two_relations_racing_into_one_matrix_cell_keep_its_stored_state(
@@ -458,7 +458,7 @@ def test_an_activation_does_not_wait_for_the_workspace_lock(client, workspace, a
             at_lock.release()
         response = pending.result(HOLD_TIMEOUT)
     assert activation.status_code == 200, activation.text
-    refused(response, 409, "model_release_changed")
+    refused(response, 409, "MODEL_RELEASE_CHANGED")
 
 
 def test_an_activation_waits_for_a_write_committing_under_the_old_release(
@@ -537,7 +537,7 @@ def test_retiring_a_workspace_waits_for_a_change_set_write(client, workspace, at
             at_commit.release()
         created(pending.result(HOLD_TIMEOUT))
         assert retirement.result(HOLD_TIMEOUT).status_code == 200
-    refused(write(unique_key("e")), 409, "workspace_retired")
+    refused(write(unique_key("e")), 409, "WORKSPACE_RETIRED")
 
 
 def test_a_publication_leaves_another_change_sets_writes_free(client, workspace, at_commit):
@@ -638,7 +638,7 @@ def test_a_publish_and_a_live_write_of_its_record_do_not_deadlock(client, worksp
         ),
     )
     assert publication.status_code == 200, publication.text
-    refused(live, 409, "version_conflict")
+    refused(live, 409, "VERSION_CONFLICT")
     entries = feed(client, workspace)
     assert [(e["kind"], e["action"], e["id"]) for e in entries[1:]] == [
         ("object", "updated", record["id"]),

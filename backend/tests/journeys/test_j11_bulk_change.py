@@ -105,13 +105,13 @@ def test_an_independent_batch_with_references_and_a_safe_retry(world):
         ("applied", "created"),
         ("applied", "updated"),
         ("applied", "deleted"),
-        ("rejected", "duplicate_attribute_value"),
+        ("rejected", "DUPLICATE_ATTRIBUTE_VALUE"),
     ]
     assert result["items"][4]["error"]["details"]["pointer"].startswith("/items/4")
     parent_id, child_id = result["items"][0]["id"], result["items"][1]["id"]
     assert world.record("R2", child_id)["parentObjectId"] == parent_id
     assert world.record("R", changed["id"])["name"] == "Renamed"
-    refused(world.read("R", removed["id"]), 404, "object_not_found")
+    refused(world.read("R", removed["id"]), 404, "OBJECT_NOT_FOUND")
     history = ok(world.api.get(f"/objects/{world.key('R2')}/{child_id}/history"))["items"]
     assert history[-1]["cause"] == {"kind": "job", "id": result["job"]["id"]}
 
@@ -120,7 +120,7 @@ def test_an_independent_batch_with_references_and_a_safe_retry(world):
     assert replay.headers["Idempotent-Replayed"] == "true" and replay.json() == result
     assert (_count(world, "R"), _jobs(world)) == (records, jobs)
 
-    error = refused(_batch(world, items + items[:1]), 413, "batch_too_large")
+    error = refused(_batch(world, items + items[:1]), 413, "BATCH_TOO_LARGE")
     assert (error["details"]["setting"], error["details"]["maximum"]) == ("BATCH_MAX_ITEMS", 5)
     assert _jobs(world) == jobs
 
@@ -134,8 +134,8 @@ def test_an_atomic_batch_applies_everything_or_nothing(world):
     records = _count(world, "R")
     result = ok(_batch(world, items, policy="atomic"))
     assert result["job"]["result"] == "rejected"
-    assert _outcomes(result) == [("unprocessed", "batch_rolled_back")] * 4 + [
-        ("rejected", "duplicate_attribute_value")
+    assert _outcomes(result) == [("unprocessed", "BATCH_ROLLED_BACK")] * 4 + [
+        ("rejected", "DUPLICATE_ATTRIBUTE_VALUE")
     ]
     assert _count(world, "R") == records and _count(world, "R2") == 0
     assert world.record("R", changed["id"])["version"] == changed["version"]
@@ -185,7 +185,7 @@ def test_upserts_by_a_unique_value_or_an_id(world):
     )
     assert _outcomes(result) == [
         ("applied", "created"),
-        ("rejected", "version_required"),
+        ("rejected", "VERSION_REQUIRED"),
         ("applied", "updated"),
     ]
     renamed = world.record("R", existing["id"])
@@ -211,7 +211,7 @@ def test_upserts_by_a_unique_value_or_an_id(world):
 
     wrong = {**by_id, "key": {"id": other["id"]}}
     result = ok(_batch(world, [wrong, by_id]))
-    assert _outcomes(result) == [("rejected", "reference_type_mismatch"), ("applied", "created")]
+    assert _outcomes(result) == [("rejected", "REFERENCE_TYPE_MISMATCH"), ("applied", "created")]
     assert result["items"][1]["id"] == new_id
     assert world.record("R", new_id)["name"] == "By ID"
 
@@ -259,16 +259,16 @@ def test_a_batch_in_a_change_set_claims_its_version_once(world):
     refused(
         _batch(world, more, context=staged_in, expectedChangeSetVersion=cs["version"]),
         409,
-        "change_set_version_conflict",
+        "CHANGE_SET_VERSION_CONFLICT",
     )
-    refused(_batch(world, more, context=staged_in), 409, "change_set_required")
+    refused(_batch(world, more, context=staged_in), 409, "CHANGE_SET_REQUIRED")
     both = _batch(
         world,
         more,
         context={**staged_in, "workspaceKey": W1},
         expectedChangeSetVersion=cs["version"] + 1,
     )
-    refused(both, 422, "invalid_batch_context")
+    refused(both, 422, "INVALID_BATCH_CONTEXT")
     assert _jobs(world) == jobs
 
 
@@ -286,7 +286,7 @@ def test_a_model_activated_meanwhile_refuses_the_inline_batch(world):
         held.waiting(1)
         activation = held.start(lambda: world.activate(release))
         ok(activation.result(timeout=20))
-    refused(batch.result(timeout=20), 409, "model_release_changed")
+    refused(batch.result(timeout=20), 409, "MODEL_RELEASE_CHANGED")
     assert (_jobs(world), _count(world, "R")) == (jobs, records)
 
 
@@ -300,7 +300,7 @@ def test_a_key_reused_with_another_request_or_while_its_job_runs(world):
     refused(
         _batch(world, [_create(world, "R", "Second", "KEY-2")], key="k1"),
         422,
-        "idempotency_key_reused",
+        "IDEMPOTENCY_KEY_REUSED",
     )
     assert (_jobs(world), _count(world, "R")) == (jobs, records)
     # A key is 1–200 characters (API.md; merged from test_batches in H4d).
@@ -308,7 +308,7 @@ def test_a_key_reused_with_another_request_or_while_its_job_runs(world):
         refused(
             _batch(world, [_create(world, "R", "Bad key", "KEY-X")], key=malformed),
             422,
-            "request_validation_error",
+            "REQUEST_VALIDATION_ERROR",
         )
     assert (_jobs(world), _count(world, "R")) == (jobs, records)
 
@@ -316,7 +316,7 @@ def test_a_key_reused_with_another_request_or_while_its_job_runs(world):
     queued = _batch(world, background, key="k2", run="background")
     assert queued.status_code == 202 and queued.json()["state"] == "queued"
     again = _batch(world, background, key="k2", run="background")
-    refused(again, 409, "idempotency_in_progress")
+    refused(again, 409, "IDEMPOTENCY_IN_PROGRESS")
     assert again.headers["Retry-After"]
 
 
@@ -399,12 +399,12 @@ def test_relationship_items_follow_their_single_writes(world):
     assert _outcomes(result) == [
         ("applied", "created"),
         ("applied", "unchanged"),
-        ("rejected", "version_required"),
+        ("rejected", "VERSION_REQUIRED"),
         ("applied", "updated"),
         ("applied", "deleted"),
-        ("rejected", "attribute_below_minimum"),
-        ("rejected", "immutable_relation"),
-        ("rejected", "relation_set_version_conflict"),
+        ("rejected", "ATTRIBUTE_BELOW_MINIMUM"),
+        ("rejected", "IMMUTABLE_RELATION"),
+        ("rejected", "RELATION_SET_VERSION_CONFLICT"),
     ]
     created = result["items"][0]
     assert created["version"] == 1 and result["items"][1]["relationId"] == created["relationId"]
@@ -525,7 +525,7 @@ def test_a_record_its_required_relationship_and_its_set_in_one_atomic_batch(worl
 
     records = _count(world, "R")
     rolled_back = ok(_batch(world, items("ATOM-B", 5), policy="atomic"))
-    assert _outcomes(rolled_back) == [("unprocessed", "batch_rolled_back")] * 2 + [
-        ("rejected", "relation_set_version_conflict")
+    assert _outcomes(rolled_back) == [("unprocessed", "BATCH_ROLLED_BACK")] * 2 + [
+        ("rejected", "RELATION_SET_VERSION_CONFLICT")
     ]
     assert _count(world, "R") == records

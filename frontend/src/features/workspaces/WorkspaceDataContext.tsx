@@ -217,7 +217,7 @@ function contextLoadError(cause: unknown, label: "change set" | "publication") {
   if (cause instanceof WorkspaceContextError) {
     return { message: cause.message, retryable: cause.retryable };
   }
-  if (isApiError(cause, "unsupported_pinned_model_schema")) {
+  if (isApiError(cause, "UNSUPPORTED_PINNED_MODEL_SCHEMA")) {
     const details = cause.details as { schemaVersion?: string } | undefined;
     return {
       message: `This ${label}'s pinned model uses schema ${details?.schemaVersion ?? "an unsupported version"}. The ${label} is preserved and was not interpreted; return to Live.`,
@@ -225,9 +225,9 @@ function contextLoadError(cause: unknown, label: "change set" | "publication") {
     };
   }
   if (
-    isApiError(cause, "pinned_model_invalid") ||
-    isApiError(cause, "pinned_model_unavailable") ||
-    isApiError(cause, "workspace_context_mismatch")
+    isApiError(cause, "PINNED_MODEL_INVALID") ||
+    isApiError(cause, "PINNED_MODEL_UNAVAILABLE") ||
+    isApiError(cause, "WORKSPACE_CONTEXT_MISMATCH")
   ) {
     return {
       message: `${errorMessage(cause)} The ${label} was not interpreted; return to Live.`,

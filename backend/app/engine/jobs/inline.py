@@ -4,7 +4,7 @@ transaction.
 An inline job, its items' changes, their outcomes and the idempotency key commit together, so a
 request that fails (a refused context, a model release activated meanwhile) leaves no job, and its
 key names a finished job. A background job is queued with its key (``background.py``), which answers
-``idempotency_in_progress`` until the job finishes.
+``IDEMPOTENCY_IN_PROGRESS`` until the job finishes.
 """
 
 from dataclasses import dataclass
@@ -56,14 +56,14 @@ def check_batch_request(request: BatchRequest, body_bytes: int, limits: BatchLim
         if applies and count > maximum:
             raise api_error(
                 413,
-                "batch_too_large",
+                "BATCH_TOO_LARGE",
                 f"The batch has {count} items; at most {maximum} run in one {request.run} job",
                 {"setting": setting, "maximum": maximum, "items": count},
             )
     if body_bytes > max_bytes:
         raise api_error(
             413,
-            "batch_too_large",
+            "BATCH_TOO_LARGE",
             f"The batch body has {body_bytes} bytes; at most {max_bytes} run in one "
             f"{request.run} job",
             {"setting": bytes_setting, "maximum": max_bytes, "bytes": body_bytes},
@@ -180,6 +180,6 @@ def _workspace_key(session: Session, request: BatchRequest) -> str:
     )
     if workspace_key is None:
         raise api_error(
-            404, "change_set_not_found", f"Change set '{request.changeSetId}' not found"
+            404, "CHANGE_SET_NOT_FOUND", f"Change set '{request.changeSetId}' not found"
         )
     return workspace_key

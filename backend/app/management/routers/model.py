@@ -190,7 +190,7 @@ def get_attribute_type(
     definition = snapshot.model.attribute_type(attribute_type_key)
     if not definition:
         raise api_error(
-            404, "unknown_attribute_type", f"Attribute type '{attribute_type_key}' not found"
+            404, "UNKNOWN_ATTRIBUTE_TYPE", f"Attribute type '{attribute_type_key}' not found"
         )
     return build_attribute_type_responses(session, snapshot, [definition])[0]
 
@@ -252,7 +252,7 @@ def get_relation_type(
     definition = snapshot.model.relation_type(relation_type_key)
     if not definition:
         raise api_error(
-            404, "unknown_relation_type", f"Relation type '{relation_type_key}' not found"
+            404, "UNKNOWN_RELATION_TYPE", f"Relation type '{relation_type_key}' not found"
         )
     return build_relation_type_responses(session, snapshot, [definition])[0]
 

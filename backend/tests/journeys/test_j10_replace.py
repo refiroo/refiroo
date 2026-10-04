@@ -224,7 +224,7 @@ def test_a_large_set_is_previewed_and_continued(world):
             f"/workspaces/{W1}/mapping-targets", **params, mappingVersion=row["mappingVersion"] + 7
         ),
         409,
-        "mapping_version_conflict",
+        "MAPPING_VERSION_CONFLICT",
     )
     assert error["details"]["mappingVersion"] == row["mappingVersion"]
     ok(world.relate("Bnn", h["id"], world.ids["k26"], {"Bnn.weight": 1}), 201)
@@ -234,7 +234,7 @@ def test_a_large_set_is_previewed_and_continued(world):
         mappingVersion=row["mappingVersion"] + 1,
         cursor=row["targetsNextCursor"],
     )
-    refused(old_cursor, 422, "invalid_cursor")
+    refused(old_cursor, 422, "INVALID_CURSOR")
 
 
 @pytest.mark.journey("J10.4")
@@ -249,7 +249,7 @@ def test_someone_changed_the_set_first(world):
     ok(_replace(world, _binding(world, "Vnn"), h["id"], t1, m))
 
     error = refused(
-        _replace(world, _binding(world, "Vnn"), h["id"], t2, m), 409, "mapping_version_conflict"
+        _replace(world, _binding(world, "Vnn"), h["id"], t2, m), 409, "MAPPING_VERSION_CONFLICT"
     )
     assert error["details"]["mappingVersion"] == m + 1 and error["details"]["targetCount"] == 1
     assert [t["object"]["id"] for t in error["details"]["targets"]] == [t1]
@@ -282,10 +282,10 @@ def test_a_single_relationship_write_racing_a_set_replacement(world):
     replaced, added = responses
     assert sorted(r.status_code for r in responses) in ([200, 409], [201, 409])
     if replaced.status_code == 200:
-        refused(added, 409, "relation_set_version_conflict")
+        refused(added, 409, "RELATION_SET_VERSION_CONFLICT")
         assert _targets(_row(world, "Vnn", s)) == {ta}
     else:
-        refused(replaced, 409, "mapping_version_conflict")
+        refused(replaced, 409, "MAPPING_VERSION_CONFLICT")
         assert _targets(_row(world, "Vnn", s)) == {t0, tb}
 
 
@@ -321,12 +321,12 @@ def test_live_changing_a_staged_set_refuses_the_publication(world):
         "expectedActivePublicationId": None,
     }
     error = refused(
-        world.api.post(f"/change-sets/{cs['id']}/publication", body), 409, "version_conflict"
+        world.api.post(f"/change-sets/{cs['id']}/publication", body), 409, "VERSION_CONFLICT"
     )
     (conflict,) = [
         c
         for c in error["details"]["conflicts"]
-        if c["code"] == "mapping_set_changed" and c["anchorObjectId"] == s["id"]
+        if c["code"] == "MAPPING_SET_CHANGED" and c["anchorObjectId"] == s["id"]
     ]
     assert {"expectedTargetCount", "actualTargetCount"} <= set(conflict)
     assert ok(world.api.get(f"/workspaces/{W1}/publications"))["items"] == publications
@@ -373,7 +373,7 @@ def test_a_publication_is_read_only(world):
             publicationId=p1["id"],
         ),
         422,
-        "request_validation_error",
+        "REQUEST_VALIDATION_ERROR",
     )
     assert _row(world, "Vnn", s) == current
 
@@ -425,14 +425,14 @@ def test_a_required_or_owning_relationship_cannot_be_replaced_or_cleared(world):
     refused(
         _replace(world, binding("Bown", "R", "D"), str(uuid4()), None, 0),
         422,
-        "required_ownership_binding",
+        "REQUIRED_OWNERSHIP_BINDING",
     )
     refused(
         _replace(world, binding("Hparent", "H", "H"), h["id"], world.ids["h1"], 0),
         422,
-        "immutable_relation",
+        "IMMUTABLE_RELATION",
     )
-    refused(_replace(world, binding("Breq", "H", "N"), h["id"], None, 1), 422, "required_relation")
+    refused(_replace(world, binding("Breq", "H", "N"), h["id"], None, 1), 422, "REQUIRED_RELATION")
     refused(
         _replace(
             world,
@@ -443,12 +443,12 @@ def test_a_required_or_owning_relationship_cannot_be_replaced_or_cleared(world):
             attributes={world.key("Bnn.weight"): 1},
         ),
         422,
-        "invalid_clear_attributes",
+        "INVALID_CLEAR_ATTRIBUTES",
     )
     refused(
         _replace(world, binding("Bsk", "H", "C"), h["id"], room["id"], 0),
         422,
-        "relation_ancestor_required",
+        "RELATION_ANCESTOR_REQUIRED",
     )
     assert _row(world, "Vnn", h)["mappingVersion"] == before["mappingVersion"]
 
@@ -538,9 +538,9 @@ def test_replace_a_set_by_several_records(world):
     assert (again["action"], again["relationSetVersion"]) == ("unchanged", version + 1)
     changed = _set_item(world, "Bnn", "H", "K", "outgoing", h["id"], [k4])
     stale = _batch(world, [{**changed, "expectedRelationSetVersion": version}])["items"][0]
-    assert stale["error"]["code"] == "relation_set_version_conflict"
+    assert stale["error"]["code"] == "RELATION_SET_VERSION_CONFLICT"
     assert stale["error"]["details"]["relationSetVersion"] == version + 1
-    assert _batch(world, [changed])["items"][0]["error"]["code"] == "version_required"
+    assert _batch(world, [changed])["items"][0]["error"]["code"] == "VERSION_REQUIRED"
     overwritten = _batch(world, [changed], onExisting="overwrite")["items"][0]
     assert overwritten["action"] == "updated"
     assert set(_anchored(world, h["id"], "Bnn", "outgoing")[0]) == {k4}
@@ -606,14 +606,14 @@ def test_a_set_replacement_follows_the_relationship_rules(world):
     _relations, before = _anchored(world, h["id"], "Breq", "outgoing")
     result = _batch(world, items, onExisting="overwrite")
     assert [(i["status"], i["error"]["code"]) for i in result["items"]] == [
-        ("rejected", "cardinality_violation"),
-        ("rejected", "cardinality_violation"),
-        ("rejected", "required_ownership_binding"),
-        ("rejected", "required_relation"),
-        ("rejected", "required_relation"),
-        ("rejected", "duplicate_relation_scope"),
-        ("rejected", "duplicate_relation"),
-        ("rejected", "immutable_relation"),
+        ("rejected", "CARDINALITY_VIOLATION"),
+        ("rejected", "CARDINALITY_VIOLATION"),
+        ("rejected", "REQUIRED_OWNERSHIP_BINDING"),
+        ("rejected", "REQUIRED_RELATION"),
+        ("rejected", "REQUIRED_RELATION"),
+        ("rejected", "DUPLICATE_RELATION_SCOPE"),
+        ("rejected", "DUPLICATE_RELATION"),
+        ("rejected", "IMMUTABLE_RELATION"),
     ]
     assert result["items"][4]["error"]["details"]["objectId"] == n1
     assert result["items"][6]["error"]["details"]["pointer"] == "/items/6/targets/1"
@@ -644,7 +644,7 @@ def test_a_replacement_keeps_a_required_relationship_its_record_needs(world):
         "direction": "outgoing",
     }
     _set, version = _anchored(world, h["id"], "Breq", "outgoing")
-    error = refused(_replace(world, binding, h["id"], n2, version), 422, "required_relation")
+    error = refused(_replace(world, binding, h["id"], n2, version), 422, "REQUIRED_RELATION")
     assert error["details"]["objectId"] == n1
 
     ok(world.relate("Breq", o["id"], n1), 201)

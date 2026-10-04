@@ -173,7 +173,7 @@ def refuse_as_of(as_of: str | None) -> None:
         return
     raise api_error(
         422,
-        "as_of_not_supported",
+        "AS_OF_NOT_SUPPORTED",
         f"asOf applies to one object type's records; ask {PER_TYPE_ROUTE} or {QUERY_ROUTE}",
         {"path": "/query/asOf", "route": PER_TYPE_ROUTE},
     )
@@ -185,7 +185,7 @@ def _check_built_in(field_filters: list[tuple[str, str, str]], sort: str | None)
         if field not in FILTER_FIELDS:
             raise api_error(
                 422,
-                "invalid_filter",
+                "INVALID_FILTER",
                 f"Field '{field}' is not a built-in field; filter by it on {PER_TYPE_ROUTE}",
                 {
                     "path": f"/query/filter.{field}.{operator}",
@@ -197,7 +197,7 @@ def _check_built_in(field_filters: list[tuple[str, str, str]], sort: str | None)
     if field not in SORT_FIELDS:
         raise api_error(
             422,
-            "invalid_sort",
+            "INVALID_SORT",
             f"Field '{field}' is not a built-in sort; sort by it on {PER_TYPE_ROUTE}",
             {"path": "/query/sort", "builtInSorts": list(SORT_FIELDS), "route": PER_TYPE_ROUTE},
         )

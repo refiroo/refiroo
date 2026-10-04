@@ -518,7 +518,7 @@ function MappingActionDialog({
       });
       onSaved(continueToNext);
     } catch (cause) {
-      if (isApiError(cause, "mapping_version_conflict")) {
+      if (isApiError(cause, "MAPPING_VERSION_CONFLICT")) {
         const details = cause.details as
           { mappingVersion?: number; targetCount?: number; targets?: MappingTargetSummary[] } | undefined;
         const newVersion = details?.mappingVersion ?? currentMappingVersion;

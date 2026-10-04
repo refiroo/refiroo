@@ -138,7 +138,7 @@ export function TreeMoveDialog({
       onMoved(moved);
     } catch (cause) {
       setError(errorMessage(cause));
-      if (isApiError(cause, "version_conflict")) {
+      if (isApiError(cause, "VERSION_CONFLICT")) {
         // Someone changed the record: claim its new version so a repeated move is judged afresh.
         const current = await api.object(item.objectTypeKey, item.id, workspaceKey).catch(() => undefined);
         if (current) setItem(current);

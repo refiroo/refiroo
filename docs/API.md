@@ -73,7 +73,7 @@ key:
 ## Query parameters
 
 Every route accepts only the query parameters it documents. Any other, a misspelt `pagesize` for
-example, is `422 unknown_parameter` naming each in `details.parameters` (and the first in
+example, is `422 UNKNOWN_PARAMETER` naming each in `details.parameters` (and the first in
 `details.path`, `/query/<name>`), so a client never silently gets another answer than it asked for
 (decided 2026-10-02, H4c D-3). The per-type object list and the cross-type lookup also take the
 `filter.<field>.<operator>` family.
@@ -92,8 +92,8 @@ selects its page with **at most one** of these parameters; none reads the first 
 | `seek=<value>` | The page starting at the first row whose sort value is at or after the value (at or before it for a descending sort); objects, relations and mapping coverage only |
 
 `pageSize` keeps its per-endpoint default and maximum. `includeTotal=true` adds counts, taken under
-the same filters. Combining two selectors returns `422 conflicting_page_parameters` with the
-parameters in `details.parameters`; a negative `position` is `422 request_validation_error`.
+the same filters. Combining two selectors returns `422 CONFLICTING_PAGE_PARAMETERS` with the
+parameters in `details.parameters`; a negative `position` is `422 REQUEST_VALIDATION_ERROR`.
 
 Every page returns its items in list order, followed by the navigation fields:
 
@@ -126,15 +126,15 @@ with cursors; use positions for jumps (a scrollbar or a page number). A position
 over the skipped rows; `seek` is the fast jump in a very large list.
 
 Cursors stay signed, opaque and bound to their endpoint, ordering, filters and context; reusing one
-with another sort, filter or context returns `422 invalid_cursor`. Cursors issued before 0.8 continue
+with another sort, filter or context returns `422 INVALID_CURSOR`. Cursors issued before 0.8 continue
 forward as before, except those of a changed default order (S4R4): object lists without `sort` and
 mapping coverage and candidates now list by name, so their earlier cursors are refused with
-`422 invalid_cursor`; reload the list from its first page.
+`422 INVALID_CURSOR`; reload the list from its first page.
 
 `seek` takes the lexical form of the sorted field (ISO 8601 for dates, `true`/`false` for booleans)
 and applies to the sort in effect, which is the name when a list is not sorted; rows without a
 value, which sort last, follow the seeked rows. A seek value that does not parse returns
-`422 invalid_seek`.
+`422 INVALID_SEEK`.
 
 ## Model endpoints
 
@@ -251,7 +251,7 @@ Release activations read the recorded selections of one release as the active mo
 from the existing audit trail. Each item names the release it replaced, so the first item identifies
 the predecessor the release was introduced over. It is an always-readable, cursor-paged standard
 [page](#collection-paging) (default `pageSize` 100, maximum 500); an unknown release returns `404
-model_release_not_found`:
+MODEL_RELEASE_NOT_FOUND`:
 
 ```json
 {
@@ -273,7 +273,7 @@ selection. The initial bootstrap selection is not an audited activation, so a re
 by bootstrap has no item for it; clients must not infer activation history from installation order.
 
 Metadata and release cursors are signed opaque tokens bound to their endpoint, ordering and effective
-filters. Changing a cursor or reusing it with different filters returns `422 invalid_cursor`.
+filters. Changing a cursor or reusing it with different filters returns `422 INVALID_CURSOR`.
 
 Diff uses the requested installed release as its structural baseline and the path notation used by
 diagnostics:
@@ -304,8 +304,8 @@ distinct. Set-like key memberships such as application object types and allowed 
 are compared by stable key rather than array position. Compatibility always assesses activation
 against current runtime data and identifies the active release used for that assessment; it is
 independent of a non-active structural diff baseline. If either the candidate or baseline release uses
-an unsupported schema, diff returns `422 unsupported_schema_version` with details identifying the
-affected release. Missing releases return `404 model_release_not_found`.
+an unsupported schema, diff returns `422 UNSUPPORTED_SCHEMA_VERSION` with details identifying the
+affected release. Missing releases return `404 MODEL_RELEASE_NOT_FOUND`.
 
 **Consumer API contracts (Base 0.9 C1).** Diff and draft compile also return `consumerContracts`:
 the candidate's consumer API definitions (schema 0.8 `consumerApis`) checked against the **active**
@@ -318,7 +318,7 @@ release's, which is what consumers read (CONSUMER_API C-D17):
   "diagnostics": [
     {
       "severity": "error",
-      "code": "consumer_contract_version_required",
+      "code": "CONSUMER_CONTRACT_VERSION_REQUIRED",
       "path": "/consumerApis/rdm/object",
       "message": "Consumer API 'rdm' removes output field 'sortOrder'; raise contractVersion above 1 to release it"
     }
@@ -331,8 +331,8 @@ release's, which is what consumers read (CONSUMER_API C-D17):
 exposing a type, remove a projection or change its shape or fields, change scoring weights, or remove
 or change a list or a parameter's kind (C-D2, C-D4, C-D18); each such change is an error at the part of
 the definition it concerns. A lower `contractVersion` than the active one is
-`consumer_contract_version_decreased`. Additions are compatible, and a raised `contractVersion`
-releases any change. A definition the candidate no longer declares is a `consumer_api_removed`
+`CONSUMER_CONTRACT_VERSION_DECREASED`. Additions are compatible, and a raised `contractVersion`
+releases any change. A definition the candidate no longer declares is a `CONSUMER_API_REMOVED`
 warning and does not change the classification.
 
 Activation accepts both concurrency tokens:
@@ -361,18 +361,18 @@ It returns the complete new runtime state:
 Activation reparses the installed active and candidate models and checks current stored data in the
 same transaction as its conditional runtime-state update. It commits that selection before refreshing
 the process registry. A post-commit registry refresh failure returns `503
-model_registry_refresh_failed`; `/health` then reports `503` and model-dependent requests are refused
-rather than using a guessed snapshot (`503 model_registry_unavailable`). Restarting successfully
+MODEL_REGISTRY_REFRESH_FAILED`; `/health` then reports `503` and model-dependent requests are refused
+rather than using a guessed snapshot (`503 MODEL_REGISTRY_UNAVAILABLE`). Restarting successfully
 reloads the database-selected release. Historical releases using an unsupported schema return `422
-unsupported_schema_version`; if a supported installed release fails reparsing, activation returns
-`500 invalid_installed_model`. Both failures leave runtime state unchanged.
+UNSUPPORTED_SCHEMA_VERSION`; if a supported installed release fails reparsing, activation returns
+`500 INVALID_INSTALLED_MODEL`. Both failures leave runtime state unchanged.
 
 Activation and live writes exclude each other (Base 0.8 W5). Activation locks the runtime-state row
 for update before its compatibility check, so the check sees every live write that committed before
 the switch. A request that resolved the active release — a live object, attribute,
 relation or mapping write, a deletion, a publish or a change-set creation — rereads the active release
 inside its own transaction before committing. If another release was activated after the request
-resolved its model, nothing is saved and it returns `409 model_release_changed` with
+resolved its model, nothing is saved and it returns `409 MODEL_RELEASE_CHANGED` with
 `details.resolvedReleaseId` and `details.activeReleaseId`; the client reloads the model and retries.
 A write about to commit waits for an activation in progress, and an activation waits for writes
 already checking their release (0.9.0-alpha.1: row locks; `model_activation_retry` is no longer
@@ -406,7 +406,7 @@ Create accepts `name`, optional `baseReleaseId` and an inline `model`. Patch acc
 
 The draft collection uses the standard bounded page, ordered by `updatedAt` descending with public ID
 as its deterministic tie-breaker. Its signed cursor is bound to the draft endpoint and must be passed
-back unchanged; malformed or cross-endpoint reuse returns `422 invalid_cursor`.
+back unchanged; malformed or cross-endpoint reuse returns `422 INVALID_CURSOR`.
 
 Delete succeeds with HTTP `204` and no body. Inline validation accepts `{ "model": {} }` and returns:
 
@@ -416,7 +416,7 @@ Delete succeeds with HTTP `204` and no body. Inline validation accepts `{ "model
   "diagnostics": [
     {
       "severity": "error",
-      "code": "unknown_object_type",
+      "code": "UNKNOWN_OBJECT_TYPE",
       "path": "/applications/rdm-master/objectTypeKeys/3",
       "message": "Object type 'missing' does not exist"
     }
@@ -476,27 +476,27 @@ Every draft endpoint and the installation and activation endpoints return HTTP `
 administration mutations are disabled. Validation, capabilities, installed-release reads and diff
 are not mutation-gated. Lifecycle errors use:
 
-- `404 model_draft_not_found` for an unknown draft ID;
-- `404 model_release_not_found` for an unknown draft base, release, activation candidate or diff
+- `404 MODEL_DRAFT_NOT_FOUND` for an unknown draft ID;
+- `404 MODEL_RELEASE_NOT_FOUND` for an unknown draft base, release, activation candidate or diff
   participant;
-- `409 version_conflict` for a stale draft version;
-- `409 release_identity_conflict` for the same release key/version with different content;
-- `422 invalid_model` when installation recompilation fails;
-- `422 unsupported_schema_version` when diff, compilation or activation involves a release whose schema
+- `409 VERSION_CONFLICT` for a stale draft version;
+- `409 RELEASE_IDENTITY_CONFLICT` for the same release key/version with different content;
+- `422 INVALID_MODEL` when installation recompilation fails;
+- `422 UNSUPPORTED_SCHEMA_VERSION` when diff, compilation or activation involves a release whose schema
   is not supported by the runtime (details include `releaseId`, `schemaVersion`,
   `supportedSchemaVersions` and `operation`; the schema value comes from the stored model document
   when compilation detects a metadata/document mismatch);
-- `409 activation_conflict` for stale runtime-state tokens;
-- `409 model_migration_required` when stored data prevents activation;
-- `409 consumer_contract_version_required` when a consumer API definition changes what the active
+- `409 ACTIVATION_CONFLICT` for stale runtime-state tokens;
+- `409 MODEL_MIGRATION_REQUIRED` when stored data prevents activation;
+- `409 CONSUMER_CONTRACT_VERSION_REQUIRED` when a consumer API definition changes what the active
   release's consumers read without a higher `contractVersion` (details are the `consumerContracts`
   errors); the selection is unchanged (Base 0.9 C1);
-- `500 invalid_installed_model` when persisted release JSON with a supported schema cannot be reparsed
+- `500 INVALID_INSTALLED_MODEL` when persisted release JSON with a supported schema cannot be reparsed
   for diff or activation (distinguished from unsupported schema, which returns 422);
-- `503 model_runtime_state_unavailable` when no authoritative active selection can be read;
-- `503 model_registry_refresh_failed` when activation committed but the process could not publish the
+- `503 MODEL_RUNTIME_STATE_UNAVAILABLE` when no authoritative active selection can be read;
+- `503 MODEL_REGISTRY_REFRESH_FAILED` when activation committed but the process could not publish the
   new selection; and
-- `503 model_registry_unavailable` while a process has marked its request registry unhealthy.
+- `503 MODEL_REGISTRY_UNAVAILABLE` while a process has marked its request registry unhealthy.
 
 As elsewhere, errors use the shared `{ "error": { "code", "message", "details" } }` envelope.
 
@@ -527,8 +527,8 @@ and workspace administration surfaces. Any public shape change therefore require
 contract-test update.
 
 Every operation also documents the shared `ApiErrorResponse` envelope as its default error response.
-The generated contract includes representative `invalid_cursor`, `version_conflict` and
-`request_validation_error` examples; concrete status codes and endpoint-specific codes remain as
+The generated contract includes representative `INVALID_CURSOR`, `VERSION_CONFLICT` and
+`REQUEST_VALIDATION_ERROR` examples; concrete status codes and endpoint-specific codes remain as
 documented in the sections above.
 
 All metadata collection endpoints accept a `pageSize` from 1 to 500 (default 100) and the
@@ -696,8 +696,8 @@ filter-bound keyset cursor; detail reads include retired records. Updates claim 
 and changing the default claims the independent singleton runtime-state version. The current default
 cannot be retired. A workspace is renamed by changing its `label`; there is no way to change a key.
 Unknown explicit scopes return
-`workspace_not_found`; retired scopes remain readable but all object, attribute and relation writes
-return `workspace_retired`.
+`WORKSPACE_NOT_FOUND`; retired scopes remain readable but all object, attribute and relation writes
+return `WORKSPACE_RETIRED`.
 
 **Deleting a workspace** ([ADR-019 amendment](DECISIONS.md#adr-019--persist-and-retire-globally-scoped-workspaces))
 corrects a mistyped key. `DELETE /workspaces/{workspaceKey}?expectedVersion=N` returns `204` when the
@@ -707,20 +707,20 @@ this order in one transaction and change nothing:
 
 | Status | Code | When |
 |---|---|---|
-| 404 | `workspace_not_found` | the key does not exist |
-| 409 | `workspace_is_default` | it is the current default |
-| 409 | `workspace_has_publications` | it has ever been published (withdrawn publications count); retire it instead |
-| 409 | `workspace_not_empty` | it has objects or change sets; `details` carries `objectCount` and `changeSetCount` |
-| 409 | `version_conflict` | `expectedVersion` is stale; `details.currentVersion` |
+| 404 | `WORKSPACE_NOT_FOUND` | the key does not exist |
+| 409 | `WORKSPACE_IS_DEFAULT` | it is the current default |
+| 409 | `WORKSPACE_HAS_PUBLICATIONS` | it has ever been published (withdrawn publications count); retire it instead |
+| 409 | `WORKSPACE_NOT_EMPTY` | it has objects or change sets; `details` carries `objectCount` and `changeSetCount` |
+| 409 | `VERSION_CONFLICT` | `expectedVersion` is stale; `details.currentVersion` |
 
 Single-workspace responses (`GET`, `POST` and `PATCH /workspaces/{workspaceKey}`) add `deletable` and,
 when it is false, `deleteBlockedBy`: `default`, `published` or `notEmpty`, in the refusal order above.
 The paged list omits both. A live write that resolved a workspace before it was deleted or retired is
-refused when it commits (`404 workspace_not_found` or `409 workspace_retired`), and nothing is saved.
+refused when it commits (`404 WORKSPACE_NOT_FOUND` or `409 WORKSPACE_RETIRED`), and nothing is saved.
 
 Create/update/delete/default-switch routes are absent when `WORKSPACE_ADMIN_MUTATIONS_ENABLED=false`.
 The flag gates only this catalogue administration: the change-set and publication routes below are
-always registered and return `workspace_retired` in a retired workspace.
+always registered and return `WORKSPACE_RETIRED` in a retired workspace.
 The flag defaults to true only for the pre-authentication development posture; exposed deployments
 must disable it or protect the API with external access control.
 
@@ -755,7 +755,7 @@ set or publication is addressed flat by its global ID (`/change-sets/{changeSetI
   `publication` rejects its absence with request validation errors; clients must not infer current
   data from the last publication.
 - `GET|PATCH|DELETE /api/v1/change-sets/{changeSetId}` reads, names or discards a change set. PATCH
-  and DELETE claim `expectedVersion`. An unknown ID returns `404 change_set_not_found`.
+  and DELETE claim `expectedVersion`. An unknown ID returns `404 CHANGE_SET_NOT_FOUND`.
 - The existing canonical object, attribute, containment and relation resources retain their paths,
   request/response shapes and CRUD semantics. `workspaceKey` selects live data, `changeSetId` selects
   the effective content of a change set for reads and writes, and `publicationId` selects an
@@ -776,16 +776,16 @@ set or publication is addressed flat by its global ID (`/change-sets/{changeSetI
   `expectedChangeSetVersion`. It claims the change-set version, checks the complete effective graph
   (base plus authored content minus tombstones) under the target, then changes only that pin. Success
   increments the change-set version and audits old/new public release identities. A valid request
-  selecting the current pin is a no-op. Stale claims return `409 change_set_version_conflict`.
+  selecting the current pin is a no-op. Stale claims return `409 CHANGE_SET_VERSION_CONFLICT`.
   Declared attribute type changes for stored effective object/relation values require conversion,
   even if a target normalizer could accept the old value. Populated containment also retains its
   source model semantics; changing those requires conversion. Missing required fields are not
   defaulted during compatibility checks. Incompatible content returns
-  `409 change_set_content_incompatible` with `details.diagnostics` (at most 20), `diagnosticCount` and
+  `409 CHANGE_SET_CONTENT_INCOMPATIBLE` with `details.diagnostics` (at most 20), `diagnosticCount` and
   `diagnosticsTruncated`; refusal leaves content, pin and version unchanged. Uniqueness conflict ID
   previews are also bounded to 20 with exact count/truncation metadata. No conversion is performed.
-  Missing, unsupported and invalid targets use `pinned_model_unavailable`,
-  `unsupported_pinned_model_schema` and `pinned_model_invalid` respectively.
+  Missing, unsupported and invalid targets use `PINNED_MODEL_UNAVAILABLE`,
+  `UNSUPPORTED_PINNED_MODEL_SCHEMA` and `PINNED_MODEL_INVALID` respectively.
 - `/model` and model metadata reads accept `changeSetId` or `publicationId` and resolve that context's
   installed model. Metadata cursors are bound to the release identity. Change-set record reads, writes
   and graph validation use the change set's pin even when it differs from active; agreement with the
@@ -805,7 +805,7 @@ set or publication is addressed flat by its global ID (`/change-sets/{changeSetI
   `removed` (deleted, with a source row). A record created and deleted inside the change set is left
   out, as publishing skips it. `before` is the record as the source holds it and `after` as the change
   set does; each is `null` where the kind has none. *Before* is not current live: whether live moved
-  since is what validation and publishing report (`version_conflict`).
+  since is what validation and publishing report (`VERSION_CONFLICT`).
   - An object entry carries `kind`, `objectId`, `objectTypeKey`, `applicationKey`, `before`/`after`
     (`objectTypeKey`, `name`, `parentObjectId`, typed `attributes` in the object read's shape,
     `version`), `changedFields` and `path`: where the change set puts an added or changed record, or
@@ -824,13 +824,13 @@ set or publication is addressed flat by its global ID (`/change-sets/{changeSetI
     integration sees every row that publishes (D32); a move lists one removed and one added edge.
   - Filters: repeatable `kind`; repeatable `objectTypeKey` on objects; repeatable `relationTypeKey` and
     `containment` (`true` only parent edges, `false` none; both when omitted) on relations. A type key
-    not in the change set's model returns `422 unknown_object_type` or `422 unknown_relation_type`
+    not in the change set's model returns `422 UNKNOWN_OBJECT_TYPE` or `422 UNKNOWN_RELATION_TYPE`
     with `details.path` and `details.key`; an unknown kind is a request validation error. There is no
     search.
   - Objects list by (`objectTypeKey`, name, `objectId`), the change set's name (a removed record keeps
     its name); relations by (`relationTypeKey`, `relationId`). Both page as every collection does
     ([Collection paging](#collection-paging)), `pageSize` 1–500 (default 100); cursors are bound to
-    the change set and filters. An unknown change set returns `404 change_set_not_found`. There is no
+    the change set and filters. An unknown change set returns `404 CHANGE_SET_NOT_FOUND`. There is no
     publication context: what a publication changed against its predecessor is the 0.9 change feed.
 - `GET /api/v1/workspaces/{workspaceKey}/publications` and `GET /api/v1/publications/{publicationId}`
   list and read publications. A publication carries `publicationNumber`, its `status` (`active` while
@@ -844,30 +844,30 @@ set or publication is addressed flat by its global ID (`/change-sets/{changeSetI
   `publicationNumber` is a per-workspace counter that never restarts, not a version. The list is
   newest first by publication number with the public UUID as a unique descending tie-breaker. Its
   cursor is bound to the workspace and descending sort; an ascending, malformed or differently scoped
-  cursor returns `422 invalid_cursor` with `Publication cursor is invalid`. Pages contain 1–500 items
-  and exact retry is deterministic. An unknown ID returns `404 publication_not_found`.
+  cursor returns `422 INVALID_CURSOR` with `Publication cursor is invalid`. Pages contain 1–500 items
+  and exact retry is deterministic. An unknown ID returns `404 PUBLICATION_NOT_FOUND`.
 - `POST /api/v1/publications/{publicationId}/withdrawal` withdraws the workspace's current
   publication: its status becomes `withdrawn` and the workspace no longer has a current publication.
   The path ID is the concurrency claim, so a publication that is no longer current returns
-  `409 workspace_active_publication_conflict`. It retains the live records and every publication; it
+  `409 WORKSPACE_ACTIVE_PUBLICATION_CONFLICT`. It retains the live records and every publication; it
   does not retire the workspace or change any individual record. A retired workspace refuses it with
-  `409 workspace_retired`.
+  `409 WORKSPACE_RETIRED`.
 
 A publication snapshots one graph: objects, typed attributes, containment (both parent projection
 and typed edge), required ownership relations and independent relations. Stable object and relation
 UUIDs remain integration identities but have no lifecycle state. Change sets pin `modelReleaseId`;
 publications record the `modelReleaseId` they were published under. Publishing against another
-resolved model returns `409 change_set_model_release_conflict` and never rebases implicitly.
+resolved model returns `409 CHANGE_SET_MODEL_RELEASE_CONFLICT` and never rebases implicitly.
 Publishing delta-merges the change set onto the current live content and snapshots the merged graph,
 so a change set started from an earlier publication preserves newer live records it never touched
-(ADR-026). Conflicts are `change_set_version_conflict`, `workspace_active_publication_conflict`,
-`change_set_model_release_conflict`, and `version_conflict` — publishing reports every per-record merge
-divergence under `409 version_conflict` with `details.conflicts` (`kind`, `id`, `code`
-`version_mismatch`/`id_collision`/`duplicate_edge`, expected/actual version) — plus
-`422 workspace_graph_invalid` when the merged graph fails whole-graph validation. Publishing also
+(ADR-026). Conflicts are `CHANGE_SET_VERSION_CONFLICT`, `WORKSPACE_ACTIVE_PUBLICATION_CONFLICT`,
+`CHANGE_SET_MODEL_RELEASE_CONFLICT`, and `VERSION_CONFLICT` — publishing reports every per-record merge
+divergence under `409 VERSION_CONFLICT` with `details.conflicts` (`kind`, `id`, `code`
+`VERSION_MISMATCH`/`ID_COLLISION`/`DUPLICATE_EDGE`, expected/actual version) — plus
+`422 WORKSPACE_GRAPH_INVALID` when the merged graph fails whole-graph validation. Publishing also
 compares complete source/live relation identities and versions for exact directional mutable binding
 sets touched by the change set. A divergent set adds a diagnostic with `kind: "mapping-set"`,
-`code: "mapping_set_changed"`, `id`/`anchorObjectId`, physical binding type keys, `direction`,
+`code: "MAPPING_SET_CHANGED"`, `id`/`anchorObjectId`, physical binding type keys, `direction`,
 expected/actual target counts and a recovery message. At most 20 mapping-set diagnostics are
 returned; `details.mappingSetConflictCount` gives the exact total and
 `details.mappingSetConflictsTruncated` indicates omitted mapping-set diagnostics. No graph is applied,
@@ -877,7 +877,7 @@ conflicting change set does not resolve the conflict. Containment/ownership use 
 rules. Identical source/live edge identities and surviving edge versions count as the same graph, even
 if an intervening addition was later removed. Change-set and publication collection cursors bind
 their selected context identity and query filters; malformed/mismatched tokens return
-`422 invalid_cursor`. Live collection cursors bind the effective live workspace and query filters.
+`422 INVALID_CURSOR`. Live collection cursors bind the effective live workspace and query filters.
 Cursor tokens do not bind a model or publication ID unless that context is itself selected.
 
 Current-live capture reads the graph from one database snapshot (REPEATABLE READ), so live writes
@@ -885,7 +885,7 @@ committing meanwhile are not mixed into it, and holds share locks on the workspa
 rows, so neither a retirement nor a model activation commits while it runs. It compares the request's
 captured active release with `model_runtime_state`, separately from the selected change-set pin. A
 changed active selection, or a workspace or runtime-state row changed after the snapshot began,
-returns `409 change_set_snapshot_retry` with an actionable retry message and saves nothing
+returns `409 CHANGE_SET_SNAPSHOT_RETRY` with an actionable retry message and saves nothing
 (0.9.0-alpha.1; `change_set_snapshot_unsupported` is no longer returned). The private base is deleted
 with its change set on discard or publish and is never a publication or part of publication lineage.
 
@@ -901,10 +901,10 @@ writes continue to resolve the active model, while change-set writes validate an
 change set's pinned model.
 
 These refusals use the normal error envelope. A context mismatch is `422` with
-`{"error":{"code":"workspace_context_mismatch","message":"workspaceKey does not match the selected context","details":{"workspaceKey":"...","contextWorkspaceKey":"..."}}}`.
-A missing pinned release is `409` with code `pinned_model_unavailable`; an invalid pinned document is
-`409` with `pinned_model_invalid` and its diagnostics; and an unsupported schema is `409` with
-`unsupported_pinned_model_schema`, including `modelReleaseId`, `schemaVersion`, and
+`{"error":{"code":"WORKSPACE_CONTEXT_MISMATCH","message":"workspaceKey does not match the selected context","details":{"workspaceKey":"...","contextWorkspaceKey":"..."}}}`.
+A missing pinned release is `409` with code `PINNED_MODEL_UNAVAILABLE`; an invalid pinned document is
+`409` with `PINNED_MODEL_INVALID` and its diagnostics; and an unsupported schema is `409` with
+`UNSUPPORTED_PINNED_MODEL_SCHEMA`, including `modelReleaseId`, `schemaVersion`, and
 `supportedSchemaVersions: ["0.5", "0.6"]` in details.
 >
 > **Target — product 0.11 historical model migration.** Preview incompatibilities and potential data
@@ -917,7 +917,7 @@ A missing pinned release is `409` with code `pinned_model_unavailable`; an inval
 > or explicitly moved onto, any installed release the deployment supports, so one change set prepares a
 > candidate release while another continues on the release serving live data. The target must be
 > installed, parseable and supported; refusal reuses the existing pinned-model envelope
-> (`pinned_model_unavailable`, `pinned_model_invalid`, `unsupported_pinned_model_schema`) rather than
+> (`PINNED_MODEL_UNAVAILABLE`, `PINNED_MODEL_INVALID`, `UNSUPPORTED_PINNED_MODEL_SCHEMA`) rather than
 > introducing a weaker success path. Choosing a release is an edit to that change set and never changes
 > another change set, another workspace or the active selection. It does not make publishing accept
 > a mismatched model: the refusal above still holds, and a change set whose version differs from the
@@ -929,7 +929,7 @@ A missing pinned release is `409` with code `pinned_model_unavailable`; an inval
 > Current-live change-set creation
 > against a selected release and explicit pin changes validate the complete effective candidate graph,
 > including inherited content and tombstones, under that release. Incompatible content returns
-> `409 change_set_content_incompatible` with bounded diagnostics; creation leaves no change set or base, and failed
+> `409 CHANGE_SET_CONTENT_INCOMPATIBLE` with bounded diagnostics; creation leaves no change set or base, and failed
 > changes leave content, pin and version unchanged. Version change atomically claims the expected change-set
 > version, validates and updates the pin, increments its version and audits old/new release identities.
 > The capture's active release/runtime token is separate from the chosen change-set pin.
@@ -989,7 +989,7 @@ maximum of 500. `nextCursor` is null only when that traversal is complete.
 
 `topLevel=true` (Base 0.8 S4) lists only records without a parent, so a tree can page a root type
 without loading its descendants; it holds in change-set and publication contexts too. It cannot be combined
-with `parentObjectId` (`422 mutually_exclusive_scope`). A branch whose children have several types
+with `parentObjectId` (`422 MUTUALLY_EXCLUSIVE_SCOPE`). A branch whose children have several types
 pages each child type separately with `parentObjectId`, or reads them together through the
 [cross-type lookup](#cross-type-lookup-base-09-q1) over built-in fields.
 
@@ -1017,7 +1017,7 @@ its `totalCount` without a second count.
 
 Change sets and publications record no timestamps. In a `changeSetId` or `publicationId` context,
 object and relation responses return `createdAt` and `updatedAt` as `null`, and a filter or sort on
-either field is refused with `422 invalid_filter` or `invalid_sort` (“Created is not recorded in change sets
+either field is refused with `422 INVALID_FILTER` or `INVALID_SORT` (“Created is not recorded in change sets
 or publications”) instead of matching nothing. Live responses always carry both timestamps.
 
 Text filters support `eq`, `contains`, `startsWith` and `isNull`; number, date and datetime filters
@@ -1026,12 +1026,12 @@ fields also support `isUnset`. `isNull` and `isUnset` take `true` or `false`; bo
 same lexical form, while dates and datetimes use ISO 8601. Exact equality is case-sensitive and the
 two text matching operators are case-insensitive. Different filters combine with AND; repeated `eq`
 for one field combines with OR. Invalid grammar, capability, operator or typed input returns
-`422 invalid_filter` (or `invalid_sort`) with `details.path` identifying the query parameter.
+`422 INVALID_FILTER` (or `INVALID_SORT`) with `details.path` identifying the query parameter.
 
 Object cursors are signed opaque tokens. Live cursors bind object type, selected sort, effective live
 workspace and every effective normalized filter; they do not bind a model or publication. Change-set and
 publication cursors additionally bind their selected change-set or publication context. A malformed token, a
-changed sort/filter/context or reuse for another collection returns `422 invalid_cursor`. A live
+changed sort/filter/context or reuse for another collection returns `422 INVALID_CURSOR`. A live
 publication switch alone does not invalidate the cursor. Live predicates use keyset
 positions rather than offsets, so duplicate names and timestamps remain deterministic and inserts do
 not cause already traversed rows to repeat merely by shifting offsets. Live changes to sort keys may
@@ -1042,12 +1042,12 @@ Change-set context `DELETE` requires `changeSetId`, `expectedChangeSetVersion` a
 (default `false`). A change set delete changes only the selected change set; live reads remain
 unchanged until it is published. Without cascade,
 an object that has no children or non-parent relations is deleted normally. If dependencies exist, the
-request performs no deletion and returns `409 object_has_dependants` with a structured impact report:
+request performs no deletion and returns `409 OBJECT_HAS_DEPENDANTS` with a structured impact report:
 
 ```json
 {
   "error": {
-    "code": "object_has_dependants",
+    "code": "OBJECT_HAS_DEPENDANTS",
     "message": "Object has dependant records or relationships; repeat with cascade=true",
     "details": {
       "objectsToDelete": [
@@ -1086,13 +1086,13 @@ Confirming requires both `cascade=true` and the opaque `deletionPreviewToken` re
 preview. The token locks the displayed hierarchy and incident relationships, including their record
 versions, workspace/change set and model context. If an object, attribute, parent link or incident
 relationship changes before confirmation, deletion changes nothing and returns `409
-deletion_preview_changed`: `The object was modified by another session. Please retry.` The client must
-request and display a fresh preview. A missing token returns `409 deletion_preview_required`; a token
+DELETION_PREVIEW_CHANGED`: `The object was modified by another session. Please retry.` The client must
+request and display a fresh preview. A missing token returns `409 DELETION_PREVIEW_REQUIRED`; a token
 cannot be reused for another object, workspace, change set or model.
 
 Deletion is always confined to one workspace. If inconsistent stored data contains a containment or
 relationship edge into another workspace, the operation changes nothing and returns `409
-workspace_graph_invalid` so the data can be repaired safely.
+WORKSPACE_GRAPH_INVALID` so the data can be repaired safely.
 
 A matching confirmation recursively deletes all containment descendants and their attributes, and
 removes every relationship incident to the deletion set. Optional and many-to-many non-parent links
@@ -1115,9 +1115,9 @@ context (`workspaceKey`, or `changeSetId` or `publicationId`, exclusive), [pagin
 (including `seek`) and `pageSize` (default 100, maximum 500), and:
 
 - `objectTypeKey`, repeatable, narrows to those types; every type when omitted. An unknown type is
-  `404 unknown_object_type`. `applicationKey` narrows to the application's records, and a named type
-  outside it is `422 invalid_object_type_for_application`.
-- `parentObjectId` or `topLevel` (not both, `422 mutually_exclusive_scope`).
+  `404 UNKNOWN_OBJECT_TYPE`. `applicationKey` narrows to the application's records, and a named type
+  outside it is `422 INVALID_OBJECT_TYPE_FOR_APPLICATION`.
+- `parentObjectId` or `topLevel` (not both, `422 MUTUALLY_EXCLUSIVE_SCOPE`).
 - `search` matches the name only, case-insensitively, with the object list's literal-substring rules.
   Searchable attributes belong to their types; search them on the per-type list.
 - `filter.<field>.<operator>` on built-in fields only: `id`, `name`, `objectTypeKey`,
@@ -1126,10 +1126,10 @@ context (`workspaceKey`, or `changeSetId` or `publicationId`, exclusive), [pagin
   `createdAt`, `updatedAt`; `-` for descending.
 
 A model-declared field has a type only on its object type's list, so a filter or sort on one here is
-refused with `422 invalid_filter` or `invalid_sort`, whose message and `details.route` name
+refused with `422 INVALID_FILTER` or `INVALID_SORT`, whose message and `details.route` name
 `GET /api/v1/objects/{objectTypeKey}`; `details.builtInFields` or `details.builtInSorts` lists what
 this route takes. Timestamps in change-set and publication contexts are refused as on the per-type
-list. `asOf` is refused as `422 as_of_not_supported` with the same `details.route`: an
+list. `asOf` is refused as `422 AS_OF_NOT_SUPPORTED` with the same `details.route`: an
 [effective period](#effective-periods-and-asof-base-09-q4) belongs to one type (D21).
 
 Items have the per-type list's shape, `objectTypeKey`, attributes and `path` included: narrowed to one
@@ -1172,8 +1172,8 @@ records each item returns. It is a read with a body: it changes nothing and need
 ```
 
 - **`context`**: live when empty, or `changeSetId` or `publicationId` (both: `422
-  mutually_exclusive_context`). The context must belong to the path's workspace (`422
-  workspace_context_mismatch`); an unknown workspace, change set or publication is `404`.
+  MUTUALLY_EXCLUSIVE_CONTEXT`). The context must belong to the path's workspace (`422
+  WORKSPACE_CONTEXT_MISMATCH`); an unknown workspace, change set or publication is `404`.
 - **`where`** is a list combined with AND. A field criterion is `field`, `op` and `value` with the
   object list's grammar: built-in `id`, `name`, `parentObjectId` and (live only) `createdAt`,
   `updatedAt`, and the attributes the type binds as `filterable`, with the operators of their value
@@ -1216,7 +1216,7 @@ records each item returns. It is a read with a body: it changes nothing and need
 
 **Errors (D19).** The body's shape is checked as on every body: a wrong JSON type for a known
 property, an unknown property or a bound such as `pageSize` or `limit` is `422
-request_validation_error`. What depends on the model is `422 invalid_query`, with `details.path` a
+REQUEST_VALIDATION_ERROR`. What depends on the model is `422 INVALID_QUERY`, with `details.path` a
 JSON pointer to the part that is wrong: an unknown object type (`/objectTypeKey`), a field the type
 does not bind or not filterable (`/where/0/field`), an operator its value type lacks
 (`/where/0/op`), a value of the wrong type (`/where/0/value`), a binding the type does not have
@@ -1242,7 +1242,7 @@ always" or "open". Validity is ordinary attribute data, so it is edited, version
 published like any other value.
 
 **Writes.** A record whose end is not after its start is refused with `422
-invalid_effective_period`, live and in a change set alike: on create, update, a single-attribute
+INVALID_EFFECTIVE_PERIOD`, live and in a change set alike: on create, update, a single-attribute
 `PATCH`, a type change and restructuring. The check reads the record's values after the write, so
 an update that sets only the end is checked against the stored start. `details` names
 `startAttributeTypeKey`, `endAttributeTypeKey`, `start` and `end`. Change-set validation and
@@ -1266,17 +1266,17 @@ date, nor the reverse.
 
 | Request | Refusal |
 | --- | --- |
-| `asOf` on a type that declares no period | `422 as_of_not_supported`, `details.path` (`/query/asOf` on the list, `/asOf` in the query) and `details.objectTypeKey`. A date attribute alone never makes a type dated |
-| `asOf` on `GET /objects` | `422 as_of_not_supported` with `details.route` naming the per-type list |
-| `asOf` that is not a calendar date (a time, a timestamp, `2026-02-30`) | List: `422 request_validation_error`. Query: `422 invalid_query` at `/asOf` |
+| `asOf` on a type that declares no period | `422 AS_OF_NOT_SUPPORTED`, `details.path` (`/query/asOf` on the list, `/asOf` in the query) and `details.objectTypeKey`. A date attribute alone never makes a type dated |
+| `asOf` on `GET /objects` | `422 AS_OF_NOT_SUPPORTED` with `details.route` naming the per-type list |
+| `asOf` that is not a calendar date (a time, a timestamp, `2026-02-30`) | List: `422 REQUEST_VALIDATION_ERROR`. Query: `422 INVALID_QUERY` at `/asOf` |
 
 **Model releases.** Adding or removing a period changes no stored data. Activating a release that
 declares a period, or moves one to other attributes, counts the live records of the type whose end
-is not after their start: with any, activation is refused as `409 model_migration_required`
+is not after their start: with any, activation is refused as `409 MODEL_MIGRATION_REQUIRED`
 (the release diff and draft compile classify it `migration_required`) with a diagnostic
-`invalid_effective_period` at `/objectTypes/<type>/effectivePeriod` and its `count`
+`INVALID_EFFECTIVE_PERIOD` at `/objectTypes/<type>/effectivePeriod` and its `count`
 (D20). A consumer API definition that exposes a type whose period is removed needs a higher
-`contractVersion` (`consumer_contract_version_required` at `/consumerApis/<key>/objectTypes/<type>`).
+`contractVersion` (`CONSUMER_CONTRACT_VERSION_REQUIRED` at `/consumerApis/<key>/objectTypes/<type>`).
 
 ### Create request
 
@@ -1312,7 +1312,7 @@ is not after their start: with any, activation is refused as `409 model_migratio
 
 Each `initialRelations` item contains `relationTypeKey`, `direction` relative to the new object,
 `otherObjectId`, and optional relation `attributes`. If a model binding is required at the new object's
-target side, creation returns `422 missing_required_relations` unless a matching incoming relation is
+target side, creation returns `422 MISSING_REQUIRED_RELATIONS` unless a matching incoming relation is
 provided. Object, attributes, containment, initial relationships and audit events commit in one
 transaction. The first create example is live. For the optional staged path, supply the change set and its
 version; for example, a Translation with its target can be created in a selected change set as follows:
@@ -1376,7 +1376,7 @@ every context.
 
 An attribute type may declare `"features": { "unique": true }`. Values for such an attribute are
 enforced unique per workspace across all objects that carry that attribute type. Create and update
-return `409 duplicate_attribute_value` when a value collides, live and in a change set alike: the
+return `409 DUPLICATE_ATTRIBUTE_VALUE` when a value collides, live and in a change set alike: the
 message names the attribute, and `details` carry its `attributeTypeKey` and the record holding the
 value as `conflictingObjectId`. Empty text is no value, so any number of records may leave a unique
 text attribute empty (both decided 2026-10-03, H4c). Uniqueness is supported for the scalar
@@ -1408,26 +1408,26 @@ The preceding example is a normal live correction and does not create a publicat
 
 A `PATCH` with `parentObjectId` moves the record: its parent and its typed containment relation
 change together, live or in a change set. The new parent must be of a type the record's
-`parentRelationTypeKeys` allow, in the same application and workspace (`422 invalid_parent_type`,
-`422 parent_wrong_scope`); `null` makes it a root where its type is `rootCreatable`
-(`422 parent_required` otherwise). The record itself or a record under it is refused as
-`422 parent_cycle`. Publishing a change set revalidates the merged graph, so a move the change set
-made valid but live has since made cyclic is refused as `422 workspace_graph_invalid` with a
-`containment_cycle` diagnostic, and the change set and live data stay as they were.
+`parentRelationTypeKeys` allow, in the same application and workspace (`422 INVALID_PARENT_TYPE`,
+`422 PARENT_WRONG_SCOPE`); `null` makes it a root where its type is `rootCreatable`
+(`422 PARENT_REQUIRED` otherwise). The record itself or a record under it is refused as
+`422 PARENT_CYCLE`. Publishing a change set revalidates the merged graph, so a move the change set
+made valid but live has since made cyclic is refused as `422 WORKSPACE_GRAPH_INVALID` with a
+`CONTAINMENT_CYCLE` diagnostic, and the change set and live data stay as they were.
 
 Only the moved record's parent and edge are written, so a move costs about what a rename does
 however many records lie under it. A live move re-checks ancestor-scoped uniqueness
 (`uniqueToAncestorTypeKey`) for the records under the moved one whose scope record is above it, and
-only for bindings that can reach them (`409 duplicate_relation_scope`). Moving a container of many
+only for bindings that can reach them (`409 DUPLICATE_RELATION_SCOPE`). Moving a container of many
 relation matrix cells recomputes their rows' stored cell states and is a known 0.8 budget exception
 (D29).
 
 `GET /api/v1/objects/{objectTypeKey}/{objectId}/parent-candidates` lists where the record could move:
 every record of a type that can contain it, in its application and workspace, in name order. It
 takes `workspaceKey` (live) or `changeSetId`, `parentObjectTypeKey` to list one of those types
-(another is `422 invalid_parent_type` with the `permitted` types), `search` (the name or a
+(another is `422 INVALID_PARENT_TYPE` with the `permitted` types), `search` (the name or a
 searchable field, as on an object list) and the paging parameters (`pageSize` 1–100, default 50).
-A record not in the context is `404 object_not_found`. Publications are read-only and have no move
+A record not in the context is `404 OBJECT_NOT_FOUND`. Publications are read-only and have no move
 targets.
 
 Each item has `id`, `objectTypeKey`, `name`, `path` (root first, ending with the candidate) and
@@ -1491,35 +1491,38 @@ flag.
 }
 ```
 
-- `POST` creates only when no value is stored for the key (`409 attribute_already_exists` otherwise).
-- `PATCH` updates only a stored value (`404 attribute_not_found` when the key has no value yet).
+- `POST` creates only when no value is stored for the key (`409 ATTRIBUTE_ALREADY_EXISTS` otherwise).
+- `PATCH` updates only a stored value (`404 ATTRIBUTE_NOT_FOUND` when the key has no value yet).
 - For a live POST/PATCH, omit both change set fields from the example. For live DELETE, supply only
   `expectedVersion`; the change set query fields shown in the route list are optional context.
 - `DELETE` removes a stored value and returns 204. Required attributes cannot be deleted
-  (`422 cannot_delete_required_attribute`); read-only attributes are rejected with
-  `422 read_only_attributes`. Deleting an optional value reverts that attribute to "not stored".
+  (`422 CANNOT_DELETE_REQUIRED_ATTRIBUTE`); read-only attributes are rejected with
+  `422 READ_ONLY_ATTRIBUTES`. Deleting an optional value reverts that attribute to "not stored".
 
 Value validation, type normalization and per-workspace uniqueness behave exactly as in the object
-create/update flows — `unknown_attributes`, `invalid_attribute_value`, numeric bounds and
-`duplicate_attribute_value` all apply. Object-level `atLeastOneOf` rules are also checked against the
-complete resulting attribute set. Stale `expectedVersion` values return `409 version_conflict`.
+create/update flows — `UNKNOWN_ATTRIBUTES`, `INVALID_ATTRIBUTE_VALUE`, numeric bounds and
+`DUPLICATE_ATTRIBUTE_VALUE` all apply. Object-level `atLeastOneOf` rules are also checked against the
+complete resulting attribute set. Stale `expectedVersion` values return `409 VERSION_CONFLICT`.
 
 ### Error responses
 
 All API errors, including request validation and unmatched routes, return a unified JSON envelope
-with a machine-readable `code` and a human-readable `message`. Validation errors additionally include
-a `details` array. Unexpected internal errors use code `internal_error` and include a
+with a machine-readable `code` and a human-readable `message`. Every code is written in upper case
+(`OBJECT_NOT_FOUND`), on every API of the engine: error bodies, the errors and unprocessed `reason`
+of batch and job item outcomes, and validation diagnostics (0.9 T1b). Status, action, kind and
+classification values are not codes and stay in lower case. Validation errors additionally include
+a `details` array. Unexpected internal errors use code `INTERNAL_ERROR` and include a
 `correlationId` in `details`; the same identifier appears in server logs for operator diagnosis.
 A write validated under a model release that was replaced before it committed returns
-`409 model_release_changed` and saves nothing (see model activation). A stale `expectedVersion` on a
+`409 MODEL_RELEASE_CHANGED` and saves nothing (see model activation). A stale `expectedVersion` on a
 record or relation write (an update, a move, a delete or a single value's write, live or in a change
-set, and a batch item's) returns `409 version_conflict` with `details.currentVersion`, the version to
+set, and a batch item's) returns `409 VERSION_CONFLICT` with `details.currentVersion`, the version to
 read again before retrying (decided 2026-10-03, H4c).
 
 ```json
 {
   "error": {
-    "code": "object_already_exists",
+    "code": "OBJECT_ALREADY_EXISTS",
     "message": "An object with ID 'c5588b49-...' already exists"
   }
 }
@@ -1530,7 +1533,7 @@ Internal error example:
 ```json
 {
   "error": {
-    "code": "internal_error",
+    "code": "INTERNAL_ERROR",
     "message": "The GET /api/v1/model-releases operation failed unexpectedly. Retry or contact support with reference a1b2c3d4e5f6.",
     "details": { "correlationId": "a1b2c3d4e5f6" }
   }
@@ -1545,38 +1548,38 @@ refused by a single write's rule carries the same code in its outcome.
 
 | Code | Status | Where | Meaning |
 | --- | --- | --- | --- |
-| `invalid_position` | 422 | every paged collection | `position` below zero; `details.path` `/query/position` (J21.1) |
-| `workspace_runtime_state_missing` | 500 | workspace reads and writes | The workspace catalogue's runtime row is missing: a damaged database, not a client error |
-| `workspace_key_required` | 422 | `POST /objects` | A live create without `workspaceKey` (and without `changeSetId`) (J03) |
-| `unknown_application` | 404 | `POST /objects`, batch items, `GET /applications/{key}`, `GET /objects` | `applicationKey` names no application of the model (J03.2, J20) |
-| `object_type_not_in_application` | 422 | `POST /objects` | The application does not hold the object type (J03.2) |
-| `unknown_attribute_type` | 404 | `GET /attribute-types/{key}` | No attribute type with that key in the selected model (J20) |
-| `attribute_below_minimum`, `attribute_above_maximum` | 422 | every value write | A number outside the attribute's declared `minimum` or `maximum` (J02.5) |
-| `missing_required_attributes` | 422 | create, update, type change | A value the type requires is absent; the message names the fields (J03) |
-| `object_attribute_rule_violation` | 422 | create, update, single-value writes, type change | An `atLeastOneOf` rule is not met; `details` `rule` and `attributeTypeKeys` (J02.5, J03) |
-| `duplicate_initial_relation` | 422 | `POST /objects`, batch creates | `initialRelations` repeats one relationship (type, direction and record), live and in a change set alike (J03.4) |
-| `invalid_relation_pair` | 422 | relation create, `initialRelations` | The model allows no relationship of that type between the two records' types (J13.3) |
-| `relation_wrong_scope` | 422 | relation create, `initialRelations` | The two records are in different workspaces (J13) |
-| `relation_endpoint_missing` | 422 | relation create, `initialRelations` | An end names a record the context does not hold, live and in a change set alike (decided 2026-10-03, H4c); change-set validation reports it as a diagnostic (J13.3, J05) |
-| `change_set_source_invalid` | 422 | `POST /workspaces/{key}/change-sets` | `source` is not `currentLive` or `publication`, a publication source lacks `sourcePublicationId`, or a current-live source names one (J05) |
-| `change_set_base_invalid` | 409 | mapping reads in a change set | The change set's base, or its base publication, is missing or belongs to another workspace: a damaged change set (J10) |
-| `child_type_not_allowed` | 422 | `changeType`, restructuring | The new type cannot contain one of the record's children; the restructuring plan reports it as `noPossibleType` (J15) |
-| `required_relation_without_place` | 422 | `changeType`, restructuring | The new type cannot hold a relationship another record requires (J15) |
-| `relation_already_exists` | 409 | change back in a change set | A relationship the change back restores already exists in the change set (J15.1) |
-| `workspace_already_exists` | 409 | `POST /workspaces` | The key is taken, by an active or a retired workspace (J19) |
-| `default_workspace_cannot_be_retired` | 409 | `PATCH /workspaces/{key}` | Retiring the default workspace (J19) |
-| `mapping_view_required` | 422 | `GET /workspaces/{key}/mapping-targets` | `applicationKey` and `viewKey` must come together (J10) |
-| `incomplete_view_identity` | 422 | `GET /workspaces/{key}/relations` | `applicationKey` and `viewKey` must come together (J22.2) |
-| `mapping_view_not_found` | 404 | mapping reads, the edge list | The view is not a relationship view of that application in the selected model (J10, J22.2) |
-| `mapping_view_binding_mismatch` | 422 | mapping reads | The relationship type, types or direction differ from the view's (J10) |
-| `mapping_binding_not_found` | 404 | mapping reads | The model allows no such relationship between the named types (J10) |
-| `mapping_candidate_type_mismatch` | 422 | `GET /workspaces/{key}/mapping-candidates` | The candidate type is not the view's target side (J10.3) |
-| `mapping_parent_not_found` | 404 | `GET /workspaces/{key}/mapping-coverage` | `parentObjectId` is not in the selected context (J10) |
-| `mapping_parent_scope_mismatch` | 422 | `GET /workspaces/{key}/mapping-coverage` | That parent's type cannot contain the view's source records (J10) |
-| `mapping_source_not_found` | 404 | `GET /workspaces/{key}/mapping-targets` | The source record is not in the selected context (J10) |
-| `mapping_endpoint_not_found` | 404 | `PUT /workspaces/{key}/mappings` | The source or a target is not in the context (J10) |
-| `mapping_endpoint_type_mismatch` | 422 | `PUT /workspaces/{key}/mappings` | The source or a target is not of the binding's type (J10) |
-| `feed_position_ahead` | 409 | `GET /workspaces/{key}/feed` | `after` is past the feed's head; `details.headPosition` (J26) |
+| `INVALID_POSITION` | 422 | every paged collection | `position` below zero; `details.path` `/query/position` (J21.1) |
+| `WORKSPACE_RUNTIME_STATE_MISSING` | 500 | workspace reads and writes | The workspace catalogue's runtime row is missing: a damaged database, not a client error |
+| `WORKSPACE_KEY_REQUIRED` | 422 | `POST /objects` | A live create without `workspaceKey` (and without `changeSetId`) (J03) |
+| `UNKNOWN_APPLICATION` | 404 | `POST /objects`, batch items, `GET /applications/{key}`, `GET /objects` | `applicationKey` names no application of the model (J03.2, J20) |
+| `OBJECT_TYPE_NOT_IN_APPLICATION` | 422 | `POST /objects` | The application does not hold the object type (J03.2) |
+| `UNKNOWN_ATTRIBUTE_TYPE` | 404 | `GET /attribute-types/{key}` | No attribute type with that key in the selected model (J20) |
+| `ATTRIBUTE_BELOW_MINIMUM`, `ATTRIBUTE_ABOVE_MAXIMUM` | 422 | every value write | A number outside the attribute's declared `minimum` or `maximum` (J02.5) |
+| `MISSING_REQUIRED_ATTRIBUTES` | 422 | create, update, type change | A value the type requires is absent; the message names the fields (J03) |
+| `OBJECT_ATTRIBUTE_RULE_VIOLATION` | 422 | create, update, single-value writes, type change | An `atLeastOneOf` rule is not met; `details` `rule` and `attributeTypeKeys` (J02.5, J03) |
+| `DUPLICATE_INITIAL_RELATION` | 422 | `POST /objects`, batch creates | `initialRelations` repeats one relationship (type, direction and record), live and in a change set alike (J03.4) |
+| `INVALID_RELATION_PAIR` | 422 | relation create, `initialRelations` | The model allows no relationship of that type between the two records' types (J13.3) |
+| `RELATION_WRONG_SCOPE` | 422 | relation create, `initialRelations` | The two records are in different workspaces (J13) |
+| `RELATION_ENDPOINT_MISSING` | 422 | relation create, `initialRelations` | An end names a record the context does not hold, live and in a change set alike (decided 2026-10-03, H4c); change-set validation reports it as a diagnostic (J13.3, J05) |
+| `CHANGE_SET_SOURCE_INVALID` | 422 | `POST /workspaces/{key}/change-sets` | `source` is not `currentLive` or `publication`, a publication source lacks `sourcePublicationId`, or a current-live source names one (J05) |
+| `CHANGE_SET_BASE_INVALID` | 409 | mapping reads in a change set | The change set's base, or its base publication, is missing or belongs to another workspace: a damaged change set (J10) |
+| `CHILD_TYPE_NOT_ALLOWED` | 422 | `changeType`, restructuring | The new type cannot contain one of the record's children; the restructuring plan reports it as `noPossibleType` (J15) |
+| `REQUIRED_RELATION_WITHOUT_PLACE` | 422 | `changeType`, restructuring | The new type cannot hold a relationship another record requires (J15) |
+| `RELATION_ALREADY_EXISTS` | 409 | change back in a change set | A relationship the change back restores already exists in the change set (J15.1) |
+| `WORKSPACE_ALREADY_EXISTS` | 409 | `POST /workspaces` | The key is taken, by an active or a retired workspace (J19) |
+| `DEFAULT_WORKSPACE_CANNOT_BE_RETIRED` | 409 | `PATCH /workspaces/{key}` | Retiring the default workspace (J19) |
+| `MAPPING_VIEW_REQUIRED` | 422 | `GET /workspaces/{key}/mapping-targets` | `applicationKey` and `viewKey` must come together (J10) |
+| `INCOMPLETE_VIEW_IDENTITY` | 422 | `GET /workspaces/{key}/relations` | `applicationKey` and `viewKey` must come together (J22.2) |
+| `MAPPING_VIEW_NOT_FOUND` | 404 | mapping reads, the edge list | The view is not a relationship view of that application in the selected model (J10, J22.2) |
+| `MAPPING_VIEW_BINDING_MISMATCH` | 422 | mapping reads | The relationship type, types or direction differ from the view's (J10) |
+| `MAPPING_BINDING_NOT_FOUND` | 404 | mapping reads | The model allows no such relationship between the named types (J10) |
+| `MAPPING_CANDIDATE_TYPE_MISMATCH` | 422 | `GET /workspaces/{key}/mapping-candidates` | The candidate type is not the view's target side (J10.3) |
+| `MAPPING_PARENT_NOT_FOUND` | 404 | `GET /workspaces/{key}/mapping-coverage` | `parentObjectId` is not in the selected context (J10) |
+| `MAPPING_PARENT_SCOPE_MISMATCH` | 422 | `GET /workspaces/{key}/mapping-coverage` | That parent's type cannot contain the view's source records (J10) |
+| `MAPPING_SOURCE_NOT_FOUND` | 404 | `GET /workspaces/{key}/mapping-targets` | The source record is not in the selected context (J10) |
+| `MAPPING_ENDPOINT_NOT_FOUND` | 404 | `PUT /workspaces/{key}/mappings` | The source or a target is not in the context (J10) |
+| `MAPPING_ENDPOINT_TYPE_MISMATCH` | 422 | `PUT /workspaces/{key}/mappings` | The source or a target is not of the binding's type (J10) |
+| `FEED_POSITION_AHEAD` | 409 | `GET /workspaces/{key}/feed` | `after` is past the feed's head; `details.headPosition` (J26) |
 
 ## Relation endpoints
 
@@ -1613,19 +1616,19 @@ the related record (the other end of each relation), in live, change-set and pub
   orders by the label each row shows: the relation type's `name` when the anchor is the source, its
   `reverseName` otherwise. Label sorts break ties by name. Prefix `-` for descending. Records without
   the value come last in either direction. `createdAt` and `updatedAt` (the related record's) are
-  live only; change sets and publications record no timestamps, so they answer `422 invalid_sort`.
+  live only; change sets and publications record no timestamps, so they answer `422 INVALID_SORT`.
 - An attribute sort over several related types puts records whose type lacks the attribute last. An
   ancestor sort needs the listed relations to reach one object type, decided by the anchor record's
   type, `direction` and `relationTypeKey` from the model's allowed relations; otherwise
-  `422 invalid_sort`. An `ancestor:<type>` the related type cannot sit under is refused too.
+  `422 INVALID_SORT`. An `ancestor:<type>` the related type cannot sit under is refused too.
 - Without `sort` the list is in name order in every context. Ties break on the relation.
 - `seek` takes a value of the sorted field (a name by default).
 
 Change-set and publication relation items carry the related record's `path`, as live items do. A relation page
-for a record the context does not hold answers `404 object_not_found` in every context. Change set and
+for a record the context does not hold answers `404 OBJECT_NOT_FOUND` in every context. Change set and
 history continuations add their selected context identity; live continuations do not bind an active
 publication or model. Publication alone does not invalidate a live continuation. Malformed or
-mismatched cursors return `422 invalid_cursor`; cursors issued before S4R1 are refused. Live, the
+mismatched cursors return `422 INVALID_CURSOR`; cursors issued before S4R1 are refused. Live, the
 anchor must be in the selected workspace and the related record is joined in it before projection,
 preventing a corrupt or legacy cross-workspace edge from being exposed.
 
@@ -1641,21 +1644,21 @@ record's set and claims its version on a create, a delete or a batch's `replaceR
 a matrix or mapping view. In a change set the versions are the change set's own. A publication is
 read-only and names none.
 
-A relation type the model does not declare is `422 unknown_relation_type` on every write, live and in
+A relation type the model does not declare is `422 UNKNOWN_RELATION_TYPE` on every write, live and in
 a change set (`GET /relation-types/{key}` answers an unknown key with `404`).
 Relation creation validates the relation type, source and target object types, workspace, cardinality,
 configured ancestor-scoped uniqueness and relation attributes. A relation of the type already joining
-the same two records is `409 duplicate_relation`, live and in a change set (Base 0.9 B3; live it
+the same two records is `409 DUPLICATE_RELATION`, live and in a change set (Base 0.9 B3; live it
 answered `500` before). Relation attribute keys must appear in
 the matched allowed pair's `attributeTypeKeys`; values are normalized and validated using the referenced
-global attribute-type definitions. Undeclared keys return `422 unknown_relation_attributes`, and type or
+global attribute-type definitions. Undeclared keys return `422 UNKNOWN_RELATION_ATTRIBUTES`, and type or
 numeric-bound failures use the same errors as object attributes.
 `fromObjectId` and `toObjectId` must be UUID v4. Parent relations are normally created through object
 parent operations rather than directly.
 
 Each relation response carries a stable public `id`, the relation type, source and target object ids,
 the relation `attributes` and an optimistic-concurrency `version`. `GET /api/v1/relations/{relationId}`
-reads one relation; an unknown id returns `404 relation_not_found`.
+reads one relation; an unknown id returns `404 RELATION_NOT_FOUND`.
 
 `PATCH /api/v1/relations/{relationId}` accepts `{"attributes": {...}, "expectedVersion": n,
 "changeSetId": "...", "expectedChangeSetVersion": n}`. The
@@ -1663,13 +1666,13 @@ example is change-set-scoped; omit its two change set fields for a live update. 
 (`relationTypeKey`, `fromObjectId`, `toObjectId`) is immutable; only `attributes`
 can be replaced. Replacement attributes are validated against the original allowed pair in the same
 transaction as the version claim. `DELETE` returns 204 and removes the relation row. Both mutations
-take `expectedVersion` and claim it under the workspace's write lock, returning `409 version_conflict`
+take `expectedVersion` and claim it under the workspace's write lock, returning `409 VERSION_CONFLICT`
 when the claim is stale; an update checks the version before its attributes (Base 0.9 B3, as change
 sets did).
 
 Engine-maintained parent-containment and hierarchy relations — those named in the target object type's
 `behavior.parentRelationTypeKeys` and written atomically on parent changes — are read-only through this
-API. Creating, updating or deleting them directly returns `422 immutable_relation`; changing them is
+API. Creating, updating or deleting them directly returns `422 IMMUTABLE_RELATION`; changing them is
 done through object parent operations.
 
 Create and delete may also claim one end's relation set (ADR-022, Base 0.8 A3): with
@@ -1677,23 +1680,23 @@ Create and delete may also claim one end's relation set (ADR-022, Base 0.8 A3): 
 `DELETE`), the write succeeds only while the set anchored at that end — `outgoing` is the from end's,
 `incoming` the to end's, for the relation's exact binding and context — is still at the version the
 caller read, such as a relation matrix row's `relationSetVersion`. A newer set refuses the whole write
-with `409 relation_set_version_conflict` and `details` `anchorObjectId`, `direction` and the current
-`relationSetVersion`; naming only one of the two is `422 relation_set_claim_incomplete`. A claimed
+with `409 RELATION_SET_VERSION_CONFLICT` and `details` `anchorObjectId`, `direction` and the current
+`relationSetVersion`; naming only one of the two is `422 RELATION_SET_CLAIM_INCOMPLETE`. A claimed
 create responds with the set's new `relationSetVersion`. Without a claim, a write still advances both
 ends' sets, as does every relation an object create adds through `initialRelations`.
 
 A breach of a binding's `uniqueToAncestorTypeKey` scope in live data, on a relation create, an object
 create with `initialRelations`, an object edit, a move or a set replacement, returns
-`409 duplicate_relation_scope` with `details` `ancestorObjectTypeKey`, `ancestorObjectId`, and the
+`409 DUPLICATE_RELATION_SCOPE` with `details` `ancestorObjectTypeKey`, `ancestorObjectId`, and the
 record already in the scope as `conflictingObjectId` with its relation `conflictingRelationId`. A
 change set is a draft and holds the same breach, so its edits can come in any order (a new owner
 added before the old one is removed): the write succeeds, the relation matrix shows the cell as
 `several` with `conflict`, and validation and publishing report it as a diagnostic with
-`conflictingObjectId` (publishing refuses with `422 workspace_graph_invalid`). A related record with
-no ancestor of the scope type is refused at once in both (`422 relation_ancestor_required`).
+`conflictingObjectId` (publishing refuses with `422 WORKSPACE_GRAPH_INVALID`). A related record with
+no ancestor of the scope type is refused at once in both (`422 RELATION_ANCESTOR_REQUIRED`).
 Decided 2026-10-03 (H4c).
 
-A required non-parent relation returns `422 required_relation` when independently deleted. It is part
+A required non-parent relation returns `422 REQUIRED_RELATION` when independently deleted. It is part
 of the dependent graph's validity and ownership semantics; delete or replace the dependent object
 through the owning workflow instead.
 
@@ -1712,7 +1715,7 @@ Each history item contains `id`, `aggregateType`, public `aggregateId`, `action`
 (`{"kind": "publication", "id": …}`, Base 0.9 F1, D15). `attributeTypeKeys` names affected object or
 relation attributes without returning their values. The response deliberately omits the internal
 sequence ID and complete before/after values. History cursors are signed and bound to the object
-identity, type and workspace; mismatches return `422 invalid_cursor`.
+identity, type and workspace; mismatches return `422 INVALID_CURSOR`.
 
 ## Batches and jobs (Base 0.9 B1, B2, B3)
 
@@ -1748,13 +1751,13 @@ GET  /api/v1/jobs/{jobId}/items?status=…               outcomes in item order,
 ```
 
 - **Context:** `workspaceKey` for live data, or `changeSetId` with `expectedChangeSetVersion`;
-  exactly one (`422 invalid_batch_context`; a change set without its version is
-  `409 change_set_required`). A job in a change set claims the version once for all its items: it
+  exactly one (`422 INVALID_BATCH_CONTEXT`; a change set without its version is
+  `409 CHANGE_SET_REQUIRED`). A job in a change set claims the version once for all its items: it
   advances by one when anything changed, and not at all otherwise.
 - **`policy`** (required, no default): `atomic` applies every item or none; `independent` applies each
   item on its own. Items apply in order, each against the data the items before it left, so a later
   item sees an earlier applied one (a child after its parent). In `atomic` the first rejection rolls
-  everything back and every other item is `unprocessed` (`batch_rolled_back`).
+  everything back and every other item is `unprocessed` (`BATCH_ROLLED_BACK`).
 - **`run`** (required): `inline` runs the job in the request and answers `200` with its outcomes;
   `background` queues it and answers `202` with the job ([Background jobs](#background-jobs)). The
   size never switches the run.
@@ -1763,14 +1766,14 @@ GET  /api/v1/jobs/{jobId}/items?status=…               outcomes in item order,
 - **`Idempotency-Key`** header (optional, 1–200 printable characters), scoped to the route and the
   workspace. The same key with the same request answers the original job's response again with
   `Idempotent-Replayed: true` and runs nothing (a background job: `202` with the job as it is now);
-  with another request it is `422 idempotency_key_reused`; while its job is queued or running,
-  `409 idempotency_in_progress` with `Retry-After`. A key lives as long as its job; past retention it
+  with another request it is `422 IDEMPOTENCY_KEY_REUSED`; while its job is queued or running,
+  `409 IDEMPOTENCY_IN_PROGRESS` with `Retry-After`. A key lives as long as its job; past retention it
   counts as new. Without a key, retrying a `create` without an
   `id` can create the record twice; an upsert, or a create with an `id`, is safe to retry.
 - **Limits** (settings, reported by `GET /capabilities` as `integrationJobs.limits`): inline,
   `BATCH_MAX_ITEMS` (1,000) and `BATCH_MAX_BYTES` (5 MB body); background, `BACKGROUND_JOB_MAX_ITEMS`
   (1,000,000) and `BATCH_BACKGROUND_MAX_BYTES` (50 MB body); either run, `ATOMIC_JOB_MAX_ITEMS`
-  (10,000) for `atomic`. Over a limit is `413 batch_too_large` with `details.setting`,
+  (10,000) for `atomic`. Over a limit is `413 BATCH_TOO_LARGE` with `details.setting`,
   `details.maximum` and the request's `items` or `bytes`. `chunkItems` reports `JOB_CHUNK_ITEMS`.
 
 ### Items
@@ -1784,7 +1787,7 @@ batch's context as it stands when the item runs.
 | `create` | `applicationKey`, `objectTypeKey`, `name`; optional `id`, `parent` (reference), `attributes`, `initialRelations` (`relationTypeKey`, `direction`, `object` reference, `attributes`) | `POST /objects` |
 | `update` | `target` (reference), `expectedVersion`; optional `name`, `parent` (reference, or `null` for the top level), `attributes` | `PATCH /objects/…`: only the fields given change |
 | `upsert` | `applicationKey`, `objectTypeKey`, `key`, `name`; optional `parent`, `attributes`, `initialRelations`, `expectedVersion` | Finds the record by `key` and updates it as `update`, or creates it as `create`. `key` is `{ "id": "…" }` (the ID a new record gets) or `{ "attributeTypeKey": "…" }`, a unique attribute whose value the item's `attributes` supply. `initialRelations` are used only when it creates; an absent `parent` keeps an existing record where it is |
-| `delete` | `target`, `expectedVersion` | `DELETE` without `cascade`: a record with dependants is `object_has_dependants`; delete children first |
+| `delete` | `target`, `expectedVersion` | `DELETE` without `cascade`: a record with dependants is `OBJECT_HAS_DEPENDANTS`; delete children first |
 | `createRelation` | `relationTypeKey`, `from`, `to` (references); optional `attributes`, `expectedRelationSetVersion` with `relationSetDirection` | `POST /relations` |
 | `ensureRelation` | `relationTypeKey`, `from`, `to`; optional `attributes`, `expectedVersion` | Creates the relationship unless one of the type already joins the two records; then `unchanged` when `attributes` are omitted or equal, otherwise an update of its attributes |
 | `updateRelation` | `id`, `expectedVersion`, `attributes` | `PATCH /relations/{id}`: the attributes are replaced |
@@ -1794,34 +1797,34 @@ batch's context as it stands when the item runs.
 An item's validation, refusals and audit entries are its single write's. An update or upsert whose
 name, parent and values equal the record's is applied as `unchanged`, whatever its version claim: it
 writes no version, audit entry or change. Otherwise an update needs a current `expectedVersion`
-(`version_conflict`), and an upsert that finds a record needs one too (`version_required`) unless the
+(`VERSION_CONFLICT`), and an upsert that finds a record needs one too (`VERSION_REQUIRED`) unless the
 request declares `onExisting: "overwrite"`; then it writes over the version it read, reports it as
 `previousVersion` and records it in the audit entry. An upsert never changes a record's type or
-application (`reference_type_mismatch`).
+application (`REFERENCE_TYPE_MISMATCH`).
 
 Relationship items are decided as the single relationship writes decide them, with the same codes,
 and written in bulk with the object items around them, so a chunk costs a constant number of
 statements whatever its mix (D35). An `ensureRelation` that would change a relationship's values
-needs its `expectedVersion`, or `onExisting: "overwrite"` (`version_required` otherwise; an
+needs its `expectedVersion`, or `onExisting: "overwrite"` (`VERSION_REQUIRED` otherwise; an
 overwrite reports `previousVersion`). A claimed set (`expectedRelationSetVersion` with
 `relationSetDirection`, or a `replaceRelationSet`'s version) is checked against the set as the items
-before it leave it (`409 relation_set_version_conflict` with `anchorObjectId`, `direction` and the
+before it leave it (`409 RELATION_SET_VERSION_CONFLICT` with `anchorObjectId`, `direction` and the
 current `relationSetVersion`); [the record's relationship list](#relation-endpoints) names every
-set's version. A containment relationship is never an item (`immutable_relation`): a parent changes
+set's version. A containment relationship is never an item (`IMMUTABLE_RELATION`): a parent changes
 through an object's `parent`.
 
 **`replaceRelationSet`.** A target the anchor already relates to keeps its relationship: omitted
 `attributes` keep its values, an explicit object replaces them. The others are removed and the new
 ones created in the listed order, each checked as a single create over what came before, so
-cardinality at either end (`cardinality_violation`), ancestor scope (`duplicate_relation_scope`,
-`relation_ancestor_required`) and the values answer with their single codes, pointing at
+cardinality at either end (`CARDINALITY_VIOLATION`), ancestor scope (`DUPLICATE_RELATION_SCOPE`,
+`RELATION_ANCESTOR_REQUIRED`) and the values answer with their single codes, pointing at
 `/items/{i}/targets/{j}`. A set equal to the targets is `unchanged`, whatever its version claim;
 otherwise `expectedRelationSetVersion` must be the set's version, or the request declares
-`onExisting: "overwrite"` (`version_required` otherwise). Refused as well: a required-ownership
-binding (`required_ownership_binding`), an empty set on a required binding, or removing a
-relationship whose other record requires one and has no other (`required_relation`, with
-`details.objectId`), a record listed twice (`duplicate_relation`), and an anchor or target of
-another type than the binding's end (`reference_type_mismatch`). The anchor's set advances by one,
+`onExisting: "overwrite"` (`VERSION_REQUIRED` otherwise). Refused as well: a required-ownership
+binding (`REQUIRED_OWNERSHIP_BINDING`), an empty set on a required binding, or removing a
+relationship whose other record requires one and has no other (`REQUIRED_RELATION`, with
+`details.objectId`), a record listed twice (`DUPLICATE_RELATION`), and an anchor or target of
+another type than the binding's end (`REFERENCE_TYPE_MISMATCH`). The anchor's set advances by one,
 and each record whose own set changed by one. Each relationship removed, changed or created gets
 its audit entry and feed entry, and one `transition` entry in the anchor's history names the
 previous and new targets (not in the feed).
@@ -1831,7 +1834,7 @@ previous and new targets (not in the feed).
 A processed batch answers `200` with the finished job and the first page of its outcomes (up to
 1,000; later pages from `GET /jobs/{id}/items`). Read `job.result`: `applied` (every item),
 `partial` or `rejected` (none). A request refused as a whole creates no job; that includes a model
-release activated while it ran (`409 model_release_changed`, nothing saved).
+release activated while it ran (`409 MODEL_RELEASE_CHANGED`, nothing saved).
 
 ```json
 {
@@ -1839,9 +1842,9 @@ release activated while it ran (`409 model_release_changed`, nothing saved).
     { "index": 0, "ref": "row-2", "status": "applied", "action": "created",
       "id": "…", "objectTypeKey": "codelist", "version": 1 },
     { "index": 1, "ref": "row-3", "status": "rejected",
-      "error": { "code": "duplicate_attribute_value", "message": "…",
+      "error": { "code": "DUPLICATE_ATTRIBUTE_VALUE", "message": "…",
                  "details": { "pointer": "/items/1/attributes", "…": "…" } } },
-    { "index": 2, "ref": null, "status": "unprocessed", "reason": "batch_rolled_back" }
+    { "index": 2, "ref": null, "status": "unprocessed", "reason": "BATCH_ROLLED_BACK" }
   ],
   "nextCursor": null, "prevCursor": null, "anchor": "…",
   "job": {
@@ -1864,8 +1867,8 @@ overwrite, `previousVersion`. A relationship item's has `relationId`, the relati
 (none after a delete) and, when it claimed a set, the set's new `relationSetVersion`. A
 `replaceRelationSet`'s has `action` `updated` or `unchanged`, the anchor's `relationSetVersion` and
 `relationIds` (`created`, `kept`, `removed`). `rejected`: `error` with the single write's code, or one of
-`invalid_record_key`, `missing_record_key`, `reference_not_found`, `reference_type_mismatch` and
-`version_required`; `details.pointer` is a JSON pointer into the request. `unprocessed`: `reason`.
+`INVALID_RECORD_KEY`, `MISSING_RECORD_KEY`, `REFERENCE_NOT_FOUND`, `REFERENCE_TYPE_MISMATCH` and
+`VERSION_REQUIRED`; `details.pointer` is a JSON pointer into the request. `unprocessed`: `reason`.
 Every audit entry an item writes names the job as its cause (`cause: {"kind": "job", "id"}` in object
 history). A job's outcomes and idempotency key are kept for `JOB_RETENTION_DAYS` (7) after it
 finishes; `expiresAt` says until when. Then the job is `expired`: its summary (`counts`, `result`,
@@ -1889,21 +1892,21 @@ activated meanwhile) creates no job. A worker in the API process then runs it:
 - **In a change set** the job holds the change set's claim: each chunk that changes something
   advances the version by one, and `changeSetVersion` is the version the job holds (its claim while
   it runs, the version it left once finished). A write to the change set by anyone else between
-  chunks makes the job `failed` with `change_set_version_conflict`.
+  chunks makes the job `failed` with `CHANGE_SET_VERSION_CONFLICT`.
 - **Stops.** Before each chunk the worker reads the job. A cancel request finishes it `cancelled`;
   a model release no longer the one the job pinned (live: the active release; in a change set: the
-  change set's) makes it `failed` with `error.code` `model_release_changed`; another refusal of its
+  change set's) makes it `failed` with `error.code` `MODEL_RELEASE_CHANGED`; another refusal of its
   context (a retired workspace, a lost change set claim) makes it `failed` with that error; any other
-  failure rolls back the chunk and makes it `failed` with `job_failed` and `details.correlationId`,
-  the log entry's. Items the job did not reach are `unprocessed` with `job_cancelled`,
-  `model_release_changed` or `job_failed`; chunks committed before stay applied, and `result` says
+  failure rolls back the chunk and makes it `failed` with `JOB_FAILED` and `details.correlationId`,
+  the log entry's. Items the job did not reach are `unprocessed` with `JOB_CANCELLED`,
+  `MODEL_RELEASE_CHANGED` or `JOB_FAILED`; chunks committed before stay applied, and `result` says
   what applied. `progress.processed` equals `progress.total` once the job is finished.
 
 `POST /jobs/{jobId}/cancel` answers `202` with the job and `cancelRequestedAt` set; it waits for no
 chunk. The worker carries it out at the job's next chunk (a queued job before its first item); an
 `atomic` job looks for it before every 500 items it decides and before it writes them, and rolls
 back completely. Cancelling again changes nothing; a
-finished job is `409 job_finished` with `details.state`, an unknown one `404 job_not_found`.
+finished job is `409 JOB_FINISHED` with `details.state`, an unknown one `404 JOB_NOT_FOUND`.
 
 ## Change feed (Base 0.9 F1, F2)
 
@@ -1974,12 +1977,12 @@ The reader is caught up when `nextAfter` equals `headPosition`. An entry:
 - **`modelReleaseId`** is the release the change ran under.
 
 **Refusals:**
-- an unknown workspace: `404 workspace_not_found`
-- `after` below 0, or `pageSize` out of range: `422 request_validation_error`
-- `after` past the head: `409 feed_position_ahead`, with `details.headPosition` (D33). Such a position
+- an unknown workspace: `404 WORKSPACE_NOT_FOUND`
+- `after` below 0, or `pageSize` out of range: `422 REQUEST_VALIDATION_ERROR`
+- `after` past the head: `409 FEED_POSITION_AHEAD`, with `details.headPosition` (D33). Such a position
   was not read from this workspace's feed, or the database was restored to an earlier state; the
   reader re-reads a baseline.
-- `after` below `earliestPosition − 1`, `0` included: `410 feed_position_expired` (see Retention).
+- `after` below `earliestPosition − 1`, `0` included: `410 FEED_POSITION_EXPIRED` (see Retention).
 
 **Retention and recovery (F2, D8, D40).** Entries older than `FEED_RETENTION_DAYS` (default 30,
 reported as `changeFeed.retentionDays` by `GET /capabilities`) expire from the feed; record history
@@ -1991,7 +1994,7 @@ before the feed existed) has nothing to re-read, so nothing expires and `earlies
 ```json
 {
   "error": {
-    "code": "feed_position_expired",
+    "code": "FEED_POSITION_EXPIRED",
     "message": "Position 0 has expired: the feed answers from position 500001 on. …",
     "details": {
       "earliestPosition": 500001,
@@ -2053,8 +2056,8 @@ endpoint. Composed acceptance remains in WP-9. WP-1–WP-3 scopes remain frozen.
   optional `cursor`, `pageSize` (1–100; default 20), and one optional `changeSetId` or
   `publicationId`.
   It returns the page's `items` and [paging fields](#collection-paging), then `mappingVersion` and `targetCount`. An observed-version mismatch returns
-  `409 mapping_version_conflict` with an instruction to refresh coverage and the current version in
-  `error.details.mappingVersion`. A cursor for another version, anchor or context is `422 invalid_cursor`.
+  `409 MAPPING_VERSION_CONFLICT` with an instruction to refresh coverage and the current version in
+  `error.details.mappingVersion`. A cursor for another version, anchor or context is `422 INVALID_CURSOR`.
   Confirmed live/change-set object cascade deletion advances both directional set versions for every
   removed edge, so existing continuations also require refresh after a cascade. Preview, refused
   and stale-delete requests leave set versions unchanged.
@@ -2117,7 +2120,7 @@ the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
     source/target display columns enrich the `fields` dict). Without a view, default projection returns
     `id`, `objectTypeKey`, `name` and an empty `fields` dict.
   - `changeSetId` or `publicationId` — read a change set or an immutable publication instead of live
-    data; both together are `422 mutually_exclusive_context`. A cursor binds its context.
+    data; both together are `422 MUTUALLY_EXCLUSIVE_CONTEXT`. A cursor binds its context.
   - `search` — case-insensitive substring on source or target name (max 500 characters).
   - `cursor`, `pageSize` (1–100; defaults to 20 without a view, or the view's configured page size).
 - Returns the standard page. Each item contains `relationId`, `relationTypeKey`, `direction`
@@ -2163,31 +2166,31 @@ the preview. A candidate page is `{items: [object-summary, ...], nextCursor}`.
 - Returns `{sourceObjectId, mappingVersion, state, relationId?, changeSetVersion?}`. State is
   `"mapped"` or `"unmapped"`.
 - Validates workspace status, endpoint identities and the effective model. Rejects containment
-  bindings (`422 immutable_relation`) and required-ownership bindings
-  (`422 required_ownership_binding`). Clearing a required relation is `422 required_relation`, and
+  bindings (`422 IMMUTABLE_RELATION`) and required-ownership bindings
+  (`422 REQUIRED_OWNERSHIP_BINDING`). Clearing a required relation is `422 REQUIRED_RELATION`, and
   so is replacing a required relation whose other record has no other one (D36, Base 0.9 B3), with
   `details.objectId` naming that record.
 - Direction-aware cross-cardinality is enforced: one-to-one always; one-to-many on outgoing
-  direction only. Violations return `409 cardinality_violation`. Ancestor-scoped uniqueness is
+  direction only. Violations return `409 CARDINALITY_VIOLATION`. Ancestor-scoped uniqueness is
   validated against the final graph, excluding edges being replaced. Duplicate scopes return
-  `409 duplicate_relation_scope`; a missing required ancestor returns `422 relation_ancestor_required`
+  `409 DUPLICATE_RELATION_SCOPE`; a missing required ancestor returns `422 RELATION_ANCESTOR_REQUIRED`
   in both mapping and generic relation writes, live or change set.
-- Tokens are checked before no-op detection. A stale mapping token returns `409 mapping_version_conflict`
+- Tokens are checked before no-op detection. A stale mapping token returns `409 MAPPING_VERSION_CONFLICT`
   with `{mappingVersion, targetCount, targets (≤20), targetsNextCursor}` in error details and no
-  changes. Change set aggregate conflicts remain distinct (`409 change_set_version_conflict`).
+  changes. Change set aggregate conflicts remain distinct (`409 CHANGE_SET_VERSION_CONFLICT`).
   Large conflict sets include a signed continuation cursor and the selected `applicationKey`/`viewKey`;
   pass these with the binding, source and returned version to `GET /mapping-targets`. When no mapping
   view exists, omit both view keys for a binding-only name projection. Coverage and candidate reads
   still require a declared view. Supplying only one view key is rejected. Explicit empty view keys
   are supplied identities and fail lookup; they never select the binding-only fallback.
-  Change set context requires `expectedChangeSetVersion` (`409 change_set_required` if omitted).
+  Change set context requires `expectedChangeSetVersion` (`409 CHANGE_SET_REQUIRED` if omitted).
 - Preserves the selected existing relation identity when the target is retained, removes obsolete
   edges, updates selected attributes or creates a new edge. Maintains all affected outgoing/incoming
   set versions atomically without double increments: the source anchor is incremented once per
   direction, each affected target is incremented once in the opposite direction.
 - Omitted `attributes` preserve a retained edge's values; for a new edge they supply no explicit
   values and normal defaults/validation apply. An explicit attribute object replaces the complete set;
-  `{}` clears. Null target with non-empty attributes is `422 invalid_clear_attributes`. Typed writes
+  `{}` clears. Null target with non-empty attributes is `422 INVALID_CLEAR_ATTRIBUTES`. Typed writes
   use the canonical validation boundary. An identical complete state with valid tokens is a no-op
   with no version increment or audit event.
 - Changes record underlying per-relation audit events (created/updated/deleted) and one mapping
@@ -2209,20 +2212,20 @@ record. Everything comes from the view and its binding.
 
 | Parameter | Meaning |
 | --- | --- |
-| `applicationKey`, `viewKey` | Required; an unknown application is `404 unknown_application`, an unknown view, or a view of another type, `404 relation_matrix_view_not_found`. |
-| `changeSetId` or `publicationId` | Optional read context; both together are `422 mutually_exclusive_context`. |
-| `parentObjectId` | Only rows directly under this record. A record missing from the context is `404 relation_matrix_parent_not_found`; one whose type cannot contain the row type is `422 relation_matrix_parent_scope_mismatch`. |
+| `applicationKey`, `viewKey` | Required; an unknown application is `404 UNKNOWN_APPLICATION`, an unknown view, or a view of another type, `404 RELATION_MATRIX_VIEW_NOT_FOUND`. |
+| `changeSetId` or `publicationId` | Optional read context; both together are `422 MUTUALLY_EXCLUSIVE_CONTEXT`. |
+| `parentObjectId` | Only rows directly under this record. A record missing from the context is `404 RELATION_MATRIX_PARENT_NOT_FOUND`; one whose type cannot contain the row type is `422 RELATION_MATRIX_PARENT_SCOPE_MISMATCH`. |
 | `search` | Case-insensitive "contains" match on the view's `searchFields` only. |
 | `sort` | A row field as on an [object list](#collection-paging); name when omitted. |
-| `columnIds` | Repeated; the column records to show, in order, at most 20 (`422 too_many_columns`, `422 duplicate_column_ids`). An ID that is not a column-type record in the context is `404 relation_matrix_column_not_found` with the IDs in `details.columnIds`. |
-| `columnCursor`, `columnPageSize` | Without `columnIds`, the columns are a name-ordered page of the column type's records (`columnPageSize` 1–20, default 20); pass `columnsNextCursor` or `columnsPrevCursor` back as `columnCursor`. Naming both `columnIds` and `columnCursor` is `422 conflicting_column_parameters`. |
-| `state` | `one`, `several`, `inactive`, `historyOnly` or `none`: only rows with a cell in that state in any of `columnIds`, decided over every row before paging, so totals count the filtered rows. Requires `columnIds` (`422 relation_matrix_state_requires_columns`). |
+| `columnIds` | Repeated; the column records to show, in order, at most 20 (`422 TOO_MANY_COLUMNS`, `422 DUPLICATE_COLUMN_IDS`). An ID that is not a column-type record in the context is `404 RELATION_MATRIX_COLUMN_NOT_FOUND` with the IDs in `details.columnIds`. |
+| `columnCursor`, `columnPageSize` | Without `columnIds`, the columns are a name-ordered page of the column type's records (`columnPageSize` 1–20, default 20); pass `columnsNextCursor` or `columnsPrevCursor` back as `columnCursor`. Naming both `columnIds` and `columnCursor` is `422 CONFLICTING_COLUMN_PARAMETERS`. |
+| `state` | `one`, `several`, `inactive`, `historyOnly` or `none`: only rows with a cell in that state in any of `columnIds`, decided over every row before paging, so totals count the filtered rows. Requires `columnIds` (`422 RELATION_MATRIX_STATE_REQUIRES_COLUMNS`). |
 | `pageSize`, `cursor`, `from`, `position`, `seek`, `includeTotal` | Row paging, as every [collection](#collection-paging); `pageSize` 1–100 defaults to the view's. |
 
 Rows are every record of the row type in the workspace context, including records another
 application created: an application may list a type another one owns. Row cursors bind the context,
 model, view, parent scope, search, sort, `columnIds` and `state`; column cursors bind the context,
-model and view. A cursor used with other values is `422 invalid_cursor`.
+model and view. A cursor used with other values is `422 INVALID_CURSOR`.
 
 Each cell reports one state (D11), decided from the binding alone:
 
@@ -2296,11 +2299,11 @@ transaction; the view's `cellActions` say which a client offers:
 | `link` | `POST /api/v1/relations` between the row and a candidate, claiming the row's set: `expectedRelationSetVersion` is the row's `relationSetVersion`, `relationSetDirection` the view's `direction`. |
 | `unlink` | `DELETE /api/v1/relations/{relationId}` with the cell record's `relationVersion` as `expectedVersion` and the same claim. |
 
-A stale record, relation or set version is `409 version_conflict` or `409
-relation_set_version_conflict`; a uniqueness breach is `409 duplicate_relation_scope` naming the
+A stale record, relation or set version is `409 VERSION_CONFLICT` or `409
+RELATION_SET_VERSION_CONFLICT`; a uniqueness breach is `409 DUPLICATE_RELATION_SCOPE` naming the
 record already in the scope (`conflictingObjectId`). A breach staged in a change set, including one a
 moved container brings under another column record, shows as a `several` cell with `conflict` and is
-reported by validation and refused at publishing (`422 workspace_graph_invalid`), leaving the
+reported by validation and refused at publishing (`422 WORKSPACE_GRAPH_INVALID`), leaving the
 change set in place.
 
 `GET /api/v1/workspaces/{workspaceKey}/relation-matrix/containers` lists where a new cell record can
@@ -2309,8 +2312,8 @@ through the container types only, in path order.
 
 | Parameter | Meaning |
 | --- | --- |
-| `applicationKey`, `viewKey` | Required, as for the matrix. A view without `create` in `cellActions` is `422 relation_matrix_action_not_allowed`. |
-| `columnId` | Required; a column-type record in the context, else `404 relation_matrix_column_not_found`. |
+| `applicationKey`, `viewKey` | Required, as for the matrix. A view without `create` in `cellActions` is `422 RELATION_MATRIX_ACTION_NOT_ALLOWED`. |
+| `columnId` | Required; a column-type record in the context, else `404 RELATION_MATRIX_COLUMN_NOT_FOUND`. |
 | `changeSetId` | Optional; writes happen live or in a change set, so there is no publication context. |
 | `search` | Case-insensitive "contains" match on the container's name. |
 | `pageSize` (1–100, default 50), `cursor`, `from`, `position`, `includeTotal` | [Collection paging](#collection-paging). Cursors bind the context, view, column and search. |
@@ -2321,8 +2324,8 @@ container, whatever the search and page, and is `null` when it has none or sever
 
 `GET /api/v1/workspaces/{workspaceKey}/relation-matrix/link-candidates` lists the cell-type records
 under a column record that a row could be linked to, in name order, with the same parameters plus
-`rowId` (a row-type record in the context, else `404 relation_matrix_row_not_found`); a view without
-`link` is `422 relation_matrix_action_not_allowed`. Each item has `id`, `objectTypeKey`, `name`,
+`rowId` (a row-type record in the context, else `404 RELATION_MATRIX_ROW_NOT_FOUND`); a view without
+`link` is `422 RELATION_MATRIX_ACTION_NOT_ALLOWED`. Each item has `id`, `objectTypeKey`, `name`,
 `version`, `path`, the view's `cellFields` as `fields`, and `eligible`. An ineligible candidate is
 listed, so totals stay truthful, with a `reason`:
 
@@ -2379,12 +2382,12 @@ The rest of the body:
   "relationTypeKey", "direction", "objectId" }] }]`, per record, in the shapes of object creation's
   `attributes` and `initialRelations`. A `null` value for an optional attribute leaves it empty.
 - `expectedChangeSetVersion` (required on apply; optional on the preview, which then answers `409
-  change_set_version_conflict` when the change set has moved on, and otherwise reports the version it
+  CHANGE_SET_VERSION_CONFLICT` when the change set has moved on, and otherwise reports the version it
   read).
 - Apply only: `planDigest` from the preview.
 - Preview only: `outcome` (a list filtering `records`), `pageSize` (1–500, default 100) and the
   [paging](#collection-paging) fields `cursor`, `position`, `from` and `includeTotal`, one of
-  `cursor`, `position` and `from: "end"` at a time (`422 conflicting_page_parameters`).
+  `cursor`, `position` and `from: "end"` at a time (`422 CONFLICTING_PAGE_PARAMETERS`).
 
 `inputs` name each record once, and `childObjectIds` do not repeat; either is a `422` validation
 error.
@@ -2407,7 +2410,7 @@ The preview answers `200` with:
   `attributeTypeKey`, `count`), and `relations` (`relationTypeKey`, `direction`, `outcome` `kept` or
   `withoutPlace`, `count`). `name` is always kept and not listed. A rule takes a source only when no
   earlier rule took it; a choice may name any compatible source or `null`, and a source the old type
-  does not bind or that is not compatible is `422 invalid_type_mapping`.
+  does not bind or that is not compatible is `422 INVALID_TYPE_MAPPING`.
 - `refusals`: at most 20 operation-level refusals with `refusalCount` and `refusalsTruncated`.
 - `records`: a page of the records the operation changes, in plan order (the operation's records,
   then each level down, by name and ID; `insertLevel` lists the created record, then the children it
@@ -2427,7 +2430,7 @@ The preview answers `200` with:
 The `outcome` filter takes `typeChanged`, `moved`, `withoutPlace`, `restored`, `needsInput` and
 `refused`, so a client pages through what needs attention. `records` page by position in the plan
 order; the page links are the standard ones, and cursors bind the change set, its version, the
-`planDigest` and the filter. A later page of a changed plan is `422 invalid_cursor`.
+`planDigest` and the filter. A later page of a changed plan is `422 INVALID_CURSOR`.
 
 Refusal codes, per record or for the operation: `noPossibleType` (a level has no type the new parent
 can contain), `typeNotAllowed` (the chosen type cannot be here), `application` (another application's
@@ -2441,22 +2444,22 @@ is dry-run through the change set write services and rolled back, so the preview
 would; the first write refused becomes that record's refusal (with the codes above where one fits,
 otherwise the engine's error code) and the dry run stops there.
 
-A request the planner cannot read is an error, not a plan: `422 object_type_unchanged` for a
-`changeType` to the record's own type, `422 unknown_object_type` for a type the pinned model lacks and
-`422 invalid_type_mapping` for a mapping choice as above. A `move` that changes neither the type nor
+A request the planner cannot read is an error, not a plan: `422 OBJECT_TYPE_UNCHANGED` for a
+`changeType` to the record's own type, `422 UNKNOWN_OBJECT_TYPE` for a type the pinned model lacks and
+`422 INVALID_TYPE_MAPPING` for a mapping choice as above. A `move` that changes neither the type nor
 the parent plans no records.
 
 A record is counted once whatever happens to it. More than 500 (D41, lowered from 5,000 by D44) is
-`422 restructuring_too_large` with `details.limit` and nothing planned. An unknown change set is
-`404 change_set_not_found`; a publication or live context does not exist for this API.
+`422 RESTRUCTURING_TOO_LARGE` with `details.limit` and nothing planned. An unknown change set is
+`404 CHANGE_SET_NOT_FOUND`; a publication or live context does not exist for this API.
 
 ### Apply
 
 The apply recomputes the plan in the write transaction and writes it only when it matches:
 
-- a stale `expectedChangeSetVersion` is `409 change_set_version_conflict`;
-- a different plan is `409 restructuring_plan_changed` with the current `planDigest`;
-- a plan that is not `ready` is `422 restructuring_not_ready` with its `summary` and at most 20
+- a stale `expectedChangeSetVersion` is `409 CHANGE_SET_VERSION_CONFLICT`;
+- a different plan is `409 RESTRUCTURING_PLAN_CHANGED` with the current `planDigest`;
+- a plan that is not `ready` is `422 RESTRUCTURING_NOT_READY` with its `summary` and at most 20
   refusals.
 
 Every refusal writes nothing. Success returns `200` with `operationId`, `changeSetId`, the new
@@ -2496,11 +2499,11 @@ when it is not effective, its other end exists and the model binds it to the new
 
 - **Type in the route (D42).** Every `/objects/{objectTypeKey}/{objectId}` route — the record,
   attributes, history, parent candidates, and the change-set `PATCH` and `DELETE` — returns
-  `409 object_type_changed` when the record is found in the selected context under another type (it
-  was `404 object_not_found` before C1), with `details.objectId`,
+  `409 OBJECT_TYPE_CHANGED` when the record is found in the selected context under another type (it
+  was `404 OBJECT_NOT_FOUND` before C1), with `details.objectId`,
   `details.objectTypeKey` (the current type) and `details.requestedObjectTypeKey`. Live keeps the old
   type until the change set is published; a publication keeps the type it was published with. A
-  history cursor from the old route is `422 invalid_cursor` on the new one.
+  history cursor from the old route is `422 INVALID_CURSOR` on the new one.
 - **Change lists (P2a).** An object entry's `before` and `after` gain `objectTypeKey`, and
   `changedFields` names `objectType` first when it differs between the two sides. A removed record
   has no after side, so it never names `objectType`, even when the change set changed its type before
@@ -2514,7 +2517,7 @@ when it is not effective, its other end exists and the model binds it to the new
   type that already contains it, otherwise the possible types, of which the preview asks for one when
   there are several. `parentObjectTypeKey` may then name any of those types. Without it, the list is
   unchanged and candidates carry no `objectTypeKeys`; with it outside a change set, `422
-  type_changes_need_change_set` (a type changes only in a change set, D38).
+  TYPE_CHANGES_NEED_CHANGE_SET` (a type changes only in a change set, D38).
 - **Placements (C4, D45).** `GET /api/v1/model/placements` (the same `workspaceKey`, `changeSetId` or
   `publicationId` context as `GET /model`, with its `ETag`) answers where the context's model lets
   records stand: per application, `topLevelObjectTypeKeys` (the `rootCreatable` types) and `parents`,
@@ -2527,12 +2530,12 @@ when it is not effective, its other end exists and the model binds it to the new
   only candidates of those types, and with `includeTypeChanges` only those types in each candidate's
   `objectTypeKeys`; a candidate left with none is not listed. The server filters, so `totalCount`,
   positions and cursors (which bind the set) mean what they mean without it. A type the model lacks
-  is `422 unknown_object_type` with `details.objectTypeKeys`.
+  is `422 UNKNOWN_OBJECT_TYPE` with `details.objectTypeKeys`.
 
 ### Publishing
 
 Nothing changes in the publish contract. A reclassified record is an authored row: publishing claims its
-base version against live (`409 version_conflict` for a record edited live since the base), writes its
-new type, and validates the merged graph (`422 workspace_graph_invalid` for a live relationship,
+base version against live (`409 VERSION_CONFLICT` for a record edited live since the base), writes its
+new type, and validates the merged graph (`422 WORKSPACE_GRAPH_INVALID` for a live relationship,
 child or value the new type cannot have). Removed relationships follow the existing relation merge
 rules, including mapping-set divergence.

@@ -67,7 +67,7 @@ def _ctx(change_set: str, expected: int | None) -> int:
     if expected is None:
         raise api_error(
             409,
-            "change_set_required",
+            "CHANGE_SET_REQUIRED",
             "expectedChangeSetVersion is required when targeting a change set",
         )
     return expected
@@ -117,7 +117,7 @@ def list_relations(
     page_size: int = Query(default=100, ge=1, le=500, alias="pageSize"),
 ) -> RelationPage:
     if sum(value is not None for value in (change_set_id, publication_id)) > 1:
-        raise api_error(422, "mutually_exclusive_context", "Workspace contexts cannot be combined")
+        raise api_error(422, "MUTUALLY_EXCLUSIVE_CONTEXT", "Workspace contexts cannot be combined")
     options = {
         "object_id": object_id,
         "direction": direction,
@@ -129,7 +129,7 @@ def list_relations(
         context = change_set_context(session, change_set_id) if change_set_id else publication_context(session, publication_id)
         anchor = find_object(session, context, object_id)
         if anchor is None:
-            raise api_error(404, "object_not_found", "Object not found")
+            raise api_error(404, "OBJECT_NOT_FOUND", "Object not found")
         query = build_snapshot_relation_query(snapshot.model, context, anchor_type_key=anchor.object_type_key, **options)
         page = paginate_statement(session, query.statement, keys=query.keys, scope=relation_scope(context), filters=query.filters, page=paging, page_size=page_size, message="Relation cursor is invalid", rows=True, seek=query.seek)
         objects = find_objects(session, context, (row.related_id for row in page.items))
@@ -139,7 +139,7 @@ def list_relations(
     anchor = load_active_projection(session, object_id)
     workspace = resolve_workspace(session, workspace_key)
     if anchor.workspace_key != workspace.key:
-        raise api_error(404, "object_not_found", "Object not found in the selected workspace")
+        raise api_error(404, "OBJECT_NOT_FOUND", "Object not found in the selected workspace")
     query = build_relation_query(snapshot.model, anchor_type_key=anchor.object_type_key, workspace_key=anchor.workspace_key, **options)
     page = paginate_statement(session, query.statement, keys=query.keys, scope=relation_scope(None), filters=query.filters, page=paging, page_size=page_size, message="Relation cursor is invalid", rows=True, seek=query.seek)
     related_ids = list(dict.fromkeys(row.related_id for row in page.items))
@@ -151,11 +151,11 @@ def list_relations(
 
 @router.get("/relations/{relation_id}", response_model=RelationResponse)
 def get_relation(relation_id: str, session: DbSession, snapshot: RequestModelSnapshot, workspace_key: str | None = Query(default=None, alias="workspaceKey"), change_set_id: str | None = Query(default=None, alias="changeSetId"), publication_id: str | None = Query(default=None, alias="publicationId")) -> RelationResponse:
-    if change_set_id and publication_id: raise api_error(422, "mutually_exclusive_context", "Workspace contexts cannot be combined")
+    if change_set_id and publication_id: raise api_error(422, "MUTUALLY_EXCLUSIVE_CONTEXT", "Workspace contexts cannot be combined")
     if change_set_id or publication_id:
         context = change_set_context(session, change_set_id) if change_set_id else publication_context(session, publication_id)
         row = find_relation(session, context, relation_id)
-        if row is None: raise api_error(404, "relation_not_found", "Relation not found")
+        if row is None: raise api_error(404, "RELATION_NOT_FOUND", "Relation not found")
         return _change_set_response(row)
     row = load_relation(session, relation_id)
     workspace = resolve_workspace(session, workspace_key)
@@ -166,7 +166,7 @@ def get_relation(relation_id: str, session: DbSession, snapshot: RequestModelSna
         )
     ))
     if endpoints != {row.from_object_id, row.to_object_id}:
-        raise api_error(404, "relation_not_found", "Relation not found")
+        raise api_error(404, "RELATION_NOT_FOUND", "Relation not found")
     return build_relation_response(row)
 
 @router.patch("/relations/{relation_id}", response_model=RelationResponse)

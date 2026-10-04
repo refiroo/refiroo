@@ -25,13 +25,13 @@ def validate_attributes(
     bindings = {item.attributeTypeKey: item for item in object_type.attributes}
     unknown = set(attributes) - set(bindings)
     if unknown:
-        raise api_error(422, "unknown_attributes", f"Unknown attributes: {sorted(unknown)}")
+        raise api_error(422, "UNKNOWN_ATTRIBUTES", f"Unknown attributes: {sorted(unknown)}")
 
     read_only = [key for key in attributes if bindings[key].readOnly]
     if read_only and not allow_read_only:
         raise api_error(
             422,
-            "read_only_attributes",
+            "READ_ONLY_ATTRIBUTES",
             f"Read-only fields cannot be changed: {_field_names(model, read_only)}",
             {"attributeTypeKeys": read_only},
         )
@@ -57,7 +57,7 @@ def validate_attributes(
     if missing:
         raise api_error(
             422,
-            "missing_required_attributes",
+            "MISSING_REQUIRED_ATTRIBUTES",
             f"Required fields are missing: {_field_names(model, missing)}",
             {"attributeTypeKeys": missing},
         )
@@ -78,7 +78,7 @@ def validate_object_attribute_rules(
     ):
         raise api_error(
             422,
-            "object_attribute_rule_violation",
+            "OBJECT_ATTRIBUTE_RULE_VIOLATION",
             f"At least one of these attributes is required: {at_least_one}",
             {"rule": "atLeastOneOf", "attributeTypeKeys": at_least_one},
         )
@@ -184,7 +184,7 @@ def load_attribute_value(
     if not row:
         raise api_error(
             404,
-            "attribute_not_found",
+            "ATTRIBUTE_NOT_FOUND",
             f"Attribute '{attribute_type_key}' has no value on object '{object_id}'",
         )
     return row
@@ -202,7 +202,7 @@ def ensure_attribute_value_absent(
     if row:
         raise api_error(
             409,
-            "attribute_already_exists",
+            "ATTRIBUTE_ALREADY_EXISTS",
             f"Attribute '{attribute_type_key}' already has a value on object '{object_id}'",
         )
 
@@ -217,20 +217,20 @@ def validate_deletable_attribute(
     if binding is None:
         raise api_error(
             422,
-            "unknown_attributes",
+            "UNKNOWN_ATTRIBUTES",
             f"Attribute type '{attribute_type_key}' is not defined on object type "
             f"'{object_type.key}'",
         )
     if binding.readOnly:
         raise api_error(
             422,
-            "read_only_attributes",
+            "READ_ONLY_ATTRIBUTES",
             f"Read-only attributes: [{attribute_type_key}]",
         )
     if binding.required:
         raise api_error(
             422,
-            "cannot_delete_required_attribute",
+            "CANNOT_DELETE_REQUIRED_ATTRIBUTE",
             f"Attribute '{attribute_type_key}' is required and cannot be deleted",
         )
 
@@ -238,7 +238,7 @@ def validate_deletable_attribute(
 def _attribute_definition(model: EngineModel, key: str) -> AttributeTypeDefinition:
     definition = model.attribute_type(key)
     if not definition:
-        raise api_error(500, "internal_error", f"Unknown model attribute '{key}'")
+        raise api_error(500, "INTERNAL_ERROR", f"Unknown model attribute '{key}'")
     return definition
 
 

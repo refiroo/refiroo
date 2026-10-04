@@ -192,7 +192,7 @@ def open_matrix_read(
     if not isinstance(view, RelationMatrixViewDefinition):
         raise api_error(
             404,
-            "relation_matrix_view_not_found",
+            "RELATION_MATRIX_VIEW_NOT_FOUND",
             "Relation matrix view not found in the selected model",
             {"applicationKey": application_key, "viewKey": view_key},
         )
@@ -237,14 +237,14 @@ def relation_matrix_page(
     if column_ids is not None and column_cursor is not None:
         raise api_error(
             422,
-            "conflicting_column_parameters",
+            "CONFLICTING_COLUMN_PARAMETERS",
             "Name the columns with columnIds or page them with columnCursor, not both",
             {"parameters": ["columnIds", "columnCursor"]},
         )
     if state is not None and not column_ids:
         raise api_error(
             422,
-            "relation_matrix_state_requires_columns",
+            "RELATION_MATRIX_STATE_REQUIRES_COLUMNS",
             "A state filter applies to the columns named by columnIds",
             {"path": "/query/columnIds"},
         )
@@ -323,7 +323,7 @@ def _validate_parent_scope(read: MatrixRead, parent_object_id: str | None) -> No
     if parent_type is None:
         raise api_error(
             404,
-            "relation_matrix_parent_not_found",
+            "RELATION_MATRIX_PARENT_NOT_FOUND",
             "Parent record not found in the selected context",
             {"parentObjectId": parent_object_id},
         )
@@ -337,7 +337,7 @@ def _validate_parent_scope(read: MatrixRead, parent_object_id: str | None) -> No
     ):
         raise api_error(
             422,
-            "relation_matrix_parent_scope_mismatch",
+            "RELATION_MATRIX_PARENT_SCOPE_MISMATCH",
             f"A '{parent_type}' record cannot contain the matrix's '{row_type.key}' rows",
             {"parentObjectId": parent_object_id, "parentObjectTypeKey": parent_type},
         )
@@ -359,14 +359,14 @@ def _named_columns(read: MatrixRead, column_ids: Sequence[str]) -> list[Any]:
     if len(column_ids) > MAX_COLUMNS:
         raise api_error(
             422,
-            "too_many_columns",
+            "TOO_MANY_COLUMNS",
             f"Name at most {MAX_COLUMNS} columns",
             {"path": "/query/columnIds", "limit": MAX_COLUMNS},
         )
     if len(set(column_ids)) != len(column_ids):
         raise api_error(
             422,
-            "duplicate_column_ids",
+            "DUPLICATE_COLUMN_IDS",
             "Each column may be named once",
             {"path": "/query/columnIds"},
         )
@@ -387,7 +387,7 @@ def _named_columns(read: MatrixRead, column_ids: Sequence[str]) -> list[Any]:
     if missing:
         raise api_error(
             404,
-            "relation_matrix_column_not_found",
+            "RELATION_MATRIX_COLUMN_NOT_FOUND",
             f"Columns must be '{column_type}' records in the selected context",
             {"columnIds": missing, "columnObjectTypeKey": column_type},
         )
@@ -974,7 +974,7 @@ def matrix_link_candidates(
     if _object_types(read, [row_id]).get(row_id) != read.config.rowObjectTypeKey:
         raise api_error(
             404,
-            "relation_matrix_row_not_found",
+            "RELATION_MATRIX_ROW_NOT_FOUND",
             f"Rows must be '{read.config.rowObjectTypeKey}' records in the selected context",
             {"rowId": row_id, "rowObjectTypeKey": read.config.rowObjectTypeKey},
         )
@@ -1035,7 +1035,7 @@ def _require_action(read: MatrixRead, action: str) -> None:
     if action not in read.config.cellActions:
         raise api_error(
             422,
-            "relation_matrix_action_not_allowed",
+            "RELATION_MATRIX_ACTION_NOT_ALLOWED",
             f"The view does not offer '{action}' in its cells",
             {"viewKey": read.view_key, "action": action},
         )

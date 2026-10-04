@@ -82,7 +82,7 @@ describe("useCursorWindow", () => {
 
     const stale = vi
       .fn()
-      .mockRejectedValueOnce(new ApiError(422, "invalid_cursor", "Invalid cursor"))
+      .mockRejectedValueOnce(new ApiError(422, "INVALID_CURSOR", "Invalid cursor"))
       .mockResolvedValueOnce({ items: [1], nextCursor: null, totalCount: 1, startIndex: 0 });
     const reopened = renderHook(() => useCursorWindow(stale, ["list"], { anchor: "old" }));
     await waitFor(() => expect(reopened.result.current.items).toEqual([1]));

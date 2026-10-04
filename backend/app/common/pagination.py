@@ -80,7 +80,7 @@ class PageRequest:
         if len(chosen) > 1:
             raise api_error(
                 422,
-                "conflicting_page_parameters",
+                "CONFLICTING_PAGE_PARAMETERS",
                 "Select a page with one of cursor, position, seek or from=end, not "
                 + " and ".join(chosen),
                 {"parameters": chosen},
@@ -88,7 +88,7 @@ class PageRequest:
         if self.position is not None and self.position < 0:
             raise api_error(
                 422,
-                "invalid_position",
+                "INVALID_POSITION",
                 "position must be zero or greater",
                 {"path": "/query/position"},
             )
@@ -175,7 +175,7 @@ def seek_predicate(keys: Sequence[SortKey], values: Sequence[Any]) -> Any:
 
 
 def seek_error(message: str = "Seek value is invalid for the list's sort") -> Exception:
-    return api_error(422, "invalid_seek", message, {"path": "/query/seek"})
+    return api_error(422, "INVALID_SEEK", message, {"path": "/query/seek"})
 
 
 def leading_key_seek(keys: Sequence[SortKey]) -> Callable[[str], Any]:
@@ -361,7 +361,7 @@ def paginate_sequence[Item](
         )
         expected_width = len(identity(ordered[0])) if ordered else len(token)
         if len(token) != expected_width:
-            raise api_error(422, "invalid_cursor", message)
+            raise api_error(422, "INVALID_CURSOR", message)
         precedes = (lambda item: item > token) if descending else (lambda item: item < token)
         before = sum(1 for item in ordered if precedes(identity(item)))
         through = sum(1 for item in ordered if precedes(identity(item)) or identity(item) == token)
@@ -491,7 +491,7 @@ def _parse_position(
     try:
         return [key.parse(token) for key, token in zip(keys, position, strict=True)]
     except ValueError:
-        raise api_error(422, "invalid_cursor", message) from None
+        raise api_error(422, "INVALID_CURSOR", message) from None
 
 
 def _keyset_predicate(

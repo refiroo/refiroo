@@ -43,7 +43,7 @@ def compile_model(source: Any) -> CompilationResult:
             (
                 ModelDiagnostic(
                     severity="error",
-                    code="unsupported_schema_version",
+                    code="UNSUPPORTED_SCHEMA_VERSION",
                     path="/schemaVersion",
                     message=f"Schema version '{supplied}' is unsupported; supported versions: {sorted(SUPPORTED_SCHEMA_VERSIONS)}",
                 ),
@@ -122,4 +122,4 @@ def _shape_code(error_type: str) -> str:
         return "missing_field"
     if error_type == "extra_forbidden":
         return "unknown_field"
-    return "invalid_model"
+    return "INVALID_MODEL"

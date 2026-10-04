@@ -266,7 +266,7 @@ describe("RestructuringDialog", () => {
   it("re-plans when the change set moved on since the preview, writing nothing", async () => {
     const preview = vi.spyOn(api, "previewRestructuring").mockResolvedValue(plan());
     vi.spyOn(api, "applyRestructuring").mockRejectedValue(
-      new ApiError(409, "restructuring_plan_changed", "The plan changed."),
+      new ApiError(409, "RESTRUCTURING_PLAN_CHANGED", "The plan changed."),
     );
     const { onApplied } = open(changeType);
     await screen.findByText("Ready to apply");
@@ -282,7 +282,7 @@ describe("RestructuringDialog", () => {
   it("plans a new level only once it has a name, and reports a request the engine refuses", async () => {
     const preview = vi
       .spyOn(api, "previewRestructuring")
-      .mockRejectedValue(new ApiError(422, "restructuring_too_large", "More than 500 records would change."));
+      .mockRejectedValue(new ApiError(422, "RESTRUCTURING_TOO_LARGE", "More than 500 records would change."));
     vi.spyOn(api, "objects").mockResolvedValue({ items: [sodium], nextCursor: null, totalCount: 1, startIndex: 0 });
     open({
       kind: "insertLevel",

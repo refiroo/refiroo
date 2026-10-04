@@ -89,7 +89,7 @@ def test_move_with_a_type_change_answer_the_plan_apply_and_publish(world):
     refused(
         _restructure(world, csr, operation, apply=True, planDigest=first["planDigest"]),
         422,
-        "restructuring_not_ready",
+        "RESTRUCTURING_NOT_READY",
     )
 
     mappings = [
@@ -118,12 +118,12 @@ def test_move_with_a_type_change_answer_the_plan_apply_and_publish(world):
     assert world.record("L2", t["id"])["parentObjectId"] == t2["id"]
     history = ok(world.api.get(f"/objects/{world.key('L2')}/{t['id']}/history"))["items"]
     assert "reclassified" in {event["action"] for event in history}
-    error = refused(world.read("L1", t["id"]), 409, "object_type_changed")
+    error = refused(world.read("L1", t["id"]), 409, "OBJECT_TYPE_CHANGED")
     assert error["details"]["objectTypeKey"] == world.key("L2")
 
     again = world.change_set()
     same = {"kind": "changeType", "objectId": t["id"], "objectTypeKey": world.key("L2")}
-    refused(_restructure(world, again, same), 422, "object_type_unchanged")
+    refused(_restructure(world, again, same), 422, "OBJECT_TYPE_UNCHANGED")
     unbound = [
         {
             "fromObjectTypeKey": world.key("L2"),
@@ -138,7 +138,7 @@ def test_move_with_a_type_change_answer_the_plan_apply_and_publish(world):
         "objectTypeKey": world.key("L1"),
     }
     refused(
-        _restructure(world, again, back, choices={"mappings": unbound}), 422, "invalid_type_mapping"
+        _restructure(world, again, back, choices={"mappings": unbound}), 422, "INVALID_TYPE_MAPPING"
     )
 
 
@@ -318,7 +318,7 @@ def test_a_change_after_the_preview_refuses_the_apply(world):
         inputs=_inputs(world, t["id"]),
         expectedChangeSetVersion=version,
     )
-    refused(stale, 409, "change_set_version_conflict")
+    refused(stale, 409, "CHANGE_SET_VERSION_CONFLICT")
     changed = _restructure(
         world,
         cs,
@@ -327,7 +327,7 @@ def test_a_change_after_the_preview_refuses_the_apply(world):
         planDigest=plan["planDigest"],
         inputs=_inputs(world, t["id"]),
     )
-    error = refused(changed, 409, "restructuring_plan_changed")
+    error = refused(changed, 409, "RESTRUCTURING_PLAN_CHANGED")
     assert error["details"]["planDigest"] != plan["planDigest"]
     assert world.record("L1", t["id"], changeSetId=cs["id"])["parentObjectId"] is None
 
@@ -341,9 +341,9 @@ def test_too_large_a_subtree_is_refused_with_the_limit(world):
     cs = world.change_set()
     version = world.current(cs)["version"]
     operation = {"kind": "move", "objectId": world.ids["large"], "parentObjectId": receiver["id"]}
-    error = refused(_restructure(world, cs, operation), 422, "restructuring_too_large")
+    error = refused(_restructure(world, cs, operation), 422, "RESTRUCTURING_TOO_LARGE")
     assert error["details"]["limit"] == 500
     assert world.current(cs)["version"] == version
 
     path = f"/objects/{world.key('L1')}/{world.ids['large']}/parent-candidates"
-    refused(world.api.get(path, includeTypeChanges=True), 422, "type_changes_need_change_set")
+    refused(world.api.get(path, includeTypeChanges=True), 422, "TYPE_CHANGES_NEED_CHANGE_SET")

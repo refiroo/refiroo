@@ -175,7 +175,7 @@ def diff_model_release(
             if compilation.unsupported_schema_version is not None:
                 raise api_error(
                     422,
-                    "unsupported_schema_version",
+                    "UNSUPPORTED_SCHEMA_VERSION",
                     f"Release '{release.public_id}' uses schema version"
                     f" '{compilation.unsupported_schema_version}'"
                     " which this deployment cannot interpret for comparison",
@@ -188,7 +188,7 @@ def diff_model_release(
                 )
             raise api_error(
                 500,
-                "invalid_installed_model",
+                "INVALID_INSTALLED_MODEL",
                 "An installed model release failed validation",
                 diagnostic_details(compilation.diagnostics),
             )
@@ -197,7 +197,7 @@ def diff_model_release(
         or candidate.canonical_model is None
         or baseline.canonical_model is None
     ):
-        raise api_error(500, "internal_error", "Compiled model result is incomplete")
+        raise api_error(500, "INTERNAL_ERROR", "Compiled model result is incomplete")
 
     compatibility = analyze_compatibility(
         session,
@@ -250,5 +250,5 @@ def build_release_response(
 
 def _release_not_found(release_id: str):
     return api_error(
-        404, "model_release_not_found", f"Model release '{release_id}' not found"
+        404, "MODEL_RELEASE_NOT_FOUND", f"Model release '{release_id}' not found"
     )

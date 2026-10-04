@@ -202,7 +202,7 @@ def _publication_snapshot_maps(
         if base is None or base.workspace_key != change_set.workspace_key:
             raise api_error(
                 409,
-                "change_set_base_invalid",
+                "CHANGE_SET_BASE_INVALID",
                 "Change set current-live base is missing or belongs to another workspace",
             )
         return (
@@ -250,7 +250,7 @@ def _merge_version_conflict(
     return {
         "kind": kind,
         "id": conflict_id,
-        "code": "version_mismatch",
+        "code": "VERSION_MISMATCH",
         "message": f"{kind.title()} changed live after the change set's base publication",
         "expectedVersion": expected,
         "actualVersion": actual,
@@ -325,7 +325,7 @@ def _mapping_set_merge_conflicts(
             "fromObjectTypeKey": from_type,
             "toObjectTypeKey": to_type,
             "direction": direction,
-            "code": "mapping_set_changed",
+            "code": "MAPPING_SET_CHANGED",
             "expectedTargetCount": len(expected[key]),
             "actualTargetCount": len(actual[key]),
             "message": "Mapping relationships changed live since this change set's source. "
@@ -462,7 +462,7 @@ def _merge_change_set_over_live(
                     {
                         "kind": "object",
                         "id": object_id,
-                        "code": "id_collision",
+                        "code": "ID_COLLISION",
                         "message": "The id of an object created in the change set already exists in live data",
                     }
                 )
@@ -519,7 +519,7 @@ def _merge_change_set_over_live(
                     {
                         "kind": "relation",
                         "id": relation_id,
-                        "code": "id_collision",
+                        "code": "ID_COLLISION",
                         "message": "The id of a relation created in the change set already exists in live data",
                     }
                 )
@@ -550,7 +550,7 @@ def _merge_change_set_over_live(
                     "kind": "relation",
                     "id": relation_id,
                     "conflictingRelationId": prior,
-                    "code": "duplicate_edge",
+                    "code": "DUPLICATE_EDGE",
                     "message": "Change set and live both define the same directed relation",
                 }
             )
@@ -560,7 +560,7 @@ def _merge_change_set_over_live(
     if conflicts:
         raise api_error(
             409,
-            "version_conflict",
+            "VERSION_CONFLICT",
             "Change set conflicts with the live active data",
             {
                 "conflicts": conflicts,
@@ -605,20 +605,20 @@ def publish_change_set(
         select(Workspace).where(Workspace.key == workspace_key).with_for_update(key_share=True)
     )
     if workspace is None:
-        raise api_error(404, "workspace_not_found", "Workspace not found")
+        raise api_error(404, "WORKSPACE_NOT_FOUND", "Workspace not found")
     change_set = load_change_set(session, change_set_id, for_update=True)
     writes = ChangeSetWrites(session, change_set)
     if change_set.model_release_id != active_release_id:
         raise api_error(
             409,
-            "change_set_model_release_conflict",
+            "CHANGE_SET_MODEL_RELEASE_CONFLICT",
             "Change set is pinned to a different application-model release",
         )
     writes.claim(expected_change_set_version)
     live = LiveWrites(session, change_set.workspace_key)
     if workspace.active_publication_id != expected_active_publication_id:
         raise api_error(
-            409, "workspace_active_publication_conflict", "Active publication has changed"
+            409, "WORKSPACE_ACTIVE_PUBLICATION_CONFLICT", "Active publication has changed"
         )
     # The change set is applied as a delta onto the *current* live projection, then the merged graph is
     # validated whole before anything is written; live content newer than the change set base is preserved.
@@ -632,7 +632,7 @@ def publish_change_set(
     if diagnostics:
         raise api_error(
             422,
-            "workspace_graph_invalid",
+            "WORKSPACE_GRAPH_INVALID",
             "Change set failed complete graph validation over the live active data",
             diagnostics,
         )
@@ -691,19 +691,19 @@ def withdraw_publication(session: Session, publication_id: str) -> None:
     """Remove the current-publication designation; live data and history are unchanged."""
     publication = session.scalar(select(Publication).where(Publication.id == publication_id))
     if publication is None:
-        raise api_error(404, "publication_not_found", "Publication not found")
+        raise api_error(404, "PUBLICATION_NOT_FOUND", "Publication not found")
     workspace = session.scalar(
         select(Workspace).where(Workspace.key == publication.workspace_key).with_for_update()
     )
     if workspace is None:
-        raise api_error(404, "workspace_not_found", "Workspace not found")
+        raise api_error(404, "WORKSPACE_NOT_FOUND", "Workspace not found")
     if workspace.status == "retired":
-        raise api_error(409, "workspace_retired", "Workspace is retired and cannot be mutated")
+        raise api_error(409, "WORKSPACE_RETIRED", "Workspace is retired and cannot be mutated")
     # The path names the publication to withdraw, so it is also the concurrency claim: a publication
     # that is no longer current (withdrawn or superseded meanwhile) is refused.
     if workspace.active_publication_id != publication_id:
         raise api_error(
-            409, "workspace_active_publication_conflict", "Active publication has changed"
+            409, "WORKSPACE_ACTIVE_PUBLICATION_CONFLICT", "Active publication has changed"
         )
     publication.status = "withdrawn"
     publication.withdrawn_at = datetime.now(UTC)

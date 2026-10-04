@@ -244,7 +244,7 @@ try {
   await api(`/objects/domain/${domain.id}`, { expectedVersion: touchedLive.version, name: "Live touched conflict" }, "PATCH");
   await validate();
   const conflict = await publish(409);
-  assert.equal(conflict.error.code, "version_conflict");
+  assert.equal(conflict.error.code, "VERSION_CONFLICT");
   await shown(page.getByText(new RegExp(domain.id)));
   assert.equal((await get(system)).name, "Partner reviewed");
   assert.equal((await get(domain)).name, "Live touched conflict");
@@ -268,7 +268,7 @@ try {
   const countOther = await get(other);
   await api(`/objects/domain/${other.id}`, { expectedVersion: countOther.version, attributes: [{ attributeTypeKey: "domain-code", value: "MERGED-DUP" }] }, "PATCH");
   const invalid = await publish(422);
-  assert.equal(invalid.error.code, "workspace_graph_invalid");
+  assert.equal(invalid.error.code, "WORKSPACE_GRAPH_INVALID");
   assert.equal(value(await get(domain), "qa-count"), 0);
   assert.equal(value(await get(other), "domain-code"), "MERGED-DUP");
   assert.equal(value(await get(domain, third), "domain-code"), "MERGED-DUP");

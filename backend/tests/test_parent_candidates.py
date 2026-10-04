@@ -198,8 +198,8 @@ def test_candidates_mark_self_descendant_and_current_parent(client, systems):
 def test_the_write_agrees_with_each_reason(client, systems):
     g1, g2, g3 = systems["G1"], systems["G2"], systems["G3"]
     # self and descendant are refused as cycles; the query said so first.
-    assert move(client, g2, g2, 422)["code"] == "parent_cycle"
-    assert move(client, g1, g3, 422)["code"] == "parent_cycle"
+    assert move(client, g2, g2, 422)["code"] == "PARENT_CYCLE"
+    assert move(client, g1, g3, 422)["code"] == "PARENT_CYCLE"
     assert read(client, g1)["version"] == g1["version"]
     # An eligible candidate moves the record, its edge and the paths below it together.
     moved = move(client, g2, systems["H1"])
@@ -260,20 +260,20 @@ def test_value_hierarchy_of_another_application(client):
 
 def test_refusals(client, systems):
     error = candidates(client, systems["G2"], 422, parentObjectTypeKey="system-value")
-    assert error["code"] == "invalid_parent_type"
+    assert error["code"] == "INVALID_PARENT_TYPE"
     assert error["details"]["permitted"] == ["system", "system-group"]
     missing = {"objectTypeKey": "system-group", "id": str(uuid4())}
-    assert candidates(client, missing, 404)["code"] == "object_not_found"
+    assert candidates(client, missing, 404)["code"] == "OBJECT_NOT_FOUND"
     # A record of the default workspace is not found through another one.
-    assert candidates(client, systems["G2"], 404, workspaceKey="elsewhere")["code"] == "object_not_found"
+    assert candidates(client, systems["G2"], 404, workspaceKey="elsewhere")["code"] == "OBJECT_NOT_FOUND"
     # Named under a type it does not have: where the record is (D42, ADR-034).
     wrong_type = candidates(client, {**systems["G2"], "objectTypeKey": "system"}, 409)
-    assert wrong_type["code"] == "object_type_changed"
+    assert wrong_type["code"] == "OBJECT_TYPE_CHANGED"
     assert wrong_type["details"]["objectTypeKey"] == "system-group"
-    assert candidates(client, {**systems["G2"], "objectTypeKey": "nothing"}, 404)["code"] == "unknown_object_type"
+    assert candidates(client, {**systems["G2"], "objectTypeKey": "nothing"}, 404)["code"] == "UNKNOWN_OBJECT_TYPE"
     stale = candidates(client, systems["G2"], pageSize=2)
     refused = candidates(client, systems["G2"], 422, pageSize=2, cursor=stale["nextCursor"], search="S")
-    assert refused["code"] == "invalid_cursor"
+    assert refused["code"] == "INVALID_CURSOR"
 
 
 def test_change_set_moves_paths_and_candidates(client, systems):
@@ -305,7 +305,7 @@ def test_change_set_moves_paths_and_candidates(client, systems):
     assert listed(candidates(client, g2, **context))["H1"] == "currentParent"
     # A cycle is refused in the change set too, and the change set keeps its move.
     refused = move(client, read(client, systems["H1"], **context), g3, 422, **in_change_set(client, change_set["id"]))
-    assert refused["code"] == "parent_cycle"
+    assert refused["code"] == "PARENT_CYCLE"
 
     # Published, the new publication and live both carry the new paths.
     published = publish_change_set(
@@ -334,8 +334,8 @@ def test_a_move_live_made_cyclic_is_refused_at_publication(client, systems):
     )
     assert refused.status_code == 422, refused.text
     error = refused.json()["error"]
-    assert error["code"] == "workspace_graph_invalid"
-    assert "containment_cycle" in {item["code"] for item in error["details"]}
+    assert error["code"] == "WORKSPACE_GRAPH_INVALID"
+    assert "CONTAINMENT_CYCLE" in {item["code"] for item in error["details"]}
     # Nothing changed: live keeps B under A, and the change set keeps A under B.
     assert names(read(client, b)["path"]) == ["S1", "A", "B"]
     assert read(client, a, **context)["parentObjectId"] == b["id"]
@@ -375,7 +375,7 @@ def test_moving_a_container_keeps_ancestor_scoped_uniqueness(client):
     # The nested Czech group moving under the English group would give the domain two English
     # translations: refused, and nothing moves.
     refused = move(client, cs_nested, en_group, 409)
-    assert refused["code"] == "duplicate_relation_scope"
+    assert refused["code"] == "DUPLICATE_RELATION_SCOPE"
     assert read(client, cs_nested)["parentObjectId"] == cs_group["id"]
     # Within Czech, the move changes no scope and is accepted.
     other_cs = create(client, "rdm-translations", "translation-group", "CS other", czech)

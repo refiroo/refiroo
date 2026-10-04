@@ -175,7 +175,7 @@ def test_translation_requires_content_and_a_target_without_leaving_an_orphan():
             },
         )
         assert empty.status_code == 422
-        assert empty.json()["error"]["code"] == "object_attribute_rule_violation"
+        assert empty.json()["error"]["code"] == "OBJECT_ATTRIBUTE_RULE_VIOLATION"
 
         missing_target = client.post(
             "/api/v1/objects",
@@ -189,7 +189,7 @@ def test_translation_requires_content_and_a_target_without_leaving_an_orphan():
             },
         )
         assert missing_target.status_code == 422
-        assert missing_target.json()["error"]["code"] == "missing_required_relations"
+        assert missing_target.json()["error"]["code"] == "MISSING_REQUIRED_RELATIONS"
         assert client.get(f"/api/v1/objects/translation/{public_id}").status_code == 404
 
 
@@ -197,7 +197,7 @@ def _scope_breaches(client: TestClient) -> list[dict]:
     validation = client.post(f"/api/v1/change-sets/{client.change_set_id}/validation")
     assert validation.status_code == 200, validation.text
     return [
-        item for item in validation.json()["diagnostics"] if item["code"] == "duplicate_relation_scope"
+        item for item in validation.json()["diagnostics"] if item["code"] == "DUPLICATE_RELATION_SCOPE"
     ]
 
 
@@ -258,7 +258,7 @@ def test_required_translation_target_cannot_be_unlinked_and_cascades_with_owner(
             f"/api/v1/relations/{target_relation['id']}", params={"expectedVersion": 1}
         )
         assert unlink.status_code == 422
-        assert unlink.json()["error"]["code"] == "required_relation"
+        assert unlink.json()["error"]["code"] == "REQUIRED_RELATION"
 
         preview = client.delete(
             f"/api/v1/objects/domain/{domain['id']}", params={"expectedVersion": 1}
@@ -297,7 +297,7 @@ def test_last_translation_content_attribute_cannot_be_removed():
             params={"expectedVersion": 1},
         )
         assert removed.status_code == 422
-        assert removed.json()["error"]["code"] == "object_attribute_rule_violation"
+        assert removed.json()["error"]["code"] == "OBJECT_ATTRIBUTE_RULE_VIOLATION"
 
         unchanged = client.get(f"/api/v1/objects/translation/{translation['id']}").json()
         assert unchanged["version"] == 1

@@ -168,7 +168,7 @@ def test_both_directions_states_typed_fields_and_bounded_target_continuation(cli
         ),
     )
     assert stale.status_code == 409
-    assert stale.json()["error"]["code"] == "mapping_version_conflict"
+    assert stale.json()["error"]["code"] == "MAPPING_VERSION_CONFLICT"
     assert "refresh" in stale.json()["error"]["message"]
 
 
@@ -235,11 +235,11 @@ def test_coverage_pagination_and_cursor_scope_validation(client):
             BASE + "/mapping-coverage",
             params=dict(OUT, pageSize=2, cursor=first["nextCursor"], **change),
         )
-        assert r.status_code == 422 and r.json()["error"]["code"] == "invalid_cursor"
+        assert r.status_code == 422 and r.json()["error"]["code"] == "INVALID_CURSOR"
     for params, code, error in (
-        (dict(OUT, viewKey="missing"), 404, "mapping_view_not_found"),
-        (dict(OUT, relationTypeKey="missing"), 404, "mapping_binding_not_found"),
-        (dict(OUT, direction="incoming"), 422, "mapping_view_binding_mismatch"),
+        (dict(OUT, viewKey="missing"), 404, "MAPPING_VIEW_NOT_FOUND"),
+        (dict(OUT, relationTypeKey="missing"), 404, "MAPPING_BINDING_NOT_FOUND"),
+        (dict(OUT, direction="incoming"), 422, "MAPPING_VIEW_BINDING_MISMATCH"),
     ):
         r = client.get(BASE + "/mapping-coverage", params=params)
         assert r.status_code == code and r.json()["error"]["code"] == error
@@ -251,7 +251,7 @@ def test_coverage_pagination_and_cursor_scope_validation(client):
             "objectTypeKey": "system-value",
         },
     )
-    assert r.status_code == 422 and r.json()["error"]["code"] == "mapping_candidate_type_mismatch"
+    assert r.status_code == 422 and r.json()["error"]["code"] == "MAPPING_CANDIDATE_TYPE_MISMATCH"
 
 
 def test_coverage_and_candidates_list_by_name_and_seek_a_name(client):
@@ -284,7 +284,7 @@ def test_coverage_and_candidates_list_by_name_and_seek_a_name(client):
     assert get(client, "/mapping-coverage", dict(params, cursor=reissue_cursor(first["nextCursor"])))
     stale = reissue_cursor(first["nextCursor"], sort=["id"], position=[sources["alpha"]["id"]])
     r = client.get(BASE + "/mapping-coverage", params=dict(params, cursor=stale))
-    assert r.status_code == 422 and r.json()["error"]["code"] == "invalid_cursor"
+    assert r.status_code == 422 and r.json()["error"]["code"] == "INVALID_CURSOR"
 
 
 def test_coverage_parent_and_state_filters_apply_before_pagination(client):
@@ -316,17 +316,17 @@ def test_coverage_parent_and_state_filters_apply_before_pagination(client):
         BASE + "/mapping-coverage",
         params=dict(OUT, state="mapped", cursor=unmapped["nextCursor"]),
     )
-    assert r.status_code == 422 and r.json()["error"]["code"] == "invalid_cursor"
+    assert r.status_code == 422 and r.json()["error"]["code"] == "INVALID_CURSOR"
 
     mismatch = client.get(
         BASE + "/mapping-coverage",
         params=dict(OUT, parentObjectId=targets[0]["parentObjectId"]),
     )
     assert mismatch.status_code == 422
-    assert mismatch.json()["error"]["code"] == "mapping_parent_scope_mismatch"
+    assert mismatch.json()["error"]["code"] == "MAPPING_PARENT_SCOPE_MISMATCH"
     missing = client.get(BASE + "/mapping-coverage", params=dict(OUT, parentObjectId="missing"))
     assert missing.status_code == 404
-    assert missing.json()["error"]["code"] == "mapping_parent_not_found"
+    assert missing.json()["error"]["code"] == "MAPPING_PARENT_NOT_FOUND"
 
 
 def test_change_set_coverage_versions_and_context_bound_cursors(client):
@@ -351,7 +351,7 @@ def test_change_set_coverage_versions_and_context_bound_cursors(client):
     )
     first = get(client, "/mapping-coverage", dict(OUT, changeSetId=change_set["id"], pageSize=1))
     r = client.get(BASE + "/mapping-coverage", params=dict(OUT, cursor=first["nextCursor"]))
-    assert r.status_code == 422 and r.json()["error"]["code"] == "invalid_cursor"
+    assert r.status_code == 422 and r.json()["error"]["code"] == "INVALID_CURSOR"
     assert (
         get(
             client,
@@ -500,7 +500,7 @@ def test_publication_coverage_is_immutable_scoped_and_version_bound(client):
         params=dict(OUT, changeSetId="change_set", publicationId=publication_id),
     )
     assert invalid.status_code == 422
-    assert invalid.json()["error"]["code"] == "mutually_exclusive_context"
+    assert invalid.json()["error"]["code"] == "MUTUALLY_EXCLUSIVE_CONTEXT"
 
 
 def test_concurrent_coverage_keeps_edges_fields_and_versions_in_one_snapshot(client, monkeypatch):
@@ -663,7 +663,7 @@ def test_change_set_pinned_model_and_release_bound_cursor(client):
     )
     assert len(pinned["items"]) == 2
     r = client.get(BASE + "/mapping-coverage", params=dict(OUT, cursor=first["nextCursor"]))
-    assert r.status_code == 422 and r.json()["error"]["code"] == "invalid_cursor"
+    assert r.status_code == 422 and r.json()["error"]["code"] == "INVALID_CURSOR"
 
 
 def test_change_set_base_overlay_tombstones_and_target_preview(client):
@@ -820,7 +820,7 @@ def test_cascade_deletion_invalidates_mapping_continuations(client, change_set_c
     )
     assert continuation.status_code == 409
     error = continuation.json()["error"]
-    assert error["code"] == "mapping_version_conflict" and "refresh" in error["message"]
+    assert error["code"] == "MAPPING_VERSION_CONFLICT" and "refresh" in error["message"]
     assert error["details"]["mappingVersion"] == after["mappingVersion"]
 
 

@@ -73,7 +73,7 @@ def object_type_changed(object_id: str, current: str, requested: str) -> ApiErro
     """
     return api_error(
         409,
-        "object_type_changed",
+        "OBJECT_TYPE_CHANGED",
         f"Object '{object_id}' is a '{current}' record, not '{requested}'",
         {"objectId": object_id, "objectTypeKey": current, "requestedObjectTypeKey": requested},
     )
@@ -114,7 +114,7 @@ def effective_period(object_type: ObjectTypeDefinition, attributes: dict[str, An
         return
     raise api_error(
         422,
-        "invalid_effective_period",
+        "INVALID_EFFECTIVE_PERIOD",
         f"The effective period must end after it starts: '{period.endAttributeTypeKey}' "
         f"{end.isoformat()} is not after '{period.startAttributeTypeKey}' {start.isoformat()}",
         {
@@ -156,14 +156,14 @@ def parent(
     definition = model.object_type(object_type_key)
     if parent_id is None:
         if not definition.features.get("rootCreatable", False):
-            raise api_error(422, "parent_required", "This object type requires a parent")
+            raise api_error(422, "PARENT_REQUIRED", "This object type requires a parent")
         return None, None
     found = lookup.object(parent_id)
     if found is None:
         raise lookup.refusals.missing_parent(parent_id)
     if found.application_key != application_key or not lookup.shares_workspace(found):
         raise api_error(
-            422, "parent_wrong_scope", "Parent must be in the same application and workspace"
+            422, "PARENT_WRONG_SCOPE", "Parent must be in the same application and workspace"
         )
     matches = [
         binding.relationTypeKey
@@ -172,14 +172,14 @@ def parent(
     ]
     if len(matches) != 1:
         raise api_error(
-            422, "invalid_parent_type", "Parent type is not permitted for this object type"
+            422, "INVALID_PARENT_TYPE", "Parent type is not permitted for this object type"
         )
     if moving:
         seen = {object_id}
         current = found
         while current is not None:
             if current.object_id in seen:
-                raise api_error(422, "parent_cycle", "Parent selection would create a cycle")
+                raise api_error(422, "PARENT_CYCLE", "Parent selection would create a cycle")
             seen.add(current.object_id)
             current = lookup.object(current.parent_object_id)
     return found, matches[0]
@@ -188,7 +188,7 @@ def parent(
 def relation_endpoint_missing(object_id: str) -> ApiError:
     """A relation names a record the context does not hold (live and change set alike since H4c)."""
     return api_error(
-        422, "relation_endpoint_missing", f"Relation endpoint '{object_id}' does not exist"
+        422, "RELATION_ENDPOINT_MISSING", f"Relation endpoint '{object_id}' does not exist"
     )
 
 
@@ -196,7 +196,7 @@ def distinct_initial_relations(identities: list[tuple[str, str, str]]) -> None:
     """A new record's initial relations (type, direction, other record) must not repeat, live and
     in a change set alike (E-D4, settled in H4c)."""
     if len(identities) != len(set(identities)):
-        raise api_error(422, "duplicate_initial_relation", "Initial relationships must not repeat")
+        raise api_error(422, "DUPLICATE_INITIAL_RELATION", "Initial relationships must not repeat")
 
 
 def required_initial_relations(
@@ -216,7 +216,7 @@ def required_initial_relations(
     if missing:
         raise api_error(
             422,
-            "missing_required_relations",
+            "MISSING_REQUIRED_RELATIONS",
             f"Required relationships missing: {missing}",
             {"relationTypeKeys": missing},
         )
@@ -233,7 +233,7 @@ def relation_binding(
     binding = model.allowed_relation(relation_type_key, from_type, to_type)
     if binding is None:
         raise api_error(
-            422, "invalid_relation_pair", "Relation is not permitted between these object types"
+            422, "INVALID_RELATION_PAIR", "Relation is not permitted between these object types"
         )
     return binding
 
@@ -264,14 +264,14 @@ def relation_attributes(
     if unknown:
         raise api_error(
             422,
-            "unknown_relation_attributes",
+            "UNKNOWN_RELATION_ATTRIBUTES",
             f"Unknown relation attributes: {sorted(unknown)}",
         )
     result: dict[str, Any] = {}
     for key, value in attributes.items():
         definition = model.attribute_type(key)
         if definition is None:  # Model validation should make this unreachable.
-            raise api_error(500, "internal_error", f"Unknown model attribute '{key}'")
+            raise api_error(500, "INTERNAL_ERROR", f"Unknown model attribute '{key}'")
         result[key] = to_jsonable(normalize_value(definition, value))
     return result
 
@@ -292,9 +292,9 @@ def relation_cardinality(
     if binding.cardinality == "one-to-one" and (
         taken(from_id, "outgoing") or taken(to_id, "incoming")
     ):
-        raise api_error(409, "cardinality_violation", "Relation cardinality would be violated")
+        raise api_error(409, "CARDINALITY_VIOLATION", "Relation cardinality would be violated")
     if binding.cardinality == "one-to-many" and taken(to_id, "incoming"):
-        raise api_error(409, "cardinality_violation", "Relation cardinality would be violated")
+        raise api_error(409, "CARDINALITY_VIOLATION", "Relation cardinality would be violated")
 
 
 def relation_scope(
@@ -324,7 +324,7 @@ def relation_scope(
     if target_ancestor is None:
         raise api_error(
             422,
-            "relation_ancestor_required",
+            "RELATION_ANCESTOR_REQUIRED",
             f"Related object must belong to an ancestor of type '{ancestor_type}'",
         )
     if lookup.refusals.holds_scope_breaches:
@@ -342,7 +342,7 @@ def relation_scope(
     if conflicting:
         raise api_error(
             409,
-            "duplicate_relation_scope",
+            "DUPLICATE_RELATION_SCOPE",
             "A related object already exists for this ancestor scope",
             {
                 "ancestorObjectTypeKey": ancestor_type,

@@ -7,7 +7,7 @@ never touched is preserved.  The merged graph is validated whole, then snapshott
 publication.  These tests exercise the divergence cases the old wholesale rebuild could not represent:
 
 * newer live content survives a change set activation (and is included in the merged publication snapshot);
-* a change set touch on a record that changed live since the base is a per-record ``version_conflict``
+* a change set touch on a record that changed live since the base is a per-record ``VERSION_CONFLICT``
   and nothing is published;
 * a change set tombstone applies to live while the older publication keeps the record;
 * a change set removal that would dangle a newer live child fails merged whole-graph validation, leaving
@@ -183,12 +183,12 @@ def test_publish_rejects_when_a_change_set_touched_record_changed_live_since_the
             expected_status=409,
         )
         error = activation.json()["error"]
-        assert error["code"] == "version_conflict"
+        assert error["code"] == "VERSION_CONFLICT"
         conflicts = error["details"]["conflicts"]
         assert any(
             conflict["kind"] == "object"
             and conflict["id"] == domain_id
-            and conflict["code"] == "version_mismatch"
+            and conflict["code"] == "VERSION_MISMATCH"
             and conflict["expectedVersion"] == base_version
             and conflict["actualVersion"] == base_version + 1
             for conflict in conflicts
@@ -308,7 +308,7 @@ def test_publish_refuses_when_removal_would_dangle_a_newer_live_child():
             expected_active_publication_id=r1_id,
             expected_status=422,
         )
-        assert activation.json()["error"]["code"] == "workspace_graph_invalid"
+        assert activation.json()["error"]["code"] == "WORKSPACE_GRAPH_INVALID"
 
         # Live, the active publication and the change set are all preserved.
         assert _live_get(client, "domain", domain_id, workspace_key)["id"] == domain_id

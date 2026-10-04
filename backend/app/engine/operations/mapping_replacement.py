@@ -54,7 +54,7 @@ class MappingVersionConflict(ApiError):
     def __init__(self, details: dict[str, Any], continuation: MappingConflictSet | None) -> None:
         super().__init__(
             409,
-            "mapping_version_conflict",
+            "MAPPING_VERSION_CONFLICT",
             "Mapping version has changed; refresh mapping coverage before retrying",
             details,
         )
@@ -155,11 +155,11 @@ class _LiveSide:
     def endpoint(self, object_id: str, expected_type: str, _end: str) -> Any:
         found = self.lookup.object(object_id)
         if found is None or not self.lookup.shares_workspace(found):
-            raise api_error(404, "mapping_endpoint_not_found", "Mapping endpoint not found")
+            raise api_error(404, "MAPPING_ENDPOINT_NOT_FOUND", "Mapping endpoint not found")
         if found.object_type_key != expected_type:
             raise api_error(
                 422,
-                "mapping_endpoint_type_mismatch",
+                "MAPPING_ENDPOINT_TYPE_MISMATCH",
                 "Mapping endpoint type does not match binding",
             )
         return found
@@ -194,7 +194,7 @@ class _ChangeSetSide:
         change_set_id = str(request.changeSetId)
         change_set = ensure_change_set_writable(session, change_set_id)
         if change_set.workspace_key != workspace_key:
-            raise api_error(404, "change_set_not_found", "Change set not found")
+            raise api_error(404, "CHANGE_SET_NOT_FOUND", "Change set not found")
         _, model = pinned_model(session, change_set_id)
         return cls(ChangeSetWrites(session, change_set), model)
 
@@ -202,7 +202,7 @@ class _ChangeSetSide:
         found = self.lookup.object(object_id)
         if found is None or found.object_type_key != expected_type:
             raise api_error(
-                404, "mapping_endpoint_not_found", f"Mapping {end} not found in change set"
+                404, "MAPPING_ENDPOINT_NOT_FOUND", f"Mapping {end} not found in change set"
             )
         return found
 
@@ -210,11 +210,11 @@ class _ChangeSetSide:
         if request.expectedChangeSetVersion is None:
             raise api_error(
                 409,
-                "change_set_required",
+                "CHANGE_SET_REQUIRED",
                 "expectedChangeSetVersion is required when targeting a change set",
             )
         if self.writes.change_set.version != request.expectedChangeSetVersion:
-            raise api_error(409, "change_set_version_conflict", "Change set version has changed")
+            raise api_error(409, "CHANGE_SET_VERSION_CONFLICT", "Change set version has changed")
 
     def claim(self, request: MappingReplacementRequest) -> None:
         self.writes.claim(request.expectedChangeSetVersion)
@@ -272,7 +272,7 @@ def _validate_clear_attributes(request: MappingReplacementRequest) -> None:
     if request.targetObjectId is None and request.attributes:
         raise api_error(
             422,
-            "invalid_clear_attributes",
+            "INVALID_CLEAR_ATTRIBUTES",
             "Clearing a mapping permits omitted or empty attributes only",
         )
 

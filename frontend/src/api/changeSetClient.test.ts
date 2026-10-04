@@ -67,7 +67,7 @@ describe("change set record context", () => {
   });
   it("refreshes after an aggregate conflict without replaying the user's mutation", async () => {
     const controller = createChangeSetClient(changeSet, vi.fn(), vi.fn());
-    const conflict = new ApiError(409, "change_set_version_conflict", "Change set changed");
+    const conflict = new ApiError(409, "CHANGE_SET_VERSION_CONFLICT", "Change set changed");
     const update = vi.spyOn(api, "updateObject").mockRejectedValueOnce(conflict).mockResolvedValue(domainObject);
     vi.spyOn(api, "changeSet").mockResolvedValue({ ...changeSet, version: 9 });
     await expect(controller.client.updateObject("domain", "id", { expectedVersion: 2, name: "mine" })).rejects.toBe(

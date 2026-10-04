@@ -151,14 +151,14 @@ def test_cancel_a_queued_a_running_and_an_atomic_job(world):
     assert again["cancelRequestedAt"] == accepted["cancelRequestedAt"]
     worker.run_until_idle()
     assert _job(world, queued["id"])["state"] == "cancelled"
-    assert _outcomes(world, queued["id"]) == [("unprocessed", "job_cancelled")] * 10
+    assert _outcomes(world, queued["id"]) == [("unprocessed", "JOB_CANCELLED")] * 10
 
     running = _submit(world, _items(world, 15, "I"))
     assert worker.run_once()
     ok(world.api.post(f"/jobs/{running['id']}/cancel"), 202)
     worker.run_until_idle()
     assert _outcomes(world, running["id"]) == (
-        [("applied", "created")] * 5 + [("unprocessed", "job_cancelled")] * 10
+        [("applied", "created")] * 5 + [("unprocessed", "JOB_CANCELLED")] * 10
     )
     assert _named(world, "I") == [f"I {n:03d}" for n in range(5)]
 
@@ -172,10 +172,10 @@ def test_cancel_a_queued_a_running_and_an_atomic_job(world):
     assert _job(world, atomic["id"])["state"] == "cancelled"
     assert _named(world, "T") == []
 
-    finished = refused(world.api.post(f"/jobs/{queued['id']}/cancel"), 409, "job_finished")
+    finished = refused(world.api.post(f"/jobs/{queued['id']}/cancel"), 409, "JOB_FINISHED")
     assert finished["details"]["state"] == "cancelled"
     refused(
-        world.api.post("/jobs/7d1c6f0e-2a4b-4c8d-9e1f-3a5b7c9d1e2f/cancel"), 404, "job_not_found"
+        world.api.post("/jobs/7d1c6f0e-2a4b-4c8d-9e1f-3a5b7c9d1e2f/cancel"), 404, "JOB_NOT_FOUND"
     )
 
 
@@ -224,14 +224,14 @@ def test_the_model_the_change_set_or_the_workspace_changes_mid_job(world):
     live = _submit(world, _items(world, 10, "L"))
     model, _key = world.candidate("compatible")
     release = world.install(model)["id"]
-    assert after_one_chunk(live, lambda: ok(world.activate(release))) == "model_release_changed"
+    assert after_one_chunk(live, lambda: ok(world.activate(release))) == "MODEL_RELEASE_CHANGED"
 
     cs = world.change_set()
     staged = _submit(
         world, _items(world, 10, "C"), changeSetId=cs["id"], expectedChangeSetVersion=cs["version"]
     )
     other_write = lambda: world.made("R", "Someone else", change_set=world.current(cs))
-    assert after_one_chunk(staged, other_write) == "change_set_version_conflict"
+    assert after_one_chunk(staged, other_write) == "CHANGE_SET_VERSION_CONFLICT"
 
     elsewhere = _submit(world, _items(world, 10, "W"), workspace=W2)
     workspace = ok(world.api.get(f"/workspaces/{W2}"))
@@ -243,7 +243,7 @@ def test_the_model_the_change_set_or_the_workspace_changes_mid_job(world):
             )
         )
 
-    assert after_one_chunk(elsewhere, retire) == "workspace_retired"
+    assert after_one_chunk(elsewhere, retire) == "WORKSPACE_RETIRED"
 
 
 @pytest.mark.journey("J24.5")

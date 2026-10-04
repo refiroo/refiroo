@@ -33,15 +33,15 @@ def check_details(
         label = f"Application '{application.key}' detail '{detail.objectTypeKey}'"
 
         if detail.objectTypeKey in seen_object_type_keys:
-            raise ModelReferenceError("duplicate_key", detail_path, f"{label} is duplicated")
+            raise ModelReferenceError("DUPLICATE_KEY", detail_path, f"{label} is duplicated")
         seen_object_type_keys.add(detail.objectTypeKey)
         if detail.objectTypeKey not in index.object_types:
             raise ModelReferenceError(
-                "unknown_object_type", detail_path, f"{label} references an unknown object type"
+                "UNKNOWN_OBJECT_TYPE", detail_path, f"{label} references an unknown object type"
             )
         if detail.objectTypeKey not in application.objectTypeKeys:
             raise ModelReferenceError(
-                "invalid_model", detail_path, f"{label} is not available in the application"
+                "INVALID_MODEL", detail_path, f"{label} is not available in the application"
             )
 
         detail_type = index.object_types[detail.objectTypeKey]
@@ -69,7 +69,7 @@ def _check_panels(
         panel_path = f"{detail_path}/panels/{pointer_segment(panel.key)}"
         label = f"{detail_label} panel '{panel.key}'"
         if panel.key in seen_panel_keys:
-            raise ModelReferenceError("duplicate_key", panel_path, f"{label} is duplicated")
+            raise ModelReferenceError("DUPLICATE_KEY", panel_path, f"{label} is duplicated")
         seen_panel_keys.add(panel.key)
 
         if isinstance(panel, AttributesPanelDefinition):
@@ -132,7 +132,7 @@ def _check_children_panel(
             for allowed in model.objectTypeRelations
         ):
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 panel_path,
                 f"{label} object type '{child_type.key}' is not a configured child of "
                 f"'{detail.objectTypeKey}'",
@@ -151,7 +151,7 @@ def _check_relations_panel(
     for relation_key in panel.config.relationTypeKeys:
         if relation_key not in index.relation_types:
             raise ModelReferenceError(
-                "unknown_relation_type",
+                "UNKNOWN_RELATION_TYPE",
                 panel_path,
                 f"{label} references unknown relation type '{relation_key}'",
             )
@@ -168,7 +168,7 @@ def _check_relations_panel(
         ]
         if not matches:
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 panel_path,
                 f"{label} relation '{relation_key}' is incompatible with "
                 f"'{detail.objectTypeKey}' and direction '{panel.config.direction}'",
@@ -210,7 +210,7 @@ def _check_relations_panel_sort(
     require_schema(model, "0.7", first_path, f"{label} sort configuration")
     if config.sortFields is not None and len(config.sortFields) != len(set(config.sortFields)):
         raise ModelReferenceError(
-            "duplicate_key", f"{config_path}/sortFields", f"{label} sortFields must be unique"
+            "DUPLICATE_KEY", f"{config_path}/sortFields", f"{label} sortFields must be unique"
         )
 
     related_types = related_object_types(
@@ -241,14 +241,14 @@ def _check_relation_sort_field(
         if len(related_types) != 1:
             related_keys = sorted(related_type.key for related_type in related_types)
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 field_path,
                 f"{label} cannot sort by '{field}': it lists several related object types "
                 f"{related_keys}, and an ancestor sort needs one",
             )
         if ancestor_key not in ancestor_type_keys(model, related_types[0].key):
             raise ModelReferenceError(
-                "invalid_reference",
+                "INVALID_REFERENCE",
                 field_path,
                 f"{label} cannot sort by '{field}': '{related_types[0].key}' has no ancestor of "
                 f"type '{ancestor_key}'",
@@ -256,7 +256,7 @@ def _check_relation_sort_field(
         return
     if field not in index.attribute_types:
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             field_path,
             f"{label} cannot sort by '{field}'; a relations panel sorts by name, objectType, "
             "relationship, a scalar attribute or an ancestor",
@@ -264,13 +264,13 @@ def _check_relation_sort_field(
     bound = {binding.attributeTypeKey for item in related_types for binding in item.attributes}
     if field not in bound:
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             field_path,
             f"{label} cannot sort by '{field}': it is not attached to any related object type",
         )
     if index.attribute_types[field].valueType == "json":
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             field_path,
             f"{label} cannot sort by '{field}': attribute '{field}' holds JSON",
         )

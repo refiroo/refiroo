@@ -37,9 +37,9 @@ export function createChangeSetClient(
       return result;
     } catch (cause) {
       if (
-        isApiError(cause, "change_set_version_conflict") ||
-        isApiError(cause, "version_conflict") ||
-        isApiError(cause, "deletion_preview_changed")
+        isApiError(cause, "CHANGE_SET_VERSION_CONFLICT") ||
+        isApiError(cause, "VERSION_CONFLICT") ||
+        isApiError(cause, "DELETION_PREVIEW_CHANGED")
       ) {
         changeSet = undefined;
         try {

@@ -438,7 +438,7 @@ def test_default_order_is_name_in_every_context(client):
         stale = reissue_cursor(first["nextCursor"], sort=[former], position=["1"])
         refused = client.get(path, params={**context, "pageSize": 2, "cursor": stale})
         assert refused.status_code == 422, name
-        assert refused.json()["error"]["code"] == "invalid_cursor", name
+        assert refused.json()["error"]["code"] == "INVALID_CURSOR", name
 
 
 def test_snapshot_cursor_is_bound_to_its_context_and_query(client):
@@ -456,7 +456,7 @@ def test_snapshot_cursor_is_bound_to_its_context_and_query(client):
             f"/api/v1/objects/{ENTRY}", params={**params, "cursor": first["nextCursor"]}
         )
         assert refused.status_code == 422, params
-        assert refused.json()["error"]["code"] == "invalid_cursor"
+        assert refused.json()["error"]["code"] == "INVALID_CURSOR"
 
 
 def test_every_change_set_write_keeps_the_typed_value_index_equal_to_the_json(client):

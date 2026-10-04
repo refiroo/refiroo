@@ -376,7 +376,7 @@ def test_publish_change_set_version_conflict_publishes_nothing():
             expected_active_publication_id=baseline["id"],
             expected_status=409,
         )
-        assert response.json()["error"]["code"] == "change_set_version_conflict"
+        assert response.json()["error"]["code"] == "CHANGE_SET_VERSION_CONFLICT"
 
         _assert_publication_state_unchanged(
             client, workspace_key, before_snapshot=before_snapshot,
@@ -405,7 +405,7 @@ def test_publish_active_publication_conflict_publishes_nothing():
             explicit_null_active_publication=True,
             expected_status=409,
         )
-        assert response.json()["error"]["code"] == "workspace_active_publication_conflict"
+        assert response.json()["error"]["code"] == "WORKSPACE_ACTIVE_PUBLICATION_CONFLICT"
 
         _assert_publication_state_unchanged(
             client, workspace_key, before_snapshot=before_snapshot,
@@ -435,7 +435,7 @@ def test_publish_model_release_conflict_publishes_nothing():
             expected_active_publication_id=baseline["id"],
             expected_status=409,
         )
-        assert response.json()["error"]["code"] == "change_set_model_release_conflict"
+        assert response.json()["error"]["code"] == "CHANGE_SET_MODEL_RELEASE_CONFLICT"
 
         _assert_publication_state_unchanged(
             client, workspace_key, before_snapshot=before_snapshot,
@@ -465,8 +465,8 @@ def test_publish_invalid_graph_publishes_nothing():
             expected_status=422,
         )
         body = response.json()["error"]
-        assert body["code"] == "workspace_graph_invalid"
-        assert "unknown_object_type" in [item["code"] for item in body["details"]]
+        assert body["code"] == "WORKSPACE_GRAPH_INVALID"
+        assert "UNKNOWN_OBJECT_TYPE" in [item["code"] for item in body["details"]]
 
         _assert_publication_state_unchanged(
             client, workspace_key, before_snapshot=before_snapshot,
@@ -495,7 +495,7 @@ def test_no_partial_publication_after_every_failure_class():
             client, change_set["id"], expected_change_set_version=change_set["version"] - 1,
             expected_active_publication_id=before_active, expected_status=409,
         )
-        assert response.json()["error"]["code"] == "change_set_version_conflict"
+        assert response.json()["error"]["code"] == "CHANGE_SET_VERSION_CONFLICT"
         _assert_publication_state_unchanged(
             client, workspace_key, before_snapshot=before_snapshot,
             before_active_publication=before_active, before_publication_count=before_publications,
@@ -513,7 +513,7 @@ def test_no_partial_publication_after_every_failure_class():
             client, change_set["id"], expected_change_set_version=change_set["version"],
             explicit_null_active_publication=True, expected_status=409,
         )
-        assert response.json()["error"]["code"] == "workspace_active_publication_conflict"
+        assert response.json()["error"]["code"] == "WORKSPACE_ACTIVE_PUBLICATION_CONFLICT"
         _assert_publication_state_unchanged(
             client, workspace_key, before_snapshot=before_snapshot,
             before_active_publication=before_active, before_publication_count=before_publications,
@@ -533,7 +533,7 @@ def test_no_partial_publication_after_every_failure_class():
             client, change_set["id"], expected_change_set_version=change_set["version"],
             expected_active_publication_id=before_active, expected_status=409,
         )
-        assert response.json()["error"]["code"] == "change_set_model_release_conflict"
+        assert response.json()["error"]["code"] == "CHANGE_SET_MODEL_RELEASE_CONFLICT"
         _assert_publication_state_unchanged(
             client, workspace_key, before_snapshot=before_snapshot,
             before_active_publication=before_active, before_publication_count=before_publications,
@@ -552,7 +552,7 @@ def test_no_partial_publication_after_every_failure_class():
             client, change_set["id"], expected_change_set_version=change_set["version"],
             expected_active_publication_id=before_active, expected_status=422,
         )
-        assert response.json()["error"]["code"] == "workspace_graph_invalid"
+        assert response.json()["error"]["code"] == "WORKSPACE_GRAPH_INVALID"
         _assert_publication_state_unchanged(
             client, workspace_key, before_snapshot=before_snapshot,
             before_active_publication=before_active, before_publication_count=before_publications,

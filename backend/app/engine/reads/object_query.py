@@ -481,7 +481,7 @@ def _object_sort_keys(
     if field_name == _SEQUENCE_FIELD or (
         field_name == tiebreak.name and field_name not in columns.builtin
     ):
-        query_error("invalid_sort", f"Unknown sort field '{field_name}'", "sort")
+        query_error("INVALID_SORT", f"Unknown sort field '{field_name}'", "sort")
     if field_name == tiebreak.name:
         return statement, (tiebreak,), lambda raw: [tiebreak.parse(raw)]
 
@@ -596,9 +596,9 @@ def _sort_attribute(model: EngineModel, object_types: Sequence[ObjectTypeDefinit
     bound = {item.attributeTypeKey for object_type in object_types for item in object_type.attributes}
     definition = model.attribute_type(field) if field in bound else None
     if definition is None:
-        query_error("invalid_sort", f"Unknown field '{field}'", "sort")
+        query_error("INVALID_SORT", f"Unknown field '{field}'", "sort")
     if definition.valueType == "json":
-        query_error("invalid_sort", f"Field '{field}' holds JSON and cannot be sorted", "sort")
+        query_error("INVALID_SORT", f"Field '{field}' holds JSON and cannot be sorted", "sort")
     return definition
 
 
@@ -633,16 +633,16 @@ def _query_ancestor(
 ) -> tuple[Select[Any], Any]:
     ancestor_type_key = field.removeprefix(ANCESTOR_FIELD_PREFIX)
     if columns.ancestor is None:
-        query_error("invalid_sort", f"Field '{field}' is not sortable in this list", "sort")
+        query_error("INVALID_SORT", f"Field '{field}' is not sortable in this list", "sort")
     if len(object_types) != 1:
         query_error(
-            "invalid_sort",
+            "INVALID_SORT",
             f"Sorting by '{field}' needs one object type; this list holds several",
             "sort",
         )
     if ancestor_type_key not in ancestor_type_keys(model, object_types[0].key):
         query_error(
-            "invalid_sort",
+            "INVALID_SORT",
             f"Object type '{object_types[0].key}' has no ancestor of type '{ancestor_type_key}'",
             "sort",
         )
@@ -654,7 +654,7 @@ def require_effective_period(object_type: ObjectTypeDefinition, path: str) -> No
     if object_type.effectivePeriod is None:
         raise api_error(
             422,
-            "as_of_not_supported",
+            "AS_OF_NOT_SUPPORTED",
             f"Object type '{object_type.key}' declares no effective period, so asOf does not apply",
             {"path": path, "objectTypeKey": object_type.key},
         )
@@ -704,7 +704,7 @@ def typed_filter_predicates(
         )
         if operator not in filter_operators(value_type, attribute=is_attribute):
             query_error(
-                "invalid_filter",
+                "INVALID_FILTER",
                 f"Operator '{operator}' is not supported for field '{field}'",
                 f"filter.{field}.{operator}",
             )
@@ -823,12 +823,12 @@ def filter_operators(value_type: str, *, attribute: bool) -> set[str]:
 def parse_filter_value(value_type: str, operator: str, lexical: str, field: str) -> Any:
     if operator in {"isNull", "isUnset"}:
         if lexical not in {"true", "false"}:
-            query_error("invalid_filter", f"Filter '{operator}' requires true or false", f"filter.{field}.{operator}")
+            query_error("INVALID_FILTER", f"Filter '{operator}' requires true or false", f"filter.{field}.{operator}")
         return lexical == "true"
     try:
         return _parse_typed(value_type, lexical)
     except ValueError:
-        query_error("invalid_filter", f"Invalid {value_type} value for field '{field}'", f"filter.{field}.{operator}")
+        query_error("INVALID_FILTER", f"Invalid {value_type} value for field '{field}'", f"filter.{field}.{operator}")
 
 
 def _parse_typed(value_type: str, lexical: str) -> Any:

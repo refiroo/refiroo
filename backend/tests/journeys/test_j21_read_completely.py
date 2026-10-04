@@ -84,11 +84,11 @@ def test_page_to_the_end_and_back_and_resume_a_stored_cursor(world):
         f"/jobs/{job['job']['id']}/items",
     ]
     for route in routes:
-        refused(world.api.get(route, pageSize=100000), 422, "request_validation_error")
+        refused(world.api.get(route, pageSize=100000), 422, "REQUEST_VALIDATION_ERROR")
     refused(
         world.api.get("/relations", objectId=record["id"], pageSize=100000),
         422,
-        "request_validation_error",
+        "REQUEST_VALIDATION_ERROR",
     )
     assert publication
 
@@ -106,7 +106,7 @@ def test_jump_to_a_position(world):
     assert end["items"] == [] and end["startIndex"] == end["totalCount"] and end["prevCursor"]
     last = ok(_list(world, cursor=end["prevCursor"], pageSize=20))
     assert [item["id"] for item in last["items"]] == whole[-20:]
-    refused(_list(world, position=-1), 422, "request_validation_error")
+    refused(_list(world, position=-1), 422, "REQUEST_VALIDATION_ERROR")
 
 
 @pytest.mark.journey("J21.2")
@@ -134,7 +134,7 @@ def test_seek_to_a_value(world):
     assert values[0] <= 40
     present = [v for v in values if v is not None]
     assert values[: len(present)] == present and present == sorted(present, reverse=True)
-    refused(_list(world, sort=world.key("V.on"), seek="not-a-date"), 422, "invalid_seek")
+    refused(_list(world, sort=world.key("V.on"), seek="not-a-date"), 422, "INVALID_SEEK")
 
 
 @pytest.mark.journey("J21.4")
@@ -166,7 +166,7 @@ def test_records_inserted_between_pages(world):
         f"/objects/{world.key('V')}/{removed_id}", expectedVersion=victim["version"]
     )
     if deleted.status_code == 409:
-        token = refused(deleted, 409, "object_has_dependants")["details"]["deletionPreviewToken"]
+        token = refused(deleted, 409, "OBJECT_HAS_DEPENDANTS")["details"]["deletionPreviewToken"]
         deleted = world.api.delete(
             f"/objects/{world.key('V')}/{removed_id}",
             expectedVersion=victim["version"],
@@ -205,9 +205,9 @@ def test_page_a_change_set_or_a_publication(world):
         assert sorted(_ids(pages)) == sorted(_ids(live_pages))
     staged = ok(_list(world, pageSize=100, changeSetId=cs["id"]))["nextCursor"]
     published = ok(_list(world, pageSize=100, publicationId=publication["id"]))["nextCursor"]
-    refused(_list(world, pageSize=100, cursor=staged), 422, "invalid_cursor")
+    refused(_list(world, pageSize=100, cursor=staged), 422, "INVALID_CURSOR")
     refused(
-        _list(world, pageSize=100, cursor=published, changeSetId=cs["id"]), 422, "invalid_cursor"
+        _list(world, pageSize=100, cursor=published, changeSetId=cs["id"]), 422, "INVALID_CURSOR"
     )
 
 
@@ -225,9 +225,9 @@ def test_a_cursor_reused_with_another_query_is_refused(world):
         _list(world, pageSize=10, cursor=cursor, changeSetId=cs["id"]),
         world.api.get("/objects", pageSize=10, cursor=cursor, workspaceKey=W1),
     ):
-        refused(response, 422, "invalid_cursor")
+        refused(response, 422, "INVALID_CURSOR")
     error = refused(
-        _list(world, pageSize=10, cursor=cursor, position=5), 422, "conflicting_page_parameters"
+        _list(world, pageSize=10, cursor=cursor, position=5), 422, "CONFLICTING_PAGE_PARAMETERS"
     )
     assert {"cursor", "position"} <= set(error["details"]["parameters"])
 
@@ -237,7 +237,7 @@ def test_a_cursor_reused_with_another_query_is_refused(world):
 def test_an_unknown_query_parameter_is_refused(world):
     """When a list is asked for with a misspelt parameter, and every other kind of read with an
     unknown one. Then each is refused naming the parameter (decided D-3)."""
-    error = refused(_list(world, pagesize=5), 422, "unknown_parameter")
+    error = refused(_list(world, pagesize=5), 422, "UNKNOWN_PARAMETER")
     assert "pagesize" in str(error["details"])
     record = world.made("H", "Asked about")
     cs = world.change_set()
@@ -268,11 +268,11 @@ def test_an_unknown_query_parameter_is_refused(world):
     ]
     for route in routes:
         error = refused(
-            world.api.get(route, notAParameter=uuid4().hex[:4]), 422, "unknown_parameter"
+            world.api.get(route, notAParameter=uuid4().hex[:4]), 422, "UNKNOWN_PARAMETER"
         )
         assert "notAParameter" in str(error["details"]), route
     refused(
         world.api.get("/relations", objectId=record["id"], notAParameter=1),
         422,
-        "unknown_parameter",
+        "UNKNOWN_PARAMETER",
     )

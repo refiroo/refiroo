@@ -21,7 +21,7 @@ def selected_change_set_release(session: Session, public_id: str) -> ModelReleas
     if release is None:
         raise api_error(
             409,
-            "pinned_model_unavailable",
+            "PINNED_MODEL_UNAVAILABLE",
             "The selected model release is not installed",
             {"modelReleaseId": public_id},
         )
@@ -47,8 +47,8 @@ def require_change_set_compatible(
         if target_definition is None or old_definition.valueType == target_definition.valueType:
             continue
         for rows, code, count_key in (
-            (membership.objects, "attribute_value_type_changed", "objectCount"),
-            (membership.relations, "relation_attribute_value_type_changed", "relationCount"),
+            (membership.objects, "ATTRIBUTE_VALUE_TYPE_CHANGED", "objectCount"),
+            (membership.relations, "RELATION_ATTRIBUTE_VALUE_TYPE_CHANGED", "relationCount"),
         ):
             count = sum(old_definition.key in (row.attributes or {}) for row in rows)
             if count:
@@ -97,7 +97,7 @@ def require_change_set_compatible(
         if count:
             diagnostics.append(
                 {
-                    "code": "parent_relation_semantics_changed",
+                    "code": "PARENT_RELATION_SEMANTICS_CHANGED",
                     "message": "Stored containment uses source model semantics; changing them requires conversion",
                     "details": {
                         "relationTypeKey": pair.relationTypeKey,
@@ -121,7 +121,7 @@ def require_change_set_compatible(
             bounded.append({**diagnostic, **({"details": details} if details else {})})
         raise api_error(
             409,
-            "change_set_content_incompatible",
+            "CHANGE_SET_CONTENT_INCOMPATIBLE",
             "Change set content does not fit the selected model. Keep its current version or choose a compatible release; conversion requires the migration workflow.",
             {
                 "diagnostics": bounded,
@@ -141,7 +141,7 @@ def set_change_set_model_release(
         release = selected_change_set_release(session, public_id)
         if change_set.version != expected_version:
             raise api_error(
-                409, "change_set_version_conflict", "Change set version has changed"
+                409, "CHANGE_SET_VERSION_CONFLICT", "Change set version has changed"
             )
         # Claim even a no-op to serialize against edits, then roll it back without an audit/version bump.
         writes.claim(expected_version)

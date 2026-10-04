@@ -115,14 +115,14 @@ export function RelationMatrixCellDialog({
       setDirty(false);
       await onSaved();
     } catch (cause) {
-      if (isApiError(cause, "duplicate_relation_scope")) {
+      if (isApiError(cause, "DUPLICATE_RELATION_SCOPE")) {
         const details = cause.details as
           { conflictingObjectId?: string; ancestorObjectId?: string; ancestorObjectTypeKey?: string } | undefined;
         setError({
           message: duplicateMessage(details) ?? errorMessage(cause),
           conflictingObjectId: details?.conflictingObjectId,
         });
-      } else if (isApiError(cause, "version_conflict") || isApiError(cause, "relation_set_version_conflict")) {
+      } else if (isApiError(cause, "VERSION_CONFLICT") || isApiError(cause, "RELATION_SET_VERSION_CONFLICT")) {
         setError({ message: errorMessage(cause), stale: true });
         await onRefresh();
       } else {

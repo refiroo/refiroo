@@ -33,7 +33,7 @@ async def validation_error_handler(_request: Request, exc: RequestValidationErro
         status_code=422,
         content={
             "error": {
-                "code": "request_validation_error",
+                "code": "REQUEST_VALIDATION_ERROR",
                 "message": "Request validation failed",
                 "details": jsonable_encoder(exc.errors()),
             }
@@ -46,7 +46,7 @@ async def http_error_handler(_request: Request, exc: StarletteHTTPException) -> 
         status_code=exc.status_code,
         content={
             "error": {
-                "code": "http_error",
+                "code": "HTTP_ERROR",
                 "message": str(exc.detail),
             }
         },
@@ -71,7 +71,7 @@ async def unexpected_error_handler(request: Request, exc: Exception) -> JSONResp
         status_code=500,
         content={
             "error": {
-                "code": "internal_error",
+                "code": "INTERNAL_ERROR",
                 "message": (
                     f"The {request.method} {request.url.path} operation failed unexpectedly."
                     " Retry or contact support with"

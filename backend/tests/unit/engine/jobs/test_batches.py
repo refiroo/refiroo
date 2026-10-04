@@ -145,9 +145,9 @@ def test_items_see_the_items_before_them_and_a_refused_item_writes_nothing(seede
     assert summary(outcomes) == [
         ("applied", "created"),
         ("applied", "created"),
-        ("rejected", "duplicate_attribute_value"),
-        ("rejected", "reference_not_found"),
-        ("rejected", "invalid_relation_pair"),
+        ("rejected", "DUPLICATE_ATTRIBUTE_VALUE"),
+        ("rejected", "REFERENCE_NOT_FOUND"),
+        ("rejected", "INVALID_RELATION_PAIR"),
     ]
     assert pointers(outcomes)[2:4] == ["/items/2/attributes", "/items/3/parent"]
     # An outcome carries its item's ref and only its status's fields.
@@ -159,7 +159,7 @@ def test_items_see_the_items_before_them_and_a_refused_item_writes_nothing(seede
     assert names(world, "R2") == ["Child of P"]
     # Nothing applied: the job applies nothing.
     assert summary(run(world, [create(world, "R", "Clash again", R_u="P")])) == [
-        ("rejected", "duplicate_attribute_value")
+        ("rejected", "DUPLICATE_ATTRIBUTE_VALUE")
     ]
 
 
@@ -186,14 +186,14 @@ def test_references_name_a_record_by_a_unique_value_and_refusals_point_at_them(s
         ],
     )
     assert list(zip(summary(outcomes), pointers(outcomes), strict=True)) == [
-        (("rejected", "invalid_record_key"), "/items/0/parent/key/attributeTypeKey"),
-        (("rejected", "reference_not_found"), "/items/1/parent"),
-        (("rejected", "missing_record_key"), "/items/2/attributes"),
-        (("rejected", "invalid_record_key"), "/items/3/key/attributeTypeKey"),
-        (("rejected", "invalid_attribute_value"), "/items/4/parent/key/value"),
+        (("rejected", "INVALID_RECORD_KEY"), "/items/0/parent/key/attributeTypeKey"),
+        (("rejected", "REFERENCE_NOT_FOUND"), "/items/1/parent"),
+        (("rejected", "MISSING_RECORD_KEY"), "/items/2/attributes"),
+        (("rejected", "INVALID_RECORD_KEY"), "/items/3/key/attributeTypeKey"),
+        (("rejected", "INVALID_ATTRIBUTE_VALUE"), "/items/4/parent/key/value"),
         (("applied", "created"), None),
         (("applied", "updated"), None),
-        (("rejected", "reference_not_found"), "/items/7/target"),
+        (("rejected", "REFERENCE_NOT_FOUND"), "/items/7/target"),
     ]
     assert stored(outcomes[5].fields["id"]).parent_object_id == holder.fields["id"]
     assert stored(holder.fields["id"]).name == "Renamed"
@@ -223,7 +223,7 @@ def test_a_reference_finding_a_record_of_another_type_is_refused(seeded):
         ],
     )
     assert (summary(outcomes), pointers(outcomes)) == (
-        [("rejected", "reference_type_mismatch")],
+        [("rejected", "REFERENCE_TYPE_MISMATCH")],
         ["/items/0/parent"],
     )
     assert outcomes[0].fields["error"]["details"]["id"] == entry.fields["id"]
@@ -279,7 +279,7 @@ def test_a_claim_beside_equal_values_and_an_overwrite_on_record(seeded):
 
     stale = run(world, [{**upsert(world, "R", "Feed v3", R_u="FEED"), "expectedVersion": 1}])
     assert (summary(stale), pointers(stale)) == (
-        [("rejected", "version_conflict")],
+        [("rejected", "VERSION_CONFLICT")],
         ["/items/0/expectedVersion"],
     )
     same = run(world, [{**renamed, "expectedVersion": 1}])
@@ -323,7 +323,7 @@ def test_a_delete_item_with_dependants_is_refused_without_a_preview_token(seeded
     outcomes = run(
         world, [{"op": "delete", "target": {"id": record.id}, "expectedVersion": record.version}]
     )
-    assert summary(outcomes) == [("rejected", "object_has_dependants")]
+    assert summary(outcomes) == [("rejected", "OBJECT_HAS_DEPENDANTS")]
     assert "deletionPreviewToken" not in outcomes[0].fields["error"]["details"]
     assert stored(record.id) is not None
 
@@ -347,8 +347,8 @@ def test_an_atomic_batch_in_a_change_set_applies_everything_or_nothing(seeded):
         outcomes = run_batch(session, open_batch_context(session, request), request, job)
         session.commit()
     assert summary(outcomes) == [
-        ("unprocessed", "batch_rolled_back"),
-        ("rejected", "duplicate_attribute_value"),
+        ("unprocessed", "BATCH_ROLLED_BACK"),
+        ("rejected", "DUPLICATE_ATTRIBUTE_VALUE"),
     ]
     with SessionLocal() as session:
         assert not session.scalars(select(AuditEvent).where(AuditEvent.cause_id == job)).all()
@@ -394,7 +394,7 @@ def test_batches_keep_the_stored_matrix_states_derived(seeded):
         first = run(world, [dependant("First"), dependant("Second")], change_set=change_set)
         assert summary(first)[0] == ("applied", "created")
         if change_set is None:
-            assert summary(first)[1] == ("rejected", "duplicate_relation_scope")
+            assert summary(first)[1] == ("rejected", "DUPLICATE_RELATION_SCOPE")
         moved = first[0].fields
         run(
             world,
@@ -484,7 +484,7 @@ def test_relation_items_keep_the_stored_matrix_states_derived(seeded):
             policy="atomic",
             change_set=change_set,
         )
-        assert summary(rolled_back)[-1] == ("rejected", "duplicate_relation")
+        assert summary(rolled_back)[-1] == ("rejected", "DUPLICATE_RELATION")
         with SessionLocal() as session:
             assert matrix_states.verify(session) == []
         run(world, [replace(ids[1], [])], change_set=change_set, onExisting="overwrite")
@@ -526,7 +526,7 @@ def test_a_bulk_write_that_fails_is_redone_item_by_item(seeded, monkeypatch):
     )
     assert summary(outcomes) == [
         ("applied", "created"),
-        ("rejected", "object_already_exists"),
+        ("rejected", "OBJECT_ALREADY_EXISTS"),
         ("applied", "created"),
     ]
     assert pointers(outcomes)[1] == "/items/1/id"
@@ -534,7 +534,7 @@ def test_a_bulk_write_that_fails_is_redone_item_by_item(seeded, monkeypatch):
 
 
 @pytest.mark.parametrize(
-    ("workspace", "refusal"), [("nowhere", "workspace_not_found"), (W3, "workspace_retired")]
+    ("workspace", "refusal"), [("nowhere", "WORKSPACE_NOT_FOUND"), (W3, "WORKSPACE_RETIRED")]
 )
 def test_a_batch_writes_only_in_an_active_workspace(seeded, workspace, refusal):
     world = seeded
@@ -566,11 +566,11 @@ def test_a_request_names_live_data_or_one_change_set_with_its_claim(workspace, c
         }
     )
     if workspace == change_set:
-        expected = ("invalid_batch_context", "/workspaceKey" if workspace else "/changeSetId")
+        expected = ("INVALID_BATCH_CONTEXT", "/workspaceKey" if workspace else "/changeSetId")
     elif workspace and claim:
-        expected = ("invalid_batch_context", "/expectedChangeSetVersion")
+        expected = ("INVALID_BATCH_CONTEXT", "/expectedChangeSetVersion")
     elif change_set and not claim:
-        expected = ("change_set_required", None)
+        expected = ("CHANGE_SET_REQUIRED", None)
     else:
         check_batch_context(request)
         return

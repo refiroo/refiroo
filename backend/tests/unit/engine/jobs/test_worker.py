@@ -141,8 +141,8 @@ def test_an_atomic_job_runs_as_one_chunk_and_a_rejection_rolls_it_back(seeded):
     rejected = queue(world, items(world, 5, "B", clash=4), policy="atomic")
     worker().run_until_idle()
     assert job(rejected).result == "rejected"
-    assert outcomes(rejected) == [("unprocessed", "batch_rolled_back")] * 4 + [
-        ("rejected", "duplicate_attribute_value")
+    assert outcomes(rejected) == [("unprocessed", "BATCH_ROLLED_BACK")] * 4 + [
+        ("rejected", "DUPLICATE_ATTRIBUTE_VALUE")
     ]
     assert live(world, "B") == 0
 
@@ -193,12 +193,12 @@ def test_an_unexpected_error_fails_the_job_with_a_correlation_id(seeded, monkeyp
     assert (failed.state, failed.result, failed.error["code"]) == (
         "failed",
         "partial",
-        "job_failed",
+        "JOB_FAILED",
     )
     correlation = failed.error["details"]["correlationId"]
     assert "simulated" not in failed.error["message"]
     assert correlation in caplog.text and "simulated defect" in caplog.text
-    assert outcomes(job_id) == [("applied", "created")] * 2 + [("unprocessed", "job_failed")] * 2
+    assert outcomes(job_id) == [("applied", "created")] * 2 + [("unprocessed", "JOB_FAILED")] * 2
     with SessionLocal() as session:
         refs = session.scalars(
             select(JobItem.ref)

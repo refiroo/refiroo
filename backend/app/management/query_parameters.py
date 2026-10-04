@@ -40,7 +40,7 @@ def refuse_unknown_parameters(request: Request) -> None:
     if unknown:
         raise api_error(
             422,
-            "unknown_parameter",
+            "UNKNOWN_PARAMETER",
             f"Unknown query parameter '{unknown[0]}'",
             {"parameters": unknown, "path": f"/query/{unknown[0]}"},
         )

@@ -105,7 +105,7 @@ class JobItemResponse(BaseModel):
     relationIds: RelationIds | SkipJsonSchema[None] = _by_status()
     error: ApiErrorBody | SkipJsonSchema[None] = _by_status()
     reason: (
-        Literal["batch_rolled_back", "job_cancelled", "model_release_changed", "job_failed"]
+        Literal["BATCH_ROLLED_BACK", "JOB_CANCELLED", "MODEL_RELEASE_CHANGED", "JOB_FAILED"]
         | SkipJsonSchema[None]
     ) = _by_status()
 

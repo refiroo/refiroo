@@ -195,7 +195,7 @@ def test_unknown_object_type_is_a_graph_diagnostic():
         )
         result = validate_change_set(client, change_set["id"])
         assert result["valid"] is False
-        diagnostic = _diag_by_code(result, "unknown_object_type")
+        diagnostic = _diag_by_code(result, "UNKNOWN_OBJECT_TYPE")
         assert "message" in diagnostic and "objectId" in diagnostic["details"]
 
 
@@ -215,7 +215,7 @@ def test_object_type_not_enabled_in_application_is_a_graph_diagnostic():
         )
         result = validate_change_set(client, change_set["id"])
         assert result["valid"] is False
-        diagnostic = _diag_by_code(result, "object_type_not_in_application")
+        diagnostic = _diag_by_code(result, "OBJECT_TYPE_NOT_IN_APPLICATION")
         assert diagnostic["details"]["objectId"]
 
 
@@ -237,7 +237,7 @@ def test_missing_required_attribute_is_a_graph_diagnostic():
         )
         result = validate_change_set(client, change_set["id"])
         assert result["valid"] is False
-        diagnostic = _diag_by_code(result, "missing_required_attributes")
+        diagnostic = _diag_by_code(result, "MISSING_REQUIRED_ATTRIBUTES")
         assert diagnostic["details"]["objectId"]
         assert diagnostic["details"]["attributeTypeKeys"] == ["domain-code"]
         assert diagnostic["message"] == "Required fields are missing: Domain code"
@@ -268,7 +268,7 @@ def test_attribute_bounds_violation_is_a_graph_diagnostic():
         )
         result = validate_change_set(client, change_set["id"])
         assert result["valid"] is False
-        diagnostic = _diag_by_code(result, "attribute_below_minimum")
+        diagnostic = _diag_by_code(result, "ATTRIBUTE_BELOW_MINIMUM")
         assert diagnostic["details"]["objectId"] == codelist_id
 
 
@@ -292,7 +292,7 @@ def test_unique_attribute_collision_is_a_graph_diagnostic():
         )
         result = validate_change_set(client, change_set["id"])
         assert result["valid"] is False
-        diagnostic = _diag_by_code(result, "duplicate_attribute_value")
+        diagnostic = _diag_by_code(result, "DUPLICATE_ATTRIBUTE_VALUE")
         assert diagnostic["details"]["attributeTypeKey"] == "domain-code"
         assert first["id"] not in diagnostic["details"]["conflictingObjectIds"]
 
@@ -325,7 +325,7 @@ def test_containment_cycle_is_a_graph_diagnostic():
             payload={"parentObjectId": second_group["id"], "expectedVersion": 1},
             expected_status=422,
         )
-        assert rejected.json()["error"]["code"] == "parent_cycle"
+        assert rejected.json()["error"]["code"] == "PARENT_CYCLE"
         # Exercise validation of invalid persisted/imported content independently of that guard.
         with SessionLocal() as session:
             row = session.scalar(select(ChangeSetObject).where(
@@ -336,7 +336,7 @@ def test_containment_cycle_is_a_graph_diagnostic():
             session.commit()
         result = validate_change_set(client, change_set["id"])
         assert result["valid"] is False
-        assert "containment_cycle" in diagnostic_codes(result)
+        assert "CONTAINMENT_CYCLE" in diagnostic_codes(result)
 
 
 def test_missing_containment_relation_is_a_graph_diagnostic():
@@ -359,7 +359,7 @@ def test_missing_containment_relation_is_a_graph_diagnostic():
         )
         result = validate_change_set(client, change_set["id"])
         assert result["valid"] is False
-        diagnostic = _diag_by_code(result, "containment_relation_missing")
+        diagnostic = _diag_by_code(result, "CONTAINMENT_RELATION_MISSING")
         assert diagnostic["details"]["objectId"] == codelist["id"]
         assert diagnostic["details"]["parentObjectId"] == domain["id"]
 
@@ -392,7 +392,7 @@ def test_translation_target_requirement_is_a_graph_diagnostic():
         )
         result = validate_change_set(client, change_set["id"])
         assert result["valid"] is False
-        diagnostic = _diag_by_code(result, "missing_required_relation")
+        diagnostic = _diag_by_code(result, "MISSING_REQUIRED_RELATION")
         assert diagnostic["details"]["objectId"] == translation_id
         assert diagnostic["details"]["relationTypeKey"] == "object-has-translation"
 
@@ -415,7 +415,7 @@ def test_relation_endpoint_missing_is_a_graph_diagnostic():
         )
         result = validate_change_set(client, change_set["id"])
         assert result["valid"] is False
-        assert "relation_endpoint_missing" in diagnostic_codes(result)
+        assert "RELATION_ENDPOINT_MISSING" in diagnostic_codes(result)
 
 
 def test_invalid_relation_pair_is_a_graph_diagnostic():
@@ -434,7 +434,7 @@ def test_invalid_relation_pair_is_a_graph_diagnostic():
         )
         result = validate_change_set(client, change_set["id"])
         assert result["valid"] is False
-        assert "invalid_relation_pair" in diagnostic_codes(result)
+        assert "INVALID_RELATION_PAIR" in diagnostic_codes(result)
 
 
 def test_relation_cardinality_violation_is_a_graph_diagnostic():
@@ -465,7 +465,7 @@ def test_relation_cardinality_violation_is_a_graph_diagnostic():
         )
         result = validate_change_set(client, change_set["id"])
         assert result["valid"] is False
-        assert "relation_cardinality_violation" in diagnostic_codes(result)
+        assert "RELATION_CARDINALITY_VIOLATION" in diagnostic_codes(result)
 
 
 def test_relation_attribute_error_is_a_graph_diagnostic():
@@ -504,7 +504,7 @@ def test_relation_attribute_error_is_a_graph_diagnostic():
         )
         result = validate_change_set(client, change_set["id"])
         assert result["valid"] is False
-        assert "unknown_relation_attributes" in diagnostic_codes(result)
+        assert "UNKNOWN_RELATION_ATTRIBUTES" in diagnostic_codes(result)
 
 
 # --------------------------------------------------------------------------- translation rules
@@ -543,7 +543,7 @@ def test_translation_content_requirement_is_a_graph_diagnostic():
         )
         result = validate_change_set(client, change_set["id"])
         assert result["valid"] is False
-        assert "object_attribute_rule_violation" in diagnostic_codes(result)
+        assert "OBJECT_ATTRIBUTE_RULE_VIOLATION" in diagnostic_codes(result)
 
 
 def test_translation_invalid_target_relation_is_a_graph_diagnostic():
@@ -579,8 +579,8 @@ def test_translation_invalid_target_relation_is_a_graph_diagnostic():
         )
         result = validate_change_set(client, change_set["id"])
         assert result["valid"] is False
-        assert "invalid_relation_pair" in diagnostic_codes(result)
-        assert "missing_required_relation" in diagnostic_codes(result)
+        assert "INVALID_RELATION_PAIR" in diagnostic_codes(result)
+        assert "MISSING_REQUIRED_RELATION" in diagnostic_codes(result)
 
 
 def test_duplicate_translation_language_target_is_a_graph_diagnostic():
@@ -627,7 +627,7 @@ def test_duplicate_translation_language_target_is_a_graph_diagnostic():
         )
         result = validate_change_set(client, change_set["id"])
         assert result["valid"] is False
-        diagnostic = _diag_by_code(result, "duplicate_relation_scope")
+        diagnostic = _diag_by_code(result, "DUPLICATE_RELATION_SCOPE")
         assert diagnostic["details"]["objectId"] == domain["id"]
         assert first["id"] not in (diagnostic["details"]["relationId"], diagnostic["details"]["conflictingRelationId"])
 
@@ -668,7 +668,7 @@ def test_object_and_relation_identity_collision_is_a_graph_diagnostic():
         )
         result = validate_change_set(client, change_set["id"])
         assert result["valid"] is False
-        diagnostic = _diag_by_code(result, "identity_collision")
+        diagnostic = _diag_by_code(result, "IDENTITY_COLLISION")
         assert diagnostic["details"]["id"] == shared_id
 
 
@@ -715,7 +715,7 @@ def test_failed_validation_is_side_effect_free_on_change_set_and_published_reads
 
         result = validate_change_set(client, change_set["id"])
         assert result["valid"] is False
-        assert "unknown_object_type" in diagnostic_codes(result)
+        assert "UNKNOWN_OBJECT_TYPE" in diagnostic_codes(result)
 
         after_detail = client.get(f"/api/v1/change-sets/{change_set['id']}").json()
         assert after_detail["version"] == before_detail["version"]
@@ -732,7 +732,7 @@ def test_failed_validation_is_side_effect_free_on_change_set_and_published_reads
         assert client.get(f"/api/v1/publications/{published['id']}").json()["status"] == "active"
 
         # The only side effect is the bounded validation audit event.
-        event = _assert_validation_audit(change_set["id"], valid=False, error_codes=["unknown_object_type"])
+        event = _assert_validation_audit(change_set["id"], valid=False, error_codes=["UNKNOWN_OBJECT_TYPE"])
         assert event.version == before_detail["version"]
 
 
@@ -753,8 +753,8 @@ def test_activation_rejects_an_invalid_graph_without_publishing():
             expected_change_set_version=change_set["version"],
             expected_status=422,
         )
-        assert response.json()["error"]["code"] == "workspace_graph_invalid"
-        assert "unknown_object_type" in [
+        assert response.json()["error"]["code"] == "WORKSPACE_GRAPH_INVALID"
+        assert "UNKNOWN_OBJECT_TYPE" in [
             item["code"] for item in response.json()["error"]["details"]
         ]
         assert client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"] == change_set["version"]

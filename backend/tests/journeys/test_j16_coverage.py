@@ -105,43 +105,43 @@ def test_read_the_matrix_filter_by_cell_state_and_fill_an_empty_cell(world):
     unknown = world.api.get(
         f"/workspaces/{W1}/relation-matrix", applicationKey=world.key("A3"), viewKey="no-such-view"
     )
-    refused(unknown, 404, "relation_matrix_view_not_found")
+    refused(unknown, 404, "RELATION_MATRIX_VIEW_NOT_FOUND")
     elsewhere = world.api.get(
         f"/workspaces/{W1}/relation-matrix", applicationKey="no-such-application", viewKey="any"
     )
-    refused(elsewhere, 404, "unknown_application")
-    refused(_matrix(world, "Mown", state="none"), 422, "relation_matrix_state_requires_columns")
+    refused(elsewhere, 404, "UNKNOWN_APPLICATION")
+    refused(_matrix(world, "Mown", state="none"), 422, "RELATION_MATRIX_STATE_REQUIRES_COLUMNS")
     refused(
-        _matrix(world, "Mown", columnIds=[str(uuid4()) for _ in range(21)]), 422, "too_many_columns"
+        _matrix(world, "Mown", columnIds=[str(uuid4()) for _ in range(21)]), 422, "TOO_MANY_COLUMNS"
     )
-    refused(_matrix(world, "Mown", columnIds=[g1["id"], g1["id"]]), 422, "duplicate_column_ids")
+    refused(_matrix(world, "Mown", columnIds=[g1["id"], g1["id"]]), 422, "DUPLICATE_COLUMN_IDS")
     refused(
         _matrix(world, "Mown", columnIds=[g1["id"]], columnCursor="anything"),
         422,
-        "conflicting_column_parameters",
+        "CONFLICTING_COLUMN_PARAMETERS",
     )
     refused(
         _matrix(world, "Mown", columnIds=[rows["full"]["id"]]),
         404,
-        "relation_matrix_column_not_found",
+        "RELATION_MATRIX_COLUMN_NOT_FOUND",
     )
     refused(
-        _matrix(world, "Mown", parentObjectId=str(uuid4())), 404, "relation_matrix_parent_not_found"
+        _matrix(world, "Mown", parentObjectId=str(uuid4())), 404, "RELATION_MATRIX_PARENT_NOT_FOUND"
     )
     refused(
         _matrix(world, "Mown", parentObjectId=g1["id"]),
         422,
-        "relation_matrix_parent_scope_mismatch",
+        "RELATION_MATRIX_PARENT_SCOPE_MISMATCH",
     )
     refused(
         _sub(world, "containers", "Massoc", columnId=g1["id"]),
         422,
-        "relation_matrix_action_not_allowed",
+        "RELATION_MATRIX_ACTION_NOT_ALLOWED",
     )
     refused(
         _sub(world, "link-candidates", "Massoc", columnId=g1["id"], rowId=str(uuid4())),
         404,
-        "relation_matrix_row_not_found",
+        "RELATION_MATRIX_ROW_NOT_FOUND",
     )
 
 
@@ -172,7 +172,7 @@ def test_edit_or_remove_from_a_filled_cell(world):
         expectedRelationSetVersion=version - 1,
         relationSetDirection="outgoing",
     )
-    refused(stale, 409, "relation_set_version_conflict")
+    refused(stale, 409, "RELATION_SET_VERSION_CONFLICT")
     removed = world.api.delete(
         path,
         expectedVersion=record["relationVersion"],
@@ -343,7 +343,7 @@ def test_fill_in_a_change_set_and_publish(world):
     assert cell["state"] == "several" and cell["conflict"] is True
     validation = ok(world.api.post(f"/change-sets/{second['id']}/validation"))
     assert validation["valid"] is False
-    assert "duplicate_relation_scope" in {d.get("code") for d in validation["diagnostics"]}
+    assert "DUPLICATE_RELATION_SCOPE" in {d.get("code") for d in validation["diagnostics"]}
     body = {
         "expectedChangeSetVersion": world.current(second)["version"],
         "expectedActivePublicationId": _active(world),
@@ -351,7 +351,7 @@ def test_fill_in_a_change_set_and_publish(world):
     refused(
         world.api.post(f"/change-sets/{second['id']}/publication", body),
         422,
-        "workspace_graph_invalid",
+        "WORKSPACE_GRAPH_INVALID",
     )
     assert world.current(second)["id"] == second["id"]
 
@@ -374,7 +374,7 @@ def test_read_the_matrix_in_a_publication(world):
     preview = refused(
         world.api.delete(f"/objects/{world.key('D')}/{d['id']}", expectedVersion=d["version"]),
         409,
-        "object_has_dependants",
+        "OBJECT_HAS_DEPENDANTS",
     )
     gone = world.api.delete(
         f"/objects/{world.key('D')}/{d['id']}",
@@ -417,8 +417,8 @@ def test_a_cell_filled_live_after_it_was_staged(world):
     }
     response = world.api.post(f"/change-sets/{cs['id']}/publication", body)
     assert (response.status_code, response.json()["error"]["code"]) in {
-        (409, "version_conflict"),
-        (422, "workspace_graph_invalid"),
+        (409, "VERSION_CONFLICT"),
+        (422, "WORKSPACE_GRAPH_INVALID"),
     }, response.text
     assert ok(world.api.get(f"/workspaces/{W1}/publications"))["items"] == publications
     cell = _cell(
@@ -449,7 +449,7 @@ def test_two_relationships_racing_into_one_cell(world):
         W1, *(lambda d=d: world.relate("Bscope", row["id"], d["id"]) for d in (first, second))
     )
     assert sorted(r.status_code for r in one) == [201, 409]
-    refused(next(r for r in one if r.status_code == 409), 409, "duplicate_relation_scope")
+    refused(next(r for r in one if r.status_code == 409), 409, "DUPLICATE_RELATION_SCOPE")
     assert row["id"] in _rows(_read(world, "Mscope", state="one", **columns))
 
 
@@ -478,7 +478,7 @@ def test_a_related_record_moved_to_another_column(world):
     error = refused(
         world.update("M", container["id"], moved["version"], parent=g3["id"]),
         409,
-        "duplicate_relation_scope",
+        "DUPLICATE_RELATION_SCOPE",
     )
     assert error["details"]["conflictingObjectId"] == held["id"]
     assert world.record("M", container["id"])["parentObjectId"] == g2["id"]

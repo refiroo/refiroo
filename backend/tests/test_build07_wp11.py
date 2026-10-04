@@ -50,7 +50,7 @@ def test_diff_unsupported_candidate_returns_422():
 
     assert response.status_code == 422
     body = response.json()["error"]
-    assert body["code"] == "unsupported_schema_version"
+    assert body["code"] == "UNSUPPORTED_SCHEMA_VERSION"
     assert body["details"]["releaseId"] == historical_id
     assert body["details"]["schemaVersion"] == "0.4"
     assert body["details"]["supportedSchemaVersions"] == ["0.5", "0.6", "0.7", "0.8"]
@@ -69,7 +69,7 @@ def test_diff_unsupported_baseline_returns_422():
 
     assert response.status_code == 422
     body = response.json()["error"]
-    assert body["code"] == "unsupported_schema_version"
+    assert body["code"] == "UNSUPPORTED_SCHEMA_VERSION"
     assert body["details"]["releaseId"] == historical_id
     assert body["details"]["schemaVersion"] == "0.3"
     assert body["details"]["operation"] == "diff"
@@ -102,7 +102,7 @@ def test_diff_corrupt_supported_schema_remains_500():
         )
 
     assert response.status_code == 500
-    assert response.json()["error"]["code"] == "invalid_installed_model"
+    assert response.json()["error"]["code"] == "INVALID_INSTALLED_MODEL"
 
 
 def test_diff_supported_releases_succeeds():
@@ -126,7 +126,7 @@ def test_diff_missing_release_retains_404():
         )
 
     assert response.status_code == 404
-    assert response.json()["error"]["code"] == "model_release_not_found"
+    assert response.json()["error"]["code"] == "MODEL_RELEASE_NOT_FOUND"
 
 
 def test_activation_unsupported_schema_retains_422(monkeypatch):
@@ -146,7 +146,7 @@ def test_activation_unsupported_schema_retains_422(monkeypatch):
 
     assert response.status_code == 422
     error = response.json()["error"]
-    assert error["code"] == "unsupported_schema_version"
+    assert error["code"] == "UNSUPPORTED_SCHEMA_VERSION"
     assert error["details"] == {
         "releaseId": historical_id,
         "schemaVersion": "0.4",
@@ -191,7 +191,7 @@ def test_unexpected_error_includes_correlation_id():
 
     assert response.status_code == 500
     body = response.json()["error"]
-    assert body["code"] == "internal_error"
+    assert body["code"] == "INTERNAL_ERROR"
     assert "reference" in body["message"]
     assert body["details"]["correlationId"]
     assert len(body["details"]["correlationId"]) == 12
@@ -228,7 +228,7 @@ def test_compile_model_draft_unsupported_baseline(monkeypatch):
 
     assert response.status_code == 422
     body = response.json()["error"]
-    assert body["code"] == "unsupported_schema_version"
+    assert body["code"] == "UNSUPPORTED_SCHEMA_VERSION"
     assert body["details"]["releaseId"] == historical_id
     assert body["details"]["schemaVersion"] == "0.4"
     assert body["details"]["operation"] == "compile"

@@ -111,9 +111,9 @@ def test_sc15_two_change_sets_on_two_releases_through_activation_and_refusals(cl
     # Unavailable, unsupported and corrupt releases are refused for creation and version change.
     before = _snapshot(client, retail, warehouse, live["id"])
     for release, code in (
-        (str(uuid4()), "pinned_model_unavailable"),
-        (unsupported, "unsupported_pinned_model_schema"),
-        (corrupt, "pinned_model_invalid"),
+        (str(uuid4()), "PINNED_MODEL_UNAVAILABLE"),
+        (unsupported, "UNSUPPORTED_PINNED_MODEL_SCHEMA"),
+        (corrupt, "PINNED_MODEL_INVALID"),
     ):
         created = change_set(release)
         changed = client.patch(
@@ -133,7 +133,7 @@ def test_sc15_two_change_sets_on_two_releases_through_activation_and_refusals(cl
         f"/api/v1/change-sets/{change_set2['id']}/publication",
         json={"expectedChangeSetVersion": change_set2["version"]},
     )
-    assert refused.json()["error"]["code"] == "change_set_model_release_conflict"
+    assert refused.json()["error"]["code"] == "CHANGE_SET_MODEL_RELEASE_CONFLICT"
     assert _snapshot(client, retail, warehouse, live["id"]) == before
 
     # The administrator activates the candidate; live data is unchanged by that selection.
@@ -171,7 +171,7 @@ def test_sc15_two_change_sets_on_two_releases_through_activation_and_refusals(cl
         f"/api/v1/change-sets/{change_set1['id']}/publication",
         json={"expectedChangeSetVersion": change_set1["version"]},
     )
-    assert refused.json()["error"]["code"] == "change_set_model_release_conflict"
+    assert refused.json()["error"]["code"] == "CHANGE_SET_MODEL_RELEASE_CONFLICT"
     discarded = client.delete(
         f"/api/v1/change-sets/{change_set1['id']}", params={"expectedVersion": change_set1["version"]}
     )

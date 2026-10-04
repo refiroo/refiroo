@@ -99,9 +99,9 @@ empty result, not an error. A failed page or panel can retry without losing succ
 - **J01.7 Related records of another application**: the relationships of a record list records of
   any application, searched and sorted by their fields.
 
-**Refusals:** `404 workspace_not_found`, `404 object_not_found`, `404 unknown_object_type`,
-`422 invalid_filter`, `422 invalid_sort`, `422 mutually_exclusive_context`,
-`404 change_set_not_found`, `404 publication_not_found`.
+**Refusals:** `404 WORKSPACE_NOT_FOUND`, `404 OBJECT_NOT_FOUND`, `404 UNKNOWN_OBJECT_TYPE`,
+`422 INVALID_FILTER`, `422 INVALID_SORT`, `422 MUTUALLY_EXCLUSIVE_CONTEXT`,
+`404 CHANGE_SET_NOT_FOUND`, `404 PUBLICATION_NOT_FOUND`.
 
 **Evidence today:** `wp9-navigation`, `ui03a-navigation`, `s5-continuous-lists`,
 `wp14-contextual-browser`; `test_typed_table_queries`, `test_query_foundations`,
@@ -133,11 +133,11 @@ coherent edit is one save; the record keeps its identity, its place and its rela
   required value, emptying the last of an at-least-one-of set, and changing a read-only value are
   each refused with the rule named.
 
-**Refusals:** `409 version_conflict`, `409 duplicate_attribute_value`, `422 invalid_attribute_value`
-(a value of the wrong type), `422 attribute_below_minimum`, `422 attribute_above_maximum`,
-`422 unknown_attributes`, `422 object_attribute_rule_violation`,
-`422 cannot_delete_required_attribute`, `422 read_only_attributes`, `409 attribute_already_exists`,
-`404 attribute_not_found`, `409 workspace_retired`.
+**Refusals:** `409 VERSION_CONFLICT`, `409 DUPLICATE_ATTRIBUTE_VALUE`, `422 INVALID_ATTRIBUTE_VALUE`
+(a value of the wrong type), `422 ATTRIBUTE_BELOW_MINIMUM`, `422 ATTRIBUTE_ABOVE_MAXIMUM`,
+`422 UNKNOWN_ATTRIBUTES`, `422 OBJECT_ATTRIBUTE_RULE_VIOLATION`,
+`422 CANNOT_DELETE_REQUIRED_ATTRIBUTE`, `422 READ_ONLY_ATTRIBUTES`, `409 ATTRIBUTE_ALREADY_EXISTS`,
+`404 ATTRIBUTE_NOT_FOUND`, `409 WORKSPACE_RETIRED`.
 
 **Evidence today:** `wp9-authoring`; `test_api`, `test_attributes`, `test_rule_parity`,
 `test_pg3_concurrency`.
@@ -169,12 +169,12 @@ them do.
 - **J03.7 In a change set**, invisible to live readers until published.
 - **J03.8 Two creates racing for one unique value**: one is refused.
 
-**Refusals:** `422 parent_required`, `422 invalid_parent_type`, `422 parent_wrong_scope`,
-`422 missing_required_attributes`, `422 missing_required_relations`,
-`422 invalid_object_type_for_application` (live; `object_type_not_in_application` in a change set),
-`404 unknown_application`, `409 duplicate_attribute_value`, `409 duplicate_relation_scope`,
-`409 object_already_exists`, `422 duplicate_initial_relation`, `409 cardinality_violation`,
-`404 workspace_not_found`, `409 workspace_retired`.
+**Refusals:** `422 PARENT_REQUIRED`, `422 INVALID_PARENT_TYPE`, `422 PARENT_WRONG_SCOPE`,
+`422 MISSING_REQUIRED_ATTRIBUTES`, `422 MISSING_REQUIRED_RELATIONS`,
+`422 INVALID_OBJECT_TYPE_FOR_APPLICATION` (live; `OBJECT_TYPE_NOT_IN_APPLICATION` in a change set),
+`404 UNKNOWN_APPLICATION`, `409 DUPLICATE_ATTRIBUTE_VALUE`, `409 DUPLICATE_RELATION_SCOPE`,
+`409 OBJECT_ALREADY_EXISTS`, `422 DUPLICATE_INITIAL_RELATION`, `409 CARDINALITY_VIOLATION`,
+`404 WORKSPACE_NOT_FOUND`, `409 WORKSPACE_RETIRED`.
 
 **Evidence today:** `wp9-authoring`; `test_api`, `test_translations`, `test_rule_parity`,
 `test_pg3_concurrency`.
@@ -204,8 +204,8 @@ is immediate; a change set's does not touch live data until publishing. Publicat
   relationship): the confirmation is refused and nothing is deleted.
 - **J04.6 A dependant whose required relationship would be removed alone** is refused.
 
-**Refusals:** `409 deletion_preview_required`, `409 deletion_preview_changed`,
-`409 object_has_dependants`, `409 version_conflict`, `422 required_relation`.
+**Refusals:** `409 DELETION_PREVIEW_REQUIRED`, `409 DELETION_PREVIEW_CHANGED`,
+`409 OBJECT_HAS_DEPENDANTS`, `409 VERSION_CONFLICT`, `422 REQUIRED_RELATION`.
 
 **Evidence today:** `wp9-authoring`, `wp9-change-sets`, `ui03b-deletion`; `test_cascade_delete`,
 `test_wp8_review_regressions`, `test_wp7_canonical_crud`.
@@ -239,11 +239,11 @@ The containment relationship is not edited here: it follows the record's parent 
 - **J13.7 In a change set.**
 - **J13.8 Two relationships racing for one cardinality limit**: one is refused.
 
-**Refusals:** `422 unknown_relation_type`, `422 invalid_relation_pair`, `422 relation_endpoint_missing`,
-`422 relation_wrong_scope`, `422 unknown_relation_attributes`, `422 immutable_relation`,
-`409 cardinality_violation`, `409 duplicate_relation_scope`, `409 relation_set_version_conflict`,
-`422 relation_set_claim_incomplete`, `422 required_relation`, `409 version_conflict`,
-`409 duplicate_relation`, `404 relation_not_found`.
+**Refusals:** `422 UNKNOWN_RELATION_TYPE`, `422 INVALID_RELATION_PAIR`, `422 RELATION_ENDPOINT_MISSING`,
+`422 RELATION_WRONG_SCOPE`, `422 UNKNOWN_RELATION_ATTRIBUTES`, `422 IMMUTABLE_RELATION`,
+`409 CARDINALITY_VIOLATION`, `409 DUPLICATE_RELATION_SCOPE`, `409 RELATION_SET_VERSION_CONFLICT`,
+`422 RELATION_SET_CLAIM_INCOMPLETE`, `422 REQUIRED_RELATION`, `409 VERSION_CONFLICT`,
+`409 DUPLICATE_RELATION`, `404 RELATION_NOT_FOUND`.
 
 **Evidence today:** `test_relations`, `test_relation_set_versions`, `test_rule_parity`,
 `test_translations`, `test_pg3_concurrency`.
@@ -272,8 +272,8 @@ The containment relationship is not edited here: it follows the record's parent 
 - **J14.7 In a change set**, with the moved subtree's paths, candidates and relationships following.
 - **J14.8 Two moves racing into a cycle**: one is refused.
 
-**Refusals:** `422 parent_cycle`, `422 invalid_parent_type`, `422 parent_wrong_scope`,
-`409 duplicate_relation_scope`, `409 version_conflict`.
+**Refusals:** `422 PARENT_CYCLE`, `422 INVALID_PARENT_TYPE`, `422 PARENT_WRONG_SCOPE`,
+`409 DUPLICATE_RELATION_SCOPE`, `409 VERSION_CONFLICT`.
 
 **Evidence today:** `b3-tree-lens`, `b4-hierarchy-acceptance`, `s6-sidebar-tree`,
 `ui03b-hierarchy`; `test_parent_candidates`, `test_pg3_concurrency`.
@@ -302,10 +302,10 @@ Records keep their IDs and history; nothing is written before apply.
 - **J15.4 The data changed after the preview**: apply is refused.
 - **J15.5 Too large a subtree** is refused with the limit.
 
-**Refusals:** `422 restructuring_not_ready`, `422 restructuring_too_large`,
-`409 restructuring_plan_changed`, `422 invalid_type_mapping`, `422 object_type_unchanged`,
-`409 object_type_changed`, `422 type_changes_need_change_set`; a single record's type change is
-refused with `422 child_type_not_allowed` or `422 required_relation_without_place`, which a
+**Refusals:** `422 RESTRUCTURING_NOT_READY`, `422 RESTRUCTURING_TOO_LARGE`,
+`409 RESTRUCTURING_PLAN_CHANGED`, `422 INVALID_TYPE_MAPPING`, `422 OBJECT_TYPE_UNCHANGED`,
+`409 OBJECT_TYPE_CHANGED`, `422 TYPE_CHANGES_NEED_CHANGE_SET`; a single record's type change is
+refused with `422 CHILD_TYPE_NOT_ALLOWED` or `422 REQUIRED_RELATION_WITHOUT_PLACE`, which a
 restructuring preview reports instead as problems of its plan, in its `200` answer.
 
 **Evidence today:** `c4-restructuring`, `c5-restructuring-acceptance`; `test_restructuring_api`,
@@ -348,12 +348,12 @@ item (J10.10), through the same replacement.
   (or a declared overwrite); a set already equal answers unchanged; the cardinality, scope,
   required and containment rules refuse it with the single writes' codes.
 
-**Refusals:** `409 mapping_version_conflict`, `422 invalid_clear_attributes`,
-`422 required_ownership_binding`, `422 relation_ancestor_required`, `422 required_relation`,
-`409 cardinality_violation`, `409 duplicate_relation_scope`; publishing a change set whose set live
-changed meanwhile is `409 version_conflict` with a `mapping_set_changed` conflict; `422 invalid_cursor`, and the view and binding refusals (`mapping_view_*`, `mapping_*`). Through a batch
-(J10.10): `409 relation_set_version_conflict`, `409 version_required`, `409 duplicate_relation`,
-`422 immutable_relation`, `422 reference_type_mismatch`.
+**Refusals:** `409 MAPPING_VERSION_CONFLICT`, `422 INVALID_CLEAR_ATTRIBUTES`,
+`422 REQUIRED_OWNERSHIP_BINDING`, `422 RELATION_ANCESTOR_REQUIRED`, `422 REQUIRED_RELATION`,
+`409 CARDINALITY_VIOLATION`, `409 DUPLICATE_RELATION_SCOPE`; publishing a change set whose set live
+changed meanwhile is `409 VERSION_CONFLICT` with a `MAPPING_SET_CHANGED` conflict; `422 INVALID_CURSOR`, and the view and binding refusals (`mapping_view_*`, `mapping_*`). Through a batch
+(J10.10): `409 RELATION_SET_VERSION_CONFLICT`, `409 VERSION_REQUIRED`, `409 DUPLICATE_RELATION`,
+`422 IMMUTABLE_RELATION`, `422 REFERENCE_TYPE_MISMATCH`.
 
 **Evidence today:** the J10 journey tests; `sc07-mapping-acceptance`, `wp14-contextual-browser`,
 `wp13c-ui-states`; `test_mapping_coverage`, `test_mapping_replacement`, `test_pg3_concurrency`.
@@ -382,11 +382,11 @@ The state filter decides over every row, and only records counting as current fi
 - **J16.6 Two relationships racing into one cell** keep its stored state right.
 - **J16.7 A related record moved to another column** is re-checked.
 
-**Refusals:** `404 relation_matrix_view_not_found`, `404 relation_matrix_row_not_found`,
-`404 relation_matrix_column_not_found`, `404 relation_matrix_parent_not_found`,
-`422 relation_matrix_action_not_allowed`, `422 relation_matrix_parent_scope_mismatch`,
-`422 relation_matrix_state_requires_columns`, `422 too_many_columns`, `422 duplicate_column_ids`,
-`422 conflicting_column_parameters`.
+**Refusals:** `404 RELATION_MATRIX_VIEW_NOT_FOUND`, `404 RELATION_MATRIX_ROW_NOT_FOUND`,
+`404 RELATION_MATRIX_COLUMN_NOT_FOUND`, `404 RELATION_MATRIX_PARENT_NOT_FOUND`,
+`422 RELATION_MATRIX_ACTION_NOT_ALLOWED`, `422 RELATION_MATRIX_PARENT_SCOPE_MISMATCH`,
+`422 RELATION_MATRIX_STATE_REQUIRES_COLUMNS`, `422 TOO_MANY_COLUMNS`, `422 DUPLICATE_COLUMN_IDS`,
+`422 CONFLICTING_COLUMN_PARAMETERS`.
 
 **Evidence today:** `a4-relation-matrix`, `a5-matrix-acceptance`; `test_relation_matrix`,
 `test_relation_matrix_writes`, `test_matrix_states`, `test_relation_matrix_volume`.
@@ -427,11 +427,11 @@ conflict or an invalid graph publishes nothing and keeps the change set.
 - **J05.6 Two writers in one change set**: the change set version refuses the stale one.
 - **J05.7 A write committing while current live is captured**: the capture asks for a retry.
 
-**Refusals:** `409 change_set_version_conflict`, `409 change_set_required`,
-`409 change_set_snapshot_retry`, `422 workspace_graph_invalid`, `409 version_conflict` (a record
+**Refusals:** `409 CHANGE_SET_VERSION_CONFLICT`, `409 CHANGE_SET_REQUIRED`,
+`409 CHANGE_SET_SNAPSHOT_RETRY`, `422 WORKSPACE_GRAPH_INVALID`, `409 VERSION_CONFLICT` (a record
 changed live since the change set's source, listed in `details.conflicts`),
-`409 workspace_active_publication_conflict`, `409 model_release_changed`,
-`404 change_set_not_found`, `409 workspace_retired`.
+`409 WORKSPACE_ACTIVE_PUBLICATION_CONFLICT`, `409 MODEL_RELEASE_CHANGED`,
+`404 CHANGE_SET_NOT_FOUND`, `409 WORKSPACE_RETIRED`.
 
 **Evidence today:** `wp9-change-sets`; `test_wp8_publish`, `test_wp8_graph_validation`,
 `test_wp8_change_set_lifecycle`, `test_wp81b_current_live_bases`, `test_change_sets`.
@@ -456,7 +456,7 @@ overwrites the live edit or deletes live-only records.
 - **J06.3 Publishing beside live writes and other change sets' writes**: publishing waits for live
   writes of its workspace and leaves other change sets free.
 
-**Refusals:** `409 version_conflict`, naming each record changed on both sides in `details.conflicts`.
+**Refusals:** `409 VERSION_CONFLICT`, naming each record changed on both sides in `details.conflicts`.
 
 **Evidence today:** `wp9-change-sets`; `test_wp8_publish_merge`, `test_wp81b_current_live_bases`,
 `test_pg3_concurrency`.
@@ -478,8 +478,8 @@ overwrites the live edit or deletes live-only records.
   activations.
 - **J07.2 Publish from a retained publication after withdrawal.**
 
-**Refusals:** `409 workspace_active_publication_conflict`, `404 publication_not_found`,
-`409 workspace_retired`.
+**Refusals:** `409 WORKSPACE_ACTIVE_PUBLICATION_CONFLICT`, `404 PUBLICATION_NOT_FOUND`,
+`409 WORKSPACE_RETIRED`.
 
 **Evidence today:** `wp9-publications`; `test_wp8_history`, `test_wp8_withdrawal`.
 
@@ -500,8 +500,8 @@ The lists agree with what publishing would do to live data.
 - **J17.2 An empty root change set** lists only additions.
 - **J17.3 A page and its paths** read one snapshot while a write commits.
 
-**Refusals:** `404 change_set_not_found`, `422 unknown_object_type`, `422 unknown_relation_type`,
-`422 invalid_cursor`.
+**Refusals:** `404 CHANGE_SET_NOT_FOUND`, `422 UNKNOWN_OBJECT_TYPE`, `422 UNKNOWN_RELATION_TYPE`,
+`422 INVALID_CURSOR`.
 
 **Evidence today:** `p2-change-review`; `test_change_lists`, `test_change_lists_volume`.
 
@@ -524,9 +524,9 @@ The lists agree with what publishing would do to live data.
 - **J18.3 An unavailable, corrupt or unsupported release** is refused; nothing else changes.
 - **J18.4 A pin changed by someone else** meanwhile is refused.
 
-**Refusals:** `409 change_set_content_incompatible`, `409 change_set_model_release_conflict`,
-`409 model_release_changed`, `409 change_set_version_conflict` (J18.4), and for J18.3
-`409 pinned_model_unavailable`, `409 pinned_model_invalid`, `409 unsupported_pinned_model_schema`.
+**Refusals:** `409 CHANGE_SET_CONTENT_INCOMPATIBLE`, `409 CHANGE_SET_MODEL_RELEASE_CONFLICT`,
+`409 MODEL_RELEASE_CHANGED`, `409 CHANGE_SET_VERSION_CONFLICT` (J18.4), and for J18.3
+`409 PINNED_MODEL_UNAVAILABLE`, `409 PINNED_MODEL_INVALID`, `409 UNSUPPORTED_PINNED_MODEL_SCHEMA`.
 
 **Evidence today:** `sc15-model-version-acceptance`, `wp11-model-admin`; `test_build07_wp6`,
 `test_build07_wp9_acceptance`, `test_wp81a_context`.
@@ -560,10 +560,10 @@ selects nothing. Read-only inspection and export stay available when administrat
 - **J08.8 Read the activation history** of a release.
 - **J08.9 Read a model draft's history** (planned, decided D-5).
 
-**Refusals:** `422 invalid_model` (with the JSON pointer), `409 release_identity_conflict`,
-`409 model_migration_required`, `409 activation_conflict` (stale runtime state),
-`409 consumer_contract_version_required`, `422 unsupported_schema_version`,
-`404 model_draft_not_found`, `503 model_registry_refresh_failed`; with administration disabled the
+**Refusals:** `422 INVALID_MODEL` (with the JSON pointer), `409 RELEASE_IDENTITY_CONFLICT`,
+`409 MODEL_MIGRATION_REQUIRED`, `409 ACTIVATION_CONFLICT` (stale runtime state),
+`409 CONSUMER_CONTRACT_VERSION_REQUIRED`, `422 UNSUPPORTED_SCHEMA_VERSION`,
+`404 MODEL_DRAFT_NOT_FOUND`, `503 MODEL_REGISTRY_REFRESH_FAILED`; with administration disabled the
 mutating routes are absent.
 
 **Evidence today:** `wp11-model-admin`, `wp12-release-identity`, `wp9-authoring`;
@@ -590,9 +590,9 @@ US-I01. **Scenario:** SC-14, SC-08. **Status:** delivered (0.8 W).
 - **J19.5 Read the workspace's activity** (planned, decided D-5): change sets created, renamed and
   discarded, publications published and withdrawn, the default switched, with who and when.
 
-**Refusals:** `409 workspace_already_exists`, `409 version_conflict`, `409 workspace_retired`,
-`409 default_workspace_cannot_be_retired`, `404 workspace_not_found`, and for deletion `409 workspace_is_default`,
-`409 workspace_has_publications`, `409 workspace_not_empty`.
+**Refusals:** `409 WORKSPACE_ALREADY_EXISTS`, `409 VERSION_CONFLICT`, `409 WORKSPACE_RETIRED`,
+`409 DEFAULT_WORKSPACE_CANNOT_BE_RETIRED`, `404 WORKSPACE_NOT_FOUND`, and for deletion `409 WORKSPACE_IS_DEFAULT`,
+`409 WORKSPACE_HAS_PUBLICATIONS`, `409 WORKSPACE_NOT_EMPTY`.
 
 **Evidence today:** `w4-workspace-admin`; `test_workspaces`, `test_w6_workspace_deletion`,
 `test_pg3_concurrency`.
@@ -614,7 +614,7 @@ consumer tier's reads follow in C2–C16 ([CONSUMER_API.md](../CONSUMER_API.md))
 - **J25.1 Additions are compatible**; removals and lower versions are reported.
 - **J25.2 A model change** (a cardinality) changes a projection's shape and is reported.
 
-**Refusals:** `422 invalid_model` (with the pointer), `409 consumer_contract_version_required`.
+**Refusals:** `422 INVALID_MODEL` (with the pointer), `409 CONSUMER_CONTRACT_VERSION_REQUIRED`.
 
 **Evidence today:** `test_consumer_api_model`.
 
@@ -639,8 +639,8 @@ read names the release it was read under (`X-Model-Release-Id`).
 - **J20.1 In a change set pinned to another release**: the model and metadata follow the pin.
 - **J20.2 Releases**: list and read installed releases and the runtime state.
 
-**Refusals:** `404 change_set_not_found`, `422 mutually_exclusive_context`,
-`503 model_registry_unavailable`, `503 model_runtime_state_unavailable`.
+**Refusals:** `404 CHANGE_SET_NOT_FOUND`, `422 MUTUALLY_EXCLUSIVE_CONTEXT`,
+`503 MODEL_REGISTRY_UNAVAILABLE`, `503 MODEL_RUNTIME_STATE_UNAVAILABLE`.
 
 **Evidence today:** `v1-api-reference`; `test_model_placements`, `test_request_scope`,
 `test_api_reference`, `test_model_lifecycle`, `test_openapi_contract`.
@@ -668,8 +668,8 @@ collection relies on an undocumented unlimited page.
 - **J21.8 An unknown query parameter** (a typo such as `pagesize`) is refused, naming it, on every
   route (decided D-3; delivered in H4c).
 
-**Refusals:** `422 invalid_cursor`, `422 conflicting_page_parameters`, `422 invalid_seek`,
-`422 invalid_sort`, `422 unknown_parameter` (J21.8).
+**Refusals:** `422 INVALID_CURSOR`, `422 CONFLICTING_PAGE_PARAMETERS`, `422 INVALID_SEEK`,
+`422 INVALID_SORT`, `422 UNKNOWN_PARAMETER` (J21.8).
 
 **Evidence today:** `s5-continuous-lists`, `s7-volume-acceptance`; `test_paging_contract`,
 `test_pagination`, `test_change_set_position_reads`, `test_query_foundations`.
@@ -692,8 +692,8 @@ collection relies on an undocumented unlimited page.
 - **J22.3 Relationships of one record**, searched and sorted by the related records' fields.
 - **J22.4 A model-declared field on the cross-type lookup** is refused with the per-type route.
 
-**Refusals:** `422 invalid_query` (with the JSON pointer), `422 invalid_filter`, `422 invalid_sort`,
-`422 mutually_exclusive_context`.
+**Refusals:** `422 INVALID_QUERY` (with the JSON pointer), `422 INVALID_FILTER`, `422 INVALID_SORT`,
+`422 MUTUALLY_EXCLUSIVE_CONTEXT`.
 
 **Evidence today:** `test_model_query`, `test_cross_type_lookup`, `test_workspace_edge_list`,
 `test_typed_table_queries`, `test_search_index`; the composed journey `test_j24_j26_composed` (the
@@ -716,8 +716,8 @@ The question is a date, not a time; only a model-declared effective period answe
 - **J23.4 A period that does not end after it starts** is refused on every write.
 - **J23.5 A model removing or adding a period.**
 
-**Refusals:** `422 as_of_not_supported` (a type without a period, or the cross-type lookup),
-`422 invalid_effective_period` on writes.
+**Refusals:** `422 AS_OF_NOT_SUPPORTED` (a type without a period, or the cross-type lookup),
+`422 INVALID_EFFECTIVE_PERIOD` on writes.
 
 **Evidence today:** `test_effective_periods`; the composed journey `test_j24_j26_composed` (dated
 queries over a job's records in live data, a change set and a publication, 0.9 T1).
@@ -752,8 +752,8 @@ over single calls.
 - **J11.6 Delete with cascade** (planned, decided D-6): a delete item removes a record with its
   dependants, as a single delete does, under a confirmation of the impact it deletes (PG-D18).
 
-**Refusals:** `413 batch_too_large`, `422 invalid_batch_context`, `422 idempotency_key_reused`,
-`409 idempotency_in_progress`, `409 change_set_required`, `409 model_release_changed`; per item, the
+**Refusals:** `413 BATCH_TOO_LARGE`, `422 INVALID_BATCH_CONTEXT`, `422 IDEMPOTENCY_KEY_REUSED`,
+`409 IDEMPOTENCY_IN_PROGRESS`, `409 CHANGE_SET_REQUIRED`, `409 MODEL_RELEASE_CHANGED`; per item, the
 single writes' codes.
 
 **Evidence today:** the J11 journey tests; unit tests of `engine/jobs/batches.py` and `inline.py`;
@@ -782,8 +782,8 @@ single writes' codes.
 - **J24.6 The database is unreachable**: the worker waits and retries, logging the cause once, and
   resumes when the database returns.
 
-**Refusals:** `409 job_finished`, `404 job_not_found`; job errors `model_release_changed`,
-`change_set_version_conflict`, `workspace_retired`, `job_failed` (with a correlation ID).
+**Refusals:** `409 JOB_FINISHED`, `404 JOB_NOT_FOUND`; job errors `MODEL_RELEASE_CHANGED`,
+`CHANGE_SET_VERSION_CONFLICT`, `WORKSPACE_RETIRED`, `JOB_FAILED` (with a correlation ID).
 
 **Evidence today:** the J24 journey tests; unit tests of `engine/jobs/worker.py`, `store.py` and
 `background.py`; `test_pg3_concurrency`; the composed journey `test_j24_j26_composed` (a resumed,
@@ -821,9 +821,9 @@ a staged and two cancelled jobs read back through the feed and the queries, 0.9 
   earliest position never passes the active publication's, and without one nothing expires, so a
   reader always has a way back.
 
-**Refusals:** `404 workspace_not_found`, `409 feed_position_ahead` (a position past the head, from
-another workspace or a restored database), `410 feed_position_expired` (a position older than
-retention), `422 request_validation_error` (page size, position).
+**Refusals:** `404 WORKSPACE_NOT_FOUND`, `409 FEED_POSITION_AHEAD` (a position past the head, from
+another workspace or a restored database), `410 FEED_POSITION_EXPIRED` (a position older than
+retention), `422 REQUEST_VALIDATION_ERROR` (page size, position).
 
 **Evidence today:** the J26 journey tests; `test_pg3_concurrency` (commit order under a held write,
 publish beside a live write); the composed journey `test_j24_j26_composed` (a reader following a

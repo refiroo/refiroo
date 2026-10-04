@@ -63,7 +63,7 @@ def test_declare_validate_compare_and_activate_a_consumer_api(world):
     assert any(d["path"].startswith(pointer) for d in broken_compiled["diagnostics"]), (
         broken_compiled["diagnostics"]
     )
-    error = refused(_install(world, broken_draft), 422, "invalid_model")
+    error = refused(_install(world, broken_draft), 422, "INVALID_MODEL")
     assert pointer in json.dumps(error["details"])
 
     _activate_definition(world, "api")
@@ -73,14 +73,14 @@ def test_declare_validate_compare_and_activate_a_consumer_api(world):
     (diagnostic,) = [
         d
         for d in compiled["consumerContracts"]["diagnostics"]
-        if d["code"] == "consumer_contract_version_required"
+        if d["code"] == "CONSUMER_CONTRACT_VERSION_REQUIRED"
     ]
     # A removed field has no place in the new document: the diagnostic points at its parent and
     # names it.
     assert diagnostic["path"].startswith("/consumerApis/journey-api/object")
     assert "flag" in diagnostic["path"] + diagnostic["message"], diagnostic
     release = ok(_install(world, draft), 201)
-    refused(world.activate(release["id"]), 409, "consumer_contract_version_required")
+    refused(world.activate(release["id"]), 409, "CONSUMER_CONTRACT_VERSION_REQUIRED")
     assert ok(world.api.get("/model-runtime-state")) == state
     _activate_definition(world, "removed-v2", drop_flag=True, version=2)
 
@@ -99,10 +99,10 @@ def test_additions_are_compatible_and_removals_and_lower_versions_are_reported(w
     omitted["release"]["version"] += "-omitted"
     _draft, without = _compile(world, omitted)
     assert without["consumerContracts"]["classification"] == "compatible"
-    assert "consumer_api_removed" in _codes(without)
+    assert "CONSUMER_API_REMOVED" in _codes(without)
 
     _draft, lowered = _compile(world, _model(world, "lowered", version=1))
-    assert "consumer_contract_version_decreased" in _codes(lowered) | {
+    assert "CONSUMER_CONTRACT_VERSION_DECREASED" in _codes(lowered) | {
         d["code"] for d in lowered["diagnostics"]
     }
 
@@ -128,4 +128,4 @@ def test_a_model_change_that_changes_a_projection_needs_a_new_version(world):
     release = ok(_install(world, draft), 201)
     diff = ok(world.api.get(f"/model-releases/{release['id']}/diff", againstReleaseId=active["id"]))
     assert diff["consumerContracts"]["classification"] == "version_required"
-    refused(world.activate(release["id"]), 409, "consumer_contract_version_required")
+    refused(world.activate(release["id"]), 409, "CONSUMER_CONTRACT_VERSION_REQUIRED")

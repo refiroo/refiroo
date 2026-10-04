@@ -42,7 +42,7 @@ def submit_background_batch(
         context.change_set is not None
         and context.change_set.version != request.expectedChangeSetVersion
     ):
-        raise api_error(409, "change_set_version_conflict", "Change set version has changed")
+        raise api_error(409, "CHANGE_SET_VERSION_CONFLICT", "Change set version has changed")
     job = start_job(
         session,
         kind="batch",
@@ -83,7 +83,7 @@ def request_cancel(session: Session, job_id: str) -> Job:
         session.refresh(job)
         raise api_error(
             409,
-            "job_finished",
+            "JOB_FINISHED",
             f"Job '{job.id}' is {job.state}; only a queued or running job can be cancelled",
             {"jobId": job.id, "state": job.state},
         )
@@ -121,7 +121,7 @@ def open_job_context(session: Session, job: Job) -> BatchContext:
 def _release_changed():
     return api_error(
         409,
-        "model_release_changed",
+        "MODEL_RELEASE_CHANGED",
         "The model release this job was created under is no longer the one its context uses; "
         "the job stopped, and the items it applied before stay applied",
     )

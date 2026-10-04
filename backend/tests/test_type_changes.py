@@ -341,7 +341,7 @@ def test_value_becomes_group_and_back_keeping_its_identity(starter, systems):
     error = read(
         client, k("system-value"), value["id"], expected=409, changeSetId=change_set["id"]
     )
-    assert error["code"] == "object_type_changed"
+    assert error["code"] == "OBJECT_TYPE_CHANGED"
     assert error["details"] == {
         "objectId": value["id"],
         "objectTypeKey": k("system-group"),
@@ -375,7 +375,7 @@ def test_value_becomes_group_and_back_keeping_its_identity(starter, systems):
         ),
     ):
         assert response.status_code == 409, response.text
-        assert response.json()["error"]["code"] == "object_type_changed"
+        assert response.json()["error"]["code"] == "OBJECT_TYPE_CHANGED"
     assert read(client, k("system-value"), value["id"], workspaceKey=WORKSPACE)["version"] == (
         live_before["version"]
     )
@@ -432,7 +432,7 @@ def test_value_becomes_group_and_back_keeping_its_identity(starter, systems):
     assert live["objectTypeKey"] == k("system-group") and values(live) == values(record)
     assert read(client, k("system-value"), value["id"], expected=409, workspaceKey=WORKSPACE)[
         "code"
-    ] == "object_type_changed"
+    ] == "OBJECT_TYPE_CHANGED"
     assert read(client, k("system-value"), value["id"], publicationId=first["id"])[
         "objectTypeKey"
     ] == k("system-value")
@@ -563,29 +563,29 @@ def test_refusals_leave_nothing_behind(starter, systems):
         mapping={k("value-name"): k("group-code")},
         values={k("value-code"): "gv"},
     )
-    assert code(as_value) == "child_type_not_allowed"
+    assert code(as_value) == "CHILD_TYPE_NOT_ALLOWED"
     # Another application's type (D39), the same type, a type that cannot be at the top level.
-    assert code(TypeChange(value["id"], k("domain"))) == "object_type_not_in_application"
-    assert code(TypeChange(value["id"], k("system-value"))) == "object_type_unchanged"
+    assert code(TypeChange(value["id"], k("domain"))) == "OBJECT_TYPE_NOT_IN_APPLICATION"
+    assert code(TypeChange(value["id"], k("system-value"))) == "OBJECT_TYPE_UNCHANGED"
     assert (
         code(TypeChange(value["id"], k("system-group"), parent_object_id=None, mapping={k("group-code"): k("value-name")}))
-        == "parent_required"
+        == "PARENT_REQUIRED"
     )
     # A system needs its required code, which a group does not have.
     assert (
         code(TypeChange(systems["G2"]["id"], k("system"), parent_object_id=None))
-        == "missing_required_attributes"
+        == "MISSING_REQUIRED_ATTRIBUTES"
     )
     # A mapping across value types, a source the old type does not bind, a missing required value.
     assert (
         code(TypeChange(value["id"], k("system-group"), mapping={k("group-code"): k("active")}))
-        == "invalid_type_mapping"
+        == "INVALID_TYPE_MAPPING"
     )
     assert (
         code(TypeChange(value["id"], k("system-group"), mapping={k("group-code"): k("group-code")}))
-        == "invalid_type_mapping"
+        == "INVALID_TYPE_MAPPING"
     )
-    assert code(TypeChange(value["id"], k("system-group"))) == "missing_required_attributes"
+    assert code(TypeChange(value["id"], k("system-group"))) == "MISSING_REQUIRED_ATTRIBUTES"
     # A unique value another record holds.
     assert (
         code(
@@ -596,7 +596,7 @@ def test_refusals_leave_nothing_behind(starter, systems):
                 values={k("system-code"): "s"},
             )
         )
-        == "duplicate_attribute_value"
+        == "DUPLICATE_ATTRIBUTE_VALUE"
     )
     # A stale record version.
     assert (
@@ -608,10 +608,10 @@ def test_refusals_leave_nothing_behind(starter, systems):
                 expected_record_version=99,
             )
         )
-        == "version_conflict"
+        == "VERSION_CONFLICT"
     )
     # A record the change set does not hold.
-    assert code(TypeChange(str(uuid4()), k("system-group"))) == "object_not_found"
+    assert code(TypeChange(str(uuid4()), k("system-group"))) == "OBJECT_NOT_FOUND"
 
 
 def test_a_cycle_is_refused(starter, systems):
@@ -630,7 +630,7 @@ def test_a_cycle_is_refused(starter, systems):
             values={k("value-code"): "gv"},
         ),
     )
-    assert error.code == "parent_cycle"
+    assert error.code == "PARENT_CYCLE"
 
 
 def test_publishing_refuses_a_live_edit_and_a_live_relationship_the_new_type_cannot_have(
@@ -652,7 +652,7 @@ def test_publishing_refuses_a_live_edit_and_a_live_relationship_the_new_type_can
     )
     assert response.status_code == 200, response.text
     error = publish(client, edited, expected_status=409)["error"]
-    assert error["code"] == "version_conflict"
+    assert error["code"] == "VERSION_CONFLICT"
     assert read(client, k("system-value"), value["id"], workspaceKey=WORKSPACE)["name"] == "V live"
 
     # A live mapping in a set the type change touched: the existing set divergence rule.
@@ -669,7 +669,7 @@ def test_publishing_refuses_a_live_edit_and_a_live_relationship_the_new_type_can
     )
     relate(client, k("system-value-maps-to-master"), value, second)
     error = publish(client, staged, expected_status=409)["error"]
-    assert error["details"]["conflicts"][0]["code"] == "mapping_set_changed"
+    assert error["details"]["conflicts"][0]["code"] == "MAPPING_SET_CHANGED"
 
     # A live relationship in a set it did not touch, which the record's version does not show:
     # the merged graph's validation refuses it.
@@ -677,8 +677,8 @@ def test_publishing_refuses_a_live_edit_and_a_live_relationship_the_new_type_can
     change_type(client, untouched, change)
     relate(client, k("reference-has-system-representation"), codelist, value)
     error = publish(client, untouched, expected_status=422)["error"]
-    assert error["code"] == "workspace_graph_invalid"
-    assert "invalid_relation_pair" in {item["code"] for item in error["details"]}
+    assert error["code"] == "WORKSPACE_GRAPH_INVALID"
+    assert "INVALID_RELATION_PAIR" in {item["code"] for item in error["details"]}
     assert read(client, k("system-value"), value["id"], workspaceKey=WORKSPACE)["objectTypeKey"] == (
         k("system-value")
     )
@@ -749,7 +749,7 @@ def test_translation_group_becomes_a_translation_with_its_required_scoped_relati
     # active translation per record and language) is held by the change set for validation to
     # report (H4c), so the check passes it.
     missing = TypeChange(inner["id"], k("translation"), mapping=mapping)
-    assert refused(client, change_set, missing).code == "missing_required_relations"
+    assert refused(client, change_set, missing).code == "MISSING_REQUIRED_RELATIONS"
     with SessionLocal() as session:
         check_type_change(session, change_set["id"], becomes(translated))
 
@@ -819,7 +819,7 @@ def test_generated_model_item_becomes_node_keeping_its_citation(volume):
     parent = create(client, APPLICATION, NODE, "N", _code("n"), group)
     create(client, APPLICATION, NODE, "N2", _code("n2"), parent)
     again = start_change_set(client)
-    assert refused(client, again, TypeChange(parent["id"], ITEM)).code == "child_type_not_allowed"
+    assert refused(client, again, TypeChange(parent["id"], ITEM)).code == "CHILD_TYPE_NOT_ALLOWED"
 
 
 def test_generated_model_shelf_becomes_a_matrix_cell(volume):
@@ -848,7 +848,7 @@ def test_generated_model_shelf_becomes_a_matrix_cell(volume):
         )
 
     assert refused(client, change_set, TypeChange(inner["id"], CELL)).code == (
-        "missing_required_relations"
+        "MISSING_REQUIRED_RELATIONS"
     )
     # One active cell per row and column (the scope): a second one is held by the change set for
     # validation to report (H4c), so the check passes it.

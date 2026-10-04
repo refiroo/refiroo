@@ -182,7 +182,7 @@ def test_suggestions_follow_the_rules_in_order():
     for mapping in ({"weight": "label"}, {"note": "title"}, {"label": "label"}):
         with pytest.raises(ApiError) as caught:
             suggest_mapping(model, a, b, MappingChoice("a", "b", mapping))
-        assert caught.value.code == "invalid_type_mapping"
+        assert caught.value.code == "INVALID_TYPE_MAPPING"
 
 
 # --- starter model: type questions, missing values, uniqueness ---------------------------------
@@ -359,7 +359,7 @@ def test_the_dry_run_refuses_a_collision_and_the_change_type_rules(starter, esta
     # refused; so are another application's type and the top level for a type that needs a parent.
     with pytest.raises(ApiError) as caught:
         preview(change_set, Restructuring(ChangeTypeOperation(group["id"], k("system-group"))))
-    assert caught.value.code == "object_type_unchanged"
+    assert caught.value.code == "OBJECT_TYPE_UNCHANGED"
     for operation, code in (
         (ChangeTypeOperation(group["id"], k("system")), "typeNotAllowed"),
         (ChangeTypeOperation(group["id"], k("translation")), "application"),
@@ -699,7 +699,7 @@ def test_refusals_and_the_size_limit(volume, monkeypatch):  # noqa: F811
     monkeypatch.setattr(restructuring, "RECORD_LIMIT", 4)
     with pytest.raises(ApiError) as caught:
         preview(change_set, request)
-    assert caught.value.code == "restructuring_too_large"
+    assert caught.value.code == "RESTRUCTURING_TOO_LARGE"
     assert caught.value.details == {"limit": 4}
 
 
@@ -726,13 +726,13 @@ def test_apply_claims_the_previewed_plan(volume):  # noqa: F811
         expected_change_set_version=plan.change_set_version - 1,
         plan_digest=plan.plan_digest,
     )
-    assert stale.code == "change_set_version_conflict"
+    assert stale.code == "CHANGE_SET_VERSION_CONFLICT"
     # Another choice is another plan.
     other = Restructuring(request.operation, mapping_choices=[MappingChoice(GROUP, NODE, {RANK: None})])
     changed = refused(
         request=other, expected_change_set_version=plan.change_set_version, plan_digest=plan.plan_digest
     )
-    assert changed.code == "restructuring_plan_changed"
+    assert changed.code == "RESTRUCTURING_PLAN_CHANGED"
     assert changed.details == {"planDigest": preview(change_set, other).plan_digest}
     # A plan that is not ready is not applied.
     waiting = Restructuring(MoveOperation(top["id"], target["id"], ITEM))
@@ -743,7 +743,7 @@ def test_apply_claims_the_previewed_plan(volume):  # noqa: F811
         expected_change_set_version=waiting_plan.change_set_version,
         plan_digest=waiting_plan.plan_digest,
     )
-    assert not_ready.code == "restructuring_not_ready"
+    assert not_ready.code == "RESTRUCTURING_NOT_READY"
     assert not_ready.details["summary"]["refusalCount"] == 1
 
     apply(client, change_set, request)

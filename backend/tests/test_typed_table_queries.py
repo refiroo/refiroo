@@ -91,7 +91,7 @@ def test_repeated_equality_is_or_other_filters_are_and_and_values_are_typed():
         )
         assert invalid.status_code == 422
         assert invalid.json()["error"] == {
-            "code": "invalid_filter",
+            "code": "INVALID_FILTER",
             "message": "Invalid boolean value for field 'active'",
             "details": {"path": "/query/filter.active.eq"},
         }
@@ -137,7 +137,7 @@ def test_attribute_sort_is_cursor_stable_nulls_last_and_bound_to_filters():
             },
         )
         assert mismatch.status_code == 422
-        assert mismatch.json()["error"]["code"] == "invalid_cursor"
+        assert mismatch.json()["error"]["code"] == "INVALID_CURSOR"
 
 
 def test_numeric_ranges_and_capability_errors_are_model_aware():
@@ -205,7 +205,7 @@ def test_numeric_ranges_and_capability_errors_are_model_aware():
             "/api/v1/objects/master-value", params={"sort": "translated-name"}
         )
         assert invalid_sort.status_code == 422
-        assert invalid_sort.json()["error"]["code"] == "invalid_sort"
+        assert invalid_sort.json()["error"]["code"] == "INVALID_SORT"
         assert invalid_sort.json()["error"]["details"] == {"path": "/query/sort"}
 
 
@@ -257,7 +257,7 @@ def test_date_values_keep_their_type_through_write_filter_and_sort(context):
         for index, invalid in enumerate(("2026-02-30", "01/07/2026", 20260701)):
             refused = value(f"invalid-{index}", invalid)
             assert refused.status_code == 422
-            assert refused.json()["error"]["code"] == "invalid_attribute_value"
+            assert refused.json()["error"]["code"] == "INVALID_ATTRIBUTE_VALUE"
 
         def listed(**params):
             response = client.get(
@@ -277,7 +277,7 @@ def test_date_values_keep_their_type_through_write_filter_and_sort(context):
             "filter.valid-from.gte": "July 2026",
         })
         assert invalid_filter.status_code == 422
-        assert invalid_filter.json()["error"]["code"] == "invalid_filter"
+        assert invalid_filter.json()["error"]["code"] == "INVALID_FILTER"
         assert invalid_filter.json()["error"]["details"] == {
             "path": "/query/filter.valid-from.gte"
         }
@@ -374,7 +374,7 @@ def test_change_set_writes_keep_decimal_datetime_and_date_values_through_activat
             },
         )
         assert refused.status_code == 422, refused.text
-        assert refused.json()["error"]["code"] == "invalid_attribute_value"
+        assert refused.json()["error"]["code"] == "INVALID_ATTRIBUTE_VALUE"
 
     expected = {
         "wp10-amount": "7",
@@ -400,9 +400,9 @@ def test_change_set_writes_keep_decimal_datetime_and_date_values_through_activat
         assert (record["id"] in [item["id"] for item in listed.json()["items"]]) is found, params
     # Built-in timestamps are not recorded in a change set: a query on them is refused, not matched empty.
     for params, code, message in (
-        ({"filter.createdAt.gte": "2000-01-01T00:00:00"}, "invalid_filter", "Created"),
-        ({"filter.updatedAt.lt": "2000-01-01T00:00:00+02:00"}, "invalid_filter", "Updated"),
-        ({"sort": "-updatedAt"}, "invalid_sort", "Updated"),
+        ({"filter.createdAt.gte": "2000-01-01T00:00:00"}, "INVALID_FILTER", "Created"),
+        ({"filter.updatedAt.lt": "2000-01-01T00:00:00+02:00"}, "INVALID_FILTER", "Updated"),
+        ({"sort": "-updatedAt"}, "INVALID_SORT", "Updated"),
     ):
         listed = client.get("/api/v1/objects/domain", params={**context, **params})
         assert listed.status_code == 422, (params, listed.text)

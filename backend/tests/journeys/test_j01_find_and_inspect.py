@@ -49,8 +49,8 @@ def test_find_open_and_inspect_a_record_in_its_workspace(world):
     )
     assert ok(empty)["items"] == []
 
-    refused(world.read("H", str(uuid4()), workspaceKey=W2), 404, "object_not_found")
-    refused(world.api.get(f"/objects/unknown-type/{w2h5}"), 404, "unknown_object_type")
+    refused(world.read("H", str(uuid4()), workspaceKey=W2), 404, "OBJECT_NOT_FOUND")
+    refused(world.api.get(f"/objects/unknown-type/{w2h5}"), 404, "UNKNOWN_OBJECT_TYPE")
 
 
 @pytest.mark.journey("J01.1")
@@ -86,11 +86,11 @@ def test_a_record_reads_as_its_change_set_publication_or_live_content(world):
             assert record["createdAt"] is None and record["updatedAt"] is None
 
     both = world.read("R", r["id"], changeSetId=cs1["id"], publicationId=p1["id"])
-    refused(both, 422, "mutually_exclusive_context")
-    refused(world.read("R", r["id"], changeSetId=str(uuid4())), 404, "change_set_not_found")
-    refused(world.read("R", r["id"], publicationId=str(uuid4())), 404, "publication_not_found")
+    refused(both, 422, "MUTUALLY_EXCLUSIVE_CONTEXT")
+    refused(world.read("R", r["id"], changeSetId=str(uuid4())), 404, "CHANGE_SET_NOT_FOUND")
+    refused(world.read("R", r["id"], publicationId=str(uuid4())), 404, "PUBLICATION_NOT_FOUND")
     mismatch = world.read("R", r["id"], changeSetId=cs1["id"], workspaceKey=W2)
-    refused(mismatch, 422, "workspace_context_mismatch")
+    refused(mismatch, 422, "WORKSPACE_CONTEXT_MISMATCH")
 
 
 @pytest.mark.journey("J01.2")
@@ -108,8 +108,8 @@ def test_every_read_stays_in_the_named_workspace(world):
         assert [item["id"] for item in page["items"]] == [second["id"]]
     assert world.record("R", second["id"], workspaceKey=W2)["workspaceKey"] == W2
 
-    refused(world.read("R", first["id"], workspaceKey=W2), 404, "object_not_found")
-    refused(world.api.get(f"/objects/{r_type}", workspaceKey="nowhere"), 404, "workspace_not_found")
+    refused(world.read("R", first["id"], workspaceKey=W2), 404, "OBJECT_NOT_FOUND")
+    refused(world.api.get(f"/objects/{r_type}", workspaceKey="nowhere"), 404, "WORKSPACE_NOT_FOUND")
 
 
 @pytest.mark.journey("J01.3")
@@ -139,10 +139,10 @@ def test_typed_filters_keep_zero_false_and_unset_apart(world):
     assert matching(**{f"filter.{u}.contains": "ALPHA"}) == {ids["zero"]}
 
     error = refused(
-        world.api.get(f"/objects/{r_type}", **{f"filter.{b}.gt": 1}), 422, "invalid_filter"
+        world.api.get(f"/objects/{r_type}", **{f"filter.{b}.gt": 1}), 422, "INVALID_FILTER"
     )
     assert error["details"]["path"].endswith(f"filter.{b}.gt")
-    refused(world.api.get(f"/objects/{r_type}", sort="no-such-field"), 422, "invalid_sort")
+    refused(world.api.get(f"/objects/{r_type}", sort="no-such-field"), 422, "INVALID_SORT")
 
 
 @pytest.mark.journey("J01.4")
@@ -172,7 +172,7 @@ def test_one_search_across_types(world):
     unknown = world.api.get(
         "/objects", workspaceKey=W1, search="zeta", objectTypeKey="unknown-type"
     )
-    refused(unknown, 404, "unknown_object_type")
+    refused(unknown, 404, "UNKNOWN_OBJECT_TYPE")
 
 
 @pytest.mark.journey("J01.5")
@@ -205,7 +205,7 @@ def test_one_value_in_each_context(world):
         assert answer["objectVersion"] >= 1
 
     missing = f"/objects/{world.key('R')}/{r['id']}/attributes/{world.key('R.dt')}"
-    refused(world.api.get(missing), 404, "attribute_not_found")
+    refused(world.api.get(missing), 404, "ATTRIBUTE_NOT_FOUND")
 
 
 @pytest.mark.journey("J01.6")
@@ -246,7 +246,7 @@ def test_history_newest_first_with_its_relationships(world):
 
     first = ok(world.api.get(path, pageSize=2))
     other = f"/objects/{world.key('H')}/{world.ids['h1']}/history"
-    refused(world.api.get(other, pageSize=2, cursor=first["nextCursor"]), 422, "invalid_cursor")
+    refused(world.api.get(other, pageSize=2, cursor=first["nextCursor"]), 422, "INVALID_CURSOR")
 
 
 @pytest.mark.journey("J01.7")

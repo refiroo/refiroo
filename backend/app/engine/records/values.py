@@ -58,7 +58,7 @@ def normalize_value(definition: AttributeTypeDefinition, value: Any) -> Any:
     except (TypeError, ValueError, InvalidOperation):
         raise api_error(
             422,
-            "invalid_attribute_value",
+            "INVALID_ATTRIBUTE_VALUE",
             f"Attribute '{definition.key}' must be {definition.valueType}",
         ) from None
 
@@ -71,13 +71,13 @@ def normalize_value(definition: AttributeTypeDefinition, value: Any) -> Any:
         if minimum is not None and normalized < minimum:
             raise api_error(
                 422,
-                "attribute_below_minimum",
+                "ATTRIBUTE_BELOW_MINIMUM",
                 f"Attribute '{definition.key}' must be at least {minimum}",
             )
         if maximum is not None and normalized > maximum:
             raise api_error(
                 422,
-                "attribute_above_maximum",
+                "ATTRIBUTE_ABOVE_MAXIMUM",
                 f"Attribute '{definition.key}' must be at most {maximum}",
             )
     return normalized

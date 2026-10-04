@@ -144,7 +144,7 @@ describe("WorkspaceAdmin", () => {
 
   it("keeps the dialog and its input when the key already exists", async () => {
     vi.mocked(api.createWorkspace).mockRejectedValue(
-      new ApiError(409, "workspace_already_exists", "Workspace 'retail' already exists"),
+      new ApiError(409, "WORKSPACE_ALREADY_EXISTS", "Workspace 'retail' already exists"),
     );
     renderAdmin();
     fireEvent.click(await screen.findByRole("button", { name: /New workspace/ }));
@@ -172,7 +172,7 @@ describe("WorkspaceAdmin", () => {
 
   it("shows a concurrent rename, keeps the user's name and saves again only on request", async () => {
     vi.mocked(api.updateWorkspace)
-      .mockRejectedValueOnce(new ApiError(409, "version_conflict", "Workspace version has changed"))
+      .mockRejectedValueOnce(new ApiError(409, "VERSION_CONFLICT", "Workspace version has changed"))
       .mockResolvedValueOnce({ ...retail, label: "Mine", version: 5 });
     renderAdmin("retail");
     fireEvent.click(await screen.findByRole("button", { name: "Rename…" }));
@@ -210,7 +210,7 @@ describe("WorkspaceAdmin", () => {
 
   it("names the new default after a concurrent default switch instead of retrying", async () => {
     vi.mocked(api.setDefaultWorkspace).mockRejectedValue(
-      new ApiError(409, "version_conflict", "Workspace runtime-state version has changed"),
+      new ApiError(409, "VERSION_CONFLICT", "Workspace runtime-state version has changed"),
     );
     renderAdmin("retail");
     await screen.findByRole("button", { name: "Set as default" });
@@ -241,7 +241,7 @@ describe("WorkspaceAdmin", () => {
 
   it("reports a refused retirement inside the confirmation", async () => {
     vi.mocked(api.updateWorkspace).mockRejectedValue(
-      new ApiError(409, "default_workspace_cannot_be_retired", "The default workspace cannot be retired"),
+      new ApiError(409, "DEFAULT_WORKSPACE_CANNOT_BE_RETIRED", "The default workspace cannot be retired"),
     );
     renderAdmin("retail");
     fireEvent.click(await screen.findByRole("button", { name: "Retire…" }));
@@ -315,7 +315,7 @@ describe("WorkspaceAdmin", () => {
   it("shows a refused deletion and the reason the workspace now has", async () => {
     byKey.set("retial", { ...retail, key: "retial", label: "Retial", deletable: true, deleteBlockedBy: null });
     vi.mocked(api.deleteWorkspace).mockRejectedValue(
-      new ApiError(409, "workspace_not_empty", "Workspace 'retial' still has objects or change sets", {
+      new ApiError(409, "WORKSPACE_NOT_EMPTY", "Workspace 'retial' still has objects or change sets", {
         objectCount: 1,
         changeSetCount: 0,
       }),
@@ -336,7 +336,7 @@ describe("WorkspaceAdmin", () => {
   it("reports a concurrent change instead of deleting", async () => {
     byKey.set("retial", { ...retail, key: "retial", label: "Retial", deletable: true, deleteBlockedBy: null });
     vi.mocked(api.deleteWorkspace).mockRejectedValue(
-      new ApiError(409, "version_conflict", "Workspace version has changed"),
+      new ApiError(409, "VERSION_CONFLICT", "Workspace version has changed"),
     );
     renderAdmin("retial");
     fireEvent.click(await screen.findByRole("button", { name: "Delete…" }));
@@ -365,7 +365,7 @@ describe("WorkspaceAdmin", () => {
 
   it("reports an unknown workspace in the detail and retries the read", async () => {
     vi.mocked(api.workspace).mockRejectedValueOnce(
-      new ApiError(404, "workspace_not_found", "Workspace 'gone' not found"),
+      new ApiError(404, "WORKSPACE_NOT_FOUND", "Workspace 'gone' not found"),
     );
     renderAdmin("gone");
     expect(await screen.findByText("Workspace 'gone' not found")).toBeInTheDocument();

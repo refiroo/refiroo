@@ -106,7 +106,7 @@ describe("API client", () => {
         .fn()
         .mockResolvedValue(
           new Response(
-            JSON.stringify({ error: { code: "version_conflict", message: "Stale version", details: { current: 3 } } }),
+            JSON.stringify({ error: { code: "VERSION_CONFLICT", message: "Stale version", details: { current: 3 } } }),
             { status: 409 },
           ),
         ),
@@ -114,7 +114,7 @@ describe("API client", () => {
     await expect(api.deleteObject("thing", "id", 2)).rejects.toEqual(
       expect.objectContaining({
         status: 409,
-        code: "version_conflict",
+        code: "VERSION_CONFLICT",
         message: "Stale version",
         details: { current: 3 },
       }),
@@ -338,7 +338,7 @@ describe("HTML and non-JSON response hardening", () => {
     await expect(request).rejects.toEqual(
       expect.objectContaining({
         status: 502,
-        code: "http_error",
+        code: "HTTP_ERROR",
         message: expect.not.stringContaining("<!DOCTYPE"),
       }),
     );
@@ -358,7 +358,7 @@ describe("HTML and non-JSON response hardening", () => {
     await expect(api.model()).rejects.toEqual(
       expect.objectContaining({
         status: 200,
-        code: "unexpected_response",
+        code: "UNEXPECTED_RESPONSE",
       }),
     );
   });

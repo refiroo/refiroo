@@ -21,13 +21,13 @@ from ...models.database import (
 def change_set_mapping_projection(session: Session, change_set_id: str) -> tuple[Subquery, Subquery]:
     change_set = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
     if change_set is None:
-        raise api_error(404, "change_set_not_found", "Change set not found")
+        raise api_error(404, "CHANGE_SET_NOT_FOUND", "Change set not found")
     if change_set.base_id:
         base = session.get(ChangeSetBase, change_set.base_id)
         if base is None or base.workspace_key != change_set.workspace_key:
             raise api_error(
                 409,
-                "change_set_base_invalid",
+                "CHANGE_SET_BASE_INVALID",
                 "Change set base is missing or belongs to another workspace",
             )
         object_base, relation_base = ChangeSetBaseObject, ChangeSetBaseRelation
@@ -40,7 +40,7 @@ def change_set_mapping_projection(session: Session, change_set_id: str) -> tuple
         if publication is None or publication.workspace_key != change_set.workspace_key:
             raise api_error(
                 409,
-                "change_set_base_invalid",
+                "CHANGE_SET_BASE_INVALID",
                 "Change set base publication is missing or belongs to another workspace",
             )
         object_base, relation_base = PublicationObject, PublicationRelation
@@ -49,7 +49,7 @@ def change_set_mapping_projection(session: Session, change_set_id: str) -> tuple
     else:
         raise api_error(
             409,
-            "change_set_base_invalid",
+            "CHANGE_SET_BASE_INVALID",
             "Change set has no immutable base; recreate the change set from live data",
         )
 
@@ -106,7 +106,7 @@ def publication_mapping_projection(session: Session, publication_id: str) -> tup
     """Project one immutable publication into the shared mapping query shape."""
     publication = session.scalar(select(Publication).where(Publication.id == publication_id))
     if publication is None:
-        raise api_error(404, "publication_not_found", "Publication not found")
+        raise api_error(404, "PUBLICATION_NOT_FOUND", "Publication not found")
     objects = select(
         PublicationObject.object_id.label("id"),
         PublicationObject.application_key,

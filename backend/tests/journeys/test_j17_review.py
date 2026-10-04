@@ -26,7 +26,7 @@ def _delete(world, cs, structure, object_id):
     path = f"/objects/{world.key(structure)}/{object_id}"
     response = world.api.delete(path, expectedVersion=staged["version"], **_claim(world, cs))
     if response.status_code == 409:
-        token = refused(response, 409, "object_has_dependants")["details"]["deletionPreviewToken"]
+        token = refused(response, 409, "OBJECT_HAS_DEPENDANTS")["details"]["deletionPreviewToken"]
         response = world.api.delete(
             path,
             expectedVersion=staged["version"],
@@ -103,24 +103,24 @@ def test_list_what_a_change_set_changes_with_before_and_after(world):
             f"{base}/object-changes", pageSize=1, kind="added", cursor=first["nextCursor"]
         ),
         422,
-        "invalid_cursor",
+        "INVALID_CURSOR",
     )
     refused(
         world.api.get(f"{base}/object-changes", objectTypeKey="no-such-type"),
         422,
-        "unknown_object_type",
+        "UNKNOWN_OBJECT_TYPE",
     )
     refused(
         world.api.get("/change-sets/00000000-0000-4000-8000-000000000000/object-changes"),
         404,
-        "change_set_not_found",
+        "CHANGE_SET_NOT_FOUND",
     )
 
     world.publish(cs)
     for entry in objects:
         structure = next(s for s in ("R", "H") if world.key(s) == entry["objectTypeKey"])
         if entry["kind"] == "removed":
-            refused(world.read(structure, entry["objectId"]), 404, "object_not_found")
+            refused(world.read(structure, entry["objectId"]), 404, "OBJECT_NOT_FOUND")
             continue
         live = world.record(structure, entry["objectId"])
         assert (live["name"], live["parentObjectId"]) == (

@@ -42,12 +42,12 @@ def test_add_a_dependant_with_its_parent_and_owner_in_one_request(world):
     before = _count(world, "D")
     request = {"parent": parent, "relations": [world.owner("Bown", r["id"])]}
     refused(
-        world.create("D", "No workspace", workspace=None, **request), 422, "workspace_key_required"
+        world.create("D", "No workspace", workspace=None, **request), 422, "WORKSPACE_KEY_REQUIRED"
     )
     refused(
-        world.create("D", "Unknown", workspace="nowhere", **request), 404, "workspace_not_found"
+        world.create("D", "Unknown", workspace="nowhere", **request), 404, "WORKSPACE_NOT_FOUND"
     )
-    refused(world.create("D", "Retired", workspace=W3, **request), 409, "workspace_retired")
+    refused(world.create("D", "Retired", workspace=W3, **request), 409, "WORKSPACE_RETIRED")
     assert _count(world, "D") == before
 
 
@@ -61,7 +61,7 @@ def test_only_a_root_type_stands_at_the_top(world):
     assert [item["id"] for item in top["items"]] == [r["id"]]
 
     before = _count(world, "C")
-    refused(world.create("C", "Nowhere"), 422, "parent_required")
+    refused(world.create("C", "Nowhere"), 422, "PARENT_REQUIRED")
     assert _count(world, "C") == before
 
 
@@ -80,8 +80,8 @@ def test_a_contained_record_goes_only_where_its_type_may_stand(world):
     before = _count(world, "C")
     # A parent of the wrong type in the same application; one in the other application is first
     # refused for its scope (API.md, "Parent").
-    refused(world.create("C", "Wrong parent", parent=world.ids["h1"]), 422, "invalid_parent_type")
-    refused(world.create("C", "Other workspace", parent=p2["id"]), 422, "parent_wrong_scope")
+    refused(world.create("C", "Wrong parent", parent=world.ids["h1"]), 422, "INVALID_PARENT_TYPE")
+    refused(world.create("C", "Other workspace", parent=p2["id"]), 422, "PARENT_WRONG_SCOPE")
     assert _count(world, "C") == before
 
 
@@ -94,7 +94,7 @@ def test_a_dependant_needs_its_owner_from_the_other_application(world):
     r = world.made("R", "Owner")
     parent = world.dependant_parent(world.made("G", "Scope")["id"])
 
-    refused(world.create("D", "Orphan", parent=parent), 422, "missing_required_relations")
+    refused(world.create("D", "Orphan", parent=parent), 422, "MISSING_REQUIRED_RELATIONS")
     assert ok(world.api.get(f"/objects/{world.key('D')}", search="Orphan"))["items"] == []
     d = world.made("D", "Owned", parent=parent, relations=[world.owner("Bown", r["id"])])
     related = ok(world.api.get("/relations", objectId=r["id"]))["items"]
@@ -130,11 +130,11 @@ def test_relationships_given_at_creation_keep_their_typed_attributes(world):
     assert by_target[k1][note] == "t"
 
     twice = world.create("H", "Twice", relations=[related(k1), related(k1)])
-    refused(twice, 422, "duplicate_initial_relation")
+    refused(twice, 422, "DUPLICATE_INITIAL_RELATION")
     refused(
         world.create("H", "Too light", relations=[related(k1, {weight: 0})]),
         422,
-        "attribute_below_minimum",
+        "ATTRIBUTE_BELOW_MINIMUM",
     )
     assert ok(world.api.get(f"/objects/{world.key('H')}", search="Twice"))["items"] == []
     assert ok(world.api.get(f"/objects/{world.key('H')}", search="Too light"))["items"] == []
@@ -166,7 +166,7 @@ def test_scoped_uniqueness_at_creation(world):
             "D", "Second", parent=second_parent, values={"D.active": True}, relations=owned
         ),
         409,
-        "duplicate_relation_scope",
+        "DUPLICATE_RELATION_SCOPE",
     )
     assert error["details"]["ancestorObjectId"] == g["id"]
     assert error["details"]["conflictingObjectId"] == d1["id"]
@@ -185,7 +185,7 @@ def test_a_record_created_with_a_supplied_id(world):
     supplied = str(uuid4())
     assert world.made("R", "Supplied", id=supplied)["id"] == supplied
     assert world.record("R", supplied)["name"] == "Supplied"
-    refused(world.create("R", "Again", id=supplied), 409, "object_already_exists")
+    refused(world.create("R", "Again", id=supplied), 409, "OBJECT_ALREADY_EXISTS")
 
 
 @pytest.mark.journey("J03.7")
@@ -199,10 +199,10 @@ def test_add_a_record_in_a_change_set(world):
     r = world.made("R", "Staged", change_set=cs1)
     assert r["changeSetVersion"] == cs1["version"] + 1
     assert world.record("R", r["id"], changeSetId=cs1["id"])["name"] == "Staged"
-    refused(world.read("R", r["id"]), 404, "object_not_found")
+    refused(world.read("R", r["id"]), 404, "OBJECT_NOT_FOUND")
 
     stale = world.create("R", "Stale", change_set=cs1)
-    refused(stale, 409, "change_set_version_conflict")
+    refused(stale, 409, "CHANGE_SET_VERSION_CONFLICT")
     current = world.current(cs1)
     outside = {"applicationKey": world.app("R"), "objectTypeKey": world.key("D"), "name": "Outside"}
     refused(
@@ -211,12 +211,12 @@ def test_add_a_record_in_a_change_set(world):
             {**outside, "changeSetId": cs1["id"], "expectedChangeSetVersion": current["version"]},
         ),
         422,
-        "object_type_not_in_application",
+        "OBJECT_TYPE_NOT_IN_APPLICATION",
     )
     refused(
         world.api.post("/objects", {**outside, "workspaceKey": W1}),
         422,
-        "invalid_object_type_for_application",
+        "INVALID_OBJECT_TYPE_FOR_APPLICATION",
     )
     unknown = {
         **outside,
@@ -224,7 +224,7 @@ def test_add_a_record_in_a_change_set(world):
         "objectTypeKey": world.key("R"),
         "workspaceKey": W1,
     }
-    refused(world.api.post("/objects", unknown), 404, "unknown_application")
+    refused(world.api.post("/objects", unknown), 404, "UNKNOWN_APPLICATION")
 
     world.publish(cs1)
     assert world.record("R", r["id"])["name"] == "Staged"
@@ -244,7 +244,7 @@ def test_two_creates_racing_for_one_unique_value(world):
     )
     statuses = sorted(response.status_code for response in responses)
     assert statuses == [201, 409]
-    refused(next(r for r in responses if r.status_code == 409), 409, "duplicate_attribute_value")
+    refused(next(r for r in responses if r.status_code == 409), 409, "DUPLICATE_ATTRIBUTE_VALUE")
     u = world.key("R.u")
     page = ok(world.api.get(f"/objects/{world.key('R')}", **{f"filter.{u}.eq": "RACE"}))
     assert len(page["items"]) == 1

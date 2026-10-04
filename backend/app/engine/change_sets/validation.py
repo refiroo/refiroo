@@ -41,7 +41,7 @@ def graph_diagnostics(
     ):
         errors.append(
             {
-                "code": "identity_collision",
+                "code": "IDENTITY_COLLISION",
                 "message": f"Stable id '{shared_id}' is used by both an object and a relation",
                 "details": {"id": shared_id},
             }
@@ -59,7 +59,7 @@ def graph_diagnostics(
         if object_type is None:
             errors.append(
                 {
-                    "code": "unknown_object_type",
+                    "code": "UNKNOWN_OBJECT_TYPE",
                     "message": f"Object type '{item.object_type_key}' is not in the pinned model",
                     "details": {"objectId": item.object_id},
                 }
@@ -124,7 +124,7 @@ def graph_diagnostics(
                     if same:
                         errors.append(
                             {
-                                "code": "duplicate_attribute_value",
+                                "code": "DUPLICATE_ATTRIBUTE_VALUE",
                                 "message": f"Attribute '{key}' must be unique",
                                 "details": {
                                     "objectId": item.object_id,
@@ -140,7 +140,7 @@ def graph_diagnostics(
             if parent is None or current.parent_object_id in seen:
                 errors.append(
                     {
-                        "code": "containment_cycle",
+                        "code": "CONTAINMENT_CYCLE",
                         "message": "Containment graph contains a cycle or missing parent",
                     }
                 )
@@ -149,7 +149,7 @@ def graph_diagnostics(
             if not _parent_pair_exists(model, current, parent, parent_edges):
                 errors.append(
                     {
-                        "code": "containment_relation_missing",
+                        "code": "CONTAINMENT_RELATION_MISSING",
                         "message": "Containment parent is not represented by its declared parent relation",
                         "details": {
                             "objectId": current.object_id,
@@ -163,7 +163,7 @@ def graph_diagnostics(
         if relation.from_object_id not in objects or relation.to_object_id not in objects:
             errors.append(
                 {
-                    "code": "relation_endpoint_missing",
+                    "code": "RELATION_ENDPOINT_MISSING",
                     "message": "Relation endpoint is not in the candidate graph",
                 }
             )
@@ -175,7 +175,7 @@ def graph_diagnostics(
         if allowed is None:
             errors.append(
                 {
-                    "code": "invalid_relation_pair",
+                    "code": "INVALID_RELATION_PAIR",
                     "message": "Relation is not permitted by the pinned model",
                 }
             )
@@ -209,7 +209,7 @@ def graph_diagnostics(
             ):
                 errors.append(
                     {
-                        "code": "relation_cardinality_violation",
+                        "code": "RELATION_CARDINALITY_VIOLATION",
                         "message": f"Relation '{allowed.relationTypeKey}' exceeds source cardinality",
                         "details": {"relationId": relation.relation_id},
                     }
@@ -219,7 +219,7 @@ def graph_diagnostics(
             ):
                 errors.append(
                     {
-                        "code": "relation_cardinality_violation",
+                        "code": "RELATION_CARDINALITY_VIOLATION",
                         "message": f"Relation '{allowed.relationTypeKey}' exceeds target cardinality",
                         "details": {"relationId": relation.relation_id},
                     }
@@ -260,7 +260,7 @@ def graph_diagnostics(
             ):
                 errors.append(
                     {
-                        "code": "duplicate_relation_scope",
+                        "code": "DUPLICATE_RELATION_SCOPE",
                         "message": f"Relation '{allowed.relationTypeKey}' already exists for this ancestor scope",
                         "details": {
                             "relationId": relation.relation_id,
@@ -297,7 +297,7 @@ def graph_diagnostics(
             if not satisfied:
                 errors.append(
                     {
-                        "code": "missing_required_relation",
+                        "code": "MISSING_REQUIRED_RELATION",
                         "message": f"Required relationship '{relation_key}' is missing for object '{target.object_id}'",
                         "details": {"objectId": target.object_id, "relationTypeKey": relation_key},
                     }
@@ -310,7 +310,7 @@ def _validate_application_diagnostic(errors: list[dict[str, Any]], model: Any, i
     if application is None or item.object_type_key not in application.objectTypeKeys:
         errors.append(
             {
-                "code": "object_type_not_in_application",
+                "code": "OBJECT_TYPE_NOT_IN_APPLICATION",
                 "message": f"Object type '{item.object_type_key}' is not enabled in application '{item.application_key}'",
                 "details": {"objectId": item.object_id},
             }

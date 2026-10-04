@@ -46,7 +46,7 @@ def create_object_record(session: Session, model: EngineModel, payload: ObjectCr
 
 def duplicate_relation() -> Exception:
     """What a live create answers when its rows collide with a row the rules did not see."""
-    return api_error(409, "duplicate_relation", "Relation already exists")
+    return api_error(409, "DUPLICATE_RELATION", "Relation already exists")
 
 
 def apply_object_create(session: Session, model: EngineModel, payload: ObjectCreate) -> RdmObject:
@@ -116,7 +116,7 @@ def decide_object_create(
         if other is None:
             raise rules.relation_endpoint_missing(str(initial.otherObjectId))
         if not lookup.shares_workspace(other):
-            raise api_error(422, "relation_wrong_scope", "Related objects must share a workspace")
+            raise api_error(422, "RELATION_WRONG_SCOPE", "Related objects must share a workspace")
         source, target = (record, other) if initial.direction == "outgoing" else (other, record)
         relation = RelationCreate(
             relationTypeKey=initial.relationTypeKey,
@@ -238,7 +238,7 @@ def decide_object_update(
     # The workspace lock (PG-D5) is held: the version read is the one a write would claim.
     if item.version != payload.expectedVersion:
         raise api_error(
-            409, "version_conflict", "Object version has changed", {"currentVersion": item.version}
+            409, "VERSION_CONFLICT", "Object version has changed", {"currentVersion": item.version}
         )
     if attributes is not None:
         check_attribute_change(lookup, model, object_type, item, attributes)
@@ -339,13 +339,13 @@ def set_live_attribute_value(
     if create_only and present:
         raise api_error(
             409,
-            "attribute_already_exists",
+            "ATTRIBUTE_ALREADY_EXISTS",
             f"Attribute '{attribute_type_key}' already has a value on object '{object_id}'",
         )
     if not create_only and not present:
         raise api_error(
             404,
-            "attribute_not_found",
+            "ATTRIBUTE_NOT_FOUND",
             f"Attribute '{attribute_type_key}' has no value on object '{object_id}'",
         )
     normalized = validate_attributes(model, object_type, {attribute_type_key: value}, partial=True)
@@ -386,7 +386,7 @@ def delete_live_attribute_value(
     if attribute_type_key not in current:
         raise api_error(
             404,
-            "attribute_not_found",
+            "ATTRIBUTE_NOT_FOUND",
             f"Attribute '{attribute_type_key}' has no value on object '{object_id}'",
         )
     remaining = {
@@ -414,7 +414,7 @@ def attributes_to_dict(attributes: list) -> dict[str, Any]:
         if item.attributeTypeKey in result:
             raise api_error(
                 422,
-                "duplicate_attribute",
+                "DUPLICATE_ATTRIBUTE",
                 f"Attribute '{item.attributeTypeKey}' occurs more than once",
             )
         result[item.attributeTypeKey] = item.value

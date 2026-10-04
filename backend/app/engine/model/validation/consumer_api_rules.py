@@ -58,11 +58,11 @@ def check(model: EngineModel, _index: ModelIndex) -> None:
     for definition in model.consumerApis:
         base = f"/consumerApis/{pointer_segment(definition.key)}"
         if definition.key in seen:
-            raise ModelReferenceError("duplicate_key", base, f"Duplicate consumer API key '{definition.key}'")
+            raise ModelReferenceError("DUPLICATE_KEY", base, f"Duplicate consumer API key '{definition.key}'")
         seen.add(definition.key)
         if not _URL_KEY.match(definition.key):
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 f"{base}/key",
                 f"Consumer API key '{definition.key}' must use lowercase letters, digits and hyphens",
             )
@@ -95,10 +95,10 @@ class _Definition:
         for key, exposed in self.definition.objectTypes.items():
             path = f"/objectTypes/{pointer_segment(key)}"
             if self.model.object_type(key) is None:
-                self._fail("unknown_object_type", path, f"exposes unknown object type '{key}'")
+                self._fail("UNKNOWN_OBJECT_TYPE", path, f"exposes unknown object type '{key}'")
             if exposed.publicName in public_names:
                 self._fail(
-                    "duplicate_key",
+                    "DUPLICATE_KEY",
                     f"{path}/publicName",
                     f"public name '{exposed.publicName}' is used by '{public_names[exposed.publicName]}' too",
                 )
@@ -111,9 +111,9 @@ class _Definition:
 
         def claim(output: str, path: str) -> None:
             if output in RESERVED_OUTPUTS:
-                self._fail("invalid_model", path, f"output name '{output}' is reserved")
+                self._fail("INVALID_MODEL", path, f"output name '{output}' is reserved")
             if output in outputs:
-                self._fail("duplicate_key", path, f"output name '{output}' is also used at {outputs[output]}")
+                self._fail("DUPLICATE_KEY", path, f"output name '{output}' is also used at {outputs[output]}")
             outputs[output] = path
 
         for role in OBJECT_ROLES:
@@ -128,7 +128,7 @@ class _Definition:
             definition = self.model.attribute_type(source)
             if source != "id" and not (definition is not None and definition.features.get("unique")):
                 self._fail(
-                    "invalid_model",
+                    "INVALID_MODEL",
                     f"/object/id/source/{index}",
                     f"identity source '{source}' is neither 'id' nor a unique attribute",
                 )
@@ -139,9 +139,9 @@ class _Definition:
         if shape.parent is not None:
             claim(shape.parent.output, "/object/parent/output")
             if "code" in shape.parent.fields and shape.code is None:
-                self._fail("invalid_model", "/object/parent/fields", "parent field 'code' needs an object 'code' role")
+                self._fail("INVALID_MODEL", "/object/parent/fields", "parent field 'code' needs an object 'code' role")
             if len(set(shape.parent.fields)) != len(shape.parent.fields):
-                self._fail("duplicate_key", "/object/parent/fields", "parent fields repeat")
+                self._fail("DUPLICATE_KEY", "/object/parent/fields", "parent fields repeat")
         for role in ("path", "hierarchy"):
             output = getattr(shape, role)
             if output is not None:
@@ -152,36 +152,36 @@ class _Definition:
         for index, source in enumerate(sources):
             if field_value_type(self.model, self.types, source) is None:
                 self._fail(
-                    "invalid_reference",
+                    "INVALID_REFERENCE",
                     f"{path}/source/{index}",
                     f"source '{source}' is neither 'id', 'name' nor an attribute an exposed type binds",
                 )
         value_type = source_type(self.model, self.types, sources)
         if value_type is None:
             kinds = sorted({str(field_value_type(self.model, self.types, item)) for item in sources})
-            self._fail("invalid_model", f"{path}/source", f"sources have different value types {kinds}")
+            self._fail("INVALID_MODEL", f"{path}/source", f"sources have different value types {kinds}")
         if default is not None and not _matches_type(default, value_type):
-            self._fail("invalid_model", f"{path}/default", f"default must be a {value_type} value")
+            self._fail("INVALID_MODEL", f"{path}/default", f"default must be a {value_type} value")
 
     def _check_projections(self, outputs: set[str]) -> None:
         for name, projection in self.definition.projections.items():
             path = f"/projections/{pointer_segment(name)}"
             if name in outputs or name in RESERVED_OUTPUTS:
-                self._fail("duplicate_key", path, f"projection '{name}' collides with an output field")
+                self._fail("DUPLICATE_KEY", path, f"projection '{name}' collides with an output field")
             route = projection.from_
             if self.model.relation_type(route.relation) is None:
-                self._fail("invalid_reference", f"{path}/from/relation", f"unknown relation type '{route.relation}'")
+                self._fail("INVALID_REFERENCE", f"{path}/from/relation", f"unknown relation type '{route.relation}'")
             targets = projection_targets(self.model, self.definition, route.relation, route.direction)
             if not targets:
                 self._fail(
-                    "invalid_reference",
+                    "INVALID_REFERENCE",
                     f"{path}/from",
                     f"no exposed type has a {route.direction} binding of '{route.relation}'",
                 )
             for output, source in projection.fields.items():
                 if reference_value_type(self.model, targets, source) is None:
                     self._fail(
-                        "invalid_reference",
+                        "INVALID_REFERENCE",
                         f"{path}/fields/{pointer_segment(output)}",
                         f"field '{source}' is not 'id', 'name', an attribute of the related types or"
                         " 'ancestor:<type>.<field>' of an ancestor they can sit under",
@@ -197,7 +197,7 @@ class _Definition:
             path = f"/match/promoted/{index}"
             projection = self.definition.projections.get(promoted.projection)
             if projection is None:
-                self._fail("invalid_reference", f"{path}/projection", f"unknown projection '{promoted.projection}'")
+                self._fail("INVALID_REFERENCE", f"{path}/projection", f"unknown projection '{promoted.projection}'")
             route = projection.from_
             targets = projection_targets(self.model, self.definition, route.relation, route.direction)
             for rule_index, rule in enumerate(promoted.firstMatch):
@@ -205,7 +205,7 @@ class _Definition:
             for type_index, key in enumerate(promoted.preferTargetTypes):
                 if key not in self.definition.objectTypes:
                     self._fail(
-                        "invalid_reference",
+                        "INVALID_REFERENCE",
                         f"{path}/preferTargetTypes/{type_index}",
                         f"preferred target type '{key}' is not exposed",
                     )
@@ -216,9 +216,9 @@ class _Definition:
             return
         definition = self.model.attribute_type(field)
         if definition is None or not binding_types(types, field):
-            self._fail("invalid_reference", path, f"field '{field}' is not 'id', 'name' or an attribute of those types")
+            self._fail("INVALID_REFERENCE", path, f"field '{field}' is not 'id', 'name' or an attribute of those types")
         if not (definition.features.get("searchable") or definition.features.get("unique")):
-            self._fail("invalid_model", path, f"field '{field}' is neither searchable nor unique")
+            self._fail("INVALID_MODEL", path, f"field '{field}' is neither searchable nor unique")
 
     def _check_parameters(self) -> None:
         for name, parameter in self.definition.parameters.items():
@@ -229,7 +229,7 @@ class _Definition:
                 for type_index, key in enumerate(parameter.objectTypes):
                     if not any(key in ancestor_type_keys(self.model, item.key) for item in self.types):
                         self._fail(
-                            "invalid_reference",
+                            "INVALID_REFERENCE",
                             f"{path}/objectTypes/{type_index}",
                             f"'{key}' is not an ancestor type of any exposed type",
                         )
@@ -241,34 +241,34 @@ class _Definition:
                     projection = via.removeprefix(_VIA_SHARED)
                     if via != _VIA_SELF and projection not in self.definition.projections:
                         self._fail(
-                            "invalid_reference",
+                            "INVALID_REFERENCE",
                             f"{path}/via/{via_index}",
                             f"route '{via}' is not 'self', a projection or 'sharedProjection:<projection>'",
                         )
             elif isinstance(parameter, ProjectionParameter):
                 projection = self.definition.projections.get(parameter.projection)
                 if projection is None:
-                    self._fail("invalid_reference", f"{path}/projection", f"unknown projection '{parameter.projection}'")
+                    self._fail("INVALID_REFERENCE", f"{path}/projection", f"unknown projection '{parameter.projection}'")
                 route = projection.from_
                 targets = projection_targets(self.model, self.definition, route.relation, route.direction)
                 for field_index, field in enumerate(parameter.matchFields):
                     if reference_value_type(self.model, targets, field) is None:
                         self._fail(
-                            "invalid_reference",
+                            "INVALID_REFERENCE",
                             f"{path}/matchFields/{field_index}",
                             f"match field '{field}' is not a field of projection '{parameter.projection}'",
                         )
 
     def _check_parameter_name(self, name: str, path: str) -> None:
         if name in RESERVED_PARAMETERS or name.startswith("to."):
-            self._fail("invalid_model", path, f"parameter name '{name}' is reserved")
+            self._fail("INVALID_MODEL", path, f"parameter name '{name}' is reserved")
 
     def _parameter_types(self, keys: Sequence[str], path: str) -> list[ObjectTypeDefinition]:
         types = []
         for index, key in enumerate(keys):
             item = self.model.object_type(key)
             if item is None:
-                self._fail("unknown_object_type", f"{path}/objectTypes/{index}", f"unknown object type '{key}'")
+                self._fail("UNKNOWN_OBJECT_TYPE", f"{path}/objectTypes/{index}", f"unknown object type '{key}'")
             types.append(item)
         return types
 
@@ -277,7 +277,7 @@ class _Definition:
     ) -> None:
         for index, field in enumerate(fields):
             if split_ancestor_reference(field) is not None:
-                self._fail("invalid_model", f"{path}/matchFields/{index}", "an ancestor field is matched by an 'ancestor' parameter")
+                self._fail("INVALID_MODEL", f"{path}/matchFields/{index}", "an ancestor field is matched by an 'ancestor' parameter")
             self._require_matchable(field, types, f"{path}/matchFields/{index}")
 
     def _check_lists(self) -> None:
@@ -285,12 +285,12 @@ class _Definition:
         for list_definition in self.definition.lists:
             path = f"/lists/{pointer_segment(list_definition.key)}"
             if list_definition.key in keys:
-                self._fail("duplicate_key", path, f"list '{list_definition.key}' is declared twice")
+                self._fail("DUPLICATE_KEY", path, f"list '{list_definition.key}' is declared twice")
             keys.add(list_definition.key)
             if not _URL_KEY.match(list_definition.key):
-                self._fail("invalid_model", f"{path}/key", "a list key uses lowercase letters, digits and hyphens")
+                self._fail("INVALID_MODEL", f"{path}/key", "a list key uses lowercase letters, digits and hyphens")
             if list_definition.objectType not in self.definition.objectTypes:
-                self._fail("invalid_reference", f"{path}/objectType", f"type '{list_definition.objectType}' is not exposed")
+                self._fail("INVALID_REFERENCE", f"{path}/objectType", f"type '{list_definition.objectType}' is not exposed")
             parent = list_definition.parentParameter
             if parent is None:
                 continue
@@ -301,7 +301,7 @@ class _Definition:
             for index, key in enumerate(parent.objectTypes):
                 if key not in ancestors:
                     self._fail(
-                        "invalid_reference",
+                        "INVALID_REFERENCE",
                         f"{path}/parentParameter/objectTypes/{index}",
                         f"'{key}' cannot contain records of '{list_definition.objectType}'",
                     )

@@ -93,31 +93,31 @@ STOP_CHECK_ITEMS = 500
 
 # Where in an item a single write's refusal points, by its code; otherwise at the item.
 _POINTERS = {
-    "version_conflict": "expectedVersion",
-    "parent_required": "parent",
-    "parent_wrong_scope": "parent",
-    "invalid_parent_type": "parent",
-    "parent_cycle": "parent",
-    "object_already_exists": "id",
-    "relation_not_found": "id",
-    "relation_set_version_conflict": "expectedRelationSetVersion",
-    "relation_set_claim_incomplete": "expectedRelationSetVersion",
-    "unknown_relation_attributes": "attributes",
-    "missing_required_relations": "initialRelations",
-    "duplicate_initial_relation": "initialRelations",
+    "VERSION_CONFLICT": "expectedVersion",
+    "PARENT_REQUIRED": "parent",
+    "PARENT_WRONG_SCOPE": "parent",
+    "INVALID_PARENT_TYPE": "parent",
+    "PARENT_CYCLE": "parent",
+    "OBJECT_ALREADY_EXISTS": "id",
+    "RELATION_NOT_FOUND": "id",
+    "RELATION_SET_VERSION_CONFLICT": "expectedRelationSetVersion",
+    "RELATION_SET_CLAIM_INCOMPLETE": "expectedRelationSetVersion",
+    "UNKNOWN_RELATION_ATTRIBUTES": "attributes",
+    "MISSING_REQUIRED_RELATIONS": "initialRelations",
+    "DUPLICATE_INITIAL_RELATION": "initialRelations",
     **{
         code: "attributes"
         for code in (
-            "unknown_attributes",
-            "read_only_attributes",
-            "missing_required_attributes",
-            "duplicate_attribute",
-            "duplicate_attribute_value",
-            "invalid_attribute_value",
-            "attribute_below_minimum",
-            "attribute_above_maximum",
-            "object_attribute_rule_violation",
-            "invalid_effective_period",
+            "UNKNOWN_ATTRIBUTES",
+            "READ_ONLY_ATTRIBUTES",
+            "MISSING_REQUIRED_ATTRIBUTES",
+            "DUPLICATE_ATTRIBUTE",
+            "DUPLICATE_ATTRIBUTE_VALUE",
+            "INVALID_ATTRIBUTE_VALUE",
+            "ATTRIBUTE_BELOW_MINIMUM",
+            "ATTRIBUTE_ABOVE_MAXIMUM",
+            "OBJECT_ATTRIBUTE_RULE_VIOLATION",
+            "INVALID_EFFECTIVE_PERIOD",
         )
     },
 }
@@ -139,21 +139,21 @@ def check_batch_context(request: BatchRequest) -> None:
     if (request.workspaceKey is None) == (request.changeSetId is None):
         raise api_error(
             422,
-            "invalid_batch_context",
+            "INVALID_BATCH_CONTEXT",
             "Name workspaceKey for live data or changeSetId for a change set, not both",
             {"pointer": "/workspaceKey" if request.workspaceKey else "/changeSetId"},
         )
     if request.changeSetId is None and request.expectedChangeSetVersion is not None:
         raise api_error(
             422,
-            "invalid_batch_context",
+            "INVALID_BATCH_CONTEXT",
             "expectedChangeSetVersion applies only with changeSetId",
             {"pointer": "/expectedChangeSetVersion"},
         )
     if request.changeSetId is not None and request.expectedChangeSetVersion is None:
         raise api_error(
             409,
-            "change_set_required",
+            "CHANGE_SET_REQUIRED",
             "expectedChangeSetVersion is required when targeting a change set",
         )
 
@@ -227,7 +227,7 @@ def run_items(
     rejected = any(outcome.status == "rejected" for outcome in outcomes)
     if policy == "atomic" and rejected:
         outer.rollback()
-        rolled_back = {"reason": "batch_rolled_back"}
+        rolled_back = {"reason": "BATCH_ROLLED_BACK"}
         outcomes = [
             outcome
             if outcome.status == "rejected"
@@ -497,7 +497,7 @@ class _Batch:
             if self.on_existing != "overwrite":
                 raise api_error(
                     409,
-                    "version_required",
+                    "VERSION_REQUIRED",
                     "The relation exists with other values; send expectedVersion, or declare "
                     'onExisting: "overwrite"',
                     {"pointer": f"{at}/expectedVersion", **identity, "version": existing.version},
@@ -550,7 +550,7 @@ class _Batch:
             if self.on_existing != "overwrite":
                 raise api_error(
                     409,
-                    "version_required",
+                    "VERSION_REQUIRED",
                     "The upsert found an existing record; send expectedVersion, or declare "
                     'onExisting: "overwrite"',
                     {
@@ -592,7 +592,7 @@ class _Batch:
             if value is None or value == "":
                 raise api_error(
                     422,
-                    "missing_record_key",
+                    "MISSING_RECORD_KEY",
                     f"The upsert key '{key}' needs a value among the item's attributes",
                     {"pointer": f"{at}/attributes", "attributeTypeKey": key},
                 )
@@ -633,7 +633,7 @@ class _Items:
         if relation is None:
             raise api_error(
                 404,
-                "relation_not_found",
+                "RELATION_NOT_FOUND",
                 f"Relation '{relation_id}' not found",
                 {"pointer": pointer, "id": relation_id},
             )
@@ -673,7 +673,7 @@ class _Items:
         if definition is None or not bound or not definition.features.get("unique"):
             raise api_error(
                 422,
-                "invalid_record_key",
+                "INVALID_RECORD_KEY",
                 f"'{attribute_type_key}' is not an attribute declared unique on '{object_type_key}'",
                 {
                     "pointer": pointer,
@@ -1058,7 +1058,7 @@ def _canonical(definition: Any, value: Any) -> Any:
 def _not_found(pointer: str, reference: dict[str, Any]) -> ApiError:
     return api_error(
         404,
-        "reference_not_found",
+        "REFERENCE_NOT_FOUND",
         "No record matches the reference in this batch's context",
         {"pointer": pointer, **reference},
     )
@@ -1067,7 +1067,7 @@ def _not_found(pointer: str, reference: dict[str, Any]) -> ApiError:
 def _type_mismatch(pointer: str, record: Any, expected: str) -> ApiError:
     return api_error(
         422,
-        "reference_type_mismatch",
+        "REFERENCE_TYPE_MISMATCH",
         f"The referenced record is a '{record.object_type_key}' record, not '{expected}'",
         {
             "pointer": pointer,

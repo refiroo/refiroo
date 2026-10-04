@@ -17,7 +17,7 @@ def duplicate_value(key: str, name: str, holder: str) -> ApiError:
     name for people and its key and the holder for programs (an E-D4 row settled in H4c)."""
     return api_error(
         409,
-        "duplicate_attribute_value",
+        "DUPLICATE_ATTRIBUTE_VALUE",
         f"Attribute '{name}' must be unique",
         {"attributeTypeKey": key, "conflictingObjectId": holder},
     )
@@ -45,70 +45,70 @@ class Refusals:
 
 LIVE = Refusals(
     unknown_object_type=lambda key: api_error(
-        404, "unknown_object_type", f"Object type '{key}' not found"
+        404, "UNKNOWN_OBJECT_TYPE", f"Object type '{key}' not found"
     ),
     unknown_application=lambda application, _type: api_error(
-        404, "unknown_application", f"Application '{application}' not found"
+        404, "UNKNOWN_APPLICATION", f"Application '{application}' not found"
     ),
     type_not_in_application=lambda application, type_key: api_error(
         422,
-        "invalid_object_type_for_application",
+        "INVALID_OBJECT_TYPE_FOR_APPLICATION",
         f"Object type '{type_key}' is not available in application '{application}'",
     ),
     unknown_relation_type=lambda key: api_error(
-        422, "unknown_relation_type", f"Relation type '{key}' not found"
+        422, "UNKNOWN_RELATION_TYPE", f"Relation type '{key}' not found"
     ),
     missing_parent=lambda object_id: api_error(
-        404, "object_not_found", f"Object '{object_id}' not found"
+        404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found"
     ),
     immutable_relation=lambda _deleting: api_error(
         422,
-        "immutable_relation",
+        "IMMUTABLE_RELATION",
         "Engine-maintained relation cannot be created, updated or deleted directly",
     ),
     required_relation=lambda: api_error(
-        422, "required_relation", "A required relationship cannot be deleted independently"
+        422, "REQUIRED_RELATION", "A required relationship cannot be deleted independently"
     ),
     duplicate_value=duplicate_value,
     object_exists=lambda object_id: api_error(
-        409, "object_already_exists", f"An object with ID '{object_id}' already exists"
+        409, "OBJECT_ALREADY_EXISTS", f"An object with ID '{object_id}' already exists"
     ),
     holds_scope_breaches=False,
 )
 
 CHANGE_SET = Refusals(
     unknown_object_type=lambda key: api_error(
-        422, "unknown_object_type", f"Object type '{key}' is not in the pinned model"
+        422, "UNKNOWN_OBJECT_TYPE", f"Object type '{key}' is not in the pinned model"
     ),
     unknown_application=lambda application, type_key: api_error(
         422,
-        "object_type_not_in_application",
+        "OBJECT_TYPE_NOT_IN_APPLICATION",
         f"Object type '{type_key}' is not enabled in application '{application}'",
     ),
     type_not_in_application=lambda application, type_key: api_error(
         422,
-        "object_type_not_in_application",
+        "OBJECT_TYPE_NOT_IN_APPLICATION",
         f"Object type '{type_key}' is not enabled in application '{application}'",
     ),
     unknown_relation_type=lambda key: api_error(
-        422, "unknown_relation_type", f"Relation type '{key}' is not in the pinned model"
+        422, "UNKNOWN_RELATION_TYPE", f"Relation type '{key}' is not in the pinned model"
     ),
     missing_parent=lambda _object_id: api_error(
-        422, "parent_wrong_scope", "Parent must be in the same application and workspace"
+        422, "PARENT_WRONG_SCOPE", "Parent must be in the same application and workspace"
     ),
     immutable_relation=lambda deleting: api_error(
         422,
-        "immutable_relation",
+        "IMMUTABLE_RELATION",
         "Engine-maintained containment relations cannot be deleted directly"
         if deleting
         else "Engine-maintained containment relations are changed through object edits",
     ),
     required_relation=lambda: api_error(
-        422, "required_relation", "Required relationships cannot be deleted directly"
+        422, "REQUIRED_RELATION", "Required relationships cannot be deleted directly"
     ),
     duplicate_value=duplicate_value,
     object_exists=lambda object_id: api_error(
-        409, "object_already_exists", f"Object '{object_id}' already exists"
+        409, "OBJECT_ALREADY_EXISTS", f"Object '{object_id}' already exists"
     ),
     holds_scope_breaches=True,
 )

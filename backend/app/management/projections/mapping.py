@@ -313,7 +313,7 @@ def _mapping_read_in_transaction(
     )
     if binding_config is None and not isinstance(view, MappingGridViewDefinition):
         raise api_error(
-            404, "mapping_view_not_found", "Mapping view not found in the selected model"
+            404, "MAPPING_VIEW_NOT_FOUND", "Mapping view not found in the selected model"
         )
     objects, relations = context_projection(
         session, workspace_key, change_set_id, publication_id
@@ -350,7 +350,7 @@ def validate_binding(
         and row.toObjectTypeKey == to_type
         for row in read.snapshot.model.objectTypeRelations
     ):
-        raise api_error(404, "mapping_binding_not_found", "Mapping relation binding not found")
+        raise api_error(404, "MAPPING_BINDING_NOT_FOUND", "Mapping relation binding not found")
     if (relation_type, from_type, to_type, direction) != (
         read.config.relationTypeKey,
         read.config.fromObjectTypeKey,
@@ -359,7 +359,7 @@ def validate_binding(
     ):
         raise api_error(
             422,
-            "mapping_view_binding_mismatch",
+            "MAPPING_VIEW_BINDING_MISMATCH",
             "Binding and direction must match the selected mapping view",
         )
 
@@ -376,7 +376,7 @@ def validate_parent_scope(read: MappingRead, parent_object_id: str | None) -> No
     if parent is None:
         raise api_error(
             404,
-            "mapping_parent_not_found",
+            "MAPPING_PARENT_NOT_FOUND",
             "Parent object not found in the selected context",
         )
     source = read.snapshot.model.object_type(read.source_type)
@@ -391,7 +391,7 @@ def validate_parent_scope(read: MappingRead, parent_object_id: str | None) -> No
     if not compatible:
         raise api_error(
             422,
-            "mapping_parent_scope_mismatch",
+            "MAPPING_PARENT_SCOPE_MISMATCH",
             "Parent object type cannot contain sources for the selected mapping view",
         )
 
@@ -594,7 +594,7 @@ def candidates(
     if object_type != read.target_type:
         raise api_error(
             422,
-            "mapping_candidate_type_mismatch",
+            "MAPPING_CANDIDATE_TYPE_MISMATCH",
             "Candidate type must match the target side of the mapping view",
         )
     candidate_page = object_page(
@@ -660,13 +660,13 @@ def list_mappings(
         )
         if not isinstance(view, MappingGridViewDefinition):
             raise api_error(
-                404, "mapping_view_not_found", "Mapping view not found in the selected model"
+                404, "MAPPING_VIEW_NOT_FOUND", "Mapping view not found in the selected model"
             )
         config = view.config
     elif application_key is not None or view_key is not None:
         raise api_error(
             422,
-            "incomplete_view_identity",
+            "INCOMPLETE_VIEW_IDENTITY",
             "Both applicationKey and viewKey are required when either is supplied",
         )
 
@@ -838,13 +838,13 @@ def target_details(
     )
     if not exists:
         raise api_error(
-            404, "mapping_source_not_found", "Mapping source not found in the selected context"
+            404, "MAPPING_SOURCE_NOT_FOUND", "Mapping source not found in the selected context"
         )
     actual = read.versions([source_id]).get(source_id, 0)
     if actual != version:
         raise api_error(
             409,
-            "mapping_version_conflict",
+            "MAPPING_VERSION_CONFLICT",
             "Mapping targets changed; refresh mapping coverage before continuing",
             {"mappingVersion": actual},
         )

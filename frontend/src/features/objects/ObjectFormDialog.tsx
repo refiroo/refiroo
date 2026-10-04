@@ -170,13 +170,13 @@ export function ObjectFormDialog({
         onSaved(saved);
       }
     } catch (cause) {
-      if (object && (isApiError(cause, "version_conflict") || isApiError(cause, "change_set_version_conflict"))) {
+      if (object && (isApiError(cause, "VERSION_CONFLICT") || isApiError(cause, "CHANGE_SET_VERSION_CONFLICT"))) {
         try {
           const fresh = await api.object(objectType.key, object.id, activeWorkspaceKey);
           setBaselineObject(fresh);
           setObjectVersion(fresh.version);
           setError(
-            isApiError(cause, "change_set_version_conflict")
+            isApiError(cause, "CHANGE_SET_VERSION_CONFLICT")
               ? "The change set changed. Current content is loaded; your edits are preserved. Review and save again."
               : "The object changed. Its latest version has been loaded; your edits are preserved. Review and save again.",
           );

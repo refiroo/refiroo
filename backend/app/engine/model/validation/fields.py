@@ -21,7 +21,7 @@ def require_schema(model: EngineModel, minimum: str, path: str, feature: str) ->
     """Refuse ``feature`` at ``path`` when the model's schema version predates ``minimum``."""
     if _schema_version(model.schemaVersion) < _schema_version(minimum):
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             path,
             f"{feature} requires schema version {minimum} or later; "
             f"this model uses {model.schemaVersion}",
@@ -43,7 +43,7 @@ def check_fields(
     """Every named field must be built in, an attached attribute, or a known ancestor reference."""
     present = [field for field in fields if field is not None]
     if len(present) != len(set(present)):
-        raise ModelReferenceError("duplicate_key", path, f"{label} has duplicate fields")
+        raise ModelReferenceError("DUPLICATE_KEY", path, f"{label} has duplicate fields")
 
     attached = {
         binding.attributeTypeKey
@@ -57,14 +57,14 @@ def check_fields(
         ancestor_type_key = field.removeprefix(ANCESTOR_FIELD_PREFIX)
         if not ancestor_type_key or ancestor_type_key not in object_map:
             raise ModelReferenceError(
-                "invalid_reference",
+                "INVALID_REFERENCE",
                 path,
                 f"{label} references unknown ancestor object type '{ancestor_type_key}'",
             )
     unknown = set(present) - ancestor_fields - attached - DETAIL_FIELD_KEYS
     if unknown:
         raise ModelReferenceError(
-            "invalid_model", path, f"{label} references unavailable fields: {sorted(unknown)}"
+            "INVALID_MODEL", path, f"{label} references unavailable fields: {sorted(unknown)}"
         )
 
 
@@ -78,21 +78,21 @@ def check_panel_object_types(
 ) -> None:
     if not keys:
         raise ModelReferenceError(
-            "invalid_model", path, f"{label} requires at least one object type"
+            "INVALID_MODEL", path, f"{label} requires at least one object type"
         )
     if len(keys) != len(set(keys)):
-        raise ModelReferenceError("duplicate_key", path, f"{label} has duplicate object types")
+        raise ModelReferenceError("DUPLICATE_KEY", path, f"{label} has duplicate object types")
     unknown = set(keys) - set(object_map)
     if unknown:
         raise ModelReferenceError(
-            "unknown_object_type",
+            "UNKNOWN_OBJECT_TYPE",
             path,
             f"{label} references unknown object types: {sorted(unknown)}",
         )
     unavailable = set(keys) - set(application.objectTypeKeys)
     if unavailable:
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             path,
             f"{label} uses object types outside the application: {sorted(unavailable)}",
         )

@@ -29,7 +29,7 @@ def load_workspace(session: Session, key: str, *, for_update: bool = False) -> W
         else select(Workspace).where(Workspace.key == key)
     )
     if item is None:
-        raise api_error(404, "workspace_not_found", f"Workspace '{key}' not found")
+        raise api_error(404, "WORKSPACE_NOT_FOUND", f"Workspace '{key}' not found")
     return item
 
 
@@ -40,7 +40,7 @@ def load_workspace_runtime_state(
     item = session.scalar(statement.with_for_update() if for_update else statement)
     if item is None:  # The migration always creates this row.
         raise api_error(
-            500, "workspace_runtime_state_missing", "Workspace runtime state is missing"
+            500, "WORKSPACE_RUNTIME_STATE_MISSING", "Workspace runtime state is missing"
         )
     return item
 
@@ -65,7 +65,7 @@ def _require_active(item: Workspace) -> None:
     if item.status == "retired":
         raise api_error(
             409,
-            "workspace_retired",
+            "WORKSPACE_RETIRED",
             f"Workspace '{item.key}' is retired and cannot be modified",
         )
 
@@ -89,13 +89,13 @@ def _require_resolved_workspaces(session: Session) -> None:
         if current is None:
             raise api_error(
                 404,
-                "workspace_not_found",
+                "WORKSPACE_NOT_FOUND",
                 f"Workspace '{key}' was deleted while this request was processed; nothing was saved",
             )
         if current.status == "retired":
             raise api_error(
                 409,
-                "workspace_retired",
+                "WORKSPACE_RETIRED",
                 f"Workspace '{key}' was retired while this request was processed; nothing was saved",
             )
 
@@ -131,7 +131,7 @@ def create_workspace(session: Session, payload: WorkspaceCreate) -> Workspace:
     except IntegrityError:
         session.rollback()
         raise api_error(
-            409, "workspace_already_exists", f"Workspace '{key}' already exists"
+            409, "WORKSPACE_ALREADY_EXISTS", f"Workspace '{key}' already exists"
         ) from None
     session.refresh(item)
     return item
@@ -151,7 +151,7 @@ def update_workspace(session: Session, key: str, payload: WorkspaceUpdate) -> Wo
     if state is not None and state.default_workspace_key == key:
         raise api_error(
             409,
-            "default_workspace_cannot_be_retired",
+            "DEFAULT_WORKSPACE_CANNOT_BE_RETIRED",
             "The default workspace cannot be retired",
         )
     values: dict[str, object] = {
@@ -172,7 +172,7 @@ def update_workspace(session: Session, key: str, payload: WorkspaceUpdate) -> Wo
         current = load_workspace(session, key)
         raise api_error(
             409,
-            "version_conflict",
+            "VERSION_CONFLICT",
             "Workspace version has changed",
             {"currentVersion": current.version},
         )
@@ -186,7 +186,7 @@ def set_default_workspace(
     workspace = load_workspace(session, key, for_update=True)
     load_workspace_runtime_state(session, for_update=True)
     if workspace.status != "active":
-        raise api_error(409, "workspace_retired", "The default workspace must be active")
+        raise api_error(409, "WORKSPACE_RETIRED", "The default workspace must be active")
     result = session.execute(
         update(WorkspaceRuntimeState)
         .where(WorkspaceRuntimeState.id == 1, WorkspaceRuntimeState.version == expected_version)
@@ -201,7 +201,7 @@ def set_default_workspace(
         current = load_workspace_runtime_state(session)
         raise api_error(
             409,
-            "version_conflict",
+            "VERSION_CONFLICT",
             "Workspace runtime-state version has changed",
             {
                 "currentVersion": current.version,
@@ -264,19 +264,19 @@ def _require_deletable(session: Session, key: str, expected_version: int) -> Non
     if blocker == "default":
         raise api_error(
             409,
-            "workspace_is_default",
+            "WORKSPACE_IS_DEFAULT",
             "The default workspace cannot be deleted. Make another workspace the default first",
         )
     if blocker == "published":
         raise api_error(
             409,
-            "workspace_has_publications",
+            "WORKSPACE_HAS_PUBLICATIONS",
             f"Workspace '{key}' has been published and cannot be deleted; retire it instead",
         )
     if blocker == "notEmpty":
         raise api_error(
             409,
-            "workspace_not_empty",
+            "WORKSPACE_NOT_EMPTY",
             f"Workspace '{key}' still has objects or change sets. Delete its objects and discard "
             "its change sets first, or retire it",
             counts,
@@ -284,7 +284,7 @@ def _require_deletable(session: Session, key: str, expected_version: int) -> Non
     if workspace.version != expected_version:
         raise api_error(
             409,
-            "version_conflict",
+            "VERSION_CONFLICT",
             "Workspace version has changed",
             {"currentVersion": workspace.version},
         )

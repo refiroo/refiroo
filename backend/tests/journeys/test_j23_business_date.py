@@ -58,18 +58,18 @@ def test_records_applicable_on_a_date_page_by_page(world):
     assert sorted(_walk(world, asOf="2026-06-30")) == ["Old rate", "Standing rate"]
 
     cursor = ok(_list(world, pageSize=1, asOf="2026-06-30"))["nextCursor"]
-    refused(_list(world, pageSize=1, cursor=cursor, asOf="2026-07-02"), 422, "invalid_cursor")
-    refused(_list(world, pageSize=1, cursor=cursor), 422, "invalid_cursor")
+    refused(_list(world, pageSize=1, cursor=cursor, asOf="2026-07-02"), 422, "INVALID_CURSOR")
+    refused(_list(world, pageSize=1, cursor=cursor), 422, "INVALID_CURSOR")
 
-    error = refused(_list(world, "F", asOf="2026-06-30"), 422, "as_of_not_supported")
+    error = refused(_list(world, "F", asOf="2026-06-30"), 422, "AS_OF_NOT_SUPPORTED")
     assert error["details"]["path"] == "/query/asOf"
     assert error["details"]["objectTypeKey"] == world.key("F")
-    error = refused(world.api.get("/objects", asOf="2026-06-30"), 422, "as_of_not_supported")
+    error = refused(world.api.get("/objects", asOf="2026-06-30"), 422, "AS_OF_NOT_SUPPORTED")
     assert error["details"]["route"].endswith("/api/v1/objects/{objectTypeKey}")
-    refused(_list(world, asOf="2026-02-30"), 422, "request_validation_error")
+    refused(_list(world, asOf="2026-02-30"), 422, "REQUEST_VALIDATION_ERROR")
     query = {"objectTypeKey": world.key("E"), "asOf": "2026-02-30"}
     error = refused(
-        world.api.post(f"/workspaces/{W1}/queries/objects", query), 422, "invalid_query"
+        world.api.post(f"/workspaces/{W1}/queries/objects", query), 422, "INVALID_QUERY"
     )
     assert error["details"]["path"] == "/asOf"
 
@@ -156,7 +156,7 @@ def test_a_period_that_does_not_end_after_it_starts_is_refused(world):
     start, end = world.key("E.from"), world.key("E.to")
 
     def assert_period_refused(response, first, last):
-        details = refused(response, 422, "invalid_effective_period")["details"]
+        details = refused(response, 422, "INVALID_EFFECTIVE_PERIOD")["details"]
         assert (details["startAttributeTypeKey"], details["endAttributeTypeKey"]) == (start, end)
         assert (details["start"], details["end"]) == (first, last)
 
@@ -212,8 +212,8 @@ def test_a_model_adding_or_removing_a_period(world):
     }
     model["release"]["version"] += "-dated"
     release = world.install(model)["id"]
-    details = refused(world.activate(release), 409, "model_migration_required")["details"]
-    [diagnostic] = [d for d in details if d["code"] == "invalid_effective_period"]
+    details = refused(world.activate(release), 409, "MODEL_MIGRATION_REQUIRED")["details"]
+    [diagnostic] = [d for d in details if d["code"] == "INVALID_EFFECTIVE_PERIOD"]
     assert world.key("F") in diagnostic["path"] and diagnostic["count"] == 2
 
     for record in inverted:
@@ -226,7 +226,7 @@ def test_a_model_adding_or_removing_a_period(world):
     del e_type["effectivePeriod"]
     model["release"]["version"] += "-undated"
     ok(world.activate(world.install(model)["id"]))
-    refused(_list(world, asOf="2026-01-15"), 422, "as_of_not_supported")
+    refused(_list(world, asOf="2026-01-15"), 422, "AS_OF_NOT_SUPPORTED")
     after = world.record("E", kept["id"])
     assert (world.value(after, "E.from"), world.value(after, "E.to")) == (
         "2026-01-01",

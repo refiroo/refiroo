@@ -100,7 +100,7 @@ describe("ModelWorkbench", () => {
     });
     vi.mocked(api.modelRelease).mockResolvedValue({ ...historical, model });
     vi.mocked(api.modelReleaseDiff).mockRejectedValue(
-      new ApiError(422, "unsupported_schema_version", "Unsupported historical schema"),
+      new ApiError(422, "UNSUPPORTED_SCHEMA_VERSION", "Unsupported historical schema"),
     );
 
     render(<ModelWorkbench route={{ kind: "models", releaseId: historical.id }} onRouteChange={vi.fn()} />);
@@ -115,7 +115,7 @@ describe("ModelWorkbench", () => {
 describe("ModelDraftEditor", () => {
   it("preserves local JSON and offers recovery after a version conflict", async () => {
     vi.mocked(api.validateModel).mockResolvedValue({ valid: true, diagnostics: [] });
-    vi.mocked(api.updateModelDraft).mockRejectedValue(new ApiError(409, "version_conflict", "Draft changed"));
+    vi.mocked(api.updateModelDraft).mockRejectedValue(new ApiError(409, "VERSION_CONFLICT", "Draft changed"));
     render(
       <ModelDraftEditor
         draft={draft}
@@ -169,7 +169,7 @@ describe("ModelDraftEditor", () => {
 
   it("surfaces a failed conflict reload without discarding local content", async () => {
     vi.mocked(api.validateModel).mockResolvedValue({ valid: true, diagnostics: [] });
-    vi.mocked(api.updateModelDraft).mockRejectedValue(new ApiError(409, "version_conflict", "Draft changed"));
+    vi.mocked(api.updateModelDraft).mockRejectedValue(new ApiError(409, "VERSION_CONFLICT", "Draft changed"));
     const onReload = vi.fn().mockRejectedValue(new Error("Reload failed"));
     render(
       <ModelDraftEditor

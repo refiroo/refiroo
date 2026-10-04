@@ -92,18 +92,18 @@ def test_draft_compile_install_and_activate_a_release(world):
             f"/model-drafts/{draft['id']}", {"expectedVersion": draft["version"], "name": "Stale"}
         ),
         409,
-        "version_conflict",
+        "VERSION_CONFLICT",
     )
     refused(
         world.api.get("/model-drafts/00000000-0000-4000-8000-000000000000"),
         404,
-        "model_draft_not_found",
+        "MODEL_DRAFT_NOT_FOUND",
     )
-    error = refused(_install(world, _draft(world, _broken(world))), 422, "invalid_model")
+    error = refused(_install(world, _draft(world, _broken(world))), 422, "INVALID_MODEL")
     assert any(d["path"].startswith("/applications") for d in error["details"])
     reused = copy.deepcopy(model)
     reused["product"]["name"] = "Same identity, other content"
-    refused(_install(world, _draft(world, reused)), 409, "release_identity_conflict")
+    refused(_install(world, _draft(world, reused)), 409, "RELEASE_IDENTITY_CONFLICT")
 
 
 def _validate_without_saving(world):
@@ -197,7 +197,7 @@ def test_compare_two_installed_releases(world):
             f"/model-releases/{m2}/diff", againstReleaseId="00000000-0000-4000-8000-000000000000"
         ),
         404,
-        "model_release_not_found",
+        "MODEL_RELEASE_NOT_FOUND",
     )
 
 
@@ -221,7 +221,7 @@ def test_reactivate_an_older_release_and_read_the_activation_history(world):
     refused(
         world.api.get("/model-releases/00000000-0000-4000-8000-000000000000/activations"),
         404,
-        "model_release_not_found",
+        "MODEL_RELEASE_NOT_FOUND",
     )
 
 
@@ -260,7 +260,7 @@ def test_data_the_candidate_does_not_fit_blocks_activation(world):
             d for d in answer["compatibility"]["diagnostics"] if world.key("R") in d["path"]
         ]
         assert diagnostic["count"] == lacking
-    refused(world.activate(release), 409, "model_migration_required")
+    refused(world.activate(release), 409, "MODEL_MIGRATION_REQUIRED")
     assert _active(world) == state and _model_release(world) == state["activeReleaseId"]
 
 
@@ -280,7 +280,7 @@ def test_two_activations_from_the_same_runtime_state(world):
         "expectedActiveReleaseId": state["activeReleaseId"],
     }
     ok(world.api.post(f"/model-releases/{m2}/activation", body))
-    refused(world.api.post(f"/model-releases/{m3}/activation", body), 409, "activation_conflict")
+    refused(world.api.post(f"/model-releases/{m3}/activation", body), 409, "ACTIVATION_CONFLICT")
     now = _active(world)
     assert (now["activeReleaseId"], now["version"]) == (m2, state["version"] + 1)
 
@@ -301,7 +301,7 @@ def test_activation_beside_a_live_write(world):
         held.waiting(1)
         ok(world.activate(m2))
         assert not write.done()
-    error = refused(write.result(timeout=30), 409, "model_release_changed")
+    error = refused(write.result(timeout=30), 409, "MODEL_RELEASE_CHANGED")
     assert (error["details"]["resolvedReleaseId"], error["details"]["activeReleaseId"]) == (m1, m2)
     assert world.record("R", record["id"])["name"] == "Before activation"
 

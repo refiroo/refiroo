@@ -140,7 +140,7 @@ def create_app() -> FastAPI:
                                 "summary": "Cursor does not match this collection request",
                                 "value": {
                                     "error": {
-                                        "code": "invalid_cursor",
+                                        "code": "INVALID_CURSOR",
                                         "message": "Cursor is invalid",
                                     }
                                 },
@@ -149,7 +149,7 @@ def create_app() -> FastAPI:
                                 "summary": "Optimistic concurrency claim is stale",
                                 "value": {
                                     "error": {
-                                        "code": "version_conflict",
+                                        "code": "VERSION_CONFLICT",
                                         "message": "Object version has changed",
                                     }
                                 },
@@ -158,7 +158,7 @@ def create_app() -> FastAPI:
                                 "summary": "Request body or parameters are invalid",
                                 "value": {
                                     "error": {
-                                        "code": "request_validation_error",
+                                        "code": "REQUEST_VALIDATION_ERROR",
                                         "message": "Request validation failed",
                                         "details": [],
                                     }

@@ -66,7 +66,7 @@ def test_prepare_and_publish_a_coordinated_change(world):
     assert deleted.status_code == 204, deleted.text
     relation = ok(world.relate("B1n", kept["id"], token["id"], **_staged(world, cs)), 201)
 
-    refused(world.read("R", added["id"]), 404, "object_not_found")
+    refused(world.read("R", added["id"]), 404, "OBJECT_NOT_FOUND")
     assert world.record("R", kept["id"])["name"] == "Kept ledger"
     assert world.record("R", gone["id"])["id"] == gone["id"]
     assert ok(world.api.post(f"/change-sets/{cs['id']}/validation"))["valid"] is True
@@ -81,7 +81,7 @@ def test_prepare_and_publish_a_coordinated_change(world):
     for context in ({}, {"publicationId": p3["id"]}):
         assert world.record("R", added["id"], **context)["name"] == "Added ledger"
         assert world.record("R", kept["id"], **context)["name"] == "Kept, renamed"
-        refused(world.read("R", gone["id"], **context), 404, "object_not_found")
+        refused(world.read("R", gone["id"], **context), 404, "OBJECT_NOT_FOUND")
         assert ok(world.api.get(f"/relations/{relation['id']}", **context))["id"] == relation["id"]
     assert ok(world.api.get(f"/publications/{p2['id']}"))["status"] == "withdrawn"
     assert world.record("R", kept["id"], publicationId=p2["id"])["name"] == "Kept ledger"
@@ -102,13 +102,13 @@ def test_prepare_and_publish_a_coordinated_change(world):
             },
         ),
         409,
-        "change_set_required",
+        "CHANGE_SET_REQUIRED",
     )
-    refused(_publish(world, another, p2["id"]), 409, "workspace_active_publication_conflict")
+    refused(_publish(world, another, p2["id"]), 409, "WORKSPACE_ACTIVE_PUBLICATION_CONFLICT")
     refused(
         world.api.post(f"/workspaces/{W3}/change-sets", {"source": "currentLive"}),
         409,
-        "workspace_retired",
+        "WORKSPACE_RETIRED",
     )
 
 
@@ -177,7 +177,7 @@ def test_a_change_set_from_a_publication(world):
         {"source": "currentLive", "derivedFromPublicationId": p1["id"]},
     ):
         refused(
-            world.api.post(f"/workspaces/{W1}/change-sets", body), 422, "request_validation_error"
+            world.api.post(f"/workspaces/{W1}/change-sets", body), 422, "REQUEST_VALIDATION_ERROR"
         )
 
 
@@ -191,10 +191,10 @@ def test_an_empty_change_set(world):
     assert cs["source"] == "empty"
     changes = ok(world.api.get(f"/objects/{world.key('R')}", changeSetId=cs["id"]))["items"]
     assert changes == []
-    refused(world.read("R", live["id"], changeSetId=cs["id"]), 404, "object_not_found")
+    refused(world.read("R", live["id"], changeSetId=cs["id"]), 404, "OBJECT_NOT_FOUND")
     staged = world.made("R", "Only staged", change_set=world.current(cs))
     assert world.record("R", staged["id"], changeSetId=cs["id"])["name"] == "Only staged"
-    refused(world.read("R", staged["id"]), 404, "object_not_found")
+    refused(world.read("R", staged["id"]), 404, "OBJECT_NOT_FOUND")
 
 
 @pytest.mark.journey("J05.4")
@@ -224,13 +224,13 @@ def test_an_invalid_graph_is_named_and_not_published(world):
 
     validation = ok(world.api.post(f"/change-sets/{cs['id']}/validation"))
     assert validation["valid"] is False
-    named = [d for d in validation["diagnostics"] if d.get("code") == "duplicate_relation_scope"]
+    named = [d for d in validation["diagnostics"] if d.get("code") == "DUPLICATE_RELATION_SCOPE"]
     assert named
     # One record by its ID, the other by its owning relationship's.
     details = named[0]["details"]
     staged = ok(world.api.get(f"/relations/{details['relationId']}", changeSetId=cs["id"]))
     assert {details["conflictingObjectId"], staged["toObjectId"]} == {d1["id"], d2["id"]}
-    refused(_publish(world, cs, None), 422, "workspace_graph_invalid")
+    refused(_publish(world, cs, None), 422, "WORKSPACE_GRAPH_INVALID")
     assert _publications(world) == publications
     assert world.record("M", m2["id"])["parentObjectId"] == g2["id"]
 
@@ -253,7 +253,7 @@ def test_an_invalid_graph_is_named_and_not_published(world):
         values={"D.active": True},
         relations=[world.owner("Bown", r["id"])],
     )
-    refused(_publish(world, clean, None), 422, "workspace_graph_invalid")
+    refused(_publish(world, clean, None), 422, "WORKSPACE_GRAPH_INVALID")
 
 
 @pytest.mark.journey("J05.5")
@@ -276,11 +276,11 @@ def test_rename_or_discard_a_change_set(world):
             f"/change-sets/{cs['id']}", {"name": "Again", "expectedVersion": cs["version"]}
         ),
         409,
-        "change_set_version_conflict",
+        "CHANGE_SET_VERSION_CONFLICT",
     )
     discarded = world.api.delete(f"/change-sets/{cs['id']}", expectedVersion=renamed["version"])
     assert discarded.status_code == 204, discarded.text
-    refused(world.api.get(f"/change-sets/{cs['id']}"), 404, "change_set_not_found")
+    refused(world.api.get(f"/change-sets/{cs['id']}"), 404, "CHANGE_SET_NOT_FOUND")
 
     model, _key = world.candidate("compatible")
     release = world.install(model)
@@ -310,7 +310,7 @@ def test_two_writers_in_one_change_set(world):
         return world.api.patch(f"/objects/{world.key('R')}/{record['id']}", body)
 
     ok(update(x, "Writer A"))
-    refused(update(y, "Writer B"), 409, "change_set_version_conflict")
+    refused(update(y, "Writer B"), 409, "CHANGE_SET_VERSION_CONFLICT")
     assert world.record("R", y["id"], changeSetId=cs["id"])["name"] == "Record y"
 
 
@@ -329,7 +329,7 @@ def test_a_live_write_beside_a_capture_of_current_live(world):
     )
     assert ok(write)["name"] == "Written meanwhile"
     if capture.status_code == 409:
-        refused(capture, 409, "change_set_snapshot_retry")
+        refused(capture, 409, "CHANGE_SET_SNAPSHOT_RETRY")
         capture = world.api.post(f"/workspaces/{W1}/change-sets", {"source": "currentLive"})
     cs = ok(capture, 201)
     staged = world.record("R", record["id"], changeSetId=cs["id"])["name"]
@@ -378,9 +378,9 @@ def test_the_same_record_changed_on_both_sides(world):
     x = ok(world.update("R", x["id"], x["version"], name="Live x"))
     publications = _publications(world)
 
-    error = refused(_publish(world, cs, None), 409, "version_conflict")
+    error = refused(_publish(world, cs, None), 409, "VERSION_CONFLICT")
     named = [c for c in error["details"]["conflicts"] if c["id"] == x["id"]]
-    assert named and named[0]["code"] == "version_mismatch"
+    assert named and named[0]["code"] == "VERSION_MISMATCH"
     assert _publications(world) == publications
     assert world.record("R", x["id"])["name"] == "Live x"
     assert world.record("R", other["id"])["name"] == "Other"

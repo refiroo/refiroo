@@ -108,7 +108,7 @@ def _scoped_subtree(
 def load_relation(session: Session, relation_id: str) -> ObjectRelation:
     relation = session.scalar(select(ObjectRelation).where(ObjectRelation.id == relation_id))
     if not relation:
-        raise api_error(404, "relation_not_found", f"Relation '{relation_id}' not found")
+        raise api_error(404, "RELATION_NOT_FOUND", f"Relation '{relation_id}' not found")
     return relation
 
 
@@ -126,7 +126,7 @@ def _live_relation_lookup(
 ) -> tuple[LiveWrites, LiveBatchLookup]:
     """The workspace lock and a batch lookup for a single relation write (a batch of one)."""
     if from_object.workspace_key != to_object.workspace_key:
-        raise api_error(422, "relation_wrong_scope", "Related objects must share a workspace")
+        raise api_error(422, "RELATION_WRONG_SCOPE", "Related objects must share a workspace")
     resolve_workspace(session, from_object.workspace_key, require_active=True)
     writes = LiveWrites(session, from_object.workspace_key)
     return writes, LiveBatchLookup.of(session, from_object.workspace_key)

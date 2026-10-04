@@ -41,17 +41,17 @@ def create_change_set(
     validate_selected_model: bool = False,
 ) -> ChangeSet:
     if source not in (None, "currentLive", "publication"):
-        raise api_error(422, "change_set_source_invalid", "Change set source is invalid")
+        raise api_error(422, "CHANGE_SET_SOURCE_INVALID", "Change set source is invalid")
     if source == "publication" and source_publication_id is None:
         raise api_error(
             422,
-            "change_set_source_invalid",
+            "CHANGE_SET_SOURCE_INVALID",
             "A publication source requires a publication id",
         )
     if source == "currentLive" and source_publication_id is not None:
         raise api_error(
             422,
-            "change_set_source_invalid",
+            "CHANGE_SET_SOURCE_INVALID",
             "A current-live source cannot include a publication id",
         )
     if source == "currentLive":
@@ -65,16 +65,16 @@ def create_change_set(
         )
     workspace = session.get(Workspace, workspace_key)
     if workspace is None:
-        raise api_error(404, "workspace_not_found", f"Workspace '{workspace_key}' not found")
+        raise api_error(404, "WORKSPACE_NOT_FOUND", f"Workspace '{workspace_key}' not found")
     if workspace.status != "active":
-        raise api_error(409, "workspace_retired", "Retired workspaces cannot be edited")
+        raise api_error(409, "WORKSPACE_RETIRED", "Retired workspaces cannot be edited")
     if source_publication_id is not None:
         publication = session.scalar(
             select(Publication).where(Publication.id == source_publication_id)
         )
         if publication is None or publication.workspace_key != workspace_key:
             raise api_error(
-                404, "publication_not_found", "Source publication was not found"
+                404, "PUBLICATION_NOT_FOUND", "Source publication was not found"
             )
         model_release_id = publication.model_release_id
     change_set = ChangeSet(
@@ -111,7 +111,7 @@ def _create_current_live_change_set(
     The capture reads at REPEATABLE READ, so graph rows, attributes, edges and the runtime state are
     read from one database snapshot, and it holds share locks on the workspace and runtime-state
     rows, so neither retirement nor a model activation commits while it runs. Either one committing
-    after the snapshot began ends the capture with ``change_set_snapshot_retry``, as does any other
+    after the snapshot began ends the capture with ``CHANGE_SET_SNAPSHOT_RETRY``, as does any other
     serialization failure; nothing is saved.
     """
     begin_snapshot_read(session)
@@ -130,7 +130,7 @@ def _create_current_live_change_set(
             raise
         raise api_error(
             409,
-            "change_set_snapshot_retry",
+            "CHANGE_SET_SNAPSHOT_RETRY",
             "Live data or the active model changed while the change set was being started; "
             "nothing was saved. Retry starting the change set",
         ) from exc
@@ -152,9 +152,9 @@ def _capture_current_live(
         select(Workspace).where(Workspace.key == workspace_key).with_for_update(read=True)
     )
     if workspace is None:
-        raise api_error(404, "workspace_not_found", f"Workspace '{workspace_key}' not found")
+        raise api_error(404, "WORKSPACE_NOT_FOUND", f"Workspace '{workspace_key}' not found")
     if workspace.status != "active":
-        raise api_error(409, "workspace_retired", "Retired workspaces cannot be edited")
+        raise api_error(409, "WORKSPACE_RETIRED", "Retired workspaces cannot be edited")
     state = session.scalar(
         select(ModelRuntimeState).where(ModelRuntimeState.id == 1).with_for_update(read=True)
     )
@@ -171,7 +171,7 @@ def _capture_current_live(
     ):
         raise api_error(
             409,
-            "change_set_snapshot_retry",
+            "CHANGE_SET_SNAPSHOT_RETRY",
             "The selected model changed before current-live capture; retry with the current model",
         )
     base = ChangeSetBase(

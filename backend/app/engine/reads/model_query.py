@@ -14,7 +14,7 @@ ID must be in (:class:`SetFilter`), which the builders apply to every part of a 
   never once per listed record.
 
 Every name in the body is checked against the model before anything runs, and a name the model
-does not give the queried type is refused as ``invalid_query`` at its JSON pointer (D19).
+does not give the queried type is refused as ``INVALID_QUERY`` at its JSON pointer (D19).
 """
 
 from collections.abc import Callable, Sequence
@@ -147,7 +147,7 @@ def plan_model_query(
         else:
             query = _snapshot_query(model, object_type, context, **options)
     except ApiError as error:
-        if error.code != "invalid_sort":
+        if error.code != "INVALID_SORT":
             raise
         _invalid(error.message, "/sort")
     owner = (
@@ -539,5 +539,5 @@ def _as_of(object_type: ObjectTypeDefinition, as_of: str | None) -> date | None:
 
 
 def _invalid(message: str, pointer: str) -> NoReturn:
-    raise api_error(422, "invalid_query", message, {"path": pointer})
+    raise api_error(422, "INVALID_QUERY", message, {"path": pointer})
 

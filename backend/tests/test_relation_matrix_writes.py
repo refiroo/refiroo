@@ -267,7 +267,7 @@ def test_containers_list_what_can_hold_a_new_cell_record(client, languages, syst
     assert container_names(back) == [("Group en", ["Group en"])]
     # A cursor binds the column.
     error = helper(client, "containers", TRANSLATIONS, 422, columnId=cs, pageSize=1, cursor=first["nextCursor"])
-    assert error["code"] == "invalid_cursor"
+    assert error["code"] == "INVALID_CURSOR"
 
     # In a change set: a group added under CS and the nested group moved there.
     change_set = create_change_set(client, "default", name="containers", source="currentLive").json()
@@ -306,7 +306,7 @@ def test_containers_list_what_can_hold_a_new_cell_record(client, languages, syst
 def test_container_and_candidate_refusals(client, languages, systems):
     # The mapping matrix offers no create; the translation matrices no link.
     error = helper(client, "containers", MASTER_SYSTEMS, 422, columnId=systems["columns"][0])
-    assert error["code"] == "relation_matrix_action_not_allowed"
+    assert error["code"] == "RELATION_MATRIX_ACTION_NOT_ALLOWED"
     assert error["details"] == {"viewKey": "master-values-by-system", "action": "create"}
     error = helper(
         client,
@@ -316,10 +316,10 @@ def test_container_and_candidate_refusals(client, languages, systems):
         rowId=languages["masters"]["M1"]["id"],
         columnId=languages["columns"][0],
     )
-    assert error["code"] == "relation_matrix_action_not_allowed"
+    assert error["code"] == "RELATION_MATRIX_ACTION_NOT_ALLOWED"
     # A column or row of the wrong type.
     error = helper(client, "containers", TRANSLATIONS, 404, columnId=languages["groups"]["en"]["id"])
-    assert error["code"] == "relation_matrix_column_not_found"
+    assert error["code"] == "RELATION_MATRIX_COLUMN_NOT_FOUND"
     error = helper(
         client,
         "link-candidates",
@@ -328,7 +328,7 @@ def test_container_and_candidate_refusals(client, languages, systems):
         rowId=systems["masters"]["SM1"]["id"],
         columnId=systems["columns"][0],
     )
-    assert error["code"] == "relation_matrix_row_not_found"
+    assert error["code"] == "RELATION_MATRIX_ROW_NOT_FOUND"
     error = helper(
         client,
         "link-candidates",
@@ -337,7 +337,7 @@ def test_container_and_candidate_refusals(client, languages, systems):
         rowId=str(uuid4()),
         columnId=systems["columns"][0],
     )
-    assert error["code"] == "relation_matrix_row_not_found"
+    assert error["code"] == "RELATION_MATRIX_ROW_NOT_FOUND"
 
 
 def candidates(page):
@@ -402,7 +402,7 @@ def test_live_translation_cell_create_and_edit(client, languages):
     duplicate = client.post("/api/v1/objects", json=translation_payload("M1 en again", groups["en"], masters["M1"]))
     assert duplicate.status_code == 409, duplicate.text
     error = duplicate.json()["error"]
-    assert error["code"] == "duplicate_relation_scope"
+    assert error["code"] == "DUPLICATE_RELATION_SCOPE"
     assert error["details"]["conflictingObjectId"] == records["M1 en"]["id"]
     assert error["details"]["conflictingRelationId"] == cell(after, "M1", en)["records"][0]["relationId"]
     assert error["details"]["ancestorObjectId"] == en
@@ -427,11 +427,11 @@ def test_live_translation_cell_create_and_edit(client, languages):
         409,
         attributes=[attr("translated-name", "Lost")],
     )
-    assert stale["code"] == "version_conflict"
+    assert stale["code"] == "VERSION_CONFLICT"
     # Activating M2's old EN translation would make two: refused, naming the active one.
     old = records["M2 en old"]
     breach = patch(client, old, 409, attributes=[attr("active", True)])
-    assert breach["code"] == "duplicate_relation_scope"
+    assert breach["code"] == "DUPLICATE_RELATION_SCOPE"
     assert breach["details"]["conflictingObjectId"] == records["M2 en"]["id"]
     m2 = cell(matrix(client, TRANSLATIONS, columnIds=[en]), "M2", en)
     assert (m2["state"], m2["matchingCount"]) == ("one", 1)
@@ -453,7 +453,7 @@ def test_live_link_and_unlink_claim_the_row_set(client, systems):
     stale = link(
         client, "reference-has-system-representation", systems["codelists"]["C1"], values["V4"], 409, **claim
     )
-    assert stale["code"] == "relation_set_version_conflict"
+    assert stale["code"] == "RELATION_SET_VERSION_CONFLICT"
     assert stale["details"] == {
         "anchorObjectId": systems["codelists"]["C1"]["id"],
         "direction": "outgoing",
@@ -471,12 +471,12 @@ def test_live_link_and_unlink_claim_the_row_set(client, systems):
         422,
         expectedRelationSetVersion=0,
     )
-    assert half["code"] == "relation_set_claim_incomplete"
+    assert half["code"] == "RELATION_SET_CLAIM_INCOMPLETE"
 
     # unlink with the relation's version and the row's set version.
     v1 = cell(after, "C1", s1)["records"][0]
     stale = unlink(client, v1, 409, expectedRelationSetVersion=version, relationSetDirection="outgoing")
-    assert stale["code"] == "relation_set_version_conflict"
+    assert stale["code"] == "RELATION_SET_VERSION_CONFLICT"
     assert cells(matrix(client, CODELIST_SYSTEMS, columnIds=[s1]))["C1"]["S1"] == ("several", ["V1", "V2"])
     unlink(client, v1, expectedRelationSetVersion=version + 1, relationSetDirection="outgoing")
     final = matrix(client, CODELIST_SYSTEMS, columnIds=[s1])
@@ -589,7 +589,7 @@ def test_change_set_cell_writes_publish(client, languages, systems):
         expectedChangeSetVersion=linked["changeSetVersion"],
         **claim,
     )
-    assert stale["code"] == "relation_set_version_conflict"
+    assert stale["code"] == "RELATION_SET_VERSION_CONFLICT"
     staged_link = cell(matrix(client, CODELIST_SYSTEMS, columnIds=[s1], **context), "C2", s1)
     assert staged_link["state"] == "one"
     unlink(
@@ -639,9 +639,9 @@ def test_staged_translation_then_filled_live_is_refused_at_publish(client, langu
         expected_change_set_version=staged.json()["changeSetVersion"],
         expected_status=422,
     ).json()["error"]
-    assert refused["code"] == "workspace_graph_invalid"
+    assert refused["code"] == "WORKSPACE_GRAPH_INVALID"
     (diagnostic,) = refused["details"]
-    assert diagnostic["code"] == "duplicate_relation_scope"
+    assert diagnostic["code"] == "DUPLICATE_RELATION_SCOPE"
     assert diagnostic["details"]["conflictingObjectId"] in {live.json()["id"], staged.json()["id"]}
     # Nothing was published; the change set and its staged record are kept.
     assert cells(matrix(client, TRANSLATIONS, columnIds=[cs]))["M2"]["Language cs"] == ("one", ["M2 cs live"])
@@ -660,7 +660,7 @@ def test_moving_a_container_to_another_column_is_rechecked(client, languages):
     assert cs_record.status_code == 201, cs_record.text
     # Live: moving the nested group under CS would put two active translations there.
     breach = patch(client, groups["nested"], 409, parentObjectId=groups["cs"]["id"])
-    assert breach["code"] == "duplicate_relation_scope"
+    assert breach["code"] == "DUPLICATE_RELATION_SCOPE"
     assert breach["details"]["conflictingObjectId"] in {records["M1 en"]["id"], cs_record.json()["id"]}
     assert cells(matrix(client, TRANSLATIONS, columnIds=[en]))["M1"]["Language en"] == ("one", ["M1 en"])
 
@@ -681,7 +681,7 @@ def test_moving_a_container_to_another_column_is_rechecked(client, languages):
     assert cell(staged, "M1", cs)["conflict"] is True
     diagnostics = validate_change_set(client, change_set["id"])
     assert diagnostics["valid"] is False
-    diagnostic = next(item for item in diagnostics["diagnostics"] if item["code"] == "duplicate_relation_scope")
+    diagnostic = next(item for item in diagnostics["diagnostics"] if item["code"] == "DUPLICATE_RELATION_SCOPE")
     assert diagnostic["details"]["ancestorObjectId"] == cs
     assert diagnostic["details"]["conflictingObjectId"] in {records["M1 en"]["id"], cs_record.json()["id"]}
     publish_change_set(
@@ -729,6 +729,6 @@ def test_a_scope_held_by_the_row_is_a_candidate_reason(scoped_client):
     # V2 is active like V1, which already fills the scope; inactive V3 is outside it.
     assert candidates(page) == {"V1": "alreadyLinked", "V2": "scopeTaken", "V3": None}
     refused = link(client, "reference-has-system-representation", codelist, values["V2"], 409)
-    assert refused["code"] == "duplicate_relation_scope"
+    assert refused["code"] == "DUPLICATE_RELATION_SCOPE"
     assert refused["details"]["conflictingObjectId"] == values["V1"]["id"]
     link(client, "reference-has-system-representation", codelist, values["V3"])

@@ -115,13 +115,13 @@ def test_combine_criteria_select_expand_and_page(world):
 
     unbound = {**body, "where": [{"field": "not-a-field", "op": "eq", "value": "x"}]}
     assert (
-        refused(_query(world, unbound), 422, "invalid_query")["details"]["path"] == "/where/0/field"
+        refused(_query(world, unbound), 422, "INVALID_QUERY")["details"]["path"] == "/where/0/field"
     )
-    refused(_query(world, {**body, "unknownProperty": 1}), 422, "request_validation_error")
+    refused(_query(world, {**body, "unknownProperty": 1}), 422, "REQUEST_VALIDATION_ERROR")
     cs = world.change_set()
     publication = world.publish(world.change_set())
     both = {**body, "context": {"changeSetId": cs["id"], "publicationId": publication["id"]}}
-    refused(_query(world, both), 422, "mutually_exclusive_context")
+    refused(_query(world, both), 422, "MUTUALLY_EXCLUSIVE_CONTEXT")
 
 
 @pytest.mark.journey("J22.1")
@@ -164,9 +164,9 @@ def test_the_cross_type_lookup(world):
     assert {item["parentObjectId"] for item in children["items"]} == {world.ids["v_top1"]}
 
     outside = world.api.get("/objects", applicationKey=world.app("K"), objectTypeKey=world.key("V"))
-    refused(outside, 422, "invalid_object_type_for_application")
+    refused(outside, 422, "INVALID_OBJECT_TYPE_FOR_APPLICATION")
     both = world.api.get("/objects", parentObjectId=world.ids["v_top1"], topLevel=True)
-    refused(both, 422, "mutually_exclusive_scope")
+    refused(both, 422, "MUTUALLY_EXCLUSIVE_SCOPE")
 
 
 @pytest.mark.journey("J22.2")
@@ -241,10 +241,10 @@ def test_relationships_of_one_record_searched_and_sorted(world):
     refused(
         world.api.get("/relations", objectId=k, changeSetId=cs["id"], sort="createdAt"),
         422,
-        "invalid_sort",
+        "INVALID_SORT",
     )
     staged = world.made("K", "Staged only", change_set=world.current(cs))
-    refused(world.api.get("/relations", objectId=staged["id"]), 404, "object_not_found")
+    refused(world.api.get("/relations", objectId=staged["id"]), 404, "OBJECT_NOT_FOUND")
 
 
 @pytest.mark.journey("J22.4")
@@ -254,13 +254,13 @@ def test_a_model_declared_field_on_the_cross_type_lookup_is_refused(world):
     refused naming the per-type route and listing the built-in fields or sorts it takes."""
     code = world.key("V.code")
     error = refused(
-        world.api.get("/objects", **{f"filter.{code}.eq": "A001"}), 422, "invalid_filter"
+        world.api.get("/objects", **{f"filter.{code}.eq": "A001"}), 422, "INVALID_FILTER"
     )
     assert error["details"]["route"].endswith("/api/v1/objects/{objectTypeKey}")
     assert (
         "name" in error["details"]["builtInFields"]
         and code not in error["details"]["builtInFields"]
     )
-    error = refused(world.api.get("/objects", sort=code), 422, "invalid_sort")
+    error = refused(world.api.get("/objects", sort=code), 422, "INVALID_SORT")
     assert error["details"]["route"].endswith("/api/v1/objects/{objectTypeKey}")
     assert "name" in error["details"]["builtInSorts"]

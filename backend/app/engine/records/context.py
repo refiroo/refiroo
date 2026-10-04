@@ -42,7 +42,7 @@ def load_object(session: Session, object_id: str, object_type_key: str | None = 
     names another type than the record's."""
     item = session.scalar(select(RdmObject).where(RdmObject.id == object_id))
     if not item:
-        raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
+        raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found")
     if object_type_key and item.object_type_key != object_type_key:
         raise object_type_changed(object_id, item.object_type_key, object_type_key)
     return item

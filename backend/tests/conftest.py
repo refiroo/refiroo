@@ -115,6 +115,7 @@ TEST_GROUPS: dict[str, tuple[str, ...]] = {
     "test_relation_set_versions.py": ("mapping", "records"),
     "test_openapi_contract.py": ("contract",),
     "test_boundaries.py": ("contract",),
+    "test_error_codes.py": ("contract",),
     "test_api_journeys.py": ("contract",),
     "test_api_reference.py": ("contract",),
     "test_encoding.py": ("records",),

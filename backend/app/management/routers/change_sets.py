@@ -197,7 +197,7 @@ def get_change_set(change_set_id: str, session: DbSession) -> ChangeSetResponse:
     # stable public id would always miss; resolve through the unique id column instead.
     item = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
     if item is None:
-        raise api_error(404, "change_set_not_found", "Change set not found")
+        raise api_error(404, "CHANGE_SET_NOT_FOUND", "Change set not found")
     return _change_set_response(session, item)
 
 
@@ -569,7 +569,7 @@ def list_publications(
 def get_publication(publication_id: str, session: DbSession) -> PublicationResponse:
     item = session.scalar(select(Publication).where(Publication.id == publication_id))
     if item is None:
-        raise api_error(404, "publication_not_found", "Publication not found")
+        raise api_error(404, "PUBLICATION_NOT_FOUND", "Publication not found")
     return _publication_response(session, item)
 
 

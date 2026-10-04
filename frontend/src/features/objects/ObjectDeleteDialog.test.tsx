@@ -18,7 +18,7 @@ const impact = {
 it("keeps cancellation side-effect free and sends only the displayed signed preview", async () => {
   const remove = vi
     .spyOn(api, "deleteObject")
-    .mockRejectedValueOnce(new ApiError(409, "object_has_dependants", "Impact", impact))
+    .mockRejectedValueOnce(new ApiError(409, "OBJECT_HAS_DEPENDANTS", "Impact", impact))
     .mockResolvedValueOnce();
   const close = vi.fn();
   const done = vi.fn();
@@ -41,10 +41,10 @@ it("keeps cancellation side-effect free and sends only the displayed signed prev
 it("refuses a stale preview and requires a fresh displayed impact before confirmation", async () => {
   const remove = vi
     .spyOn(api, "deleteObject")
-    .mockRejectedValueOnce(new ApiError(409, "object_has_dependants", "Impact", impact))
-    .mockRejectedValueOnce(new ApiError(409, "deletion_preview_changed", "Please retry."))
+    .mockRejectedValueOnce(new ApiError(409, "OBJECT_HAS_DEPENDANTS", "Impact", impact))
+    .mockRejectedValueOnce(new ApiError(409, "DELETION_PREVIEW_CHANGED", "Please retry."))
     .mockRejectedValueOnce(
-      new ApiError(409, "object_has_dependants", "Impact", { ...impact, deletionPreviewToken: "signed-second" }),
+      new ApiError(409, "OBJECT_HAS_DEPENDANTS", "Impact", { ...impact, deletionPreviewToken: "signed-second" }),
     )
     .mockResolvedValueOnce();
   vi.spyOn(api, "object").mockResolvedValue({ ...domainObject, version: 2 });

@@ -50,7 +50,7 @@ def test_schema_dispatch_and_strict_table_shape_are_explicit():
     legacy["schemaVersion"] = "0.4"
     unsupported = compile_model(legacy)
     assert [(item.code, item.path) for item in unsupported.diagnostics] == [
-        ("unsupported_schema_version", "/schemaVersion")
+        ("UNSUPPORTED_SCHEMA_VERSION", "/schemaVersion")
     ]
 
     unimplemented = deepcopy(source)
@@ -74,7 +74,7 @@ def test_compiler_returns_stable_cross_reference_diagnostic_path():
     assert result.valid is False
     assert result.model is None
     assert result.model_hash is None
-    assert result.diagnostics[0].code == "unknown_object_type"
+    assert result.diagnostics[0].code == "UNKNOWN_OBJECT_TYPE"
     assert result.diagnostics[0].path == "/applications/rdm-master/objectTypeKeys/3"
 
 
@@ -457,7 +457,7 @@ def test_mapping_grid_rejects_unknown_relation_type():
     view["config"]["relationTypeKey"] = "nonexistent-relation"
     result = compile_model(source)
     assert not result.valid
-    assert result.diagnostics[0].code == "unknown_relation_type"
+    assert result.diagnostics[0].code == "UNKNOWN_RELATION_TYPE"
 
 
 def test_mapping_grid_rejects_unknown_object_type():
@@ -466,7 +466,7 @@ def test_mapping_grid_rejects_unknown_object_type():
     view["config"]["fromObjectTypeKey"] = "nonexistent-type"
     result = compile_model(source)
     assert not result.valid
-    assert result.diagnostics[0].code == "unknown_object_type"
+    assert result.diagnostics[0].code == "UNKNOWN_OBJECT_TYPE"
 
 
 def test_mapping_grid_rejects_unmatched_binding():
@@ -545,7 +545,7 @@ def test_mapping_grid_reports_duplicate_candidate_fields_at_their_config_path():
     result = compile_model(source)
     assert [(item.code, item.path) for item in result.diagnostics] == [
         (
-            "duplicate_key",
+            "DUPLICATE_KEY",
             "/applications/rdm-systems/views/system-to-master-mapping/config/candidateSearchFields",
         )
     ]
@@ -560,7 +560,7 @@ def test_schema_05_rejects_mapping_grid_with_the_view_type_path():
     assert not result.valid
     diagnostic = result.diagnostics[0]
     assert diagnostic.path.endswith("/views/master-to-system-mapping/type")
-    assert diagnostic.code == "invalid_model"
+    assert diagnostic.code == "INVALID_MODEL"
     assert "requires schema version 0.6" in diagnostic.message
 
 
@@ -589,7 +589,7 @@ def test_schema_05_mapping_grid_is_refused_by_validation_and_draft_installation(
             json={"expectedVersion": 1},
         )
         assert installation.status_code == 422
-        assert installation.json()["error"]["code"] == "invalid_model"
+        assert installation.json()["error"]["code"] == "INVALID_MODEL"
         with SessionLocal() as session:
             assert session.scalar(select(func.count()).select_from(ModelRelease)) == before
         deleted = client.delete(
@@ -640,7 +640,7 @@ def test_schema_06_refuses_panel_sort_options_at_the_field_path():
     _system_panel(source)["config"]["defaultSort"] = "name"
     result = compile_model(source)
     assert [(item.code, item.path) for item in result.diagnostics] == [
-        ("invalid_model", f"{_SYSTEM_PANEL}/sortFields")
+        ("INVALID_MODEL", f"{_SYSTEM_PANEL}/sortFields")
     ]
     assert "requires schema version 0.7" in result.diagnostics[0].message
 
@@ -671,12 +671,12 @@ def test_panel_descending_default_sort_is_valid():
 @pytest.mark.parametrize(
     ("sort_fields", "default_sort", "code", "path", "message"),
     [
-        (["name", "name"], "name", "duplicate_key", "/sortFields", "unique"),
-        (["name", "createdAt"], "name", "invalid_model", "/sortFields/1", "cannot sort by"),
-        (["translated-name"], "name", "invalid_model", "/sortFields/0", "not attached"),
-        (["ancestor:language"], "name", "invalid_reference", "/sortFields/0", "no ancestor"),
-        (["name"], "translated-name", "invalid_model", "/defaultSort", "not attached"),
-        (None, "-ancestor:language", "invalid_reference", "/defaultSort", "no ancestor"),
+        (["name", "name"], "name", "DUPLICATE_KEY", "/sortFields", "unique"),
+        (["name", "createdAt"], "name", "INVALID_MODEL", "/sortFields/1", "cannot sort by"),
+        (["translated-name"], "name", "INVALID_MODEL", "/sortFields/0", "not attached"),
+        (["ancestor:language"], "name", "INVALID_REFERENCE", "/sortFields/0", "no ancestor"),
+        (["name"], "translated-name", "INVALID_MODEL", "/defaultSort", "not attached"),
+        (None, "-ancestor:language", "INVALID_REFERENCE", "/defaultSort", "no ancestor"),
     ],
 )
 def test_panel_sort_options_are_validated_at_the_failing_node(
@@ -857,7 +857,7 @@ def test_schema_06_refuses_each_07_view_type_at_its_type_path(kept, path, featur
                 panel["config"].pop("defaultSort", None)
     result = compile_model(source)
     assert [(item.code, item.path) for item in result.diagnostics] == [
-        ("invalid_model", f"{path}/type")
+        ("INVALID_MODEL", f"{path}/type")
     ]
     assert f"The {feature} view type requires schema version 0.7" in result.diagnostics[0].message
 
@@ -884,28 +884,28 @@ _SYSTEMS = ("rdm-systems", "system-hierarchy")
         (
             _TRANSLATIONS,
             lambda s, c: _set(c, "relationTypeKey", "nonexistent"),
-            "unknown_relation_type",
+            "UNKNOWN_RELATION_TYPE",
             "/config/relationTypeKey",
             "unknown relation type",
         ),
         (
             _TRANSLATIONS,
             lambda s, c: _set(c, "rowObjectTypeKey", "nonexistent"),
-            "unknown_object_type",
+            "UNKNOWN_OBJECT_TYPE",
             "/config/rowObjectTypeKey",
             "unknown object type",
         ),
         (
             _TRANSLATIONS,
             lambda s, c: _set(c, "rowObjectTypeKey", "domain"),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/rowObjectTypeKey",
             "outside application",
         ),
         (
             _MAPPINGS,
             lambda s, c: _set(c, "relationTypeKey", "system-contains-value"),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/relationTypeKey",
             "containment",
         ),
@@ -913,63 +913,63 @@ _SYSTEMS = ("rdm-systems", "system-hierarchy")
             # The mapping binding runs cell → row; read the other way it is not declared.
             _MAPPINGS,
             lambda s, c: _set(c, "direction", "outgoing"),
-            "invalid_reference",
+            "INVALID_REFERENCE",
             "/config/relationTypeKey",
             "not declared in objectTypeRelations",
         ),
         (
             _REPRESENTATIONS,
             lambda s, c: _set(c, "columnObjectTypeKey", "codelist"),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/columnObjectTypeKey",
             "cannot contain",
         ),
         (
             _TRANSLATIONS,
             lambda s, c: _set(c, "rowColumns", ["name", "translated-name"]),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/rowColumns",
             "unavailable fields",
         ),
         (
             _TRANSLATIONS,
             lambda s, c: _set(c, "rowColumns", ["name", "name"]),
-            "duplicate_key",
+            "DUPLICATE_KEY",
             "/config/rowColumns",
             "duplicate",
         ),
         (
             _MAPPINGS,
             lambda s, c: _set(c, "columnLabelField", "value-code"),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/columnLabelField",
             "columnLabelField",
         ),
         (
             _MAPPINGS,
             lambda s, c: _set(c, "cellFields", ["value-code", "master-id"]),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/cellFields/1",
             "not attached",
         ),
         (
             _TRANSLATIONS,
             lambda s, c: _set(c, "cellFields", ["translated-name", "translated-name"]),
-            "duplicate_key",
+            "DUPLICATE_KEY",
             "/config/cellFields",
             "unique",
         ),
         (
             _REPRESENTATIONS,
             lambda s, c: _set(c, "searchFields", ["name", "hierarchical"]),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/searchFields/1",
             "searchable",
         ),
         (
             _TRANSLATIONS,
             lambda s, c: _set(c, "cellActions", ["edit", "edit"]),
-            "duplicate_key",
+            "DUPLICATE_KEY",
             "/config/cellActions",
             "unique",
         ),
@@ -977,21 +977,21 @@ _SYSTEMS = ("rdm-systems", "system-hierarchy")
             # A required relation cannot be removed on its own, so no view offers to.
             _TRANSLATIONS,
             lambda s, c: _set(c, "cellActions", ["edit", "unlink"]),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/cellActions/1",
             "is required",
         ),
         (
             _REPRESENTATIONS,
             lambda s, c: _set(c, "cellFields", ["value-code", "active"]),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/cellActions/0",
             "required fields ['value-name']",
         ),
         (
             _MAPPINGS,
             lambda s, c: _set(c, "cellActions", ["create"]),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/cellActions/0",
             "also requires relations ['reference-has-system-representation']",
         ),
@@ -1020,7 +1020,7 @@ def test_relation_matrix_edit_needs_one_writable_cell_field():
         _attribute(source, "system-value", field)["readOnly"] = True
     result = compile_model(source)
     assert [(item.code, item.path) for item in result.diagnostics] == [
-        ("invalid_model", f"{_matrix_path(*_REPRESENTATIONS)}/config/cellActions/1")
+        ("INVALID_MODEL", f"{_matrix_path(*_REPRESENTATIONS)}/config/cellActions/1")
     ]
     assert "read-only" in result.diagnostics[0].message
 
@@ -1117,35 +1117,35 @@ def test_starter_trees_are_installed_and_active():
         (
             _SYSTEMS,
             lambda s, c: _set(c, "objectTypeKeys", ["system", "nonexistent"]),
-            "unknown_object_type",
+            "UNKNOWN_OBJECT_TYPE",
             "/config/objectTypeKeys/1",
             "unknown object type",
         ),
         (
             _SYSTEMS,
             lambda s, c: _set(c, "objectTypeKeys", ["system", "system-group", "language"]),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/objectTypeKeys/2",
             "outside application",
         ),
         (
             _SYSTEMS,
             lambda s, c: _set(c, "objectTypeKeys", ["system", "system", "system-group"]),
-            "duplicate_key",
+            "DUPLICATE_KEY",
             "/config/objectTypeKeys",
             "unique",
         ),
         (
             _SYSTEMS,
             lambda s, c: _set(c, "rootObjectTypeKeys", ["codelist"]),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/rootObjectTypeKeys/0",
             "not one of its objectTypeKeys",
         ),
         (
             _SYSTEMS,
             lambda s, c: _set(c, "rootObjectTypeKeys", ["system", "system-group"]),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/rootObjectTypeKeys/1",
             "cannot exist without a parent",
         ),
@@ -1153,7 +1153,7 @@ def test_starter_trees_are_installed_and_active():
             # Master values sit under codelists, which this tree does not show.
             _DOMAINS,
             lambda s, c: _set(c, "objectTypeKeys", ["domain", "master-value"]),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/objectTypeKeys/1",
             "not reachable from its root types",
         ),
@@ -1161,7 +1161,7 @@ def test_starter_trees_are_installed_and_active():
             # A type from the application that no shown type contains.
             _SYSTEMS,
             lambda s, c: _set(c, "objectTypeKeys", ["system", "system-group", "codelist"]),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/objectTypeKeys/2",
             "not reachable from its root types",
         ),
@@ -1169,70 +1169,70 @@ def test_starter_trees_are_installed_and_active():
             # Every node type needs the label; system codes are on systems only.
             _SYSTEMS,
             lambda s, c: _set(c, "labelField", "system-code"),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/labelField",
             "attached to every node type",
         ),
         (
             _SYSTEMS,
             lambda s, c: _set(c, "labelField", "objectType"),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/labelField",
             "is not 'name'",
         ),
         (
             _SYSTEMS,
             lambda s, c: _set(c, "secondaryField", "description"),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/secondaryField",
             "attached to every node type",
         ),
         (
             _SYSTEMS,
             lambda s, c: c["childSort"].update({"codelist": "name"}),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/childSort/codelist",
             "not one of its objectTypeKeys",
         ),
         (
             _SYSTEMS,
             lambda s, c: c["childSort"].update({"system-group": "-value-code"}),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/childSort/system-group",
             "cannot sort 'system-group' by 'value-code'",
         ),
         (
             _SYSTEMS,
             lambda s, c: c["childSort"].update({"system-group": "path"}),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/childSort/system-group",
             "by 'path'",
         ),
         (
             _SYSTEMS,
             lambda s, c: _set(c, "actions", ["move", "move"]),
-            "duplicate_key",
+            "DUPLICATE_KEY",
             "/config/actions",
             "unique",
         ),
         (
             _SYSTEMS,
             lambda s, c: _set(c, "actions", ["rename"]),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/availabilityField",
             "without the setAvailability action",
         ),
         (
             _SYSTEMS,
             lambda s, c: c.pop("availabilityField"),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/actions/3",
             "needs availabilityField",
         ),
         (
             _SYSTEMS,
             lambda s, c: _set(c, "availabilityField", "system-type"),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/availabilityField",
             "not a boolean attribute attached to 'system'",
         ),
@@ -1240,7 +1240,7 @@ def test_starter_trees_are_installed_and_active():
             # Hierarchical is a boolean of codelists only.
             _DOMAINS,
             lambda s, c: _set(c, "availabilityField", "hierarchical"),
-            "invalid_model",
+            "INVALID_MODEL",
             "/config/availabilityField",
             "attached to 'domain'",
         ),
@@ -1265,7 +1265,7 @@ def test_tree_node_type_reachable_only_through_a_recursive_container_is_accepted
     _tree(source)["config"]["objectTypeKeys"] = ["system", "system-value"]
     result = compile_model(source)
     assert [(item.code, item.path) for item in result.diagnostics] == [
-        ("invalid_model", f"{_matrix_path(*_SYSTEMS)}/config/objectTypeKeys/1")
+        ("INVALID_MODEL", f"{_matrix_path(*_SYSTEMS)}/config/objectTypeKeys/1")
     ]
 
 
@@ -1287,7 +1287,7 @@ def test_tree_edit_actions_need_a_writable_field_on_every_node_type(action, fiel
     _attribute(source, "system-value", field)["readOnly"] = True
     result = compile_model(source)
     assert [(item.code, item.path) for item in result.diagnostics] == [
-        ("invalid_model", f"{_matrix_path(*_SYSTEMS)}/config/actions/{position}")
+        ("INVALID_MODEL", f"{_matrix_path(*_SYSTEMS)}/config/actions/{position}")
     ]
     assert f"'{field}' is read-only on 'system-value'" in result.diagnostics[0].message
 
@@ -1300,7 +1300,7 @@ def test_tree_of_roots_alone_is_read_only_or_rename_only():
     del config["availabilityField"]
     result = compile_model(source)
     assert [(item.code, item.path) for item in result.diagnostics] == [
-        ("invalid_model", f"{_matrix_path(*_SYSTEMS)}/config/actions/1")
+        ("INVALID_MODEL", f"{_matrix_path(*_SYSTEMS)}/config/actions/1")
     ]
     assert "no node type can contain another" in result.diagnostics[0].message
     config["actions"] = ["rename"]

@@ -3,7 +3,7 @@
 The management API takes the query as its request body unchanged. The body's shape is checked here
 (D19): JSON types, unknown properties and bounds are request validation errors. What the names in it
 mean — a field, an operator, a relation binding, a value of the field's type — depends on the model
-and is checked by ``engine/reads/model_query.py``, which refuses it as ``invalid_query`` at a JSON
+and is checked by ``engine/reads/model_query.py``, which refuses it as ``INVALID_QUERY`` at a JSON
 pointer into the body.
 """
 

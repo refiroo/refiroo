@@ -50,6 +50,13 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- **Breaking — Base 0.9 T1b: error codes are upper case** on every API: `object_not_found` is now
+  `OBJECT_NOT_FOUND`. It covers error bodies, the errors and unprocessed `reason` of batch and job
+  item outcomes, and validation diagnostics (D42). Status, action, kind and classification values
+  keep their case; a consumer contract's `version_required` classification is unchanged. Revision
+  `20261004_03` upper-cases the codes already stored in job results (D43). A check in the
+  `contract` group refuses a new lower-case code (D45). Clients comparing codes must compare the
+  new spelling.
 - Base 0.9 T1a: current-live change-set bases and publications copy records, relationships, typed
   values and matrix states inside PostgreSQL. Publications copy live data after applying the
   change; merge and graph validation remain in Python. Revisions `20261004_01` and `20261004_02` add

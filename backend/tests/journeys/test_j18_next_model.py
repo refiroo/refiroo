@@ -65,7 +65,7 @@ def test_pin_a_change_set_to_the_candidate_activate_and_publish(world):
     assert added in {b["attributeTypeKey"] for b in r_type["attributes"]}
     assert pinned.headers["X-Model-Release-Id"] == m2
     ok(_create(world, "R", "Written on M2", {added: "new"}, cs=c2), 201)
-    refused(_create(world, "R", "Written live", {added: "new"}), 422, "unknown_attributes")
+    refused(_create(world, "R", "Written live", {added: "new"}), 422, "UNKNOWN_ATTRIBUTES")
     assert world.api.get("/model").headers["X-Model-Release-Id"] == m1
 
     ok(world.activate(m2))
@@ -93,7 +93,7 @@ def test_an_incompatible_candidate_is_refused_naming_the_records(world):
         ),
         _pin(world, c1, m3),
     ):
-        details = refused(response, 409, "change_set_content_incompatible")["details"]
+        details = refused(response, 409, "CHANGE_SET_CONTENT_INCOMPATIBLE")["details"]
         assert 0 < len(details["diagnostics"]) <= 20
         assert details["diagnosticCount"] >= len(details["diagnostics"])
         assert "diagnosticsTruncated" in details
@@ -113,7 +113,7 @@ def test_publishing_on_a_release_no_longer_active(world):
     ok(world.activate(world.install(model)["id"]))
     publications = ok(world.api.get(f"/workspaces/{W1}/publications"))["items"]
 
-    error = refused(_publish(world, c1), 409, "change_set_model_release_conflict")
+    error = refused(_publish(world, c1), 409, "CHANGE_SET_MODEL_RELEASE_CONFLICT")
     assert error["message"]
     assert ok(world.api.get(f"/workspaces/{W1}/publications"))["items"] == publications
     staged = world.record("R", record["id"], changeSetId=c1["id"])
@@ -151,9 +151,9 @@ def test_an_unavailable_corrupt_or_unsupported_release_is_refused(world):
             f"/workspaces/{W1}/change-sets", {"source": "currentLive", "modelReleaseId": unknown}
         ),
         409,
-        "pinned_model_unavailable",
+        "PINNED_MODEL_UNAVAILABLE",
     )
-    refused(_pin(world, c1, unknown), 409, "pinned_model_unavailable")
+    refused(_pin(world, c1, unknown), 409, "PINNED_MODEL_UNAVAILABLE")
 
     model, _key = world.candidate("compatible")
     corrupt = world.install(model, "Corrupt")["id"]
@@ -177,8 +177,8 @@ def test_an_unavailable_corrupt_or_unsupported_release_is_refused(world):
             {"id": unsupported},
         )
     engine.dispose()
-    refused(_pin(world, c1, corrupt), 409, "pinned_model_invalid")
-    refused(_pin(world, c1, unsupported), 409, "unsupported_pinned_model_schema")
+    refused(_pin(world, c1, corrupt), 409, "PINNED_MODEL_INVALID")
+    refused(_pin(world, c1, unsupported), 409, "UNSUPPORTED_PINNED_MODEL_SCHEMA")
 
     assert ok(world.api.get("/model-runtime-state")) == state
     assert world.current(c1)["version"] == c1["version"]
@@ -195,8 +195,8 @@ def test_a_pin_changed_by_someone_else_is_refused(world):
     c1 = world.change_set()
     v = c1["version"]
     ok(_pin(world, c1, m2, v))
-    refused(_pin(world, c1, m2, v), 409, "change_set_version_conflict")
+    refused(_pin(world, c1, m2, v), 409, "CHANGE_SET_VERSION_CONFLICT")
     write = world.create("R", "Late write", change_set={"id": c1["id"], "version": v})
-    refused(write, 409, "change_set_version_conflict")
+    refused(write, 409, "CHANGE_SET_VERSION_CONFLICT")
     now = world.current(c1)
     assert (now["modelReleaseId"], now["version"]) == (m2, v + 1)

@@ -55,7 +55,7 @@ from .access import change_set_model, load_change_set
 def require_record_version(expected: int | None, actual: int, label: str) -> None:
     if expected is not None and expected != actual:
         raise api_error(
-            409, "version_conflict", f"{label} version has changed", {"currentVersion": actual}
+            409, "VERSION_CONFLICT", f"{label} version has changed", {"currentVersion": actual}
         )
 
 
@@ -123,13 +123,13 @@ def decide_change_set_object_create(
     )
     validate_object_attribute_rules(model.object_type(payload.objectTypeKey), attributes)
     if payload.parentObjectId is not None and lookup.object(str(payload.parentObjectId)) is None:
-        raise api_error(422, "parent_wrong_scope", "Parent must exist in the change set")
+        raise api_error(422, "PARENT_WRONG_SCOPE", "Parent must exist in the change set")
     writes.claim(payload.expectedChangeSetVersion)
     object_id = str(payload.id) if payload.id else None
     if payload.expectedRecordVersion is not None and not (
         object_id is not None and lookup.id_taken(object_id)
     ):
-        raise api_error(409, "version_conflict", "Object record does not exist")
+        raise api_error(409, "VERSION_CONFLICT", "Object record does not exist")
     return decide_new_change_set_object(
         lookup,
         model,
@@ -307,7 +307,7 @@ def decide_change_set_object_update(
     if current is None:
         current = lookup.tombstone(object_id)
     if current is None:
-        raise api_error(404, "object_not_found", f"Object '{object_id}' not found in change set")
+        raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found in change set")
     require_record_version(payload.expectedRecordVersion, current.version, "Object record")
     record = Record(
         object_id=current.object_id,
@@ -408,7 +408,7 @@ def apply_change_set_object_delete(
     # response rolls this claim back; a confirmed delete retains it in the mutation transaction.
     writes.claim(expected_change_set_version,
         conflict_code=(
-            "deletion_preview_changed" if cascade else "change_set_version_conflict"
+            "DELETION_PREVIEW_CHANGED" if cascade else "CHANGE_SET_VERSION_CONFLICT"
         ),
         conflict_message=(
             "The object was modified by another session. Please retry."
@@ -423,11 +423,11 @@ def apply_change_set_object_delete(
             raise deletion_preview_changed()
         if root is not None:
             raise object_type_changed(object_id, root.object_type_key, object_type_key)
-        raise api_error(404, "object_not_found", f"Object '{object_id}' not found in change set")
+        raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found in change set")
     if cascade and deletion_preview is not None and expected_record_version != root.version:
         raise api_error(
             409,
-            "deletion_preview_changed",
+            "DELETION_PREVIEW_CHANGED",
             "The object was modified by another session. Please retry.",
         )
     require_record_version(expected_record_version, root.version, "Object record")
@@ -536,7 +536,7 @@ def apply_change_set_object_delete(
         ]
         raise api_error(
             409,
-            "object_has_dependants",
+            "OBJECT_HAS_DEPENDANTS",
             "Object has dependant records or relationships; repeat with cascade=true",
             {
                 "objectsToDelete": dependants,
@@ -643,7 +643,7 @@ def placed_parent(lookup: Any, model: Any, row: Any) -> Any | None:
     )
     parent = lookup.object(row.parent_object_id) if row.parent_object_id else None
     if row.parent_object_id and parent is None:
-        raise api_error(422, "parent_wrong_scope", "Parent must exist in the change set")
+        raise api_error(422, "PARENT_WRONG_SCOPE", "Parent must exist in the change set")
     return parent
 
 
@@ -709,7 +709,7 @@ def containment_change(
         )
         if allowed is None:
             raise api_error(
-                422, "invalid_parent_type", "Parent type is not permitted for this object type"
+                422, "INVALID_PARENT_TYPE", "Parent type is not permitted for this object type"
             )
     current = lookup.relations([child_id], "incoming", sorted(searched))
     if [(relation.from_object_id, relation.relation_type_key) for relation in current] == (
@@ -794,7 +794,7 @@ def _stored_change_set_relation(session: Session, change_set_id: str, relation_i
     row = find_relation(session, change_set_context(session, change_set_id), relation_id)
     if row is None:
         raise api_error(
-            404, "relation_not_found", f"Relation '{relation_id}' not found in change set"
+            404, "RELATION_NOT_FOUND", f"Relation '{relation_id}' not found in change set"
         )
     return row
 
@@ -889,7 +889,7 @@ def patch_change_set_attribute(
     lookup = ChangeSetLookup.of(session, change_set_id)
     base = lookup.object(object_id)
     if base is None:
-        raise api_error(404, "object_not_found", f"Object '{object_id}' not found in change set")
+        raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found in change set")
     row = writes.stored_object(object_id)
     if row is None:
         row = writes.own_object(base, flush=True)
@@ -931,7 +931,7 @@ def delete_change_set_attribute(
     lookup = ChangeSetLookup.of(session, change_set_id)
     base = lookup.object(object_id)
     if base is None:
-        raise api_error(404, "object_not_found", f"Object '{object_id}' not found in change set")
+        raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found in change set")
     row = writes.stored_object(object_id)
     if row is None:
         row = writes.own_object(base, flush=True)
@@ -946,7 +946,7 @@ def delete_change_set_attribute(
     if binding is None:
         raise api_error(
             422,
-            "unknown_attributes",
+            "UNKNOWN_ATTRIBUTES",
             f"Attribute '{key}' is not defined on object type '{row.object_type_key}'",
         )
     validate_deletable_attribute(object_type, key)

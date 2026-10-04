@@ -153,7 +153,7 @@ try {
   expect(moved.record?.parentObjectId === records.domain[1].id, `drag: Pickup point is not a codelist under Domain 01 (${JSON.stringify(moved)})`);
   expect(valueOf(moved.record, "codelist-code") === "Pickup point", "drag: Codelist code did not take Value name");
   const old = await readAs(api, "master-value", seed.pickup.id, inChangeSet);
-  expect(old.error?.includes("object_type_changed"), `drag: the old type's route does not answer D42 (${JSON.stringify(old)})`);
+  expect(old.error?.includes("OBJECT_TYPE_CHANGED"), `drag: the old type's route does not answer D42 (${JSON.stringify(old)})`);
   const live = await readAs(api, "master-value", seed.pickup.id, "workspaceKey=default");
   expect(live.record?.parentObjectId === seed.beta.id, "drag: the change reached live data");
   checks.push("domain (change set, 1440px): a master value dragged onto a domain glows green with “Becomes Codelist”; the release opens the preview and writes nothing; by type, Codelist code is suggested from Value name; applied by keyboard, it is a codelist under Domain 01 in the change set, the old route answers object_type_changed and live keeps it");

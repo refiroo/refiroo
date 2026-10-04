@@ -137,7 +137,7 @@ def _race(monkeypatch, client: TestClient, release: ModelRelease,
 def _assert_stale_release_refused(response: httpx.Response, release: ModelRelease) -> None:
     assert response.status_code == 409, response.text
     error = response.json()["error"]
-    assert error["code"] == "model_release_changed"
+    assert error["code"] == "MODEL_RELEASE_CHANGED"
     assert error["details"]["activeReleaseId"] == release.public_id
 
 
@@ -293,7 +293,7 @@ def test_activation_waits_for_a_flushed_live_write_and_then_sees_it(monkeypatch,
 
     assert written.status_code == 201, written.text
     assert activated.status_code == 409, activated.text
-    assert activated.json()["error"]["code"] == "model_migration_required"
+    assert activated.json()["error"]["code"] == "MODEL_MIGRATION_REQUIRED"
 
 
 def test_draft_base_capture_resolved_under_a_is_refused_after_b_activates(monkeypatch, client):
@@ -311,7 +311,7 @@ def test_draft_base_capture_resolved_under_a_is_refused_after_b_activates(monkey
     )
 
     assert response.status_code == 409, response.text
-    assert response.json()["error"]["code"] == "change_set_snapshot_retry"
+    assert response.json()["error"]["code"] == "CHANGE_SET_SNAPSHOT_RETRY"
     with SessionLocal() as session:
         assert (
             session.scalar(

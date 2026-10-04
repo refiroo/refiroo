@@ -193,7 +193,7 @@ def test_consumer_apis_need_schema_0_8_and_events_wait_for_c9(base):
     for object_type in older["objectTypes"]:
         object_type.pop("effectivePeriod", None)
     diagnostic = compile_model(older).diagnostics[0]
-    assert (diagnostic.code, diagnostic.path) == ("invalid_model", "/consumerApis")
+    assert (diagnostic.code, diagnostic.path) == ("INVALID_MODEL", "/consumerApis")
     assert "0.8" in diagnostic.message
 
     with_events = definition(k) | {"events": []}
@@ -234,32 +234,32 @@ def _drop(path: str) -> Mutation:
 
 
 REFUSALS: list[tuple[str, Mutation, str, str]] = [
-    ("unknown exposed type", _set("objectTypes/unknown-type", {"publicName": "X"}), "unknown_object_type", "/objectTypes/unknown-type"),
-    ("repeated public name", _set("objectTypes/@domain", {"publicName": "Codelist"}), "duplicate_key", "/objectTypes/{domain}/publicName"),
-    ("key outside the URL alphabet", _set("key", "RDM"), "invalid_model", "/consumerApis/RDM/key"),
-    ("unknown source", _set("object/code/source/1", "no-such-attribute"), "invalid_reference", "/object/code/source/1"),
-    ("source no exposed type binds", _set("object/code/source/1", lambda k: k("system-code")), "invalid_reference", "/object/code/source/1"),
-    ("sources of different types (C-D19)", _set("object/code/source/1", lambda k: k("sort-order")), "invalid_model", "/object/code/source"),
-    ("default of another type", _set("object/active/default", "yes"), "invalid_model", "/object/active/default"),
-    ("identity that does not identify", _set("object/id/source/0", lambda k: k("value-code")), "invalid_model", "/object/id/source/0"),
-    ("reserved output name", _set("object/attributes/matchScore", lambda k: {"source": [k("value-name")]}), "invalid_model", "/object/attributes/matchScore"),
-    ("output name used twice", _set("object/attributes/name", lambda k: {"source": [k("value-name")]}), "duplicate_key", "/object/attributes/name"),
-    ("parent code without a code role", _drop("object/code"), "invalid_model", "/object/parent/fields"),
-    ("projection over an unknown relation", _set("projections/systemVariants/from/relation", "no-such-relation"), "invalid_reference", "/projections/systemVariants/from/relation"),
-    ("projection route no exposed type has", _set("projections/systemVariants/from/direction", "outgoing"), "invalid_reference", "/projections/systemVariants/from"),
-    ("projection field of a type that is no ancestor", _set("projections/systemVariants/fields/system", lambda k: f"ancestor:{k('domain')}.name"), "invalid_reference", "/projections/systemVariants/fields/system"),
-    ("projection named like an output field", _set("projections/name", lambda k: {"from": {"relation": k("object-has-translation"), "direction": "outgoing"}, "fields": {"n": "name"}}), "duplicate_key", "/projections/name"),
-    ("match on a field neither searchable nor unique (C-D20)", _set("match/own/0/field", lambda k: k("sort-order")), "invalid_model", "/match/own/0/field"),
-    ("promotion from an unknown projection", _set("match/promoted/0/projection", "nothing"), "invalid_reference", "/match/promoted/0/projection"),
-    ("preferred target type not exposed", _set("match/promoted/0/preferTargetTypes/0", lambda k: k("system")), "invalid_reference", "/match/promoted/0/preferTargetTypes/0"),
-    ("reserved parameter name", _set("parameters/query", {"kind": "objectType"}), "invalid_model", "/parameters/query"),
-    ("crosswalk-like parameter name", _set("parameters/to.system", {"kind": "objectType"}), "invalid_model", "/parameters/to.system"),
-    ("ancestor parameter over a type that is no ancestor", _set("parameters/codelist/objectTypes/0", lambda k: k("system")), "invalid_reference", "/parameters/codelist/objectTypes/0"),
-    ("related parameter over an unknown route", _set("parameters/sameSystem/via/1", "sharedProjection:nothing"), "invalid_reference", "/parameters/sameSystem/via/1"),
-    ("projection parameter on a field the projection lacks", _set("parameters/system/matchFields/1", lambda k: k("codelist-code")), "invalid_reference", "/parameters/system/matchFields/1"),
-    ("list key outside the URL alphabet", _set("lists/2/key", "All_Values"), "invalid_model", "/lists/All_Values/key"),
-    ("list of a type not exposed", _set("lists/2/objectType", lambda k: k("system")), "invalid_reference", "/lists/all-values/objectType"),
-    ("list parent that cannot contain the type", _set("lists/0/parentParameter/objectTypes/0", lambda k: k("master-value")), "invalid_reference", "/lists/codelists/parentParameter/objectTypes/0"),
+    ("unknown exposed type", _set("objectTypes/unknown-type", {"publicName": "X"}), "UNKNOWN_OBJECT_TYPE", "/objectTypes/unknown-type"),
+    ("repeated public name", _set("objectTypes/@domain", {"publicName": "Codelist"}), "DUPLICATE_KEY", "/objectTypes/{domain}/publicName"),
+    ("key outside the URL alphabet", _set("key", "RDM"), "INVALID_MODEL", "/consumerApis/RDM/key"),
+    ("unknown source", _set("object/code/source/1", "no-such-attribute"), "INVALID_REFERENCE", "/object/code/source/1"),
+    ("source no exposed type binds", _set("object/code/source/1", lambda k: k("system-code")), "INVALID_REFERENCE", "/object/code/source/1"),
+    ("sources of different types (C-D19)", _set("object/code/source/1", lambda k: k("sort-order")), "INVALID_MODEL", "/object/code/source"),
+    ("default of another type", _set("object/active/default", "yes"), "INVALID_MODEL", "/object/active/default"),
+    ("identity that does not identify", _set("object/id/source/0", lambda k: k("value-code")), "INVALID_MODEL", "/object/id/source/0"),
+    ("reserved output name", _set("object/attributes/matchScore", lambda k: {"source": [k("value-name")]}), "INVALID_MODEL", "/object/attributes/matchScore"),
+    ("output name used twice", _set("object/attributes/name", lambda k: {"source": [k("value-name")]}), "DUPLICATE_KEY", "/object/attributes/name"),
+    ("parent code without a code role", _drop("object/code"), "INVALID_MODEL", "/object/parent/fields"),
+    ("projection over an unknown relation", _set("projections/systemVariants/from/relation", "no-such-relation"), "INVALID_REFERENCE", "/projections/systemVariants/from/relation"),
+    ("projection route no exposed type has", _set("projections/systemVariants/from/direction", "outgoing"), "INVALID_REFERENCE", "/projections/systemVariants/from"),
+    ("projection field of a type that is no ancestor", _set("projections/systemVariants/fields/system", lambda k: f"ancestor:{k('domain')}.name"), "INVALID_REFERENCE", "/projections/systemVariants/fields/system"),
+    ("projection named like an output field", _set("projections/name", lambda k: {"from": {"relation": k("object-has-translation"), "direction": "outgoing"}, "fields": {"n": "name"}}), "DUPLICATE_KEY", "/projections/name"),
+    ("match on a field neither searchable nor unique (C-D20)", _set("match/own/0/field", lambda k: k("sort-order")), "INVALID_MODEL", "/match/own/0/field"),
+    ("promotion from an unknown projection", _set("match/promoted/0/projection", "nothing"), "INVALID_REFERENCE", "/match/promoted/0/projection"),
+    ("preferred target type not exposed", _set("match/promoted/0/preferTargetTypes/0", lambda k: k("system")), "INVALID_REFERENCE", "/match/promoted/0/preferTargetTypes/0"),
+    ("reserved parameter name", _set("parameters/query", {"kind": "objectType"}), "INVALID_MODEL", "/parameters/query"),
+    ("crosswalk-like parameter name", _set("parameters/to.system", {"kind": "objectType"}), "INVALID_MODEL", "/parameters/to.system"),
+    ("ancestor parameter over a type that is no ancestor", _set("parameters/codelist/objectTypes/0", lambda k: k("system")), "INVALID_REFERENCE", "/parameters/codelist/objectTypes/0"),
+    ("related parameter over an unknown route", _set("parameters/sameSystem/via/1", "sharedProjection:nothing"), "INVALID_REFERENCE", "/parameters/sameSystem/via/1"),
+    ("projection parameter on a field the projection lacks", _set("parameters/system/matchFields/1", lambda k: k("codelist-code")), "INVALID_REFERENCE", "/parameters/system/matchFields/1"),
+    ("list key outside the URL alphabet", _set("lists/2/key", "All_Values"), "INVALID_MODEL", "/lists/All_Values/key"),
+    ("list of a type not exposed", _set("lists/2/objectType", lambda k: k("system")), "INVALID_REFERENCE", "/lists/all-values/objectType"),
+    ("list parent that cannot contain the type", _set("lists/0/parentParameter/objectTypes/0", lambda k: k("master-value")), "INVALID_REFERENCE", "/lists/codelists/parentParameter/objectTypes/0"),
 ]
 
 
@@ -273,7 +273,7 @@ def test_every_reference_is_refused_at_its_pointer(base, label, mutate, code, pa
     expected = path.replace("{domain}", k("domain"))
     expected = expected if expected.startswith("/consumerApis/") else f"{API}{expected}"
     assert (diagnostics[0].code, diagnostics[0].path) == (code, expected), diagnostics[0].message
-    assert "Consumer API" in diagnostics[0].message or code == "invalid_model"
+    assert "Consumer API" in diagnostics[0].message or code == "INVALID_MODEL"
 
 
 def test_shape_errors_name_the_body_part(base):
@@ -289,7 +289,7 @@ def test_shape_errors_name_the_body_part(base):
         diagnostic = compile_model(with_definition(source, item)).diagnostics[0]
         assert diagnostic.path.startswith(path), (diagnostic.path, diagnostic.message)
     duplicate = compile_model({**with_definition(source, definition(k)), "consumerApis": [definition(k)] * 2})
-    assert (duplicate.diagnostics[0].code, duplicate.diagnostics[0].path) == ("duplicate_key", API)
+    assert (duplicate.diagnostics[0].code, duplicate.diagnostics[0].path) == ("DUPLICATE_KEY", API)
 
 
 def _both(*mutations: Mutation) -> Mutation:
@@ -336,7 +336,7 @@ def test_breaking_changes_need_a_higher_contract_version(base, label, mutate, pa
     mutate(item, k)
     candidate = parse_model(with_definition(source, item))
     diagnostics = contract_diagnostics(active, candidate)
-    assert {(d.severity, d.code) for d in diagnostics} == {("error", "consumer_contract_version_required")}, label
+    assert {(d.severity, d.code) for d in diagnostics} == {("error", "CONSUMER_CONTRACT_VERSION_REQUIRED")}, label
     assert [d.path for d in diagnostics] == [f"{API}{path.replace('{domain}', k('domain'))}" for path in paths]
     assert all("raise contractVersion above 1" in d.message for d in diagnostics)
     # The same change under a higher contract version is a new contract.
@@ -358,10 +358,10 @@ def test_additions_are_compatible_and_lower_versions_or_removals_are_reported(ba
     lower = definition(k) | {"contractVersion": 1}
     higher_active = parse_model(with_definition(source, definition(k) | {"contractVersion": 3}))
     diagnostics = contract_diagnostics(higher_active, parse_model(with_definition(source, lower)))
-    assert [(d.code, d.path) for d in diagnostics] == [("consumer_contract_version_decreased", f"{API}/contractVersion")]
+    assert [(d.code, d.path) for d in diagnostics] == [("CONSUMER_CONTRACT_VERSION_DECREASED", f"{API}/contractVersion")]
 
     removed = contract_diagnostics(active, parse_model(source))
-    assert [(d.severity, d.code, d.path) for d in removed] == [("warning", "consumer_api_removed", API)]
+    assert [(d.severity, d.code, d.path) for d in removed] == [("warning", "CONSUMER_API_REMOVED", API)]
 
 
 def test_a_cardinality_change_in_the_model_changes_a_projection_shape(base):
@@ -376,7 +376,7 @@ def test_a_cardinality_change_in_the_model_changes_a_projection_shape(base):
     assert output_contract(candidate, candidate.consumerApis[0]).projections["systemVariants"]["shape"] == "one"
     diagnostics = contract_diagnostics(active, candidate)
     assert [(d.code, d.path) for d in diagnostics] == [
-        ("consumer_contract_version_required", f"{API}/projections/systemVariants")
+        ("CONSUMER_CONTRACT_VERSION_REQUIRED", f"{API}/projections/systemVariants")
     ]
     assert "from an array to an object or null" in diagnostics[0].message
 
@@ -440,7 +440,7 @@ def test_compile_diff_and_activation_hold_the_active_contract(admin_client):
     assert contracts["classification"] == "version_required"
     assert contracts["activeReleaseId"] == first
     assert [(d["severity"], d["code"], d["path"]) for d in contracts["diagnostics"]] == [
-        ("error", "consumer_contract_version_required", f"{API}/object")
+        ("error", "CONSUMER_CONTRACT_VERSION_REQUIRED", f"{API}/object")
     ]
 
     broken_id = _install(broken, "0.9.0-c1-broken")
@@ -450,7 +450,7 @@ def test_compile_diff_and_activation_hold_the_active_contract(admin_client):
     refused = _activate(client, broken_id)
     assert refused.status_code == 409, refused.text
     error = refused.json()["error"]
-    assert error["code"] == "consumer_contract_version_required"
+    assert error["code"] == "CONSUMER_CONTRACT_VERSION_REQUIRED"
     assert [item["path"] for item in error["details"]] == [f"{API}/object"]
     assert client.get("/api/v1/model").headers["X-Model-Release-Id"] == first
 

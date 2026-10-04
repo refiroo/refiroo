@@ -42,7 +42,7 @@ workspaces stay readable and refuse every runtime write. In the browser, the **M
 ### Batch and job limits
 
 Reported under `integrationJobs` by `GET /api/v1/capabilities`; a request over a limit is
-`413 batch_too_large` naming the setting.
+`413 BATCH_TOO_LARGE` naming the setting.
 
 | Setting | Default | Limit |
 | --- | --- | --- |
@@ -54,7 +54,7 @@ Reported under `integrationJobs` by `GET /api/v1/capabilities`; a request over a
 | `JOB_CHUNK_ITEMS` | 500 | Items one background chunk commits |
 | `JOB_LEASE_SECONDS` | 120 | A worker's lease on a job, renewed each chunk |
 | `JOB_RETENTION_DAYS` | 7 | How long a finished job keeps its outcomes and idempotency key |
-| `FEED_RETENTION_DAYS` | 30 | How long the change feed answers a position; older positions are `410 feed_position_expired`, naming the publication to re-read. Entries after the active publication, and every entry of a workspace without one, are always answered. The audit log is not pruned |
+| `FEED_RETENTION_DAYS` | 30 | How long the change feed answers a position; older positions are `410 FEED_POSITION_EXPIRED`, naming the publication to re-read. Entries after the active publication, and every entry of a workspace without one, are always answered. The audit log is not pruned |
 
 ## Database
 
@@ -97,7 +97,7 @@ worker. `/health` also returns `503` when an activation committed but this proce
 selected release. Restart the process; it then loads the database selection.
 
 While the service runs, `/health` asks the database each time: while the database is unreachable it
-answers `503`, and requests answer `500 internal_error` with a correlation ID (logged in one line, no
+answers `503`, and requests answer `500 INTERNAL_ERROR` with a correlation ID (logged in one line, no
 traceback). Nothing needs restarting: once the database is back, `/health` answers `200`, requests
 are served and the job worker resumes (it retries every 2 s and logs the outage once, then a line a
 minute).

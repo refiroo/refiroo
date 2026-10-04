@@ -49,7 +49,7 @@ def test_create_relabel_choose_the_default_retire_and_delete(world):
     for the default, a workspace ever published, one holding a change set, a stale version and an
     unknown key, and single reads say whether and why a workspace can be deleted."""
     ok(_create(world, "fresh-site", "Fresh"), 201)
-    refused(_create(world, "fresh-site"), 409, "workspace_already_exists")
+    refused(_create(world, "fresh-site"), 409, "WORKSPACE_ALREADY_EXISTS")
     fresh = _workspace(world, "fresh-site")
     relabelled = ok(
         world.api.patch(
@@ -72,9 +72,9 @@ def test_create_relabel_choose_the_default_retire_and_delete(world):
     refused(
         world.update("R", w1_record["id"], w1_record["version"], name="Too late"),
         409,
-        "workspace_retired",
+        "WORKSPACE_RETIRED",
     )
-    refused(_retire(world, W2), 409, "default_workspace_cannot_be_retired")
+    refused(_retire(world, W2), 409, "DEFAULT_WORKSPACE_CANNOT_BE_RETIRED")
     assert _delete(world, "fresh-site").status_code == 204
     ok(_create(world, "fresh-site"), 201)
 
@@ -87,16 +87,16 @@ def test_create_relabel_choose_the_default_retire_and_delete(world):
     ok(_create(world, "staged-site"), 201)
     world.change_set(workspace="staged-site")
 
-    refused(_delete(world, W2), 409, "workspace_is_default")
-    refused(_delete(world, "published-site"), 409, "workspace_has_publications")
-    error = refused(_delete(world, "staged-site"), 409, "workspace_not_empty")
+    refused(_delete(world, W2), 409, "WORKSPACE_IS_DEFAULT")
+    refused(_delete(world, "published-site"), 409, "WORKSPACE_HAS_PUBLICATIONS")
+    error = refused(_delete(world, "staged-site"), 409, "WORKSPACE_NOT_EMPTY")
     assert (error["details"]["objectCount"], error["details"]["changeSetCount"]) == (0, 1)
     refused(
         _delete(world, "fresh-site", version=_workspace(world, "fresh-site")["version"] + 1),
         409,
-        "version_conflict",
+        "VERSION_CONFLICT",
     )
-    refused(_delete(world, "nowhere", version=1), 404, "workspace_not_found")
+    refused(_delete(world, "nowhere", version=1), 404, "WORKSPACE_NOT_FOUND")
     blocked = {
         key: (_workspace(world, key)["deletable"], _workspace(world, key).get("deleteBlockedBy"))
         for key in (W2, "published-site", "staged-site", "fresh-site")
@@ -117,7 +117,7 @@ def test_two_administrators_change_the_default_from_the_same_version(world):
     ok(_create(world, "third-site"), 201)
     version = ok(world.api.get("/workspace-runtime-state"))["version"]
     ok(_default(world, W2, version))
-    refused(_default(world, "third-site", version), 409, "version_conflict")
+    refused(_default(world, "third-site", version), 409, "VERSION_CONFLICT")
     assert ok(world.api.get("/workspace-runtime-state"))["defaultWorkspaceKey"] == W2
 
 
@@ -151,17 +151,17 @@ def test_retirement_beside_a_live_and_a_change_set_write(world):
     if a.status_code == 200:
         assert world.record("R", live["id"], workspaceKey=W2)["name"] == "Written by A"
     else:
-        refused(a, 409, "workspace_retired")
+        refused(a, 409, "WORKSPACE_RETIRED")
         assert world.record("R", live["id"], workspaceKey=W2)["name"] == "Live in W2"
     if c.status_code == 200:
         assert world.record("R", staged["id"], changeSetId=cs["id"])["name"] == "Written by C"
     else:
-        refused(c, 409, "workspace_retired")
+        refused(c, 409, "WORKSPACE_RETIRED")
     current = world.record("R", live["id"], workspaceKey=W2)
     refused(
-        world.update("R", live["id"], current["version"], name="After"), 409, "workspace_retired"
+        world.update("R", live["id"], current["version"], name="After"), 409, "WORKSPACE_RETIRED"
     )
-    refused(world.create("R", "After", change_set=world.current(cs)), 409, "workspace_retired")
+    refused(world.create("R", "After", change_set=world.current(cs)), 409, "WORKSPACE_RETIRED")
 
 
 @pytest.mark.journey("J19.3")
@@ -193,7 +193,7 @@ def test_search_and_page_the_workspace_catalogue(world):
     refused(
         world.api.get("/workspaces", search="Other", pageSize=2, cursor=first["nextCursor"]),
         422,
-        "invalid_cursor",
+        "INVALID_CURSOR",
     )
 
 

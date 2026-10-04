@@ -113,7 +113,7 @@ def cancel_job(job_id: str, request: Request, session: DbSession) -> JobResponse
     """Ask for the job to be cancelled; ``cancelRequestedAt`` is set at once.
 
     The worker carries it out at the job's next chunk: items not reached become ``unprocessed``
-    with ``job_cancelled``, chunks committed before stay applied, and an ``atomic`` job rolls back
+    with ``JOB_CANCELLED``, chunks committed before stay applied, and an ``atomic`` job rolls back
     completely. A finished job answers ``409 job_finished``.
     """
     job = request_cancel(session, job_id)

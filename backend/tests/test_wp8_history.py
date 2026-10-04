@@ -268,7 +268,7 @@ def test_publication_list_cursor_pagination_is_bounded_and_scoped_to_workspace()
             )
             assert rejected.status_code == 422
             assert rejected.json()["error"] == {
-                "code": "invalid_cursor", "message": "Publication cursor is invalid"
+                "code": "INVALID_CURSOR", "message": "Publication cursor is invalid"
             }
         for size in (0, 501):
             assert client.get(
@@ -284,7 +284,7 @@ def test_publication_list_cursor_pagination_is_bounded_and_scoped_to_workspace()
             params={"pageSize": 1, "cursor": cursor},
         )
         assert mismatched.status_code == 422
-        assert mismatched.json()["error"]["code"] == "invalid_cursor"
+        assert mismatched.json()["error"]["code"] == "INVALID_CURSOR"
 
 
 # --------------------------------------------------------------------------- snapshot parity
@@ -339,8 +339,8 @@ def test_publication_snapshot_parity_across_active_and_change_set_read_contexts(
             assert detail["createdAt"] is None and detail["updatedAt"] is None
         for context in ({"publicationId": publication_id}, {"changeSetId": derived["id"]}):
             for params, code in (
-                ({"filter.updatedAt.gte": "2000-01-01T00:00:00Z"}, "invalid_filter"),
-                ({"sort": "-createdAt"}, "invalid_sort"),
+                ({"filter.updatedAt.gte": "2000-01-01T00:00:00Z"}, "INVALID_FILTER"),
+                ({"sort": "-createdAt"}, "INVALID_SORT"),
             ):
                 refused = client.get("/api/v1/objects/domain", params={**context, **params})
                 assert refused.status_code == 422, refused.text
@@ -435,7 +435,7 @@ def test_active_live_writes_apply_without_a_change_set_and_leave_publication_sna
             json={"name": "Racing write", "expectedVersion": before_version},
         )
         assert stale.status_code == 409, stale.text
-        assert stale.json()["error"]["code"] == "version_conflict"
+        assert stale.json()["error"]["code"] == "VERSION_CONFLICT"
 
         # A single attribute value is mutable live under the object version.
         current_version = live_get(language_id)["version"]
@@ -577,7 +577,7 @@ def test_historical_publication_reads_stay_immutable_while_live_writes_write_thr
             params={"publicationId": r1["id"]},
             json={"name": "Renamed live", "expectedVersion": live_before.json()["version"]},
         )
-        assert aimed.status_code == 422 and aimed.json()["error"]["code"] == "unknown_parameter"
+        assert aimed.status_code == 422 and aimed.json()["error"]["code"] == "UNKNOWN_PARAMETER"
         # The live language row is updated in place...
         renamed = client.patch(
             f"/api/v1/objects/language/{language['id']}",
@@ -603,7 +603,7 @@ def test_historical_publication_reads_stay_immutable_while_live_writes_write_thr
             "attributes": [attribute("domain-code", f"dom-{uuid4().hex[:8]}")],
         }
         aimed = client.post("/api/v1/objects", params={"publicationId": r1["id"]}, json=body)
-        assert aimed.status_code == 422 and aimed.json()["error"]["code"] == "unknown_parameter"
+        assert aimed.status_code == 422 and aimed.json()["error"]["code"] == "UNKNOWN_PARAMETER"
         created = client.post("/api/v1/objects", json=body)
         assert created.status_code == 201, created.text
         assert (

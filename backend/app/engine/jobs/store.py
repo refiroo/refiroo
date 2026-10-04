@@ -281,14 +281,14 @@ def replayed_job(
     if stored.fingerprint != fingerprint:
         raise api_error(
             422,
-            "idempotency_key_reused",
+            "IDEMPOTENCY_KEY_REUSED",
             "This Idempotency-Key was used with a different request; nothing was run",
             {"jobId": job.id if job is not None else None},
         )
     if job is None or job.state not in FINISHED:
         raise api_error(
             409,
-            "idempotency_in_progress",
+            "IDEMPOTENCY_IN_PROGRESS",
             "The request with this Idempotency-Key is still running; retry later",
             {"jobId": job.id if job is not None else None},
             headers={"Retry-After": "1"},
@@ -318,7 +318,7 @@ def remember_key(
 def load_job(session: Session, job_id: str) -> Job:
     job = session.scalar(select(Job).where(Job.id == job_id))
     if job is None:
-        raise api_error(404, "job_not_found", f"Job '{job_id}' not found")
+        raise api_error(404, "JOB_NOT_FOUND", f"Job '{job_id}' not found")
     return job
 
 

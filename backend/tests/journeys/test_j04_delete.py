@@ -16,7 +16,7 @@ def _preview(world, structure, object_id, **params):
         structure, object_id, **{k: v for k, v in params.items() if k == "changeSetId"}
     )["version"]
     error = refused(
-        _delete(world, structure, object_id, version, **params), 409, "object_has_dependants"
+        _delete(world, structure, object_id, version, **params), 409, "OBJECT_HAS_DEPENDANTS"
     )
     return version, error["details"]
 
@@ -62,7 +62,7 @@ def test_preview_then_confirm_a_cascading_delete(world):
     )
     assert confirmed.status_code == 204, confirmed.text
     for structure, record in (("R", r), ("D", d), ("D2", d2)):
-        refused(world.read(structure, record["id"]), 404, "object_not_found")
+        refused(world.read(structure, record["id"]), 404, "OBJECT_NOT_FOUND")
     assert world.record("K", k["id"])["id"] == k["id"]
     history = ok(world.api.get(f"/objects/{world.key('K')}/{k['id']}/history"))["items"]
     assert ("relation", "deleted") in {(e["aggregateType"], e["action"]) for e in history}
@@ -75,11 +75,11 @@ def test_a_record_with_nothing_depending_on_it_is_deleted_at_once(world):
     another with a stale version. Then the first is gone with no preview; the second is refused."""
     lone = world.made("R", "Lone")
     assert _delete(world, "R", lone["id"], lone["version"]).status_code == 204
-    refused(world.read("R", lone["id"]), 404, "object_not_found")
+    refused(world.read("R", lone["id"]), 404, "OBJECT_NOT_FOUND")
 
     other = world.made("R", "Other")
     ok(world.update("R", other["id"], other["version"], name="Other, changed"))
-    refused(_delete(world, "R", other["id"], other["version"]), 409, "version_conflict")
+    refused(_delete(world, "R", other["id"], other["version"]), 409, "VERSION_CONFLICT")
     assert world.record("R", other["id"])["name"] == "Other, changed"
 
 
@@ -115,7 +115,7 @@ def test_a_deep_subtree_with_relationships_at_several_levels(world):
     )
     assert confirmed.status_code == 204, confirmed.text
     for h in subtree:
-        refused(world.read("H", h), 404, "object_not_found")
+        refused(world.read("H", h), 404, "OBJECT_NOT_FOUND")
     for key, before in tokens.items():
         assert world.record("K", world.ids[key])["version"] == before["version"]
     assert world.record("H", world.ids["j1"])["version"] == south["version"]
@@ -146,7 +146,7 @@ def test_an_owner_across_applications_takes_its_dependants(world):
     )
     assert confirmed.status_code == 204, confirmed.text
     for structure, record in (("D", first), ("D", second), *(("D2", kid) for kid in kids)):
-        refused(world.read(structure, record["id"]), 404, "object_not_found")
+        refused(world.read(structure, record["id"]), 404, "OBJECT_NOT_FOUND")
 
 
 @pytest.mark.journey("J04.4")
@@ -180,12 +180,12 @@ def test_delete_in_a_change_set(world):
     assert confirmed.status_code == 204, confirmed.text
 
     for structure, record in (("R", r), ("D", d)):
-        refused(world.read(structure, record["id"], changeSetId=cs1["id"]), 404, "object_not_found")
+        refused(world.read(structure, record["id"], changeSetId=cs1["id"]), 404, "OBJECT_NOT_FOUND")
         assert world.record(structure, record["id"])["id"] == record["id"]
         assert world.record(structure, record["id"], publicationId=p1["id"])["id"] == record["id"]
     world.publish(cs1)
     for structure, record in (("R", r), ("D", d)):
-        refused(world.read(structure, record["id"]), 404, "object_not_found")
+        refused(world.read(structure, record["id"]), 404, "OBJECT_NOT_FOUND")
         assert world.record(structure, record["id"], publicationId=p1["id"])["id"] == record["id"]
 
 
@@ -201,7 +201,7 @@ def test_a_change_after_the_preview_refuses_the_confirmation(world):
     late = _delete(
         world, "H", h2, version, cascade=True, deletionPreviewToken=impact["deletionPreviewToken"]
     )
-    refused(late, 409, "deletion_preview_changed")
+    refused(late, 409, "DELETION_PREVIEW_CHANGED")
     assert world.record("H", child["id"])["parentObjectId"] == h4
 
     version, impact = _preview(world, "H", h2)
@@ -210,8 +210,8 @@ def test_a_change_after_the_preview_refuses_the_confirmation(world):
     changed = _delete(
         world, "H", h2, version, cascade=True, deletionPreviewToken=impact["deletionPreviewToken"]
     )
-    refused(changed, 409, "deletion_preview_changed")
-    refused(_delete(world, "H", h2, version, cascade=True), 409, "deletion_preview_required")
+    refused(changed, 409, "DELETION_PREVIEW_CHANGED")
+    refused(_delete(world, "H", h2, version, cascade=True), 409, "DELETION_PREVIEW_REQUIRED")
     for level in range(2, 7):
         assert world.record("H", world.ids[f"h{level}"])["id"] == world.ids[f"h{level}"]
 
@@ -229,7 +229,7 @@ def test_a_dependants_required_relationship_cannot_be_removed_alone(world):
     ][0]["relation"]
 
     removed = world.api.delete(f"/relations/{relation['id']}", expectedVersion=relation["version"])
-    refused(removed, 422, "required_relation")
+    refused(removed, 422, "REQUIRED_RELATION")
     assert ok(world.api.get(f"/relations/{relation['id']}"))["id"] == relation["id"]
 
     version, impact = _preview(world, "D", d["id"])
@@ -242,5 +242,5 @@ def test_a_dependants_required_relationship_cannot_be_removed_alone(world):
         deletionPreviewToken=impact["deletionPreviewToken"],
     )
     assert confirmed.status_code == 204, confirmed.text
-    refused(world.read("D", d["id"]), 404, "object_not_found")
-    refused(world.api.get(f"/relations/{relation['id']}"), 404, "relation_not_found")
+    refused(world.read("D", d["id"]), 404, "OBJECT_NOT_FOUND")
+    refused(world.api.get(f"/relations/{relation['id']}"), 404, "RELATION_NOT_FOUND")

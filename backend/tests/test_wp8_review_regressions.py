@@ -129,7 +129,7 @@ def test_association_delete_requires_confirmation_and_retains_other_endpoint(rev
     preview = client.delete(path, params=claim)
     assert preview.status_code == 409, preview.text
     error = preview.json()["error"]
-    assert error["code"] == "object_has_dependants"
+    assert error["code"] == "OBJECT_HAS_DEPENDANTS"
     assert "cascade=true" in error["message"]
     assert error["details"]["objectsToDelete"] == []
     assert error["details"]["relationshipCount"] == 1
@@ -270,7 +270,7 @@ def test_retired_catalogue_rejects_publication_withdrawal(review_client):
     events = _audit_count()
     response = client.post(f"/api/v1/publications/{publication['id']}/withdrawal")
     assert response.status_code == 409, response.text
-    assert response.json()["error"]["code"] == "workspace_retired"
+    assert response.json()["error"]["code"] == "WORKSPACE_RETIRED"
     assert client.get(f"/api/v1/publications/{publication['id']}").json()["status"] == "active"
     assert _audit_count() == events
 
@@ -290,7 +290,7 @@ def test_change_set_read_only_attribute_delete_preserves_value_and_versions(revi
         },
     )
     assert response.status_code == 422, response.text
-    assert response.json()["error"]["code"] == "read_only_attributes"
+    assert response.json()["error"]["code"] == "READ_ONLY_ATTRIBUTES"
     assert "locked-note" in response.json()["error"]["message"]
     value = client.get(path, params={"changeSetId": change_set["id"]}).json()
     assert value["value"] == "locked" and value["objectVersion"] == 1
@@ -315,7 +315,7 @@ def test_stale_loaded_change_set_cannot_overwrite_a_committed_rename(review_clie
         update_change_set(first, change_set["id"], 1, "winner")
         with pytest.raises(ApiError) as error:
             update_change_set(second, change_set["id"], 1, "lost update")
-        assert error.value.code == "change_set_version_conflict"
+        assert error.value.code == "CHANGE_SET_VERSION_CONFLICT"
     current = review_client.get(f"/api/v1/change-sets/{change_set['id']}").json()
     assert current["name"] == "winner" and current["version"] == 2
 
@@ -332,7 +332,7 @@ def test_change_set_requires_parent_on_create_update_and_activation(review_clien
         "expectedChangeSetVersion": change_set["version"],
     }
     invalid = client.post("/api/v1/objects", json=root_payload)
-    assert invalid.status_code == 422 and invalid.json()["error"]["code"] == "parent_required"
+    assert invalid.status_code == 422 and invalid.json()["error"]["code"] == "PARENT_REQUIRED"
     parent = _create(client, "default", change_set=change_set)
     child = _create(client, "default", "codelist", change_set=change_set, parent=parent["id"])
     events = _audit_count()
@@ -345,7 +345,7 @@ def test_change_set_requires_parent_on_create_update_and_activation(review_clien
             "expectedChangeSetVersion": change_set["version"],
         },
     )
-    assert invalid.status_code == 422 and invalid.json()["error"]["code"] == "parent_required"
+    assert invalid.status_code == 422 and invalid.json()["error"]["code"] == "PARENT_REQUIRED"
     assert _audit_count() == events
     # An old/imported invalid candidate must also be refused at the publication boundary.
     with SessionLocal() as session:
@@ -360,7 +360,7 @@ def test_change_set_requires_parent_on_create_update_and_activation(review_clien
     invalid = publish_change_set(
         client, change_set["id"], expected_change_set_version=change_set["version"], expected_status=422
     )
-    assert "parent_required" in {item["code"] for item in invalid.json()["error"]["details"]}
+    assert "PARENT_REQUIRED" in {item["code"] for item in invalid.json()["error"]["details"]}
     assert (
         client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"] == change_set["version"]
     )
@@ -387,9 +387,9 @@ def test_activation_reports_id_collision_in_another_workspace(review_client):
     conflict = publish_change_set(
         client, change_set["id"], expected_change_set_version=change_set["version"], expected_status=409
     )
-    assert conflict.json()["error"]["code"] == "version_conflict"
+    assert conflict.json()["error"]["code"] == "VERSION_CONFLICT"
     assert any(
-        entry["id"] == item["id"] and entry["code"] == "id_collision"
+        entry["id"] == item["id"] and entry["code"] == "ID_COLLISION"
         for entry in conflict.json()["error"]["details"]["conflicts"]
     )
     assert _audit_count() == events
@@ -408,7 +408,7 @@ def test_activation_reports_id_collision_in_another_workspace(review_client):
     )
     assert (
         duplicate.status_code == 409
-        and duplicate.json()["error"]["code"] == "object_already_exists"
+        and duplicate.json()["error"]["code"] == "OBJECT_ALREADY_EXISTS"
     )
 
 
@@ -445,7 +445,7 @@ def test_cascade_confirmation_rejects_hierarchy_changed_after_preview(review_cli
     rejected = client.delete(path, params=confirmation)
     assert rejected.status_code == 409, rejected.text
     assert rejected.json()["error"] == {
-        "code": "deletion_preview_changed",
+        "code": "DELETION_PREVIEW_CHANGED",
         "message": "The object was modified by another session. Please retry.",
     }
     assert _audit_count() == events
@@ -466,13 +466,13 @@ def test_cascade_rejects_missing_or_tampered_preview_token(review_client):
     path = f"/api/v1/objects/domain/{parent['id']}"
     missing = client.delete(path, params={"expectedVersion": 1, "cascade": True})
     assert missing.status_code == 409
-    assert missing.json()["error"]["code"] == "deletion_preview_required"
+    assert missing.json()["error"]["code"] == "DELETION_PREVIEW_REQUIRED"
     tampered = client.delete(
         path,
         params={"expectedVersion": 1, "cascade": True, "deletionPreviewToken": "tampered"},
     )
     assert tampered.status_code == 409
-    assert tampered.json()["error"]["code"] == "deletion_preview_changed"
+    assert tampered.json()["error"]["code"] == "DELETION_PREVIEW_CHANGED"
     assert client.get(path).status_code == 200
 
 
@@ -487,7 +487,7 @@ def test_missing_preview_token_precedes_stale_root_version(review_client):
     rejected = client.delete(path, params={"expectedVersion": 1, "cascade": True})
 
     assert rejected.status_code == 409
-    assert rejected.json()["error"]["code"] == "deletion_preview_required"
+    assert rejected.json()["error"]["code"] == "DELETION_PREVIEW_REQUIRED"
 
 
 def test_change_set_delete_honours_object_type_in_route(review_client):
@@ -508,7 +508,7 @@ def test_change_set_delete_honours_object_type_in_route(review_client):
 
     # A record found under another type answers with its current type (D42, ADR-034).
     assert rejected.status_code == 409
-    assert rejected.json()["error"]["code"] == "object_type_changed"
+    assert rejected.json()["error"]["code"] == "OBJECT_TYPE_CHANGED"
     assert rejected.json()["error"]["details"]["objectTypeKey"] == "domain"
     assert (
         client.get(
@@ -540,7 +540,7 @@ def test_live_delete_refuses_corrupt_cross_workspace_containment(review_client):
     )
 
     assert rejected.status_code == 409
-    assert rejected.json()["error"]["code"] == "workspace_graph_invalid"
+    assert rejected.json()["error"]["code"] == "WORKSPACE_GRAPH_INVALID"
     assert _audit_count() == events
     assert (
         client.get(
@@ -583,7 +583,7 @@ def test_live_delete_refuses_corrupt_cross_workspace_relationship(review_client)
     )
 
     assert rejected.status_code == 409
-    assert rejected.json()["error"]["code"] == "workspace_graph_invalid"
+    assert rejected.json()["error"]["code"] == "WORKSPACE_GRAPH_INVALID"
     assert _audit_count() == events
     assert (
         client.get(
@@ -627,7 +627,7 @@ def test_cascade_rejects_child_record_change_after_preview(review_client):
 
     assert rejected.status_code == 409
     assert rejected.json()["error"] == {
-        "code": "deletion_preview_changed",
+        "code": "DELETION_PREVIEW_CHANGED",
         "message": "The object was modified by another session. Please retry.",
     }
     assert _audit_count() == events
@@ -655,7 +655,7 @@ def test_cascade_maps_root_change_after_preview_to_retry_conflict(review_client)
     )
     assert rejected.status_code == 409
     assert rejected.json()["error"] == {
-        "code": "deletion_preview_changed",
+        "code": "DELETION_PREVIEW_CHANGED",
         "message": "The object was modified by another session. Please retry.",
     }
     assert _audit_count() == events

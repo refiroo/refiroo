@@ -79,7 +79,7 @@ export function RelationFormDialog({
       onSaved();
     } catch (cause) {
       setError(errorMessage(cause));
-      if (existing && (isApiError(cause, "version_conflict") || isApiError(cause, "change_set_version_conflict"))) {
+      if (existing && (isApiError(cause, "VERSION_CONFLICT") || isApiError(cause, "CHANGE_SET_VERSION_CONFLICT"))) {
         try {
           const fresh = await api.relation(existing.relation.id, object.workspaceKey);
           setRelationVersion(fresh.version);

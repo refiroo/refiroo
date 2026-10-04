@@ -57,11 +57,11 @@ def test_workspace_catalogue_pages_searches_and_rejects_unknown_scope():
             },
         )
         assert mismatched_cursor.status_code == 422
-        assert mismatched_cursor.json()["error"]["code"] == "invalid_cursor"
+        assert mismatched_cursor.json()["error"]["code"] == "INVALID_CURSOR"
 
         unknown = client.get("/api/v1/objects/domain", params={"workspaceKey": _key("missing")})
         assert unknown.status_code == 404
-        assert unknown.json()["error"]["code"] == "workspace_not_found"
+        assert unknown.json()["error"]["code"] == "WORKSPACE_NOT_FOUND"
 
 
 def test_default_switch_is_atomic_and_omitted_scope_uses_the_catalogue_default():
@@ -89,7 +89,7 @@ def test_default_switch_is_atomic_and_omitted_scope_uses_the_catalogue_default()
             json={"defaultWorkspaceKey": "default", "expectedVersion": state["version"]},
         )
         assert stale.status_code == 409
-        assert stale.json()["error"]["code"] == "version_conflict"
+        assert stale.json()["error"]["code"] == "VERSION_CONFLICT"
 
         change_set = client.post(f"/api/v1/workspaces/{workspace_key}/change-sets", json={}).json()
         created = client.post(
@@ -170,7 +170,7 @@ def test_retired_workspace_remains_readable_but_blocks_all_runtime_mutations():
             },
         )
         assert default_to_retired.status_code == 409
-        assert default_to_retired.json()["error"]["code"] == "workspace_retired"
+        assert default_to_retired.json()["error"]["code"] == "WORKSPACE_RETIRED"
 
         assert client.get(f"/api/v1/workspaces/{workspace_key}").status_code == 200
         assert (
@@ -184,7 +184,7 @@ def test_retired_workspace_remains_readable_but_blocks_all_runtime_mutations():
                 json={"name": "Blocked", "expectedVersion": created_object["version"], "changeSetId": blocked_change_set["id"], "expectedChangeSetVersion": 1},
         )
         assert update.status_code == 409
-        assert update.json()["error"]["code"] == "workspace_retired"
+        assert update.json()["error"]["code"] == "WORKSPACE_RETIRED"
         create = client.post(
             "/api/v1/objects",
             json={
@@ -198,14 +198,14 @@ def test_retired_workspace_remains_readable_but_blocks_all_runtime_mutations():
             },
         )
         assert create.status_code == 409
-        assert create.json()["error"]["code"] == "workspace_retired"
+        assert create.json()["error"]["code"] == "WORKSPACE_RETIRED"
 
         attribute = client.patch(
             f"/api/v1/objects/language/{created_object['id']}/attributes/language-code",
             json={"value": _key("blocked-attribute"), "expectedVersion": created_object["version"], "changeSetId": blocked_change_set["id"], "expectedChangeSetVersion": 1},
         )
         assert attribute.status_code == 409
-        assert attribute.json()["error"]["code"] == "workspace_retired"
+        assert attribute.json()["error"]["code"] == "WORKSPACE_RETIRED"
         relation = client.post(
             "/api/v1/relations",
             json={
@@ -218,13 +218,13 @@ def test_retired_workspace_remains_readable_but_blocks_all_runtime_mutations():
             },
         )
         assert relation.status_code == 409
-        assert relation.json()["error"]["code"] == "workspace_retired"
+        assert relation.json()["error"]["code"] == "WORKSPACE_RETIRED"
         delete = client.delete(
             f"/api/v1/objects/language/{created_object['id']}",
             params={"expectedVersion": created_object["version"], "changeSetId": blocked_change_set["id"], "expectedChangeSetVersion": 1},
         )
         assert delete.status_code == 409
-        assert delete.json()["error"]["code"] == "workspace_retired"
+        assert delete.json()["error"]["code"] == "WORKSPACE_RETIRED"
 
 
 def test_default_workspace_cannot_be_retired_and_workspace_version_is_claimed():
@@ -236,7 +236,7 @@ def test_default_workspace_cannot_be_retired_and_workspace_version_is_claimed():
             json={"status": "retired", "expectedVersion": default["version"]},
         )
         assert blocked.status_code == 409
-        assert blocked.json()["error"]["code"] == "default_workspace_cannot_be_retired"
+        assert blocked.json()["error"]["code"] == "DEFAULT_WORKSPACE_CANNOT_BE_RETIRED"
 
         created = client.post(
             "/api/v1/workspaces", json={"key": workspace_key, "label": "Original"}
@@ -350,4 +350,4 @@ def test_change_set_workflow_runs_end_to_end_without_workspace_administration(mo
     monkeypatch.setenv("WORKSPACE_ADMIN_MUTATIONS_ENABLED", "false")
     with TestClient(create_app()) as client:
         refused = create_change_set(client, workspace_key, expected_status=409)
-        assert refused.json()["error"]["code"] == "workspace_retired"
+        assert refused.json()["error"]["code"] == "WORKSPACE_RETIRED"

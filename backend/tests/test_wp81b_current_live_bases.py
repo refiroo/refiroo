@@ -153,7 +153,7 @@ def test_current_live_activation_preserves_untouched_live_addition_and_refuses_t
             json={"expectedChangeSetVersion": change_set["version"], "expectedActivePublicationId": None},
         )
         assert activation.status_code == 409, activation.text
-        assert activation.json()["error"]["code"] == "version_conflict"
+        assert activation.json()["error"]["code"] == "VERSION_CONFLICT"
         assert (
             client.get(
                 f"/api/v1/objects/domain/{untouched['id']}", params={"workspaceKey": workspace_key}
@@ -271,7 +271,7 @@ def test_current_live_capture_refuses_a_model_selection_that_changed_before_lock
                 source="currentLive",
                 expected_model_runtime_release_id=state.active_model_release_id + 1,
             )
-        assert error.value.code == "change_set_snapshot_retry"
+        assert error.value.code == "CHANGE_SET_SNAPSHOT_RETRY"
         assert (
             session.scalar(
                 select(ChangeSetBase.id).where(
@@ -288,10 +288,10 @@ def test_current_live_capture_reads_one_snapshot_while_an_external_writer_commit
         workspace_key = unique_key("capture-snapshot")
         create_workspace(client, workspace_key)
         domain = _live_domain(client, workspace_key, unique_key("captured"))
-        original_loader = change_sets._load_live_membership
+        original_copy = change_sets.copy_live
         writer_committed = False
 
-        def load_with_external_writer(session, key):
+        def copy_with_external_writer(session, *arguments):
             nonlocal writer_committed
             external = create_engine(database_url())
             try:
@@ -303,9 +303,9 @@ def test_current_live_capture_reads_one_snapshot_while_an_external_writer_commit
                 writer_committed = True
             finally:
                 external.dispose()
-            return original_loader(session, key)
+            return original_copy(session, *arguments)
 
-        monkeypatch.setattr(change_sets, "_load_live_membership", load_with_external_writer)
+        monkeypatch.setattr(change_sets, "copy_live", copy_with_external_writer)
         change_set = create_change_set(client, workspace_key, source="currentLive").json()
         assert writer_committed
         captured = client.get(
@@ -332,10 +332,10 @@ def test_current_live_capture_holds_off_activation_and_retirement(monkeypatch, s
         workspace_key = unique_key("capture-locks")
         create_workspace(client, workspace_key)
         _live_domain(client, workspace_key, unique_key("captured"))
-        original_loader = change_sets._load_live_membership
+        original_copy = change_sets.copy_live
         refused = False
 
-        def load_with_external_change(session, key):
+        def copy_with_external_change(session, *arguments):
             nonlocal refused
             external = create_engine(database_url())
             try:
@@ -346,9 +346,9 @@ def test_current_live_capture_holds_off_activation_and_retirement(monkeypatch, s
                     refused = True
             finally:
                 external.dispose()
-            return original_loader(session, key)
+            return original_copy(session, *arguments)
 
-        monkeypatch.setattr(change_sets, "_load_live_membership", load_with_external_change)
+        monkeypatch.setattr(change_sets, "copy_live", copy_with_external_change)
         response = create_change_set(client, workspace_key, source="currentLive")
         assert response.status_code == 201, response.text
         assert refused
@@ -377,7 +377,7 @@ def test_current_live_capture_after_a_concurrent_activation_asks_for_a_retry():
                 connection.close()
         finally:
             external.dispose()
-        assert response.json()["error"]["code"] == "change_set_snapshot_retry"
+        assert response.json()["error"]["code"] == "CHANGE_SET_SNAPSHOT_RETRY"
         with SessionLocal() as session:
             assert (
                 session.scalar(

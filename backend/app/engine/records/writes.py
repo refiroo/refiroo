@@ -85,14 +85,14 @@ class LiveWrites:
         if status is None:
             raise api_error(
                 404,
-                "workspace_not_found",
+                "WORKSPACE_NOT_FOUND",
                 f"Workspace '{self.workspace_key}' was deleted while this request was "
                 "processed; nothing was saved",
             )
         if status != "active":
             raise api_error(
                 409,
-                "workspace_retired",
+                "WORKSPACE_RETIRED",
                 f"Workspace '{self.workspace_key}' was retired while this request was "
                 "processed; nothing was saved",
             )
@@ -146,7 +146,7 @@ class LiveWrites:
         if result.rowcount != 1:
             current = self.session.scalar(select(RdmObject.version).where(RdmObject.id == item.id))
             raise api_error(
-                409, "version_conflict", "Object version has changed", {"currentVersion": current}
+                409, "VERSION_CONFLICT", "Object version has changed", {"currentVersion": current}
             )
         self.session.refresh(item)
 
@@ -231,7 +231,7 @@ class LiveWrites:
             for key, count in saved.items():
                 definition = model.attribute_type(key)
                 if definition is None:
-                    raise api_error(500, "internal_error", f"Unknown model attribute '{key}'")
+                    raise api_error(500, "INTERNAL_ERROR", f"Unknown model attribute '{key}'")
                 row = stored.get((object_id, key))
                 if row is None:
                     row = AttributeValue(
@@ -264,7 +264,7 @@ class LiveWrites:
         for key, value in attributes.items():
             definition = model.attribute_type(key)
             if definition is None:
-                raise api_error(500, "internal_error", f"Unknown model attribute '{key}'")
+                raise api_error(500, "INTERNAL_ERROR", f"Unknown model attribute '{key}'")
             row = existing.get(key)
             if row is None:
                 row = AttributeValue(
@@ -291,7 +291,7 @@ class LiveWrites:
         if not row:
             raise api_error(
                 404,
-                "attribute_not_found",
+                "ATTRIBUTE_NOT_FOUND",
                 f"Attribute '{attribute_type_key}' has no value on object '{object_id}'",
             )
         self.session.delete(row)
@@ -349,7 +349,7 @@ class LiveWrites:
                 select(ObjectRelation.version).where(ObjectRelation.id == relation.id)
             )
             raise api_error(
-                409, "version_conflict", "Relation version has changed", {"currentVersion": current}
+                409, "VERSION_CONFLICT", "Relation version has changed", {"currentVersion": current}
             )
         self.session.refresh(relation)
 
@@ -511,7 +511,7 @@ class ChangeSetWrites:
         self,
         expected: int,
         *,
-        conflict_code: str = "change_set_version_conflict",
+        conflict_code: str = "CHANGE_SET_VERSION_CONFLICT",
         conflict_message: str = "Change set version has changed",
     ) -> None:
         """Claim the change set's version for this write.

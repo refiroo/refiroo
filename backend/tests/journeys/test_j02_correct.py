@@ -43,7 +43,7 @@ def test_correct_a_live_record_beside_an_open_change_set(world):
     refused(
         world.update("R", closed["id"], closed["version"], name="Reopened"),
         409,
-        "workspace_retired",
+        "WORKSPACE_RETIRED",
     )
 
 
@@ -80,7 +80,7 @@ def test_the_second_of_two_writers_is_refused_with_the_current_version(world):
     ok(world.update("R", r["id"], r["version"], name="Writer A"))
 
     error = refused(
-        world.update("R", r["id"], r["version"], name="Writer B"), 409, "version_conflict"
+        world.update("R", r["id"], r["version"], name="Writer B"), 409, "VERSION_CONFLICT"
     )
     assert error["details"]["currentVersion"] == r["version"] + 1
     current = world.record("R", r["id"])
@@ -129,19 +129,19 @@ def test_one_value_through_its_own_resource(world):
     changed = ok(world.api.patch(n, {"value": 4, "expectedVersion": added["version"]}))
     assert changed["version"] == added["version"] + 1 and world.value(changed, "R.n") == 4
     assert world.api.delete(dt, expectedVersion=changed["version"]).status_code == 204
-    refused(world.api.get(dt), 404, "attribute_not_found")
+    refused(world.api.get(dt), 404, "ATTRIBUTE_NOT_FOUND")
     version = world.record("R", r["id"])["version"]
 
     refused(
-        world.api.post(n, {"value": 9, "expectedVersion": version}), 409, "attribute_already_exists"
+        world.api.post(n, {"value": 9, "expectedVersion": version}), 409, "ATTRIBUTE_ALREADY_EXISTS"
     )
     refused(
         world.api.patch(dt, {"value": "2026-03-03", "expectedVersion": version}),
         404,
-        "attribute_not_found",
+        "ATTRIBUTE_NOT_FOUND",
     )
     refused(
-        world.api.patch(n, {"value": 9, "expectedVersion": version - 1}), 409, "version_conflict"
+        world.api.patch(n, {"value": 9, "expectedVersion": version - 1}), 409, "VERSION_CONFLICT"
     )
     final = world.record("R", r["id"])
     assert final["version"] == version and world.value(final, "R.n") == 4
@@ -162,37 +162,37 @@ def test_attribute_rules_refuse_and_name_the_rule(world):
         (
             world.update("R", r2["id"], r2["version"], values={"R.n": -1}),
             422,
-            "attribute_below_minimum",
+            "ATTRIBUTE_BELOW_MINIMUM",
             "R.n",
         ),
         (
             world.update("R", r2["id"], r2["version"], values={"R.u": "X"}),
             409,
-            "duplicate_attribute_value",
+            "DUPLICATE_ATTRIBUTE_VALUE",
             "R.u",
         ),
         (
             world.update("R", r2["id"], r2["version"], values={"no-such-attribute": 1}),
             422,
-            "unknown_attributes",
+            "UNKNOWN_ATTRIBUTES",
             None,
         ),
         (
             world.api.delete(f"{base}/{world.key('R.q')}", expectedVersion=r2["version"]),
             422,
-            "cannot_delete_required_attribute",
+            "CANNOT_DELETE_REQUIRED_ATTRIBUTE",
             "R.q",
         ),
         (
             world.api.delete(f"{base}/{world.key('R.x1')}", expectedVersion=r2["version"]),
             422,
-            "object_attribute_rule_violation",
+            "OBJECT_ATTRIBUTE_RULE_VIOLATION",
             "R.x1",
         ),
         (
             world.update("R", r2["id"], r2["version"], values={"R.ro": "edited"}),
             422,
-            "read_only_attributes",
+            "READ_ONLY_ATTRIBUTES",
             "R.ro",
         ),
     ]

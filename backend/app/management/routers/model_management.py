@@ -83,13 +83,13 @@ def activate_release(
         except ModelReleaseNotFound as exc:
             raise api_error(
                 404,
-                "model_release_not_found",
+                "MODEL_RELEASE_NOT_FOUND",
                 f"Model release '{release_id}' not found",
             ) from exc
         except ActivationConflict as exc:
             raise api_error(
                 409,
-                "activation_conflict",
+                "ACTIVATION_CONFLICT",
                 "The active model selection changed before activation",
                 {
                     "activeReleaseId": exc.active_release_id,
@@ -99,7 +99,7 @@ def activate_release(
         except UnsupportedModelSchema as exc:
             raise api_error(
                 422,
-                "unsupported_schema_version",
+                "UNSUPPORTED_SCHEMA_VERSION",
                 f"Schema version '{exc.schema_version}' cannot be activated",
                 {
                     "releaseId": exc.release_id,
@@ -111,14 +111,14 @@ def activate_release(
         except ModelMigrationRequired as exc:
             raise api_error(
                 409,
-                "model_migration_required",
+                "MODEL_MIGRATION_REQUIRED",
                 "Stored runtime data is incompatible with the candidate model",
                 diagnostic_details(exc.compatibility.diagnostics),
             ) from exc
         except ConsumerContractVersionRequired as exc:
             raise api_error(
                 409,
-                "consumer_contract_version_required",
+                "CONSUMER_CONTRACT_VERSION_REQUIRED",
                 "A consumer API definition changes what its consumers read; raise its"
                 " contractVersion in a new release",
                 diagnostic_details(exc.diagnostics),
@@ -126,7 +126,7 @@ def activate_release(
         except InvalidInstalledModel as exc:
             raise api_error(
                 500,
-                "invalid_installed_model",
+                "INVALID_INSTALLED_MODEL",
                 "An installed model release failed validation",
                 diagnostic_details(exc.diagnostics),
             ) from exc
@@ -140,7 +140,7 @@ def activate_release(
                 model_registry.mark_unhealthy()
                 raise api_error(
                     503,
-                    "model_registry_refresh_failed",
+                    "MODEL_REGISTRY_REFRESH_FAILED",
                     "The model was activated, but this process could not publish the committed selection",
                     {
                         "activeReleaseId": activated.active_release_id,
@@ -261,14 +261,14 @@ def compile_model_draft(
         )
     if baseline_release is None:
         raise api_error(
-            503, "model_runtime_state_unavailable", "Model runtime state is unavailable"
+            503, "MODEL_RUNTIME_STATE_UNAVAILABLE", "Model runtime state is unavailable"
         )
     baseline = compile_model(baseline_release.model_json)
     if not baseline.valid or baseline.canonical_model is None:
         if baseline.unsupported_schema_version is not None:
             raise api_error(
                 422,
-                "unsupported_schema_version",
+                "UNSUPPORTED_SCHEMA_VERSION",
                 f"Baseline release '{baseline_release.public_id}' uses schema version"
                 f" '{baseline.unsupported_schema_version}' which this deployment cannot interpret",
                 {
@@ -279,10 +279,10 @@ def compile_model_draft(
                 },
             )
         raise api_error(
-            500, "invalid_installed_model", "An installed model release failed validation"
+            500, "INVALID_INSTALLED_MODEL", "An installed model release failed validation"
         )
     if compiled.canonical_model is None:
-        raise api_error(500, "internal_error", "Compiled model result is incomplete")
+        raise api_error(500, "INTERNAL_ERROR", "Compiled model result is incomplete")
     changes = semantic_diff(baseline.canonical_model, compiled.canonical_model)
 
     return ModelCompilationResponse(
@@ -323,7 +323,7 @@ def install_model_draft(
         if not compiled.valid or compiled.model is None:
             raise api_error(
                 422,
-                "invalid_model",
+                "INVALID_MODEL",
                 "Model draft is invalid and cannot be installed",
                 diagnostic_details(compiled.diagnostics),
             )
@@ -333,7 +333,7 @@ def install_model_draft(
         except ReleaseIdentityConflict as exc:
             raise api_error(
                 409,
-                "release_identity_conflict",
+                "RELEASE_IDENTITY_CONFLICT",
                 f"Release '{exc.release_key}@{exc.release_version}' is already installed with different content",
             ) from exc
         if created:

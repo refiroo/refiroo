@@ -189,7 +189,7 @@ def test_presentation_change_and_unused_addition_are_compatible(session: Session
         (
             lambda source: source.update({"applications": []}),
             lambda session: _object(session, "source"),
-            "application_in_use",
+            "APPLICATION_IN_USE",
         ),
         (
             lambda source: (
@@ -198,7 +198,7 @@ def test_presentation_change_and_unused_addition_are_compatible(session: Session
                 source.update({"objectTypeRelations": []}),
             ),
             lambda session: _object(session, "target"),
-            "object_type_in_use",
+            "OBJECT_TYPE_IN_USE",
         ),
         (
             lambda source: (
@@ -207,65 +207,65 @@ def test_presentation_change_and_unused_addition_are_compatible(session: Session
                 source["objectTypes"][1].update({"attributes": []}),
             ),
             lambda session: _seed_attribute(session),
-            "attribute_type_in_use",
+            "ATTRIBUTE_TYPE_IN_USE",
         ),
         (
             lambda source: source["attributeTypes"][0].update({"valueType": "integer"}),
             lambda session: _seed_attribute(session),
-            "attribute_value_type_changed",
+            "ATTRIBUTE_VALUE_TYPE_CHANGED",
         ),
         (
             lambda source: source["objectTypes"][0].update({"attributes": []}),
             lambda session: _seed_attribute(session),
-            "attribute_binding_in_use",
+            "ATTRIBUTE_BINDING_IN_USE",
         ),
         (
             lambda source: source["objectTypeRelations"].pop(0),
             lambda session: _seed_link(session),
-            "relation_pair_in_use",
+            "RELATION_PAIR_IN_USE",
         ),
         (
             lambda source: source["objectTypeRelations"][0].update(
                 {"attributeTypeKeys": []}
             ),
             lambda session: _seed_link(session, attributes={"relation-note": "used"}),
-            "relation_attribute_in_use",
+            "RELATION_ATTRIBUTE_IN_USE",
         ),
         (
             lambda source: source["attributeTypes"][1].update({"valueType": "integer"}),
             lambda session: _seed_link(session, attributes={"relation-note": "used"}),
-            "relation_attribute_value_type_changed",
+            "RELATION_ATTRIBUTE_VALUE_TYPE_CHANGED",
         ),
         (
             lambda source: source["objectTypes"][1].update({"behavior": {}}),
             lambda session: _seed_parent(session),
-            "parent_relation_semantics_changed",
+            "PARENT_RELATION_SEMANTICS_CHANGED",
         ),
         (
             lambda source: source["objectTypes"][0]["attributes"][0].update(
                 {"required": True}
             ),
             lambda session: _object(session, "source"),
-            "required_attribute_missing",
+            "REQUIRED_ATTRIBUTE_MISSING",
         ),
         (
             lambda source: source["objectTypeRelations"][0].update({"required": True}),
             lambda session: _object(session, "target"),
-            "required_relation_missing",
+            "REQUIRED_RELATION_MISSING",
         ),
         (
             lambda source: source["attributeTypes"][0].update(
                 {"features": {"unique": True}}
             ),
             lambda session: _seed_duplicate_attributes(session),
-            "attribute_uniqueness_violated",
+            "ATTRIBUTE_UNIQUENESS_VIOLATED",
         ),
         (
             lambda source: source["objectTypeRelations"][0].update(
                 {"cardinality": "one-to-many"}
             ),
             lambda session: _seed_duplicate_target_relations(session),
-            "relation_cardinality_violated",
+            "RELATION_CARDINALITY_VIOLATED",
         ),
     ],
 )
@@ -311,7 +311,7 @@ def test_scoped_relation_uniqueness_is_checked_against_containment_ancestors(ses
     result = _compatibility(session, candidate)
 
     diagnostic = next(
-        item for item in result.diagnostics if item.code == "relation_uniqueness_violated"
+        item for item in result.diagnostics if item.code == "RELATION_UNIQUENESS_VIOLATED"
     )
     assert diagnostic.count == 1
 
@@ -324,7 +324,7 @@ def test_numeric_bounds_are_checked_for_stored_relation_attributes(session):
     result = _compatibility(session, candidate)
 
     diagnostic = next(
-        item for item in result.diagnostics if item.code == "attribute_validation_violated"
+        item for item in result.diagnostics if item.code == "ATTRIBUTE_VALIDATION_VIOLATED"
     )
     assert diagnostic.count == 1
     assert diagnostic.path == "/attributeTypes/relation-score/validation/minimum"
@@ -383,7 +383,7 @@ def test_cardinality_is_checked_across_all_pairs_sharing_a_relation_type(session
 
     assert result.classification == "migration_required"
     diagnostic = next(
-        item for item in result.diagnostics if item.code == "relation_cardinality_violated"
+        item for item in result.diagnostics if item.code == "RELATION_CARDINALITY_VIOLATED"
     )
     assert diagnostic.count == 1
 
@@ -436,7 +436,7 @@ def test_one_to_one_cardinality_checks_shared_sources_across_target_pairs(sessio
 
     assert result.classification == "migration_required"
     diagnostic = next(
-        item for item in result.diagnostics if item.code == "relation_cardinality_violated"
+        item for item in result.diagnostics if item.code == "RELATION_CARDINALITY_VIOLATED"
     )
     assert diagnostic.count == 1
 

@@ -28,7 +28,7 @@ def get_attribute_value(object_type_key: str, object_id: str, attribute_type_key
                         change_set_id: str | None = Query(default=None, alias="changeSetId"),
                         publication_id: str | None = Query(default=None, alias="publicationId")) -> AttributeValueResponse:
     if change_set_id and publication_id:
-        raise api_error(422, "mutually_exclusive_context", "changeSetId and publicationId cannot be combined")
+        raise api_error(422, "MUTUALLY_EXCLUSIVE_CONTEXT", "changeSetId and publicationId cannot be combined")
     get_object_type(snapshot.model, object_type_key)
     if change_set_id or publication_id:
         context = (
@@ -38,11 +38,11 @@ def get_attribute_value(object_type_key: str, object_id: str, attribute_type_key
         )
         item = find_object(session, context, object_id, object_type_key)
         if item is None and context.kind == "change_set":
-            raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
+            raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found")
         if item is None or attribute_type_key not in (item.attributes or {}):
             raise api_error(
                 404,
-                "attribute_not_found",
+                "ATTRIBUTE_NOT_FOUND",
                 f"Attribute '{attribute_type_key}' has no value on object '{object_id}'",
             )
         definition = snapshot.model.attribute_type(attribute_type_key)
@@ -64,24 +64,24 @@ def _write(object_type_key: str, object_id: str, attribute_type_key: str, payloa
     if payload.changeSetId:
         change_set_id = str(payload.changeSetId)
         if payload.expectedChangeSetVersion is None:
-            raise api_error(409, "change_set_required",
+            raise api_error(409, "CHANGE_SET_REQUIRED",
                             "expectedChangeSetVersion is required when targeting a change set")
         ensure_change_set_writable(session, change_set_id)
         context = change_set_context(session, change_set_id)
         item = find_object(session, context, object_id, object_type_key)
         if item is None:
-            raise api_error(404, "object_not_found", f"Object '{object_id}' not found")
+            raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found")
         present = attribute_type_key in (item.attributes or {})
         if delete:
             if not present:
-                raise api_error(404, "attribute_not_found", f"Attribute '{attribute_type_key}' has no value on object '{object_id}'")
+                raise api_error(404, "ATTRIBUTE_NOT_FOUND", f"Attribute '{attribute_type_key}' has no value on object '{object_id}'")
             delete_change_set_attribute(session, change_set_id, object_id, attribute_type_key,
                                    payload.expectedChangeSetVersion, payload.expectedVersion)
             return Response(status_code=204)
         if require_absent and present:
-            raise api_error(409, "attribute_already_exists", f"Attribute '{attribute_type_key}' already has a value on object '{object_id}'")
+            raise api_error(409, "ATTRIBUTE_ALREADY_EXISTS", f"Attribute '{attribute_type_key}' already has a value on object '{object_id}'")
         if not require_absent and not present:
-            raise api_error(404, "attribute_not_found", f"Attribute '{attribute_type_key}' has no value on object '{object_id}'")
+            raise api_error(404, "ATTRIBUTE_NOT_FOUND", f"Attribute '{attribute_type_key}' has no value on object '{object_id}'")
         row = patch_change_set_attribute(session, change_set_id, object_id, attribute_type_key,
                                     payload.value, payload.expectedChangeSetVersion, payload.expectedVersion)
         change_set = change_set_context(session, change_set_id).change_set

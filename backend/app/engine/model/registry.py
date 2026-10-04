@@ -60,14 +60,14 @@ class ModelRegistry:
         if release is None:
             raise api_error(
                 409,
-                "pinned_model_unavailable",
+                "PINNED_MODEL_UNAVAILABLE",
                 "The model pinned by this publication is unavailable",
                 {"modelReleaseDbId": release_id},
             )
         if release.schema_version not in SUPPORTED_SCHEMA_VERSIONS:
             raise api_error(
                 409,
-                "unsupported_pinned_model_schema",
+                "UNSUPPORTED_PINNED_MODEL_SCHEMA",
                 "The model pinned by this context uses an unsupported schema",
                 {
                     "modelReleaseId": release.public_id,
@@ -84,7 +84,7 @@ class ModelRegistry:
                 except ModelValidationError as exc:
                     raise api_error(
                         409,
-                        "pinned_model_invalid",
+                        "PINNED_MODEL_INVALID",
                         "The model pinned by this context is invalid",
                         {
                             "modelReleaseId": release.public_id,
@@ -181,7 +181,7 @@ def resolve_model_snapshot(session: Session) -> ModelSnapshot:
     except ModelRegistryUnavailable as exc:
         raise api_error(
             503,
-            "model_registry_unavailable",
+            "MODEL_REGISTRY_UNAVAILABLE",
             "The active model registry is unavailable",
         ) from exc
     session.info[_RESOLVED_ACTIVE_RELEASE] = snapshot.release_db_id
@@ -220,7 +220,7 @@ def require_resolved_release(session: Session) -> None:
     resolved = session.get(ModelRelease, release_db_id)
     raise api_error(
         409,
-        "model_release_changed",
+        "MODEL_RELEASE_CHANGED",
         "The active model release changed while this request was processed; nothing was saved. "
         "Reload and retry against the current model",
         {
@@ -240,17 +240,17 @@ def resolve_request_model(
     if change_set_id and publication_id:
         raise api_error(
             422,
-            "mutually_exclusive_context",
+            "MUTUALLY_EXCLUSIVE_CONTEXT",
             "changeSetId and publicationId cannot be combined",
         )
     if change_set_id:
         context = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
         if context is None:
-            raise api_error(404, "change_set_not_found", "Change set not found")
+            raise api_error(404, "CHANGE_SET_NOT_FOUND", "Change set not found")
         if workspace_key is not None and workspace_key != context.workspace_key:
             raise api_error(
                 422,
-                "workspace_context_mismatch",
+                "WORKSPACE_CONTEXT_MISMATCH",
                 "workspaceKey does not match the selected context",
                 {"workspaceKey": workspace_key, "contextWorkspaceKey": context.workspace_key},
             )
@@ -260,11 +260,11 @@ def resolve_request_model(
             select(Publication).where(Publication.id == publication_id)
         )
         if context is None:
-            raise api_error(404, "publication_not_found", "Publication not found")
+            raise api_error(404, "PUBLICATION_NOT_FOUND", "Publication not found")
         if workspace_key is not None and workspace_key != context.workspace_key:
             raise api_error(
                 422,
-                "workspace_context_mismatch",
+                "WORKSPACE_CONTEXT_MISMATCH",
                 "workspaceKey does not match the selected context",
                 {"workspaceKey": workspace_key, "contextWorkspaceKey": context.workspace_key},
             )
@@ -276,7 +276,7 @@ def resolve_change_set_snapshot(session: Session, change_set_id: str) -> ModelSn
     """Resolve the immutable model pinned by a change set write after its body-selected context."""
     change_set = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
     if change_set is None:
-        raise api_error(404, "change_set_not_found", "Change set not found")
+        raise api_error(404, "CHANGE_SET_NOT_FOUND", "Change set not found")
     return resolve_pinned_release(session, change_set.model_release_id, require_ready=False)
 
 
@@ -291,7 +291,7 @@ def resolve_pinned_release(
     except ModelRegistryUnavailable as exc:
         raise api_error(
             503,
-            "model_registry_unavailable",
+            "MODEL_REGISTRY_UNAVAILABLE",
             "The model registry is unavailable",
         ) from exc
 

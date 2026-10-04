@@ -214,7 +214,7 @@ try {
     }, "PATCH"),
   ];
   expect(
-    refusals.every((refusal) => refusal.status === 409 && refusal.body?.error?.code === "pinned_model_unavailable"),
+    refusals.every((refusal) => refusal.status === 409 && refusal.body?.error?.code === "PINNED_MODEL_UNAVAILABLE"),
     `unavailable release refusals: ${JSON.stringify(refusals)}`,
   );
   expect(JSON.stringify(await api(`/change-sets/${changeSet1}`)) === JSON.stringify(changeSet1State), "a refusal changed draft1");
@@ -257,7 +257,7 @@ try {
   expect(await page.getByRole("button", { name: "Publish change set" }).isDisabled(), "draft1 can activate on a non-active release");
   expect(
     (await attempt(`/change-sets/${changeSet1}/publication`, { expectedChangeSetVersion: (await api(`/change-sets/${changeSet1}`)).version }))
-      .body?.error?.code === "change_set_model_release_conflict",
+      .body?.error?.code === "CHANGE_SET_MODEL_RELEASE_CONFLICT",
     "the API does not refuse draft1's activation with the release conflict",
   );
   await shot("sc15-change-set1-mismatch-wide");

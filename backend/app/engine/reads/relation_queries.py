@@ -151,7 +151,7 @@ def build_snapshot_relation_query(
     field = (sort or "").removeprefix("-")
     if field in UNRECORDED_TIMESTAMPS:
         query_error(
-            "invalid_sort",
+            "INVALID_SORT",
             f"{UNRECORDED_TIMESTAMPS[field]} is not recorded in change sets or publications",
             "sort",
         )

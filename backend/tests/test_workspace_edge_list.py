@@ -121,10 +121,10 @@ def test_context_refusals(client, route):
     both = {**seeded["contexts"]["changeSet"], **seeded["contexts"]["publication"]}
     response = client.get(BASE + route, params=both)
     assert response.status_code == 422
-    assert response.json()["error"]["code"] == "mutually_exclusive_context"
+    assert response.json()["error"]["code"] == "MUTUALLY_EXCLUSIVE_CONTEXT"
     response = client.get(BASE + route, params={"publicationId": "missing"})
     assert response.status_code == 404
-    assert response.json()["error"]["code"] == "publication_not_found"
+    assert response.json()["error"]["code"] == "PUBLICATION_NOT_FOUND"
 
 
 def test_cursors_bind_context(client):
@@ -139,4 +139,4 @@ def test_cursors_bind_context(client):
                     continue
                 refused = client.get(BASE + route, params={**other, "cursor": cursor})
                 assert refused.status_code == 422, (context_name, other_name, route)
-                assert refused.json()["error"]["code"] == "invalid_cursor"
+                assert refused.json()["error"]["code"] == "INVALID_CURSOR"

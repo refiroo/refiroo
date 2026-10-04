@@ -25,7 +25,8 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261004_02"
+HEAD = "20261004_03"
+DECIMAL_ENCODING = "20261004_02"
 FEED_POSITIONS = "20261003_02"
 SEARCH_INDEXES = "20261003_01"
 BASELINE = "20261001_01"
@@ -412,3 +413,39 @@ def test_an_interrupted_feed_retention_revision_rolls_back_and_the_next_start_re
         assert client.get("/health").json() == {"status": "ok"}
     assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD
     assert _feed_time_index(url)
+
+
+def test_stored_job_codes_follow_the_upper_case_revision_both_ways(monkeypatch, databases):
+    """Base 0.9 T1b (D43): an atomic batch with a refused item stores a code and a reason. Taken back
+    to the previous revision they read lower case, as that release wrote them; upgraded again, the
+    job answers them upper case, as a new job does."""
+    url = seeds.create_empty()
+    databases.append(url)
+    domain = {"op": "create", "applicationKey": "rdm-master", "objectTypeKey": "domain"}
+    items = [
+        {**domain, "name": "Kept", "attributes": [{"attributeTypeKey": "domain-code", "value": "K"}]},
+        {**domain, "name": "Refused", "objectTypeKey": "no-such-type"},
+    ]
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        response = client.post(
+            "/api/v1/batches",
+            json={"policy": "atomic", "run": "inline", "workspaceKey": "default", "items": items},
+        )
+        assert response.status_code == 200, response.text
+        job_id = response.json()["job"]["id"]
+
+    def outcomes(client: TestClient) -> list[tuple[str, str]]:
+        page = client.get(f"/api/v1/jobs/{job_id}/items").json()["items"]
+        return [(item["status"], item.get("reason") or item["error"]["code"]) for item in page]
+
+    command.downgrade(migration_config(url), DECIMAL_ENCODING)
+    stored = _scalar(url, "SELECT string_agg(outcome::text, ' ') FROM job_items")
+    assert "batch_rolled_back" in stored and "unknown_object_type" in stored
+    with serve(monkeypatch, _render(url)) as (client, errors):
+        assert errors == []
+        assert outcomes(client) == [
+            ("unprocessed", "BATCH_ROLLED_BACK"),
+            ("rejected", "UNKNOWN_OBJECT_TYPE"),
+        ]
+    assert _scalar(url, "SELECT version_num FROM alembic_version") == HEAD

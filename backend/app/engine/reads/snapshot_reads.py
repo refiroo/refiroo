@@ -95,7 +95,7 @@ class SnapshotContext:
 def change_set_context(session: Session, change_set_id: str) -> SnapshotContext:
     change_set = session.scalar(select(ChangeSet).where(ChangeSet.id == change_set_id))
     if change_set is None:
-        raise api_error(404, "change_set_not_found", f"Change set '{change_set_id}' not found")
+        raise api_error(404, "CHANGE_SET_NOT_FOUND", f"Change set '{change_set_id}' not found")
     base = None
     if change_set.derived_from_publication_id is not None:
         publication = session.scalar(
@@ -104,7 +104,7 @@ def change_set_context(session: Session, change_set_id: str) -> SnapshotContext:
         if publication is None or publication.workspace_key != change_set.workspace_key:
             raise api_error(
                 409,
-                "change_set_base_invalid",
+                "CHANGE_SET_BASE_INVALID",
                 "Change set base publication is missing or belongs to another workspace",
             )
         base = SnapshotBase(
@@ -115,7 +115,7 @@ def change_set_context(session: Session, change_set_id: str) -> SnapshotContext:
         if current_live is None or current_live.workspace_key != change_set.workspace_key:
             raise api_error(
                 409,
-                "change_set_base_invalid",
+                "CHANGE_SET_BASE_INVALID",
                 "Change set current-live base is missing or belongs to another workspace",
             )
         base = SnapshotBase(
@@ -127,7 +127,7 @@ def change_set_context(session: Session, change_set_id: str) -> SnapshotContext:
 def publication_context(session: Session, publication_id: str) -> SnapshotContext:
     publication = session.scalar(select(Publication).where(Publication.id == publication_id))
     if publication is None:
-        raise api_error(404, "publication_not_found", "Publication not found")
+        raise api_error(404, "PUBLICATION_NOT_FOUND", "Publication not found")
     return SnapshotContext(
         "publication",
         publication.id,
@@ -736,14 +736,14 @@ def snapshot_object_query(
     for field, operator, _raw in field_filters:
         if field in UNRECORDED_TIMESTAMPS:
             query_error(
-                "invalid_filter",
+                "INVALID_FILTER",
                 f"{UNRECORDED_TIMESTAMPS[field]} is not recorded in change sets or publications",
                 f"filter.{field}.{operator}",
             )
     sort_field = (sort or "").removeprefix("-")
     if sort_field in UNRECORDED_TIMESTAMPS:
         query_error(
-            "invalid_sort",
+            "INVALID_SORT",
             f"{UNRECORDED_TIMESTAMPS[sort_field]} is not recorded in change sets or publications",
             "sort",
         )

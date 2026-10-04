@@ -274,7 +274,7 @@ try {
   );
   expect((await readAs(api, "master-value", seed.carriers.id, inChangeSet)).record?.id === seed.carriers.id, "reshape: Carriers changed its ID");
   expect((await readAs(api, "domain", seed.logistics.id, live)).record?.parentObjectId === null, "reshape: the change reached live");
-  expect((await readAs(api, "domain", seed.logistics.id, inChangeSet)).error?.includes("object_type_changed"), "reshape: the old route does not answer object_type_changed");
+  expect((await readAs(api, "domain", seed.logistics.id, inChangeSet)).error?.includes("OBJECT_TYPE_CHANGED"), "reshape: the old route does not answer object_type_changed");
   checks.push("reshape: Master ID mapped from Codelist code in place (By type) and Value code typed in Carriers' row (By record) make the plan ready; applied and closed by keyboard with focus back on Logistics. In the change set Logistics is a codelist under Domain 00 (code LOG, description kept), Carriers a master value under it with its ID, values and description, Road still under Carriers with its containment edge re-typed to master-value-has-child; live keeps the domain");
 
   // Insert level above… Road, taking Rail too.

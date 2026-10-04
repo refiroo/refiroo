@@ -294,13 +294,13 @@ function WorkspaceDetail({
         status === "retired" ? "Workspace retired. Its data and history remain readable." : "Workspace reactivated.",
       );
     } catch (cause) {
-      if (isApiError(cause, "version_conflict")) {
+      if (isApiError(cause, "VERSION_CONFLICT")) {
         setRetiring(false);
         const current = await reloadWorkspace().catch(() => workspace);
         setConflict(
           `This workspace changed while the page was open. It is now “${current.label}” and ${current.status}. Review it and choose again.`,
         );
-      } else if (isApiError(cause, "default_workspace_cannot_be_retired")) {
+      } else if (isApiError(cause, "DEFAULT_WORKSPACE_CANNOT_BE_RETIRED")) {
         await reloadRuntime().catch(() => undefined);
         setActionError(errorMessage(cause));
       } else {
@@ -324,13 +324,13 @@ function WorkspaceDetail({
       // The default cannot be deleted; reread why rather than deciding it here.
       await reloadWorkspace().catch(() => undefined);
     } catch (cause) {
-      if (isApiError(cause, "version_conflict")) {
+      if (isApiError(cause, "VERSION_CONFLICT")) {
         const state = await reloadRuntime().catch(() => runtime);
         setConflict(
           `The default workspace changed to “${state.defaultWorkspaceKey}” while the page was open. Review it and choose again.`,
         );
       } else {
-        if (isApiError(cause, "workspace_retired")) await reloadWorkspace().catch(() => undefined);
+        if (isApiError(cause, "WORKSPACE_RETIRED")) await reloadWorkspace().catch(() => undefined);
         setActionError(errorMessage(cause));
       }
     } finally {
@@ -349,20 +349,20 @@ function WorkspaceDetail({
       setDeleting(false);
       onDeleted(workspace);
     } catch (cause) {
-      if (isApiError(cause, "version_conflict")) {
+      if (isApiError(cause, "VERSION_CONFLICT")) {
         setDeleting(false);
         const current = await reloadWorkspace().catch(() => workspace);
         setConflict(
           `This workspace changed while the page was open. It is now “${current.label}” and ${current.status}. Review it and choose again.`,
         );
       } else if (
-        isApiError(cause, "workspace_is_default") ||
-        isApiError(cause, "workspace_has_publications") ||
-        isApiError(cause, "workspace_not_empty")
+        isApiError(cause, "WORKSPACE_IS_DEFAULT") ||
+        isApiError(cause, "WORKSPACE_HAS_PUBLICATIONS") ||
+        isApiError(cause, "WORKSPACE_NOT_EMPTY")
       ) {
         // Something was added since the page loaded: show the refusal and the reason it now has.
         setDeleting(false);
-        if (isApiError(cause, "workspace_is_default")) await reloadRuntime().catch(() => undefined);
+        if (isApiError(cause, "WORKSPACE_IS_DEFAULT")) await reloadRuntime().catch(() => undefined);
         await reloadWorkspace().catch(() => undefined);
         setActionError(errorMessage(cause));
       } else {
@@ -648,7 +648,7 @@ function RenameWorkspaceDialog({
       // version the user has now seen.
       onRenamed(await api.updateWorkspace(workspace.key, { expectedVersion: workspace.version, label: label.trim() }));
     } catch (cause) {
-      if (isApiError(cause, "version_conflict")) {
+      if (isApiError(cause, "VERSION_CONFLICT")) {
         try {
           const current = await onReload();
           setConflict(

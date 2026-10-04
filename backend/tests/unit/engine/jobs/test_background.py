@@ -41,6 +41,6 @@ def test_a_job_queued_with_a_stale_change_set_version_is_refused(seeded):
         )
         with pytest.raises(ApiError) as refused:
             submit_background_batch(session, request, idempotency_key=None, retention_days=7)
-        assert refused.value.code == "change_set_version_conflict"
+        assert refused.value.code == "CHANGE_SET_VERSION_CONFLICT"
         session.rollback()
         assert session.scalar(select(func.count()).select_from(Job)) == jobs

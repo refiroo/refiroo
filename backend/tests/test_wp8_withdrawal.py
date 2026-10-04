@@ -223,7 +223,7 @@ def test_withdrawal_requires_and_enforces_the_active_publication_claim():
 
         # Withdrawing a publication that is no longer current conflicts and clears nothing.
         stale = withdraw_publication(client, previous["id"], expected_status=409)
-        assert stale.json()["error"]["code"] == "workspace_active_publication_conflict"
+        assert stale.json()["error"]["code"] == "WORKSPACE_ACTIVE_PUBLICATION_CONFLICT"
         assert stale.json()["error"]["message"] == "Active publication has changed"
         assert workspace_active_publication_id(workspace_key) == publication["id"]
         assert publication_status(publication["id"]) == "active"
@@ -231,7 +231,7 @@ def test_withdrawal_requires_and_enforces_the_active_publication_claim():
 
         # An unknown publication is not found and clears nothing.
         missing = withdraw_publication(client, str(uuid4()), expected_status=404)
-        assert missing.json()["error"]["code"] == "publication_not_found"
+        assert missing.json()["error"]["code"] == "PUBLICATION_NOT_FOUND"
         assert workspace_active_publication_id(workspace_key) == publication["id"]
         assert publication_status(publication["id"]) == "active"
 
@@ -362,7 +362,7 @@ def test_catalogue_retirement_remains_distinct_from_publication_withdrawal():
         assert published_object(client, admin_key, "language", publication["language"]["id"]) is not None
         # Record writes into a fresh change set are blocked because the CATALOGUE record is retired.
         blocked = create_change_set(client, admin_key, name="blocked", expected_status=409)
-        assert blocked.json()["error"]["code"] == "workspace_retired"
+        assert blocked.json()["error"]["code"] == "WORKSPACE_RETIRED"
 
     # The two operations never emit each other's audit events.
     assert _workspace_events(published_key)
@@ -644,7 +644,7 @@ def test_live_crud_after_publication_withdrawal_then_catalogue_read_only():
         ]
         for response in attempts:
             assert response.status_code == 409, response.text
-            assert response.json()["error"]["code"] == "workspace_retired"
+            assert response.json()["error"]["code"] == "WORKSPACE_RETIRED"
             assert response.json()["error"]["message"]
         assert published_graph_snapshot(client, key) == before
         assert publication_graph_snapshot(client, publication["id"]) == snapshot

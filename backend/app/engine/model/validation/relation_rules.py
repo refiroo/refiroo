@@ -13,7 +13,7 @@ def check_relation_type_keys(model: EngineModel, _index: ModelIndex) -> None:
         for field, key in (("key", relation.key), ("reverseKey", relation.reverseKey)):
             if key in seen:
                 raise ModelReferenceError(
-                    "duplicate_key",
+                    "DUPLICATE_KEY",
                     f"/relationTypes/{pointer_segment(relation.key)}/{field}",
                     f"Duplicate relation or reverse key '{key}'",
                 )
@@ -29,7 +29,7 @@ def check_object_type_relations(model: EngineModel, index: ModelIndex) -> None:
         _check_unique_features(allowed, path, index)
         if identity in identities:
             raise ModelReferenceError(
-                "duplicate_key", path, f"Duplicate object-type relation {identity}"
+                "DUPLICATE_KEY", path, f"Duplicate object-type relation {identity}"
             )
         identities.add(identity)
 
@@ -44,7 +44,7 @@ def check_parent_relations(model: EngineModel, _index: ModelIndex) -> None:
                 for item in model.objectTypeRelations
             ):
                 raise ModelReferenceError(
-                    "invalid_reference",
+                    "INVALID_REFERENCE",
                     f"/objectTypes/{pointer_segment(object_type.key)}/behavior/"
                     f"parentRelationTypeKeys/{pointer_segment(parent_relation)}",
                     f"Object type '{object_type.key}' has incompatible parent relation "
@@ -68,20 +68,20 @@ def _check_references(
 ) -> None:
     if allowed.relationTypeKey not in index.relation_types:
         raise ModelReferenceError(
-            "unknown_relation_type",
+            "UNKNOWN_RELATION_TYPE",
             f"{path}/relationTypeKey",
             f"Object-type relation references unknown relation type "
             f"'{allowed.relationTypeKey}'",
         )
     if allowed.fromObjectTypeKey not in index.object_types:
         raise ModelReferenceError(
-            "unknown_object_type",
+            "UNKNOWN_OBJECT_TYPE",
             f"{path}/fromObjectTypeKey",
             f"Object-type relation has unknown source '{allowed.fromObjectTypeKey}'",
         )
     if allowed.toObjectTypeKey not in index.object_types:
         raise ModelReferenceError(
-            "unknown_object_type",
+            "UNKNOWN_OBJECT_TYPE",
             f"{path}/toObjectTypeKey",
             f"Object-type relation has unknown target '{allowed.toObjectTypeKey}'",
         )
@@ -91,7 +91,7 @@ def _check_references(
             key for key in allowed.attributeTypeKeys if key in unknown_attributes
         )
         raise ModelReferenceError(
-            "unknown_attribute_type",
+            "UNKNOWN_ATTRIBUTE_TYPE",
             f"{path}/attributeTypeKeys/{pointer_segment(first_unknown)}",
             f"Object-type relation '{allowed.relationTypeKey}' has unknown attributes: "
             f"{sorted(unknown_attributes)}",
@@ -106,7 +106,7 @@ def _check_unique_features(
         not isinstance(unique_ancestor, str) or unique_ancestor not in index.object_types
     ):
         raise ModelReferenceError(
-            "invalid_reference",
+            "INVALID_REFERENCE",
             f"{path}/features/uniqueToAncestorTypeKey",
             f"Object-type relation '{allowed.relationTypeKey}' references unknown unique "
             f"ancestor object type '{unique_ancestor}'",
@@ -125,7 +125,7 @@ def _check_unique_features(
         or unique_condition.get("attributeTypeKey") not in target_bindings
     ):
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             f"{path}/features/uniqueWhenToAttributeEquals",
             f"Object-type relation '{allowed.relationTypeKey}' has an invalid "
             "uniqueWhenToAttributeEquals condition",

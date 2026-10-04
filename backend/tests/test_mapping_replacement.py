@@ -303,7 +303,7 @@ def test_stale_version_returns_409(client):
     r = client.put(PUT, json=_replacement_body(sv, mv, 0, target=None))
     assert r.status_code == 409
     err = r.json()["error"]
-    assert err["code"] == "mapping_version_conflict"
+    assert err["code"] == "MAPPING_VERSION_CONFLICT"
     assert err["details"]["mappingVersion"] == 1
     assert err["details"]["targetCount"] == 1
 
@@ -349,7 +349,7 @@ def test_clear_with_nonempty_attributes_rejected(client):
     sv, mv = _endpoints(client)
     r = client.put(PUT, json=_replacement_body(sv, mv, 0, target=None, attrs={"rank": 1}))
     assert r.status_code == 422
-    assert r.json()["error"]["code"] == "invalid_clear_attributes"
+    assert r.json()["error"]["code"] == "INVALID_CLEAR_ATTRIBUTES"
 
 
 # ---------------------------------------------------------------------------
@@ -409,7 +409,7 @@ def test_containment_binding_rejected(client):
     }
     r = client.put(PUT, json=body)
     assert r.status_code == 422
-    assert r.json()["error"]["code"] == "immutable_relation"
+    assert r.json()["error"]["code"] == "IMMUTABLE_RELATION"
 
 
 # ---------------------------------------------------------------------------
@@ -424,7 +424,7 @@ def test_one_to_one_cross_cardinality_violation(oto_client):
     ver = _live_set_version(sv2["id"], "outgoing")
     r = oto_client.put(PUT, json=_replacement_body(sv2, mv, ver, target=mv))
     assert r.status_code == 409
-    assert r.json()["error"]["code"] == "cardinality_violation"
+    assert r.json()["error"]["code"] == "CARDINALITY_VIOLATION"
 
 
 # ---------------------------------------------------------------------------
@@ -439,7 +439,7 @@ def test_one_to_many_outgoing_cross_check(otm_client):
     ver = _live_set_version(sv2["id"], "outgoing")
     r = otm_client.put(PUT, json=_replacement_body(sv2, mv, ver, target=mv))
     assert r.status_code == 409
-    assert r.json()["error"]["code"] == "cardinality_violation"
+    assert r.json()["error"]["code"] == "CARDINALITY_VIOLATION"
 
 
 def test_one_to_many_incoming_no_cross_check(otm_client):
@@ -505,7 +505,7 @@ def test_change_set_missing_change_set_version_409(client):
     body = _replacement_body(sv, mv, 0, target=mv, change_set_id=change_set["id"])
     r = client.put(PUT, json=body)
     assert r.status_code == 409
-    assert r.json()["error"]["code"] == "change_set_required"
+    assert r.json()["error"]["code"] == "CHANGE_SET_REQUIRED"
 
 
 def test_replacement_authority_follows_the_addressed_workspace_context(client):
@@ -543,13 +543,13 @@ def test_replacement_authority_follows_the_addressed_workspace_context(client):
         ),
     )
     assert foreign.status_code == 404
-    assert foreign.json()["error"]["code"] == "change_set_not_found"
+    assert foreign.json()["error"]["code"] == "CHANGE_SET_NOT_FOUND"
     unknown = client.put(
         f"/api/v1/workspaces/missing-{_suffix()}/mappings",
         json=_replacement_body(sv, mv, before[0], target=None),
     )
     assert unknown.status_code == 404
-    assert unknown.json()["error"]["code"] == "workspace_not_found"
+    assert unknown.json()["error"]["code"] == "WORKSPACE_NOT_FOUND"
     # Immutable history has no write context.
     publication = client.put(
         archive_put,
@@ -568,7 +568,7 @@ def test_replacement_authority_follows_the_addressed_workspace_context(client):
     assert retired.status_code == 200, retired.text
     live = client.put(archive_put, json=_replacement_body(sv, mv, before[0], target=None))
     assert live.status_code == 409
-    assert live.json()["error"]["code"] == "workspace_retired"
+    assert live.json()["error"]["code"] == "WORKSPACE_RETIRED"
     in_change_set = client.put(
         archive_put,
         json=_replacement_body(
@@ -576,7 +576,7 @@ def test_replacement_authority_follows_the_addressed_workspace_context(client):
         ),
     )
     assert in_change_set.status_code == 409
-    assert in_change_set.json()["error"]["code"] == "workspace_retired"
+    assert in_change_set.json()["error"]["code"] == "WORKSPACE_RETIRED"
     assert mapping_state() == before
 
 
@@ -666,7 +666,7 @@ def test_change_set_noop_rejects_stale_aggregate_token(client, mapped):
         ),
     )
     assert response.status_code == 409
-    assert response.json()["error"]["code"] == "change_set_version_conflict"
+    assert response.json()["error"]["code"] == "CHANGE_SET_VERSION_CONFLICT"
     assert _change_set_version(client, change_set["id"]) == change_set["version"]
 
 
@@ -686,7 +686,7 @@ def test_concurrent_replacements_claim_initial_set_once(client):
         responses = [future.result(timeout=15) for future in futures]
     assert sorted(response.status_code for response in responses) == [200, 409]
     conflict = next(response for response in responses if response.status_code == 409)
-    assert conflict.json()["error"]["code"] == "mapping_version_conflict"
+    assert conflict.json()["error"]["code"] == "MAPPING_VERSION_CONFLICT"
     assert _live_set_version(sv["id"], "outgoing") == 1
 
 
@@ -870,7 +870,7 @@ def test_activation_refuses_live_divergence_in_touched_mapping_set(
         },
     )
     assert activation.status_code == 409, activation.text
-    assert activation.json()["error"]["code"] == "version_conflict"
+    assert activation.json()["error"]["code"] == "VERSION_CONFLICT"
     conflicts = activation.json()["error"]["details"]["conflicts"]
     assert any(
         item["kind"] == "mapping-set"
@@ -993,7 +993,7 @@ def test_required_ownership_binding_is_rejected_before_endpoint_changes(client, 
     )
     result = client.put(PUT, json=body)
     assert result.status_code == 422, result.text
-    assert result.json()["error"]["code"] == "required_ownership_binding"
+    assert result.json()["error"]["code"] == "REQUIRED_OWNERSHIP_BINDING"
     if change_set:
         assert _change_set_version(client, change_set["id"]) == change_set["version"]
 
@@ -1047,7 +1047,7 @@ def test_required_mapping_cannot_be_cleared(client, change_set_context):
         ),
     )
     assert result.status_code == 422, result.text
-    assert result.json()["error"]["code"] == "required_relation"
+    assert result.json()["error"]["code"] == "REQUIRED_RELATION"
     with SessionLocal() as session:
         assert (
             session.scalar(
@@ -1142,7 +1142,7 @@ def test_overlapping_generic_write_forces_mapping_save_to_refresh(
         generic_result.text
     )
     assert mapping_result.status_code == 409, mapping_result.text
-    assert mapping_result.json()["error"]["code"] == "mapping_version_conflict"
+    assert mapping_result.json()["error"]["code"] == "MAPPING_VERSION_CONFLICT"
     assert _live_set_version(sv["id"], "outgoing") == expected + 1
     assert _live_set_version(mv["id"], "incoming") == expected + 1
     with SessionLocal() as session:
@@ -1379,10 +1379,10 @@ def test_replacement_validates_final_ancestor_scope(client, change_set_context):
         # A change set holds the breach for validation to report and publishing to refuse (H4c).
         assert response.status_code == 200, response.text
         validation = client.post(f"/api/v1/change-sets/{change_set['id']}/validation").json()
-        assert "duplicate_relation_scope" in {item["code"] for item in validation["diagnostics"]}
+        assert "DUPLICATE_RELATION_SCOPE" in {item["code"] for item in validation["diagnostics"]}
         return
     assert response.status_code == 409, response.text
-    assert response.json()["error"]["code"] == "duplicate_relation_scope"
+    assert response.json()["error"]["code"] == "DUPLICATE_RELATION_SCOPE"
     assert "ancestor scope" in response.json()["error"]["message"]
     assert _live_set_version(other["id"], "incoming") == 0
     # Replacing an outgoing edge within the same scope validates the final graph.
@@ -1419,7 +1419,7 @@ def test_missing_mapping_ancestor_is_actionable_at_both_write_boundaries(client,
         },
     )
     assert generic.status_code == 422, generic.text
-    assert generic.json()["error"]["code"] == "relation_ancestor_required"
+    assert generic.json()["error"]["code"] == "RELATION_ANCESTOR_REQUIRED"
     response = client.put(
         PUT,
         json=_replacement_body(
@@ -1432,7 +1432,7 @@ def test_missing_mapping_ancestor_is_actionable_at_both_write_boundaries(client,
         ),
     )
     assert response.status_code == 422, response.text
-    assert response.json()["error"]["code"] == "relation_ancestor_required"
+    assert response.json()["error"]["code"] == "RELATION_ANCESTOR_REQUIRED"
     assert "ancestor of type 'system'" in response.json()["error"]["message"]
     assert _live_set_version(sv["id"], "outgoing") == 0
     if change_set:

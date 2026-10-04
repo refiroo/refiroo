@@ -28,7 +28,7 @@ def load_runtime_state(session: Session) -> RuntimeSelection:
     selection = find_runtime_state(session)
     if selection is None:
         raise api_error(
-            503, "model_runtime_state_unavailable", "Model runtime state is unavailable"
+            503, "MODEL_RUNTIME_STATE_UNAVAILABLE", "Model runtime state is unavailable"
         )
     return selection
 

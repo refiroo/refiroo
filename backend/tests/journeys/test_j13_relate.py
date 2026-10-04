@@ -39,14 +39,14 @@ def test_find_relate_change_and_remove_a_relationship(world):
     stale_change = world.api.patch(
         path, {"attributes": {world.key("Bnn.weight"): 4}, "expectedVersion": 2}
     )
-    refused(stale_change, 409, "version_conflict")
+    refused(stale_change, 409, "VERSION_CONFLICT")
     changed = ok(
         world.api.patch(path, {"attributes": {world.key("Bnn.weight"): 4}, "expectedVersion": 1})
     )
     assert changed["version"] == 2 and changed["attributes"][world.key("Bnn.weight")] == 4
-    refused(world.api.delete(path, expectedVersion=1), 409, "version_conflict")
+    refused(world.api.delete(path, expectedVersion=1), 409, "VERSION_CONFLICT")
     assert world.api.delete(path, expectedVersion=2).status_code == 204
-    refused(world.api.get(path), 404, "relation_not_found")
+    refused(world.api.get(path), 404, "RELATION_NOT_FOUND")
 
 
 @pytest.mark.journey("J13.1")
@@ -91,11 +91,11 @@ def test_each_cardinality_holds(world):
     k1, k2 = (world.made("K", f"Paired {i}")["id"] for i in (1, 2))
 
     ok(world.relate("B11", r1, k1), 201)
-    refused(world.relate("B11", r1, k2), 409, "cardinality_violation")
-    refused(world.relate("B11", r2, k1), 409, "cardinality_violation")
+    refused(world.relate("B11", r1, k2), 409, "CARDINALITY_VIOLATION")
+    refused(world.relate("B11", r2, k1), 409, "CARDINALITY_VIOLATION")
     ok(world.relate("B1n", r1, k1), 201)
     ok(world.relate("B1n", r1, k2), 201)
-    refused(world.relate("B1n", r2, k1), 409, "cardinality_violation")
+    refused(world.relate("B1n", r2, k1), 409, "CARDINALITY_VIOLATION")
     h1, h2 = world.ids["j1"], world.ids["j2"]
     for source, target in ((h1, k1), (h1, k2), (h2, k1), (h2, k2)):
         ok(world.relate("Bnn", source, target, {"Bnn.weight": 1}), 201)
@@ -116,21 +116,21 @@ def test_a_relationship_must_fit_its_type(world):
     refused(
         world.relate("Bnn", h["id"], k["id"], {"undeclared-value": 1}),
         422,
-        "unknown_relation_attributes",
+        "UNKNOWN_RELATION_ATTRIBUTES",
     )
     refused(
-        world.relate("Bnn", h["id"], k["id"], {"Bnn.weight": 0}), 422, "attribute_below_minimum"
+        world.relate("Bnn", h["id"], k["id"], {"Bnn.weight": 0}), 422, "ATTRIBUTE_BELOW_MINIMUM"
     )
     unknown = {
         "relationTypeKey": "no-such-relation",
         "fromObjectId": h["id"],
         "toObjectId": k["id"],
     }
-    refused(world.api.post("/relations", unknown), 422, "unknown_relation_type")
-    refused(world.relate("Bnn", r["id"], k["id"]), 422, "invalid_relation_pair")
-    refused(world.relate("Bnn", h["id"], str(uuid4())), 422, "relation_endpoint_missing")
-    refused(world.relate("Bnn", h["id"], far["id"]), 422, "relation_wrong_scope")
-    refused(world.relate("Hparent", h["id"], world.ids["h1"]), 422, "immutable_relation")
+    refused(world.api.post("/relations", unknown), 422, "UNKNOWN_RELATION_TYPE")
+    refused(world.relate("Bnn", r["id"], k["id"]), 422, "INVALID_RELATION_PAIR")
+    refused(world.relate("Bnn", h["id"], str(uuid4())), 422, "RELATION_ENDPOINT_MISSING")
+    refused(world.relate("Bnn", h["id"], far["id"]), 422, "RELATION_WRONG_SCOPE")
+    refused(world.relate("Hparent", h["id"], world.ids["h1"]), 422, "IMMUTABLE_RELATION")
     assert len(_relations(world, h["id"])) == before
 
 
@@ -158,7 +158,7 @@ def test_scoped_uniqueness_holds_when_the_condition_starts_to_hold(world):
     error = refused(
         world.update("D", d2["id"], d2["version"], values={"D.active": True}),
         409,
-        "duplicate_relation_scope",
+        "DUPLICATE_RELATION_SCOPE",
     )
     assert error["details"]["conflictingObjectId"] == d1["id"]
     assert world.value(world.record("D", d2["id"]), "D.active") is False
@@ -188,7 +188,7 @@ def test_a_claimed_write_is_refused_when_the_set_changed(world):
     error = refused(
         world.relate("Bnn", h["id"], world.ids["k03"], {"Bnn.weight": 1}, **claim),
         409,
-        "relation_set_version_conflict",
+        "RELATION_SET_VERSION_CONFLICT",
     )
     assert error["details"]["anchorObjectId"] == h["id"]
     assert error["details"]["direction"] == "outgoing"
@@ -217,7 +217,7 @@ def test_a_claimed_write_is_refused_when_the_set_changed(world):
             expectedRelationSetVersion=current + 1,
         ),
         422,
-        "relation_set_claim_incomplete",
+        "RELATION_SET_CLAIM_INCOMPLETE",
     )
 
 
@@ -229,7 +229,7 @@ def test_relating_the_same_records_twice_is_refused(world):
     each. (Live, this reached the database's unique constraint and answered 500 before 0.9 B3.)"""
     h, k = world.made("H", "Related once"), world.made("K", "Related once token")
     ok(world.relate("Bnn", h["id"], k["id"], {"Bnn.weight": 1}), 201)
-    refused(world.relate("Bnn", h["id"], k["id"], {"Bnn.weight": 2}), 409, "duplicate_relation")
+    refused(world.relate("Bnn", h["id"], k["id"], {"Bnn.weight": 2}), 409, "DUPLICATE_RELATION")
     cs1 = world.change_set()
     staged = world.relate(
         "Bnn",
@@ -239,7 +239,7 @@ def test_relating_the_same_records_twice_is_refused(world):
         changeSetId=cs1["id"],
         expectedChangeSetVersion=world.current(cs1)["version"],
     )
-    refused(staged, 409, "duplicate_relation")
+    refused(staged, 409, "DUPLICATE_RELATION")
     for params in ({}, {"changeSetId": cs1["id"]}):
         assert len(_relations(world, h["id"], relationTypeKey=world.key("Bnn"), **params)) == 1
 
@@ -339,5 +339,5 @@ def test_two_relationships_racing_for_one_cardinality_limit(world):
         W1, *(lambda source=source: world.relate("B11", source, k) for source in (r1, r2))
     )
     assert sorted(response.status_code for response in responses) == [201, 409]
-    refused(next(r for r in responses if r.status_code == 409), 409, "cardinality_violation")
+    refused(next(r for r in responses if r.status_code == 409), 409, "CARDINALITY_VIOLATION")
     assert len(_relations(world, k, direction="incoming", relationTypeKey=world.key("B11"))) == 1

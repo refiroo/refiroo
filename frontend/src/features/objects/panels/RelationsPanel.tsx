@@ -160,7 +160,7 @@ export function RelationsPanel({
       reload();
     } catch (cause) {
       setRemoveError(errorMessage(cause));
-      if (isApiError(cause, "version_conflict") || isApiError(cause, "change_set_version_conflict")) {
+      if (isApiError(cause, "VERSION_CONFLICT") || isApiError(cause, "CHANGE_SET_VERSION_CONFLICT")) {
         try {
           const fresh = await api.relation(removing.relation.id, object.workspaceKey);
           setRemoving({ ...removing, relation: fresh });

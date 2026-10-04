@@ -116,6 +116,6 @@ def test_swagger_ui_and_redoc_are_gone_and_the_page_is_outside_the_openapi_docum
     for path in ("/redoc", "/docs/oauth2-redirect"):
         response = client.get(path)
         assert response.status_code == 404, path
-        assert response.json()["error"]["code"] == "http_error"
+        assert response.json()["error"]["code"] == "HTTP_ERROR"
     paths = app.openapi()["paths"]
     assert not [path for path in paths if path.startswith("/docs")]

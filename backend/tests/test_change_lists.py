@@ -418,7 +418,7 @@ def test_pages_walk_both_ways_jump_and_count(edited):
         f"/api/v1/change-sets/{change_set_id}/object-changes",
         params={"pageSize": 1, "cursor": cursor, "kind": "added"},
     )
-    assert refused.status_code == 422 and refused.json()["error"]["code"] == "invalid_cursor"
+    assert refused.status_code == 422 and refused.json()["error"]["code"] == "INVALID_CURSOR"
 
 
 def test_the_lists_agree_with_what_publishing_does_to_live(edited):
@@ -552,16 +552,16 @@ def test_refusals(client):
     for records in ("object", "relation"):
         response = client.get(f"/api/v1/change-sets/{missing}/{records}-changes")
         assert response.status_code == 404
-        assert response.json()["error"]["code"] == "change_set_not_found"
+        assert response.json()["error"]["code"] == "CHANGE_SET_NOT_FOUND"
     change_set = create_change_set(client, "default", source="currentLive").json()
     base = f"/api/v1/change-sets/{change_set['id']}"
     unknown_object = client.get(f"{base}/object-changes", params={"objectTypeKey": [SYSTEM, "no-such-type"]})
     assert unknown_object.status_code == 422
-    assert unknown_object.json()["error"]["code"] == "unknown_object_type"
+    assert unknown_object.json()["error"]["code"] == "UNKNOWN_OBJECT_TYPE"
     assert unknown_object.json()["error"]["details"]["path"] == "/query/objectTypeKey"
     unknown_relation = client.get(f"{base}/relation-changes", params={"relationTypeKey": "no-such-type"})
     assert unknown_relation.status_code == 422
-    assert unknown_relation.json()["error"]["code"] == "unknown_relation_type"
+    assert unknown_relation.json()["error"]["code"] == "UNKNOWN_RELATION_TYPE"
     assert client.get(f"{base}/object-changes", params={"kind": "moved"}).status_code == 422
     assert client.get(f"{base}/object-changes", params={"position": 1, "from": "end"}).status_code == 422
     empty = ok(client.get(f"{base}/object-changes", params={"includeTotal": True}))

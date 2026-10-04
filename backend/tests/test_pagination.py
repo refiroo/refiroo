@@ -84,7 +84,7 @@ def test_paginate_sequence_rejects_a_cursor_from_another_scope():
             page=PageRequest(cursor=cursor),
             page_size=1,
         )
-    assert excinfo.value.code == "invalid_cursor"
+    assert excinfo.value.code == "INVALID_CURSOR"
 
 
 def test_paginate_sequence_rejects_a_cursor_from_different_filters():
@@ -105,7 +105,7 @@ def test_paginate_sequence_rejects_a_cursor_from_different_filters():
             page=PageRequest(cursor=cursor),
             page_size=1,
         )
-    assert excinfo.value.code == "invalid_cursor"
+    assert excinfo.value.code == "INVALID_CURSOR"
 
 
 def test_paginate_statement_rejects_an_unparseable_cursor_before_querying():
@@ -120,7 +120,7 @@ def test_paginate_statement_rejects_an_unparseable_cursor_before_querying():
             page_size=1,
             message="Metadata cursor is invalid",
         )
-    assert excinfo.value.code == "invalid_cursor"
+    assert excinfo.value.code == "INVALID_CURSOR"
     assert excinfo.value.message == "Metadata cursor is invalid"
 
 
@@ -269,7 +269,7 @@ def test_sequence_position_past_the_end_continues_backward_from_the_last_row():
 def test_sequence_refuses_seek():
     with pytest.raises(ApiError) as excinfo:
         _sequence_page(PageRequest(seek="item-03"))
-    assert excinfo.value.code == "invalid_seek"
+    assert excinfo.value.code == "INVALID_SEEK"
 
 
 @pytest.mark.parametrize(
@@ -284,7 +284,7 @@ def test_sequence_refuses_seek():
 def test_a_page_is_selected_one_way_only(arguments):
     with pytest.raises(ApiError) as excinfo:
         PageRequest(**arguments)
-    assert excinfo.value.code == "conflicting_page_parameters"
+    assert excinfo.value.code == "CONFLICTING_PAGE_PARAMETERS"
     assert len(excinfo.value.details["parameters"]) == 2
 
 

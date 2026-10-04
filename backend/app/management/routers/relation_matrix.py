@@ -68,7 +68,7 @@ def get_relation_matrix(
     if change_set_id and publication_id:
         raise api_error(
             422,
-            "mutually_exclusive_context",
+            "MUTUALLY_EXCLUSIVE_CONTEXT",
             "changeSetId and publicationId cannot be combined",
         )
     read = open_matrix_read(

@@ -347,7 +347,7 @@ def test_filtered_rows_page_both_ways_by_cursor_and_position(client, translation
     assert names(last) == ["M4"]
     # A cursor binds the state filter and the columns.
     error = matrix(client, TRANSLATIONS, 422, **{**params, "state": "one"}, cursor=page["prevCursor"])
-    assert error["code"] == "invalid_cursor"
+    assert error["code"] == "INVALID_CURSOR"
     error = matrix(
         client,
         TRANSLATIONS,
@@ -355,7 +355,7 @@ def test_filtered_rows_page_both_ways_by_cursor_and_position(client, translation
         **{**params, "columnIds": translations["columns"][:2]},
         cursor=page["prevCursor"],
     )
-    assert error["code"] == "invalid_cursor"
+    assert error["code"] == "INVALID_CURSOR"
     staged = {**params, "changeSetId": translations["change_set"]["id"], "state": "historyOnly"}
     deep = matrix(client, TRANSLATIONS, **staged, position=1, includeTotal=True)
     assert (names(deep), deep["totalCount"]) == (["M3"], 2)
@@ -380,16 +380,16 @@ def test_default_columns_page_by_name_with_their_own_cursor(client, translations
         columnCursor=first["columnsNextCursor"],
         changeSetId=translations["change_set"]["id"],
     )
-    assert error["code"] == "invalid_cursor"
+    assert error["code"] == "INVALID_CURSOR"
 
 
 def test_rows_scope_search_sort_and_set_versions(client, translations):
     codelist, domain = translations["codelist"], translations["domain"]
     assert names(matrix(client, TRANSLATIONS, parentObjectId=codelist["id"])) == ["M1", "M2", "M3", "M4"]
     mismatch = matrix(client, TRANSLATIONS, 422, parentObjectId=domain["id"])
-    assert mismatch["code"] == "relation_matrix_parent_scope_mismatch"
+    assert mismatch["code"] == "RELATION_MATRIX_PARENT_SCOPE_MISMATCH"
     missing = matrix(client, TRANSLATIONS, 404, parentObjectId=str(uuid4()))
-    assert missing["code"] == "relation_matrix_parent_not_found"
+    assert missing["code"] == "RELATION_MATRIX_PARENT_NOT_FOUND"
     # searchFields: name, value-code and value-name; master-id is not among them.
     assert names(matrix(client, TRANSLATIONS, search="VC-M2")) == ["M2"]
     assert names(matrix(client, TRANSLATIONS, search="Value M3")) == ["M3"]
@@ -511,25 +511,25 @@ def test_master_values_by_system_many_to_many_incoming(client):
 def test_refusals_are_machine_readable(client, translations):
     columns = translations["columns"]
     assert matrix(client, {**TRANSLATIONS, "viewKey": "missing"}, 404)["code"] == (
-        "relation_matrix_view_not_found"
+        "RELATION_MATRIX_VIEW_NOT_FOUND"
     )
     # A view of another type is not a matrix.
     assert matrix(client, {"applicationKey": "rdm-systems", "viewKey": "system-to-master-mapping"}, 404)[
         "code"
-    ] == "relation_matrix_view_not_found"
+    ] == "RELATION_MATRIX_VIEW_NOT_FOUND"
     too_many = matrix(client, TRANSLATIONS, 422, columnIds=[str(uuid4()) for _ in range(21)])
-    assert too_many["code"] == "too_many_columns" and too_many["details"]["limit"] == 20
+    assert too_many["code"] == "TOO_MANY_COLUMNS" and too_many["details"]["limit"] == 20
     assert matrix(client, TRANSLATIONS, 422, columnIds=[columns[0], columns[0]])["code"] == (
-        "duplicate_column_ids"
+        "DUPLICATE_COLUMN_IDS"
     )
     wrong_type = matrix(client, TRANSLATIONS, 404, columnIds=[columns[0], translations["codelist"]["id"]])
-    assert wrong_type["code"] == "relation_matrix_column_not_found"
+    assert wrong_type["code"] == "RELATION_MATRIX_COLUMN_NOT_FOUND"
     assert wrong_type["details"]["columnIds"] == [translations["codelist"]["id"]]
     assert matrix(client, TRANSLATIONS, 422, state="one")["code"] == (
-        "relation_matrix_state_requires_columns"
+        "RELATION_MATRIX_STATE_REQUIRES_COLUMNS"
     )
     assert matrix(client, TRANSLATIONS, 422, columnIds=columns, columnCursor="x")["code"] == (
-        "conflicting_column_parameters"
+        "CONFLICTING_COLUMN_PARAMETERS"
     )
     both = matrix(
         client,
@@ -538,7 +538,7 @@ def test_refusals_are_machine_readable(client, translations):
         changeSetId=translations["change_set"]["id"],
         publicationId=translations["publication"]["id"],
     )
-    assert both["code"] == "mutually_exclusive_context"
+    assert both["code"] == "MUTUALLY_EXCLUSIVE_CONTEXT"
     assert matrix(client, TRANSLATIONS, 422, state="bogus", columnIds=columns)["code"] == (
-        "request_validation_error"
+        "REQUEST_VALIDATION_ERROR"
     )

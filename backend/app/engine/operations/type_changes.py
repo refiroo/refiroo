@@ -219,21 +219,21 @@ def change_object_type(
     record = lookup.object(change.object_id)
     if record is None:
         raise api_error(
-            404, "object_not_found", f"Object '{change.object_id}' not found in change set"
+            404, "OBJECT_NOT_FOUND", f"Object '{change.object_id}' not found in change set"
         )
     old_type = model.object_type(record.object_type_key)
     new_type = model.object_type(change.object_type_key)
     if new_type is None:
         raise api_error(
             422,
-            "unknown_object_type",
+            "UNKNOWN_OBJECT_TYPE",
             f"Object type '{change.object_type_key}' is not in the pinned model",
             {"objectTypeKey": change.object_type_key},
         )
     if old_type is None or old_type.key == new_type.key:
         raise api_error(
             422,
-            "object_type_unchanged",
+            "OBJECT_TYPE_UNCHANGED",
             f"Object '{change.object_id}' is already a '{new_type.key}' record",
             {"objectId": change.object_id, "objectTypeKey": new_type.key},
         )
@@ -405,7 +405,7 @@ def _new_values(
         if unknown:
             raise api_error(
                 422,
-                "unknown_attributes",
+                "UNKNOWN_ATTRIBUTES",
                 f"Attributes in the {label} are not bound on '{new_type.key}': {unknown}",
                 {"objectTypeKey": new_type.key, "attributeTypeKeys": unknown},
             )
@@ -452,7 +452,7 @@ def _require_compatible(
     if source not in old_bindings:
         raise api_error(
             422,
-            "invalid_type_mapping",
+            "INVALID_TYPE_MAPPING",
             f"Source attribute '{source}' is not bound on '{old_type_key}'",
             {"attributeTypeKey": target, "from": source},
         )
@@ -461,7 +461,7 @@ def _require_compatible(
     if not attribute_value_types_compatible(source_type, target_type):
         raise api_error(
             422,
-            "invalid_type_mapping",
+            "INVALID_TYPE_MAPPING",
             f"A {source_type} value of '{source}' cannot become the {target_type} '{target}'",
             {
                 "attributeTypeKey": target,
@@ -516,7 +516,7 @@ def _classify_relationships(
             # The other end needs this relationship; removing it would break that record.
             raise api_error(
                 422,
-                "required_relation_without_place",
+                "REQUIRED_RELATION_WITHOUT_PLACE",
                 f"'{new_type.key}' cannot hold relationship '{relation.relation_type_key}', "
                 f"which '{other.object_id}' requires",
                 {
@@ -578,7 +578,7 @@ def _sync_children(
         if len(allowed) != 1:
             raise api_error(
                 422,
-                "child_type_not_allowed",
+                "CHILD_TYPE_NOT_ALLOWED",
                 f"A '{row.object_type_key}' record cannot contain '{child.object_type_key}' "
                 f"record '{child.object_id}'",
                 {
@@ -610,7 +610,7 @@ def _restore_relation(
     if lookup.relation(restoring.relation_id) is not None:
         raise api_error(
             409,
-            "relation_already_exists",
+            "RELATION_ALREADY_EXISTS",
             f"Relation '{restoring.relation_id}' already exists in the change set",
             {"relationId": restoring.relation_id},
         )
@@ -692,7 +692,7 @@ def _require_relations(model: EngineModel, lookup: ChangeSetLookup, row: ChangeS
     if missing:
         raise api_error(
             422,
-            "missing_required_relations",
+            "MISSING_REQUIRED_RELATIONS",
             f"Required relationships missing: {missing}",
             {"objectId": row.object_id, "relationTypeKeys": missing},
         )

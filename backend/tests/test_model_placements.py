@@ -90,7 +90,7 @@ def test_served_in_the_context_of_the_model(starter):  # noqa: F811
     assert staged.status_code == 200 and staged.json() == live.json()
     missing = client.get("/api/v1/model/placements", params={"changeSetId": "nope"})
     assert missing.status_code == 404
-    assert missing.json()["error"]["code"] == "change_set_not_found"
+    assert missing.json()["error"]["code"] == "CHANGE_SET_NOT_FOUND"
 
 
 def test_the_frontend_fixture_is_the_served_placements():

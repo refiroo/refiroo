@@ -777,7 +777,7 @@ describe("App", () => {
     vi.mocked(api.model)
       .mockResolvedValueOnce(testModel)
       .mockRejectedValueOnce(
-        new ApiError(409, "unsupported_pinned_model_schema", "Unsupported pinned schema", {
+        new ApiError(409, "UNSUPPORTED_PINNED_MODEL_SCHEMA", "Unsupported pinned schema", {
           schemaVersion: "0.4",
         }),
       );

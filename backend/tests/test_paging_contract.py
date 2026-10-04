@@ -183,7 +183,7 @@ def test_top_level_lists_only_records_without_a_parent(volume, context):
         f"/api/v1/objects/{ITEM}",
         {**scope, "topLevel": True, "parentObjectId": dataset.heavy_group_id},
     )
-    assert refused["code"] == "mutually_exclusive_scope"
+    assert refused["code"] == "MUTUALLY_EXCLUSIVE_SCOPE"
 
 
 @pytest.mark.parametrize("context", CONTEXTS)
@@ -226,15 +226,15 @@ def test_relations_search_sort_seek_and_page_in_every_context(volume, context):
         assert len(created.json()["items"]) == len(by_name)
     else:
         assert created.status_code == 422
-        assert created.json()["error"]["code"] == "invalid_sort"
+        assert created.json()["error"]["code"] == "INVALID_SORT"
         assert "not recorded" in created.json()["error"]["message"]
     for refused in ("size", "relation", "sequenceId", "ancestor:vol-workspace"):
-        assert _error(client, path, {**params, "sort": refused})["code"] == "invalid_sort"
+        assert _error(client, path, {**params, "sort": refused})["code"] == "INVALID_SORT"
     # Without a relation type the group's relations reach items and nodes: an attribute still
     # sorts (records without it last), an ancestor sort needs one type.
     by_rank = _everything(client, path, {**params, "sort": RANK})
     assert sorted(_ids(by_rank)) == sorted(_ids(by_name))
-    assert _error(client, path, {**params, "sort": "ancestor:vol-group"})["code"] == "invalid_sort"
+    assert _error(client, path, {**params, "sort": "ancestor:vol-group"})["code"] == "INVALID_SORT"
 
 
 @pytest.mark.parametrize("context", CONTEXTS)
@@ -303,7 +303,7 @@ def test_relations_sort_by_the_related_types_attributes_and_ancestors(volume, co
     ranks = [_value(row, RANK) for row in mixed]
     present = [rank for rank in ranks if rank is not None]
     assert present == sorted(present) and ranks[: len(present)] == present
-    assert _error(client, path, {**heavy, "sort": "ancestor:vol-group"})["code"] == "invalid_sort"
+    assert _error(client, path, {**heavy, "sort": "ancestor:vol-group"})["code"] == "INVALID_SORT"
     only_nodes = _get(client, path, {**heavy, "relationTypeKey": GROUP_CONTAINS_NODE, "sort": RANK})
     assert {row["relation"]["relationTypeKey"] for row in only_nodes["items"]} == {GROUP_CONTAINS_NODE}
 
@@ -364,19 +364,19 @@ def test_page_selection_and_cursor_binding_are_refused_explicitly(volume, contex
         ({"seek": "Item", "position": 3}, ["position", "seek"]),
     ):
         error = _error(client, path, {**params, **extra})
-        assert error["code"] == "conflicting_page_parameters"
+        assert error["code"] == "CONFLICTING_PAGE_PARAMETERS"
         assert error["details"]["parameters"] == parameters
     # Cursors stay bound to their filters, whichever direction they point.
     for cursor in (first["nextCursor"], first["anchor"]):
         error = _error(client, path, {**params, "search": "Item", "cursor": cursor})
-        assert error["code"] == "invalid_cursor"
-    assert _error(client, path, {**params, "position": -1})["code"] == "request_validation_error"
+        assert error["code"] == "INVALID_CURSOR"
+    assert _error(client, path, {**params, "position": -1})["code"] == "REQUEST_VALIDATION_ERROR"
     # Every context lists by name without a sort (S4R4), so an unsorted list seeks a name.
     default = {key: value for key, value in params.items() if key != "sort"}
     sought = client.get(path, params={**default, "seek": "Item 0000"})
     assert sought.status_code == 200, sought.text
     assert sought.json()["items"][0]["name"].startswith("Item 0000")
-    assert _error(client, path, {**params, "sort": RANK, "seek": "high"})["code"] == "invalid_seek"
+    assert _error(client, path, {**params, "sort": RANK, "seek": "high"})["code"] == "INVALID_SEEK"
 
 
 @pytest.mark.parametrize("context", ["live", "change_set"])

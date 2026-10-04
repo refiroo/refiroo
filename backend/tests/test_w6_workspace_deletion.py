@@ -108,10 +108,10 @@ def test_empty_workspace_is_deleted_and_its_key_can_be_created_again(client):
     assert _delete(client, key, created["version"]).status_code == 204
     missing = client.get(f"/api/v1/workspaces/{key}")
     assert missing.status_code == 404
-    assert missing.json()["error"]["code"] == "workspace_not_found"
+    assert missing.json()["error"]["code"] == "WORKSPACE_NOT_FOUND"
     again = _delete(client, key, created["version"])
     assert again.status_code == 404
-    assert again.json()["error"]["code"] == "workspace_not_found"
+    assert again.json()["error"]["code"] == "WORKSPACE_NOT_FOUND"
 
     recreated = create_workspace(client, key)
     assert recreated["version"] == 1
@@ -132,7 +132,7 @@ def test_default_workspace_is_refused(client):
     state = client.get("/api/v1/workspace-runtime-state").json()
     default_key = state["defaultWorkspaceKey"]
     assert _detail(client, default_key)["deleteBlockedBy"] == "default"
-    _refused(client, default_key, "workspace_is_default")
+    _refused(client, default_key, "WORKSPACE_IS_DEFAULT")
     assert client.get("/api/v1/workspace-runtime-state").json() == state
 
 
@@ -158,7 +158,7 @@ def test_published_workspace_is_refused_even_after_withdrawal_and_emptying(clien
     detail = _detail(client, key)
     assert detail["deletable"] is False
     assert detail["deleteBlockedBy"] == "published"
-    error = _refused(client, key, "workspace_has_publications")
+    error = _refused(client, key, "WORKSPACE_HAS_PUBLICATIONS")
     assert "retire" in error["message"]
     assert client.get(f"/api/v1/publications/{publication['id']}").status_code == 200
 
@@ -174,13 +174,13 @@ def test_objects_and_change_sets_are_refused_until_removed(client):
     change_set = create_change_set(client, key).json()
 
     assert _detail(client, key)["deleteBlockedBy"] == "notEmpty"
-    error = _refused(client, key, "workspace_not_empty")
+    error = _refused(client, key, "WORKSPACE_NOT_EMPTY")
     assert error["details"] == {"objectCount": 2, "changeSetCount": 1}
     assert client.get(f"/api/v1/change-sets/{change_set['id']}").status_code == 200
 
     _delete_object(client, value)
     _delete_object(client, system)
-    error = _refused(client, key, "workspace_not_empty")
+    error = _refused(client, key, "WORKSPACE_NOT_EMPTY")
     assert error["details"] == {"objectCount": 0, "changeSetCount": 1}
 
     discarded = client.delete(
@@ -208,7 +208,7 @@ def test_stale_version_is_refused(client):
     renamed = client.patch(
         f"/api/v1/workspaces/{key}", json={"label": "Renamed", "expectedVersion": created["version"]}
     ).json()
-    error = _refused(client, key, "version_conflict", version=created["version"])
+    error = _refused(client, key, "VERSION_CONFLICT", version=created["version"])
     assert error["details"] == {"currentVersion": renamed["version"]}
 
 
@@ -251,7 +251,7 @@ def test_live_write_resolved_before_deletion_saves_nothing(monkeypatch, client):
 
     assert deletion.status_code == 204, deletion.text
     assert response.status_code == 404, response.text
-    assert response.json()["error"]["code"] == "workspace_not_found"
+    assert response.json()["error"]["code"] == "WORKSPACE_NOT_FOUND"
     with SessionLocal() as session:
         assert session.scalar(select(func.count()).where(RdmObject.workspace_key == key)) == 0
         assert session.get(Workspace, key) is None

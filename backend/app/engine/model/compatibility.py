@@ -46,7 +46,7 @@ def analyze_compatibility(
         _append_counted(
             diagnostics,
             _count_objects(session, RdmObject.application_key == key),
-            "application_in_use",
+            "APPLICATION_IN_USE",
             f"/applications/{_pointer(key)}",
             f"Application '{key}' is used by stored objects",
         )
@@ -55,7 +55,7 @@ def analyze_compatibility(
         _append_counted(
             diagnostics,
             _count_objects(session, RdmObject.object_type_key == key),
-            "object_type_in_use",
+            "OBJECT_TYPE_IN_USE",
             f"/objectTypes/{_pointer(key)}",
             f"Object type '{key}' is used by stored objects",
         )
@@ -70,7 +70,7 @@ def analyze_compatibility(
                     RdmObject.application_key == key,
                     RdmObject.object_type_key == object_type_key,
                 ),
-                "application_object_type_in_use",
+                "APPLICATION_OBJECT_TYPE_IN_USE",
                 f"/applications/{_pointer(key)}/objectTypeKeys/{_pointer(object_type_key)}",
                 f"Object type '{object_type_key}' is used in application '{key}'",
             )
@@ -105,7 +105,7 @@ def _check_attributes(
         _append_counted(
             diagnostics,
             _count_attribute_values(session, key),
-            "attribute_type_in_use",
+            "ATTRIBUTE_TYPE_IN_USE",
             f"/attributeTypes/{_pointer(key)}",
             f"Attribute type '{key}' has stored values",
         )
@@ -115,7 +115,7 @@ def _check_attributes(
             _append_counted(
                 diagnostics,
                 _count_attribute_values(session, key),
-                "attribute_value_type_changed",
+                "ATTRIBUTE_VALUE_TYPE_CHANGED",
                 f"/attributeTypes/{_pointer(key)}/valueType",
                 f"Attribute type '{key}' changes the declared type of stored values",
             )
@@ -131,7 +131,7 @@ def _check_attributes(
             _append_counted(
                 diagnostics,
                 _count_attribute_values(session, key, object_type_key),
-                "attribute_binding_in_use",
+                "ATTRIBUTE_BINDING_IN_USE",
                 f"/objectTypes/{_pointer(object_type_key)}/attributes/{_pointer(key)}",
                 f"Attribute '{key}' has stored values on object type '{object_type_key}'",
             )
@@ -147,7 +147,7 @@ def _check_attributes(
                 _append_counted(
                     diagnostics,
                     count,
-                    "required_attribute_missing",
+                    "REQUIRED_ATTRIBUTE_MISSING",
                     f"/objectTypes/{_pointer(object_type_key)}/attributes/{_pointer(key)}/required",
                     f"Stored '{object_type_key}' objects do not satisfy required attribute '{key}'",
                 )
@@ -166,7 +166,7 @@ def _check_attributes(
             _append_counted(
                 diagnostics,
                 count,
-                "object_validation_rule_violated",
+                "OBJECT_VALIDATION_RULE_VIOLATED",
                 f"/objectTypes/{_pointer(object_type_key)}/validation/atLeastOneOf",
                 f"Stored '{object_type_key}' objects do not satisfy atLeastOneOf",
             )
@@ -182,7 +182,7 @@ def _check_attributes(
                     period.startAttributeTypeKey,
                     period.endAttributeTypeKey,
                 ),
-                "invalid_effective_period",
+                "INVALID_EFFECTIVE_PERIOD",
                 f"/objectTypes/{_pointer(object_type_key)}/effectivePeriod",
                 f"Stored '{object_type_key}' objects have an effective period that does not end "
                 "after it starts",
@@ -197,7 +197,7 @@ def _check_attributes(
             _append_counted(
                 diagnostics,
                 count,
-                "attribute_uniqueness_violated",
+                "ATTRIBUTE_UNIQUENESS_VIOLATED",
                 f"/attributeTypes/{_pointer(key)}/features/unique",
                 f"Stored values violate uniqueness for attribute '{key}'",
             )
@@ -239,7 +239,7 @@ def _check_numeric_bounds(
         _append_counted(
             diagnostics,
             object_count + relation_count,
-            "attribute_validation_violated",
+            "ATTRIBUTE_VALIDATION_VIOLATED",
             f"/attributeTypes/{_pointer(key)}/validation/{bound}",
             f"Stored values violate {bound} for attribute '{key}'",
         )
@@ -263,7 +263,7 @@ def _check_relations(
         _append_counted(
             diagnostics,
             count,
-            "relation_pair_in_use",
+            "RELATION_PAIR_IN_USE",
             _relation_path(identity),
             f"Allowed relation {identity!r} is used by stored relations",
         )
@@ -276,7 +276,7 @@ def _check_relations(
             _append_counted(
                 diagnostics,
                 count,
-                "relation_attribute_in_use",
+                "RELATION_ATTRIBUTE_IN_USE",
                 f"{_relation_path(identity)}/attributeTypeKeys/{_pointer(key)}",
                 f"Relation attribute '{key}' has stored values",
             )
@@ -286,7 +286,7 @@ def _check_relations(
                 _append_counted(
                     diagnostics,
                     count,
-                    "relation_attribute_value_type_changed",
+                    "RELATION_ATTRIBUTE_VALUE_TYPE_CHANGED",
                     f"/attributeTypes/{_pointer(key)}/valueType",
                     f"Relation attribute '{key}' changes the type of stored values",
                 )
@@ -311,7 +311,7 @@ def _check_relations(
         _append_counted(
             diagnostics,
             count,
-            "required_relation_missing",
+            "REQUIRED_RELATION_MISSING",
             f"/objectTypeRelations/{_pointer(relation_key)}/*/{_pointer(target_key)}/required",
             f"Stored '{target_key}' objects lack required relation '{relation_key}'",
         )
@@ -334,7 +334,7 @@ def _check_relations(
             _append_counted(
                 diagnostics,
                 count,
-                "relation_uniqueness_violated",
+                "RELATION_UNIQUENESS_VIOLATED",
                 f"{_relation_path(identity)}/features/uniqueToAncestorTypeKey",
                 f"Stored relations violate scoped uniqueness for '{pair.relationTypeKey}'",
             )
@@ -369,7 +369,7 @@ def _check_parent_semantics(
             _append_counted(
                 diagnostics,
                 count,
-                "parent_required",
+                "PARENT_REQUIRED",
                 f"/objectTypes/{_pointer(object_type.key)}/features/rootCreatable",
                 f"Stored '{object_type.key}' objects require a parent",
             )
@@ -396,7 +396,7 @@ def _check_parent_semantics(
             _append_counted(
                 diagnostics,
                 _count_relation_pair(session, pair),
-                "parent_relation_semantics_changed",
+                "PARENT_RELATION_SEMANTICS_CHANGED",
                 f"/objectTypes/{_pointer(pair.toObjectTypeKey)}/behavior/parentRelationTypeKeys",
                 f"Stored containment uses parent relation '{pair.relationTypeKey}'",
             )
@@ -443,7 +443,7 @@ def _check_cardinality(
     _append_counted(
         diagnostics,
         count,
-        "relation_cardinality_violated",
+        "RELATION_CARDINALITY_VIOLATED",
         f"{_relation_path(identity)}/cardinality",
         f"Stored relations violate cardinality '{pair.cardinality}'",
     )

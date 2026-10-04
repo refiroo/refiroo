@@ -83,13 +83,13 @@ def test_a_period_is_refused_at_its_path(renamed):
 
     older = copy.deepcopy(source)
     older["schemaVersion"] = "0.7"
-    assert _diagnostic(older) == ("invalid_model", path)
+    assert _diagnostic(older) == ("INVALID_MODEL", path)
     unbound = with_period(startAttributeTypeKey=k("valid-from"), endAttributeTypeKey=k("domain-code"))
-    assert _diagnostic(unbound) == ("unknown_attribute_type", f"{path}/endAttributeTypeKey")
+    assert _diagnostic(unbound) == ("UNKNOWN_ATTRIBUTE_TYPE", f"{path}/endAttributeTypeKey")
     not_a_date = with_period(startAttributeTypeKey=k("value-code"), endAttributeTypeKey=k("valid-to"))
-    assert _diagnostic(not_a_date) == ("invalid_model", f"{path}/startAttributeTypeKey")
+    assert _diagnostic(not_a_date) == ("INVALID_MODEL", f"{path}/startAttributeTypeKey")
     same = with_period(startAttributeTypeKey=k("valid-from"), endAttributeTypeKey=k("valid-from"))
-    assert _diagnostic(same) == ("invalid_model", f"{path}/endAttributeTypeKey")
+    assert _diagnostic(same) == ("INVALID_MODEL", f"{path}/endAttributeTypeKey")
     extra = with_period(
         startAttributeTypeKey=k("valid-from"), endAttributeTypeKey=k("valid-to"), timeZone="UTC"
     )
@@ -121,7 +121,7 @@ def test_removing_an_exposed_types_period_is_a_contract_change(renamed):
     del _object_type(without, k("master-value"))["effectivePeriod"]
     diagnostics = contract_diagnostics(active, parse_model(without))
     assert [(d.code, d.path) for d in diagnostics] == [
-        ("consumer_contract_version_required", f"{API}/objectTypes/{k('master-value')}")
+        ("CONSUMER_CONTRACT_VERSION_REQUIRED", f"{API}/objectTypes/{k('master-value')}")
     ]
     assert "no longer declares an effective period" in diagnostics[0].message
     # Adding one back is compatible, and so is a higher contract version.
@@ -328,16 +328,16 @@ def test_as_of_is_bound_into_cursors(periods):
     dated = _ok(client.get(path, params={"workspaceKey": WORKSPACE, "asOf": "2026-06-30", "pageSize": 2}))
     _refused(
         client.get(path, params={"workspaceKey": WORKSPACE, "asOf": "2026-07-01", "cursor": dated["nextCursor"]}),
-        "invalid_cursor",
+        "INVALID_CURSOR",
     )
     undated = _ok(client.get(path, params={"workspaceKey": WORKSPACE, "pageSize": 2}))
     _refused(
         client.get(path, params={"workspaceKey": WORKSPACE, "asOf": "2026-06-30", "cursor": undated["nextCursor"]}),
-        "invalid_cursor",
+        "INVALID_CURSOR",
     )
     body = {"objectTypeKey": k(ENTRY), "asOf": "2026-06-30", "pageSize": 2}
     first = _ok(client.post(QUERY, json=body))
-    _refused(client.post(QUERY, json={**body, "asOf": "2026-07-01", "cursor": first["nextCursor"]}), "invalid_cursor")
+    _refused(client.post(QUERY, json={**body, "asOf": "2026-07-01", "cursor": first["nextCursor"]}), "INVALID_CURSOR")
 
 
 def test_as_of_is_refused_where_no_period_applies(periods):
@@ -346,23 +346,23 @@ def test_as_of_is_refused_where_no_period_applies(periods):
     # Folders bind a date field but declare no period: nothing is inferred from it (SC-11).
     error = _refused(
         client.get(f"/api/v1/objects/{k(FOLDER)}", params={"workspaceKey": WORKSPACE, "asOf": "2026-07-01"}),
-        "as_of_not_supported",
+        "AS_OF_NOT_SUPPORTED",
         "/query/asOf",
     )
     assert error["details"]["objectTypeKey"] == k(FOLDER)
     _refused(
-        client.post(QUERY, json={"objectTypeKey": k(FOLDER), "asOf": "2026-07-01"}), "as_of_not_supported", "/asOf"
+        client.post(QUERY, json={"objectTypeKey": k(FOLDER), "asOf": "2026-07-01"}), "AS_OF_NOT_SUPPORTED", "/asOf"
     )
     for value in ("tomorrow", "20260701", "2026-07-01T00:00:00"):
-        _refused(client.post(QUERY, json={"objectTypeKey": k(ENTRY), "asOf": value}), "invalid_query", "/asOf")
+        _refused(client.post(QUERY, json={"objectTypeKey": k(ENTRY), "asOf": value}), "INVALID_QUERY", "/asOf")
     for value in ("tomorrow", "2026-07-01T00:00:00", "1782864000", "2026-02-30"):
         bad = client.get(f"/api/v1/objects/{k(ENTRY)}", params={"workspaceKey": WORKSPACE, "asOf": value})
-        _refused(bad, "request_validation_error")
+        _refused(bad, "REQUEST_VALIDATION_ERROR")
     # The lookup lists several types: asOf is refused with the route that answers it (D21).
     for params in ({}, {"objectTypeKey": k(ENTRY)}):
         error = _refused(
             client.get("/api/v1/objects", params={"workspaceKey": WORKSPACE, "asOf": "2026-07-01", **params}),
-            "as_of_not_supported",
+            "AS_OF_NOT_SUPPORTED",
             "/query/asOf",
         )
         assert error["details"]["route"] == "GET /api/v1/objects/{objectTypeKey}"
@@ -384,7 +384,7 @@ def test_writes_refuse_a_period_that_does_not_end_after_it_starts(periods):
             values = {"par-code": "Bad", START: start, END: end}
             error = _refused(
                 _create(client, k, ENTRY, "Bad", folder, values, **(context or claims())),
-                "invalid_effective_period",
+                "INVALID_EFFECTIVE_PERIOD",
             )
             assert error["details"] == {
                 "startAttributeTypeKey": k(START),
@@ -411,14 +411,14 @@ def test_writes_refuse_a_period_that_does_not_end_after_it_starts(periods):
                     **({} if context else claims()),
                 },
             ),
-            "invalid_effective_period",
+            "INVALID_EFFECTIVE_PERIOD",
         )
         _refused(
             client.patch(
                 f"{path}/attributes/{k(START)}",
                 json={"value": "2026-08-01", "expectedVersion": record["version"], **({} if context else claims())},
             ),
-            "invalid_effective_period",
+            "INVALID_EFFECTIVE_PERIOD",
         )
         # Moving both together is a valid period.
         _ok(
@@ -452,7 +452,7 @@ def test_change_set_validation_reports_an_invalid_period(periods):
         session.commit()
     validation = _ok(client.post(f"/api/v1/change-sets/{change_set}/validation"))
     assert validation["valid"] is False
-    found = [item for item in validation["diagnostics"] if item["code"] == "invalid_effective_period"]
+    found = [item for item in validation["diagnostics"] if item["code"] == "INVALID_EFFECTIVE_PERIOD"]
     assert len(found) == 1 and found[0]["details"]["objectId"] == future, validation
 
 
@@ -487,7 +487,7 @@ def test_releases_remove_and_add_a_period(periods):
     _ok(_activate(client, _install(without, "0.9.0-q4-without")))
     _refused(
         client.get(f"/api/v1/objects/{k(ENTRY)}", params={"workspaceKey": WORKSPACE, "asOf": "2026-07-01"}),
-        "as_of_not_supported",
+        "AS_OF_NOT_SUPPORTED",
     )
     inverted = _ok(
         _create(
@@ -503,7 +503,7 @@ def test_releases_remove_and_add_a_period(periods):
     diagnostics = refused.json()["error"]["details"]
     diagnostics = diagnostics.get("diagnostics", diagnostics) if isinstance(diagnostics, dict) else diagnostics
     assert [(item["code"], item["path"], item["count"]) for item in diagnostics] == [
-        ("invalid_effective_period", PERIOD_PATH.format(type=k(ENTRY)), 1)
+        ("INVALID_EFFECTIVE_PERIOD", PERIOD_PATH.format(type=k(ENTRY)), 1)
     ]
 
     record = _ok(client.get(f"/api/v1/objects/{k(ENTRY)}/{inverted['id']}"))
@@ -594,10 +594,10 @@ def test_sc11_business_dates_on_the_starter(starter):  # noqa: F811 - fixture
     # A codelist declares no period; the asOf is refused, not ignored.
     _refused(
         client.get(f"/api/v1/objects/{k('codelist')}", params={"workspaceKey": workspace, "asOf": "2002-01-01"}),
-        "as_of_not_supported",
+        "AS_OF_NOT_SUPPORTED",
     )
     # Dates have no time zone: asOf is a date, not a time.
     _refused(
         client.get(path, params={"workspaceKey": workspace, "asOf": "2002-01-01T00:00:00+01:00"}),
-        "request_validation_error",
+        "REQUEST_VALIDATION_ERROR",
     )

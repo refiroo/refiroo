@@ -136,7 +136,7 @@ def list_object_changes(
     ``ix_change_set_objects_type_name``.
     """
     types = _require_types(
-        object_type_keys or (), model.object_type, "unknown_object_type", "Object type", "objectTypeKey"
+        object_type_keys or (), model.object_type, "UNKNOWN_OBJECT_TYPE", "Object type", "objectTypeKey"
     )
     wanted = _kinds(kinds)
     own = ChangeSetObject
@@ -478,7 +478,7 @@ def list_relation_changes(
     types = _require_types(
         relation_type_keys or (),
         model.relation_type,
-        "unknown_relation_type",
+        "UNKNOWN_RELATION_TYPE",
         "Relation type",
         "relationTypeKey",
     )

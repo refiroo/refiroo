@@ -27,7 +27,7 @@ def _binding_map(
     for binding in object_type.attributes:
         if binding.attributeTypeKey in result:
             raise ModelReferenceError(
-                "duplicate_key",
+                "DUPLICATE_KEY",
                 f"{_base_path(object_type)}/attributes/"
                 f"{pointer_segment(binding.attributeTypeKey)}",
                 f"Duplicate attribute binding '{binding.attributeTypeKey}' in "
@@ -45,7 +45,7 @@ def _check_bound_attribute_types(
     for binding in object_type.attributes:
         if binding.attributeTypeKey not in index.attribute_types:
             raise ModelReferenceError(
-                "unknown_attribute_type",
+                "UNKNOWN_ATTRIBUTE_TYPE",
                 f"{_base_path(object_type)}/attributes/"
                 f"{pointer_segment(binding.attributeTypeKey)}/attributeTypeKey",
                 f"Object type '{object_type.key}' references unknown attribute type "
@@ -59,7 +59,7 @@ def _check_display_attribute(
     display_key = object_type.displayAttributeTypeKey
     if display_key and display_key not in bindings:
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             f"{_base_path(object_type)}/displayAttributeTypeKey",
             f"Object type '{object_type.key}' display attribute '{display_key}' is not attached",
         )
@@ -80,7 +80,7 @@ def _check_effective_period(
         key = getattr(period, role)
         if key not in bindings:
             raise ModelReferenceError(
-                "unknown_attribute_type",
+                "UNKNOWN_ATTRIBUTE_TYPE",
                 f"{path}/{role}",
                 f"Object type '{object_type.key}' effective period names '{key}', which it does "
                 "not bind",
@@ -88,14 +88,14 @@ def _check_effective_period(
         definition = model.attribute_type(key)
         if definition is None or definition.valueType != "date":
             raise ModelReferenceError(
-                "invalid_model",
+                "INVALID_MODEL",
                 f"{path}/{role}",
                 f"Object type '{object_type.key}' effective period attribute '{key}' must be a "
                 "date attribute",
             )
     if period.startAttributeTypeKey == period.endAttributeTypeKey:
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             f"{path}/endAttributeTypeKey",
             f"Object type '{object_type.key}' effective period needs two different attributes",
         )
@@ -112,21 +112,21 @@ def _check_at_least_one_of(
         isinstance(key, str) for key in at_least_one
     ):
         raise ModelReferenceError(
-            "invalid_model",
+            "INVALID_MODEL",
             path,
             f"Object type '{object_type.key}' validation.atLeastOneOf must be a list of "
             "attribute keys",
         )
     if len(at_least_one) != len(set(at_least_one)):
         raise ModelReferenceError(
-            "duplicate_key",
+            "DUPLICATE_KEY",
             path,
             f"Object type '{object_type.key}' validation.atLeastOneOf has duplicate keys",
         )
     unknown = set(at_least_one) - set(bindings)
     if unknown:
         raise ModelReferenceError(
-            "unknown_attribute_type",
+            "UNKNOWN_ATTRIBUTE_TYPE",
             path,
             f"Object type '{object_type.key}' validation.atLeastOneOf references unbound "
             f"attributes: {sorted(unknown)}",

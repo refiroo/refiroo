@@ -113,7 +113,7 @@ def test_object_lifecycle_is_bound_to_cursor_filters_and_sort():
             },
         )
         assert mismatched.status_code == 422
-        assert mismatched.json()["error"]["code"] == "invalid_cursor"
+        assert mismatched.json()["error"]["code"] == "INVALID_CURSOR"
 
 
 @pytest.mark.parametrize("context", ["live", "change_set"])
@@ -131,7 +131,7 @@ def test_every_built_in_object_sort_supports_cursor_traversal(context):
                     "/api/v1/objects/domain", params={"search": token, "sort": sort}
                 )
                 assert refused.status_code == 422, refused.text
-                assert refused.json()["error"]["code"] == "invalid_sort"
+                assert refused.json()["error"]["code"] == "INVALID_SORT"
         timestamp_sorts = ("createdAt", "-createdAt", "updatedAt", "-updatedAt")
         for sort in ("name", "-name", *(timestamp_sorts if context == "live" else ())):
             seen: list[str] = []
@@ -195,7 +195,7 @@ def test_relation_expansion_is_paged_cursor_bound_and_workspace_filtered():
             },
         )
         assert mismatch.status_code == 422
-        assert mismatch.json()["error"]["code"] == "invalid_cursor"
+        assert mismatch.json()["error"]["code"] == "INVALID_CURSOR"
 
 
 def test_object_parent_candidate_and_relation_queries_preserve_workspace_scope():
@@ -239,7 +239,7 @@ def test_object_parent_candidate_and_relation_queries_preserve_workspace_scope()
             },
         )
         assert wrong_parent.status_code == 422
-        assert wrong_parent.json()["error"]["code"] == "parent_wrong_scope"
+        assert wrong_parent.json()["error"]["code"] == "PARENT_WRONG_SCOPE"
 
         wrong_relation = client.post(
             "/api/v1/relations",
@@ -252,7 +252,7 @@ def test_object_parent_candidate_and_relation_queries_preserve_workspace_scope()
             },
         )
         assert wrong_relation.status_code == 422
-        assert wrong_relation.json()["error"]["code"] == "relation_endpoint_missing"
+        assert wrong_relation.json()["error"]["code"] == "RELATION_ENDPOINT_MISSING"
 
 
 def test_object_history_includes_safe_object_and_connected_relation_events():
@@ -291,7 +291,7 @@ def test_object_history_includes_safe_object_and_connected_relation_events():
             params={"pageSize": 1, "cursor": mismatched_cursor},
         )
         assert wrong_object.status_code == 422
-        assert wrong_object.json()["error"]["code"] == "invalid_cursor"
+        assert wrong_object.json()["error"]["code"] == "INVALID_CURSOR"
 
 
 def test_relation_writes_project_both_endpoint_subjects():

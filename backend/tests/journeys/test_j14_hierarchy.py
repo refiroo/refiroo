@@ -93,7 +93,7 @@ def test_a_hierarchy_of_mixed_types(world):
     ok(_move(world, "C", c["id"], q["id"]))
     assert _ids(world.record("C2", child["id"])["path"]) == [q["id"], c["id"], child["id"]]
     # A record of a type C cannot stand under, in C's application (see J03.2).
-    refused(_move(world, "C", c["id"], world.ids["h1"]), 422, "invalid_parent_type")
+    refused(_move(world, "C", c["id"], world.ids["h1"]), 422, "INVALID_PARENT_TYPE")
 
 
 @pytest.mark.journey("J14.3")
@@ -106,7 +106,7 @@ def test_to_the_top_level(world):
     tops = ok(world.api.get(f"/objects/{world.key('H')}", topLevel=True))["items"]
     assert world.ids["h3"] in {item["id"] for item in tops}
     c = world.made("C", "Room", parent=world.made("P", "Estate")["id"])
-    refused(_move(world, "C", c["id"], None), 422, "parent_required")
+    refused(_move(world, "C", c["id"], None), 422, "PARENT_REQUIRED")
 
 
 @pytest.mark.journey("J14.4")
@@ -125,7 +125,7 @@ def test_a_record_cannot_move_into_its_own_subtree(world):
     assert page["totalCount"] == len(page["items"])
 
     before = world.record("H", h2)
-    refused(_move(world, "H", h2, world.ids["h4"]), 422, "parent_cycle")
+    refused(_move(world, "H", h2, world.ids["h4"]), 422, "PARENT_CYCLE")
     assert world.record("H", h2) == before
 
 
@@ -148,7 +148,7 @@ def test_a_move_that_changes_a_scope_ancestor(world):
     )
 
     error = refused(
-        _move(world, "D", d2["id"], d1["parentObjectId"]), 409, "duplicate_relation_scope"
+        _move(world, "D", d2["id"], d1["parentObjectId"]), 409, "DUPLICATE_RELATION_SCOPE"
     )
     assert error["details"]["ancestorObjectId"] == g1["id"]
     assert error["details"]["conflictingObjectId"] == d1["id"]
@@ -224,7 +224,7 @@ def test_two_moves_racing_into_a_cycle(world):
 
     responses = world.race(W1, lambda: move(a["id"], b["id"]), lambda: move(b["id"], a["id"]))
     assert sorted(response.status_code for response in responses) == [200, 422]
-    refused(next(r for r in responses if r.status_code == 422), 422, "parent_cycle")
+    refused(next(r for r in responses if r.status_code == 422), 422, "PARENT_CYCLE")
     for record in (a, b):
         path = world.record("H", record["id"])["path"]
         assert path[0]["id"] == world.ids["h1"] and len(path) <= 3

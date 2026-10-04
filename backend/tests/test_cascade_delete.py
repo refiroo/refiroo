@@ -89,7 +89,7 @@ def test_non_cascade_retirement_returns_recursive_child_impact_without_mutating(
 
         assert response.status_code == 409
         error = response.json()["error"]
-        assert error["code"] == "object_has_dependants"
+        assert error["code"] == "OBJECT_HAS_DEPENDANTS"
         assert error["details"]["objectCount"] == 3
         assert error["details"]["retainedAssociationCount"] == 1
         assert {item["id"] for item in error["details"]["objectsToRetire"]} == {
@@ -120,7 +120,7 @@ def test_confirmed_delete_unlinks_optional_relation_and_retains_related_identity
             f"/api/v1/objects/master-value/{master['id']}", params={"expectedVersion": 1}
         )
         assert deleted.status_code == 409
-        assert deleted.json()["error"]["code"] == "object_has_dependants"
+        assert deleted.json()["error"]["code"] == "OBJECT_HAS_DEPENDANTS"
         preview = deleted
         deleted = client.delete(
             f"/api/v1/objects/master-value/{master['id']}",

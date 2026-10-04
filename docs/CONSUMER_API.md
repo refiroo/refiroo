@@ -432,7 +432,7 @@ GET …/xref?query=CHF&system=SAP&to.system=Oracle&expect=one
 model-declared effective period contains that date (Base 0.9 plan D6), across every page of the
 request. It never infers validity from an arbitrary date field:
 
-- a list or get by ID of a type with no declared period answers `400 as_of_not_supported`, naming
+- a list or get by ID of a type with no declared period answers `400 AS_OF_NOT_SUPPORTED`, naming
   the type (SC-11);
 - XREF across several types applies `asOf` to the types that declare a period and reports them in
   `asOfApplied`; the other types are returned unfiltered (C-D14).
@@ -658,7 +658,7 @@ coordination is 0.11 work.
 | C13 | Event acceptance: the scenarios below, plus a bulk-volume delivery budget |
 | C14 | Batch resolve: `POST …/resolve`, by query and by ID, `defaults`, per-item outcomes, batch maximum, volume budget |
 | C15 | Crosswalk: `targetable` validation, `to.{parameter}` on XREF, get by ID, lists and batch resolve, `target`, `target_not_found` and `ambiguous_target` |
-| C16 | `asOf` on every read, over the model's declared effective periods (Base 0.9 Track Q); `as_of_not_supported`, `asOfApplied` |
+| C16 | `asOf` on every read, over the model's declared effective periods (Base 0.9 Track Q); `AS_OF_NOT_SUPPORTED`, `asOfApplied` |
 
 C1 comes first. C2 builds on C1. C3 and C4 can run in parallel after C2. C5 follows C4, C6 follows C3
 and C4, and C8 closes the read scope. C9 needs C2, because events are about consumer objects and
@@ -715,7 +715,7 @@ table under "Behavior the engine does not carry over" says otherwise:
 14. after `410 EVENTS_EXPIRED`, a re-sync from a publication's lists and its `eventSequence` misses no
     change and repeats only already-seen events (with C13);
 15. `asOf` on each side of a period boundary, at the boundary itself and with overlapping periods;
-    `as_of_not_supported` for a type with no declared period (SC-11, with C16);
+    `AS_OF_NOT_SUPPORTED` for a type with no declared period (SC-11, with C16);
 16. the API index lists every installed definition and its OpenAPI URL.
 
 ## Decisions

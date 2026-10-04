@@ -57,12 +57,12 @@ def test_withdraw_and_start_again_from_an_earlier_publication(world):
     refused(
         world.api.post(f"/publications/{p1['id']}/withdrawal"),
         409,
-        "workspace_active_publication_conflict",
+        "WORKSPACE_ACTIVE_PUBLICATION_CONFLICT",
     )
     refused(
         world.api.post("/publications/00000000-0000-4000-8000-000000000000/withdrawal"),
         404,
-        "publication_not_found",
+        "PUBLICATION_NOT_FOUND",
     )
     ok(world.api.post("/workspaces", {"key": "short-lived", "label": "Short lived"}), 201)
     world.made("R", "Short lived record", workspace="short-lived")
@@ -74,7 +74,7 @@ def test_withdraw_and_start_again_from_an_earlier_publication(world):
             {"expectedVersion": workspace["version"], "status": "retired"},
         )
     )
-    refused(world.api.post(f"/publications/{closing['id']}/withdrawal"), 409, "workspace_retired")
+    refused(world.api.post(f"/publications/{closing['id']}/withdrawal"), 409, "WORKSPACE_RETIRED")
 
 
 @pytest.mark.journey("J07.1")

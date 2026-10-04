@@ -45,14 +45,14 @@ export function ObjectDeleteDialog({
       finishNavigation();
       onDeleted();
     } catch (cause) {
-      if (isApiError(cause, "object_has_dependants")) {
+      if (isApiError(cause, "OBJECT_HAS_DEPENDANTS")) {
         setImpact(cause.details as ObjectDeletionImpact);
       } else {
         setError(errorMessage(cause));
         if (
-          isApiError(cause, "change_set_version_conflict") ||
-          isApiError(cause, "deletion_preview_changed") ||
-          isApiError(cause, "version_conflict")
+          isApiError(cause, "CHANGE_SET_VERSION_CONFLICT") ||
+          isApiError(cause, "DELETION_PREVIEW_CHANGED") ||
+          isApiError(cause, "VERSION_CONFLICT")
         )
           setStale(true);
       }

@@ -181,7 +181,7 @@ def test_get_relation_by_id_returns_404_when_unknown():
     with TestClient(app) as client:
         response = client.get(_relation_path(str(uuid4())))
         assert response.status_code == 404
-        assert response.json()["error"]["code"] == "relation_not_found"
+        assert response.json()["error"]["code"] == "RELATION_NOT_FOUND"
 
 
 def test_get_engine_maintained_relation_is_readable():
@@ -228,7 +228,7 @@ def test_domain_and_codelist_share_exclusive_system_representation_relation():
             },
         )
         assert conflicting.status_code == 409
-        assert conflicting.json()["error"]["code"] == "cardinality_violation"
+        assert conflicting.json()["error"]["code"] == "CARDINALITY_VIOLATION"
 
 
 # --- PATCH ---
@@ -263,7 +263,7 @@ def test_relation_attributes_must_be_declared_by_the_allowed_pair():
             json={"attributes": {"confidence": 0.9}, "expectedVersion": 1},
         )
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "unknown_relation_attributes"
+        assert response.json()["error"]["code"] == "UNKNOWN_RELATION_ATTRIBUTES"
         assert client.get(_relation_path(mapping["id"])).json()["version"] == 1
 
 
@@ -280,7 +280,7 @@ def test_create_relation_rejects_undeclared_attributes():
             },
         )
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "unknown_relation_attributes"
+        assert response.json()["error"]["code"] == "UNKNOWN_RELATION_ATTRIBUTES"
 
 
 def test_relation_attributes_use_the_declared_value_type(mapping_relation_attributes):
@@ -291,7 +291,7 @@ def test_relation_attributes_use_the_declared_value_type(mapping_relation_attrib
             json={"attributes": {"sort-order": "nine"}, "expectedVersion": 1},
         )
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "invalid_attribute_value"
+        assert response.json()["error"]["code"] == "INVALID_ATTRIBUTE_VALUE"
         assert client.get(_relation_path(mapping["id"])).json()["version"] == 1
 
 
@@ -303,7 +303,7 @@ def test_update_relation_rejects_stale_version():
             json={"attributes": {"confidence": 0.9}, "expectedVersion": 99},
         )
         assert response.status_code == 409
-        assert response.json()["error"]["code"] == "version_conflict"
+        assert response.json()["error"]["code"] == "VERSION_CONFLICT"
 
 
 def test_update_relation_returns_404_when_unknown():
@@ -313,7 +313,7 @@ def test_update_relation_returns_404_when_unknown():
             json={"attributes": {}, "expectedVersion": 1},
         )
         assert response.status_code == 404
-        assert response.json()["error"]["code"] == "relation_not_found"
+        assert response.json()["error"]["code"] == "RELATION_NOT_FOUND"
 
 
 def test_update_relation_rejects_extra_fields():
@@ -324,7 +324,7 @@ def test_update_relation_rejects_extra_fields():
             json={"attributes": {}, "expectedVersion": 1, "unexpected": "field"},
         )
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "request_validation_error"
+        assert response.json()["error"]["code"] == "REQUEST_VALIDATION_ERROR"
 
 
 def test_update_engine_maintained_relation_is_rejected():
@@ -337,7 +337,7 @@ def test_update_engine_maintained_relation_is_rejected():
             json={"attributes": {}, "expectedVersion": 1},
         )
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "immutable_relation"
+        assert response.json()["error"]["code"] == "IMMUTABLE_RELATION"
 
 
 # --- DELETE ---
@@ -351,7 +351,7 @@ def test_delete_relation_removes_it():
 
         get_response = client.get(_relation_path(mapping["id"]))
         assert get_response.status_code == 404
-        assert get_response.json()["error"]["code"] == "relation_not_found"
+        assert get_response.json()["error"]["code"] == "RELATION_NOT_FOUND"
 
 
 def test_delete_relation_rejects_stale_version():
@@ -359,14 +359,14 @@ def test_delete_relation_rejects_stale_version():
         mapping = _create_mapping(client, _suffix())
         response = client.delete(_relation_path(mapping["id"]), params={"expectedVersion": 99})
         assert response.status_code == 409
-        assert response.json()["error"]["code"] == "version_conflict"
+        assert response.json()["error"]["code"] == "VERSION_CONFLICT"
 
 
 def test_delete_relation_returns_404_when_unknown():
     with TestClient(app) as client:
         response = client.delete(_relation_path(str(uuid4())), params={"expectedVersion": 1})
         assert response.status_code == 404
-        assert response.json()["error"]["code"] == "relation_not_found"
+        assert response.json()["error"]["code"] == "RELATION_NOT_FOUND"
 
 
 def test_delete_engine_maintained_relation_is_rejected():
@@ -376,7 +376,7 @@ def test_delete_engine_maintained_relation_is_rejected():
         relation_id = _parent_relation_id(client, codelist["id"])
         response = client.delete(_relation_path(relation_id), params={"expectedVersion": 1})
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "immutable_relation"
+        assert response.json()["error"]["code"] == "IMMUTABLE_RELATION"
 
 
 # --- POST immutability guard ---
@@ -395,7 +395,7 @@ def test_create_engine_maintained_relation_is_rejected():
             },
         )
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "immutable_relation"
+        assert response.json()["error"]["code"] == "IMMUTABLE_RELATION"
         # The atomic relation created on child add is still the only one present.
         assert len(_parent_relation_id(client, codelist["id"])) > 0
 
@@ -440,7 +440,7 @@ def test_duplicate_initial_relations_return_a_conflict_without_leaving_an_orphan
         )
 
         assert response.status_code == 422
-        assert response.json()["error"]["code"] == "duplicate_initial_relation"
+        assert response.json()["error"]["code"] == "DUPLICATE_INITIAL_RELATION"
         assert client.get(f"/api/v1/objects/system-value/{public_id}").status_code == 404
 
 
@@ -460,4 +460,4 @@ def test_relation_version_claim_rejects_a_relation_loaded_before_a_competing_wri
             json={"attributes": {}, "expectedVersion": mapping["version"]},
         )
         assert loser.status_code == 409
-        assert loser.json()["error"]["code"] == "version_conflict"
+        assert loser.json()["error"]["code"] == "VERSION_CONFLICT"

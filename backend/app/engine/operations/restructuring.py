@@ -82,15 +82,15 @@ MappingRule = Literal["sameType", "display", "uniqueRequired", "choice", "none"]
 
 # Engine write errors the dry run meets, as the plan's refusal codes; others keep the engine's code.
 _REFUSAL_CODES = {
-    "duplicate_attribute_value": "uniqueness",
-    "duplicate_relation_scope": "uniqueness",
-    "parent_cycle": "cycle",
-    "object_type_not_in_application": "application",
-    "parent_wrong_scope": "application",
-    "invalid_parent_type": "typeNotAllowed",
-    "child_type_not_allowed": "noPossibleType",
-    "parent_required": "notRoot",
-    "required_relation_without_place": "requiredRelationWithoutPlace",
+    "DUPLICATE_ATTRIBUTE_VALUE": "uniqueness",
+    "DUPLICATE_RELATION_SCOPE": "uniqueness",
+    "PARENT_CYCLE": "cycle",
+    "OBJECT_TYPE_NOT_IN_APPLICATION": "application",
+    "PARENT_WRONG_SCOPE": "application",
+    "INVALID_PARENT_TYPE": "typeNotAllowed",
+    "CHILD_TYPE_NOT_ALLOWED": "noPossibleType",
+    "PARENT_REQUIRED": "notRoot",
+    "REQUIRED_RELATION_WITHOUT_PLACE": "requiredRelationWithoutPlace",
 }
 
 
@@ -609,7 +609,7 @@ def preview_restructuring(
             expected_change_set_version is not None
             and change_set.version != expected_change_set_version
         ):
-            raise api_error(409, "change_set_version_conflict", "Change set version has changed")
+            raise api_error(409, "CHANGE_SET_VERSION_CONFLICT", "Change set version has changed")
         model = change_set_model(session, change_set)
         return _run(session, change_set, model, request, operation_id=str(uuid4()))
     finally:
@@ -675,21 +675,21 @@ def apply_restructuring(
     try:
         change_set = load_change_set(session, change_set_id, for_update=True)
         if change_set.version != expected_change_set_version:
-            raise api_error(409, "change_set_version_conflict", "Change set version has changed")
+            raise api_error(409, "CHANGE_SET_VERSION_CONFLICT", "Change set version has changed")
         model = change_set_model(session, change_set)
         operation_id = str(uuid4())
         plan = _run(session, change_set, model, request, operation_id=operation_id)
         if plan.plan_digest != plan_digest:
             raise api_error(
                 409,
-                "restructuring_plan_changed",
+                "RESTRUCTURING_PLAN_CHANGED",
                 "The plan differs from the one previewed",
                 {"planDigest": plan.plan_digest},
             )
         if plan.status != "ready":
             raise api_error(
                 422,
-                "restructuring_not_ready",
+                "RESTRUCTURING_NOT_READY",
                 f"The plan is {plan.status}, not ready",
                 {
                     "status": plan.status,
@@ -862,7 +862,7 @@ class _Planner:
         if object_type is None:
             raise api_error(
                 422,
-                "unknown_object_type",
+                "UNKNOWN_OBJECT_TYPE",
                 f"Object type '{key}' is not in the pinned model",
                 {"objectTypeKey": key},
             )
@@ -941,7 +941,7 @@ class _Planner:
             if isinstance(operation, ChangeTypeOperation) and requested == root.object_type_key:
                 raise api_error(
                     422,
-                    "object_type_unchanged",
+                    "OBJECT_TYPE_UNCHANGED",
                     f"Object '{root.object_id}' is already a '{requested}' record",
                     {"objectId": root.object_id, "objectTypeKey": requested},
                 )
@@ -1076,7 +1076,7 @@ class _Planner:
         if from_type == to_type:
             raise api_error(
                 422,
-                "object_type_unchanged",
+                "OBJECT_TYPE_UNCHANGED",
                 f"'{from_type}' records would stay '{to_type}' records",
                 {"objectId": root.object_id, "objectTypeKey": to_type},
             )
@@ -1175,7 +1175,7 @@ class _Planner:
         if len(self.records) > RECORD_LIMIT:
             raise api_error(
                 422,
-                "restructuring_too_large",
+                "RESTRUCTURING_TOO_LARGE",
                 f"The operation changes more than {RECORD_LIMIT} records",
                 {"limit": RECORD_LIMIT},
             )
@@ -1219,7 +1219,7 @@ class _Planner:
         if unknown:
             raise api_error(
                 422,
-                "unknown_attributes",
+                "UNKNOWN_ATTRIBUTES",
                 f"Inputs for the new record are not bound on '{new_type.key}': {unknown}",
                 {"objectTypeKey": new_type.key, "attributeTypeKeys": unknown},
             )
@@ -1745,14 +1745,14 @@ def suggest_mapping(
         if target not in new_keys:
             raise api_error(
                 422,
-                "invalid_type_mapping",
+                "INVALID_TYPE_MAPPING",
                 f"Attribute '{target}' is not bound on '{new_type.key}'",
                 {"attributeTypeKey": target, "toObjectTypeKey": new_type.key},
             )
         if source is not None and (source not in old_keys or not compatible(source, target)):
             raise api_error(
                 422,
-                "invalid_type_mapping",
+                "INVALID_TYPE_MAPPING",
                 f"'{source}' cannot be the source of '{target}' from '{old_type.key}'",
                 {
                     "attributeTypeKey": target,
@@ -1892,12 +1892,12 @@ def _remove_object(
     lookup = ChangeSetLookup.of(session, change_set.id)
     row = lookup.object(record.object_id)
     if row is None:
-        raise api_error(404, "object_not_found", f"Object '{record.object_id}' not found in change set")
+        raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{record.object_id}' not found in change set")
     remaining = lookup.children([row.object_id])
     if remaining:
         raise api_error(
             409,
-            "object_has_dependants",
+            "OBJECT_HAS_DEPENDANTS",
             f"'{row.name}' still holds records",
             {"objectIds": [item.object_id for item in remaining]},
         )

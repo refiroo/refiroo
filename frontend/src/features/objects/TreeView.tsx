@@ -215,7 +215,7 @@ export function TreeView({
       } catch (cause) {
         setActionError(`${labelOf(item)}: ${errorMessage(cause)}`);
         // A newer version elsewhere: read the tree again so the next attempt claims it.
-        if (isApiError(cause, "version_conflict")) onChanged?.();
+        if (isApiError(cause, "VERSION_CONFLICT")) onChanged?.();
       } finally {
         setBusy(undefined);
         focusNode(item.id);
@@ -665,7 +665,7 @@ function RenameField({
       onSaved();
     } catch (cause) {
       setError(errorMessage(cause));
-      if (isApiError(cause, "version_conflict") || isApiError(cause, "change_set_version_conflict")) onConflict();
+      if (isApiError(cause, "VERSION_CONFLICT") || isApiError(cause, "CHANGE_SET_VERSION_CONFLICT")) onConflict();
       setSaving(false);
     }
   }

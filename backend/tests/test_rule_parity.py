@@ -544,19 +544,19 @@ CASES = [
 
 EXPECTED: dict[str, dict[str, tuple]] = {
     "create_unknown_object_type": {
-        "live": (404, "unknown_object_type", "Object type 'no-such-type' not found", None),
+        "live": (404, "UNKNOWN_OBJECT_TYPE", "Object type 'no-such-type' not found", None),
         "change_set": (
             422,
-            "unknown_object_type",
+            "UNKNOWN_OBJECT_TYPE",
             "Object type 'no-such-type' is not in the pinned model",
             None,
         ),
     },
     "create_unknown_application": {
-        "live": (404, "unknown_application", "Application 'no-such-application' not found", None),
+        "live": (404, "UNKNOWN_APPLICATION", "Application 'no-such-application' not found", None),
         "change_set": (
             422,
-            "object_type_not_in_application",
+            "OBJECT_TYPE_NOT_IN_APPLICATION",
             "Object type 'domain' is not enabled in application 'no-such-application'",
             None,
         ),
@@ -564,43 +564,43 @@ EXPECTED: dict[str, dict[str, tuple]] = {
     "create_type_not_in_application": {
         "live": (
             422,
-            "invalid_object_type_for_application",
+            "INVALID_OBJECT_TYPE_FOR_APPLICATION",
             "Object type 'system' is not available in application 'rdm-master'",
             None,
         ),
         "change_set": (
             422,
-            "object_type_not_in_application",
+            "OBJECT_TYPE_NOT_IN_APPLICATION",
             "Object type 'system' is not enabled in application 'rdm-master'",
             None,
         ),
     },
     "create_unknown_attribute": {
-        "live": (422, "unknown_attributes", "Unknown attributes: ['language-code']", None),
-        "change_set": (422, "unknown_attributes", "Unknown attributes: ['language-code']", None),
+        "live": (422, "UNKNOWN_ATTRIBUTES", "Unknown attributes: ['language-code']", None),
+        "change_set": (422, "UNKNOWN_ATTRIBUTES", "Unknown attributes: ['language-code']", None),
     },
     "create_missing_required_attribute": {
         "live": (
             422,
-            "missing_required_attributes",
+            "MISSING_REQUIRED_ATTRIBUTES",
             "Required fields are missing: Domain code",
             {"attributeTypeKeys": ["domain-code"]},
         ),
         "change_set": (
             422,
-            "missing_required_attributes",
+            "MISSING_REQUIRED_ATTRIBUTES",
             "Required fields are missing: Domain code",
             {"attributeTypeKeys": ["domain-code"]},
         ),
     },
     "create_invalid_value": {
-        "live": (422, "invalid_attribute_value", "Attribute 'active' must be boolean", None),
-        "change_set": (422, "invalid_attribute_value", "Attribute 'active' must be boolean", None),
+        "live": (422, "INVALID_ATTRIBUTE_VALUE", "Attribute 'active' must be boolean", None),
+        "change_set": (422, "INVALID_ATTRIBUTE_VALUE", "Attribute 'active' must be boolean", None),
     },
     "create_at_least_one_of": {
         "live": (
             422,
-            "object_attribute_rule_violation",
+            "OBJECT_ATTRIBUTE_RULE_VIOLATION",
             "At least one of these attributes is required: ('translated-name', 'translated-description', 'translated-value')",
             {
                 "rule": "atLeastOneOf",
@@ -609,7 +609,7 @@ EXPECTED: dict[str, dict[str, tuple]] = {
         ),
         "change_set": (
             422,
-            "object_attribute_rule_violation",
+            "OBJECT_ATTRIBUTE_RULE_VIOLATION",
             "At least one of these attributes is required: ('translated-name', 'translated-description', 'translated-value')",
             {
                 "rule": "atLeastOneOf",
@@ -620,7 +620,7 @@ EXPECTED: dict[str, dict[str, tuple]] = {
     "update_at_least_one_of": {
         "live": (
             422,
-            "object_attribute_rule_violation",
+            "OBJECT_ATTRIBUTE_RULE_VIOLATION",
             "At least one of these attributes is required: ('translated-name', 'translated-description', 'translated-value')",
             {
                 "rule": "atLeastOneOf",
@@ -632,39 +632,39 @@ EXPECTED: dict[str, dict[str, tuple]] = {
     "create_missing_required_relation": {
         "live": (
             422,
-            "missing_required_relations",
+            "MISSING_REQUIRED_RELATIONS",
             "Required relationships missing: ['object-has-translation']",
             {"relationTypeKeys": ["object-has-translation"]},
         ),
         "change_set": (
             422,
-            "missing_required_relations",
+            "MISSING_REQUIRED_RELATIONS",
             "Required relationships missing: ['object-has-translation']",
             {"relationTypeKeys": ["object-has-translation"]},
         ),
     },
     "create_existing_id": {
-        "live": (409, "object_already_exists", "An object with ID 'E' already exists", None),
-        "change_set": (409, "object_already_exists", "Object 'E' already exists", None),
+        "live": (409, "OBJECT_ALREADY_EXISTS", "An object with ID 'E' already exists", None),
+        "change_set": (409, "OBJECT_ALREADY_EXISTS", "Object 'E' already exists", None),
     },
     "create_parent_required": {
-        "live": (422, "parent_required", "This object type requires a parent", None),
-        "change_set": (422, "parent_required", "This object type requires a parent", None),
+        "live": (422, "PARENT_REQUIRED", "This object type requires a parent", None),
+        "change_set": (422, "PARENT_REQUIRED", "This object type requires a parent", None),
     },
     "create_parent_missing": {
-        "live": (404, "object_not_found", "Object '<id>' not found", None),
-        "change_set": (422, "parent_wrong_scope", "Parent must exist in the change set", None),
+        "live": (404, "OBJECT_NOT_FOUND", "Object '<id>' not found", None),
+        "change_set": (422, "PARENT_WRONG_SCOPE", "Parent must exist in the change set", None),
     },
     "create_parent_wrong_scope": {
         "live": (
             422,
-            "parent_wrong_scope",
+            "PARENT_WRONG_SCOPE",
             "Parent must be in the same application and workspace",
             None,
         ),
         "change_set": (
             422,
-            "parent_wrong_scope",
+            "PARENT_WRONG_SCOPE",
             "Parent must be in the same application and workspace",
             None,
         ),
@@ -672,27 +672,27 @@ EXPECTED: dict[str, dict[str, tuple]] = {
     "create_invalid_parent_type": {
         "live": (
             422,
-            "invalid_parent_type",
+            "INVALID_PARENT_TYPE",
             "Parent type is not permitted for this object type",
             None,
         ),
         "change_set": (
             422,
-            "invalid_parent_type",
+            "INVALID_PARENT_TYPE",
             "Parent type is not permitted for this object type",
             None,
         ),
     },
     "update_parent_cycle": {
-        "live": (422, "parent_cycle", "Parent selection would create a cycle", None),
-        "change_set": (422, "parent_cycle", "Parent selection would create a cycle", None),
+        "live": (422, "PARENT_CYCLE", "Parent selection would create a cycle", None),
+        "change_set": (422, "PARENT_CYCLE", "Parent selection would create a cycle", None),
     },
     **{
         name: dict.fromkeys(
             ("live", "change_set"),
             (
                 422,
-                "invalid_effective_period",
+                "INVALID_EFFECTIVE_PERIOD",
                 (
                     f"The effective period must end after it starts: 'valid-to' {end} is not"
                     f" after 'valid-from' {start}"
@@ -716,7 +716,7 @@ EXPECTED: dict[str, dict[str, tuple]] = {
         ("live", "change_set"),
         (
             409,
-            "duplicate_attribute_value",
+            "DUPLICATE_ATTRIBUTE_VALUE",
             "Attribute 'Domain code' must be unique",
             {"attributeTypeKey": "domain-code", "conflictingObjectId": "D1"},
         ),
@@ -726,7 +726,7 @@ EXPECTED: dict[str, dict[str, tuple]] = {
         ("live", "change_set"),
         (
             409,
-            "duplicate_attribute_value",
+            "DUPLICATE_ATTRIBUTE_VALUE",
             "Attribute 'Domain code' must be unique",
             {"attributeTypeKey": "domain-code", "conflictingObjectId": "D1"},
         ),
@@ -736,17 +736,17 @@ EXPECTED: dict[str, dict[str, tuple]] = {
         ("live", "change_set"),
         (
             409,
-            "duplicate_attribute_value",
+            "DUPLICATE_ATTRIBUTE_VALUE",
             "Attribute 'Domain code' must be unique",
             {"attributeTypeKey": "domain-code", "conflictingObjectId": "D1"},
         ),
     ),
     "relation_unknown_type": {
         # Both 422 since H4c (E-D4 row settled; deviation 8).
-        "live": (422, "unknown_relation_type", "Relation type 'no-such-relation' not found", None),
+        "live": (422, "UNKNOWN_RELATION_TYPE", "Relation type 'no-such-relation' not found", None),
         "change_set": (
             422,
-            "unknown_relation_type",
+            "UNKNOWN_RELATION_TYPE",
             "Relation type 'no-such-relation' is not in the pinned model",
             None,
         ),
@@ -754,13 +754,13 @@ EXPECTED: dict[str, dict[str, tuple]] = {
     "relation_invalid_pair": {
         "live": (
             422,
-            "invalid_relation_pair",
+            "INVALID_RELATION_PAIR",
             "Relation is not permitted between these object types",
             None,
         ),
         "change_set": (
             422,
-            "invalid_relation_pair",
+            "INVALID_RELATION_PAIR",
             "Relation is not permitted between these object types",
             None,
         ),
@@ -768,22 +768,22 @@ EXPECTED: dict[str, dict[str, tuple]] = {
     "relation_immutable": {
         "live": (
             422,
-            "immutable_relation",
+            "IMMUTABLE_RELATION",
             "Engine-maintained relation cannot be created, updated or deleted directly",
             None,
         ),
         "change_set": (
             422,
-            "immutable_relation",
+            "IMMUTABLE_RELATION",
             "Engine-maintained containment relations are changed through object edits",
             None,
         ),
     },
     "relation_cardinality": {
-        "live": (409, "cardinality_violation", "Relation cardinality would be violated", None),
+        "live": (409, "CARDINALITY_VIOLATION", "Relation cardinality would be violated", None),
         "change_set": (
             409,
-            "cardinality_violation",
+            "CARDINALITY_VIOLATION",
             "Relation cardinality would be violated",
             None,
         ),
@@ -791,12 +791,12 @@ EXPECTED: dict[str, dict[str, tuple]] = {
     # Alike since H4c (E-D4 row settled; deviation 11).
     "relation_missing_endpoint": dict.fromkeys(
         ("live", "change_set"),
-        (422, "relation_endpoint_missing", "Relation endpoint '<id>' does not exist", None),
+        (422, "RELATION_ENDPOINT_MISSING", "Relation endpoint '<id>' does not exist", None),
     ),
     "relation_duplicate_scope": {
         "live": (
             409,
-            "duplicate_relation_scope",
+            "DUPLICATE_RELATION_SCOPE",
             "A related object already exists for this ancestor scope",
             {
                 "ancestorObjectTypeKey": "language",
@@ -812,13 +812,13 @@ EXPECTED: dict[str, dict[str, tuple]] = {
     "relation_delete_required": {
         "live": (
             422,
-            "required_relation",
+            "REQUIRED_RELATION",
             "A required relationship cannot be deleted independently",
             None,
         ),
         "change_set": (
             422,
-            "required_relation",
+            "REQUIRED_RELATION",
             "Required relationships cannot be deleted directly",
             None,
         ),
@@ -826,13 +826,13 @@ EXPECTED: dict[str, dict[str, tuple]] = {
     "relation_delete_immutable": {
         "live": (
             422,
-            "immutable_relation",
+            "IMMUTABLE_RELATION",
             "Engine-maintained relation cannot be created, updated or deleted directly",
             None,
         ),
         "change_set": (
             422,
-            "immutable_relation",
+            "IMMUTABLE_RELATION",
             "Engine-maintained containment relations cannot be deleted directly",
             None,
         ),
@@ -840,13 +840,13 @@ EXPECTED: dict[str, dict[str, tuple]] = {
     "delete_required_attribute": {
         "live": (
             422,
-            "cannot_delete_required_attribute",
+            "CANNOT_DELETE_REQUIRED_ATTRIBUTE",
             "Attribute 'domain-code' is required and cannot be deleted",
             None,
         ),
         "change_set": (
             422,
-            "cannot_delete_required_attribute",
+            "CANNOT_DELETE_REQUIRED_ATTRIBUTE",
             "Attribute 'domain-code' is required and cannot be deleted",
             None,
         ),
@@ -854,7 +854,7 @@ EXPECTED: dict[str, dict[str, tuple]] = {
     "delete_at_least_one_of": {
         "live": (
             422,
-            "object_attribute_rule_violation",
+            "OBJECT_ATTRIBUTE_RULE_VIOLATION",
             "At least one of these attributes is required: ('translated-name', 'translated-description', 'translated-value')",
             {
                 "rule": "atLeastOneOf",
@@ -863,7 +863,7 @@ EXPECTED: dict[str, dict[str, tuple]] = {
         ),
         "change_set": (
             422,
-            "object_attribute_rule_violation",
+            "OBJECT_ATTRIBUTE_RULE_VIOLATION",
             "At least one of these attributes is required: ('translated-name', 'translated-description', 'translated-value')",
             {
                 "rule": "atLeastOneOf",
@@ -874,7 +874,7 @@ EXPECTED: dict[str, dict[str, tuple]] = {
     "move_into_taken_scope": {
         "live": (
             409,
-            "duplicate_relation_scope",
+            "DUPLICATE_RELATION_SCOPE",
             "A related object already exists for this ancestor scope",
             {
                 "ancestorObjectTypeKey": "language",
@@ -890,7 +890,7 @@ EXPECTED: dict[str, dict[str, tuple]] = {
     "activate_into_taken_scope": {
         "live": (
             409,
-            "duplicate_relation_scope",
+            "DUPLICATE_RELATION_SCOPE",
             "A related object already exists for this ancestor scope",
             {
                 "ancestorObjectTypeKey": "language",
@@ -907,13 +907,13 @@ EXPECTED: dict[str, dict[str, tuple]] = {
         # Alike since H4c (E-D4 row settled; deviation 7).
         "live": (
             422,
-            "duplicate_initial_relation",
+            "DUPLICATE_INITIAL_RELATION",
             "Initial relationships must not repeat",
             None,
         ),
         "change_set": (
             422,
-            "duplicate_initial_relation",
+            "DUPLICATE_INITIAL_RELATION",
             "Initial relationships must not repeat",
             None,
         ),
@@ -946,7 +946,7 @@ BATCH_CASES = [
 # A batch item names its records by reference, resolved before its write's rules run (§B2).
 BATCH_REFUSALS = {
     "create_parent_missing": (
-        "reference_not_found",
+        "REFERENCE_NOT_FOUND",
         "No record matches the reference in this batch's context",
         {"id": "<id>"},
     ),
