@@ -216,7 +216,8 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 13 | [C2](#c2-consumer-object-and-projections) | C1, T1b | Consumer object and projections: get by ID — **delivered 2026-10-04** |
 | 14 | [C3](#c3-consumer-lists-and-parameters) | C2 | Lists and parameters (C-D27–C-D33) — **delivered 2026-10-04**, `sortBy` reads brought within budget by [C3a](#c3a-attribute-sorts-read-in-value-order) ([record](#c3-delivery-record)) |
 | 14a | [C3a](#c3a-attribute-sorts-read-in-value-order) | C3 | Amendment: attribute sorts read in value order (D46–D48) — **delivered 2026-10-04** ([record](#c3a-delivery-record)) |
-| 15 | C4 | C2 | Consumer index and XREF scoring |
+| 14b | [C3b](#c3b-several-values-the-standard-way) | C3 | Amendment: several values as OpenAPI serialises them, `%2C` for a comma in a value (C-D32 amended) — planned; test cases await approval |
+| 15 | [C4](#c4-xref-lookup-and-scoring) | C2, C3b | XREF lookup and scoring (C-D34–C-D41) — planned and approved |
 | 16 | C5 | C4 | XREF parameters |
 | 17 | C14 | C4 | Batch resolve |
 | 18 | C15 | C5 | Crosswalk |
@@ -2001,7 +2002,8 @@ GET /api/consumer/{apiKey}/v{contractVersion}/lists/{listKey}?{parentParameter}=
   - A parameter takes several values, repeated (`codelist=A&codelist=B`), comma-separated
     (`codelist=A,B`) or both. The values are alternatives, and different parameters combine with
     AND.
-  - In a value, `\,` is a comma and `\\` a backslash; any other backslash is kept as it is.
+  - ~~In a value, `\,` is a comma and `\\` a backslash~~: not approved; replaced by C3b (a comma in a
+    value is `%2C`).
   - On get by ID the set has one record, so a parameter that filters the record out answers
     `404 OBJECT_NOT_FOUND`.
   - `scoresFrom` has no effect outside XREF (C4, C5), and `to.…` arrives in C15.
@@ -2061,7 +2063,7 @@ GET /api/consumer/{apiKey}/v{contractVersion}/lists/{listKey}?{parentParameter}=
   `ix_objects_type_name` (workspace, type, name, sequence). A `sortBy` list joins the typed value, as
   the per-type list does. The consumer index belongs to C4.
 
-**Decisions (settled with the user, 2026-10-04):**
+**Decisions (settled with the user, 2026-10-04; C-D32's escape excepted, see C3b):**
 
 | # | Question | Decision |
 | --- | --- | --- |
@@ -2070,7 +2072,7 @@ GET /api/consumer/{apiKey}/v{contractVersion}/lists/{listKey}?{parentParameter}=
 | C-D29 | List order. CONSUMER_API names "the definition's sort field", which the schema does not have | An optional `sortBy` on a list. Records without a value come last, then name, then creation order (what every engine list ends with, served by `ix_objects_type_name`; CONSUMER_API's "then ID" is amended). A change to `sortBy` is a breaking change |
 | C-D30 | Paging modes | As on the management lists: cursors both ways with `anchor`, `position`, `from=end`, `seek` and `includeTotal`, with `pageSize` 1–100 (default 20). `from`, `seek` and `includeTotal` become reserved names. The reference's `page` and `returnedCount` are not carried over (`startIndex` and the length of `items` give them) |
 | C-D31 | Where parameters apply | Every definition parameter applies to get by ID and to every list; on get by ID it filters a set of one (`404 OBJECT_NOT_FOUND` when filtered out). `PARAMETER_NOT_SUPPORTED` stays for a known name a route does not apply. Batch resolve (C14) applies its `defaults` to by-ID items this way |
-| C-D32 | Parameter values | Several values per parameter, repeated, comma-separated or both, as alternatives; different parameters combine with AND (as the management API's repeated filters do). The escape is the engine's own, `\,` and `\\`, since a server decodes `%2C` to a comma before the engine sees it. XREF's comma-separated `query` (C4) uses the same escape. Text matches ignoring case; a value that does not parse for a typed field does not match it. `ancestor` matches at any depth; through a shared projection, the matching record itself is kept only by `self`. An unknown `objectType` value is `400 UNKNOWN_OBJECT_TYPE`. Commas on the management API's repeated filters are recorded in TODO |
+| C-D32 | Parameter values | **The escape was not approved by the user and is replaced by [C3b](#c3b-several-values-the-standard-way) (2026-10-04).** Several values per parameter, repeated, comma-separated or both, as alternatives; different parameters combine with AND (as the management API's repeated filters do). The escape is the engine's own, `\,` and `\\`, since a server decodes `%2C` to a comma before the engine sees it. XREF's comma-separated `query` (C4) uses the same escape. Text matches ignoring case; a value that does not parse for a typed field does not match it. `ancestor` matches at any depth; through a shared projection, the matching record itself is kept only by `self`. An unknown `objectType` value is `400 UNKNOWN_OBJECT_TYPE`. Commas on the management API's repeated filters are recorded in TODO |
 | C-D33 | Scope between C3 and C5 | C3 delivers all four kinds for lists and get by ID, including `objectType` and the shared-projection route; C5 becomes XREF's use of them, with `scoresFrom`. CONSUMER_API's C3 and C5 rows are amended |
 
 **Journey.** J28 gains the list variants: its status says lists follow in C3, and a list is still a
@@ -2393,6 +2395,206 @@ J28 (22) and `test_consumer_list_volume` passed. Smoke start on a copy of the de
 `20261004_01`: migrated to `20261004_04` with the indexes, healthy, restarted healthy, and an
 attribute-sorted list read ascending, from the end and at a position; the copy and its log removed.
 `ruff check app/ tests/` clean. Not run: the frontend (unchanged), the full suites (R).
+
+#### C3b: Several values the standard way
+
+**Planned 2026-10-04.** The amended C-D32 was approved by the user the same day; the test cases
+await approval with the go-ahead to deliver. An
+amendment reopening C3's C-D32: the `\,` escape recorded there was not approved by the user (they had
+asked whether it was standard; it is not), and C4's C-D38 needs the rule settled. **Needs:** C3.
+**Before:** C4. **Groups:** `consumer`, `contract`.
+
+**Behaviour.** A consumer API parameter takes several values the way OpenAPI 3 serialises a list in a
+query (`style: form`), built on RFC 3986:
+
+- **repeated** (`token=A&token=B`, `explode: true`, OpenAPI's default), or
+- **comma-separated** (`token=A,B`, `explode: false`), where the separating comma is a literal comma in
+  the URL and a comma inside a value is percent-encoded as `%2C` (RFC 3986 §2.2: data that would
+  conflict with a reserved delimiter is percent-encoded; OpenAPI's `allowReserved: false` default).
+
+So `token=Bonds%2C%20Notes` is one value, "Bonds, Notes"; `token=Bonds,Notes` is two. An HTTP library
+given the value "A,B" sends `A%2CB`, one value, which is the safe reading. A backslash has no meaning
+(`\,` is gone). Both forms may be combined; values are alternatives, different parameters combine
+with AND (unchanged). This applies to every definition parameter and a list's parent parameter, and to
+XREF's `query` (C4), which keeps the reference's `query=a,b`.
+
+**Design.** The split moves from the decoded parameters to the raw query string: the consumer router
+reads `request.scope["query_string"]`, splits it on `&` and each pair on its first `=`, splits a value
+on literal commas, and only then decodes each piece (`+` as a space and percent-escapes, as Starlette
+decodes them). `consumer_parameters.split_values` is removed; the router's `_Parameters` holds the
+split values. Single-valued names (`workspace`, the paging names) read the whole decoded value, as
+today. No engine, model or migration change.
+
+**Decision (approved by the user, 2026-10-04):**
+
+| # | Question | Decision |
+| --- | --- | --- |
+| C-D32 (amended) | How a value holding a comma is written | Percent-encoded as `%2C`; a literal comma separates values; no escape character. The industry standard (OpenAPI 3 `form` with `explode: false`, RFC 3986), which every HTTP library already produces. Replaces C3's `\,` and `\\` |
+
+**Test cases** (journey tests, J28.7 and J28.8 changed by this decision; the comma-separated cases are
+written into the URL as a client types them, since an HTTP library percent-encodes a comma given inside
+a value):
+
+1. **J28.8 (changed): several values.** `token=Gold%20token,Bonds%2C%20Notes` keeps both `R`;
+   `token=Bonds%2C%20Notes` keeps the one whose `K` is "Bonds, Notes"; `token=Bonds,Notes` (two values,
+   neither a `K`'s name) keeps none; `token=Bonds\,%20Notes` keeps none (a backslash is no escape);
+   repeated `token` values keep either, as before; `peer` and `token=Bonds%2C%20Notes` together keep
+   the record both keep.
+2. **J28.7 (changed): parent IDs.** North's and South's IDs as `ledger=<north>,<south>` written into the
+   URL give all three `R2`, as repeated values do; the same two IDs sent through the HTTP library as
+   one value "<north>,<south>" (encoded `%2C`) are one ID that is no record: `404 PARENT_NOT_FOUND`.
+
+Confirmed failing before the change: case 1's `%2C` and backslash assertions and case 2's encoded
+assertion. No unit tests: the split is what the journeys assert. **Checks:** J28 on generated A and B,
+the `consumer` and `contract` groups, `ruff`.
+
+**Docs at delivery:** API.md's parameter values; CONSUMER_API C-D32 amended (its record corrected:
+the escape was not approved); C3's record and plan text; USER_JOURNEYS J28.8; CHANGELOG (C3's entry
+corrected); TODO's item on commas in the management API's filters restated with the standard rule.
+
+**Composable domains (ADR-032):** no door is affected; the change is how a request is read.
+
+#### C4: XREF lookup and scoring
+
+**Planned 2026-10-04; decisions C-D34–C-D41 and the test cases approved by the user the same day**
+(C-D37 with a documentation requirement; C-D38 after C3's escape was reopened as C3b). **Needs:** C2, and C3's
+parameter check with C3b's value splitting. **Groups:** `consumer`, `queries`, `contract`, `volume`.
+
+**Behaviour.** A consuming system finds business objects by what it knows, a code, an ID, a name or a
+related record's value, and takes the best match:
+
+```text
+GET /api/consumer/{apiKey}/v{contractVersion}/xref?query=…&expect=any|one&pageSize=…&workspace=…
+```
+
+- **Candidates** are the live records of the exposed types in the workspace. Change sets are never
+  read; `publication` arrives in C6, `asOf` in C16.
+- **Terms.** `query` holds one or more terms, comma-separated or repeated, as C3b reads every list
+  of values (a comma inside a term is `%2C`).
+  An object's score is its best score over the terms (C-D38).
+- **Own score for a term.** Each `match.own` rule compares the term with a field of the object: exact
+  is equality ignoring case (typed fields by their parsed value), contains is a substring of a text
+  field. The object's exact weights add up; its contains weights add up and count only when no exact
+  weight applied (C-D35).
+- **Promoted score.** Each `match.promoted` entry reads its projection's related records: each takes
+  its first matching rule in `firstMatch` order and passes that weight to the exposed objects it is
+  related to through the projection; with `preferTargetTypes`, a related record that relates to an
+  object of a preferred type passes it only to those (C-D36). An object's score is the higher of its
+  own and its best promoted score.
+- **Order:** score, then the type's public name, then name, then object ID (CONSUMER_API's
+  deterministic order). Each item is the shared object with `matchScore`.
+- **`expect=any`** (the default) pages the results; **`expect=one`** answers the single top result,
+  `404 NO_MATCH` when nothing matched and `409 AMBIGUOUS_MATCH` when the top score is shared (C-D40).
+- **Definition parameters** answer `400 PARAMETER_NOT_SUPPORTED` until C5 applies them to XREF with
+  `scoresFrom` (C-D33).
+
+**Evidence (checked 2026-10-04 on a clone of the full-volume seed, nothing kept).** Read-time scoring
+written directly in SQL over the existing indexes (the trigram indexes for contains and for exact
+equality ignoring case, `ix_objects_id` for the ID), with the reference's weights: own rules ID 1000,
+code 500/40, name 200/30; a promoted rule from items to the groups they cite, code 80, name 75, code
+contains 10. One statement for the page, one for the count:
+
+| Term | Matches | Page | Count |
+| --- | --- | --- | --- |
+| Exact item code, other case (`item-009905`) | 1 | 17.5 ms | 17.2 ms |
+| Exact group code, promoted to 1,500 citing items | 1,501 | 17.3 ms | 14.6 ms |
+| Contains, 4 characters (`0099`) | 231 | 12.5 ms | 11.4 ms |
+| Contains, 3 characters (`099`) | 1,419 | 31.0 ms | 27.3 ms |
+| Contains, 2 characters (`99`, no trigram) | 3,971 | 104.1 ms | 92.1 ms |
+| Contains, in every record (`item`) | 100,000 | 475.2 ms | 289.0 ms |
+
+Identifier lookups, promotion and selective contains stay well within 100 ms without a maintained
+index. A term matching nearly every record does not, and a maintained match table would not change
+that: its matches still have to be scored and sorted (C-D34, C-D37).
+
+**Design.**
+
+- **Route** `GET /{apiKey}/v{contractVersion}/xref` in `app/consumer/router.py`, with C3's parameter
+  check: it serves `query`, `expect`, `workspace` and the paging names except `seek` and
+  `includeTotal` (C-D39); definition parameters are known and not applied (C5).
+- **Scoring** in `engine/reads/consumer_xref.py`, one statement: per term and rule, the matching
+  records (`UNION ALL` of the own rules' matches, through the indexes a search uses, and the promoted
+  rules' related records joined back to their owners through the projection's relation), the own and
+  promoted scores per object, the best over terms. Python builds the statement from the definition;
+  nothing is scored row by row in Python (AGENTS, set work in the database).
+- **Broad terms** (C-D37): before scoring, one bounded statement counts the matches up to
+  10,000 (`INDEXED_MATCH_LIMIT`), as a search reads its candidates; past it the request answers
+  `400 QUERY_TOO_BROAD`, naming the limit. Contains needs 3 characters (`MIN_INDEXED_LENGTH`); a
+  shorter term matches exactly only.
+- **Paging** with `paginate_statement(rows=True)` over the scored rows, keyed by score (descending),
+  public type name, name and object ID; the cursor binds the terms, the workspace and the contract
+  version. The page is composed by C2's `ConsumerObjects`, with `matchScore` added.
+- **Validation** (schema 0.8, not yet released): a `contains` weight on a field that holds no text
+  (`id` or a typed attribute) is refused at `/consumerApis/<key>/match/…/contains`, since it could
+  never match.
+- **No migration.** The consumer index of CONSUMER_API's "Read index" is not built (C-D34).
+
+**Decisions** (status per row):
+
+| # | Question | Recommendation |
+| --- | --- | --- |
+| C-D34 | A maintained consumer index (a match table per definition and workspace, updated in every live write and rebuilt on install), or scoring at read time? | Read time, over the existing indexes. The check above meets the budget for identifiers, promotion and selective contains; the maintained table would add write-path upkeep and a rebuild on every install, and would not serve a term matching everything either. Amends CONSUMER_API's "Read index". Revisit only on a measured need. **Approved 2026-10-04** |
+| C-D35 | How own weights combine | Exact weights add up; contains weights add up and count only when no exact weight applied, as the reference does. **Approved 2026-10-04** |
+| C-D36 | How promotion combines | A related record takes its first matching `firstMatch` rule and passes the weight to its owners through the projection; an owner's score is the higher of its own and its best promoted weight. `preferTargetTypes`: a related record relating to an owner of a preferred type passes its weight only to those owners. **Approved 2026-10-04** |
+| C-D37 | Short and broad terms | Contains from 3 characters, the engine's search minimum; a shorter term matches exactly only (the 2-character case above cost 104 ms). A query matching more than 10,000 records answers `400 QUERY_TOO_BROAD`, a documented limit rather than a silent cap or a 0.5 s read. **Approved 2026-10-04, with a requirement:** both limits (3 characters for contains, 10,000 matches) must be stated very clearly in the user documentation: API.md, the per-definition OpenAPI (C6), CURRENT_FUNCTIONALITY and the error's own message |
+| C-D38 | Terms | **Approved 2026-10-04, with C3b.** Comma-separated (a comma inside a term as `%2C`) or repeated `query`; empty terms dropped; no term is `400 QUERY_REQUIRED`; at most 100 terms (`400 TOO_MANY_TERMS`), as a request limit; the best score over the terms counts |
+| C-D39 | Paging and the envelope | `{ "results": […], "query": [terms], "workspace", "pageSize", "nextCursor", "prevCursor", "anchor", "totalCount", "startIndex" }`. `totalCount` is always present, as in the reference: the scored set is counted anyway. Cursors both ways, `position` and `from=end`; `seek` (a score is not something a caller seeks) and `includeTotal` answer `400 PARAMETER_NOT_SUPPORTED`. **Approved 2026-10-04** |
+| C-D40 | `expect=one` | The bare shared object with `matchScore`, as get by ID answers; `404 NO_MATCH`; `409 AMBIGUOUS_MATCH` with `details.candidates` (the tied objects' ID, public type, name and score, at most 10) and `details.count`. Paging names with `expect=one` answer `400 PARAMETER_NOT_SUPPORTED`. **Approved 2026-10-04** |
+| C-D41 | `matchScore` | Every XREF result carries `matchScore`, an integer, after the declared fields; lists and get by ID do not. **Approved 2026-10-04** |
+
+**Journey.** New: **J29 — Resolve a business object through a consumer API** (actor: consuming
+system; channel: consumer API), in USER_JOURNEYS and API_JOURNEYS. Generated A and B's `Capi` gains a
+`match`: own `id` 1000, `R.u` and `R2.u` 500/40, `name` 200/30; promoted over `B11` (`K.code` 80,
+`name` 75, `K.code` contains 10) and over `Bscope` (`name` 60, `preferTargetTypes` `R2`). `Bscope`
+gains a binding from `R2` to `D`, so a `D` can be watched by an `R` and an `R2`. The change rebuilds
+the two seeds once.
+
+**Test cases** (approved 2026-10-04; journey tests, written first and confirmed failing):
+
+1. **J29 Scored lookup.** Given an `R` with `R.u` "LED-7", an `R2` named "Led" and an `R` named
+   "Ledger seven". When `query=led-7` (another case), `query=Led` and `query=dger`. Then the first
+   finds the `R` by its code with `matchScore` 500; the second ranks the `R2` (name exact, 200) above
+   the records whose name or code contains it (30 or 40, the higher first); the third finds only by
+   contains; ties order by public type name, then name; each result equals get by ID's answer plus
+   `matchScore`.
+2. **J29.1 Promoted matches.** Given an `R` paired (`B11`) with a `K` whose `K.code` is "TK-9", and a
+   `D` named "Watch zone" watched (`Bscope`) by an `R` and an `R2`. When `query=tk-9`, and
+   `query=Watch zone`. Then the `R` is found with 80; the `D` passes 60 to the `R2` only
+   (`preferTargetTypes`); an object matching itself and through promotion keeps the higher score.
+3. **J29.2 Several terms.** `query=LED-7,TK-9` and the same as two `query` parameters find both, each
+   with its best score; a `K` named "Bonds, Notes" pairing an `R` is matched by `Bonds%2C%20Notes`.
+4. **J29.3 `expect=one`.** A unique code answers the bare object with `matchScore`; no match answers
+   `404 NO_MATCH`; two records with the same name answer `409 AMBIGUOUS_MATCH` naming both;
+   `expect=one&pageSize=5` answers `400 PARAMETER_NOT_SUPPORTED`.
+5. **J29.4 Paging.** Given seven records containing a term. With `pageSize=3`: to the end and back
+   through the cursors, `position=3`, `from=end`; `totalCount` 7 and `startIndex` on every page; a
+   cursor sent with another `query` answers `400 INVALID_CURSOR`.
+6. **J29.5 Refusals.** No `query` or only empty terms: `400 QUERY_REQUIRED`; 101 terms:
+   `400 TOO_MANY_TERMS`; a definition parameter, `seek` or `includeTotal`:
+   `400 PARAMETER_NOT_SUPPORTED`; a two-character term matches exactly only.
+7. **J25 (changed):** a `contains` weight on `id` or on an integer attribute is refused at its
+   `/match/…/contains` pointer.
+
+`QUERY_TOO_BROAD` is asserted by the volume module (case 8): the journey seeds stay far below 10,000.
+
+8. **Volume.** `test_consumer_xref_volume` (`consumer`, `volume`); the volume definition gains a
+   `match` (ID, code, name; promoted through the items' citations). At 0.01 and 0.04, the same
+   statements for: an exact code, a promoted group code, a 4-character contains, `expect=one`, and a
+   term matching every item refused as `QUERY_TOO_BROAD`. Timed once at full volume with
+   `volume_baseline.py --only-consumer` against the 100 ms budget.
+
+No unit tests: the scoring rules' edge cases are what J29 asserts, and term splitting is C3's.
+**Checks:** J29 and J25 on generated A and B; the groups `consumer`, `queries`, `contract`
+(`test_api_journeys`, `test_boundaries`) and `volume` (the new module); `ruff`. No migration, so no
+`startup`.
+
+**Docs at delivery:** API.md gains XREF; CONSUMER_API records C-D34–C-D41 and amends the XREF
+endpoint text and "Read index"; USER_JOURNEYS adds J29, API_JOURNEYS the route and codes; APPLICATION_MODEL
+notes the `contains` rule; CURRENT_FUNCTIONALITY and PRODUCT describe looking up an object by code.
+
+**Composable domains (ADR-032):** the `match` declaration is read as declared and gains only the
+`contains` validation; identity, attribute storage, audit and the bulk APIs are untouched. A product
+catalogue's lookup by SKU or name is this route, so the door is exercised, not narrowed.
 
 ## Track V — API reference
 
