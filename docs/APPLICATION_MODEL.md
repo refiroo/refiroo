@@ -545,13 +545,17 @@ contract rules are specified in [CONSUMER_API.md](CONSUMER_API.md#definition-sha
   exposed object types, output fields, projections, lists, XREF parameters and scoring, and events.
 - A `projection` parameter may declare `"targetable": true`, which enables crosswalk reads
   (`to.{parameter}`). Only a `projection` parameter can be targetable.
+- A list (`key`, `objectType`, optional `parentParameter`) may name `sortBy`: a scalar attribute (not
+  JSON) its type binds, refused otherwise at `/consumerApis/<key>/lists/<list>/sortBy` (C-D29).
+  Records without a value come last, then name, then creation order. `from`, `seek` and
+  `includeTotal` are reserved parameter names besides the paging names (C-D30).
 - Every reference to a type, attribute, relation binding or ancestor is validated against the same
   release, with the model's path-and-reason errors.
 - Each definition is compared with the **active** release's (C-D17): draft compile and release diff
   report the result as `consumerContracts`, and activation refuses a breaking change that does not
   raise `contractVersion` (C-D2): removing or retyping an output field, renaming or no longer exposing
   a type, changing a projection's shape or fields, changing scoring weights (C-D4), removing or changing
-  a list or a parameter's kind (C-D18), or (from C9) removing or narrowing an event. Removing a whole
+  a list (its type, `sortBy` or parent parameter) or a parameter's kind (C-D18), or (from C9) removing or narrowing an event. Removing a whole
   definition is a warning. Installing a release without activating it is not checked.
 - A field's sources share one value type (`text` and `longText` count as one), which is its output
   type (C-D19); the identity's source is `id`, the object ID (C-D24, narrowed in C2); a match rule or match field reads

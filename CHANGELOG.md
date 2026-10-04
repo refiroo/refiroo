@@ -8,6 +8,28 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 C3: consumer API lists and parameters:
+  `GET /api/consumer/{apiKey}/v{contractVersion}/lists/{listKey}`.
+  - **Lists.** Every live record of the list's type, or those anywhere below the parent records named
+    by object ID (C-D27, C-D28), as the shared object; ordered by the list's new optional `sortBy`
+    (records without a value last), then name, then creation order (C-D29). Paged as the management
+    lists are: cursors both ways with `anchor`, `position`, `from=end`, `seek` and `includeTotal`,
+    `pageSize` 1–100, default 20 (C-D30). The envelope names `workspace`.
+  - **Parameters.** Every definition parameter applies to lists and to get by ID (C-D31):
+    `objectType`, `ancestor` (any depth), `related` (through a projection, `self` or a shared
+    projection) and `projection` (limiting the projection's items; `requireMatch` drops records left
+    with none). Several values, repeated or comma-separated with `\,` for a comma, are alternatives;
+    different parameters combine (C-D32, C-D33). Each is a SQL predicate, so totals and position
+    jumps stay in the database.
+  - **Model.** `sortBy` on a consumer list (schema 0.8), validated at `/lists/<list>/sortBy` and part
+    of the contract; `from`, `seek` and `includeTotal` are reserved parameter names.
+  - **Refusals.** `404 LIST_NOT_FOUND`, `404 PARENT_NOT_FOUND`, `400 UNKNOWN_OBJECT_TYPE`,
+    `400 INVALID_PAGE_SIZE`, `400 INVALID_PAGE_PARAMETER`; the shared paging codes answer `400` on
+    the consumer tier. A declared parameter on get by ID is no longer refused; a paging name or a
+    list's parent parameter there is `400 PARAMETER_NOT_SUPPORTED`.
+  - **Budgets.** `test_consumer_list_volume` holds the statement counts at two sizes. At full volume
+    a list by parent reads in 7 ms; reads ordered by `sortBy` take 0.15–2.6 s (the attribute sort's
+    known cost, POSTGRESQL_BUDGETS E3; C3a reads it in value order).
 - Base 0.9 C2: the consumer API tier at `/api/consumer`, with get by ID:
   `GET /api/consumer/{apiKey}/v{contractVersion}/objects/{id}`.
   - **The shared object.** Exactly the fields the definition declares, built from the definition

@@ -518,6 +518,8 @@ class ConsumerList(ModelDefinition):
     key: str
     objectType: str
     parentParameter: ConsumerListParent | None = _omitted()
+    # A scalar attribute the type binds; records without a value come last, then name (C-D29).
+    sortBy: str | None = _omitted()
 
 
 class ConsumerApiDefinition(ModelDefinition):

@@ -548,7 +548,7 @@ def _object_sort_keys(
         return (
             statement,
             (null_rank, value_key, tiebreak),
-            lambda raw: [0, _parse_typed(definition.valueType, raw)],
+            lambda raw: [0, parse_typed(definition.valueType, raw)],
         )
     if field_name in {"createdAt", "updatedAt"}:
         attribute = "created_at" if field_name == "createdAt" else "updated_at"
@@ -826,12 +826,12 @@ def parse_filter_value(value_type: str, operator: str, lexical: str, field: str)
             query_error("INVALID_FILTER", f"Filter '{operator}' requires true or false", f"filter.{field}.{operator}")
         return lexical == "true"
     try:
-        return _parse_typed(value_type, lexical)
+        return parse_typed(value_type, lexical)
     except ValueError:
         query_error("INVALID_FILTER", f"Invalid {value_type} value for field '{field}'", f"filter.{field}.{operator}")
 
 
-def _parse_typed(value_type: str, lexical: str) -> Any:
+def parse_typed(value_type: str, lexical: str) -> Any:
     """A lexical value in its declared type; ``ValueError`` when it is not one."""
     try:
         if value_type in {"text", "longText"}:

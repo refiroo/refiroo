@@ -214,7 +214,8 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 12a | [T1a](#t1a-copies-inside-the-database) | T1 | Amendment: change-set bases and publications copied inside PostgreSQL — **delivered 2026-10-04** |
 | 12b | [T1b](#t1b-one-error-code-pattern) | T1a | Amendment: error codes in upper case across every API (C-D25) — **delivered 2026-10-04** |
 | 13 | [C2](#c2-consumer-object-and-projections) | C1, T1b | Consumer object and projections: get by ID — **delivered 2026-10-04** |
-| 14 | C3 | C2 | Lists |
+| 14 | [C3](#c3-consumer-lists-and-parameters) | C2 | Lists and parameters (C-D27–C-D33) — **delivered 2026-10-04**, `sortBy` reads over budget until [C3a](#c3a-attribute-sorts-read-in-value-order) ([record](#c3-delivery-record)) |
+| 14a | [C3a](#c3a-attribute-sorts-read-in-value-order) | C3 | Amendment: attribute sorts read in value order (D46–D48) — planned; decisions approved 2026-10-04 |
 | 15 | C4 | C2 | Consumer index and XREF scoring |
 | 16 | C5 | C4 | XREF parameters |
 | 17 | C14 | C4 | Batch resolve |
@@ -1710,7 +1711,7 @@ Scope, order and acceptance are in [CONSUMER_API.md](CONSUMER_API.md#delivery-pa
 | C5 | C4 | `consumer` | Every parameter kind on XREF |
 | C14 | C4 | `consumer`, `volume` | Batch resolve equal to `xref?expect=one` per item; C-D13 limit confirmed |
 | C15 | C5 | `consumer` | Crosswalk with `target_not_found` and `ambiguous_target` |
-| C6 | C3, C4, F1 | `consumer`, `contract` | Publications with `eventSequence` (= `feedPosition`), OpenAPI per definition, API index, resolved `workspace` named (C-D16) |
+| C6 | C3, C4, F1 | `consumer`, `contract`, `volume` | Publications with `eventSequence` (= `feedPosition`), OpenAPI per definition, API index, resolved `workspace` named (C-D16); **task (D47):** C3a's value-order attribute sort for the publication (and change set) contexts, over `snapshot_attribute_values`, with its budget recorded |
 | C8 | C3–C6, C14, C15 | `consumer`, `volume` | Parity scenarios 1–13 and 16 pass on the fixture model |
 | C16 | C2, Q4 | `consumer` | `asOf` everywhere; SC-11's consumer half; parity scenario 15 |
 | C9 | C2 | `consumer`, `model` | `events` validated and in the contract check |
@@ -1949,6 +1950,399 @@ consumer-API helper now keeps `Capi`), J11 (`R2.u` optional) and J21.8 (the para
 24 passed. OpenAPI lock unchanged (in `contract`). `ruff check app/ tests/` clean. Not run: `startup`
 (no migration or startup path changed), `volume` (no budget yet; the fixed statement count is by
 construction, not measured), the frontend (unchanged), the full suites (R).
+
+#### C3: Consumer lists and parameters
+
+**Delivered 2026-10-04** ([record](#c3-delivery-record)). Planned 2026-10-04; decisions C-D27–C-D33
+were settled with the user the same day. **Needs:** C2.
+**Groups:** `consumer`, `queries`, `contract`, `volume`.
+
+**Behaviour.** A consuming system reads a declared list of business objects, page by page, and narrows
+it and get by ID with the definition's parameters:
+
+```text
+GET /api/consumer/{apiKey}/v{contractVersion}/lists/{listKey}?{parentParameter}=…&{parameters}&{paging}&workspace=…
+```
+
+- **Items** are the shared object, built by C2's composition, so a list item equals get by ID's
+  answer for the same record and parameters. A list holds records of its `objectType` only, read
+  live in the workspace (C-D6, C-D16). Change sets are never read; `publication` arrives in C6 and
+  `asOf` in C16, and until then both answer `400 UNKNOWN_PARAMETER`.
+- **Without a parent value** a list holds every record of its type in the workspace, each item
+  showing its `parent`. That holds whether or not the list declares a parent parameter.
+- **With a parent value (C-D27, C-D28).** The parent parameter is an optional filter that takes
+  object IDs only, never names or codes. It keeps the records of the list's type anywhere below that
+  record. This matters where the model lets a type sit under several parent types: with cities under
+  a country or under a region, cities filtered on Czechia include Brno, which sits under Moravia, and
+  Brno's `parent` is still Moravia. A city under another country is not included. Several IDs give
+  the records below any of them (C-D32).
+- **Order (C-D29).** The list's optional `sortBy` attribute first, with records that have no value
+  last, then name, then creation order. Every page of a read keeps that order.
+- **Paging (C-D30)** works as on the management lists (ADR-030):
+  - cursors both ways (`cursor`), with `anchor` reopening a page;
+  - `position` to jump to a row;
+  - `from=end` for the last page;
+  - `seek` by the sort value;
+  - `includeTotal=true` for `totalCount` and `startIndex`;
+  - `pageSize` from 1 to 100, default 20.
+
+  The envelope:
+
+  ```jsonc
+  { "items": [ … ], "workspace": "…", "pageSize": 20,
+    "nextCursor": "…", "prevCursor": "…", "anchor": "…", "totalCount": 412, "startIndex": 40 }
+  ```
+
+  `workspace` is also in the `RDM-Workspace` header (C-D23). `totalCount` and `startIndex` are `null`
+  unless `includeTotal=true`.
+- **Parameters (C-D31, C-D32, C-D33).** From C3, every definition parameter applies to get by ID and to
+  every list. The kinds `objectType`, `ancestor`, `related` (through a projection, `self` or a shared
+  projection) and `projection` filter the set, and `projection` also limits a projection's items.
+  - A parameter takes several values, repeated (`codelist=A&codelist=B`), comma-separated
+    (`codelist=A,B`) or both. The values are alternatives, and different parameters combine with
+    AND.
+  - In a value, `\,` is a comma and `\\` a backslash; any other backslash is kept as it is.
+  - On get by ID the set has one record, so a parameter that filters the record out answers
+    `404 OBJECT_NOT_FOUND`.
+  - `scoresFrom` has no effect outside XREF (C4, C5), and `to.…` arrives in C15.
+- **Which parameter answers what.** A name the API knows but the route does not apply answers
+  `400 PARAMETER_NOT_SUPPORTED`, naming it: a list's parent parameter on get by ID or on another list,
+  or a paging name on get by ID. Any other name answers `400 UNKNOWN_PARAMETER`.
+- **Refusals.**
+  - An unknown `listKey` answers `404 LIST_NOT_FOUND`.
+  - A parent ID that is no record of the parent types in the workspace answers
+    `404 PARENT_NOT_FOUND`, naming it.
+  - An `objectType` value that is not an exposed public name answers `400 UNKNOWN_OBJECT_TYPE`, naming
+    the public names.
+  - A page size outside 1–100 answers `400 INVALID_PAGE_SIZE`.
+  - The shared paging refusals keep their codes (`INVALID_CURSOR`, `CONFLICTING_PAGE_PARAMETERS`,
+    `INVALID_POSITION`, `INVALID_SEEK`) with status `400`, the consumer tier's status for a request
+    error (as C2 did for `UNKNOWN_PARAMETER`).
+
+**Design.**
+
+- **Route** `GET /{apiKey}/v{contractVersion}/lists/{listKey}` in `app/consumer/router.py`. C2's
+  `_check_parameters` grows into one check per route. It takes the names the route serves and the
+  names the definition knows, and gives the two answers above. It splits each parameter's values,
+  repeated and comma-separated, with the escape, in one place.
+- **Filters** in `engine/reads/consumer_parameters.py`. Each parameter becomes a SQL predicate on the
+  record (`RdmObject.id`), so a filter, its total and a position jump stay in the database. Get by ID
+  and the lists use it in C3, and XREF (C4, C5) and batch resolve (C14) reuse it.
+  - A value first finds its candidates: the records of the listed types that match it, read
+    through the same index reads a search uses. Text is compared ignoring case; a value that does not
+    parse for a typed field does not match that field.
+  - An `ancestor` parameter keeps the candidates' descendants: a recursive CTE walks down from them
+    through the records of the container types only, and a record is kept when its parent is one of
+    them (as Q3's ancestor criterion does; amended at delivery).
+  - `self` keeps the candidates themselves.
+  - A projection route is an `EXISTS` over the projection's relation and direction. A shared projection
+    is an `EXISTS` over two relationships of that projection meeting in one record. Through a shared
+    projection, the matching record itself is kept only by `self`.
+  - A `projection` parameter's match fields are fields of the projected records, so
+    `ancestor:<type>.<field>` resolves the same way, through the ancestor's candidates.
+- **Lists** in `engine/reads/consumer_lists.py`.
+  - The list's statement comes from `build_object_query`, the per-type list's builder: the type, the
+    workspace and the `sortBy` sort, with its typed sort keys, records without a value last, and its
+    seek.
+  - Parent IDs become the same container walk, and the parameters add their predicates.
+  - `paginate_statement` pages it under the scope `consumer-list:<apiKey>:<listKey>`. The cursor binds
+    the workspace, the parent IDs, every parameter value and the contract version, so a cursor never
+    carries over to another read.
+  - `ConsumerObjects.compose` builds the page's IDs. It now also takes the `projection` parameters'
+    limits as predicates on the projection's statement, so limiting is SQL as well. A page still costs
+    a fixed number of statements, whatever its size or the list's length.
+- **Model.**
+  - `sortBy` is optional on a list (schema 0.8, which is not yet in a product release). It names a
+    scalar attribute, not JSON, bound to the list's type, and is refused otherwise at
+    `/consumerApis/<key>/lists/<list>/sortBy`. `output_contract` includes it, so changing or removing
+    it is a breaking change (C-D18 extended, C-D29).
+  - `from`, `seek` and `includeTotal` join the reserved parameter names (C-D30).
+- **No migration and no new index.** A list without a parent value in name order reads
+  `ix_objects_type_name` (workspace, type, name, sequence). A `sortBy` list joins the typed value, as
+  the per-type list does. The consumer index belongs to C4.
+
+**Decisions (settled with the user, 2026-10-04):**
+
+| # | Question | Decision |
+| --- | --- | --- |
+| C-D27 | Does a parent value keep the parent's direct children, or every record of the list's type below it? | Every record of the list's type below it. Where a type can sit under several parent types (cities under a country or a region), a city under a region of the country is included, and a city under another country is not. Each item's `parent` is its direct parent. The parent parameter is an optional filter: without it, the list holds every record of its type |
+| C-D28 | How a list's parent is named | By object ID only, with no free-text matching: a consumer reads the parent's list first and uses the IDs it returns. An ID that is no record of the parent types is `404 PARENT_NOT_FOUND`. Amends CONSUMER_API's Lists text ("identity, name or declared code fields") and C8's parity scenario 10, whose name and code cases go through an `ancestor` parameter declared on a list without a parent |
+| C-D29 | List order. CONSUMER_API names "the definition's sort field", which the schema does not have | An optional `sortBy` on a list. Records without a value come last, then name, then creation order (what every engine list ends with, served by `ix_objects_type_name`; CONSUMER_API's "then ID" is amended). A change to `sortBy` is a breaking change |
+| C-D30 | Paging modes | As on the management lists: cursors both ways with `anchor`, `position`, `from=end`, `seek` and `includeTotal`, with `pageSize` 1–100 (default 20). `from`, `seek` and `includeTotal` become reserved names. The reference's `page` and `returnedCount` are not carried over (`startIndex` and the length of `items` give them) |
+| C-D31 | Where parameters apply | Every definition parameter applies to get by ID and to every list; on get by ID it filters a set of one (`404 OBJECT_NOT_FOUND` when filtered out). `PARAMETER_NOT_SUPPORTED` stays for a known name a route does not apply. Batch resolve (C14) applies its `defaults` to by-ID items this way |
+| C-D32 | Parameter values | Several values per parameter, repeated, comma-separated or both, as alternatives; different parameters combine with AND (as the management API's repeated filters do). The escape is the engine's own, `\,` and `\\`, since a server decodes `%2C` to a comma before the engine sees it. XREF's comma-separated `query` (C4) uses the same escape. Text matches ignoring case; a value that does not parse for a typed field does not match it. `ancestor` matches at any depth; through a shared projection, the matching record itself is kept only by `self`. An unknown `objectType` value is `400 UNKNOWN_OBJECT_TYPE`. Commas on the management API's repeated filters are recorded in TODO |
+| C-D33 | Scope between C3 and C5 | C3 delivers all four kinds for lists and get by ID, including `objectType` and the shared-projection route; C5 becomes XREF's use of them, with `scoresFrom`. CONSUMER_API's C3 and C5 rows are amended |
+
+**Journey.** J28 gains the list variants: its status says lists follow in C3, and a list is still a
+consumer reading business objects. New variants J28.6–J28.10, and J28.4 changes. USER_JOURNEYS and
+API_JOURNEYS add the route, `sortBy` and the new codes. Generated A and B's `Capi` gains:
+
+- `D` exposed, with the same roles; its `code` is `null`.
+- A projection over `Bscope`, outgoing.
+- The lists: `all` (`R`, no parent, `sortBy` `R.n`), `entries` (`R2` under `R`) and `permits` (`D`
+  under `G`). In B, a `D` is two levels below its `G`, through `M`. The tests put each `D` under an
+  `M` in A as well.
+- The parameters: `container` (`ancestor`, `M` by name, replacing C2's single parameter), `permit`
+  (`projection` over `Bown`, matching `ancestor:G.name`, `requireMatch`), `token` (`related`, `K` by
+  name through `B11`), `peer` (`related`, `R` by name through `self` and the shared `Bscope`) and
+  `kind` (`objectType`).
+
+Their keys and names are `Capi.…` keys. The change rebuilds the two seeds once. If C1's validation
+refuses `D` with roles whose sources it lacks, the case stops and asks rather than reshaping `Capi`.
+
+**Test cases** (journey tests, written first and confirmed failing):
+
+1. **J28.6 Every object of a type.** Given five `R`, two of them without `R.n`, an `R` only in an open
+   change set, and some `R2`. When `all` is read with `pageSize=2` to the end through `nextCursor`, back
+   through `prevCursor`, at `position=2`, with `from=end`, and with `seek` on an `R.n` value. Then:
+   - each live `R` appears once, by `R.n` and then name, the two without a value last;
+   - the `R2` and the change set's `R` are absent;
+   - with `includeTotal=true`, `totalCount` is 5 and `startIndex` follows the page; without it, both
+     are `null`;
+   - each item equals its get by ID answer;
+   - `workspace` is named in the field and in the header.
+2. **J28.7 Below a parent.** Given `R` "North" with two `R2` and "South" with one; and two `G`, each
+   with an `M` holding `D`. Then:
+   - `entries` by North's ID gives its two `R2`; by North's and South's IDs, repeated or
+     comma-separated, all three; without a parent value, all three, each with its `parent`;
+   - `permits` by one `G`'s ID gives the `D` two levels below it and none of the other `G`'s;
+   - North's name answers `404 PARENT_NOT_FOUND`, and so do a `K`'s ID and an unknown ID.
+3. **J28.8 Parameters narrow a list.**
+   - `permits` with `container` keeps the `D` of that `M`.
+   - `token` keeps the `R` whose `B11` target has that name, in another case as well.
+   - `peer=Ra` keeps `Ra` (through `self`) and `Rb` (it shares a `Bscope` `D`), and not `Rc`.
+   - `permit` limits each `R`'s permits to that `G`'s and drops the `R` without one, and `totalCount`
+     follows.
+   - `kind` with `R`'s public name keeps every `R`, with `R2`'s keeps none, and with an unknown name
+     answers `400 UNKNOWN_OBJECT_TYPE`.
+   - Two values of `token`, repeated and comma-separated, keep the `R` matching either. A `K` named
+     "Bonds, Notes" is matched by `token=Bonds\, Notes` and not by `token=Bonds`.
+   - Two parameters together give the records both keep.
+4. **J28.9 Parameters on get by ID.**
+   - `permit` limits the array.
+   - An `R` without such a permit, or with a `container` that does not match, answers
+     `404 OBJECT_NOT_FOUND`.
+   - `pageSize`, or a list's parent parameter, answers `400 PARAMETER_NOT_SUPPORTED`.
+5. **J28.10 Paging refusals.**
+   - An unknown list answers `404 LIST_NOT_FOUND`.
+   - `pageSize=0` and `pageSize=101` answer `400 INVALID_PAGE_SIZE`.
+   - `cursor` with `position` answers `400 CONFLICTING_PAGE_PARAMETERS`.
+   - A cursor from `all` sent with a different `token` answers `400 INVALID_CURSOR`.
+6. **J28.4 (changed).** C2's case of a declared parameter answering `400 PARAMETER_NOT_SUPPORTED`
+   becomes a list's parent parameter on get by ID.
+7. **J25 (changed): `sortBy` and the reserved names.**
+   - An unknown attribute, a JSON attribute and an attribute the list's type does not bind are each
+     refused at `/consumerApis/<key>/lists/<list>/sortBy`.
+   - Changing `sortBy` is reported as `version_required`.
+   - A parameter named `from`, `seek` or `includeTotal` is refused as reserved.
+
+**Volume.** A new module, `test_consumer_list_volume` (`consumer`, `volume`). The volume model gains
+a consumer definition over `vol-group` and `vol-item`:
+
+- items under a group (the parent by ID);
+- every item, with `sortBy` on the rank;
+- one `ancestor` parameter.
+
+The change rebuilds the volume seeds once. At scales 0.01 and 0.04, these reads each cost the same
+statements, with rows bounded per listed row as S1's budgets require:
+
+- a first page;
+- the next cursor page;
+- a `position` jump to the middle;
+- a parent list;
+- a filtered list with `includeTotal`.
+
+Each is timed once at full volume with `volume_baseline.py` against the 100 ms read budget, and the
+figures are recorded here. A read over budget is reported with its cause and not tuned in a loop.
+
+No unit tests beyond the volume budget. The edge cases (parent filter, the kinds, values, order) are
+what the journeys assert, and the composition is C2's. **Checks:** the J28 and J25 cases on generated
+A and B, the groups `consumer`, `queries` (the shared builder), `contract` (the route,
+`test_boundaries`, the API inventory) and `volume` (the new module), and `ruff check app/ tests/`. No
+migration, so no `startup` group.
+
+**Docs at delivery:**
+
+- API.md gains consumer lists and the parameters on get by ID.
+- CONSUMER_API records C-D27–C-D33 and amends:
+  - the Lists endpoint text (parent by ID, order, paging, envelope);
+  - the reserved names;
+  - the C3 and C5 rows;
+  - parity scenario 10;
+  - the "not carried over" table (`page`, `returnedCount`).
+- APPLICATION_MODEL gains `sortBy`.
+- USER_JOURNEYS amends J28; API_JOURNEYS adds the route and the codes.
+- TODO records commas on the management API's repeated filters.
+- CURRENT_FUNCTIONALITY and PRODUCT describe reading a list.
+
+**Composable domains (ADR-032):** identity, attribute storage, audit and the `match` declaration are
+untouched. The product catalogue's `lists/products?category=…&position=…` (CONSUMER_API's
+`catalogue` example) is served by this package, so the door is exercised rather than narrowed.
+
+##### C3 delivery record
+
+**Delivered 2026-10-04.** What was built:
+
+- **Route** `GET /api/consumer/{apiKey}/v{contractVersion}/lists/{listKey}` in `app/consumer/router.py`.
+  One parameter check serves both routes (`_Parameters.check`): a name the API does not know is
+  `400 UNKNOWN_PARAMETER`, a known one the route does not apply `400 PARAMETER_NOT_SUPPORTED`; values
+  are split once, repeated and comma-separated, with the `\,` and `\\` escape
+  (`consumer_parameters.split_values`). The shared paging refusals answer `400` on this tier.
+- **Parameters** in `engine/reads/consumer_parameters.py`: each kind is a predicate on the record
+  (`objectType`, `ancestor`, `related` through a projection, `self` or a shared projection, and
+  `projection` with `requireMatch`), and a `projection` parameter is also a limit on that projection's
+  items, which `ConsumerObjects.compose` now applies in SQL. Get by ID filters its set of one with the
+  same predicates (`404 OBJECT_NOT_FOUND` when filtered out).
+- **Lists** in `engine/reads/consumer_lists.py`: `build_object_query` with the list's `sortBy`, the name
+  key inserted before the creation-order tiebreak (C-D29), the parent IDs and the parameters as
+  predicates, `paginate_statement` under `consumer-list:<apiKey>:<listKey>` with the workspace, parent
+  IDs, parameter values and contract version bound into the cursor; the page composed by C2's
+  `ConsumerObjects`.
+- **Model:** `sortBy` on a list (schema 0.8), refused at `/lists/<list>/sortBy` when it is not an
+  attribute the list's type binds or holds JSON; part of `output_contract`, so changing it is breaking
+  (reported at `/lists`, as C1 reports other list changes). `from`, `seek` and `includeTotal` reserved.
+- **Configurations:** generated A and B's `Capi` gained `D`, the `Bscope` projection, the three lists
+  and the five parameters; list keys are URL keys in B as well (`x7-…`). The volume model gained a
+  consumer definition (`vol-consumer`: items by group, items by rank, an ancestor parameter).
+
+**Differences from the plan:**
+
+- **Below a parent or an ancestor** walks only the records of the types that can contain the listed
+  type, from the start records down, and keeps the records whose parent is one of them
+  (`consumer_parameters.below`), as Q3's ancestor criterion does. The plan's recursive CTE over every
+  descendant was built first and measured 793 ms for the 20,000 items under the heavy group at full
+  volume (each step merge-joined the whole parent index); with the container walk it is 7.4 ms.
+- **`INVALID_PAGE_PARAMETER`** (`400`) is added for `from` other than `start`/`end` and `includeTotal`
+  other than `true`/`false`; the plan named no code for them. A non-integer `pageSize` is
+  `INVALID_PAGE_SIZE`, a non-integer `position` `INVALID_POSITION`.
+- **`objectType` values** compare with the public names exactly (case-sensitive); match fields compare
+  text ignoring case, as specified.
+- **J28 case 1 (C2's, approved)** now lists the `Bscope` projection among the declared fields: the plan
+  adds that projection to `Capi`, so the shared object gains the field. No assertion was weakened.
+- **Not confirmed failing first:** the J25 case (`sortBy` refusals, its breaking change, the reserved
+  names) was written after the model change and passed on its first run. The other cases failed
+  before the route existed (12 failures: J28.4 and J28.6–J28.10 on A and B).
+- The volume definition's ancestor parameter matches a group by ID, name or code; the budget reads use
+  the ID.
+
+**Volume.** `test_consumer_list_volume` (`consumer`, `volume`): at scales 0.01 and 0.04 each of the
+five reads executes the same statements (6–10) and loads at most 25 ORM rows. Full volume
+(`volume_baseline.py --only-consumer --scale 1 --repeat 3`, warm median, after the container walk):
+
+| Read | Time · statements · rows |
+| --- | --- |
+| First page of every item by rank (`sortBy`) | **478.9 ms** · 9 · 24 |
+| Next cursor page (`sortBy`) | **2,571.4 ms** · 10 · 25 |
+| Position jump to the middle (`sortBy`) | **690.4 ms** · 9 · 24 |
+| 20,000 items under a parent (name order) | 7.4 ms · 6 · 24 |
+| Ancestor filter with `includeTotal` (`sortBy`, 20,000 matches) | **147.7 ms** · 10 · 24 |
+
+**Over budget: every read ordered by `sortBy`.** Cause (one `EXPLAIN ANALYZE` each): the per-type
+list's attribute sort reads the value through correlated subqueries (`_attribute_scalar`), so no index
+serves the order and each page computes them for all 100,000 items and sorts them (`top-N heapsort`
+over a bitmap scan of the type). A cursor page is worse: its keyset predicate repeats the subquery
+eight more times per row, and the backward probe for `prevCursor` runs a second full pass (1.1 s and
+1.4 s). The plan's "joins the typed value, as the per-type list does" assumed a join; the live per-type
+list uses subqueries. This is POSTGRESQL_BUDGETS E3 (sort by an attribute under the 20,000-child
+parent, 104 ms) over a whole type instead of one parent, decided in Base 0.8 as D26 (an indexed sort
+key per record, after 0.9). Not tuned in C3; the user chose an index on the values as its own package,
+[C3a](#c3a-attribute-sorts-read-in-value-order), after a check of that route on the full-volume seed.
+
+**Checks:** J28 and J25 on generated A and B (32 passed; after the container walk J28 again, 22).
+Groups `consumer`, `queries`, `contract` and `volume` in parallel: 410 passed in 1 min 32 s
+(`test_api_journeys` with the new route and codes, `test_boundaries`, the OpenAPI lock unchanged);
+their serial part: 1 passed. Named risk from the volume model gaining a definition, the modules
+outside these groups that load it: `test_model`, `test_restructuring_planner`, `test_type_changes`,
+`test_restructuring_api`, 167 passed. `test_consumer_list_volume` after the walk change: passed.
+`ruff check app/ tests/` clean. Not run: `startup` (no migration or startup path changed), the
+frontend (unchanged), the full suites (R).
+
+#### C3a: Attribute sorts read in value order
+
+**Planned 2026-10-04; decisions D46–D48 approved by the user the same day** (D47 with its context
+work made a task of C6). An amendment raised by C3's full-volume budget: the user asked
+on 2026-10-04 whether the sort could be solved in C3, route 1 below was checked once on the
+full-volume seed, and the user agreed to a package of its own. **Needs:** C3. **Before:** C4.
+**Groups:** `queries`, `consumer`, `volume`, `startup`, `contract`.
+
+**Behaviour:** none changes. A list sorted by an attribute (a consumer list's `sortBy`, and the
+management per-type list's `sort=<attribute>`, ascending or descending) answers the same rows in the
+same order, with the same cursors, positions, seeks, totals and refusals. Records without a value
+still come last in both directions. Only how the order is read changes: through an index in value
+order, instead of computing every record's value and sorting the whole set on every page.
+
+**Evidence (route 1, checked 2026-10-04 on a clone of the full-volume seed, 100,000 items with 1,000
+distinct ranks, one index added in the clone, `EXPLAIN ANALYZE`):**
+
+| Read | C3 today | Records with a value, through the index |
+| --- | --- | --- |
+| First page by rank | 479 ms | 1.0 ms |
+| Next cursor page | 2,571 ms | 0.6 ms, and 0.5 ms for the backward probe |
+| Ancestor filter, 20,000 items | 148 ms | 2.0 ms for the page |
+| Position 50,000 | 690 ms | 94–102 ms |
+| Total (`includeTotal`) | — | about 55 ms |
+
+PostgreSQL walks the index in value order, reads each record by ID, sorts only within one value by
+name (`Incremental Sort`) and stops at the page's end. Records without a value cannot share the
+statement: one `UNION ALL` ordered as a whole sorts everything again (111–115 ms). Read on their own,
+in name order with an anti-join, they cost 1 ms when such records exist and 56 ms when none does
+(the anti-join has to see every record to find none).
+
+**Design.**
+
+- **Migration:** one index per typed value column of `attribute_values` that has none:
+  `(attribute_type_key, <integer|decimal|boolean|date|datetime>_value, object_id)`. Text already has
+  `ix_attribute_values_key_text`. JSON is not sortable.
+- **Two parts, in order.** The live attribute sort becomes two parts: the records with a value,
+  joined to their value and ordered by it (then name, then creation order), and the records without
+  one, ordered by name (then creation order). `paginate_statement` gains a way to page parts read
+  one after the other, as it gained `Overlay` for a base and its overlay: the keyset keeps the
+  null-rank key, so a cursor names its part; a page read past the first part's end continues into the
+  second; a position subtracts the first part's count when it lies beyond it; a total adds the
+  parts' counts; `from=end` and backward reads start in the last part. Each part costs a fixed
+  number of statements, so the budgets' statement counts stay constant.
+- **Where:** in `object_query`'s live attribute sort (`LIVE_OBJECT_COLUMNS`), which the per-type
+  list and the consumer lists share. The change set and publication contexts read
+  `snapshot_attribute_values` and keep their sort until a package needs it (C6's publication-pinned
+  lists, which then records its own budget); a relation list's attribute sort is unchanged.
+- **Seek** by a value seeks in the first part; `seek` past every value lands at the second part's
+  start, as today.
+
+**Decisions (approved by the user, 2026-10-04):**
+
+| # | Question | Decision |
+| --- | --- | --- |
+| D46 | Index the values or store a sort key per record (Base 0.8 D26)? | Index the values now (route 1): one migration, no write-path change, and the checked reads fall to 1–2 ms. 0.8 D26's stored key stays after 0.9 for what the index cannot serve: few distinct values (a boolean sorts a whole group of equal values by name, up to half the type, unchecked) and deep positions (about 100 ms at row 50,000, either way) |
+| D47 | Which contexts | Live only, the contexts C3 reads. Change sets and publications are a task of C6, which reads publications through a consumer API (recorded in C6's row) |
+| D48 | Which lists | The shared live attribute sort, so the management per-type list's attribute sort gains it too (POSTGRESQL_BUDGETS E3, 104 ms under the 20,000-child parent, expected to fall); not the ancestor sort (`ancestor:<type>`), which reads another table |
+
+**Test cases** (for approval; behaviour is unchanged, so they guard the change rather than fail first):
+
+1. **J28.6 (unchanged)** already pages a `sortBy` list across both parts: by value, records without a
+   value last, cursors both ways, `position`, `from=end`, `seek` and totals, on generated A and B.
+2. **J21 (one new case): an attribute sort across both parts.** Given records of a type, some without
+   the sorted attribute and some sharing a value. When the per-type list is read sorted by it,
+   ascending and descending, with `pageSize=2`, to the end through `nextCursor`, back through
+   `prevCursor`, at a position in each part, with `from=end`, a `seek` and `includeTotal`. Then each
+   record appears once, by value then name, the records without a value last in both directions, and
+   `totalCount` and `startIndex` follow. On two configurations.
+3. **Unchanged, rerun:** `test_paging_contract` and `test_change_set_position_reads` (their
+   `vol-rank` sorts), `test_volume_baseline` and `test_consumer_list_volume` (statements constant at
+   two sizes; the parts may add statements once, not per row).
+4. **Startup:** the existing `test_startup` cases cover the revision (clean start to `HEAD`, upgrade
+   through every revision, restart). Creating indexes is transactional, so an interrupted run leaves
+   the previous revision. One smoke start on a copy of the development database.
+
+**Measurement:** once, warm, at full volume after the change (the seed rebuilds once for the
+migration): `volume_baseline.py --only-consumer`, and the `children: heavy parent by rank` row of the
+read table for E3. A read still over 100 ms is recorded with its cause, not tuned.
+
+**Docs at delivery:** POSTGRESQL_BUDGETS (E3 restated or closed), ARCHITECTURE's list reading,
+CHANGELOG, PROJECT_STATUS and TODO (C3's `sortBy` item closed or restated). No API or model contract
+changes.
+
+**Composable domains (ADR-032):** attribute storage gains indexes and keeps its shape; identity,
+audit, the bulk APIs and the `match` declaration are untouched. No door closes.
 
 ## Track V — API reference
 
@@ -2193,6 +2587,9 @@ D31–D34 raised by F1 (2026-10-03), D35–D39 raised by B3 (2026-10-03), and D4
 | D39 | Refusals of a set replacement | **Accepted 2026-10-03 with the B3 plan.** A target listed twice is `409 duplicate_relation` at `/items/i/targets/j`; a target's refusal points at it; a stale set is `409 relation_set_version_conflict`, while the mapping PUT keeps `mapping_version_conflict` with its preview; the `transition` payload lists `newTargets` | B |
 | D40 | The retention floor and the baseline | **Decided 2026-10-03 by the user (F2).** The floor (`earliestPosition`) is the first entry within `FEED_RETENTION_DAYS`, but never past the active publication's `feedPosition + 1`; with no active publication that has a position (never published, withdrawn, or published before F1), nothing expires. Otherwise a publication older than the period is itself expired, so a reader refused `410` gets `410` again after re-reading it, and a workspace with no publication has no baseline until J1's export. It costs nothing: the audit log is not pruned. A withdrawal can lower the floor back to 1. J1 revisits the no-publication case once an export is a baseline any reader can take | F |
 | D41 | The export in the `410` details | **Decided 2026-10-03 by the user (F2).** F2's `410` names the active publication only; J1 adds the export route as a second baseline, an additive field | F, J |
+| D46 | Index the attribute values or store a sort key per record (Base 0.8 D26)? | **Approved 2026-10-04 (C3a).** Index the values now; 0.8 D26's stored key stays after 0.9 for few distinct values and deep positions | Q, C |
+| D47 | Which contexts C3a's sort covers | **Approved 2026-10-04 (C3a).** Live only; change sets and publications are a task of C6 | C |
+| D48 | Which lists C3a's sort covers | **Approved 2026-10-04 (C3a).** The shared live attribute sort (consumer lists and the management per-type list); not the `ancestor:<type>` sort | Q, C |
 
 ## Next
 

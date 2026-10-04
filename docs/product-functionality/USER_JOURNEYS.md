@@ -618,6 +618,10 @@ The identity (`id` role) reads the object ID: its source is `["id"]`, and any ot
 refused at `/consumerApis/<key>/object/id/source` (C-D24). Another identifier, such as a former
 system's ID, is published as an attribute field.
 
+A list may name a `sortBy` attribute: a scalar attribute its type binds, refused otherwise at
+`/consumerApis/<key>/lists/<list>/sortBy`; changing it is a breaking change. `from`, `seek` and
+`includeTotal` are reserved parameter names, as the other paging names are (C3).
+
 **Refusals:** `422 INVALID_MODEL` (with the pointer), `409 CONSUMER_CONTRACT_VERSION_REQUIRED`.
 
 **Evidence today:** `test_consumer_api_model`; the J25 journey tests.
@@ -846,16 +850,18 @@ background job across a restart, its publish and its cancellation, 0.9 T1).
 ### J28 — Read a business object through a consumer API
 
 **Actor:** consuming system. **Channel:** consumer API. **Stories:** US-I09 (consumer side).
-**Status:** get by ID delivered (0.9 C2); lists, XREF and the rest follow in C3–C16
-([CONSUMER_API.md](../CONSUMER_API.md)).
+**Status:** get by ID delivered (0.9 C2), lists and parameters (0.9 C3); XREF and the rest follow in
+C4–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
 
 1. Read one business object by its object ID from a consumer API's contract version:
-   `GET /api/consumer/{apiKey}/v{contractVersion}/objects/{id}`.
+   `GET /api/consumer/{apiKey}/v{contractVersion}/objects/{id}`; or read a declared list of them,
+   page by page: `GET /api/consumer/{apiKey}/v{contractVersion}/lists/{listKey}`.
 2. Receive the definition's shared object: exactly the declared fields, values in their declared
    types, `parent` (or `null`), `path` and `hierarchy` from the ancestors, and each projection as an
-   object or `null`, or as an array, by the relationship's cardinality.
-3. Read live data in the default workspace, or in the workspace named by `workspace`; the response
-   names it in `RDM-Workspace`.
+   object or `null`, or as an array, by the relationship's cardinality. A list item is the same object.
+3. Narrow either read with the definition's parameters, and a list with its parent parameter.
+4. Read live data in the default workspace, or in the workspace named by `workspace`; the response
+   names it in `RDM-Workspace`, and a list's envelope in `workspace` as well.
 
 **Variants:**
 
@@ -864,14 +870,30 @@ background job across a restart, its publish and its cancellation, 0.9 T1).
 - **J28.2 Live data, never unpublished work**: a live change shows at once; a record only in a
   change set is not found until published.
 - **J28.3 Another workspace**: each record is found only in its own workspace.
-- **J28.4 Refusals**: unknown API, contract version or parameter; a declared parameter not yet
-  applied; a record of a type the definition does not expose.
+- **J28.4 Refusals**: unknown API, contract version or parameter; a parameter the read does not
+  apply (a list's parent parameter on get by ID); a record of a type the definition does not expose.
 - **J28.5 The contract follows the release**: a new contract version replaces the old one, with
   the new projection shape.
+- **J28.6 Every object of a type**: a list without a parent value holds every live record of its
+  type, in the list's `sortBy` order (records without a value last), then name; it pages with
+  cursors both ways, `anchor`, `position`, `from=end` and `seek`, and counts with `includeTotal`.
+- **J28.7 Below a parent**: a parent value, by object ID only, keeps the records of the list's type
+  anywhere below that record; several IDs keep those below any of them. An ID that is no record of
+  the parent types is refused.
+- **J28.8 Parameters narrow a list**: `ancestor`, `related` (through a projection, `self` or a shared
+  projection), `projection` (limiting the projection and, with `requireMatch`, the records) and
+  `objectType`; several values, repeated or comma-separated with `\,` for a comma, are
+  alternatives; different parameters combine.
+- **J28.9 Parameters on get by ID**: a parameter limits the projection or filters the record out
+  (`404`); a paging or parent parameter is not supported there.
+- **J28.10 Paging refusals**: an unknown list, a page size outside 1–100, conflicting page
+  selectors and a cursor sent with other parameters.
 
 **Refusals:** `404 CONSUMER_API_NOT_FOUND`, `404 CONTRACT_VERSION_NOT_FOUND`,
-`404 OBJECT_NOT_FOUND`, `404 WORKSPACE_NOT_FOUND` (unknown or retired), `400 UNKNOWN_PARAMETER`,
-`400 PARAMETER_NOT_SUPPORTED`.
+`404 OBJECT_NOT_FOUND`, `404 WORKSPACE_NOT_FOUND` (unknown or retired), `404 LIST_NOT_FOUND`,
+`404 PARENT_NOT_FOUND`, `400 UNKNOWN_PARAMETER`, `400 PARAMETER_NOT_SUPPORTED`,
+`400 UNKNOWN_OBJECT_TYPE`, `400 INVALID_PAGE_SIZE`, `400 INVALID_CURSOR`,
+`400 CONFLICTING_PAGE_PARAMETERS`, `400 INVALID_POSITION`, `400 INVALID_SEEK`.
 
 **Evidence today:** the J28 journey tests.
 

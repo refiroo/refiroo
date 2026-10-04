@@ -34,6 +34,7 @@ from ..model.consumer_contract import (
     split_ancestor_reference,
 )
 from ..records.values import VALUE_COLUMNS, canonical_decimal, stored_json_value
+from .consumer_parameters import NO_FILTER, ConsumerFilter, Predicate
 
 
 def consumer_definition(model: EngineModel, api_key: str, contract_version: str) -> ConsumerApiDefinition:
@@ -156,10 +157,15 @@ class ConsumerObjects:
         self._objects_read_ancestors = bool(self.parent or self.path or self.hierarchy)
 
     def compose(
-        self, session: Session, workspace_key: str, object_ids: Sequence[str]
+        self,
+        session: Session,
+        workspace_key: str,
+        object_ids: Sequence[str],
+        narrowed: ConsumerFilter = NO_FILTER,
     ) -> dict[str, dict[str, Any]]:
         """The shared object of each exposed record of ``object_ids`` in the workspace, by ID, in the
-        order given; a record of another type or workspace, or no record, is left out."""
+        order given; a record of another type or workspace, or no record, is left out, and so is one
+        ``narrowed``'s parameters filter out. They also limit the projections' items (C3)."""
         records = _load(
             session,
             select(RdmObject.id, RdmObject.object_type_key, RdmObject.name, RdmObject.parent_object_id)
@@ -167,12 +173,15 @@ class ConsumerObjects:
                 RdmObject.id.in_(list(object_ids)),
                 RdmObject.workspace_key == workspace_key,
                 RdmObject.object_type_key.in_(list(self.public_names)),
+                *narrowed.on(RdmObject),
             )
             .subquery(),
             self._own_keys,
         )
         related = {
-            projection.output: self._related(session, workspace_key, projection, list(records))
+            projection.output: self._related(
+                session, workspace_key, projection, list(records), narrowed.limits.get(projection.output)
+            )
             for projection in self.projections
         }
         starts = {record.parent_id for record in records.values()} if self._objects_read_ancestors else set()
@@ -187,9 +196,15 @@ class ConsumerObjects:
         }
 
     def _related(
-        self, session: Session, workspace_key: str, projection: _Projection, owner_ids: list[str]
+        self,
+        session: Session,
+        workspace_key: str,
+        projection: _Projection,
+        owner_ids: list[str],
+        limit: Predicate | None,
     ) -> list[tuple[str, _Record]]:
-        """``(owner ID, related record)`` for each relationship of the projection, by name then ID."""
+        """``(owner ID, related record)`` for each relationship of the projection, by name then ID;
+        ``limit`` keeps only the related records it holds for."""
         if not owner_ids:
             return []
         outgoing = projection.direction == "outgoing"
@@ -208,6 +223,7 @@ class ConsumerObjects:
                 ObjectRelation.relation_type_key == projection.relation,
                 own.in_(owner_ids),
                 RdmObject.workspace_key == workspace_key,
+                *([] if limit is None else [limit(RdmObject)]),
             )
             .subquery()
         )
@@ -376,11 +392,12 @@ def read_consumer_object(
     definition: ConsumerApiDefinition,
     workspace_key: str,
     object_id: str,
+    narrowed: ConsumerFilter = NO_FILTER,
 ) -> dict[str, Any]:
     """Get by ID: the shared object of the record with this object ID (C-D24), or
-    ``404 OBJECT_NOT_FOUND`` for an unknown or deleted record, one in another workspace, or one of a
-    type the definition does not expose."""
-    composed = ConsumerObjects(model, definition).compose(session, workspace_key, [object_id])
+    ``404 OBJECT_NOT_FOUND`` for an unknown or deleted record, one in another workspace, one of a
+    type the definition does not expose, or one the parameters filter out (C-D31)."""
+    composed = ConsumerObjects(model, definition).compose(session, workspace_key, [object_id], narrowed)
     if object_id not in composed:
         raise api_error(404, "OBJECT_NOT_FOUND", f"Object '{object_id}' not found")
     return composed[object_id]

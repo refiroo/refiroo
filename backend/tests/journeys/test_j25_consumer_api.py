@@ -144,3 +144,52 @@ def test_the_identity_reads_the_object_id(world):
     error = refused(_install(world, draft), 422, "INVALID_MODEL")
     pointer = f"/consumerApis/{world.key('Capi')}/object/id/source"
     assert any(d["path"] == pointer for d in error["details"]), error["details"]
+
+
+def _capi(model, world):
+    (definition,) = [d for d in model["consumerApis"] if d["key"] == world.key("Capi")]
+    return definition
+
+
+def _capi_model(world, suffix):
+    model = copy.deepcopy(world.configuration.model)
+    model["release"]["version"] += f"-{suffix}"
+    return model, _capi(model, world)
+
+
+@pytest.mark.journey("J25")
+@pytest.mark.structures("Capi", "R", "R.n", "K.code")
+def test_a_list_sorts_by_a_scalar_attribute_of_its_type(world):
+    """An unknown attribute, a JSON attribute and an attribute the list's type does not bind are each
+    refused at /consumerApis/<key>/lists/<list>/sortBy. Changing sortBy is reported as
+    version_required. A parameter named from, seek or includeTotal is refused as reserved."""
+    pointer = f"/consumerApis/{world.key('Capi')}/lists/{world.key('Capi.all')}/sortBy"
+    json_key = "consumer-notes"
+    for sort_by in ("no-such-attribute", json_key, world.key("K.code")):
+        model, definition = _capi_model(world, f"sort-{sort_by}")
+        model["attributeTypes"].append({"key": json_key, "name": "Notes", "valueType": "json"})
+        r_type = next(t for t in model["objectTypes"] if t["key"] == world.key("R"))
+        r_type["attributes"].append({"attributeTypeKey": json_key, "order": 900})
+        (all_,) = [item for item in definition["lists"] if item["key"] == world.key("Capi.all")]
+        all_["sortBy"] = sort_by
+        _draft, compiled = _compile(world, model)
+        assert compiled["valid"] is False, sort_by
+        assert any(d["path"] == pointer for d in compiled["diagnostics"]), compiled["diagnostics"]
+
+    model, definition = _capi_model(world, "sort-name")
+    (all_,) = [item for item in definition["lists"] if item["key"] == world.key("Capi.all")]
+    del all_["sortBy"]
+    _draft, compiled = _compile(world, model)
+    assert compiled["consumerContracts"]["classification"] == "version_required"
+    assert any(
+        d["path"].startswith(f"/consumerApis/{world.key('Capi')}/lists")
+        for d in compiled["consumerContracts"]["diagnostics"]
+    )
+
+    for name in ("from", "seek", "includeTotal"):
+        model, definition = _capi_model(world, f"reserved-{name}")
+        definition["parameters"][name] = {"kind": "objectType"}
+        _draft, compiled = _compile(world, model)
+        assert compiled["valid"] is False, name
+        reserved = f"/consumerApis/{world.key('Capi')}/parameters/{name}"
+        assert any(d["path"] == reserved for d in compiled["diagnostics"]), compiled["diagnostics"]

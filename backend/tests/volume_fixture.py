@@ -74,6 +74,12 @@ MATRIX_COLUMNS = 30
 CELLS_PER_GROUP = 15  # in every other column, so half of each row's cells are empty
 SHELF_DEPTH, SHELF_FANOUT = 3, 2
 
+# Base 0.9 C3: a consumer API over the groups and items, with a parent list, a sorted list and an
+# ancestor parameter, so consumer list reads can be measured.
+CONSUMER_API = "vol-consumer"
+ITEMS_BY_GROUP, RANKED_ITEMS = "items", "ranked-items"
+GROUP_PARENT, WITHIN_GROUP = "group", "within"
+
 _INSERT_BATCH = 5000
 
 
@@ -284,6 +290,7 @@ def volume_model() -> dict[str, Any]:
                 "cardinality": "many-to-many",
             },
         ],
+        "consumerApis": [_consumer_api()],
         "applications": [
             {
                 "key": APPLICATION,
@@ -322,6 +329,37 @@ def volume_model() -> dict[str, Any]:
                     matrix(MARKS_BY_COLUMN, CELL_MARKS_GROUP, "incoming", ["link", "unlink"]),
                 ],
             },
+        ],
+    }
+
+
+def _consumer_api() -> dict[str, Any]:
+    """Base 0.9 C3: items under a group (the parent by ID), every item by rank, and an ancestor
+    parameter matching a group by ID, name or code at any depth."""
+    return {
+        "key": CONSUMER_API,
+        "name": "Volume consumer API",
+        "contractVersion": 1,
+        "objectTypes": {GROUP: {"publicName": "Group"}, ITEM: {"publicName": "Item"}},
+        "object": {
+            "id": {"output": "id", "source": ["id"]},
+            "code": {"output": "code", "source": [CODE]},
+            "name": {"output": "name", "source": ["name"]},
+            "attributes": {"rank": {"source": [RANK]}},
+            "parent": {"output": "parent", "fields": ["objectType", "id", "code", "name"]},
+            "path": "path",
+            "hierarchy": "hierarchy",
+        },
+        "parameters": {
+            WITHIN_GROUP: {"kind": "ancestor", "objectTypes": [GROUP], "matchFields": ["id", "name", CODE]}
+        },
+        "lists": [
+            {
+                "key": ITEMS_BY_GROUP,
+                "objectType": ITEM,
+                "parentParameter": {"name": GROUP_PARENT, "objectTypes": [GROUP]},
+            },
+            {"key": RANKED_ITEMS, "objectType": ITEM, "sortBy": RANK},
         ],
     }
 

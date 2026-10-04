@@ -196,6 +196,7 @@ def output_contract(model: EngineModel, definition: ConsumerApiDefinition) -> Ou
         lists={
             item.key: {
                 "objectType": item.objectType,
+                "sortBy": item.sortBy,
                 "parent": None
                 if item.parentParameter is None
                 else {
@@ -297,7 +298,7 @@ def _breaking_changes(old: OutputContract, new: OutputContract) -> list[tuple[st
         if key not in new.lists:
             changes.append(("/lists", f"removes list '{key}'"))
         elif new.lists[key] != item:
-            changes.append(("/lists", f"changes the type or parent parameter of list '{key}'"))
+            changes.append(("/lists", f"changes the type, sort or parent parameter of list '{key}'"))
     for name, kind in old.parameters.items():
         if name not in new.parameters:
             changes.append(("/parameters", f"removes parameter '{name}'"))

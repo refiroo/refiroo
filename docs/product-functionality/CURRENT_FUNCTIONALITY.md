@@ -32,7 +32,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F20 | Query and look up across the data | Not applicable | Available | 0.9 Q1–Q3 |
 | F21 | Read by business date (`asOf`) | Fields only | Available | 0.9 Q4 |
 | F22 | Load data in bulk as jobs | Unavailable | Available | 0.9 B1–B2; import screen 0.9 J4 |
-| F23 | Declare consumer APIs and read through them | JSON model editing | Definitions; reading one business object | 0.9 C1–C2; lists and lookup are in progress |
+| F23 | Declare consumer APIs and read through them | JSON model editing | Definitions; reading one business object; reading lists | 0.9 C1–C3; lookup is in progress |
 | F24 | Read the API reference | Available at `/docs` | Not applicable | 0.9 V1 |
 | F25 | Follow changes in order | Not applicable | Available | 0.9 F1; retention and recovery 0.9 F2 |
 
@@ -436,9 +436,14 @@ a list, by the relationship's cardinality). It reads live, published data in the
 or the one it names, and every answer says which workspace it read. Work in a change set is never
 visible until it is published.
 
-Limits: lists, lookup by code (XREF), batch resolve, crosswalks, publications, business dates and
-events are being delivered in 0.9; today a consumer reads one object by its ID, and a declared
-parameter is refused until lists and lookup apply them.
+It also reads a declared list of business objects page by page: every record of the list's type, or
+those anywhere below a parent record it names by ID, in the list's declared order. It pages forward
+and back, jumps to a row or the end, seeks a value and asks for a total. The definition's parameters
+narrow a list and a single read alike: by type, by an ancestor, by a related record or by the items
+of a projection, with several values as alternatives.
+
+Limits: lookup by code (XREF), batch resolve, crosswalks, publications, business dates and events
+are being delivered in 0.9.
 
 Evidence: [consumer API design](../CONSUMER_API.md),
 [contract check](../../backend/app/engine/model/consumer_contract.py).

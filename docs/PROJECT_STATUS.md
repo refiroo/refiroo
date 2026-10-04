@@ -153,7 +153,13 @@ results included (revision `20261004_03`); a breaking change for clients compari
 (2026-10-04):** the consumer API tier at `/api/consumer` with get by ID, which answers a definition's
 shared object (roles, attributes, parent, path, hierarchy and projections) read live by the object
 ID, in the default or a named workspace (`RDM-Workspace`); a consumer API's identity is now always
-the object ID (C-D21–C-D26, [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c2-delivery-record)). Next: C3.
+the object ID (C-D21–C-D26, [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c2-delivery-record)). **C3 is
+delivered (2026-10-04):** consumer lists (every record of a type, or those below parent IDs, in the
+list's `sortBy` order, with ADR-030 paging) and every parameter kind on lists and get by ID
+(C-D27–C-D33). Reads ordered by `sortBy` are over the 100 ms budget at full volume (0.15–2.6 s; the
+attribute sort's correlated subqueries, E3); C3a, planned with decisions D46–D48 approved, reads them in value order
+through an index ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#c3-delivery-record),
+[C3a](BASE_0_9_IMPLEMENTATION_PLAN.md#c3a-attribute-sorts-read-in-value-order)). Next: C3a, then C4.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

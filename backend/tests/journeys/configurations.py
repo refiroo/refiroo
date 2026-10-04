@@ -35,11 +35,16 @@ Structures:
   dependant of R), unique per R within a ``G`` while ``D.active`` is true; ``Bscope`` R→D optional
   many-to-many with the same scope rule; ``Hparent`` the self-hierarchy's containment.
 - Views: ``Vnn`` a relationship view (``mappingGrid``) over ``Bnn``, read from ``H``.
-- ``Capi``: a consumer API exposing ``R`` and ``R2`` (generated only): the ``id`` role, ``code``
-  (``R2.u``, then ``R.u``), ``name``, ``active`` (``R.b``, default true), ``R.n`` (default 50) and
-  ``R.dt``, ``parent``, ``path`` and ``hierarchy``; projections ``B11`` outgoing (one) and ``Bown``
-  outgoing with ``ancestor:G.name`` (many); one declared parameter. Its API key, public names and
-  output names are ``Capi.…`` keys.
+- ``Capi``: a consumer API exposing ``R``, ``R2`` and ``D`` (generated only): the ``id`` role,
+  ``code`` (``R2.u``, then ``R.u``), ``name``, ``active`` (``R.b``, default true), ``R.n`` (default
+  50) and ``R.dt``, ``parent``, ``path`` and ``hierarchy``; projections ``B11`` outgoing (one),
+  ``Bown`` outgoing with ``ancestor:G.name`` (many) and ``Bscope`` outgoing (many); the lists
+  ``all`` (``R``, sorted by ``R.n``), ``entries`` (``R2`` under ``R``) and ``permits`` (``D`` under
+  ``G``); the parameters ``container`` (``ancestor``, ``M`` by name), ``permit`` (``projection``
+  over ``Bown`` by ``ancestor:G.name``, ``requireMatch``), ``token`` (``related``, ``K`` by name
+  through ``B11``), ``peer`` (``related``, ``R`` by name through ``self`` and the shared
+  ``Bscope``) and ``kind`` (``objectType``). Its API key, list keys, public names, output names
+  and parameter names are ``Capi.…`` keys.
 """
 
 import json
@@ -629,24 +634,46 @@ def _consumer_names(variant: str) -> dict[str, str]:
         "Capi.Bown": "permits",
         "Capi.Bown.name": "permitName",
         "Capi.Bown.G": "regionName",
-        "Capi.param": "region",
+        "Capi.D": "Permit",
+        "Capi.Bscope": "watchedPermits",
+        "Capi.Bscope.name": "watchedName",
+        "Capi.all": "ledgers",
+        "Capi.entries": "entries",
+        "Capi.entries.parent": "ledger",
+        "Capi.permits": "permit-list",
+        "Capi.permits.parent": "region",
+        "Capi.container": "zone",
+        "Capi.permit": "permitRegion",
+        "Capi.token": "token",
+        "Capi.peer": "peer",
+        "Capi.kind": "kind",
     }
     if variant == "a":
         return a
+    # The API key and list keys appear in URLs, so B spells them in lowercase and hyphens too.
+    in_url = {"Capi", "Capi.all", "Capi.entries", "Capi.permits"}
     return {
-        structure: ("x7-registry" if structure == "Capi" else f"x_{name}_7")
+        structure: (
+            ("x7-registry" if structure == "Capi" else f"x7-{name}")
+            if structure in in_url
+            else f"x_{name}_7"
+        )
         for structure, name in a.items()
     }
 
 
 def _consumer_api(variant: str, k: dict[str, str]) -> dict[str, Any]:
-    """``Capi``: a consumer API exposing R and R2 (J28)."""
+    """``Capi``: a consumer API exposing R, R2 and D, with lists and parameters (J28)."""
     n = _consumer_names(variant)
     return {
         "key": n["Capi"],
         "name": "Capi",
         "contractVersion": 1,
-        "objectTypes": {k["R"]: {"publicName": n["Capi.R"]}, k["R2"]: {"publicName": n["Capi.R2"]}},
+        "objectTypes": {
+            k["R"]: {"publicName": n["Capi.R"]},
+            k["R2"]: {"publicName": n["Capi.R2"]},
+            k["D"]: {"publicName": n["Capi.D"]},
+        },
         "object": {
             "id": {"output": n["Capi.id"], "source": ["id"]},
             "code": {"output": n["Capi.code"], "source": [k["R2.u"], k["R.u"]]},
@@ -675,14 +702,50 @@ def _consumer_api(variant: str, k: dict[str, str]) -> dict[str, Any]:
                     n["Capi.Bown.G"]: f"ancestor:{k['G']}.name",
                 },
             },
+            n["Capi.Bscope"]: {
+                "from": {"relation": k["Bscope"], "direction": "outgoing"},
+                "fields": {n["Capi.Bscope.name"]: "name"},
+            },
         },
         "parameters": {
-            n["Capi.param"]: {
+            n["Capi.container"]: {
                 "kind": "ancestor",
+                "objectTypes": [k["M"]],
+                "matchFields": ["name"],
+            },
+            n["Capi.permit"]: {
+                "kind": "projection",
+                "projection": n["Capi.Bown"],
+                "matchFields": [f"ancestor:{k['G']}.name"],
+                "requireMatch": True,
+            },
+            n["Capi.token"]: {
+                "kind": "related",
+                "objectTypes": [k["K"]],
+                "matchFields": ["name"],
+                "via": [n["Capi.B11"]],
+            },
+            n["Capi.peer"]: {
+                "kind": "related",
                 "objectTypes": [k["R"]],
                 "matchFields": ["name"],
-            }
+                "via": ["self", f"sharedProjection:{n['Capi.Bscope']}"],
+            },
+            n["Capi.kind"]: {"kind": "objectType"},
         },
+        "lists": [
+            {"key": n["Capi.all"], "objectType": k["R"], "sortBy": k["R.n"]},
+            {
+                "key": n["Capi.entries"],
+                "objectType": k["R2"],
+                "parentParameter": {"name": n["Capi.entries.parent"], "objectTypes": [k["R"]]},
+            },
+            {
+                "key": n["Capi.permits"],
+                "objectType": k["D"],
+                "parentParameter": {"name": n["Capi.permits.parent"], "objectTypes": [k["G"]]},
+            },
+        ],
     }
 
 

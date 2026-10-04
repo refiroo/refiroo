@@ -42,7 +42,21 @@ from .index import ModelIndex
 _URL_KEY = re.compile(r"^[a-z0-9]+(-[a-z0-9]+)*$")
 # Request parameters the endpoints own (CONSUMER_API "Rules the validator enforces").
 RESERVED_PARAMETERS = frozenset(
-    {"query", "expect", "pageSize", "cursor", "position", "publication", "asOf", "workspace", "ref", "id"}
+    {
+        "query",
+        "expect",
+        "pageSize",
+        "cursor",
+        "position",
+        "from",
+        "seek",
+        "includeTotal",
+        "publication",
+        "asOf",
+        "workspace",
+        "ref",
+        "id",
+    }
 )
 # Output fields the shared object carries whatever the definition says.
 RESERVED_OUTPUTS = frozenset({"objectType", "matchScore", "target"})
@@ -291,6 +305,8 @@ class _Definition:
                 self._fail("INVALID_MODEL", f"{path}/key", "a list key uses lowercase letters, digits and hyphens")
             if list_definition.objectType not in self.definition.objectTypes:
                 self._fail("INVALID_REFERENCE", f"{path}/objectType", f"type '{list_definition.objectType}' is not exposed")
+            if list_definition.sortBy is not None:
+                self._check_sort_by(list_definition.objectType, list_definition.sortBy, f"{path}/sortBy")
             parent = list_definition.parentParameter
             if parent is None:
                 continue
@@ -305,6 +321,16 @@ class _Definition:
                         f"{path}/parentParameter/objectTypes/{index}",
                         f"'{key}' cannot contain records of '{list_definition.objectType}'",
                     )
+
+
+    def _check_sort_by(self, type_key: str, attribute: str, path: str) -> None:
+        """A scalar attribute the list's type binds (C-D29)."""
+        object_type = self.model.object_type(type_key)
+        definition = self.model.attribute_type(attribute)
+        if definition is None or object_type is None or not binding_types((object_type,), attribute):
+            self._fail("INVALID_REFERENCE", path, f"'{attribute}' is not an attribute of '{type_key}'")
+        if definition.valueType == "json":
+            self._fail("INVALID_MODEL", path, f"'{attribute}' holds JSON and cannot be sorted")
 
 
 def _matches_type(value: Any, value_type: str | None) -> bool:

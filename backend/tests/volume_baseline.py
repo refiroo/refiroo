@@ -33,16 +33,21 @@ from volume_fixture import (
     AS_OF,
     CELLS_BY_COLUMN,
     CODE,
+    CONSUMER_API,
     GROUP,
     GROUP_CONTAINS_ITEM,
+    GROUP_PARENT,
     ITEM,
     ITEM_CITES_GROUP,
+    ITEMS_BY_GROUP,
     MARKS_BY_COLUMN,
     MATRIX_APPLICATION,
     NODE,
     NODE_HAS_CHILD,
     RANK,
+    RANKED_ITEMS,
     SHELF,
+    WITHIN_GROUP,
     WORKSPACE,
     ReviewChangeSet,
     VolumeDataset,
@@ -602,6 +607,39 @@ def dated_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: i
     return results
 
 
+CONSUMER_LISTS = f"/api/consumer/{CONSUMER_API}/v1/lists"
+
+
+def consumer_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int) -> list[Measurement]:
+    """0.9 C3: consumer list reads, live (``--only-consumer``). The next page and the position jump
+    are read through the cursor and position the first page and the total name."""
+    ranked = f"{CONSUMER_LISTS}/{RANKED_ITEMS}"
+    base = {"workspace": WORKSPACE, "pageSize": PAGE_SIZE}
+    first = client.get(ranked, params={**base, "includeTotal": "true"}).json()
+    scenarios = [
+        ("consumer: first page of every item by rank", ranked, base),
+        ("consumer: next cursor page", ranked, {**base, "cursor": first["nextCursor"]}),
+        ("consumer: position jump to the middle", ranked, {**base, "position": first["totalCount"] // 2}),
+        (
+            "consumer: 20,000 items under a parent",
+            f"{CONSUMER_LISTS}/{ITEMS_BY_GROUP}",
+            {**base, GROUP_PARENT: dataset.heavy_group_id},
+        ),
+        (
+            "consumer: ancestor filter with includeTotal",
+            ranked,
+            {**base, WITHIN_GROUP: dataset.heavy_group_id, "includeTotal": "true"},
+        ),
+    ]
+    results = []
+    for scenario, path, params in scenarios:
+        status, milliseconds, statements, rows = _timed(
+            engine, lambda path=path, params=params: client.get(path, params=params), repeat
+        )
+        results.append(Measurement("live", scenario, status, milliseconds, statements, rows))
+    return results
+
+
 def publish_scenario(client, engine: Engine, dataset: VolumeDataset) -> list[Measurement]:
     """0.9 T1: publishing a change set that renames a tenth of the items (10,000 at full volume),
     staged through inline batches, timed once: it changes the data the reads above measured."""
@@ -807,6 +845,11 @@ def main() -> None:
         action="store_true",
         help="measure only the P2a change lists over the review change set",
     )
+    parser.add_argument(
+        "--only-consumer",
+        action="store_true",
+        help="measure only the 0.9 C3 consumer list reads",
+    )
     arguments = parser.parse_args()
 
     import postgres_server
@@ -826,6 +869,8 @@ def main() -> None:
                 server_version = engine.dialect.server_version_info
                 if arguments.only_restructuring:
                     results, _count = restructuring_scenarios(engine, dataset, repeat=arguments.repeat)
+                elif arguments.only_consumer:
+                    results = consumer_scenarios(client, engine, dataset, repeat=arguments.repeat)
                 elif arguments.only_dated:
                     results = dated_scenarios(client, engine, dataset, repeat=arguments.repeat)
                 elif arguments.only_publish:

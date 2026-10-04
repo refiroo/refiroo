@@ -2011,15 +2011,17 @@ the reader misses nothing. An export as a second baseline follows with export jo
 
 A retired workspace's feed stays readable. The feed is ungated like other reads until 0.12 (D10).
 
-## Consumer API (Base 0.9 C2)
+## Consumer API (Base 0.9 C2, C3)
 
 A separate, read-only tier at `/api/consumer`, whose contract each consumer API definition in the
 active model release declares ([CONSUMER_API.md](CONSUMER_API.md)). Its routes are not in the
-management OpenAPI document; C6 generates one document per definition. Lists, XREF, batch resolve,
-crosswalk, publications and `asOf` follow in C3–C16.
+management OpenAPI document; C6 generates one document per definition. XREF, batch resolve,
+crosswalk, publications and `asOf` follow in C4–C16.
+
+### Get by ID
 
 ```text
-GET /api/consumer/{apiKey}/v{contractVersion}/objects/{id}?workspace=…
+GET /api/consumer/{apiKey}/v{contractVersion}/objects/{id}?workspace=…&{parameters}
 ```
 
 Returns the definition's shared object for the record whose **object ID** is `{id}`, read live:
@@ -2050,15 +2052,73 @@ Returns the definition's shared object for the record whose **object ID** is `{i
 - `workspace` selects the workspace (default: the deployment's default); the response names it in the
   `RDM-Workspace` header, also on an error after the workspace was resolved.
 - Change sets are never read; a record created in an open change set is not found until published.
+- The definition's parameters apply ([below](#parameters)): on a set of one, a parameter that filters
+  the record out answers `404 OBJECT_NOT_FOUND`, and a `projection` parameter limits that
+  projection's items.
+
+### Lists
+
+```text
+GET /api/consumer/{apiKey}/v{contractVersion}/lists/{listKey}?{parentParameter}=…&{parameters}&workspace=…
+    &pageSize=…&cursor=…|position=…|from=end|seek=…&includeTotal=true
+```
+
+A page of the definition's list: live records of the list's `objectType` in the workspace, each item
+the shared object above (equal to get by ID's answer for the same record and parameters).
+
+- **Without a parent value** the list holds every record of its type, each showing its `parent`.
+- **With a parent value** (the list's `parentParameter`, by object ID only) it keeps the records of its
+  type anywhere below that record, at any depth: cities filtered on a country include those under one
+  of its regions, whose `parent` stays the region. Several IDs, repeated or comma-separated, keep the
+  records below any of them.
+- **Order:** the list's `sortBy` attribute (records without a value last), then name, then creation
+  order; without `sortBy`, name then creation order.
+- **Paging** as on the management lists (ADR-030): `cursor` (`nextCursor`, `prevCursor`, `anchor`),
+  `position`, `from=end`, `seek` (by the sort value: the `sortBy` attribute's, else the name) and
+  `includeTotal=true`. `pageSize` is 1–100, default 20. A cursor binds the workspace, the parent IDs,
+  every parameter value and the contract version.
+
+```jsonc
+// RDM-Workspace: default
+{ "items": [ … ], "workspace": "default", "pageSize": 20,
+  "nextCursor": "…", "prevCursor": null, "anchor": "…", "totalCount": 412, "startIndex": 0 }
+```
+
+`totalCount` and `startIndex` are `null` unless `includeTotal=true`.
+
+### Parameters
+
+Every definition parameter applies to get by ID and to every list (C-D31):
+
+| Kind | Effect |
+| --- | --- |
+| `objectType` | Keeps records of the named public types; an unknown name is `400 UNKNOWN_OBJECT_TYPE` |
+| `ancestor` | Keeps records below a matching record of its `objectTypes`, at any depth |
+| `related` | Keeps records linked to a matching record of its `objectTypes` through its `via` routes: a projection, `self` (the record itself matches), or `sharedProjection:<projection>` (both relate to one projected record; the matching record itself is kept only by `self`) |
+| `projection` | Limits the projection's items to those matching on `matchFields` (`ancestor:<type>.<field>` included); `requireMatch` also drops records left with none |
+
+- A value matches a field when it equals it: text ignoring case, typed values by their type. A value
+  that does not parse for a typed field does not match that field.
+- A parameter takes several values, repeated (`token=A&token=B`), comma-separated (`token=A,B`) or
+  both; they are alternatives. Different parameters combine with AND.
+- In a value, `\,` is a comma and `\\` a backslash; any other backslash is kept as it is.
+- `scoresFrom` matters only to XREF (C4, C5); `to.…` arrives in C15, `publication` in C6 and `asOf` in
+  C16 (until then `400 UNKNOWN_PARAMETER`).
 
 | Status | Code | When |
 | --- | --- | --- |
 | 404 | `CONSUMER_API_NOT_FOUND` | No definition has this `apiKey` in the active release |
 | 404 | `CONTRACT_VERSION_NOT_FOUND` | The definition serves another contract version; `details.contractVersion` names it |
 | 404 | `WORKSPACE_NOT_FOUND` | Unknown or retired workspace |
-| 404 | `OBJECT_NOT_FOUND` | No record with this object ID in the workspace, or one of a type the definition does not expose |
-| 400 | `UNKNOWN_PARAMETER` | A query parameter neither the route nor the definition declares; `details.parameters` names them |
-| 400 | `PARAMETER_NOT_SUPPORTED` | A parameter the definition declares; no parameter kind is applied yet (until C3) |
+| 404 | `OBJECT_NOT_FOUND` | No record with this object ID in the workspace, one of a type the definition does not expose, or one the parameters filter out |
+| 404 | `LIST_NOT_FOUND` | The definition declares no list `{listKey}` |
+| 404 | `PARENT_NOT_FOUND` | A parent value is no record of the list's parent types in the workspace; `details.parents` names them |
+| 400 | `UNKNOWN_PARAMETER` | A name the API does not know; `details.parameters` names them |
+| 400 | `PARAMETER_NOT_SUPPORTED` | A name the API knows that this read does not apply: a paging name on get by ID, or a list's parent parameter on get by ID or another list |
+| 400 | `UNKNOWN_OBJECT_TYPE` | An `objectType` value that is not an exposed public name; `details.publicNames` lists them |
+| 400 | `INVALID_PAGE_SIZE` | `pageSize` outside 1–100 |
+| 400 | `INVALID_PAGE_PARAMETER` | `from` other than `start` or `end`, or `includeTotal` other than `true` or `false` |
+| 400 | `INVALID_CURSOR`, `CONFLICTING_PAGE_PARAMETERS`, `INVALID_POSITION`, `INVALID_SEEK` | The shared paging refusals, with the consumer tier's status for a request error |
 
 ## Planned integration endpoints
 
@@ -2068,8 +2128,8 @@ Designed in [INTEGRATION_API.md](INTEGRATION_API.md) and sequenced in the
 - Relation and relation-set items (B3)
 - Asynchronous import/export jobs
 - Webhook subscriptions
-- Consumer API lists, XREF, batch resolve, crosswalk, publications and events
-  ([CONSUMER_API.md](CONSUMER_API.md)); get by ID is delivered (above)
+- Consumer API XREF, batch resolve, crosswalk, publications and events
+  ([CONSUMER_API.md](CONSUMER_API.md)); get by ID and lists are delivered (above)
 
 There will be no equivalent of enumerating numeric attribute IDs `1..1000` or using `take: 0` for a full
 extract.

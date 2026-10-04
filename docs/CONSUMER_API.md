@@ -133,6 +133,8 @@ Each item below is observed in the reference policies. The engine either fixes i
 | Reference behavior | Engine behavior |
 | --- | --- |
 | Result cap of `max(20, terms)`; `totalCount` equals the returned count | Paged (ADR-030) with a real total. The default page size keeps the familiar 20 |
+| Lists page by `page` number and report `returnedCount` | ADR-030 paging (C-D30): `position` jumps to a row, `startIndex` and the length of `items` give what `page` and `returnedCount` gave |
+| A list's parent segment accepts a global ID, an internal ID, or a name or code | The parent is an object ID (C-D28); a name or code is matched by an `ancestor` parameter |
 | Results with equal scores come back in an unspecified order (unstable sort), and flows take the first | Deterministic order: score, then object type, name, ID. `expect=one` returns an error instead of guessing when the top score is tied |
 | Booleans and dates as strings (`"isActive": "true"` in translations, `validFrom: ""`) | Declared types kept: booleans, ISO dates, `null` |
 | XREF omits `parent` for top-level objects; lists send a parent with empty strings | `parent` is always present; `null` when there is none |
@@ -328,7 +330,10 @@ Rules the validator enforces:
 - **Match fields** must be `searchable` or explicitly listed as identifiers; weights are positive
   integers.
 - **Parameter names** are unique per definition and cannot shadow reserved names (`query`, `expect`,
-  `pageSize`, `cursor`, `position`, `publication`, `asOf`, `workspace`, `ref`, `id`) or start with `to.`.
+  `pageSize`, `cursor`, `position`, `from`, `seek`, `includeTotal`, `publication`, `asOf`,
+  `workspace`, `ref`, `id`) or start with `to.`.
+- **List order (C3):** a list's optional `sortBy` names a scalar attribute (not JSON) its type binds,
+  refused otherwise at `/consumerApis/<key>/lists/<list>/sortBy`; changing it is a breaking change.
 - **Crosswalk targets:** a `projection` parameter may declare `"targetable": true`, which enables
   `to.{parameter}` on reads (see Crosswalk). Only a `projection` parameter can be targetable.
 - **Lists without a parent** omit `parentParameter` and list every object of the type.
@@ -381,16 +386,20 @@ GET /api/consumer
   `hierarchy` and `path` hold the ancestors from the top down, without the object (C-D21). A field
   with no value from any source takes its `default`, then `null`; empty text is no value (C-D26).
   Projection arrays are ordered by the related record's name, then ID.
-- **Lists** use position paging (`position`/`pageSize`), the reference's page-number model. The
-  parent parameter accepts the parent's identity, name or declared code fields, like the reference.
-  A list declared without a parent lists every object of its type in a deterministic order (the
-  definition's sort field, then name, then ID); pinned to a publication, it is a consistent full
-  extract of that type.
+- **Lists** page as the management lists do (ADR-030, C-D30): cursors both ways with `anchor`,
+  `position`, `from=end`, `seek` and `includeTotal`, with `pageSize` 1–100 (default 20). The envelope
+  is `items`, `workspace`, `pageSize`, `nextCursor`, `prevCursor`, `anchor`, `totalCount` and
+  `startIndex` (the last two `null` without `includeTotal=true`). The parent parameter takes object
+  IDs only (C-D28) and keeps the records of the list's type anywhere below them (C-D27); without it a
+  list holds every object of its type. The order is the list's optional `sortBy` attribute (records
+  without a value last), then name, then creation order (C-D29); pinned to a publication (C6), a list
+  without a parent is a consistent full extract of that type. _Delivered in C3 (2026-10-04)_, with
+  every definition parameter applying to lists and to get by ID (C-D31).
 - **Unknown parameters** are rejected with `400 UNKNOWN_PARAMETER` naming them. Unknown `apiKey`,
   `listKey` or `contractVersion` return `404` (`CONSUMER_API_NOT_FOUND`, `CONTRACT_VERSION_NOT_FOUND`
-  naming the installed version). In C2 a declared definition parameter is refused with
-  `400 PARAMETER_NOT_SUPPORTED`, since no kind is applied yet; from C3 only a parameter that does not
-  apply to a route is.
+  naming the installed version). A name the API knows that a route does not apply
+  (a paging name on get by ID, a list's parent parameter on get by ID or another list) is refused with
+  `400 PARAMETER_NOT_SUPPORTED` (C3).
 - **Generated OpenAPI:** each definition generates its own OpenAPI document, so integrators get a
   typed contract per API.
 - **Consistency:** reads use live data by default. `publication={publicationId}` reads a
@@ -660,9 +669,9 @@ coordination is 0.11 work.
 | --- | --- |
 | C1 | `consumerApis` schema, model validation with precise paths, compile into the immutable snapshot, breaking-change check against the active release (C-D17) — **delivered 2026-09-30** |
 | C2 | Common object and projections: get by ID, ancestor fields, cardinality-derived shape, typed values — **delivered 2026-10-04** |
-| C3 | Lists: parent parameter resolution, lists without a parent, position paging, parameters of kind `ancestor`, `projection` and `related` |
+| C3 | Lists with and without a parent (by object ID, anywhere below it), `sortBy`, ADR-030 paging; every parameter kind (`objectType`, `ancestor`, `related` including a shared projection, `projection`) on lists and get by ID (C-D27–C-D33) — **delivered 2026-10-04** |
 | C4 | Consumer index and XREF scoring: own-field and promoted scores, multi-term queries, deterministic order, `expect=one` |
-| C5 | XREF parameters of kind `objectType`, `projection`, `ancestor` and `related` (including via a shared projection) |
+| C5 | XREF's use of C3's parameter kinds, with `scoresFrom` (C-D33) |
 | C6 | ETag / `If-None-Match`, `publication` reads including `latest`, the publications list with `eventSequence`, per-definition OpenAPI, the API index |
 | C7 | _Moved to 0.12 (C-D1):_ OAuth 2.0 client access per definition, webhook signing keys, UI administration of both |
 | C8 | Parity acceptance: a test-only fixture model extending the starter with locations, availability and a single-valued self relation (fixture content, not product scope), a fixture dataset, and a definition that reproduces the reference response for the scenarios below; volume budgets |
@@ -717,7 +726,8 @@ table under "Behavior the engine does not carry over" says otherwise:
 7. `location` via availability, via the location itself, and via a shared system value;
 8. `system` combined with `location`;
 9. a tie at the top score with `expect=one`;
-10. a list with a parent given by ID, name and code, with and without `language`.
+10. a list with a parent given by ID, with and without `language`; the name and code cases go through
+    an `ancestor` parameter declared on a list without a parent (C-D28).
 
 **C8 scenarios beyond parity** (operations the reference does not have):
 
@@ -737,7 +747,7 @@ table under "Behavior the engine does not carry over" says otherwise:
 
 C-D1 decided 2026-09-29; C-D2–C-D16 accepted 2026-09-29 as recommended, with the notes below;
 C-D17–C-D20 raised by C1 and accepted 2026-09-30 as recommended; C-D21–C-D26 settled with the user
-for C2 on 2026-10-04.
+for C2 and C-D27–C-D33 for C3, on 2026-10-04.
 
 | # | Question | Decision |
 | --- | --- | --- |
@@ -767,3 +777,10 @@ for C2 on 2026-10-04.
 | C-D24 | What `{id}` in get by ID is | **Settled 2026-10-04 (C2).** The object ID only, unique across the database. Other identifiers go through XREF, whose `409 AMBIGUOUS_MATCH` names a faulty migration's duplicates. No `409` in get by ID: the state cannot occur. The `id` role's source is the built-in `id` (C1's rule narrowed). Database-backed uniqueness for `unique` attributes is recorded in TODO for a later build |
 | C-D25 | Error code pattern | **Settled 2026-10-04.** Upper case across every API of the engine, delivered first as the amendment T1b |
 | C-D26 | When a source has no value | **Settled 2026-10-04 (C2).** Absent, `null` or empty text, as everywhere in the engine (required fields, `atLeastOneOf`, uniqueness), so a consumer never receives `""`. Not a new rule |
+| C-D27 | Does a parent value keep the parent's direct children, or every record of the list's type below it? | **Settled 2026-10-04 (C3).** Every record of the list's type below it. Where a type can sit under several parent types (cities under a country or a region), a city under a region of the country is included, and a city under another country is not. Each item's `parent` is its direct parent. The parent parameter is an optional filter: without it, the list holds every record of its type |
+| C-D28 | How a list's parent is named | **Settled 2026-10-04 (C3).** By object ID only, with no free-text matching: a consumer reads the parent's list first and uses the IDs it returns. An ID that is no record of the parent types is `404 PARENT_NOT_FOUND`. Parity scenario 10's name and code cases go through an `ancestor` parameter declared on a list without a parent |
+| C-D29 | List order | **Settled 2026-10-04 (C3).** An optional `sortBy` on a list. Records without a value come last, then name, then creation order (what every engine list ends with). A change to `sortBy` is a breaking change |
+| C-D30 | Paging modes | **Settled 2026-10-04 (C3).** As on the management lists: cursors both ways with `anchor`, `position`, `from=end`, `seek` and `includeTotal`, with `pageSize` 1–100 (default 20). `from`, `seek` and `includeTotal` are reserved names. The reference's `page` and `returnedCount` are not carried over |
+| C-D31 | Where parameters apply | **Settled 2026-10-04 (C3).** Every definition parameter applies to get by ID and to every list; on get by ID it filters a set of one (`404 OBJECT_NOT_FOUND` when filtered out). `PARAMETER_NOT_SUPPORTED` stays for a known name a route does not apply. Batch resolve (C14) applies its `defaults` to by-ID items this way |
+| C-D32 | Parameter values | **Settled 2026-10-04 (C3).** Several values per parameter, repeated, comma-separated or both, as alternatives; different parameters combine with AND. The escape is `\,` and `\\`, since a server decodes `%2C` to a comma before the engine sees it; XREF's comma-separated `query` (C4) uses the same escape. Text matches ignoring case; a value that does not parse for a typed field does not match it. `ancestor` matches at any depth; through a shared projection, the matching record itself is kept only by `self`. An unknown `objectType` value is `400 UNKNOWN_OBJECT_TYPE` |
+| C-D33 | Scope between C3 and C5 | **Settled 2026-10-04 (C3).** C3 delivers all four kinds for lists and get by ID, including `objectType` and the shared-projection route; C5 becomes XREF's use of them, with `scoresFrom` |

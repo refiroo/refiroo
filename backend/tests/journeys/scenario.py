@@ -431,6 +431,14 @@ def consumer_object(
     return world.api.get(f"/api/consumer/{key}/v{version}/objects/{object_id}", **params)
 
 
+def consumer_list(
+    world: World, list_key: str, *, version: int = 1, api: str | None = None, **params: Any
+) -> Response:
+    """``GET /api/consumer/{apiKey}/v{version}/lists/{listKey}`` of ``Capi`` (or ``api``)."""
+    key = api if api is not None else world.key("Capi")
+    return world.api.get(f"/api/consumer/{key}/v{version}/lists/{list_key}", **params)
+
+
 class Held:
     """Requests started while a workspace is held (``World.holding``)."""
 
