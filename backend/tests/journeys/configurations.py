@@ -33,7 +33,8 @@ Structures:
 - Relationships: ``B11`` R→K one-to-one, ``B1n`` R→K one-to-many, ``Bnn`` H→K many-to-many with
   ``Bnn.weight`` (integer, minimum 1) and ``Bnn.note``; ``Bown`` R→D required one-to-many (D a
   dependant of R), unique per R within a ``G`` while ``D.active`` is true; ``Bscope`` R→D optional
-  many-to-many with the same scope rule; ``Hparent`` the self-hierarchy's containment.
+  many-to-many with the same scope rule, and from ``R2`` to ``D`` without it; ``Hparent`` the
+  self-hierarchy's containment.
 - Views: ``Vnn`` a relationship view (``mappingGrid``) over ``Bnn``, read from ``H``.
 - ``Capi``: a consumer API exposing ``R``, ``R2`` and ``D`` (generated only): the ``id`` role,
   ``code`` (``R2.u``, then ``R.u``), ``name``, ``active`` (``R.b``, default true), ``R.n`` (default
@@ -43,8 +44,10 @@ Structures:
   ``G``); the parameters ``container`` (``ancestor``, ``M`` by name), ``permit`` (``projection``
   over ``Bown`` by ``ancestor:G.name``, ``requireMatch``), ``token`` (``related``, ``K`` by name
   through ``B11``), ``peer`` (``related``, ``R`` by name through ``self`` and the shared
-  ``Bscope``) and ``kind`` (``objectType``). Its API key, list keys, public names, output names
-  and parameter names are ``Capi.…`` keys.
+  ``Bscope``) and ``kind`` (``objectType``); a ``match`` (J29): own ``id`` 1000, ``R.u`` and
+  ``R2.u`` 500/40, ``name`` 200/30, promoted over ``B11`` (``K.code`` 80, ``name`` 75, ``K.code``
+  contains 10) and over ``Bscope`` (``name`` 60, preferring ``R2``). Its API key, list keys, public
+  names, output names and parameter names are ``Capi.…`` keys.
 """
 
 import json
@@ -404,6 +407,13 @@ def generated(variant: str) -> Configuration:
             "cardinality": "many-to-many",
             "features": scope,
         },
+        # An R2 may watch a D too, so a D can relate to an R and an R2 (J29.1, preferTargetTypes).
+        {
+            "relationTypeKey": k["Bscope"],
+            "fromObjectTypeKey": k["R2"],
+            "toObjectTypeKey": k["D"],
+            "cardinality": "many-to-many",
+        },
         {
             "relationTypeKey": k["Ll2k"],
             "fromObjectTypeKey": k["L2"],
@@ -706,6 +716,29 @@ def _consumer_api(variant: str, k: dict[str, str]) -> dict[str, Any]:
                 "from": {"relation": k["Bscope"], "direction": "outgoing"},
                 "fields": {n["Capi.Bscope.name"]: "name"},
             },
+        },
+        "match": {
+            "own": [
+                {"field": "id", "exact": 1000},
+                {"field": k["R.u"], "exact": 500, "contains": 40},
+                {"field": k["R2.u"], "exact": 500, "contains": 40},
+                {"field": "name", "exact": 200, "contains": 30},
+            ],
+            "promoted": [
+                {
+                    "projection": n["Capi.B11"],
+                    "firstMatch": [
+                        {"field": k["K.code"], "exact": 80},
+                        {"field": "name", "exact": 75},
+                        {"field": k["K.code"], "contains": 10},
+                    ],
+                },
+                {
+                    "projection": n["Capi.Bscope"],
+                    "firstMatch": [{"field": "name", "exact": 60}],
+                    "preferTargetTypes": [k["R2"]],
+                },
+            ],
         },
         "parameters": {
             n["Capi.container"]: {

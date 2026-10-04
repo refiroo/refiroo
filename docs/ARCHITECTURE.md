@@ -541,11 +541,16 @@ The audit log is the ordered source of the change feed and, later, consumer even
 - **Consumer reads.** The consumer API is a separate read-only tier (`consumer/`) generated from the
   model's consumer API definitions ([CONSUMER_API.md](CONSUMER_API.md)). It reads live data from the
   active release's definition, never a change set. Every read finds its records in its own way (get
-  by ID by the object ID), then composes the shared object in one place,
+  by ID by the object ID, lists by parent and position, XREF by score), then composes the shared
+  object in one place,
   `engine/reads/consumer_objects.py`, for a set of IDs with a fixed number of statements: one for the
   records and their values, one per projection, and one recursive CTE for every ancestor needed.
   Field resolution and projection shapes come from `engine/model/consumer_contract.py`, the module
-  the contract check uses. The tier checks its query parameters against the definition itself, so
+  the contract check uses. XREF (`engine/reads/consumer_xref.py`) scores at read time in one
+  statement built from the definition's `match`: a select per term and rule over the trigram indexes
+  (contains) and the `lower(name)` and `lower(text_value)` indexes (exact, revision `20261005_01`),
+  combined in SQL. A bounded count of the matched records runs first and refuses a query matching
+  more than 10,000; no consumer index is maintained (C-D34). The tier checks its query parameters against the definition itself, so
   the management API's unknown-parameter check leaves its routes alone.
 
 ### Domain extension

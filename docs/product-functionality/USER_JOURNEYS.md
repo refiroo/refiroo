@@ -852,8 +852,8 @@ background job across a restart, its publish and its cancellation, 0.9 T1).
 ### J28 — Read a business object through a consumer API
 
 **Actor:** consuming system. **Channel:** consumer API. **Stories:** US-I09 (consumer side).
-**Status:** get by ID delivered (0.9 C2), lists and parameters (0.9 C3); XREF and the rest follow in
-C4–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
+**Status:** get by ID delivered (0.9 C2), lists and parameters (0.9 C3); XREF is J29 (0.9 C4); the
+rest follows in C5–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
 
 1. Read one business object by its object ID from a consumer API's contract version:
    `GET /api/consumer/{apiKey}/v{contractVersion}/objects/{id}`; or read a declared list of them,
@@ -868,7 +868,7 @@ C4–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
 **Variants:**
 
 - **J28.1 Identity is the object ID**: a generated or a client-assigned ID; another identifier is
-  not found by get by ID (XREF finds it, C4).
+  not found by get by ID (XREF finds it, J29).
 - **J28.2 Live data, never unpublished work**: a live change shows at once; a record only in a
   change set is not found until published.
 - **J28.3 Another workspace**: each record is found only in its own workspace.
@@ -898,6 +898,44 @@ C4–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
 `400 CONFLICTING_PAGE_PARAMETERS`, `400 INVALID_POSITION`, `400 INVALID_SEEK`.
 
 **Evidence today:** the J28 journey tests.
+
+### J29 — Resolve a business object through a consumer API
+
+**Actor:** consuming system. **Channel:** consumer API. **Stories:** US-I09 (consumer side).
+**Status:** delivered in 0.9 C4; definition parameters on XREF follow in C5
+([CONSUMER_API.md](../CONSUMER_API.md)).
+
+1. Look up business objects by what the system knows, a code, an ID, a name or a related record's
+   value: `GET /api/consumer/{apiKey}/v{contractVersion}/xref?query=…`.
+2. Receive the matching objects of the definition's exposed types, best first, each as the shared
+   object with its `matchScore`: the definition's `match` weights its own fields (exact matches add
+   up; contains counts only without an exact match) and passes a related record's first matching
+   weight to the objects it relates to through a projection. Ties order by public type name, name
+   and object ID.
+3. Page through the results with cursors both ways, `position` and `from=end`; `totalCount` is always
+   given. Or ask for the single best one with `expect=one`.
+4. Read live data in the default workspace, or in the one named by `workspace`.
+
+**Variants:**
+
+- **J29.1 Promoted matches**: a related record's match scores the objects it relates to; with
+  `preferTargetTypes` only those of the preferred types; an object keeps the higher of its own and
+  its promoted score.
+- **J29.2 Several terms**: comma-separated (a comma inside a term sent as `%2C`) or repeated `query`;
+  an object scores its best term.
+- **J29.3 `expect=one`**: the single top object; nothing matched is `404`, a shared top score `409`
+  naming the tied objects.
+- **J29.4 Paging**: cursors both ways, `position`, `from=end`, `totalCount` and `startIndex` on every
+  page; a cursor is bound to its terms.
+- **J29.5 Refusals and limits**: no term, more than 100 terms, a parameter XREF does not apply; a
+  term shorter than 3 characters matches exactly only; a query matching more than 10,000 records is
+  refused.
+
+**Refusals:** `400 QUERY_REQUIRED`, `400 TOO_MANY_TERMS`, `400 QUERY_TOO_BROAD`, `400 INVALID_EXPECT`,
+`400 PARAMETER_NOT_SUPPORTED`, `404 NO_MATCH`, `409 AMBIGUOUS_MATCH`, and J28's API, workspace and
+paging refusals.
+
+**Evidence today:** the J29 journey tests; `QUERY_TOO_BROAD` in `test_consumer_xref_volume`.
 
 ## Operations
 

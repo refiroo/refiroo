@@ -217,7 +217,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 14 | [C3](#c3-consumer-lists-and-parameters) | C2 | Lists and parameters (C-D27–C-D33) — **delivered 2026-10-04**, `sortBy` reads brought within budget by [C3a](#c3a-attribute-sorts-read-in-value-order) ([record](#c3-delivery-record)) |
 | 14a | [C3a](#c3a-attribute-sorts-read-in-value-order) | C3 | Amendment: attribute sorts read in value order (D46–D48) — **delivered 2026-10-04** ([record](#c3a-delivery-record)) |
 | 14b | [C3b](#c3b-several-values-the-standard-way) | C3 | Amendment: several values as OpenAPI serialises them, `%2C` for a comma in a value (C-D32 amended) — **delivered 2026-10-04** ([record](#c3b-delivery-record)) |
-| 15 | [C4](#c4-xref-lookup-and-scoring) | C2, C3b | XREF lookup and scoring (C-D34–C-D41) — planned and approved |
+| 15 | [C4](#c4-xref-lookup-and-scoring) | C2, C3b | XREF lookup and scoring (C-D34–C-D41) — **delivered 2026-10-05** ([record](#c4-delivery-record)) |
 | 16 | C5 | C4 | XREF parameters |
 | 17 | C14 | C4 | Batch resolve |
 | 18 | C15 | C5 | Crosswalk |
@@ -2471,8 +2471,9 @@ the request's reading), `startup` (no migration), the frontend, the full suites 
 
 #### C4: XREF lookup and scoring
 
-**Planned 2026-10-04; decisions C-D34–C-D41 and the test cases approved by the user the same day**
-(C-D37 with a documentation requirement; C-D38 after C3's escape was reopened as C3b). **Needs:** C2, and C3's
+**Delivered 2026-10-05** ([record](#c4-delivery-record)). **Planned 2026-10-04; decisions C-D34–C-D41
+and the test cases approved by the user the same day** (C-D37 with a documentation requirement; C-D38
+after C3's escape was reopened as C3b). **Needs:** C2, and C3's
 parameter check with C3b's value splitting. **Groups:** `consumer`, `queries`, `contract`, `volume`.
 
 **Behaviour.** A consuming system finds business objects by what it knows, a code, an ID, a name or a
@@ -2543,6 +2544,8 @@ that: its matches still have to be scored and sorted (C-D34, C-D37).
   (`id` or a typed attribute) is refused at `/consumerApis/<key>/match/…/contains`, since it could
   never match.
 - **No migration.** The consumer index of CONSUMER_API's "Read index" is not built (C-D34).
+  _Changed at delivery with the user's agreement:_ migration `20261005_01` adds `lower(…)` indexes
+  for exact matches ([record](#c4-delivery-record)).
 
 **Decisions** (status per row):
 
@@ -2610,6 +2613,77 @@ notes the `contains` rule; CURRENT_FUNCTIONALITY and PRODUCT describe looking up
 **Composable domains (ADR-032):** the `match` declaration is read as declared and gains only the
 `contains` validation; identity, attribute storage, audit and the bulk APIs are untouched. A product
 catalogue's lookup by SKU or name is this route, so the door is exercised, not narrowed.
+
+##### C4 delivery record
+
+**Delivered 2026-10-05.** What was built:
+
+- **Route** `GET /{apiKey}/v{contractVersion}/xref` in `app/consumer/router.py`. The parameter check
+  now takes the names each route serves (`_OBJECT`, `_LIST`, `_XREF`, `_XREF_ONE`); every name a
+  route serves is known on all of them, so `query` or `expect` on get by ID or a list is
+  `400 PARAMETER_NOT_SUPPORTED` rather than `UNKNOWN_PARAMETER`, the existing rule for a known name.
+- **Scoring** in `engine/reads/consumer_xref.py`: a select per term, rule and weight (exact or
+  contains), combined in one statement: own hits summed per object and term (C-D35), promoted hits
+  reduced to each related record's first rule with `DISTINCT ON`, passed through the projection's
+  relation with a window for `preferTargetTypes` (C-D36), the maximum per object, ranked by score,
+  public type name (a `CASE` over the definition), name and ID. Terms are trimmed and empty ones
+  dropped (`xref_terms`). Paging is `paginate_statement(rows=True)`, total always on; the shared
+  object is C2's `ConsumerObjects` with `matchScore` added. `expect=one` reads the top 11 rows and
+  counts the tie only past 10.
+- **Broad terms:** one statement before scoring counts the distinct records the terms match (own
+  matches and the related records promotion reads), each select bounded at 10,001, so a common term
+  costs no more than the limit; past 10,000 the request is `400 QUERY_TOO_BROAD` naming both limits.
+- **Validation:** a `contains` weight on `id` or a typed attribute is refused at
+  `/consumerApis/<key>/match/…/contains`.
+- **Migration** `20261005_01` (not in the plan; see below): `ix_objects_workspace_lower_name` on
+  `objects (workspace_key, lower(name))` and `ix_attribute_values_key_lower_text` on
+  `attribute_values (attribute_type_key, lower(text_value))`, declared in the ORM; exact text matches
+  compare `lower(column) = lower(term)` through them.
+- **Fixtures:** generated A and B's `Capi` has the planned `match` and `Bscope` an `R2`→`D` binding;
+  the volume definition gains a `citedGroups` projection (items to the groups they cite) and a
+  `match` (ID 1000, code 500/40, name 200/30; promoted code 80, name 75, code contains 10).
+
+**Differences from the plan:**
+
+- **The migration.** The first full-volume run put lookups at 49–72 ms but the too-broad refusal of
+  "item" at 317 ms. Its cause: an exact match ignoring case, read through the trigram index, rechecks
+  every record containing the term (~50 ms per rule on 100,000 records). Leaving out exact selects a
+  contains select covers brought it to 157 ms. Asked how to close, the user chose the `lower(…)`
+  indexes within C4 (2026-10-05); with them the counting shortcut was removed again as unnecessary.
+- **The refusal stays over budget, recorded** with the user's agreement: 116 ms, chiefly the
+  promoted "group code contains" rule, whose trigram candidates are all 100,000 item codes before the
+  type filter drops them (TODO). Closing it needs the record type in the value index.
+- **Volume test limit.** The test shapes hold at most 4,000 items, below 10,000, so
+  `test_consumer_xref_volume` lowers the limit to 500 to assert the refusal's statements; the
+  full-volume run meets the real limit.
+- **Added:** `400 INVALID_EXPECT` for an `expect` other than `any` or `one` (no approved case covers
+  it); trimming spaces around terms.
+
+**Budgets at full volume** (`volume_baseline.py --only-consumer --scale 1 --repeat 3`, warm median ·
+statements · ORM rows; the last column after the migration):
+
+| Request | First run | Without `lower()` indexes, exact covered | Delivered |
+| --- | --- | --- | --- |
+| An item's code, another case | 56.1 ms | 43.2 ms | 34.1 ms · 7 · 3 |
+| A group's code promoted to its 1,500 citing items | 71.8 ms | 63.3 ms | 53.2 ms · 8 · 3 |
+| 4-character contains (`0099`) | 49.3 ms | 42.5 ms | 57.5 ms · 7 · 3 |
+| `expect=one` | 55.1 ms | 42.8 ms | 35.6 ms · 7 · 3 |
+| A term in every item, `QUERY_TOO_BROAD` | **316.8 ms** | **157.2 ms** | **115.7 ms** · 3 · 3 |
+
+The delivered run followed a seed rebuild, and its contains figure is the only one that rose (the
+first rounds after a rebuild read cold, POSTGRESQL_BUDGETS). C3's list scenarios in the same runs
+match C3a's figures with one statement more each, for the new projection.
+
+**Checks:** J29 (12 cases on generated A and B) and the new J25 case confirmed failing first (no
+route; the validation missing), then passing. Groups `consumer`, `queries` and `contract` in
+parallel after the last change: 389 passed in 1 min 3 s (their serial part selects none).
+`test_consumer_xref_volume`: equal statements at 0.01 and 0.04 (7–8 per lookup, 3 for the refusal),
+rows within budget. `startup` with `HEAD` at `20261005_01` (clean bootstrap, upgrade through every
+revision, restart, the refusals): 94 passed. `test_schema_drift` passed, and it names the new index
+when it is dropped from a clone (checked once). The development database was migrated to
+`20261005_01` by the user's own `uvicorn --reload` when the migration appeared, and serves healthy
+with both indexes; a copy of it started healthy twice and answered the XREF route; the copy and its
+log removed. `ruff check app/ tests/` clean. Not run: the frontend (unchanged), the full suites (R).
 
 ## Track V — API reference
 

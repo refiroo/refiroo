@@ -3,7 +3,8 @@
 CONSUMER_API.md "Definition shape" and its rules: every type, attribute, relation route, ancestor,
 projection and parameter a definition names resolves in the same release; a field's sources share
 one output type (C-D19) and a default has that type; a match rule reads a field that is ``name``,
-``id``, or ``searchable`` or ``unique`` (C-D20); output, parameter and list names do not collide. A
+``id``, or ``searchable`` or ``unique`` (C-D20), and a ``contains`` weight a text field (0.9 C4);
+output, parameter and list names do not collide. A
 failure is refused at the pointer ``/consumerApis/<key>/…`` of the part that is wrong.
 """
 
@@ -17,6 +18,7 @@ from ....common.json_pointer import pointer_segment
 from ....models.schema import (
     AncestorParameter,
     ConsumerApiDefinition,
+    ConsumerMatchRule,
     EngineModel,
     ObjectTypeDefinition,
     ProjectionParameter,
@@ -207,6 +209,7 @@ class _Definition:
             return
         for index, rule in enumerate(match.own):
             self._require_matchable(rule.field, self.types, f"/match/own/{index}/field")
+            self._require_text_for_contains(rule, self.types, f"/match/own/{index}")
         for index, promoted in enumerate(match.promoted):
             path = f"/match/promoted/{index}"
             projection = self.definition.projections.get(promoted.projection)
@@ -216,6 +219,7 @@ class _Definition:
             targets = projection_targets(self.model, self.definition, route.relation, route.direction)
             for rule_index, rule in enumerate(promoted.firstMatch):
                 self._require_matchable(rule.field, targets, f"{path}/firstMatch/{rule_index}/field")
+                self._require_text_for_contains(rule, targets, f"{path}/firstMatch/{rule_index}")
             for type_index, key in enumerate(promoted.preferTargetTypes):
                 if key not in self.definition.objectTypes:
                     self._fail(
@@ -233,6 +237,21 @@ class _Definition:
             self._fail("INVALID_REFERENCE", path, f"field '{field}' is not 'id', 'name' or an attribute of those types")
         if not (definition.features.get("searchable") or definition.features.get("unique")):
             self._fail("INVALID_MODEL", path, f"field '{field}' is neither searchable nor unique")
+
+    def _require_text_for_contains(
+        self, rule: ConsumerMatchRule, types: Sequence[ObjectTypeDefinition], path: str
+    ) -> None:
+        """A ``contains`` weight reads a text field: ``name`` or a text attribute (0.9 C4). The object
+        ID and typed values match exactly only, so a contains weight on them could never apply."""
+        if rule.contains is None:
+            return
+        if rule.field != "id" and field_value_type(self.model, types, rule.field) == "text":
+            return
+        self._fail(
+            "INVALID_MODEL",
+            f"{path}/contains",
+            f"field '{rule.field}' holds no text, so a 'contains' weight on it could never match",
+        )
 
     def _check_parameters(self) -> None:
         for name, parameter in self.definition.parameters.items():

@@ -2,7 +2,7 @@
 
 Each route resolves the definition from the active release (``{apiKey}`` and ``v{contractVersion}``),
 checks the request's parameters against the names it serves, resolves the workspace and reads live
-data through ``engine/reads/consumer_objects`` and ``consumer_lists``. Every response names the
+data through ``engine/reads/consumer_objects``, ``consumer_lists`` and ``consumer_xref``. Every response names the
 workspace it read in the ``RDM-Workspace`` header (C-D23). The routes stay out of the management
 OpenAPI document; C6 generates one document per definition.
 """
@@ -21,15 +21,24 @@ from ..engine.model.registry import resolve_model_snapshot
 from ..engine.reads.consumer_lists import consumer_list, read_consumer_list
 from ..engine.reads.consumer_objects import consumer_definition, read_consumer_object
 from ..engine.reads.consumer_parameters import consumer_filter
+from ..engine.reads.consumer_xref import read_xref, xref_terms
 from ..engine.workspaces.catalogue import resolve_workspace
 from ..errors import ApiError, api_error
 from ..models.database import Workspace
-from ..models.schema import ConsumerApiDefinition, ConsumerList
+from ..models.schema import ConsumerApiDefinition
 
 PREFIX = "/api/consumer"
 WORKSPACE_HEADER = "RDM-Workspace"
 # The names that select a list's page (ADR-030, C-D30).
 _PAGING = frozenset({"pageSize", "cursor", "position", "from", "seek", "includeTotal"})
+# The names each route serves besides the definition's parameters. XREF pages by score, which no
+# caller seeks, and always counts its total (C-D39); with expect=one it reads no page (C-D40).
+_OBJECT = frozenset({"workspace"})
+_LIST = _OBJECT | _PAGING
+_XREF_ONE = _OBJECT | {"query", "expect"}
+_XREF = _XREF_ONE | (_PAGING - {"seek", "includeTotal"})
+# Every name a route of the API serves.
+_ROUTE_NAMES = _LIST | _XREF
 _DEFAULT_PAGE_SIZE = 20
 _MAX_PAGE_SIZE = 100
 # The shared paging refusals answer 400 here, the consumer tier's status for a request error.
@@ -62,7 +71,7 @@ def get_object(
     definition's parameters (C-D31)."""
     model = resolve_model_snapshot(session).model
     definition = consumer_definition(model, api_key, contract_version)
-    parameters = _Parameters.check(request, definition, None)
+    parameters = _Parameters.check(request, definition, serves=_OBJECT)
     workspace = _workspace(session, parameters.single("workspace"))
     return _answer(
         response,
@@ -88,7 +97,8 @@ def get_list(
     model = resolve_model_snapshot(session).model
     definition = consumer_definition(model, api_key, contract_version)
     declared = consumer_list(definition, list_key)
-    parameters = _Parameters.check(request, definition, declared)
+    parent = declared.parentParameter.name if declared.parentParameter else None
+    parameters = _Parameters.check(request, definition, serves=_LIST, parent=parent)
     page_size, page = _page(parameters)
     workspace = _workspace(session, parameters.single("workspace"))
     return _answer(
@@ -109,6 +119,48 @@ def get_list(
     )
 
 
+@router.get("/{api_key}/v{contract_version}/xref")
+@reads_own_parameters
+def get_xref(
+    api_key: str, contract_version: str, request: Request, response: Response, session: DbSession
+) -> dict[str, Any]:
+    """XREF: the exposed objects the query's terms match, scored by the definition's ``match``, a
+    page of them or with ``expect=one`` the single best (C-D34–C-D41). Definition parameters are
+    known but not yet applied here (C5)."""
+    model = resolve_model_snapshot(session).model
+    definition = consumer_definition(model, api_key, contract_version)
+    expect = request.query_params.getlist("expect")
+    expect_one = _expect_one(expect[-1] if expect else None)
+    parameters = _Parameters.check(
+        request, definition, serves=_XREF_ONE if expect_one else _XREF, filters=False
+    )
+    terms = xref_terms(parameters.listed.get("query", []))
+    page_size, page = (_DEFAULT_PAGE_SIZE, PageRequest()) if expect_one else _page(parameters)
+    workspace = _workspace(session, parameters.single("workspace"))
+    return _answer(
+        response,
+        workspace,
+        lambda: read_xref(
+            session,
+            model,
+            definition,
+            workspace_key=workspace.key,
+            terms=terms,
+            expect_one=expect_one,
+            page=page,
+            page_size=page_size,
+        ),
+    )
+
+
+def _expect_one(raw: str | None) -> bool:
+    if raw is None or raw == "any":
+        return False
+    if raw == "one":
+        return True
+    raise api_error(400, "INVALID_EXPECT", "expect must be 'any' or 'one'", {"path": "/query/expect"})
+
+
 def _answer(response: Response, workspace: Workspace, read: Callable[[], dict[str, Any]]) -> dict[str, Any]:
     """The read's answer, naming the workspace in the header, on a refusal as well."""
     response.headers[WORKSPACE_HEADER] = workspace.key
@@ -126,24 +178,29 @@ class _Parameters:
     """A request's query parameters, checked against the names its route serves."""
 
     raw: dict[str, list[str]]
-    # Definition parameter name to its values, split as OpenAPI's form style lists them (C-D32, C3b).
+    # Each name's values, split as OpenAPI's form style lists them (C-D32, C3b).
+    listed: dict[str, list[str]]
+    # The definition parameters the route applies, by name.
     definition: dict[str, list[str]]
     parents: list[str]
 
     @classmethod
     def check(
-        cls, request: Request, definition: ConsumerApiDefinition, declared: ConsumerList | None
+        cls,
+        request: Request,
+        definition: ConsumerApiDefinition,
+        *,
+        serves: frozenset[str],
+        parent: str | None = None,
+        filters: bool = True,
     ) -> _Parameters:
         """Refuse a name the API does not know (``UNKNOWN_PARAMETER``), then one it knows that this
-        route does not apply (``PARAMETER_NOT_SUPPORTED``): a paging name on get by ID, or a list's
-        parent parameter on get by ID or on another list."""
-        parent = declared.parentParameter.name if declared and declared.parentParameter else None
-        applied = {"workspace", *definition.parameters}
-        if declared is not None:
-            applied |= _PAGING
+        route does not apply (``PARAMETER_NOT_SUPPORTED``): one outside ``serves``, a list's parent
+        parameter off its list, or a definition parameter where ``filters`` is off (XREF until C5)."""
+        applied = set(serves) | (set(definition.parameters) if filters else set())
         if parent is not None:
             applied.add(parent)
-        known = applied | _PAGING | {
+        known = applied | _ROUTE_NAMES | set(definition.parameters) | {
             item.parentParameter.name for item in definition.lists if item.parentParameter is not None
         }
         raw = {name: request.query_params.getlist(name) for name in sorted(set(request.query_params))}
@@ -167,10 +224,11 @@ class _Parameters:
         # On its list, a parent parameter sharing a definition parameter's name addresses the parent.
         return cls(
             raw=raw,
+            listed=listed,
             definition={
                 name: listed[name]
                 for name in raw
-                if name in definition.parameters and name != parent
+                if filters and name in definition.parameters and name != parent
             },
             parents=list(dict.fromkeys(listed[parent])) if parent in raw else [],
         )

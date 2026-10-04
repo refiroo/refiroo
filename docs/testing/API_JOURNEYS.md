@@ -89,6 +89,7 @@ Every response names the workspace it read in the `RDM-Workspace` header.
 | --- | --- |
 | `GET /{apiKey}/v{contractVersion}/objects/{id}` (`workspace`, the definition's parameters) | J28, J28.1–J28.5, J28.9 |
 | `GET /{apiKey}/v{contractVersion}/lists/{listKey}` (`workspace`, the list's parent parameter, the definition's parameters, `pageSize`, `cursor`, `position`, `from`, `seek`, `includeTotal`) | J28.6–J28.10 |
+| `GET /{apiKey}/v{contractVersion}/xref` (`query`, `expect`, `workspace`, `pageSize`, `cursor`, `position`, `from`) | J29, J29.1–J29.5 |
 
 ## Error codes
 
@@ -112,6 +113,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | J23 | `AS_OF_NOT_SUPPORTED`, `INVALID_EFFECTIVE_PERIOD` |
 | J26 | `FEED_POSITION_AHEAD`, `FEED_POSITION_EXPIRED` |
 | J28 | `CONSUMER_API_NOT_FOUND`, `CONTRACT_VERSION_NOT_FOUND`, `PARAMETER_NOT_SUPPORTED`, `LIST_NOT_FOUND`, `PARENT_NOT_FOUND`, `INVALID_PAGE_SIZE`, `INVALID_PAGE_PARAMETER`; on the consumer API `UNKNOWN_PARAMETER`, `UNKNOWN_OBJECT_TYPE` and the paging codes are `400` (J28.4, J28.8, J28.10), and an unknown or retired workspace `404 WORKSPACE_NOT_FOUND` (J28.3) |
+| J29 | `QUERY_REQUIRED`, `TOO_MANY_TERMS`, `QUERY_TOO_BROAD` (`test_consumer_xref_volume`), `INVALID_EXPECT`, `NO_MATCH`, `AMBIGUOUS_MATCH` (J29.3, J29.5) |
 | J11, J24 | `BATCH_TOO_LARGE`, `INVALID_BATCH_CONTEXT`, `IDEMPOTENCY_KEY_REUSED`, `IDEMPOTENCY_IN_PROGRESS`, `MISSING_RECORD_KEY`, `INVALID_RECORD_KEY`, `REFERENCE_NOT_FOUND`, `REFERENCE_TYPE_MISMATCH`, `JOB_NOT_FOUND`, `JOB_FINISHED`, `JOB_FAILED` |
 
 ## Operator surface (J12)

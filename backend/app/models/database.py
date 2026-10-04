@@ -16,6 +16,8 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    func,
+    literal_column,
     text,
 )
 from sqlalchemy.engine import Dialect
@@ -342,6 +344,8 @@ class RdmObject(Base):
             "name",
             "sequence_id",
         ),
+        # An exact lookup ignoring case seeks the name (0.9 C4, 20261005_01).
+        Index("ix_objects_workspace_lower_name", "workspace_key", func.lower(literal_column("name"))),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -456,6 +460,12 @@ class AttributeValue(Base):
             for name in ("integer", "decimal", "boolean", "date", "datetime")
         ),
         search_index(LIVE_VALUES),
+        # An exact lookup ignoring case seeks the text value (0.9 C4, 20261005_01).
+        Index(
+            "ix_attribute_values_key_lower_text",
+            "attribute_type_key",
+            func.lower(literal_column("text_value")),
+        ),
     )
 
     sequence_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)

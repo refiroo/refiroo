@@ -465,11 +465,16 @@ def _move(client, dataset: VolumeDataset, context: str, object_type: str, object
 
 
 def _timed(
-    engine: Engine, call: Callable[[], Any], repeat: int, before: Callable[[], None] | None = None
+    engine: Engine,
+    call: Callable[[], Any],
+    repeat: int,
+    before: Callable[[], None] | None = None,
+    refused: int | None = None,
 ) -> tuple[int, float, int, int]:
     """Run ``call`` once to warm up, then ``repeat`` times; return the last run's cost.
 
-    The time is the median of the timed runs, or the warm-up run's when ``repeat`` is 0.
+    The time is the median of the timed runs, or the warm-up run's when ``repeat`` is 0. A status of
+    400 or more fails the run unless it is ``refused``, the refusal the scenario measures.
     """
     timings = []
     status, statements, rows = 0, 0, 0
@@ -479,7 +484,7 @@ def _timed(
         with measure(engine) as cost:
             response = call()
         status = response.status_code
-        if status >= 400:
+        if status >= 400 and status != refused:
             raise AssertionError(f"{response.request.url} returned {status}: {response.text}")
         statements, rows = cost.statements, cost.rows_loaded
         if run or not repeat:
@@ -635,6 +640,42 @@ def consumer_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat
     for scenario, path, params in scenarios:
         status, milliseconds, statements, rows = _timed(
             engine, lambda path=path, params=params: client.get(path, params=params), repeat
+        )
+        results.append(Measurement("live", scenario, status, milliseconds, statements, rows))
+    return results
+
+
+CONSUMER_XREF = f"/api/consumer/{CONSUMER_API}/v1/xref"
+
+
+def consumer_xref_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int) -> list[Measurement]:
+    """0.9 C4: XREF lookups, live (``--only-consumer``): an item's code in another case, the cited
+    group's code (its own match and the citing items it promotes), a 4-character contains, the
+    same code with ``expect=one``, and a term in every item refused as ``QUERY_TOO_BROAD``."""
+    from app.models.database import AttributeValue
+
+    with Session(engine) as session:
+        codes = dict(
+            session.execute(
+                select(AttributeValue.object_id, AttributeValue.text_value).where(
+                    AttributeValue.attribute_type_key == CODE,
+                    AttributeValue.object_id.in_([dataset.live_item_id, dataset.cited_group_id]),
+                )
+            ).all()
+        )
+    item_code = codes[dataset.live_item_id].lower()
+    base = {"workspace": WORKSPACE, "pageSize": PAGE_SIZE}
+    scenarios = [
+        ("consumer xref: an item's code, another case", {**base, "query": item_code}, None),
+        ("consumer xref: a group's code promoted to its citing items", {**base, "query": codes[dataset.cited_group_id]}, None),
+        ("consumer xref: 4-character contains", {**base, "query": "0099"}, None),
+        ("consumer xref: expect=one", {"workspace": WORKSPACE, "query": item_code, "expect": "one"}, None),
+        ("consumer xref: a term in every item, too broad", {**base, "query": "item"}, 400),
+    ]
+    results = []
+    for scenario, params, refused in scenarios:
+        status, milliseconds, statements, rows = _timed(
+            engine, lambda params=params: client.get(CONSUMER_XREF, params=params), repeat, refused=refused
         )
         results.append(Measurement("live", scenario, status, milliseconds, statements, rows))
     return results
@@ -848,7 +889,7 @@ def main() -> None:
     parser.add_argument(
         "--only-consumer",
         action="store_true",
-        help="measure only the 0.9 C3 consumer list reads",
+        help="measure only the 0.9 C3 consumer list reads and C4 XREF lookups",
     )
     arguments = parser.parse_args()
 
@@ -871,6 +912,7 @@ def main() -> None:
                     results, _count = restructuring_scenarios(engine, dataset, repeat=arguments.repeat)
                 elif arguments.only_consumer:
                     results = consumer_scenarios(client, engine, dataset, repeat=arguments.repeat)
+                    results += consumer_xref_scenarios(client, engine, dataset, repeat=arguments.repeat)
                 elif arguments.only_dated:
                     results = dated_scenarios(client, engine, dataset, repeat=arguments.repeat)
                 elif arguments.only_publish:

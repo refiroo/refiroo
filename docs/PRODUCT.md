@@ -128,7 +128,8 @@ can complete the task in the application; "API" means another system can.
 - Declare consumer APIs in the model: the read-only contracts other systems will use, checked so that a
   breaking change needs a new contract version. Another system reads one business object through
   such an API by its record ID, in the declared shape, or reads its declared lists page by page,
-  narrowed by the API's parameters; lookup by code follows later in 0.9.
+  narrowed by the API's parameters, or looks business objects up by a code, ID or name, its own or a
+  related record's, scored and ordered by the API's declared weights.
 - Read the API reference at `/docs`, which works without internet access.
 
 ### Use it comfortably — browser

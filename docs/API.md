@@ -2011,12 +2011,12 @@ the reader misses nothing. An export as a second baseline follows with export jo
 
 A retired workspace's feed stays readable. The feed is ungated like other reads until 0.12 (D10).
 
-## Consumer API (Base 0.9 C2, C3)
+## Consumer API (Base 0.9 C2–C4)
 
 A separate, read-only tier at `/api/consumer`, whose contract each consumer API definition in the
 active model release declares ([CONSUMER_API.md](CONSUMER_API.md)). Its routes are not in the
-management OpenAPI document; C6 generates one document per definition. XREF, batch resolve,
-crosswalk, publications and `asOf` follow in C4–C16.
+management OpenAPI document; C6 generates one document per definition. Batch resolve, crosswalk,
+publications and `asOf` follow in C5–C16.
 
 ### Get by ID
 
@@ -2086,6 +2086,62 @@ the shared object above (equal to get by ID's answer for the same record and par
 
 `totalCount` and `startIndex` are `null` unless `includeTotal=true`.
 
+### XREF
+
+```text
+GET /api/consumer/{apiKey}/v{contractVersion}/xref?query=…&expect=any|one&workspace=…
+    &pageSize=…&cursor=…|position=…|from=end
+```
+
+Finds the live records of the definition's exposed types that the query's terms match, scored by the
+definition's `match`, best first. Each result is the shared object above (get by ID's answer for the
+same record) with `matchScore`, an integer, after the declared fields.
+
+- **Terms.** `query` holds one or more terms, comma-separated or repeated, listed as
+  [parameter values](#parameters) are (a comma inside a term is `%2C`). Surrounding spaces are
+  trimmed and empty terms dropped. An object's score is its best score over the terms.
+- **Own score for a term.** Each `match.own` rule compares the term with a field of the object: an
+  `exact` weight applies when the field equals the term ignoring case (a typed field by its parsed
+  value, the object ID as given); a `contains` weight when a text field holds it, ignoring case. The
+  exact weights that apply add up; the contains weights add up and count only when no exact weight
+  applied.
+- **Promoted score.** Each `match.promoted` entry reads its projection's related records. A related
+  record takes the weight of its first matching rule in `firstMatch` order and passes it to the
+  exposed objects it relates to through the projection. With `preferTargetTypes`, a related record
+  that relates to an object of a preferred type passes its weight only to those. An object's score is
+  the higher of its own and its best promoted score.
+- **Order:** score (highest first), then the type's public name, then name, then object ID.
+- **Limits.** `contains` needs a term of **at least 3 characters**; a shorter term matches exactly
+  only. A query whose terms match **more than 10,000 records** (counting its own matches and the
+  related records promotion reads) is refused with `400 QUERY_TOO_BROAD` rather than capped or read
+  slowly: use a longer or more specific term. A query holds **at most 100 terms**.
+- **Paging** as on lists, without `seek` (a score is not something a caller seeks) and without
+  `includeTotal`: `totalCount` and `startIndex` are always given. A cursor binds the terms, the
+  workspace and the contract version.
+- **`expect=one`** answers the single top result as a bare object, as get by ID does; no paging name
+  applies with it.
+- The definition's parameters are not applied to XREF yet (C5); a definition without `match` matches
+  nothing.
+
+```jsonc
+// RDM-Workspace: default
+{ "results": [ { "objectType": "Ledger", "ledgerId": "7f3c…", "code": "LED-7", …, "matchScore": 500 } ],
+  "query": ["led-7"], "workspace": "default", "pageSize": 20,
+  "nextCursor": null, "prevCursor": null, "anchor": "…", "totalCount": 1, "startIndex": 0 }
+```
+
+| Status | Code | When |
+| --- | --- | --- |
+| 400 | `QUERY_REQUIRED` | No `query`, or only empty terms |
+| 400 | `TOO_MANY_TERMS` | More than 100 terms; `details.limit` and `details.count` |
+| 400 | `QUERY_TOO_BROAD` | The terms match more than 10,000 records; `details.limit` and `details.minimumContainsLength` (3) |
+| 400 | `INVALID_EXPECT` | `expect` other than `any` or `one` |
+| 400 | `PARAMETER_NOT_SUPPORTED` | `seek`, `includeTotal`, a paging name with `expect=one`, a definition parameter (until C5) or a list's parent parameter |
+| 404 | `NO_MATCH` | `expect=one` and nothing matched |
+| 409 | `AMBIGUOUS_MATCH` | `expect=one` and the top score is shared; `details.count` and `details.candidates` (the tied objects' `id`, `objectType`, `name` and `matchScore`, at most 10) |
+
+The API, workspace and paging refusals are those of the table below.
+
 ### Parameters
 
 Every definition parameter applies to get by ID and to every list (C-D31):
@@ -2117,7 +2173,7 @@ Every definition parameter applies to get by ID and to every list (C-D31):
 | 404 | `LIST_NOT_FOUND` | The definition declares no list `{listKey}` |
 | 404 | `PARENT_NOT_FOUND` | A parent value is no record of the list's parent types in the workspace; `details.parents` names them |
 | 400 | `UNKNOWN_PARAMETER` | A name the API does not know; `details.parameters` names them |
-| 400 | `PARAMETER_NOT_SUPPORTED` | A name the API knows that this read does not apply: a paging name on get by ID, or a list's parent parameter on get by ID or another list |
+| 400 | `PARAMETER_NOT_SUPPORTED` | A name the API knows that this read does not apply: a paging name on get by ID, `query` or `expect` off XREF, or a list's parent parameter on get by ID or another list |
 | 400 | `UNKNOWN_OBJECT_TYPE` | An `objectType` value that is not an exposed public name; `details.publicNames` lists them |
 | 400 | `INVALID_PAGE_SIZE` | `pageSize` outside 1–100 |
 | 400 | `INVALID_PAGE_PARAMETER` | `from` other than `start` or `end`, or `includeTotal` other than `true` or `false` |
@@ -2131,8 +2187,8 @@ Designed in [INTEGRATION_API.md](INTEGRATION_API.md) and sequenced in the
 - Relation and relation-set items (B3)
 - Asynchronous import/export jobs
 - Webhook subscriptions
-- Consumer API XREF, batch resolve, crosswalk, publications and events
-  ([CONSUMER_API.md](CONSUMER_API.md)); get by ID and lists are delivered (above)
+- Consumer API batch resolve, crosswalk, publications and events
+  ([CONSUMER_API.md](CONSUMER_API.md)); get by ID, lists and XREF are delivered (above)
 
 There will be no equivalent of enumerating numeric attribute IDs `1..1000` or using `take: 0` for a full
 extract.

@@ -8,6 +8,29 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 C4: consumer API XREF lookup:
+  `GET /api/consumer/{apiKey}/v{contractVersion}/xref?query=…&expect=any|one`.
+  - **Scoring.** The live records of the exposed types, scored by the definition's `match` at read
+    time over the existing indexes (no consumer index, C-D34): own exact weights add up, contains
+    weights count only without an exact one (C-D35); a related record's first matching `firstMatch`
+    weight passes to the objects it relates to through the projection, only to the preferred types
+    where it relates to one (C-D36). One statement scores; ordered by score, public type name, name
+    and object ID. Each result is the shared object with `matchScore` (C-D41).
+  - **Migration** `20261005_01`: `ix_objects_workspace_lower_name` on `objects (workspace_key,
+    lower(name))` and `ix_attribute_values_key_lower_text` on `attribute_values (attribute_type_key,
+    lower(text_value))`, so an exact match ignoring case is an index seek rather than a recheck of
+    every record the trigram index finds.
+  - **Terms and limits.** Comma-separated (a comma inside a term as `%2C`) or repeated `query`, at
+    most 100 (`400 TOO_MANY_TERMS`), none `400 QUERY_REQUIRED` (C-D38). Contains needs 3 characters;
+    a query matching more than 10,000 records is `400 QUERY_TOO_BROAD` (C-D37).
+  - **Paging and `expect=one`.** Cursors both ways, `position`, `from=end`, `totalCount` always
+    (C-D39); `expect=one` answers the bare object, `404 NO_MATCH` or `409 AMBIGUOUS_MATCH` naming the
+    tied objects (C-D40). `400 INVALID_EXPECT` for another `expect`. `query` and `expect` off XREF
+    are `400 PARAMETER_NOT_SUPPORTED`. Definition parameters apply to XREF from C5.
+  - **Model.** A `contains` weight on `id` or a typed attribute is refused at its
+    `/match/…/contains` pointer (schema 0.8).
+  - **Budgets.** `test_consumer_xref_volume` holds the statement counts at two sizes. At full volume
+    lookups take 34–58 ms; refusing a term found in every item takes 116 ms, recorded in TODO.
 - Base 0.9 C3b: consumer API parameters list several values as OpenAPI 3 serialises a list in a query
   (RFC 3986): repeated, or separated by literal commas, with a comma inside a value sent as `%2C`.
   C3's `\,` escape is withdrawn; the raw query is split before it is decoded.

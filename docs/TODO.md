@@ -30,7 +30,8 @@ feed retention and recovery from the active publication (D40–D41). **T1 is del
 delivered (2026-10-04)**: the consumer tier with get by ID (C-D21–C-D26). **C3 is delivered
 (2026-10-04)**: consumer lists and every parameter kind (C-D27–C-D33). **C3a is delivered
 (2026-10-04)**: attribute sorts read in value order (D46–D48). **C3b is delivered (2026-10-04)**:
-several values the OpenAPI way, `%2C` for a comma in a value (C-D32 amended). Next: C4, in the order of the delivery
+several values the OpenAPI way, `%2C` for a comma in a value (C-D32 amended). **C4 is delivered
+(2026-10-05)**: XREF lookup and scoring (C-D34–C-D41). Next: C5, in the order of the delivery
 queue. See
 [Next — 0.9](#next--09).
 
@@ -120,6 +121,11 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   not tuned: a position jump to row 50,000 (123 ms) and an ancestor filter over 20,000 items with
   `includeTotal` (101 ms); 0.8 D26's stored sort key, after 0.9, would serve deep positions and
   attributes with few distinct values.
+- [ ] XREF's refusal of a term in every record over the 100 ms budget (found in C4; recorded with the
+  user's agreement, 2026-10-05): `400 QUERY_TOO_BROAD` for "item" takes 116 ms at full volume. Its
+  contains checks read every value the trigram index matches before the record type filters them: a
+  promoted rule on groups' codes reads all 100,000 item codes containing the term (~60 ms). Closing
+  it needs the record type in the value index, a design change; lookups themselves take 34–58 ms.
 - [ ] C6 task (D47): C3a's value-order attribute sort for publication and change-set reads, over
   `snapshot_attribute_values`, with its budget recorded.
 - [ ] Comma-separated values on the management API's repeated filters (`filter.<field>.eq=A,B`), as the

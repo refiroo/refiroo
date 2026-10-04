@@ -193,3 +193,32 @@ def test_a_list_sorts_by_a_scalar_attribute_of_its_type(world):
         assert compiled["valid"] is False, name
         reserved = f"/consumerApis/{world.key('Capi')}/parameters/{name}"
         assert any(d["path"] == reserved for d in compiled["diagnostics"]), compiled["diagnostics"]
+
+
+@pytest.mark.journey("J25")
+@pytest.mark.structures("Capi", "R", "R.u", "K.code", "B11")
+def test_contains_reads_text_only(world):
+    """A contains weight on id, or on an integer attribute, is refused at its /match/…/contains
+    pointer: it could never match."""
+    number = "consumer-serial"
+    base = f"/consumerApis/{world.key('Capi')}/match"
+    for where in ("own-id", "own-integer", "promoted-id"):
+        model, definition = _capi_model(world, f"contains-{where}")
+        model["attributeTypes"].append(
+            {"key": number, "name": "Serial", "valueType": "integer", "features": {"unique": True}}
+        )
+        r_type = next(t for t in model["objectTypes"] if t["key"] == world.key("R"))
+        r_type["attributes"].append({"attributeTypeKey": number, "order": 900})
+        if where == "promoted-id":
+            definition["match"]["promoted"][0]["firstMatch"].append({"field": "id", "contains": 5})
+            index = len(definition["match"]["promoted"][0]["firstMatch"]) - 1
+            pointer = f"{base}/promoted/0/firstMatch/{index}/contains"
+        else:
+            field = "id" if where == "own-id" else number
+            definition["match"]["own"].append({"field": field, "exact": 5, "contains": 5})
+            pointer = f"{base}/own/{len(definition['match']['own']) - 1}/contains"
+        draft, compiled = _compile(world, model)
+        assert compiled["valid"] is False, where
+        assert any(d["path"] == pointer for d in compiled["diagnostics"]), compiled["diagnostics"]
+        error = refused(_install(world, draft), 422, "INVALID_MODEL")
+        assert pointer in json.dumps(error["details"])

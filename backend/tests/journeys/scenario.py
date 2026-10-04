@@ -446,6 +446,16 @@ def consumer_list_typed(world: World, list_key: str, query: str, *, version: int
     return world.api.client.get(url)
 
 
+def consumer_xref(world: World, *, version: int = 1, **params: Any) -> Response:
+    """``GET /api/consumer/{apiKey}/v{version}/xref`` of ``Capi``."""
+    return world.api.get(f"/api/consumer/{world.key('Capi')}/v{version}/xref", **params)
+
+
+def consumer_xref_typed(world: World, query: str, *, version: int = 1) -> Response:
+    """XREF with ``query`` exactly as a client types it into the URL (C3b)."""
+    return world.api.client.get(f"/api/consumer/{world.key('Capi')}/v{version}/xref?{query}")
+
+
 class Held:
     """Requests started while a workspace is held (``World.holding``)."""
 

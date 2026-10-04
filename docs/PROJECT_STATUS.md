@@ -163,7 +163,13 @@ ancestor filter with its total (101 ms) remain at the budget line (D46–D48,
 [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c3a-delivery-record)). **C3b is delivered (2026-10-04):**
 consumer API parameters list several values as OpenAPI 3 serialises a list in a query, repeated or
 comma-separated with `%2C` for a comma inside a value; C3's `\,` escape, which the user had not
-approved, is withdrawn ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#c3b-delivery-record)). Next: C4.
+approved, is withdrawn ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#c3b-delivery-record)). **C4 is
+delivered (2026-10-05):** XREF lookup (`GET /api/consumer/{apiKey}/v{n}/xref`): the definition's
+`match` scores live records at read time, own and promoted weights, several terms, deterministic
+order, paging with a total, `expect=one` with `404 NO_MATCH` and `409 AMBIGUOUS_MATCH`; contains from
+3 characters, `400 QUERY_TOO_BROAD` past 10,000 matches. Exact matches read new `lower(…)` indexes
+(migration `20261005_01`); lookups take 34–58 ms at full volume and the too-broad refusal 116 ms,
+recorded (C-D34–C-D41, [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c4-delivery-record)). Next: C5.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

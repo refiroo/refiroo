@@ -79,6 +79,8 @@ SHELF_DEPTH, SHELF_FANOUT = 3, 2
 CONSUMER_API = "vol-consumer"
 ITEMS_BY_GROUP, RANKED_ITEMS = "items", "ranked-items"
 GROUP_PARENT, WITHIN_GROUP = "group", "within"
+# Base 0.9 C4: the groups an item cites, through which a group's match promotes the citing items.
+CITED_GROUPS = "citedGroups"
 
 _INSERT_BATCH = 5000
 
@@ -335,7 +337,8 @@ def volume_model() -> dict[str, Any]:
 
 def _consumer_api() -> dict[str, Any]:
     """Base 0.9 C3: items under a group (the parent by ID), every item by rank, and an ancestor
-    parameter matching a group by ID, name or code at any depth."""
+    parameter matching a group by ID, name or code at any depth. C4: XREF by ID, code and name, and a
+    group's code or name promoted to the items citing it."""
     return {
         "key": CONSUMER_API,
         "name": "Volume consumer API",
@@ -349,6 +352,29 @@ def _consumer_api() -> dict[str, Any]:
             "parent": {"output": "parent", "fields": ["objectType", "id", "code", "name"]},
             "path": "path",
             "hierarchy": "hierarchy",
+        },
+        "projections": {
+            CITED_GROUPS: {
+                "from": {"relation": ITEM_CITES_GROUP, "direction": "outgoing"},
+                "fields": {"code": CODE, "name": "name"},
+            }
+        },
+        "match": {
+            "own": [
+                {"field": "id", "exact": 1000},
+                {"field": CODE, "exact": 500, "contains": 40},
+                {"field": "name", "exact": 200, "contains": 30},
+            ],
+            "promoted": [
+                {
+                    "projection": CITED_GROUPS,
+                    "firstMatch": [
+                        {"field": CODE, "exact": 80},
+                        {"field": "name", "exact": 75},
+                        {"field": CODE, "contains": 10},
+                    ],
+                }
+            ],
         },
         "parameters": {
             WITHIN_GROUP: {"kind": "ancestor", "objectTypes": [GROUP], "matchFields": ["id", "name", CODE]}

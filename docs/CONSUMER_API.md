@@ -375,7 +375,13 @@ GET /api/consumer
 - **XREF** keeps the reference request and response shape, with `results`, `query` and `totalCount`
   plus the paging fields of ADR-030. `expect=one` returns the single top result, `404` when nothing
   matched, and `409 AMBIGUOUS_MATCH` naming the tied candidates when the top score is shared. Flows
-  that resolve a value use it in place of "take the first result".
+  that resolve a value use it in place of "take the first result". _Delivered in C4 (2026-10-05):_
+  candidates are the live records of the exposed types in the workspace; results order by score,
+  public type name, name and object ID, each the shared object with `matchScore` (C-D41); the
+  reference's cap of `max(20, terms)` is replaced by paging with cursors both ways, `position` and
+  `from=end`, and `totalCount` counts every match (C-D39). Contains needs 3 characters, a query
+  matching more than 10,000 records is `400 QUERY_TOO_BROAD`, and a query holds at most 100 terms
+  (C-D37, C-D38). Definition parameters apply to XREF from C5.
 - **Get by ID** returns one object in the same shape, found by its object ID (C-D24). _Delivered in
   C2 (2026-10-04):_ the answer is the bare shared object; an unknown or deleted record, one in another
   workspace or one of a type the definition does not expose is `404 OBJECT_NOT_FOUND`. Data is read
@@ -482,6 +488,10 @@ The existing gateway can stay in front and map the reference routes (`/xref`,
 (C-D5).
 
 ### Read index
+
+_Amended in C4 (C-D34): no consumer index is built. XREF scores at read time over the trigram
+indexes on names and text values, the object ID index and the `lower(…)` indexes for exact matches,
+bounded by the 10,000-match limit (C-D37); the design below is kept for a measured need._
 
 The reference answers in about 100 ms only from its cache; a miss reloads the whole dataset. The
 engine cannot score every object and join every projection per request. Each definition gets a
@@ -670,7 +680,7 @@ coordination is 0.11 work.
 | C1 | `consumerApis` schema, model validation with precise paths, compile into the immutable snapshot, breaking-change check against the active release (C-D17) — **delivered 2026-09-30** |
 | C2 | Common object and projections: get by ID, ancestor fields, cardinality-derived shape, typed values — **delivered 2026-10-04** |
 | C3 | Lists with and without a parent (by object ID, anywhere below it), `sortBy`, ADR-030 paging; every parameter kind (`objectType`, `ancestor`, `related` including a shared projection, `projection`) on lists and get by ID (C-D27–C-D33) — **delivered 2026-10-04** |
-| C4 | Consumer index and XREF scoring: own-field and promoted scores, multi-term queries, deterministic order, `expect=one` |
+| C4 | XREF scoring at read time (C-D34): own-field and promoted scores, multi-term queries, deterministic order, paging, `expect=one` (C-D34–C-D41) — **delivered 2026-10-05** |
 | C5 | XREF's use of C3's parameter kinds, with `scoresFrom` (C-D33) |
 | C6 | ETag / `If-None-Match`, `publication` reads including `latest`, the publications list with `eventSequence`, per-definition OpenAPI, the API index |
 | C7 | _Moved to 0.12 (C-D1):_ OAuth 2.0 client access per definition, webhook signing keys, UI administration of both |
@@ -690,7 +700,7 @@ their projections. After C9 come C10, then C11 and C12, and C13 closes the event
 track can run in parallel with C3–C8. C14 follows C4 (it reuses XREF resolution) and C15 follows C5
 (targets are projection parameters); both come before C8. C16 needs C2 and the effective-period
 schema from Track Q, and can land after C8 without changing the parity scenarios. The P1 cross-type lookup (Base 0.8 plan, D20) is not a
-prerequisite: XREF searches the consumer index, not `GET /objects`.
+prerequisite: XREF scores the consumer definition's matches itself, not through `GET /objects`.
 
 **C13 event scenarios:**
 
@@ -747,7 +757,7 @@ table under "Behavior the engine does not carry over" says otherwise:
 
 C-D1 decided 2026-09-29; C-D2–C-D16 accepted 2026-09-29 as recommended, with the notes below;
 C-D17–C-D20 raised by C1 and accepted 2026-09-30 as recommended; C-D21–C-D26 settled with the user
-for C2 and C-D27–C-D33 for C3, on 2026-10-04.
+for C2, C-D27–C-D33 for C3 and C-D34–C-D41 for C4, on 2026-10-04.
 
 | # | Question | Decision |
 | --- | --- | --- |
@@ -784,3 +794,11 @@ for C2 and C-D27–C-D33 for C3, on 2026-10-04.
 | C-D31 | Where parameters apply | **Settled 2026-10-04 (C3).** Every definition parameter applies to get by ID and to every list; on get by ID it filters a set of one (`404 OBJECT_NOT_FOUND` when filtered out). `PARAMETER_NOT_SUPPORTED` stays for a known name a route does not apply. Batch resolve (C14) applies its `defaults` to by-ID items this way |
 | C-D32 | Parameter values | **Settled 2026-10-04 (C3); amended in C3b (2026-10-04):** C3 recorded a `\,` escape the user had not approved, and C3b replaced it. Several values per parameter, repeated, comma-separated or both, as alternatives; different parameters combine with AND. Values are listed as OpenAPI 3 serialises a list in a query (`style: form`, RFC 3986): a literal comma in the URL separates values and a comma inside a value is percent-encoded as `%2C`, so the engine splits the raw query before decoding it. No escape character. XREF's comma-separated `query` (C4) follows the same rule. Text matches ignoring case; a value that does not parse for a typed field does not match it. `ancestor` matches at any depth; through a shared projection, the matching record itself is kept only by `self`. An unknown `objectType` value is `400 UNKNOWN_OBJECT_TYPE` |
 | C-D33 | Scope between C3 and C5 | **Settled 2026-10-04 (C3).** C3 delivers all four kinds for lists and get by ID, including `objectType` and the shared-projection route; C5 becomes XREF's use of them, with `scoresFrom` |
+| C-D34 | A maintained consumer index, or scoring at read time | **Settled 2026-10-04 (C4).** Read time, over the trigram indexes on names and text values (contains), the object ID index and, added at delivery with the user's agreement, `lower(name)` and `lower(text_value)` indexes for exact matches (revision `20261005_01`). Measured on the full-volume seed: identifier lookups, promotion and selective contains stay well within 100 ms; a maintained match table would add write-path upkeep and a rebuild on every install and would not serve a term matching everything either. Amends "Read index". Revisit only on a measured need |
+| C-D35 | How own weights combine | **Settled 2026-10-04 (C4).** Exact weights add up; contains weights add up and count only when no exact weight applied, as the reference does |
+| C-D36 | How promotion combines | **Settled 2026-10-04 (C4).** A related record takes its first matching `firstMatch` rule and passes the weight to its owners through the projection; an owner's score is the higher of its own and its best promoted weight. With `preferTargetTypes`, a related record relating to an owner of a preferred type passes its weight only to those owners |
+| C-D37 | Short and broad terms | **Settled 2026-10-04 (C4).** Contains from 3 characters, the engine's search minimum; a shorter term matches exactly only. A query matching more than 10,000 records (its own matches and the related records promotion reads) answers `400 QUERY_TOO_BROAD`: a documented limit rather than a silent cap or a slow read. Both limits are stated in API.md, the per-definition OpenAPI (C6), CURRENT_FUNCTIONALITY and the error's message |
+| C-D38 | Terms | **Settled 2026-10-04 (C4, with C3b).** Comma-separated (a comma inside a term as `%2C`) or repeated `query`; empty terms dropped; no term is `400 QUERY_REQUIRED`; at most 100 terms (`400 TOO_MANY_TERMS`), as a request limit; the best score over the terms counts |
+| C-D39 | Paging and the envelope | **Settled 2026-10-04 (C4).** `{ "results", "query": [terms], "workspace", "pageSize", "nextCursor", "prevCursor", "anchor", "totalCount", "startIndex" }`. `totalCount` is always present: the scored set is counted anyway. Cursors both ways, `position` and `from=end`; `seek` and `includeTotal` answer `400 PARAMETER_NOT_SUPPORTED` |
+| C-D40 | `expect=one` | **Settled 2026-10-04 (C4).** The bare shared object with `matchScore`, as get by ID answers; `404 NO_MATCH`; `409 AMBIGUOUS_MATCH` with `details.candidates` (the tied objects' ID, public type, name and score, at most 10) and `details.count`. Paging names with `expect=one` answer `400 PARAMETER_NOT_SUPPORTED` |
+| C-D41 | `matchScore` | **Settled 2026-10-04 (C4).** Every XREF result carries `matchScore`, an integer, after the declared fields; lists and get by ID do not |
