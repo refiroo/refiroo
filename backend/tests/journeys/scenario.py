@@ -439,6 +439,13 @@ def consumer_list(
     return world.api.get(f"/api/consumer/{key}/v{version}/lists/{list_key}", **params)
 
 
+def consumer_list_typed(world: World, list_key: str, query: str, *, version: int = 1) -> Response:
+    """The list read with ``query`` exactly as a client types it into the URL: an HTTP library given
+    parameters would percent-encode the commas that separate values (C3b)."""
+    url = f"/api/consumer/{world.key('Capi')}/v{version}/lists/{list_key}?{query}"
+    return world.api.client.get(url)
+
+
 class Held:
     """Requests started while a workspace is held (``World.holding``)."""
 

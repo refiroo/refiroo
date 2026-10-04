@@ -884,8 +884,8 @@ C4–C16 ([CONSUMER_API.md](../CONSUMER_API.md)).
   the parent types is refused.
 - **J28.8 Parameters narrow a list**: `ancestor`, `related` (through a projection, `self` or a shared
   projection), `projection` (limiting the projection and, with `requireMatch`, the records) and
-  `objectType`; several values, repeated or comma-separated with `\,` for a comma, are
-  alternatives; different parameters combine.
+  `objectType`; several values, repeated or comma-separated (a comma inside a value sent as
+  `%2C`), are alternatives; different parameters combine.
 - **J28.9 Parameters on get by ID**: a parameter limits the projection or filters the record out
   (`404`); a paging or parent parameter is not supported there.
 - **J28.10 Paging refusals**: an unknown list, a page size outside 1–100, conflicting page

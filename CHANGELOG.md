@@ -8,6 +8,9 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 C3b: consumer API parameters list several values as OpenAPI 3 serialises a list in a query
+  (RFC 3986): repeated, or separated by literal commas, with a comma inside a value sent as `%2C`.
+  C3's `\,` escape is withdrawn; the raw query is split before it is decoded.
 - Base 0.9 C3a: lists sorted by an attribute read in value order. Migration `20261004_04` adds an
   index per typed value column on `(attribute_type_key, value, object_id)`, and a live attribute sort
   pages its records with a value through it, then those without one. Nothing changes for callers.
@@ -25,8 +28,8 @@ All notable changes to this project are documented in this file. The format foll
   - **Parameters.** Every definition parameter applies to lists and to get by ID (C-D31):
     `objectType`, `ancestor` (any depth), `related` (through a projection, `self` or a shared
     projection) and `projection` (limiting the projection's items; `requireMatch` drops records left
-    with none). Several values, repeated or comma-separated with `\,` for a comma, are alternatives;
-    different parameters combine (C-D32, C-D33). Each is a SQL predicate, so totals and position
+    with none). Several values, repeated or comma-separated (a comma inside a value as `%2C`), are
+    alternatives; different parameters combine (C-D32 as amended by C3b, C-D33). Each is a SQL predicate, so totals and position
     jumps stay in the database.
   - **Model.** `sortBy` on a consumer list (schema 0.8), validated at `/lists/<list>/sortBy` and part
     of the contract; `from`, `seek` and `includeTotal` are reserved parameter names.

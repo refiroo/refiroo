@@ -47,30 +47,6 @@ VIA_SELF = "self"
 VIA_SHARED = "sharedProjection:"
 
 
-def split_values(raw: Iterable[str]) -> list[str]:
-    """A parameter's values, repeated or comma-separated or both (C-D32). In a value ``\\,`` is a
-    comma and ``\\\\`` a backslash; any other backslash is kept as it is."""
-    values: list[str] = []
-    for item in raw:
-        current: list[str] = []
-        index = 0
-        while index < len(item):
-            char = item[index]
-            following = item[index + 1] if index + 1 < len(item) else ""
-            if char == "\\" and following in {",", "\\"}:
-                current.append(following)
-                index += 2
-                continue
-            if char == ",":
-                values.append("".join(current))
-                current = []
-            else:
-                current.append(char)
-            index += 1
-        values.append("".join(current))
-    return values
-
-
 @dataclass(frozen=True)
 class ConsumerFilter:
     """What a read's parameters ask: conditions on the record, and on each projection's items."""

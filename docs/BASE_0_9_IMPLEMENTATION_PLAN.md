@@ -216,7 +216,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 13 | [C2](#c2-consumer-object-and-projections) | C1, T1b | Consumer object and projections: get by ID — **delivered 2026-10-04** |
 | 14 | [C3](#c3-consumer-lists-and-parameters) | C2 | Lists and parameters (C-D27–C-D33) — **delivered 2026-10-04**, `sortBy` reads brought within budget by [C3a](#c3a-attribute-sorts-read-in-value-order) ([record](#c3-delivery-record)) |
 | 14a | [C3a](#c3a-attribute-sorts-read-in-value-order) | C3 | Amendment: attribute sorts read in value order (D46–D48) — **delivered 2026-10-04** ([record](#c3a-delivery-record)) |
-| 14b | [C3b](#c3b-several-values-the-standard-way) | C3 | Amendment: several values as OpenAPI serialises them, `%2C` for a comma in a value (C-D32 amended) — planned; test cases await approval |
+| 14b | [C3b](#c3b-several-values-the-standard-way) | C3 | Amendment: several values as OpenAPI serialises them, `%2C` for a comma in a value (C-D32 amended) — **delivered 2026-10-04** ([record](#c3b-delivery-record)) |
 | 15 | [C4](#c4-xref-lookup-and-scoring) | C2, C3b | XREF lookup and scoring (C-D34–C-D41) — planned and approved |
 | 16 | C5 | C4 | XREF parameters |
 | 17 | C14 | C4 | Batch resolve |
@@ -2188,8 +2188,8 @@ untouched. The product catalogue's `lists/products?category=…&position=…` (C
 - **Route** `GET /api/consumer/{apiKey}/v{contractVersion}/lists/{listKey}` in `app/consumer/router.py`.
   One parameter check serves both routes (`_Parameters.check`): a name the API does not know is
   `400 UNKNOWN_PARAMETER`, a known one the route does not apply `400 PARAMETER_NOT_SUPPORTED`; values
-  are split once, repeated and comma-separated, with the `\,` and `\\` escape
-  (`consumer_parameters.split_values`). The shared paging refusals answer `400` on this tier.
+  are split once, repeated and comma-separated (C3 split on `\,`; replaced by C3b's raw-query
+  split). The shared paging refusals answer `400` on this tier.
 - **Parameters** in `engine/reads/consumer_parameters.py`: each kind is a predicate on the record
   (`objectType`, `ancestor`, `related` through a projection, `self` or a shared projection, and
   `projection` with `requireMatch`), and a `projection` parameter is also a limit on that projection's
@@ -2398,8 +2398,8 @@ attribute-sorted list read ascending, from the end and at a position; the copy a
 
 #### C3b: Several values the standard way
 
-**Planned 2026-10-04.** The amended C-D32 was approved by the user the same day; the test cases
-await approval with the go-ahead to deliver. An
+**Delivered 2026-10-04** ([record](#c3b-delivery-record)). Planned 2026-10-04; the amended C-D32
+approved by the user the same day, the test cases with the go-ahead to deliver. An
 amendment reopening C3's C-D32: the `\,` escape recorded there was not approved by the user (they had
 asked whether it was standard; it is not), and C4's C-D38 needs the rule settled. **Needs:** C3.
 **Before:** C4. **Groups:** `consumer`, `contract`.
@@ -2453,6 +2453,21 @@ the escape was not approved); C3's record and plan text; USER_JOURNEYS J28.8; CH
 corrected); TODO's item on commas in the management API's filters restated with the standard rule.
 
 **Composable domains (ADR-032):** no door is affected; the change is how a request is read.
+
+##### C3b delivery record
+
+**Delivered 2026-10-04.** The consumer router splits the raw query string (`_listed_values`): on `&`,
+each pair on its first `=`, each value on literal commas, and only then decodes each piece with
+`unquote_plus`, as Starlette decodes its parameters. `consumer_parameters.split_values` is removed.
+The journey harness gained `consumer_list_typed`, which sends a query exactly as typed: httpx, like
+other HTTP libraries, percent-encodes a comma given inside a value (checked: `n1,n2` is sent as
+`n1%2Cn2`), and given parameters it replaces a query written into the URL.
+
+No difference from the plan. **Checks:** the changed J28.7 and J28.8 failed first on generated A and
+B (4 failures: the encoded IDs were split, and "Bonds, Notes" as one value did not match); after the
+change J28 passed (22). Groups `consumer` and `contract` in parallel: 186 passed (their serial part
+selects none). `ruff check app/ tests/` clean. Not run: `volume` (the statements are unchanged, only
+the request's reading), `startup` (no migration), the frontend, the full suites (R).
 
 #### C4: XREF lookup and scoring
 

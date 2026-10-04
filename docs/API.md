@@ -2101,7 +2101,10 @@ Every definition parameter applies to get by ID and to every list (C-D31):
   that does not parse for a typed field does not match that field.
 - A parameter takes several values, repeated (`token=A&token=B`), comma-separated (`token=A,B`) or
   both; they are alternatives. Different parameters combine with AND.
-- In a value, `\,` is a comma and `\\` a backslash; any other backslash is kept as it is.
+- Values are listed as OpenAPI 3 serialises a list in a query (`style: form`, RFC 3986): repeated,
+  or separated by a literal comma in the URL. A comma inside a value is percent-encoded as `%2C`, as
+  every HTTP library sends it: `token=Bonds%2C%20Notes` is one value, `token=Bonds,Notes` two. A
+  backslash has no special meaning.
 - `scoresFrom` matters only to XREF (C4, C5); `to.…` arrives in C15, `publication` in C6 and `asOf` in
   C16 (until then `400 UNKNOWN_PARAMETER`).
 

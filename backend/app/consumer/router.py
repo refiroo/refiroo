@@ -10,6 +10,7 @@ OpenAPI document; C6 generates one document per definition.
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from typing import Annotated, Any
+from urllib.parse import unquote_plus
 
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.orm import Session
@@ -19,7 +20,7 @@ from ..db import SessionLocal
 from ..engine.model.registry import resolve_model_snapshot
 from ..engine.reads.consumer_lists import consumer_list, read_consumer_list
 from ..engine.reads.consumer_objects import consumer_definition, read_consumer_object
-from ..engine.reads.consumer_parameters import consumer_filter, split_values
+from ..engine.reads.consumer_parameters import consumer_filter
 from ..engine.workspaces.catalogue import resolve_workspace
 from ..errors import ApiError, api_error
 from ..models.database import Workspace
@@ -125,7 +126,7 @@ class _Parameters:
     """A request's query parameters, checked against the names its route serves."""
 
     raw: dict[str, list[str]]
-    # Definition parameter name to its values, split (C-D32).
+    # Definition parameter name to its values, split as OpenAPI's form style lists them (C-D32, C3b).
     definition: dict[str, list[str]]
     parents: list[str]
 
@@ -146,6 +147,7 @@ class _Parameters:
             item.parentParameter.name for item in definition.lists if item.parentParameter is not None
         }
         raw = {name: request.query_params.getlist(name) for name in sorted(set(request.query_params))}
+        listed = _listed_values(request.scope.get("query_string", b""))
         unknown = [name for name in raw if name not in known]
         if unknown:
             raise api_error(
@@ -166,16 +168,31 @@ class _Parameters:
         return cls(
             raw=raw,
             definition={
-                name: split_values(values)
-                for name, values in raw.items()
+                name: listed[name]
+                for name in raw
                 if name in definition.parameters and name != parent
             },
-            parents=list(dict.fromkeys(split_values(raw[parent]))) if parent in raw else [],
+            parents=list(dict.fromkeys(listed[parent])) if parent in raw else [],
         )
 
     def single(self, name: str) -> str | None:
         values = self.raw.get(name)
         return values[-1] if values else None
+
+
+def _listed_values(query_string: bytes) -> dict[str, list[str]]:
+    """Each name's values, repeated or comma-separated, as OpenAPI 3 serialises a list in a query
+    (``style: form``, ``explode`` true or false; RFC 3986). The raw query is split on ``&``, each pair
+    on its first ``=`` and each value on literal commas before anything is decoded, so a comma inside
+    a value, sent as ``%2C``, stays in it (C-D32 amended, C3b)."""
+    listed: dict[str, list[str]] = {}
+    for pair in query_string.decode("latin-1").split("&"):
+        if not pair:
+            continue
+        name, _, value = pair.partition("=")
+        decoded = unquote_plus(name)
+        listed.setdefault(decoded, []).extend(unquote_plus(piece) for piece in value.split(","))
+    return listed
 
 
 def _page(parameters: _Parameters) -> tuple[int, PageRequest]:

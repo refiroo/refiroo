@@ -4,7 +4,7 @@ import copy
 from uuid import uuid4
 
 import pytest
-from scenario import W1, W2, W3, consumer_list, consumer_object, ok, refused
+from scenario import W1, W2, W3, consumer_list, consumer_list_typed, consumer_object, ok, refused
 
 CAPI = (
     "Capi", "R", "R2", "R.u", "R2.u", "R.b", "R.n", "R.dt", "K", "K.code", "B11", "Bown", "Bscope",
@@ -285,8 +285,9 @@ def test_every_object_of_a_type(world):
 @pytest.mark.structures(*CAPI)
 def test_below_a_parent(world):
     """Given R "North" with two R2 and "South" with one; and two G, each with an M holding D. Then
-    entries by North's ID gives its two R2; by North's and South's IDs, repeated or comma-separated,
-    all three; without a parent value, all three, each with its parent; permits by one G's ID gives
+    entries by North's ID gives its two R2; by North's and South's IDs, repeated or comma-separated
+    in the URL, all three, while the same IDs sent as one value (the comma encoded as %2C) are one ID
+    that is no record, 404 PARENT_NOT_FOUND (C3b); without a parent value, all three, each with its parent; permits by one G's ID gives
     the D two levels below it and none of the other G's; North's name answers 404 PARENT_NOT_FOUND,
     and so do a K's ID and an unknown ID."""
     north = world.made("R", "North")
@@ -303,7 +304,13 @@ def test_below_a_parent(world):
     assert _listed(world, "entries", **{ledger: north["id"]}) == ["North one", "North two"]
     both = ["North one", "North two", "South one"]
     assert _listed(world, "entries", **{ledger: [north["id"], south["id"]]}) == both
-    assert _listed(world, "entries", **{ledger: f"{north['id']},{south['id']}"}) == both
+    typed = ok(consumer_list_typed(world, world.key("Capi.entries"), f"{ledger}={north['id']},{south['id']}"))
+    assert _names(world, typed) == both
+    refused(
+        consumer_list(world, world.key("Capi.entries"), **{ledger: f"{north['id']},{south['id']}"}),
+        404,
+        "PARENT_NOT_FOUND",
+    )
     every = _page(world, "entries")
     assert _names(world, every) == both
     parents = [item[_out(world, "parent")]["id"] for item in every["items"]]
@@ -350,8 +357,9 @@ def test_parameters_narrow_a_list(world):
     and not Rc. permit limits each R's permits to that G's and drops the R without one, and
     totalCount follows. kind with R's public name keeps every R, with R2's keeps none, and with an
     unknown name answers 400 UNKNOWN_OBJECT_TYPE. Two values of token, repeated and comma-separated,
-    keep the R matching either. A K named "Bonds, Notes" is matched by token=Bonds\\, Notes and not
-    by token=Bonds. Two parameters together give the records both keep."""
+    keep the R matching either. A K named "Bonds, Notes" is matched by token=Bonds%2C%20Notes; in
+    the URL, token=Bonds,Notes is two values and token=Bonds\\,%20Notes is no escape, so neither
+    matches (C3b). Two parameters together give the records both keep."""
     _narrowing_world(world)
     container, token, peer = _param(world, "container"), _param(world, "token"), _param(world, "peer")
     permit, kind = _param(world, "permit"), _param(world, "kind")
@@ -378,12 +386,20 @@ def test_parameters_narrow_a_list(world):
     assert world.key("Capi.R") in error["message"]
 
     either = ["Ledger a", "Ledger b"]
-    assert _listed(world, "all", **{token: ["Gold token", "Bonds\\, Notes"]}) == either
-    assert _listed(world, "all", **{token: "Gold token,Bonds\\, Notes"}) == either
-    assert _listed(world, "all", **{token: "Bonds\\, Notes"}) == ["Ledger b"]
+    all_ = world.key("Capi.all")
+
+    def typed(query):
+        return _names(world, ok(consumer_list_typed(world, all_, query)))
+
+    assert _listed(world, "all", **{token: ["Gold token", "Bonds, Notes"]}) == either
+    assert typed(f"{token}=Gold%20token,Bonds%2C%20Notes") == either
+    assert typed(f"{token}=Bonds%2C%20Notes") == ["Ledger b"]
+    assert _listed(world, "all", **{token: "Bonds, Notes"}) == ["Ledger b"]
+    assert typed(f"{token}=Bonds,Notes") == []
+    assert typed(f"{token}=Bonds\\,%20Notes") == []
     assert _listed(world, "all", **{token: "Bonds"}) == []
 
-    assert _listed(world, "all", **{peer: "Ledger a", token: "Bonds\\, Notes"}) == ["Ledger b"]
+    assert typed(f"{peer}=Ledger%20a&{token}=Bonds%2C%20Notes") == ["Ledger b"]
 
 
 @pytest.mark.journey("J28.9")

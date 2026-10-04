@@ -160,7 +160,10 @@ list's `sortBy` order, with ADR-030 paging) and every parameter kind on lists an
 indexes (migration `20261004_04`), so consumer lists by `sortBy` page in 10–12 ms at full volume
 (were 0.5–2.6 s) and the live E3 exception is closed (9.9 ms); a deep position jump (123 ms) and an
 ancestor filter with its total (101 ms) remain at the budget line (D46–D48,
-[record](BASE_0_9_IMPLEMENTATION_PLAN.md#c3a-delivery-record)). Next: C4.
+[record](BASE_0_9_IMPLEMENTATION_PLAN.md#c3a-delivery-record)). **C3b is delivered (2026-10-04):**
+consumer API parameters list several values as OpenAPI 3 serialises a list in a query, repeated or
+comma-separated with `%2C` for a comma inside a value; C3's `\,` escape, which the user had not
+approved, is withdrawn ([record](BASE_0_9_IMPLEMENTATION_PLAN.md#c3b-delivery-record)). Next: C4.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

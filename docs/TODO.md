@@ -29,7 +29,8 @@ feed retention and recovery from the active publication (D40–D41). **T1 is del
 (copies inside PostgreSQL) and T1b (upper-case error codes) are delivered (2026-10-04). **C2 is
 delivered (2026-10-04)**: the consumer tier with get by ID (C-D21–C-D26). **C3 is delivered
 (2026-10-04)**: consumer lists and every parameter kind (C-D27–C-D33). **C3a is delivered
-(2026-10-04)**: attribute sorts read in value order (D46–D48). Next: C4, in the order of the delivery
+(2026-10-04)**: attribute sorts read in value order (D46–D48). **C3b is delivered (2026-10-04)**:
+several values the OpenAPI way, `%2C` for a comma in a value (C-D32 amended). Next: C4, in the order of the delivery
 queue. See
 [Next — 0.9](#next--09).
 
@@ -121,8 +122,9 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
   attributes with few distinct values.
 - [ ] C6 task (D47): C3a's value-order attribute sort for publication and change-set reads, over
   `snapshot_attribute_values`, with its budget recorded.
-- [ ] Comma-separated values on the management API's repeated filters (`filter.<field>.eq=A,B`), with
-  the consumer API's `\,` escape (C-D32, recorded in C3). Today they repeat the parameter only.
+- [ ] Comma-separated values on the management API's repeated filters (`filter.<field>.eq=A,B`), as the
+  consumer API reads them since C3b (OpenAPI `form` style: a literal comma separates, `%2C` is a comma
+  inside a value). Today they repeat the parameter only.
 
 ## Next after 0.9 — 0.10 model authoring and spreadsheet onboarding
 
