@@ -55,7 +55,7 @@ Every operation, by method and path (under `/api/v1` except `/health`, `/docs` a
 | `GET /change-sets/{id}/object-changes` (`kind`, `objectTypeKey`), `GET /change-sets/{id}/relation-changes` (`kind`, `relationTypeKey`, `containment`) | J17 |
 | `POST /change-sets/{id}/restructurings/preview`, `POST /change-sets/{id}/restructurings` | J15 |
 | `POST /change-sets/{id}/validation` | J05.4 |
-| `POST /change-sets/{id}/publication` | J05, J06, J18 |
+| `POST /change-sets/{id}/publication` | J05, J05.1 (typed snapshot and filter parity), J06, J18 |
 | `GET /workspaces/{key}/publications`, `GET /publications/{id}` | J07, J07.1 |
 | `POST /publications/{id}/withdrawal` | J07 |
 | `POST /objects` | J03, J14, J16 |

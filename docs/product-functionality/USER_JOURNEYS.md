@@ -417,7 +417,9 @@ conflict or an invalid graph publishes nothing and keeps the change set.
 **Variants:**
 
 - **J05.1 From current live data**, including unpublished live work, frozen at the moment the
-  change set starts.
+  change set starts. Typed values and their filters survive capture and publication; staged
+  value edits, parent moves and added relationships read identically live and in the publication
+  at its feed position.
 - **J05.2 From a publication**; **J05.3 empty** (bootstrap support).
 - **J05.4 An invalid graph**: validation answers `valid: false` and names the records; publishing
   re-checks the merged result.

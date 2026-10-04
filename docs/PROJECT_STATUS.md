@@ -134,11 +134,19 @@ relationship items in batches.
 - Dated reads are measured at full volume, four of them over 100 ms (POSTGRESQL_BUDGETS E8).
 - Applying a publish no longer flushes per record. Publishing 1,000 changes in 26,000 records now
   takes 11.3 s instead of 25.0 s.
-- Publishing and creating a change set still copy the workspace through Python. Decided: the copies
-  move into PostgreSQL as plain `INSERT … SELECT` (amendment T1a, planned), sized for the volume
+- At T1, publishing and creating a change set copied the workspace through Python. Decided: the
+  copies move into PostgreSQL as plain `INSERT … SELECT` (amendment T1a), sized for the volume
   fixture at 0.1 scale; larger workspaces are deferred until after 1.0.
 
-([record](BASE_0_9_IMPLEMENTATION_PLAN.md#t1-track-checkpoint-q-b-f)). Next: T1a, then C2.
+([record](BASE_0_9_IMPLEMENTATION_PLAN.md#t1-track-checkpoint-q-b-f)). **T1a is delivered
+(2026-10-04):** current-live bases and publications copy records, relationships and typed values
+inside PostgreSQL, with matrix states and history cells also copied by set statements. Revisions
+`20261004_01` and `20261004_02` add the shared SQL value encoding, preserving the existing 28-digit
+decimal rounding at every scale a decimal column holds (the review found 1e-16383 answering `500`).
+At 0.1 scale, capture takes 3.3 s instead of 7.7 s and loads 7 ORM rows rather than the whole
+workspace; publishing 1,000 changes takes 9.0 s instead of 11.2 s. The full-size completion probe
+passes; publication merge and graph validation remain in Python
+([evidence](BASE_0_9_IMPLEMENTATION_PLAN.md#t1a-copies-inside-the-database)). Next: C2.
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).
 **Base 0.7 is released (2026-09-25)**: core mapping, schema 0.6 and draft version selection. The starter

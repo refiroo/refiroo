@@ -24,7 +24,7 @@ from ...models.database import (
     Workspace,
 )
 from ..indexes import matrix_states
-from ..indexes.snapshot_values import insert_object_rows, insert_rows
+from ..indexes.snapshot_values import copy_live
 from ..records.attributes import load_workspace_attribute_values
 from ..records.audit import AuditEntry, audit_cause
 from ..records.feed import object_subject, relation_subject
@@ -655,46 +655,14 @@ def publish_change_set(
     )
     session.add(publication)
     session.flush()
-    # The publication is a copy of the whole merged workspace: written in bulk (0.9 T1a).
-    insert_object_rows(
-        session,
-        PublicationObject,
-        [
-            {
-                "publication_id": publication.id,
-                "object_id": item.object_id,
-                "application_key": item.application_key,
-                "object_type_key": item.object_type_key,
-                "name": item.name,
-                "parent_object_id": item.parent_object_id,
-                "attributes": item.attributes,
-                "version": item.version,
-            }
-            for item in merged.membership.objects
-        ],
-    )
-    insert_rows(
-        session.connection(),
-        PublicationRelation.__table__,
-        [
-            {
-                "publication_id": publication.id,
-                "relation_id": item.relation_id,
-                "relation_type_key": item.relation_type_key,
-                "from_object_id": item.from_object_id,
-                "to_object_id": item.to_object_id,
-                "attributes": item.attributes,
-                "version": item.version,
-            }
-            for item in merged.membership.relations
-        ],
-    )
     # Apply only the delta onto the live projection: remove tombstoned rows, upsert the authored
     # objects and relations, and leave every untouched live row exactly as it is. What it changed
     # takes the next feed positions with the publication as cause, then the publication's own
     # entry (D15, D32), whose position is the publication's: live data at that position is the
     # publication (C-D15).
     live.apply_publication(model, merged)
+    session.flush()
+    copy_live(session, "publication", publication.id, change_set.workspace_key)
     with audit_cause(session, "publication", publication.id):
         live.record_all(publish_entries(merged, model))
     publication.feed_position = record_change_set_published(

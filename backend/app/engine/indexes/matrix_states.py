@@ -49,6 +49,7 @@ from sqlalchemy import (
     exists,
     insert,
     intersect,
+    literal,
     select,
     union,
 )
@@ -500,33 +501,75 @@ def record_publication(session: Session, publication: Publication) -> None:
     history = Owner("history", workspace_key, workspace_key)
     built = _built(session, workspace_key)
     for shape in _built_shapes(session, [history]).get(history, []):
-        held = {
-            (row.row_id, row.column_id)
-            for row in session.execute(
-                _stored(session, history, shape.key).with_only_columns(_TABLE.c.row_id, _TABLE.c.column_id)
+        # A history shape can be absent from live's model. Derive its publication cells in
+        # SQL in that case, retaining the same fallback as the history builder.
+        states = (
+            _stored(session, target, shape.key)
+            if (target.kind, target.id, shape.key) in built
+            else cell_states(_scope(session, target, shape), None)
+        ).subquery()
+        held = _TABLE.alias("held")
+        session.execute(
+            insert(_TABLE).from_select(
+                [
+                    "owner_kind",
+                    "owner_id",
+                    "shape_key",
+                    "row_id",
+                    "column_id",
+                    "record_count",
+                    "matching_count",
+                    "first_publication_number",
+                ],
+                select(
+                    literal(history.kind),
+                    literal(history.id),
+                    literal(shape.key),
+                    states.c.row_id,
+                    states.c.column_id,
+                    states.c.record_count,
+                    states.c.matching_count,
+                    literal(publication.publication_number),
+                ).where(
+                    ~exists().where(
+                        held.c.owner_kind == history.kind,
+                        held.c.owner_id == history.id,
+                        held.c.shape_key == shape.key,
+                        held.c.row_id == states.c.row_id,
+                        held.c.column_id == states.c.column_id,
+                    )
+                ),
             )
-        }
-        _insert(
-            session,
-            (
-                {
-                    **row,
-                    "owner_kind": history.kind,
-                    "owner_id": history.id,
-                    "first_publication_number": publication.publication_number,
-                }
-                for row in _state_rows(
-                    target, shape.key, _publication_pairs(session, target, shape, built)
-                )
-                if (row["row_id"], row["column_id"]) not in held
-            ),
         )
     sync_workspace(session, workspace_key)
 
 
 def _copy(session: Session, source: Owner, target: Owner, shape: MatrixShape) -> None:
     _drop(session, target, shape.key)
-    _insert(session, _state_rows(target, shape.key, session.execute(_stored(session, source, shape.key))))
+    session.execute(
+        insert(_TABLE).from_select(
+            [
+                "owner_kind",
+                "owner_id",
+                "shape_key",
+                "row_id",
+                "column_id",
+                "record_count",
+                "matching_count",
+                "first_publication_number",
+            ],
+            _stored(session, source, shape.key).with_only_columns(
+                literal(target.kind),
+                literal(target.id),
+                literal(shape.key),
+                _TABLE.c.row_id,
+                _TABLE.c.column_id,
+                _TABLE.c.record_count,
+                _TABLE.c.matching_count,
+                _TABLE.c.first_publication_number,
+            ),
+        )
+    )
     _mark_built(session, target, shape)
 
 

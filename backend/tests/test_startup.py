@@ -25,7 +25,7 @@ from app.db import DatabaseStartupError, get_engine, migration_config
 from app.engine.model.registry import model_registry
 from app.main import create_app
 
-HEAD = "20261003_03"
+HEAD = "20261004_02"
 FEED_POSITIONS = "20261003_02"
 SEARCH_INDEXES = "20261003_01"
 BASELINE = "20261001_01"

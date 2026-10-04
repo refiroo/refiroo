@@ -13,18 +13,23 @@ here themselves.
 from collections.abc import Iterable, Mapping
 from typing import Any
 
-from sqlalchemy import Connection, delete, event, insert, select
+from sqlalchemy import JSON, Connection, delete, event, func, insert, literal, select
 from sqlalchemy.orm import Session
 from sqlalchemy.util import IdentitySet
 
 from ...models.database import (
     AttributeTypeMeta,
+    AttributeValue,
     ChangeSet,
     ChangeSetBase,
     ChangeSetBaseObject,
+    ChangeSetBaseRelation,
     ChangeSetObject,
+    ObjectRelation,
     Publication,
     PublicationObject,
+    PublicationRelation,
+    RdmObject,
     SnapshotAttributeValue,
 )
 from ..records.values import typed_value_columns
@@ -72,7 +77,9 @@ def release_value_types(connection: Connection, model_release_id: int) -> dict[s
 
 def delete_owner_values(session: Session, owner_id: str) -> None:
     """Remove the whole index of one publication, change set base or change set (bulk deletion paths)."""
-    session.execute(delete(SnapshotAttributeValue).where(SnapshotAttributeValue.owner_id == owner_id))
+    session.execute(
+        delete(SnapshotAttributeValue).where(SnapshotAttributeValue.owner_id == owner_id)
+    )
 
 
 @event.listens_for(Session, "before_flush")
@@ -137,39 +144,90 @@ def _owner_release(
     return cache[(kind, owner_id)]
 
 
-def insert_object_rows(session: Session, row_type: type, rows: list[dict[str, Any]]) -> None:
-    """Insert publication or change-set base object rows in bulk, with their typed index.
+def copy_live(session: Session, owner_kind: str, owner_id: str, workspace_key: str) -> None:
+    """Freeze live records, relationships and typed values with three set statements.
 
-    A whole-workspace copy (a publication, a base captured from live) is written in multi-row
-    statements instead of one ORM object per row (0.9 T1a); the flush hook does not see these rows,
-    so the index rows are written here.
+    The caller owns the capture snapshot or publication lock and flushes live changes first.
+    Matrix states are copied separately by ``matrix_states`` in the same transaction.
     """
-    kind, owner_column, _owner = _OWNERS[row_type]
-    connection = session.connection()
-    releases: dict[tuple[str, str], int | None] = {}
-    value_types: dict[int, dict[str, str]] = {}
-    index: list[dict[str, Any]] = []
-    for row in rows:
-        release_id = _owner_release(connection, releases, row_type, row[owner_column])
-        if release_id is not None and release_id not in value_types:
-            value_types[release_id] = release_value_types(connection, release_id)
-        index.extend(
-            value_rows(
-                kind,
-                row[owner_column],
-                row["object_id"],
-                row["attributes"],
-                value_types.get(release_id, {}) if release_id is not None else {},
-            )
+    object_type, relation_type, owner_column = {
+        "base": (ChangeSetBaseObject, ChangeSetBaseRelation, "base_id"),
+        "publication": (PublicationObject, PublicationRelation, "publication_id"),
+    }[owner_kind]
+    objects, values, relations = (
+        RdmObject.__table__,
+        AttributeValue.__table__,
+        ObjectRelation.__table__,
+    )
+    value_columns = [
+        "text_value",
+        "integer_value",
+        "decimal_value",
+        "boolean_value",
+        "date_value",
+        "datetime_value",
+        "json_value",
+    ]
+    attributes = (
+        select(
+            values.c.object_id,
+            func.json_object_agg(
+                values.c.attribute_type_key,
+                func.rdm_value_json(values.c.value_type, *[values.c[key] for key in value_columns]),
+            ).label("attributes"),
         )
-    insert_rows(connection, row_type.__table__, rows)
-    insert_value_rows(connection, index)
-
-
-def insert_rows(connection: Connection, table: Any, rows: list[dict[str, Any]]) -> None:
-    """Insert rows into ``table`` in multi-row statements of a bounded size."""
-    for start in range(0, len(rows), 2000):
-        connection.execute(insert(table), rows[start : start + 2000])
+        .join(objects, objects.c.id == values.c.object_id)
+        .where(objects.c.workspace_key == workspace_key)
+        .group_by(values.c.object_id)
+        .subquery()
+    )
+    fields = ["application_key", "object_type_key", "name", "parent_object_id"]
+    session.execute(
+        insert(object_type).from_select(
+            [owner_column, "object_id", *fields, "attributes", "version"],
+            select(
+                literal(owner_id),
+                objects.c.id,
+                *[objects.c[key] for key in fields],
+                func.coalesce(attributes.c.attributes, literal({}, type_=JSON)),
+                objects.c.version,
+            )
+            .select_from(objects.outerjoin(attributes, attributes.c.object_id == objects.c.id))
+            .where(objects.c.workspace_key == workspace_key),
+        )
+    )
+    source, target = objects.alias("source"), objects.alias("target")
+    fields = ["relation_type_key", "from_object_id", "to_object_id", "attributes", "version"]
+    session.execute(
+        insert(relation_type).from_select(
+            [owner_column, "relation_id", *fields],
+            select(literal(owner_id), relations.c.id, *[relations.c[key] for key in fields])
+            .select_from(
+                relations.join(source, source.c.id == relations.c.from_object_id).join(
+                    target, target.c.id == relations.c.to_object_id
+                )
+            )
+            .where(
+                source.c.workspace_key == workspace_key, target.c.workspace_key == workspace_key
+            ),
+        )
+    )
+    fields = ["object_id", "attribute_type_key", "value_type", *value_columns]
+    # A decimal is indexed in its JSON form, as the flush hook indexes it (28 significant digits).
+    copied = [
+        func.rdm_decimal_text(values.c[key]).cast(values.c[key].type).label(key)
+        if key == "decimal_value"
+        else values.c[key]
+        for key in fields
+    ]
+    session.execute(
+        insert(_TABLE).from_select(
+            ["owner_kind", "owner_id", *fields],
+            select(literal(owner_kind), literal(owner_id), *copied)
+            .join(objects, objects.c.id == values.c.object_id)
+            .where(objects.c.workspace_key == workspace_key),
+        )
+    )
 
 
 def insert_value_rows(connection: Connection, rows: Iterable[dict[str, Any]]) -> None:

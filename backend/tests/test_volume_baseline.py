@@ -95,10 +95,11 @@ def test_change_set_writes_hold_the_live_budget(baselines):
 def _largest_parameter_list(client, engine, dataset) -> dict[str, int]:
     """The most parameters one statement binds while a change set is captured from current live,
     one record is renamed in it, and it is published."""
-    largest = {"capture": 0, "publish": 0}
+    largest = {"capture": 0, "publish": 0, "capture_statements": 0, "publish_statements": 0}
     step = "capture"
 
     def on_execute(_conn, _cursor, _statement, parameters, _context, executemany) -> None:
+        largest[f"{step}_statements"] += 1
         rows = parameters if executemany else [parameters]
         largest[step] = max(largest[step], *(len(row or ()) for row in rows))
 
@@ -142,7 +143,7 @@ def test_capturing_and_publishing_a_whole_workspace_bind_no_parameter_per_record
     """0.9 T1 regression: capturing current live and publishing read the whole workspace's values and
     relations with a list of every record's ID, one parameter each; at 258,000 records PostgreSQL
     refused the statement (over 65,535 parameters) and both answered 500. No statement may bind more
-    parameters when the workspace holds four times the records."""
+    parameters or execute more statements when the workspace holds four times the records."""
     largest = {}
     # The two smallest seeded sizes, four times apart: capture and publish read the whole workspace.
     for label, shape in (("small", scaled_shape(0.005)), ("large", scaled_shape(0.02))):

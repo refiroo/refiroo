@@ -615,15 +615,22 @@ def publish_scenario(client, engine: Engine, dataset: VolumeDataset) -> list[Mea
             .order_by(RdmObject.id)
             .limit(count)
         ).all()
-    created = client.post(
-        f"/api/v1/workspaces/{WORKSPACE}/change-sets", json={"name": "T1 publish", "source": "currentLive"}
-    )
+    with measure(engine) as capture_cost:
+        created = client.post(
+            f"/api/v1/workspaces/{WORKSPACE}/change-sets",
+            json={"name": "T1 publish", "source": "currentLive"},
+        )
     assert created.status_code == 201, created.text
     change_set = created.json()
     for start in range(0, len(ids), 1000):
         version = client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"]
         items = [
-            {"op": "update", "target": {"id": item}, "expectedVersion": 1, "name": f"Published {item[:8]}"}
+            {
+                "op": "update",
+                "target": {"id": item},
+                "expectedVersion": 1,
+                "name": f"Published {item[:8]}",
+            }
             for item in ids[start : start + 1000]
         ]
         staged = client.post(
@@ -636,13 +643,26 @@ def publish_scenario(client, engine: Engine, dataset: VolumeDataset) -> list[Mea
                 "items": items,
             },
         )
-        assert staged.status_code == 200 and staged.json()["job"]["result"] == "applied", staged.text
+        assert staged.status_code == 200 and staged.json()["job"]["result"] == "applied", (
+            staged.text
+        )
     version = client.get(f"/api/v1/change-sets/{change_set['id']}").json()["version"]
-    body = {"expectedChangeSetVersion": version, "expectedActivePublicationId": dataset.publication_id}
+    body = {
+        "expectedChangeSetVersion": version,
+        "expectedActivePublicationId": dataset.publication_id,
+    }
     with measure(engine) as cost:
         response = client.post(f"/api/v1/change-sets/{change_set['id']}/publication", json=body)
     assert response.status_code == 200, response.text
     return [
+        Measurement(
+            "change_set",
+            "capture: current live",
+            created.status_code,
+            capture_cost.seconds * 1000,
+            capture_cost.statements,
+            capture_cost.rows_loaded,
+        ),
         Measurement(
             "change_set",
             f"publish: {len(ids):,} renamed records",
@@ -650,7 +670,7 @@ def publish_scenario(client, engine: Engine, dataset: VolumeDataset) -> list[Mea
             cost.seconds * 1000,
             cost.statements,
             cost.rows_loaded,
-        )
+        ),
     ]
 
 

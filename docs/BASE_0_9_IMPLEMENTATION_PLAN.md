@@ -12,9 +12,9 @@ J1–J4 and R are specified (2026-09-29) and delivered in the order of the
 [B1](#b1-job-model-and-inline-object-batches) (2026-10-01), [B2](#b2-background-jobs) (2026-10-01),
 the interim release 0.9.0-alpha.1 (2026-10-03), [F1](#f1-feed-positions) (2026-10-03, with the feed
 read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
-[F2](#f2-feed-retention-and-recovery) (2026-10-03, D40–D41), [T1](#t1-track-checkpoint-q-b-f) (2026-10-03).
-**Next:** the amendment [T1a](#t1a-copies-inside-the-database) (planned and approved), then
-C2, in the order of the [delivery queue](#delivery-queue).
+[F2](#f2-feed-retention-and-recovery) (2026-10-03, D40–D41), [T1](#t1-track-checkpoint-q-b-f) (2026-10-03),
+[T1a](#t1a-copies-inside-the-database) (2026-10-04).
+**Next:** C2, in the order of the [delivery queue](#delivery-queue).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -210,7 +210,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 10 | [B3](#b3-relation-and-relation-set-items) | B1 | Relation items and `replaceRelationSet` — **delivered 2026-10-03** |
 | 11 | [F2](#f2-feed-retention-and-recovery) | F1 | Retention, `410` with baselines, the deep read budget (the read moved to F1, D31) — **delivered 2026-10-03** |
 | 12 | [T1](#t1-track-checkpoint-q-b-f) | Q4, B2, B3, F2 | Track checkpoint for Q, B and F: their groups, budgets and a composed journey — **delivered 2026-10-03** |
-| 12a | [T1a](#t1a-copies-inside-the-database) | T1 | Amendment: change-set bases and publications copied inside PostgreSQL |
+| 12a | [T1a](#t1a-copies-inside-the-database) | T1 | Amendment: change-set bases and publications copied inside PostgreSQL — **delivered 2026-10-04** |
 | 13 | C2 | C1 | Consumer object and projections |
 | 14 | C3 | C2 | Lists |
 | 15 | C4 | C2 | Consumer index and XREF scoring |
@@ -1380,7 +1380,7 @@ Composable domains (ADR-032): no door is affected; the fixes change no contract.
 
 #### T1a: Copies inside the database
 
-**Status:** planned and approved 2026-10-03 (the J05.1 case extended by the user with a parent move and an added relationship).
+**Status:** delivered 2026-10-04; approved 2026-10-03 (the J05.1 case extended by the user with a parent move and an added relationship).
 **Needs:** T1. **Before:** C2.
 
 **Behaviour:** none changes. Creating a change set from current live data and publishing answer the
@@ -1392,12 +1392,14 @@ Only where the work is done changes: the copies are made inside PostgreSQL inste
    integer_value, decimal_value, boolean_value, date_value, datetime_value, json_value) RETURNS json`.
    It is immutable and gives the JSON form `stored_json_value` gives:
    - text as a string, integers and booleans as JSON values;
-   - decimals as strings without trailing zeros or an exponent (`trim_scale`);
+   - decimals as strings without trailing zeros or an exponent (`trim_scale`), with the existing
+     Python encoding’s 28-significant-digit, half-even rounding preserved (clarified and approved
+     2026-10-04 after the 30-digit case exposed the difference from plain `trim_scale`);
    - dates as `YYYY-MM-DD`;
    - `dateTime` as UTC in Python's `isoformat()` form, microseconds only when not zero, then `+00:00`;
    - JSON as stored, and null as null.
 
-   It matches today's encoding, WP-10E's open `dateTime` offset defect included, and does not fix it.
+   It matches today's encoding: since WP-10E, every live `dateTime` is held as a UTC instant.
 2. **Creating a change set from current live data** (`lifecycle._capture_current_live`). Three
    statements in the capture's transaction and snapshot, as today:
    - base records by `INSERT … SELECT` from the live records, with their values aggregated by
@@ -1466,6 +1468,96 @@ user's request.
 type now needs a branch in `rdm_value_json` as well as its registry entry. The unit test enumerates
 `VALUE_COLUMNS`, so the type cannot ship without one. The door stays open: adding the type is still
 additive, with no contract change.
+
+
+**Implementation and evidence (2026-10-04):**
+- Revision `20261004_01` installs `rdm_value_json`. The SQL encoding test was written first and
+  failed for the absent function. Its 30-digit case then exposed Python's existing precision of
+  28 significant digits; the user approved retaining that result in SQL, including half-even ties.
+- `snapshot_values.copy_live` issues three `INSERT … SELECT` statements for records with JSON
+  values, relationships and the typed index. Current-live capture no longer loads the workspace
+  into Python. Publication copies live only after its delta has been applied and flushed, under
+  the existing workspace lock. The Python merge and graph validation are unchanged.
+- Matrix states copy with `INSERT … SELECT`; history adds only previously unseen cells with a SQL
+  anti-join. A history shape absent from the current model retains its SQL-derived fallback.
+  The T1 `insert_object_rows` stopgap is removed; the ORM typed-index hook is retained.
+- J05.1's typed-values, parent-move and added-relationship case passed on both generated models
+  before and after implementation. The strengthened T1 regression passes at 0.005 and 0.02 scale:
+  both the maximum parameter count and the statement count remain the same.
+
+**Focused checks:**
+- `.venv/bin/python -m pytest tests/test_startup.py tests/test_matrix_states.py
+  tests/test_context_read_parity.py tests/journeys/test_j05_j06_publish.py
+  tests/journeys/test_j17_review.py tests/journeys/test_j26_follow_changes.py
+  tests/journeys/test_j24_j26_composed.py -q --tb=short`: **88 passed**, 82.81 s.
+- After the decimal clarification, `.venv/bin/python -m pytest
+  tests/unit/engine/records/test_values.py
+  tests/journeys/test_j05_j06_publish.py::test_typed_values_moves_and_relationships_survive_capture_and_publish
+  tests/test_volume_baseline.py::test_capturing_and_publishing_a_whole_workspace_bind_no_parameter_per_record
+  -q --tb=short`: **4 passed**, 23.95 s. The final SQL encoding covers every `VALUE_COLUMNS` entry,
+  nulls, generated integers and decimals, signed odd/even rounding ties, date boundaries and offsets.
+- Cases over 10 s were rebuilding schema-dependent seeds (10.2–11.2 s), rather than slow new
+  assertions; the new journey's warm baseline on both models took 2.98 s. No full suites or group
+  expansion were run. One existing Starlette/httpx deprecation warning remains.
+- A bounded independent review of the migration and copy paths found no issues.
+- Smoke start on an isolated dump/restore of the development database: healthy startup and model
+  reads; downgrade to `20261003_03`, a conflicting function causing an actionable migration refusal
+  and `/health` 503 with the previous revision retained, then removal of that conflict, successful
+  upgrade to `20261004_01` and healthy restart. The copy and dump were removed.
+
+**0.1-scale measurement** (`.venv/bin/python -m tests.volume_baseline --only-publish --scale 0.1`;
+capture is now timed separately). "After" is the run on the reused seed, after the review fixes:
+
+| Request | Before | After |
+| --- | --- | --- |
+| Current-live capture | 7,737.1 ms · 106 statements · 160,701 ORM rows | 3,283.1 ms · 38 · 7 |
+| Publish 1,000 renamed records | 11,196.5 ms · 2,148 statements · 274,402 ORM rows | 9,020.9 ms · 2,081 · 274,402 |
+
+A run straight after the volume seed is rebuilt (a new schema revision) publishes in about 57 s:
+56,334.0 ms at first delivery and 57,211.2 ms after the review fixes, both on a freshly built seed.
+On the reused seed the same flow takes 9.1 s, with every statement timed: all 4,599 statements of
+capture, staging and publish together took 7.9 s, the slowest the two relationship copies (1.3 s
+each). The slow first run belongs to the freshly built seed (the Python process waits on
+PostgreSQL), not to the publish; the engine's statements are the same in both runs. The unchanged
+merge and validation still load the workspace, as approved.
+
+**Full-scale completion probe**, once as approved:
+`.venv/bin/python -m tests.volume_baseline --only-publish --scale 1` completed with HTTP 201 for
+capture and 200 for publishing 10,000 renamed records. Seed setup took 204.0 s separately.
+Capture: **55,581.9 ms · 38 statements · 7 ORM rows**. Publication: **118,969.3 ms · 20,153
+statements · 2,704,503 ORM rows**. This is completion evidence only, with no latency gate at this
+size; the 0.1-scale size target and post-1.0 large-workspace work are unchanged.
+
+`ruff check app/ tests/` and `git diff --check` passed. Temporary clones, dump, probe scripts and
+the private test server were cleaned up; the pre-existing development server was retained.
+
+**Review fixes (2026-10-04):**
+- **Defect, reported:** a live decimal of 1e-16383 was written and read, but capturing current live
+  and publishing answered `500` (`value overflows numeric format`). `rdm_value_json` rounded with a
+  `numeric` step of scale 28 plus the leading zeros, beyond PostgreSQL's 16,383. Below about
+  1e-974 the halved step also fell under the 1,000-digit division scale, so a 28-digit value with an
+  odd last digit silently lost one in its last place. Revision `20261004_02` adds
+  `rdm_decimal_text`, which rounds on the digit string, and redefines `rdm_value_json` as one
+  `STABLE` `CASE` expression, which PostgreSQL now inlines (`EXPLAIN VERBOSE`). The function had been
+  called per value: the decimal branch's subquery and the `IMMUTABLE` label over the stable
+  `to_char` both prevented inlining. A new revision rather than an edited one, since the development
+  database already held `20261004_01`; the downgrade restores that revision's definition.
+- **Typed index:** a copied base or publication indexes a decimal in its JSON form
+  (`rdm_decimal_text`), as the flush hook derives it, so both hold what they held before T1a.
+- **Tests:** the encoding test adds 1e-16383, 1e+131071, the odd-digit case near 1e-1000, carries,
+  ties and generated decimals at every scale, and the calendar's ends for `dateTime`. It also checks
+  the copied index decimal. A new J05.1 case reproduces the report through the API. The J05.1 typed
+  case now checks content at the feed position: live moves on after the publication, which keeps
+  what live held there. Outside the suite, 4,016 generated decimals were compared with Python on
+  PostgreSQL 17, with no difference; downgrade and upgrade again were checked there too.
+- **Checks:** the encoding test, `test_startup`, `test_matrix_states`, `test_context_read_parity`,
+  J05/J06, J17, J26, the composed journey and the T1 regression test: 92 passed, in 1 min 36 s.
+- **Found, not fixed (pre-existing, outside T1a):** a live `dateTime` within the session zone's
+  offset of the calendar's end (9999-12-31T23:00Z and later in a `+01:00` session) is stored but
+  cannot be read: the driver reads `timestamptz` in the session's zone and Python has no year 10000.
+
+Functional/API evidence only; there is no changed UI, accessibility or appearance to accept.
+Comprehensive build acceptance remains deferred to the build's release package.
 
 ## Track C — Consumer API
 

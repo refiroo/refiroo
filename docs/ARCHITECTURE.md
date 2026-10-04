@@ -62,11 +62,13 @@ Work over many rows, such as copying a workspace, merging a change set, checking
 whole set or filling an index, is done by set statements inside PostgreSQL (`INSERT … SELECT`,
 `MERGE`, JSON aggregation, SQL functions where a building block is reused). Python decides and
 issues statements; bulk data does not travel through it row by row. Long operations may run as
-jobs. Creating a change set from live data and publishing still copy through Python; 0.9 T1a moves
-the copies into the database
-([plan](BASE_0_9_IMPLEMENTATION_PLAN.md#t1a-copies-inside-the-database)). The publish's whole-graph
-validation stays in Python, since its rules are written once in `rules.py`; validation in SQL is
-deferred until after 1.0.
+jobs. Current-live change-set bases and publications are copied inside PostgreSQL: records
+with JSON-aggregated values, relationships and the typed index each use `INSERT … SELECT`.
+`rdm_value_json` supplies the stored JSON encoding (decimals through `rdm_decimal_text`, which
+works on the digit string so every stored scale encodes); a publication copies live data after its delta
+is applied. Matrix states and new history cells are copied by set statements in the same transaction.
+The publish's whole-graph validation stays in Python, since its rules are written once in `rules.py`;
+validation in SQL is deferred until after 1.0.
 
 ## Model definition and releases
 

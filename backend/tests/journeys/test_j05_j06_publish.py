@@ -414,3 +414,89 @@ def test_publishing_beside_live_writes_and_other_change_sets(world):
     assert world.record("R", live["id"])["name"] == "Written by B"
     assert world.record("R", staged["id"])["name"] == "Published by A"
     assert world.record("R", other["id"], changeSetId=cs2["id"])["name"] == "Written by C"
+
+
+@pytest.mark.journey("J05.1", "J26.2")
+@pytest.mark.structures("V", "K", "Bvk")
+def test_typed_values_moves_and_relationships_survive_capture_and_publish(world):
+    """Current-live capture, staged values/parent/edge edits, and publication preserve typed reads
+    and filters, with the publication matching live at its feed position."""
+    parents = [world.made("V", name) for name in ("Old parent", "New parent")]
+    values = {
+        "V.code": "snapshot-copy",
+        "V.rank": 7,
+        "V.amount": "12.34",
+        "V.flag": False,
+        "V.on": "2024-02-29",
+        "V.at": "2024-02-29T12:00:00+00:00",
+    }
+    item = world.made("V", "Typed child", parent=parents[0]["id"], values=values)
+    targets = [world.made("K", name) for name in ("Original edge", "Added edge")]
+    original = ok(world.relate("Bvk", item["id"], targets[0]["id"]), 201)
+    cs = world.change_set()
+    assert {
+        k: world.value(world.record("V", item["id"], changeSetId=cs["id"]), k) for k in values
+    } == {k: world.value(item, k) for k in values}
+    values.update({"V.rank": 8, "V.amount": "-0.25", "V.flag": True})
+    ok(_update_in(world, cs, "V", item["id"], values=values, parent=parents[1]["id"]))
+    added = ok(world.relate("Bvk", item["id"], targets[1]["id"], **_staged(world, cs)), 201)
+    staged = world.record("V", item["id"], changeSetId=cs["id"])
+
+    def check(context):
+        record = world.record("V", item["id"], **context)
+        assert {k: world.value(record, k) for k in values} == {
+            k: world.value(staged, k) for k in values
+        }
+        assert record["parentObjectId"] == parents[1]["id"]
+        for edge in (original, added):
+            assert (
+                ok(world.api.get(f"/relations/{edge['id']}", **context))["toObjectId"]
+                == edge["toObjectId"]
+            )
+        for key, value in values.items():
+            found = ok(
+                world.api.get(
+                    f"/objects/{world.key('V')}",
+                    **context,
+                    **{
+                        f"filter.{world.key(key)}.eq": str(value).lower()
+                        if isinstance(value, bool)
+                        else value
+                    },
+                )
+            )
+            assert item["id"] in {row["id"] for row in found["items"]}, key
+
+    check({"changeSetId": cs["id"]})
+    publication = world.publish(cs)
+    check({})
+    # Live moves past the publication's feed position; the publication keeps what live held there.
+    ok(world.update("V", item["id"], world.record("V", item["id"])["version"], values={"V.rank": 9}))
+    later = ok(world.api.get(f"/workspaces/{W1}/feed", after=publication["feedPosition"]))["items"]
+    assert [(e["kind"], e["action"], e["id"]) for e in later] == [("object", "updated", item["id"])]
+    assert world.value(world.record("V", item["id"]), "V.rank") == 9
+    check({"publicationId": publication["id"]})
+
+
+@pytest.mark.journey("J05.1", "J05")
+@pytest.mark.structures("V")
+def test_decimals_at_the_smallest_stored_scales_are_captured_and_published(world):
+    """Reported 2026-10-04: a live decimal of 1e-16383 read back, but capturing current live and
+    publishing an older change set answered 500; a 28-digit decimal near 1e-1000 lost one in its last
+    digit in both copies. Given a change set opened before the values; when live records take them,
+    another change set captures current live and the first is published; then both read every value
+    as live does."""
+    cs = world.change_set()
+    amounts = ["1e-16383", "-1.000000000000000000000000001e-1000", "1e+1000"]
+    items = [world.made("V", f"Amount {n}", values={"V.amount": a}) for n, a in enumerate(amounts)]
+    live = [world.value(world.record("V", item["id"]), "V.amount") for item in items]
+    captured = world.change_set()
+    assert [
+        world.value(world.record("V", item["id"], changeSetId=captured["id"]), "V.amount")
+        for item in items
+    ] == live
+    publication = world.publish(cs)
+    assert [
+        world.value(world.record("V", item["id"], publicationId=publication["id"]), "V.amount")
+        for item in items
+    ] == live

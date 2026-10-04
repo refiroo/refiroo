@@ -50,6 +50,12 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Changed
 
+- Base 0.9 T1a: current-live change-set bases and publications copy records, relationships, typed
+  values and matrix states inside PostgreSQL. Publications copy live data after applying the
+  change; merge and graph validation remain in Python. Revisions `20261004_01` and `20261004_02` add
+  the `rdm_value_json` and `rdm_decimal_text` encoding functions; a decimal at any stored scale
+  (1e-16383 answered `500`) encodes as Python does. API behavior is unchanged.
+
 - Base 0.9 B3: the single relationship writes and the mapping save are batches of one through the
   same decide steps as batch items, so they answer with the same codes.
   - A relationship update checks its version before its values, live as in change sets.

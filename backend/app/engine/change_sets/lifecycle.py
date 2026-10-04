@@ -1,7 +1,5 @@
 """A change set's life: created from live data or a publication, renamed, claimed and discarded, and its effective membership."""
 
-from typing import Any
-
 from sqlalchemy import delete, select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
@@ -14,14 +12,11 @@ from ...models.database import (
     ChangeSetBaseObject,
     ChangeSetBaseRelation,
     ModelRuntimeState,
-    ObjectRelation,
     Publication,
-    RdmObject,
     Workspace,
 )
 from ..indexes import matrix_states
-from ..indexes.snapshot_values import delete_owner_values, insert_object_rows, insert_rows
-from ..records.attributes import load_workspace_attribute_values
+from ..indexes.snapshot_values import copy_live, delete_owner_values
 from ..records.relation_set_versions import delete_change_set_relation_set_versions
 from ..records.writes import ChangeSetWrites
 from ..workspaces.workspace_audit import (
@@ -186,43 +181,7 @@ def _capture_current_live(
     )
     session.add(base)
     session.flush()
-    live_objects, attributes, live_relations = _load_live_membership(session, workspace_key)
-    # The base is a copy of the whole live workspace: written in bulk (0.9 T1a).
-    insert_object_rows(
-        session,
-        ChangeSetBaseObject,
-        [
-            {
-                "base_id": base.id,
-                "object_id": item.id,
-                "application_key": item.application_key,
-                "object_type_key": item.object_type_key,
-                "name": item.name,
-                "parent_object_id": item.parent_object_id,
-                "attributes": {
-                    key: value for key, (_row_id, value) in attributes[item.id].items()
-                },
-                "version": item.version,
-            }
-            for item in live_objects
-        ],
-    )
-    insert_rows(
-        session.connection(),
-        ChangeSetBaseRelation.__table__,
-        [
-            {
-                "base_id": base.id,
-                "relation_id": item.id,
-                "relation_type_key": item.relation_type_key,
-                "from_object_id": item.from_object_id,
-                "to_object_id": item.to_object_id,
-                "attributes": dict(item.attributes or {}),
-                "version": item.version,
-            }
-            for item in live_relations
-        ],
-    )
+    copy_live(session, "base", base.id, workspace_key)
     change_set = ChangeSet(
         workspace_key=workspace_key,
         model_release_id=model_release_id,
@@ -243,28 +202,6 @@ def _capture_current_live(
     session.commit()
     session.refresh(change_set)
     return change_set
-
-
-def _load_live_membership(
-    session: Session, workspace_key: str
-) -> tuple[list[RdmObject], dict[str, dict[str, tuple[str, Any]]], list[ObjectRelation]]:
-    """Load the workspace's live graph in the capture's snapshot."""
-    objects = list(
-        session.scalars(select(RdmObject).where(RdmObject.workspace_key == workspace_key))
-    )
-    attributes = load_workspace_attribute_values(
-        session, [item.id for item in objects], workspace_key
-    )
-    in_workspace = select(RdmObject.id).where(RdmObject.workspace_key == workspace_key)
-    relations = list(
-        session.scalars(
-            select(ObjectRelation).where(
-                ObjectRelation.from_object_id.in_(in_workspace),
-                ObjectRelation.to_object_id.in_(in_workspace),
-            )
-        )
-    )
-    return objects, attributes, relations
 
 
 def update_change_set(
