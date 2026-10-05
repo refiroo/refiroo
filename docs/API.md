@@ -2017,13 +2017,14 @@ the reader misses nothing. An export as a second baseline follows with export jo
 
 A retired workspace's feed stays readable. The feed is ungated like other reads until 0.12 (D10).
 
-## Consumer API (Base 0.9 C2–C6, C14, C15)
+## Consumer API (Base 0.9 C2–C6, C14–C16)
 
 A separate, read-only tier at `/api/consumer`, whose contract each consumer API definition in the
 active model release declares ([CONSUMER_API.md](CONSUMER_API.md)). Its routes are not in the
 management OpenAPI document: each definition serves its own, and the API index lists them
 ([below](#api-index-and-documents)). Every read takes live data by default, or one publication with
-`publication` ([below](#publications-and-caching)); `asOf` follows in C16.
+`publication` ([below](#publications-and-caching)), and any read can be dated with `asOf`
+([below](#business-dates-asof-on-the-consumer-api)).
 
 ### Get by ID
 
@@ -2320,6 +2321,56 @@ GET …/objects/{id}?to.language=es
   "matchScore": 500 }
 ```
 
+### Business dates (`asOf`) on the consumer API
+
+"Which values apply on 1 July?" `asOf=YYYY-MM-DD` on get by ID, lists, XREF and batch resolve (in
+its URL) keeps the records effective that day by their type's declared effective period, the rule of
+the management lists ([above](#effective-periods-and-asof-base-09-q4)): no start after the date, no
+end on or before it, an empty start or end open.
+
+```text
+GET …/lists/{listKey}?asOf=2026-07-01           the list's records effective that day, every page
+GET …/objects/{id}?asOf=2026-07-01              the record, or 404 if it is not effective that day
+GET …/xref?query=CHF&asOf=2026-07-01            dated types filtered, undated ones not
+POST …/resolve?asOf=2026-07-01                  every item as its single read answers
+```
+
+- **Only a declared period dates a record.** A list of a type without one, and a get by ID of a
+  record of such a type, are `400 AS_OF_NOT_SUPPORTED`; a date attribute alone never makes a type
+  dated. A dated record not effective that day is `404 OBJECT_NOT_FOUND` on get by ID, as a
+  parameter that filters it out is.
+- **XREF and batch resolve across types** filter the dated types and leave the others unfiltered.
+  A lookup that can return no dated type (all exposed types undated, or an `objectType` parameter
+  naming only undated ones) is `400 AS_OF_NOT_SUPPORTED`: an undated answer would look dated. In
+  batch resolve each item answers as its single read: a lookup with no dated type, or a by-ID item
+  naming a record of an undated type, is `rejected` (`details.pointer` at the item, or its `id`).
+  `asOf` belongs to the request: in `defaults` or an item it is `400 PARAMETER_NOT_SUPPORTED`.
+- **Only the returned records are dated.** Projection items, the parent, `path` and `hierarchy`, the
+  records a parameter matches and the records that promote an XREF score are read as without
+  `asOf`. A consumer that needs a projected record's validity declares its period fields as
+  projection fields.
+- **What was dated** is named: the list, XREF page and batch resolve bodies carry `asOfApplied`, the
+  dated public type names, and every answer to a dated read carries them in the
+  `RDM-As-Of-Applied` header (comma-separated), also get by ID and XREF `expect=one`. Without `asOf`
+  neither appears.
+- **Scores, order and paging** are those of the same read without the date, over the records it
+  keeps. List and XREF cursors bind the date: a cursor sent with another date or none is
+  `400 INVALID_CURSOR`.
+- `asOf` combines with `publication` (the publication's values, dated by the model release it was
+  published under), every definition parameter and `to.` target. The publications list and the API
+  index do not take it.
+
+```jsonc
+// GET …/lists/rates?asOf=2026-06-30          RDM-As-Of-Applied: Rate
+{ "items": [ … ], "workspace": "default", "publication": null, "asOfApplied": ["Rate"],
+  "pageSize": 20, "nextCursor": "…", … }
+```
+
+| Status | Code | When |
+| --- | --- | --- |
+| 400 | `INVALID_AS_OF` | `asOf` is not one calendar date written `YYYY-MM-DD` (a time, a zone, an impossible day, two values); `details.path` `/query/asOf` |
+| 400 | `AS_OF_NOT_SUPPORTED` | The list's type, the record's type, or every type a lookup can return declares no effective period; `details.objectTypes` (public names), `details.path` `/query/asOf` |
+
 ### Publications and caching
 
 A consumer that must read one consistent snapshot, an extract paged over minutes or a flow resolving
@@ -2405,8 +2456,9 @@ Each API's **document** is OpenAPI 3.1 and describes that API at its contract ve
   (`"2"`), and `description` names the model release that declares it.
 - **Operations**: get by ID, each list (with its parent parameter), XREF, batch resolve and the
   publications list, each with the parameters it applies (definition parameters as arrays,
-  `style: form`; each targetable parameter's `to.` name), the `ETag`, `RDM-Workspace` and
-  `RDM-Publication` headers, `304`, and its refusal codes.
+  `style: form`; each targetable parameter's `to.` name; `asOf` where the read can return a dated
+  type, on a list only when its type is dated), the `ETag`, `RDM-Workspace`, `RDM-Publication` and
+  `RDM-As-Of-Applied` headers, `304`, and its refusal codes.
 - **Schemas** come from the contract the breaking-change check compares: the shared object with every
   declared field typed (decimals as strings, dates and date-times formatted, `null` where a field can
   have no value), each projection as an array or a nullable object by its cardinality, `matchScore`

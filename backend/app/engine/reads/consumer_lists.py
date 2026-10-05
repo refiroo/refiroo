@@ -20,9 +20,9 @@ from ...errors import api_error
 from ...models.database import PublicationObject, PublicationRelation
 from ...models.schema import ConsumerApiDefinition, ConsumerList, EngineModel
 from .consumer_objects import ConsumerObjects
-from .consumer_parameters import ConsumerFilter, below, without_target
+from .consumer_parameters import ConsumerFilter, as_of_not_supported, below, without_target
 from .consumer_source import ConsumerSource, cursor_scope
-from .object_query import build_object_query
+from .object_query import as_of_filter, build_object_query
 from .snapshot_reads import SnapshotBase, SnapshotContext, build_snapshot_object_query
 
 
@@ -51,7 +51,12 @@ def read_consumer_list(
     cursor with the workspace, the parent IDs and the contract version; a ``to.`` value is not
     bound, since it changes no row or order (C-D54). A pinned read lists the publication's records
     through the publication's list query, whose ties on equal names fall to the object ID: a
-    publication records no creation order (as on the management API's publication lists)."""
+    publication records no creation order (as on the management API's publication lists). With
+    ``asOf`` the list's type must declare a period (C-D77); the date is bound into the cursor and the
+    envelope names the type in ``asOfApplied`` (C-D78)."""
+    public = definition.objectTypes[declared.objectType].publicName
+    if narrowed.as_of is not None and declared.objectType not in narrowed.dated:
+        raise as_of_not_supported([public])
     if source.publication_id is None:
         query = build_object_query(
             model,
@@ -99,6 +104,7 @@ def read_consumer_list(
             "contractVersion": definition.contractVersion,
             "parents": sorted(parent_ids),
             "parameters": {name: sorted(values) for name, values in sorted(without_target(parameters).items())},
+            **as_of_filter(narrowed.as_of),
         },
         page=page,
         page_size=page_size,
@@ -114,6 +120,7 @@ def read_consumer_list(
         "items": [composed[object_id] for object_id in ids if object_id in composed],
         "workspace": source.workspace_key,
         "publication": source.publication_id,
+        **({"asOfApplied": [public]} if narrowed.as_of is not None else {}),
         "pageSize": page_size,
         **found.links(),
     }

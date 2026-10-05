@@ -447,7 +447,7 @@ I can retrieve the correct business-time view where the data model supports it.
 **Accepted when:** semantics are explicitly configured, bounded and consistent across paging rather
 than inferred from arbitrary date fields.
 
-**Coverage:** Planned advanced query. **Status:** Available through the API (0.9 Q4): a record type declares its effective period, and `asOf` reads apply it; SC-11 passes through the management API.
+**Coverage:** Planned advanced query. **Status:** Available through the API (0.9 Q4): a record type declares its effective period, and `asOf` reads apply it; SC-11 passes through the management API, and since 0.9 C16 through the consumer API.
 ### US-I07 — Preview a file before changing reference data
 
 **Story:** As a data steward receiving a supplier file, I want to identify its columns and inspect

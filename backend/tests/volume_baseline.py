@@ -619,13 +619,16 @@ CONSUMER_LISTS = f"/api/consumer/{CONSUMER_API}/v1/lists"
 def consumer_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat: int) -> list[Measurement]:
     """0.9 C3: consumer list reads, live (``--only-consumer``); C6a: the same reads pinned to the
     seed's publication. The next page and the position jump are read through the cursor and position
-    the first page and the total name."""
+    the first page and the total name. C16: the first page with a total and the position jump, dated
+    by ``asOf`` (three quarters of the items apply on that day)."""
     ranked = f"{CONSUMER_LISTS}/{RANKED_ITEMS}"
     results = []
     for context, pinned in (("live", {}), ("history", {"publication": dataset.publication_id})):
         label = "consumer" if not pinned else "consumer pinned"
         base = {"workspace": WORKSPACE, "pageSize": PAGE_SIZE, **pinned}
         first = client.get(ranked, params={**base, "includeTotal": "true"}).json()
+        dated = {**base, "asOf": AS_OF}
+        dated_first = client.get(ranked, params={**dated, "includeTotal": "true"}).json()
         scenarios = [
             (f"{label}: first page of every item by rank", ranked, base),
             (f"{label}: next cursor page", ranked, {**base, "cursor": first["nextCursor"]}),
@@ -639,6 +642,12 @@ def consumer_scenarios(client, engine: Engine, dataset: VolumeDataset, *, repeat
                 f"{label}: ancestor filter with includeTotal",
                 ranked,
                 {**base, WITHIN_GROUP: dataset.heavy_group_id, "includeTotal": "true"},
+            ),
+            (f"{label}: dated, first page with includeTotal", ranked, {**dated, "includeTotal": "true"}),
+            (
+                f"{label}: dated, position jump to the middle",
+                ranked,
+                {**dated, "position": dated_first["totalCount"] // 2},
             ),
         ]
         for scenario, path, params in scenarios:
@@ -658,7 +667,8 @@ def consumer_xref_scenarios(client, engine: Engine, dataset: VolumeDataset, *, r
     group's code (its own match and the citing items it promotes), a 4-character contains, the
     same code with ``expect=one``, and a term in every item refused as ``QUERY_TOO_BROAD``. C5: the
     cited group's code narrowed to the heavy group (a filter over the promoted items), and with the
-    ``scoresFrom`` parameter on the cited group."""
+    ``scoresFrom`` parameter on the cited group. C16: the cited group's code dated by ``asOf``, over
+    the dated items and the undated groups."""
     from app.models.database import AttributeValue
 
     with Session(engine) as session:
@@ -688,6 +698,13 @@ def consumer_xref_scenarios(client, engine: Engine, dataset: VolumeDataset, *, r
             (
                 f"{label}: a group's code, scoresFrom on the group",
                 {**base, "query": codes[dataset.cited_group_id], CITING: codes[dataset.cited_group_id]},
+                None,
+            ),
+            # Ten a page: at the smallest test shape the dated lookup holds 18 results, under one page
+            # of 20, which the pager counts without a statement; every size then reads more than a page.
+            (
+                f"{label}: a group's code, dated",
+                {**base, "pageSize": PAGE_SIZE // 2, "query": codes[dataset.cited_group_id], "asOf": AS_OF},
                 None,
             ),
             (f"{label}: a term in every item, too broad", {**base, "query": "item"}, 400),
@@ -806,6 +823,7 @@ def consumer_resolve_scenarios(
     sizes: tuple[int, ...] = (1_000,),
     families: tuple[str, ...] = (
         "identifiers",
+        "dated identifiers",
         "three parameter sets",
         "cited group fan-out",
         "parameters filtering items out",
@@ -814,15 +832,20 @@ def consumer_resolve_scenarios(
     ),
 ) -> list[Measurement]:
     """0.9 C14: batch resolve, live (``--only-consumer``): each family of :func:`_resolve_bodies` at
-    each size. The scenario is named ``consumer resolve: <family>, <size> items``."""
+    each size. The scenario is named ``consumer resolve: <family>, <size> items``. ``dated
+    identifiers`` (C16) sends the identifiers with ``asOf``."""
     results = []
     for size in sizes:
         bodies = _resolve_bodies(engine, dataset, size)
         for family in families:
-            body = bodies[family]
+            params = {"workspace": WORKSPACE}
+            if family == "dated identifiers":
+                body, params["asOf"] = bodies["identifiers"], AS_OF
+            else:
+                body = bodies[family]
             status, milliseconds, statements, rows = _timed(
                 engine,
-                lambda body=body: client.post(CONSUMER_RESOLVE, json=body, params={"workspace": WORKSPACE}),
+                lambda body=body, params=params: client.post(CONSUMER_RESOLVE, json=body, params=params),
                 repeat,
             )
             scenario = f"consumer resolve: {family}, {len(body['items'])} items"

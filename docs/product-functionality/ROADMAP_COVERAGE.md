@@ -60,7 +60,7 @@ relationship flows remain an alternative (see [Capability preservation](#capabil
 ## In progress: 0.9 — Integration-grade APIs
 
 **Why here:** extend validated single-record semantics to reliable larger exchanges.
-**Acceptance:** SC-10–SC-11, stories US-I03–I09. SC-11 passes through the management API (Q4).
+**Acceptance:** SC-10–SC-11, stories US-I03–I09. SC-11 passes through the management API (Q4) and the consumer API (C16).
 
 The interim release 0.9.0-alpha.1 moves the engine to PostgreSQL first: workspaces write in parallel,
 and two writers racing in one workspace never break a rule. Users see no change.

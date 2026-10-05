@@ -16,8 +16,8 @@ read, D31), [B3](#b3-relation-and-relation-set-items) (2026-10-03, D35–D39),
 [T1a](#t1a-copies-inside-the-database) (2026-10-04), [T1b](#t1b-one-error-code-pattern) (2026-10-04),
 [C2](#c2-consumer-object-and-projections) (2026-10-04, C-D21–C-D26), C3–C5 and
 [C14](#c14-batch-resolve) (2026-10-05, C-D47–C-D53), [C15](#c15-crosswalk) (2026-10-05, C-D54–C-D58),
-[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75).
-**Next:** C16, in the order of the [delivery queue](#delivery-queue) (U4 waits for U3).
+[CN1](#cn1-the-consumer-apis-name-in-public-contracts) (2026-10-05, C-D59), [C6a](#c6a-publications) (2026-10-05, C-D60–C-D68), [C6b](#c6b-the-contract-documents) (2026-10-05, C-D69–C-D70), [V2](#v2-consumer-sources) (2026-10-05), [C8](#c8-parity-acceptance) (2026-10-05, C-D72–C-D75), [C16](#c16-asof-in-the-consumer-tier) (2026-10-05, C-D76–C-D80).
+**Next:** C9, in the order of the [delivery queue](#delivery-queue) (U4 waits for U3).
 
 **Target:** Product 0.9.0, [integration-grade APIs](ROADMAP.md#product-release-09--integration-grade-apis).
 Effective dates and consumer API definitions extend the model, so the starter becomes content release
@@ -231,7 +231,7 @@ Existing groups carry on: `queries` (Q1–Q4), `records`, `change_sets`, `mappin
 | 20 | [V2](#v2-consumer-sources) | V1, C6b | Consumer contracts as reference sources — **delivered 2026-10-05** ([record](#v2-delivery-record)) |
 | 20a | [U4](SETTINGS_AND_UI_PLAN.md#packages-track-u) | U3, C6b, V2 | Settings › Integration: Consumer APIs, Jobs and feed, API reference; a starter consumer API (U-D5) |
 | 21 | [C8](#c8-parity-acceptance) | C3–C6, C14, C15 | Parity acceptance; the consumer read line's checkpoint; `objectType` in projections, the parent keyed by output names (C-D72–C-D75) — **delivered 2026-10-05** ([record](#c8-delivery-record)) |
-| 22 | C16 | C2, Q4 | `asOf` in the consumer tier; SC-11 (consumer) |
+| 22 | [C16](#c16-asof-in-the-consumer-tier) | C2, Q4 | `asOf` in the consumer tier; SC-11 (consumer) (C-D76–C-D80) — **delivered 2026-10-05** ([record](#c16-delivery-record)) |
 | 23 | C9 | C2 | Event definitions |
 | 24 | C10 | C9, F2 | Event deriver, event store, pull feed |
 | 25 | C11 | C10 | Subscriptions |
@@ -4068,6 +4068,274 @@ and the approved cases.
 
 **Composable domains (ADR-032):** the projection declaration gains `objectType` (C-D73); the `match`
 declaration, identity, attribute storage, audit, the bulk APIs and mapping coverage are untouched.
+
+#### C16: `asOf` in the consumer tier
+
+**Delivered 2026-10-05** ([record](#c16-delivery-record)). **Planned 2026-10-05; decisions C-D76–C-D80 and the test cases approved by the user the same day.**
+**Needs:** C2, Q4 (both delivered); built on C3–C15 and C6a, since `asOf` reaches every read they
+added. **Groups:** `consumer`, plus `queries` for the one shared function it touches (below).
+**Design:** [CONSUMER_API "Business dates: `asOf`"](CONSUMER_API.md#business-dates-asof), C-D14,
+ADR-038, Q4 and its D21–D22, SC-11.
+
+**Behaviour.** "Which values apply on 1 July?" An integration flow asks the consumer API for a
+reference list as it stands on a business date: the old values before a cut-over day, their
+replacements from it. Today the consumer tier cannot answer: `asOf` is a reserved name and every
+consumer read refuses it as `400 UNKNOWN_PARAMETER`. After C16:
+
+```text
+GET …/lists/{listKey}?asOf=2026-07-01           the list's records effective that day, every page
+GET …/objects/{id}?asOf=2026-07-01              the record, or 404 if it is not effective that day
+GET …/xref?query=CHF&asOf=2026-07-01            dated types filtered, undated ones not (C-D14)
+POST …/resolve?asOf=2026-07-01                  every item as its single read answers
+```
+
+- A date is effective by the type's declared period, as on the management API (ADR-038): no start
+  after it, no end on or before it, an empty start or end open. Only a declared period dates a
+  record; a type with none is never dated from a date field it happens to bind.
+- `asOf` combines with `publication` (the publication's values, under the release it was published
+  under) and with every definition parameter, crosswalk target and paging parameter.
+- The publications list and the API index do not serve it (`400 PARAMETER_NOT_SUPPORTED`, as
+  `publication` there).
+
+**What exists today** (checked 2026-10-05):
+
+- **The predicate.** `object_query.as_of_predicate` dates records over an `ObjectColumns` (two
+  correlated `NOT EXISTS` on the value key); `build_object_query` and `build_snapshot_object_query`
+  take `as_of`; `as_of_filter` binds it into a cursor only when set. The consumer reads other than
+  lists select through `ConsumerSource` entities, not `ObjectColumns`, so they cannot call it as it
+  stands.
+- **The consumer side.** `asOf` is in `RESERVED_PARAMETERS` (C1) but in no route's names, so every
+  read answers `UNKNOWN_PARAMETER`. `consumer_contract.OutputContract.as_of` already records the
+  exposed types with a period, and removing one is `version_required` (Q4). The per-definition
+  OpenAPI document does not mention `asOf`.
+- **Fixtures.** Generated A and B have `E` (period over `E.from`/`E.to`) and `F` (the same
+  attributes, no period), used by J23; `Capi` exposes neither. The parity fixture's starter declares
+  a period on `master-value` (public `CodelistValue`) and none on `location`. The volume fixture's
+  `Item` is dated and `Group` is not, both exposed by its definition, so dated consumer reads can be
+  measured without changing it.
+- **The example model.** `rdm-operators-timetables.json` dates `master-value`, `operator` and
+  `location`, all exposed by its `rdm` API.
+
+**Design.**
+
+- **One rule** (`engine/reads/object_query.py`): the body of `as_of_predicate` becomes
+  `effective_on(values, value_match, period, as_of)`, over any values entity and its relation to the
+  record; `as_of_predicate` calls it. Management reads are unchanged, statement for statement.
+- **Parameter** (`app/consumer/router.py`): `asOf` joins the names of get by ID, lists, XREF and
+  batch resolve (not the publications list or the index). It is parsed once as a strict
+  `YYYY-MM-DD` (as the management list's `CalendarDate`); anything else is `400 INVALID_AS_OF`
+  (C-D79).
+- **Filter** (`engine/reads/consumer_parameters.py`): `consumer_filter` takes `as_of`. With it,
+  `ConsumerFilter` gains a record predicate and `as_of_applied`, the public names of the dated
+  types the read can return: the exposed types, narrowed by an `objectType` parameter when sent.
+  The predicate is, per dated type, its `object_type_key` and `effective_on` over
+  `source.values`; the undated types pass (C-D14). It is decided from the read's model (`_Read.model`),
+  so a pinned read dates by its publication's release. Because every read already applies
+  `narrowed.on(record)` (lists, get by ID, XREF's kept objects, batch resolve's groups), the date
+  reaches them all through the filter, and the list no longer needs `build_object_query`'s own
+  `as_of`.
+- **Refusals by route** (C-D77): a list of an undated type, an XREF or batch whose returnable types
+  have no period, and a get by ID of an undated type's record answer `400 AS_OF_NOT_SUPPORTED`.
+  Get by ID with `asOf` reads the record's type first (one indexed select) so it can tell an
+  undated type (`400`) from a dated record not effective (`404 OBJECT_NOT_FOUND`).
+- **Only the read's objects are dated** (C-D76): projection items, ancestors, parameter candidates
+  and XREF's promoting records are read as without `asOf`.
+- **Naming what was dated** (C-D78): `asOfApplied` in the list, XREF and batch resolve bodies, and
+  the `RDM-As-Of-Applied` header on every answer to a dated read.
+- **Cursors:** the list and XREF cursors bind `asOf` when set (`as_of_filter`), so a cursor refuses
+  another date or none, and cursors issued without `asOf` stay valid for reads without it.
+- **ETag:** unchanged. The date is in the URL, and the data the tag covers is the same.
+- **OpenAPI** (`engine/model/consumer_openapi.py`): `asOf` on get by ID, XREF and batch resolve when
+  the definition exposes a dated type, and on each list whose type is dated; `INVALID_AS_OF` and
+  `AS_OF_NOT_SUPPORTED` in the refusals; `asOfApplied` in the envelopes; the header. The document
+  follows `OutputContract.as_of`, which the contract check already guards.
+- **No migration, no index, no setting, no model change.** The value key index serves the
+  predicate, as in Q4.
+
+**Decisions** (status per row):
+
+| # | Question | Decision |
+| --- | --- | --- |
+| C-D76 | Which records `asOf` dates | **Approved 2026-10-05.** The objects the read returns, and nothing they are found through or carry: projection items, the parent and `path`, the records a parameter matches (`location=CEN`) and the records that promote an XREF score are read as without `asOf`. This is D22's answer for the model query and CONSUMER_API's text ("keeps only objects"). The cost is real in the operators example: `availableAt` there can list a location whose period has ended; a consumer that needs it can output the location's `validFrom`/`validTo` as projection fields. Dating every record of a dated type the read touches would answer "the world on that date", but needs its own decision for each of the four places above, and a declaration that turns it on can be added later without breaking this one |
+| C-D77 | Refuse or filter, route by route | **Approved 2026-10-05.** As CONSUMER_API states, with three cases it leaves open. Lists: an undated list type is `400 AS_OF_NOT_SUPPORTED` before reading. Get by ID: an unknown ID is `404 OBJECT_NOT_FOUND`; a record of an undated type is `400 AS_OF_NOT_SUPPORTED`; a dated record not effective that day is `404 OBJECT_NOT_FOUND`, as a parameter that narrows it out is (C-D31). XREF: C-D14 over the types the read can return (narrowed by an `objectType` parameter); when none of them is dated, `400 AS_OF_NOT_SUPPORTED`, since an undated answer would look dated (D21's reason). Batch resolve: `asOf` is the request's query parameter and applies to every item (CONSUMER_API); each item answers as its single read, so a by-ID item of an undated type is `rejected` with `AS_OF_NOT_SUPPORTED` while a by-query item is filtered as XREF is (C-D48). A pinned read dates by the publication's release. Details: `objectTypes` (public names) and `path` `/query/asOf`. `400`, the consumer tier's status for a request error, not the management API's `422` |
+| C-D78 | How a read says what was dated | **Approved 2026-10-05.** `asOfApplied` (the dated public names, sorted) in the list, XREF and batch resolve bodies, and the `RDM-As-Of-Applied` header (the same names, comma-separated) on every answer to a read that sent `asOf`, including get by ID and XREF `expect=one`, whose bodies are the bare object, as C-D23 names the workspace. Both are absent when `asOf` is not sent, so undated reads are unchanged. CONSUMER_API names `asOfApplied` for XREF only; on a list or a get by ID it holds the one type and is there so a client reads every route the same way |
+| C-D79 | A malformed date | **Approved 2026-10-05.** `400 INVALID_AS_OF` at `/query/asOf` for anything but one `YYYY-MM-DD` calendar date: a time, a time zone, an impossible date, two values (several values are alternatives elsewhere, C3b, but one read has one date), as `INVALID_EXPECT` is for `expect`. In batch resolve `asOf` in `defaults` or an item is refused as `publication` there is (C-D49): the date belongs to the request |
+| C-D80 | The budget | **Approved 2026-10-05.** Measured once at full volume on the volume fixture (`Item` dated, `Group` not), not tuned in C16: the dated `Item` list live and pinned (first page with a total, a deep position), a dated mixed XREF (`asOfApplied` `["Item"]`), and a dated 1,000-item batch resolve. Recorded in POSTGRESQL_BUDGETS §7 beside the undated figures. A read over 100 ms, or the batch over C-D53's 1 s, is reported with its cause and options, and the next step is the user's. `test_consumer_list_volume` and `test_consumer_xref_volume` each gain a dated read, holding their statement counts at both sizes: the predicate adds none, get by ID one |
+
+**Journey.** J23 gains its consumer variants in USER_JOURNEYS and API_JOURNEYS: **J23.6** a
+consumer list and get by ID on a date, page by page; **J23.7** XREF and batch resolve across dated
+and undated types with `asOfApplied`; **J23.8** the refusals. J23's status becomes delivered on both
+APIs. Generated A and B's `Capi` exposes `E` (`Rate`) and `F` (`Fee`) with the lists `rates` and
+`fees`, so the variants run on both configurations; the seeds rebuild once. Each test has its own
+database clone, so the types' records do not reach J28 or J29. `test_consumer_api_model`'s pinned
+contract for `Capi` gains the two types.
+
+**Test cases** (journey tests, written first and confirmed failing):
+
+Given, on generated A and B, J23's records: `E` "Old rate" ending 2026-07-01, "New rate" from
+2026-07-01, "Standing rate" with no period values, "Future rate" from 2027-01-01, and "Transitional
+rate" from 2026-06-15 to 2026-07-15; an `F` "Flat rate"; an `R` "Rate ledger".
+
+1. **J23.6 A list on a date, page by page.** `lists/rates?asOf=2026-06-30&pageSize=1`, followed by
+   its cursors, holds Old, Standing and Transitional; at `2026-07-01` (the boundary) New, Standing
+   and Transitional, not Old. The body has `asOfApplied` `["Rate"]` and the header says `Rate`. The
+   first cursor sent with another date, or none, is `400 INVALID_CURSOR`. `lists/fees?asOf=…` is
+   `400 AS_OF_NOT_SUPPORTED` naming `Fee`.
+2. **J23.6 Get by ID.** Old rate at `2026-06-30` answers it, with the header; at `2026-07-01`
+   `404 OBJECT_NOT_FOUND`; the fee with `asOf` is `400 AS_OF_NOT_SUPPORTED`; an unknown ID
+   `404 OBJECT_NOT_FOUND`. Without `asOf` all three rates answer and no header is sent.
+3. **J23.6 Pinned.** After a publication, New rate's start is moved live to 2026-08-01:
+   `lists/rates?publication=latest&asOf=2026-07-15` holds New rate, the live list on that date does
+   not.
+4. **J23.7 XREF across types.** `xref?query=rate&asOf=2026-06-30` holds Old, Standing,
+   Transitional, Flat rate and Rate ledger, not New or Future, each with the score it has without
+   `asOf`, and `asOfApplied` `["Rate"]`. With `kind=Ledger` it is `400 AS_OF_NOT_SUPPORTED`.
+   `query=New rate&expect=one` is `404 NO_MATCH` at `2026-06-30` and answers New rate at
+   `2026-07-01`, with the header.
+5. **J23.7 Batch resolve.** `POST resolve?asOf=2026-06-30`, items "Old rate", "New rate", the fee by
+   ID and Old rate by ID: `found`, `not_found`, `rejected` (`AS_OF_NOT_SUPPORTED`), `found`; each
+   equals its single read's answer; the body has `asOfApplied`.
+6. **J23.8 Refusals.** `asOf=2026-06-30T00:00`, `2026-02-30` and `2026-06-30,2026-07-01` are
+   `400 INVALID_AS_OF` at `/query/asOf` on a list, a get by ID, XREF and batch resolve; `asOf` on
+   the publications list is `400 PARAMETER_NOT_SUPPORTED`; in a resolve item it rejects the item,
+   in `defaults` the request.
+7. **Parity scenario 15** (the parity module, on the reference-shaped model). Swiss franc ends
+   2026-07-01 and a replacement value "Swiss franc 2026" starts that day; an overlapping value runs
+   across it. `lists/all-values?codelist=CUR&asOf=…` on each side, at the boundary and across the
+   overlap; `xref?query=CHF&asOf=…` answers the value effective that day, `asOfApplied`
+   `["CodelistValue"]`, with a location still found undated; get by ID of a location with `asOf` is
+   `400 AS_OF_NOT_SUPPORTED` (SC-11's "an unconfigured list must not invent effective-date
+   behaviour"). Every `200` validates against the definition's OpenAPI document, which now declares
+   `asOf`.
+
+**Unit tests:** `test_consumer_openapi` gains one: `asOf` documented on `lists/rates` and not on
+`lists/fees`, the header and `asOfApplied` declared. `effective_on` has no case of its own: it is
+`as_of_predicate`'s body, which `test_effective_periods` and J23.1–J23.5 walk unchanged.
+
+Not covered by a case: a publication made under a release where the type had no period (the read is
+refused, as the design says). Building it needs a release removing the period, which is
+`version_required` and then fails on the contract version; the design's one line (`_Read.model`) is
+its evidence.
+
+**Checks:** J23 (all variants, since `as_of_predicate` is reshaped), J28, J29, J25, J20 and the
+parity module on their configurations; `test_effective_periods`, `test_consumer_openapi`,
+`test_consumer_api_model`; `test_consumer_list_volume` and `test_consumer_xref_volume`; then the
+`consumer` group once; the C-D80 measurement once; `ruff`. Not `startup` (no migration), not
+`contract` (the consumer routes are outside the management document, and no management route
+changes), not the frontend (unchanged).
+
+**Exit:** SC-11 passes through the consumer API; parity scenario 15 passes; C-D80's figures are
+recorded.
+
+**Docs at delivery:** API.md: `asOf` on the four consumer routes, `INVALID_AS_OF`,
+`AS_OF_NOT_SUPPORTED`, `asOfApplied` and the header; CONSUMER_API: C-D76–C-D80 recorded, "Business
+dates" amended (codes in upper case, get by ID's `404`, the refusal for an XREF with no dated type,
+`asOfApplied` on every collection), the C16 row delivered; ACCEPTANCE_SCENARIOS: SC-11's consumer
+half delivered; USER_JOURNEYS and API_JOURNEYS: J23.6–J23.8; CURRENT_FUNCTIONALITY: a consumer can
+read a list as it stands on a business date; POSTGRESQL_BUDGETS §7: the dated rows.
+
+**Composable domains (ADR-032):** the `match` declaration is untouched (dating does not change a
+score), and so are identity, attribute storage, audit, the bulk APIs and mapping coverage. A product
+catalogue's "the price list valid on 1 July" is a declared period on its price type read through
+the same parameter, so the door is used, not narrowed; C-D76 leaves dated projections as a later,
+additive declaration.
+
+##### C16 delivery record
+
+**Delivered 2026-10-05**, as designed, with C-D76–C-D80 and the approved cases.
+
+- **One rule** (`engine/reads/object_query.py`): `effective_on(values, value_match, period, as_of)`
+  is ADR-038's rule over any values table; `as_of_predicate` calls it, so management statements are
+  unchanged.
+- **Filter** (`engine/reads/consumer_parameters.py`): `consumer_filter` takes `as_of`. The record
+  predicate is an AND, per dated exposed type, of `effective_on` with the type test inside each
+  `NOT EXISTS` (records of other types pass), over a fresh alias of the source's values (so its
+  subqueries never correlate with a values table the enclosing statement reads). `ConsumerFilter` carries `as_of`, `dated` (the exposed types with a
+  period), `returnable` (the exposed types, narrowed by an `objectType` parameter) and
+  `as_of_applied`. `as_of_not_supported` is the one refusal.
+- **Reads:** lists refuse an undated type and bind `asOf` into the cursor (`as_of_filter`); get by ID
+  reads the record's type first (`consumer_objects.undated_refusal`, one statement, only with
+  `asOf`); XREF refuses when no returnable type is dated and binds the date into its cursor; batch
+  resolve takes the request's date, rejects a lookup with no dated type and a by-ID item of an
+  undated type (pointer at the item, or its `id`), and reads the by-ID types in one statement per
+  parameter group. Lists, XREF pages and batch resolve carry `asOfApplied`.
+- **Router** (`app/consumer/router.py`): `asOf` joins the names of get by ID, lists, XREF and batch
+  resolve; `_as_of` parses one `YYYY-MM-DD` day (`400 INVALID_AS_OF`); `_Read` keeps the filter it
+  built, and `_answer` sets `RDM-As-Of-Applied` on a dated answer: the body's `asOfApplied`, the
+  record's type for get by ID, the read's dated types for `expect=one`.
+- **OpenAPI** (`engine/model/consumer_openapi.py`): `asOf` on get by ID, XREF and batch resolve when
+  the definition exposes a dated type, on a list when its type is dated; the two codes, the header
+  and an optional `asOfApplied` on the three envelopes.
+- **Fixtures:** generated A and B's `Capi` exposes `E` (`Rate`) and `F` (`Fee`) with the lists
+  `rates` and `fees`; the seeds rebuilt once. J23.5's release removing `E`'s period now raises
+  `Capi`'s contract version, since `E` is exposed (Q4's contract rule). J20.4's literal paths gain
+  the two lists. `JOURNEY_GROUPS` maps J23 to `consumer` as well as `queries`, so `-m consumer`
+  selects the consumer variants (the J29 defect C8 found, avoided).
+
+**Differs from the plan:**
+- The dated XREF volume scenario reads 10 a page: at the smallest test shape the lookup holds 18
+  results, under one 20-row page, which the pager counts without its count statement, so the
+  statements differed by one between sizes; with 10 a page both sizes page (T1 met the same with its
+  dated hop).
+- A batch item refused for its date points at the item (a lookup) or its `id` (a by-ID item), since
+  `asOf` is not in the item.
+- `test_api_journeys` needed the code listed in its own backticks; API_JOURNEYS records it so.
+
+**The first full-volume run** (`volume_baseline.py --only-consumer --scale 1 --repeat 3`; one earlier
+attempt was killed when another pytest session dropped its database) found the dated lists far over
+budget: the first page with a total 1,325 ms live and 1,821 ms pinned, the position jump 612 and
+859 ms. Cause (`EXPLAIN ANALYZE` on the full seed): the predicate was written as an OR over the types
+("undated, or this type and effective"), which PostgreSQL cannot turn into anti-joins, so the count
+over C3a's first part walked all 257,758 rank values with two per-row subqueries (1,230 ms of the
+read). With the user's agreement the predicate became an AND with the type test inside each check:
+the same statement plans hash anti-joins and takes 150 ms (72 ms undated). J23, the parity module,
+the consumer volume tests and `test_effective_periods` were rerun (63 passed).
+
+**C-D80's figures** (full volume, after the fix; list and XREF scenarios and the identifiers batch,
+dated and not, measured once with `--repeat 3`; warm median · statements · ORM rows):
+
+| Read | Live | Pinned to a publication |
+| --- | --- | --- |
+| List: dated, first page with `includeTotal` | **192.3 ms** · 12 · 24 | **201.4 ms** · 14 · 5 |
+| List: dated, position jump to the middle | **204.1 ms** · 11 · 24 | **231.9 ms** · 13 · 5 |
+| List: undated, position jump / ancestor filter with total (same run) | 110.7 / 99.8 ms | 118.2 / 118.6 ms |
+| XREF: a group's code, dated (10 a page) | 72.3 ms · 9 · 3 | 85.8 ms · 11 · 5 |
+| Batch resolve: 1,000 identifiers, dated (budget 1 s) | **2,224.9 ms** · 10 · 3 | — |
+| Batch resolve: 1,000 identifiers, undated (same run) | 265.6 ms · 8 · 3 | — |
+
+Every other consumer read is within a few ms of POSTGRESQL_BUDGETS §7. Over budget, recorded and not
+tuned (C-D80):
+- **The dated lists** count or skip 75,000 dated records (three quarters of 100,000 effective):
+  twice the undated read, the shape of T1's dated totals ([E8](POSTGRESQL_BUDGETS.md#e8-dated-totals-and-change-set-dated-pages-0-9-t1)).
+- **The dated batch** runs two statements more: the by-ID type read, and a contains pass. A quarter of
+  the identifiers name a record not effective on the date, so their exact match is filtered out and
+  exact-first (C-D52) cannot settle them; their contains matches are read, 3–5 ms per term and rule.
+  This is C14's recorded "parameters filtering items out" shape (2.4–2.6 s), reasoned from the
+  statement count, not profiled. A file of codes valid on the date settles as the undated batch does.
+
+**Checks:**
+- **After the predicate fix:** J23, the parity module, `test_consumer_list_volume`,
+  `test_consumer_xref_volume` and `test_effective_periods`: 63 passed.
+- **Failing first:** the 12 new J23 cases (J23.6–J23.8, on generated A and B) failed with the app
+  changes stashed (`UNKNOWN_PARAMETER`), J23.1–J23.5 passing with the fixture change; parity scenario
+  15 failed the same way; the new `test_consumer_openapi` case failed (1 of 2). All pass with C16.
+- **Targeted:** J23 (24 passed); the parity module's scenario 15; `test_consumer_openapi` (2);
+  `test_consumer_list_volume` and `test_consumer_xref_volume` (4: equal statements at both sizes
+  with the dated reads); the `consumer` group in parallel, 215 passed in 40 s (before J23 joined it; with J23 the group holds
+  246, the guide's `queries` count restated as 247);
+  `test_effective_periods`, J20, `test_api_journeys`, `test_error_codes` and `test_boundaries`
+  together: 40 passed and 3 failed (J20.4's pinned list paths, the new code unlisted), fixed, then J20
+  and `test_api_journeys` 17 passed; J18, J08 and the composed J24/J26 (which edit the generated
+  model or use `E`): 34 passed.
+- `ruff check app/ tests/`: clean.
+- **Not run:** `startup` (no migration), `contract` beyond the modules above (the consumer routes are
+  outside the management document), the rest of `queries` (`as_of_predicate`'s statements are
+  unchanged; `test_effective_periods` and J23 cover it), the frontend (unchanged), the full suites
+  (R).
+
+**Composable domains (ADR-032):** the `match` declaration, identity, attribute storage, audit, the
+bulk APIs and mapping coverage are untouched; a price list valid on a date reads through the same
+parameter.
 
 ## Track V — API reference
 

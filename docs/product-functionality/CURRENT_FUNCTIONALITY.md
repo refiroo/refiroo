@@ -30,7 +30,7 @@ backend coverage is not mistaken for a complete user experience. Reviewed 2026-1
 | F18 | Accessible and responsive interface | Validated | Not applicable | Automated gates |
 | F19 | Operate and recover the service | Operator messages | Available | Production hardening is 0.11 |
 | F20 | Query and look up across the data | Not applicable | Available | 0.9 Q1–Q3 |
-| F21 | Read by business date (`asOf`) | Fields only | Available | 0.9 Q4 |
+| F21 | Read by business date (`asOf`) | Fields only | Available | 0.9 Q4, C16 |
 | F22 | Load data in bulk as jobs | Unavailable | Available | 0.9 B1–B2; import screen 0.9 J4 |
 | F23 | Declare consumer APIs and read through them | JSON model editing | Definitions; reading one business object; reading lists; looking up by code; reading a publication; an index and a typed document per API | 0.9 C1–C6 |
 | F24 | Read the API reference | Available at `/docs` | Not applicable | 0.9 V1, V2 |
@@ -389,11 +389,15 @@ history and publications.
 
 A record type may declare an effective period over two of its date fields (start inclusive, end
 exclusive, either open). An end not after its start is refused on every write. `asOf=YYYY-MM-DD` on the
-per-type list and the model-aware query returns the records valid on that date, in any context. In the
-example model, master values carry a period. In the browser the two dates are ordinary fields; there is
-no date filter yet.
+per-type list and the model-aware query returns the records valid on that date, in any context. A
+consuming system asks the same question through a consumer API: a list, a record, a lookup or a batch
+on a date returns only the records valid that day, names the record types it dated, and refuses a date
+for a type that declares no period rather than guessing one. Related items shown with a record are not
+dated. In the example model, master values carry a period. In the browser the two dates are ordinary
+fields; there is no date filter yet.
 
 Evidence: [effective periods](../API.md#effective-periods-and-asof-base-09-q4),
+[on the consumer API](../API.md#business-dates-asof-on-the-consumer-api),
 [ADR-038](../DECISIONS.md#adr-038--business-validity-is-a-declared-effective-period-separate-from-history-and-publications).
 
 ## F22 — Load data in bulk as jobs

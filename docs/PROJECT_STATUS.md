@@ -198,7 +198,11 @@ document, paths written out with its name and version (C-D69, C-D70,
 acceptance on a fixture shaped like the reference deployment, every answer checked against the API's
 own document; a projection may name each item's type (`objectType`) and the parent's fields take the
 roles' output names (C-D72–C-D75, [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c8-delivery-record)).
-Next: C16, in the order of the
+**C16 is delivered (2026-10-05):** `asOf` on every consumer read, over the model's declared effective
+periods; only the returned records are dated, `asOfApplied` and `RDM-As-Of-Applied` name the dated
+types, `AS_OF_NOT_SUPPORTED` and `INVALID_AS_OF`; SC-11 passes through the consumer API too
+(C-D76–C-D80, [record](BASE_0_9_IMPLEMENTATION_PLAN.md#c16-delivery-record)).
+Next: C9, in the order of the
 [delivery queue](BASE_0_9_IMPLEMENTATION_PLAN.md#delivery-queue) (U4 waits for U3).
 
 Base 0.5 is the completed operational/model-release foundation. Base 0.6 is released (2026-09-11).

@@ -150,8 +150,20 @@ class _Document:
             )
         return found
 
-    def _reads(self) -> list[dict[str, Any]]:
-        return [_WORKSPACE, _PUBLICATION]
+    def _reads(self, dated: bool | None = None) -> list[dict[str, Any]]:
+        """The names every read takes, with ``asOf`` where the read can return a dated type: on a
+        list, its type; elsewhere any exposed type (C16)."""
+        if dated is None:
+            dated = bool(self.contract.as_of)
+        return [_WORKSPACE, _PUBLICATION, *([_as_of(self._dated_names())] if dated else [])]
+
+    def _dated_names(self) -> str:
+        return ", ".join(sorted(self.contract.types[key] for key in self.contract.as_of))
+
+    def _dated_codes(self, dated: bool | None = None) -> str | None:
+        if dated is None:
+            dated = bool(self.contract.as_of)
+        return "INVALID_AS_OF, AS_OF_NOT_SUPPORTED" if dated else None
 
     def _get_by_id(self) -> dict[str, Any]:
         return {
@@ -165,7 +177,12 @@ class _Document:
                 *self._reads(),
                 *self._definition_parameters(),
             ],
-            "responses": _responses(_ref("Object"), "OBJECT_NOT_FOUND, WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND, TARGET_NOT_FOUND", conflict="AMBIGUOUS_TARGET, PUBLICATION_CONTRACT_MISMATCH"),
+            "responses": _responses(
+                _ref("Object"),
+                "OBJECT_NOT_FOUND, WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND, TARGET_NOT_FOUND",
+                conflict="AMBIGUOUS_TARGET, PUBLICATION_CONTRACT_MISMATCH",
+                bad=self._dated_codes(),
+            ),
         }
 
     def _list(self, key: str) -> dict[str, Any]:
@@ -185,6 +202,7 @@ class _Document:
                 )
             ]
         order = "its sort attribute (records without a value last), then name" if declared.sortBy else "name"
+        dated = declared.objectType in self.contract.as_of
         return {
             "summary": f"List {key}",
             "description": (
@@ -194,7 +212,7 @@ class _Document:
             ),
             "parameters": [
                 *parent,
-                *self._reads(),
+                *self._reads(dated),
                 *self._definition_parameters(
                     declared.parentParameter.name if declared.parentParameter is not None else None
                 ),
@@ -202,7 +220,12 @@ class _Document:
                 _SEEK,
                 _INCLUDE_TOTAL,
             ],
-            "responses": _responses(_ref("ListPage"), "LIST_NOT_FOUND, PARENT_NOT_FOUND, WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND", conflict="PUBLICATION_CONTRACT_MISMATCH"),
+            "responses": _responses(
+                _ref("ListPage"),
+                "LIST_NOT_FOUND, PARENT_NOT_FOUND, WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND",
+                conflict="PUBLICATION_CONTRACT_MISMATCH",
+                bad=self._dated_codes(dated),
+            ),
         }
 
     def _xref(self) -> dict[str, Any]:
@@ -239,7 +262,9 @@ class _Document:
                 {"oneOf": [_ref("XrefPage"), _ref("ScoredObject")]},
                 "NO_MATCH, TARGET_NOT_FOUND, WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND",
                 conflict="AMBIGUOUS_MATCH, AMBIGUOUS_TARGET, PUBLICATION_CONTRACT_MISMATCH",
-                bad="QUERY_REQUIRED, TOO_MANY_TERMS, QUERY_TOO_BROAD, INVALID_EXPECT",
+                bad=", ".join(
+                    filter(None, ["QUERY_REQUIRED, TOO_MANY_TERMS, QUERY_TOO_BROAD, INVALID_EXPECT", self._dated_codes()])
+                ),
             ),
         }
 
@@ -248,7 +273,7 @@ class _Document:
             _ref("ResolveAnswer"),
             "WORKSPACE_NOT_FOUND, PUBLICATION_NOT_FOUND",
             conflict="PUBLICATION_CONTRACT_MISMATCH",
-            bad="REQUEST_VALIDATION_ERROR",
+            bad=", ".join(filter(None, ["REQUEST_VALIDATION_ERROR", self._dated_codes()])),
             tagged=False,
         )
         responses["413"] = {
@@ -304,14 +329,22 @@ class _Document:
             "totalCount": {"type": ["integer", "null"]},
             "startIndex": {"type": ["integer", "null"]},
         }
-        schemas["ListPage"] = _object({"items": {"type": "array", "items": _ref("Object")}, **page})
-        schemas["XrefPage"] = _object(
-            {
-                "results": {"type": "array", "items": _ref("ScoredObject")},
-                "query": {"type": "array", "items": {"type": "string"}},
-                **page,
+        applied = {
+            "asOfApplied": {
+                "type": "array",
+                "items": {"type": "string"},
+                "description": "With `asOf`: the public types dated by their effective period.",
             }
+        }
+        schemas["ListPage"] = _object(
+            {"items": {"type": "array", "items": _ref("Object")}, **page, **applied}, ["items", *page]
         )
+        xref = {
+            "results": {"type": "array", "items": _ref("ScoredObject")},
+            "query": {"type": "array", "items": {"type": "string"}},
+            **page,
+        }
+        schemas["XrefPage"] = _object({**xref, **applied}, list(xref))
         schemas["Publication"] = _object(
             {
                 "id": {"type": "string"},
@@ -362,14 +395,13 @@ class _Document:
             ["index", "ref", "status"],
         )
         counts = {name: {"type": "integer"} for name in ("found", "notFound", "ambiguous", "rejected")}
-        schemas["ResolveAnswer"] = _object(
-            {
-                "items": {"type": "array", "items": _ref("ResolveOutcome")},
-                "workspace": {"type": "string"},
-                "publication": {"type": ["string", "null"]},
-                "counts": _object(counts),
-            }
-        )
+        answer = {
+            "items": {"type": "array", "items": _ref("ResolveOutcome")},
+            "workspace": {"type": "string"},
+            "publication": {"type": ["string", "null"]},
+            "counts": _object(counts),
+        }
+        schemas["ResolveAnswer"] = _object({**answer, **applied}, list(answer))
         schemas["ErrorBody"] = {
             "type": "object",
             "properties": {
@@ -496,6 +528,21 @@ _PUBLICATION = {
     ),
     "schema": {"type": "string"},
 }
+def _as_of(dated: str) -> dict[str, Any]:
+    return {
+        "name": "asOf",
+        "in": "query",
+        "description": (
+            f"A business date, `YYYY-MM-DD`: keeps the records effective that day by their type's declared"
+            f" effective period (no start after it, no end on or before it). Dated types: {dated}; records"
+            " of other types are not filtered, and a read that can return none of the dated types is"
+            " `400 AS_OF_NOT_SUPPORTED`. Projection items and ancestors are not dated. The dated types are"
+            " named in `RDM-As-Of-Applied`."
+        ),
+        "schema": {"type": "string", "format": "date"},
+    }
+
+
 _PAGING = [
     {
         "name": "pageSize",
@@ -517,6 +564,10 @@ _HEADERS = {
     "ETag": {"description": "The answer's version; send it back as `If-None-Match`.", "schema": {"type": "string"}},
     "RDM-Workspace": {"description": "The workspace read.", "schema": {"type": "string"}},
     "RDM-Publication": {"description": "The publication read, on a pinned read.", "schema": {"type": "string"}},
+    "RDM-As-Of-Applied": {
+        "description": "On a read with `asOf`: the public types it dated, comma-separated.",
+        "schema": {"type": "string"},
+    },
 }
 _RESPONSES = {
     "NotModified": {
@@ -532,6 +583,7 @@ def _responses(
     headers = {
         "RDM-Workspace": {"$ref": "#/components/headers/RDM-Workspace"},
         "RDM-Publication": {"$ref": "#/components/headers/RDM-Publication"},
+        "RDM-As-Of-Applied": {"$ref": "#/components/headers/RDM-As-Of-Applied"},
     }
     if tagged:
         headers["ETag"] = {"$ref": "#/components/headers/ETag"}

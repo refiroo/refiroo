@@ -16,6 +16,10 @@ total and a position jump stay in the database:
 A ``to.{name}`` value names a crosswalk target (C15, C-D54): over a ``targetable`` projection
 parameter, it replaces that parameter's limit on the projection's items, and changes nothing else.
 
+``asOf`` (C16, C-D76) dates the records a read returns by their type's declared effective period,
+the rule the management lists apply (``object_query.effective_on``); a record of a type without a
+period passes (C-D14). Projection items, ancestors and the candidates below are not dated.
+
 A value first finds its candidates: the records of the listed types whose match field equals it,
 text ignoring case, read through the indexes a search reads. A value that does not parse for a typed
 field does not match that field. A parameter's values are alternatives; different parameters
@@ -24,12 +28,25 @@ combine with AND.
 
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 
-from sqlalchemy import ARRAY, Select, String, and_, any_, bindparam, exists, false, or_, select
+from sqlalchemy import (
+    ARRAY,
+    Select,
+    String,
+    and_,
+    any_,
+    bindparam,
+    exists,
+    false,
+    or_,
+    select,
+    true,
+)
 from sqlalchemy.orm import Session
 
-from ...errors import api_error
+from ...errors import ApiError, api_error
 from ...models.schema import (
     AncestorParameter,
     ConsumerApiDefinition,
@@ -42,7 +59,7 @@ from ..model.consumer_contract import projection_targets, split_ancestor_referen
 from ..model.traversal import ancestor_type_keys
 from ..records.values import VALUE_COLUMNS
 from .consumer_source import ConsumerSource
-from .object_query import SEARCH_CANDIDATE_LIMIT, escape_like, parse_typed
+from .object_query import SEARCH_CANDIDATE_LIMIT, effective_on, escape_like, parse_typed
 
 # A condition on a record, given the entity (the source's records, or an alias of them) that holds it.
 Predicate = Callable[[Any], Any]
@@ -65,12 +82,19 @@ class Target:
 class ConsumerFilter:
     """What a read's parameters ask: conditions on the record, on each projection's items, and on
     the related records that may pass XREF scores through a projection (``scoresFrom``); and the
-    crosswalk target, whose projection's items each object carries again as ``target``."""
+    crosswalk target, whose projection's items each object carries again as ``target``. With
+    ``as_of``, ``dated`` holds the exposed types that declare a period, and ``as_of_applied`` the
+    public names of those the read can return (``returnable``: the exposed types, narrowed by an
+    ``objectType`` parameter)."""
 
     records: tuple[Predicate, ...] = ()
     limits: Mapping[str, Predicate] = field(default_factory=dict)
     scoring: Mapping[str, Predicate] = field(default_factory=dict)
     target: Target | None = None
+    as_of: date | None = None
+    dated: frozenset[str] = frozenset()
+    returnable: frozenset[str] = frozenset()
+    as_of_applied: tuple[str, ...] = ()
 
     def on(self, entity: Any) -> list[Any]:
         return [predicate(entity) for predicate in self.records]
@@ -88,6 +112,27 @@ def target_names(definition: ConsumerApiDefinition) -> list[str]:
     ]
 
 
+def dated_types(model: EngineModel, definition: ConsumerApiDefinition) -> frozenset[str]:
+    """The exposed types that declare an effective period, the ones ``asOf`` dates (ADR-038)."""
+    return frozenset(
+        key
+        for key in definition.objectTypes
+        if (object_type := model.object_type(key)) is not None and object_type.effectivePeriod is not None
+    )
+
+
+def as_of_not_supported(public_names: Sequence[str]) -> ApiError:
+    """``asOf`` on a read whose records cannot be dated: no type it returns declares a period, and a
+    date field is never taken for one (SC-11, C-D77)."""
+    names = sorted(public_names)
+    return api_error(
+        400,
+        "AS_OF_NOT_SUPPORTED",
+        f"{', '.join(names)} declares no effective period, so asOf does not apply",
+        {"objectTypes": names, "path": "/query/asOf"},
+    )
+
+
 def without_target(values: Mapping[str, Sequence[str]]) -> dict[str, Sequence[str]]:
     """The parameters a cursor binds: a target changes no row or order, so none (C-D54)."""
     return {name: given for name, given in values.items() if not name.startswith(TARGET_PREFIX)}
@@ -99,9 +144,10 @@ def consumer_filter(
     definition: ConsumerApiDefinition,
     source: ConsumerSource,
     values: Mapping[str, Sequence[str]],
+    as_of: date | None = None,
 ) -> ConsumerFilter:
-    """The predicates of the definition parameters in ``values`` (name to its split values), and of
-    at most one ``to.`` name the route has checked names a targetable parameter.
+    """The predicates of the definition parameters in ``values`` (name to its split values), of
+    at most one ``to.`` name the route has checked names a targetable parameter, and of ``as_of``.
 
     The target's items, AND the limits of the other parameters over its projection, limit that
     projection; the targeted parameter's own limit is left out, else ``p=A&to.p=B`` would show
@@ -113,6 +159,7 @@ def consumer_filter(
     own_limits: dict[str, Predicate] = {}
     target: Target | None = None
     target_item: Predicate | None = None
+    returnable = set(definition.objectTypes)
     for name, given in values.items():
         if name.startswith(TARGET_PREFIX):
             targeted = definition.parameters[name.removeprefix(TARGET_PREFIX)]
@@ -122,7 +169,9 @@ def consumer_filter(
             continue
         parameter = definition.parameters[name]
         if isinstance(parameter, ObjectTypeParameter):
-            records.append(builder.object_type(name, given))
+            keys = builder.object_type_keys(name, given)
+            returnable &= set(keys)
+            records.append(lambda entity, keys=keys: entity.object_type_key.in_(keys))
         elif isinstance(parameter, AncestorParameter):
             records.append(builder.ancestor(parameter, given))
         elif isinstance(parameter, RelatedParameter):
@@ -141,12 +190,40 @@ def consumer_filter(
             target_item,
             *(item for item in limits.get(target.projection, []) if item is not replaced),
         ]
+    dated = dated_types(model, definition) if as_of is not None else frozenset()
+    if as_of is not None:
+        records.append(_effective(model, source, dated, as_of))
     return ConsumerFilter(
         records=tuple(records),
         limits={name: _all(predicates) for name, predicates in limits.items()},
         scoring={name: _all(predicates) for name, predicates in scoring.items()},
         target=target,
+        as_of=as_of,
+        dated=dated,
+        returnable=frozenset(returnable),
+        as_of_applied=tuple(sorted(definition.objectTypes[key].publicName for key in dated & returnable)),
     )
+
+
+def _effective(model: EngineModel, source: ConsumerSource, dated: frozenset[str], as_of: date) -> Predicate:
+    """Records of a dated type effective on ``as_of`` by that type's period; records of other types
+    pass (C-D14). Each period's checks hold the type test inside them, so the predicate is an AND of
+    ``NOT EXISTS`` that PostgreSQL plans as anti-joins; an OR over the types made them per-row
+    subqueries: a dated list's total took 1.2 s at full volume, now 150 ms (C16). Each period reads a
+    fresh alias of the source's values, so its subqueries never correlate with a values table the
+    enclosing statement reads."""
+
+    def predicate(entity: Any) -> Any:
+        checks = []
+        for key in sorted(dated):
+            object_type = model.object_type(key)
+            assert object_type is not None and object_type.effectivePeriod is not None
+            values = source.value_alias()
+            match = (values.object_id == entity.id, entity.object_type_key == key)
+            checks.append(effective_on(values, match, object_type.effectivePeriod, as_of))
+        return and_(*checks) if checks else true()
+
+    return predicate
 
 
 def _all(predicates: list[Predicate]) -> Predicate:
@@ -162,7 +239,7 @@ class _Builder:
         self.definition = definition
         self.source = source
 
-    def object_type(self, parameter: str, names: Sequence[str]) -> Predicate:
+    def object_type_keys(self, parameter: str, names: Sequence[str]) -> list[str]:
         by_name = {item.publicName: key for key, item in self.definition.objectTypes.items()}
         unknown = [name for name in names if name not in by_name]
         if unknown:
@@ -173,8 +250,7 @@ class _Builder:
                 f"Unknown object type '{unknown[0]}'; this API exposes {', '.join(public)}",
                 {"objectTypes": unknown, "publicNames": public, "path": f"/query/{parameter}"},
             )
-        keys = sorted({by_name[name] for name in names})
-        return lambda entity: entity.object_type_key.in_(keys)
+        return sorted({by_name[name] for name in names})
 
     def ancestor(self, parameter: AncestorParameter, values: Sequence[str]) -> Predicate:
         starts = self.candidates(parameter.objectTypes, parameter.matchFields, values)

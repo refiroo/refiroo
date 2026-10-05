@@ -21,7 +21,7 @@ parameter or code missing here fails it.
 | `seek` | objects, lookup, relations, mapping coverage, relation matrix | J21.3 |
 | `search`, `sort`, `filter.<field>.<operator>` | per-type list, lookup (built-in fields), relations, coverage | J01, J01.3, J22, J22.3 |
 | `parentObjectId`, `topLevel` | per-type list, lookup, coverage, matrix | J01, J14 |
-| `asOf` | per-type list, query body; on the lookup it is refused (D21) | J23, J22.4 |
+| `asOf` | per-type list, query body; on the lookup it is refused (D21); on the consumer API: get by ID, lists, XREF, batch resolve's URL | J23, J22.4, J23.6–J23.8 |
 | `applicationKey`, `viewKey` | lookup, mapping and matrix reads | J01, J10, J16, J22.1 |
 | `relationTypeKey`, `fromObjectTypeKey`, `toObjectTypeKey`, `direction` | relations, edge list, mapping reads | J10, J13, J22.2, J22.3 |
 | `Idempotency-Key` header | `POST /batches` | J11.5, J24 |
@@ -92,10 +92,10 @@ deployment's, each answer checked against the API's own document.
 
 | Operation | Journeys |
 | --- | --- |
-| `GET /{consumerApi}/v{contractVersion}/objects/{id}` (`workspace`, `publication`, the definition's parameters, `to.{parameter}`) | J28, J28.1–J28.5, J28.9, J28.11–J28.14, J29.12, J29.14, J29.15 |
-| `GET /{consumerApi}/v{contractVersion}/lists/{listKey}` (`workspace`, `publication`, the list's parent parameter, the definition's parameters, `to.{parameter}`, `pageSize`, `cursor`, `position`, `from`, `seek`, `includeTotal`) | J28.6–J28.13, J29.12, J29.14 |
-| `GET /{consumerApi}/v{contractVersion}/xref` (`query`, `expect`, `workspace`, `publication`, the definition's parameters, `to.{parameter}`, `pageSize`, `cursor`, `position`, `from`) | J29, J29.1–J29.7, J29.11, J29.12, J29.14, J29.15 |
-| `POST /{consumerApi}/v{contractVersion}/resolve` (`workspace`, `publication`; the body's `defaults` and `items`, each with `ref`, `query` or `id`, the definition's parameters and `to.{parameter}`) | J28.13, J28.14, J29.8–J29.10, J29.13, J29.14, J29.15 |
+| `GET /{consumerApi}/v{contractVersion}/objects/{id}` (`workspace`, `publication`, `asOf`, the definition's parameters, `to.{parameter}`) | J28, J28.1–J28.5, J28.9, J28.11–J28.14, J29.12, J29.14, J29.15, J23.6, J23.8 |
+| `GET /{consumerApi}/v{contractVersion}/lists/{listKey}` (`workspace`, `publication`, `asOf`, the list's parent parameter, the definition's parameters, `to.{parameter}`, `pageSize`, `cursor`, `position`, `from`, `seek`, `includeTotal`) | J28.6–J28.13, J29.12, J29.14, J23.6, J23.8 |
+| `GET /{consumerApi}/v{contractVersion}/xref` (`query`, `expect`, `workspace`, `publication`, `asOf`, the definition's parameters, `to.{parameter}`, `pageSize`, `cursor`, `position`, `from`) | J29, J29.1–J29.7, J29.11, J29.12, J29.14, J29.15, J23.7, J23.8 |
+| `POST /{consumerApi}/v{contractVersion}/resolve` (`workspace`, `publication`, `asOf`; the body's `defaults` and `items`, each with `ref`, `query` or `id`, the definition's parameters and `to.{parameter}`) | J28.13, J28.14, J29.8–J29.10, J29.13, J29.14, J29.15, J23.7, J23.8 |
 | `GET /{consumerApi}/v{contractVersion}/publications` (`workspace`, `pageSize`, `cursor`, `position`, `from`, `includeTotal`) | J28.14 |
 | `GET /` (the API index: `pageSize`, `cursor`, `position`, `from`, `includeTotal`) | J20.3 |
 | `GET /{consumerApi}/v{contractVersion}/openapi.json` | J20.3, J20.4 |
@@ -119,7 +119,7 @@ documented nowhere; API.md documents them since H4c (D-4).
 | J08, J25 | `INVALID_MODEL`, `RELEASE_IDENTITY_CONFLICT`, `MODEL_MIGRATION_REQUIRED`, `MODEL_RELEASE_NOT_FOUND`, `MODEL_DRAFT_NOT_FOUND`, `UNSUPPORTED_SCHEMA_VERSION`, `MODEL_REGISTRY_REFRESH_FAILED`, `CONSUMER_CONTRACT_VERSION_REQUIRED`; diff findings `CONSUMER_API_REMOVED`, `CONSUMER_CONTRACT_VERSION_DECREASED` |
 | J08, J11, J24 | `MODEL_RELEASE_CHANGED` |
 | J19 | `WORKSPACE_ALREADY_EXISTS`, `DEFAULT_WORKSPACE_CANNOT_BE_RETIRED`, `WORKSPACE_IS_DEFAULT`, `WORKSPACE_HAS_PUBLICATIONS`, `WORKSPACE_NOT_EMPTY` |
-| J23 | `AS_OF_NOT_SUPPORTED`, `INVALID_EFFECTIVE_PERIOD` |
+| J23 | `AS_OF_NOT_SUPPORTED`, `INVALID_EFFECTIVE_PERIOD`; on the consumer API both answer `400`: `AS_OF_NOT_SUPPORTED` (J23.6, J23.7) and `INVALID_AS_OF` (J23.8) |
 | J26 | `FEED_POSITION_AHEAD`, `FEED_POSITION_EXPIRED` |
 | J28 | `CONSUMER_API_NOT_FOUND`, `CONTRACT_VERSION_NOT_FOUND`, `PARAMETER_NOT_SUPPORTED`, `LIST_NOT_FOUND`, `PARENT_NOT_FOUND`, `INVALID_PAGE_SIZE`, `INVALID_PAGE_PARAMETER`; on the consumer API `UNKNOWN_PARAMETER`, `UNKNOWN_OBJECT_TYPE` and the paging codes are `400` (J28.4, J28.8, J28.10), and an unknown or retired workspace `404 WORKSPACE_NOT_FOUND` (J28.3); a pinned read: `PUBLICATION_NOT_FOUND` (`404`: an unknown publication, another workspace's, `latest` with none current) and `PUBLICATION_CONTRACT_MISMATCH` (`409`) (J28.12, J28.13) |
 | J29 | `QUERY_REQUIRED`, `TOO_MANY_TERMS`, `QUERY_TOO_BROAD` (`test_consumer_xref_volume`), `INVALID_EXPECT`, `NO_MATCH`, `AMBIGUOUS_MATCH` (J29.3, J29.5, J29.6), `UNKNOWN_OBJECT_TYPE` (J29.6); batch resolve: each item's outcome carries the single read's code, plus `QUERY_OR_ID_REQUIRED`; the request is refused as `400 REQUEST_VALIDATION_ERROR` (a body of the wrong shape), `400 UNKNOWN_PARAMETER` or `PARAMETER_NOT_SUPPORTED` (`defaults`, the URL) and `413 BATCH_TOO_LARGE` (J29.10); crosswalk: `TARGET_NOT_FOUND`, `AMBIGUOUS_TARGET` (J29.11–J29.13), `MULTIPLE_TARGETS` and `UNKNOWN_PARAMETER` for a `to.` name (J29.14) |

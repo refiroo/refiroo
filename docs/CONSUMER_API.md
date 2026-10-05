@@ -512,9 +512,19 @@ model-declared effective period contains that date (Base 0.9 plan D6), across ev
 request. It never infers validity from an arbitrary date field:
 
 - a list or get by ID of a type with no declared period answers `400 AS_OF_NOT_SUPPORTED`, naming
-  the type (SC-11);
+  the type (SC-11); a get by ID of a dated record not effective that day answers
+  `404 OBJECT_NOT_FOUND`;
 - XREF across several types applies `asOf` to the types that declare a period and reports them in
-  `asOfApplied`; the other types are returned unfiltered (C-D14).
+  `asOfApplied`; the other types are returned unfiltered (C-D14). When none of the types it can
+  return declares a period, it answers `400 AS_OF_NOT_SUPPORTED`. Batch resolve answers each item as
+  its single read (C-D77);
+- only the objects a read returns are dated, not their projection items, ancestors, the records a
+  parameter matches or those that promote a score (C-D76);
+- lists, XREF pages and batch resolve carry `asOfApplied`, and every dated answer names the dated
+  types in the `RDM-As-Of-Applied` header (C-D78); a date that is not one calendar day is
+  `400 INVALID_AS_OF` (C-D79).
+
+_Delivered in C16 (2026-10-05)._
 
 Business validity (`asOf`), publication (`publication`) and change time (events) stay separate
 parameters and may be combined.
@@ -749,7 +759,7 @@ coordination is 0.11 work.
 | C13 | Event acceptance: the scenarios below, plus a bulk-volume delivery budget |
 | C14 | Batch resolve: `POST …/resolve`, by query and by ID, `defaults`, per-item outcomes, batch maximum, volume budget (C-D47–C-D53) — **delivered 2026-10-05** |
 | C15 | Crosswalk: `targetable` in the contract, `to.{parameter}` on XREF, get by ID, lists and batch resolve, `target`, `TARGET_NOT_FOUND`, `AMBIGUOUS_TARGET` and `MULTIPLE_TARGETS` (C-D54–C-D58) — **delivered 2026-10-05** |
-| C16 | `asOf` on every read, over the model's declared effective periods (Base 0.9 Track Q); `AS_OF_NOT_SUPPORTED`, `asOfApplied` |
+| C16 | `asOf` on every read, over the model's declared effective periods (Base 0.9 Track Q); `AS_OF_NOT_SUPPORTED`, `asOfApplied` (C-D76–C-D80) — **delivered 2026-10-05** |
 
 C1 comes first. C2 builds on C1. C3 and C4 can run in parallel after C2. C5 follows C4, C6 follows C3
 and C4, and C8 closes the read scope. C9 needs C2, because events are about consumer objects and
@@ -815,8 +825,8 @@ table under "Behavior the engine does not carry over" says otherwise:
 C-D1 decided 2026-09-29; C-D2–C-D16 accepted 2026-09-29 as recommended, with the notes below;
 C-D17–C-D20 raised by C1 and accepted 2026-09-30 as recommended; C-D21–C-D26 settled with the user
 for C2, C-D27–C-D33 for C3 and C-D34–C-D41 for C4, on 2026-10-04; C-D42–C-D46 for C5 and
-C-D47–C-D53 for C14, C-D54–C-D58 for C15, C-D59 for CN1, C-D60–C-D71 for C6 and C-D72–C-D75 for
-C8 on 2026-10-05.
+C-D47–C-D53 for C14, C-D54–C-D58 for C15, C-D59 for CN1, C-D60–C-D71 for C6, C-D72–C-D75 for C8 and
+C-D76–C-D80 for C16 on 2026-10-05.
 
 | # | Question | Decision |
 | --- | --- | --- |
@@ -895,3 +905,8 @@ C8 on 2026-10-05.
 | C-D73 | The reference's `objectType` inside projection items | **Decided 2026-10-05 (C8).** A projection field may read `objectType`, the related record's public type name, where the definition exposes every type the projection reaches; refused at the field otherwise. Adding it is compatible, removing it `version_required` |
 | C-D74 | The C8 volume budgets | **Decided 2026-10-05 (C8).** No new full-volume run: every consumer read was measured at full volume by its package and nothing on a read's path changed since C6a. The figures are collected in POSTGRESQL_BUDGETS §7 |
 | C-D75 | The parent's keys | **Decided 2026-10-05 (C8).** Found by the parity shape check: the reference's parent is `{objectType, name, code, masterId}`, the object's own names, while the engine keyed it by role (`id`). The parent's fields are keyed by the roles' output names, as the object's own fields; `objectType` stays. Flows look for a field on the object, then in `parent`, with one name |
+| C-D76 | Which records `asOf` dates | **Decided 2026-10-05 (C16).** The objects a read returns, and nothing they are found through or carry: projection items, the parent, `path` and `hierarchy`, the records a parameter matches and the records that promote an XREF score are read as without `asOf`, as the model query dates the queried records only (Base 0.9 D22). A consumer needing a projected record's validity outputs its period fields; a declaration dating projections can be added later without breaking this |
+| C-D77 | Refuse or filter, route by route | **Decided 2026-10-05 (C16).** A list of an undated type is `400 AS_OF_NOT_SUPPORTED`. Get by ID: an unknown record `404 OBJECT_NOT_FOUND`, a record of an undated type `400 AS_OF_NOT_SUPPORTED`, a dated record not effective `404 OBJECT_NOT_FOUND`. XREF: C-D14 over the types it can return (narrowed by an `objectType` parameter), `400 AS_OF_NOT_SUPPORTED` when none is dated. Batch resolve: `asOf` is the request's and each item answers as its single read. A pinned read dates by its publication's release. Details: `objectTypes` (public names) and `path` `/query/asOf` |
+| C-D78 | How a read says what was dated | **Decided 2026-10-05 (C16).** `asOfApplied` (the dated public names, sorted) in the list, XREF page and batch resolve bodies, and the `RDM-As-Of-Applied` header on every answer to a dated read, get by ID and `expect=one` included; neither without `asOf` |
+| C-D79 | A malformed date | **Decided 2026-10-05 (C16).** `400 INVALID_AS_OF` at `/query/asOf` for anything but one `YYYY-MM-DD` calendar date (a time, a zone, an impossible day, two values). In batch resolve `defaults` or an item, `asOf` is `PARAMETER_NOT_SUPPORTED`, as `publication` is |
+| C-D80 | The budget | **Decided 2026-10-05 (C16).** Measured once at full volume (the dated list live and pinned, a dated mixed XREF, a dated 1,000-item batch), recorded beside the undated figures, not tuned in C16 |

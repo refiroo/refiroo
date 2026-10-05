@@ -15,14 +15,15 @@ composition of every object the group found (C-D51). Nothing resolves item by it
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
+from datetime import date
 from typing import Any
 
 from sqlalchemy.orm import Session
 
 from ...errors import ApiError
 from ...models.schema import ConsumerApiDefinition, EngineModel
-from .consumer_objects import ConsumerObjects, object_not_found, one_target
-from .consumer_parameters import Target, consumer_filter
+from .consumer_objects import ConsumerObjects, object_not_found, one_target, undated_refusal
+from .consumer_parameters import ConsumerFilter, Target, as_of_not_supported, consumer_filter
 from .consumer_source import ConsumerSource
 from .consumer_xref import Found, resolve_lookups
 
@@ -64,10 +65,14 @@ def read_resolve(
     definition: ConsumerApiDefinition,
     source: ConsumerSource,
     items: Sequence[ResolveItem],
+    as_of: date | None = None,
 ) -> dict[str, Any]:
     """Every item's outcome, in item order, with the workspace and publication read and the outcomes
-    counted."""
+    counted. The request's ``as_of`` applies to every item as to its single read (C-D77): a lookup
+    whose types have no period, and a by-ID record of an undated type, are rejected with
+    ``AS_OF_NOT_SUPPORTED``; ``asOfApplied`` names the dated types the items could return."""
     outcomes: dict[int, dict[str, Any]] = {}
+    applied: set[str] = set()
     groups: dict[tuple[tuple[str, tuple[str, ...]], ...], list[ResolveItem]] = {}
     for item in items:
         if item.refused is not None:
@@ -78,11 +83,16 @@ def read_resolve(
     composer = ConsumerObjects(model, definition)
     for members in groups.values():
         try:
-            narrowed = consumer_filter(session, model, definition, source, members[0].parameters)
+            narrowed = consumer_filter(session, model, definition, source, members[0].parameters, as_of)
         except ApiError as error:
             for item in members:
                 outcomes[item.index] = _failed(item, item_error(error, item.pointer((error.details or {}).get("path"))))
             continue
+        if as_of is not None:
+            applied.update(narrowed.as_of_applied)
+            members = _dated_members(session, definition, source, members, narrowed, outcomes)
+            if not members:
+                continue
         # Items sending the same terms in one group are one lookup, resolved once (C14a): a file of
         # codes repeats its values.
         distinct = list(dict.fromkeys(_lookup(item) for item in members if item.terms is not None))
@@ -121,8 +131,35 @@ def read_resolve(
         "items": ordered,
         "workspace": source.workspace_key,
         "publication": source.publication_id,
+        **({"asOfApplied": sorted(applied)} if as_of is not None else {}),
         "counts": counts,
     }
+
+
+def _dated_members(
+    session: Session,
+    definition: ConsumerApiDefinition,
+    source: ConsumerSource,
+    members: list[ResolveItem],
+    narrowed: ConsumerFilter,
+    outcomes: dict[int, dict[str, Any]],
+) -> list[ResolveItem]:
+    """The group's items a dated read answers; the others are rejected as their single reads are:
+    a lookup when no type it can return is dated, a by-ID item naming a record of an undated type
+    (C-D77)."""
+    undated = undated_refusal(
+        session, definition, source, [item.object_id for item in members if item.object_id is not None], narrowed
+    )
+    kept = []
+    for item in members:
+        if item.terms is not None and not narrowed.as_of_applied:
+            names = [definition.objectTypes[key].publicName for key in narrowed.returnable]
+            outcomes[item.index] = _failed(item, item_error(as_of_not_supported(names), f"/items/{item.index}"))
+        elif item.object_id is not None and item.object_id in undated:
+            outcomes[item.index] = _failed(item, item_error(undated[item.object_id], f"/items/{item.index}/id"))
+        else:
+            kept.append(item)
+    return kept
 
 
 def _lookup(item: ResolveItem) -> tuple[str, ...]:

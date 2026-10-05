@@ -5,14 +5,17 @@ checks the request's parameters against the names it serves, resolves the worksp
 live data, or with ``publication`` one of its publications (C6a), through
 ``engine/reads/consumer_objects``, ``consumer_lists``, ``consumer_xref`` and ``consumer_resolve``.
 Every response names the workspace it read in the ``RDM-Workspace`` header (C-D23), and a pinned
-read's the publication in ``RDM-Publication`` (C-D63). A ``GET`` answers an ``ETag`` and honours
+read's the publication in ``RDM-Publication`` (C-D63), and a read dated by ``asOf`` the dated types
+in ``RDM-As-Of-Applied`` (C16, C-D78). A ``GET`` answers an ``ETag`` and honours
 ``If-None-Match`` (C-D65). The routes stay out of the management OpenAPI document: each definition
 serves its own at ``…/openapi.json``, and ``GET /api/consumer`` lists them (C6b, C-D69).
 """
 
 import json
+import re
 from collections.abc import Callable, Iterator
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
+from datetime import date
 from typing import Annotated, Any
 from urllib.parse import unquote_plus
 
@@ -41,13 +44,16 @@ from .etag import entity_tag, none_match
 PREFIX = "/api/consumer"
 WORKSPACE_HEADER = "RDM-Workspace"
 PUBLICATION_HEADER = "RDM-Publication"
+AS_OF_HEADER = "RDM-As-Of-Applied"
+# A business date: a calendar day, written YYYY-MM-DD and nothing else (C-D79).
+_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 # The value of ``publication`` that reads the workspace's active publication (C-D61).
 LATEST = "latest"
 # The names that select a list's page (ADR-030, C-D30).
 _PAGING = frozenset({"pageSize", "cursor", "position", "from", "seek", "includeTotal"})
 # The names each route serves besides the definition's parameters. XREF pages by score, which no
 # caller seeks, and always counts its total (C-D39); with expect=one it reads no page (C-D40).
-_OBJECT = frozenset({"workspace", "publication"})
+_OBJECT = frozenset({"workspace", "publication", "asOf"})
 _LIST = _OBJECT | _PAGING
 _XREF_ONE = _OBJECT | {"query", "expect"}
 _XREF = _XREF_ONE | (_PAGING - {"seek", "includeTotal"})
@@ -96,9 +102,15 @@ class _Read:
     source: ConsumerSource
     parameters: _Parameters
     tag: str
+    # The filter, once built: the answer's ``RDM-As-Of-Applied`` header reads it.
+    built: dict[str, Any] = field(default_factory=dict, compare=False)
 
     def narrowed(self, session: Session) -> Any:
-        return consumer_filter(session, self.model, self.definition, self.source, self.parameters.definition)
+        if "filter" not in self.built:
+            self.built["filter"] = consumer_filter(
+                session, self.model, self.definition, self.source, self.parameters.definition, self.parameters.as_of
+            )
+        return self.built["filter"]
 
 
 def _reading(
@@ -199,6 +211,7 @@ def get_object(
         lambda read: read_consumer_object(
             session, read.model, read.definition, read.source, object_id, read.narrowed(session)
         ),
+        dated=lambda _read, body: [body["objectType"]],
     )
 
 
@@ -276,6 +289,7 @@ def get_xref(
             page=page,
             page_size=page_size,
         ),
+        dated=lambda read, body: body.get("asOfApplied", list(read.built["filter"].as_of_applied)),
     )
 
 
@@ -307,6 +321,7 @@ def post_resolve(
             read.definition,
             read.source,
             _resolve_items(body, read.definition, request.app.state.consumer_resolve_max_items),
+            read.parameters.as_of,
         ),
         tagged=False,
     )
@@ -620,10 +635,13 @@ def _answer(
     read: Callable[[_Read], dict[str, Any]],
     *,
     tagged: bool = True,
+    dated: Callable[[_Read, dict[str, Any]], list[str]] | None = None,
 ) -> dict[str, Any] | Response:
     """The read's answer, naming the workspace and a pinned read's publication in the headers, on a
     refusal as well. A tagged read answers its ``ETag``, or ``304`` with no body when the request's
-    ``If-None-Match`` names it (C-D65)."""
+    ``If-None-Match`` names it (C-D65). A read dated by ``asOf`` names the dated types in
+    ``RDM-As-Of-Applied``: ``dated`` reads them from the read and its body, by default the body's
+    ``asOfApplied`` (C-D78)."""
     headers = {WORKSPACE_HEADER: workspace.key}
     try:
         current = reading()
@@ -635,6 +653,9 @@ def _answer(
             exc.status = 400
         exc.headers = {**(exc.headers or {}), **headers}
         raise
+    if current.parameters.as_of is not None:
+        names = dated(current, body) if dated is not None else body.get("asOfApplied", [])
+        headers[AS_OF_HEADER] = ", ".join(names)
     if tagged:
         headers["ETag"] = current.tag
         if none_match(request.headers.get("if-none-match"), current.tag):
@@ -653,6 +674,8 @@ class _Parameters:
     # The definition parameters the route applies, by name, with a ``to.`` target among them.
     definition: dict[str, list[str]]
     parents: list[str]
+    # The business date of ``asOf``, on a route that serves it (C16).
+    as_of: date | None = None
 
     @classmethod
     def check(
@@ -707,11 +730,29 @@ class _Parameters:
                 if name in applied and (name in definition.parameters or _is_target(name)) and name != parent
             },
             parents=list(dict.fromkeys(listed[parent])) if parent in raw else [],
+            as_of=_as_of(raw.get("asOf"), listed.get("asOf")) if "asOf" in raw else None,
         )
 
     def single(self, name: str) -> str | None:
         values = self.raw.get(name)
         return values[-1] if values else None
+
+
+def _as_of(raw: list[str] | None, listed: list[str] | None) -> date:
+    """``asOf`` as a date: one calendar day, ``YYYY-MM-DD`` (C-D79). A time, a zone, an impossible
+    day or several values are ``400 INVALID_AS_OF``: a read answers for one date."""
+    values = listed or raw or []
+    if len(values) == 1 and _DATE.match(values[0]):
+        try:
+            return date.fromisoformat(values[0])
+        except ValueError:
+            pass
+    raise api_error(
+        400,
+        "INVALID_AS_OF",
+        "asOf must be one calendar date, written YYYY-MM-DD",
+        {"path": "/query/asOf"},
+    )
 
 
 def _listed_values(query_string: bytes) -> dict[str, list[str]]:

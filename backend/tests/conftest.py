@@ -189,7 +189,7 @@ JOURNEY_GROUPS: dict[str, tuple[str, ...]] = {
     "J20": ("contract", "model"),
     "J21": ("queries",),
     "J22": ("queries",),
-    "J23": ("queries",),
+    "J23": ("queries", "consumer"),
     "J24": ("jobs",),
     "J25": ("consumer", "model"),
     "J26": ("feed", "records", "change_sets"),

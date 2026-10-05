@@ -1,15 +1,27 @@
 """J23 — Answer a business-date question (USER_JOURNEYS.md).
 
 E declares an effective period over two date attributes (start inclusive, end exclusive); F binds
-the same attributes and declares none. Each test creates the records it asks about.
+the same attributes and declares none. Each test creates the records it asks about. J23.6–J23.8 ask
+through the consumer API (Base 0.9 C16), where ``Capi`` exposes E as ``Rate`` and F as ``Fee``.
 """
 
 import copy
 
 import pytest
-from scenario import W1, ok, refused
+from scenario import (
+    W1,
+    consumer_list,
+    consumer_object,
+    consumer_publications,
+    consumer_resolve,
+    consumer_xref,
+    ok,
+    refused,
+)
 
 DATED = ("E", "E.from", "E.to", "K.code", "F")
+CONSUMER = (*DATED, "R", "Capi")
+APPLIED = "RDM-As-Of-Applied"
 
 
 def _dated(world, name, start=None, end=None, **kwargs):
@@ -224,6 +236,9 @@ def test_a_model_adding_or_removing_a_period(world):
 
     e_type = next(t for t in model["objectTypes"] if t["key"] == world.key("E"))
     del e_type["effectivePeriod"]
+    # Capi exposes E: removing its period is a consumer contract break (Q4), so a new version.
+    for definition in model.get("consumerApis", []):
+        definition["contractVersion"] += 1
     model["release"]["version"] += "-undated"
     ok(world.activate(world.install(model)["id"]))
     refused(_list(world, asOf="2026-01-15"), 422, "AS_OF_NOT_SUPPORTED")
@@ -233,3 +248,181 @@ def test_a_model_adding_or_removing_a_period(world):
         "2026-02-01",
     )
     assert after["version"] == kept["version"]
+
+
+# --- the consumer API (C16) -----------------------------------------------------------------------
+
+
+def _consumer_rates(world):
+    """J23's replacement pair, and a transitional rate overlapping the boundary."""
+    records = _replacement_pair(world)
+    records["transitional"] = _dated(world, "Transitional rate", "2026-06-15", "2026-07-15")
+    return records
+
+
+def _named(world, items):
+    return sorted(item[world.key("Capi.name")] for item in items)
+
+
+def _rates_walk(world, **params):
+    """Every page of the consumer list ``rates`` at one record a page, by its cursors, each page
+    naming the dated type."""
+    names, cursor = [], None
+    while True:
+        response = consumer_list(world, world.key("Capi.rates"), pageSize=1, cursor=cursor, **params)
+        page = ok(response)
+        assert page["asOfApplied"] == [world.key("Capi.E")]
+        assert response.headers[APPLIED] == world.key("Capi.E")
+        names += [item[world.key("Capi.name")] for item in page["items"]]
+        cursor = page["nextCursor"]
+        if not cursor:
+            return sorted(names)
+
+
+@pytest.mark.journey("J23.6")
+@pytest.mark.structures(*CONSUMER)
+def test_a_consumer_list_on_a_date_page_by_page(world):
+    """When the consumer list of the dated type is read for a date one record a page, on either
+    side of the boundary, and a cursor is reused with another date or none. Then every page answers
+    for that date and names the dated type; the reused cursors are refused; the list of the undated
+    type refuses a date, naming it."""
+    _consumer_rates(world)
+    assert _rates_walk(world, asOf="2026-06-30") == ["Old rate", "Standing rate", "Transitional rate"]
+    assert _rates_walk(world, asOf="2026-07-01") == ["New rate", "Standing rate", "Transitional rate"]
+
+    rates = world.key("Capi.rates")
+    cursor = ok(consumer_list(world, rates, pageSize=1, asOf="2026-06-30"))["nextCursor"]
+    refused(consumer_list(world, rates, pageSize=1, cursor=cursor, asOf="2026-07-02"), 400, "INVALID_CURSOR")
+    refused(consumer_list(world, rates, pageSize=1, cursor=cursor), 400, "INVALID_CURSOR")
+    undated = ok(consumer_list(world, rates, pageSize=100))
+    assert "asOfApplied" not in undated and len(undated["items"]) == 5
+
+    error = refused(consumer_list(world, world.key("Capi.fees"), asOf="2026-06-30"), 400, "AS_OF_NOT_SUPPORTED")
+    assert error["details"] == {"objectTypes": [world.key("Capi.F")], "path": "/query/asOf"}
+
+
+@pytest.mark.journey("J23.6")
+@pytest.mark.structures(*CONSUMER)
+def test_a_consumer_object_on_a_date(world):
+    """When records are read by ID with a date and without. Then a dated record answers on a day its
+    period holds and is not found on another; a record of the undated type refuses the date; an
+    unknown ID is not found; without a date every record answers and no header names a dated type."""
+    records = _consumer_rates(world)
+    fee = _dated(world, "Flat rate", structure="F")
+    old = records["old"]["id"]
+
+    response = consumer_object(world, old, asOf="2026-06-30")
+    assert ok(response)[world.key("Capi.name")] == "Old rate"
+    assert response.headers[APPLIED] == world.key("Capi.E")
+    refused(consumer_object(world, old, asOf="2026-07-01"), 404, "OBJECT_NOT_FOUND")
+    error = refused(consumer_object(world, fee["id"], asOf="2026-06-30"), 400, "AS_OF_NOT_SUPPORTED")
+    assert error["details"]["objectTypes"] == [world.key("Capi.F")]
+    refused(consumer_object(world, "no-such-record", asOf="2026-06-30"), 404, "OBJECT_NOT_FOUND")
+
+    for record in (records["old"], records["new"], records["future"], fee):
+        response = consumer_object(world, record["id"])
+        ok(response)
+        assert APPLIED not in response.headers
+
+
+@pytest.mark.journey("J23.6", "J23.3")
+@pytest.mark.structures(*CONSUMER)
+def test_a_consumer_list_on_a_date_in_a_publication(world):
+    """Given the rates published, then the new rate's start moved live a month later. When the list
+    is read for a date between, pinned to the publication and live. Then each answers by its own
+    values."""
+    records = _consumer_rates(world)
+    world.publish(world.change_set())
+    new = records["new"]
+    ok(world.update("E", new["id"], new["version"], values={"E.from": "2026-08-01"}))
+
+    rates = world.key("Capi.rates")
+    pinned = ok(consumer_list(world, rates, publication="latest", asOf="2026-07-15", pageSize=100))
+    live = ok(consumer_list(world, rates, asOf="2026-07-15", pageSize=100))
+    assert "New rate" in _named(world, pinned["items"])
+    assert "New rate" not in _named(world, live["items"])
+
+
+@pytest.mark.journey("J23.7")
+@pytest.mark.structures(*CONSUMER)
+def test_a_lookup_across_dated_and_undated_types(world):
+    """Given the rates, a fee and a ledger all named with "rate". When looked up for a date. Then
+    the rates are filtered by their period, the fee and the ledger are not, scores are those without
+    the date, and the answer names the dated type; narrowed to the ledgers alone the date is
+    refused; with expect=one the replacement is not found before its first day and found on it."""
+    _consumer_rates(world)
+    _dated(world, "Flat rate", structure="F")
+    world.made("R", "Rate ledger")
+
+    plain = {item[world.key("Capi.name")]: item["matchScore"] for item in ok(consumer_xref(world, query="rate"))["results"]}
+    response = consumer_xref(world, query="rate", asOf="2026-06-30")
+    dated = ok(response)
+    found = {item[world.key("Capi.name")]: item["matchScore"] for item in dated["results"]}
+    assert sorted(found) == ["Flat rate", "Old rate", "Rate ledger", "Standing rate", "Transitional rate"]
+    assert all(found[name] == plain[name] for name in found)
+    assert dated["asOfApplied"] == [world.key("Capi.E")]
+    assert response.headers[APPLIED] == world.key("Capi.E")
+
+    error = refused(
+        consumer_xref(world, query="rate", asOf="2026-06-30", **{world.key("Capi.kind"): world.key("Capi.R")}),
+        400,
+        "AS_OF_NOT_SUPPORTED",
+    )
+    assert error["details"]["objectTypes"] == [world.key("Capi.R")]
+
+    refused(consumer_xref(world, query="New rate", expect="one", asOf="2026-06-30"), 404, "NO_MATCH")
+    response = consumer_xref(world, query="New rate", expect="one", asOf="2026-07-01")
+    assert ok(response)[world.key("Capi.name")] == "New rate"
+    assert response.headers[APPLIED] == world.key("Capi.E")
+
+
+@pytest.mark.journey("J23.7")
+@pytest.mark.structures(*CONSUMER)
+def test_a_batch_resolved_on_a_date(world):
+    """When a batch is resolved for a date: the old and the new rate by name, the fee and the old
+    rate by ID. Then found, not found, rejected for the undated fee, found; each outcome is its
+    single read's answer, and the batch names the dated type."""
+    records = _consumer_rates(world)
+    fee = _dated(world, "Flat rate", structure="F")
+    old = records["old"]["id"]
+    day = "2026-06-30"
+    items = [{"query": "Old rate"}, {"query": "New rate"}, {"id": fee["id"]}, {"id": old}]
+    response = consumer_resolve(world, {"items": items}, asOf=day)
+    answer = ok(response)
+    assert [item["status"] for item in answer["items"]] == ["found", "not_found", "rejected", "found"]
+    assert answer["asOfApplied"] == [world.key("Capi.E")]
+    assert response.headers[APPLIED] == world.key("Capi.E")
+    assert answer["items"][0]["object"] == ok(consumer_xref(world, query="Old rate", expect="one", asOf=day))
+    single = refused(consumer_xref(world, query="New rate", expect="one", asOf=day), 404, "NO_MATCH")
+    assert answer["items"][1]["error"] == single
+    rejected = answer["items"][2]["error"]
+    assert rejected["code"] == "AS_OF_NOT_SUPPORTED"
+    assert rejected["details"] == {"objectTypes": [world.key("Capi.F")], "pointer": "/items/2/id"}
+    assert answer["items"][3]["object"] == ok(consumer_object(world, old, asOf=day))
+
+
+@pytest.mark.journey("J23.8")
+@pytest.mark.structures(*CONSUMER)
+def test_consumer_date_refusals(world):
+    """When a date is a time, an impossible day or two days, on each read; a date on the publications
+    list; and a date inside a batch item or its defaults. Then INVALID_AS_OF at the date, a date the
+    publications list does not take, the item rejected and the request refused."""
+    record = _dated(world, "Old rate", end="2026-07-01")
+    reads = (
+        lambda day: consumer_list(world, world.key("Capi.rates"), asOf=day),
+        lambda day: consumer_object(world, record["id"], asOf=day),
+        lambda day: consumer_xref(world, query="rate", asOf=day),
+        lambda day: consumer_resolve(world, {"items": [{"query": "rate"}]}, asOf=day),
+    )
+    for read in reads:
+        for day in ("2026-06-30T00:00", "2026-02-30", "2026-06-30,2026-07-01"):
+            error = refused(read(day), 400, "INVALID_AS_OF")
+            assert error["details"]["path"] == "/query/asOf"
+    refused(consumer_publications(world, asOf="2026-06-30"), 400, "PARAMETER_NOT_SUPPORTED")
+
+    answer = ok(consumer_resolve(world, {"items": [{"query": "Old rate", "asOf": "2026-06-30"}]}))
+    [item] = answer["items"]
+    assert item["status"] == "rejected" and item["error"]["code"] == "PARAMETER_NOT_SUPPORTED"
+    assert item["error"]["details"]["pointer"] == "/items/0/asOf"
+    body = {"defaults": {"asOf": "2026-06-30"}, "items": [{"query": "Old rate"}]}
+    refused(consumer_resolve(world, body), 400, "PARAMETER_NOT_SUPPORTED")

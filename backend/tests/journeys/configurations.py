@@ -44,8 +44,8 @@ Structures:
   ``code`` (``R2.u``, then ``R.u``), ``name``, ``active`` (``R.b``, default true), ``R.n`` (default
   50) and ``R.dt``, ``parent``, ``path`` and ``hierarchy``; projections ``B11`` outgoing (one),
   ``Bown`` outgoing with ``ancestor:G.name`` (many) and ``Bscope`` outgoing (many); the lists
-  ``all`` (``R``, sorted by ``R.n``), ``entries`` (``R2`` under ``R``) and ``permits`` (``D`` under
-  ``G``); the parameters ``container`` (``ancestor``, ``M`` by name), ``permit`` (``projection``
+  ``all`` (``R``, sorted by ``R.n``), ``entries`` (``R2`` under ``R``), ``permits`` (``D`` under
+  ``G``), and ``rates`` and ``fees`` over ``E`` (dated) and ``F`` (not), also exposed (J23, C16); the parameters ``container`` (``ancestor``, ``M`` by name), ``permit`` (``projection``
   over ``Bown`` by ``ancestor:G.name``, ``requireMatch``, ``targetable``), ``token`` (``related``, ``K`` by name
   through ``B11``), ``peer`` (``related``, ``R`` by name through ``self`` and the shared
   ``Bscope``), ``kind`` (``objectType``) and ``watch`` (``projection`` over ``Bscope`` by
@@ -663,11 +663,15 @@ def _consumer_names(variant: str) -> dict[str, str]:
         "Capi.peer": "peer",
         "Capi.kind": "kind",
         "Capi.watch": "watchRegion",
+        "Capi.E": "Rate",
+        "Capi.F": "Fee",
+        "Capi.rates": "rates",
+        "Capi.fees": "fees",
     }
     if variant == "a":
         return a
     # The API key and list keys appear in URLs, so B spells them in lowercase and hyphens too.
-    in_url = {"Capi", "Capi.all", "Capi.entries", "Capi.permits"}
+    in_url = {"Capi", "Capi.all", "Capi.entries", "Capi.permits", "Capi.rates", "Capi.fees"}
     return {
         structure: (
             ("x7-registry" if structure == "Capi" else f"x7-{name}")
@@ -679,7 +683,8 @@ def _consumer_names(variant: str) -> dict[str, str]:
 
 
 def _consumer_api(variant: str, k: dict[str, str]) -> dict[str, Any]:
-    """``Capi``: a consumer API exposing R, R2 and D, with lists and parameters (J28)."""
+    """``Capi``: a consumer API exposing R, R2 and D, with lists and parameters (J28), and E and F,
+    one dated and one not (J23)."""
     n = _consumer_names(variant)
     return {
         "key": n["Capi"],
@@ -689,6 +694,8 @@ def _consumer_api(variant: str, k: dict[str, str]) -> dict[str, Any]:
             k["R"]: {"publicName": n["Capi.R"]},
             k["R2"]: {"publicName": n["Capi.R2"]},
             k["D"]: {"publicName": n["Capi.D"]},
+            k["E"]: {"publicName": n["Capi.E"]},
+            k["F"]: {"publicName": n["Capi.F"]},
         },
         "object": {
             "id": {"output": n["Capi.id"], "source": ["id"]},
@@ -792,6 +799,8 @@ def _consumer_api(variant: str, k: dict[str, str]) -> dict[str, Any]:
                 "objectType": k["D"],
                 "parentParameter": {"name": n["Capi.permits.parent"], "objectTypes": [k["G"]]},
             },
+            {"key": n["Capi.rates"], "objectType": k["E"]},
+            {"key": n["Capi.fees"], "objectType": k["F"]},
         ],
     }
 

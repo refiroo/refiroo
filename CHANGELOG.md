@@ -8,6 +8,14 @@ All notable changes to this project are documented in this file. The format foll
 
 ### Added
 
+- Base 0.9 C16: business dates on the consumer API. `asOf=YYYY-MM-DD` on get by ID, lists, XREF and
+  batch resolve keeps the records effective that day by their type's declared effective period, live
+  or pinned to a publication. Types without a period are left unfiltered in a lookup and refused as
+  `400 AS_OF_NOT_SUPPORTED` on a list or record; a malformed date is `400 INVALID_AS_OF`. Only the
+  returned records are dated, not projection items or ancestors (C-D76). Lists, XREF pages and batch
+  resolve carry `asOfApplied`, and every dated answer the `RDM-As-Of-Applied` header (C-D78). Each
+  API's OpenAPI document declares `asOf` where it applies. SC-11 passes through the consumer API.
+
 - Base 0.9 C8: consumer API parity acceptance. A test-only fixture shaped like the reference
   deployment (the starter with locations, availability, durations and a one-to-one self relation)
   and CONSUMER_API's definition written out answer the parity scenarios, each answer validated

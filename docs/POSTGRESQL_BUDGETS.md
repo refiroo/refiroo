@@ -476,6 +476,10 @@ counts at two sizes (`test_consumer_list_volume`, `test_consumer_xref_volume`).
 | XREF: a term in every item, `QUERY_TOO_BROAD` (a refusal) | **132.5 ms** · 3 · 3 | **161.9 ms** · 5 · 5 | C6a |
 | Batch resolve: 1,000 identifiers (budget 1 s) | 816.5 ms · 7 · 3 | — | C14 |
 | Batch resolve: 1,000 items over three parameter sets (budget 1 s) | 451.2 ms · 18 · 3 | — | C14 |
+| List: dated (`asOf`), first page with `includeTotal` | **192.3 ms** · 12 · 24 | **201.4 ms** · 14 · 5 | C16 |
+| List: dated, position jump to the middle | **204.1 ms** · 11 · 24 | **231.9 ms** · 13 · 5 | C16 |
+| XREF: a group's code, dated (10 a page) | 72.3 ms · 9 · 3 | 85.8 ms · 11 · 5 | C16 |
+| Batch resolve: 1,000 identifiers, dated | **2,224.9 ms** · 10 · 3 | — | C16 |
 
 Batch resolve shapes outside the budget, recorded in C14: a tenth of the identifiers a group code
 1,500 items cite (1.7 s), three sets regardless of fit (4.0 s), 1,000 contains-only terms (15.4 s)
@@ -489,5 +493,10 @@ C6a's run also measured batch resolve, live only, and did not record it separate
 - **The ancestor filter with a total, pinned** (120.2 ms; 95.9 ms live): it counts 20,000 matches
   over the publication's rows. Not investigated; the shape of E2 and E8 (an exact total over a large
   result).
+- **The dated lists** (192–232 ms, C16): they count or skip 75,000 dated records, twice the undated
+  read; the shape of [E8](#e8-dated-totals-and-change-set-dated-pages-0-9-t1). The C16 predicate is
+  an AND of `NOT EXISTS` so it plans as anti-joins; an OR over the types took 1.3–1.8 s.
+- **The dated batch** (2.2 s, C16): identifiers not effective on the date lose their exact match, so
+  exact-first (C-D52) reads their contains matches; C14's "parameters filtering items out" shape.
 - **A term in every item** (132.5 and 161.9 ms): the cost of refusing it, which joins all 100,000
   items before the 10,000-match limit refuses (C-D37). It answers `400`, not a page.

@@ -261,7 +261,7 @@ def test_a_consumer_apis_document(world):
     validate_openapi(document)
     assert document["openapi"].startswith("3.1")
     assert (document["info"]["title"], document["info"]["version"]) == ("Capi", "1")
-    lists = [world.key(f"Capi.{name}") for name in ("all", "entries", "permits")]
+    lists = [world.key(f"Capi.{name}") for name in ("all", "entries", "permits", "rates", "fees")]
     assert set(document["paths"]) == {
         f"{base}/xref",
         f"{base}/objects/{{id}}",

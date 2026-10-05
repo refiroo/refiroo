@@ -2,7 +2,8 @@
 
 A first page of every item by rank, the next cursor page, a position jump to the middle, the items
 under the heavy group (by parent ID) and the items below it through an ancestor parameter with a
-total, live and pinned to the seed's publication (C6a), must each execute the same statements when the dataset grows fourfold, and load at most
+total, live and pinned to the seed's publication (C6a), and the first page and the position jump dated
+by ``asOf`` (C16), must each execute the same statements when the dataset grows fourfold, and load at most
 ``ROWS_PER_LISTED_ROW`` ORM rows per listed row. Wall times at full volume come from
 ``volume_baseline.py --only-consumer`` and are recorded in the Base 0.9 plan.
 """
@@ -34,4 +35,4 @@ def test_consumer_lists_hold_the_budgets_as_the_data_grows(measured):
         if max(small.rows_loaded, other.rows_loaded) > ROWS_PER_LISTED_ROW * PAGE_SIZE:
             failures.append(f"{small.scenario}: rows {small.rows_loaded} → {other.rows_loaded}")
     assert not failures
-    assert len(measured["small"]) == 10
+    assert len(measured["small"]) == 14

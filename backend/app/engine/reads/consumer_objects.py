@@ -35,7 +35,7 @@ from ..model.consumer_contract import (
     split_ancestor_reference,
 )
 from ..records.values import VALUE_COLUMNS, canonical_decimal, stored_json_value
-from .consumer_parameters import NO_FILTER, ConsumerFilter, Predicate, Target
+from .consumer_parameters import NO_FILTER, ConsumerFilter, Predicate, Target, as_of_not_supported
 from .consumer_source import ConsumerSource
 
 # The targets an ambiguous crosswalk names, as many as an ambiguous match's candidates (C-D55).
@@ -432,7 +432,12 @@ def read_consumer_object(
     """Get by ID: the shared object of the record with this object ID (C-D24), or
     ``404 OBJECT_NOT_FOUND`` for an unknown or deleted record, one in another workspace, one of a
     type the definition does not expose, or one the parameters filter out (C-D31); with a crosswalk
-    target, its single item (``one_target``)."""
+    target, its single item (``one_target``). With ``asOf``, a record of a type without a period is
+    ``400 AS_OF_NOT_SUPPORTED`` and a dated one not effective that day ``404`` (C-D77)."""
+    if narrowed.as_of is not None:
+        refusal = undated_refusal(session, definition, source, [object_id], narrowed).get(object_id)
+        if refusal is not None:
+            raise refusal
     composed = ConsumerObjects(model, definition).compose(session, source, [object_id], narrowed)
     if object_id not in composed:
         raise object_not_found(object_id)
@@ -469,6 +474,31 @@ def one_target(body: dict[str, Any], object_id: str, target: Target | None) -> d
             {**details, "count": len(items), "targets": items[:AMBIGUOUS_TARGETS]},
         )
     return {**body, "target": items[0]}
+
+
+def undated_refusal(
+    session: Session,
+    definition: ConsumerApiDefinition,
+    source: ConsumerSource,
+    object_ids: Sequence[str],
+    narrowed: ConsumerFilter,
+) -> dict[str, ApiError]:
+    """``AS_OF_NOT_SUPPORTED`` for each of ``object_ids`` that is an exposed record of a type without
+    a period, read in one statement: a get by ID with ``asOf`` names an undated type rather than
+    answering ``404``; an unknown record is left to ``404`` (C-D77)."""
+    objects = source.objects
+    rows = session.execute(
+        select(objects.id, objects.object_type_key).where(
+            objects.id.in_(list(object_ids)),
+            objects.workspace_key == source.workspace_key,
+            objects.object_type_key.in_(list(definition.objectTypes)),
+        )
+    )
+    return {
+        row.id: as_of_not_supported([definition.objectTypes[row.object_type_key].publicName])
+        for row in rows
+        if row.object_type_key not in narrowed.dated
+    }
 
 
 def object_not_found(object_id: str) -> ApiError:

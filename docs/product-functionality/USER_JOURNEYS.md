@@ -725,12 +725,14 @@ edge list beside a job, a change set and a publication, 0.9 T1).
 ### J23 — Answer a business-date question
 
 **Actor:** integrator. **Channel:** API. **Stories:** US-I06. **Scenario:** SC-11.
-**Status:** management API delivered (0.9 Q4, ADR-038); the consumer side follows in C16.
+**Status:** delivered on the management API (0.9 Q4, ADR-038) and the consumer API (0.9 C16).
 
 1. Ask for a configured list's records applicable on a date (`asOf`).
 2. Page through them; every page answers for that date.
 
-The question is a date, not a time; only a model-declared effective period answers it.
+The question is a date, not a time; only a model-declared effective period answers it. On the
+consumer API the date dates the records a read returns, not their projections or ancestors, and each
+answer names the types it dated.
 
 **Variants:**
 
@@ -738,12 +740,19 @@ The question is a date, not a time; only a model-declared effective period answe
 - **J23.3 In a change set or publication.**
 - **J23.4 A period that does not end after it starts** is refused on every write.
 - **J23.5 A model removing or adding a period.**
+- **J23.6 A consumer list or object on a date**: page by page, live or pinned to a publication.
+- **J23.7 A consumer lookup or batch across dated and undated types**: the dated types filtered,
+  the others not, `asOfApplied` naming the dated ones.
+- **J23.8 A consumer date refused**: not one calendar date, or on a read that does not take one.
 
 **Refusals:** `422 AS_OF_NOT_SUPPORTED` (a type without a period, or the cross-type lookup),
-`422 INVALID_EFFECTIVE_PERIOD` on writes.
+`422 INVALID_EFFECTIVE_PERIOD` on writes; on the consumer API `400 AS_OF_NOT_SUPPORTED` (a list or
+record of a type without a period, a lookup that can return no dated type) and `400 INVALID_AS_OF`.
 
 **Evidence today:** `test_effective_periods`; the composed journey `test_j24_j26_composed` (dated
-queries over a job's records in live data, a change set and a publication, 0.9 T1).
+queries over a job's records in live data, a change set and a publication, 0.9 T1);
+`test_j23_business_date` (J23.6–J23.8 on the consumer API) and the parity module's scenario 15
+(0.9 C16).
 
 ### J11 — Submit a bounded bulk change
 

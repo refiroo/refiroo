@@ -39,7 +39,7 @@ from ...common.pagination import (
 )
 from ...errors import api_error
 from ...models.database import AttributeValue, RdmObject
-from ...models.schema import EngineModel, ObjectTypeDefinition
+from ...models.schema import EffectivePeriodDefinition, EngineModel, ObjectTypeDefinition
 from ...models.search_index import LIVE_VALUES, MIN_INDEXED_LENGTH, SearchIndex
 from ..model.traversal import ancestor_type_keys
 from ..model.validation.fields import ANCESTOR_FIELD_PREFIX
@@ -751,13 +751,17 @@ def as_of_predicate(columns: ObjectColumns, object_type: ObjectTypeDefinition, a
     it means the same live, in a change set and in a publication."""
     period = object_type.effectivePeriod
     assert period is not None
-    values = columns.values
+    return effective_on(columns.values, columns.value_match(columns.values), period, as_of)
+
+
+def effective_on(values: Any, value_match: Sequence[Any], period: EffectivePeriodDefinition, as_of: date) -> Any:
+    """The rule of ADR-038 over any typed values table: ``value_match`` relates ``values`` to the
+    record, which is effective on ``as_of`` when no start is after it and no end on or before it. The
+    management lists and the consumer reads (0.9 C16) both date records through it."""
 
     def has_value(key: str, comparison: Any) -> Any:
         return exists(
-            select(values.sequence_id).where(
-                *columns.value_match(values), values.attribute_type_key == key, comparison
-            )
+            select(values.sequence_id).where(*value_match, values.attribute_type_key == key, comparison)
         )
 
     return and_(

@@ -228,7 +228,8 @@ changes. Change-feed recovery is distinct from retrying an import job.
 ## SC-11 — Answer a business-date question
 
 **Stories:** US-I06. **Target:** 0.9; semantics agreed in ADR-038. The management API half passes (Base 0.9 Q4,
-`test_effective_periods`); the consumer half follows in C16.
+`test_effective_periods`); the consumer API half passes too (Base 0.9 C16, `test_j23_business_date`
+J23.6–J23.8 and the parity module's scenario 15).
 
 **Given** an explicitly configured reference list has old and replacement values with agreed validity
 boundaries, **when** a consumer asks for the values applicable on either side of a boundary, **then**

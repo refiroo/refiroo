@@ -40,7 +40,8 @@ reads pinned to a publication (`publication`, `latest`), the publications list w
 and ETag (C-D60–C-D68). **C6b is delivered (2026-10-05)**: the API index `GET /api/consumer` and an
 OpenAPI 3.1 document per consumer API (C-D69, C-D70). **V2 is delivered (2026-10-05)**: every consumer API
 as a source on `/docs`. **C8 is delivered (2026-10-05)**: parity acceptance; `objectType` in
-projections, the parent keyed by output names (C-D72–C-D75). Next: C16, in the order of the delivery
+projections, the parent keyed by output names (C-D72–C-D75). **C16 is delivered (2026-10-05)**: `asOf`
+on every consumer read (C-D76–C-D80). Next: C9, in the order of the delivery
 queue (U4 waits for U3). See
 [Next — 0.9](#next--09).
 
@@ -144,6 +145,11 @@ See `CHANGELOG.md` and `BASE_0_6_IMPLEMENTATION_PLAN.md` for detailed delivery h
 - [x] T1: record a budget for dated reads (`asOf` on the per-type list and the model query, live, in a
   change set and a publication): delivered in T1 (2026-10-03); four over 100 ms, recorded as
   POSTGRESQL_BUDGETS E8.
+- [ ] C16: dated consumer reads over budget, recorded (C-D80): a dated list's first page with a total
+  and its position jump 192–232 ms live and pinned at full volume (twice the undated read, the E8
+  shape), and a dated 1,000-identifier batch 2.2 s, where identifiers not effective on the date lose
+  their exact match and exact-first (C-D52) reads their contains matches. Revisit with E8's fixes, or
+  with a rule settling a lookup whose exact matches are all filtered out.
 - [ ] J1's export budget names "110,000 records"; the volume fixture holds 258,000 since 0.8 A2 (found
   in Q1). Restate it when J1 is delivered.
 - [x] Built-in Scalar API reference at `/docs` replacing Swagger UI and ReDoc: delivered as 0.9 V1

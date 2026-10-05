@@ -79,9 +79,9 @@ from ...models.search_index import MIN_INDEXED_LENGTH
 from ..model.consumer_contract import projection_targets
 from ..records.values import VALUE_COLUMNS
 from .consumer_objects import ConsumerObjects, one_target
-from .consumer_parameters import ConsumerFilter, without_target
+from .consumer_parameters import ConsumerFilter, as_of_not_supported, without_target
 from .consumer_source import ConsumerSource, cursor_scope
-from .object_query import INDEXED_MATCH_LIMIT, escape_like, parse_typed
+from .object_query import INDEXED_MATCH_LIMIT, as_of_filter, escape_like, parse_typed
 
 # The records a query may match before it is refused as too broad (C-D37).
 MATCH_LIMIT = INDEXED_MATCH_LIMIT
@@ -630,7 +630,11 @@ def read_xref(
     ``expect_one`` the single top object (C-D40), of those ``narrowed`` keeps (C-D42). Each object
     carries ``matchScore`` after its declared fields (C-D41), and with a crosswalk target ``target``
     before it (C15). ``parameters`` are the request's parameter values, bound into the cursor with the
-    terms, the workspace and the contract version; a ``to.`` value is not bound (C-D54)."""
+    terms, the workspace and the contract version; a ``to.`` value is not bound (C-D54). With
+    ``asOf``, the dated types the read can return filter, the others do not (C-D14), and with none
+    the read is refused (C-D77); the page names them in ``asOfApplied`` (C-D78)."""
+    if narrowed.as_of is not None and not narrowed.as_of_applied:
+        raise as_of_not_supported(_returnable(definition, narrowed))
     composer = ConsumerObjects(model, definition)
     if expect_one:
         (answer,) = resolve_lookups(session, model, definition, source, [terms], narrowed)
@@ -648,7 +652,7 @@ def read_xref(
         ranked = scoring.ranked()
     if ranked is None:
         nothing = {"nextCursor": None, "prevCursor": None, "anchor": None, "totalCount": 0, "startIndex": 0}
-        return _envelope([], terms, source, page_size, nothing)
+        return _envelope([], terms, source, page_size, nothing, narrowed)
     found = paginate_statement(
         session,
         ranked.statement,
@@ -659,6 +663,7 @@ def read_xref(
             "contractVersion": definition.contractVersion,
             "query": sorted(set(terms)),
             "parameters": {name: sorted(values) for name, values in sorted(without_target(parameters).items())},
+            **as_of_filter(narrowed.as_of),
         },
         page=replace(page, include_total=True),
         page_size=page_size,
@@ -671,7 +676,12 @@ def read_xref(
         for object_id, score in scores.items()
         if object_id in composed
     ]
-    return _envelope(results, terms, source, page_size, found.links())
+    return _envelope(results, terms, source, page_size, found.links(), narrowed)
+
+
+def _returnable(definition: ConsumerApiDefinition, narrowed: ConsumerFilter) -> list[str]:
+    """The public names an ``asOf`` refusal names: the types the read can return, none of them dated."""
+    return [definition.objectTypes[key].publicName for key in narrowed.returnable]
 
 
 def _envelope(
@@ -680,12 +690,14 @@ def _envelope(
     source: ConsumerSource,
     page_size: int,
     links: dict[str, Any],
+    narrowed: ConsumerFilter,
 ) -> dict[str, Any]:
     return {
         "results": results,
         "query": list(terms),
         "workspace": source.workspace_key,
         "publication": source.publication_id,
+        **({"asOfApplied": list(narrowed.as_of_applied)} if narrowed.as_of is not None else {}),
         "pageSize": page_size,
         **links,
     }

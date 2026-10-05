@@ -432,6 +432,50 @@ def test_an_extract_pinned_to_the_latest_publication(fixture):
     assert "Yen" in fixture.listed("all-values", publication=second)
 
 
+def _value(fixture, name: str, code: str, master_id: str, **period: str) -> None:
+    attributes = {"master-id": master_id, "value-code": code, "value-name": name, **period}
+    body = {
+        "applicationKey": "rdm-master",
+        "objectTypeKey": "master-value",
+        "name": name,
+        "workspaceKey": W1,
+        "parentObjectId": fixture.ids["Currencies"],
+        "attributes": [{"attributeTypeKey": key, "value": value} for key, value in attributes.items()],
+    }
+    ok(fixture.world.api.post("/objects", body), 201)
+
+
+@pytest.mark.journey("J23.6", "J23.7")
+def test_business_dates_on_each_side_of_a_boundary(fixture):
+    """Scenario 15 (SC-11). Swiss franc ends on 1 July 2026, its replacement starts that day and a
+    transitional value runs across it. The currencies listed for a date follow the boundary: the old
+    value the day before, the replacement on the day itself, the transitional value on both. CHF looks
+    up the value effective that day, naming the dated type, and a location is found undated; a
+    location read by ID refuses a date, since its type declares no period."""
+    world = fixture.world
+    franc = ok(world.api.get(f"/objects/master-value/{fixture.ids['Swiss franc']}"))
+    change = {"expectedVersion": franc["version"], "attributes": [{"attributeTypeKey": "valid-to", "value": "2026-07-01"}]}
+    ok(world.api.patch(f"/objects/master-value/{franc['id']}", change))
+    _value(fixture, "Swiss franc 2026", "CHF", "MV-0005", **{"valid-from": "2026-07-01"})
+    _value(fixture, "Franc transition", "CHT", "MV-0006", **{"valid-from": "2026-06-15", "valid-to": "2026-07-15"})
+
+    def on(day: str) -> list[str]:
+        return sorted(fixture.listed("all-values", codelist="CUR", asOf=day))
+
+    assert on("2026-06-30") == ["Euro", "Franc transition", "Standard", "Swiss franc"]
+    assert on("2026-07-01") == ["Euro", "Franc transition", "Standard", "Swiss franc 2026"]
+    assert on("2026-07-20") == ["Euro", "Standard", "Swiss franc 2026"]
+
+    before = fixture.xref(query="CHF", asOf="2026-06-30")
+    assert before["asOfApplied"] == ["CodelistValue"]
+    found = [item["name"] for item in before["results"]]
+    assert found[0] == "Swiss franc" and "Swiss franc 2026" not in found
+    assert fixture.top(query="CHF", asOf="2026-07-01")["name"] == "Swiss franc 2026"
+    assert fixture.top(query="CEN", asOf="2026-07-01")["name"] == "Central Station"
+    error = refused(fixture.get(f"/objects/{fixture.ids['Central Station']}", asOf="2026-07-01"), 400, "AS_OF_NOT_SUPPORTED")
+    assert error["details"]["objectTypes"] == ["Location"]
+
+
 @pytest.mark.journey("J20.3")
 def test_the_api_index_names_the_definition_and_its_document(fixture):
     """Scenario 16. The API index lists rdm with its OpenAPI URL, which answers a valid document."""
